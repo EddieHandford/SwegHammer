@@ -85,12 +85,16 @@ points implies equal expected battlefield score.
 | File | Purpose |
 |------|---------|
 | `README.md` | This file — overview and rules summary |
+| `PROJECT.tex` / `PROJECT.pdf` | Living project handbook — vision, math, architecture, ownership-tagged checklist |
+| `TODO.md` | Quick-reference remaining-work list pulled from PROJECT.tex |
 | `CLAUDE.md` | Standing rules for Claude instances working on this repo |
 | `THEORY.md` | Mathematical derivations (Lanchester equations, nonlinearity analysis) |
 | `BASELINE.md` | Baseline unit definition, points formula, catalogue source |
 | `SIMULATION.md` | Simulation engine design, activation mechanics, phase logic |
 | `ROADMAP.md` | Development milestones and phase breakdown |
 | `code/` | Python simulation engine |
+| `app.py` | Streamlit dashboard (stats + scrub-through battle replay) |
+| `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 | `code/bsdata/` | BSData WH40k 2nd-edition fetch / parse / map / load |
 | `data/bsdata/` | Pinned `.cat` cache and mapped `parsed.json` |
 | `data/overrides.json` | Per-unit hand tuning on top of the BSData base |
@@ -98,6 +102,18 @@ points implies equal expected battlefield score.
 ## Quickstart
 
 ```bash
+# Launcher (GUI menu with web dashboard + CLI demo buttons)
+python run.py
+
+# CLI demo direct
+python run.py --cli
+
+# Streamlit dashboard directly (if you prefer)
+python -m streamlit run app.py
+```
+
+Requires Python 3.9+. Dashboard needs Streamlit and matplotlib; the
+core simulator has no external dependencies.
 # Run a demo battle + quick calibration
 python run.py
 
