@@ -298,11 +298,14 @@ class Battle:
         # instance as a stand-in for a single squad member; "below half
         # strength" maps to "current HP < starting HP / 2".
         if round_num > 1:
-            for army in (self.a, self.b):
+            for army, opponent in ((self.a, self.b), (self.b, self.a)):
+                opponent_det = opponent.resolve_detachment()
+                ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
                 for u in army.alive_units:
                     if u.current_health < u.profile.health / 2.0:
                         roll = random.randint(1, 6) + random.randint(1, 6)
-                        if roll < u.profile.leadership:
+                        target = u.profile.leadership + ld_penalty
+                        if roll < target:
                             self._battleshocked_this_round.add(u.uid)
 
         first, second = (
@@ -340,6 +343,16 @@ class Battle:
                 self._do_shoot(first_unit, first, second)
             if second_unit is not None and second_unit.is_alive:
                 self._do_shoot(second_unit, second, first)
+
+        # Detachment passives: end-of-round reanimation/healing if any
+        for army in (self.a, self.b):
+            det = army.resolve_detachment()
+            if det and det.reanimate_per_round > 0:
+                for u in army.alive_units:
+                    u.current_health = min(
+                        u.profile.health,
+                        u.current_health + det.reanimate_per_round,
+                    )
 
         if round_num > 1:
             self._award_cp(self.a, self.b)

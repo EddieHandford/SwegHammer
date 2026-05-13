@@ -4,17 +4,24 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from .detachments import Detachment, default_detachment_for_faction
 from .units import Unit, UnitProfile
 
 
 class Army:
     """A named collection of unit instances participating in a battle."""
 
-    def __init__(self, name: str, in_cover: bool = False) -> None:
+    def __init__(
+        self, name: str, in_cover: bool = False,
+        detachment: Optional[Detachment] = None,
+    ) -> None:
         self.name = name
         self.units: List[Unit] = []
         self.command_points: int = 3
         self.in_cover: bool = in_cover
+        # Army-wide passive rules. Auto-resolves from the army's primary
+        # faction (first unit's faction tag) when not explicitly set.
+        self.detachment: Optional[Detachment] = detachment
 
     # ------------------------------------------------------------------
     # Army construction
@@ -22,6 +29,15 @@ class Army:
 
     def add_unit(self, profile: UnitProfile) -> None:
         self.units.append(Unit(profile, in_cover=self.in_cover))
+
+    def resolve_detachment(self) -> Optional[Detachment]:
+        """Return the detachment in effect — explicit if set, else faction default."""
+        if self.detachment is not None:
+            return self.detachment
+        if self.units:
+            faction = self.units[0].profile.faction
+            return default_detachment_for_faction(faction)
+        return None
 
     # ------------------------------------------------------------------
     # Derived state
