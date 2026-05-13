@@ -217,7 +217,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser.add_argument("--mixed", action="store_true",
                         help="Run random mixed-army matchup")
     parser.add_argument("--mirror", type=str, default=None,
-                        help="Run mirror match for a catalogue key (e.g. angels_of_deaths_tactical_squad)")
+                        help="Run mirror match for a catalogue key (e.g. space_marines_intercessor_squad)")
     args = parser.parse_args(argv)
 
     rng = random.Random(args.seed)

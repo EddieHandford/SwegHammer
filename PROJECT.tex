@@ -55,6 +55,12 @@ down, close it when you walk away. It contains the project vision, the
 math behind each combat phase, a checklist of everything left to do, and
 ownership tags so we both know who is on what.
 
+\paragraph{For Claude sessions:} the operational rules
+(test-before-push, doc-update workflow, branch naming, git identity,
+catalogue layering) live in \texttt{CLAUDE.md} at the repo root. Read
+that file as well \textemdash{} it is auto-loaded into the Claude
+context for every session.
+
 \subsection*{Conventions}
 \begin{itemize}[itemsep=2pt]
   \item \todo open task \quad \wip in progress \quad \done done
@@ -362,18 +368,37 @@ Importing real datasheets at scale is Jake's slice of the project. The
 shape of the data model needs to be agreed before he starts, otherwise
 we will end up rewriting \texttt{units.py} twice.
 
-\paragraph{To do}
+\paragraph{Status: v1 complete (BSData WH40k 10th-ed, $\sim$1100 units).}
+
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \jake\ Pick a source format (Wahapedia CSV / JSON dump,
-    BattleScribe XML, hand-rolled YAML\,\dots).
-  \item \todo \jake\ Define a target schema that maps cleanly onto
-    \texttt{UnitProfile} once strength / toughness / move /
-    weapon\_skill / leadership are added.
-  \item \todo \jake\ Build a loader that yields \texttt{UnitProfile}
-    instances, with a test that round-trips against a hand-coded
-    expected unit (e.g.\ Intercessor squad).
-  \item \todo \jake\ Decide how multi-weapon units are flattened (single
-    average weapon profile vs.\ list of weapons resolved separately).
+  \item \done \jake\ Pick a source format \textemdash{} BSData WH40k 10e
+    BattleScribe XML files, pinned to release \texttt{v10.6.0}. See
+    \texttt{code/bsdata/fetch.py} for the GitHub-backed cache layer.
+  \item \done \jake\ Define a target schema \textemdash{}
+    \texttt{MappedUnit} (\texttt{code/bsdata/mapper.py}) lowers to
+    \texttt{UnitProfile} via the loader in
+    \texttt{code/bsdata/loader.py}, merging \texttt{parsed.json} with
+    user-tunable \texttt{data/overrides.json}.
+  \item \done \jake\ Build a loader yielding \texttt{UnitProfile}
+    instances \textemdash{} \texttt{UNIT\_CATALOG} is now built at
+    import time from the merged BSData + overrides view.
+  \item \done \jake\ Multi-weapon flattening \textemdash{} the mapper
+    picks the single best-legal weapon by
+    $A \cdot P_{\text{hit}} \cdot D \cdot (1 - P_{\text{save\_baseline}})$,
+    i.e.\ the loadout maximising expected damage through baseline-Marine
+    armour. List of alternatives is kept in
+    \texttt{MappedUnit.loadout} for audit.
+\end{itemize}
+
+\paragraph{Phase 2 follow-ups (see \texttt{ROADMAP.md}).}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \jake\ Extract \texttt{S} (weapon Strength) and \texttt{T}
+    (unit Toughness) from BSData into \texttt{UnitProfile} \textemdash{}
+    currently defaulted to S$=$T$=4$ via \texttt{BASELINE\_*}.
+  \item \todo \jake\ Fall-back to melee weapons for units with no ranged
+    profile ($\sim$260 currently flagged \texttt{enabled: false}).
+  \item \todo \jake\ Decide per-squad vs per-model aggregation
+    for \texttt{health} (currently per-model wounds).
 \end{itemize}
 
 % =========================================================================
@@ -413,7 +438,7 @@ against target $(T, \mathrm{sv})$ and cover bonus $c \in \{0,1\}$:
 Area & Lead & Status \\
 \midrule
 Simulation core (phases, math)    & \eddie\ Eddie & in progress \\
-Datasheet ingestion + catalogue   & \jake\ Jake   & not started \\
+Datasheet ingestion + catalogue   & \jake\ Jake   & v1 complete \\
 Terrain \& maps                   & \either\ TBD  & not started \\
 Visualisation (dual-mode)         & \either\ TBD  & not started \\
 Streamlit front end               & \eddie\ Eddie & v1 done \\

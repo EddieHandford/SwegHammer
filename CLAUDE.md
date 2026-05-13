@@ -3,6 +3,10 @@
 These rules apply to any Claude session working on this project. Read them before
 touching code.
 
+> **For project vision, math, terrain plan, and the human-facing to-do list with
+> ownership tags, see [`PROJECT.tex`](PROJECT.tex)** (rendered as `PROJECT.pdf`).
+> This file is the Claude-specific operating layer on top.
+
 ## 1. Test before pushing
 
 Before `git push`, run `python run.py` and confirm it exits cleanly. If the demo
