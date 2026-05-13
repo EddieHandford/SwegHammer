@@ -1,0 +1,95 @@
+"""
+Demo entry point — runs a short battle and prints the blow-by-blow.
+
+Usage:
+    python -m code.main
+"""
+
+from __future__ import annotations
+
+import random
+
+from .army_builder import build_homogeneous_army, build_random_army
+from .simulator import Battle
+from .units import UNIT_CATALOG, UnitProfile
+
+
+def print_unit_catalogue() -> None:
+    print("\n=== Unit Catalogue ===")
+    header = f"{'Name':<26} {'Health':>6} {'Damage':>6} {'Hit%':>6} {'Score':>8} {'Points':>7}"
+    print(header)
+    print("-" * len(header))
+    for key, p in sorted(UNIT_CATALOG.items(), key=lambda kv: kv[1].points_cost):
+        print(
+            f"{p.name:<26} {p.health:>6.0f} {p.damage:>6.0f} "
+            f"{p.hit_probability:>6.2f} {p.score:>8.2f} {p.points_cost:>7.1f}"
+        )
+
+
+def demo_verbose_battle() -> None:
+    print("\n=== Verbose Demo Battle ===")
+    rng = random.Random(1)
+    marines = build_homogeneous_army("Marines", UNIT_CATALOG["space_marine"], 150)
+    orks = build_homogeneous_army("Orks", UNIT_CATALOG["ork_boy"], 150)
+
+    print(f"\n{marines.name}: {marines.total_points:.0f} pts, {len(marines.units)} units")
+    for u in marines.units:
+        print(f"  {u.profile.name} — {u.profile.points_cost:.0f} pts")
+
+    print(f"\n{orks.name}: {orks.total_points:.0f} pts, {len(orks.units)} units")
+    for u in orks.units:
+        print(f"  {u.profile.name} — {u.profile.points_cost:.0f} pts")
+
+    print()
+    battle = Battle(marines, orks, verbose=True)
+    result = battle.run()
+
+    print(f"\n--- Result ---")
+    print(f"  Winner:    {result.winner_label()}")
+    print(f"  Rounds:    {result.rounds}")
+    print(f"  Survivors: {result.a_name}: {result.a_survivors}  |  {result.b_name}: {result.b_survivors}")
+
+
+def demo_quick_calibration() -> None:
+    print("\n=== Quick Calibration (100 battles per matchup) ===")
+    from .calibration import suite_homogeneous, suite_mirror
+
+    rng = random.Random(42)
+    print("\n-- Mirror match (Space Marine vs Space Marine) --")
+    report = suite_mirror("space_marine", 300.0, 100, rng)
+    print(report)
+
+    print("\n-- Space Marines vs Ork Boys --")
+    from .calibration import run_matchup
+    from .army_builder import build_homogeneous_army
+
+    sm = UNIT_CATALOG["space_marine"]
+    ob = UNIT_CATALOG["ork_boy"]
+
+    report = run_matchup(
+        lambda name: build_homogeneous_army("Marines", sm, 300.0),
+        lambda name: build_homogeneous_army("Orks", ob, 300.0),
+        100,
+        rng,
+    )
+    print(report)
+
+    print("\n-- Space Marines vs Terminators --")
+    tm = UNIT_CATALOG["terminator"]
+    report = run_matchup(
+        lambda name: build_homogeneous_army("Marines", sm, 300.0),
+        lambda name: build_homogeneous_army("Terminators", tm, 300.0),
+        100,
+        rng,
+    )
+    print(report)
+
+
+def main() -> None:
+    print_unit_catalogue()
+    demo_verbose_battle()
+    demo_quick_calibration()
+
+
+if __name__ == "__main__":
+    main()
