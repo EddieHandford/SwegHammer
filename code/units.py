@@ -41,6 +41,15 @@ def wound_probability(strength: int, toughness: int) -> float:
     return 2 / 6   # strength < toughness but not 2S <= T
 
 
+def _prob_to_target(prob: float) -> int:
+    """
+    Invert a "succeed on N+" d6 probability back to its target. Clamped to [2,7]
+    because a 1 always fails and 7+ is the canonical "no save / no hit".
+    """
+    target = int(round(7 - prob * 6))
+    return max(2, min(7, target))
+
+
 def save_probability(save: int, ap: int = 0, in_cover: bool = False) -> float:
     """
     Probability of passing an armour save roll on a d6.
@@ -148,6 +157,22 @@ class UnitProfile:
     toughness: int = BASELINE_TOUGHNESS        # unit toughness defended in the wound roll
     move: float = 6.0                          # movement allowance in inches per activation
     range_inches: int = 24                     # weapon range; melee-only units use 1
+    faction: str = ""                          # canonical faction tag for UI grouping / colours
+    min_models: int = 1                        # smallest legal squad size (1 for single-model units)
+    max_models: int = 1                        # largest legal squad size
+    points_per_squad: float = 0.0              # BSData cost for a min-size squad (informational)
+    # Per-shot damage decomposition — Unit.attack() loops `attacks` times per
+    # activation, applying weapon_damage_per_shot each time. `damage` stays as
+    # the per-activation total (= attacks * weapon_damage_per_shot) so the
+    # points formula and UI displays don't change.
+    attacks: int = 1
+    weapon_damage_per_shot: float = 0.0        # 0 = derive damage / attacks at use site
+    # Weapon abilities (parsed from BSData Keywords field by the mapper)
+    lethal_hits: bool = False                  # critical hit (6 to hit) auto-wounds
+    sustained_hits: int = 0                    # critical hit generates N extra normal hits
+    twin_linked: bool = False                  # re-roll failed wound rolls
+    devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
+    invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
 
     @property
     def avg_damage_per_action(self) -> float:
@@ -155,6 +180,13 @@ class UnitProfile:
         wound_p = wound_probability(self.strength, BASELINE_TOUGHNESS)
         unsaved = 1.0 - save_probability(BASELINE_SAVE, self.ap)
         return self.damage * self.hit_probability * wound_p * unsaved
+
+    @property
+    def per_shot_damage(self) -> float:
+        """Damage per individual to-hit roll. Derived if not set explicitly."""
+        if self.weapon_damage_per_shot > 0:
+            return self.weapon_damage_per_shot
+        return self.damage / max(1, self.attacks)
 
     @property
     def points_cost(self) -> float:
@@ -206,27 +238,66 @@ class Unit:
 
     def attack(self, target: "Unit") -> float:
         """
-        Full stochastic attack sequence:
-          1. Roll to hit (hit_probability).
-          2. Roll to wound (S vs T table).
-          3. Target rolls armour save (modified by attacker AP and cover).
-          4. Apply damage on failed save.
-
-        Returns total damage dealt (0 on miss / no-wound / saved).
+        Full stochastic 10e attack sequence. For each of `attacks` shots:
+          1. Roll d6 vs hit_target. Crit = 6.
+          2. Sustained Hits N: crit-to-hit generates N extra normal hits.
+          3. Lethal Hits: crit-to-hit auto-wounds (only the original crit, not
+             its sustained extras).
+          4. For each resulting hit, roll d6 vs wound_target. Twin-Linked
+             re-rolls a failed wound roll once. Crit-to-wound = 6.
+          5. Devastating Wounds: crit-to-wound bypasses saves (mortal wound).
+          6. Otherwise roll d6 save vs better of (armour-after-AP) and invuln.
         """
-        if random.random() >= self.profile.hit_probability:
-            return 0.0  # missed
+        p = self.profile
+        per_shot_dmg = p.per_shot_damage
+        n_attacks = max(1, int(p.attacks))
 
-        wound_p = wound_probability(self.profile.strength, target.profile.toughness)
-        if random.random() >= wound_p:
-            return 0.0  # failed to wound
+        hit_target = _prob_to_target(p.hit_probability)
+        wound_p = wound_probability(p.strength, target.profile.toughness)
+        wound_target = _prob_to_target(wound_p)
 
-        sv_prob = save_probability(target.profile.save, self.profile.ap, target.in_cover)
-        if random.random() < sv_prob:
-            return 0.0  # saved
+        save_after_ap = target.profile.save - p.ap
+        if target.in_cover:
+            save_after_ap = max(2, save_after_ap - 1)
+        invuln = target.profile.invuln_save
+        effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
+        save_target = effective_save  # 7 = no save
 
-        target.receive_damage(self.profile.damage)
-        return self.profile.damage
+        total_damage = 0.0
+        for _ in range(n_attacks):
+            roll = random.randint(1, 6)
+            if roll < hit_target:
+                continue   # missed
+            crit_hit = (roll == 6)
+            n_hits = 1 + (p.sustained_hits if crit_hit else 0)
+
+            for hit_i in range(n_hits):
+                if p.lethal_hits and crit_hit and hit_i == 0:
+                    wound_succeeded = True
+                    crit_wound = False
+                else:
+                    wroll = random.randint(1, 6)
+                    wound_succeeded = (wroll >= wound_target)
+                    if not wound_succeeded and p.twin_linked:
+                        wroll = random.randint(1, 6)
+                        wound_succeeded = (wroll >= wound_target)
+                    crit_wound = wound_succeeded and (wroll == 6)
+                if not wound_succeeded:
+                    continue
+
+                if p.devastating_wounds and crit_wound:
+                    target.receive_damage(per_shot_dmg)
+                    total_damage += per_shot_dmg
+                    continue
+
+                if save_target <= 6:
+                    sroll = random.randint(1, 6)
+                    if sroll >= save_target:
+                        continue   # saved
+                target.receive_damage(per_shot_dmg)
+                total_damage += per_shot_dmg
+
+        return total_damage
 
     def __repr__(self) -> str:
         return f"{self.profile.name}({self.current_health:.1f}/{self.profile.health}hp)"
@@ -242,7 +313,52 @@ class Unit:
 #   save:  3 = 3+, 4 = 4+, 5 = 5+, 6 = 6+, 7 = no save
 #   S / T: roughly aligned with 10th-edition datasheets, rounded for sanity
 #
-UNIT_CATALOG: Dict[str, UnitProfile] = {
+# UNIT_CATALOG is built at import time by merging:
+#   data/bsdata/parsed.json — base stats from BSData WH40k 10th edition
+#   data/overrides.json     — per-unit hand tuning
+#
+# To refresh the BSData base, run:
+#     python -m code.bsdata.fetch --tag <release>
+#     python -m code.bsdata.mapper
+#
+def _build_catalog() -> Dict[str, UnitProfile]:
+    from .bsdata.loader import load_catalog
+    from .factions import faction_of
+
+    catalog: Dict[str, UnitProfile] = {}
+    for key, entry in load_catalog().items():
+        catalog[key] = UnitProfile(
+            name=entry.name,
+            health=entry.health,
+            damage=entry.damage,
+            hit_probability=entry.hit_probability,
+            ap=entry.ap,
+            save=entry.save,
+            strength=entry.strength,
+            toughness=entry.toughness,
+            faction=faction_of(entry.codex),
+            min_models=entry.min_models,
+            max_models=entry.max_models,
+            points_per_squad=entry.points_listed,
+            attacks=entry.attacks,
+            weapon_damage_per_shot=entry.weapon_damage_per_shot,
+            lethal_hits=entry.lethal_hits,
+            sustained_hits=entry.sustained_hits,
+            twin_linked=entry.twin_linked,
+            devastating_wounds=entry.devastating_wounds,
+            invuln_save=entry.invuln_save,
+        )
+    return catalog
+
+
+UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
+
+
+# --- Dead code below: hand-rolled catalogue resurrected by an earlier merge
+# conflict resolution. Kept for one beat in case anyone is mid-rebase, but
+# the dict is immediately shadowed by `_build_catalog()` above and will be
+# removed in a follow-up.
+_LEGACY_HAND_ROLLED_CATALOG_SUPERSEDED: Dict[str, UnitProfile] = {
     # --- Space Marines ---
     "scout_marine": UnitProfile(
         name="Scout Marine",
@@ -359,28 +475,4 @@ UNIT_CATALOG: Dict[str, UnitProfile] = {
         move=8.0, range_inches=18,
     ),
 }
-# UNIT_CATALOG is built at import time by merging:
-#   data/bsdata/parsed.json — base stats derived from BSData WH40k 2nd Edition
-#   data/overrides.json     — per-unit hand tuning, plus legacy hand-rolled units
-#
-# To refresh the BSData base, run:
-#     python -m code.bsdata.fetch --tag <release>
-#     python -m code.bsdata.mapper
-#
-def _build_catalog() -> Dict[str, UnitProfile]:
-    from .bsdata.loader import load_catalog
-
-    catalog: Dict[str, UnitProfile] = {}
-    for key, entry in load_catalog().items():
-        catalog[key] = UnitProfile(
-            name=entry.name,
-            health=entry.health,
-            damage=entry.damage,
-            hit_probability=entry.hit_probability,
-            ap=entry.ap,
-            save=entry.save,
-        )
-    return catalog
-
-
-UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
+del _LEGACY_HAND_ROLLED_CATALOG_SUPERSEDED   # keep the symbol out of the namespace

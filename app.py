@@ -11,8 +11,13 @@ import numpy as np
 import streamlit as st
 
 from code.army import Army
-from code.army_builder import build_homogeneous_army
+from code.army_builder import (
+    build_army_from_list,
+    build_faction_random_army,
+    build_homogeneous_army,
+)
 from code.events import EventLog
+from code.factions import FACTION_COLOURS, colour_for
 from code.map import Map
 from code.maps import STOCK_MAPS, DEFAULT_MAP
 from code.renderer import event_description, render_frame
@@ -33,9 +38,59 @@ st.set_page_config(
 # Colour palette
 # ---------------------------------------------------------------------------
 
-COL_A = "#4e9af1"
-COL_B = "#e05c5c"
+DEFAULT_COL_A = "#4e9af1"
+DEFAULT_COL_B = "#e05c5c"
 COL_DRAW = "#aaaaaa"
+
+# Sorted faction list (drops empty/unknown) — drives the faction-filter dropdown
+FACTIONS_AVAILABLE = sorted({
+    UNIT_CATALOG[k].faction for k in UNIT_CATALOG if UNIT_CATALOG[k].faction
+})
+
+
+def _units_in_faction(faction: str) -> List[str]:
+    """Catalogue keys belonging to a faction, sorted by display name."""
+    return sorted(
+        (k for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction),
+        key=lambda k: UNIT_CATALOG[k].name,
+    )
+
+
+def _composition_total_points(comp: List[Tuple[str, int]]) -> float:
+    return sum(UNIT_CATALOG[k].points_cost * n for k, n in comp if n > 0)
+
+
+def _composition_faction(comp: List[Tuple[str, int]]) -> str:
+    """The faction of the first non-zero entry — used to pick the army's colour."""
+    for k, n in comp:
+        if n > 0:
+            return UNIT_CATALOG[k].faction
+    return ""
+
+
+def _build_army_from_composition(
+    name: str, comp: List[Tuple[str, int]], in_cover: bool = False,
+) -> Army:
+    keys: List[str] = []
+    for unit_key, count in comp:
+        keys.extend([unit_key] * max(0, int(count)))
+    if not keys:
+        # No units selected — return an empty army (battle will just walk over)
+        return Army(name, in_cover=in_cover)
+    return build_army_from_list(name, keys, in_cover=in_cover)
+
+
+def _composition_from_random(
+    faction: str, budget: float, size_policy: str, seed: int,
+) -> List[Tuple[str, int]]:
+    """Generate a single sample random army and return its model breakdown."""
+    rng = random.Random(seed)
+    army = build_faction_random_army(faction, faction, budget, rng=rng, size_policy=size_policy)
+    # Group adjacent same-profile units into (key, count) pairs
+    from collections import Counter
+    name_to_key = {UNIT_CATALOG[k].name: k for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction}
+    counts = Counter(u.profile.name for u in army.units)
+    return [(name_to_key[n], c) for n, c in counts.most_common() if n in name_to_key]
 
 # ---------------------------------------------------------------------------
 # Preset battle definitions
@@ -281,7 +336,11 @@ with st.sidebar:
     st.caption("Battle Simulator")
     st.divider()
 
-    mode = st.radio("Mode", ["Preset Battle", "Custom Battle"], horizontal=True)
+    mode = st.radio(
+        "Mode",
+        ["Preset Battle", "Custom Battle", "Faction vs Faction (random)"],
+        horizontal=False,
+    )
     st.divider()
 
     if mode == "Preset Battle":
@@ -293,26 +352,148 @@ with st.sidebar:
         b_name = preset["b_name"]
         profile_a = UNIT_CATALOG[preset["a_key"]]
         profile_b = UNIT_CATALOG[preset["b_key"]]
-        points = st.slider("Points per army", 100, 600, preset["points"], step=50)
+        points = st.slider("Points per army", 100, 1500, preset["points"], step=50)
+        # Preset uses a homogeneous army filled to the points budget.
+        a_count = max(1, int(points // profile_a.points_cost))
+        b_count = max(1, int(points // profile_b.points_cost))
+        a_comp: List[Tuple[str, int]] = [(preset["a_key"], a_count)]
+        b_comp: List[Tuple[str, int]] = [(preset["b_key"], b_count)]
+        a_faction = profile_a.faction
+        b_faction = profile_b.faction
+
+    elif mode == "Faction vs Faction (random)":
+        # --- Faction-vs-faction calibration mode ---------------------------
+        st.caption(
+            "Each battle rebuilds both armies from a random draw within each "
+            "faction's unit pool, respecting BSData squad min/max. Use this to "
+            "stress-test the ruleset balance."
+        )
+        a_faction = st.selectbox(
+            "Army A faction", FACTIONS_AVAILABLE,
+            index=FACTIONS_AVAILABLE.index("Necrons")
+            if "Necrons" in FACTIONS_AVAILABLE else 0,
+            key="fvf_a_faction",
+        )
+        b_faction = st.selectbox(
+            "Army B faction", FACTIONS_AVAILABLE,
+            index=FACTIONS_AVAILABLE.index("Tyranids")
+            if "Tyranids" in FACTIONS_AVAILABLE else 1,
+            key="fvf_b_faction",
+        )
+        a_name = a_faction
+        b_name = b_faction
+        budget = st.slider(
+            "Points per army", 200, 3000, 1000, step=100, key="fvf_budget",
+        )
+        size_policy = st.radio(
+            "Squad size policy",
+            ["max", "half_or_max", "random"],
+            horizontal=True,
+            key="fvf_size_policy",
+            help=(
+                "max: always take maximum-size squads (competitive default). "
+                "half_or_max: 50/50 between half-rounded-up and max. "
+                "random: uniform integer between min and max."
+            ),
+        )
+
+        # Sample preview army per side. Stable across reruns so editing other
+        # controls doesn't flicker the preview, but bump on user request via
+        # the re-roll button. Actual Run battles use fresh randomness per call.
+        if "fvf_reroll_n" not in st.session_state:
+            st.session_state["fvf_reroll_n"] = 0
+        if st.button("🎲 Re-roll preview armies", key="fvf_reroll_btn"):
+            st.session_state["fvf_reroll_n"] += 1
+            st.rerun()
+        sample_seed = abs(hash((
+            a_faction, b_faction, budget, size_policy,
+            st.session_state["fvf_reroll_n"],
+        ))) & 0xFFFF
+        a_comp = _composition_from_random(a_faction, budget, size_policy, sample_seed)
+        b_comp = _composition_from_random(b_faction, budget, size_policy, sample_seed + 1)
+
+        # The widgets already publish budget + size_policy under their `key`s,
+        # so session_state has them without explicit assignment. The run handler
+        # discriminates by `mode` directly.
+        points = budget
+        # Headline unit for the preview cards = first non-zero
+        profile_a = UNIT_CATALOG[next((k for k, n in a_comp if n > 0), a_comp[0][0])] if a_comp else None
+        profile_b = UNIT_CATALOG[next((k for k, n in b_comp if n > 0), b_comp[0][0])] if b_comp else None
 
     else:
-        st.subheader("Army A")
-        a_name = st.text_input("Army A name", value="Army Alpha")
-        a_unit_key = st.selectbox(
-            "Army A unit", list(UNIT_CATALOG.keys()),
-            format_func=lambda k: UNIT_CATALOG[k].name,
-        )
-        profile_a = UNIT_CATALOG[a_unit_key]
+        # --- Custom: per-army faction filter + multi-unit composition -----
+        def _composition_picker(side: str, default_faction: str, default_name: str
+                                ) -> Tuple[str, str, List[Tuple[str, int]]]:
+            st.subheader(f"Army {side}")
+            army_name = st.text_input(
+                f"{side} name", value=default_name, key=f"{side}_name",
+            )
+            faction = st.selectbox(
+                f"{side} faction", FACTIONS_AVAILABLE,
+                index=FACTIONS_AVAILABLE.index(default_faction)
+                if default_faction in FACTIONS_AVAILABLE else 0,
+                key=f"{side}_faction",
+            )
+            available = _units_in_faction(faction)
+            if not available:
+                st.warning(f"No units in {faction}.")
+                return army_name, faction, []
 
-        st.subheader("Army B")
-        b_name = st.text_input("Army B name", value="Army Bravo")
-        b_unit_key = st.selectbox(
-            "Army B unit", list(UNIT_CATALOG.keys()), index=10,
-            format_func=lambda k: UNIT_CATALOG[k].name,
-        )
-        profile_b = UNIT_CATALOG[b_unit_key]
+            state_key = f"{side}_comp"
+            if state_key not in st.session_state:
+                st.session_state[state_key] = [(available[0], 5)]
 
-        points = st.slider("Points per army", 100, 600, 300, step=50)
+            # Reset rows that no longer belong to the chosen faction
+            if not all(uk in available for uk, _ in st.session_state[state_key]):
+                st.session_state[state_key] = [(available[0], 5)]
+
+            new_comp: List[Tuple[str, int]] = []
+            for i, (uk, cnt) in enumerate(st.session_state[state_key]):
+                c1, c2 = st.columns([5, 2])
+                chosen = c1.selectbox(
+                    f"Unit type {i + 1}", available,
+                    index=available.index(uk),
+                    format_func=lambda k: UNIT_CATALOG[k].name,
+                    key=f"{side}_u_{i}",
+                )
+                count = c2.number_input(
+                    "Count", min_value=0, max_value=99, value=int(cnt), step=1,
+                    key=f"{side}_c_{i}",
+                )
+                new_comp.append((chosen, int(count)))
+            st.session_state[state_key] = new_comp
+
+            cc1, cc2 = st.columns(2)
+            if cc1.button(f"+ Add unit type", key=f"{side}_add"):
+                st.session_state[state_key].append((available[0], 1))
+                st.rerun()
+            if len(new_comp) > 1 and cc2.button("− Remove last", key=f"{side}_rm"):
+                st.session_state[state_key].pop()
+                st.rerun()
+
+            total_pts = _composition_total_points(new_comp)
+            total_models = sum(n for _, n in new_comp if n > 0)
+            st.caption(f"**{total_pts:.0f} pts** across {total_models} models")
+            return army_name, faction, new_comp
+
+        a_name, a_faction, a_comp = _composition_picker(
+            "A", default_faction="Necrons", default_name="Necrons",
+        )
+        b_name, b_faction, b_comp = _composition_picker(
+            "B", default_faction="Tyranids", default_name="Tyranids",
+        )
+
+        # Make the "points slider" stop driving the simulation in custom mode —
+        # composition is count-based — but keep a points slider for the
+        # win-rate-vs-points sweep that reuses profile_a/profile_b.
+        points = max(
+            _composition_total_points(a_comp),
+            _composition_total_points(b_comp),
+        )
+        # profile_a/b are used by the unit card and the points-curve sweep;
+        # in mixed mode we surface the *headline* unit (first non-zero).
+        profile_a = UNIT_CATALOG[next((k for k, n in a_comp if n > 0), a_comp[0][0])] if a_comp else None
+        profile_b = UNIT_CATALOG[next((k for k, n in b_comp if n > 0), b_comp[0][0])] if b_comp else None
 
     st.divider()
     st.subheader("Battlefield")
@@ -340,21 +521,40 @@ with st.sidebar:
     run = st.button("▶  Run Simulation", use_container_width=True, type="primary")
 
 # ---------------------------------------------------------------------------
+# Faction colours — re-bound each Streamlit run; chart funcs read globally
+# ---------------------------------------------------------------------------
+
+COL_A = colour_for(a_faction) if a_faction else DEFAULT_COL_A
+COL_B = colour_for(b_faction) if b_faction else DEFAULT_COL_B
+# If both armies share a faction (mirror match), shift B toward a contrasting tone
+if a_faction and b_faction and a_faction == b_faction:
+    COL_B = DEFAULT_COL_B
+
+# ---------------------------------------------------------------------------
 # Army preview
 # ---------------------------------------------------------------------------
 
-army_a_preview = build_homogeneous_army(a_name, profile_a, points, in_cover=a_cover)
-army_b_preview = build_homogeneous_army(b_name, profile_b, points, in_cover=b_cover)
+army_a_preview = _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
+army_b_preview = _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
 
 st.title("⚔️ SwegHammer Battle Simulator")
+
+
+def _composition_caption(comp: List[Tuple[str, int]]) -> str:
+    bits = [f"{n} × {UNIT_CATALOG[k].name}" for k, n in comp if n > 0]
+    return ", ".join(bits) if bits else "(no units selected)"
+
 
 col1, col_vs, col2 = st.columns([5, 1, 5])
 
 with col1:
-    unit_card(profile_a, f"🔵 {a_name}", COL_A, a_cover)
+    if profile_a is not None:
+        unit_card(profile_a, f"⬤ {a_name}", COL_A, a_cover)
     st.caption(
+        f"**{a_faction}** — {_composition_caption(a_comp)}\n\n"
         f"{'🏠 In cover  ' if a_cover else ''}"
-        f"{len(army_a_preview.units)} units @ {points} pts"
+        f"{len(army_a_preview.units)} models @ "
+        f"{_composition_total_points(a_comp):.0f} pts"
     )
 
 with col_vs:
@@ -364,10 +564,13 @@ with col_vs:
     )
 
 with col2:
-    unit_card(profile_b, f"🔴 {b_name}", COL_B, b_cover)
+    if profile_b is not None:
+        unit_card(profile_b, f"⬤ {b_name}", COL_B, b_cover)
     st.caption(
+        f"**{b_faction}** — {_composition_caption(b_comp)}\n\n"
         f"{'🏠 In cover  ' if b_cover else ''}"
-        f"{len(army_b_preview.units)} units @ {points} pts"
+        f"{len(army_b_preview.units)} models @ "
+        f"{_composition_total_points(b_comp):.0f} pts"
     )
 
 st.divider()
@@ -381,8 +584,18 @@ st.divider()
 # ---------------------------------------------------------------------------
 
 if run:
-    factory_a = lambda: build_homogeneous_army(a_name, profile_a, points, in_cover=a_cover)
-    factory_b = lambda: build_homogeneous_army(b_name, profile_b, points, in_cover=b_cover)
+    if mode == "Faction vs Faction (random)":
+        budget = st.session_state.get("fvf_budget", 1000)
+        size_policy = st.session_state.get("fvf_size_policy", "max")
+        factory_a = lambda: build_faction_random_army(
+            a_name, a_faction, budget, in_cover=a_cover, size_policy=size_policy,
+        )
+        factory_b = lambda: build_faction_random_army(
+            b_name, b_faction, budget, in_cover=b_cover, size_policy=size_policy,
+        )
+    else:
+        factory_a = lambda: _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
+        factory_b = lambda: _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
 
     with st.spinner(f"Running {n_battles:,} battles + capturing one replay..."):
         results = run_simulations(factory_a, factory_b, n_battles, map_=selected_map)

@@ -39,6 +39,17 @@ class CatalogEntry:
     save: int
     codex: str = ""
     points_listed: float = 0.0
+    min_models: int = 1
+    max_models: int = 1
+    strength: int = 4
+    toughness: int = 4
+    attacks: int = 1
+    weapon_damage_per_shot: float = 0.0
+    lethal_hits: bool = False
+    sustained_hits: int = 0
+    twin_linked: bool = False
+    devastating_wounds: bool = False
+    invuln_save: int = 7
     loadout: Optional[List[str]] = None
     notes: str = ""
     enabled: bool = True
@@ -56,6 +67,17 @@ class CatalogEntry:
             save=int(d.get("save", 7)),
             codex=d.get("codex", ""),
             points_listed=float(d.get("points_listed", 0)),
+            min_models=int(d.get("min_models", 1)),
+            max_models=int(d.get("max_models", 1)),
+            strength=int(d.get("strength", 4)),
+            toughness=int(d.get("toughness", 4)),
+            attacks=int(d.get("attacks", 1)),
+            weapon_damage_per_shot=float(d.get("weapon_damage_per_shot", 0)),
+            lethal_hits=bool(d.get("lethal_hits", False)),
+            sustained_hits=int(d.get("sustained_hits", 0)),
+            twin_linked=bool(d.get("twin_linked", False)),
+            devastating_wounds=bool(d.get("devastating_wounds", False)),
+            invuln_save=int(d.get("invuln_save", 7)),
             loadout=d.get("loadout") or [],
             notes=d.get("notes", ""),
             enabled=bool(d.get("enabled", True)),
@@ -97,6 +119,17 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "save": override.get("save", base.save),
         "codex": override.get("codex", base.codex),
         "points_listed": override.get("points_listed", base.points_listed),
+        "min_models": override.get("min_models", base.min_models),
+        "max_models": override.get("max_models", base.max_models),
+        "strength": override.get("strength", base.strength),
+        "toughness": override.get("toughness", base.toughness),
+        "attacks": override.get("attacks", base.attacks),
+        "weapon_damage_per_shot": override.get("weapon_damage_per_shot", base.weapon_damage_per_shot),
+        "lethal_hits": override.get("lethal_hits", base.lethal_hits),
+        "sustained_hits": override.get("sustained_hits", base.sustained_hits),
+        "twin_linked": override.get("twin_linked", base.twin_linked),
+        "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
+        "invuln_save": override.get("invuln_save", base.invuln_save),
         "loadout": override.get("loadout", base.loadout),
         "notes": override.get("notes", base.notes),
         "enabled": override.get("enabled", base.enabled),
