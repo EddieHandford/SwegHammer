@@ -42,37 +42,37 @@ COL_DRAW = "#aaaaaa"
 # ---------------------------------------------------------------------------
 
 PRESETS = {
-    "⚔️  Classic: Space Marines vs Ork Boys": {
+    "⚔️  Classic: Tactical Squad vs Boyz Mob": {
         "description": (
             "The quintessential matchup — disciplined, high-accuracy Marines "
-            "against a swarm of brutal Ork Boys. Elite armour and AP vs sheer numbers."
+            "against a brutal Boyz mob. Elite armour and AP vs sheer numbers."
         ),
-        "a_name": "Space Marines",
-        "a_key": "space_marine",
-        "b_name": "Ork Boys",
-        "b_key": "ork_boy",
+        "a_name": "Tactical Squad",
+        "a_key": "angels_of_deaths_tactical_squad",
+        "b_name": "Goff Boyz Mob",
+        "b_key": "orks_goff_boyz_mob",
         "points": 300,
     },
-    "💀  Elite Clash: Terminators vs Tyranid Warriors": {
+    "💀  Elite Clash: Terminator Captain vs Tyranid Warriors": {
         "description": (
-            "Heavy-armoured Terminators (2+ save, AP-2) face Tyranid Warriors "
-            "(4+ save, AP-1). Two elite units with real staying power."
+            "A heavy-armoured Terminator Captain leads against Tyranid Warriors. "
+            "Elite vs elite."
         ),
-        "a_name": "Terminators",
-        "a_key": "terminator",
+        "a_name": "Terminator Captain",
+        "a_key": "angels_of_deaths_terminator_captain",
         "b_name": "Tyranid Warriors",
-        "b_key": "warrior",
+        "b_key": "tyranids_tyranid_warrior_brood",
         "points": 300,
     },
     "🦾  Tank vs Horde: Predator vs Gretchin": {
         "description": (
-            "A Predator Tank (AP-3, 11 health) tries to grind through a tide of "
-            "Gretchin (6+ save, 1 health each). Firepower vs volume of bodies."
+            "A Predator Tank tries to grind through a tide of Gretchin. "
+            "Firepower vs volume of bodies."
         ),
-        "a_name": "Predator Tank",
-        "a_key": "predator_tank",
-        "b_name": "Gretchin",
-        "b_key": "gretchin",
+        "a_name": "Space Marine Predator",
+        "a_key": "orks_space_marine_predator",
+        "b_name": "Gretchin Mobs",
+        "b_key": "orks_gretchin_mobs",
         "points": 300,
     },
 }

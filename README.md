@@ -87,13 +87,17 @@ points implies equal expected battlefield score.
 | `README.md` | This file — overview and rules summary |
 | `PROJECT.tex` / `PROJECT.pdf` | Living project handbook — vision, math, architecture, ownership-tagged checklist |
 | `TODO.md` | Quick-reference remaining-work list pulled from PROJECT.tex |
+| `CLAUDE.md` | Standing rules for Claude instances working on this repo |
 | `THEORY.md` | Mathematical derivations (Lanchester equations, nonlinearity analysis) |
-| `BASELINE.md` | Baseline unit definition and calibration methodology |
+| `BASELINE.md` | Baseline unit definition, points formula, catalogue source |
 | `SIMULATION.md` | Simulation engine design, activation mechanics, phase logic |
 | `ROADMAP.md` | Development milestones and phase breakdown |
 | `code/` | Python simulation engine |
 | `app.py` | Streamlit dashboard (stats + scrub-through battle replay) |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
+| `code/bsdata/` | BSData WH40k 2nd-edition fetch / parse / map / load |
+| `data/bsdata/` | Pinned `.cat` cache and mapped `parsed.json` |
+| `data/overrides.json` | Per-unit hand tuning on top of the BSData base |
 
 ## Quickstart
 
@@ -110,6 +114,25 @@ python -m streamlit run app.py
 
 Requires Python 3.9+. Dashboard needs Streamlit and matplotlib; the
 core simulator has no external dependencies.
+# Run a demo battle + quick calibration
+python run.py
+
+# Run the full calibration suite (1000 battles per matchup)
+python -m code.calibration
+
+# Streamlit UI
+streamlit run app.py
+
+# Refresh BSData base stats (pins to a release tag)
+python -m code.bsdata.fetch --tag v1.9.7
+python -m code.bsdata.mapper
+```
+
+Requires Python 3.9+. Streamlit + matplotlib for the UI; the core simulator
+is stdlib-only.
+
+On Windows: prepend `PYTHONIOENCODING=utf-8` so the console doesn't crash on
+the simulator's arrow character.
 
 ## Key Design Principles
 

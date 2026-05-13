@@ -359,3 +359,28 @@ UNIT_CATALOG: Dict[str, UnitProfile] = {
         move=8.0, range_inches=18,
     ),
 }
+# UNIT_CATALOG is built at import time by merging:
+#   data/bsdata/parsed.json — base stats derived from BSData WH40k 2nd Edition
+#   data/overrides.json     — per-unit hand tuning, plus legacy hand-rolled units
+#
+# To refresh the BSData base, run:
+#     python -m code.bsdata.fetch --tag <release>
+#     python -m code.bsdata.mapper
+#
+def _build_catalog() -> Dict[str, UnitProfile]:
+    from .bsdata.loader import load_catalog
+
+    catalog: Dict[str, UnitProfile] = {}
+    for key, entry in load_catalog().items():
+        catalog[key] = UnitProfile(
+            name=entry.name,
+            health=entry.health,
+            damage=entry.damage,
+            hit_probability=entry.hit_probability,
+            ap=entry.ap,
+            save=entry.save,
+        )
+    return catalog
+
+
+UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
