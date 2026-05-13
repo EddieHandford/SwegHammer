@@ -83,7 +83,10 @@ def _move_toward(
 # Battle engine
 # ---------------------------------------------------------------------------
 
-MAX_ROUNDS = 30
+# A SwegHammer round is "every unit on both sides has activated once". A full
+# game is 5 rounds (matches 10e). Round limit is also a backstop against
+# pathological infinite loops if attrition somehow stalls.
+MAX_ROUNDS = 5
 CP_BONUS_DIVISOR = 2    # opponent must have this many more units per 1 CP awarded
 CP_BONUS_CAP = 2        # max CP awarded per round
 
@@ -112,6 +115,9 @@ class Battle:
         self.verbose = verbose
         self.subscribers: List[Subscriber] = list(subscribers) if subscribers else []
         self.map: Map = map_ or DEFAULT_MAP
+        # UIDs of units that Advanced in the current round — they skip shooting.
+        # Reset at the start of each round.
+        self._advanced_this_round: set = set()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -210,6 +216,9 @@ class Battle:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
 
+        # New round = no unit has Advanced yet.
+        self._advanced_this_round = set()
+
         first, second = (
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
         )
@@ -272,21 +281,40 @@ class Battle:
         )
 
         dist = _distance(attacker.position, move_target.position)
-        if dist > attacker.profile.range_inches:
-            old_pos = attacker.position
-            new_pos = _move_toward(
-                attacker.position, move_target.position,
-                attacker.profile.move, self.map,
-            )
-            if new_pos != old_pos:
-                attacker.position = new_pos
-                self._emit(UnitMoved(
-                    unit_uid=attacker.uid,
-                    from_pos=old_pos,
-                    to_pos=new_pos,
-                ))
+        if dist <= attacker.profile.range_inches:
+            return  # already in range — hold position and shoot
+
+        # 10e Advance: roll d6, move M+d6, but skip shoot/charge this turn.
+        # We Advance only when a normal move would NOT bring us into shooting
+        # range — the speed boost is wasted otherwise and the shoot foregone.
+        # (Assault-weapon exception is deferred until the Assault keyword
+        # is parsed by the mapper.)
+        normal_move = attacker.profile.move
+        needs_to_close = dist - attacker.profile.range_inches
+        advance_d6 = random.randint(1, 6) if needs_to_close > normal_move else 0
+        move_distance = normal_move + advance_d6
+        did_advance = advance_d6 > 0
+
+        old_pos = attacker.position
+        new_pos = _move_toward(
+            attacker.position, move_target.position,
+            move_distance, self.map,
+        )
+        if new_pos != old_pos:
+            attacker.position = new_pos
+            self._emit(UnitMoved(
+                unit_uid=attacker.uid,
+                from_pos=old_pos,
+                to_pos=new_pos,
+            ))
+        if did_advance:
+            self._advanced_this_round.add(attacker.uid)
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # 10e: a unit that Advanced this turn cannot shoot.
+        if attacker.uid in self._advanced_this_round:
+            return
+
         rng = attacker.profile.range_inches
         candidates = [
             u for u in defender_army.alive_units
