@@ -87,7 +87,28 @@ python -m code.bsdata.fetch --tag <release>   # default v10.6.0
 python -m code.bsdata.mapper
 ```
 
-## 8. Don't hand-roll new units in code
+## 8. Briefing parallel sub-agents — base-branch verification
+
+When spawning Agent calls with `isolation: "worktree"`, the worktree may be
+created from a stale base (e.g. `main` rather than your current WIP HEAD).
+Two agents launched mid-session both branched from main and produced
+unmergeable diffs because their base was missing the WIP commits.
+
+**Mandatory in every agent prompt that uses worktree isolation:**
+- Quote the exact parent commit SHA the agent should be working on top of
+- Tell the agent to run `git log --oneline -3` as its FIRST action and
+  **abort with a clear "WRONG BASE" report if it doesn't see the expected
+  parent SHA** — don't let it silently produce work on the wrong base.
+
+Example briefing block:
+> Verify base before doing any work:
+> ```
+> git log --oneline -3
+> ```
+> Expected parent: `<SHA>`. If the top commit isn't that, STOP and
+> report — do not start implementing.
+
+## 9. Don't hand-roll new units in code
 
 If you need a unit that doesn't exist in BSData, add it as a fully-specified
 entry in `data/overrides.json` (all required fields). Do not edit

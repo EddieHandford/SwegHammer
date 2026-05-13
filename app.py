@@ -749,6 +749,18 @@ with tab_stats:
         m3.metric("Draws", f"{draws/n:.1%}", f"{draws} battles")
         m4.metric("Avg rounds", f"{sum(r.rounds for r in results)/n:.1f}")
 
+        # New VP + points-remaining metrics — primary score under the new
+        # win condition (objectives + remaining points + attrition wipe).
+        avg_a_vp = sum(r.a_vp for r in results) / n
+        avg_b_vp = sum(r.b_vp for r in results) / n
+        avg_a_pts_rem = sum(r.a_points_remaining for r in results) / n
+        avg_b_pts_rem = sum(r.b_points_remaining for r in results) / n
+        v1, v2, v3, v4 = st.columns(4)
+        v1.metric(f"🔵 avg VP", f"{avg_a_vp:.1f}", f"primary scoring")
+        v2.metric(f"🔴 avg VP", f"{avg_b_vp:.1f}", f"primary scoring")
+        v3.metric(f"🔵 pts left", f"{avg_a_pts_rem:.0f}", f"end-of-game")
+        v4.metric(f"🔴 pts left", f"{avg_b_pts_rem:.0f}", f"end-of-game")
+
         st.divider()
 
         c_pie, c_attr = st.columns([2, 3])
@@ -759,6 +771,24 @@ with tab_stats:
 
         st.divider()
         st.pyplot(chart_survivor_histogram(results, a_lbl, b_lbl))
+
+        # VP margin distribution — how decisive were the wins?
+        st.divider()
+        vp_margins = [r.a_vp - r.b_vp for r in results]
+        fig_vp, ax_vp = plt.subplots(figsize=(8, 3.0))
+        fig_vp.patch.set_facecolor("#0e1117")
+        ax_vp.set_facecolor("#1a1d23")
+        ax_vp.hist(vp_margins, bins=21, color="#7a9ec7", edgecolor="#0e1117")
+        ax_vp.axvline(0, color="white", linestyle="--", linewidth=1, alpha=0.6)
+        ax_vp.set_xlabel(f"VP margin  ({a_lbl} − {b_lbl})", color="#aaa", fontsize=9)
+        ax_vp.set_ylabel("Battles", color="#aaa", fontsize=9)
+        ax_vp.set_title("VP margin distribution — how close were the games?",
+                        color="white", fontsize=11)
+        ax_vp.tick_params(colors="#aaa")
+        for s in ax_vp.spines.values():
+            s.set_edgecolor("#333")
+        fig_vp.tight_layout()
+        st.pyplot(fig_vp)
 
         if st.session_state.get("show_points_curve"):
             st.divider()

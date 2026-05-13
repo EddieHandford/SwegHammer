@@ -16,8 +16,9 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 
 from .events import (
-    BattleEnded, BattleStarted, RoundEnded, RoundStarted,
-    UnitActivated, UnitKilled, UnitMoved, UnitShot,
+    BattleEnded, BattleStarted, BattleshockFailed, ObjectiveScored,
+    RoundEnded, RoundStarted, UnitActivated, UnitAdvanced, UnitCharged,
+    UnitFought, UnitKilled, UnitMoved, UnitShot,
 )
 from .map import Map, TerrainType
 
@@ -43,6 +44,9 @@ COL_DEAD   = "#444444"
 
 COL_MOVE_ARROW = "#cccccc"
 COL_SHOT_ARROW = "#f7d147"
+COL_CHARGE_ARROW = "#ff7f3f"   # orange — charge declaration
+COL_MELEE_FLASH = "#e05c5c"    # red — melee strike
+COL_OBJECTIVE = "#ffd700"      # gold — objective marker
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +165,29 @@ def render_frame(
             arrowprops=dict(arrowstyle="->", color=COL_SHOT_ARROW, lw=1.2, alpha=0.85, linestyle="--"),
             zorder=4,
         )
+    elif isinstance(current_event, UnitCharged) and current_event.unit_uid in state and current_event.target_uid in state:
+        ax_pos = state[current_event.unit_uid]["position"]
+        tg_pos = state[current_event.target_uid]["position"]
+        ax.annotate(
+            "", xy=tg_pos, xytext=ax_pos,
+            arrowprops=dict(arrowstyle="-|>", color=COL_CHARGE_ARROW, lw=2.0,
+                            alpha=0.9 if current_event.succeeded else 0.4),
+            zorder=4,
+        )
+    elif isinstance(current_event, UnitFought) and current_event.attacker_uid in state and current_event.target_uid in state:
+        tg_pos = state[current_event.target_uid]["position"]
+        ax.scatter([tg_pos[0]], [tg_pos[1]], s=220, c=COL_MELEE_FLASH,
+                   marker="*", alpha=0.9, zorder=7)
+
+    # Objective markers
+    for obj in m.objectives:
+        circle = plt.Circle(
+            (obj.x, obj.y), obj.control_radius,
+            fill=False, edgecolor=COL_OBJECTIVE, linewidth=1.0, alpha=0.55, zorder=2,
+        )
+        ax.add_patch(circle)
+        ax.scatter([obj.x], [obj.y], s=40, c=COL_OBJECTIVE, marker="D",
+                   edgecolors="black", linewidths=0.5, alpha=0.75, zorder=3)
 
     # Units
     for uid, s in state.items():
@@ -211,6 +238,21 @@ def event_description(event) -> str:
     if isinstance(event, UnitShot):
         outcome = "killed" if not event.target_alive_after else f"{event.target_hp_after:.1f} hp"
         return f"  Shoot     {event.attacker_uid} -> {event.target_uid}  ({event.damage:.1f} dmg, {outcome})"
+    if isinstance(event, UnitAdvanced):
+        return f"  Advance!  {event.unit_uid}  rolled {event.advance_roll} (moves {event.total_movement:.1f}\" total — no shoot)"
+    if isinstance(event, UnitCharged):
+        if event.succeeded:
+            return f"  Charge!   {event.unit_uid} -> {event.target_uid}  rolled {event.roll} vs {event.distance:.1f}\" — SUCCESS"
+        return f"  Charge X  {event.unit_uid} -> {event.target_uid}  rolled {event.roll} vs {event.distance:.1f}\" — fail"
+    if isinstance(event, UnitFought):
+        outcome = "killed" if not event.target_alive_after else f"{event.target_hp_after:.1f} hp"
+        return f"  Melee     {event.attacker_uid} -> {event.target_uid}  ({event.damage:.1f} dmg, {outcome})"
+    if isinstance(event, BattleshockFailed):
+        return f"  ! Battleshock failed: {event.unit_uid} rolled {event.roll} vs Ld{event.target}+ — OC 0 this round"
+    if isinstance(event, ObjectiveScored):
+        if event.army_name is None:
+            return f"  Obj {event.objective_name}: contested (OC {event.a_oc}/{event.b_oc}) — no VP"
+        return f"  Obj {event.objective_name}: {event.army_name} scores {event.vp_awarded} VP (OC {event.a_oc}/{event.b_oc})"
     if isinstance(event, UnitKilled):
         return f"  KO        {event.unit_uid}"
     if isinstance(event, BattleEnded):

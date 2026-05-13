@@ -74,8 +74,56 @@ class UnitKilled:
 
 
 @dataclass(frozen=True)
+class UnitAdvanced:
+    """A unit elected to Advance (M + d6 movement, no shoot / charge)."""
+    unit_uid: str
+    advance_roll: int           # the d6 result
+    total_movement: float       # M + d6 inches
+
+
+@dataclass(frozen=True)
+class UnitCharged:
+    """A unit attempted a charge. `succeeded` is True iff 2d6 met the gap."""
+    unit_uid: str
+    target_uid: str
+    distance: float
+    roll: int                   # 2d6 total
+    succeeded: bool
+
+
+@dataclass(frozen=True)
+class UnitFought:
+    """A melee strike — shape mirrors UnitShot for renderer convenience."""
+    attacker_uid: str
+    target_uid: str
+    damage: float
+    target_hp_after: float
+    target_alive_after: bool
+
+
+@dataclass(frozen=True)
+class ObjectiveScored:
+    """End-of-round VP award for one objective."""
+    objective_name: str
+    army_name: Optional[str]    # None if contested / no scoring this round
+    vp_awarded: int
+    a_oc: int                   # combined OC each army had on the objective
+    b_oc: int
+
+
+@dataclass(frozen=True)
+class BattleshockFailed:
+    """A unit failed its Battleshock check this round and counts as OC 0."""
+    unit_uid: str
+    roll: int                   # 2d6 total
+    target: int                 # Ld value
+
+
+@dataclass(frozen=True)
 class RoundEnded:
     round_num: int
+    a_vp_total: int = 0         # running VP totals after this round's scoring
+    b_vp_total: int = 0
 
 
 @dataclass(frozen=True)

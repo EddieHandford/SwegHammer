@@ -8,8 +8,9 @@ from typing import List, Optional, Tuple
 
 from .army import Army
 from .events import (
-    BattleEnded, BattleStarted, InitialUnit, RoundEnded, RoundStarted,
-    Subscriber, UnitActivated, UnitKilled, UnitMoved, UnitShot,
+    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit, ObjectiveScored,
+    RoundEnded, RoundStarted, Subscriber, UnitActivated, UnitAdvanced,
+    UnitCharged, UnitFought, UnitKilled, UnitMoved, UnitShot,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
@@ -167,7 +168,11 @@ class Battle:
             self._emit(RoundStarted(round_num=rnd))
             self._run_round(rnd)
             self._score_objectives()
-            self._emit(RoundEnded(round_num=rnd))
+            self._emit(RoundEnded(
+                round_num=rnd,
+                a_vp_total=self._a_vp,
+                b_vp_total=self._b_vp,
+            ))
             round_history.append((self.a.unit_count, self.b.unit_count))
             if not self.a.alive_units or not self.b.alive_units:
                 break
@@ -255,8 +260,21 @@ class Battle:
                     b_oc += getattr(u.profile, "oc", 1) or 1
             if a_oc > b_oc:
                 self._a_vp += obj.vp_per_round
+                self._emit(ObjectiveScored(
+                    objective_name=obj.name, army_name=self.a.name,
+                    vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
+                ))
             elif b_oc > a_oc:
                 self._b_vp += obj.vp_per_round
+                self._emit(ObjectiveScored(
+                    objective_name=obj.name, army_name=self.b.name,
+                    vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
+                ))
+            else:
+                self._emit(ObjectiveScored(
+                    objective_name=obj.name, army_name=None,
+                    vp_awarded=0, a_oc=a_oc, b_oc=b_oc,
+                ))
 
     # ------------------------------------------------------------------
     # Setup
@@ -311,6 +329,9 @@ class Battle:
                         target = u.profile.leadership + ld_penalty
                         if roll < target:
                             self._battleshocked_this_round.add(u.uid)
+                            self._emit(BattleshockFailed(
+                                unit_uid=u.uid, roll=roll, target=target,
+                            ))
 
         first, second = (
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
@@ -424,6 +445,11 @@ class Battle:
             ))
         if did_advance:
             self._advanced_this_round.add(attacker.uid)
+            self._emit(UnitAdvanced(
+                unit_uid=attacker.uid,
+                advance_roll=advance_d6,
+                total_movement=float(move_distance),
+            ))
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon is Assault.
@@ -514,8 +540,13 @@ class Battle:
         target, dist = candidates[0]
 
         roll = random.randint(1, 6) + random.randint(1, 6)
-        if roll < dist:
-            return   # charge failed
+        succeeded = (roll >= dist)
+        if not succeeded:
+            self._emit(UnitCharged(
+                unit_uid=attacker.uid, target_uid=target.uid,
+                distance=dist, roll=roll, succeeded=False,
+            ))
+            return
 
         # Move to within 1" of target — engagement range
         dx = target.position[0] - attacker.position[0]
@@ -528,6 +559,10 @@ class Battle:
         if not self.map.is_blocked(new_pos):
             attacker.position = new_pos
         self._charging_this_round.add(attacker.uid)
+        self._emit(UnitCharged(
+            unit_uid=attacker.uid, target_uid=target.uid,
+            distance=dist, roll=roll, succeeded=True,
+        ))
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1")."""
@@ -543,7 +578,17 @@ class Battle:
         )
         if _distance(attacker.position, nearest.position) > 1.5:
             return
-        attacker.attack(nearest, distance=1.0, mode="melee")
+        dmg = attacker.attack(nearest, distance=1.0, mode="melee")
+        alive_after = nearest.is_alive
+        self._emit(UnitFought(
+            attacker_uid=attacker.uid,
+            target_uid=nearest.uid,
+            damage=dmg,
+            target_hp_after=nearest.current_health,
+            target_alive_after=alive_after,
+        ))
+        if not alive_after:
+            self._emit(UnitKilled(unit_uid=nearest.uid))
 
     # ------------------------------------------------------------------
     # Helpers

@@ -153,6 +153,13 @@ def build_faction_random_army(
     spent_by_name: Dict[str, float] = {p.name: 0.0 for p in pool}
     cap = points_budget * max_unit_fraction
 
+    # CHARACTER-tagged profiles are eligible to be drafted as attached leaders.
+    # 10e: a leader sits inside an infantry / battleline unit and grants auras.
+    character_pool = [
+        p for p in pool
+        if "CHARACTER" in (p.unit_keywords or ())
+    ]
+
     while True:
         affordable = []
         for p in pool:
@@ -167,5 +174,21 @@ def build_faction_random_army(
             army.add_unit(chosen)
         spent_by_name[chosen.name] += cost
         remaining -= cost
+
+        # 50% preference: when we just added a non-character squad, try to
+        # attach a same-faction character leader. Skip if the chosen profile
+        # was itself a character, or if no characters fit the remaining budget.
+        is_character = "CHARACTER" in (chosen.unit_keywords or ())
+        if not is_character and character_pool and rng.random() < 0.5:
+            leaders_affordable = [
+                c for c in character_pool
+                if c.points_cost <= remaining
+                and spent_by_name[c.name] + c.points_cost <= cap
+            ]
+            if leaders_affordable:
+                leader = rng.choice(leaders_affordable)
+                army.add_unit(leader)
+                spent_by_name[leader.name] += leader.points_cost
+                remaining -= leader.points_cost
 
     return army
