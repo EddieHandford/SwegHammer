@@ -189,6 +189,15 @@ class WeaponStats:
     sustained_hits: int = 0
     twin_linked: bool = False
     devastating_wounds: bool = False
+    rapid_fire: int = 0
+    melta: int = 0
+    ignores_cover: bool = False
+    anti_keywords: dict = field(default_factory=dict)
+    heavy: bool = False
+    assault: bool = False
+    torrent: bool = False
+    hazardous: bool = False
+    blast: bool = False
 
     def expected_damage_through_baseline(self) -> float:
         """Expected damage per activation against a baseline Marine."""
@@ -212,6 +221,15 @@ class WeaponStats:
 
 
 _KEYWORD_SUSTAINED = re.compile(r"Sustained\s+Hits\s+(\d+|D3|D6)", re.IGNORECASE)
+_RAPID_FIRE_RE = re.compile(r"Rapid\s+Fire\s*(\d+)", re.IGNORECASE)
+_MELTA_RE = re.compile(r"\bMelta\s*(\d+)", re.IGNORECASE)
+_IGNORES_COVER_RE = re.compile(r"Ignores\s+Cover", re.IGNORECASE)
+_ANTI_RE = re.compile(r"Anti-([A-Z][A-Z_-]+)\s*(\d)\s*\+", re.IGNORECASE)
+_HEAVY_RE = re.compile(r"(?:^|[\s,;.])Heavy(?:$|[\s,;.])")
+_ASSAULT_RE = re.compile(r"(?:^|[\s,;.])Assault(?:$|[\s,;.])")
+_TORRENT_RE = re.compile(r"\bTorrent\b", re.IGNORECASE)
+_HAZARDOUS_RE = re.compile(r"\bHazardous\b", re.IGNORECASE)
+_BLAST_RE = re.compile(r"\bBlast\b", re.IGNORECASE)
 
 
 def parse_weapon_keywords(text: str) -> Dict[str, object]:
@@ -233,6 +251,35 @@ def parse_weapon_keywords(text: str) -> Dict[str, object]:
     if m:
         tok = m.group(1).upper()
         out["sustained_hits"] = {"D3": 2, "D6": 3}.get(tok, int(tok) if tok.isdigit() else 1)
+    m = _RAPID_FIRE_RE.search(s)
+    if m:
+        out["rapid_fire"] = int(m.group(1))
+    m = _MELTA_RE.search(s)
+    if m:
+        out["melta"] = int(m.group(1))
+    if _IGNORES_COVER_RE.search(s):
+        out["ignores_cover"] = True
+    anti: Dict[str, int] = {}
+    for kw, thresh in _ANTI_RE.findall(s):
+        target = kw.upper().strip("_-")
+        try:
+            n = int(thresh)
+        except ValueError:
+            continue
+        if target not in anti or n < anti[target]:
+            anti[target] = n
+    if anti:
+        out["anti_keywords"] = anti
+    if _HEAVY_RE.search(s):
+        out["heavy"] = True
+    if _ASSAULT_RE.search(s):
+        out["assault"] = True
+    if _TORRENT_RE.search(s):
+        out["torrent"] = True
+    if _HAZARDOUS_RE.search(s):
+        out["hazardous"] = True
+    if _BLAST_RE.search(s):
+        out["blast"] = True
     return out
 
 
@@ -393,6 +440,19 @@ class MappedUnit:
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7    # parsed from "Invulnerable Save (X+*)" infoLinks in the tree
+    # Phase A2/A3 keywords carried forward from the chosen ranged weapon
+    rapid_fire: int = 0
+    melta: int = 0
+    ignores_cover: bool = False
+    anti_keywords: dict = field(default_factory=dict)
+    heavy: bool = False
+    assault: bool = False
+    torrent: bool = False
+    hazardous: bool = False
+    blast: bool = False
+    # Unit-level
+    fnp: int = 7                                  # 7 = no Feel No Pain
+    unit_keywords: List[str] = field(default_factory=list)
     loadout: List[str] = field(default_factory=list)
     notes: str = ""
     enabled: bool = True
@@ -450,6 +510,8 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     best = max(gear.ranged_weapons, key=lambda w: w.expected_damage_through_baseline())
     min_m, max_m = extract_squad_size(entry)
     invuln = extract_invuln(entry, reg)
+    unit_kw = extract_unit_keywords(entry)
+    fnp = extract_fnp(entry, reg)
 
     return MappedUnit(
         key=key,
@@ -474,10 +536,86 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         twin_linked=best.twin_linked,
         devastating_wounds=best.devastating_wounds,
         invuln_save=invuln,
+        rapid_fire=best.rapid_fire,
+        melta=best.melta,
+        ignores_cover=best.ignores_cover,
+        anti_keywords=dict(best.anti_keywords),
+        heavy=best.heavy,
+        assault=best.assault,
+        torrent=best.torrent,
+        hazardous=best.hazardous,
+        blast=best.blast,
+        fnp=fnp,
+        unit_keywords=list(unit_kw),
         loadout=[best.name]
         + [w.name for w in gear.ranged_weapons if w.name != best.name][:4],
         notes=f"LD={stats.leadership} OC={stats.oc}",
     )
+
+
+# ---------------------------------------------------------------------------
+# Unit keywords + FNP extractors
+# ---------------------------------------------------------------------------
+
+# Standard 10e unit keywords we care about for Anti-X targeting and rules.
+_TRACKED_UNIT_KEYWORDS = {
+    "INFANTRY", "VEHICLE", "MONSTER", "CHARACTER", "FLY",
+    "TITANIC", "TOWERING", "WALKER", "BATTLELINE", "SWARM",
+    "BIKE", "MOUNTED", "BEAST", "DAEMON", "PSYKER",
+}
+
+
+def extract_unit_keywords(entry: ET.Element) -> List[str]:
+    """Scan the unit's categoryLinks for known 10e keyword tags."""
+    found: List[str] = []
+    for cl in entry.findall(".//categoryLink"):
+        name = (cl.get("name") or "").upper().strip()
+        # Strip BSData prefixes like "Faction: " or "Allegiance: "
+        if ":" in name:
+            name = name.split(":", 1)[1].strip()
+        if name in _TRACKED_UNIT_KEYWORDS:
+            if name not in found:
+                found.append(name)
+    return found
+
+
+_FNP_RE = re.compile(r"Feel\s+No\s+Pain\s*\(?\s*(\d)\s*\+", re.IGNORECASE)
+
+
+def extract_fnp(entry: ET.Element, reg: Registry) -> int:
+    """
+    Walk the unit's profiles + linked rules for prose "Feel No Pain N+" mentions.
+    Returns the lowest N (best for the unit), or 7 if none.
+    """
+    best = 7
+    seen: set = set()
+    def walk(elem: ET.Element, depth: int):
+        nonlocal best
+        if depth > 3:
+            return
+        eid = elem.get("id")
+        if eid:
+            if eid in seen:
+                return
+            seen.add(eid)
+        # Scan all characteristic text values for the phrase
+        for c in elem.iter("characteristic"):
+            txt = (c.text or "")
+            m = _FNP_RE.search(txt)
+            if m:
+                v = int(m.group(1))
+                if v < best:
+                    best = v
+        for il in elem.findall(".//infoLink"):
+            tgt = reg.resolve(il.get("targetId") or "")
+            if tgt is not None:
+                walk(tgt, depth + 1)
+        for el in elem.findall("./entryLinks/entryLink"):
+            tgt = reg.resolve(el.get("targetId") or "")
+            if tgt is not None:
+                walk(tgt, depth + 1)
+    walk(entry, 0)
+    return best
 
 
 _INVULN_RE = re.compile(r"Invulnerable\s+Save\s*\(?\s*(\d)\s*\+", re.IGNORECASE)

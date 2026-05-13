@@ -410,8 +410,8 @@ class Battle:
             self._advanced_this_round.add(attacker.uid)
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
-        # 10e: a unit that Advanced this turn cannot shoot.
-        if attacker.uid in self._advanced_this_round:
+        # 10e: a unit that Advanced this turn cannot shoot, unless its weapon is Assault.
+        if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             return
 
         rng = attacker.profile.range_inches
@@ -432,7 +432,8 @@ class Battle:
         if cover_type in (TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER):
             shoot_target.in_cover = True
 
-        dmg = attacker.attack(shoot_target)
+        distance = _distance(attacker.position, shoot_target.position)
+        dmg = attacker.attack(shoot_target, distance=distance)
         shoot_target.in_cover = saved_cover
 
         target_alive_after = shoot_target.is_alive

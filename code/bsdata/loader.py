@@ -53,6 +53,17 @@ class CatalogEntry:
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
+    rapid_fire: int = 0
+    melta: int = 0
+    ignores_cover: bool = False
+    anti_keywords: Optional[Dict[str, int]] = None
+    heavy: bool = False
+    assault: bool = False
+    torrent: bool = False
+    hazardous: bool = False
+    blast: bool = False
+    fnp: int = 7
+    unit_keywords: Optional[List[str]] = None
     points_override: float = 0.0
     loadout: Optional[List[str]] = None
     notes: str = ""
@@ -84,6 +95,17 @@ class CatalogEntry:
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
+            rapid_fire=int(d.get("rapid_fire", 0)),
+            melta=int(d.get("melta", 0)),
+            ignores_cover=bool(d.get("ignores_cover", False)),
+            anti_keywords=dict(d.get("anti_keywords") or {}),
+            heavy=bool(d.get("heavy", False)),
+            assault=bool(d.get("assault", False)),
+            torrent=bool(d.get("torrent", False)),
+            hazardous=bool(d.get("hazardous", False)),
+            blast=bool(d.get("blast", False)),
+            fnp=int(d.get("fnp", 7)),
+            unit_keywords=list(d.get("unit_keywords") or []),
             points_override=float(d.get("points_override", 0)),
             loadout=d.get("loadout") or [],
             notes=d.get("notes", ""),
@@ -160,6 +182,17 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),
+        "rapid_fire": override.get("rapid_fire", base.rapid_fire),
+        "melta": override.get("melta", base.melta),
+        "ignores_cover": override.get("ignores_cover", base.ignores_cover),
+        "anti_keywords": override.get("anti_keywords", base.anti_keywords),
+        "heavy": override.get("heavy", base.heavy),
+        "assault": override.get("assault", base.assault),
+        "torrent": override.get("torrent", base.torrent),
+        "hazardous": override.get("hazardous", base.hazardous),
+        "blast": override.get("blast", base.blast),
+        "fnp": override.get("fnp", base.fnp),
+        "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "points_override": override.get("points_override", base.points_override),
         "loadout": override.get("loadout", base.loadout),
         "notes": override.get("notes", base.notes),
