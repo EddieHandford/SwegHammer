@@ -7,13 +7,32 @@ pick them up automatically.
 
 from __future__ import annotations
 
-from .map import Map, Terrain, TerrainType
+from .map import Map, Objective, Terrain, TerrainType
+
+
+def _quincunx_objectives(width: float, height: float) -> tuple:
+    """
+    Five-objective layout common to most 10e missions (Take and Hold, Crucible,
+    Tipping Point, etc.): one in the centre and four equidistant points roughly
+    a third of the way in from each board edge.
+    """
+    cx, cy = width / 2.0, height / 2.0
+    inset_x = width * 0.30
+    inset_y = height * 0.25
+    return (
+        Objective(name="Centre",    x=cx, y=cy),
+        Objective(name="NW Marker", x=cx - inset_x, y=cy + inset_y),
+        Objective(name="NE Marker", x=cx + inset_x, y=cy + inset_y),
+        Objective(name="SW Marker", x=cx - inset_x, y=cy - inset_y),
+        Objective(name="SE Marker", x=cx + inset_x, y=cy - inset_y),
+    )
 
 
 COMBAT_PATROL_BASIC = Map(
     name="Combat Patrol - Open Field",
     width=44.0,
     height=60.0,
+    objectives=_quincunx_objectives(44.0, 60.0),
     terrain=(
         Terrain(
             name="Ruin Alpha",
@@ -49,6 +68,7 @@ URBAN_SPRAWL = Map(
     name="Strike Force - Urban Sprawl",
     width=44.0,
     height=90.0,
+    objectives=_quincunx_objectives(44.0, 90.0),
     terrain=(
         Terrain("Ruin North",  x=6.0,  y=68.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
         Terrain("Ruin South",  x=28.0, y=14.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
@@ -66,6 +86,7 @@ OPEN_PLAINS = Map(
     name="Combat Patrol - Open Plains",
     width=44.0,
     height=60.0,
+    objectives=_quincunx_objectives(44.0, 60.0),
     terrain=(
         Terrain("Lone Wood",       x=18.0, y=26.0, width=8.0, height=8.0, type=TerrainType.OBSCURING),
         Terrain("South Ridge",     x=6.0,  y=20.0, width=12.0, height=3.0, type=TerrainType.LIGHT_COVER),

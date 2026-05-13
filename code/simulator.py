@@ -29,6 +29,10 @@ class BattleResult:
     b_start: int
     a_survivors: int        # surviving unit count
     b_survivors: int
+    a_vp: int = 0           # Primary VP scored across the battle
+    b_vp: int = 0
+    a_points_remaining: float = 0.0   # sum of points_cost over alive units at end
+    b_points_remaining: float = 0.0
     round_history: list = None  # list of (a_alive, b_alive) per round
 
     def __post_init__(self):
@@ -129,6 +133,9 @@ class Battle:
 
         a_start = len(self.a.units)
         b_start = len(self.b.units)
+        # VP tally accumulates across rounds
+        self._a_vp = 0
+        self._b_vp = 0
 
         self._emit(BattleStarted(
             army_a_name=self.a.name,
@@ -153,6 +160,7 @@ class Battle:
             rounds_played = rnd
             self._emit(RoundStarted(round_num=rnd))
             self._run_round(rnd)
+            self._score_objectives()
             self._emit(RoundEnded(round_num=rnd))
             round_history.append((self.a.unit_count, self.b.unit_count))
             if not self.a.alive_units or not self.b.alive_units:
@@ -160,13 +168,10 @@ class Battle:
 
         a_surv = self.a.unit_count
         b_surv = self.b.unit_count
+        a_pts = sum(u.profile.points_cost for u in self.a.alive_units)
+        b_pts = sum(u.profile.points_cost for u in self.b.alive_units)
 
-        if a_surv > b_surv:
-            winner = self.a.name
-        elif b_surv > a_surv:
-            winner = self.b.name
-        else:
-            winner = None  # mutual destruction or round-limit tie
+        winner = self._decide_winner(a_surv, b_surv, a_pts, b_pts)
 
         self._emit(BattleEnded(winner=winner, rounds=rounds_played))
 
@@ -179,8 +184,69 @@ class Battle:
             b_start=b_start,
             a_survivors=a_surv,
             b_survivors=b_surv,
+            a_vp=self._a_vp,
+            b_vp=self._b_vp,
+            a_points_remaining=a_pts,
+            b_points_remaining=b_pts,
             round_history=round_history,
         )
+
+    # ------------------------------------------------------------------
+    # Win condition (objectives + attrition + points)
+    # ------------------------------------------------------------------
+
+    def _decide_winner(
+        self, a_surv: int, b_surv: int,
+        a_pts: float, b_pts: float,
+    ) -> Optional[str]:
+        """
+        10e-flavoured win condition:
+          * If one side has zero alive units, the other wins outright.
+          * Else: higher VP wins.
+          * Tied VP: higher remaining points wins.
+          * Tied on both: draw.
+        Survivor count is no longer a primary criterion — points + objectives
+        capture military value much better than raw unit count.
+        """
+        if a_surv == 0 and b_surv == 0:
+            return None
+        if a_surv == 0:
+            return self.b.name
+        if b_surv == 0:
+            return self.a.name
+        if self._a_vp > self._b_vp:
+            return self.a.name
+        if self._b_vp > self._a_vp:
+            return self.b.name
+        # VP tied — fall back to remaining points
+        if a_pts > b_pts * 1.10:
+            return self.a.name
+        if b_pts > a_pts * 1.10:
+            return self.b.name
+        return None  # genuinely close — call it a draw
+
+    def _score_objectives(self) -> None:
+        """End-of-round VP scoring: each objective awards its vp_per_round to
+        whichever side has more Objective Control within control_radius."""
+        for obj in self.map.objectives:
+            obj_pos = (obj.x, obj.y)
+            r2 = obj.control_radius * obj.control_radius
+            a_oc = 0
+            b_oc = 0
+            for u in self.a.alive_units:
+                dx = u.position[0] - obj_pos[0]
+                dy = u.position[1] - obj_pos[1]
+                if dx * dx + dy * dy <= r2:
+                    a_oc += getattr(u.profile, "oc", 1) or 1
+            for u in self.b.alive_units:
+                dx = u.position[0] - obj_pos[0]
+                dy = u.position[1] - obj_pos[1]
+                if dx * dx + dy * dy <= r2:
+                    b_oc += getattr(u.profile, "oc", 1) or 1
+            if a_oc > b_oc:
+                self._a_vp += obj.vp_per_round
+            elif b_oc > a_oc:
+                self._b_vp += obj.vp_per_round
 
     # ------------------------------------------------------------------
     # Setup
