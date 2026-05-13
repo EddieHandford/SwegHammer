@@ -146,6 +146,8 @@ class UnitProfile:
     save: int = 7                              # armour save characteristic (7 = no save)
     strength: int = BASELINE_STRENGTH          # weapon strength used in the wound roll
     toughness: int = BASELINE_TOUGHNESS        # unit toughness defended in the wound roll
+    move: float = 6.0                          # movement allowance in inches per activation
+    range_inches: int = 24                     # weapon range; melee-only units use 1
 
     @property
     def avg_damage_per_action(self) -> float:
@@ -184,14 +186,16 @@ class UnitProfile:
 # ---------------------------------------------------------------------------
 
 class Unit:
-    """A live unit on the battlefield, tracking current health."""
+    """A live unit on the battlefield, tracking current health and position."""
 
-    __slots__ = ("profile", "current_health", "in_cover")
+    __slots__ = ("profile", "current_health", "in_cover", "uid", "position")
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
         self.profile = profile
         self.current_health: float = profile.health
         self.in_cover: bool = in_cover
+        self.uid: str = ""                              # assigned by Battle at start
+        self.position: tuple = (0.0, 0.0)               # (x, y) in inches
 
     @property
     def is_alive(self) -> bool:
@@ -238,6 +242,123 @@ class Unit:
 #   save:  3 = 3+, 4 = 4+, 5 = 5+, 6 = 6+, 7 = no save
 #   S / T: roughly aligned with 10th-edition datasheets, rounded for sanity
 #
+UNIT_CATALOG: Dict[str, UnitProfile] = {
+    # --- Space Marines ---
+    "scout_marine": UnitProfile(
+        name="Scout Marine",
+        health=1, damage=1, hit_probability=0.5,
+        ap=0, save=4, strength=4, toughness=4,
+        move=6.0, range_inches=24,
+    ),
+    "space_marine": UnitProfile(
+        name="Space Marine",
+        health=1, damage=1, hit_probability=2/3,
+        ap=0, save=3, strength=4, toughness=4,
+        move=6.0, range_inches=24,
+    ),
+    "veteran_marine": UnitProfile(
+        name="Veteran Marine",
+        health=2, damage=1, hit_probability=2/3,
+        ap=-1, save=3, strength=4, toughness=4,
+        move=6.0, range_inches=24,
+    ),
+    "terminator": UnitProfile(
+        name="Terminator",
+        health=3, damage=2, hit_probability=2/3,
+        ap=-2, save=2, strength=5, toughness=5,
+        move=5.0, range_inches=24,
+    ),
+    "dreadnought": UnitProfile(
+        name="Dreadnought",
+        health=8, damage=3, hit_probability=2/3,
+        ap=-2, save=3, strength=7, toughness=10,
+        move=6.0, range_inches=36,
+    ),
+    "predator_tank": UnitProfile(
+        name="Predator Tank",
+        health=11, damage=4, hit_probability=2/3,
+        ap=-3, save=3, strength=9, toughness=10,
+        move=10.0, range_inches=48,
+    ),
+
+    # --- Chaos ---
+    "cultist": UnitProfile(
+        name="Cultist",
+        health=1, damage=1, hit_probability=0.5,
+        ap=0, save=6, strength=3, toughness=3,
+        move=6.0, range_inches=18,
+    ),
+    "chaos_space_marine": UnitProfile(
+        name="Chaos Space Marine",
+        health=2, damage=1, hit_probability=2/3,
+        ap=-1, save=3, strength=4, toughness=4,
+        move=6.0, range_inches=24,
+    ),
+    "chaos_terminator": UnitProfile(
+        name="Chaos Terminator",
+        health=3, damage=2, hit_probability=2/3,
+        ap=-2, save=2, strength=5, toughness=5,
+        move=5.0, range_inches=24,
+    ),
+    "chaos_dreadnought": UnitProfile(
+        name="Chaos Dreadnought",
+        health=8, damage=3, hit_probability=2/3,
+        ap=-2, save=3, strength=7, toughness=10,
+        move=6.0, range_inches=36,
+    ),
+
+    # --- Orks ---
+    "gretchin": UnitProfile(
+        name="Gretchin",
+        health=1, damage=1, hit_probability=1/3,
+        ap=0, save=6, strength=2, toughness=3,
+        move=5.0, range_inches=12,
+    ),
+    "ork_boy": UnitProfile(
+        name="Ork Boy",
+        health=2, damage=1, hit_probability=0.5,
+        ap=0, save=5, strength=4, toughness=5,
+        move=6.0, range_inches=12,
+    ),
+    "ork_nob": UnitProfile(
+        name="Ork Nob",
+        health=3, damage=2, hit_probability=0.5,
+        ap=-1, save=4, strength=5, toughness=5,
+        move=6.0, range_inches=12,
+    ),
+    "mek_gun": UnitProfile(
+        name="Mek Gun",
+        health=5, damage=3, hit_probability=0.5,
+        ap=-2, save=4, strength=6, toughness=6,
+        move=4.0, range_inches=36,
+    ),
+
+    # --- Tyranids ---
+    "termagant": UnitProfile(
+        name="Termagant",
+        health=1, damage=1, hit_probability=0.5,
+        ap=0, save=5, strength=4, toughness=3,
+        move=6.0, range_inches=18,
+    ),
+    "hormagaunt": UnitProfile(
+        name="Hormagaunt",
+        health=1, damage=2, hit_probability=0.5,
+        ap=0, save=5, strength=4, toughness=3,
+        move=8.0, range_inches=1,
+    ),
+    "warrior": UnitProfile(
+        name="Warrior",
+        health=3, damage=2, hit_probability=2/3,
+        ap=-1, save=4, strength=5, toughness=5,
+        move=6.0, range_inches=24,
+    ),
+    "carnifex": UnitProfile(
+        name="Carnifex",
+        health=10, damage=4, hit_probability=2/3,
+        ap=-3, save=3, strength=9, toughness=9,
+        move=8.0, range_inches=18,
+    ),
+}
 # UNIT_CATALOG is built at import time by merging:
 #   data/bsdata/parsed.json — base stats derived from BSData WH40k 2nd Edition
 #   data/overrides.json     — per-unit hand tuning, plus legacy hand-rolled units

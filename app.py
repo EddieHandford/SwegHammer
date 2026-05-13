@@ -12,6 +12,10 @@ import streamlit as st
 
 from code.army import Army
 from code.army_builder import build_homogeneous_army
+from code.events import EventLog
+from code.map import Map
+from code.maps import STOCK_MAPS, DEFAULT_MAP
+from code.renderer import event_description, render_frame
 from code.simulator import Battle, BattleResult
 from code.units import UNIT_CATALOG, UnitProfile, save_probability
 
@@ -81,8 +85,9 @@ def run_simulations(
     factory_a: Callable[[], Army],
     factory_b: Callable[[], Army],
     n: int,
+    map_: Map = DEFAULT_MAP,
 ) -> List[BattleResult]:
-    return [Battle(factory_a(), factory_b()).run() for _ in range(n)]
+    return [Battle(factory_a(), factory_b(), map_=map_).run() for _ in range(n)]
 
 
 def aggregate(results: List[BattleResult], a_name: str, b_name: str):
@@ -202,6 +207,7 @@ def chart_win_rate_vs_points(
     a_cover: bool,
     b_cover: bool,
     n_battles: int = 200,
+    map_: Map = DEFAULT_MAP,
 ):
     point_values = list(range(100, 601, 50))
     a_rates, b_rates, draw_rates = [], [], []
@@ -211,6 +217,7 @@ def chart_win_rate_vs_points(
             lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
             lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
             n_battles,
+            map_=map_,
         )
         aw, bw, d = aggregate(res, a_name, b_name)
         a_rates.append(aw / n_battles)
@@ -308,7 +315,20 @@ with st.sidebar:
         points = st.slider("Points per army", 100, 600, 300, step=50)
 
     st.divider()
-    st.subheader("Terrain")
+    st.subheader("Battlefield")
+    map_key = st.selectbox(
+        "Map",
+        list(STOCK_MAPS.keys()),
+        format_func=lambda k: STOCK_MAPS[k].name,
+    )
+    selected_map = STOCK_MAPS[map_key]
+    st.caption(
+        f"{selected_map.width:.0f}\" x {selected_map.height:.0f}\" "
+        f"with {len(selected_map.terrain)} terrain pieces"
+    )
+
+    st.divider()
+    st.subheader("Terrain (army-wide cover flag)")
     a_cover = st.checkbox(f"🔵 {a_name} in cover", value=False)
     b_cover = st.checkbox(f"🔴 {b_name} in cover", value=False)
 
@@ -356,57 +376,127 @@ st.divider()
 # Run and display results
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Run handler — populates st.session_state with stats results and one replay
+# ---------------------------------------------------------------------------
+
 if run:
-    with st.spinner(f"Running {n_battles:,} battles..."):
-        results = run_simulations(
-            lambda: build_homogeneous_army(a_name, profile_a, points, in_cover=a_cover),
-            lambda: build_homogeneous_army(b_name, profile_b, points, in_cover=b_cover),
-            n_battles,
+    factory_a = lambda: build_homogeneous_army(a_name, profile_a, points, in_cover=a_cover)
+    factory_b = lambda: build_homogeneous_army(b_name, profile_b, points, in_cover=b_cover)
+
+    with st.spinner(f"Running {n_battles:,} battles + capturing one replay..."):
+        results = run_simulations(factory_a, factory_b, n_battles, map_=selected_map)
+        log = EventLog()
+        Battle(factory_a(), factory_b(), subscribers=[log], map_=selected_map).run()
+
+    st.session_state.update({
+        "results": results,
+        "a_name": a_name,
+        "b_name": b_name,
+        "n_battles": n_battles,
+        "show_points_curve": show_points_curve,
+        "profile_a": profile_a,
+        "profile_b": profile_b,
+        "a_cover": a_cover,
+        "b_cover": b_cover,
+        "replay_events": log.events,
+        "replay_map": selected_map,
+    })
+
+# ---------------------------------------------------------------------------
+# Tabs: Statistics + Watch a battle
+# ---------------------------------------------------------------------------
+
+tab_stats, tab_replay = st.tabs(["Statistics", "Watch a battle"])
+
+# --- Statistics tab ---
+with tab_stats:
+    if "results" not in st.session_state:
+        st.info("Configure your armies in the sidebar and hit **Run Simulation** to begin.")
+        st.markdown(
+            """
+            **Charts you'll see here:**
+            - **Win rate pie** — overall win/draw/loss breakdown
+            - **Attrition curve** — average units alive per round
+            - **Survivor histogram** — distribution of surviving units
+            - **Win% vs points** — how the matchup shifts as budgets scale
+            """
         )
+    else:
+        results = st.session_state["results"]
+        a_lbl = st.session_state["a_name"]
+        b_lbl = st.session_state["b_name"]
+        n = st.session_state["n_battles"]
 
-    a_wins, b_wins, draws = aggregate(results, a_name, b_name)
+        a_wins, b_wins, draws = aggregate(results, a_lbl, b_lbl)
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric(f"🔵 {a_name} wins", f"{a_wins/n_battles:.1%}", f"{a_wins} battles")
-    m2.metric(f"🔴 {b_name} wins", f"{b_wins/n_battles:.1%}", f"{b_wins} battles")
-    m3.metric("Draws", f"{draws/n_battles:.1%}", f"{draws} battles")
-    m4.metric("Avg rounds", f"{sum(r.rounds for r in results)/n_battles:.1f}")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric(f"🔵 {a_lbl} wins", f"{a_wins/n:.1%}", f"{a_wins} battles")
+        m2.metric(f"🔴 {b_lbl} wins", f"{b_wins/n:.1%}", f"{b_wins} battles")
+        m3.metric("Draws", f"{draws/n:.1%}", f"{draws} battles")
+        m4.metric("Avg rounds", f"{sum(r.rounds for r in results)/n:.1f}")
 
-    st.divider()
-
-    c_pie, c_attr = st.columns([2, 3])
-    with c_pie:
-        st.pyplot(chart_win_rates(a_wins, b_wins, draws, a_name, b_name, n_battles))
-    with c_attr:
-        st.pyplot(chart_attrition(results, a_name, b_name))
-
-    st.divider()
-    st.pyplot(chart_survivor_histogram(results, a_name, b_name))
-
-    if show_points_curve:
         st.divider()
-        with st.spinner("Sweeping point budgets for probability curve..."):
-            st.pyplot(
-                chart_win_rate_vs_points(
-                    profile_a, profile_b, a_name, b_name,
-                    a_cover, b_cover, n_battles=200,
+
+        c_pie, c_attr = st.columns([2, 3])
+        with c_pie:
+            st.pyplot(chart_win_rates(a_wins, b_wins, draws, a_lbl, b_lbl, n))
+        with c_attr:
+            st.pyplot(chart_attrition(results, a_lbl, b_lbl))
+
+        st.divider()
+        st.pyplot(chart_survivor_histogram(results, a_lbl, b_lbl))
+
+        if st.session_state.get("show_points_curve"):
+            st.divider()
+            with st.spinner("Sweeping point budgets for probability curve..."):
+                st.pyplot(
+                    chart_win_rate_vs_points(
+                        st.session_state["profile_a"], st.session_state["profile_b"],
+                        a_lbl, b_lbl,
+                        st.session_state["a_cover"], st.session_state["b_cover"],
+                        n_battles=200,
+                        map_=st.session_state["replay_map"],
+                    )
                 )
+
+# --- Replay tab ---
+with tab_replay:
+    if "replay_events" not in st.session_state:
+        st.info(
+            "Configure your armies and hit **Run Simulation** to load a replay. "
+            "One full battle is recorded each time you run."
+        )
+    else:
+        events = st.session_state["replay_events"]
+        map_ = st.session_state["replay_map"]
+        total = len(events)
+
+        if total == 0:
+            st.warning("No events recorded.")
+        else:
+            tick = st.slider(
+                "Tick (drag to scrub through the battle)",
+                min_value=0,
+                max_value=total - 1,
+                value=0,
+                key="replay_tick",
             )
 
-else:
-    st.info("Configure your armies in the sidebar and hit **▶ Run Simulation** to begin.")
-    st.markdown(
-        """
-        **Charts you'll see:**
-        - 🥧 **Win rate pie** — overall win/draw/loss breakdown
-        - 📉 **Attrition curve** — average units alive per round
-        - 📊 **Survivor histogram** — distribution of surviving units
-        - 📈 **Win% vs points** — how the matchup shifts as budgets scale
+            col_map, col_log = st.columns([3, 2])
 
-        **New mechanics:**
-        - 🎲 **Stochastic rolls** — every attack rolls to hit, then target rolls to save
-        - 🛡️ **Armour saves** — each unit has a save characteristic (2+–6+)
-        - ⚔️ **AP** — weapon AP degrades the target's save (AP-1 turns a 3+ into a 4+, etc.)
-        - 🏠 **Cover** — tick the cover boxes in the sidebar to give an army +1 to saves
-        """
-    )
+            with col_map:
+                fig = render_frame(map_, events, tick)
+                st.pyplot(fig)
+                plt.close(fig)
+
+            with col_log:
+                st.markdown("**Current event**")
+                st.code(event_description(events[tick]), language=None)
+
+                st.markdown("**Recent events**")
+                start = max(0, tick - 12)
+                recent = "\n".join(event_description(events[i]) for i in range(start, tick + 1))
+                st.text(recent)
+
+                st.caption(f"{total} events total")
