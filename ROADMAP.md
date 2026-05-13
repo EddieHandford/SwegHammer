@@ -7,7 +7,7 @@
 | Phase 0 | ✅ Complete | Project setup, documentation, baseline definition |
 | Phase 1 | ✅ Complete | Deterministic simulator, initial 18-unit hand-rolled catalogue |
 | Phase 1.5 | ✅ Complete | Stochastic damage, armour saves, AP, cover |
-| Phase 1.6 | ✅ Complete | BSData WH40k 2nd-ed ingestion, override layer |
+| Phase 1.6 | ✅ Complete | BSData WH40k 10th-ed ingestion, override layer |
 | Phase 2 | 🔲 Active | Override tuning — repair mapper artefacts, balance the BSData catalogue |
 | Phase 3 | 🔲 Planned | Nonlinear cost surface fit |
 | Phase 4 | 🔲 Planned | Rule variant testing, edge cases |
@@ -63,18 +63,20 @@
 
 ## Phase 1.6 — BSData Ingestion ✅
 
-**Goal**: Pull unit stats from the BSData WH40k 2nd-edition project rather than
+**Goal**: Pull unit stats from the BSData WH40k 10th-edition project rather than
 hand-rolling them, with an override layer for fine tuning.
 
-- [x] `code/bsdata/fetch.py` — pinned-tag download + cache
-- [x] `code/bsdata/parser.py` — XML registry across all 16 codex / GST files
+- [x] `code/bsdata/fetch.py` — pinned-tag download + cache (45 .cat + .gst files)
+- [x] `code/bsdata/parser.py` — XML registry across all files
 - [x] `code/bsdata/mapper.py` — force-list walk, best-legal-loadout optimiser,
-      SwegHammer mapping
+      SwegHammer mapping (10e schema: SV on unit, ranged-weapon A/BS/S/AP/D)
 - [x] `code/bsdata/loader.py` — merge parsed.json + overrides.json at import time
 - [x] `data/overrides.json` — hand-tuned modifications (starts empty)
 - [x] Wire `UNIT_CATALOG` to load from the merged catalogue
 
-**Delivered**: ~240 BSData-derived units replace the 18 hand-rolled ones.
+**Delivered**: ~1100 BSData 10e-derived units replace the 18 hand-rolled ones.
+Vehicles and Imperial Knights now have proper stat lines (T, SV, W on the unit
+profile directly), eliminating the 2nd-ed vehicle-mapping bugs.
 
 ---
 
@@ -82,13 +84,15 @@ hand-rolling them, with an override layer for fine tuning.
 
 **Goal**: Repair mapper artefacts and start balancing the BSData catalogue.
 
-- [ ] Sweep `data/bsdata/parsed.json` for the 88 currently-skipped entries
-      (mostly vehicles, characters without resolvable weapons) — fix or
-      formally disable via overrides
-- [ ] Cap or scale per-model damage where the loadout optimiser picked a
-      squad-only weapon (Multi-Melta on every Tactical Marine = 13 dmg/model)
-- [ ] Pin saves for heroes the depth-3 walk misses (Mephiston, Terminator
-      Captain, etc.)
+- [ ] Sweep `data/bsdata/parsed.json` for the ~260 currently-skipped entries
+      (mostly characters/units with no ranged weapons — melee-only models) —
+      fix the mapper to fall back to melee weapons, or formally disable
+- [ ] Squad-level damage: 10e weapons have explicit A (attacks per model), but
+      multi-model squads still emit per-model wounds. Decide whether `health`
+      means per-model or per-squad-aggregate and apply consistently
+- [ ] Loadout optimiser currently uses *expected damage through baseline Marine
+      armour* — review which weapons it picks for elite Knights and refine
+      if the cheese is too cheesy
 - [ ] Run calibration suite, identify systematic outliers, tune via overrides
 - [ ] Document the override workflow with worked examples
 

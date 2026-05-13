@@ -128,7 +128,7 @@ def suite_homogeneous(
     Pit each unit type against the baseline Space Marine in homogeneous armies
     (all units of a single type) at equal points.
     """
-    baseline_key = "angels_of_deaths_tactical_squad"
+    baseline_key = "space_marines_intercessor_squad"
     baseline_profile = UNIT_CATALOG[baseline_key]
     reports: List[MatchupReport] = []
 
@@ -226,7 +226,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         # Default: run all suites
         args.homogeneous = True
         args.mixed = True
-        args.mirror = "angels_of_deaths_tactical_squad"
+        args.mirror = "space_marines_intercessor_squad"
 
     print(
         f"\nSwaghammer Calibration Suite"

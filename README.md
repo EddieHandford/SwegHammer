@@ -108,7 +108,7 @@ python -m code.calibration
 streamlit run app.py
 
 # Refresh BSData base stats (pins to a release tag)
-python -m code.bsdata.fetch --tag v1.9.7
+python -m code.bsdata.fetch --tag v10.6.0
 python -m code.bsdata.mapper
 ```
 

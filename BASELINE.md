@@ -42,8 +42,8 @@ units that dominate on both axes — see `THEORY.md` for the Lanchester derivati
 
 ## Unit Catalogue
 
-The catalogue is derived from BSData's WH40k 2nd-edition data files. There are
-~240 units in `UNIT_CATALOG`, built at import time from:
+The catalogue is derived from BSData's WH40k 10th-edition data files. There are
+~1100 units in `UNIT_CATALOG`, built at import time from:
 
 - `data/bsdata/parsed.json` — base stats produced by `code/bsdata/mapper.py`
   walking each unit's selectionEntry tree and picking the best legal weapon
@@ -55,7 +55,7 @@ The catalogue is derived from BSData's WH40k 2nd-edition data files. There are
 Refresh the BSData base with:
 
 ```
-python -m code.bsdata.fetch --tag v1.9.7   # current pinned release
+python -m code.bsdata.fetch --tag v10.6.0   # current pinned release
 python -m code.bsdata.mapper                # rebuild parsed.json
 ```
 

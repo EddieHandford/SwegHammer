@@ -19,8 +19,8 @@ import urllib.request
 from pathlib import Path
 from typing import List, Optional
 
-REPO = "BSData/wh40k-2nd-edition"
-DEFAULT_TAG = "v1.9.7"
+REPO = "BSData/wh40k-10e"
+DEFAULT_TAG = "v10.6.0"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_DIR = REPO_ROOT / "data" / "bsdata" / "cache"

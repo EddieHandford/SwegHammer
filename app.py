@@ -38,38 +38,38 @@ COL_DRAW = "#aaaaaa"
 # ---------------------------------------------------------------------------
 
 PRESETS = {
-    "⚔️  Classic: Tactical Squad vs Boyz Mob": {
+    "⚔️  Classic: Intercessors vs Ork Boyz": {
         "description": (
             "The quintessential matchup — disciplined, high-accuracy Marines "
             "against a brutal Boyz mob. Elite armour and AP vs sheer numbers."
         ),
-        "a_name": "Tactical Squad",
-        "a_key": "angels_of_deaths_tactical_squad",
-        "b_name": "Goff Boyz Mob",
-        "b_key": "orks_goff_boyz_mob",
-        "points": 300,
+        "a_name": "Intercessor Squad",
+        "a_key": "space_marines_intercessor_squad",
+        "b_name": "Boyz",
+        "b_key": "orks_boyz",
+        "points": 500,
     },
-    "💀  Elite Clash: Terminator Captain vs Tyranid Warriors": {
+    "💀  Elite Clash: Terminators vs Necron Warriors": {
         "description": (
-            "A heavy-armoured Terminator Captain leads against Tyranid Warriors. "
-            "Elite vs elite."
+            "Heavy-armoured Marine Terminators against the resilient Necron line. "
+            "Elite firepower vs reanimating bodies."
         ),
-        "a_name": "Terminator Captain",
-        "a_key": "angels_of_deaths_terminator_captain",
-        "b_name": "Tyranid Warriors",
-        "b_key": "tyranids_tyranid_warrior_brood",
-        "points": 300,
+        "a_name": "Terminator Squad",
+        "a_key": "space_marines_terminator_squad",
+        "b_name": "Necron Warriors",
+        "b_key": "necrons_necron_warriors",
+        "points": 500,
     },
-    "🦾  Tank vs Horde: Predator vs Gretchin": {
+    "🤺  God-engine: Knight Errant vs Necrons": {
         "description": (
-            "A Predator Tank tries to grind through a tide of Gretchin. "
-            "Firepower vs volume of bodies."
+            "A 22-wound Imperial Knight Errant with melta cannon stomps through "
+            "a Necron Warrior line. Single super-heavy vs horde."
         ),
-        "a_name": "Space Marine Predator",
-        "a_key": "orks_space_marine_predator",
-        "b_name": "Gretchin Mobs",
-        "b_key": "orks_gretchin_mobs",
-        "points": 300,
+        "a_name": "Knight Errant",
+        "a_key": "imperial_knights_library_knight_errant",
+        "b_name": "Necron Warriors",
+        "b_key": "necrons_necron_warriors",
+        "points": 500,
     },
 }
 

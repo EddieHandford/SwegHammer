@@ -70,7 +70,7 @@ Never edit `parsed.json` directly — the mapper will overwrite it. Tune via
 overrides. Refresh the BSData base with:
 
 ```
-python -m code.bsdata.fetch --tag <release>
+python -m code.bsdata.fetch --tag <release>   # default v10.6.0
 python -m code.bsdata.mapper
 ```
 
