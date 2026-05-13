@@ -15,6 +15,7 @@ def build_random_army(
     unit_pool: Optional[Dict[str, UnitProfile]] = None,
     max_unit_fraction: float = 0.5,
     rng: Optional[random.Random] = None,
+    in_cover: bool = False,
 ) -> Army:
     """
     Build an army by randomly selecting units from `unit_pool` until the
@@ -37,7 +38,7 @@ def build_random_army(
         rng = random.Random()
 
     profiles: List[UnitProfile] = list(unit_pool.values())
-    army = Army(name)
+    army = Army(name, in_cover=in_cover)
     remaining = points_budget
     unit_type_spend: Dict[str, float] = {p.name: 0.0 for p in profiles}
 
@@ -62,12 +63,13 @@ def build_homogeneous_army(
     name: str,
     profile: UnitProfile,
     points_budget: float,
+    in_cover: bool = False,
 ) -> Army:
     """
     Fill an army with as many copies of a single unit type as the budget allows.
     Used for clean unit-vs-unit comparison.
     """
-    army = Army(name)
+    army = Army(name, in_cover=in_cover)
     remaining = points_budget
     while remaining >= profile.points_cost:
         army.add_unit(profile)
@@ -75,12 +77,12 @@ def build_homogeneous_army(
     return army
 
 
-def build_army_from_list(name: str, unit_keys: Sequence[str]) -> Army:
+def build_army_from_list(name: str, unit_keys: Sequence[str], in_cover: bool = False) -> Army:
     """
     Build an army from an explicit list of unit catalogue keys.
     Useful for testing specific compositions.
     """
-    army = Army(name)
+    army = Army(name, in_cover=in_cover)
     for key in unit_keys:
         profile = UNIT_CATALOG[key]
         army.add_unit(profile)

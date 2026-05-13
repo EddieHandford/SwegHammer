@@ -10,17 +10,18 @@ from .units import Unit, UnitProfile
 class Army:
     """A named collection of unit instances participating in a battle."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, in_cover: bool = False) -> None:
         self.name = name
         self.units: List[Unit] = []
         self.command_points: int = 3
+        self.in_cover: bool = in_cover
 
     # ------------------------------------------------------------------
     # Army construction
     # ------------------------------------------------------------------
 
     def add_unit(self, profile: UnitProfile) -> None:
-        self.units.append(Unit(profile))
+        self.units.append(Unit(profile, in_cover=self.in_cover))
 
     # ------------------------------------------------------------------
     # Derived state

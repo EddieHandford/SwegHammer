@@ -23,6 +23,11 @@ class BattleResult:
     b_start: int
     a_survivors: int        # surviving unit count
     b_survivors: int
+    round_history: list = None  # list of (a_alive, b_alive) per round
+
+    def __post_init__(self):
+        if self.round_history is None:
+            self.round_history = []
 
     @property
     def is_draw(self) -> bool:
@@ -68,10 +73,12 @@ class Battle:
         a_start = len(self.a.units)
         b_start = len(self.b.units)
 
+        round_history = [(a_start, b_start)]
         rounds_played = 0
         for rnd in range(1, MAX_ROUNDS + 1):
             rounds_played = rnd
             self._run_round(rnd)
+            round_history.append((self.a.unit_count, self.b.unit_count))
             if not self.a.alive_units or not self.b.alive_units:
                 break
 
@@ -94,6 +101,7 @@ class Battle:
             b_start=b_start,
             a_survivors=a_surv,
             b_survivors=b_surv,
+            round_history=round_history,
         )
 
     # ------------------------------------------------------------------
