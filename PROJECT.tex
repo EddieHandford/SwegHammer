@@ -1,0 +1,460 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------- packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{pifont}
+\usepackage{parskip}
+\usepackage{hyperref}
+
+% ------------------------------------------------------------ ownership tags
+\definecolor{eddieblue}{HTML}{1F6FB2}
+\definecolor{jakeorange}{HTML}{D2691E}
+\definecolor{eithergrey}{HTML}{555555}
+
+\newcommand{\eddie}{\textcolor{eddieblue}{\textsf{[E]}}}
+\newcommand{\jake}{\textcolor{jakeorange}{\textsf{[J]}}}
+\newcommand{\either}{\textcolor{eithergrey}{\textsf{[?]}}}
+
+% -------------------------------------------------------------- task markers
+\newcommand{\todo}{\ding{109}\,}    % open square
+\newcommand{\wip}{\ding{72}\,}      % star
+\newcommand{\done}{\ding{51}\,}     % check
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=eddieblue,
+  urlcolor=eddieblue,
+  pdftitle={SwegHammer Project Handbook},
+  pdfauthor={Eddie Handford and Jake},
+}
+
+% ------------------------------------------------------------------ title
+\title{\textbf{SwegHammer}\\\large Project Handbook \& Living To-Do List}
+\author{Eddie Handford \& Jake}
+\date{Last updated: \today}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+\bigskip\hrule\bigskip
+
+% =========================================================================
+\section{How to use this document}
+
+This is the single living reference for SwegHammer. Open it when you sit
+down, close it when you walk away. It contains the project vision, the
+math behind each combat phase, a checklist of everything left to do, and
+ownership tags so we both know who is on what.
+
+\subsection*{Conventions}
+\begin{itemize}[itemsep=2pt]
+  \item \todo open task \quad \wip in progress \quad \done done
+  \item \eddie\ Eddie's slice \quad \jake\ Jake's slice \quad \either\ unclaimed
+\end{itemize}
+
+When you pick a task up, swap its tag to your initial and flip the marker
+to \wip. When you finish, flip to \done\ and commit the \texttt{.tex}
+change alongside the code change so the doc never drifts from reality.
+
+\subsection*{Build}
+\begin{verbatim}
+pdflatex PROJECT.tex && pdflatex PROJECT.tex
+\end{verbatim}
+Two passes so the table of contents resolves. No external assets needed.
+
+% =========================================================================
+\section{Project vision}
+
+SwegHammer is a data-driven Warhammer 40K simulator with two goals:
+
+\begin{enumerate}[itemsep=2pt]
+  \item Derive fair, transparent points costs from Lanchester's Square
+    Law plus empirical simulation.
+  \item Test minimal rule tweaks (unit-by-unit activation,
+    command-point compensation for the smaller army) that fix structural
+    feel-bad moments like first-player advantage.
+\end{enumerate}
+
+The simulator is the experimental apparatus. It must be \emph{fast}
+enough to run thousands of battles in a calibration sweep, and
+\emph{detailed} enough to render a single battle as a watchable replay
+for sanity-checking the model.
+
+% =========================================================================
+\section{Where the project stands today}
+
+\subsection{What works}
+\begin{itemize}[itemsep=2pt]
+  \item \done Stochastic combat engine (\texttt{code/simulator.py}):
+    roll-to-hit, AP-adjusted armour save, cover modifier, damage.
+  \item \done Unit catalogue (\texttt{code/units.py}) with $\sim$17 units
+    across Marines, Chaos, Orks and Tyranids.
+  \item \done Unit-by-unit alternating activation
+    (\texttt{Battle.\_run\_round}).
+  \item \done Command-point bonus for the smaller army from Round 2.
+  \item \done Streamlit dashboard (\texttt{app.py}) with preset battles,
+    attrition curves, survivor histograms, points-vs-winrate sweep.
+\end{itemize}
+
+\subsection{What's missing in one sentence}
+
+The current ``combat'' is a single abstract attack action. There are no
+\emph{phases} (movement / shooting / charge / melee / morale), no map,
+no positions, and no terrain beyond a binary cover flag. The rest of
+this document is the plan to fill that in.
+
+% =========================================================================
+\section{Game phases}
+\label{sec:phases}
+
+40K splits a turn into discrete phases. We will mirror that structure
+but keep each phase pluggable so we can disable expensive ones for fast
+calibration runs.
+
+\subsection{Command phase}
+At the start of a unit's activation: gain 1 CP, resolve start-of-turn
+abilities, apply the smaller-army CP compensation rule.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \eddie\ Add a \texttt{CommandPhase} step run at activation
+    start.
+  \item \todo \eddie\ Move existing CP bonus logic out of
+    \texttt{Battle.\_run\_round} into the new phase so it lives in one
+    place.
+\end{itemize}
+
+\subsection{Movement phase}
+A unit moves up to its Move characteristic in inches. Optionally Advance
+($+d6$, no shooting that turn) or Fall Back (no shooting, no charging).
+
+\paragraph{Math.} Position update for a unit at $\mathbf{p}_t$ choosing
+destination $\mathbf{p}_{t+1}$ subject to
+\[
+  \lVert \mathbf{p}_{t+1} - \mathbf{p}_t \rVert
+  \;\leq\; M_{\text{unit}} \cdot \sigma_{\text{terrain}},
+\]
+where $\sigma_{\text{terrain}} \in (0,1]$ is the terrain-slowdown factor
+on the line the unit traverses.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \eddie\ Add \texttt{position: (float, float)} to
+    \texttt{Unit}.
+  \item \todo \eddie\ Add \texttt{move: float} (inches) to
+    \texttt{UnitProfile}.
+  \item \todo \eddie\ Implement \texttt{MovementPhase} with a tactical
+    heuristic: close on the nearest threat, claim the nearest objective,
+    kite if outranged.
+  \item \todo \either\ Advance roll ($+d6$) and Fall Back logic.
+\end{itemize}
+
+\subsection{Shooting phase}
+For every weapon in range and with line of sight: roll to hit, roll to
+wound, target rolls armour save, apply damage. \textbf{The current sim
+skips the wound roll}, which is the biggest single bit of math debt.
+
+\paragraph{Math.} Expected damage of one shot:
+\[
+  \mathbb{E}[D] \;=\; P_{\text{hit}}
+  \cdot P_w(S, T)
+  \cdot \bigl(1 - P_{\text{save}}(\mathrm{sv}, \mathrm{AP}, \mathrm{cover})\bigr)
+  \cdot d,
+\]
+where the wound probability $P_w$ follows the strength-vs-toughness
+table:
+\[
+  P_w(S, T) =
+  \begin{cases}
+    5/6 & S \geq 2T \\
+    4/6 & S > T \\
+    3/6 & S = T \\
+    2/6 & S < T \\
+    1/6 & 2S \leq T
+  \end{cases}
+\]
+and the save probability uses an effective save characteristic
+$\mathrm{sv}^* = \mathrm{sv} - \mathrm{AP} - \mathrm{cover}$ capped at
+$2$:
+\[
+  P_{\text{save}}(\mathrm{sv}^*) \;=\;
+  \max\!\Bigl(0,\; \tfrac{7 - \mathrm{sv}^*}{6}\Bigr).
+\]
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \done \eddie\ Add \texttt{strength: int} to \texttt{UnitProfile}.
+  \item \done \eddie\ Add \texttt{toughness: int} to \texttt{UnitProfile}.
+  \item \done \eddie\ Implement the wound table above as
+    \texttt{wound\_probability(S, T)} and wire it into
+    \texttt{Unit.attack()} between the hit and save rolls.
+  \item \todo \eddie\ Regenerate \texttt{BASELINE.md} catalogue table to
+    reflect the wound-roll-aware point costs (existing table is now
+    stale; mirror match still 50/50, but cross-faction matchups need
+    recalibrating).
+  \item \todo \eddie\ Add \texttt{range\_inches: int} to the weapon
+    profile; gate shooting on range and LoS.
+\end{itemize}
+
+\subsection{Charge phase}
+Declare a charge against an enemy within $12''$. Roll $2d6$; if the
+total is at least the distance to the target, move into base contact.
+
+\paragraph{Math.}
+\[
+  P_{\text{charge}}(d) \;=\; \Pr[2d_6 \geq d]
+  \;=\; \frac{\#\{(a,b) \in [1,6]^2 : a+b \geq d\}}{36}.
+\]
+Useful values: $P(6'') = 26/36 \approx 72\%$,
+$P(9'') = 10/36 \approx 28\%$, $P(12'') = 1/36 \approx 3\%$.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \either\ Implement \texttt{ChargePhase} with declaration,
+    roll and move.
+  \item \todo \either\ Track an ``engaged in melee'' flag that
+    suppresses shooting next turn.
+\end{itemize}
+
+\subsection{Fight (melee) phase}
+Units in base contact fight. Each model makes \texttt{attacks} attacks
+at \texttt{weapon\_skill}, then wound, save, damage as per shooting.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \either\ Add \texttt{attacks\_melee: int} and
+    \texttt{weapon\_skill: float} to \texttt{UnitProfile}.
+  \item \todo \either\ Implement \texttt{MeleePhase}; resolve in
+    fight-priority order (chargers fight first).
+\end{itemize}
+
+\subsection{Morale / battleshock phase}
+A unit that lost models tests Leadership; a failed test inflicts further
+casualties or status effects.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \either\ Add \texttt{leadership: int} to
+    \texttt{UnitProfile}.
+  \item \todo \either\ Decide between classic morale ($d6 + \text{losses}$
+    vs Ld) and 10th-edition battleshock; document the choice in
+    \texttt{THEORY.md}.
+\end{itemize}
+
+% =========================================================================
+\section{Terrain and map}
+\label{sec:terrain}
+
+\subsection{Coordinate system}
+Continuous 2D plane, units in inches. Standard boards: $44'' \times
+60''$ (Combat Patrol), $44'' \times 90''$ (Strike Force). Models are
+circles with a defined base radius.
+
+\subsection{Terrain types}
+\begin{tabular}{lll}
+\toprule
+Type & Effect & Notes \\
+\midrule
+Open        & none                              & default \\
+Light cover & $+1$ save vs ranged               & matches today's ``in cover'' flag \\
+Heavy cover & $+1$ save and $-1$ to hit         & ruins, barricades \\
+Obscuring   & blocks LoS through it             & forests, walls \\
+Impassable  & blocks movement                   & cliffs \\
+\bottomrule
+\end{tabular}
+
+\subsection{Line of sight}
+Naive implementation: draw a segment from the attacker centre to the
+target centre, check intersection with any obscuring polygon. If that
+becomes a perf bottleneck, swap in a spatial hash over terrain
+polygons.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \either\ \texttt{Terrain} dataclass: polygon + type.
+  \item \todo \either\ \texttt{Map} dataclass: board size, terrain list,
+    objective markers.
+  \item \todo \either\ \texttt{has\_line\_of\_sight(attacker, target, map)}.
+  \item \todo \either\ \texttt{cover\_state(unit, map)} returning the
+    cover type the unit currently occupies.
+  \item \todo \either\ Two or three stock maps shipped with the repo for
+    testing.
+\end{itemize}
+
+% =========================================================================
+\section{Visualization: the dual-mode plan}
+\label{sec:viz}
+
+The simulator needs to do two things that pull in opposite directions:
+\begin{enumerate}[itemsep=2pt]
+  \item Run thousands of fast battles for calibration sweeps.
+  \item Render a single battle in detail for sanity checks and demos.
+\end{enumerate}
+
+\paragraph{Design.} Keep the simulation core
+(\texttt{simulator.py}, \texttt{army.py}, \texttt{units.py})
+\emph{completely headless and deterministic given a seed}. Build
+rendering on top as an event-subscriber layer:
+
+\begin{itemize}[itemsep=4pt]
+  \item \textbf{Detailed mode} -- a \emph{Pygame} or
+    \emph{matplotlib-animation} renderer with units drawn as tokens on
+    a 2D top-down map, with range circles, LoS lines, charge arcs. Used
+    for: replaying a single battle, demo videos, debugging movement bugs.
+  \item \textbf{Fast mode} -- \emph{no rendering at all}, just numerical
+    state. Used for: Monte Carlo sweeps where we run $10^3$--$10^4$
+    battles per matchup and only care about win rates and attrition
+    curves.
+\end{itemize}
+
+Crucially, the two modes share \emph{the same} \texttt{Battle} object;
+the mode flag just toggles which subscriber is attached. A bug in
+the visualisation therefore cannot affect calibration numbers.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \either\ Refactor \texttt{Battle.run()} to emit events
+    (\texttt{UnitMoved}, \texttt{UnitShot}, \texttt{UnitKilled}, \dots)
+    via a subscriber list.
+  \item \todo \either\ \texttt{NullRenderer} -- no-op, the fast-mode
+    default.
+  \item \todo \either\ \texttt{PygameRenderer} -- consumes the event
+    stream, paints frames live.
+  \item \todo \either\ Optional: matplotlib-animation renderer that
+    outputs a GIF or MP4, embeddable in the Streamlit app.
+\end{itemize}
+
+% =========================================================================
+\section{Front end}
+
+The current Streamlit app (\texttt{app.py}) is a good v1 dashboard. We
+will extend it rather than replace it.
+
+\paragraph{Near-term}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \eddie\ Embed an animated replay of one battle on a map.
+  \item \todo \eddie\ Map picker -- choose which stock map to fight on.
+  \item \todo \eddie\ Per-unit cover and terrain overrides in the
+    sidebar.
+\end{itemize}
+
+\paragraph{Longer-term}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \either\ Army builder UI: drag-and-drop datasheets, points
+    totalled live.
+  \item \todo \either\ Calibration browser: view the most recent sweep,
+    drill into outlier matchups.
+\end{itemize}
+
+% =========================================================================
+\section{Datasheet ingestion}
+
+Importing real datasheets at scale is Jake's slice of the project. The
+shape of the data model needs to be agreed before he starts, otherwise
+we will end up rewriting \texttt{units.py} twice.
+
+\paragraph{To do}
+\begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \jake\ Pick a source format (Wahapedia CSV / JSON dump,
+    BattleScribe XML, hand-rolled YAML\,\dots).
+  \item \todo \jake\ Define a target schema that maps cleanly onto
+    \texttt{UnitProfile} once strength / toughness / move /
+    weapon\_skill / leadership are added.
+  \item \todo \jake\ Build a loader that yields \texttt{UnitProfile}
+    instances, with a test that round-trips against a hand-coded
+    expected unit (e.g.\ Intercessor squad).
+  \item \todo \jake\ Decide how multi-weapon units are flattened (single
+    average weapon profile vs.\ list of weapons resolved separately).
+\end{itemize}
+
+% =========================================================================
+\section{Combat math reference card}
+
+\subsection{Hit / wound / save chain}
+For one attack with weapon profile $(P_{\text{hit}}, S, \mathrm{AP}, d)$
+against target $(T, \mathrm{sv})$ and cover bonus $c \in \{0,1\}$:
+\[
+  \mathbb{E}[\text{damage}]
+  \;=\; P_{\text{hit}}
+  \cdot P_w(S, T)
+  \cdot \bigl(1 - P_{\text{save}}(\mathrm{sv} - \mathrm{AP} - c)\bigr)
+  \cdot d.
+\]
+
+\subsection{Lanchester score}
+\[
+  \text{Score}(\text{unit}) \;=\; \bigl(H \cdot D \cdot P_{\text{hit}}\bigr)^2,
+  \qquad
+  \text{Score}(\text{army}) \;=\; \sum_i e_i^{\,2}.
+\]
+
+\subsection{Charge probability}
+\[
+  P_{\text{charge}}(d)
+  \;=\; \frac{1}{36}
+    \sum_{a=1}^{6} \sum_{b=1}^{6} \mathbf{1}\!\left[a+b \geq d\right].
+\]
+
+% =========================================================================
+\section{Collaboration workflow}
+
+\subsection{Ownership at a glance}
+\begin{tabular}{lll}
+\toprule
+Area & Lead & Status \\
+\midrule
+Simulation core (phases, math)    & \eddie\ Eddie & in progress \\
+Datasheet ingestion + catalogue   & \jake\ Jake   & not started \\
+Terrain \& maps                   & \either\ TBD  & not started \\
+Visualisation (dual-mode)         & \either\ TBD  & not started \\
+Streamlit front end               & \eddie\ Eddie & v1 done \\
+\bottomrule
+\end{tabular}
+
+\subsection{Picking the project back up}
+\begin{enumerate}[itemsep=2pt]
+  \item \texttt{git pull}.
+  \item Open this PDF and scan the unchecked items in your area.
+  \item Pick the smallest task that unblocks something else.
+  \item Commit with a clear message; tick the box in this file in the
+    same commit.
+\end{enumerate}
+
+\subsection{When something is safe to merge to main}
+\begin{itemize}[itemsep=2pt]
+  \item Mirror-match calibration (Space Marine vs Space Marine) still
+    sits at $50\% \pm 2\%$ over 1000 battles.
+  \item \texttt{python run.py} still runs end-to-end.
+  \item The Streamlit app still launches and the preset battles still
+    produce charts.
+\end{itemize}
+
+% =========================================================================
+\section{Glossary}
+
+\begin{tabular}{lp{0.7\linewidth}}
+\toprule
+Term & Meaning \\
+\midrule
+AP                & Armour penetration; negative integer degrading target save. \\
+BS / WS           & Ballistic / Weapon Skill; roll needed to hit. \\
+Charge phase      & Phase where units roll $2d6$ to close into base contact. \\
+Cover             & Terrain bonus to saving throws or hit penalty. \\
+CP                & Command Point; resource for stratagems and rerolls. \\
+Lanchester score  & $(H \cdot D \cdot P)^2$; theoretical effectiveness of a unit. \\
+LoS               & Line of sight; whether the attacker can ``see'' the target through terrain. \\
+Stochastic mode   & Simulator with real dice rolls. \\
+Deterministic mode& Simulator using expected values, no rolls. \\
+\bottomrule
+\end{tabular}
+
+\end{document}
