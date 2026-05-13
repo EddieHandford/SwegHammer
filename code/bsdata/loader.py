@@ -50,6 +50,7 @@ class CatalogEntry:
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
+    points_override: float = 0.0
     loadout: Optional[List[str]] = None
     notes: str = ""
     enabled: bool = True
@@ -78,6 +79,7 @@ class CatalogEntry:
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
+            points_override=float(d.get("points_override", 0)),
             loadout=d.get("loadout") or [],
             notes=d.get("notes", ""),
             enabled=bool(d.get("enabled", True)),
@@ -130,6 +132,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),
+        "points_override": override.get("points_override", base.points_override),
         "loadout": override.get("loadout", base.loadout),
         "notes": override.get("notes", base.notes),
         "enabled": override.get("enabled", base.enabled),

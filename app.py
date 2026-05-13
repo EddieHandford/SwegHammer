@@ -19,7 +19,13 @@ from code.army_builder import (
 from code.events import EventLog
 from code.factions import FACTION_COLOURS, colour_for
 from code.map import Map
-from code.maps import STOCK_MAPS, DEFAULT_MAP
+from code.maps import (
+    DEFAULT_MAP,
+    MAP_POINTS_RANGE,
+    STOCK_MAPS,
+    auto_select_map_key,
+    maps_fitting,
+)
 from code.renderer import event_description, render_frame
 from code.simulator import Battle, BattleResult
 from code.units import UNIT_CATALOG, UnitProfile, save_probability
@@ -497,11 +503,36 @@ with st.sidebar:
 
     st.divider()
     st.subheader("Battlefield")
-    map_key = st.selectbox(
-        "Map",
-        list(STOCK_MAPS.keys()),
-        format_func=lambda k: STOCK_MAPS[k].name,
-    )
+    # Points to drive map sizing: prefer the points slider in preset/FvF modes,
+    # fall back to the composition total in custom.
+    points_for_map = float(points) if points else 1000.0
+
+    if mode == "Custom Battle":
+        # Custom mode: filter the dropdown to maps that suit the army size,
+        # but let the user override.
+        fitting = maps_fitting(points_for_map)
+        all_keys = list(STOCK_MAPS.keys())
+        # Order: fitting ones first, then the rest
+        ordered = fitting + [k for k in all_keys if k not in fitting]
+        default_key = auto_select_map_key(points_for_map)
+        map_key = st.selectbox(
+            "Map (default tuned to your army size)",
+            ordered,
+            index=ordered.index(default_key) if default_key in ordered else 0,
+            format_func=lambda k: (
+                f"{STOCK_MAPS[k].name}  "
+                f"({MAP_POINTS_RANGE[k][0]}–{MAP_POINTS_RANGE[k][1]} pts)"
+            ),
+        )
+    else:
+        # Preset / FvF: auto-select based on the points budget. No dropdown.
+        map_key = auto_select_map_key(points_for_map)
+        lo, hi = MAP_POINTS_RANGE[map_key]
+        st.caption(
+            f"Auto-selected for {points_for_map:.0f} pts: "
+            f"**{STOCK_MAPS[map_key].name}** ({lo}–{hi} pts band)"
+        )
+
     selected_map = STOCK_MAPS[map_key]
     st.caption(
         f"{selected_map.width:.0f}\" x {selected_map.height:.0f}\" "
@@ -540,38 +571,81 @@ army_b_preview = _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
 st.title("⚔️ SwegHammer Battle Simulator")
 
 
-def _composition_caption(comp: List[Tuple[str, int]]) -> str:
-    bits = [f"{n} × {UNIT_CATALOG[k].name}" for k, n in comp if n > 0]
-    return ", ".join(bits) if bits else "(no units selected)"
+def _ability_glyphs(p: UnitProfile) -> str:
+    bits = []
+    if p.lethal_hits: bits.append("LH")
+    if p.sustained_hits: bits.append(f"SH{p.sustained_hits}")
+    if p.twin_linked: bits.append("TL")
+    if p.devastating_wounds: bits.append("DW")
+    if p.invuln_save <= 6: bits.append(f"inv {p.invuln_save}+")
+    return " · ".join(bits) if bits else "—"
+
+
+def _render_army_overview(
+    label: str, faction: str, comp: List[Tuple[str, int]],
+    in_cover: bool, colour: str,
+) -> None:
+    """Table-style army summary: unit rows + totals."""
+    st.markdown(
+        f"### <span style='color:{colour}'>⬤ {label}</span>"
+        f"<span style='color:#aaa;font-weight:normal;font-size:0.85em'>"
+        f"  &middot; {faction}{' &middot; 🏠 in cover' if in_cover else ''}"
+        f"</span>",
+        unsafe_allow_html=True,
+    )
+
+    rows = []
+    total_models = 0
+    total_wounds = 0.0
+    total_pts = 0.0
+    for unit_key, count in comp:
+        if count <= 0:
+            continue
+        p = UNIT_CATALOG[unit_key]
+        unit_pts = p.points_cost * count
+        unit_hp = p.health * count
+        sv_str = f"{p.save}+" if p.save <= 6 else "—"
+        rows.append({
+            "Unit":   p.name,
+            "Count":  count,
+            "W":      f"{p.health:g}",
+            "T":      p.toughness,
+            "Sv":     sv_str,
+            "A×D":    f"{p.attacks}×{p.weapon_damage_per_shot:g}",
+            "AP":     p.ap if p.ap else 0,
+            "Pts ea": f"{p.points_cost:.0f}",
+            "Total":  f"{unit_pts:.0f}",
+            "Abil":   _ability_glyphs(p),
+        })
+        total_models += count
+        total_wounds += unit_hp
+        total_pts += unit_pts
+
+    if not rows:
+        st.caption("_(no units selected)_")
+        return
+
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.caption(
+        f"**{total_models}** models  ·  "
+        f"**{total_wounds:g}** total wounds  ·  "
+        f"**{total_pts:.0f}** pts"
+    )
 
 
 col1, col_vs, col2 = st.columns([5, 1, 5])
 
 with col1:
-    if profile_a is not None:
-        unit_card(profile_a, f"⬤ {a_name}", COL_A, a_cover)
-    st.caption(
-        f"**{a_faction}** — {_composition_caption(a_comp)}\n\n"
-        f"{'🏠 In cover  ' if a_cover else ''}"
-        f"{len(army_a_preview.units)} models @ "
-        f"{_composition_total_points(a_comp):.0f} pts"
-    )
+    _render_army_overview(a_name, a_faction, a_comp, a_cover, COL_A)
 
 with col_vs:
     st.markdown(
-        "<div style='text-align:center;font-size:2rem;padding-top:2.5rem'>⚡</div>",
+        "<div style='text-align:center;font-size:2rem;padding-top:5rem'>⚡</div>",
         unsafe_allow_html=True,
     )
 
 with col2:
-    if profile_b is not None:
-        unit_card(profile_b, f"⬤ {b_name}", COL_B, b_cover)
-    st.caption(
-        f"**{b_faction}** — {_composition_caption(b_comp)}\n\n"
-        f"{'🏠 In cover  ' if b_cover else ''}"
-        f"{len(army_b_preview.units)} models @ "
-        f"{_composition_total_points(b_comp):.0f} pts"
-    )
+    _render_army_overview(b_name, b_faction, b_comp, b_cover, COL_B)
 
 st.divider()
 

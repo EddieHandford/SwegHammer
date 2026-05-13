@@ -82,3 +82,46 @@ STOCK_MAPS = {
 }
 
 DEFAULT_MAP = COMBAT_PATROL_BASIC
+
+
+# ---------------------------------------------------------------------------
+# Battle-size tagging (10e battle sizes)
+# ---------------------------------------------------------------------------
+#
+# 10e standard battle sizes:
+#   Combat Patrol  500 pts, 30" x 40"
+#   Incursion     1000 pts, 44" x 60"
+#   Strike Force  2000 pts, 44" x 60"
+#   Onslaught     3000 pts, 44" x 90"
+#
+# Our stock maps don't all match those exact footprints, but we tag each with
+# a sensible points range so the front end can auto-select or filter.
+MAP_POINTS_RANGE = {
+    "combat_patrol": (250, 1250),   # 44 x 60, ruin + barricade — Combat Patrol / Incursion
+    "open_plains":   (500, 2000),   # 44 x 60, sparse terrain — Strike Force friendly
+    "urban_sprawl":  (1500, 3500),  # 44 x 90, asymmetric — Strike Force / Onslaught
+}
+
+
+def auto_select_map_key(points: float) -> str:
+    """Pick the stock map whose recommended range best fits this points budget."""
+    candidates = []
+    for key, (lo, hi) in MAP_POINTS_RANGE.items():
+        if lo <= points <= hi:
+            # Prefer the band whose centre is closest to the budget
+            centre = (lo + hi) / 2.0
+            candidates.append((abs(centre - points), key))
+    if candidates:
+        return min(candidates)[1]
+    # Out-of-range: fall back to the closest band edge
+    closest = min(
+        MAP_POINTS_RANGE.items(),
+        key=lambda kv: min(abs(kv[1][0] - points), abs(kv[1][1] - points)),
+    )
+    return closest[0]
+
+
+def maps_fitting(points: float) -> "list[str]":
+    """All stock map keys whose recommended range includes `points`."""
+    fits = [k for k, (lo, hi) in MAP_POINTS_RANGE.items() if lo <= points <= hi]
+    return fits or list(MAP_POINTS_RANGE.keys())

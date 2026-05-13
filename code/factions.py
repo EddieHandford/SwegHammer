@@ -39,6 +39,7 @@ CODEX_TO_FACTION: Dict[str, str] = {
     "Imperium - Adeptus Mechanicus.cat":           "Adeptus Mechanicus",
     "Imperium - Imperial Knights.cat":             "Imperial Knights",
     "Imperium - Imperial Knights - Library.cat":   "Imperial Knights",
+    "Imperium - Adeptus Titanicus.cat":            "Adeptus Titanicus",
     "Imperium - Astra Militarum.cat":              "Astra Militarum",
     "Imperium - Astra Militarum - Library.cat":    "Astra Militarum",
     "Imperium - Agents of the Imperium.cat":       "Agents of the Imperium",
@@ -52,9 +53,13 @@ CODEX_TO_FACTION: Dict[str, str] = {
     "Chaos - Chaos Daemons Library.cat":           "Chaos Daemons",
     "Chaos - Chaos Knights.cat":                   "Chaos Knights",
     "Chaos - Chaos Knights Library.cat":           "Chaos Knights",
+    "Chaos - Titanicus Traitoris.cat":             "Chaos Titans",
 
     # ---- Xenos ----
     "Aeldari - Aeldari Library.cat":               "Aeldari",
+    "Aeldari - Craftworlds.cat":                   "Aeldari (Craftworlds)",
+    "Aeldari - Drukhari.cat":                      "Drukhari",
+    "Aeldari - Ynnari.cat":                        "Ynnari",
     "Necrons.cat":                                 "Necrons",
     "Orks.cat":                                    "Orks",
     "Tyranids.cat":                                "Tyranids",
@@ -105,6 +110,11 @@ FACTION_COLOURS: Dict[str, str] = {
 
     # Xenos
     "Aeldari":                  "#6A1B9A",   # Wraithbone purple (Ulthwé-ish)
+    "Aeldari (Craftworlds)":    "#6A1B9A",
+    "Drukhari":                 "#3B0E2E",   # Dark Kin near-black-purple
+    "Ynnari":                   "#1F2B5A",   # Reborn navy
+    "Chaos Titans":             "#3A2A4F",   # Traitor titan dark plum
+    "Adeptus Titanicus":        "#0F1E3E",   # Loyalist titan deep blue
     "Necrons":                  "#2E7D32",   # Necrodermis-green / arc lightning
     "Orks":                     "#4A6B27",   # Goff green
     "Tyranids":                 "#6B1B5F",   # Leviathan / Behemoth purple

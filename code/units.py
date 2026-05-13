@@ -173,6 +173,7 @@ class UnitProfile:
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
+    points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
 
     @property
     def avg_damage_per_action(self) -> float:
@@ -190,6 +191,8 @@ class UnitProfile:
 
     @property
     def points_cost(self) -> float:
+        if self.points_override and self.points_override > 0:
+            return float(self.points_override)
         return points_for(
             self.health, self.damage, self.hit_probability,
             self.ap, self.save, self.strength, self.toughness,
@@ -347,6 +350,7 @@ def _build_catalog() -> Dict[str, UnitProfile]:
             twin_linked=entry.twin_linked,
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
+            points_override=entry.points_override,
         )
     return catalog
 
