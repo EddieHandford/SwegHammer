@@ -44,6 +44,8 @@ class CatalogEntry:
     max_models: int = 1
     strength: int = 4
     toughness: int = 4
+    leadership: int = 7
+    oc: int = 1
     attacks: int = 1
     weapon_damage_per_shot: float = 0.0
     lethal_hits: bool = False
@@ -73,6 +75,8 @@ class CatalogEntry:
             max_models=int(d.get("max_models", 1)),
             strength=int(d.get("strength", 4)),
             toughness=int(d.get("toughness", 4)),
+            leadership=int(d.get("leadership", 7)),
+            oc=int(d.get("oc", 1)),
             attacks=int(d.get("attacks", 1)),
             weapon_damage_per_shot=float(d.get("weapon_damage_per_shot", 0)),
             lethal_hits=bool(d.get("lethal_hits", False)),
@@ -147,6 +151,8 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "max_models": override.get("max_models", base.max_models),
         "strength": override.get("strength", base.strength),
         "toughness": override.get("toughness", base.toughness),
+        "leadership": override.get("leadership", base.leadership),
+        "oc": override.get("oc", base.oc),
         "attacks": override.get("attacks", base.attacks),
         "weapon_damage_per_shot": override.get("weapon_damage_per_shot", base.weapon_damage_per_shot),
         "lethal_hits": override.get("lethal_hits", base.lethal_hits),

@@ -122,6 +122,9 @@ class Battle:
         # UIDs of units that Advanced in the current round — they skip shooting.
         # Reset at the start of each round.
         self._advanced_this_round: set = set()
+        # UIDs of units that failed their Battleshock test this round — OC 0
+        # so they don't contribute to objective control. Reset per round.
+        self._battleshocked_this_round: set = set()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -234,11 +237,15 @@ class Battle:
             a_oc = 0
             b_oc = 0
             for u in self.a.alive_units:
+                if u.uid in self._battleshocked_this_round:
+                    continue   # Battleshocked = OC 0
                 dx = u.position[0] - obj_pos[0]
                 dy = u.position[1] - obj_pos[1]
                 if dx * dx + dy * dy <= r2:
                     a_oc += getattr(u.profile, "oc", 1) or 1
             for u in self.b.alive_units:
+                if u.uid in self._battleshocked_this_round:
+                    continue
                 dx = u.position[0] - obj_pos[0]
                 dy = u.position[1] - obj_pos[1]
                 if dx * dx + dy * dy <= r2:
@@ -282,8 +289,21 @@ class Battle:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
 
-        # New round = no unit has Advanced yet.
+        # New round = no unit has Advanced yet, no battleshock yet.
         self._advanced_this_round = set()
+        self._battleshocked_this_round = set()
+
+        # Battleshock phase (after Round 1). 10e core rule: any unit Below
+        # Half-Strength tests; pass on 2d6 >= Ld. We treat each Unit
+        # instance as a stand-in for a single squad member; "below half
+        # strength" maps to "current HP < starting HP / 2".
+        if round_num > 1:
+            for army in (self.a, self.b):
+                for u in army.alive_units:
+                    if u.current_health < u.profile.health / 2.0:
+                        roll = random.randint(1, 6) + random.randint(1, 6)
+                        if roll < u.profile.leadership:
+                            self._battleshocked_this_round.add(u.uid)
 
         first, second = (
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)

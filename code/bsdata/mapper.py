@@ -383,6 +383,8 @@ class MappedUnit:
     # Stat-line attacker / defender numbers for the wound roll
     strength: int = 4        # weapon S used in the wound roll
     toughness: int = 4       # unit T defended in the wound roll
+    leadership: int = 7      # Ld target for Battleshock (2D6 >= Ld passes)
+    oc: int = 1              # Objective Control
     # Per-shot decomposition + weapon abilities
     attacks: int = 1
     weapon_damage_per_shot: float = 0.0
@@ -463,6 +465,8 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         max_models=max_m,
         strength=best.strength,
         toughness=stats.toughness or 4,
+        leadership=stats.leadership or 7,
+        oc=stats.oc or 1,
         attacks=max(1, int(round(best.attacks))),
         weapon_damage_per_shot=round(best.damage, 2),
         lethal_hits=best.lethal_hits,

@@ -173,6 +173,8 @@ class UnitProfile:
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
+    leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
+    oc: int = 1                                # Objective Control characteristic (10e)
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
 
     @property
@@ -339,6 +341,8 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             save=entry.save,
             strength=entry.strength,
             toughness=entry.toughness,
+            leadership=entry.leadership,
+            oc=entry.oc,
             faction=faction_of(entry.codex),
             min_models=entry.min_models,
             max_models=entry.max_models,
