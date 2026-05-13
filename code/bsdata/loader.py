@@ -26,6 +26,7 @@ from typing import Dict, List, Optional
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PARSED_PATH = REPO_ROOT / "data" / "bsdata" / "parsed.json"
 OVERRIDES_PATH = REPO_ROOT / "data" / "overrides.json"
+CALIBRATED_PATH = REPO_ROOT / "data" / "calibrated_points.json"
 
 
 @dataclass
@@ -105,6 +106,27 @@ def _load_overrides() -> Dict[str, Dict]:
     return payload.get("units", {})
 
 
+def _load_calibrated_overrides() -> Dict[str, Dict]:
+    """
+    Read data/calibrated_points.json (written by code/balancer.py) and shape
+    its `balanced_points` values into the same {unit_key: {points_override: N}}
+    layout used by overrides.json. Skips entries whose calibration didn't
+    converge so unreliable values don't pollute the live catalogue.
+    """
+    if not CALIBRATED_PATH.exists():
+        return {}
+    payload = json.loads(CALIBRATED_PATH.read_text(encoding="utf-8"))
+    out: Dict[str, Dict] = {}
+    for key, record in payload.get("units", {}).items():
+        if not record.get("converged"):
+            continue
+        balanced = float(record.get("balanced_points") or 0)
+        if balanced <= 0:
+            continue
+        out[key] = {"points_override": balanced}
+    return out
+
+
 def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> CatalogEntry:
     """Apply an override dict to a base entry, or create a new entry from scratch."""
     if base is None:
@@ -141,15 +163,31 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
     return CatalogEntry.from_dict(merged)
 
 
-def load_catalog(include_disabled: bool = False) -> Dict[str, CatalogEntry]:
-    """Build the merged catalogue from parsed.json + overrides.json."""
+def load_catalog(
+    include_disabled: bool = False,
+    use_calibrated: bool = False,
+) -> Dict[str, CatalogEntry]:
+    """
+    Build the merged catalogue. Layers, in precedence order (later wins):
+
+      1. data/bsdata/parsed.json     — BSData-derived base stats
+      2. data/overrides.json         — hand-tuned modifications
+      3. data/calibrated_points.json — balancer-derived points_override
+                                       (only applied if use_calibrated=True
+                                       AND the calibration converged)
+    """
     base = _load_parsed()
     overrides = _load_overrides()
+    calibrated = _load_calibrated_overrides() if use_calibrated else {}
 
     out: Dict[str, CatalogEntry] = {}
-    keys = set(base) | set(overrides)
+    keys = set(base) | set(overrides) | set(calibrated)
     for key in keys:
-        entry = _apply_override(base.get(key), overrides.get(key, {}), key)
+        # Merge overrides FIRST, then calibrated on top so balancer output
+        # wins over manual overrides for points only.
+        merged_override = dict(overrides.get(key, {}))
+        merged_override.update(calibrated.get(key, {}))
+        entry = _apply_override(base.get(key), merged_override, key)
         if not include_disabled and not entry.enabled:
             continue
         out[entry.key] = entry

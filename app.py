@@ -28,7 +28,13 @@ from code.maps import (
 )
 from code.renderer import event_description, render_frame
 from code.simulator import Battle, BattleResult
-from code.units import UNIT_CATALOG, UnitProfile, save_probability
+from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
+
+# `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
+# below once the sidebar's "Use SwegHammer balanced points" toggle is read.
+# Module-level helper functions resolve `UNIT_CATALOG` from app.py's globals
+# at call time, so rebinding propagates without further plumbing.
+UNIT_CATALOG = _RAW_CATALOG
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -342,12 +348,32 @@ with st.sidebar:
     st.caption("Battle Simulator")
     st.divider()
 
+    # Points-source toggle. When ON, calibrated_points.json overrides the
+    # derived points_for() values for any unit whose calibration converged.
+    use_balanced = st.toggle(
+        "Use SwegHammer balanced points",
+        value=False,
+        help=(
+            "Off: use the analytic points formula derived from each unit's "
+            "stats. On: substitute the empirical points produced by "
+            "code/balancer.py for units that converged in calibration. "
+            "Useful for A/B-comparing GW-style points vs SwegHammer-balanced."
+        ),
+    )
+    st.divider()
+
     mode = st.radio(
         "Mode",
         ["Preset Battle", "Custom Battle", "Faction vs Faction (random)"],
         horizontal=False,
     )
     st.divider()
+
+    # Rebind module-level UNIT_CATALOG based on the toggle so downstream
+    # widgets (composition picker, preset lookup) and helpers see the right
+    # catalogue. Python resolves `UNIT_CATALOG` from app.py's module globals
+    # at call time, so this rebind propagates without further plumbing.
+    UNIT_CATALOG = balanced_catalog() if use_balanced else _RAW_CATALOG
 
     if mode == "Preset Battle":
         preset_key = st.selectbox("Choose a preset", list(PRESETS.keys()))

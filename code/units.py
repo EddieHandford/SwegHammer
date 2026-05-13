@@ -324,12 +324,12 @@ class Unit:
 #     python -m code.bsdata.fetch --tag <release>
 #     python -m code.bsdata.mapper
 #
-def _build_catalog() -> Dict[str, UnitProfile]:
+def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
     from .bsdata.loader import load_catalog
     from .factions import faction_of
 
     catalog: Dict[str, UnitProfile] = {}
-    for key, entry in load_catalog().items():
+    for key, entry in load_catalog(use_calibrated=use_calibrated).items():
         catalog[key] = UnitProfile(
             name=entry.name,
             health=entry.health,
@@ -356,6 +356,18 @@ def _build_catalog() -> Dict[str, UnitProfile]:
 
 
 UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
+# Same units, but with balancer-derived points overrides layered on (only
+# converged calibration entries are applied). Lazily built when first
+# requested so importing code.units stays cheap.
+_BALANCED_CATALOG: Dict[str, UnitProfile] | None = None
+
+
+def balanced_catalog() -> Dict[str, UnitProfile]:
+    """Return the catalogue with calibrated_points.json applied as overrides."""
+    global _BALANCED_CATALOG
+    if _BALANCED_CATALOG is None:
+        _BALANCED_CATALOG = _build_catalog(use_calibrated=True)
+    return _BALANCED_CATALOG
 
 
 # --- Dead code below: hand-rolled catalogue resurrected by an earlier merge
