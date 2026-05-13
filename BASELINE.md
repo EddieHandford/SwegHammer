@@ -20,66 +20,60 @@ All points costs and effectiveness scores are calibrated against:
 
 **Points cost**: `15 pts` (baseline anchor)
 
+## Points Formula (current)
+
+Implemented in `code/units.py::points_for`. The cost combines two ratios against
+the baseline Marine:
+
+```
+offensive_ratio = damage × hit_prob × (1 - baseline_save_after_AP)
+                  ────────────────────────────────────────────────
+                  baseline_damage × baseline_hit_prob × baseline_survival
+
+defensive_ratio = (health / (1 - own_save_prob))
+                  ──────────────────────────────
+                  (baseline_health / baseline_survival)
+
+points = 15 × (offensive_ratio + defensive_ratio) / 2
+```
+
+Averaging the two ratios (rather than multiplying) prevents runaway costs for
+units that dominate on both axes — see `THEORY.md` for the Lanchester derivation.
+
 ## Unit Catalogue
 
-The following units are included in the Phase One catalogue. Stats represent a single model
-(for single-model units) or the squad as a single activatable entity (for multi-wound units).
+The catalogue is derived from BSData's WH40k 2nd-edition data files. There are
+~240 units in `UNIT_CATALOG`, built at import time from:
 
-All costs use the Phase One linear formula:
+- `data/bsdata/parsed.json` — base stats produced by `code/bsdata/mapper.py`
+  walking each unit's selectionEntry tree and picking the best legal weapon
+  (the loadout that maximises damage through baseline-Marine armour).
+- `data/overrides.json` — per-unit hand tuning. Any field listed here overrides
+  the BSData base. Entries without a corresponding BSData entry become
+  fully hand-rolled units.
+
+Refresh the BSData base with:
+
 ```
-points = 15 × (health × damage × hit_prob) / (2/3)
-       = 22.5 × health × damage × hit_prob
+python -m code.bsdata.fetch --tag v1.9.7   # current pinned release
+python -m code.bsdata.mapper                # rebuild parsed.json
 ```
 
-### Space Marines
-
-| Unit | Health | Damage | Hit Prob | Effectiveness | Points |
-|------|--------|--------|----------|---------------|--------|
-| Scout Marine | 1 | 1 | 0.50 | 0.50 | 11 |
-| Space Marine | 1 | 1 | 0.667 | 0.667 | 15 |
-| Veteran Marine | 2 | 1 | 0.667 | 1.333 | 30 |
-| Terminator | 3 | 2 | 0.667 | 4.000 | 90 |
-| Dreadnought | 8 | 3 | 0.667 | 16.00 | 360 |
-| Predator Tank | 11 | 4 | 0.667 | 29.33 | 660 |
-
-### Chaos Forces
-
-| Unit | Health | Damage | Hit Prob | Effectiveness | Points |
-|------|--------|--------|----------|---------------|--------|
-| Cultist | 1 | 1 | 0.50 | 0.50 | 11 |
-| Chaos Space Marine | 2 | 1 | 0.667 | 1.333 | 30 |
-| Chaos Terminator | 3 | 2 | 0.667 | 4.000 | 90 |
-| Chaos Dreadnought | 8 | 3 | 0.667 | 16.00 | 360 |
-
-### Ork Forces
-
-| Unit | Health | Damage | Hit Prob | Effectiveness | Points |
-|------|--------|--------|----------|---------------|--------|
-| Gretchin | 1 | 1 | 0.333 | 0.333 | 7 |
-| Ork Boy | 2 | 1 | 0.500 | 1.000 | 22 |
-| Ork Nob | 3 | 2 | 0.500 | 3.000 | 67 |
-| Mek Gun | 5 | 3 | 0.500 | 7.500 | 169 |
-
-### Tyranid Forces
-
-| Unit | Health | Damage | Hit Prob | Effectiveness | Points |
-|------|--------|--------|----------|---------------|--------|
-| Termagant | 1 | 1 | 0.500 | 0.500 | 11 |
-| Hormagaunt | 1 | 2 | 0.500 | 1.000 | 22 |
-| Warrior | 3 | 2 | 0.667 | 4.000 | 90 |
-| Carnifex | 10 | 4 | 0.667 | 26.67 | 600 |
+See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 
 ## Calibration Methodology
 
-### Phase One (Current)
+### Phase One (current)
 
-Points costs are set using the linear formula above. This provides a reasonable starting point
-where:
-- A unit that deals twice as much damage per activation costs twice as many points.
-- A unit with twice the health costs twice as many points.
+Points costs are derived from the offensive/defensive-ratio formula above against
+the baseline Marine. Stats come from BSData per the loadout-optimised mapper —
+each unit's "best legal weapon" sets its damage and AP. Overrides correct
+mapper artefacts (squad weapons mis-applied per-model, missing armour profiles
+that fall outside the depth-3 wargear walk, etc.).
 
-This does **not** guarantee Lanchester balance (equal aggregate score for equal points), but
-provides a well-understood baseline for the simulation to measure against.
+This does **not** guarantee Lanchester balance (equal aggregate score for equal
+points), but provides a well-understood baseline for the simulation to measure
+against.
 
 ### Phase Two (Planned)
 

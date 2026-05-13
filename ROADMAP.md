@@ -5,8 +5,10 @@
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 0 | ✅ Complete | Project setup, documentation, baseline definition |
-| Phase 1 | ✅ Complete | Deterministic simulator, initial unit catalogue |
-| Phase 2 | 🔲 Planned | Stochastic damage, variance analysis |
+| Phase 1 | ✅ Complete | Deterministic simulator, initial 18-unit hand-rolled catalogue |
+| Phase 1.5 | ✅ Complete | Stochastic damage, armour saves, AP, cover |
+| Phase 1.6 | ✅ Complete | BSData WH40k 2nd-ed ingestion, override layer |
+| Phase 2 | 🔲 Active | Override tuning — repair mapper artefacts, balance the BSData catalogue |
 | Phase 3 | 🔲 Planned | Nonlinear cost surface fit |
 | Phase 4 | 🔲 Planned | Rule variant testing, edge cases |
 
@@ -46,16 +48,51 @@
 
 ---
 
-## Phase 2 — Stochastic Damage and Variance Analysis 🔲
+## Phase 1.5 — Stochastic Damage, AP, Armour Saves, Cover ✅
 
-**Goal**: Add dice-roll variance and identify which unit matchups have high outcome volatility.
+**Goal**: Replace the deterministic-damage placeholder with real dice rolls.
 
-- [ ] Add stochastic damage mode (binomial hit distribution, randomised damage rolls)
-- [ ] Compare deterministic vs stochastic win rates
-- [ ] Identify high-variance matchups (e.g., low-count elite units vs horde)
-- [ ] Measure "cliff-edge" matchups where a single roll determines the game
+- [x] To-hit roll using `hit_probability`
+- [x] Target armour save roll with AP modifier
+- [x] Cover gives +1 to saves, capped at 2+
+- [x] `UnitProfile` gains `ap` and `save` fields; `points_for` weighs both axes
 
-**Deliverables**: Stochastic simulator; variance report per matchup; list of high-risk matchups.
+**Delivered**: Combat resolution now matches the design in `SIMULATION.md`.
+
+---
+
+## Phase 1.6 — BSData Ingestion ✅
+
+**Goal**: Pull unit stats from the BSData WH40k 2nd-edition project rather than
+hand-rolling them, with an override layer for fine tuning.
+
+- [x] `code/bsdata/fetch.py` — pinned-tag download + cache
+- [x] `code/bsdata/parser.py` — XML registry across all 16 codex / GST files
+- [x] `code/bsdata/mapper.py` — force-list walk, best-legal-loadout optimiser,
+      SwegHammer mapping
+- [x] `code/bsdata/loader.py` — merge parsed.json + overrides.json at import time
+- [x] `data/overrides.json` — hand-tuned modifications (starts empty)
+- [x] Wire `UNIT_CATALOG` to load from the merged catalogue
+
+**Delivered**: ~240 BSData-derived units replace the 18 hand-rolled ones.
+
+---
+
+## Phase 2 — Override Tuning 🔲 (active)
+
+**Goal**: Repair mapper artefacts and start balancing the BSData catalogue.
+
+- [ ] Sweep `data/bsdata/parsed.json` for the 88 currently-skipped entries
+      (mostly vehicles, characters without resolvable weapons) — fix or
+      formally disable via overrides
+- [ ] Cap or scale per-model damage where the loadout optimiser picked a
+      squad-only weapon (Multi-Melta on every Tactical Marine = 13 dmg/model)
+- [ ] Pin saves for heroes the depth-3 walk misses (Mephiston, Terminator
+      Captain, etc.)
+- [ ] Run calibration suite, identify systematic outliers, tune via overrides
+- [ ] Document the override workflow with worked examples
+
+**Deliverables**: A balanced BSData-derived catalogue with documented overrides.
 
 ---
 

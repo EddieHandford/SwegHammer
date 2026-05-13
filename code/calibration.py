@@ -128,11 +128,12 @@ def suite_homogeneous(
     Pit each unit type against the baseline Space Marine in homogeneous armies
     (all units of a single type) at equal points.
     """
-    baseline_profile = UNIT_CATALOG["space_marine"]
+    baseline_key = "angels_of_deaths_tactical_squad"
+    baseline_profile = UNIT_CATALOG[baseline_key]
     reports: List[MatchupReport] = []
 
     for key, profile in sorted(UNIT_CATALOG.items()):
-        if key == "space_marine":
+        if key == baseline_key:
             continue
 
         def make_marines(name: str, p: UnitProfile = baseline_profile) -> Army:
@@ -216,7 +217,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     parser.add_argument("--mixed", action="store_true",
                         help="Run random mixed-army matchup")
     parser.add_argument("--mirror", type=str, default=None,
-                        help="Run mirror match for a catalogue key (e.g. space_marine)")
+                        help="Run mirror match for a catalogue key (e.g. angels_of_deaths_tactical_squad)")
     args = parser.parse_args(argv)
 
     rng = random.Random(args.seed)
@@ -225,7 +226,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         # Default: run all suites
         args.homogeneous = True
         args.mixed = True
-        args.mirror = "space_marine"
+        args.mirror = "angels_of_deaths_tactical_squad"
 
     print(
         f"\nSwaghammer Calibration Suite"
