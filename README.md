@@ -1,4 +1,4 @@
-# Swaghammer: Data-Driven Unit Costing for Warhammer 40K
+# Sweghammer: Data-Driven Unit Costing for Warhammer 40K
 
 A project to derive fair, mathematically-grounded unit points costs for Warhammer 40K based on
 Lanchester's Square Law and empirical simulation, whilst introducing minimal rule adjustments to
