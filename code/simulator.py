@@ -158,7 +158,7 @@ class Battle:
             alive_str = "killed" if not target.is_alive else f"{target.current_health:.2f}hp left"
             print(
                 f"  {attacker_army.name}: {attacker.profile.name}"
-                f" → {target.profile.name} ({dmg:.2f} dmg, {alive_str})"
+                f" -> {target.profile.name} ({dmg:.2f} dmg, {alive_str})"
             )
 
     @staticmethod
