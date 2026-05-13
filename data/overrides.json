@@ -1,0 +1,4 @@
+{
+  "_comment": "Per-unit overrides on top of data/bsdata/parsed.json. Each entry can partially override any field (health, damage, hit_probability, ap, save, name, enabled, notes). Standalone entries listed here that don't exist in parsed.json become fully hand-rolled units; they must specify all required fields.",
+  "units": {}
+}

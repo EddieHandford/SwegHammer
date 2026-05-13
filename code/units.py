@@ -181,84 +181,28 @@ class Unit:
 #   ap:  0 = no AP,  -1 = AP1,  -2 = AP2,  -3 = AP3
 #   save: 3 = 3+, 4 = 4+, 5 = 5+, 6 = 6+, 7 = no save
 #
-UNIT_CATALOG: Dict[str, UnitProfile] = {
-    # --- Space Marines ---
-    "scout_marine": UnitProfile(
-        name="Scout Marine",
-        health=1, damage=1, hit_probability=0.5, ap=0, save=4,
-    ),
-    "space_marine": UnitProfile(
-        name="Space Marine",
-        health=1, damage=1, hit_probability=2/3, ap=0, save=3,
-    ),
-    "veteran_marine": UnitProfile(
-        name="Veteran Marine",
-        health=2, damage=1, hit_probability=2/3, ap=-1, save=3,
-    ),
-    "terminator": UnitProfile(
-        name="Terminator",
-        health=3, damage=2, hit_probability=2/3, ap=-2, save=2,
-    ),
-    "dreadnought": UnitProfile(
-        name="Dreadnought",
-        health=8, damage=3, hit_probability=2/3, ap=-2, save=3,
-    ),
-    "predator_tank": UnitProfile(
-        name="Predator Tank",
-        health=11, damage=4, hit_probability=2/3, ap=-3, save=3,
-    ),
+# UNIT_CATALOG is built at import time by merging:
+#   data/bsdata/parsed.json — base stats derived from BSData WH40k 2nd Edition
+#   data/overrides.json     — per-unit hand tuning, plus legacy hand-rolled units
+#
+# To refresh the BSData base, run:
+#     python -m code.bsdata.fetch --tag <release>
+#     python -m code.bsdata.mapper
+#
+def _build_catalog() -> Dict[str, UnitProfile]:
+    from .bsdata.loader import load_catalog
 
-    # --- Chaos ---
-    "cultist": UnitProfile(
-        name="Cultist",
-        health=1, damage=1, hit_probability=0.5, ap=0, save=6,
-    ),
-    "chaos_space_marine": UnitProfile(
-        name="Chaos Space Marine",
-        health=2, damage=1, hit_probability=2/3, ap=-1, save=3,
-    ),
-    "chaos_terminator": UnitProfile(
-        name="Chaos Terminator",
-        health=3, damage=2, hit_probability=2/3, ap=-2, save=2,
-    ),
-    "chaos_dreadnought": UnitProfile(
-        name="Chaos Dreadnought",
-        health=8, damage=3, hit_probability=2/3, ap=-2, save=3,
-    ),
+    catalog: Dict[str, UnitProfile] = {}
+    for key, entry in load_catalog().items():
+        catalog[key] = UnitProfile(
+            name=entry.name,
+            health=entry.health,
+            damage=entry.damage,
+            hit_probability=entry.hit_probability,
+            ap=entry.ap,
+            save=entry.save,
+        )
+    return catalog
 
-    # --- Orks ---
-    "gretchin": UnitProfile(
-        name="Gretchin",
-        health=1, damage=1, hit_probability=1/3, ap=0, save=6,
-    ),
-    "ork_boy": UnitProfile(
-        name="Ork Boy",
-        health=2, damage=1, hit_probability=0.5, ap=0, save=5,
-    ),
-    "ork_nob": UnitProfile(
-        name="Ork Nob",
-        health=3, damage=2, hit_probability=0.5, ap=-1, save=4,
-    ),
-    "mek_gun": UnitProfile(
-        name="Mek Gun",
-        health=5, damage=3, hit_probability=0.5, ap=-2, save=4,
-    ),
 
-    # --- Tyranids ---
-    "termagant": UnitProfile(
-        name="Termagant",
-        health=1, damage=1, hit_probability=0.5, ap=0, save=5,
-    ),
-    "hormagaunt": UnitProfile(
-        name="Hormagaunt",
-        health=1, damage=2, hit_probability=0.5, ap=0, save=5,
-    ),
-    "warrior": UnitProfile(
-        name="Warrior",
-        health=3, damage=2, hit_probability=2/3, ap=-1, save=4,
-    ),
-    "carnifex": UnitProfile(
-        name="Carnifex",
-        health=10, damage=4, hit_probability=2/3, ap=-3, save=3,
-    ),
-}
+UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
