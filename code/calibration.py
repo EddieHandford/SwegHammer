@@ -73,7 +73,7 @@ class MatchupReport:
     def __str__(self) -> str:
         balance_flag = ""
         if abs(self.a_win_rate - 0.5) > 0.05:
-            balance_flag = "  ⚠ IMBALANCED"
+            balance_flag = "  [!] IMBALANCED"
         return (
             f"  {self.a_name:<26} vs {self.b_name:<26}\n"
             f"    {self.a_name} wins:  {self.a_wins:>5} ({self.a_win_rate:>5.1%})\n"

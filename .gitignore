@@ -8,3 +8,17 @@ dist/
 build/
 .env
 .venv/
+
+# LaTeX intermediates
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.bbl
+*.blg
+
+# Claude Code session data
+.claude/
