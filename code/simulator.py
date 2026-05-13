@@ -14,6 +14,7 @@ from .events import (
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
+from .strategy import pick_move_intent
 
 
 # ---------------------------------------------------------------------------
@@ -405,35 +406,41 @@ class Battle:
             army_name=attacker_army.name,
         ))
 
-        # Move toward the NEAREST enemy (not the global lowest-HP focus).
-        # Lowest-HP focus would make every unit converge on one corner,
-        # producing an unstable, map-asymmetric clumping pattern.
+        # Strategy layer (code/strategy.py): role + objective-aware pick of
+        # where this unit wants to go. The simulator USED to always march at
+        # the nearest enemy, which abandoned objectives and lost VP. Now units
+        # consult their role + the live objective state.
         alive_enemies = defender_army.alive_units
         if not alive_enemies:
             return
-        move_target = min(
-            alive_enemies,
-            key=lambda u: _distance(attacker.position, u.position),
+        target_pos, intent = pick_move_intent(
+            attacker, attacker_army, defender_army, self.map,
         )
 
-        dist = _distance(attacker.position, move_target.position)
-        if dist <= attacker.profile.range_inches:
-            return  # already in range — hold position and shoot
+        dist = _distance(attacker.position, target_pos)
+        if dist < 0.5 or intent == "HOLD":
+            return   # already where we want to be — stay and shoot
 
         # 10e Advance: roll d6, move M+d6, but skip shoot/charge this turn.
         # We Advance only when a normal move would NOT bring us into shooting
-        # range — the speed boost is wasted otherwise and the shoot foregone.
-        # (Assault-weapon exception is deferred until the Assault keyword
-        # is parsed by the mapper.)
+        # range of the target — the speed boost is wasted otherwise and the
+        # shoot foregone.
         normal_move = attacker.profile.move
-        needs_to_close = dist - attacker.profile.range_inches
+        # For ENGAGE intent, "in range" = weapon range. For CAPTURE/STEAL,
+        # "in range" = within the objective's control radius (we want to be on
+        # the marker). REPOSITION is a small jiggle (always normal-move).
+        if intent in ("ENGAGE", "REPOSITION"):
+            range_threshold = attacker.profile.range_inches
+        else:
+            range_threshold = 3.0   # objective control radius
+        needs_to_close = dist - range_threshold
         advance_d6 = random.randint(1, 6) if needs_to_close > normal_move else 0
         move_distance = normal_move + advance_d6
         did_advance = advance_d6 > 0
 
         old_pos = attacker.position
         new_pos = _move_toward(
-            attacker.position, move_target.position,
+            attacker.position, target_pos,
             move_distance, self.map,
         )
         if new_pos != old_pos:

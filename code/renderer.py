@@ -180,7 +180,7 @@ def render_frame(
                    marker="*", alpha=0.9, zorder=7)
 
     # Objective markers
-    for obj in m.objectives:
+    for obj in map_.objectives:
         circle = plt.Circle(
             (obj.x, obj.y), obj.control_radius,
             fill=False, edgecolor=COL_OBJECTIVE, linewidth=1.0, alpha=0.55, zorder=2,
