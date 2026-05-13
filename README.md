@@ -85,23 +85,31 @@ points implies equal expected battlefield score.
 | File | Purpose |
 |------|---------|
 | `README.md` | This file — overview and rules summary |
+| `PROJECT.tex` / `PROJECT.pdf` | Living project handbook — vision, math, architecture, ownership-tagged checklist |
+| `TODO.md` | Quick-reference remaining-work list pulled from PROJECT.tex |
 | `THEORY.md` | Mathematical derivations (Lanchester equations, nonlinearity analysis) |
 | `BASELINE.md` | Baseline unit definition and calibration methodology |
 | `SIMULATION.md` | Simulation engine design, activation mechanics, phase logic |
 | `ROADMAP.md` | Development milestones and phase breakdown |
 | `code/` | Python simulation engine |
+| `app.py` | Streamlit dashboard (stats + scrub-through battle replay) |
+| `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 
 ## Quickstart
 
 ```bash
-# Run a demo battle
-python -m code.main
+# Launcher (GUI menu with web dashboard + CLI demo buttons)
+python run.py
 
-# Run calibration suite (1000 battles per matchup)
-python -m code.calibration
+# CLI demo direct
+python run.py --cli
+
+# Streamlit dashboard directly (if you prefer)
+python -m streamlit run app.py
 ```
 
-Requires Python 3.9+. No external dependencies.
+Requires Python 3.9+. Dashboard needs Streamlit and matplotlib; the
+core simulator has no external dependencies.
 
 ## Key Design Principles
 

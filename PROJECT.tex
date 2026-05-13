@@ -148,13 +148,16 @@ on the line the unit traverses.
 
 \paragraph{To do}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \eddie\ Add \texttt{position: (float, float)} to
+  \item \done \eddie\ Add \texttt{position: (float, float)} to
     \texttt{Unit}.
-  \item \todo \eddie\ Add \texttt{move: float} (inches) to
+  \item \done \eddie\ Add \texttt{move: float} (inches) to
     \texttt{UnitProfile}.
-  \item \todo \eddie\ Implement \texttt{MovementPhase} with a tactical
-    heuristic: close on the nearest threat, claim the nearest objective,
-    kite if outranged.
+  \item \wip \eddie\ Implement \texttt{MovementPhase} -- first cut done
+    (each activation is a move-then-shoot sub-phase pair; movement
+    targets the \emph{nearest} enemy and clamps to map / aborts into
+    impassable terrain). Still missing: objective-aware play, kiting
+    when outranged, segment-vs-impassable-terrain collision (we only
+    check the destination).
   \item \todo \either\ Advance roll ($+d6$) and Fall Back logic.
 \end{itemize}
 
@@ -199,10 +202,11 @@ $2$:
     \texttt{Unit.attack()} between the hit and save rolls.
   \item \todo \eddie\ Regenerate \texttt{BASELINE.md} catalogue table to
     reflect the wound-roll-aware point costs (existing table is now
-    stale; mirror match still 50/50, but cross-faction matchups need
-    recalibrating).
-  \item \todo \eddie\ Add \texttt{range\_inches: int} to the weapon
-    profile; gate shooting on range and LoS.
+    stale; mirror match holds on symmetric terrain, but cross-faction
+    matchups need recalibrating).
+  \item \done \eddie\ Add \texttt{range\_inches: int} to the weapon
+    profile; gate shooting on range and LoS. Liang-Barsky
+    segment-vs-rectangle intersection handles obscuring terrain.
 \end{itemize}
 
 \subsection{Charge phase}
@@ -280,14 +284,23 @@ polygons.
 
 \paragraph{To do}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \either\ \texttt{Terrain} dataclass: polygon + type.
-  \item \todo \either\ \texttt{Map} dataclass: board size, terrain list,
-    objective markers.
-  \item \todo \either\ \texttt{has\_line\_of\_sight(attacker, target, map)}.
-  \item \todo \either\ \texttt{cover\_state(unit, map)} returning the
-    cover type the unit currently occupies.
-  \item \todo \either\ Two or three stock maps shipped with the repo for
-    testing.
+  \item \done \eddie\ \texttt{Terrain} dataclass (axis-aligned
+    rectangles for now; polygon upgrade can wait).
+  \item \done \eddie\ \texttt{Map} dataclass: board size, terrain list,
+    deployment-zone depth. Objective markers still todo.
+  \item \done \eddie\ \texttt{has\_line\_of\_sight(attacker, target)}
+    on \texttt{Map}, Liang-Barsky parametric clipping over obscuring
+    rectangles. Units inside obscuring terrain can still shoot out and
+    be shot at (the containing rectangle is excluded from the
+    intersection test).
+  \item \done \eddie\ \texttt{cover\_at(point)} on \texttt{Map}
+    returning the strongest cover the point sits inside; terrain-aware
+    cover is applied per-shot in \texttt{Battle.\_do\_shoot}.
+  \item \done \eddie\ Three stock maps registered in
+    \texttt{STOCK\_MAPS}: \texttt{combat\_patrol},
+    \texttt{open\_plains}, \texttt{urban\_sprawl}. The first two are
+    point-symmetric reference maps; Urban Sprawl is deliberately
+    asymmetric.
 \end{itemize}
 
 % =========================================================================
@@ -322,15 +335,18 @@ the visualisation therefore cannot affect calibration numbers.
 
 \paragraph{To do}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \either\ Refactor \texttt{Battle.run()} to emit events
-    (\texttt{UnitMoved}, \texttt{UnitShot}, \texttt{UnitKilled}, \dots)
-    via a subscriber list.
-  \item \todo \either\ \texttt{NullRenderer} -- no-op, the fast-mode
-    default.
+  \item \done \eddie\ Refactor \texttt{Battle.run()} to emit events
+    via a subscriber list. Events defined in \texttt{code/events.py}:
+    \texttt{BattleStarted}, \texttt{RoundStarted}, \texttt{UnitActivated},
+    \texttt{UnitMoved}, \texttt{UnitShot}, \texttt{UnitKilled},
+    \texttt{RoundEnded}, \texttt{BattleEnded}.
+  \item \done \eddie\ Null-subscriber fast mode -- empty subscriber list
+    means zero per-event overhead in calibration sweeps.
   \item \todo \either\ \texttt{PygameRenderer} -- consumes the event
     stream, paints frames live.
-  \item \todo \either\ Optional: matplotlib-animation renderer that
-    outputs a GIF or MP4, embeddable in the Streamlit app.
+  \item \done \eddie\ Matplotlib static-frame renderer
+    (\texttt{code/renderer.py}) reconstructing world state from the
+    event stream; feeds the Streamlit replay slider page.
 \end{itemize}
 
 % =========================================================================
@@ -341,10 +357,14 @@ will extend it rather than replace it.
 
 \paragraph{Near-term}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \eddie\ Embed an animated replay of one battle on a map.
-  \item \todo \eddie\ Map picker -- choose which stock map to fight on.
+  \item \done \eddie\ Embed a scrub-through replay of one battle on a
+    map (Streamlit "Watch a battle" tab; matplotlib top-down view with
+    deployment-zone hints, terrain tiles, unit dots, move/shot arrows
+    on the current event).
+  \item \done \eddie\ Map picker -- sidebar dropdown over
+    \texttt{STOCK\_MAPS} (one map for now; structure ready for more).
   \item \todo \eddie\ Per-unit cover and terrain overrides in the
-    sidebar.
+    sidebar (current cover flag is army-wide).
 \end{itemize}
 
 \paragraph{Longer-term}
