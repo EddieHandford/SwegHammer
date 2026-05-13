@@ -64,6 +64,13 @@ class CatalogEntry:
     blast: bool = False
     fnp: int = 7
     unit_keywords: Optional[List[str]] = None
+    melee_attacks: int = 0
+    melee_damage_per_shot: float = 0.0
+    melee_hit_probability: float = 0.0
+    melee_strength: int = 4
+    melee_ap: int = 0
+    melee_weapon: str = ""
+    range_inches: int = 24
     points_override: float = 0.0
     loadout: Optional[List[str]] = None
     notes: str = ""
@@ -106,6 +113,13 @@ class CatalogEntry:
             blast=bool(d.get("blast", False)),
             fnp=int(d.get("fnp", 7)),
             unit_keywords=list(d.get("unit_keywords") or []),
+            melee_attacks=int(d.get("melee_attacks", 0)),
+            melee_damage_per_shot=float(d.get("melee_damage_per_shot", 0)),
+            melee_hit_probability=float(d.get("melee_hit_probability", 0)),
+            melee_strength=int(d.get("melee_strength", 4)),
+            melee_ap=int(d.get("melee_ap", 0)),
+            melee_weapon=d.get("melee_weapon", ""),
+            range_inches=int(d.get("range_inches", 24)),
             points_override=float(d.get("points_override", 0)),
             loadout=d.get("loadout") or [],
             notes=d.get("notes", ""),
@@ -193,6 +207,13 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "blast": override.get("blast", base.blast),
         "fnp": override.get("fnp", base.fnp),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
+        "melee_attacks": override.get("melee_attacks", base.melee_attacks),
+        "melee_damage_per_shot": override.get("melee_damage_per_shot", base.melee_damage_per_shot),
+        "melee_hit_probability": override.get("melee_hit_probability", base.melee_hit_probability),
+        "melee_strength": override.get("melee_strength", base.melee_strength),
+        "melee_ap": override.get("melee_ap", base.melee_ap),
+        "melee_weapon": override.get("melee_weapon", base.melee_weapon),
+        "range_inches": override.get("range_inches", base.range_inches),
         "points_override": override.get("points_override", base.points_override),
         "loadout": override.get("loadout", base.loadout),
         "notes": override.get("notes", base.notes),

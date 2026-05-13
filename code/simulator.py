@@ -125,6 +125,9 @@ class Battle:
         # UIDs of units that failed their Battleshock test this round — OC 0
         # so they don't contribute to objective control. Reset per round.
         self._battleshocked_this_round: set = set()
+        # UIDs of units that successfully charged this round (Fights First in
+        # the Fight sub-phase). Reset each round.
+        self._charging_this_round: set = set()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -289,9 +292,10 @@ class Battle:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
 
-        # New round = no unit has Advanced yet, no battleshock yet.
+        # New round = no unit has Advanced yet, no battleshock yet, no charges.
         self._advanced_this_round = set()
         self._battleshocked_this_round = set()
+        self._charging_this_round = set()
 
         # Battleshock phase (after Round 1). 10e core rule: any unit Below
         # Half-Strength tests; pass on 2d6 >= Ld. We treat each Unit
@@ -343,6 +347,18 @@ class Battle:
                 self._do_shoot(first_unit, first, second)
             if second_unit is not None and second_unit.is_alive:
                 self._do_shoot(second_unit, second, first)
+
+            # ---- CHARGE sub-phase: both attempt charges if they want melee ----
+            if first_unit is not None and first_unit.is_alive:
+                self._do_charge(first_unit, first, second)
+            if second_unit is not None and second_unit.is_alive:
+                self._do_charge(second_unit, second, first)
+
+            # ---- FIGHT sub-phase: chargers fight first, then others ----
+            if first_unit is not None and first_unit.is_alive:
+                self._do_fight(first_unit, first, second)
+            if second_unit is not None and second_unit.is_alive:
+                self._do_fight(second_unit, second, first)
 
         # Detachment passives: end-of-round reanimation/healing if any
         for army in (self.a, self.b):
@@ -456,6 +472,78 @@ class Battle:
                 f"  {attacker_army.name}: {attacker.profile.name}"
                 f" -> {shoot_target.profile.name} ({dmg:.2f} dmg, {alive_str})"
             )
+
+    # ------------------------------------------------------------------
+    # Charge + Fight (Phase B)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _wants_to_charge(attacker) -> bool:
+        """
+        Charge-desire heuristic: a unit wants to charge only if its melee
+        output is meaningfully higher than its ranged output. Pure shooters
+        and tanks stay put; melee-heavy and dual-threat units charge in.
+        """
+        p = attacker.profile
+        if p.melee_attacks <= 0 or p.melee_hit_probability <= 0:
+            return False
+        melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 1.0)
+        ranged_dpa = max(1, p.attacks) * p.hit_probability * p.per_shot_damage
+        # 1.0x melee floor avoids vehicles with token bayonets charging Marines.
+        return melee_dpa >= max(ranged_dpa, 1.0)
+
+    def _do_charge(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        """2D6 charge vs nearest enemy ≤12". On success, move into engagement (1")."""
+        if not self._wants_to_charge(attacker):
+            return
+        if attacker.uid in self._advanced_this_round:
+            return   # advanced units cannot charge
+
+        alive_enemies = defender_army.alive_units
+        if not alive_enemies:
+            return
+        # Pick nearest enemy within charge range
+        candidates = [
+            (e, _distance(attacker.position, e.position))
+            for e in alive_enemies
+        ]
+        candidates = [(e, d) for e, d in candidates if d <= 12.0 and d > 1.0]
+        if not candidates:
+            return
+        candidates.sort(key=lambda kv: kv[1])
+        target, dist = candidates[0]
+
+        roll = random.randint(1, 6) + random.randint(1, 6)
+        if roll < dist:
+            return   # charge failed
+
+        # Move to within 1" of target — engagement range
+        dx = target.position[0] - attacker.position[0]
+        dy = target.position[1] - attacker.position[1]
+        scale = max(0.0, (dist - 1.0)) / dist
+        new_pos = (
+            attacker.position[0] + dx * scale,
+            attacker.position[1] + dy * scale,
+        )
+        if not self.map.is_blocked(new_pos):
+            attacker.position = new_pos
+        self._charging_this_round.add(attacker.uid)
+
+    def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        """Resolve a melee strike if the attacker is in engagement range (1")."""
+        if attacker.profile.melee_attacks <= 0:
+            return
+        alive_enemies = defender_army.alive_units
+        if not alive_enemies:
+            return
+        # Find an enemy in engagement range
+        nearest = min(
+            alive_enemies,
+            key=lambda e: _distance(attacker.position, e.position),
+        )
+        if _distance(attacker.position, nearest.position) > 1.5:
+            return
+        attacker.attack(nearest, distance=1.0, mode="melee")
 
     # ------------------------------------------------------------------
     # Helpers

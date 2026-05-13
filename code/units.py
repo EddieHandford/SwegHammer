@@ -187,6 +187,13 @@ class UnitProfile:
     blast: bool = False                        # +1 attack per 5 enemy models in target unit
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
+    # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
+    melee_attacks: int = 0
+    melee_damage_per_shot: float = 0.0
+    melee_hit_probability: float = 0.0
+    melee_strength: int = 4
+    melee_ap: int = 0
+    melee_weapon: str = ""
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
 
     @property
@@ -265,7 +272,7 @@ class Unit:
             amount = survived + (amount - int(round(amount)))   # preserve fractional
         self.current_health = max(0.0, self.current_health - amount)
 
-    def attack(self, target: "Unit", distance: float = 0.0) -> float:
+    def attack(self, target: "Unit", distance: float = 0.0, mode: str = "ranged") -> float:
         """
         Full stochastic 10e attack sequence. For each of `attacks` shots:
           1. Roll d6 vs hit_target. Crit = 6.
@@ -278,15 +285,29 @@ class Unit:
           6. Otherwise roll d6 save vs better of (armour-after-AP) and invuln.
         """
         p = self.profile
-        per_shot_dmg = p.per_shot_damage
-        n_attacks = max(1, int(p.attacks))
+        if mode == "melee" and p.melee_attacks > 0:
+            # Substitute the melee stat block for this resolution
+            per_shot_dmg = p.melee_damage_per_shot or 1.0
+            n_attacks = max(1, int(p.melee_attacks))
+            hit_target = _prob_to_target(p.melee_hit_probability)
+            strength = p.melee_strength
+            ap = p.melee_ap
+            ignore_cover = True   # melee always ignores cover
+        else:
+            per_shot_dmg = p.per_shot_damage
+            n_attacks = max(1, int(p.attacks))
+            hit_target = None     # set below
+            strength = p.strength
+            ap = p.ap
+            ignore_cover = p.ignores_cover
 
-        # ---- Range-dependent weapon keywords (Phase A2) ----
-        half_range = (p.range_inches or 24) / 2.0
-        at_half_range = distance > 0 and distance <= half_range
-        if at_half_range:
-            n_attacks += int(p.rapid_fire)               # Rapid Fire X
-            per_shot_dmg += float(p.melta)               # Melta X
+        # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
+        if mode != "melee":
+            half_range = (p.range_inches or 24) / 2.0
+            at_half_range = distance > 0 and distance <= half_range
+            if at_half_range:
+                n_attacks += int(p.rapid_fire)           # Rapid Fire X
+                per_shot_dmg += float(p.melta)           # Melta X
 
         # ---- Blast: +1 attack per 5 enemy models in the target unit ----
         if p.blast and target.profile.blast is not None:  # always true; null-guard
@@ -299,8 +320,9 @@ class Unit:
                 same_squad = 1
             n_attacks += same_squad // 5
 
-        hit_target = _prob_to_target(p.hit_probability)
-        wound_p = wound_probability(p.strength, target.profile.toughness)
+        if hit_target is None:
+            hit_target = _prob_to_target(p.hit_probability)
+        wound_p = wound_probability(strength, target.profile.toughness)
         wound_target = _prob_to_target(wound_p)
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
@@ -311,8 +333,8 @@ class Unit:
                 if kw in target_kw and thresh < anti_crit_threshold:
                     anti_crit_threshold = thresh
 
-        save_after_ap = target.profile.save - p.ap
-        if target.in_cover and not p.ignores_cover:
+        save_after_ap = target.profile.save - ap
+        if target.in_cover and not ignore_cover:
             save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
         effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
@@ -425,6 +447,13 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             blast=entry.blast,
             fnp=entry.fnp,
             unit_keywords=tuple(entry.unit_keywords or []),
+            melee_attacks=entry.melee_attacks,
+            melee_damage_per_shot=entry.melee_damage_per_shot,
+            melee_hit_probability=entry.melee_hit_probability,
+            melee_strength=entry.melee_strength,
+            melee_ap=entry.melee_ap,
+            melee_weapon=entry.melee_weapon,
+            range_inches=entry.range_inches,
             points_override=entry.points_override,
         )
     return catalog

@@ -283,6 +283,36 @@ def parse_weapon_keywords(text: str) -> Dict[str, object]:
     return out
 
 
+def extract_melee_weapon(profile: ET.Element) -> Optional[WeaponStats]:
+    """Same shape as extract_ranged_weapon but for typeName='Melee Weapons'.
+
+    Uses WS instead of BS. Sets range_inches=1 (engagement)."""
+    type_name = profile.get("typeName") or ""
+    if "Melee" not in type_name:
+        return None
+    chars = profile_characteristics(profile)
+    a = parse_dice_expr(chars.get("A", ""))
+    d = parse_dice_expr(chars.get("D", ""))
+    ws = parse_plus_target(chars.get("WS", ""))
+    if a is None or d is None or ws is None:
+        return None
+    keywords = chars.get("Keywords", "")
+    abilities = parse_weapon_keywords(keywords)
+    s_text = chars.get("S", "")
+    s_int = _to_int(s_text) if s_text else None
+    return WeaponStats(
+        name=profile.get("name") or "?",
+        attacks=a,
+        hit_prob=target_to_hit_probability(ws),
+        damage=d,
+        ap=parse_ap(chars.get("AP", "")),
+        strength=s_int if s_int is not None else 4,
+        range="melee",
+        keywords=keywords,
+        **abilities,
+    )
+
+
 def extract_ranged_weapon(profile: ET.Element) -> Optional[WeaponStats]:
     type_name = profile.get("typeName") or ""
     if "Ranged" not in type_name:
@@ -319,6 +349,7 @@ def extract_ranged_weapon(profile: ET.Element) -> Optional[WeaponStats]:
 class UnitWargear:
     unit_profile: Optional[ET.Element] = None
     ranged_weapons: List[WeaponStats] = field(default_factory=list)
+    melee_weapons: List[WeaponStats] = field(default_factory=list)
 
 
 def _walk(
@@ -374,6 +405,10 @@ def _consume_profile(prof: ET.Element, out: UnitWargear) -> None:
         w = extract_ranged_weapon(prof)
         if w is not None:
             out.ranged_weapons.append(w)
+    elif "Melee" in type_name:
+        w = extract_melee_weapon(prof)
+        if w is not None:
+            out.melee_weapons.append(w)
 
 
 def gather_wargear(entry: ET.Element, reg: Registry) -> UnitWargear:
@@ -453,6 +488,14 @@ class MappedUnit:
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
+    # Phase B — melee profile (best-legal melee weapon picked the same way)
+    melee_attacks: int = 0
+    melee_damage_per_shot: float = 0.0
+    melee_hit_probability: float = 0.0
+    melee_strength: int = 4
+    melee_ap: int = 0
+    melee_weapon: str = ""
+    range_inches: int = 24       # primary-weapon range; melee-only => 1
     loadout: List[str] = field(default_factory=list)
     notes: str = ""
     enabled: bool = True
@@ -498,58 +541,86 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
             skip_reason="unit profile missing W or SV",
         )
 
-    if not gear.ranged_weapons:
+    # Melee fallback — a unit with no ranged weapon is still useful if it
+    # has a melee profile. Such units become engagement-only (range_inches=1).
+    has_ranged = bool(gear.ranged_weapons)
+    has_melee = bool(gear.melee_weapons)
+    if not has_ranged and not has_melee:
         return MappedUnit(
             key=key, name=name, codex=codex,
             health=float(stats.wounds), damage=0, hit_probability=0,
             ap=0, save=stats.save,
             points_listed=points, enabled=False,
-            skip_reason="no ranged weapons resolvable in tree",
+            skip_reason="no ranged OR melee weapons resolvable in tree",
         )
 
-    best = max(gear.ranged_weapons, key=lambda w: w.expected_damage_through_baseline())
+    # Best ranged weapon (may be None for melee-only units)
+    best = (
+        max(gear.ranged_weapons, key=lambda w: w.expected_damage_through_baseline())
+        if has_ranged else None
+    )
+    best_melee = (
+        max(gear.melee_weapons, key=lambda w: w.expected_damage_through_baseline())
+        if has_melee else None
+    )
     min_m, max_m = extract_squad_size(entry)
     invuln = extract_invuln(entry, reg)
     unit_kw = extract_unit_keywords(entry)
     fnp = extract_fnp(entry, reg)
 
+    # If melee-only (no ranged), use the melee weapon as the primary stat line
+    primary = best if best is not None else best_melee
+    # Derive range_inches: melee-only units get 1" engagement; else parse the
+    # ranged weapon's Range characteristic ("24"" -> 24), default 24 on failure.
+    if not has_ranged:
+        primary_range = 1
+    else:
+        m = re.search(r"(\d+)", best.range or "")
+        primary_range = int(m.group(1)) if m else 24
     return MappedUnit(
         key=key,
         name=name,
         codex=codex,
         health=float(stats.wounds),
-        damage=round(best.attacks * best.damage, 2),
-        hit_probability=round(best.hit_prob, 3),
-        ap=best.ap,
+        damage=round(primary.attacks * primary.damage, 2),
+        hit_probability=round(primary.hit_prob, 3),
+        ap=primary.ap,
         save=stats.save,
         points_listed=points,
         min_models=min_m,
         max_models=max_m,
-        strength=best.strength,
+        strength=primary.strength,
         toughness=stats.toughness or 4,
         leadership=stats.leadership or 7,
         oc=stats.oc or 1,
-        attacks=max(1, int(round(best.attacks))),
-        weapon_damage_per_shot=round(best.damage, 2),
-        lethal_hits=best.lethal_hits,
-        sustained_hits=best.sustained_hits,
-        twin_linked=best.twin_linked,
-        devastating_wounds=best.devastating_wounds,
+        attacks=max(1, int(round(primary.attacks))),
+        weapon_damage_per_shot=round(primary.damage, 2),
+        lethal_hits=primary.lethal_hits,
+        sustained_hits=primary.sustained_hits,
+        twin_linked=primary.twin_linked,
+        devastating_wounds=primary.devastating_wounds,
         invuln_save=invuln,
-        rapid_fire=best.rapid_fire,
-        melta=best.melta,
-        ignores_cover=best.ignores_cover,
-        anti_keywords=dict(best.anti_keywords),
-        heavy=best.heavy,
-        assault=best.assault,
-        torrent=best.torrent,
-        hazardous=best.hazardous,
-        blast=best.blast,
+        rapid_fire=primary.rapid_fire,
+        melta=primary.melta,
+        ignores_cover=primary.ignores_cover,
+        anti_keywords=dict(primary.anti_keywords),
+        heavy=primary.heavy,
+        assault=primary.assault,
+        torrent=primary.torrent,
+        hazardous=primary.hazardous,
+        blast=primary.blast,
         fnp=fnp,
         unit_keywords=list(unit_kw),
-        loadout=[best.name]
-        + [w.name for w in gear.ranged_weapons if w.name != best.name][:4],
-        notes=f"LD={stats.leadership} OC={stats.oc}",
+        melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
+        melee_damage_per_shot=round(best_melee.damage, 2) if best_melee else 0.0,
+        melee_hit_probability=round(best_melee.hit_prob, 3) if best_melee else 0.0,
+        melee_strength=best_melee.strength if best_melee else 4,
+        melee_ap=best_melee.ap if best_melee else 0,
+        melee_weapon=best_melee.name if best_melee else "",
+        range_inches=primary_range,
+        loadout=[primary.name]
+        + [w.name for w in (gear.ranged_weapons + gear.melee_weapons) if w.name != primary.name][:4],
+        notes=f"LD={stats.leadership} OC={stats.oc} melee={'yes' if has_melee else 'no'} ranged={'yes' if has_ranged else 'no'}",
     )
 
 
