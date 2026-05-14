@@ -506,6 +506,22 @@ class Unit:
                     if not wound_succeeded and p.twin_linked and not rerolled:
                         wroll = random.randint(1, 6)
                         wound_succeeded = (wroll >= wound_target)
+                        rerolled = True
+                    # Universal Core Stratagem — Command Re-Roll (1 CP):
+                    # if the wound roll is still a miss AND no re-roll has
+                    # already been used on this die AND our army's battle
+                    # reference has a stratagem hook AND the heuristic
+                    # green-lights the spend, re-roll once more.
+                    if (
+                        not wound_succeeded and not rerolled
+                        and self.army_ref is not None
+                        and getattr(self.army_ref, "_battle_ref", None) is not None
+                    ):
+                        battle = self.army_ref._battle_ref
+                        if battle.maybe_fire_command_reroll(self, target, "wound"):
+                            wroll = random.randint(1, 6)
+                            wound_succeeded = (wroll >= wound_target)
+                            rerolled = True
                     # Anti-X lowers the crit-wound threshold against that keyword
                     crit_wound = wound_succeeded and wroll >= anti_crit_threshold
                 if not wound_succeeded:

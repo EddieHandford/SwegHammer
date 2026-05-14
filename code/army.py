@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from .detachments import Detachment, default_detachment_for_faction
+from .stratagems import STARTING_CP
 from .units import Unit, UnitProfile
 
 
@@ -17,7 +18,9 @@ class Army:
     ) -> None:
         self.name = name
         self.units: List[Unit] = []
-        self.command_points: int = 3
+        # 10e Strike Force standard: each side starts with 3 CP. Battle then
+        # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
+        self.command_points: int = STARTING_CP
         self.in_cover: bool = in_cover
         # Army-wide passive rules. Auto-resolves from the army's primary
         # faction (first unit's faction tag) when not explicitly set.
@@ -28,6 +31,11 @@ class Army:
         # an ASURYANI unit's activation to grant [ASSAULT] for that turn
         # (i.e. shoot after Advance).
         self.battle_focus_tokens: int = 0
+        # Back-reference to the Battle currently running this army. Set
+        # by Battle.__init__ so Unit.attack can dispatch the Command
+        # Re-Roll stratagem without threading callbacks through every
+        # call site. None when no Battle is active (catalogue tests, etc.).
+        self._battle_ref = None
 
     # ------------------------------------------------------------------
     # Army construction

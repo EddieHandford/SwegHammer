@@ -1,0 +1,39 @@
+{
+  "_comment": "Universal Core Stratagem citations. All four are from the 10e core rules page on Wahapedia (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems) and apply to every army regardless of detachment. Detachment-specific stratagems land in issue #104 and will be cited under additional keys (e.g. AWAKENED_DYNASTY.Stratagem.protocol_of_the_hungry_void).",
+
+  "Stratagem.Command Re-Roll": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Command Re-Roll",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN YOU MAKE A HIT ROLL, A WOUND ROLL, A DAMAGE ROLL, A SAVING THROW, AN ADVANCE ROLL, A CHARGE ROLL, A BATTLE-SHOCK TEST OR A CONTROL TEST FOR YOU OR A FRIENDLY UNIT FROM YOUR ARMY: That roll is re-rolled. If a Charge roll, Advance roll, control test or Battle-shock test is being re-rolled, both of the dice are re-rolled.",
+    "trigger": "any phase, when a friendly unit makes a Hit/Wound/Damage/Save/Advance/Charge/Battle-shock/control roll",
+    "effect": "re-roll the failed roll (simulator currently exposes this only on a failed wound roll vs a HEAVY/SHOOTY/DUAL target — highest-value trigger, others covered by detachment re-roll passives)",
+    "scope": "army-wide"
+  },
+
+  "Stratagem.Counter-Offensive": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Counter-Offensive",
+    "quoted_text": "USE THIS STRATAGEM IN THE FIGHT PHASE, JUST AFTER AN ENEMY UNIT HAS FOUGHT. ONE FRIENDLY UNIT FROM YOUR ARMY THAT IS WITHIN ENGAGEMENT RANGE OF ONE OR MORE ENEMY UNITS CAN BE SELECTED TO FIGHT NEXT, EVEN IF IT HAS ALREADY FOUGHT THIS PHASE.",
+    "trigger": "fight phase, immediately after an enemy unit has fought",
+    "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations)",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Tank Shock": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Tank Shock",
+    "quoted_text": "USE THIS STRATAGEM IN THE CHARGE PHASE, WHEN A VEHICLE UNIT FROM YOUR ARMY ENDS A CHARGE MOVE. SELECT ONE ENEMY UNIT THAT IS WITHIN ENGAGEMENT RANGE OF THAT VEHICLE UNIT AND ROLL ONE D6, ADDING THE TOUGHNESS CHARACTERISTIC OF ONE MODEL FROM THAT VEHICLE UNIT TO THE RESULT: ON A 7+, THE ENEMY UNIT TAKES D3 MORTAL WOUNDS (TO A MAXIMUM OF 6 MORTAL WOUNDS).",
+    "trigger": "charge phase, when a friendly VEHICLE unit ends a charge move",
+    "effect": "the target enemy unit takes D3 mortal wounds (approximation: simulator skips the d6+T 7+ gate and applies median D3 = 2 mortal wounds deterministically; matches our other 'median D3' uses such as Reanimation Protocols)",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Heroic Intervention": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Heroic Intervention",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S CHARGE PHASE, JUST AFTER AN ENEMY UNIT ENDS A CHARGE MOVE. ONE FRIENDLY CHARACTERS UNIT FROM YOUR ARMY THAT IS WITHIN 6\" OF THAT ENEMY UNIT AND WOULD BE ELIGIBLE TO DECLARE A CHARGE AGAINST IT IN YOUR NEXT CHARGE PHASE CAN PERFORM A HEROIC INTERVENTION. IF IT DOES, THAT FRIENDLY CHARACTERS UNIT CAN MAKE A NORMAL MOVE OF UP TO 3\", BUT IT MUST END THAT MOVE IN ENGAGEMENT RANGE OF THAT ENEMY UNIT.",
+    "trigger": "opponent's charge phase, just after an enemy unit ends a charge move within 6\" of a friendly CHARACTER unit",
+    "effect": "the friendly CHARACTER unit makes a free 3\" move and must end in engagement range of the charger (approximation: simulator aims the move 1\" short of the charger to land in melee; doesn't enforce the 'eligible to charge next phase' clause)",
+    "scope": "keyword-gated"
+  }
+}

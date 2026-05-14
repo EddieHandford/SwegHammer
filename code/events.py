@@ -152,6 +152,21 @@ class UnitReanimated:
 
 
 @dataclass(frozen=True)
+class StratagemFired:
+    """An army spent CP to activate a Stratagem.
+
+    The simulator emits this whenever Battle resolves an effect dispatch
+    (Command Re-Roll, Counter-Offensive, Tank Shock, Heroic Intervention,
+    or any detachment-specific stratagem added in #104). Renderers can
+    ignore it freely — it's primarily for the event-log replay and for
+    test assertions ("did our CP get spent?").
+    """
+    army_name: str
+    stratagem_name: str
+    cp_cost: int
+
+
+@dataclass(frozen=True)
 class BattleshockFailed:
     """A unit failed its Battleshock check this round and counts as OC 0."""
     unit_uid: str

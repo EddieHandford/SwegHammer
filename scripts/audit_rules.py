@@ -28,6 +28,7 @@ from typing import Dict, List, Set, Tuple
 
 from code.detachments import Detachment
 from code.leaders import LeaderAbility, _REGISTRY as LEADER_REGISTRY
+from code.stratagems import Stratagem, UNIVERSAL_STRATAGEMS
 import code.detachments as det_module
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -125,6 +126,28 @@ def _required_leader_keys() -> Set[str]:
     return keys
 
 
+def _required_stratagem_keys() -> Set[str]:
+    """Every Stratagem accessible to any army needs a citation.
+
+    Sources:
+      * UNIVERSAL_STRATAGEMS — the four core stratagems every army can fire.
+      * Each `Detachment.stratagems` tuple — empty today; populated by #104.
+
+    Keys are formatted `Stratagem.<name>` to mirror the LeaderAbility scheme.
+    """
+    keys: Set[str] = set()
+    for strat in UNIVERSAL_STRATAGEMS:
+        keys.add(f"Stratagem.{strat.name}")
+    for var_name in dir(det_module):
+        obj = getattr(det_module, var_name)
+        if not isinstance(obj, Detachment):
+            continue
+        for strat in (obj.stratagems or ()):
+            if isinstance(strat, Stratagem):
+                keys.add(f"Stratagem.{strat.name}")
+    return keys
+
+
 def _required_simulator_keys() -> Set[str]:
     return set(SIMULATOR_RULE_KEYS)
 
@@ -176,7 +199,12 @@ def _validate_entry(key: str, entry: dict) -> List[str]:
 
 def main() -> int:
     citations = _load_citations()
-    required = _required_detachment_keys() | _required_leader_keys() | _required_simulator_keys()
+    required = (
+        _required_detachment_keys()
+        | _required_leader_keys()
+        | _required_stratagem_keys()
+        | _required_simulator_keys()
+    )
 
     missing = sorted(required - set(citations.keys()))
     stale = sorted(set(citations.keys()) - required)

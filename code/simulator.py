@@ -9,13 +9,17 @@ from typing import Dict, List, Optional, Tuple
 from .army import Army
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, InitialUnit, ObjectiveScored,
-    RoundEnded, RoundStarted, Subscriber, UnitActivated, UnitAdvanced,
-    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
-    UnitMoved, UnitReanimated, UnitScouted, UnitShot,
+    RoundEnded, RoundStarted, StratagemFired, Subscriber, UnitActivated,
+    UnitAdvanced, UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated,
+    UnitKilled, UnitMoved, UnitReanimated, UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
-from .strategy import pick_move_intent
+from .strategy import pick_move_intent, should_fire_stratagem
+from .stratagems import (
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
+    award_command_phase_cp,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +164,17 @@ class Battle:
         # objective's index in self.map.objectives. Cleared when the opposing
         # side outscores the holder's army on the objective in a later round.
         self._sticky_owner: Dict[int, str] = {}
+        # Stratagem book-keeping. Each army keeps a set of stratagem names
+        # already fired this battle (used for once_per_battle stratagems —
+        # the four universals are not once-per-battle but the field is here
+        # for #104). Also a back-reference from each Army to this Battle so
+        # Unit.attack can dispatch the Command Re-Roll hook without dragging
+        # a callback through every call site.
+        self._stratagems_fired_this_battle: Dict[str, set] = {
+            self.a.name: set(), self.b.name: set(),
+        }
+        self.a._battle_ref = self
+        self.b._battle_ref = self
 
     # ------------------------------------------------------------------
     # Public interface
@@ -755,6 +770,14 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+
+        # ---- Command phase: each army gains 1 CP (capped at 6). 10e core
+        # rule. Starting CP (3 = Strike Force standard) is set by
+        # Army.__init__; this is the per-round drip on top. The smaller-army
+        # CP bonus is a separate SwegHammer-specific catch-up mechanism
+        # awarded later by _award_cp.
+        award_command_phase_cp(self.a)
+        award_command_phase_cp(self.b)
         # Phase I — fresh arrivals from the scout phase carry over INTO
         # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
         # the set first, THEN call _arrive_from_reserves so units arriving
@@ -861,10 +884,15 @@ class Battle:
         # Thousand Sons Cabal-Points → Doombolt cadence.
         self._apply_psychic_phase()
 
-        # Leader auras: end-of-round heal_per_round from Apothecaries etc.
-        from .leaders import apply_round_end_healing
+        # Leader auras: end-of-round heal_per_round (Tech-Priest Dominus
+        # Lord of the Machine Cult repair flavour) and revive_destroyed_per_round
+        # (Apothecary Narthecium — return a destroyed INFANTRY model to the
+        # led unit) from registered character abilities.
+        from .leaders import apply_round_end_healing, apply_round_end_revival
         apply_round_end_healing(self.a)
         apply_round_end_healing(self.b)
+        apply_round_end_revival(self.a)
+        apply_round_end_revival(self.b)
 
         if round_num > 1:
             self._award_cp(self.a, self.b)
@@ -1116,6 +1144,17 @@ class Battle:
             distance=dist, roll=roll, succeeded=True,
         ))
 
+        # Universal Core Stratagems on a successful charge:
+        # * Tank Shock (1 CP, attacker) — VEHICLE chargers deal D3 mortal
+        #   wounds.
+        # * Heroic Intervention (1 CP, defender) — friendly CHARACTER
+        #   within 6" of the charge target moves 3" into engagement range
+        #   with the charger. Fire AFTER Tank Shock so the character
+        #   intervenes against whatever's still standing.
+        self._try_tank_shock(attacker, target, attacker_army)
+        if target.is_alive:
+            self._try_heroic_intervention(attacker, target, defender_army)
+
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1")."""
         if attacker.profile.melee_attacks <= 0:
@@ -1145,6 +1184,18 @@ class Battle:
         if not alive_after:
             self._emit(UnitKilled(unit_uid=nearest.uid))
 
+        # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
+        # an out-of-sequence fight for the side that just got hit. The
+        # heuristic gates on (a) friendly unit in 1.5" of the attacker
+        # AND (b) the attacker killed a model. The retaliator strikes
+        # `attacker` immediately, before activation continues.
+        if attacker.is_alive:
+            self._try_counter_offensive(
+                loser_army=defender_army, loser_unit=nearest,
+                winner_army=attacker_army, winner_unit=attacker,
+                target_killed=not alive_after,
+            )
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -1158,3 +1209,163 @@ class Battle:
         diff = opponent.unit_count - army.unit_count
         bonus = min(CP_BONUS_CAP, max(0, diff // CP_BONUS_DIVISOR))
         army.command_points += bonus
+
+    # ------------------------------------------------------------------
+    # Stratagem dispatch
+    # ------------------------------------------------------------------
+
+    def _fire_stratagem(self, army: Army, strat) -> bool:
+        """Spend CP and emit a StratagemFired event. Returns True iff the
+        stratagem actually fired (CP affordable + not already used when
+        flagged once_per_battle).
+
+        Callers are responsible for applying the stratagem's effect — this
+        method ONLY handles cost-paying + book-keeping + event emission.
+        """
+        if army.command_points < strat.cp_cost:
+            return False
+        already = self._stratagems_fired_this_battle.get(army.name, set())
+        if strat.once_per_battle and strat.name in already:
+            return False
+        army.command_points -= strat.cp_cost
+        already.add(strat.name)
+        self._stratagems_fired_this_battle[army.name] = already
+        self._emit(StratagemFired(
+            army_name=army.name,
+            stratagem_name=strat.name,
+            cp_cost=strat.cp_cost,
+        ))
+        return True
+
+    def maybe_fire_command_reroll(self, attacker_unit, target_unit, roll_kind: str) -> bool:
+        """Hook called by Unit.attack when a wound roll fails. Asks the
+        strategy heuristic whether to spend 1 CP to re-roll. Returns True
+        iff the stratagem fired.
+
+        Universal Core Stratagem (Wahapedia core rules): re-roll a single
+        Hit / Wound / Damage / Save / Advance / Charge / Battle-shock /
+        control roll. The simulator currently exposes this only on failed
+        wound rolls — that's the highest-value trigger and the others are
+        covered by detachment re-roll passives.
+        """
+        army = attacker_unit.army_ref
+        if army is None:
+            return False
+        ctx = {"target": target_unit, "roll_kind": roll_kind}
+        if not should_fire_stratagem(army, COMMAND_RE_ROLL, ctx):
+            return False
+        return self._fire_stratagem(army, COMMAND_RE_ROLL)
+
+    def _try_tank_shock(self, charger: "Unit", target: "Unit", charger_army: Army) -> None:
+        """After a VEHICLE charge resolves, optionally spend 1 CP for Tank
+        Shock — D3 mortal wounds to the charge target. Median D3 = 2
+        deterministically (matches the simulator's other 'median D3' uses
+        like Reanimation Protocols revival).
+        """
+        ctx = {"charger": charger, "succeeded": True}
+        if not should_fire_stratagem(charger_army, TANK_SHOCK, ctx):
+            return
+        if not self._fire_stratagem(charger_army, TANK_SHOCK):
+            return
+        # Mortal wounds bypass armour/invuln; honour FNP via receive_damage.
+        target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
+        alive_after = target.is_alive
+        if not alive_after:
+            self._emit(UnitKilled(unit_uid=target.uid))
+
+    def _try_heroic_intervention(
+        self, charger: "Unit", charge_target: "Unit",
+        defender_army: Army,
+    ) -> None:
+        """When an enemy charges a unit, look for a friendly CHARACTER
+        within 6" of the charge target — and if present, optionally spend
+        1 CP to pull them into engagement range with the charger.
+
+        Modelled as a free 3" move that places the CHARACTER 1" from the
+        charger (inside engagement range), so the next fight sub-phase
+        resolves their melee profile.
+        """
+        # Find the closest friendly CHARACTER to the charge target.
+        best = None
+        best_d = 999.0
+        for u in defender_army.alive_units:
+            if "CHARACTER" not in (u.profile.unit_keywords or ()):
+                continue
+            d = _distance(u.position, charge_target.position)
+            if d < best_d:
+                best_d = d
+                best = u
+        if best is None:
+            return
+        ctx = {
+            "character": best,
+            "charge_target": charge_target,
+            "distance": best_d,
+        }
+        if not should_fire_stratagem(defender_army, HEROIC_INTERVENTION, ctx):
+            return
+        if not self._fire_stratagem(defender_army, HEROIC_INTERVENTION):
+            return
+        # Move the character toward the charger up to 3", landing inside
+        # 1.0" engagement range if reachable.
+        old_pos = best.position
+        # Aim 1" short of the charger so we land in engagement, not on top.
+        new_pos = _move_toward(old_pos, charger.position, 3.0, self.map)
+        if new_pos != old_pos:
+            best.position = new_pos
+            self._emit(UnitMoved(
+                unit_uid=best.uid, from_pos=old_pos, to_pos=new_pos,
+            ))
+
+    def _try_counter_offensive(
+        self,
+        loser_army: Army, loser_unit: "Unit",
+        winner_army: Army, winner_unit: "Unit",
+        target_killed: bool,
+    ) -> None:
+        """After `winner_unit` (from winner_army) lands a fight that killed
+        a friendly model in `loser_unit`, the loser_army may spend 2 CP for
+        Counter-Offensive — a friendly unit in engagement range fights
+        immediately, out of sequence.
+
+        Effect: pick the loser_army unit with the best melee profile that is
+        within 1.5" of `winner_unit`, and fire its `_do_fight` against
+        winner_unit right now (before the rest of the fight sequence).
+        """
+        # Find a friendly unit in engagement range of the winner.
+        candidates = [
+            u for u in loser_army.alive_units
+            if u is not loser_unit
+            and u.profile.melee_attacks > 0
+            and _distance(u.position, winner_unit.position) <= 1.5
+        ]
+        in_engagement = bool(candidates)
+        ctx = {
+            "friendly_in_engagement": in_engagement,
+            "enemy_killed_model": target_killed,
+        }
+        if not should_fire_stratagem(loser_army, COUNTER_OFFENSIVE, ctx):
+            return
+        if not self._fire_stratagem(loser_army, COUNTER_OFFENSIVE):
+            return
+        # Pick the highest melee-DPA candidate.
+        def _melee_dpa(u):
+            return (
+                u.profile.melee_attacks * u.profile.melee_hit_probability
+                * (u.profile.melee_damage_per_shot or 1.0)
+            )
+        candidates.sort(key=_melee_dpa, reverse=True)
+        retaliator = candidates[0]
+        # Out-of-sequence fight: hit the enemy unit that just struck us,
+        # not whatever the retaliator's nearest happens to be.
+        dmg = retaliator.attack(winner_unit, distance=1.0, mode="melee")
+        alive_after = winner_unit.is_alive
+        self._emit(UnitFought(
+            attacker_uid=retaliator.uid,
+            target_uid=winner_unit.uid,
+            damage=dmg,
+            target_hp_after=winner_unit.current_health,
+            target_alive_after=alive_after,
+        ))
+        if not alive_after:
+            self._emit(UnitKilled(unit_uid=winner_unit.uid))

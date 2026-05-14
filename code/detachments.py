@@ -20,7 +20,9 @@ faction and document the simplification.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
+
+from .stratagems import Stratagem
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,11 @@ class Detachment:
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
+
+    # Detachment-specific Stratagems. Empty for now — the four UNIVERSAL
+    # Core Stratagems are always available regardless of detachment (see
+    # code/stratagems.py). Detachment-specific entries land in #104.
+    stratagems: Tuple[Stratagem, ...] = ()
 
 
 # ---------------------------------------------------------------------------
