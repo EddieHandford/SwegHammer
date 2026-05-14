@@ -42,12 +42,18 @@ units that dominate on both axes — see `THEORY.md` for the Lanchester derivati
 
 ## Unit Catalogue
 
-The catalogue is derived from BSData's WH40k 2nd-edition data files. There are
-~240 units in `UNIT_CATALOG`, built at import time from:
+The catalogue is derived from BSData's WH40k 10th-edition data files. There are
+~1100 units in `UNIT_CATALOG`, built at import time from:
 
 - `data/bsdata/parsed.json` — base stats produced by `code/bsdata/mapper.py`
-  walking each unit's selectionEntry tree and picking the best legal weapon
-  (the loadout that maximises damage through baseline-Marine armour).
+  walking each unit's selectionEntry tree. For multi-model squads the mapper
+  builds a **weighted basket of per-model weapons** (e.g. 5 boltguns + 4
+  multi-meltas + 1 sergeant for a Devastator Squad) and averages the per-shot
+  stats (attacks / damage / AP / S / hit_prob) across the basket. Weapon
+  keyword effects (Melta, Anti-X, etc.) take the union — the squad picks the
+  right weapon for the right target in-game, but the scaled-down attack count
+  prevents this from recovering the all-best cheese. Single-model units fall
+  back to the legacy "best legal weapon in the tree" path.
 - `data/overrides.json` — per-unit hand tuning. Any field listed here overrides
   the BSData base. Entries without a corresponding BSData entry become
   fully hand-rolled units.
@@ -55,7 +61,7 @@ The catalogue is derived from BSData's WH40k 2nd-edition data files. There are
 Refresh the BSData base with:
 
 ```
-python -m code.bsdata.fetch --tag v1.9.7   # current pinned release
+python -m code.bsdata.fetch --tag v10.6.0   # current pinned release
 python -m code.bsdata.mapper                # rebuild parsed.json
 ```
 
@@ -66,19 +72,50 @@ See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 ### Phase One (current)
 
 Points costs are derived from the offensive/defensive-ratio formula above against
-the baseline Marine. Stats come from BSData per the loadout-optimised mapper —
-each unit's "best legal weapon" sets its damage and AP. Overrides correct
-mapper artefacts (squad weapons mis-applied per-model, missing armour profiles
-that fall outside the depth-3 wargear walk, etc.).
+the baseline Marine. Stats come from BSData per the squad-aware mapper —
+multi-model squads use a weighted-average loadout (so a Devastator Squad's
+damage sits between bolter-only and multi-melta-only, not at the all-best
+cheese), while single-model units fall back to the best legal weapon in the
+tree. Overrides correct residual mapper artefacts (missing armour profiles
+that fall outside the depth-3 wargear walk, units whose squad SEG fails to
+parse, etc.).
 
 This does **not** guarantee Lanchester balance (equal aggregate score for equal
 points), but provides a well-understood baseline for the simulation to measure
 against.
 
-### Phase Two (Planned)
+### Phase Two — Empirical bisection (implemented)
 
-After running the Phase One calibration suite, units that systematically over- or under-perform
-will be identified. Points costs will be adjusted up or down for these outliers.
+`code/balancer.py` runs Monte-Carlo bisection against a **role-stratified
+baseline**: each candidate fights a same-role peer (SHOOTY → Intercessor,
+MELEE → Assault Intercessor, HORDE → Boyz, HEAVY → Knight, SUPPORT →
+Terminator Captain), with the role chosen by `code/roles.py::classify`. The
+balanced cost is the points-per-model that lands a 50% ± 5% win rate.
+
+**Leader-attached mode** (`--leader-attached`): for `CHARACTER` units, the
+candidate is built as `(host + leader)` pairs vs. a baseline of `host alone`
+at equal points. This exercises the leader's aura on a real bodyguard squad
+instead of fighting copies of itself. The host is the cheapest same-faction
+INFANTRY unit by default, chosen by `code/roles.py::pick_host_for_leader`.
+Only the leader's cost is bisected; the host's cost is held constant.
+
+**Aura uplift mode** (`--aura-uplift`): for SUPPORT characters whose value
+lives entirely in buffing a client unit (not in direct combat), bisection
+against same-role peers stalls — both sides field copies of the SUPPORT
+baseline (Terminator Captain) and the aura cancels out. Aura-uplift mode
+runs two matched measurements: `wr_with` for (client + support) pairs vs
+client alone, and `wr_without` for client alone vs client alone. The
+DELTA `wr_with - wr_without` is the support unit's contribution. A single
+linear-conversion constant `_UPLIFT_TO_POINTS_FACTOR = 100 / 0.10`
+(10% win-rate uplift ≈ 100 pts at a 1000-pt budget) maps the delta to a
+points-equivalent cost. Single-shot, no bisection — sufficient for v1.
+CLI: `--aura-uplift` with optional `--client KEY` to override the client.
+
+**Mobility covariates**: each `CalibrationResult` records the candidate's
+movement, scout distance, and Deep Strike / Infiltrator flags. These are
+diagnostic — used to spot whether the simulator's 5-round window is
+under-rewarding speed (e.g. a MELEE@M=5 unit consistently calibrating
+cheaper than a MELEE@M=8 unit). No effect on the bisection itself.
 
 ### Phase Three (Planned)
 

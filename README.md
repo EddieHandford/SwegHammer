@@ -95,9 +95,16 @@ points implies equal expected battlefield score.
 | `code/` | Python simulation engine |
 | `app.py` | Streamlit dashboard (stats + scrub-through battle replay) |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
-| `code/bsdata/` | BSData WH40k 2nd-edition fetch / parse / map / load |
+| `code/factions.py` | Codex → faction mapping + per-faction display colours |
+| `code/balancer.py` | Bisect points-per-model to hit 50% win rate vs a baseline; writes `data/calibrated_points.json` |
+| `code/detachments.py` | Army-wide passive Detachment rules (Gladius, Awakened Dynasty, Invasion Fleet, WAAAGH!, Noble Lance) |
+| `code/roles.py` | Role classifier — SHOOTY / MELEE / DUAL / HORDE / HEAVY / SUPPORT |
+| `code/strategy.py` | Per-unit move intent — HOLD / CAPTURE / STEAL / ENGAGE / REPOSITION |
+| `code/bsdata/` | BSData WH40k 10th-edition fetch / parse / map / load |
+| `code/bsdata/audit.py` | Diff successive `parsed.json` runs, flag unmapped codices and stat drift |
 | `data/bsdata/` | Pinned `.cat` cache and mapped `parsed.json` |
 | `data/overrides.json` | Per-unit hand tuning on top of the BSData base |
+| `data/calibrated_points.json` | Bisected points costs produced by `code/balancer.py` |
 
 ## Quickstart
 
@@ -124,7 +131,7 @@ python -m code.calibration
 streamlit run app.py
 
 # Refresh BSData base stats (pins to a release tag)
-python -m code.bsdata.fetch --tag v1.9.7
+python -m code.bsdata.fetch --tag v10.6.0
 python -m code.bsdata.mapper
 ```
 

@@ -77,6 +77,35 @@ def build_homogeneous_army(
     return army
 
 
+def build_attached_army(
+    name: str,
+    host_profile: UnitProfile,
+    leader_profile: UnitProfile,
+    points_budget: float,
+    in_cover: bool = False,
+) -> Army:
+    """
+    Build an army of (host, leader) pairs, interleaved so the deployment line
+    places leaders adjacent to their host within aura range.
+
+    Used by the leader-attached calibration mode to measure the leader's
+    actual battlefield value (aura uplift on a bodyguard squad) rather than
+    fighting in isolation. Remaining budget after the last pair is spent on
+    extra hosts.
+    """
+    army = Army(name, in_cover=in_cover)
+    remaining = points_budget
+    pair_cost = host_profile.points_cost + leader_profile.points_cost
+    while remaining >= pair_cost:
+        army.add_unit(host_profile)
+        army.add_unit(leader_profile)
+        remaining -= pair_cost
+    while remaining >= host_profile.points_cost:
+        army.add_unit(host_profile)
+        remaining -= host_profile.points_cost
+    return army
+
+
 def build_army_from_list(name: str, unit_keys: Sequence[str], in_cover: bool = False) -> Army:
     """
     Build an army from an explicit list of unit catalogue keys.
@@ -86,4 +115,109 @@ def build_army_from_list(name: str, unit_keys: Sequence[str], in_cover: bool = F
     for key in unit_keys:
         profile = UNIT_CATALOG[key]
         army.add_unit(profile)
+    return army
+
+
+# ---------------------------------------------------------------------------
+# Faction-scoped random army (calibration tool)
+# ---------------------------------------------------------------------------
+
+def _squad_size(profile: UnitProfile, policy: str, rng: random.Random) -> int:
+    """
+    Choose how many models to take of a given squad-type, respecting BSData
+    min/max. Policy:
+
+      "max"          -> always take the maximum-size squad
+      "half_or_max"  -> 50/50 between half-rounded-up and max (matches Eddie's
+                        observation that competitive lists tend to one extreme)
+      "random"       -> uniform int in [min, max]
+    """
+    lo, hi = max(1, profile.min_models), max(1, profile.max_models)
+    if hi < lo:
+        hi = lo
+    if policy == "max":
+        return hi
+    if policy == "half_or_max":
+        half = (lo + hi + 1) // 2  # midpoint, rounded up
+        return rng.choice((half, hi))
+    return rng.randint(lo, hi)
+
+
+def _squad_points(profile: UnitProfile, size: int) -> float:
+    """
+    SwegHammer points for a squad of `size` models — the formula in
+    `units.py::points_for` is per-model, so squad cost is linear in size.
+    Using SwegHammer pts (not BSData listed pts) means the UI's points slider
+    and `army.total_points` agree.
+    """
+    return profile.points_cost * size
+
+
+def build_faction_random_army(
+    name: str,
+    faction: str,
+    points_budget: float,
+    rng: Optional[random.Random] = None,
+    in_cover: bool = False,
+    size_policy: str = "max",
+    max_unit_fraction: float = 0.5,
+) -> Army:
+    """
+    Build a random army drawing only from a single faction's unit pool.
+
+    Each pick rolls a squad size honouring BSData min/max, scales the cost
+    linearly, and adds N copies of the UnitProfile to the army. Fills until
+    no affordable picks remain. `max_unit_fraction` caps spend per unit type
+    to avoid degenerate "20 Termagants and nothing else" outcomes.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    pool = [UNIT_CATALOG[k] for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    if not pool:
+        return Army(name, in_cover=in_cover)
+
+    army = Army(name, in_cover=in_cover)
+    remaining = float(points_budget)
+    spent_by_name: Dict[str, float] = {p.name: 0.0 for p in pool}
+    cap = points_budget * max_unit_fraction
+
+    # CHARACTER-tagged profiles are eligible to be drafted as attached leaders.
+    # 10e: a leader sits inside an infantry / battleline unit and grants auras.
+    character_pool = [
+        p for p in pool
+        if "CHARACTER" in (p.unit_keywords or ())
+    ]
+
+    while True:
+        affordable = []
+        for p in pool:
+            size = _squad_size(p, size_policy, rng)
+            cost = _squad_points(p, size)
+            if cost <= remaining and spent_by_name[p.name] + cost <= cap:
+                affordable.append((p, size, cost))
+        if not affordable:
+            break
+        chosen, size, cost = rng.choice(affordable)
+        for _ in range(size):
+            army.add_unit(chosen)
+        spent_by_name[chosen.name] += cost
+        remaining -= cost
+
+        # 50% preference: when we just added a non-character squad, try to
+        # attach a same-faction character leader. Skip if the chosen profile
+        # was itself a character, or if no characters fit the remaining budget.
+        is_character = "CHARACTER" in (chosen.unit_keywords or ())
+        if not is_character and character_pool and rng.random() < 0.5:
+            leaders_affordable = [
+                c for c in character_pool
+                if c.points_cost <= remaining
+                and spent_by_name[c.name] + c.points_cost <= cap
+            ]
+            if leaders_affordable:
+                leader = rng.choice(leaders_affordable)
+                army.add_unit(leader)
+                spent_by_name[leader.name] += leader.points_cost
+                remaining -= leader.points_cost
+
     return army

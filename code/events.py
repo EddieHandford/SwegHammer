@@ -31,6 +31,7 @@ class InitialUnit:
     army: str
     position: Tuple[float, float]
     max_health: float
+    unit_keywords: Tuple[str, ...] = ()   # 10e keywords (INFANTRY, VEHICLE, MONSTER, ...) — used by the renderer for shape variety
 
 
 @dataclass(frozen=True)
@@ -74,8 +75,95 @@ class UnitKilled:
 
 
 @dataclass(frozen=True)
+class UnitAdvanced:
+    """A unit elected to Advance (M + d6 movement, no shoot / charge)."""
+    unit_uid: str
+    advance_roll: int           # the d6 result
+    total_movement: float       # M + d6 inches
+
+
+@dataclass(frozen=True)
+class UnitCharged:
+    """A unit attempted a charge. `succeeded` is True iff 2d6 met the gap."""
+    unit_uid: str
+    target_uid: str
+    distance: float
+    roll: int                   # 2d6 total
+    succeeded: bool
+
+
+@dataclass(frozen=True)
+class UnitFought:
+    """A melee strike — shape mirrors UnitShot for renderer convenience."""
+    attacker_uid: str
+    target_uid: str
+    damage: float
+    target_hp_after: float
+    target_alive_after: bool
+
+
+@dataclass(frozen=True)
+class ObjectiveScored:
+    """End-of-round VP award for one objective."""
+    objective_name: str
+    army_name: Optional[str]    # None if contested / no scoring this round
+    vp_awarded: int
+    a_oc: int                   # combined OC each army had on the objective
+    b_oc: int
+
+
+@dataclass(frozen=True)
+class UnitInfiltrated:
+    """A unit with the Infiltrators ability deployed past its army's
+    deployment line (Phase I)."""
+    unit_uid: str
+    position: Tuple[float, float]
+
+
+@dataclass(frozen=True)
+class UnitScouted:
+    """A unit with the Scouts x" ability made its pre-Round 1 Normal Move
+    (Phase I)."""
+    unit_uid: str
+    from_pos: Tuple[float, float]
+    to_pos: Tuple[float, float]
+
+
+@dataclass(frozen=True)
+class UnitDeepStrike:
+    """A unit with the Deep Strike ability arrived from Reserves at the
+    start of a round from Round 2 onwards (Phase I)."""
+    unit_uid: str
+    position: Tuple[float, float]
+
+
+@dataclass(frozen=True)
+class UnitReanimated:
+    """A previously-destroyed model in a REANIMATION-keyword unit was revived
+    at the end of a Command Phase by Reanimation Protocols.
+
+    We model squads as N single-model Unit instances; "revive a destroyed
+    model" means re-marking a dead Unit's `current_health` back to its
+    profile max. The renderer treats this like a Deep Strike arrival —
+    a fresh body appears on the board at `position`.
+    """
+    unit_uid: str
+    position: Tuple[float, float]
+
+
+@dataclass(frozen=True)
+class BattleshockFailed:
+    """A unit failed its Battleshock check this round and counts as OC 0."""
+    unit_uid: str
+    roll: int                   # 2d6 total
+    target: int                 # Ld value
+
+
+@dataclass(frozen=True)
 class RoundEnded:
     round_num: int
+    a_vp_total: int = 0         # running VP totals after this round's scoring
+    b_vp_total: int = 0
 
 
 @dataclass(frozen=True)

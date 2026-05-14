@@ -47,13 +47,24 @@ class Terrain:
 
 
 @dataclass(frozen=True)
+class Objective:
+    """A scoring objective. Side with more OC within control_radius scores it."""
+    name: str
+    x: float            # inches from board origin
+    y: float
+    control_radius: float = 3.0   # 10e standard: control range = 3"
+    vp_per_round: int = 5         # 10e Primary VP per held objective per round
+
+
+@dataclass(frozen=True)
 class Map:
-    """A battlefield map: dimensions, terrain pieces, deployment zones."""
+    """A battlefield map: dimensions, terrain pieces, deployment zones, objectives."""
 
     name: str
     width: float        # inches
     height: float
     terrain: Tuple[Terrain, ...] = ()
+    objectives: Tuple[Objective, ...] = ()
     deployment_width: float = 12.0   # each side gets a strip of this depth
 
     def is_blocked(self, point: Tuple[float, float]) -> bool:

@@ -1,4 +1,17 @@
 {
   "_comment": "Per-unit overrides on top of data/bsdata/parsed.json. Each entry can partially override any field (health, damage, hit_probability, ap, save, name, enabled, notes). Standalone entries listed here that don't exist in parsed.json become fully hand-rolled units; they must specify all required fields.",
-  "units": {}
+  "units": {
+    "necrons_necron_warriors": {
+      "sticky_objective": true,
+      "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet."
+    },
+    "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
+      "sticky_objective": true,
+      "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."
+    },
+    "genestealer_cults_acolyte_hybrids_with_autopistols": {
+      "sticky_objective": true,
+      "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."
+    }
+  }
 }

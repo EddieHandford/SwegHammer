@@ -26,9 +26,9 @@ def print_unit_catalogue() -> None:
         )
 
 
-DEMO_MARINE_KEY = "angels_of_deaths_tactical_squad"
-DEMO_ORK_KEY = "orks_goff_boyz_mob"
-DEMO_TERMINATOR_KEY = "angels_of_deaths_terminator_captain"
+DEMO_MARINE_KEY = "space_marines_intercessor_squad"
+DEMO_ORK_KEY = "orks_boyz"
+DEMO_TERMINATOR_KEY = "space_marines_terminator_squad"
 
 
 def demo_verbose_battle() -> None:

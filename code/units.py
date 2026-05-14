@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Tuple
 
 # ---------------------------------------------------------------------------
 # Baseline calibration constants — Space Marine is the reference unit
@@ -39,6 +39,15 @@ def wound_probability(strength: int, toughness: int) -> float:
     if strength == toughness:
         return 3 / 6
     return 2 / 6   # strength < toughness but not 2S <= T
+
+
+def _prob_to_target(prob: float) -> int:
+    """
+    Invert a "succeed on N+" d6 probability back to its target. Clamped to [2,7]
+    because a 1 always fails and 7+ is the canonical "no save / no hit".
+    """
+    target = int(round(7 - prob * 6))
+    return max(2, min(7, target))
 
 
 def save_probability(save: int, ap: int = 0, in_cover: bool = False) -> float:
@@ -148,6 +157,57 @@ class UnitProfile:
     toughness: int = BASELINE_TOUGHNESS        # unit toughness defended in the wound roll
     move: float = 6.0                          # movement allowance in inches per activation
     range_inches: int = 24                     # weapon range; melee-only units use 1
+    faction: str = ""                          # canonical faction tag for UI grouping / colours
+    min_models: int = 1                        # smallest legal squad size (1 for single-model units)
+    max_models: int = 1                        # largest legal squad size
+    points_per_squad: float = 0.0              # BSData cost for a min-size squad (informational)
+    # Per-shot damage decomposition — Unit.attack() loops `attacks` times per
+    # activation, applying weapon_damage_per_shot each time. `damage` stays as
+    # the per-activation total (= attacks * weapon_damage_per_shot) so the
+    # points formula and UI displays don't change.
+    attacks: int = 1
+    weapon_damage_per_shot: float = 0.0        # 0 = derive damage / attacks at use site
+    # Weapon abilities (parsed from BSData Keywords field by the mapper)
+    lethal_hits: bool = False                  # critical hit (6 to hit) auto-wounds
+    sustained_hits: int = 0                    # critical hit generates N extra normal hits
+    twin_linked: bool = False                  # re-roll failed wound rolls
+    devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
+    invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
+    leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
+    oc: int = 1                                # Objective Control characteristic (10e)
+    # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
+    rapid_fire: int = 0                        # +N attacks at half range
+    melta: int = 0                             # +N damage per shot at half range
+    ignores_cover: bool = False                # target cover save bonus does not apply
+    anti_keywords: Tuple[Tuple[str, int], ...] = ()  # ((keyword, threshold), ...) — tuple for hashability
+    heavy: bool = False                        # +1 to hit if attacker did not move this turn
+    assault: bool = False                      # can shoot after Advance
+    torrent: bool = False                      # attacks auto-hit (skip to-hit roll)
+    hazardous: bool = False                    # d6 self-harm on activation (1 = 3 mortal wounds)
+    blast: bool = False                        # +1 attack per 5 enemy models in target unit
+    # Phase F — niche 10e weapon keywords
+    lance: bool = False                        # +1 to wound on melee if the unit charged this turn
+    precision: bool = False                    # bypass cover when shooting a CHARACTER target
+    pistol: bool = False                       # can shoot while in engagement (1.5") range
+    indirect_fire: bool = False                # ignores LoS; -1 to hit vs non-visible targets
+    one_shot: bool = False                     # weapon fires once per battle
+    # Phase H — Stealth (-1 to be hit when shot at)
+    stealth: bool = False
+    # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
+    deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
+    scout_distance: int = 0                    # pre-game Normal Move up to N inches
+    infiltrator: bool = False                  # deploys past the standard deployment line
+    fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
+    sticky_objective: bool = False             # 10e Objective Secured / "remains controlled when the unit leaves" — once this unit claims an objective, ownership persists until an opposing unit takes it back
+    unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
+    # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
+    melee_attacks: int = 0
+    melee_damage_per_shot: float = 0.0
+    melee_hit_probability: float = 0.0
+    melee_strength: int = 4
+    melee_ap: int = 0
+    melee_weapon: str = ""
+    points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
 
     @property
     def avg_damage_per_action(self) -> float:
@@ -157,7 +217,16 @@ class UnitProfile:
         return self.damage * self.hit_probability * wound_p * unsaved
 
     @property
+    def per_shot_damage(self) -> float:
+        """Damage per individual to-hit roll. Derived if not set explicitly."""
+        if self.weapon_damage_per_shot > 0:
+            return self.weapon_damage_per_shot
+        return self.damage / max(1, self.attacks)
+
+    @property
     def points_cost(self) -> float:
+        if self.points_override and self.points_override > 0:
+            return float(self.points_override)
         return points_for(
             self.health, self.damage, self.hit_probability,
             self.ap, self.save, self.strength, self.toughness,
@@ -188,45 +257,279 @@ class UnitProfile:
 class Unit:
     """A live unit on the battlefield, tracking current health and position."""
 
-    __slots__ = ("profile", "current_health", "in_cover", "uid", "position")
+    __slots__ = (
+        "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
+        "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
+    )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
         self.profile = profile
         self.current_health: float = profile.health
         self.in_cover: bool = in_cover
+        # Set by Battle._do_shoot when the target stands in HEAVY_COVER terrain.
+        # Drives the -1-to-hit penalty (in addition to the +1-to-save the
+        # plain in_cover flag already grants). Restored to False after shot.
+        self.in_heavy_cover: bool = False
         self.uid: str = ""                              # assigned by Battle at start
         self.position: tuple = (0.0, 0.0)               # (x, y) in inches
+        # Back-reference to owning army (set by Army.add_unit). Lets
+        # Unit.attack() resolve the army-wide detachment + check squad size
+        # for keywords like Blast.
+        self.army_ref = None
+        # Set by Battle each round: True iff this unit moved during the
+        # current round's movement sub-phase. Drives the Heavy keyword
+        # (+1 to hit if attacker did NOT move).
+        self.moved_this_round: bool = False
+        # Set per round by Battle._run_round: True if the unit's position
+        # is within control range of any objective marker. Read by
+        # Unit.attack() to gate detachment buffs like Awakened Dynasty's
+        # objective_holder_bonus_to_wound.
+        self.on_objective: bool = False
+        # Toggled by Battle._do_shoot: True if this VEHICLE/MONSTER unit
+        # is firing while inside an enemy's engagement range (Big Guns
+        # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
+        self.shooting_in_engagement: bool = False
 
     @property
     def is_alive(self) -> bool:
         return self.current_health > 1e-9
 
-    def receive_damage(self, amount: float) -> None:
+    def receive_damage(self, amount: float, bonus_fnp: int = 7) -> None:
+        """
+        Apply damage. If this unit has Feel No Pain X+, each point of damage
+        gets a d6 roll; on X+, it's ignored. Mortal wounds applied via this
+        method also get FNP'd by default (matches 10e default behaviour).
+
+        `bonus_fnp` lets the caller pass in a transient FNP value from a
+        leader aura (lower of profile.fnp and bonus_fnp wins). 7 = no aura.
+        """
+        effective_fnp = min(self.profile.fnp, bonus_fnp)
+        if effective_fnp < 7 and amount > 0:
+            survived = 0
+            for _ in range(int(round(amount))):
+                if random.randint(1, 6) >= effective_fnp:
+                    continue   # ignored
+                survived += 1
+            amount = survived + (amount - int(round(amount)))   # preserve fractional
         self.current_health = max(0.0, self.current_health - amount)
 
-    def attack(self, target: "Unit") -> float:
+    def attack(
+        self,
+        target: "Unit",
+        distance: float = 0.0,
+        mode: str = "ranged",
+        is_charging: bool = False,
+        has_los: bool = True,
+    ) -> float:
         """
-        Full stochastic attack sequence:
-          1. Roll to hit (hit_probability).
-          2. Roll to wound (S vs T table).
-          3. Target rolls armour save (modified by attacker AP and cover).
-          4. Apply damage on failed save.
+        Full stochastic 10e attack sequence. For each of `attacks` shots:
+          1. Roll d6 vs hit_target. Crit = 6.
+          2. Sustained Hits N: crit-to-hit generates N extra normal hits.
+          3. Lethal Hits: crit-to-hit auto-wounds (only the original crit, not
+             its sustained extras).
+          4. For each resulting hit, roll d6 vs wound_target. Twin-Linked
+             re-rolls a failed wound roll once. Crit-to-wound = 6.
+          5. Devastating Wounds: crit-to-wound bypasses saves (mortal wound).
+          6. Otherwise roll d6 save vs better of (armour-after-AP) and invuln.
 
-        Returns total damage dealt (0 on miss / no-wound / saved).
+        Army-wide detachment rules and the Heavy keyword feed in as modifiers
+        on hit_target, wound_target, n_attacks, save_target and the effective
+        invuln before the loop runs.
+
+        is_charging  - the attacker declared a charge this turn (Lance: +1 wound in melee)
+        has_los      - the defender is visible from the attacker (Indirect Fire: -1 hit if False)
         """
-        if random.random() >= self.profile.hit_probability:
-            return 0.0  # missed
+        p = self.profile
 
-        wound_p = wound_probability(self.profile.strength, target.profile.toughness)
-        if random.random() >= wound_p:
-            return 0.0  # failed to wound
+        # ---- Buff lookups (detachment + in-range leader auras) -------------
+        # Attacker side: detachment passives + every in-range friendly leader
+        # whose aura covers this unit (re-rolls, +1 to hit/wound).
+        # Target side: detachment passives + leader auras covering the target
+        # (army-wide invuln, FNP). All composed via leaders.effective_buffs().
+        from .leaders import effective_buffs
+        att_buffs = effective_buffs(self)
+        tgt_buffs = effective_buffs(target)
 
-        sv_prob = save_probability(target.profile.save, self.profile.ap, target.in_cover)
-        if random.random() < sv_prob:
-            return 0.0  # saved
+        if mode == "melee" and p.melee_attacks > 0:
+            # Substitute the melee stat block for this resolution
+            per_shot_dmg = p.melee_damage_per_shot or 1.0
+            n_attacks = max(1, int(p.melee_attacks))
+            hit_target = _prob_to_target(p.melee_hit_probability)
+            strength = p.melee_strength
+            ap = p.melee_ap
+            ignore_cover = True   # melee always ignores cover
+        else:
+            per_shot_dmg = p.per_shot_damage
+            n_attacks = max(1, int(p.attacks))
+            hit_target = None     # set below
+            strength = p.strength
+            ap = p.ap
+            ignore_cover = p.ignores_cover
 
-        target.receive_damage(self.profile.damage)
-        return self.profile.damage
+        # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
+        if mode != "melee":
+            half_range = (p.range_inches or 24) / 2.0
+            at_half_range = distance > 0 and distance <= half_range
+            if at_half_range:
+                n_attacks += int(p.rapid_fire)           # Rapid Fire X
+                per_shot_dmg += float(p.melta)           # Melta X
+
+        # ---- Blast: +1 attack per 5 enemy models in the target unit ----
+        if p.blast and target.profile.blast is not None:  # always true; null-guard
+            try:
+                same_squad = sum(
+                    1 for u in target.army_ref.alive_units
+                    if u.profile.name == target.profile.name
+                ) if target.army_ref is not None else 1
+            except Exception:
+                same_squad = 1
+            n_attacks += same_squad // 5
+
+        # ---- Buffs: +N extra attacks per weapon (detachment-only field) ----
+        if att_buffs["plus_one_attack"]:
+            n_attacks += int(att_buffs["plus_one_attack"])
+
+        if hit_target is None:
+            hit_target = _prob_to_target(p.hit_probability)
+        wound_p = wound_probability(strength, target.profile.toughness)
+        wound_target = _prob_to_target(wound_p)
+
+        # ---- Buffs: +1 to hit / +1 to wound (lower the d6 target, min 2) ----
+        if att_buffs["plus_one_to_hit"]:
+            hit_target = max(2, hit_target - 1)
+        if att_buffs["plus_one_to_wound"]:
+            wound_target = max(2, wound_target - 1)
+
+        # ---- Heavy keyword: +1 to hit when shooting and the attacker did
+        # NOT move this round. Melee never benefits. Same math as +1-to-hit.
+        if p.heavy and mode != "melee" and not self.moved_this_round:
+            hit_target = max(2, hit_target - 1)
+
+        # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
+        # while in engagement range pay -1 to hit (raises the d6 target).
+        # Mode is ranged because we already blocked melee above.
+        if mode != "melee" and self.shooting_in_engagement:
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Indirect Fire: -1 to hit when target is not visible (raises target).
+        # Only meaningful in ranged mode.
+        if p.indirect_fire and mode != "melee" and not has_los:
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Lance: +1 to wound (lower wound_target by 1, min 2) when this
+        # melee attack happens on a turn the attacker declared a charge.
+        if p.lance and mode == "melee" and is_charging:
+            wound_target = max(2, wound_target - 1)
+
+        # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
+        # the plain in_cover flag already grants below). Ranged shots only;
+        # melee always ignores cover. Ignores Cover bypasses both effects.
+        if (
+            mode != "melee"
+            and target.in_heavy_cover
+            and not ignore_cover
+        ):
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Stealth keyword: shooters take -1 to hit against the target.
+        # Same math as a worsened hit roll. Capped at 7 (no possible hit).
+        # Melee is unaffected (Stealth is a ranged defence).
+        if mode != "melee" and target.profile.stealth:
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
+        anti_crit_threshold = 6
+        if p.anti_keywords and target.profile.unit_keywords:
+            target_kw = set(target.profile.unit_keywords)
+            for kw, thresh in p.anti_keywords:
+                if kw in target_kw and thresh < anti_crit_threshold:
+                    anti_crit_threshold = thresh
+
+        save_after_ap = target.profile.save - ap
+        # Precision: a ranged shot at a CHARACTER target pierces concealment —
+        # cover does not improve the save. Same effect as Ignores Cover, but
+        # gated on the target's keywords.
+        precision_pierces_cover = (
+            p.precision
+            and mode != "melee"
+            and "CHARACTER" in (target.profile.unit_keywords or ())
+        )
+        if target.in_cover and not ignore_cover and not precision_pierces_cover:
+            save_after_ap = max(2, save_after_ap - 1)
+        # ---- Target's buffs: +1 to armour save (cap 2+) ----
+        if tgt_buffs["plus_one_save"]:
+            save_after_ap = max(2, save_after_ap - 1)
+        invuln = target.profile.invuln_save
+        # ---- Target's buffs: army-wide invuln. Only overrides if better
+        # (lower number) than what the target already has. 7 = unset.
+        tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
+        if tgt_invuln_buff <= 6 and tgt_invuln_buff < invuln:
+            invuln = tgt_invuln_buff
+        effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
+        save_target = effective_save  # 7 = no save
+
+        # Re-roll flags from attacker's buffs.
+        att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
+        att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
+
+        total_damage = 0.0
+        for _ in range(n_attacks):
+            # ---- Torrent: skip the to-hit roll, attack auto-hits ----
+            if p.torrent:
+                crit_hit = False   # torrent has no crit-on-hit
+            else:
+                roll = random.randint(1, 6)
+                # Detachment "re-roll 1s to hit": replace the natural 1 with a
+                # fresh d6, then proceed with the new value (used for crit /
+                # threshold). Applies BEFORE crit detection per spec.
+                if att_reroll_hit_ones and roll == 1:
+                    roll = random.randint(1, 6)
+                if roll < hit_target:
+                    continue   # missed
+                crit_hit = (roll == 6)
+            n_hits = 1 + (p.sustained_hits if crit_hit else 0)
+
+            for hit_i in range(n_hits):
+                if p.lethal_hits and crit_hit and hit_i == 0:
+                    wound_succeeded = True
+                    crit_wound = False
+                else:
+                    wroll = random.randint(1, 6)
+                    rerolled = False
+                    # Re-roll natural 1s to wound (detachment). Compose with
+                    # Twin-Linked (re-roll any failure) but never re-roll the
+                    # same die twice.
+                    if att_reroll_wound_ones and wroll == 1:
+                        wroll = random.randint(1, 6)
+                        rerolled = True
+                    wound_succeeded = (wroll >= wound_target)
+                    if not wound_succeeded and p.twin_linked and not rerolled:
+                        wroll = random.randint(1, 6)
+                        wound_succeeded = (wroll >= wound_target)
+                    # Anti-X lowers the crit-wound threshold against that keyword
+                    crit_wound = wound_succeeded and wroll >= anti_crit_threshold
+                if not wound_succeeded:
+                    continue
+
+                tgt_fnp_buff = int(tgt_buffs["fnp"])
+                if p.devastating_wounds and crit_wound:
+                    target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
+                    total_damage += per_shot_dmg
+                    continue
+
+                if save_target <= 6:
+                    sroll = random.randint(1, 6)
+                    if sroll >= save_target:
+                        continue   # saved
+                target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
+                total_damage += per_shot_dmg
+
+        # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
+        if p.hazardous:
+            if random.randint(1, 6) == 1:
+                self.receive_damage(3.0)
+
+        return total_damage
 
     def __repr__(self) -> str:
         return f"{self.profile.name}({self.current_health:.1f}/{self.profile.health}hp)"
@@ -242,7 +545,95 @@ class Unit:
 #   save:  3 = 3+, 4 = 4+, 5 = 5+, 6 = 6+, 7 = no save
 #   S / T: roughly aligned with 10th-edition datasheets, rounded for sanity
 #
-UNIT_CATALOG: Dict[str, UnitProfile] = {
+# UNIT_CATALOG is built at import time by merging:
+#   data/bsdata/parsed.json — base stats from BSData WH40k 10th edition
+#   data/overrides.json     — per-unit hand tuning
+#
+# To refresh the BSData base, run:
+#     python -m code.bsdata.fetch --tag <release>
+#     python -m code.bsdata.mapper
+#
+def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
+    from .bsdata.loader import load_catalog
+    from .factions import faction_of
+
+    catalog: Dict[str, UnitProfile] = {}
+    for key, entry in load_catalog(use_calibrated=use_calibrated).items():
+        catalog[key] = UnitProfile(
+            name=entry.name,
+            health=entry.health,
+            damage=entry.damage,
+            hit_probability=entry.hit_probability,
+            ap=entry.ap,
+            save=entry.save,
+            strength=entry.strength,
+            toughness=entry.toughness,
+            leadership=entry.leadership,
+            oc=entry.oc,
+            faction=faction_of(entry.codex),
+            min_models=entry.min_models,
+            max_models=entry.max_models,
+            points_per_squad=entry.points_listed,
+            attacks=entry.attacks,
+            weapon_damage_per_shot=entry.weapon_damage_per_shot,
+            lethal_hits=entry.lethal_hits,
+            sustained_hits=entry.sustained_hits,
+            twin_linked=entry.twin_linked,
+            devastating_wounds=entry.devastating_wounds,
+            invuln_save=entry.invuln_save,
+            rapid_fire=entry.rapid_fire,
+            melta=entry.melta,
+            ignores_cover=entry.ignores_cover,
+            anti_keywords=tuple((k, v) for k, v in (entry.anti_keywords or {}).items()),
+            heavy=entry.heavy,
+            assault=entry.assault,
+            torrent=entry.torrent,
+            hazardous=entry.hazardous,
+            blast=entry.blast,
+            lance=entry.lance,
+            precision=entry.precision,
+            pistol=entry.pistol,
+            indirect_fire=entry.indirect_fire,
+            one_shot=entry.one_shot,
+            stealth=entry.stealth,
+            deep_strike=entry.deep_strike,
+            scout_distance=entry.scout_distance,
+            infiltrator=entry.infiltrator,
+            fnp=entry.fnp,
+            sticky_objective=entry.sticky_objective,
+            unit_keywords=tuple(entry.unit_keywords or []),
+            melee_attacks=entry.melee_attacks,
+            melee_damage_per_shot=entry.melee_damage_per_shot,
+            melee_hit_probability=entry.melee_hit_probability,
+            melee_strength=entry.melee_strength,
+            melee_ap=entry.melee_ap,
+            melee_weapon=entry.melee_weapon,
+            range_inches=entry.range_inches,
+            points_override=entry.points_override,
+        )
+    return catalog
+
+
+UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
+# Same units, but with balancer-derived points overrides layered on (only
+# converged calibration entries are applied). Lazily built when first
+# requested so importing code.units stays cheap.
+_BALANCED_CATALOG: Dict[str, UnitProfile] | None = None
+
+
+def balanced_catalog() -> Dict[str, UnitProfile]:
+    """Return the catalogue with calibrated_points.json applied as overrides."""
+    global _BALANCED_CATALOG
+    if _BALANCED_CATALOG is None:
+        _BALANCED_CATALOG = _build_catalog(use_calibrated=True)
+    return _BALANCED_CATALOG
+
+
+# --- Dead code below: hand-rolled catalogue resurrected by an earlier merge
+# conflict resolution. Kept for one beat in case anyone is mid-rebase, but
+# the dict is immediately shadowed by `_build_catalog()` above and will be
+# removed in a follow-up.
+_LEGACY_HAND_ROLLED_CATALOG_SUPERSEDED: Dict[str, UnitProfile] = {
     # --- Space Marines ---
     "scout_marine": UnitProfile(
         name="Scout Marine",
@@ -359,28 +750,4 @@ UNIT_CATALOG: Dict[str, UnitProfile] = {
         move=8.0, range_inches=18,
     ),
 }
-# UNIT_CATALOG is built at import time by merging:
-#   data/bsdata/parsed.json — base stats derived from BSData WH40k 2nd Edition
-#   data/overrides.json     — per-unit hand tuning, plus legacy hand-rolled units
-#
-# To refresh the BSData base, run:
-#     python -m code.bsdata.fetch --tag <release>
-#     python -m code.bsdata.mapper
-#
-def _build_catalog() -> Dict[str, UnitProfile]:
-    from .bsdata.loader import load_catalog
-
-    catalog: Dict[str, UnitProfile] = {}
-    for key, entry in load_catalog().items():
-        catalog[key] = UnitProfile(
-            name=entry.name,
-            health=entry.health,
-            damage=entry.damage,
-            hit_probability=entry.hit_probability,
-            ap=entry.ap,
-            save=entry.save,
-        )
-    return catalog
-
-
-UNIT_CATALOG: Dict[str, UnitProfile] = _build_catalog()
+del _LEGACY_HAND_ROLLED_CATALOG_SUPERSEDED   # keep the symbol out of the namespace
