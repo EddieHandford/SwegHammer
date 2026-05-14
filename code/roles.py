@@ -109,13 +109,22 @@ def pick_host_for_leader(leader_profile: UnitProfile) -> str:
     Pick a battleline host unit for the given leader so the leader's aura is
     exercised in calibration. Preference order:
 
-      1. Cheapest same-faction non-CHARACTER unit with the INFANTRY keyword.
-      2. Cheapest same-faction non-CHARACTER unit of any kind.
-      3. The DUAL role baseline (Intercessor Squad).
+      1. The first `host_keys` entry on the leader's LeaderAbility registry
+         row that exists in UNIT_CATALOG (declared 10e attachment).
+      2. Cheapest same-faction non-CHARACTER unit with the INFANTRY keyword.
+      3. Cheapest same-faction non-CHARACTER unit of any kind.
+      4. The DUAL role baseline (Intercessor Squad).
 
     Returns a UNIT_CATALOG key.
     """
+    from .leaders import lookup_ability
     from .units import UNIT_CATALOG
+
+    ability = lookup_ability(leader_profile.name)
+    if ability is not None:
+        for host_key in ability.host_keys:
+            if host_key in UNIT_CATALOG:
+                return host_key
 
     faction = leader_profile.faction
 

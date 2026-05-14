@@ -169,20 +169,31 @@ class AttachedArmyBuilderTests(unittest.TestCase):
 
 
 class PickHostForLeaderTests(unittest.TestCase):
-    """#88 — host selection should prefer a same-faction INFANTRY battleline."""
+    """#88 — host selection prefers the LeaderAbility-declared host_keys,
+    then falls back to a same-faction INFANTRY battleline."""
 
     def test_returns_catalogue_key(self):
-        # Use a known character as the leader.
         leader_key = next(
             k for k, p in UNIT_CATALOG.items()
             if "CHARACTER" in (p.unit_keywords or ()) and p.faction
         )
         host_key = pick_host_for_leader(UNIT_CATALOG[leader_key])
         self.assertIn(host_key, UNIT_CATALOG)
-        # The host must not be a character itself.
         self.assertNotIn(
             "CHARACTER", UNIT_CATALOG[host_key].unit_keywords or (),
         )
+
+    def test_registry_declared_host_wins(self):
+        # A Necron Overlord profile should resolve to a declared Necron host
+        # (Warriors or Immortals) via the LeaderAbility.host_keys path.
+        overlord_keys = [
+            k for k, p in UNIT_CATALOG.items()
+            if "Overlord" in p.name and p.faction == "Necrons"
+        ]
+        if not overlord_keys:
+            self.skipTest("No Necron Overlord profile in catalogue")
+        host = pick_host_for_leader(UNIT_CATALOG[overlord_keys[0]])
+        self.assertIn(host, ("necrons_necron_warriors", "necrons_immortals"))
 
 
 class LeaderAttachedCalibrationTests(unittest.TestCase):

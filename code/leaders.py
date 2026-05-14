@@ -50,6 +50,9 @@ class LeaderAbility:
       * `extra_invuln`, `fnp`: 7 = none, lower number = better (10e d6 target)
 
     `aura_range` is in inches. `0` means army-wide (no proximity gating).
+    `host_keys` declares the legal bodyguard units this leader can attach
+    to (UNIT_CATALOG keys, preference order). Empty = let the calibrator
+    fall back to its faction-heuristic host picker.
     """
     name: str
     aura_range: float                       # inches; 0 = army-wide
@@ -64,6 +67,9 @@ class LeaderAbility:
     # End-of-round healing: restore N HP to the nearest wounded friendly in
     # aura range (or to the leader itself if none are wounded).
     heal_per_round: int = 0
+    # Legal bodyguard hosts for the calibrator. Preference order; the
+    # picker chooses the first key present in UNIT_CATALOG.
+    host_keys: Tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -73,53 +79,90 @@ class LeaderAbility:
 # "Captain in Terminator Armour" matches "Captain" cleanly but doesn't
 # accidentally collide with a hypothetical future "Captain-General".
 
+# Host preferences below are 10e legal-attachment guidelines. The calibrator
+# walks the tuple and picks the first entry that exists in UNIT_CATALOG.
+_MARINE_HOSTS = (
+    "space_marines_assault_intercessor_squad",
+    "space_marines_tactical_squad",
+)
+_NECRON_HOSTS = ("necrons_necron_warriors", "necrons_immortals")
+_AELDARI_GUARDIAN_HOSTS = (
+    "aeldari_aeldari_library_guardian_defenders",
+    "aeldari_aeldari_library_storm_guardians",
+)
+_TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
+
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Space Marine HQ
-    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True)),
-    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True)),
-    ("Apothecary",         LeaderAbility(name="Combat Restoratives",        aura_range=3.0, heal_per_round=1)),
-    ("Librarian",          LeaderAbility(name="Psychic Empowerment",        aura_range=6.0, plus_one_to_wound=True)),
+    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True,  host_keys=_MARINE_HOSTS)),
+    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True, host_keys=_MARINE_HOSTS)),
+    ("Apothecary",         LeaderAbility(name="Combat Restoratives",        aura_range=3.0, heal_per_round=1,       host_keys=_MARINE_HOSTS)),
+    ("Librarian",          LeaderAbility(name="Psychic Empowerment",        aura_range=6.0, plus_one_to_wound=True, host_keys=_MARINE_HOSTS)),
     # Adepta Sororitas
-    ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True)),
+    ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("adepta_sororitas_battle_sisters_squad",))),
     # Necrons
-    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, plus_one_to_hit=True)),
-    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5)),
-    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5)),
-    ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5)),
+    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, plus_one_to_hit=True,  host_keys=_NECRON_HOSTS)),
+    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
+    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
+    ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks
-    ("Warboss",            LeaderAbility(name="Waaagh! Boss",               aura_range=6.0, plus_one_to_wound=True)),
-    # Tyranids
-    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True)),
+    ("Warboss",            LeaderAbility(name="Waaagh! Boss",               aura_range=6.0, plus_one_to_wound=True, host_keys=("orks_boyz", "orks_nobz"))),
+    # Tyranids — Hive Tyrant is a Monster lead; aura still applies to nearby
+    # gants/warriors but no formal attachment in 10e. Host picker uses the
+    # synapse-cheap option for calibration purposes.
+    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True,
+                                          host_keys=("tyranids_tyranid_warriors_with_ranged_bio_weapons",
+                                                     "tyranids_termagants"))),
     # Aeldari
-    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True)),
-    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True)),
-    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),
+    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True,   host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),  # Monster, no formal host
     # T'au Empire
-    ("Ethereal",           LeaderAbility(name="Guiding Hand of the Greater Good", aura_range=6.0, reroll_wound_ones=True)),
-    ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),
-    ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, reroll_hit_ones=True)),
-    # Chaos Space Marines
-    ("Sorcerer",           LeaderAbility(name="Death Hex",                  aura_range=6.0, plus_one_to_wound=True)),
-    ("Dark Apostle",       LeaderAbility(name="Profane Litanies",           aura_range=6.0, reroll_hit_ones=True)),
-    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True)),
+    ("Ethereal",           LeaderAbility(name="Guiding Hand of the Greater Good", aura_range=6.0, reroll_wound_ones=True, host_keys=_TAU_FIRE_HOSTS)),
+    ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),  # Battlesuit, no INFANTRY host
+    ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, reroll_hit_ones=True,   host_keys=_TAU_FIRE_HOSTS)),
+    # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
+    # use the closest battleline that is, otherwise let the heuristic decide.)
+    ("Sorcerer",           LeaderAbility(name="Death Hex",                  aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("chaos_space_marines_traitor_guardsmen_squad",
+                                                     "chaos_space_marines_cultist_mob"))),
+    ("Dark Apostle",       LeaderAbility(name="Profane Litanies",           aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("chaos_space_marines_cultist_mob",))),
+    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
     # Adeptus Custodes
-    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True)),
-    ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True)),
+    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("adeptus_custodes_custodian_guard",))),
+    ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=("adeptus_custodes_custodian_guard",))),
     # Adeptus Mechanicus
-    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, reroll_hit_ones=True, heal_per_round=1)),
+    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, reroll_hit_ones=True, heal_per_round=1,
+                                          host_keys=("adeptus_mechanicus_skitarii_vanguard",
+                                                     "adeptus_mechanicus_skitarii_rangers"))),
     # Death Guard
-    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True)),
-    ("Typhus",             LeaderAbility(name="Host of the Destroyer Hive", aura_range=6.0, reroll_wound_ones=True)),
+    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("death_guard_plague_marines",))),
+    ("Typhus",             LeaderAbility(name="Host of the Destroyer Hive", aura_range=6.0, reroll_wound_ones=True,
+                                          host_keys=("death_guard_plague_marines",))),
     # Grey Knights
-    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True)),
-    ("Grand Master",       LeaderAbility(name="Tactical Acumen",            aura_range=6.0, plus_one_to_wound=True)),
-    # Drukhari
-    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True)),
-    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True)),
+    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("grey_knights_strike_squad",))),
+    ("Grand Master",       LeaderAbility(name="Tactical Acumen",            aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("grey_knights_brotherhood_terminator_squad",
+                                                     "grey_knights_strike_squad"))),
+    # Drukhari (10e: folded into Aeldari faction)
+    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=("aeldari_aeldari_library_kabalite_warriors",))),
+    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("aeldari_aeldari_library_wyches",))),
     # Genestealer Cults
-    ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True)),
+    ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("genestealer_cults_neophyte_hybrids",
+                                                     "genestealer_cults_acolyte_hybrids_with_autopistols"))),
     # Leagues of Votann
-    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, plus_one_to_hit=True)),
+    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=("leagues_of_votann_hearthkyn_warriors",))),
 )
 
 
