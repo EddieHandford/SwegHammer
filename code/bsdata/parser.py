@@ -7,12 +7,25 @@ Every element with an `id` attribute is indexed so that `entryLink`/`infoLink`
 
 from __future__ import annotations
 
+import gzip
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional
 
 from .fetch import CACHE_DIR, cached_files
+
+
+def _open_cat(path: Path):
+    """Open a .cat / .gst file, transparently decompressing if it's .gz.
+
+    The cache moved to gzipped storage (10× smaller, ~24 MB → ~2 MB) but
+    we keep reading legacy plain-XML cache files in case the user pulled
+    from before the migration.
+    """
+    if path.suffix == ".gz":
+        return gzip.open(path, "rb")
+    return open(path, "rb")
 
 # BattleScribe uses two schemas with different namespaces; both files are tiny
 # variations on the same shape so we strip the namespace at load time.
@@ -47,15 +60,21 @@ class Registry:
 
 
 def load_registry(files: Optional[List[Path]] = None) -> Registry:
-    """Load every cached .cat and .gst into a single registry."""
+    """Load every cached .cat / .gst (or their .gz variants) into a registry."""
     if files is None:
         files = cached_files()
         if not files:
-            files = sorted(CACHE_DIR.glob("*.cat")) + sorted(CACHE_DIR.glob("*.gst"))
+            files = (
+                sorted(CACHE_DIR.glob("*.cat.gz"))
+                + sorted(CACHE_DIR.glob("*.gst.gz"))
+                + sorted(CACHE_DIR.glob("*.cat"))
+                + sorted(CACHE_DIR.glob("*.gst"))
+            )
 
     reg = Registry()
     for path in files:
-        tree = ET.parse(path)
+        with _open_cat(path) as fh:
+            tree = ET.parse(fh)
         _strip_ns(tree)
         reg.add_tree(path, tree)
     return reg

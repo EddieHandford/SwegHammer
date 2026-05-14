@@ -1184,7 +1184,7 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
 def _slugify(codex: str, name: str) -> str:
-    short = codex.replace(".cat", "")
+    short = codex.replace(".cat.gz", "").replace(".gst.gz", "").replace(".cat", "")
     # Drop common prefixes for cleaner keys
     for prefix in ("Imperium - Adeptus Astartes - ", "Imperium - ", "Chaos - "):
         if short.startswith(prefix):

@@ -12,6 +12,7 @@ to refresh against a newer BSData release.
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import sys
 import urllib.parse
@@ -63,11 +64,16 @@ def fetch(tag: str = DEFAULT_TAG, force: bool = False) -> List[Path]:
 
     fetched: List[Path] = []
     for name in filenames:
-        dest = CACHE_DIR / name
+        # Store the .cat / .gst gzipped — XML compresses ~10x and we
+        # commit the cache to the repo, so the on-disk savings are
+        # worthwhile. parser._open_cat handles decompression transparently.
+        dest = CACHE_DIR / (name + ".gz")
         url = _raw_url(tag, name)
         print(f"[bsdata] fetching {name}")
         with urllib.request.urlopen(url) as resp:
-            dest.write_bytes(resp.read())
+            body = resp.read()
+        with gzip.open(dest, "wb", compresslevel=9) as out:
+            out.write(body)
         fetched.append(dest)
 
     MANIFEST_PATH.write_text(

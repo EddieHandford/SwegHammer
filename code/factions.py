@@ -135,7 +135,14 @@ FACTION_COLOURS: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 def faction_of(codex: str) -> str:
-    """Return the faction string for a codex filename, or '' if unrecognised."""
+    """Return the faction string for a codex filename, or '' if unrecognised.
+
+    Tolerates the gzipped cache suffix introduced in #100 — the canonical
+    lookup keys end in ``.cat`` so we strip a trailing ``.gz`` before the
+    match. Plain ``.cat`` filenames continue to hit directly.
+    """
+    if codex.endswith(".gz"):
+        codex = codex[:-3]
     return CODEX_TO_FACTION.get(codex, "")
 
 
