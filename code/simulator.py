@@ -385,6 +385,42 @@ class Battle:
     # Reanimation Protocols (issue #75)
     # ------------------------------------------------------------------
 
+    def _apply_psychic_phase(self) -> None:
+        """End-of-round mortal-wound payload from psychic detachments.
+
+        For each army whose detachment exposes
+        ``psychic_mortal_wounds_per_round > 0``, pick the highest-priority
+        living enemy and slam it with that many mortal wounds. "Priority"
+        uses the existing role-aware threat score logic so the psychic
+        output goes after a high-value target (Knight, Hive Tyrant)
+        instead of soaking on a Cultist.
+
+        Mortal wounds bypass armour/invuln rolls entirely. We honour FNP
+        via ``Unit.receive_damage(bonus_fnp=...)`` so things like Plague
+        Marines still get their 5+ feel-no-pain shot.
+        """
+        from .roles import classify
+
+        ROLE_THREAT = {"HEAVY": 3.0, "SHOOTY": 2.0, "DUAL": 1.5,
+                       "MELEE": 1.0, "SUPPORT": 1.2, "HORDE": 0.6}
+
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            det = army.resolve_detachment()
+            if det is None or det.psychic_mortal_wounds_per_round <= 0:
+                continue
+            damage = det.psychic_mortal_wounds_per_round
+            targets = [u for u in opponent.alive_units]
+            if not targets:
+                continue
+            # Score by role-threat × remaining HP — heavy / wounded targets
+            # get a finishing shove, but we don't waste it on full-HP HORDE
+            # bodies.
+            def _score(u):
+                role = classify(u.profile)
+                return ROLE_THREAT.get(role, 1.0) * u.current_health
+            victim = max(targets, key=_score)
+            victim.receive_damage(damage, bonus_fnp=victim.profile.fnp)
+
     def _apply_reanimation(self) -> None:
         """End-of-round model revival for Reanimation Protocols armies.
 
@@ -722,6 +758,17 @@ class Battle:
             for u in army.units:
                 u.moved_this_round = False
 
+        # Pre-compute on-objective state for the round so Unit.attack() can
+        # cheaply apply detachment buffs gated on objective control (Awakened
+        # Dynasty +1 to wound is the first user; future detachments can
+        # share the flag).
+        for army in (self.a, self.b):
+            for u in army.units:
+                u.on_objective = any(
+                    _distance(u.position, (obj.x, obj.y)) <= obj.control_radius
+                    for obj in self.map.objectives
+                )
+
         # Battleshock phase (after Round 1). 10e core rule: any unit Below
         # Half-Strength tests; pass on 2d6 >= Ld. We treat each Unit
         # instance as a stand-in for a single squad member; "below half
@@ -798,6 +845,12 @@ class Battle:
         # heals — it brings dead models back). Median D3 = 2 models revived
         # per profile per round.
         self._apply_reanimation()
+
+        # Psychic phase (#94): detachments with psychic_mortal_wounds_per_round
+        # deal that many mortal wounds to the highest-threat enemy unit each
+        # round. Bypasses armour / save / toughness — pure HP burn. Models
+        # Thousand Sons Cabal-Points → Doombolt cadence.
+        self._apply_psychic_phase()
 
         # Leader auras: end-of-round heal_per_round from Apothecaries etc.
         from .leaders import apply_round_end_healing

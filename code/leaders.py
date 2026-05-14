@@ -279,6 +279,11 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             _merge_add(buffs, det, "plus_one_attack")
             _merge_min(buffs, det, "extra_invuln")
             _merge_min(buffs, det, "fnp")
+            # Conditional offensive trigger: +1 to wound when the attacker
+            # is on an objective. Awakened Dynasty's signature.
+            if getattr(det, "objective_holder_bonus_to_wound", False) \
+                    and getattr(attacker, "on_objective", False):
+                buffs["plus_one_to_wound"] = True
 
     for leader in in_range_leaders(attacker):
         ability = lookup_ability(leader.profile.name)

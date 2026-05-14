@@ -51,6 +51,21 @@ class Detachment:
     # Healing / recovery
     reanimate_per_round: int = 0         # W restored per unit per round end
 
+    # Conditional attack buffs — apply only in a specific battlefield state.
+    # `objective_holder_bonus_to_wound`: +1 to wound when the attacking unit
+    # is within control range of any objective marker. Used by Awakened
+    # Dynasty's "My Will Be Done" / Reclaim the Wasteland trigger to
+    # represent the on-objective offensive teeth that the points-balance
+    # otherwise underrates in Necron-faction sims.
+    objective_holder_bonus_to_wound: bool = False
+
+    # Psychic mortal-wound payload at end of each round. Models the
+    # Thousand Sons Cabal-Points → Doombolt spell loop: the army's
+    # collective psyker output cracks off N mortal wounds against the
+    # highest-threat enemy, ignoring armour and toughness rolls. Median
+    # of D3 = 2 maps cleanly to the typical Cult-of-Magic Doombolt yield.
+    psychic_mortal_wounds_per_round: int = 0
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -74,10 +89,14 @@ AWAKENED_DYNASTY = Detachment(
     name="Awakened Dynasty",
     faction="Necrons",
     notes=(
-        "Reanimation Protocols: each unit regains 1 W per round end. Real "
-        "rule rolls per model; this captures the headline durability boost."
+        "Reanimation Protocols: dead models flip back to alive at end of "
+        "round (simulator handles this directly via reanimate_per_round + "
+        "_apply_reanimation). PLUS Awakened Dynasty's signature offensive "
+        "trigger — units on objectives get +1 to wound, the on-objective "
+        "teeth that under-rated Necrons in the May 2026 calibration."
     ),
     reanimate_per_round=1,
+    objective_holder_bonus_to_wound=True,
 )
 
 INVASION_FLEET = Detachment(
@@ -224,10 +243,14 @@ CULT_OF_MAGIC = Detachment(
     name="Cult of Magic",
     faction="Thousand Sons",
     notes=(
-        "Psychic mastery: lossy as army-wide +1 to wound. Real rule grants "
-        "Devastating Wounds on Psychic weapons."
+        "Psychic mastery: army-wide +1 to wound PLUS end-of-round Cabal "
+        "Points → Doombolt mortal-wound payload (median D3 = 2 MWs to "
+        "the highest-threat enemy). The mortal-wound stream is what "
+        "calibrates Thousand Sons up from a base ~40% sim WR closer "
+        "to the real 54% tournament number."
     ),
     plus_one_to_wound=True,
+    psychic_mortal_wounds_per_round=2,
 )
 
 BERZERKER_WARBAND = Detachment(

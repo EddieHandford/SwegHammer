@@ -259,7 +259,7 @@ class Unit:
 
     __slots__ = (
         "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
-        "army_ref", "moved_this_round",
+        "army_ref", "moved_this_round", "on_objective",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -280,6 +280,11 @@ class Unit:
         # current round's movement sub-phase. Drives the Heavy keyword
         # (+1 to hit if attacker did NOT move).
         self.moved_this_round: bool = False
+        # Set per round by Battle._run_round: True if the unit's position
+        # is within control range of any objective marker. Read by
+        # Unit.attack() to gate detachment buffs like Awakened Dynasty's
+        # objective_holder_bonus_to_wound.
+        self.on_objective: bool = False
 
     @property
     def is_alive(self) -> bool:
