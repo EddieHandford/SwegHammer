@@ -110,8 +110,6 @@ cheaper than a MELEE@M=8 unit). No effect on the bisection itself.
 
 ### Phase Three (Planned)
 
-### Phase Three (Planned)
-
 A multidimensional regression fit will replace the linear formula with a calibrated cost surface.
 The target: for any pair of equal-points armies, the expected win rate converges to 50% ± 5%.
 
