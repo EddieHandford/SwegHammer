@@ -127,27 +127,54 @@ def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     return total
 
 
+def _durability(profile, current_health: float, attacker_ap: int) -> float:
+    """Effective durability against an attacker with the given AP.
+
+    Combines remaining HP, toughness, and the fraction of unsaved wounds
+    after armour / invuln (whichever is better) and AP modifier. A
+    Custodian Guard (T6, 3W, 2+/4++) is much tougher vs an AP0 melee weapon
+    than HP alone suggests; a Fire Warrior (T3, 1W, 4+) is much frailer
+    against AP-1 than a flat (T+HP) hides. Without folding the save in,
+    high-Sv elite units register as "squishy melee targets" because their
+    HP is low — exactly the T'au Battlesuit / Custodian over-rating we saw
+    after the #96 charge AI landed.
+    """
+    from .units import save_probability
+
+    # Probability a single unsaved wound gets through (1 - best-save).
+    save_pass = save_probability(profile.save, attacker_ap)
+    invuln_pass = save_probability(profile.invuln_save) if profile.invuln_save <= 6 else 0.0
+    best_pass = max(save_pass, invuln_pass)
+    unsaved_fraction = max(0.05, 1.0 - best_pass)   # floor so divide stays sane
+    # Toughness adds the wound-roll difficulty (already in attacker's DPA via
+    # hit*wound math). Keep T as a multiplier rather than additive so a T8
+    # Knight reads multiplicatively harder than a T4 Marine of equal HP.
+    return profile.toughness * max(1.0, current_health) / unsaved_fraction
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
     Same shape as pick_charge_target's scoring but distance-independent —
     used by the MOVE planner to pick which enemy to close on, before we
     know whether a charge will be in range. Real tournament play: melee
-    bricks pick fragile gunline targets (T'au Battlesuits, Devastators,
-    snipers) over near-but-tough enemies.
+    bricks pick fragile gunline targets (T'au Fire Warriors, Devastators,
+    snipers) over near-but-tough enemies with strong saves.
     """
     p = attacker.profile
     tp = defender.profile
 
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
-    kill_potential = a_melee_dpa / max(1.0, tp.toughness + defender.current_health)
+    kill_potential = a_melee_dpa / _durability(tp, defender.current_health, p.melee_ap)
 
-    a_dur = max(1.0, p.toughness + attacker.current_health)
+    # Threat back: their melee output divided by OUR effective durability
+    # against THEIR AP. Same machinery — an opponent with AP-3 reads as
+    # more dangerous to a Marine than the raw DPA suggests.
     threat_back = (
         tp.melee_attacks * tp.melee_hit_probability
         * (tp.melee_damage_per_shot or 1.0)
-    ) / a_dur
+    ) / _durability(p, attacker.current_health, tp.melee_ap)
 
     ranged_value = (
         tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)
@@ -192,7 +219,6 @@ def pick_charge_target(attacker, enemy):
     # Attacker's per-activation melee output.
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
-    a_dur = max(1.0, p.toughness + attacker.current_health)
 
     candidates = []
     for e in alive_enemies:
@@ -201,12 +227,12 @@ def pick_charge_target(attacker, enemy):
             continue   # out of charge range / already engaged
         tp = e.profile
 
-        kill_potential = a_melee_dpa / max(1.0, tp.toughness + e.current_health)
+        kill_potential = a_melee_dpa / _durability(tp, e.current_health, p.melee_ap)
 
         threat_against = (
             tp.melee_attacks * tp.melee_hit_probability
             * (tp.melee_damage_per_shot or 1.0)
-        ) / a_dur
+        ) / _durability(p, attacker.current_health, tp.melee_ap)
 
         ranged_value = (
             tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)
