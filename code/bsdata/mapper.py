@@ -586,7 +586,21 @@ def gather_wargear(entry: ET.Element, reg: Registry) -> UnitWargear:
 
 
 def _squad_group_size(grp: ET.Element) -> Optional[tuple[int, int]]:
-    """Return (min, max) selections for a selectionEntryGroup, or None."""
+    """Return (min, max) selections for a selectionEntryGroup, or None.
+
+    BSData 10e expresses squad size in three different shapes:
+      (a) Direct ``field="selections"`` min/max constraints on the group
+          (Marine-style: Tactical Squad, Intercessor Squad).
+      (b) Constraints only on the group's max, with min implicit at 1
+          (Aeldari-style: Guardian Defenders).
+      (c) No constraints on the group at all — the squad size lives on
+          each model's own ``selections`` min/max constraints (Necron
+          Tomb Blades, Drukhari Reaver Jetbikes). Sum the per-model
+          mins and maxes.
+
+    ``value="-1"`` is the BSData "unlimited" sentinel; ignore it so a
+    real finite cap can win the min().
+    """
     mn: Optional[int] = None
     mx: Optional[int] = None
     for cons in grp.findall("./constraints/constraint"):
@@ -599,9 +613,41 @@ def _squad_group_size(grp: ET.Element) -> Optional[tuple[int, int]]:
         if cons.get("type") == "min":
             mn = value
         elif cons.get("type") == "max":
-            mx = value
+            if value < 0:
+                continue
+            mx = value if mx is None else min(mx, value)
+    if mn is None and mx is not None and mx >= 1:
+        mn = 1
     if mn is not None and mx is not None and mx >= mn >= 1:
         return mn, mx
+    # Shape (c): sum per-model selection constraints.
+    model_mn = 0
+    model_mx = 0
+    found_any = False
+    for me in grp.findall("./selectionEntries/selectionEntry"):
+        if me.get("type") != "model":
+            continue
+        m_mn: Optional[int] = None
+        m_mx: Optional[int] = None
+        for cons in me.findall("./constraints/constraint"):
+            if cons.get("field") != "selections":
+                continue
+            try:
+                value = int(cons.get("value") or 0)
+            except ValueError:
+                continue
+            if cons.get("type") == "min":
+                m_mn = value
+            elif cons.get("type") == "max":
+                if value < 0:
+                    continue
+                m_mx = value if m_mx is None else min(m_mx, value)
+        if m_mx is not None and m_mx >= 1:
+            found_any = True
+            model_mn += m_mn or 0
+            model_mx += m_mx
+    if found_any and model_mx >= max(1, model_mn):
+        return max(1, model_mn), model_mx
     return None
 
 
@@ -609,23 +655,50 @@ def extract_squad_size(entry: ET.Element) -> tuple[int, int]:
     """
     Return (min_models, max_models) for a unit selectionEntry.
 
-    10e squads have an inner selectionEntryGroup whose name often follows
-    "N-M <unit-noun>" and which carries `field="selections"` constraints with
-    the squad size bounds. Single-model units (characters, vehicles, monsters)
-    have no such group; we default to (1, 1).
+    10e squads encode size in three shapes (see `_squad_group_size`):
+      - inner ``selectionEntryGroup`` with selection constraints
+      - direct ``selectionEntry type='model'`` children with constraints on
+        the entry itself (Aeldari-shape)
+      - the per-model constraints sum to the squad size (Tomb Blades etc.)
+
+    Single-model units (characters, vehicles, monsters) have none of those
+    shapes and default to (1, 1).
     """
     for grp in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
         size = _squad_group_size(grp)
+        if size is not None:
+            return size
+    # Fall back to the entry-as-implicit-group case.
+    if entry.find("./selectionEntries/selectionEntry[@type='model']") is not None:
+        size = _squad_group_size(entry)
         if size is not None:
             return size
     return 1, 1
 
 
 def _find_main_squad_group(entry: ET.Element) -> Optional[ET.Element]:
-    """Return the inner selectionEntryGroup that defines the squad size."""
+    """Return the element that wraps the squad's per-model selectionEntries.
+
+    Two schema shapes appear in BSData 10e:
+      (1) An inner ``selectionEntryGroup`` holds the squad's models and
+          carries the min/max constraint (Space Marines, most Tac-ish
+          squads).
+      (2) The squad entry itself directly contains
+          ``selectionEntry type='model'`` children, with the size
+          constraint on the *entry* (Guardian Defenders, Kabalite Warriors,
+          and other Aeldari-derived squads).
+
+    Without the second branch those squads silently bypass the
+    heterogeneous path and rerun the legacy "best single weapon for all
+    models" code — exactly the cheese this work was meant to remove.
+    """
     for grp in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
         if _squad_group_size(grp) is not None:
             return grp
+    # Shape (2): the entry itself is the implicit group.
+    if entry.find("./selectionEntries/selectionEntry[@type='model']") is not None:
+        if _squad_group_size(entry) is not None:
+            return entry
     return None
 
 
@@ -749,18 +822,22 @@ def _collect_weapons_for_model(
     ranged_picks: List[WeaponStats] = []
     melee_picks: List[WeaponStats] = []
 
-    # Fixed weapons attached to the model entry
+    # Fixed weapons attached to the model entry. A bare entryLink with no
+    # selection constraint at all is treated as a CARRIED weapon — the 10e
+    # BSData convention is that optional weapons live inside
+    # selectionEntryGroup choice points, so a constraint-less entryLink
+    # represents a model's default kit (Shuriken Catapult on a Guardian
+    # Defender, Close Combat Weapon on basically every infantry profile).
     for el in model_entry.findall("./entryLinks/entryLink"):
         if el.get("type") != "selectionEntry":
             continue
-        # A "min selections" of 1 means this weapon is always carried.
-        # Many weapons have no min constraint at all (rare on models);
-        # treat the absence as "always" for safety.
+        has_selection_constraint = False
         min_val = 0
         max_val = 1
         for cons in el.findall("./constraints/constraint"):
             if cons.get("field") != "selections":
                 continue
+            has_selection_constraint = True
             try:
                 value = int(cons.get("value") or 0)
             except ValueError:
@@ -769,6 +846,8 @@ def _collect_weapons_for_model(
                 min_val = value
             elif cons.get("type") == "max":
                 max_val = value
+        if not has_selection_constraint:
+            min_val = 1   # absence == carried (see docstring above)
         if min_val < 1:
             # Optional weapon — skip; it's an upgrade, not a default carry.
             continue
@@ -821,26 +900,15 @@ def _collect_weapons_for_model(
             )
 
     # Weapon-option groups — pick the BEST single alternative within each.
+    # A group's choices can live in any of three places:
+    #   1. entryLink children (cross-reference into shared weapon catalogue)
+    #   2. inline selectionEntry children (the weapon profile is right here)
+    #   3. nested selectionEntryGroup children (sub-choice tree)
+    # The pre-fix walker only saw (1), which silently dropped any unit whose
+    # weapon options live inline (Immortals, Ophydian Destroyers, etc.) or
+    # are nested inside a sub-group.
     for grp in model_entry.findall("./selectionEntryGroups/selectionEntryGroup"):
-        # Skip groups that aren't weapon-pick groups: typical weapon groups
-        # have min=max=1 (must pick exactly one).
-        size = _squad_group_size(grp)
-        # No constraints, or > 1 picks, means "free upgrade", "modifier", etc.
-        if size is None or size != (1, 1):
-            # Try anyway if all children resolve to weapons; the inner Weapon
-            # group on Devastator's Heavy Weapon model also has min=max=1.
-            pass
-        candidates_ranged: List[WeaponStats] = []
-        candidates_melee: List[WeaponStats] = []
-        for el in grp.findall("./entryLinks/entryLink"):
-            if el.get("type") != "selectionEntry":
-                continue
-            target_id = el.get("targetId") or ""
-            r, m = _resolve_weapon_target(target_id, reg)
-            if r is not None:
-                candidates_ranged.append(r)
-            if m is not None:
-                candidates_melee.append(m)
+        candidates_ranged, candidates_melee = _gather_group_candidates(grp, reg)
         if candidates_ranged:
             best_r = max(candidates_ranged, key=lambda w: w.expected_damage_through_baseline())
             ranged_picks.append(best_r)
@@ -849,6 +917,78 @@ def _collect_weapons_for_model(
             melee_picks.append(best_m)
 
     return ranged_picks, melee_picks
+
+
+def _weapons_from_inline_entry(
+    sel_entry: ET.Element,
+) -> tuple[List[WeaponStats], List[WeaponStats]]:
+    """Extract ranged + melee weapon stats directly attached as profiles to
+    a single inline selectionEntry. Mirrors the inline-weapon path used at
+    the model level for fixed weapons like Hellblaster Plasma Incinerators —
+    same logic, just factored out so the group walker can call it too.
+    """
+    ranged: List[WeaponStats] = []
+    melee: List[WeaponStats] = []
+    for prof in sel_entry.findall(".//profile"):
+        tn = prof.get("typeName") or ""
+        if "Ranged" in tn:
+            w = extract_ranged_weapon(prof)
+            if w is not None:
+                ranged.append(w)
+        elif "Melee" in tn:
+            w = extract_melee_weapon(prof)
+            if w is not None:
+                melee.append(w)
+    return ranged, melee
+
+
+def _gather_group_candidates(
+    grp: ET.Element,
+    reg: Registry,
+) -> tuple[List[WeaponStats], List[WeaponStats]]:
+    """Recursively collect every weapon candidate inside a selectionEntryGroup.
+
+    Walks three branches: cross-referenced entryLinks, inline child
+    selectionEntries (with their own profile blocks), and nested
+    selectionEntryGroups. Each leaf is a possible weapon choice — the
+    caller picks one best candidate from the union per group.
+    """
+    candidates_ranged: List[WeaponStats] = []
+    candidates_melee: List[WeaponStats] = []
+
+    # 1. entryLink children — cross-reference into the shared weapon catalogue
+    for el in grp.findall("./entryLinks/entryLink"):
+        if el.get("type") != "selectionEntry":
+            continue
+        target_id = el.get("targetId") or ""
+        r, m = _resolve_weapon_target(target_id, reg)
+        if r is not None:
+            candidates_ranged.append(r)
+        if m is not None:
+            candidates_melee.append(m)
+
+    # 2. inline selectionEntry children — the weapon profile is right here
+    for child in grp.findall("./selectionEntries/selectionEntry"):
+        r_list, m_list = _weapons_from_inline_entry(child)
+        # One inline entry can carry multiple profile modes (Plasma standard /
+        # supercharge); the player picks the best, so we treat that as the
+        # single candidate this entry contributes.
+        if r_list:
+            candidates_ranged.append(
+                max(r_list, key=lambda w: w.expected_damage_through_baseline())
+            )
+        if m_list:
+            candidates_melee.append(
+                max(m_list, key=lambda w: w.expected_damage_through_baseline())
+            )
+
+    # 3. nested selectionEntryGroup children — flatten their candidates up
+    for sub in grp.findall("./selectionEntryGroups/selectionEntryGroup"):
+        r_sub, m_sub = _gather_group_candidates(sub, reg)
+        candidates_ranged.extend(r_sub)
+        candidates_melee.extend(m_sub)
+
+    return candidates_ranged, candidates_melee
 
 
 def gather_squad_loadout(entry: ET.Element, reg: Registry) -> Optional[List[ModelLoadout]]:
