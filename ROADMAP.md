@@ -15,7 +15,7 @@
 | Phase B | ✅ Complete | Charge + Fight (melee) phases |
 | Phase C | ✅ Complete | Battleshock + Ld/OC on UnitProfile |
 | Phase D | ✅ Partial | Detachment scaffolding + 2 live effects (8 flags still unwired) |
-| Phase E | 🔲 Planned | Stratagems |
+| Phase E | ✅ Partial | Stratagems: 4 universals + 3 detachments (Cult of Magic, Plague Company, Battle Host) |
 | Phase F | 🔲 Planned | Niche weapon / unit keywords |
 | Phase G | 🔲 Planned | Leader / character abilities |
 
@@ -209,11 +209,30 @@ keyword path in `Unit.attack()`.
 
 ---
 
-## Phase E — Stratagems 🔲 planned
+## Phase E — Stratagems ✅ partial
 
-One-shot in-phase effects costing CP. Stub design: a `Stratagem` registry
-keyed on phase + faction + detachment, with a CP price and a callable that
-mutates the current activation's resolution context. Not yet started.
+CP-priced effects fire on triggers each round. Framework lives in
+`code/stratagems.py` (`Stratagem` dataclass, four universal Core
+Stratagems, and detachment tuples wired onto `Detachment.stratagems`).
+The simulator dispatches via `Battle._fire_stratagem` (universals through
+the existing hooks: failed wound roll, vehicle charge, enemy fight,
+out-of-sequence retaliate) and `Battle._apply_detachment_stratagems`
+(detachment-specific, fired at round start).
+
+Implemented:
+- **Universal Core Stratagems** (4): Command Re-Roll, Counter-Offensive,
+  Tank Shock, Heroic Intervention.
+- **Cult of Magic (Thousand Sons)**: Doombolt (D3 mortal wounds),
+  Twist of Fate (+1 to wound shooting), Glamour of Tzeentch (transient 4++).
+- **Plague Company (Death Guard)**: Disgustingly Resilient (-1 damage
+  taken), Plague Weapons (+1 to wound shooting), Outbreak of Pestilence
+  (+1 to wound melee).
+- **Battle Host (Aeldari)**: Lightning-Fast Reactions (+1 save), Fire and
+  Fade (re-roll 1s to hit shooting, approximating the canonical 6"
+  reposition), Matchless Agility (transient Assault).
+
+The remaining 18+ detachments still have empty `stratagems` tuples —
+follow-up tasks will wire Awakened Dynasty, Gladius Task Force, etc.
 
 ---
 

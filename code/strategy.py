@@ -525,6 +525,175 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         dist = ctx.get("distance", 999.0)
         return dist <= 6.0
 
+    # ----- Cult of Magic (Thousand Sons) ---------------------------------
+
+    if name == "Doombolt":
+        # ctx expects {"target": Unit, "has_psyker": bool}. Doombolt is the
+        # cheapest CP spend in the codex — 1 CP for ~2 mortal wounds (median
+        # D3). Always fire when a target exists and we have a psyker.
+        # Only gate on CP affordability (already checked above).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        if not ctx.get("has_psyker", False):
+            return False
+        return True
+
+    if name == "Twist of Fate":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 to wound on a
+        # whole round of shooting is worth it when the target is a HEAVY/
+        # SHOOTY brick the +1 actually closes a 5+ to a 4+ against. Skip
+        # on tiny chip targets (squad of Cultists) where the +1 doesn't
+        # change the rolling bracket.
+        target = ctx.get("target")
+        attacker = ctx.get("attacker")
+        if target is None or attacker is None:
+            return False
+        if not _is_heavy_target(target):
+            return False
+        # Cheap enough at 1 CP — fire whenever we have a real attacker and
+        # a worthwhile target.
+        return True
+
+    if name == "Glamour of Tzeentch":
+        # ctx expects {"target": Unit}. 2 CP for a transient 4++ on a unit
+        # — expensive, only fire when the target is meaningfully damaged AND
+        # high-value (otherwise we're insuring something not worth saving).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            hp_frac = 0.0
+        try:
+            cost = float(target.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        # ~8 pts of vulnerability swing required (matches _MIN_EXPECTED_SWING_PTS).
+        return hp_frac > 0.0 and cost * hp_frac >= _MIN_EXPECTED_SWING_PTS
+
+    # ----- Plague Company (Death Guard) ----------------------------------
+
+    if name == "Disgustingly Resilient":
+        # ctx expects {"target": Unit}. Cheap defensive — fire when a
+        # meaningful DG unit has taken substantial damage (>20% HP loss).
+        # Single-wound INFANTRY profiles don't benefit (damage 1 → max(1, 0)
+        # is still 1 dmg), so we also require multi-wound or vehicle HP so
+        # the floor-1 doesn't waste the CP.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            max_hp = float(target.profile.health)
+        except Exception:
+            return False
+        # Multi-wound model and meaningful damage taken.
+        return hp_frac > 0.2 and max_hp >= 4.0
+
+    if name == "Plague Weapons":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 to wound for a
+        # whole round of shooting — fire when attacker has real DPA AND
+        # the target is heavy. Tightened so we preserve CP for Command
+        # Re-Roll: a single +1 wound on a 1-DPA attacker isn't worth 1 CP
+        # compared to a re-rolled killing blow.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Outbreak of Pestilence":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 to wound in
+        # melee — fire when the attacker has a real melee profile AND the
+        # target is heavy. Same CP-conservation reasoning as Plague Weapons.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 3.0 and _is_heavy_target(target)
+
+    # ----- Battle Host (Aeldari) -----------------------------------------
+
+    if name == "Lightning-Fast Reactions":
+        # ctx expects {"target": Unit}. Defensive — fire only on a
+        # SUBSTANTIALLY-wounded high-value Aeldari unit. Aeldari already
+        # overperforms by +7.5 vs the meta, so the threshold is tight:
+        # require HP loss > 40% AND points cost >= 100 (the canonical
+        # Wraithlord / Phoenix Lord / vehicle bracket).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.4 and cost >= 100.0
+
+    if name == "Fire and Fade":
+        # ctx expects {"attacker": Unit, "target": Unit}. Re-roll 1s to hit
+        # — only fire when the attacker has serious ranged DPA AND the
+        # target is a HEAVY/SHOOTY/DUAL brick AND the target has already
+        # been softened (otherwise we're shoving CP into a long roll-in
+        # that doesn't close the round). Aeldari already overperforms; a
+        # re-roll on Guardians' lasguns isn't worth 1 CP/round.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+            tgt_hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            return False
+        # Real shooter only — 150+ point Wraith / vehicle units, not basic
+        # Guardian squads — and target must be a heavy threat ALREADY
+        # softened by at least one full HP wound (the "killing-blow shot"
+        # is when this rule earns its CP in real games too).
+        return (
+            ranged_dpa >= 2.0
+            and atk_cost >= 150.0
+            and _is_heavy_target(target)
+            and tgt_hp_frac > 0.15
+        )
+
+    if name == "Matchless Agility":
+        # ctx expects {"attacker": Unit}. Advance + still shoot — only fire
+        # for non-ASURYANI Aeldari (ASURYANI already get free [ASSAULT] via
+        # battle_focus_tokens, so this CP spend would be wasted). Wraith /
+        # Harlequin / Drukhari units don't have ASURYANI and benefit
+        # genuinely. Require a substantial unit cost so we don't pay 1 CP
+        # to inch a Guardian squad forward one round.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        kw = (attacker.profile.unit_keywords or ()) if hasattr(attacker, "profile") else ()
+        if "ASURYANI" in kw:
+            return False   # army-rule covers it
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        # 150+ pts only — Voidweavers, Wraithlords, etc. — not Storm
+        # Guardian squads. Higher than Lightning-Fast Reactions because
+        # the buff is offensive (mobility into shoot) and we're already
+        # over-rated.
+        return cost >= 150.0
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

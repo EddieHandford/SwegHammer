@@ -23,7 +23,12 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, Optional, Tuple
 
-from .stratagems import Stratagem
+from .stratagems import (
+    Stratagem,
+    BATTLE_HOST_STRATAGEMS,
+    CULT_OF_MAGIC_STRATAGEMS,
+    PLAGUE_COMPANY_STRATAGEMS,
+)
 
 
 @dataclass(frozen=True)
@@ -221,9 +226,13 @@ BATTLE_HOST = Detachment(
     faction="Aeldari",
     notes=(
         "Aspect of the Path: lossy as army-wide re-roll hit 1s. Real rule "
-        "rotates +1 to hit / +1 to wound per Aspect Path."
+        "rotates +1 to hit / +1 to wound per Aspect Path. Detachment "
+        "stratagems implemented: Lightning-Fast Reactions (+1 save), "
+        "Fire and Fade (re-roll hits on a friendly Aeldari unit's shoot), "
+        "Matchless Agility (transient ASSAULT granting advance-and-shoot)."
     ),
     reroll_hit_ones=True,
+    stratagems=BATTLE_HOST_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -264,13 +273,14 @@ PLAGUE_COMPANY = Detachment(
     name="Plague Company",
     faction="Death Guard",
     notes=(
-        "Placeholder: no army-wide passive yet cited. Real Death Guard codex "
-        "has per-unit FNP 5+ on Plague Marines and a -1 Damage stratagem; "
-        "those aren't army-wide. Earlier `fnp=5` was a fabricated approximation "
-        "and was removed per CLAUDE.md §10 (cite-or-don't-implement) after the "
-        "rule_citations audit flagged it. Re-introduce ONLY with a citable "
-        "real rule (e.g. Plague Company stratagem effects when #103 lands)."
+        "No army-wide passive (still no citable always-on rule for the "
+        "10e detachment), but the detachment stratagems carry the codex's "
+        "actual identity: Disgustingly Resilient (-1 damage taken on a DG "
+        "unit for a round), Plague Weapons (+1 to wound shooting), and "
+        "Outbreak of Pestilence (+1 to wound melee, approximating the real "
+        "Anti-INFANTRY 4+ payload)."
     ),
+    stratagems=PLAGUE_COMPANY_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -278,15 +288,17 @@ CULT_OF_MAGIC = Detachment(
     name="Cult of Magic",
     faction="Thousand Sons",
     notes=(
-        "Placeholder: Thousand Sons' 10e codex no longer has a 'Cult of "
-        "Magic' detachment by that name (it's now one of nine Great Cults). "
-        "The earlier `plus_one_to_wound` + `psychic_mortal_wounds_per_round=2` "
-        "were fabricated and removed per CLAUDE.md §10 after the "
-        "rule_citations audit flagged them. Real Thousand Sons psychic "
-        "output is the Cabal-of-Sorcerers per-Shooting-Phase ritual casts "
-        "(Doombolt, Twist of Fate, etc.), not an end-of-round MW payload. "
-        "Re-introduce as Stratagems when #103 lands."
+        "Cult of Magic is one of nine 10e Thousand Sons Great Cults; we "
+        "use the name as a convenient handle. No army-wide passive (still "
+        "no citable always-on rule), but the detachment's identity lands "
+        "via stratagems: Doombolt (1 CP, D3 mortal wounds in shooting), "
+        "Twist of Fate (1 CP, +1 damage on attacks vs target enemy for the "
+        "round), and Glamour of Tzeentch (2 CP, transient 4++ invuln on a "
+        "friendly TSons unit). Doombolt is the per-Shooting-Phase ritual "
+        "cast that previously sat as a made-up `psychic_mortal_wounds_per_round` "
+        "field — now it's a proper CP-gated stratagem."
     ),
+    stratagems=CULT_OF_MAGIC_STRATAGEMS,
     preferred_composition="infantry",
 )
 

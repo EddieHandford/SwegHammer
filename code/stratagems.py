@@ -8,12 +8,14 @@ tournament play uses to swing close fights, and the reason "underrated"
 factions (Necrons, Death Guard, Thousand Sons) hold their own against shooty
 brick armies in our calibration.
 
-This module models JUST the Stratagem dataclass and the four universal Core
-Stratagems (Wahapedia core-rules page). Detachment-specific stratagems land
-in a follow-up PR (issue #104) — they'll attach to `Detachment.stratagems`,
-which already accepts a tuple.
+This module models the Stratagem dataclass, the four universal Core
+Stratagems (Wahapedia core-rules page), AND detachment-specific stratagems
+for the high-priority detachments calibration says we're under-rating:
+Cult of Magic (Thousand Sons), Plague Company (Death Guard), and Battle
+Host (Aeldari). The remaining detachments wire their stratagems in a
+follow-up task.
 
-Sources for the four universal entries are cited in
+Sources for every stratagem entry are cited in
 `data/rule_citations.d/stratagems.json` per CLAUDE.md §10.
 
 Dispatch model:
@@ -101,6 +103,123 @@ UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Cult of Magic (Thousand Sons) — three detachment stratagems
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic
+# Picked the three highest-impact entries from the detachment's stratagem
+# panel. Calibration says Thousand Sons is under-rated by ~9 pts vs the real
+# meta and the gap closes when their psychic-Shooting bursts and defensive
+# tricks come online.
+
+DOOMBOLT = Stratagem(
+    name="Doombolt",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_psyker_in_shooting_phase",
+    effect="d3_mortal_wounds_to_priority_enemy",
+)
+
+TWIST_OF_FATE = Stratagem(
+    name="Twist of Fate",
+    cp_cost=1,
+    phase="shooting",
+    trigger="high_value_enemy_alive",
+    effect="plus_one_damage_dealt_to_target_for_round",
+)
+
+GLAMOUR_OF_TZEENTCH = Stratagem(
+    name="Glamour of Tzeentch",
+    cp_cost=2,
+    phase="any",
+    trigger="vulnerable_friendly_unit",
+    effect="grant_4_invuln_to_friendly_for_round",
+)
+
+CULT_OF_MAGIC_STRATAGEMS: Tuple[Stratagem, ...] = (
+    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH,
+)
+
+
+# ---------------------------------------------------------------------------
+# Plague Company (Death Guard) — three detachment stratagems
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment
+# Disgustingly Resilient is canonical and the rule the codex hangs on — it's
+# the headline reason Plague Marines / Deathshroud feel ridiculous at
+# tournament level. Plague Weapons and Outbreak of Pestilence are split into
+# shooting-side and melee-side wound buffs to keep their effects orthogonal.
+
+DISGUSTINGLY_RESILIENT = Stratagem(
+    name="Disgustingly Resilient",
+    cp_cost=1,
+    phase="any",
+    trigger="wounded_friendly_dg_unit",
+    effect="minus_one_damage_taken_for_round",
+)
+
+PLAGUE_WEAPONS = Stratagem(
+    name="Plague Weapons",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_dg_unit_about_to_shoot",
+    effect="plus_one_to_wound_shooting_for_round",
+)
+
+OUTBREAK_OF_PESTILENCE = Stratagem(
+    name="Outbreak of Pestilence",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_dg_unit_in_melee",
+    effect="plus_one_to_wound_melee_for_round",
+)
+
+PLAGUE_COMPANY_STRATAGEMS: Tuple[Stratagem, ...] = (
+    DISGUSTINGLY_RESILIENT, PLAGUE_WEAPONS, OUTBREAK_OF_PESTILENCE,
+)
+
+
+# ---------------------------------------------------------------------------
+# Battle Host (Aeldari) — three detachment stratagems
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host
+# Calibration says Aeldari is *over*-rated in the sim — adding their
+# stratagems shouldn't move the needle much (they spend CP that detachments
+# above didn't have to). Picked for cleanest distinct effects, not maximum
+# upside: Lightning-Fast Reactions is the canonical defensive entry,
+# Matchless Agility is the canonical mobility trick, and Fire and Fade is
+# approximated as a hit re-roll on a friendly Aeldari shoot (we don't model
+# post-shoot 6" repositioning in a grid-free sim).
+
+LIGHTNING_FAST_REACTIONS = Stratagem(
+    name="Lightning-Fast Reactions",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_aeldari_unit",
+    effect="plus_one_save_for_round",
+)
+
+FIRE_AND_FADE = Stratagem(
+    name="Fire and Fade",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_aeldari_unit_about_to_shoot",
+    effect="reroll_hits_shooting_for_round",
+)
+
+MATCHLESS_AGILITY = Stratagem(
+    name="Matchless Agility",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_aeldari_unit_advancing",
+    effect="grant_assault_for_round",
+)
+
+BATTLE_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
+    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -138,6 +257,22 @@ __all__ = [
     "TANK_SHOCK",
     "HEROIC_INTERVENTION",
     "UNIVERSAL_STRATAGEMS",
+    # Cult of Magic (Thousand Sons)
+    "DOOMBOLT",
+    "TWIST_OF_FATE",
+    "GLAMOUR_OF_TZEENTCH",
+    "CULT_OF_MAGIC_STRATAGEMS",
+    # Plague Company (Death Guard)
+    "DISGUSTINGLY_RESILIENT",
+    "PLAGUE_WEAPONS",
+    "OUTBREAK_OF_PESTILENCE",
+    "PLAGUE_COMPANY_STRATAGEMS",
+    # Battle Host (Aeldari)
+    "LIGHTNING_FAST_REACTIONS",
+    "FIRE_AND_FADE",
+    "MATCHLESS_AGILITY",
+    "BATTLE_HOST_STRATAGEMS",
+    # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",
     "CP_CAP",
