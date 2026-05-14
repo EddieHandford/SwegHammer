@@ -161,14 +161,5 @@
     "trigger": "any friendly Genestealer Cults hit roll",
     "effect": "re-roll hit rolls of 1 (approximation of Psionic Parasitism, which actually grants +1 to Hit to one Tyranids unit per Synapse unit at the cost of mortal wounds on a Genestealer Cults unit; we collapse the per-unit gated +1 hit into army-wide reroll-1s)",
     "scope": "army-wide"
-  },
-
-  "OATHBAND.reroll_hit_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthband",
-    "rule_name": "Methodical Annihilation",
-    "quoted_text": "Each time a LEAGUES OF VOTANN model from your army makes an attack with a weapon that targets the closest eligible target or a target that is within Engagement Range of that model's unit: Re-roll a Wound roll of 1. If your unit is a KÂHL, EINHYR HEARTHGUARD or ÛTHAR THE DESTINED unit, improve the Armour Penetration characteristic of that attack by 1.",
-    "trigger": "any friendly Leagues of Votann hit roll",
-    "effect": "re-roll hit rolls of 1 (approximation; the canonical Hearthband 'Methodical Annihilation' rule actually grants re-roll wound 1s gated on closest-target/engagement-range, and a Judgement Tokens system is layered on top; codex has no plain 'Oathband' detachment so we cite the closest-themed 'Hearthband' replacement and collapse to army-wide hit-1s reroll)",
-    "scope": "army-wide"
   }
 }

@@ -471,6 +471,26 @@ class Unit:
         # Re-roll flags from attacker's buffs.
         att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
         att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
+        # "Re-roll ALL failed hits" defaults to off — only the Votann
+        # Judgement Tokens path (below) currently turns it on. When set,
+        # ANY failed hit (not just a natural 1) gets one re-roll.
+        att_reroll_all_hits = False
+
+        # ---- Leagues of Votann — Eye of the Ancestors / Judgement Tokens ----
+        # When this attacker's army is Votann and the target is carrying
+        # accumulated tokens (awarded by Battle._maybe_award_judgement_token
+        # whenever an enemy unit destroyed a Votann model), apply escalating
+        # re-roll buffs ON TOP of anything already granted by detachments /
+        # leader auras. The tokens live on the Votann army's bookkeeping
+        # dict so the attacker simply queries its own army.
+        own_army = getattr(self, "army_ref", None)
+        if own_army is not None and getattr(own_army, "is_votann_army", False):
+            tokens = own_army.judgement_tokens.get(target.uid, 0)
+            if tokens >= 1:
+                att_reroll_hit_ones = True
+            if tokens >= 3:
+                att_reroll_all_hits = True
+                att_reroll_wound_ones = True
 
         total_damage = 0.0
         for _ in range(n_attacks):
@@ -479,10 +499,17 @@ class Unit:
                 crit_hit = False   # torrent has no crit-on-hit
             else:
                 roll = random.randint(1, 6)
-                # Detachment "re-roll 1s to hit": replace the natural 1 with a
-                # fresh d6, then proceed with the new value (used for crit /
-                # threshold). Applies BEFORE crit detection per spec.
-                if att_reroll_hit_ones and roll == 1:
+                # Re-roll handling. Two compatible flags:
+                #   att_reroll_hit_ones: replace a natural 1 (detachment /
+                #     Judgement Tokens tier-1).
+                #   att_reroll_all_hits: replace ANY failure (Judgement
+                #     Tokens tier-3; superset of reroll_hit_ones).
+                # Only one re-roll per die — `att_reroll_all_hits` takes
+                # priority and a fired re-roll under it does not stack
+                # another re-roll under reroll_hit_ones.
+                if att_reroll_all_hits and roll < hit_target:
+                    roll = random.randint(1, 6)
+                elif att_reroll_hit_ones and roll == 1:
                     roll = random.randint(1, 6)
                 if roll < hit_target:
                     continue   # missed

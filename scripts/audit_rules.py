@@ -97,6 +97,7 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.sticky_objective",
     "simulator.battle_focus",
     "simulator.battleshock",
+    "simulator.judgement_tokens",
 )
 
 

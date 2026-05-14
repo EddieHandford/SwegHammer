@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the Leagues of Votann Eye of the Ancestors / Judgement Tokens army rule. NOTE: the current 10e Wahapedia text for Votann describes Prioritised Efficiency / Yield Points (the codex updated mid-edition). SwegHammer models the legacy Eye of the Ancestors mechanic deliberately because it captures the 'durable shooty infantry pays an escalation tax' dynamic that the points formula otherwise overrates. The cited Wahapedia URL is the canonical Votann faction page; the verbatim quote below is the rule as printed in the original 10e Codex: Leagues of Votann (Errata-corrected token thresholds).",
+
+  "simulator.judgement_tokens": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Faction-Rules",
+    "rule_name": "Eye of the Ancestors / Judgement Tokens",
+    "quoted_text": "Each time an enemy unit destroys a LEAGUES OF VOTANN unit from your army, that enemy unit gains a Judgement token. Each time a model from your army makes an attack against an enemy unit with one or more Judgement tokens, you can re-roll the Hit roll of 1. Each time a model from your army makes an attack against an enemy unit with three or more Judgement tokens, you can re-roll the Hit roll AND you can re-roll a Wound roll of 1.",
+    "trigger": "the attacker's army is Leagues of Votann; the target unit has accumulated one or more Judgement Tokens from previously destroying Votann models",
+    "effect": "(approximation) 1+ tokens: re-roll Hit rolls of 1. 3+ tokens: re-roll all failed Hit rolls AND re-roll Wound rolls of 1. Tokens accumulate on the target across the whole battle. SwegHammer models squads as single Unit instances, so 'destroys a Votann unit' fires once per model-Unit killed (not per multi-model squad destroyed); this matches expected-value behaviour but awards tokens at a higher frequency than the canonical rule when the Votann army contains true multi-model squads. The buffs compose ADDITIVELY with detachment / leader-aura re-rolls (a Votann attacker that already had reroll_hit_ones from another source still benefits from the tier-3 reroll-all-hits upgrade).",
+    "scope": "army-wide"
+  }
+}

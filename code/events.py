@@ -152,6 +152,22 @@ class UnitReanimated:
 
 
 @dataclass(frozen=True)
+class JudgementTokenAwarded:
+    """A Votann opponent (i.e. an enemy unit fighting the Leagues of Votann)
+    destroyed a Votann model and gained a Judgement Token.
+
+    Tokens accumulate on the killer's unit for the rest of the battle and
+    grant escalating re-roll buffs to subsequent Votann attacks against
+    that target — modelling the canonical Eye of the Ancestors rule. The
+    event is informational; the buff lookup is done live in `Unit.attack`
+    via `Army.judgement_tokens[target_uid]` so renderers can safely ignore
+    this event.
+    """
+    target_uid: str             # uid of the unit that just earned the token
+    total_tokens: int           # cumulative tokens on that target after this kill
+
+
+@dataclass(frozen=True)
 class StratagemFired:
     """An army spent CP to activate a Stratagem.
 

@@ -327,10 +327,14 @@ OATHBAND = Detachment(
     name="Oathband",
     faction="Leagues of Votann",
     notes=(
-        "Voidsmen Oaths: lossy as army-wide re-roll hit 1s. Real rule grants "
-        "Judgement Tokens that escalate effects vs marked enemy units."
+        "Voidsmen Oaths: previously approximated as army-wide re-roll hit 1s "
+        "because the real Eye of the Ancestors / Judgement Tokens rule was "
+        "not modelled. Removed once `simulator.judgement_tokens` (Battle's "
+        "per-army token store + Unit.attack re-roll buffs at 1+ / 3+ "
+        "thresholds) landed — keeping the blanket re-roll on top of the real "
+        "mechanic would double-stack the buff. Real Oathband detachment "
+        "stratagems are deferred to #104."
     ),
-    reroll_hit_ones=True,
     preferred_composition="balanced",
 )
 

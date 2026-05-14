@@ -32,13 +32,17 @@ _NEW_DETACHMENTS = (
     ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
     ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
     ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
-    # plague_company + cult_of_magic carry no passive flag right now —
-    # earlier values were uncited (CLAUDE.md §10); will be re-introduced
-    # as Stratagems when #103 lands. Registry presence still checked below.
+    # plague_company + cult_of_magic + oathband carry no passive flag
+    # right now. plague_company / cult_of_magic earlier values were
+    # uncited (CLAUDE.md §10); oathband's "army-wide re-roll hit 1s"
+    # approximated the Eye of the Ancestors rule that now lives in
+    # simulator.judgement_tokens, so the detachment-level reroll was
+    # removed to avoid double-stacking with the Judgement Tokens buff.
+    # All three will gain stratagem-level passives when #104 lands.
+    # Registry presence is still checked separately below.
     ("berzerker_warband",      "World Eaters",           "plus_one_to_hit",   True),
     ("daemonic_incursion",     "Chaos Daemons",          "plus_one_to_hit",   True),
     ("final_day",              "Genestealer Cults",      "reroll_hit_ones",   True),
-    ("oathband",               "Leagues of Votann",      "reroll_hit_ones",   True),
 )
 
 

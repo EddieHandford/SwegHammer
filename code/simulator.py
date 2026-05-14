@@ -8,10 +8,11 @@ from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .events import (
-    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit, ObjectiveScored,
-    RoundEnded, RoundStarted, StratagemFired, Subscriber, UnitActivated,
-    UnitAdvanced, UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated,
-    UnitKilled, UnitMoved, UnitReanimated, UnitScouted, UnitShot,
+    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit,
+    JudgementTokenAwarded, ObjectiveScored, RoundEnded, RoundStarted,
+    StratagemFired, Subscriber, UnitActivated, UnitAdvanced, UnitCharged,
+    UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
+    UnitReanimated, UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
@@ -1071,6 +1072,12 @@ class Battle:
         ))
         if not target_alive_after:
             self._emit(UnitKilled(unit_uid=shoot_target.uid))
+            # Judgement Tokens: if the destroyed unit belonged to a Votann
+            # army, the killer (this attacker) earns a token on itself.
+            self._maybe_award_judgement_token(
+                killer=attacker, killer_army=attacker_army,
+                victim=shoot_target, victim_army=defender_army,
+            )
 
         if self.verbose:
             alive_str = (
@@ -1183,6 +1190,10 @@ class Battle:
         ))
         if not alive_after:
             self._emit(UnitKilled(unit_uid=nearest.uid))
+            self._maybe_award_judgement_token(
+                killer=attacker, killer_army=attacker_army,
+                victim=nearest, victim_army=defender_army,
+            )
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The
@@ -1203,6 +1214,36 @@ class Battle:
     def _emit(self, event) -> None:
         for s in self.subscribers:
             s.on_event(event)
+
+    def _maybe_award_judgement_token(
+        self, killer: "Unit", killer_army: Army,
+        victim: "Unit", victim_army: Army,
+    ) -> None:
+        """Eye of the Ancestors / Judgement Tokens (Leagues of Votann army rule).
+
+        When a non-Votann unit destroys a Votann model, the killer's unit
+        earns a token on itself. Tokens stack on the killer for the rest of
+        the battle and grant escalating re-roll buffs to subsequent Votann
+        attacks targeting that unit (resolved in `Unit.attack`).
+
+        Symmetry: a Votann unit killing another Votann unit (mirror match,
+        psychic, etc.) does NOT award a token — only the *opponent* of the
+        Votann army marks targets. We pin this off the victim's army
+        (`is_votann_army`), not the killer's, so a Votann attacker on a
+        Votann victim short-circuits before incrementing.
+        """
+        if not victim_army.is_votann_army:
+            return
+        # Don't mark yourself (a Votann unit killing one of its own
+        # in some pathological self-damage edge case).
+        if killer_army.is_votann_army:
+            return
+        tokens = victim_army.judgement_tokens
+        tokens[killer.uid] = tokens.get(killer.uid, 0) + 1
+        self._emit(JudgementTokenAwarded(
+            target_uid=killer.uid,
+            total_tokens=tokens[killer.uid],
+        ))
 
     @staticmethod
     def _award_cp(army: Army, opponent: Army) -> None:
@@ -1272,6 +1313,13 @@ class Battle:
         alive_after = target.is_alive
         if not alive_after:
             self._emit(UnitKilled(unit_uid=target.uid))
+            # Tank Shock that finishes a Votann model still triggers the
+            # Judgement Token award — the killer's army is the charger's army.
+            target_army = self.b if charger_army is self.a else self.a
+            self._maybe_award_judgement_token(
+                killer=charger, killer_army=charger_army,
+                victim=target, victim_army=target_army,
+            )
 
     def _try_heroic_intervention(
         self, charger: "Unit", charge_target: "Unit",
@@ -1369,3 +1417,7 @@ class Battle:
         ))
         if not alive_after:
             self._emit(UnitKilled(unit_uid=winner_unit.uid))
+            self._maybe_award_judgement_token(
+                killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )
