@@ -1,0 +1,626 @@
+{
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_br_khyr_thunderkyn": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_br_khyr_thunderkyn",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_cthonian_beserks": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_cthonian_beserks",
+    "n_sims": 30,
+    "wins_a": 11,
+    "wins_b": 18,
+    "draws": 1
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_einhyr_champion": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_einhyr_champion",
+    "n_sims": 30,
+    "wins_a": 2,
+    "wins_b": 28,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_einhyr_hearthguard": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_einhyr_hearthguard",
+    "n_sims": 30,
+    "wins_a": 9,
+    "wins_b": 21,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_grimnyr": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_grimnyr",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_hearthkyn_warriors": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_hearthkyn_warriors",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 23,
+    "wins_b": 0,
+    "draws": 7
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 17,
+    "wins_b": 13,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 8,
+    "wins_b": 22,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 22,
+    "wins_b": 8,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_iron_master|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_br_khyr_iron_master",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_cthonian_beserks": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_cthonian_beserks",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_einhyr_champion": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_einhyr_champion",
+    "n_sims": 30,
+    "wins_a": 9,
+    "wins_b": 21,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_einhyr_hearthguard": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_einhyr_hearthguard",
+    "n_sims": 30,
+    "wins_a": 20,
+    "wins_b": 10,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_grimnyr": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_grimnyr",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_hearthkyn_warriors": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_hearthkyn_warriors",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 24,
+    "wins_b": 6,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 26,
+    "wins_b": 4,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 22,
+    "wins_b": 8,
+    "draws": 0
+  },
+  "leagues_of_votann_br_khyr_thunderkyn|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_br_khyr_thunderkyn",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 8,
+    "wins_b": 22,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_einhyr_champion": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_einhyr_champion",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_einhyr_hearthguard": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_einhyr_hearthguard",
+    "n_sims": 30,
+    "wins_a": 14,
+    "wins_b": 16,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_grimnyr": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_grimnyr",
+    "n_sims": 30,
+    "wins_a": 4,
+    "wins_b": 24,
+    "draws": 2
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_hearthkyn_warriors": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_hearthkyn_warriors",
+    "n_sims": 30,
+    "wins_a": 26,
+    "wins_b": 4,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 5,
+    "wins_b": 24,
+    "draws": 1
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 17,
+    "wins_b": 13,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 4,
+    "wins_b": 26,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_cthonian_beserks|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_cthonian_beserks",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 1,
+    "wins_b": 29,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_einhyr_hearthguard": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_einhyr_hearthguard",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_grimnyr": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_grimnyr",
+    "n_sims": 30,
+    "wins_a": 25,
+    "wins_b": 5,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_hearthkyn_warriors": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_hearthkyn_warriors",
+    "n_sims": 30,
+    "wins_a": 27,
+    "wins_b": 3,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 26,
+    "wins_b": 4,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 29,
+    "wins_b": 1,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 3,
+    "wins_b": 27,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_champion|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_einhyr_champion",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 21,
+    "wins_b": 9,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_grimnyr": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_grimnyr",
+    "n_sims": 30,
+    "wins_a": 21,
+    "wins_b": 9,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_hearthkyn_warriors": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_hearthkyn_warriors",
+    "n_sims": 30,
+    "wins_a": 26,
+    "wins_b": 4,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 22,
+    "wins_b": 8,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 27,
+    "wins_b": 3,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 7,
+    "wins_b": 23,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_einhyr_hearthguard|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_einhyr_hearthguard",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 3,
+    "wins_b": 27,
+    "draws": 0
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_hearthkyn_warriors": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_hearthkyn_warriors",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 27,
+    "wins_b": 2,
+    "draws": 1
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 8,
+    "wins_b": 22,
+    "draws": 0
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 19,
+    "wins_b": 11,
+    "draws": 0
+  },
+  "leagues_of_votann_grimnyr|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_grimnyr",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 5,
+    "wins_b": 25,
+    "draws": 0
+  },
+  "leagues_of_votann_hearthkyn_warriors|leagues_of_votann_hekaton_land_fortress": {
+    "unit_a": "leagues_of_votann_hearthkyn_warriors",
+    "unit_b": "leagues_of_votann_hekaton_land_fortress",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_hearthkyn_warriors|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_hearthkyn_warriors",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 19,
+    "wins_b": 11,
+    "draws": 0
+  },
+  "leagues_of_votann_hearthkyn_warriors|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_hearthkyn_warriors",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 4,
+    "wins_b": 26,
+    "draws": 0
+  },
+  "leagues_of_votann_hearthkyn_warriors|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_hearthkyn_warriors",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 1,
+    "wins_b": 29,
+    "draws": 0
+  },
+  "leagues_of_votann_hearthkyn_warriors|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_hearthkyn_warriors",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 22,
+    "wins_b": 8,
+    "draws": 0
+  },
+  "leagues_of_votann_hearthkyn_warriors|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_hearthkyn_warriors",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_hekaton_land_fortress|leagues_of_votann_hernkyn_pioneers": {
+    "unit_a": "leagues_of_votann_hekaton_land_fortress",
+    "unit_b": "leagues_of_votann_hernkyn_pioneers",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_hekaton_land_fortress|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_hekaton_land_fortress",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_hekaton_land_fortress|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_hekaton_land_fortress",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_hekaton_land_fortress|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_hekaton_land_fortress",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_hekaton_land_fortress|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_hekaton_land_fortress",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 30,
+    "wins_b": 0,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_pioneers|leagues_of_votann_hernkyn_yaegirs": {
+    "unit_a": "leagues_of_votann_hernkyn_pioneers",
+    "unit_b": "leagues_of_votann_hernkyn_yaegirs",
+    "n_sims": 30,
+    "wins_a": 29,
+    "wins_b": 1,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_pioneers|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_hernkyn_pioneers",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 15,
+    "wins_b": 15,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_pioneers|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_hernkyn_pioneers",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_pioneers|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_hernkyn_pioneers",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 1,
+    "wins_b": 29,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_yaegirs|leagues_of_votann_k_hl": {
+    "unit_a": "leagues_of_votann_hernkyn_yaegirs",
+    "unit_b": "leagues_of_votann_k_hl",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_yaegirs|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_hernkyn_yaegirs",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_hernkyn_yaegirs|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_hernkyn_yaegirs",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 0,
+    "wins_b": 30,
+    "draws": 0
+  },
+  "leagues_of_votann_k_hl|leagues_of_votann_sagitaur": {
+    "unit_a": "leagues_of_votann_k_hl",
+    "unit_b": "leagues_of_votann_sagitaur",
+    "n_sims": 30,
+    "wins_a": 2,
+    "wins_b": 28,
+    "draws": 0
+  },
+  "leagues_of_votann_k_hl|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_k_hl",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 4,
+    "wins_b": 26,
+    "draws": 0
+  },
+  "leagues_of_votann_sagitaur|leagues_of_votann_thar_the_destined": {
+    "unit_a": "leagues_of_votann_sagitaur",
+    "unit_b": "leagues_of_votann_thar_the_destined",
+    "n_sims": 30,
+    "wins_a": 28,
+    "wins_b": 2,
+    "draws": 0
+  }
+}

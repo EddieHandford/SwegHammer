@@ -31,6 +31,13 @@ from code.renderer import (
     aggregate_activations, event_description, frame_description, render_frame,
 )
 from code.simulator import Battle, BattleResult
+from code.tournament import (
+    bradley_terry,
+    derive_points,
+    faction_keys_in_results,
+    load_results as load_tournament_results,
+    win_rate_matrix,
+)
 from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
@@ -48,6 +55,87 @@ st.set_page_config(
     page_icon="⚔️",
     layout="wide",
 )
+
+st.markdown("""
+<style>
+/* ── Sidebar ─────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background-color: #13161c;
+    border-right: 1px solid #2a2d35;
+}
+[data-testid="stSidebar"] .stMarkdown h1 {
+    color: #c9a84c;
+    font-size: 1.5rem;
+    letter-spacing: 0.05em;
+}
+[data-testid="stSidebar"] .stCaption {
+    color: #888;
+}
+
+/* ── Primary button (Run Simulation) ────────────────────── */
+[data-testid="stBaseButton-primary"] {
+    background: linear-gradient(135deg, #b8860b 0%, #c9a84c 100%);
+    border: none;
+    color: #0e1117;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 6px;
+}
+[data-testid="stBaseButton-primary"]:hover {
+    background: linear-gradient(135deg, #c9a84c 0%, #e0c070 100%);
+    color: #0e1117;
+}
+
+/* ── Metric cards ────────────────────────────────────────── */
+[data-testid="stMetric"] {
+    background-color: #1a1d23;
+    border: 1px solid #2a2d35;
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+}
+[data-testid="stMetricLabel"] {
+    color: #aaa;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+[data-testid="stMetricValue"] {
+    color: #e8e8e8;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+[data-testid="stMetricDelta"] {
+    font-size: 0.78rem;
+}
+
+/* ── Tabs ────────────────────────────────────────────────── */
+[data-testid="stTabs"] [role="tab"] {
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #aaa;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+    color: #c9a84c;
+    border-bottom-color: #c9a84c;
+}
+
+/* ── Dividers ────────────────────────────────────────────── */
+hr {
+    border-color: #2a2d35;
+}
+
+/* ── Dataframe ───────────────────────────────────────────── */
+[data-testid="stDataFrame"] {
+    border: 1px solid #2a2d35;
+    border-radius: 6px;
+}
+
+/* ── Progress bar ────────────────────────────────────────── */
+[data-testid="stProgressBar"] > div {
+    background-color: #c9a84c;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -185,8 +273,14 @@ def run_simulations(
     factory_b: Callable[[], Army],
     n: int,
     map_: Map = DEFAULT_MAP,
+    on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> List[BattleResult]:
-    return [Battle(factory_a(), factory_b(), map_=map_).run() for _ in range(n)]
+    results = []
+    for i in range(n):
+        results.append(Battle(factory_a(), factory_b(), map_=map_).run())
+        if on_progress:
+            on_progress(i + 1, n)
+    return results
 
 
 def aggregate(results: List[BattleResult], a_name: str, b_name: str):
@@ -607,7 +701,7 @@ with st.sidebar:
     b_cover = st.checkbox(f"🔴 {b_name} in cover", value=False)
 
     st.divider()
-    n_battles = st.slider("Simulations", 100, 2000, 500, step=100)
+    n_battles = st.slider("Simulations", 1, 1000, 100, step=1)
     show_points_curve = st.checkbox("Show win% vs points curve", value=True)
 
     st.divider()
@@ -733,45 +827,53 @@ if run:
         factory_a = lambda: _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
         factory_b = lambda: _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
 
-    with st.spinner(f"Running {n_battles:,} battles + capturing one replay..."):
-        results = run_simulations(factory_a, factory_b, n_battles, map_=selected_map)
+    _battle_bar = st.progress(0, text=f"Running battles… 0 / {n_battles:,}")
+    def _battle_progress(done: int, total: int) -> None:
+        _battle_bar.progress(done / total, text=f"Running battles… {done:,} / {total:,}")
 
-        # Pick a replay that's REPRESENTATIVE of the stats: same winner as
-        # the modal outcome, with survivor counts close to the mean. We
-        # roll fresh replays until we find a match, capped to avoid
-        # pathological cases (e.g. very stochastic mirror matches where
-        # no single roll is "average").
-        a_wins_n, b_wins_n, draws_n = aggregate(results, a_name, b_name)
-        if a_wins_n >= b_wins_n and a_wins_n >= draws_n:
-            target_winner = a_name
-        elif b_wins_n >= draws_n:
-            target_winner = b_name
-        else:
-            target_winner = None  # Modal outcome is a draw
-        winning_results = [
-            r for r in results
-            if (r.winner == target_winner if target_winner else r.winner is None)
-        ]
-        if winning_results:
-            mean_a_surv = sum(r.a_survivors for r in winning_results) / len(winning_results)
-            mean_b_surv = sum(r.b_survivors for r in winning_results) / len(winning_results)
-        else:
-            mean_a_surv = mean_b_surv = 0.0
+    results = run_simulations(
+        factory_a, factory_b, n_battles,
+        map_=selected_map, on_progress=_battle_progress,
+    )
+    _battle_bar.empty()
 
-        def _score(res) -> float:
-            # Lower = more representative. Mismatched winner is a hard
-            # penalty so it never beats a correct-winner battle.
-            winner_match = (
-                (res.winner == target_winner) if target_winner
-                else (res.winner is None)
-            )
-            penalty = 0.0 if winner_match else 1e6
-            surv_dist = abs(res.a_survivors - mean_a_surv) + abs(res.b_survivors - mean_b_surv)
-            return penalty + surv_dist
+    # Pick a replay that's REPRESENTATIVE of the stats: same winner as
+    # the modal outcome, with survivor counts close to the mean. We
+    # roll fresh replays until we find a match, capped to avoid
+    # pathological cases (e.g. very stochastic mirror matches where
+    # no single roll is "average").
+    a_wins_n, b_wins_n, draws_n = aggregate(results, a_name, b_name)
+    if a_wins_n >= b_wins_n and a_wins_n >= draws_n:
+        target_winner = a_name
+    elif b_wins_n >= draws_n:
+        target_winner = b_name
+    else:
+        target_winner = None  # Modal outcome is a draw
+    winning_results = [
+        r for r in results
+        if (r.winner == target_winner if target_winner else r.winner is None)
+    ]
+    if winning_results:
+        mean_a_surv = sum(r.a_survivors for r in winning_results) / len(winning_results)
+        mean_b_surv = sum(r.b_survivors for r in winning_results) / len(winning_results)
+    else:
+        mean_a_surv = mean_b_surv = 0.0
 
-        best_log = None
-        best_result = None
-        best_score = float("inf")
+    def _score(res) -> float:
+        # Lower = more representative. Mismatched winner is a hard
+        # penalty so it never beats a correct-winner battle.
+        winner_match = (
+            (res.winner == target_winner) if target_winner
+            else (res.winner is None)
+        )
+        penalty = 0.0 if winner_match else 1e6
+        surv_dist = abs(res.a_survivors - mean_a_surv) + abs(res.b_survivors - mean_b_surv)
+        return penalty + surv_dist
+
+    best_log = None
+    best_result = None
+    best_score = float("inf")
+    with st.spinner("Capturing representative replay…"):
         for _ in range(30):
             log = EventLog()
             res = Battle(
@@ -783,10 +885,10 @@ if run:
             if score < 1e6 and (res.a_survivors - mean_a_surv) ** 2 + (res.b_survivors - mean_b_surv) ** 2 <= 1.0:
                 break   # Close-enough match — stop rolling.
 
-        log = best_log if best_log is not None else EventLog()
-        # Pre-compute the activation-frame index once per run so the Replay
-        # tab's slider doesn't recompute it on every tick.
-        replay_frames = aggregate_activations(log.events)
+    log = best_log if best_log is not None else EventLog()
+    # Pre-compute the activation-frame index once per run so the Replay
+    # tab's slider doesn't recompute it on every tick.
+    replay_frames = aggregate_activations(log.events)
 
     replay_id = st.session_state.get("replay_id", 0) + 1
     st.session_state.update({
@@ -814,11 +916,13 @@ if run:
     # rerun cost per scrub tick. ~22 KB × N frames stays well under the
     # session_state size budget.
     if replay_frames:
-        with st.spinner(f"Pre-rendering {len(replay_frames)} replay frames..."):
-            st.session_state["replay_pngs"] = [
-                _render_frame_png(replay_id, i)
-                for i in range(len(replay_frames))
-            ]
+        _replay_bar = st.progress(0, text="Rendering replay frames…")
+        st.session_state["replay_pngs"] = []
+        for _fi in range(len(replay_frames)):
+            st.session_state["replay_pngs"].append(_render_frame_png(replay_id, _fi))
+            _replay_bar.progress((_fi + 1) / len(replay_frames),
+                                 text=f"Rendering replay frames… {_fi + 1} / {len(replay_frames)}")
+        _replay_bar.empty()
     else:
         st.session_state["replay_pngs"] = []
 
@@ -827,22 +931,27 @@ if run:
     # script re-execution (incl. tab switches) — the actual cause of
     # the multi-second "Watch a battle" tab-click delay.
     if show_points_curve and profile_a and profile_b:
-        with st.spinner("Sweeping point budgets for probability curve..."):
-            point_values = list(range(100, 601, 50))
-            a_rates_p, b_rates_p, draw_rates_p = [], [], []
-            for pts in point_values:
-                res = run_simulations(
-                    lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
-                    lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
-                    200, map_=selected_map,
-                )
-                aw, bw, d = aggregate(res, a_name, b_name)
-                a_rates_p.append(aw / 200)
-                b_rates_p.append(bw / 200)
-                draw_rates_p.append(d / 200)
-            st.session_state["points_curve_data"] = (
-                point_values, a_rates_p, b_rates_p, draw_rates_p,
+        point_values = list(range(100, 601, 50))
+        a_rates_p, b_rates_p, draw_rates_p = [], [], []
+        _curve_bar = st.progress(0, text="Sweeping point budgets…")
+        for _ci, pts in enumerate(point_values):
+            _curve_bar.progress(
+                (_ci + 1) / len(point_values),
+                text=f"Sweeping point budgets… {pts} pts  ({_ci + 1}/{len(point_values)})",
             )
+            res = run_simulations(
+                lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
+                lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
+                200, map_=selected_map,
+            )
+            aw, bw, d = aggregate(res, a_name, b_name)
+            a_rates_p.append(aw / 200)
+            b_rates_p.append(bw / 200)
+            draw_rates_p.append(d / 200)
+        _curve_bar.empty()
+        st.session_state["points_curve_data"] = (
+            point_values, a_rates_p, b_rates_p, draw_rates_p,
+        )
     else:
         st.session_state["points_curve_data"] = None
 
@@ -850,7 +959,7 @@ if run:
 # Tabs: Statistics + Watch a battle
 # ---------------------------------------------------------------------------
 
-tab_stats, tab_replay = st.tabs(["Statistics", "Watch a battle"])
+tab_stats, tab_replay, tab_tournament = st.tabs(["Statistics", "Watch a battle", "Tournament"])
 
 # --- Statistics tab ---
 with tab_stats:
@@ -996,3 +1105,152 @@ with tab_replay:
                 st.caption(
                     f"{total_frames} frames  ·  {total} raw events total"
                 )
+
+# ---------------------------------------------------------------------------
+# Tournament tab — heatmap + ranking + derived points from lookup table
+# ---------------------------------------------------------------------------
+
+with tab_tournament:
+    st.markdown("## Tournament Results")
+    st.caption(
+        "Pre-computed 1v1 round-robin results. "
+        "Run `python -m scripts.run_tournament --faction <Faction> --sims 100` "
+        "to populate the lookup table."
+    )
+
+    t_results = load_tournament_results()
+
+    if not t_results:
+        st.info(
+            "No tournament data yet. "
+            "Run the tournament script for a faction to get started:\n\n"
+            "```\npython -m scripts.run_tournament --faction Necrons --sims 100\n```"
+        )
+    else:
+        factions_in_data = faction_keys_in_results(t_results)
+
+        t_col1, t_col2 = st.columns([2, 3])
+        with t_col1:
+            selected_faction = st.selectbox(
+                "Faction", list(factions_in_data.keys()), key="t_faction"
+            )
+        with t_col2:
+            # Anchor unit for points derivation
+            faction_unit_keys = factions_in_data[selected_faction]
+            anchor_options = {
+                UNIT_CATALOG[k].name: k
+                for k in faction_unit_keys
+                if k in UNIT_CATALOG
+            }
+            anchor_name = st.selectbox(
+                "Anchor unit (known GW cost)",
+                list(anchor_options.keys()),
+                key="t_anchor",
+            )
+            anchor_key = anchor_options[anchor_name]
+            anchor_cost = st.number_input(
+                "Anchor GW points cost",
+                min_value=1,
+                max_value=9999,
+                value=int(UNIT_CATALOG[anchor_key].points_cost)
+                if anchor_key in UNIT_CATALOG else 100,
+                step=1,
+                key="t_anchor_cost",
+            )
+
+        keys = faction_unit_keys
+        names = [UNIT_CATALOG[k].name if k in UNIT_CATALOG else k for k in keys]
+
+        # --- Bradley-Terry scores + derived points -------------------------
+        bt_scores = bradley_terry(keys, t_results)
+        derived_pts = derive_points(keys, bt_scores, anchor_key, anchor_cost)
+
+        # --- Ranking table -------------------------------------------------
+        st.divider()
+        st.markdown("### Unit Rankings")
+
+        ranking_rows = sorted(
+            [
+                {
+                    "Unit": UNIT_CATALOG[k].name if k in UNIT_CATALOG else k,
+                    "BT Score": f"{bt_scores[k]:.4f}",
+                    "SwegHammer pts": f"{derived_pts[k]:.1f}",
+                    "GW pts": f"{UNIT_CATALOG[k].points_cost:.0f}"
+                    if k in UNIT_CATALOG else "—",
+                    "Δ pts": f"{derived_pts[k] - UNIT_CATALOG[k].points_cost:+.1f}"
+                    if k in UNIT_CATALOG else "—",
+                }
+                for k in keys
+            ],
+            key=lambda r: float(r["BT Score"]),
+            reverse=True,
+        )
+        st.dataframe(ranking_rows, hide_index=True, use_container_width=True)
+
+        # --- Heatmap -------------------------------------------------------
+        st.divider()
+        st.markdown("### Win-Rate Heatmap")
+        st.caption("Row beats column. Green > 50 %, red < 50 %, grey = no data.")
+
+        matrix, _ = win_rate_matrix(keys, t_results)
+        n = len(keys)
+
+        # Replace None with NaN for matplotlib
+        import numpy as _np
+        mat_np = _np.full((n, n), float("nan"))
+        for i in range(n):
+            for j in range(n):
+                if matrix[i][j] is not None:
+                    mat_np[i, j] = matrix[i][j]
+
+        # Scale figure height to number of units (cap at 30 per screen)
+        display_n = min(n, 40)
+        fig_size = max(6, display_n * 0.45)
+        fig_heat, ax_heat = plt.subplots(figsize=(fig_size, fig_size))
+        fig_heat.patch.set_facecolor("#0e1117")
+        ax_heat.set_facecolor("#0e1117")
+
+        cmap = plt.cm.RdYlGn
+        cmap.set_bad(color="#2a2d35")  # NaN colour
+
+        im = ax_heat.imshow(
+            mat_np[:display_n, :display_n],
+            cmap=cmap,
+            vmin=0.0,
+            vmax=1.0,
+            aspect="auto",
+        )
+
+        display_names = names[:display_n]
+        ax_heat.set_xticks(range(display_n))
+        ax_heat.set_xticklabels(display_names, rotation=90, fontsize=7, color="white")
+        ax_heat.set_yticks(range(display_n))
+        ax_heat.set_yticklabels(display_names, fontsize=7, color="white")
+
+        # Annotate cells with win%
+        for i in range(display_n):
+            for j in range(display_n):
+                val = mat_np[i, j]
+                if not _np.isnan(val):
+                    text_col = "black" if 0.25 < val < 0.75 else "white"
+                    ax_heat.text(
+                        j, i, f"{val:.0%}",
+                        ha="center", va="center", fontsize=5.5,
+                        color=text_col, fontweight="bold",
+                    )
+
+        cbar = fig_heat.colorbar(im, ax=ax_heat, fraction=0.03, pad=0.02)
+        cbar.ax.tick_params(colors="white")
+        cbar.set_label("Win rate (row vs col)", color="white", fontsize=9)
+
+        ax_heat.set_title(
+            f"{selected_faction} — 1v1 win rates", color="white", fontsize=12, pad=10
+        )
+        fig_heat.tight_layout()
+        st.pyplot(fig_heat)
+
+        if n > 40:
+            st.caption(
+                f"Showing first 40 of {n} units. "
+                "Reduce the faction size or filter by sub-type to see all."
+            )
