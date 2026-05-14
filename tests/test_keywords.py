@@ -47,6 +47,23 @@ class ParseWeaponKeywordsTests(unittest.TestCase):
     def test_blast(self):
         self.assertTrue(parse_weapon_keywords("Blast").get("blast"))
 
+    def test_lance(self):
+        self.assertTrue(parse_weapon_keywords("Lance").get("lance"))
+
+    def test_precision(self):
+        self.assertTrue(parse_weapon_keywords("Precision").get("precision"))
+
+    def test_pistol(self):
+        self.assertTrue(parse_weapon_keywords("Pistol").get("pistol"))
+
+    def test_indirect_fire(self):
+        self.assertTrue(parse_weapon_keywords("Indirect Fire").get("indirect_fire"))
+
+    def test_one_shot_with_and_without_hyphen(self):
+        # Wahapedia variously prints "One Shot" and "One-Shot"; both must parse.
+        self.assertTrue(parse_weapon_keywords("One Shot").get("one_shot"))
+        self.assertTrue(parse_weapon_keywords("One-Shot").get("one_shot"))
+
     def test_combo(self):
         # A mix of keywords on a single line must all parse out.
         out = parse_weapon_keywords("Rapid Fire 1, Anti-VEHICLE 2+, Heavy")

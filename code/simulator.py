@@ -134,6 +134,10 @@ class Battle:
         # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
         # Reset each round.
         self._did_move_this_round: set = set()
+        # UIDs of units that have already fired their One Shot weapon this
+        # battle. Once a uid is here, the unit may not shoot again.
+        # Persists for the whole battle (NOT reset per round).
+        self._one_shot_fired: set = set()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -478,13 +482,35 @@ class Battle:
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon is Assault.
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             return
+        # One Shot: weapon may only fire once per battle. If we've already
+        # fired it, skip the activation outright.
+        if attacker.profile.one_shot and attacker.uid in self._one_shot_fired:
+            return
+
+        # Pistol gate: a unit within 1.5" of an enemy is in engagement range
+        # and may ONLY shoot if its weapon has the Pistol keyword.
+        in_engagement = any(
+            _distance(attacker.position, e.position) < 1.5
+            for e in defender_army.alive_units
+        )
+        if in_engagement and not attacker.profile.pistol:
+            return
 
         rng = attacker.profile.range_inches
-        candidates = [
-            u for u in defender_army.alive_units
-            if _distance(attacker.position, u.position) <= rng
-            and self.map.has_line_of_sight(attacker.position, u.position)
-        ]
+        # Indirect Fire lets us target units we cannot see; otherwise LoS is
+        # required. The has_los flag is plumbed into Unit.attack so it can
+        # apply the -1 to hit when shooting blind.
+        if attacker.profile.indirect_fire:
+            candidates = [
+                u for u in defender_army.alive_units
+                if _distance(attacker.position, u.position) <= rng
+            ]
+        else:
+            candidates = [
+                u for u in defender_army.alive_units
+                if _distance(attacker.position, u.position) <= rng
+                and self.map.has_line_of_sight(attacker.position, u.position)
+            ]
         if not candidates:
             return
 
@@ -511,8 +537,12 @@ class Battle:
             shoot_target.in_cover = True
 
         distance = _distance(attacker.position, shoot_target.position)
-        dmg = attacker.attack(shoot_target, distance=distance)
+        has_los = self.map.has_line_of_sight(attacker.position, shoot_target.position)
+        dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
         shoot_target.in_cover = saved_cover
+        # Mark One Shot weapons as expended for the rest of the battle.
+        if attacker.profile.one_shot:
+            self._one_shot_fired.add(attacker.uid)
 
         target_alive_after = shoot_target.is_alive
         self._emit(UnitShot(
@@ -614,7 +644,10 @@ class Battle:
         )
         if _distance(attacker.position, nearest.position) > 1.5:
             return
-        dmg = attacker.attack(nearest, distance=1.0, mode="melee")
+        is_charging = attacker.uid in self._charging_this_round
+        dmg = attacker.attack(
+            nearest, distance=1.0, mode="melee", is_charging=is_charging,
+        )
         alive_after = nearest.is_alive
         self._emit(UnitFought(
             attacker_uid=attacker.uid,

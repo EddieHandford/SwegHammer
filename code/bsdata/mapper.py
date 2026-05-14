@@ -208,6 +208,12 @@ class WeaponStats:
     torrent: bool = False
     hazardous: bool = False
     blast: bool = False
+    # Phase F — niche 10e keywords
+    lance: bool = False          # +1 to wound if attacking unit charged this turn (melee)
+    precision: bool = False      # bypass cover bonus when target has CHARACTER keyword
+    pistol: bool = False         # may shoot while in engagement range
+    indirect_fire: bool = False  # ignores LoS but -1 to hit vs non-visible targets
+    one_shot: bool = False       # once per battle
 
     def expected_damage_through_baseline(self) -> float:
         """Expected damage per activation against a baseline Marine."""
@@ -240,6 +246,14 @@ _ASSAULT_RE = re.compile(r"(?:^|[\s,;.])Assault(?:$|[\s,;.])")
 _TORRENT_RE = re.compile(r"\bTorrent\b", re.IGNORECASE)
 _HAZARDOUS_RE = re.compile(r"\bHazardous\b", re.IGNORECASE)
 _BLAST_RE = re.compile(r"\bBlast\b", re.IGNORECASE)
+# Phase F — five niche keywords. All five appear as standalone tokens in the
+# Keywords characteristic (comma-separated). "Indirect Fire" and "One Shot"
+# are multi-word; the latter is sometimes hyphenated (One-Shot).
+_LANCE_RE = re.compile(r"\bLance\b", re.IGNORECASE)
+_PRECISION_RE = re.compile(r"\bPrecision\b", re.IGNORECASE)
+_PISTOL_RE = re.compile(r"\bPistol\b", re.IGNORECASE)
+_INDIRECT_FIRE_RE = re.compile(r"\bIndirect\s+Fire\b", re.IGNORECASE)
+_ONE_SHOT_RE = re.compile(r"\bOne[\s-]Shot\b", re.IGNORECASE)
 
 
 def parse_weapon_keywords(text: str) -> Dict[str, object]:
@@ -290,6 +304,16 @@ def parse_weapon_keywords(text: str) -> Dict[str, object]:
         out["hazardous"] = True
     if _BLAST_RE.search(s):
         out["blast"] = True
+    if _LANCE_RE.search(s):
+        out["lance"] = True
+    if _PRECISION_RE.search(s):
+        out["precision"] = True
+    if _PISTOL_RE.search(s):
+        out["pistol"] = True
+    if _INDIRECT_FIRE_RE.search(s):
+        out["indirect_fire"] = True
+    if _ONE_SHOT_RE.search(s):
+        out["one_shot"] = True
     return out
 
 
@@ -508,6 +532,12 @@ class MappedUnit:
     torrent: bool = False
     hazardous: bool = False
     blast: bool = False
+    # Phase F — niche 10e keywords on the chosen primary weapon
+    lance: bool = False
+    precision: bool = False
+    pistol: bool = False
+    indirect_fire: bool = False
+    one_shot: bool = False
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
@@ -632,6 +662,16 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         torrent=primary.torrent,
         hazardous=primary.hazardous,
         blast=primary.blast,
+        # Lance is a melee-only keyword (Wahapedia 10e core). Source from the
+        # best melee weapon if there is one; otherwise fall back to primary
+        # (covers melee-only units where primary == best_melee).
+        lance=(best_melee.lance if best_melee is not None else primary.lance),
+        # Precision can appear on either melee or ranged. Take it if EITHER
+        # the primary (ranged) or the chosen melee weapon has it.
+        precision=primary.precision or (best_melee.precision if best_melee else False),
+        pistol=primary.pistol,
+        indirect_fire=primary.indirect_fire,
+        one_shot=primary.one_shot,
         fnp=fnp,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,

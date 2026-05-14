@@ -185,6 +185,12 @@ class UnitProfile:
     torrent: bool = False                      # attacks auto-hit (skip to-hit roll)
     hazardous: bool = False                    # d6 self-harm on activation (1 = 3 mortal wounds)
     blast: bool = False                        # +1 attack per 5 enemy models in target unit
+    # Phase F — niche 10e weapon keywords
+    lance: bool = False                        # +1 to wound on melee if the unit charged this turn
+    precision: bool = False                    # bypass cover when shooting a CHARACTER target
+    pistol: bool = False                       # can shoot while in engagement (1.5") range
+    indirect_fire: bool = False                # ignores LoS; -1 to hit vs non-visible targets
+    one_shot: bool = False                     # weapon fires once per battle
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
@@ -283,7 +289,14 @@ class Unit:
             amount = survived + (amount - int(round(amount)))   # preserve fractional
         self.current_health = max(0.0, self.current_health - amount)
 
-    def attack(self, target: "Unit", distance: float = 0.0, mode: str = "ranged") -> float:
+    def attack(
+        self,
+        target: "Unit",
+        distance: float = 0.0,
+        mode: str = "ranged",
+        is_charging: bool = False,
+        has_los: bool = True,
+    ) -> float:
         """
         Full stochastic 10e attack sequence. For each of `attacks` shots:
           1. Roll d6 vs hit_target. Crit = 6.
@@ -298,6 +311,9 @@ class Unit:
         Army-wide detachment rules and the Heavy keyword feed in as modifiers
         on hit_target, wound_target, n_attacks, save_target and the effective
         invuln before the loop runs.
+
+        is_charging  - the attacker declared a charge this turn (Lance: +1 wound in melee)
+        has_los      - the defender is visible from the attacker (Indirect Fire: -1 hit if False)
         """
         p = self.profile
 
@@ -373,6 +389,16 @@ class Unit:
         if p.heavy and mode != "melee" and not self.moved_this_round:
             hit_target = max(2, hit_target - 1)
 
+        # ---- Indirect Fire: -1 to hit when target is not visible (raises target).
+        # Only meaningful in ranged mode.
+        if p.indirect_fire and mode != "melee" and not has_los:
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Lance: +1 to wound (lower wound_target by 1, min 2) when this
+        # melee attack happens on a turn the attacker declared a charge.
+        if p.lance and mode == "melee" and is_charging:
+            wound_target = max(2, wound_target - 1)
+
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
         anti_crit_threshold = 6
         if p.anti_keywords and target.profile.unit_keywords:
@@ -382,7 +408,15 @@ class Unit:
                     anti_crit_threshold = thresh
 
         save_after_ap = target.profile.save - ap
-        if target.in_cover and not ignore_cover:
+        # Precision: a ranged shot at a CHARACTER target pierces concealment —
+        # cover does not improve the save. Same effect as Ignores Cover, but
+        # gated on the target's keywords.
+        precision_pierces_cover = (
+            p.precision
+            and mode != "melee"
+            and "CHARACTER" in (target.profile.unit_keywords or ())
+        )
+        if target.in_cover and not ignore_cover and not precision_pierces_cover:
             save_after_ap = max(2, save_after_ap - 1)
         # ---- Target's detachment: +1 to armour save (cap 2+) ----
         if tgt_det is not None and tgt_det.plus_one_save:
@@ -517,6 +551,11 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             torrent=entry.torrent,
             hazardous=entry.hazardous,
             blast=entry.blast,
+            lance=entry.lance,
+            precision=entry.precision,
+            pistol=entry.pistol,
+            indirect_fire=entry.indirect_fire,
+            one_shot=entry.one_shot,
             fnp=entry.fnp,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
