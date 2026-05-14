@@ -28,7 +28,9 @@ class Army:
     # ------------------------------------------------------------------
 
     def add_unit(self, profile: UnitProfile) -> None:
-        self.units.append(Unit(profile, in_cover=self.in_cover))
+        unit = Unit(profile, in_cover=self.in_cover)
+        unit.army_ref = self
+        self.units.append(unit)
 
     def resolve_detachment(self) -> Optional[Detachment]:
         """Return the detachment in effect — explicit if set, else faction default."""

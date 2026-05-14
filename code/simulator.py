@@ -130,6 +130,10 @@ class Battle:
         # UIDs of units that successfully charged this round (Fights First in
         # the Fight sub-phase). Reset each round.
         self._charging_this_round: set = set()
+        # UIDs of units that moved during the movement sub-phase this round.
+        # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
+        # Reset each round.
+        self._did_move_this_round: set = set()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -315,19 +319,28 @@ class Battle:
         self._advanced_this_round = set()
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
+        # Reset movement tracking: nothing has moved yet this round.
+        self._did_move_this_round = set()
+        for army in (self.a, self.b):
+            for u in army.units:
+                u.moved_this_round = False
 
         # Battleshock phase (after Round 1). 10e core rule: any unit Below
         # Half-Strength tests; pass on 2d6 >= Ld. We treat each Unit
         # instance as a stand-in for a single squad member; "below half
         # strength" maps to "current HP < starting HP / 2".
+        # Detachment modifiers compose: own ld_bonus LOWERS our test target
+        # (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
         if round_num > 1:
             for army, opponent in ((self.a, self.b), (self.b, self.a)):
                 opponent_det = opponent.resolve_detachment()
+                own_det = army.resolve_detachment()
                 ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
+                ld_bonus = own_det.ld_bonus if own_det else 0
                 for u in army.alive_units:
                     if u.current_health < u.profile.health / 2.0:
                         roll = random.randint(1, 6) + random.randint(1, 6)
-                        target = u.profile.leadership + ld_penalty
+                        target = u.profile.leadership + ld_penalty - ld_bonus
                         if roll < target:
                             self._battleshocked_this_round.add(u.uid)
                             self._emit(BattleshockFailed(
@@ -445,6 +458,9 @@ class Battle:
         )
         if new_pos != old_pos:
             attacker.position = new_pos
+            # Surface the move to the Heavy keyword check in Unit.attack().
+            self._did_move_this_round.add(attacker.uid)
+            attacker.moved_this_round = True
             self._emit(UnitMoved(
                 unit_uid=attacker.uid,
                 from_pos=old_pos,

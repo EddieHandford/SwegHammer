@@ -244,7 +244,10 @@ class UnitProfile:
 class Unit:
     """A live unit on the battlefield, tracking current health and position."""
 
-    __slots__ = ("profile", "current_health", "in_cover", "uid", "position")
+    __slots__ = (
+        "profile", "current_health", "in_cover", "uid", "position",
+        "army_ref", "moved_this_round",
+    )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
         self.profile = profile
@@ -252,6 +255,14 @@ class Unit:
         self.in_cover: bool = in_cover
         self.uid: str = ""                              # assigned by Battle at start
         self.position: tuple = (0.0, 0.0)               # (x, y) in inches
+        # Back-reference to owning army (set by Army.add_unit). Lets
+        # Unit.attack() resolve the army-wide detachment + check squad size
+        # for keywords like Blast.
+        self.army_ref = None
+        # Set by Battle each round: True iff this unit moved during the
+        # current round's movement sub-phase. Drives the Heavy keyword
+        # (+1 to hit if attacker did NOT move).
+        self.moved_this_round: bool = False
 
     @property
     def is_alive(self) -> bool:
@@ -283,8 +294,29 @@ class Unit:
              re-rolls a failed wound roll once. Crit-to-wound = 6.
           5. Devastating Wounds: crit-to-wound bypasses saves (mortal wound).
           6. Otherwise roll d6 save vs better of (armour-after-AP) and invuln.
+
+        Army-wide detachment rules and the Heavy keyword feed in as modifiers
+        on hit_target, wound_target, n_attacks, save_target and the effective
+        invuln before the loop runs.
         """
         p = self.profile
+
+        # ---- Detachment lookups (army-wide passive buffs) ------------------
+        # Attacker side: applies to this unit's hit/wound/attacks.
+        # Target side: applies to the defender's saves + invuln.
+        att_det = None
+        tgt_det = None
+        if self.army_ref is not None:
+            try:
+                att_det = self.army_ref.resolve_detachment()
+            except Exception:
+                att_det = None
+        if target.army_ref is not None:
+            try:
+                tgt_det = target.army_ref.resolve_detachment()
+            except Exception:
+                tgt_det = None
+
         if mode == "melee" and p.melee_attacks > 0:
             # Substitute the melee stat block for this resolution
             per_shot_dmg = p.melee_damage_per_shot or 1.0
@@ -315,15 +347,31 @@ class Unit:
                 same_squad = sum(
                     1 for u in target.army_ref.alive_units
                     if u.profile.name == target.profile.name
-                ) if hasattr(target, "army_ref") and target.army_ref else 1
+                ) if target.army_ref is not None else 1
             except Exception:
                 same_squad = 1
             n_attacks += same_squad // 5
+
+        # ---- Detachment: +N extra attacks per weapon ----
+        if att_det is not None and att_det.plus_one_attack:
+            n_attacks += int(att_det.plus_one_attack)
 
         if hit_target is None:
             hit_target = _prob_to_target(p.hit_probability)
         wound_p = wound_probability(strength, target.profile.toughness)
         wound_target = _prob_to_target(wound_p)
+
+        # ---- Detachment: +1 to hit / +1 to wound (lower the d6 target, min 2) ----
+        if att_det is not None:
+            if att_det.plus_one_to_hit:
+                hit_target = max(2, hit_target - 1)
+            if att_det.plus_one_to_wound:
+                wound_target = max(2, wound_target - 1)
+
+        # ---- Heavy keyword: +1 to hit when shooting and the attacker did
+        # NOT move this round. Melee never benefits. Same math as +1-to-hit.
+        if p.heavy and mode != "melee" and not self.moved_this_round:
+            hit_target = max(2, hit_target - 1)
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
         anti_crit_threshold = 6
@@ -336,9 +384,21 @@ class Unit:
         save_after_ap = target.profile.save - ap
         if target.in_cover and not ignore_cover:
             save_after_ap = max(2, save_after_ap - 1)
+        # ---- Target's detachment: +1 to armour save (cap 2+) ----
+        if tgt_det is not None and tgt_det.plus_one_save:
+            save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
+        # ---- Target's detachment: army-wide invuln. Only overrides if better
+        # (lower number) than what the target already has. 7 = unset.
+        if tgt_det is not None and tgt_det.extra_invuln <= 6:
+            if tgt_det.extra_invuln < invuln:
+                invuln = tgt_det.extra_invuln
         effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
         save_target = effective_save  # 7 = no save
+
+        # Re-roll flags from attacker's detachment.
+        att_reroll_hit_ones = bool(att_det and att_det.reroll_hit_ones)
+        att_reroll_wound_ones = bool(att_det and att_det.reroll_wound_ones)
 
         total_damage = 0.0
         for _ in range(n_attacks):
@@ -347,6 +407,11 @@ class Unit:
                 crit_hit = False   # torrent has no crit-on-hit
             else:
                 roll = random.randint(1, 6)
+                # Detachment "re-roll 1s to hit": replace the natural 1 with a
+                # fresh d6, then proceed with the new value (used for crit /
+                # threshold). Applies BEFORE crit detection per spec.
+                if att_reroll_hit_ones and roll == 1:
+                    roll = random.randint(1, 6)
                 if roll < hit_target:
                     continue   # missed
                 crit_hit = (roll == 6)
@@ -358,8 +423,15 @@ class Unit:
                     crit_wound = False
                 else:
                     wroll = random.randint(1, 6)
+                    rerolled = False
+                    # Re-roll natural 1s to wound (detachment). Compose with
+                    # Twin-Linked (re-roll any failure) but never re-roll the
+                    # same die twice.
+                    if att_reroll_wound_ones and wroll == 1:
+                        wroll = random.randint(1, 6)
+                        rerolled = True
                     wound_succeeded = (wroll >= wound_target)
-                    if not wound_succeeded and p.twin_linked:
+                    if not wound_succeeded and p.twin_linked and not rerolled:
                         wroll = random.randint(1, 6)
                         wound_succeeded = (wroll >= wound_target)
                     # Anti-X lowers the crit-wound threshold against that keyword
