@@ -118,14 +118,10 @@ def launch_dashboard(status_var: tk.StringVar) -> None:
     threading.Thread(target=_open_when_ready, daemon=True).start()
 
 
-def run_cli_demo(status_var: tk.StringVar) -> None:
-    """Open a new console window running the CLI demo."""
-    status_var.set("Launching CLI demo in a new window...")
-    cmd = [sys.executable, "-m", "code.main"]
-
+def _open_console(cmd: list, status_var: tk.StringVar, label: str) -> None:
+    """Open a new console window running cmd."""
     try:
         if sys.platform == "win32":
-            # cmd /k keeps the console open after the script finishes
             subprocess.Popen(
                 ["cmd", "/k", *cmd],
                 cwd=HERE,
@@ -139,9 +135,7 @@ def run_cli_demo(status_var: tk.StringVar) -> None:
             )
             subprocess.Popen(["osascript", "-e", script])
         else:
-            for term in (
-                "x-terminal-emulator", "gnome-terminal", "konsole", "xterm",
-            ):
+            for term in ("x-terminal-emulator", "gnome-terminal", "konsole", "xterm"):
                 try:
                     subprocess.Popen([term, "-e", *cmd], cwd=HERE)
                     break
@@ -149,10 +143,16 @@ def run_cli_demo(status_var: tk.StringVar) -> None:
                     continue
             else:
                 subprocess.Popen(cmd, cwd=HERE)
-        status_var.set("CLI demo launched in a new console window.")
+        status_var.set(f"{label} launched in a new console window.")
     except Exception as exc:
         messagebox.showerror("Launch failed", str(exc))
-        status_var.set("Launch failed -- see error dialog.")
+        status_var.set("Launch failed — see error dialog.")
+
+
+def run_cli_demo(status_var: tk.StringVar) -> None:
+    """Open a new console window running the CLI demo."""
+    status_var.set("Launching CLI demo in a new window...")
+    _open_console([sys.executable, "-m", "code.main"], status_var, "CLI demo")
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ def run_cli_demo(status_var: tk.StringVar) -> None:
 def launch_gui() -> None:
     root = tk.Tk()
     root.title("SwegHammer Launcher")
-    root.geometry("440x310")
+    root.geometry("440x360")
     root.resizable(False, False)
 
     tk.Label(

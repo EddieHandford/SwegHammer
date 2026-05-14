@@ -32,6 +32,11 @@ from code.renderer import (
 )
 from code.simulator import Battle, BattleResult
 from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
+from code.equilibrium import (
+    compute_phase1 as compute_equilibrium_phase1,
+    DEFAULT_ANCHOR_KEY as EQ_DEFAULT_ANCHOR,
+    DEFAULT_ANCHOR_PER_MODEL as EQ_DEFAULT_ANCHOR_PTS,
+)
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
 # below once the sidebar's "Use SwegHammer balanced points" toggle is read.
@@ -48,6 +53,48 @@ st.set_page_config(
     page_icon="⚔️",
     layout="wide",
 )
+
+st.markdown("""
+<style>
+/* ── Sidebar title accent ────────────────────────────────── */
+[data-testid="stSidebar"] .stMarkdown h1 {
+    color: #c9a84c;
+    letter-spacing: 0.05em;
+}
+
+/* ── Primary button (Run Simulation) ────────────────────── */
+[data-testid="stBaseButton-primary"] {
+    background: linear-gradient(135deg, #b8860b 0%, #c9a84c 100%);
+    border: none;
+    color: #0e1117;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 6px;
+}
+[data-testid="stBaseButton-primary"]:hover {
+    background: linear-gradient(135deg, #c9a84c 0%, #e0c070 100%);
+    color: #0e1117;
+}
+
+/* ── Metric cards — subtle border only, no bg override ───── */
+[data-testid="stMetric"] {
+    border: 1px solid #3a3d45;
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+}
+
+/* ── Active tab accent ───────────────────────────────────── */
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+    color: #c9a84c;
+    border-bottom-color: #c9a84c;
+}
+
+/* ── Progress bar fill ───────────────────────────────────── */
+[data-testid="stProgressBar"] > div {
+    background-color: #c9a84c;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -185,8 +232,14 @@ def run_simulations(
     factory_b: Callable[[], Army],
     n: int,
     map_: Map = DEFAULT_MAP,
+    on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> List[BattleResult]:
-    return [Battle(factory_a(), factory_b(), map_=map_).run() for _ in range(n)]
+    results = []
+    for i in range(n):
+        results.append(Battle(factory_a(), factory_b(), map_=map_).run())
+        if on_progress:
+            on_progress(i + 1, n)
+    return results
 
 
 def aggregate(results: List[BattleResult], a_name: str, b_name: str):
@@ -607,7 +660,7 @@ with st.sidebar:
     b_cover = st.checkbox(f"🔴 {b_name} in cover", value=False)
 
     st.divider()
-    n_battles = st.slider("Simulations", 100, 2000, 500, step=100)
+    n_battles = st.slider("Simulations", 1, 1000, 100, step=1)
     show_points_curve = st.checkbox("Show win% vs points curve", value=True)
 
     st.divider()
@@ -733,45 +786,53 @@ if run:
         factory_a = lambda: _build_army_from_composition(a_name, a_comp, in_cover=a_cover)
         factory_b = lambda: _build_army_from_composition(b_name, b_comp, in_cover=b_cover)
 
-    with st.spinner(f"Running {n_battles:,} battles + capturing one replay..."):
-        results = run_simulations(factory_a, factory_b, n_battles, map_=selected_map)
+    _battle_bar = st.progress(0, text=f"Running battles… 0 / {n_battles:,}")
+    def _battle_progress(done: int, total: int) -> None:
+        _battle_bar.progress(done / total, text=f"Running battles… {done:,} / {total:,}")
 
-        # Pick a replay that's REPRESENTATIVE of the stats: same winner as
-        # the modal outcome, with survivor counts close to the mean. We
-        # roll fresh replays until we find a match, capped to avoid
-        # pathological cases (e.g. very stochastic mirror matches where
-        # no single roll is "average").
-        a_wins_n, b_wins_n, draws_n = aggregate(results, a_name, b_name)
-        if a_wins_n >= b_wins_n and a_wins_n >= draws_n:
-            target_winner = a_name
-        elif b_wins_n >= draws_n:
-            target_winner = b_name
-        else:
-            target_winner = None  # Modal outcome is a draw
-        winning_results = [
-            r for r in results
-            if (r.winner == target_winner if target_winner else r.winner is None)
-        ]
-        if winning_results:
-            mean_a_surv = sum(r.a_survivors for r in winning_results) / len(winning_results)
-            mean_b_surv = sum(r.b_survivors for r in winning_results) / len(winning_results)
-        else:
-            mean_a_surv = mean_b_surv = 0.0
+    results = run_simulations(
+        factory_a, factory_b, n_battles,
+        map_=selected_map, on_progress=_battle_progress,
+    )
+    _battle_bar.empty()
 
-        def _score(res) -> float:
-            # Lower = more representative. Mismatched winner is a hard
-            # penalty so it never beats a correct-winner battle.
-            winner_match = (
-                (res.winner == target_winner) if target_winner
-                else (res.winner is None)
-            )
-            penalty = 0.0 if winner_match else 1e6
-            surv_dist = abs(res.a_survivors - mean_a_surv) + abs(res.b_survivors - mean_b_surv)
-            return penalty + surv_dist
+    # Pick a replay that's REPRESENTATIVE of the stats: same winner as
+    # the modal outcome, with survivor counts close to the mean. We
+    # roll fresh replays until we find a match, capped to avoid
+    # pathological cases (e.g. very stochastic mirror matches where
+    # no single roll is "average").
+    a_wins_n, b_wins_n, draws_n = aggregate(results, a_name, b_name)
+    if a_wins_n >= b_wins_n and a_wins_n >= draws_n:
+        target_winner = a_name
+    elif b_wins_n >= draws_n:
+        target_winner = b_name
+    else:
+        target_winner = None  # Modal outcome is a draw
+    winning_results = [
+        r for r in results
+        if (r.winner == target_winner if target_winner else r.winner is None)
+    ]
+    if winning_results:
+        mean_a_surv = sum(r.a_survivors for r in winning_results) / len(winning_results)
+        mean_b_surv = sum(r.b_survivors for r in winning_results) / len(winning_results)
+    else:
+        mean_a_surv = mean_b_surv = 0.0
 
-        best_log = None
-        best_result = None
-        best_score = float("inf")
+    def _score(res) -> float:
+        # Lower = more representative. Mismatched winner is a hard
+        # penalty so it never beats a correct-winner battle.
+        winner_match = (
+            (res.winner == target_winner) if target_winner
+            else (res.winner is None)
+        )
+        penalty = 0.0 if winner_match else 1e6
+        surv_dist = abs(res.a_survivors - mean_a_surv) + abs(res.b_survivors - mean_b_surv)
+        return penalty + surv_dist
+
+    best_log = None
+    best_result = None
+    best_score = float("inf")
+    with st.spinner("Capturing representative replay…"):
         for _ in range(30):
             log = EventLog()
             res = Battle(
@@ -783,10 +844,10 @@ if run:
             if score < 1e6 and (res.a_survivors - mean_a_surv) ** 2 + (res.b_survivors - mean_b_surv) ** 2 <= 1.0:
                 break   # Close-enough match — stop rolling.
 
-        log = best_log if best_log is not None else EventLog()
-        # Pre-compute the activation-frame index once per run so the Replay
-        # tab's slider doesn't recompute it on every tick.
-        replay_frames = aggregate_activations(log.events)
+    log = best_log if best_log is not None else EventLog()
+    # Pre-compute the activation-frame index once per run so the Replay
+    # tab's slider doesn't recompute it on every tick.
+    replay_frames = aggregate_activations(log.events)
 
     replay_id = st.session_state.get("replay_id", 0) + 1
     st.session_state.update({
@@ -814,11 +875,13 @@ if run:
     # rerun cost per scrub tick. ~22 KB × N frames stays well under the
     # session_state size budget.
     if replay_frames:
-        with st.spinner(f"Pre-rendering {len(replay_frames)} replay frames..."):
-            st.session_state["replay_pngs"] = [
-                _render_frame_png(replay_id, i)
-                for i in range(len(replay_frames))
-            ]
+        _replay_bar = st.progress(0, text="Rendering replay frames…")
+        st.session_state["replay_pngs"] = []
+        for _fi in range(len(replay_frames)):
+            st.session_state["replay_pngs"].append(_render_frame_png(replay_id, _fi))
+            _replay_bar.progress((_fi + 1) / len(replay_frames),
+                                 text=f"Rendering replay frames… {_fi + 1} / {len(replay_frames)}")
+        _replay_bar.empty()
     else:
         st.session_state["replay_pngs"] = []
 
@@ -827,22 +890,27 @@ if run:
     # script re-execution (incl. tab switches) — the actual cause of
     # the multi-second "Watch a battle" tab-click delay.
     if show_points_curve and profile_a and profile_b:
-        with st.spinner("Sweeping point budgets for probability curve..."):
-            point_values = list(range(100, 601, 50))
-            a_rates_p, b_rates_p, draw_rates_p = [], [], []
-            for pts in point_values:
-                res = run_simulations(
-                    lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
-                    lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
-                    200, map_=selected_map,
-                )
-                aw, bw, d = aggregate(res, a_name, b_name)
-                a_rates_p.append(aw / 200)
-                b_rates_p.append(bw / 200)
-                draw_rates_p.append(d / 200)
-            st.session_state["points_curve_data"] = (
-                point_values, a_rates_p, b_rates_p, draw_rates_p,
+        point_values = list(range(100, 601, 50))
+        a_rates_p, b_rates_p, draw_rates_p = [], [], []
+        _curve_bar = st.progress(0, text="Sweeping point budgets…")
+        for _ci, pts in enumerate(point_values):
+            _curve_bar.progress(
+                (_ci + 1) / len(point_values),
+                text=f"Sweeping point budgets… {pts} pts  ({_ci + 1}/{len(point_values)})",
             )
+            res = run_simulations(
+                lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
+                lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
+                200, map_=selected_map,
+            )
+            aw, bw, d = aggregate(res, a_name, b_name)
+            a_rates_p.append(aw / 200)
+            b_rates_p.append(bw / 200)
+            draw_rates_p.append(d / 200)
+        _curve_bar.empty()
+        st.session_state["points_curve_data"] = (
+            point_values, a_rates_p, b_rates_p, draw_rates_p,
+        )
     else:
         st.session_state["points_curve_data"] = None
 
@@ -850,7 +918,9 @@ if run:
 # Tabs: Statistics + Watch a battle
 # ---------------------------------------------------------------------------
 
-tab_stats, tab_replay = st.tabs(["Statistics", "Watch a battle"])
+tab_stats, tab_replay, tab_efficiency, tab_equilibrium = st.tabs(
+    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium"]
+)
 
 # --- Statistics tab ---
 with tab_stats:
@@ -996,3 +1066,453 @@ with tab_replay:
                 st.caption(
                     f"{total_frames} frames  ·  {total} raw events total"
                 )
+
+# ---------------------------------------------------------------------------
+# Efficiency tab — Lanchester score vs points cost scatter
+# ---------------------------------------------------------------------------
+
+with tab_efficiency:
+    st.markdown("## Lanchester Score vs Points Cost")
+    st.caption(
+        "Each dot is one unit. "
+        "X = points cost (derived or override). "
+        "Y = Lanchester score (DPS × durability vs baseline Marine). "
+        "Dots above the trend line are good value; below are expensive for their combat power."
+    )
+
+    # Collect data from the full catalogue
+    _eff_names: list[str] = []
+    _eff_pts: list[float] = []
+    _eff_scores: list[float] = []
+    _eff_factions: list[str] = []
+    _eff_colours: list[str] = []
+
+    for _key, _u in UNIT_CATALOG.items():
+        _pts = _u.points_cost
+        _sc = _u.score
+        if _pts <= 0 or _sc <= 0:
+            continue
+        _eff_names.append(_u.name)
+        _eff_pts.append(_pts)
+        _eff_scores.append(_sc)
+        _eff_factions.append(_u.faction)
+        _eff_colours.append(colour_for(_u.faction))
+
+    if not _eff_pts:
+        st.warning("No units found in catalogue.")
+    else:
+        # --- faction filter ---
+        _all_factions = sorted(set(_eff_factions))
+        _selected_factions = st.multiselect(
+            "Filter factions",
+            options=_all_factions,
+            default=_all_factions,
+            key="eff_faction_filter",
+        )
+
+        # Apply filter
+        _mask = [f in _selected_factions for f in _eff_factions]
+        _f_names   = [v for v, m in zip(_eff_names,   _mask) if m]
+        _f_pts     = [v for v, m in zip(_eff_pts,     _mask) if m]
+        _f_scores  = [v for v, m in zip(_eff_scores,  _mask) if m]
+        _f_colours = [v for v, m in zip(_eff_colours, _mask) if m]
+        _f_factions= [v for v, m in zip(_eff_factions,_mask) if m]
+
+        # --- scatter plot ---
+        _fig_eff, _ax_eff = plt.subplots(figsize=(12, 7))
+        _fig_eff.patch.set_facecolor("#0e1117")
+        _ax_eff.set_facecolor("#1a1d23")
+
+        _ax_eff.scatter(
+            _f_pts, _f_scores,
+            c=_f_colours,
+            s=40, alpha=0.8, linewidths=0.4, edgecolors="white",
+        )
+
+        # Trend line — linear fit in log-log space (power-law relationship)
+        _pts_arr = np.array(_f_pts, dtype=float)
+        _sc_arr  = np.array(_f_scores, dtype=float)
+        if len(_pts_arr) >= 2:
+            _m, _b = np.polyfit(np.log10(_pts_arr), np.log10(_sc_arr), 1)
+            _x_line = np.logspace(np.log10(_pts_arr.min()), np.log10(_pts_arr.max()), 300)
+            _y_line = 10 ** (_b + _m * np.log10(_x_line))
+            _ax_eff.plot(_x_line, _y_line, color="#FFD700", linewidth=1.2,
+                         linestyle="--", label=f"trend  (slope {_m:.2f})", zorder=3)
+
+        # Label the 10 most efficient outliers (score / pts)
+        _eff_ratio = _sc_arr / _pts_arr
+        _top_idx   = np.argsort(_eff_ratio)[-10:]
+        for _i in _top_idx:
+            _ax_eff.annotate(
+                _f_names[_i],
+                (_f_pts[_i], _f_scores[_i]),
+                fontsize=6, color="white", alpha=0.9,
+                xytext=(4, 3), textcoords="offset points",
+            )
+
+        # Legend: one entry per faction that's visible
+        _seen: set[str] = set()
+        for _fn, _fc in zip(_f_factions, _f_colours):
+            if _fn not in _seen:
+                _seen.add(_fn)
+                _ax_eff.scatter([], [], color=_fc, s=30, label=_fn)
+
+        _ax_eff.legend(
+            loc="upper left", fontsize=7,
+            facecolor="#1a1d23", edgecolor="#444", labelcolor="white",
+            ncol=max(1, len(_seen) // 20),
+        )
+
+        _ax_eff.set_xscale("log")
+        _ax_eff.set_yscale("log")
+        _ax_eff.set_xlabel("Points cost  (log scale)", color="white", fontsize=11)
+        _ax_eff.set_ylabel("Lanchester score  (log scale)", color="white", fontsize=11)
+        _ax_eff.set_title("Lanchester score vs Points cost", color="white", fontsize=13, pad=10)
+        _ax_eff.tick_params(colors="white", which="both")
+        for _spine in _ax_eff.spines.values():
+            _spine.set_edgecolor("#444")
+
+        _fig_eff.tight_layout()
+        st.pyplot(_fig_eff)
+
+        # --- efficiency ranking table ---
+        st.divider()
+        st.markdown("### Efficiency ranking  (Lanchester score ÷ points)")
+        _eff_rows = sorted(
+            [
+                {
+                    "Unit": _f_names[i],
+                    "Faction": _f_factions[i],
+                    "Points": round(_f_pts[i], 1),
+                    "Lanchester score": round(_f_scores[i], 4),
+                    "Score / pt": round(_eff_ratio[i], 5),
+                }
+                for i in range(len(_f_names))
+            ],
+            key=lambda r: r["Score / pt"],
+            reverse=True,
+        )
+        st.dataframe(_eff_rows, hide_index=True, use_container_width=True)
+
+
+# ---------------------------------------------------------------------------
+# Equilibrium tab — Phase 1 fair-points solver
+# ---------------------------------------------------------------------------
+with tab_equilibrium:
+    st.markdown("## Equilibrium points  —  Phase 1 (shooting only)")
+    st.caption(
+        "What SHOULD a unit cost if balance were perfect? "
+        "We treat the catalogue as a symmetric zero-sum game, compute every "
+        "pairwise time-to-kill, and solve for points that make every duel "
+        "mutually destructive in equal time."
+    )
+
+    # ---- Math explainer ----
+    with st.expander("How the math works", expanded=False):
+        st.markdown(
+            "**Step 1 — Pairwise damage.**  For every ordered pair of units "
+            "$(i, j)$ we compute the expected unsaved damage one model of $i$ "
+            "deals to one model of $j$ in a single shooting phase, accounting "
+            "for hit, wound (S vs T table), AP-vs-save, invuln, FNP, and the "
+            "stateless weapon keywords (Lethal Hits, Sustained Hits, "
+            "Twin-Linked, Devastating Wounds, Anti-X)."
+        )
+        st.latex(
+            r"D[i,j] = n_i \cdot p_{\text{hit}} \cdot p_{\text{wound}}(S_i, T_j) "
+            r"\cdot p_{\text{fail save}}(\text{save}_j, AP_i, \text{inv}_j) "
+            r"\cdot d_i \cdot \left(1 - p_{\text{FNP}_j}\right)"
+        )
+        st.markdown("**Step 2 — Time-to-kill.**")
+        st.latex(r"T[i,j] = \frac{W_j}{D[i,j]}")
+        st.markdown(
+            "**Step 3 — Fair-trade condition.**  Field $p_j$ points of $i$ "
+            "vs $p_j$ points of $j$ (equal budget). The side that wipes "
+            "first is the cheaper-per-model unit. Solving for "
+            "mutual destruction at the same instant:"
+        )
+        st.latex(r"\left(\frac{p_i}{p_j}\right)^2 = \frac{T[j,i]}{T[i,j]}")
+        st.markdown(
+            "Take logs and you get a linear equation in $\\log p$:"
+        )
+        st.latex(
+            r"\log p_i - \log p_j \;=\; \tfrac{1}{2} \log\!\frac{T[j,i]}{T[i,j]} "
+            r"\;\equiv\; R[i,j]"
+        )
+        st.markdown(
+            "**Step 4 — Closed-form solve.**  $R$ is skew-symmetric; the LSQ "
+            "optimum for $\\log p$ is the row mean (Bradley-Terry / PageRank "
+            "structure):"
+        )
+        st.latex(
+            r"\log p_i \;=\; \tfrac{1}{n}\sum_{j \neq i} R[i,j] \;+\; \text{anchor shift}"
+        )
+        st.markdown(
+            "The **anchor** pins one unit's per-model cost (default: "
+            "Intercessor @ 16 pts) to fix the overall scale. Everything else "
+            "is relative.\n\n"
+            "**Phase 1 limitations** (deferred to later phases — see "
+            "`code/equilibrium.py`):\n"
+            "- Shooting only (no melee, no charge value)\n"
+            "- No leader auras / detachment buffs\n"
+            "- No tactical utility: move, OC, deep strike, sticky objectives\n"
+            "- No meta-weighting of matchups (all pairs equal weight)\n"
+            "- No proper Nash mixed-strategy solve (would handle "
+            "rock-paper-scissors mispricing)\n\n"
+            "So aura-heavy characters and chaff swarms will look mispriced — "
+            "the model can't see what they're actually good at yet."
+        )
+
+    # ---- Controls ----
+    st.divider()
+    _col_anchor, _col_anchor_pts, _col_role = st.columns([3, 1, 2])
+
+    _shooty_keys = sorted([k for k, u in UNIT_CATALOG.items()
+                           if u.attacks > 0 and u.range_inches > 0])
+    _default_anchor = (
+        EQ_DEFAULT_ANCHOR if EQ_DEFAULT_ANCHOR in _shooty_keys else _shooty_keys[0]
+    )
+    with _col_anchor:
+        _anchor_key = st.selectbox(
+            "Anchor unit  (its cost is held fixed; everything else floats)",
+            _shooty_keys,
+            index=_shooty_keys.index(_default_anchor),
+            format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
+            key="eq_anchor_key",
+        )
+    with _col_anchor_pts:
+        _default_anchor_pts = float(
+            UNIT_CATALOG[_anchor_key].points_per_squad /
+            max(1, UNIT_CATALOG[_anchor_key].min_models)
+        )
+        if _default_anchor_pts <= 0:
+            _default_anchor_pts = EQ_DEFAULT_ANCHOR_PTS
+        _anchor_pts = st.number_input(
+            "Anchor pts / model",
+            min_value=1.0, max_value=2000.0,
+            value=_default_anchor_pts,
+            step=1.0,
+            key="eq_anchor_pts",
+        )
+    with _col_role:
+        _role_filter = st.multiselect(
+            "Role filter",
+            options=["shooty", "dual"],
+            default=["shooty", "dual"],
+            key="eq_role_filter",
+            help="`shooty` = no melee profile, `dual` = also has melee. Pure-melee units are excluded from Phase 1.",
+        )
+
+    # ---- Cached compute ----
+    @st.cache_data(show_spinner="Solving equilibrium points…")
+    def _equilibrium_result(anchor_key: str, anchor_pts: float):
+        # Catalog identity matters (raw vs balanced) but it's not hashable, so
+        # we just key on the user-controlled args. Cache invalidates when the
+        # process restarts, which is acceptable for an exploratory view.
+        return compute_equilibrium_phase1(
+            catalog=UNIT_CATALOG,
+            anchor_key=anchor_key,
+            anchor_per_model=anchor_pts,
+        )
+
+    try:
+        _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
+    except ValueError as _exc:
+        st.error(f"Couldn't compute equilibrium: {_exc}")
+        st.stop()
+
+    # ---- Faction filter (operates on cached entries — re-renders only) ----
+    _all_factions = sorted({e.faction for e in _result.entries if e.faction})
+    _selected_factions = st.multiselect(
+        "Show factions",
+        options=_all_factions,
+        default=_all_factions,
+        key="eq_faction_filter",
+    )
+
+    _filtered = [
+        e for e in _result.entries
+        if (e.faction in _selected_factions if _selected_factions else True)
+        and e.role in _role_filter
+    ]
+
+    if not _filtered:
+        st.warning("No units match the current filters.")
+    else:
+        # ---- Summary metrics ----
+        _under = [e for e in _filtered if e.mispricing_pct < -10]
+        _over  = [e for e in _filtered if e.mispricing_pct > 10]
+        _m1, _m2, _m3, _m4 = st.columns(4)
+        _m1.metric("Units fitted", len(_filtered))
+        _m2.metric("GW undercosted (>10%)", len(_under),
+                   help="Equilibrium says these should cost more than GW prices them.")
+        _m3.metric("GW overcosted (>10%)", len(_over),
+                   help="Equilibrium says these should cost less than GW prices them.")
+        _m4.metric("Anchor", f"{UNIT_CATALOG[_anchor_key].name[:18]}",
+                   f"{_anchor_pts:.0f} pts/model")
+
+        # ---- Scatter plot ----
+        _xs = np.array([e.gw_points_per_model for e in _filtered])
+        _ys = np.array([e.equilibrium_points_per_model for e in _filtered])
+        _factions = [e.faction for e in _filtered]
+        _names = [e.name for e in _filtered]
+        _cols = [colour_for(f) for f in _factions]
+
+        # Filter out degenerate points (GW = 0 means no listed points)
+        _valid = (_xs > 0) & (_ys > 0)
+        _xs_p, _ys_p = _xs[_valid], _ys[_valid]
+        _cols_p = [c for c, v in zip(_cols, _valid) if v]
+        _names_p = [n for n, v in zip(_names, _valid) if v]
+
+        _fig, _ax = plt.subplots(figsize=(12, 7))
+        _fig.patch.set_facecolor("#0e1117")
+        _ax.set_facecolor("#1a1d23")
+
+        _ax.scatter(_xs_p, _ys_p, c=_cols_p, s=28, alpha=0.78,
+                    linewidths=0.3, edgecolors="white")
+
+        _lo = float(min(_xs_p.min(), _ys_p.min())) if len(_xs_p) else 1.0
+        _hi = float(max(_xs_p.max(), _ys_p.max())) if len(_xs_p) else 1000.0
+        _ax.plot([_lo, _hi], [_lo, _hi], color="#FFD700", linestyle="--",
+                 linewidth=1.0, label="y = x (fair)")
+
+        # Label most-mispriced outliers
+        if len(_xs_p) >= 4:
+            _log_ratio = np.log(_ys_p / _xs_p)
+            _n_labels = min(6, len(_xs_p) // 5)
+            _worst_under = np.argsort(_log_ratio)[-_n_labels:]
+            _worst_over = np.argsort(_log_ratio)[:_n_labels]
+            for _i in list(_worst_under) + list(_worst_over):
+                _ax.annotate(
+                    _names_p[_i],
+                    (_xs_p[_i], _ys_p[_i]),
+                    fontsize=6.5, color="white", alpha=0.9,
+                    xytext=(4, 3), textcoords="offset points",
+                )
+
+        # Faction legend (sample of visible factions only)
+        _seen = set()
+        for _f, _c in zip(_factions, _cols):
+            if _f not in _seen and len(_seen) < 22:
+                _seen.add(_f)
+                _ax.scatter([], [], color=_c, s=30, label=_f)
+        _ax.legend(loc="upper left", fontsize=6.5,
+                   facecolor="#1a1d23", edgecolor="#444", labelcolor="white",
+                   ncol=max(1, len(_seen) // 18))
+
+        _ax.set_xscale("log")
+        _ax.set_yscale("log")
+        _ax.set_xlabel("GW points per model  (log)", color="white", fontsize=11)
+        _ax.set_ylabel("Equilibrium points per model  (log)", color="white", fontsize=11)
+        _ax.set_title(
+            "Above diagonal → GW undercosted  ·  Below diagonal → GW overcosted",
+            color="white", fontsize=11, pad=8,
+        )
+        _ax.tick_params(colors="white", which="both")
+        for _s in _ax.spines.values():
+            _s.set_edgecolor("#444")
+        _ax.grid(True, alpha=0.15, color="#888", linestyle=":")
+
+        _fig.tight_layout()
+        st.pyplot(_fig)
+
+        # ---- Sortable explorer table ----
+        st.divider()
+        st.markdown("### Explore the data")
+        _rows = [
+            {
+                "Unit": e.name,
+                "Faction": e.faction,
+                "Role": e.role,
+                "GW pts/model": e.gw_points_per_model,
+                "Eq pts/model": e.equilibrium_points_per_model,
+                "Mispricing %": e.mispricing_pct,
+                "GW pts/squad": e.gw_points_per_squad,
+                "Eq pts/squad": e.equilibrium_points_per_squad,
+                "Min models": e.min_models,
+                "Matchups": e.valid_matchups,
+                "key": e.key,
+            }
+            for e in _filtered
+        ]
+        st.dataframe(
+            _rows,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "key": None,   # hide the catalogue key column
+                "Mispricing %": st.column_config.NumberColumn(
+                    help="Positive = GW prices it ABOVE equilibrium (overcosted). "
+                         "Negative = GW prices BELOW equilibrium (undercosted).",
+                    format="%+.1f%%",
+                ),
+            },
+        )
+        st.caption(
+            "Click any column header to sort. "
+            "**Mispricing %** = `(GW − equilibrium) / equilibrium`."
+        )
+
+        # ---- Per-unit matchup drilldown ----
+        st.divider()
+        st.markdown("### Drill into a unit's matchups")
+        _drill_options = sorted([e.key for e in _filtered],
+                                key=lambda k: UNIT_CATALOG[k].name)
+        _drill_key = st.selectbox(
+            "Pick a unit",
+            _drill_options,
+            format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
+            key="eq_drill_key",
+        )
+
+        _drill_entry = next(e for e in _result.entries if e.key == _drill_key)
+        _d1, _d2, _d3 = st.columns(3)
+        _d1.metric("GW points / model", f"{_drill_entry.gw_points_per_model:.1f}")
+        _d2.metric("Equilibrium / model",
+                   f"{_drill_entry.equilibrium_points_per_model:.1f}",
+                   f"{_drill_entry.mispricing_pct:+.1f}% vs GW")
+        _d3.metric("Valid matchups", _drill_entry.valid_matchups)
+
+        _best, _worst = _result.matchups_for(_drill_key, top_n=10)
+
+        def _matchup_rows(matchups):
+            out = []
+            for m in matchups:
+                _opp = UNIT_CATALOG.get(m["opponent_key"])
+                if _opp is None:
+                    continue
+                out.append({
+                    "Opponent": _opp.name,
+                    "Faction": _opp.faction,
+                    "Turns I kill them": m["T_self_kills_opp"],
+                    "Turns they kill me": m["T_opp_kills_self"],
+                    "Log advantage R": m["R_log_advantage"],
+                    "Fair pts ratio (me/them)": m["fair_points_ratio"],
+                })
+            return out
+
+        _col_best, _col_worst = st.columns(2)
+        with _col_best:
+            st.markdown(
+                f"**Strongest matchups for {UNIT_CATALOG[_drill_key].name}**  "
+                "<br><span style='color:#aaa;font-size:0.85em'>(highest log "
+                "advantage = should cost most relative to opponent)</span>",
+                unsafe_allow_html=True,
+            )
+            st.dataframe(_matchup_rows(_best), hide_index=True,
+                         use_container_width=True)
+        with _col_worst:
+            st.markdown(
+                f"**Weakest matchups for {UNIT_CATALOG[_drill_key].name}**  "
+                "<br><span style='color:#aaa;font-size:0.85em'>(lowest log "
+                "advantage = should cost least relative to opponent)</span>",
+                unsafe_allow_html=True,
+            )
+            st.dataframe(_matchup_rows(_worst), hide_index=True,
+                         use_container_width=True)
+
+        st.caption(
+            "**Log advantage R** is the value the solver averages to derive "
+            "equilibrium points. **Fair pts ratio** = $\\exp(R)$ = what "
+            "fraction of the opponent's points-per-model the equilibrium says "
+            "this unit should cost in an isolated 1-vs-1."
+        )
