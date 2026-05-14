@@ -63,7 +63,39 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
 # field, but still implement a 10e core rule we need to cite. Add new
 # entries here when you add a new simulator gate.
 SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
+    # Weapon keywords (parsed from BSData onto every UnitProfile)
+    "weapon.heavy",
+    "weapon.assault",
+    "weapon.rapid_fire",
+    "weapon.melta",
+    "weapon.anti_x",
+    "weapon.lance",
+    "weapon.precision",
+    "weapon.pistol",
+    "weapon.indirect_fire",
+    "weapon.one_shot",
+    "weapon.torrent",
+    "weapon.lethal_hits",
+    "weapon.sustained_hits",
+    "weapon.devastating_wounds",
+    "weapon.twin_linked",
+    "weapon.ignores_cover",
+    "weapon.blast",
+    "weapon.hazardous",
+    # Unit-level core abilities
+    "unit.stealth",
+    "unit.fnp",
+    # Simulator-side gates (terrain, deployment, faction army rules, phases)
     "simulator.big_guns_never_tire",
+    "simulator.cover_light",
+    "simulator.cover_heavy",
+    "simulator.deep_strike",
+    "simulator.scout",
+    "simulator.infiltrators",
+    "simulator.reanimation_protocols",
+    "simulator.sticky_objective",
+    "simulator.battle_focus",
+    "simulator.battleshock",
 )
 
 
