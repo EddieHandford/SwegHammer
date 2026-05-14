@@ -127,6 +127,35 @@ def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     return total
 
 
+def _melee_target_score(attacker, defender) -> float:
+    """How attractive `defender` is as a melee target for `attacker`.
+
+    Same shape as pick_charge_target's scoring but distance-independent —
+    used by the MOVE planner to pick which enemy to close on, before we
+    know whether a charge will be in range. Real tournament play: melee
+    bricks pick fragile gunline targets (T'au Battlesuits, Devastators,
+    snipers) over near-but-tough enemies.
+    """
+    p = attacker.profile
+    tp = defender.profile
+
+    a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
+                   * (p.melee_damage_per_shot or 1.0))
+    kill_potential = a_melee_dpa / max(1.0, tp.toughness + defender.current_health)
+
+    a_dur = max(1.0, p.toughness + attacker.current_health)
+    threat_back = (
+        tp.melee_attacks * tp.melee_hit_probability
+        * (tp.melee_damage_per_shot or 1.0)
+    ) / a_dur
+
+    ranged_value = (
+        tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)
+    ) * (tp.range_inches / 24.0)
+
+    return (kill_potential + 0.5 * ranged_value) / (1.0 + threat_back)
+
+
 def pick_charge_target(attacker, enemy):
     """
     Pick the best enemy to charge from those within 12" range.
@@ -276,9 +305,36 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
             repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
             return repo_pos, _REPOSITION_INTENT
 
-    # MELEE always closes on the nearest enemy (range = 1, can never shoot far)
-    if role == "MELEE" and nearest_enemy is not None:
-        return nearest_enemy.position, _ENGAGE_INTENT
+    # MELEE closes on the BEST melee target (the gunline / battlesuit /
+    # support character whose squishy melee profile we can crack open),
+    # not just the nearest enemy. Without this bias, melee bricks waste
+    # activations on hard-to-kill bricks and never engage the priorities
+    # that under-rate our sim's T'au / Astartes / Votann shooty factions.
+    if role == "MELEE" and enemy.alive_units:
+        scored = sorted(
+            enemy.alive_units,
+            key=lambda e: _melee_target_score(unit, e),
+            reverse=True,
+        )
+        return scored[0].position, _ENGAGE_INTENT
+
+    # DUAL: if a high-value charge target is within potential charge range
+    # next round (move + 12" threat), close on it; otherwise fall through
+    # to objective logic. This is what real Intercessor / Boyz / similar
+    # do — bias toward enemies with weak melee, not just the closest body.
+    if role == "DUAL" and enemy.alive_units:
+        move_dist = unit.profile.move or 6.0
+        threat_range = move_dist + 12.0
+        viable = [
+            e for e in enemy.alive_units
+            if _dist(unit.position, e.position) <= threat_range
+        ]
+        if viable:
+            best_melee = max(viable, key=lambda e: _melee_target_score(unit, e))
+            # Only engage if the target's score beats a neutral baseline —
+            # otherwise the objective-grabbing fallback handles it better.
+            if _melee_target_score(unit, best_melee) > 0.1:
+                return best_melee.position, _ENGAGE_INTENT
 
     # ----- 4. Pick objective target if one scored well; else engage enemy -----
     if best is not None and best[0] > 0.2:
