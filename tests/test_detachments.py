@@ -1,0 +1,109 @@
+"""Tests for the detachment registry — Phase: faction-coverage expansion."""
+
+from __future__ import annotations
+
+import unittest
+
+from code.army import Army
+from code.detachments import (
+    DEFAULT_BY_FACTION, DETACHMENTS, Detachment, default_detachment_for_faction,
+)
+from code.units import UnitProfile
+
+
+# Each tuple: (registry-key, faction-string the default lookup should resolve,
+# expected boolean / int field that should be set to a non-default value).
+_NEW_DETACHMENTS = (
+    # (key, faction, attribute, expected value)
+    ("hallowed_martyrs",       "Adepta Sororitas",       "plus_one_to_wound", True),
+    ("shield_host",            "Adeptus Custodes",       "plus_one_save",     True),
+    ("skitarii_hunter_cohort", "Adeptus Mechanicus",     "reroll_hit_ones",   True),
+    ("inquisition_task_force", "Agents of the Imperium", "reroll_hit_ones",   True),
+    ("combined_regiment",      "Astra Militarum",        "plus_one_to_hit",   True),
+    ("teleport_strike_force",  "Grey Knights",           "reroll_wound_ones", True),
+    ("battle_host",            "Aeldari",                "reroll_hit_ones",   True),
+    ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
+    ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
+    ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
+    ("plague_company",         "Death Guard",            "fnp",               5),
+    ("cult_of_magic",          "Thousand Sons",          "plus_one_to_wound", True),
+    ("berzerker_warband",      "World Eaters",           "plus_one_to_hit",   True),
+    ("daemonic_incursion",     "Chaos Daemons",          "plus_one_to_hit",   True),
+    ("final_day",              "Genestealer Cults",      "reroll_hit_ones",   True),
+    ("oathband",               "Leagues of Votann",      "reroll_hit_ones",   True),
+)
+
+
+class DetachmentRegistryTests(unittest.TestCase):
+    """Each new detachment must appear in DETACHMENTS and carry the right flag."""
+
+    def test_each_new_detachment_present(self):
+        for key, _faction, attr, expected in _NEW_DETACHMENTS:
+            self.assertIn(key, DETACHMENTS, f"{key} missing from DETACHMENTS")
+            det = DETACHMENTS[key]
+            self.assertEqual(
+                getattr(det, attr), expected,
+                f"{key}.{attr} expected {expected!r}, got {getattr(det, attr)!r}",
+            )
+
+    def test_each_new_faction_resolves_via_default(self):
+        for key, faction, _attr, _expected in _NEW_DETACHMENTS:
+            det = default_detachment_for_faction(faction)
+            self.assertIsNotNone(det, f"{faction!r} did not resolve a default detachment")
+            self.assertEqual(
+                DEFAULT_BY_FACTION[faction], key,
+                f"{faction!r} should map to {key!r}, got {DEFAULT_BY_FACTION[faction]!r}",
+            )
+
+    def test_default_unknown_returns_none(self):
+        self.assertIsNone(default_detachment_for_faction("Made-Up Faction"))
+
+    def test_registry_grew(self):
+        # Original: 5 detachments. After expansion: should be at least 5+16=21.
+        self.assertGreaterEqual(len(DETACHMENTS), 21)
+
+
+class ArmyResolveDetachmentTests(unittest.TestCase):
+    """Newly-added factions must auto-resolve via Army.resolve_detachment()."""
+
+    @staticmethod
+    def _profile(faction: str) -> UnitProfile:
+        return UnitProfile(
+            name="Trooper", health=1, damage=1, hit_probability=0.5,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            faction=faction,
+        )
+
+    def test_tau_army_resolves(self):
+        army = Army("Tau")
+        army.add_unit(self._profile("T'au Empire"))
+        det = army.resolve_detachment()
+        self.assertIsNotNone(det)
+        self.assertEqual(det.name, "Mont'ka")
+        self.assertTrue(det.plus_one_to_hit)
+
+    def test_death_guard_army_resolves(self):
+        army = Army("DG")
+        army.add_unit(self._profile("Death Guard"))
+        det = army.resolve_detachment()
+        self.assertIsNotNone(det)
+        self.assertEqual(det.fnp, 5)
+
+    def test_custodes_army_resolves(self):
+        army = Army("Custodes")
+        army.add_unit(self._profile("Adeptus Custodes"))
+        det = army.resolve_detachment()
+        self.assertIsNotNone(det)
+        self.assertTrue(det.plus_one_save)
+
+    def test_explicit_detachment_overrides_default(self):
+        explicit = Detachment(name="Override", faction="X", plus_one_to_wound=True)
+        army = Army("Mixed", detachment=explicit)
+        army.add_unit(self._profile("T'au Empire"))
+        det = army.resolve_detachment()
+        self.assertIs(det, explicit)
+
+
+if __name__ == "__main__":
+    unittest.main()

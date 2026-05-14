@@ -75,21 +75,51 @@ class LeaderAbility:
 
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Space Marine HQ
-    ("Captain",      LeaderAbility(name="Rites of Battle",       aura_range=6.0, reroll_hit_ones=True)),
-    ("Chaplain",     LeaderAbility(name="Spiritual Leader",      aura_range=6.0, reroll_wound_ones=True)),
-    ("Apothecary",   LeaderAbility(name="Combat Restoratives",   aura_range=3.0, heal_per_round=1)),
-    ("Librarian",    LeaderAbility(name="Psychic Empowerment",   aura_range=6.0, plus_one_to_wound=True)),
+    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True)),
+    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True)),
+    ("Apothecary",         LeaderAbility(name="Combat Restoratives",        aura_range=3.0, heal_per_round=1)),
+    ("Librarian",          LeaderAbility(name="Psychic Empowerment",        aura_range=6.0, plus_one_to_wound=True)),
     # Adepta Sororitas
-    ("Canoness",     LeaderAbility(name="Beacon of Faith",       aura_range=6.0, reroll_hit_ones=True)),
+    ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True)),
     # Necrons
-    ("Overlord",     LeaderAbility(name="My Will Be Done",       aura_range=6.0, plus_one_to_hit=True)),
-    ("Chronomancer", LeaderAbility(name="Chronometron",          aura_range=6.0, fnp=5)),
-    ("Plasmancer",   LeaderAbility(name="Harbinger of Destruction", aura_range=6.0, fnp=5)),
-    ("Technomancer", LeaderAbility(name="Canoptek Cloak",        aura_range=6.0, fnp=5)),
+    ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, plus_one_to_hit=True)),
+    ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5)),
+    ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5)),
+    ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5)),
     # Orks
-    ("Warboss",      LeaderAbility(name="Waaagh! Boss",          aura_range=6.0, plus_one_to_wound=True)),
+    ("Warboss",            LeaderAbility(name="Waaagh! Boss",               aura_range=6.0, plus_one_to_wound=True)),
     # Tyranids
-    ("Hive Tyrant",  LeaderAbility(name="Synaptic Imperative",   aura_range=6.0, reroll_wound_ones=True)),
+    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True)),
+    # Aeldari
+    ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True)),
+    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True)),
+    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),
+    # T'au Empire
+    ("Ethereal",           LeaderAbility(name="Guiding Hand of the Greater Good", aura_range=6.0, reroll_wound_ones=True)),
+    ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),
+    ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, reroll_hit_ones=True)),
+    # Chaos Space Marines
+    ("Sorcerer",           LeaderAbility(name="Death Hex",                  aura_range=6.0, plus_one_to_wound=True)),
+    ("Dark Apostle",       LeaderAbility(name="Profane Litanies",           aura_range=6.0, reroll_hit_ones=True)),
+    ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True)),
+    # Adeptus Custodes
+    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True)),
+    ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True)),
+    # Adeptus Mechanicus
+    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, reroll_hit_ones=True, heal_per_round=1)),
+    # Death Guard
+    ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True)),
+    ("Typhus",             LeaderAbility(name="Host of the Destroyer Hive", aura_range=6.0, reroll_wound_ones=True)),
+    # Grey Knights
+    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True)),
+    ("Grand Master",       LeaderAbility(name="Tactical Acumen",            aura_range=6.0, plus_one_to_wound=True)),
+    # Drukhari
+    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True)),
+    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True)),
+    # Genestealer Cults
+    ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True)),
+    # Leagues of Votann
+    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, plus_one_to_hit=True)),
 )
 
 
@@ -205,6 +235,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             _merge_bool(buffs, det, "plus_one_save")
             _merge_add(buffs, det, "plus_one_attack")
             _merge_min(buffs, det, "extra_invuln")
+            _merge_min(buffs, det, "fnp")
 
     for leader in in_range_leaders(attacker):
         ability = lookup_ability(leader.profile.name)

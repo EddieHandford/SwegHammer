@@ -46,6 +46,7 @@ class Detachment:
     # Defensive
     plus_one_save: bool = False          # +1 to armour save (cap 2+)
     extra_invuln: int = 7                # Cheap army-wide invuln (rare)
+    fnp: int = 7                         # Army-wide Feel No Pain (7 = none)
 
     # Healing / recovery
     reanimate_per_round: int = 0         # W restored per unit per round end
@@ -109,37 +110,236 @@ NOBLE_LANCE = Detachment(
     plus_one_to_wound=True,
 )
 
+HALLOWED_MARTYRS = Detachment(
+    name="Hallowed Martyrs",
+    faction="Adepta Sororitas",
+    notes=(
+        "Sacrifice-themed: +1 to wound army-wide. Real rule triggers off "
+        "destroyed Sororitas units; we apply it always-on for the MVP."
+    ),
+    plus_one_to_wound=True,
+)
+
+SHIELD_HOST = Detachment(
+    name="Shield Host",
+    faction="Adeptus Custodes",
+    notes=(
+        "Custodes durability: +1 to armour saves army-wide (cap at 2+). "
+        "Approximates the multiple bespoke save-stacking rules in 10e."
+    ),
+    plus_one_save=True,
+)
+
+SKITARII_HUNTER_COHORT = Detachment(
+    name="Skitarii Hunter Cohort",
+    faction="Adeptus Mechanicus",
+    notes=(
+        "Conqueror Doctrina Imperatives: lossy as army-wide re-roll hit 1s. "
+        "Real rule rotates between offensive / defensive imperatives."
+    ),
+    reroll_hit_ones=True,
+)
+
+INQUISITION_TASK_FORCE = Detachment(
+    name="Inquisition Task Force",
+    faction="Agents of the Imperium",
+    notes=(
+        "Inquisitorial Authority: re-roll hit 1s army-wide for the assembled "
+        "Imperial agents. Real rule is bespoke per Inquisitor archetype."
+    ),
+    reroll_hit_ones=True,
+)
+
+COMBINED_REGIMENT = Detachment(
+    name="Combined Regiment",
+    faction="Astra Militarum",
+    notes=(
+        "Fire Orders: lossy as army-wide +1 to hit. Real rule is officer-gated "
+        "single-target buffs (FRFSRF, Take Aim, etc.)."
+    ),
+    plus_one_to_hit=True,
+)
+
+TELEPORT_STRIKE_FORCE = Detachment(
+    name="Teleport Strike Force",
+    faction="Grey Knights",
+    notes=(
+        "Teleportarium precision: army-wide re-roll wound 1s. Real rule "
+        "includes deep strike and bespoke psychic mechanics."
+    ),
+    reroll_wound_ones=True,
+)
+
+BATTLE_HOST = Detachment(
+    name="Battle Host",
+    faction="Aeldari",
+    notes=(
+        "Aspect of the Path: lossy as army-wide re-roll hit 1s. Real rule "
+        "rotates +1 to hit / +1 to wound per Aspect Path."
+    ),
+    reroll_hit_ones=True,
+)
+
+SKYSPLINTER_ASSAULT = Detachment(
+    name="Skysplinter Assault",
+    faction="Drukhari",
+    notes=(
+        "Hit-and-run raiders: approximated as army-wide re-roll wound 1s. "
+        "Real rule grants +1 to wound on the turn a unit charged."
+    ),
+    reroll_wound_ones=True,
+)
+
+MONTKA = Detachment(
+    name="Mont'ka",
+    faction="T'au Empire",
+    notes=(
+        "Killing Blow doctrine: lossy as army-wide +1 to hit. Real rule "
+        "alternates between Mont'ka (offensive) and Kauyon (defensive)."
+    ),
+    plus_one_to_hit=True,
+)
+
+PACTBOUND_ZEALOTS = Detachment(
+    name="Pactbound Zealots",
+    faction="Chaos Space Marines",
+    notes=(
+        "Dark Pacts: lossy as army-wide re-roll wound 1s. Real rule grants "
+        "Lethal Hits or Sustained Hits at the cost of Battleshock checks."
+    ),
+    reroll_wound_ones=True,
+)
+
+PLAGUE_COMPANY = Detachment(
+    name="Plague Company",
+    faction="Death Guard",
+    notes=(
+        "Disgustingly Resilient: army-wide Feel No Pain 5+ approximation. "
+        "Real rule has Contagions and bespoke aura mechanics layered in."
+    ),
+    fnp=5,
+)
+
+CULT_OF_MAGIC = Detachment(
+    name="Cult of Magic",
+    faction="Thousand Sons",
+    notes=(
+        "Psychic mastery: lossy as army-wide +1 to wound. Real rule grants "
+        "Devastating Wounds on Psychic weapons."
+    ),
+    plus_one_to_wound=True,
+)
+
+BERZERKER_WARBAND = Detachment(
+    name="Berzerker Warband",
+    faction="World Eaters",
+    notes=(
+        "Blood Tithe frenzy: lossy as army-wide +1 to hit. Real rule spends "
+        "Blood Tithe points on a roster of escalating effects."
+    ),
+    plus_one_to_hit=True,
+)
+
+DAEMONIC_INCURSION = Detachment(
+    name="Daemonic Incursion",
+    faction="Chaos Daemons",
+    notes=(
+        "Shadow of Chaos: lossy as army-wide +1 to hit. Real rule grants "
+        "Battle-shock immunity and bespoke god-specific buffs in friendly zones."
+    ),
+    plus_one_to_hit=True,
+)
+
+FINAL_DAY = Detachment(
+    name="Final Day",
+    faction="Genestealer Cults",
+    notes=(
+        "Day of Reckoning: lossy as army-wide re-roll hit 1s. Real rule "
+        "rotates between Ambush / Onslaught / Annihilation stages."
+    ),
+    reroll_hit_ones=True,
+)
+
+OATHBAND = Detachment(
+    name="Oathband",
+    faction="Leagues of Votann",
+    notes=(
+        "Voidsmen Oaths: lossy as army-wide re-roll hit 1s. Real rule grants "
+        "Judgement Tokens that escalate effects vs marked enemy units."
+    ),
+    reroll_hit_ones=True,
+)
+
 
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
 DETACHMENTS: Dict[str, Detachment] = {
-    "gladius_task_force":  GLADIUS_TASK_FORCE,
-    "awakened_dynasty":    AWAKENED_DYNASTY,
-    "invasion_fleet":      INVASION_FLEET,
-    "waaagh_tribe":        WAAAGH_DETACHMENT,
-    "noble_lance":         NOBLE_LANCE,
+    "gladius_task_force":      GLADIUS_TASK_FORCE,
+    "awakened_dynasty":        AWAKENED_DYNASTY,
+    "invasion_fleet":          INVASION_FLEET,
+    "waaagh_tribe":            WAAAGH_DETACHMENT,
+    "noble_lance":             NOBLE_LANCE,
+    "hallowed_martyrs":        HALLOWED_MARTYRS,
+    "shield_host":             SHIELD_HOST,
+    "skitarii_hunter_cohort":  SKITARII_HUNTER_COHORT,
+    "inquisition_task_force":  INQUISITION_TASK_FORCE,
+    "combined_regiment":       COMBINED_REGIMENT,
+    "teleport_strike_force":   TELEPORT_STRIKE_FORCE,
+    "battle_host":             BATTLE_HOST,
+    "skysplinter_assault":     SKYSPLINTER_ASSAULT,
+    "montka":                  MONTKA,
+    "pactbound_zealots":       PACTBOUND_ZEALOTS,
+    "plague_company":          PLAGUE_COMPANY,
+    "cult_of_magic":           CULT_OF_MAGIC,
+    "berzerker_warband":       BERZERKER_WARBAND,
+    "daemonic_incursion":      DAEMONIC_INCURSION,
+    "final_day":               FINAL_DAY,
+    "oathband":                OATHBAND,
 }
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
 DEFAULT_BY_FACTION: Dict[str, str] = {
-    "Adeptus Astartes":   "gladius_task_force",
-    "Ultramarines":       "gladius_task_force",
-    "Blood Angels":       "gladius_task_force",
-    "Dark Angels":        "gladius_task_force",
-    "Black Templars":     "gladius_task_force",
-    "Space Wolves":       "gladius_task_force",
-    "Salamanders":        "gladius_task_force",
-    "Imperial Fists":     "gladius_task_force",
-    "Iron Hands":         "gladius_task_force",
-    "Raven Guard":        "gladius_task_force",
-    "White Scars":        "gladius_task_force",
-    "Necrons":            "awakened_dynasty",
-    "Tyranids":           "invasion_fleet",
-    "Orks":               "waaagh_tribe",
-    "Imperial Knights":   "noble_lance",
+    "Adeptus Astartes":         "gladius_task_force",
+    "Ultramarines":             "gladius_task_force",
+    "Blood Angels":             "gladius_task_force",
+    "Dark Angels":              "gladius_task_force",
+    "Black Templars":           "gladius_task_force",
+    "Space Wolves":             "gladius_task_force",
+    "Salamanders":              "gladius_task_force",
+    "Imperial Fists":           "gladius_task_force",
+    "Iron Hands":               "gladius_task_force",
+    "Raven Guard":              "gladius_task_force",
+    "White Scars":              "gladius_task_force",
+    "Deathwatch":               "gladius_task_force",
+    "Necrons":                  "awakened_dynasty",
+    "Tyranids":                 "invasion_fleet",
+    "Orks":                     "waaagh_tribe",
+    "Imperial Knights":         "noble_lance",
+    "Chaos Knights":            "noble_lance",
+    "Adepta Sororitas":         "hallowed_martyrs",
+    "Adeptus Custodes":         "shield_host",
+    "Adeptus Mechanicus":       "skitarii_hunter_cohort",
+    "Agents of the Imperium":   "inquisition_task_force",
+    "Imperial Agents":          "inquisition_task_force",
+    "Astra Militarum":          "combined_regiment",
+    "Grey Knights":             "teleport_strike_force",
+    "Aeldari":                  "battle_host",
+    "Aeldari (Craftworlds)":    "battle_host",
+    "Ynnari":                   "battle_host",
+    "Drukhari":                 "skysplinter_assault",
+    "T'au Empire":              "montka",
+    "Tau Empire":               "montka",
+    "Chaos Space Marines":      "pactbound_zealots",
+    "Heretic Astartes":         "pactbound_zealots",
+    "Death Guard":              "plague_company",
+    "Thousand Sons":            "cult_of_magic",
+    "World Eaters":             "berzerker_warband",
+    "Chaos Daemons":            "daemonic_incursion",
+    "Genestealer Cults":        "final_day",
+    "Leagues of Votann":        "oathband",
 }
 
 

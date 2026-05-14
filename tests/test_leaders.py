@@ -93,6 +93,71 @@ class RegistryLookupTests(unittest.TestCase):
         self.assertIsNone(lookup_ability(""))
 
 
+class ExpandedRegistryTests(unittest.TestCase):
+    """Phase: leader-registry expansion across major factions."""
+
+    # Each tuple is (profile-name to look up, expected flag attribute).
+    NEW_LEADERS = (
+        # Aeldari
+        ("Farseer",                 "reroll_wound_ones"),
+        ("Autarch",                 "plus_one_to_hit"),
+        ("Avatar of Khaine",        "reroll_hit_ones"),
+        # T'au
+        ("Ethereal",                "reroll_wound_ones"),
+        ("Commander in XV85 Enforcer Battlesuit", "plus_one_to_hit"),
+        ("Cadre Fireblade",         "reroll_hit_ones"),
+        # Chaos Space Marines
+        ("Sorcerer",                "plus_one_to_wound"),
+        ("Dark Apostle",            "reroll_hit_ones"),
+        ("Chaos Lord",              "plus_one_to_wound"),
+        # Adeptus Custodes
+        ("Shield-Captain",          "reroll_hit_ones"),
+        ("Trajann Valoris",         "plus_one_to_hit"),
+        # Adeptus Mechanicus
+        ("Tech-Priest Dominus",     "reroll_hit_ones"),
+        # Death Guard
+        ("Lord of Contagion",       "plus_one_to_wound"),
+        ("Typhus",                  "reroll_wound_ones"),
+        # Grey Knights
+        ("Brother-Captain",         "reroll_hit_ones"),
+        ("Grand Master",            "plus_one_to_wound"),
+        # Drukhari
+        ("Archon",                  "plus_one_to_hit"),
+        ("Succubus",                "reroll_hit_ones"),
+        # Genestealer Cults
+        ("Primus",                  "reroll_hit_ones"),
+        # Leagues of Votann
+        ("Kâhl",                    "plus_one_to_hit"),
+    )
+
+    def test_each_new_leader_resolves(self):
+        for name, flag in self.NEW_LEADERS:
+            ab = lookup_ability(name)
+            self.assertIsNotNone(ab, f"{name} did not resolve via lookup_ability")
+            self.assertTrue(
+                getattr(ab, flag),
+                f"{name} resolved but the expected flag {flag!r} was not set",
+            )
+
+    def test_tech_priest_dominus_heals(self):
+        # Dominus carries both an offensive aura AND a heal aura.
+        ab = lookup_ability("Tech-Priest Dominus")
+        self.assertIsNotNone(ab)
+        self.assertGreaterEqual(ab.heal_per_round, 1)
+
+    def test_archon_not_false_positive(self):
+        # 'Archon' must resolve. Confirm Arch-style substring collisions don't
+        # cause unrelated entries to leak through (no 'Arch' substring entries).
+        self.assertIsNotNone(lookup_ability("Archon"))
+        # Drazhar / Archons-on-Raider variants still match "Archon".
+        self.assertIsNotNone(lookup_ability("Archon on Skyboard"))
+
+    def test_registry_size(self):
+        # Sanity check: we expanded from 11 to at least 25 entries.
+        from code.leaders import _REGISTRY
+        self.assertGreaterEqual(len(_REGISTRY), 25)
+
+
 # ---------------------------------------------------------------------------
 # effective_buffs — merge detachment + in-range leaders
 # ---------------------------------------------------------------------------
