@@ -113,6 +113,31 @@ class ObjectiveScored:
 
 
 @dataclass(frozen=True)
+class UnitInfiltrated:
+    """A unit with the Infiltrators ability deployed past its army's
+    deployment line (Phase I)."""
+    unit_uid: str
+    position: Tuple[float, float]
+
+
+@dataclass(frozen=True)
+class UnitScouted:
+    """A unit with the Scouts x" ability made its pre-Round 1 Normal Move
+    (Phase I)."""
+    unit_uid: str
+    from_pos: Tuple[float, float]
+    to_pos: Tuple[float, float]
+
+
+@dataclass(frozen=True)
+class UnitDeepStrike:
+    """A unit with the Deep Strike ability arrived from Reserves at the
+    start of a round from Round 2 onwards (Phase I)."""
+    unit_uid: str
+    position: Tuple[float, float]
+
+
+@dataclass(frozen=True)
 class BattleshockFailed:
     """A unit failed its Battleshock check this round and counts as OC 0."""
     unit_uid: str

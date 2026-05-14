@@ -193,6 +193,10 @@ class UnitProfile:
     one_shot: bool = False                     # weapon fires once per battle
     # Phase H — Stealth (-1 to be hit when shot at)
     stealth: bool = False
+    # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
+    deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
+    scout_distance: int = 0                    # pre-game Normal Move up to N inches
+    infiltrator: bool = False                  # deploys past the standard deployment line
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
@@ -576,6 +580,9 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             indirect_fire=entry.indirect_fire,
             one_shot=entry.one_shot,
             stealth=entry.stealth,
+            deep_strike=entry.deep_strike,
+            scout_distance=entry.scout_distance,
+            infiltrator=entry.infiltrator,
             fnp=entry.fnp,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

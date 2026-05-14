@@ -588,6 +588,10 @@ class MappedUnit:
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit when this unit is shot at)
     stealth: bool = False
+    # Phase I — deployment abilities (parsed from unit-level infoLinks)
+    deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
+    scout_distance: int = 0                       # pre-game Normal Move up to N"
+    infiltrator: bool = False                     # deploy past the deployment line
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
@@ -671,6 +675,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     unit_kw = extract_unit_keywords(entry)
     fnp = extract_fnp(entry, reg)
     stealth = extract_stealth(entry, reg)
+    deployment = extract_deployment_abilities(entry)
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -724,6 +729,9 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         indirect_fire=primary.indirect_fire,
         one_shot=primary.one_shot,
         stealth=stealth or primary.stealth,
+        deep_strike=bool(deployment["deep_strike"]),
+        scout_distance=int(deployment["scout_distance"]),
+        infiltrator=bool(deployment["infiltrator"]),
         fnp=fnp,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
@@ -806,6 +814,92 @@ def extract_fnp(entry: ET.Element, reg: Registry) -> int:
                 walk(tgt, depth + 1)
     walk(entry, 0)
     return best
+
+
+# ---------------------------------------------------------------------------
+# Phase I — Deep Strike / Scout / Infiltrators extraction
+# ---------------------------------------------------------------------------
+#
+# Wahapedia 10e shape in BSData:
+#   - "Deep Strike" appears as an infoLink (type="rule") with name="Deep Strike".
+#   - "Infiltrators" appears as an infoLink (type="rule") with name="Infiltrators".
+#   - "Scouts" appears as an infoLink (type="rule") with name="Scouts" — the
+#     actual distance ("6"", "7"", "8"", "9"") is published as a child
+#     <modifier type="append" field="name" value='6"' /> on the infoLink so
+#     the displayed name in BS becomes "Scouts 6"". A handful of units
+#     publish "Scouts x"" directly as the infoLink name; we accept either
+#     shape so we don't miss those.
+#
+# We only honour the unit-level infoLinks on the unit's selectionEntry — never
+# free-form prose that merely mentions the words.
+
+_SCOUTS_DISTANCE_RE = re.compile(r"(\d+)\s*\"?")
+
+
+def _extract_scout_distance_from_infolink(il: ET.Element) -> int:
+    """Pull the scout distance from an infoLink whose name is 'Scouts' or
+    'Scouts N"'. Returns 0 if no number can be recovered."""
+    name = (il.get("name") or "").strip()
+    # Shape 1: name already carries the distance ("Scouts 6"" / "Scouts 8")
+    if name.lower().startswith("scouts"):
+        m = _SCOUTS_DISTANCE_RE.search(name[len("Scouts"):])
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                pass
+    # Shape 2: a child <modifier field="name" type="append" value='6"' />
+    # Tag uses the catalogueSchema namespace, so iterate any descendant
+    # named 'modifier' regardless of prefix.
+    for mod in il.iter():
+        tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+        if tag != "modifier":
+            continue
+        if mod.get("field") != "name" or mod.get("type") != "append":
+            continue
+        val = (mod.get("value") or "").strip()
+        m = _SCOUTS_DISTANCE_RE.search(val)
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                continue
+    return 0
+
+
+def extract_deployment_abilities(entry: ET.Element) -> Dict[str, object]:
+    """
+    Scan the unit's directly-attached infoLinks for the three Phase I
+    deployment abilities. Returns a dict with three keys:
+
+        deep_strike:     bool
+        scout_distance:  int  (0 if no Scouts, else inches; commonly 6/7/8/9)
+        infiltrator:     bool
+
+    Mirrors `extract_stealth` in only honouring infoLink names, never prose.
+    """
+    deep_strike = False
+    scout_distance = 0
+    infiltrator = False
+    for il in entry.findall(".//infoLink"):
+        name = (il.get("name") or "").strip()
+        if name == "Deep Strike":
+            deep_strike = True
+        elif name == "Infiltrators":
+            infiltrator = True
+        elif name == "Scouts" or name.lower().startswith("scouts "):
+            d = _extract_scout_distance_from_infolink(il)
+            # Default to 6" if we can't recover the distance — that's the
+            # most common value across the catalogue and a safe fallback.
+            if d <= 0:
+                d = 6
+            if d > scout_distance:
+                scout_distance = d
+    return {
+        "deep_strike": deep_strike,
+        "scout_distance": scout_distance,
+        "infiltrator": infiltrator,
+    }
 
 
 def extract_stealth(entry: ET.Element, reg: Registry) -> bool:

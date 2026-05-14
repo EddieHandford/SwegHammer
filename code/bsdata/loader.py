@@ -70,6 +70,10 @@ class CatalogEntry:
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit)
     stealth: bool = False
+    # Phase I — deployment abilities
+    deep_strike: bool = False
+    scout_distance: int = 0
+    infiltrator: bool = False
     fnp: int = 7
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
@@ -125,6 +129,9 @@ class CatalogEntry:
             indirect_fire=bool(d.get("indirect_fire", False)),
             one_shot=bool(d.get("one_shot", False)),
             stealth=bool(d.get("stealth", False)),
+            deep_strike=bool(d.get("deep_strike", False)),
+            scout_distance=int(d.get("scout_distance", 0)),
+            infiltrator=bool(d.get("infiltrator", False)),
             fnp=int(d.get("fnp", 7)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
@@ -225,6 +232,9 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "indirect_fire": override.get("indirect_fire", base.indirect_fire),
         "one_shot": override.get("one_shot", base.one_shot),
         "stealth": override.get("stealth", base.stealth),
+        "deep_strike": override.get("deep_strike", base.deep_strike),
+        "scout_distance": override.get("scout_distance", base.scout_distance),
+        "infiltrator": override.get("infiltrator", base.infiltrator),
         "fnp": override.get("fnp", base.fnp),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),

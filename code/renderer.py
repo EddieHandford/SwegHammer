@@ -18,7 +18,8 @@ from matplotlib.patches import Ellipse, Rectangle
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, ObjectiveScored,
     RoundEnded, RoundStarted, UnitActivated, UnitAdvanced, UnitCharged,
-    UnitFought, UnitKilled, UnitMoved, UnitShot,
+    UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
+    UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 
@@ -77,6 +78,12 @@ def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
         if isinstance(ev, UnitMoved):
             if ev.unit_uid in state:
                 state[ev.unit_uid]["position"] = ev.to_pos
+        elif isinstance(ev, UnitScouted):
+            if ev.unit_uid in state:
+                state[ev.unit_uid]["position"] = ev.to_pos
+        elif isinstance(ev, (UnitDeepStrike, UnitInfiltrated)):
+            if ev.unit_uid in state:
+                state[ev.unit_uid]["position"] = ev.position
         elif isinstance(ev, UnitShot):
             if ev.target_uid in state:
                 state[ev.target_uid]["current_hp"] = ev.target_hp_after
@@ -341,6 +348,16 @@ def event_description(event) -> str:
         if event.army_name is None:
             return f"  Obj {event.objective_name}: contested (OC {event.a_oc}/{event.b_oc}) — no VP"
         return f"  Obj {event.objective_name}: {event.army_name} scores {event.vp_awarded} VP (OC {event.a_oc}/{event.b_oc})"
+    if isinstance(event, UnitInfiltrated):
+        px, py = event.position
+        return f"  Infiltrate {event.unit_uid} -> ({px:.1f},{py:.1f})"
+    if isinstance(event, UnitScouted):
+        fx, fy = event.from_pos
+        tx, ty = event.to_pos
+        return f"  Scout     {event.unit_uid}: ({fx:.1f},{fy:.1f}) -> ({tx:.1f},{ty:.1f})"
+    if isinstance(event, UnitDeepStrike):
+        px, py = event.position
+        return f"  Deep Strike {event.unit_uid} arrives at ({px:.1f},{py:.1f})"
     if isinstance(event, UnitKilled):
         return f"  KO        {event.unit_uid}"
     if isinstance(event, BattleEnded):

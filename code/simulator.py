@@ -10,7 +10,8 @@ from .army import Army
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, InitialUnit, ObjectiveScored,
     RoundEnded, RoundStarted, Subscriber, UnitActivated, UnitAdvanced,
-    UnitCharged, UnitFought, UnitKilled, UnitMoved, UnitShot,
+    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
+    UnitMoved, UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
@@ -138,6 +139,16 @@ class Battle:
         # battle. Once a uid is here, the unit may not shoot again.
         # Persists for the whole battle (NOT reset per round).
         self._one_shot_fired: set = set()
+        # Phase I — units with Deep Strike that haven't yet arrived. Keyed
+        # by army name; each value is a list of Unit instances waiting in
+        # reserves. They are added to army.units when they arrive so the
+        # normal activation loop picks them up from that round onward.
+        self._reserves: dict = {self.a.name: [], self.b.name: []}
+        # UIDs of units that JUST arrived from reserves OR just scouted
+        # this round — they've already moved as part of arrival / scouting
+        # so the simulator skips their movement sub-phase for one round.
+        # Reset each round (except Round 1 inherits scout flags).
+        self._fresh_arrivals: set = set()
 
     # ------------------------------------------------------------------
     # Public interface
@@ -146,29 +157,42 @@ class Battle:
     def run(self) -> BattleResult:
         self._assign_uids()
         self._deploy_armies()
+        # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
+        # Round 1 begins. Deep Strike arrivals start at Round 2.
+        self._run_scout_phase()
 
-        a_start = len(self.a.units)
-        b_start = len(self.b.units)
+        # Include reserves so the "starting unit count" reflects the full
+        # army roster, not just what was on the board at deployment.
+        a_start = len(self.a.units) + len(self._reserves.get(self.a.name, []))
+        b_start = len(self.b.units) + len(self._reserves.get(self.b.name, []))
         # VP tally accumulates across rounds
         self._a_vp = 0
         self._b_vp = 0
 
+        # Snapshot includes on-board units AND reserves (deep-strikers).
+        # Reserves get an off-board sentinel position so renderers know they
+        # exist but don't draw them on the map yet — they'll get a real
+        # position when UnitDeepStrike fires.
+        snapshot = []
+        for army in (self.a, self.b):
+            for u in army.units:
+                snapshot.append(InitialUnit(
+                    uid=u.uid, name=u.profile.name, army=army.name,
+                    position=u.position, max_health=u.profile.health,
+                    unit_keywords=tuple(u.profile.unit_keywords or ()),
+                ))
+            for u in self._reserves.get(army.name, []):
+                snapshot.append(InitialUnit(
+                    uid=u.uid, name=u.profile.name, army=army.name,
+                    position=(-100.0, -100.0),
+                    max_health=u.profile.health,
+                    unit_keywords=tuple(u.profile.unit_keywords or ()),
+                ))
         self._emit(BattleStarted(
             army_a_name=self.a.name,
             army_b_name=self.b.name,
             map_name=self.map.name,
-            units=tuple(
-                InitialUnit(
-                    uid=u.uid,
-                    name=u.profile.name,
-                    army=army.name,
-                    position=u.position,
-                    max_health=u.profile.health,
-                    unit_keywords=tuple(u.profile.unit_keywords or ()),
-                )
-                for army in (self.a, self.b)
-                for u in army.units
-            ),
+            units=tuple(snapshot),
         ))
 
         round_history = [(a_start, b_start)]
@@ -184,7 +208,12 @@ class Battle:
                 b_vp_total=self._b_vp,
             ))
             round_history.append((self.a.unit_count, self.b.unit_count))
-            if not self.a.alive_units or not self.b.alive_units:
+            # End early ONLY if neither side has anything left on-board AND
+            # nothing in reserves to bring back. A wiped force with units
+            # still incoming next round (Phase I Deep Strike) keeps playing.
+            a_total_left = self.a.unit_count + len(self._reserves.get(self.a.name, []))
+            b_total_left = self.b.unit_count + len(self._reserves.get(self.b.name, []))
+            if a_total_left == 0 or b_total_left == 0:
                 break
 
         a_surv = self.a.unit_count
@@ -297,11 +326,51 @@ class Battle:
             u.uid = f"B{i}"
 
     def _deploy_armies(self) -> None:
-        """Spread each army evenly along its deployment edge."""
+        """Spread each army evenly along its deployment edge.
+
+        Phase I: units with `deep_strike=True` are pulled out of the army's
+        live unit list into the reserves bucket — they'll arrive from Round 2
+        via `_arrive_from_reserves`. Units with `infiltrator=True` are placed
+        past the standard deployment line (forward of their own edge, ~halfway
+        between the deployment line and the centreline).
+        """
         a_y = self.map.deployment_width / 2.0
         b_y = self.map.height - self.map.deployment_width / 2.0
-        self._deploy_line(self.a.units, a_y)
-        self._deploy_line(self.b.units, b_y)
+
+        # Pull deep-strikers out of each army into reserves.
+        for army in (self.a, self.b):
+            standard, reserves = [], []
+            for u in army.units:
+                if u.profile.deep_strike:
+                    reserves.append(u)
+                else:
+                    standard.append(u)
+            army.units[:] = standard
+            self._reserves[army.name] = reserves
+
+        # Split each on-board roster into infiltrators (deploy forward) and
+        # the rest (deploy on the standard line).
+        a_infil = [u for u in self.a.units if u.profile.infiltrator]
+        a_std = [u for u in self.a.units if not u.profile.infiltrator]
+        b_infil = [u for u in self.b.units if u.profile.infiltrator]
+        b_std = [u for u in self.b.units if not u.profile.infiltrator]
+
+        self._deploy_line(a_std, a_y)
+        self._deploy_line(b_std, b_y)
+
+        # Infiltrators sit roughly halfway between their own deployment line
+        # and the centreline — forward of own zone, ~12-18" from the enemy
+        # zone on a 60" board. Heuristic, since we don't have exact enemy
+        # model positions to check ">9" from any enemy" precisely.
+        centre_y = self.map.height / 2.0
+        a_forward_y = (a_y + centre_y) / 2.0
+        b_forward_y = (b_y + centre_y) / 2.0
+        self._deploy_line(a_infil, a_forward_y)
+        for u in a_infil:
+            self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
+        self._deploy_line(b_infil, b_forward_y)
+        for u in b_infil:
+            self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
 
     def _deploy_line(self, units, y: float) -> None:
         if not units:
@@ -311,6 +380,112 @@ class Battle:
         for i, u in enumerate(units):
             x = 2.0 + spacing * (i + 1)
             u.position = (x, y)
+
+    # ------------------------------------------------------------------
+    # Phase I — Scout phase + Deep Strike arrivals
+    # ------------------------------------------------------------------
+
+    def _run_scout_phase(self) -> None:
+        """Pre-Round 1 Normal Move for every unit with Scouts x"". Moves up
+        to `scout_distance` inches toward the nearest enemy. Units that
+        scouted are flagged in `_fresh_arrivals` so they skip the Round 1
+        movement sub-phase — they already moved.
+        """
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            for u in army.alive_units:
+                dist = u.profile.scout_distance
+                if dist <= 0:
+                    continue
+                if not opponent.alive_units:
+                    break
+                nearest = min(
+                    opponent.alive_units,
+                    key=lambda e: _distance(u.position, e.position),
+                )
+                old_pos = u.position
+                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map)
+                if new_pos != old_pos:
+                    u.position = new_pos
+                    self._fresh_arrivals.add(u.uid)
+                    self._emit(UnitScouted(
+                        unit_uid=u.uid, from_pos=old_pos, to_pos=new_pos,
+                    ))
+
+    def _arrive_from_reserves(self, round_num: int) -> None:
+        """Bring Deep Strike reserves onto the board starting Round 2. Each
+        unit is placed > 9" from every alive enemy. Picks the centre of the
+        board first; if it's too close to an enemy, tries each board corner
+        and falls back to a coarse grid sweep. Units that just arrived are
+        flagged in `_fresh_arrivals` so they skip movement this round.
+        """
+        if round_num < 2:
+            return
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            waiting = self._reserves.get(army.name, [])
+            if not waiting:
+                continue
+            still_waiting = []
+            for u in waiting:
+                # 66% chance to arrive each round from Round 2; forced
+                # arrival from Round 4 onwards (10e: reserves must come on
+                # by end of Round 3 or are destroyed — we soft-enforce by
+                # auto-arriving). Avoids dumping the whole army turn 2.
+                if round_num >= 4 or random.random() < 0.66:
+                    pos = self._pick_arrival_point(opponent)
+                    if pos is None:
+                        # No valid arrival spot — defer to next round.
+                        still_waiting.append(u)
+                        continue
+                    u.position = pos
+                    army.units.append(u)
+                    self._fresh_arrivals.add(u.uid)
+                    self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
+                else:
+                    still_waiting.append(u)
+            self._reserves[army.name] = still_waiting
+
+    def _pick_arrival_point(self, opponent: Army) -> Optional[Tuple[float, float]]:
+        """Find a point > 9" from every alive enemy and not in impassable
+        terrain. Tries the centre first, then the four corners of the
+        > 9" exclusion zone, then a coarse 4" grid sweep.
+        """
+        enemies = opponent.alive_units
+        min_gap = 9.0
+        cx, cy = self.map.width / 2.0, self.map.height / 2.0
+
+        def _valid(p: Tuple[float, float]) -> bool:
+            if p[0] < 1.0 or p[0] > self.map.width - 1.0:
+                return False
+            if p[1] < 1.0 or p[1] > self.map.height - 1.0:
+                return False
+            if self.map.is_blocked(p):
+                return False
+            for e in enemies:
+                if _distance(p, e.position) <= min_gap:
+                    return False
+            return True
+
+        candidates = [
+            (cx, cy),                                       # centre
+            (3.0, 3.0),                                     # SW corner
+            (self.map.width - 3.0, 3.0),                    # SE corner
+            (3.0, self.map.height - 3.0),                   # NW corner
+            (self.map.width - 3.0, self.map.height - 3.0),  # NE corner
+        ]
+        for p in candidates:
+            if _valid(p):
+                return p
+
+        # Coarse 4" grid sweep across the board as a last resort.
+        x = 4.0
+        while x < self.map.width - 1.0:
+            y = 4.0
+            while y < self.map.height - 1.0:
+                if _valid((x, y)):
+                    return (x, y)
+                y += 4.0
+            x += 4.0
+        return None
 
     # ------------------------------------------------------------------
     # Round logic
@@ -326,6 +501,14 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+        # Phase I — fresh arrivals from the scout phase carry over INTO
+        # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
+        # the set first, THEN call _arrive_from_reserves so units arriving
+        # this round are flagged for "skip movement" but those that arrived
+        # last round are eligible to move normally.
+        if round_num >= 2:
+            self._fresh_arrivals = set()
+            self._arrive_from_reserves(round_num)
         for army in (self.a, self.b):
             for u in army.units:
                 u.moved_this_round = False
@@ -428,6 +611,12 @@ class Battle:
             unit_uid=attacker.uid,
             army_name=attacker_army.name,
         ))
+
+        # Phase I: units that arrived from reserves THIS round, or scouted
+        # at the start of the game (Round 1), already moved as part of that
+        # ability — skip their normal-move sub-phase for one activation.
+        if attacker.uid in self._fresh_arrivals:
+            return
 
         # Strategy layer (code/strategy.py): role + objective-aware pick of
         # where this unit wants to go. The simulator USED to always march at
