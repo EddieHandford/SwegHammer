@@ -19,21 +19,21 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Combat Restoratives": {
+  "LeaderAbility.Narthecium": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Apothecary",
     "rule_name": "Narthecium",
     "quoted_text": "While this model is leading a unit, in your Command phase, you can return 1 destroyed model (excluding CHARACTER models) to that unit.",
-    "trigger": "Apothecary attached to a wounded unit at end of each round (simulator round-end heal step)",
-    "effect": "restore 1 wound to the most-wounded friendly in aura range, else heal self (approximation; the real Narthecium returns 1 destroyed model in the Command phase rather than healing surviving models)",
+    "trigger": "Apothecary in aura range of destroyed friendly INFANTRY at each round end (simulator round-end revival step)",
+    "effect": "revive 1 destroyed friendly INFANTRY model (non-CHARACTER) per round at full HP, preferring models from a profile whose live peers are inside the 3\" aura. Faithful match to the codex's return-a-model effect — SwegHammer models multi-model squads as N single-model Units, so the codex's 'return 1 destroyed model to the led unit' lands as 'reset a dead Unit's current_health to max'. Triggered at round end rather than Command phase because the simulator has no separate Command sub-phase.",
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Psychic Empowerment": {
+  "LeaderAbility.Mental Fortress": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Librarian",
     "rule_name": "Psychic Hood / Mental Fortress",
     "quoted_text": "Psychic Hood: While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks. Mental Fortress (Psychic): While this model is leading a unit, models in that unit have a 4+ invulnerable save.",
-    "trigger": "attacker's unit is led by a Librarian in aura range",
-    "effect": "+1 to Wound in aura range (approximation; our LeaderAbility.name 'Psychic Empowerment' is invented — the actual 10e Librarian gives FNP 4+ vs psychic and a 4+ invuln, both defensive. The simulator's +1-to-wound is a loose offensive-psyker proxy that does not match the codex)",
+    "trigger": "defender's unit is led by a Librarian in aura range",
+    "effect": "FNP 5+ in aura range (defensive proxy; the real Librarian rules grant FNP 4+ against PSYCHIC attacks plus a 4+ invuln from Mental Fortress. SwegHammer does not tag attacks as psychic or distinguish invuln-vs-armour for an aura-granted save, so we proxy the defensive bundle as army-wide FNP 5+ — a strictly weaker, direction-correct stand-in. Both halves of the codex effect are defensive, matching the FNP direction.)",
     "scope": "unit-led"
   },
 
@@ -82,12 +82,12 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Waaagh! Boss": {
+  "LeaderAbility.Might is Right": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/Warboss",
     "rule_name": "Might is Right",
     "quoted_text": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
     "trigger": "attacker's unit is led by an Ork Warboss in aura range",
-    "effect": "+1 to Wound in aura range (approximation; the real Might is Right is +1 to the Hit roll on melee attacks. The simulator currently grants +1-to-wound instead — flagged for swap to +1-to-hit once the per-leader buff registry distinguishes melee from ranged)",
+    "effect": "+1 to the Hit roll in aura range. The codex restricts the buff to melee attacks; SwegHammer's leader registry does not yet distinguish melee from ranged when applying offensive auras, so the implementation grants +1-to-hit on all attacks for in-aura units. Strictly stronger than the codex's melee-only effect by the ranged-attack share — known overshoot but direction-correct.",
     "scope": "unit-led"
   },
 
@@ -123,16 +123,16 @@
     "rule_name": "The Bloody-Handed",
     "quoted_text": "While a friendly AELDARI unit is within 6\" of this model, add 1 to Advance and Charge rolls made for that unit.",
     "trigger": "any friendly Aeldari unit is within 6\" of the Avatar of Khaine (Monster, no formal leader attachment)",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Bloody-Handed aura is +1 to Advance and Charge rolls. The simulator does not model Advance/Charge, so reroll-1s-to-hit is a flavour proxy for the Avatar's offensive presence)",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the codex grants +1 to Advance and Charge rolls — a movement-phase buff. SwegHammer's Charge resolution is 2D6 vs distance with no leader-modifier hook, and Advance is not modelled. Adding a +1-to-charge mechanic is deferred until charge resolution is rewritten to consume leader buffs; until then, reroll-1s-to-hit stands in as a loose offensive proxy for the Avatar's aggressive aura. Known limitation: wrong buff TYPE — direction-correct but mechanically unrelated.)",
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Guiding Hand of the Greater Good": {
+  "LeaderAbility.Failure Is Not an Option": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Ethereal",
     "rule_name": "Failure Is Not an Option",
     "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
     "trigger": "defender's unit is led by an Ethereal in aura range",
-    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Failure Is Not an Option grants Feel No Pain 5+ to the led unit — a DEFENSIVE buff. The simulator currently configures this as an OFFENSIVE reroll-wound-1s aura, which is wrong in direction — flagged for swap to fnp=5 once verified)",
+    "effect": "FNP 5+ in aura range (faithful match — the codex grants Feel No Pain 5+ to the led unit; the simulator implements this as fnp=5 on the LeaderAbility, which Unit.attack consumes via the target buffs' fnp field). Direction-correct defensive aura.",
     "scope": "unit-led"
   },
 
@@ -150,16 +150,16 @@
     "rule_name": "Volley Fire",
     "quoted_text": "While this model is leading a unit, add 1 to the Attacks characteristic of ranged weapons equipped by models in that unit.",
     "trigger": "attacker's unit is led by a Cadre Fireblade in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Volley Fire adds +1 to the Attacks characteristic of ranged weapons in the led unit. The simulator currently does not stack +1-attack from leaders, so reroll-1s-to-hit is a flavour proxy for the Fireblade's gunline-buff role)",
+    "effect": "+1 to the Attacks characteristic in aura range, implemented via the leader-aura plus_one_attack field (additively merged with detachment plus_one_attack in Unit.attack's n_attacks computation). The codex limits this to ranged weapons; SwegHammer's leader buff layer does not yet distinguish melee from ranged attacks, so the implementation grants +1 attack to all weapons of in-aura units. Strictly stronger than the codex's ranged-only effect by the melee-attack share — known overshoot but direction-correct.",
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Death Hex": {
+  "LeaderAbility.Prescience": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Sorcerer",
     "rule_name": "Prescience",
     "quoted_text": "While this model is leading a unit, each time an attack targets that unit, subtract 1 from the Hit roll.",
-    "trigger": "attacker's unit is led by a Chaos Sorcerer in aura range",
-    "effect": "+1 to Wound in aura range (approximation; the real CSM Sorcerer aura is DEFENSIVE: -1 to Hit on attacks against the led unit. The simulator currently configures this as an OFFENSIVE +1-to-wound aura — wrong in direction; flagged for replacement. Our generic 'Sorcerer' key is a substring match — multiple Sorcerer datasheets exist; foot Sorcerer cited as canonical)",
+    "trigger": "defender's unit is led by a Chaos Sorcerer in aura range",
+    "effect": "FNP 5+ in aura range (defensive proxy; the real Prescience subtracts 1 from Hit rolls against the led unit — a DEFENSIVE -1-to-hit aura. SwegHammer's leader-aura layer does not yet expose a target-side -1-to-hit modifier without rewriting the attacker's hit_target computation, so we proxy the defensive direction as FNP 5+. Direction-correct (defensive). Our generic 'Sorcerer' key is a substring match — multiple Sorcerer datasheets exist; foot Sorcerer cited as canonical.)",
     "scope": "unit-led"
   },
 
@@ -217,12 +217,12 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Host of the Destroyer Hive": {
+  "LeaderAbility.The Destroyer Hive": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/Typhus",
     "rule_name": "The Destroyer Hive",
     "quoted_text": "While this model is leading a unit, each time a melee attack targets that unit, subtract 1 from the Hit roll.",
-    "trigger": "attacker's unit is led by Typhus in aura range",
-    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Destroyer Hive is DEFENSIVE: -1 to Hit on melee attacks against the led unit. The simulator currently configures this as an OFFENSIVE reroll-wound-1s aura — wrong in direction; flagged for replacement)",
+    "trigger": "defender's unit is led by Typhus in aura range",
+    "effect": "FNP 5+ in aura range (defensive proxy; the real Destroyer Hive subtracts 1 from Hit rolls on melee attacks against the led unit. SwegHammer's leader-aura layer does not yet expose a melee-only -1-to-hit modifier on the target side, so we proxy the defensive bundle as FNP 5+ — strictly weaker on melee-heavy match-ups but direction-correct. Once a target-side -1-to-hit-melee mechanic lands, swap fnp=5 → hit_penalty_melee=1.)",
     "scope": "unit-led"
   },
 
