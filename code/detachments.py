@@ -51,13 +51,13 @@ class Detachment:
     # Healing / recovery
     reanimate_per_round: int = 0         # W restored per unit per round end
 
-    # Conditional attack buffs — apply only in a specific battlefield state.
-    # `objective_holder_bonus_to_wound`: +1 to wound when the attacking unit
-    # is within control range of any objective marker. Used by Awakened
-    # Dynasty's "My Will Be Done" / Reclaim the Wasteland trigger to
-    # represent the on-objective offensive teeth that the points-balance
-    # otherwise underrates in Necron-faction sims.
-    objective_holder_bonus_to_wound: bool = False
+    # Conditional attack buffs — apply only when the unit has an attached
+    # friendly CHARACTER in aura range. Awakened Dynasty's Command
+    # Protocols rule (Necrons 10e): "While a NECRONS CHARACTER model is
+    # leading this unit, each time a model in this unit makes an attack,
+    # add 1 to the Hit roll." The whole detachment's identity is "stack
+    # characters into squads", so this is the right trigger to model.
+    bonus_to_hit_when_led: bool = False
 
     # Psychic mortal-wound payload at end of each round. Models the
     # Thousand Sons Cabal-Points → Doombolt spell loop: the army's
@@ -91,12 +91,14 @@ AWAKENED_DYNASTY = Detachment(
     notes=(
         "Reanimation Protocols: dead models flip back to alive at end of "
         "round (simulator handles this directly via reanimate_per_round + "
-        "_apply_reanimation). PLUS Awakened Dynasty's signature offensive "
-        "trigger — units on objectives get +1 to wound, the on-objective "
-        "teeth that under-rated Necrons in the May 2026 calibration."
+        "_apply_reanimation). PLUS Command Protocols (Wahapedia): '\"While "
+        "a NECRONS CHARACTER model is leading this unit, each time a model "
+        "in this unit makes an attack, add 1 to the Hit roll.\"' The whole "
+        "detachment's offensive teeth are gated on being character-led; "
+        "lone Warrior squads get nothing."
     ),
     reanimate_per_round=1,
-    objective_holder_bonus_to_wound=True,
+    bonus_to_hit_when_led=True,
 )
 
 INVASION_FLEET = Detachment(

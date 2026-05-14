@@ -127,6 +127,92 @@ def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     return total
 
 
+def pick_charge_target(attacker, enemy):
+    """
+    Pick the best enemy to charge from those within 12" range.
+
+    Real 10e charges go into targets that are weak in melee (gunlines,
+    battlesuits, support characters) so the attacker hopes to win the
+    resulting fight on opponent's turn. The old nearest-enemy heuristic
+    didn't account for this and meant melee attackers wasted activations
+    on resilient brick units.
+
+    Scoring per candidate:
+
+        kill_potential = our melee DPA against them
+                       / (their toughness + remaining HP)
+
+        threat_against_us = their melee DPA back at us
+                          / (our toughness + our remaining HP)
+
+        ranged_value     = their ranged DPA we'd shut down by tying them up
+                         × (their_range_inches / 24)
+
+        charge_difficulty = 1 / charge_success_probability(2D6 >= distance)
+
+    score = (kill_potential + 0.5 * ranged_value) / (1 + threat_against_us)
+            / charge_difficulty
+
+    Returns (target_unit, distance) or (None, None) if no legal charge.
+    """
+    alive_enemies = [e for e in enemy.alive_units]
+    if not alive_enemies:
+        return None, None
+
+    p = attacker.profile
+    # Attacker's per-activation melee output.
+    a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
+                   * (p.melee_damage_per_shot or 1.0))
+    a_dur = max(1.0, p.toughness + attacker.current_health)
+
+    candidates = []
+    for e in alive_enemies:
+        d = _dist(attacker.position, e.position)
+        if d > 12.0 or d <= 1.0:
+            continue   # out of charge range / already engaged
+        tp = e.profile
+
+        kill_potential = a_melee_dpa / max(1.0, tp.toughness + e.current_health)
+
+        threat_against = (
+            tp.melee_attacks * tp.melee_hit_probability
+            * (tp.melee_damage_per_shot or 1.0)
+        ) / a_dur
+
+        ranged_value = (
+            tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)
+        ) * (tp.range_inches / 24.0)
+
+        # 2D6 >= d success probabilities (approx): 4=83%, 6=72%, 8=42%,
+        # 10=17%, 12=2.7%. Use a coarse table to keep the math cheap.
+        if d <= 5:
+            charge_p = 0.92
+        elif d <= 6:
+            charge_p = 0.83
+        elif d <= 7:
+            charge_p = 0.72
+        elif d <= 8:
+            charge_p = 0.58
+        elif d <= 9:
+            charge_p = 0.42
+        elif d <= 10:
+            charge_p = 0.28
+        elif d <= 11:
+            charge_p = 0.17
+        else:
+            charge_p = 0.08
+
+        score = ((kill_potential + 0.5 * ranged_value)
+                 / (1.0 + threat_against)) * charge_p
+        candidates.append((score, d, e))
+
+    if not candidates:
+        return None, None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    _, dist, target = candidates[0]
+    return target, dist
+
+
 def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], str]:
     """
     Decide where `unit` should move this activation, and label the reason.

@@ -22,6 +22,12 @@ class Army:
         # Army-wide passive rules. Auto-resolves from the army's primary
         # faction (first unit's faction tag) when not explicitly set.
         self.detachment: Optional[Detachment] = detachment
+        # Battle Focus tokens (Aeldari ASURYANI rule, 10e). Allocated at
+        # battle start by the simulator based on faction + battle size
+        # (4 at the default Strike Force ~1000pt budget). Spent during
+        # an ASURYANI unit's activation to grant [ASSAULT] for that turn
+        # (i.e. shoot after Advance).
+        self.battle_focus_tokens: int = 0
 
     # ------------------------------------------------------------------
     # Army construction

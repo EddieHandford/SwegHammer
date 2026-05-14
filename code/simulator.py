@@ -166,6 +166,15 @@ class Battle:
     # ------------------------------------------------------------------
 
     def run(self) -> BattleResult:
+        # Battle Focus tokens (Aeldari ASURYANI rule): 4 at Strike Force,
+        # the default battle size for this simulator. We hand the tokens
+        # out to any army that contains at least one ASURYANI unit — the
+        # rule is faction-wide, not detachment-gated.
+        for army in (self.a, self.b):
+            if any("ASURYANI" in (u.profile.unit_keywords or ())
+                   for u in army.units):
+                army.battle_focus_tokens = 4
+
         self._assign_uids()
         self._deploy_armies()
         # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
@@ -933,9 +942,15 @@ class Battle:
             ))
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
-        # 10e: a unit that Advanced this turn cannot shoot, unless its weapon is Assault.
+        # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
+        # is Assault — or the unit's army can spend a Battle Focus token to
+        # treat its weapons as [ASSAULT] for the turn (Aeldari rule).
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
-            return
+            kw = attacker.profile.unit_keywords or ()
+            if ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
+                attacker_army.battle_focus_tokens -= 1
+            else:
+                return
         # One Shot: weapon may only fire once per battle. If we've already
         # fired it, skip the activation outright.
         if attacker.profile.one_shot and attacker.uid in self._one_shot_fired:
@@ -1045,25 +1060,22 @@ class Battle:
         return melee_dpa >= max(ranged_dpa, 1.0)
 
     def _do_charge(self, attacker, attacker_army: Army, defender_army: Army) -> None:
-        """2D6 charge vs nearest enemy ≤12". On success, move into engagement (1")."""
+        """2D6 charge vs the best target ≤12". On success, move into 1" engagement.
+
+        Target picked by code.strategy.pick_charge_target — favours enemies
+        weak in melee (gunlines / battlesuits) over near-but-resilient brick
+        units, which is closer to real tournament melee play and brings the
+        sim's over-rating of T'au / Astartes / Votann shooty factions down.
+        """
         if not self._wants_to_charge(attacker):
             return
         if attacker.uid in self._advanced_this_round:
             return   # advanced units cannot charge
 
-        alive_enemies = defender_army.alive_units
-        if not alive_enemies:
+        from .strategy import pick_charge_target
+        target, dist = pick_charge_target(attacker, defender_army)
+        if target is None:
             return
-        # Pick nearest enemy within charge range
-        candidates = [
-            (e, _distance(attacker.position, e.position))
-            for e in alive_enemies
-        ]
-        candidates = [(e, d) for e, d in candidates if d <= 12.0 and d > 1.0]
-        if not candidates:
-            return
-        candidates.sort(key=lambda kv: kv[1])
-        target, dist = candidates[0]
 
         roll = random.randint(1, 6) + random.randint(1, 6)
         succeeded = (roll >= dist)

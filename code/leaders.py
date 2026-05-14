@@ -279,11 +279,13 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             _merge_add(buffs, det, "plus_one_attack")
             _merge_min(buffs, det, "extra_invuln")
             _merge_min(buffs, det, "fnp")
-            # Conditional offensive trigger: +1 to wound when the attacker
-            # is on an objective. Awakened Dynasty's signature.
-            if getattr(det, "objective_holder_bonus_to_wound", False) \
-                    and getattr(attacker, "on_objective", False):
-                buffs["plus_one_to_wound"] = True
+            # Conditional offensive trigger: detachment-led +1-to-hit aura
+            # (Awakened Dynasty Command Protocols). Fires when at least one
+            # CHARACTER from this army is within aura range of the attacker
+            # — same proximity test the per-leader buffs already use.
+            if getattr(det, "bonus_to_hit_when_led", False) \
+                    and in_range_leaders(attacker):
+                buffs["plus_one_to_hit"] = True
 
     for leader in in_range_leaders(attacker):
         ability = lookup_ability(leader.profile.name)
