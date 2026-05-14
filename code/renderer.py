@@ -1,15 +1,22 @@
 """
 Matplotlib top-down renderer for SwegHammer battles.
 
-Given a Map and an event log, ``render_frame(map, events, tick)`` returns a
-matplotlib Figure showing the world state after replaying ``events[:tick+1]``.
-The renderer is read-only: it never mutates the simulator state, so the same
-event log can be scrubbed forwards and backwards.
+Given a Map and an event log, ``render_frame(map, events, frame)`` returns a
+matplotlib Figure showing the world state at the end of the given replay
+frame. A frame is a contiguous slice of events that represents one logical
+beat of the battle — typically a full unit activation (move + shoot + charge
++ fight collapsed into a single visual). Boundary events (round start/end,
+objective scoring, battleshock) each occupy their own frame.
+
+Frames are built by ``aggregate_activations(events)``; this is what shrinks
+the slider in the Replay tab from "one tick per event" (painful) to "one tick
+per activation" (watchable). The renderer is read-only: it never mutates the
+simulator state, so the same event log can be scrubbed forwards and backwards.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -51,11 +58,93 @@ COL_OBJECTIVE = "#ffd700"      # gold — objective marker
 
 
 # ---------------------------------------------------------------------------
+# Frame aggregation — collapse one unit's activation into one replay frame
+# ---------------------------------------------------------------------------
+
+def _activation_actor(event) -> Optional[str]:
+    """The uid of the unit *acting* in this event, if any.
+
+    Only events that are part of a unit's normal-turn activation
+    (UnitActivated / UnitMoved / UnitAdvanced / UnitShot / UnitCharged /
+    UnitFought) return a uid. Everything else — round boundaries, scoring,
+    battleshock, deployment abilities — returns None and breaks the
+    aggregation chain, so those events each get their own frame.
+    """
+    if isinstance(event, (UnitActivated, UnitMoved, UnitAdvanced, UnitCharged)):
+        return event.unit_uid
+    if isinstance(event, (UnitShot, UnitFought)):
+        return event.attacker_uid
+    return None
+
+
+def aggregate_activations(events: List) -> List[Tuple[int, int]]:
+    """Group consecutive events of the same activating unit into frames.
+
+    A "frame" is a (start_idx, end_idx) inclusive event range that should be
+    rendered as a single visual beat in the replay. Within one activation a
+    unit may move, shoot multiple targets, charge and fight — without this
+    aggregation each of those is its own slider tick, which makes any
+    non-trivial battle painful to watch. With it, the move/shoots/charge/
+    fight collapse into ONE tick that draws the final position plus every
+    arc/arrow/burst emitted along the way.
+
+    Aggregation rules:
+      - Consecutive events sharing the same actor uid (the active unit)
+        merge into one frame.
+      - A UnitKilled that immediately follows an event of the current frame
+        (its target died) is pulled into that frame.
+      - A different actor's event ends the current frame.
+      - Any non-activation event (round boundary, objective scoring,
+        battleshock, deployment ability, BattleStarted, BattleEnded) gets
+        its own frame and never absorbs neighbours.
+    """
+    frames: List[Tuple[int, int]] = []
+    n = len(events)
+    i = 0
+    while i < n:
+        ev = events[i]
+        actor = _activation_actor(ev)
+        if actor is None:
+            # Boundary / standalone event — own frame, no merging.
+            frames.append((i, i))
+            i += 1
+            continue
+
+        # Open a new activation frame and pull in subsequent same-actor
+        # events plus their UnitKilled tails.
+        start = i
+        end = i
+        j = i + 1
+        while j < n:
+            nxt = events[j]
+            nxt_actor = _activation_actor(nxt)
+            if nxt_actor == actor:
+                end = j
+                j += 1
+                continue
+            if nxt_actor is not None:
+                break  # different unit's activation — close ours
+            if isinstance(nxt, UnitKilled):
+                end = j
+                j += 1
+                continue
+            break  # round boundary / objective / battleshock / deployment
+        frames.append((start, end))
+        i = end + 1
+    return frames
+
+
+# ---------------------------------------------------------------------------
 # State reconstruction
 # ---------------------------------------------------------------------------
 
 def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
     """Replay events[:tick+1] and return uid -> state dict.
+
+    Note: ``tick`` here is an EVENT index, not a frame index. ``render_frame``
+    translates a frame index into the event index of the frame's last event
+    before calling this, so the function still operates on a raw event prefix
+    (which makes it composable for callers that want intermediate snapshots).
 
     Each state dict carries: name, army, position, current_hp, max_hp, alive.
     """
@@ -203,13 +292,35 @@ def _draw_unit_shape(ax, x: float, y: float, color: str,
 def render_frame(
     map_: Map,
     events: List,
-    tick: int,
+    frame: int,
     figsize: tuple = (5.5, 7.0),
 ) -> Figure:
-    """Render the world state at ``events[:tick+1]`` as a top-down map."""
-    state = reconstruct_state(events, tick)
+    """Render the replay state at the given FRAME index.
+
+    ``frame`` indexes into ``aggregate_activations(events)`` (NOT the raw
+    event list). A frame may span an entire activation — move + several
+    shots + charge + fight — so the figure shows the unit at its final
+    post-activation position plus every arc/arrow/burst emitted during the
+    activation, all overlaid in one image.
+    """
+    frames = aggregate_activations(events)
+    if not frames:
+        # Empty event log — return a blank board so callers don't crash.
+        start_idx = end_idx = 0
+    else:
+        # Clamp to valid range so a stale slider value doesn't blow up.
+        frame = max(0, min(frame, len(frames) - 1))
+        start_idx, end_idx = frames[frame]
+
+    state = reconstruct_state(events, end_idx)
     a_name, b_name = _army_names(events)
-    current_event: Optional[object] = events[tick] if 0 <= tick < len(events) else None
+    frame_events: List = events[start_idx:end_idx + 1] if events else []
+
+    # Pre-compute pre-activation positions so we can draw the move arrow
+    # from where the unit STARTED the activation to where it finished.
+    pre_state = (
+        reconstruct_state(events, start_idx - 1) if start_idx > 0 else {}
+    )
 
     fig, ax = plt.subplots(figsize=figsize)
     fig.patch.set_facecolor(COL_FIG_BG)
@@ -241,36 +352,72 @@ def render_frame(
             color="white", fontsize=6, ha="center", va="center", alpha=0.7, zorder=3,
         )
 
-    # Highlight the current event (arrow overlay)
-    if isinstance(current_event, UnitMoved):
-        fx, fy = current_event.from_pos
-        tx, ty = current_event.to_pos
-        ax.annotate(
-            "", xy=(tx, ty), xytext=(fx, fy),
-            arrowprops=dict(arrowstyle="->", color=COL_MOVE_ARROW, lw=1.3, alpha=0.8),
-            zorder=4,
-        )
-    elif isinstance(current_event, UnitShot) and current_event.attacker_uid in state and current_event.target_uid in state:
-        ax_pos = state[current_event.attacker_uid]["position"]
-        tg_pos = state[current_event.target_uid]["position"]
-        ax.annotate(
-            "", xy=tg_pos, xytext=ax_pos,
-            arrowprops=dict(arrowstyle="->", color=COL_SHOT_ARROW, lw=1.2, alpha=0.85, linestyle="--"),
-            zorder=4,
-        )
-    elif isinstance(current_event, UnitCharged) and current_event.unit_uid in state and current_event.target_uid in state:
-        ax_pos = state[current_event.unit_uid]["position"]
-        tg_pos = state[current_event.target_uid]["position"]
-        ax.annotate(
-            "", xy=tg_pos, xytext=ax_pos,
-            arrowprops=dict(arrowstyle="-|>", color=COL_CHARGE_ARROW, lw=2.0,
-                            alpha=0.9 if current_event.succeeded else 0.4),
-            zorder=4,
-        )
-    elif isinstance(current_event, UnitFought) and current_event.attacker_uid in state and current_event.target_uid in state:
-        tg_pos = state[current_event.target_uid]["position"]
-        ax.scatter([tg_pos[0]], [tg_pos[1]], s=220, c=COL_MELEE_FLASH,
-                   marker="*", alpha=0.9, zorder=7)
+    # Draw every visual effect emitted during this frame's activation. Shot
+    # arcs are deliberately faded so multiple-target activations stay legible
+    # (a Boyz mob shooting into three different Marine squads paints three
+    # arrows from the same unit; without alpha the latest would obscure the
+    # rest). Charge arrow and melee burst use full opacity since each
+    # activation has at most one.
+    n_shots = sum(1 for ev in frame_events if isinstance(ev, UnitShot))
+    shot_alpha = 0.85 if n_shots <= 1 else max(0.35, 0.85 / n_shots ** 0.5)
+
+    for ev in frame_events:
+        if isinstance(ev, UnitMoved):
+            fx, fy = ev.from_pos
+            tx, ty = ev.to_pos
+            ax.annotate(
+                "", xy=(tx, ty), xytext=(fx, fy),
+                arrowprops=dict(arrowstyle="->", color=COL_MOVE_ARROW,
+                                lw=1.3, alpha=0.8),
+                zorder=4,
+            )
+        elif isinstance(ev, UnitShot):
+            # Attacker position: use pre-activation position so the arrow
+            # starts where the unit was when it fired the *first* shot.
+            # By end_idx the unit has finished its activation, but the
+            # firing positions over multiple shots within one activation
+            # are essentially the same (you don't move between shoots in
+            # 10e), so this is the right anchor.
+            attacker_pos = None
+            if ev.attacker_uid in state:
+                attacker_pos = state[ev.attacker_uid]["position"]
+            target_pos = None
+            if ev.target_uid in pre_state:
+                # Use the target's position AT THE TIME of the shot — if it
+                # died and moved off in a later same-frame event, we still
+                # want the arrow to point where it was shot.
+                target_pos = pre_state[ev.target_uid]["position"]
+            elif ev.target_uid in state:
+                target_pos = state[ev.target_uid]["position"]
+            if attacker_pos and target_pos:
+                ax.annotate(
+                    "", xy=target_pos, xytext=attacker_pos,
+                    arrowprops=dict(arrowstyle="->", color=COL_SHOT_ARROW,
+                                    lw=1.2, alpha=shot_alpha, linestyle="--"),
+                    zorder=4,
+                )
+        elif isinstance(ev, UnitCharged):
+            if ev.unit_uid in state and ev.target_uid in state:
+                # Use the pre-activation attacker position if available so
+                # the charge arrow shows the *gap closed*, not the final
+                # 1" engagement gap.
+                attacker_pos = (
+                    pre_state[ev.unit_uid]["position"]
+                    if ev.unit_uid in pre_state
+                    else state[ev.unit_uid]["position"]
+                )
+                target_pos = state[ev.target_uid]["position"]
+                ax.annotate(
+                    "", xy=target_pos, xytext=attacker_pos,
+                    arrowprops=dict(arrowstyle="-|>", color=COL_CHARGE_ARROW,
+                                    lw=2.0, alpha=0.9 if ev.succeeded else 0.4),
+                    zorder=4,
+                )
+        elif isinstance(ev, UnitFought):
+            if ev.attacker_uid in state and ev.target_uid in state:
+                tg_pos = state[ev.target_uid]["position"]
+                ax.scatter([tg_pos[0]], [tg_pos[1]], s=220, c=COL_MELEE_FLASH,
+                           marker="*", alpha=0.9, zorder=7)
 
     # Objective markers
     for obj in map_.objectives:
@@ -299,11 +446,12 @@ def render_frame(
             ax.scatter([x], [y], s=70, c=COL_DEAD, marker="x",
                        linewidths=1.3, zorder=4, alpha=0.7)
 
-    # Title
-    total = max(0, len(events) - 1)
+    # Title — show frame index (one per activation / boundary), not raw
+    # event index, so the slider value matches what the viewer sees.
+    total_frames = max(0, len(frames) - 1)
     ax.set_title(
-        f"Round {_current_round(events, tick)}   "
-        f"|   Tick {tick}/{total}   "
+        f"Round {_current_round(events, end_idx)}   "
+        f"|   Frame {frame if frames else 0}/{total_frames}   "
         f"|   {a_name} (blue) vs {b_name} (red)",
         color="white", fontsize=9, pad=8,
     )
@@ -364,3 +512,16 @@ def event_description(event) -> str:
         winner = event.winner or "Draw"
         return f"Battle ended: {winner} in {event.rounds} rounds"
     return type(event).__name__
+
+
+def frame_description(events: List, frame_range: Tuple[int, int]) -> str:
+    """Multi-line summary of a replay frame.
+
+    Single-event frames render exactly like ``event_description``; multi-event
+    activation frames list every event in the activation on its own line, so
+    the log panel mirrors what the figure shows.
+    """
+    start, end = frame_range
+    if start == end:
+        return event_description(events[start])
+    return "\n".join(event_description(events[i]) for i in range(start, end + 1))

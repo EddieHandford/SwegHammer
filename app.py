@@ -26,7 +26,9 @@ from code.maps import (
     auto_select_map_key,
     maps_fitting,
 )
-from code.renderer import event_description, render_frame
+from code.renderer import (
+    aggregate_activations, event_description, frame_description, render_frame,
+)
 from code.simulator import Battle, BattleResult
 from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
 
@@ -818,10 +820,18 @@ with tab_replay:
         if total == 0:
             st.warning("No events recorded.")
         else:
-            tick = st.slider(
-                "Tick (drag to scrub through the battle)",
+            # Aggregate consecutive same-unit events into activation frames
+            # so the slider ticks once per unit activation (move + shoots +
+            # charge + fight bundled) instead of once per raw event. Round
+            # boundaries, objective scoring, and battleshock stay as their
+            # own frames.
+            frames = aggregate_activations(events)
+            total_frames = len(frames)
+
+            frame_idx = st.slider(
+                "Frame (drag to scrub through the battle)",
                 min_value=0,
-                max_value=total - 1,
+                max_value=max(0, total_frames - 1),
                 value=0,
                 key="replay_tick",
             )
@@ -829,17 +839,25 @@ with tab_replay:
             col_map, col_log = st.columns([3, 2])
 
             with col_map:
-                fig = render_frame(map_, events, tick)
+                fig = render_frame(map_, events, frame_idx)
                 st.pyplot(fig)
                 plt.close(fig)
 
             with col_log:
-                st.markdown("**Current event**")
-                st.code(event_description(events[tick]), language=None)
+                st.markdown("**Current activation**")
+                st.code(
+                    frame_description(events, frames[frame_idx]),
+                    language=None,
+                )
 
-                st.markdown("**Recent events**")
-                start = max(0, tick - 12)
-                recent = "\n".join(event_description(events[i]) for i in range(start, tick + 1))
-                st.text(recent)
+                st.markdown("**Recent activations**")
+                start_frame = max(0, frame_idx - 6)
+                recent_blocks = [
+                    frame_description(events, frames[i])
+                    for i in range(start_frame, frame_idx + 1)
+                ]
+                st.text("\n".join(recent_blocks))
 
-                st.caption(f"{total} events total")
+                st.caption(
+                    f"{total_frames} frames  ·  {total} raw events total"
+                )
