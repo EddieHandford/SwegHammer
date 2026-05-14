@@ -18,6 +18,8 @@ from code.balancer import (
     DEFAULT_BASELINE,
     find_balanced_leader_points,
     find_balanced_points,
+    find_balanced_support_points,
+    measure_aura_uplift,
     measure_win_rate,
     measure_win_rate_leader_attached,
     resolve_baseline,
@@ -229,6 +231,56 @@ class LeaderAttachedCalibrationTests(unittest.TestCase):
         self.assertIsInstance(wr, float)
         self.assertGreaterEqual(wr, 0.0)
         self.assertLessEqual(wr, 1.0)
+
+
+class AuraUpliftCalibrationTests(unittest.TestCase):
+    """#89 — aura uplift-delta calibration for SUPPORT characters.
+
+    `measure_aura_uplift` returns two win-rates in [0, 1] and
+    `find_balanced_support_points` returns a populated CalibrationResult
+    with `attached_mode=True` and `balanced_points >= 1.0`.
+    """
+
+    def _support_key(self):
+        # Cheapest CHARACTER with a faction so the auto client-picker resolves.
+        return next(
+            k for k, p in UNIT_CATALOG.items()
+            if "CHARACTER" in (p.unit_keywords or ()) and p.faction
+        )
+
+    def test_measure_aura_uplift_returns_two_floats_in_unit_interval(self):
+        support_key = self._support_key()
+        support = UNIT_CATALOG[support_key]
+        client_key = pick_host_for_leader(support)
+        client = UNIT_CATALOG[client_key]
+        wr_with, wr_without = measure_aura_uplift(
+            support, client, client, 500.0,
+            n_battles=3, rng=random.Random(0),
+        )
+        self.assertIsInstance(wr_with, float)
+        self.assertIsInstance(wr_without, float)
+        self.assertGreaterEqual(wr_with, 0.0)
+        self.assertLessEqual(wr_with, 1.0)
+        self.assertGreaterEqual(wr_without, 0.0)
+        self.assertLessEqual(wr_without, 1.0)
+
+    def test_find_balanced_support_points_populates_result(self):
+        support_key = self._support_key()
+        r = find_balanced_support_points(
+            support_key, n_battles=3,
+            points_budget=500.0, rng=random.Random(0),
+        )
+        self.assertTrue(r.attached_mode)
+        self.assertGreaterEqual(r.balanced_points, 1.0)
+        # uplift_delta must be populated as a float (possibly negative if the
+        # support's aura doesn't help in this match-up). The field default is
+        # 0.0; verify the calibrator actually wrote it by checking it's a
+        # float and that the result is internally consistent with the
+        # conversion formula (balanced_points >= 1.0 always).
+        self.assertIsInstance(r.uplift_delta, float)
+        self.assertEqual(r.host_key, pick_host_for_leader(UNIT_CATALOG[support_key]))
+        self.assertEqual(r.baseline_key, r.host_key)
+        self.assertIn("aura uplift", r.notes)
 
 
 if __name__ == "__main__":

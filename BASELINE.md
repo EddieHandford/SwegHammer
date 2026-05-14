@@ -90,6 +90,18 @@ instead of fighting copies of itself. The host is the cheapest same-faction
 INFANTRY unit by default, chosen by `code/roles.py::pick_host_for_leader`.
 Only the leader's cost is bisected; the host's cost is held constant.
 
+**Aura uplift mode** (`--aura-uplift`): for SUPPORT characters whose value
+lives entirely in buffing a client unit (not in direct combat), bisection
+against same-role peers stalls — both sides field copies of the SUPPORT
+baseline (Terminator Captain) and the aura cancels out. Aura-uplift mode
+runs two matched measurements: `wr_with` for (client + support) pairs vs
+client alone, and `wr_without` for client alone vs client alone. The
+DELTA `wr_with - wr_without` is the support unit's contribution. A single
+linear-conversion constant `_UPLIFT_TO_POINTS_FACTOR = 100 / 0.10`
+(10% win-rate uplift ≈ 100 pts at a 1000-pt budget) maps the delta to a
+points-equivalent cost. Single-shot, no bisection — sufficient for v1.
+CLI: `--aura-uplift` with optional `--client KEY` to override the client.
+
 **Mobility covariates**: each `CalibrationResult` records the candidate's
 movement, scout distance, and Deep Strike / Infiltrator flags. These are
 diagnostic — used to spot whether the simulator's 5-round window is

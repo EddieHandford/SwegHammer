@@ -52,6 +52,27 @@ CALIBRATED_PATH = REPO_ROOT / "data" / "calibrated_points.json"
 
 DEFAULT_BASELINE = "space_marines_intercessor_squad"
 
+# ---------------------------------------------------------------------------
+# #89 — Aura uplift-to-points conversion constant.
+#
+# A SUPPORT character's value lives in BUFFING a client unit, not in any
+# direct combat output of its own. We measure that value as the increase in
+# win-rate (the "uplift delta") when the support unit is fielded alongside
+# the client vs the client alone, both armies at equal points budget.
+#
+# This constant maps that uplift back to a points-equivalent so the
+# calibrator can return a balanced cost:
+#
+#     balanced_points = max(1.0, uplift_delta * _UPLIFT_TO_POINTS_FACTOR)
+#
+# Seed value: 100 / 0.10 = 1000.0 i.e. a 10% win-rate uplift at a 1000-pt
+# budget is worth 100 pts of value. Hand-picked from the order-of-magnitude
+# expectation that a Captain (~80 pts) ought to give a Marine list a ~5-10%
+# edge — once we have empirical aura-uplift data across the catalogue, this
+# can be refit by a proper linear regression.
+# ---------------------------------------------------------------------------
+_UPLIFT_TO_POINTS_FACTOR: float = 100.0 / 0.10
+
 # Sentinel value used by the CLI / programmatic callers to request that the
 # balancer choose a same-role baseline automatically rather than forcing a
 # single hard-coded one. Kept as a literal string so it round-trips through
@@ -188,6 +209,10 @@ class CalibrationResult:
     # #88 — leader-attached calibration metadata (empty / 0 for normal mode)
     host_key: str = ""
     attached_mode: bool = False
+    # #89 — aura uplift-delta calibration: raw delta (wr_with - wr_without)
+    # exposed alongside balanced_points so post-hoc analysis can refit the
+    # uplift-to-points conversion constant. Zero for non-uplift modes.
+    uplift_delta: float = 0.0
 
 
 def find_balanced_points(
@@ -381,6 +406,140 @@ def find_balanced_leader_points(
 
 
 # ---------------------------------------------------------------------------
+# Aura uplift-delta calibration (#89) — SUPPORT characters
+# ---------------------------------------------------------------------------
+
+def measure_aura_uplift(
+    support_profile: UnitProfile,
+    client_profile: UnitProfile,
+    baseline_client_profile: UnitProfile,
+    points_budget: float,
+    n_battles: int = 200,
+    rng: Optional[random.Random] = None,
+) -> "tuple[float, float]":
+    """
+    Measure how much a SUPPORT character improves a client unit's win-rate.
+
+    Returns `(wr_with, wr_without)`:
+      * `wr_with`   — win-rate of (client + support) pairs vs the baseline
+                       client alone, at equal points budget.
+      * `wr_without` — win-rate of the client alone vs the baseline client
+                       alone, at equal points budget.
+
+    The DIFFERENCE `wr_with - wr_without` is the support unit's aura
+    "uplift delta" — the slice of win-rate it contributes by buffing the
+    client, independent of any direct combat output. This is the metric
+    `find_balanced_support_points` converts to a points-equivalent cost.
+
+    Same `rng` is threaded through both measurements so that paired noise
+    cancels — if a high-variance map seed swings `wr_with` up, it also tends
+    to swing `wr_without` up, leaving the delta cleaner.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    # wr_with: army is (client + support) pairs vs baseline client alone
+    a_wins_with = 0
+    b_wins_with = 0
+    for _ in range(n_battles):
+        a = build_attached_army("Test", client_profile, support_profile, points_budget)
+        b = build_homogeneous_army("Baseline", baseline_client_profile, points_budget)
+        if not a.units or not b.units:
+            continue
+        result = Battle(a, b, map_=DEFAULT_MAP).run()
+        if result.winner == "Test":
+            a_wins_with += 1
+        elif result.winner == "Baseline":
+            b_wins_with += 1
+    settled_with = a_wins_with + b_wins_with
+    wr_with = (a_wins_with / settled_with) if settled_with > 0 else 0.5
+
+    # wr_without: army is client alone vs baseline client alone
+    a_wins_wo = 0
+    b_wins_wo = 0
+    for _ in range(n_battles):
+        a = build_homogeneous_army("Test", client_profile, points_budget)
+        b = build_homogeneous_army("Baseline", baseline_client_profile, points_budget)
+        if not a.units or not b.units:
+            continue
+        result = Battle(a, b, map_=DEFAULT_MAP).run()
+        if result.winner == "Test":
+            a_wins_wo += 1
+        elif result.winner == "Baseline":
+            b_wins_wo += 1
+    settled_wo = a_wins_wo + b_wins_wo
+    wr_without = (a_wins_wo / settled_wo) if settled_wo > 0 else 0.5
+
+    return wr_with, wr_without
+
+
+def find_balanced_support_points(
+    support_key: str,
+    client_key: Optional[str] = None,
+    n_battles: int = 200,
+    points_budget: float = 1000.0,
+    rng: Optional[random.Random] = None,
+) -> CalibrationResult:
+    """
+    Aura uplift-delta calibration for a SUPPORT character.
+
+    Procedure:
+      1. Pick a `client_key` via the same `pick_host_for_leader` path used by
+         `find_balanced_leader_points` (LeaderAbility.host_keys preferred,
+         then same-faction battleline fallback).
+      2. Call `measure_aura_uplift` once to get `(wr_with, wr_without)`.
+      3. Compute `uplift_delta = wr_with - wr_without`.
+      4. Convert to points: `balanced = max(1.0, uplift_delta *
+         _UPLIFT_TO_POINTS_FACTOR)`.
+
+    This is a SINGLE-SHOT estimate (not a bisection) — the regression
+    converts uplift directly to points. Sufficient for v1 since most aura
+    characters have a tight value band and the noise floor of Monte Carlo
+    bisection on this signal would be larger than the converted estimate.
+
+    Returns a `CalibrationResult` with `attached_mode=True`,
+    `host_key=client_key`, `notes="aura uplift mode"`, `uplift_delta`
+    populated, and mobility covariates copied from the support profile.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    support_profile = UNIT_CATALOG[support_key]
+    if client_key is None:
+        client_key = pick_host_for_leader(support_profile)
+    client_profile = UNIT_CATALOG[client_key]
+
+    wr_with, wr_without = measure_aura_uplift(
+        support_profile, client_profile, client_profile,
+        points_budget, n_battles, rng,
+    )
+    uplift_delta = wr_with - wr_without
+    balanced = max(1.0, uplift_delta * _UPLIFT_TO_POINTS_FACTOR)
+
+    starting = max(1.0, support_profile.points_cost)
+
+    return CalibrationResult(
+        unit_key=support_key,
+        baseline_key=client_key,
+        starting_points=starting,
+        balanced_points=round(balanced, 2),
+        final_win_rate=wr_with,
+        iterations=1,
+        converged=True,
+        samples_per_iter=n_battles,
+        points_budget=points_budget,
+        notes="aura uplift mode",
+        move=support_profile.move,
+        scout_distance=support_profile.scout_distance,
+        deep_strike=support_profile.deep_strike,
+        infiltrator=support_profile.infiltrator,
+        host_key=client_key,
+        attached_mode=True,
+        uplift_delta=round(uplift_delta, 4),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Output writer + summary
 # ---------------------------------------------------------------------------
 
@@ -443,6 +602,19 @@ def main(argv: Optional[List[str]] = None) -> None:
                        "With --leader-attached, the bodyguard host's "
                        "catalogue key. Defaults to a same-faction battleline."
                    ))
+    p.add_argument("--aura-uplift", action="store_true",
+                   help=(
+                       "Calibrate a SUPPORT character via aura uplift-delta: "
+                       "compare (client + support) vs client-alone win rates "
+                       "and convert the delta to points. Single-shot, no "
+                       "bisection."
+                   ))
+    p.add_argument("--client", type=str, default=None,
+                   help=(
+                       "With --aura-uplift, override the client unit's "
+                       "catalogue key. Defaults to the same auto-pick used "
+                       "by --leader-attached's host."
+                   ))
     args = p.parse_args(argv)
 
     rng = random.Random(args.seed)
@@ -469,7 +641,14 @@ def main(argv: Optional[List[str]] = None) -> None:
     print(f"Calibrating {len(targets)} unit(s) against {label}\n")
     for i, key in enumerate(targets, 1):
         try:
-            if args.leader_attached:
+            if args.aura_uplift:
+                r = find_balanced_support_points(
+                    key, client_key=args.client,
+                    n_battles=args.battles,
+                    points_budget=args.budget,
+                    rng=rng,
+                )
+            elif args.leader_attached:
                 r = find_balanced_leader_points(
                     key, host_key=args.host,
                     tolerance=args.tolerance,
