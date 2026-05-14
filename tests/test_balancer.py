@@ -12,7 +12,12 @@ import random
 import unittest
 from dataclasses import replace
 
-from code.army_builder import build_attached_army
+from code.army_builder import build_attached_army, build_homogeneous_army
+from code.detachments import (
+    AWAKENED_DYNASTY,
+    GLADIUS_TASK_FORCE,
+    default_detachment_for_faction,
+)
 from code.balancer import (
     AUTO_BASELINE,
     DEFAULT_BASELINE,
@@ -31,7 +36,7 @@ from code.units import UNIT_CATALOG
 _BASELINE_KEY = "space_marines_intercessor_squad"
 # A canonical HEAVY-role unit used as the "previously-untunable" target
 # in auto-baseline coverage. Knight Errant is itself the HEAVY baseline,
-# but the C'tan-shard is sv=4 and lands in MELEE — we only need *any*
+# but the C'tan-shard is sv=4 and lands in MELEE - we only need *any*
 # unit whose role baseline isn't the default Intercessor.
 _HEAVY_UNIT_KEY = "imperial_knights_library_knight_paladin"
 
@@ -56,7 +61,7 @@ class MeasureWinRateTests(unittest.TestCase):
     def test_severely_overcosted_unit_loses(self):
         baseline = UNIT_CATALOG[_BASELINE_KEY]
         # Baseline Intercessor is ~65 pts. At pts=200, budget=200 can field
-        # exactly 1 squad while the baseline fields 3 — the lone squad gets
+        # exactly 1 squad while the baseline fields 3 - the lone squad gets
         # mauled.
         expensive = replace(baseline, points_override=200.0)
         rng = random.Random(42)
@@ -133,7 +138,7 @@ class FindBalancedPointsAutoBaselineTests(unittest.TestCase):
 
 
 class MobilityCovariateTests(unittest.TestCase):
-    """#90 — CalibrationResult should carry the unit's mobility stats so post-hoc
+    """#90 - CalibrationResult should carry the unit's mobility stats so post-hoc
     analysis can spot whether speed is systematically under-rewarded."""
 
     def test_mobility_fields_populated(self):
@@ -151,7 +156,7 @@ class MobilityCovariateTests(unittest.TestCase):
 
 
 class AttachedArmyBuilderTests(unittest.TestCase):
-    """#88 — build_attached_army interleaves host/leader so deployment puts
+    """#88 - build_attached_army interleaves host/leader so deployment puts
     the leader next to its bodyguard."""
 
     def test_pairs_interleave(self):
@@ -171,7 +176,7 @@ class AttachedArmyBuilderTests(unittest.TestCase):
 
 
 class PickHostForLeaderTests(unittest.TestCase):
-    """#88 — host selection prefers the LeaderAbility-declared host_keys,
+    """#88 - host selection prefers the LeaderAbility-declared host_keys,
     then falls back to a same-faction INFANTRY battleline."""
 
     def test_returns_catalogue_key(self):
@@ -199,7 +204,7 @@ class PickHostForLeaderTests(unittest.TestCase):
 
 
 class LeaderAttachedCalibrationTests(unittest.TestCase):
-    """#88 — leader-attached path: a CalibrationResult populated with the
+    """#88 - leader-attached path: a CalibrationResult populated with the
     attached_mode flag and host_key, mobility covariates filled in."""
 
     def _leader_key(self):
@@ -234,7 +239,7 @@ class LeaderAttachedCalibrationTests(unittest.TestCase):
 
 
 class AuraUpliftCalibrationTests(unittest.TestCase):
-    """#89 — aura uplift-delta calibration for SUPPORT characters.
+    """#89 - aura uplift-delta calibration for SUPPORT characters.
 
     `measure_aura_uplift` returns two win-rates in [0, 1] and
     `find_balanced_support_points` returns a populated CalibrationResult
@@ -281,6 +286,93 @@ class AuraUpliftCalibrationTests(unittest.TestCase):
         self.assertEqual(r.host_key, pick_host_for_leader(UNIT_CATALOG[support_key]))
         self.assertEqual(r.baseline_key, r.host_key)
         self.assertIn("aura uplift", r.notes)
+
+
+class DetachmentAwareBuilderTests(unittest.TestCase):
+    """Calibration builders must set the army's detachment from the unit's
+    faction default, so that army-wide passives (Awakened Dynasty's
+    bonus-to-hit-when-led, Gladius's wound-1 reroll, etc.) and stratagems
+    fire during the simulated battle that produces a balanced_points number.
+
+    Pre-fix, both `build_homogeneous_army` and `build_attached_army` left
+    `army.detachment = None`, which meant the calibrator was tuning costs
+    against a no-detachment baseline that didn't match real-game points
+    calibration intent.
+    """
+
+    def test_homogeneous_army_has_detachment_set(self):
+        warriors = UNIT_CATALOG["necrons_necron_warriors"]
+        army = build_homogeneous_army("Test", warriors, 1000.0)
+        self.assertIsNotNone(army.detachment)
+        self.assertIs(army.detachment, AWAKENED_DYNASTY)
+        # And resolve_detachment must return the same - the homogeneous
+        # builder sets it explicitly, not just via the fallback path.
+        self.assertIs(army.resolve_detachment(), AWAKENED_DYNASTY)
+
+    def test_homogeneous_army_no_detachment_when_faction_empty(self):
+        # Defensive: if a profile has no faction (custom test profile),
+        # the builder must not crash; detachment stays None.
+        baseline = UNIT_CATALOG[_BASELINE_KEY]
+        faction_less = replace(baseline, faction="")
+        army = build_homogeneous_army("Test", faction_less, 500.0)
+        self.assertIsNone(army.detachment)
+
+    def test_attached_army_uses_host_faction_detachment(self):
+        # Captain + Intercessor Squad: host is the Marine battleline, so
+        # the army's detachment is the Marine default (Gladius). The
+        # leader's faction is read for nothing - even if it were a
+        # different faction conceptually, the bodyguard squad's faction
+        # is what determines the army-wide passive.
+        host = UNIT_CATALOG["space_marines_intercessor_squad"]
+        leader = UNIT_CATALOG["space_marines_captain"]
+        army = build_attached_army(
+            "Test", host, leader, 1000.0,
+        )
+        self.assertIsNotNone(army.detachment)
+        self.assertIs(army.detachment, GLADIUS_TASK_FORCE)
+
+    def test_attached_army_detachment_derives_from_host_not_leader(self):
+        # Build a synthetic leader profile whose faction conflicts with the
+        # host's. The army's detachment must reflect the HOST's faction -
+        # the leader is just a model inside the bodyguard unit and doesn't
+        # change the army's detachment rule.
+        host = UNIT_CATALOG["necrons_necron_warriors"]    # Necrons
+        leader = replace(
+            UNIT_CATALOG["space_marines_captain"],
+            faction="Adeptus Astartes",
+        )
+        army = build_attached_army("Test", host, leader, 500.0)
+        self.assertIs(army.detachment, AWAKENED_DYNASTY)
+
+    def test_balanced_points_uses_detachment(self):
+        """Regression: the calibrator's internal builder calls must result in
+        battles where each side has its faction detachment in effect.
+
+        We exercise this by running a single-iteration find_balanced_points
+        and asserting that the (very small) homogeneous armies it generates
+        carry a detachment.
+
+        We can't easily snoop on the Battle's internal armies, so this test
+        instead reaches into `measure_win_rate` indirectly: it builds the
+        same kind of armies that the calibrator does and confirms the
+        detachment is set. If a future refactor drops the detachment hook,
+        this test will catch it without needing to monkey-patch Battle.
+        """
+        warriors = UNIT_CATALOG["necrons_necron_warriors"]
+        a = build_homogeneous_army("Test", warriors, 500.0)
+        self.assertIsNotNone(a.detachment)
+        self.assertEqual(
+            a.detachment, default_detachment_for_faction("Necrons"),
+        )
+
+        # Smoke-test the full path too - a tiny calibration must complete
+        # without crashing once detachments are wired.
+        r = find_balanced_points(
+            "necrons_necron_warriors",
+            n_battles=2, max_iters=1,
+            points_budget=500.0, rng=random.Random(0),
+        )
+        self.assertGreater(r.balanced_points, 0.0)
 
 
 if __name__ == "__main__":

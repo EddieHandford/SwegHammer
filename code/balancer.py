@@ -70,6 +70,16 @@ DEFAULT_BASELINE = "space_marines_intercessor_squad"
 # expectation that a Captain (~80 pts) ought to give a Marine list a ~5-10%
 # edge — once we have empirical aura-uplift data across the catalogue, this
 # can be refit by a proper linear regression.
+#
+# Re-tuning notice: this constant was first picked when calibration battles
+# ran with NO detachment on either side, so the client unit got no
+# army-wide help on its own and the support character's uplift was easier
+# to detect. Now that builders set the faction default detachment for both
+# sides, the same character's empirical uplift_delta tends to shrink (the
+# client is already getting some army-wide reroll/+1/etc. without the
+# support). See BALANCER_AUDIT.md for the empirical shift across Captain /
+# Lieutenant / Apothecary / Sorcerer. Treat 1000.0 as a tunable until that
+# regression is done.
 # ---------------------------------------------------------------------------
 _UPLIFT_TO_POINTS_FACTOR: float = 100.0 / 0.10
 
@@ -129,7 +139,16 @@ def measure_win_rate(
     n_battles: int = 200,
     rng: Optional[random.Random] = None,
 ) -> float:
-    """Fraction of battles `unit_profile` wins against `baseline_profile` at equal points."""
+    """Fraction of battles `unit_profile` wins against `baseline_profile` at equal points.
+
+    Calibration battles run with full detachment + stratagem mechanics:
+    `build_homogeneous_army` sets each side's detachment from its faction
+    default, so army-wide passives (Gladius wound-1 reroll, Awakened
+    Dynasty's bonus-to-hit-when-led, etc.) and the CP economy fire during
+    every measured battle. Aeldari Battle Focus tokens are likewise
+    allocated by the simulator at battle start when an ASURYANI unit is
+    present.
+    """
     if rng is None:
         rng = random.Random()
     a_wins = 0
@@ -163,6 +182,10 @@ def measure_win_rate_leader_attached(
     Win rate for (host + leader) pairs vs the baseline host alone at equal
     points. Exercises the leader's aura on a real bodyguard squad rather than
     against copies of itself — used by the leader-attached calibration mode.
+
+    Both armies receive their faction's default detachment via the army
+    builder, so the leader's measured uplift is on top of the army-wide
+    passive baseline rather than against a no-detachment opponent.
     """
     if rng is None:
         rng = random.Random()
@@ -434,6 +457,13 @@ def measure_aura_uplift(
     Same `rng` is threaded through both measurements so that paired noise
     cancels — if a high-variance map seed swings `wr_with` up, it also tends
     to swing `wr_without` up, leaving the delta cleaner.
+
+    Calibration battles run with full detachment + stratagem mechanics on
+    both sides (the army builder sets faction detachments automatically),
+    so `uplift_delta` measures the support character's CONTRIBUTION ON TOP
+    OF the army-wide passive baseline. Prior to this fix, battles ran
+    with no detachment, which inflated SUPPORT uplifts because the client
+    unit got no army-wide help on its own.
     """
     if rng is None:
         rng = random.Random()
