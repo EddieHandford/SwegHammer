@@ -956,14 +956,28 @@ class Battle:
         if attacker.profile.one_shot and attacker.uid in self._one_shot_fired:
             return
 
-        # Pistol gate: a unit within 1.5" of an enemy is in engagement range
-        # and may ONLY shoot if its weapon has the Pistol keyword.
+        # Engagement gate: a unit within 1.5" of an enemy is locked in
+        # melee and normally can't shoot. Three exceptions:
+        #   - Pistol weapons (always)
+        #   - VEHICLE / MONSTER keywords: Big Guns Never Tire (10e core
+        #     rule) — they can shoot at -1 to hit (resolved per-attack
+        #     inside Unit.attack via the in_engagement_penalty flag)
+        # Anything else falls through and skips its shooting activation.
+        kw = attacker.profile.unit_keywords or ()
+        big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
             _distance(attacker.position, e.position) < 1.5
             for e in defender_army.alive_units
         )
-        if in_engagement and not attacker.profile.pistol:
-            return
+        if in_engagement:
+            if attacker.profile.pistol:
+                pass   # pistols shoot freely in engagement
+            elif big_guns_eligible:
+                attacker.shooting_in_engagement = True
+            else:
+                return
+        else:
+            attacker.shooting_in_engagement = False
 
         rng = attacker.profile.range_inches
         # Indirect Fire lets us target units we cannot see; otherwise LoS is

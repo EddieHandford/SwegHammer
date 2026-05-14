@@ -259,7 +259,7 @@ class Unit:
 
     __slots__ = (
         "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
-        "army_ref", "moved_this_round", "on_objective",
+        "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -285,6 +285,10 @@ class Unit:
         # Unit.attack() to gate detachment buffs like Awakened Dynasty's
         # objective_holder_bonus_to_wound.
         self.on_objective: bool = False
+        # Toggled by Battle._do_shoot: True if this VEHICLE/MONSTER unit
+        # is firing while inside an enemy's engagement range (Big Guns
+        # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
+        self.shooting_in_engagement: bool = False
 
     @property
     def is_alive(self) -> bool:
@@ -400,6 +404,12 @@ class Unit:
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
         if p.heavy and mode != "melee" and not self.moved_this_round:
             hit_target = max(2, hit_target - 1)
+
+        # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
+        # while in engagement range pay -1 to hit (raises the d6 target).
+        # Mode is ranged because we already blocked melee above.
+        if mode != "melee" and self.shooting_in_engagement:
+            hit_target = min(7, hit_target + 1)
 
         # ---- Indirect Fire: -1 to hit when target is not visible (raises target).
         # Only meaningful in ranged mode.
