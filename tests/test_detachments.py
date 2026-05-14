@@ -25,8 +25,9 @@ _NEW_DETACHMENTS = (
     ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
     ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
     ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
-    ("plague_company",         "Death Guard",            "fnp",               5),
-    ("cult_of_magic",          "Thousand Sons",          "plus_one_to_wound", True),
+    # plague_company + cult_of_magic carry no passive flag right now —
+    # earlier values were uncited (CLAUDE.md §10); will be re-introduced
+    # as Stratagems when #103 lands. Registry presence still checked below.
     ("berzerker_warband",      "World Eaters",           "plus_one_to_hit",   True),
     ("daemonic_incursion",     "Chaos Daemons",          "plus_one_to_hit",   True),
     ("final_day",              "Genestealer Cults",      "reroll_hit_ones",   True),
@@ -88,7 +89,10 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
         army.add_unit(self._profile("Death Guard"))
         det = army.resolve_detachment()
         self.assertIsNotNone(det)
-        self.assertEqual(det.fnp, 5)
+        # Plague Company's fnp=5 was an uncited approximation, removed
+        # per CLAUDE.md §10. Re-introduce once real DG stratagem effects
+        # land in #103. For now, just verify the detachment resolves.
+        self.assertEqual(det.name, "Plague Company")
 
     def test_custodes_army_resolves(self):
         army = Army("Custodes")

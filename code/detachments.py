@@ -235,24 +235,28 @@ PLAGUE_COMPANY = Detachment(
     name="Plague Company",
     faction="Death Guard",
     notes=(
-        "Disgustingly Resilient: army-wide Feel No Pain 5+ approximation. "
-        "Real rule has Contagions and bespoke aura mechanics layered in."
+        "Placeholder: no army-wide passive yet cited. Real Death Guard codex "
+        "has per-unit FNP 5+ on Plague Marines and a -1 Damage stratagem; "
+        "those aren't army-wide. Earlier `fnp=5` was a fabricated approximation "
+        "and was removed per CLAUDE.md §10 (cite-or-don't-implement) after the "
+        "rule_citations audit flagged it. Re-introduce ONLY with a citable "
+        "real rule (e.g. Plague Company stratagem effects when #103 lands)."
     ),
-    fnp=5,
 )
 
 CULT_OF_MAGIC = Detachment(
     name="Cult of Magic",
     faction="Thousand Sons",
     notes=(
-        "Psychic mastery: army-wide +1 to wound PLUS end-of-round Cabal "
-        "Points → Doombolt mortal-wound payload (median D3 = 2 MWs to "
-        "the highest-threat enemy). The mortal-wound stream is what "
-        "calibrates Thousand Sons up from a base ~40% sim WR closer "
-        "to the real 54% tournament number."
+        "Placeholder: Thousand Sons' 10e codex no longer has a 'Cult of "
+        "Magic' detachment by that name (it's now one of nine Great Cults). "
+        "The earlier `plus_one_to_wound` + `psychic_mortal_wounds_per_round=2` "
+        "were fabricated and removed per CLAUDE.md §10 after the "
+        "rule_citations audit flagged them. Real Thousand Sons psychic "
+        "output is the Cabal-of-Sorcerers per-Shooting-Phase ritual casts "
+        "(Doombolt, Twist of Fate, etc.), not an end-of-round MW payload. "
+        "Re-introduce as Stratagems when #103 lands."
     ),
-    plus_one_to_wound=True,
-    psychic_mortal_wounds_per_round=2,
 )
 
 BERZERKER_WARBAND = Detachment(
