@@ -426,20 +426,18 @@ class Battle:
                 destroyed = initial_count - alive_now
                 if destroyed <= 0:
                     continue
+                # 10e: once the entire squad is destroyed, Reanimation
+                # Protocols no longer apply — there's no surviving model
+                # left for the rule to attach to.
+                if alive_now <= 0:
+                    continue
                 # Median D3 roll = 2. Cap by however many are actually dead.
                 to_revive = min(destroyed, 2)
                 dead_pool = dead_by_profile.get(profile_name, [])
-                # Anchor position: nearest alive friendly of the same profile,
-                # or the army's deployment edge midpoint if the squad is wiped.
-                alive_peers = alive_by_profile.get(profile_name, [])
-                anchor_pos: Tuple[float, float]
-                if alive_peers:
-                    # Place at the first alive peer (caller-stable choice).
-                    anchor_pos = alive_peers[0].position
-                else:
-                    anchor_pos = (edge_x, edge_y)
-                # Make sure the anchor isn't on impassable terrain; nudge
-                # off to the deployment edge if it is.
+                # Anchor at the first alive peer (squad still has at least
+                # one model since the wipe-out short-circuit above).
+                alive_peers = alive_by_profile[profile_name]
+                anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
                 for revived in dead_pool[:to_revive]:
@@ -565,7 +563,7 @@ class Battle:
                 # by end of Round 3 or are destroyed — we soft-enforce by
                 # auto-arriving). Avoids dumping the whole army turn 2.
                 if round_num >= 4 or random.random() < 0.66:
-                    pos = self._pick_arrival_point(opponent)
+                    pos = self._pick_arrival_point(opponent, arriving_unit=u)
                     if pos is None:
                         # No valid arrival spot — defer to next round.
                         still_waiting.append(u)
@@ -578,14 +576,27 @@ class Battle:
                     still_waiting.append(u)
             self._reserves[army.name] = still_waiting
 
-    def _pick_arrival_point(self, opponent: Army) -> Optional[Tuple[float, float]]:
-        """Find a point > 9" from every alive enemy and not in impassable
-        terrain. Tries the centre first, then the four corners of the
-        > 9" exclusion zone, then a coarse 4" grid sweep.
+    def _pick_arrival_point(
+        self, opponent: Army, arriving_unit: Optional[Unit] = None,
+    ) -> Optional[Tuple[float, float]]:
+        """Pick a tactically-useful Deep Strike landing point.
+
+        Generates a dense grid of legal candidates (>9" from every enemy,
+        not in impassable terrain) and scores each by:
+
+          * Proximity to high-threat enemies (SHOOTY/HEAVY weighted up).
+            For a melee-capable arriving unit, "closer-to-a-threat" wins —
+            we want to land into charge range of a sniper or Knight.
+          * Proximity to uncontested objectives.
+            For a shooty arriving unit, this dominates — drop and claim.
+
+        Falls back to the legacy centre-then-corners pick if no candidates
+        are valid (e.g. a tiny board mid-late game).
         """
+        from .roles import classify  # local import to avoid circular at module load
+
         enemies = opponent.alive_units
         min_gap = 9.0
-        cx, cy = self.map.width / 2.0, self.map.height / 2.0
 
         def _valid(p: Tuple[float, float]) -> bool:
             if p[0] < 1.0 or p[0] > self.map.width - 1.0:
@@ -599,26 +610,90 @@ class Battle:
                     return False
             return True
 
-        candidates = [
-            (cx, cy),                                       # centre
-            (3.0, 3.0),                                     # SW corner
-            (self.map.width - 3.0, 3.0),                    # SE corner
-            (3.0, self.map.height - 3.0),                   # NW corner
-            (self.map.width - 3.0, self.map.height - 3.0),  # NE corner
-        ]
-        for p in candidates:
-            if _valid(p):
-                return p
+        # Threat weight per enemy: SHOOTY/HEAVY are the prime ambush targets
+        # (sniping our backline / kiting), MELEE less so (already coming to
+        # us), SUPPORT a useful kill but lower priority.
+        def _threat_weight(enemy: Unit) -> float:
+            role = classify(enemy.profile)
+            base = {
+                "HEAVY":   3.0,
+                "SHOOTY":  2.5,
+                "DUAL":    1.5,
+                "MELEE":   1.0,
+                "SUPPORT": 1.2,
+                "HORDE":   0.8,
+            }.get(role, 1.0)
+            # Wounded enemies are more attractive — easier finishers.
+            hp_frac = max(0.1, enemy.current_health / max(1.0, enemy.profile.health))
+            return base * (1.5 - 0.5 * hp_frac)   # full HP -> 1.0×, near-dead -> 1.45×
 
-        # Coarse 4" grid sweep across the board as a last resort.
-        x = 4.0
+        # Arriving unit preference: melee chases enemies, shooty claims objs.
+        if arriving_unit is not None:
+            ap = arriving_unit.profile
+            melee_dpa = ap.melee_attacks * ap.melee_hit_probability * (ap.melee_damage_per_shot or 1.0)
+            ranged_dpa = ap.attacks * ap.hit_probability * (ap.weapon_damage_per_shot or 1.0)
+            is_melee_leaning = melee_dpa >= ranged_dpa * 0.7
+        else:
+            is_melee_leaning = False
+
+        threat_w = 2.0 if is_melee_leaning else 1.0
+        objective_w = 0.7 if is_melee_leaning else 1.6
+
+        # Identify uncontested objectives (no friendly within control radius).
+        friendly = self.a if opponent is self.b else self.b
+        targetable_objs = []
+        for obj in self.map.objectives:
+            controlled_by_us = any(
+                _distance((obj.x, obj.y), f.position) <= obj.control_radius
+                for f in friendly.alive_units
+            )
+            if not controlled_by_us:
+                targetable_objs.append(obj)
+
+        def _score(p: Tuple[float, float]) -> float:
+            s = 0.0
+            for e in enemies:
+                d = _distance(p, e.position)
+                # Add 5" softener so the score doesn't blow up at the 9" boundary.
+                s += _threat_weight(e) * threat_w / (d - 4.0)
+            for obj in targetable_objs:
+                d = _distance(p, (obj.x, obj.y))
+                s += objective_w / (d + 4.0)
+            return s
+
+        # Dense candidate grid (~3" spacing). Cheap; runs at most ~5 times
+        # per battle when reserves arrive.
+        best: Optional[Tuple[float, float]] = None
+        best_score = -1e9
+        step = 3.0
+        x = 2.0
         while x < self.map.width - 1.0:
-            y = 4.0
+            y = 2.0
             while y < self.map.height - 1.0:
-                if _valid((x, y)):
-                    return (x, y)
-                y += 4.0
-            x += 4.0
+                p = (x, y)
+                if _valid(p):
+                    sc = _score(p)
+                    if sc > best_score:
+                        best_score = sc
+                        best = p
+                y += step
+            x += step
+
+        if best is not None:
+            return best
+
+        # Fall back to the legacy "any legal spot" pick when no candidates
+        # found (very small board or saturated with enemies).
+        cx, cy = self.map.width / 2.0, self.map.height / 2.0
+        for cand in (
+            (cx, cy),
+            (3.0, 3.0),
+            (self.map.width - 3.0, 3.0),
+            (3.0, self.map.height - 3.0),
+            (self.map.width - 3.0, self.map.height - 3.0),
+        ):
+            if _valid(cand):
+                return cand
         return None
 
     # ------------------------------------------------------------------

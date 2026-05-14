@@ -155,6 +155,36 @@ class ReanimationProtocolsTests(unittest.TestCase):
         reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
         self.assertEqual(len(reanim_events), 1)
 
+    def test_squad_wipeout_short_circuits_revival(self):
+        """10e: once every model in the squad is destroyed, Reanimation
+        Protocols no longer apply — there's no surviving model for the rule
+        to attach to. Kill ALL 3 Warriors; expect zero UnitReanimated events."""
+        random.seed(0)
+        necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
+        for _ in range(3):
+            necrons.add_unit(_necron_warrior_profile())
+        marines = Army("Marines")
+        marines.add_unit(_vanilla_profile("Marine"))
+
+        log = EventLog()
+        battle = Battle(necrons, marines, subscribers=[log])
+        battle._assign_uids()
+        battle._deploy_armies()
+        battle._initial_unit_counts = {
+            necrons.name: {"Necron Warrior": 3},
+            marines.name: {"Marine": 1},
+        }
+        for u in necrons.units:
+            u.current_health = 0
+        self.assertEqual(len([u for u in necrons.units if u.is_alive]), 0)
+
+        battle._apply_reanimation()
+
+        alive_after = len([u for u in necrons.units if u.is_alive])
+        self.assertEqual(alive_after, 0, "Wiped squad must not reanimate.")
+        reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
+        self.assertEqual(reanim_events, [], "Expected zero UnitReanimated events.")
+
     def test_no_revival_when_no_dead(self):
         """Healthy army means no UnitReanimated events even with the detachment."""
         random.seed(0)

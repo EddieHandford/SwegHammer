@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import random
-from typing import Callable, List, Tuple
+from io import BytesIO
+from typing import Callable, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -47,6 +48,35 @@ st.set_page_config(
     page_icon="⚔️",
     layout="wide",
 )
+
+
+# ---------------------------------------------------------------------------
+# Cached per-frame PNG renderer
+# ---------------------------------------------------------------------------
+# The Replay slider triggers a full Streamlit rerun on every tick. Rendering
+# a matplotlib figure from scratch each time (~100-300ms for a busy frame)
+# makes scrubbing feel sluggish. We cache the rendered PNG keyed by
+# (replay_id, frame_idx): scrubbing back through a previously-rendered frame
+# is then instant. `replay_id` increments per run so old caches dropped.
+
+@st.cache_data(show_spinner=False, max_entries=400)
+def _render_frame_png(replay_id: int, frame_idx: int) -> bytes:
+    events = st.session_state["replay_events"]
+    map_ = st.session_state["replay_map"]
+    frames = st.session_state.get("replay_frames")
+    col_a = st.session_state.get("replay_colour_a", "#4e9af1")
+    col_b = st.session_state.get("replay_colour_b", "#e05c5c")
+    fig = render_frame(
+        map_, events, frame_idx, frames=frames,
+        colour_a=col_a, colour_b=col_b,
+    )
+    buf = BytesIO()
+    # DPI 90 (was 110): ~30% faster encode with no visible loss in the
+    # Streamlit column width (which is typically ~500-700px wide).
+    fig.savefig(buf, format="png", bbox_inches="tight",
+                facecolor=fig.get_facecolor(), dpi=90)
+    plt.close(fig)
+    return buf.getvalue()
 
 # ---------------------------------------------------------------------------
 # Colour palette
@@ -277,21 +307,25 @@ def chart_win_rate_vs_points(
     b_cover: bool,
     n_battles: int = 200,
     map_: Map = DEFAULT_MAP,
+    precomputed: Optional[tuple] = None,
 ):
-    point_values = list(range(100, 601, 50))
-    a_rates, b_rates, draw_rates = [], [], []
+    if precomputed is not None:
+        point_values, a_rates, b_rates, draw_rates = precomputed
+    else:
+        point_values = list(range(100, 601, 50))
+        a_rates, b_rates, draw_rates = [], [], []
 
-    for pts in point_values:
-        res = run_simulations(
-            lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
-            lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
-            n_battles,
-            map_=map_,
-        )
-        aw, bw, d = aggregate(res, a_name, b_name)
-        a_rates.append(aw / n_battles)
-        b_rates.append(bw / n_battles)
-        draw_rates.append(d / n_battles)
+        for pts in point_values:
+            res = run_simulations(
+                lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
+                lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
+                n_battles,
+                map_=map_,
+            )
+            aw, bw, d = aggregate(res, a_name, b_name)
+            a_rates.append(aw / n_battles)
+            b_rates.append(bw / n_battles)
+            draw_rates.append(d / n_battles)
 
     fig, ax = plt.subplots(figsize=(8, 3.5))
     fig.patch.set_facecolor("#0e1117")
@@ -701,9 +735,60 @@ if run:
 
     with st.spinner(f"Running {n_battles:,} battles + capturing one replay..."):
         results = run_simulations(factory_a, factory_b, n_battles, map_=selected_map)
-        log = EventLog()
-        Battle(factory_a(), factory_b(), subscribers=[log], map_=selected_map).run()
 
+        # Pick a replay that's REPRESENTATIVE of the stats: same winner as
+        # the modal outcome, with survivor counts close to the mean. We
+        # roll fresh replays until we find a match, capped to avoid
+        # pathological cases (e.g. very stochastic mirror matches where
+        # no single roll is "average").
+        a_wins_n, b_wins_n, draws_n = aggregate(results, a_name, b_name)
+        if a_wins_n >= b_wins_n and a_wins_n >= draws_n:
+            target_winner = a_name
+        elif b_wins_n >= draws_n:
+            target_winner = b_name
+        else:
+            target_winner = None  # Modal outcome is a draw
+        winning_results = [
+            r for r in results
+            if (r.winner == target_winner if target_winner else r.winner is None)
+        ]
+        if winning_results:
+            mean_a_surv = sum(r.a_survivors for r in winning_results) / len(winning_results)
+            mean_b_surv = sum(r.b_survivors for r in winning_results) / len(winning_results)
+        else:
+            mean_a_surv = mean_b_surv = 0.0
+
+        def _score(res) -> float:
+            # Lower = more representative. Mismatched winner is a hard
+            # penalty so it never beats a correct-winner battle.
+            winner_match = (
+                (res.winner == target_winner) if target_winner
+                else (res.winner is None)
+            )
+            penalty = 0.0 if winner_match else 1e6
+            surv_dist = abs(res.a_survivors - mean_a_surv) + abs(res.b_survivors - mean_b_surv)
+            return penalty + surv_dist
+
+        best_log = None
+        best_result = None
+        best_score = float("inf")
+        for _ in range(30):
+            log = EventLog()
+            res = Battle(
+                factory_a(), factory_b(), subscribers=[log], map_=selected_map,
+            ).run()
+            score = _score(res)
+            if score < best_score:
+                best_score, best_log, best_result = score, log, res
+            if score < 1e6 and (res.a_survivors - mean_a_surv) ** 2 + (res.b_survivors - mean_b_surv) ** 2 <= 1.0:
+                break   # Close-enough match — stop rolling.
+
+        log = best_log if best_log is not None else EventLog()
+        # Pre-compute the activation-frame index once per run so the Replay
+        # tab's slider doesn't recompute it on every tick.
+        replay_frames = aggregate_activations(log.events)
+
+    replay_id = st.session_state.get("replay_id", 0) + 1
     st.session_state.update({
         "results": results,
         "a_name": a_name,
@@ -715,8 +800,51 @@ if run:
         "a_cover": a_cover,
         "b_cover": b_cover,
         "replay_events": log.events,
+        "replay_frames": replay_frames,
+        # Monotonic id so the per-PNG cache below knows when to discard old
+        # entries (new run = bump the id, old cached frames become unreachable).
+        "replay_id": replay_id,
         "replay_map": selected_map,
+        # Faction colours flow to the Replay renderer.
+        "replay_colour_a": COL_A,
+        "replay_colour_b": COL_B,
     })
+    # Pre-render EVERY replay frame inside the existing spinner. The slider
+    # then just indexes a list of PNG bytes — zero matplotlib / Streamlit
+    # rerun cost per scrub tick. ~22 KB × N frames stays well under the
+    # session_state size budget.
+    if replay_frames:
+        with st.spinner(f"Pre-rendering {len(replay_frames)} replay frames..."):
+            st.session_state["replay_pngs"] = [
+                _render_frame_png(replay_id, i)
+                for i in range(len(replay_frames))
+            ]
+    else:
+        st.session_state["replay_pngs"] = []
+
+    # Pre-compute the points-curve data here too if the toggle is on.
+    # Otherwise the Statistics tab re-runs ~2200 simulations on every
+    # script re-execution (incl. tab switches) — the actual cause of
+    # the multi-second "Watch a battle" tab-click delay.
+    if show_points_curve and profile_a and profile_b:
+        with st.spinner("Sweeping point budgets for probability curve..."):
+            point_values = list(range(100, 601, 50))
+            a_rates_p, b_rates_p, draw_rates_p = [], [], []
+            for pts in point_values:
+                res = run_simulations(
+                    lambda p=pts: build_homogeneous_army(a_name, profile_a, p, in_cover=a_cover),
+                    lambda p=pts: build_homogeneous_army(b_name, profile_b, p, in_cover=b_cover),
+                    200, map_=selected_map,
+                )
+                aw, bw, d = aggregate(res, a_name, b_name)
+                a_rates_p.append(aw / 200)
+                b_rates_p.append(bw / 200)
+                draw_rates_p.append(d / 200)
+            st.session_state["points_curve_data"] = (
+                point_values, a_rates_p, b_rates_p, draw_rates_p,
+            )
+    else:
+        st.session_state["points_curve_data"] = None
 
 # ---------------------------------------------------------------------------
 # Tabs: Statistics + Watch a battle
@@ -793,8 +921,9 @@ with tab_stats:
         st.pyplot(fig_vp)
 
         if st.session_state.get("show_points_curve"):
-            st.divider()
-            with st.spinner("Sweeping point budgets for probability curve..."):
+            curve = st.session_state.get("points_curve_data")
+            if curve is not None:
+                st.divider()
                 st.pyplot(
                     chart_win_rate_vs_points(
                         st.session_state["profile_a"], st.session_state["profile_b"],
@@ -802,6 +931,7 @@ with tab_stats:
                         st.session_state["a_cover"], st.session_state["b_cover"],
                         n_battles=200,
                         map_=st.session_state["replay_map"],
+                        precomputed=curve,
                     )
                 )
 
@@ -820,12 +950,10 @@ with tab_replay:
         if total == 0:
             st.warning("No events recorded.")
         else:
-            # Aggregate consecutive same-unit events into activation frames
-            # so the slider ticks once per unit activation (move + shoots +
-            # charge + fight bundled) instead of once per raw event. Round
-            # boundaries, objective scoring, and battleshock stay as their
-            # own frames.
-            frames = aggregate_activations(events)
+            # Frames are pre-computed once at run time (see the run handler
+            # above) and stored in session state — avoids the O(N) aggregate
+            # walk on every slider tick.
+            frames = st.session_state.get("replay_frames") or aggregate_activations(events)
             total_frames = len(frames)
 
             frame_idx = st.slider(
@@ -839,9 +967,16 @@ with tab_replay:
             col_map, col_log = st.columns([3, 2])
 
             with col_map:
-                fig = render_frame(map_, events, frame_idx)
-                st.pyplot(fig)
-                plt.close(fig)
+                # Replay PNGs are pre-rendered at run time into a list —
+                # scrubbing is a Python list index, no rendering work.
+                pngs = st.session_state.get("replay_pngs") or []
+                if pngs:
+                    st.image(pngs[frame_idx], use_container_width=True)
+                else:
+                    png = _render_frame_png(
+                        st.session_state["replay_id"], frame_idx,
+                    )
+                    st.image(png, use_container_width=True)
 
             with col_log:
                 st.markdown("**Current activation**")

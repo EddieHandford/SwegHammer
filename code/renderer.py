@@ -303,6 +303,9 @@ def render_frame(
     events: List,
     frame: int,
     figsize: tuple = (5.5, 7.0),
+    frames: Optional[List[Tuple[int, int]]] = None,
+    colour_a: str = COL_ARMY_A,
+    colour_b: str = COL_ARMY_B,
 ) -> Figure:
     """Render the replay state at the given FRAME index.
 
@@ -311,8 +314,13 @@ def render_frame(
     shots + charge + fight — so the figure shows the unit at its final
     post-activation position plus every arc/arrow/burst emitted during the
     activation, all overlaid in one image.
+
+    Pass ``frames=`` to skip the internal ``aggregate_activations`` call when
+    you've already computed and cached it — meaningful speedup when the
+    Streamlit slider re-invokes this on every tick.
     """
-    frames = aggregate_activations(events)
+    if frames is None:
+        frames = aggregate_activations(events)
     if not frames:
         # Empty event log — return a blank board so callers don't crash.
         start_idx = end_idx = 0
@@ -433,7 +441,7 @@ def render_frame(
 
     # Units
     for uid, s in state.items():
-        color = COL_ARMY_A if s["army"] == a_name else COL_ARMY_B
+        color = colour_a if s["army"] == a_name else colour_b
         x, y = s["position"]
         if s["alive"]:
             shape_tag, size_hint = _shape_for(s.get("unit_keywords", ()))
