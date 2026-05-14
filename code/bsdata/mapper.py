@@ -1009,12 +1009,47 @@ def gather_squad_loadout(entry: ET.Element, reg: Registry) -> Optional[List[Mode
     if size is None:
         return None
     _, squad_max = size
+
+    # Crisis Battlesuit-style entries split their models across two
+    # locations: a Shas'ui directly under the unit entry and a Shas'vre
+    # leader inside a nested ``selectionEntryGroup``. If the picker chose
+    # one of those locations we still need to collect the model from the
+    # OTHER one — otherwise the basket misses ~half the squad and the
+    # legacy single-best-weapon path kicks in, picking the highest-A
+    # weapon in the tree (which for many battlesuits is a leader profile
+    # with +1 A, leading to the Crisis +1 / Riptide +2 over-counts).
+    model_entries = list(grp.findall("./selectionEntries/selectionEntry"))
+    seen_names = set()
+    for me in model_entries:
+        if me.get("type") == "model" and me.get("name"):
+            seen_names.add(me.get("name"))
+    # Pull additional models from the entry's other location.
+    if grp is entry:
+        # We're walking the entry-direct slot; pick up nested-group models.
+        for sub in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
+            for me in sub.findall("./selectionEntries/selectionEntry"):
+                if me.get("type") == "model" and me.get("name") not in seen_names:
+                    model_entries.append(me)
+                    seen_names.add(me.get("name"))
+    else:
+        # We picked a nested group; pick up the entry-direct models too.
+        for me in entry.findall("./selectionEntries/selectionEntry"):
+            if me.get("type") == "model" and me.get("name") not in seen_names:
+                model_entries.append(me)
+                seen_names.add(me.get("name"))
+    # Whichever shape: if the entry itself declares a wider size constraint
+    # (e.g. 1-3 Shas'ui + 1 Shas'vre = squad max 4), prefer that as the
+    # effective squad max — it captures both halves.
+    entry_size = _squad_group_size(entry)
+    if entry_size is not None and entry_size[1] >= squad_max:
+        size = entry_size
+        _, squad_max = size
     if squad_max <= 1:
         return None
     models: List[ModelLoadout] = []
     fill_placeholders: List[ModelLoadout] = []
     accounted = 0.0
-    for model_entry in grp.findall("./selectionEntries/selectionEntry"):
+    for model_entry in model_entries:
         if model_entry.get("type") != "model":
             continue
         name = model_entry.get("name") or "?"
