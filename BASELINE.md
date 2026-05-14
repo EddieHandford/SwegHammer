@@ -75,10 +75,28 @@ This does **not** guarantee Lanchester balance (equal aggregate score for equal
 points), but provides a well-understood baseline for the simulation to measure
 against.
 
-### Phase Two (Planned)
+### Phase Two — Empirical bisection (implemented)
 
-After running the Phase One calibration suite, units that systematically over- or under-perform
-will be identified. Points costs will be adjusted up or down for these outliers.
+`code/balancer.py` runs Monte-Carlo bisection against a **role-stratified
+baseline**: each candidate fights a same-role peer (SHOOTY → Intercessor,
+MELEE → Assault Intercessor, HORDE → Boyz, HEAVY → Knight, SUPPORT →
+Terminator Captain), with the role chosen by `code/roles.py::classify`. The
+balanced cost is the points-per-model that lands a 50% ± 5% win rate.
+
+**Leader-attached mode** (`--leader-attached`): for `CHARACTER` units, the
+candidate is built as `(host + leader)` pairs vs. a baseline of `host alone`
+at equal points. This exercises the leader's aura on a real bodyguard squad
+instead of fighting copies of itself. The host is the cheapest same-faction
+INFANTRY unit by default, chosen by `code/roles.py::pick_host_for_leader`.
+Only the leader's cost is bisected; the host's cost is held constant.
+
+**Mobility covariates**: each `CalibrationResult` records the candidate's
+movement, scout distance, and Deep Strike / Infiltrator flags. These are
+diagnostic — used to spot whether the simulator's 5-round window is
+under-rewarding speed (e.g. a MELEE@M=5 unit consistently calibrating
+cheaper than a MELEE@M=8 unit). No effect on the bisection itself.
+
+### Phase Three (Planned)
 
 ### Phase Three (Planned)
 

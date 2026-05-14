@@ -12,14 +12,17 @@ import random
 import unittest
 from dataclasses import replace
 
+from code.army_builder import build_attached_army
 from code.balancer import (
     AUTO_BASELINE,
     DEFAULT_BASELINE,
+    find_balanced_leader_points,
     find_balanced_points,
     measure_win_rate,
+    measure_win_rate_leader_attached,
     resolve_baseline,
 )
-from code.roles import baseline_key_for, classify
+from code.roles import baseline_key_for, classify, pick_host_for_leader
 from code.units import UNIT_CATALOG
 
 
@@ -125,6 +128,96 @@ class FindBalancedPointsAutoBaselineTests(unittest.TestCase):
     def test_default_baseline_when_auto_disabled(self):
         r = self._quick(_HEAVY_UNIT_KEY, auto_baseline=False)
         self.assertEqual(r.baseline_key, DEFAULT_BASELINE)
+
+
+class MobilityCovariateTests(unittest.TestCase):
+    """#90 — CalibrationResult should carry the unit's mobility stats so post-hoc
+    analysis can spot whether speed is systematically under-rewarded."""
+
+    def test_mobility_fields_populated(self):
+        r = find_balanced_points(
+            _BASELINE_KEY, n_battles=2, max_iters=1,
+            points_budget=500.0, rng=random.Random(0),
+        )
+        profile = UNIT_CATALOG[_BASELINE_KEY]
+        self.assertEqual(r.move, profile.move)
+        self.assertEqual(r.scout_distance, profile.scout_distance)
+        self.assertEqual(r.deep_strike, profile.deep_strike)
+        self.assertEqual(r.infiltrator, profile.infiltrator)
+        self.assertFalse(r.attached_mode)
+        self.assertEqual(r.host_key, "")
+
+
+class AttachedArmyBuilderTests(unittest.TestCase):
+    """#88 — build_attached_army interleaves host/leader so deployment puts
+    the leader next to its bodyguard."""
+
+    def test_pairs_interleave(self):
+        host = UNIT_CATALOG[_BASELINE_KEY]
+        # Pick the cheapest CHARACTER as a stand-in leader
+        leader_key = next(
+            k for k, p in UNIT_CATALOG.items()
+            if "CHARACTER" in (p.unit_keywords or ()) and p.faction == host.faction
+        )
+        leader = UNIT_CATALOG[leader_key]
+        budget = (host.points_cost + leader.points_cost) * 3
+        army = build_attached_army("Test", host, leader, budget)
+        # Pairs should appear in (host, leader, host, leader, ...) order.
+        for i in range(0, len(army.units) - 1, 2):
+            self.assertEqual(army.units[i].profile.name, host.name)
+            self.assertEqual(army.units[i + 1].profile.name, leader.name)
+
+
+class PickHostForLeaderTests(unittest.TestCase):
+    """#88 — host selection should prefer a same-faction INFANTRY battleline."""
+
+    def test_returns_catalogue_key(self):
+        # Use a known character as the leader.
+        leader_key = next(
+            k for k, p in UNIT_CATALOG.items()
+            if "CHARACTER" in (p.unit_keywords or ()) and p.faction
+        )
+        host_key = pick_host_for_leader(UNIT_CATALOG[leader_key])
+        self.assertIn(host_key, UNIT_CATALOG)
+        # The host must not be a character itself.
+        self.assertNotIn(
+            "CHARACTER", UNIT_CATALOG[host_key].unit_keywords or (),
+        )
+
+
+class LeaderAttachedCalibrationTests(unittest.TestCase):
+    """#88 — leader-attached path: a CalibrationResult populated with the
+    attached_mode flag and host_key, mobility covariates filled in."""
+
+    def _leader_key(self):
+        # Pick the cheapest CHARACTER with a faction so pick_host_for_leader
+        # can resolve.
+        return next(
+            k for k, p in UNIT_CATALOG.items()
+            if "CHARACTER" in (p.unit_keywords or ()) and p.faction
+        )
+
+    def test_attached_mode_metadata(self):
+        leader_key = self._leader_key()
+        r = find_balanced_leader_points(
+            leader_key, n_battles=2, max_iters=1,
+            points_budget=500.0, rng=random.Random(0),
+        )
+        self.assertTrue(r.attached_mode)
+        self.assertEqual(r.host_key, pick_host_for_leader(UNIT_CATALOG[leader_key]))
+        # baseline_key == host_key in attached mode (we test (host+leader) vs host)
+        self.assertEqual(r.baseline_key, r.host_key)
+
+    def test_measure_win_rate_attached_returns_unit_interval(self):
+        leader_key = self._leader_key()
+        leader = UNIT_CATALOG[leader_key]
+        host = UNIT_CATALOG[pick_host_for_leader(leader)]
+        wr = measure_win_rate_leader_attached(
+            leader, host, host, 500.0, n_battles=3, rng=random.Random(0),
+        )
+        self.assertIsInstance(wr, float)
+        self.assertGreaterEqual(wr, 0.0)
+        self.assertLessEqual(wr, 1.0)
 
 
 if __name__ == "__main__":

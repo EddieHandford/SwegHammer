@@ -77,6 +77,35 @@ def build_homogeneous_army(
     return army
 
 
+def build_attached_army(
+    name: str,
+    host_profile: UnitProfile,
+    leader_profile: UnitProfile,
+    points_budget: float,
+    in_cover: bool = False,
+) -> Army:
+    """
+    Build an army of (host, leader) pairs, interleaved so the deployment line
+    places leaders adjacent to their host within aura range.
+
+    Used by the leader-attached calibration mode to measure the leader's
+    actual battlefield value (aura uplift on a bodyguard squad) rather than
+    fighting in isolation. Remaining budget after the last pair is spent on
+    extra hosts.
+    """
+    army = Army(name, in_cover=in_cover)
+    remaining = points_budget
+    pair_cost = host_profile.points_cost + leader_profile.points_cost
+    while remaining >= pair_cost:
+        army.add_unit(host_profile)
+        army.add_unit(leader_profile)
+        remaining -= pair_cost
+    while remaining >= host_profile.points_cost:
+        army.add_unit(host_profile)
+        remaining -= host_profile.points_cost
+    return army
+
+
 def build_army_from_list(name: str, unit_keys: Sequence[str], in_cover: bool = False) -> Army:
     """
     Build an army from an explicit list of unit catalogue keys.

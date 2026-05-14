@@ -41,9 +41,9 @@ from typing import Dict, List, Optional
 
 from dataclasses import replace
 
-from .army_builder import build_homogeneous_army
+from .army_builder import build_attached_army, build_homogeneous_army
 from .maps import DEFAULT_MAP
-from .roles import baseline_key_for, classify
+from .roles import baseline_key_for, classify, pick_host_for_leader
 from .simulator import Battle
 from .units import UNIT_CATALOG, UnitProfile
 
@@ -130,6 +130,39 @@ def measure_win_rate(
     return a_wins / settled
 
 
+def measure_win_rate_leader_attached(
+    leader_profile: UnitProfile,
+    host_profile: UnitProfile,
+    baseline_host_profile: UnitProfile,
+    points_budget: float,
+    n_battles: int = 200,
+    rng: Optional[random.Random] = None,
+) -> float:
+    """
+    Win rate for (host + leader) pairs vs the baseline host alone at equal
+    points. Exercises the leader's aura on a real bodyguard squad rather than
+    against copies of itself — used by the leader-attached calibration mode.
+    """
+    if rng is None:
+        rng = random.Random()
+    a_wins = 0
+    b_wins = 0
+    for _ in range(n_battles):
+        a = build_attached_army("Test", host_profile, leader_profile, points_budget)
+        b = build_homogeneous_army("Baseline", baseline_host_profile, points_budget)
+        if not a.units or not b.units:
+            continue
+        result = Battle(a, b, map_=DEFAULT_MAP).run()
+        if result.winner == "Test":
+            a_wins += 1
+        elif result.winner == "Baseline":
+            b_wins += 1
+    settled = a_wins + b_wins
+    if settled == 0:
+        return 0.5
+    return a_wins / settled
+
+
 # ---------------------------------------------------------------------------
 # Calibration loop
 # ---------------------------------------------------------------------------
@@ -146,6 +179,15 @@ class CalibrationResult:
     samples_per_iter: int
     points_budget: float
     notes: str = ""
+    # #90 — mobility covariates: report alongside the cost so post-hoc analysis
+    # can spot whether speed is systematically under- or over-rewarded.
+    move: float = 0.0
+    scout_distance: int = 0
+    deep_strike: bool = False
+    infiltrator: bool = False
+    # #88 — leader-attached calibration metadata (empty / 0 for normal mode)
+    host_key: str = ""
+    attached_mode: bool = False
 
 
 def find_balanced_points(
@@ -193,6 +235,13 @@ def find_balanced_points(
     baseline_profile = UNIT_CATALOG[resolved_baseline]
     starting = max(1.0, unit_profile.points_cost)
 
+    mobility_kwargs = dict(
+        move=unit_profile.move,
+        scout_distance=unit_profile.scout_distance,
+        deep_strike=unit_profile.deep_strike,
+        infiltrator=unit_profile.infiltrator,
+    )
+
     lo, hi = starting / 4.0, starting * 4.0
     current = starting
     last_direction = 0          # +1 = priced up last, -1 = priced down last
@@ -211,6 +260,7 @@ def find_balanced_points(
                 starting_points=starting, balanced_points=round(current, 2),
                 final_win_rate=wr, iterations=iters, converged=True,
                 samples_per_iter=n_battles, points_budget=points_budget,
+                **mobility_kwargs,
             )
 
         if wr > target_win_rate:
@@ -235,6 +285,98 @@ def find_balanced_points(
         final_win_rate=last_wr, iterations=iters, converged=False,
         samples_per_iter=n_battles, points_budget=points_budget,
         notes=f"did not converge to {target_win_rate}+/-{tolerance} in {max_iters} iters",
+        **mobility_kwargs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Leader-attached calibration (#88)
+# ---------------------------------------------------------------------------
+
+def find_balanced_leader_points(
+    leader_key: str,
+    host_key: Optional[str] = None,
+    target_win_rate: float = 0.5,
+    tolerance: float = 0.05,
+    n_battles: int = 200,
+    max_iters: int = 8,
+    points_budget: float = 1000.0,
+    rng: Optional[random.Random] = None,
+) -> CalibrationResult:
+    """
+    Bisect the leader's points-per-model so that an army of (host + leader)
+    pairs lands within `target_win_rate ± tolerance` against a baseline army of
+    the same host alone, at equal total points.
+
+    `host_key` defaults to a same-faction battleline picked by
+    `code.roles.pick_host_for_leader`. The host's own cost is held constant
+    across iterations; only the leader's `points_override` moves.
+
+    Returns the leader's balanced cost, plus mobility covariates and the
+    resolved host_key in the CalibrationResult.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    leader_profile = UNIT_CATALOG[leader_key]
+    if host_key is None:
+        host_key = pick_host_for_leader(leader_profile)
+    host_profile = UNIT_CATALOG[host_key]
+
+    mobility_kwargs = dict(
+        move=leader_profile.move,
+        scout_distance=leader_profile.scout_distance,
+        deep_strike=leader_profile.deep_strike,
+        infiltrator=leader_profile.infiltrator,
+        host_key=host_key,
+        attached_mode=True,
+    )
+
+    starting = max(1.0, leader_profile.points_cost)
+    lo, hi = starting / 4.0, starting * 4.0
+    current = starting
+    last_direction = 0
+    step_factor = 1.5
+    iters = 0
+    last_wr = 0.5
+
+    for iters in range(1, max_iters + 1):
+        tested_leader = replace(leader_profile, points_override=current)
+        wr = measure_win_rate_leader_attached(
+            tested_leader, host_profile, host_profile,
+            points_budget, n_battles, rng,
+        )
+        last_wr = wr
+
+        if abs(wr - target_win_rate) <= tolerance:
+            return CalibrationResult(
+                unit_key=leader_key, baseline_key=host_key,
+                starting_points=starting, balanced_points=round(current, 2),
+                final_win_rate=wr, iterations=iters, converged=True,
+                samples_per_iter=n_battles, points_budget=points_budget,
+                **mobility_kwargs,
+            )
+
+        if wr > target_win_rate:
+            lo = current
+            new_direction = +1
+            current = min(hi, current * step_factor)
+        else:
+            hi = current
+            new_direction = -1
+            current = max(lo, current / step_factor)
+
+        if last_direction != 0 and new_direction != last_direction:
+            step_factor = max(1.05, 1.0 + (step_factor - 1.0) / 2.0)
+        last_direction = new_direction
+
+    return CalibrationResult(
+        unit_key=leader_key, baseline_key=host_key,
+        starting_points=starting, balanced_points=round(current, 2),
+        final_win_rate=last_wr, iterations=iters, converged=False,
+        samples_per_iter=n_battles, points_budget=points_budget,
+        notes=f"did not converge to {target_win_rate}+/-{tolerance} in {max_iters} iters",
+        **mobility_kwargs,
     )
 
 
@@ -290,6 +432,17 @@ def main(argv: Optional[List[str]] = None) -> None:
                    help="With --all, cap how many units to calibrate (0 = no cap)")
     p.add_argument("--faction", type=str, default=None,
                    help="With --all, restrict to a single faction string")
+    p.add_argument("--leader-attached", action="store_true",
+                   help=(
+                       "Calibrate as an attached leader: bisect the leader's "
+                       "cost while it sits with a bodyguard host (--host KEY "
+                       "or auto-picked same-faction battleline)."
+                   ))
+    p.add_argument("--host", type=str, default=None,
+                   help=(
+                       "With --leader-attached, the bodyguard host's "
+                       "catalogue key. Defaults to a same-faction battleline."
+                   ))
     args = p.parse_args(argv)
 
     rng = random.Random(args.seed)
@@ -316,14 +469,24 @@ def main(argv: Optional[List[str]] = None) -> None:
     print(f"Calibrating {len(targets)} unit(s) against {label}\n")
     for i, key in enumerate(targets, 1):
         try:
-            r = find_balanced_points(
-                key, baseline_key=args.baseline,
-                tolerance=args.tolerance,
-                n_battles=args.battles,
-                max_iters=args.iters,
-                points_budget=args.budget,
-                rng=rng,
-            )
+            if args.leader_attached:
+                r = find_balanced_leader_points(
+                    key, host_key=args.host,
+                    tolerance=args.tolerance,
+                    n_battles=args.battles,
+                    max_iters=args.iters,
+                    points_budget=args.budget,
+                    rng=rng,
+                )
+            else:
+                r = find_balanced_points(
+                    key, baseline_key=args.baseline,
+                    tolerance=args.tolerance,
+                    n_battles=args.battles,
+                    max_iters=args.iters,
+                    points_budget=args.budget,
+                    rng=rng,
+                )
         except KeyError:
             print(f"  [{i}/{len(targets)}] {key} — MISSING from catalogue, skipping")
             continue

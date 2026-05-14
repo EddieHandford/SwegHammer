@@ -98,3 +98,40 @@ ROLE_BASELINES: Dict[str, str] = {
 def baseline_key_for(role: str) -> str:
     """Pick a sensible same-role baseline key. Defaults to Intercessor."""
     return ROLE_BASELINES.get(role, "space_marines_intercessor_squad")
+
+
+# ---------------------------------------------------------------------------
+# Host selection — used by the leader-attached calibration mode
+# ---------------------------------------------------------------------------
+
+def pick_host_for_leader(leader_profile: UnitProfile) -> str:
+    """
+    Pick a battleline host unit for the given leader so the leader's aura is
+    exercised in calibration. Preference order:
+
+      1. Cheapest same-faction non-CHARACTER unit with the INFANTRY keyword.
+      2. Cheapest same-faction non-CHARACTER unit of any kind.
+      3. The DUAL role baseline (Intercessor Squad).
+
+    Returns a UNIT_CATALOG key.
+    """
+    from .units import UNIT_CATALOG
+
+    faction = leader_profile.faction
+
+    def _is_character(p: UnitProfile) -> bool:
+        return "CHARACTER" in (p.unit_keywords or ())
+
+    same_faction = [
+        (k, p) for k, p in UNIT_CATALOG.items()
+        if p.faction == faction and not _is_character(p) and p.name != leader_profile.name
+    ]
+    infantry_hosts = [
+        (k, p) for k, p in same_faction
+        if "INFANTRY" in (p.unit_keywords or ())
+    ]
+    if infantry_hosts:
+        return min(infantry_hosts, key=lambda kp: kp[1].points_cost)[0]
+    if same_faction:
+        return min(same_faction, key=lambda kp: kp[1].points_cost)[0]
+    return ROLE_BASELINES["DUAL"]
