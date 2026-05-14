@@ -58,18 +58,10 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-/* ── Sidebar ─────────────────────────────────────────────── */
-[data-testid="stSidebar"] {
-    background-color: #13161c;
-    border-right: 1px solid #2a2d35;
-}
+/* ── Sidebar title accent ────────────────────────────────── */
 [data-testid="stSidebar"] .stMarkdown h1 {
     color: #c9a84c;
-    font-size: 1.5rem;
     letter-spacing: 0.05em;
-}
-[data-testid="stSidebar"] .stCaption {
-    color: #888;
 }
 
 /* ── Primary button (Run Simulation) ────────────────────── */
@@ -86,51 +78,20 @@ st.markdown("""
     color: #0e1117;
 }
 
-/* ── Metric cards ────────────────────────────────────────── */
+/* ── Metric cards — subtle border only, no bg override ───── */
 [data-testid="stMetric"] {
-    background-color: #1a1d23;
-    border: 1px solid #2a2d35;
+    border: 1px solid #3a3d45;
     border-radius: 8px;
-    padding: 0.6rem 0.8rem;
-}
-[data-testid="stMetricLabel"] {
-    color: #aaa;
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-[data-testid="stMetricValue"] {
-    color: #e8e8e8;
-    font-size: 1.4rem;
-    font-weight: 700;
-}
-[data-testid="stMetricDelta"] {
-    font-size: 0.78rem;
+    padding: 0.5rem 0.8rem;
 }
 
-/* ── Tabs ────────────────────────────────────────────────── */
-[data-testid="stTabs"] [role="tab"] {
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: #aaa;
-}
+/* ── Active tab accent ───────────────────────────────────── */
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
     color: #c9a84c;
     border-bottom-color: #c9a84c;
 }
 
-/* ── Dividers ────────────────────────────────────────────── */
-hr {
-    border-color: #2a2d35;
-}
-
-/* ── Dataframe ───────────────────────────────────────────── */
-[data-testid="stDataFrame"] {
-    border: 1px solid #2a2d35;
-    border-radius: 6px;
-}
-
-/* ── Progress bar ────────────────────────────────────────── */
+/* ── Progress bar fill ───────────────────────────────────── */
 [data-testid="stProgressBar"] > div {
     background-color: #c9a84c;
 }
