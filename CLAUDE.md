@@ -116,3 +116,40 @@ Example briefing block:
 If you need a unit that doesn't exist in BSData, add it as a fully-specified
 entry in `data/overrides.json` (all required fields). Do not edit
 `code/units.py` to add `UnitProfile(...)` entries — the catalogue is loader-built.
+
+## 10. Cite every rule. Don't invent.
+
+Any code that implements a 10e rule — a `Detachment` flag set True, a
+`LeaderAbility` field, a simulator gate that fires per a faction ability,
+a Stratagem effect — needs a matching entry in `data/rule_citations.json`.
+Format:
+
+```json
+{
+  "AWAKENED_DYNASTY.bonus_to_hit_when_led": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Command Protocols",
+    "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
+    "trigger": "attacker's unit is led by a friendly CHARACTER in aura range",
+    "effect": "+1 to the Hit roll",
+    "scope": "unit-led"
+  }
+}
+```
+
+Required fields per entry: `source` (Wahapedia URL or, if not on Wahapedia,
+the canonical free reference — Goonhammer datasheet readout, GW errata PDF),
+`rule_name`, `quoted_text` (verbatim, including the "While …" trigger half),
+`trigger`, `effect`, `scope` (one of `army-wide` / `unit-led` /
+`character-only` / `phase-gated` / `keyword-gated` / `weapon-keyword`).
+
+Key format: `<REGISTRY_NAME>.<field>` for detachment / leader / stratagem
+flags, or a plain dotted path for simulator-side gates
+(e.g. `simulator.big_guns_never_tire`).
+
+`scripts/audit_rules.py` enforces this. Run it before committing any change
+to `code/detachments.py`, `code/leaders.py`, `code/stratagems.py`, or the
+rule-bearing parts of `code/simulator.py` / `code/units.py`. If you can't
+find a Wahapedia / canonical citation for a rule, **stop and ask the user**.
+Don't approximate or invent — that's the failure mode that got Awakened
+Dynasty's rule wrong in the May 2026 calibration work.
