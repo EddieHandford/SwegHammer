@@ -8,25 +8,55 @@ just the unchecked items.
 
 ---
 
-## Session pin — 2026-05-13
+## Session pin — 2026-05-14
 
-**Last session ended at:** Phase B shipped — Streamlit "Watch a battle"
-replay tab with matplotlib scrub-through, three stock maps, LoS gating
-on obscuring terrain, terrain-aware cover, move-then-shoot sub-phase
-refactor, nearest-enemy movement targeting.
+**Last session ended at:** Charge / Melee / Battleshock / Objectives /
+Detachments (partial) / Strategy layer / Role classifier all shipped.
+Catalogue now sits at ~1294 units. Detachment scaffolding lives but
+only 2 of 10 modifier flags are wired into combat.
 
 **Best next pickup (pick one):**
 
-1. **Phase C — Pygame live demo.** Third button in the launcher, opens
-   a native window, animates one battle in real time by subscribing to
-   the existing event stream. Headless core already supports it; this
-   is just a new renderer.
-2. **Recalibrate cross-faction matchups.** Marines vs Orks and Marines
-   vs Terminators flag `[!] IMBALANCED` in the sweep. Regenerate
-   `BASELINE.md`, then tune. Phase-3 work in the original roadmap.
-3. **Investigate the ±10% mirror-match bias on symmetric terrain.**
-   May resolve once charge/melee phases land — depends on whether
-   that's worth doing alone.
+1. **Wire the remaining 8 detachment flags.** `reroll_hit_ones`,
+   `reroll_wound_ones`, `plus_one_to_hit`, `plus_one_to_wound`,
+   `plus_one_attack`, `plus_one_save`, `extra_invuln`, `ld_bonus`
+   parse and store but don't compose into `Unit.attack()` yet.
+2. **Phase E — Stratagems.** One-shot in-phase CP-priced effects.
+   Touches activation context + the existing detachment registry.
+3. **Recalibrate cross-faction matchups.** Marines vs Orks and Marines
+   vs Terminators still flag `[!] IMBALANCED` in `python run.py --cli`.
+   Run the balancer over the full catalogue and refresh
+   `data/calibrated_points.json`.
+4. **Investigate the ±10% mirror-match bias on symmetric terrain.**
+   Did not resolve once charge/melee landed; objective-contest jitter
+   plus movement-heuristic asymmetries are the most likely cause.
+
+---
+
+## Done since last sweep
+
+- `[x]` **Objective scoring + VP win condition** (Phase 0) — `Objective`
+  on `Map`, 5-objective quincunx on every stock map, end-of-round VP
+  scoring, win condition rewritten around Primary VP.
+- `[x]` **Charge phase** — declaration, 2d6 roll, move into 1"
+  engagement (`Battle._do_charge`).
+- `[x]` **Melee phase** — `melee_*` fields on `UnitProfile`,
+  `Unit.attack(..., mode="melee")`, `Battle._do_fight`, chargers first.
+- `[x]` **Battleshock** — Ld + OC on `UnitProfile`, 2d6 vs Ld from
+  Round 2 for units below half HP; battleshocked → OC 0 for scoring.
+- `[x]` **Role classifier** — `code/roles.py` labels each unit
+  SHOOTY / MELEE / DUAL / HORDE / HEAVY / SUPPORT; consumed by the
+  charge-desire heuristic and the strategy layer.
+- `[x]` **Strategy layer** — `code/strategy.py` picks HOLD / CAPTURE
+  / STEAL / ENGAGE / REPOSITION per activation; movement no longer
+  marches at the nearest enemy.
+- `[x]` **Weapon keywords + FNP** (Phase A2/A3) — Rapid Fire, Melta,
+  Ignores Cover, Anti-X, Heavy (parsed, not yet applied), Assault,
+  Torrent, Hazardous, Blast, Feel No Pain.
+- `[~]` **Detachment rules** (Phase D, partial) — scaffolding +
+  5 canonical detachments + 2 live effects (reanimate, enemy Ld
+  penalty). 8 of 10 modifier flags still parse but produce no in-game
+  effect; see Phase D follow-ups below.
 
 ---
 
@@ -36,20 +66,16 @@ refactor, nearest-enemy movement targeting.
 - `[E]` **Command phase** — add a `CommandPhase` step at activation
   start; move existing CP bonus logic out of `Battle._run_round`
   into it.
-- `[E]` **Movement phase** — objective-aware play, kiting when
-  outranged, segment-vs-impassable-terrain collision (currently only
-  the destination is checked, so units can tunnel through walls).
-- `[?]` **Movement phase** — Advance roll (`+d6`, no shooting) and
-  Fall Back logic.
-- `[?]` **Charge phase** — declaration, `2d6` roll, move into base
-  contact; "engaged in melee" flag that suppresses shooting next
-  turn.
-- `[?]` **Melee phase** — `attacks_melee` and `weapon_skill` on
-  `UnitProfile`; resolve units in fight-priority order
-  (chargers first).
-- `[?]` **Morale / battleshock** — `leadership` on `UnitProfile`;
-  decide between classic morale and 10e battleshock and document the
-  choice.
+- `[E]` **Movement phase** — segment-vs-impassable-terrain collision
+  (currently only the destination is checked, so units can tunnel
+  through walls). Fall Back logic still unimplemented (Advance is
+  done).
+
+### Detachments (Phase D follow-ups)
+- `[E]` **Wire the 8 unwired modifier flags** into `Unit.attack()`
+  composition: `reroll_hit_ones`, `reroll_wound_ones`,
+  `plus_one_to_hit`, `plus_one_to_wound`, `plus_one_attack`,
+  `plus_one_save`, `extra_invuln`, `ld_bonus`.
 
 ### Math / catalogue
 - `[E]` **Regenerate `BASELINE.md` catalogue table** — points columns
@@ -57,15 +83,10 @@ refactor, nearest-enemy movement targeting.
 - `[E]` **Recalibrate cross-faction matchups** — Marines vs Orks and
   Marines vs Terminators are flagged `[!] IMBALANCED` in the
   calibration sweep. Phase 3 work.
-- `[E]` **Mirror-match terrain bias** — terrain-symmetric maps now
-  sit at ±10% of 50/50 over 400 battles. The residual probably comes
-  from the focus-fire / movement heuristic on asymmetric kill-rate
-  pockets. Investigate once charge/melee phases land (they may change
-  the dynamics enough that this resolves itself).
-
-### Terrain
-- `[?]` **Objective markers** on `Map` (currently only deployment
-  zones).
+- `[E]` **Mirror-match terrain bias** — symmetric maps still sit at
+  ±10% of 50/50 over 400 battles after the charge/melee/objective
+  layers landed. Investigate the residual (objective-contest jitter
+  + movement-heuristic asymmetries are the most likely drivers).
 
 ---
 
@@ -87,19 +108,29 @@ refactor, nearest-enemy movement targeting.
 
 ---
 
-## Datasheet ingestion (Jake)
+## Datasheet ingestion (Jake) — v1 complete
 
-- `[J]` **Pick a source format** — Wahapedia CSV / JSON dump,
-  BattleScribe XML, or hand-rolled YAML.
-- `[J]` **Define a target schema** that maps cleanly onto
-  `UnitProfile`. Note: `UnitProfile` now has `strength`, `toughness`,
-  `move`, `range_inches` in addition to the original fields.
-- `[J]` **Build a loader** that yields `UnitProfile` instances, with
-  a round-trip test against a hand-coded expected unit (e.g.
-  Intercessor squad).
-- `[J]` **Multi-weapon flattening** — decide how units with multiple
-  weapons (bolter + chainsword) are represented: single averaged
-  profile vs. list of weapons resolved separately.
+All of the original pickup items shipped under Phase 1.6:
+
+- `[x]` **Source format** — BSData WH40k 10e (pinned to `v10.6.0`)
+- `[x]` **Target schema** — `MappedUnit` lowers to `UnitProfile`
+- `[x]` **Loader** — `code/bsdata/loader.py` merges
+  `parsed.json` + `data/overrides.json` at import time
+- `[x]` **Multi-weapon flattening** — best-legal-loadout optimiser
+  by expected damage through baseline Marine armour; alternates kept
+  on `MappedUnit.loadout`
+- `[x]` **Melee profile extraction** (Phase B follow-up) — 1261/1291
+  enabled units carry a usable melee profile
+- `[x]` **Audit tool** — `python -m code.bsdata.audit` flags
+  unmapped codices and stat drift between successive parses
+
+### Open follow-ups
+- `[J]` **Fall-back to melee weapons for ranged-less units** — ~30
+  units still flagged `enabled: false` because the mapper couldn't
+  resolve a melee profile either.
+- `[J]` **Per-squad vs per-model `health` aggregation** — currently
+  per-model wounds, but multi-model squads still emit per-model
+  damage downstream.
 
 ---
 

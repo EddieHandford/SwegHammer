@@ -102,8 +102,11 @@ for sanity-checking the model.
 \begin{itemize}[itemsep=2pt]
   \item \done Stochastic combat engine (\texttt{code/simulator.py}):
     roll-to-hit, AP-adjusted armour save, cover modifier, damage.
-  \item \done Unit catalogue (\texttt{code/units.py}) with $\sim$17 units
-    across Marines, Chaos, Orks and Tyranids.
+  \item \done Unit catalogue built from BSData WH40k 10e
+    (\texttt{v10.6.0}) via \texttt{code/bsdata/}, with $\sim$1294 units
+    across all major factions. Override layer in
+    \texttt{data/overrides.json}; calibrated point costs cached in
+    \texttt{data/calibrated\_points.json}.
   \item \done Unit-by-unit alternating activation
     (\texttt{Battle.\_run\_round}).
   \item \done Command-point bonus for the smaller army from Round 2.
@@ -158,13 +161,18 @@ on the line the unit traverses.
     \texttt{Unit}.
   \item \done \eddie\ Add \texttt{move: float} (inches) to
     \texttt{UnitProfile}.
-  \item \wip \eddie\ Implement \texttt{MovementPhase} -- first cut done
-    (each activation is a move-then-shoot sub-phase pair; movement
-    targets the \emph{nearest} enemy and clamps to map / aborts into
-    impassable terrain). Still missing: objective-aware play, kiting
-    when outranged, segment-vs-impassable-terrain collision (we only
-    check the destination).
-  \item \todo \either\ Advance roll ($+d6$) and Fall Back logic.
+  \item \done \eddie\ Implement \texttt{MovementPhase} -- move-then-shoot
+    sub-phase pair per activation. Targeting is now objective-aware via
+    \texttt{code/strategy.py} (HOLD / CAPTURE / STEAL / ENGAGE /
+    REPOSITION intents); units sitting on objectives stay put rather
+    than abandoning VP to chase the nearest enemy.
+  \item \done \either\ Advance roll ($+d6$, no shooting that turn)
+    implemented; range threshold is weapon range when engaging and
+    objective control radius when capturing. Fall Back still
+    unimplemented.
+  \item \todo \either\ Segment-vs-impassable-terrain collision (only
+    the destination is currently checked, so units can tunnel through
+    walls).
 \end{itemize}
 
 \subsection{Shooting phase}
@@ -229,10 +237,12 @@ $P(9'') = 10/36 \approx 28\%$, $P(12'') = 1/36 \approx 3\%$.
 
 \paragraph{To do}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \either\ Implement \texttt{ChargePhase} with declaration,
-    roll and move.
-  \item \todo \either\ Track an ``engaged in melee'' flag that
-    suppresses shooting next turn.
+  \item \done \either\ Implement \texttt{ChargePhase} with declaration,
+    $2d6$ roll and move-into-engagement ($1''$ of target). Lives in
+    \texttt{Battle.\_do\_charge}; gated by a charge-desire heuristic
+    so pure shooters don't suicide-charge out of range.
+  \item \done \either\ \texttt{\_charging\_this\_round} set tracked on
+    \texttt{Battle}; chargers fight first in the melee phase.
 \end{itemize}
 
 \subsection{Fight (melee) phase}
@@ -241,10 +251,16 @@ at \texttt{weapon\_skill}, then wound, save, damage as per shooting.
 
 \paragraph{To do}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \either\ Add \texttt{attacks\_melee: int} and
-    \texttt{weapon\_skill: float} to \texttt{UnitProfile}.
-  \item \todo \either\ Implement \texttt{MeleePhase}; resolve in
-    fight-priority order (chargers fight first).
+  \item \done \either\ \texttt{UnitProfile} now carries
+    \texttt{melee\_attacks}, \texttt{melee\_damage\_per\_shot},
+    \texttt{melee\_hit\_probability}, \texttt{melee\_strength},
+    \texttt{melee\_ap}, \texttt{melee\_weapon}. Mapper extracts
+    \texttt{typeName="Melee Weapons"} profiles and picks a best-legal
+    loadout; 1261 of 1291 units carry a usable melee profile.
+  \item \done \either\ \texttt{MeleePhase} (\texttt{Battle.\_do\_fight}):
+    any unit within $1.5''$ of an enemy strikes with its melee profile;
+    chargers fight first. \texttt{Unit.attack(\dots,\, mode="melee")}
+    switches the stat block.
 \end{itemize}
 
 \subsection{Morale / battleshock phase}
@@ -253,11 +269,14 @@ casualties or status effects.
 
 \paragraph{To do}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \either\ Add \texttt{leadership: int} to
-    \texttt{UnitProfile}.
-  \item \todo \either\ Decide between classic morale ($d6 + \text{losses}$
-    vs Ld) and 10th-edition battleshock; document the choice in
-    \texttt{THEORY.md}.
+  \item \done \either\ \texttt{UnitProfile} carries
+    \texttt{leadership} (Ld) and \texttt{oc} (Objective Control); both
+    are extracted by the mapper from the BSData unit profile.
+  \item \done \either\ 10e Battleshock implemented in the simulator:
+    from Round 2, any unit below half HP rolls $2d6$ vs Ld; a fail
+    leaves it Battleshocked for the round (OC drops to 0 for objective
+    scoring). Detachment \texttt{enemy\_ld\_penalty} composes into the
+    target.
 \end{itemize}
 
 % =========================================================================
@@ -293,7 +312,12 @@ polygons.
   \item \done \eddie\ \texttt{Terrain} dataclass (axis-aligned
     rectangles for now; polygon upgrade can wait).
   \item \done \eddie\ \texttt{Map} dataclass: board size, terrain list,
-    deployment-zone depth. Objective markers still todo.
+    deployment-zone depth, and objective markers. Every stock map
+    ships a 5-objective quincunx (centre $+$ four equidistant markers
+    $\sim$30\% in from each edge), matching the geometry of 10e Take
+    and Hold / Crucible / Tipping Point. \texttt{Objective} dataclass
+    in \texttt{code/map.py}: \texttt{(x, y, control\_radius=3'',
+    vp\_per\_round=5)}.
   \item \done \eddie\ \texttt{has\_line\_of\_sight(attacker, target)}
     on \texttt{Map}, Liang-Barsky parametric clipping over obscuring
     rectangles. Units inside obscuring terrain can still shoot out and
@@ -352,7 +376,10 @@ the visualisation therefore cannot affect calibration numbers.
     stream, paints frames live.
   \item \done \eddie\ Matplotlib static-frame renderer
     (\texttt{code/renderer.py}) reconstructing world state from the
-    event stream; feeds the Streamlit replay slider page.
+    event stream; feeds the Streamlit replay slider page. Renders
+    advance / charge / melee / objective events with directional
+    arrows, star bursts on hits, and gold rings around scoring
+    objective markers.
 \end{itemize}
 
 % =========================================================================
@@ -449,6 +476,38 @@ against target $(T, \mathrm{sv})$ and cover bonus $c \in \{0,1\}$:
     \sum_{a=1}^{6} \sum_{b=1}^{6} \mathbf{1}\!\left[a+b \geq d\right].
 \]
 
+\subsection{Primary VP scoring and win condition}
+At end of each round, for every objective $o$ on the map let
+$\mathrm{OC}^A_o, \mathrm{OC}^B_o$ be the total Objective Control of
+each side's alive units inside the objective's control radius
+(Battleshocked units contribute $\mathrm{OC} = 0$). The side with the
+strict majority banks $o.\text{vp\_per\_round}$ Primary VP that round.
+\[
+  \mathrm{VP}^A \mathrel{+}= \sum_{o \in O}
+    o.v \cdot \mathbf{1}\!\left[\mathrm{OC}^A_o > \mathrm{OC}^B_o\right],
+  \qquad
+  \mathrm{VP}^B \text{ symmetrically}.
+\]
+Win condition (replaces ``most surviving units''):
+\begin{enumerate}[itemsep=2pt]
+  \item One-sided wipe: if only one side has alive units, that side wins.
+  \item Else: higher Primary VP wins.
+  \item VP tie: higher remaining army points wins ($10\%$ margin else
+    draw).
+\end{enumerate}
+
+\subsection{Strategy layer}
+Movement targeting is no longer ``march at the nearest enemy''. The
+strategy layer (\texttt{code/strategy.py}) selects a $(\text{target\_pos},
+\text{intent})$ per activation from five intents: \textsc{Hold},
+\textsc{Capture}, \textsc{Steal}, \textsc{Engage}, \textsc{Reposition}.
+Objectives are scored by current control state (enemy-held $\times 3.5$
+to bias steals, uncontested $\times 2.5$, ours $\times 1.0$) and
+distance-weighted; role bias (\texttt{code/roles.py}, classifying units
+into \textsc{Shooty} / \textsc{Melee} / \textsc{Dual} / \textsc{Horde}
+/ \textsc{Heavy} / \textsc{Support}) tips ties towards holding when in
+range vs always-closing.
+
 % =========================================================================
 \section{Collaboration workflow}
 
@@ -478,9 +537,16 @@ Streamlit front end               & \eddie\ Eddie & v1 done \\
 \begin{itemize}[itemsep=2pt]
   \item Mirror-match calibration (Space Marine vs Space Marine) still
     sits at $50\% \pm 2\%$ over 1000 battles.
-  \item \texttt{python run.py} still runs end-to-end.
+    \textbf{Needs revising:} this threshold predates objective scoring,
+    Battleshock, the charge / melee phases, and the strategy layer.
+    The current combat model produces a residual mirror-match bias on
+    symmetric terrain (around $\pm 10\%$ over 400 battles) driven by
+    objective-contest jitter and movement-heuristic asymmetries. The
+    gate stands as ``no worse than the current baseline'' until the
+    threshold is renegotiated against the new combat model.
+  \item \texttt{python run.py --cli} still runs end-to-end (exit 0).
   \item The Streamlit app still launches and the preset battles still
-    produce charts.
+    produce charts and a watchable replay.
 \end{itemize}
 
 % =========================================================================

@@ -4,27 +4,41 @@
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 0 | ✅ Complete | Project setup, documentation, baseline definition |
+| Phase 0 | ✅ Complete | Objectives + VP-based win condition |
 | Phase 1 | ✅ Complete | Deterministic simulator, initial 18-unit hand-rolled catalogue |
 | Phase 1.5 | ✅ Complete | Stochastic damage, armour saves, AP, cover |
 | Phase 1.6 | ✅ Complete | BSData WH40k 10th-ed ingestion, override layer |
 | Phase 2 | 🔲 Active | Override tuning — repair mapper artefacts, balance the BSData catalogue |
 | Phase 3 | 🔲 Planned | Nonlinear cost surface fit |
 | Phase 4 | 🔲 Planned | Rule variant testing, edge cases |
+| Phase A2 / A3 | ✅ Complete | Ten weapon keywords + Feel No Pain |
+| Phase B | ✅ Complete | Charge + Fight (melee) phases |
+| Phase C | ✅ Complete | Battleshock + Ld/OC on UnitProfile |
+| Phase D | ✅ Partial | Detachment scaffolding + 2 live effects (8 flags still unwired) |
+| Phase E | 🔲 Planned | Stratagems |
+| Phase F | 🔲 Planned | Niche weapon / unit keywords |
+| Phase G | 🔲 Planned | Leader / character abilities |
 
 ---
 
-## Phase 0 — Foundation ✅
+## Phase 0 — Objectives + VP win condition ✅
 
-**Goal**: Establish the project structure, mathematical framework, and baseline unit definition.
+**Goal**: Move the simulator off "most surviving units wins" onto a 10e-flavoured
+Primary VP system.
 
-- [x] README.md — problem statement and rules overview
-- [x] THEORY.md — Lanchester derivations and nonlinearity analysis
-- [x] BASELINE.md — baseline unit definition and initial unit catalogue
-- [x] SIMULATION.md — simulator design documentation
-- [x] ROADMAP.md — this file
+- [x] `Objective` dataclass on `code/map.py` — `(x, y, control_radius=3", vp_per_round=5)`
+- [x] Every stock map ships a 5-objective quincunx (centre + four ~30% in from each corner)
+- [x] End-of-round Primary VP scoring — strict OC majority within control radius banks the marker
+- [x] Win condition: one-sided wipe → VP → remaining army points → draw (10% margin)
+- [x] `BattleResult.a_vp`, `b_vp`, `a_points_remaining`, `b_points_remaining` exposed for the dashboard
 
-**Deliverables**: All documentation files, agreed baseline (Space Marine with bolter, 15 pts).
+**Foundation docs** (delivered earlier, retained as living references):
+
+- README.md — problem statement and rules overview
+- THEORY.md — Lanchester derivations and nonlinearity analysis
+- BASELINE.md — baseline unit definition and initial unit catalogue
+- SIMULATION.md — simulator design documentation
+- ROADMAP.md — this file
 
 ---
 
@@ -128,6 +142,91 @@ profile directly), eliminating the 2nd-ed vehicle-mapping bugs.
 
 **Deliverables**: Final CP formula; aura tolerance band guidelines; recommended rule text for
 players.
+
+---
+
+## Phase A2 / A3 — Weapon keywords + Feel No Pain ✅
+
+**Goal**: Wire ten 10e weapon keywords plus FNP into the combat resolver.
+
+- [x] Mapper extracts: Rapid Fire N, Melta N, Ignores Cover, Anti-KEYWORD N+,
+      Heavy, Assault, Torrent, Hazardous, Blast
+- [x] `extract_unit_keywords()` scans `categoryLinks` for 10e tags (INFANTRY,
+      VEHICLE, MONSTER, CHARACTER, FLY, TITANIC, etc.)
+- [x] `extract_fnp()` sweeps profile + linked-rule text for "Feel No Pain N+"
+- [x] `Unit.attack()` applies the keywords; `Unit.receive_damage` rolls per-point FNP
+- [x] Heavy keyword parsed and stored — application deferred (needs a "did not
+      move this turn" flag, which the sim doesn't yet expose meaningfully)
+
+---
+
+## Phase B — Charge + Fight (melee) ✅
+
+**Goal**: Add the missing close-combat half of the game.
+
+- [x] Mapper picks a best-legal melee weapon alongside the best ranged
+- [x] `UnitProfile.melee_*` fields (attacks, damage, hit prob, strength, AP, weapon)
+- [x] `Unit.attack(target, distance, mode="ranged"|"melee")` switches stat block
+- [x] `Battle._do_charge` — declaration, 2d6 roll, move into 1" engagement
+- [x] `Battle._do_fight` — units within 1.5" of an enemy fight; chargers first
+- [x] Charge-desire heuristic: only charge when `melee_dpa >= max(ranged_dpa, 1.0)`
+- [x] 191 previously-disabled melee-only units reactivated (Hormagaunts, Berzerkers,
+      Bloodletters, Daemonettes, Skorpekh Destroyers, etc.)
+
+---
+
+## Phase C — Battleshock ✅
+
+**Goal**: 10e-flavoured morale check on wounded units.
+
+- [x] `UnitProfile` gains `leadership` (Ld) and `oc` (Objective Control)
+- [x] Mapper extracts both from the unit profile
+- [x] From Round 2, units below half HP roll 2d6 vs Ld
+- [x] Failed test → Battleshocked for the round → OC counts as 0 for objective scoring
+
+---
+
+## Phase D — Detachments ✅ partial
+
+**Goal**: Army-wide passive buffs (the always-on piece of a 10e detachment rule).
+
+- [x] `Detachment` dataclass with ten modifier flags
+- [x] Five canonical detachments registered (Gladius, Awakened Dynasty, Invasion
+      Fleet, WAAAGH! Tribe, Noble Lance)
+- [x] `DEFAULT_BY_FACTION` resolves a sensible default per primary faction
+- [x] `Army.detachment` slot + `resolve_detachment()`
+
+**Follow-ups (8-of-10-flag gap):** only `reanimate_per_round` and
+`enemy_ld_penalty` are wired into the simulator. The remaining eight flags
+(`reroll_hit_ones`, `reroll_wound_ones`, `plus_one_to_hit`, `plus_one_to_wound`,
+`plus_one_attack`, `plus_one_save`, `extra_invuln`, `ld_bonus`) parse and store
+but produce no in-game effect yet. Wiring needs to compose into the Phase A2/A3
+keyword path in `Unit.attack()`.
+
+---
+
+## Phase E — Stratagems 🔲 planned
+
+One-shot in-phase effects costing CP. Stub design: a `Stratagem` registry
+keyed on phase + faction + detachment, with a CP price and a callable that
+mutates the current activation's resolution context. Not yet started.
+
+---
+
+## Phase F — Niche keywords 🔲 planned
+
+The long tail of weapon and unit keywords that don't fall into the Phase A2/A3
+ten: Lethal Hits, Sustained Hits, Lance, Twin-Linked, Precision, Indirect Fire,
+Pistol, One Shot, etc. Mapper already stores raw keyword text on each weapon
+profile; the work is the combat-side implementation.
+
+---
+
+## Phase G — Leader / character abilities 🔲 planned
+
+Attachment to bodyguard units, ATTACHED → LEADER target redirection, aura
+buffs within a radius, Look Out Sir wound redirection. Depends on Phase F
+unit-keyword work (CHARACTER + INFANTRY + bodyguard-eligibility gating).
 
 ---
 
