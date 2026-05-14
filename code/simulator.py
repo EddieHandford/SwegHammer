@@ -409,6 +409,11 @@ class Battle:
                         u.current_health + det.reanimate_per_round,
                     )
 
+        # Leader auras: end-of-round heal_per_round from Apothecaries etc.
+        from .leaders import apply_round_end_healing
+        apply_round_end_healing(self.a)
+        apply_round_end_healing(self.b)
+
         if round_num > 1:
             self._award_cp(self.a, self.b)
             self._award_cp(self.b, self.a)

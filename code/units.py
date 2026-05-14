@@ -274,16 +274,20 @@ class Unit:
     def is_alive(self) -> bool:
         return self.current_health > 1e-9
 
-    def receive_damage(self, amount: float) -> None:
+    def receive_damage(self, amount: float, bonus_fnp: int = 7) -> None:
         """
         Apply damage. If this unit has Feel No Pain X+, each point of damage
         gets a d6 roll; on X+, it's ignored. Mortal wounds applied via this
         method also get FNP'd by default (matches 10e default behaviour).
+
+        `bonus_fnp` lets the caller pass in a transient FNP value from a
+        leader aura (lower of profile.fnp and bonus_fnp wins). 7 = no aura.
         """
-        if self.profile.fnp < 7 and amount > 0:
+        effective_fnp = min(self.profile.fnp, bonus_fnp)
+        if effective_fnp < 7 and amount > 0:
             survived = 0
             for _ in range(int(round(amount))):
-                if random.randint(1, 6) >= self.profile.fnp:
+                if random.randint(1, 6) >= effective_fnp:
                     continue   # ignored
                 survived += 1
             amount = survived + (amount - int(round(amount)))   # preserve fractional
@@ -317,21 +321,14 @@ class Unit:
         """
         p = self.profile
 
-        # ---- Detachment lookups (army-wide passive buffs) ------------------
-        # Attacker side: applies to this unit's hit/wound/attacks.
-        # Target side: applies to the defender's saves + invuln.
-        att_det = None
-        tgt_det = None
-        if self.army_ref is not None:
-            try:
-                att_det = self.army_ref.resolve_detachment()
-            except Exception:
-                att_det = None
-        if target.army_ref is not None:
-            try:
-                tgt_det = target.army_ref.resolve_detachment()
-            except Exception:
-                tgt_det = None
+        # ---- Buff lookups (detachment + in-range leader auras) -------------
+        # Attacker side: detachment passives + every in-range friendly leader
+        # whose aura covers this unit (re-rolls, +1 to hit/wound).
+        # Target side: detachment passives + leader auras covering the target
+        # (army-wide invuln, FNP). All composed via leaders.effective_buffs().
+        from .leaders import effective_buffs
+        att_buffs = effective_buffs(self)
+        tgt_buffs = effective_buffs(target)
 
         if mode == "melee" and p.melee_attacks > 0:
             # Substitute the melee stat block for this resolution
@@ -368,21 +365,20 @@ class Unit:
                 same_squad = 1
             n_attacks += same_squad // 5
 
-        # ---- Detachment: +N extra attacks per weapon ----
-        if att_det is not None and att_det.plus_one_attack:
-            n_attacks += int(att_det.plus_one_attack)
+        # ---- Buffs: +N extra attacks per weapon (detachment-only field) ----
+        if att_buffs["plus_one_attack"]:
+            n_attacks += int(att_buffs["plus_one_attack"])
 
         if hit_target is None:
             hit_target = _prob_to_target(p.hit_probability)
         wound_p = wound_probability(strength, target.profile.toughness)
         wound_target = _prob_to_target(wound_p)
 
-        # ---- Detachment: +1 to hit / +1 to wound (lower the d6 target, min 2) ----
-        if att_det is not None:
-            if att_det.plus_one_to_hit:
-                hit_target = max(2, hit_target - 1)
-            if att_det.plus_one_to_wound:
-                wound_target = max(2, wound_target - 1)
+        # ---- Buffs: +1 to hit / +1 to wound (lower the d6 target, min 2) ----
+        if att_buffs["plus_one_to_hit"]:
+            hit_target = max(2, hit_target - 1)
+        if att_buffs["plus_one_to_wound"]:
+            wound_target = max(2, wound_target - 1)
 
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
@@ -418,21 +414,21 @@ class Unit:
         )
         if target.in_cover and not ignore_cover and not precision_pierces_cover:
             save_after_ap = max(2, save_after_ap - 1)
-        # ---- Target's detachment: +1 to armour save (cap 2+) ----
-        if tgt_det is not None and tgt_det.plus_one_save:
+        # ---- Target's buffs: +1 to armour save (cap 2+) ----
+        if tgt_buffs["plus_one_save"]:
             save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
-        # ---- Target's detachment: army-wide invuln. Only overrides if better
+        # ---- Target's buffs: army-wide invuln. Only overrides if better
         # (lower number) than what the target already has. 7 = unset.
-        if tgt_det is not None and tgt_det.extra_invuln <= 6:
-            if tgt_det.extra_invuln < invuln:
-                invuln = tgt_det.extra_invuln
+        tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
+        if tgt_invuln_buff <= 6 and tgt_invuln_buff < invuln:
+            invuln = tgt_invuln_buff
         effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
         save_target = effective_save  # 7 = no save
 
-        # Re-roll flags from attacker's detachment.
-        att_reroll_hit_ones = bool(att_det and att_det.reroll_hit_ones)
-        att_reroll_wound_ones = bool(att_det and att_det.reroll_wound_ones)
+        # Re-roll flags from attacker's buffs.
+        att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
+        att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
 
         total_damage = 0.0
         for _ in range(n_attacks):
@@ -473,8 +469,9 @@ class Unit:
                 if not wound_succeeded:
                     continue
 
+                tgt_fnp_buff = int(tgt_buffs["fnp"])
                 if p.devastating_wounds and crit_wound:
-                    target.receive_damage(per_shot_dmg)
+                    target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
                     total_damage += per_shot_dmg
                     continue
 
@@ -482,7 +479,7 @@ class Unit:
                     sroll = random.randint(1, 6)
                     if sroll >= save_target:
                         continue   # saved
-                target.receive_damage(per_shot_dmg)
+                target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
                 total_damage += per_shot_dmg
 
         # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
