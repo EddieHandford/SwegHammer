@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import random
 import unittest
+from unittest.mock import patch
 
 from code.army import Army
 from code.detachments import (
-    DEFAULT_BY_FACTION, DETACHMENTS, Detachment, default_detachment_for_faction,
+    DEFAULT_BY_FACTION, DETACHMENTS, Detachment,
+    FACTION_DETACHMENTS,
+    _army_composition_signature,
+    _score_detachment_for_army,
+    default_detachment_for_faction,
+    pick_detachment_for_army,
 )
 from code.units import UnitProfile
 
@@ -25,12 +32,17 @@ _NEW_DETACHMENTS = (
     ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
     ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
     ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
-    ("plague_company",         "Death Guard",            "fnp",               5),
-    ("cult_of_magic",          "Thousand Sons",          "plus_one_to_wound", True),
+    # plague_company + cult_of_magic + oathband carry no passive flag
+    # right now. plague_company / cult_of_magic earlier values were
+    # uncited (CLAUDE.md §10); oathband's "army-wide re-roll hit 1s"
+    # approximated the Eye of the Ancestors rule that now lives in
+    # simulator.judgement_tokens, so the detachment-level reroll was
+    # removed to avoid double-stacking with the Judgement Tokens buff.
+    # All three will gain stratagem-level passives when #104 lands.
+    # Registry presence is still checked separately below.
     ("berzerker_warband",      "World Eaters",           "plus_one_to_hit",   True),
     ("daemonic_incursion",     "Chaos Daemons",          "plus_one_to_hit",   True),
     ("final_day",              "Genestealer Cults",      "reroll_hit_ones",   True),
-    ("oathband",               "Leagues of Votann",      "reroll_hit_ones",   True),
 )
 
 
@@ -88,7 +100,10 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
         army.add_unit(self._profile("Death Guard"))
         det = army.resolve_detachment()
         self.assertIsNotNone(det)
-        self.assertEqual(det.fnp, 5)
+        # Plague Company's fnp=5 was an uncited approximation, removed
+        # per CLAUDE.md §10. Re-introduce once real DG stratagem effects
+        # land in #103. For now, just verify the detachment resolves.
+        self.assertEqual(det.name, "Plague Company")
 
     def test_custodes_army_resolves(self):
         army = Army("Custodes")
@@ -103,6 +118,133 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
         army.add_unit(self._profile("T'au Empire"))
         det = army.resolve_detachment()
         self.assertIs(det, explicit)
+
+
+class CompositionSignatureTests(unittest.TestCase):
+    """Composition signature reads unit keywords + points spend."""
+
+    @staticmethod
+    def _make(name: str, keywords, points: float = 100.0) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=1, damage=1, hit_probability=0.5,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            unit_keywords=tuple(keywords),
+            points_override=points,
+        )
+
+    def test_composition_signature(self):
+        # All-vehicle army: vehicle_fraction == 1.0, infantry/monster == 0.
+        vehicle = self._make("Tank", ["VEHICLE"], points=200.0)
+        sig = _army_composition_signature([vehicle, vehicle, vehicle])
+        self.assertAlmostEqual(sig["vehicle_fraction"], 1.0)
+        self.assertAlmostEqual(sig["infantry_fraction"], 0.0)
+        self.assertAlmostEqual(sig["monster_fraction"], 0.0)
+        self.assertAlmostEqual(sig["character_fraction"], 0.0)
+
+    def test_mixed_signature_sums_correctly(self):
+        # 200pt vehicle + 100pt infantry + 100pt character (infantry too) →
+        # vehicle 0.5, infantry 0.5 (both non-vehicle infantry), char 0.25.
+        vehicle = self._make("Tank", ["VEHICLE"], points=200.0)
+        trooper = self._make("Trooper", ["INFANTRY"], points=100.0)
+        captain = self._make("Captain", ["INFANTRY", "CHARACTER"], points=100.0)
+        sig = _army_composition_signature([vehicle, trooper, captain])
+        self.assertAlmostEqual(sig["vehicle_fraction"], 0.5)
+        self.assertAlmostEqual(sig["infantry_fraction"], 0.5)
+        self.assertAlmostEqual(sig["character_fraction"], 0.25)
+
+    def test_empty_army_signature(self):
+        sig = _army_composition_signature([])
+        for k, v in sig.items():
+            self.assertEqual(v, 0.0, f"{k} should be 0 for empty army")
+
+
+class PickerSingleDetachmentTests(unittest.TestCase):
+    """Factions with one registered detachment always resolve to it."""
+
+    def test_picker_returns_unique_when_only_one(self):
+        # Necrons has only awakened_dynasty in FACTION_DETACHMENTS for now.
+        self.assertEqual(FACTION_DETACHMENTS["Necrons"], ("awakened_dynasty",))
+        rng = random.Random(42)
+        det = pick_detachment_for_army("Necrons", [], rng)
+        self.assertIsNotNone(det)
+        self.assertEqual(det.name, "Awakened Dynasty")
+
+    def test_picker_unmapped_faction_falls_back(self):
+        det = pick_detachment_for_army("Made-Up Faction", [], random.Random(0))
+        self.assertIsNone(det)
+
+
+class PickerCompositionPreferenceTests(unittest.TestCase):
+    """A two-detachment faction should prefer the comp-matching choice."""
+
+    @staticmethod
+    def _make(name: str, keywords, points: float = 200.0) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=1, damage=1, hit_probability=0.5,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            unit_keywords=tuple(keywords),
+            points_override=points,
+        )
+
+    def test_picker_prefers_matching_composition(self):
+        # Synthetic 2-detachment "Mockstodes" faction: a vehicle-tagged
+        # detachment and an infantry-tagged one. Patch FACTION_DETACHMENTS
+        # + DETACHMENTS so the picker sees them.
+        vehicle_det = Detachment(
+            name="Tank Brigade", faction="Mockstodes",
+            preferred_composition="vehicle",
+        )
+        infantry_det = Detachment(
+            name="Boot Company", faction="Mockstodes",
+            preferred_composition="infantry",
+        )
+
+        # High-vehicle army (one infantry unit added so the dominant check
+        # still resolves cleanly to "vehicle").
+        vehicle_unit = self._make("Battletank", ["VEHICLE"], points=400.0)
+        infantry_unit = self._make("Grunt", ["INFANTRY"], points=50.0)
+        army_units = [vehicle_unit, vehicle_unit, infantry_unit]
+
+        patched_factions = dict(FACTION_DETACHMENTS)
+        patched_factions["Mockstodes"] = ("mock_tanks", "mock_boots")
+        patched_dets = dict(DETACHMENTS)
+        patched_dets["mock_tanks"] = vehicle_det
+        patched_dets["mock_boots"] = infantry_det
+
+        with patch.dict(FACTION_DETACHMENTS, patched_factions, clear=True), \
+             patch.dict(DETACHMENTS, patched_dets, clear=True):
+            picks = []
+            for seed in range(100):
+                rng = random.Random(seed)
+                det = pick_detachment_for_army("Mockstodes", army_units, rng)
+                picks.append(det.name)
+
+        vehicle_pick_count = picks.count("Tank Brigade")
+        self.assertGreater(
+            vehicle_pick_count, 50,
+            f"High-vehicle army picked Tank Brigade {vehicle_pick_count}/100 "
+            "times — expected >50.",
+        )
+
+
+class ScoringTests(unittest.TestCase):
+    """Direct exercise of _score_detachment_for_army."""
+
+    def test_matching_pref_scores_higher(self):
+        veh_det = Detachment(name="V", faction="X", preferred_composition="vehicle")
+        inf_det = Detachment(name="I", faction="X", preferred_composition="infantry")
+        vehicle_comp = {
+            "vehicle_fraction": 1.0,
+            "infantry_fraction": 0.0,
+            "monster_fraction": 0.0,
+            "character_fraction": 0.0,
+        }
+        self.assertGreater(
+            _score_detachment_for_army(veh_det, vehicle_comp),
+            _score_detachment_for_army(inf_det, vehicle_comp),
+        )
 
 
 if __name__ == "__main__":

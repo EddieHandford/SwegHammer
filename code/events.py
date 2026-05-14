@@ -152,6 +152,37 @@ class UnitReanimated:
 
 
 @dataclass(frozen=True)
+class JudgementTokenAwarded:
+    """A Votann opponent (i.e. an enemy unit fighting the Leagues of Votann)
+    destroyed a Votann model and gained a Judgement Token.
+
+    Tokens accumulate on the killer's unit for the rest of the battle and
+    grant escalating re-roll buffs to subsequent Votann attacks against
+    that target — modelling the canonical Eye of the Ancestors rule. The
+    event is informational; the buff lookup is done live in `Unit.attack`
+    via `Army.judgement_tokens[target_uid]` so renderers can safely ignore
+    this event.
+    """
+    target_uid: str             # uid of the unit that just earned the token
+    total_tokens: int           # cumulative tokens on that target after this kill
+
+
+@dataclass(frozen=True)
+class StratagemFired:
+    """An army spent CP to activate a Stratagem.
+
+    The simulator emits this whenever Battle resolves an effect dispatch
+    (Command Re-Roll, Counter-Offensive, Tank Shock, Heroic Intervention,
+    or any detachment-specific stratagem added in #104). Renderers can
+    ignore it freely — it's primarily for the event-log replay and for
+    test assertions ("did our CP get spent?").
+    """
+    army_name: str
+    stratagem_name: str
+    cp_cost: int
+
+
+@dataclass(frozen=True)
 class BattleshockFailed:
     """A unit failed its Battleshock check this round and counts as OC 0."""
     unit_uid: str

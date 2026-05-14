@@ -1,0 +1,120 @@
+{
+  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus detachment-specific entries for Cult of Magic (Thousand Sons), Plague Company (Death Guard), and Battle Host (Aeldari). Additional detachments (Awakened Dynasty, Astartes, etc.) wire their stratagems in a follow-up task.",
+
+  "Stratagem.Command Re-Roll": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Command Re-Roll",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN YOU MAKE A HIT ROLL, A WOUND ROLL, A DAMAGE ROLL, A SAVING THROW, AN ADVANCE ROLL, A CHARGE ROLL, A BATTLE-SHOCK TEST OR A CONTROL TEST FOR YOU OR A FRIENDLY UNIT FROM YOUR ARMY: That roll is re-rolled. If a Charge roll, Advance roll, control test or Battle-shock test is being re-rolled, both of the dice are re-rolled.",
+    "trigger": "any phase, when a friendly unit makes a Hit/Wound/Damage/Save/Advance/Charge/Battle-shock/control roll",
+    "effect": "re-roll the failed roll (simulator currently exposes this only on a failed wound roll vs a HEAVY/SHOOTY/DUAL target — highest-value trigger, others covered by detachment re-roll passives)",
+    "scope": "army-wide"
+  },
+
+  "Stratagem.Counter-Offensive": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Counter-Offensive",
+    "quoted_text": "USE THIS STRATAGEM IN THE FIGHT PHASE, JUST AFTER AN ENEMY UNIT HAS FOUGHT. ONE FRIENDLY UNIT FROM YOUR ARMY THAT IS WITHIN ENGAGEMENT RANGE OF ONE OR MORE ENEMY UNITS CAN BE SELECTED TO FIGHT NEXT, EVEN IF IT HAS ALREADY FOUGHT THIS PHASE.",
+    "trigger": "fight phase, immediately after an enemy unit has fought",
+    "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations)",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Tank Shock": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Tank Shock",
+    "quoted_text": "USE THIS STRATAGEM IN THE CHARGE PHASE, WHEN A VEHICLE UNIT FROM YOUR ARMY ENDS A CHARGE MOVE. SELECT ONE ENEMY UNIT THAT IS WITHIN ENGAGEMENT RANGE OF THAT VEHICLE UNIT AND ROLL ONE D6, ADDING THE TOUGHNESS CHARACTERISTIC OF ONE MODEL FROM THAT VEHICLE UNIT TO THE RESULT: ON A 7+, THE ENEMY UNIT TAKES D3 MORTAL WOUNDS (TO A MAXIMUM OF 6 MORTAL WOUNDS).",
+    "trigger": "charge phase, when a friendly VEHICLE unit ends a charge move",
+    "effect": "the target enemy unit takes D3 mortal wounds (approximation: simulator skips the d6+T 7+ gate and applies median D3 = 2 mortal wounds deterministically; matches our other 'median D3' uses such as Reanimation Protocols)",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Heroic Intervention": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "rule_name": "Heroic Intervention",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S CHARGE PHASE, JUST AFTER AN ENEMY UNIT ENDS A CHARGE MOVE. ONE FRIENDLY CHARACTERS UNIT FROM YOUR ARMY THAT IS WITHIN 6\" OF THAT ENEMY UNIT AND WOULD BE ELIGIBLE TO DECLARE A CHARGE AGAINST IT IN YOUR NEXT CHARGE PHASE CAN PERFORM A HEROIC INTERVENTION. IF IT DOES, THAT FRIENDLY CHARACTERS UNIT CAN MAKE A NORMAL MOVE OF UP TO 3\", BUT IT MUST END THAT MOVE IN ENGAGEMENT RANGE OF THAT ENEMY UNIT.",
+    "trigger": "opponent's charge phase, just after an enemy unit ends a charge move within 6\" of a friendly CHARACTER unit",
+    "effect": "the friendly CHARACTER unit makes a free 3\" move and must end in engagement range of the charger (approximation: simulator aims the move 1\" short of the charger to land in melee; doesn't enforce the 'eligible to charge next phase' clause)",
+    "scope": "keyword-gated"
+  },
+
+  "Stratagem.Doombolt": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
+    "rule_name": "Doombolt (Cult of Magic Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE. ONE THOUSAND SONS PSYKER UNIT FROM YOUR ARMY CAN UNLEASH THE POWER OF DOOMBOLT. UNTIL THE END OF THE PHASE, ONE WEAPON IT IS EQUIPPED WITH HAS THE [DEVASTATING WOUNDS] ABILITY AND IMPROVES ITS WEAPON STRENGTH AND ARMOUR PENETRATION CHARACTERISTICS BY 1.",
+    "trigger": "shooting phase, when a friendly THOUSAND SONS PSYKER unit is about to make ranged attacks",
+    "effect": "approximation: simulator skips the weapon-stat tweaks and instead deals 2 mortal wounds (median D3) to the highest-threat enemy unit each round the stratagem fires — captures the per-Shooting-Phase 'crack off a Doombolt' cadence that was previously hard-wired as the made-up `psychic_mortal_wounds_per_round` field",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Twist of Fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
+    "rule_name": "Twist of Fate (Cult of Magic Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN A THOUSAND SONS UNIT FROM YOUR ARMY IS SELECTED TO SHOOT OR FIGHT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN THAT UNIT MAKES AN ATTACK, ADD 1 TO THE WOUND ROLL.",
+    "trigger": "shooting or fight phase, when a friendly THOUSAND SONS unit is selected to shoot or fight",
+    "effect": "approximation: simulator grants the unit a transient +1 to wound on attacks for the round (real rule is single-phase; we apply for the whole round to keep the stratagem dispatcher uniform with the others). Modeled as the unit's `transient_plus_one_to_wound_shooting` flag, applied at start of round when the AI greenlights the spend",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Glamour of Tzeentch": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
+    "rule_name": "Glamour of Tzeentch (Cult of Magic Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN A THOUSAND SONS UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, MODELS IN YOUR UNIT HAVE THE BENEFIT OF COVER AND EACH TIME A RANGED ATTACK TARGETS YOUR UNIT, SUBTRACT 1 FROM THE HIT ROLL.",
+    "trigger": "any phase, when a friendly THOUSAND SONS unit is the target of an attack",
+    "effect": "approximation: simulator grants the unit a transient 4+ invuln for the round (real rule layers cover + -1 to hit; we collapse to a 4++ as the equivalent defensive uplift, since our Unit.attack already routes both effects through save/invuln). Modeled as `transient_invuln_4` flag",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Disgustingly Resilient": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment",
+    "rule_name": "Disgustingly Resilient (Plague Company Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN A DEATH GUARD UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME AN ATTACK IS ALLOCATED TO A MODEL IN YOUR UNIT, SUBTRACT 1 FROM THE DAMAGE CHARACTERISTIC OF THAT ATTACK (TO A MINIMUM OF 1).",
+    "trigger": "any phase, when a friendly DEATH GUARD unit is the target of an attack",
+    "effect": "the unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1). Fires at start of round on a wounded DG unit when the AI greenlights the spend",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Plague Weapons": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment",
+    "rule_name": "Plague Weapons (Plague Company Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE OR THE FIGHT PHASE, WHEN A DEATH GUARD UNIT FROM YOUR ARMY IS SELECTED TO SHOOT OR FIGHT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES AN ATTACK WITH A PLAGUE WEAPON, ADD 1 TO THE WOUND ROLL.",
+    "trigger": "shooting phase, when a friendly DEATH GUARD unit is selected to shoot",
+    "effect": "the attacker's `transient_plus_one_to_wound_shooting` flag is set; for the round its ranged attacks gain +1 to the wound roll (real rule is Plague-Weapon-keyword-gated; we approximate by applying to all ranged attacks since BSData doesn't tag individual weapons as Plague). Effect kept distinct from Outbreak of Pestilence by splitting it shooting-only vs melee-only",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Outbreak of Pestilence": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment",
+    "rule_name": "Outbreak of Pestilence (Plague Company Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN THE FIGHT PHASE, WHEN A DEATH GUARD UNIT FROM YOUR ARMY IS SELECTED TO FIGHT. UNTIL THE END OF THE PHASE, MELEE WEAPONS EQUIPPED BY MODELS IN YOUR UNIT HAVE THE [ANTI-INFANTRY 4+] ABILITY.",
+    "trigger": "fight phase, when a friendly DEATH GUARD unit is selected to fight",
+    "effect": "approximation: simulator grants the unit a transient +1 to wound on melee attacks for the round (rather than implementing a one-shot Anti-INFANTRY 4+ via the existing anti_keywords machinery, since the stratagem's payload is round-scoped and the anti_keywords tuple is profile-immutable). Modeled as `transient_plus_one_to_wound_melee` flag",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Lightning-Fast Reactions": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
+    "rule_name": "Lightning-Fast Reactions (Battle Host Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES A SAVING THROW, ADD 1 TO THE ROLL.",
+    "trigger": "any phase, when a friendly AELDARI unit is the target of an attack",
+    "effect": "the unit's `transient_plus_one_save` flag is set; Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1 (capped at 2+). Fires at start of round on a vulnerable Aeldari unit when AI greenlights the spend",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Fire and Fade": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
+    "rule_name": "Fire and Fade (Battle Host Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, AFTER AN AELDARI UNIT FROM YOUR ARMY HAS SHOT. THAT UNIT CAN MAKE A NORMAL MOVE OF UP TO 6\". IT CANNOT END THAT MOVE WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS.",
+    "trigger": "shooting phase, after a friendly AELDARI unit has shot",
+    "effect": "approximation: a grid-free sim can't usefully model post-shoot 6\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Matchless Agility": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
+    "rule_name": "Matchless Agility (Battle Host Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR MOVEMENT PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED TO MAKE AN ADVANCE MOVE. DO NOT MAKE AN ADVANCE ROLL FOR THAT UNIT. INSTEAD, UNTIL THE END OF THE PHASE, ADD 6\" TO THE MOVE CHARACTERISTIC OF MODELS IN THAT UNIT.",
+    "trigger": "movement phase, when a friendly AELDARI unit is selected to make an Advance move",
+    "effect": "the unit's `transient_assault_this_round` flag is set; the move sub-phase treats the unit as having Assault weapons for the round (advance and still shoot) and the Heavy-keyword movement penalty is short-circuited. Fires at start of round when AI greenlights spend on an Aeldari shooter not already in range",
+    "scope": "phase-gated"
+  }
+}

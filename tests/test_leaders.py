@@ -8,8 +8,8 @@ import unittest
 from code.army import Army
 from code.detachments import Detachment
 from code.leaders import (
-    LeaderAbility, apply_round_end_healing, effective_buffs,
-    in_range_leaders, lookup_ability,
+    LeaderAbility, apply_round_end_healing, apply_round_end_revival,
+    effective_buffs, in_range_leaders, lookup_ability,
 )
 from code.units import Unit, UnitProfile
 
@@ -40,11 +40,21 @@ def _captain_profile() -> UnitProfile:
 
 
 def _apothecary_profile() -> UnitProfile:
-    """3" heal aura."""
+    """3" Narthecium aura — revive 1 destroyed friendly INFANTRY model / round."""
     return UnitProfile(
         name="Apothecary",
         health=4, damage=1, hit_probability=2 / 3,
         ap=0, save=3, strength=4, toughness=4,
+        unit_keywords=("INFANTRY", "CHARACTER"),
+    )
+
+
+def _dominus_profile() -> UnitProfile:
+    """Tech-Priest Dominus — still carries a heal_per_round aura (6" range)."""
+    return UnitProfile(
+        name="Tech-Priest Dominus",
+        health=7, damage=1, hit_probability=2 / 3,
+        ap=0, save=2, strength=4, toughness=6,
         unit_keywords=("INFANTRY", "CHARACTER"),
     )
 
@@ -83,9 +93,13 @@ class RegistryLookupTests(unittest.TestCase):
         self.assertTrue(ab.reroll_wound_ones)
 
     def test_apothecary(self):
+        # 10e Narthecium: revives a destroyed model in the led unit each
+        # Command Phase. SwegHammer maps this to `revive_destroyed_per_round`
+        # since multi-model squads are represented as N single-model Units.
         ab = lookup_ability("Apothecary")
         self.assertIsNotNone(ab)
-        self.assertGreaterEqual(ab.heal_per_round, 1)
+        self.assertGreaterEqual(ab.revive_destroyed_per_round, 1)
+        self.assertEqual(ab.heal_per_round, 0)
         self.assertEqual(ab.aura_range, 3.0)
 
     def test_unknown_returns_none(self):
@@ -97,17 +111,21 @@ class ExpandedRegistryTests(unittest.TestCase):
     """Phase: leader-registry expansion across major factions."""
 
     # Each tuple is (profile-name to look up, expected flag attribute).
+    # Some entries were flipped to defensive flags as part of the
+    # direction-wrong aura sweep — see citations file for codex-real text.
     NEW_LEADERS = (
         # Aeldari
         ("Farseer",                 "reroll_wound_ones"),
         ("Autarch",                 "plus_one_to_hit"),
         ("Avatar of Khaine",        "reroll_hit_ones"),
-        # T'au
-        ("Ethereal",                "reroll_wound_ones"),
+        # T'au — Ethereal Failure Is Not an Option grants FNP 5+ (defensive)
+        ("Ethereal",                "fnp"),
         ("Commander in XV85 Enforcer Battlesuit", "plus_one_to_hit"),
-        ("Cadre Fireblade",         "reroll_hit_ones"),
-        # Chaos Space Marines
-        ("Sorcerer",                "plus_one_to_wound"),
+        # Cadre Fireblade Volley Fire: +1 Attack to ranged weapons
+        ("Cadre Fireblade",         "plus_one_attack"),
+        # Chaos Space Marines — Sorcerer Prescience is -1 to Hit on attacks
+        # against the led unit; FNP 5+ is our defensive proxy.
+        ("Sorcerer",                "fnp"),
         ("Dark Apostle",            "reroll_hit_ones"),
         ("Chaos Lord",              "plus_one_to_wound"),
         # Adeptus Custodes
@@ -115,9 +133,10 @@ class ExpandedRegistryTests(unittest.TestCase):
         ("Trajann Valoris",         "plus_one_to_hit"),
         # Adeptus Mechanicus
         ("Tech-Priest Dominus",     "reroll_hit_ones"),
-        # Death Guard
+        # Death Guard — Typhus Destroyer Hive is -1 to Hit on melee against
+        # the led unit; FNP 5+ is our defensive proxy.
         ("Lord of Contagion",       "plus_one_to_wound"),
-        ("Typhus",                  "reroll_wound_ones"),
+        ("Typhus",                  "fnp"),
         # Grey Knights
         ("Brother-Captain",         "reroll_hit_ones"),
         ("Grand Master",            "plus_one_to_wound"),
@@ -248,39 +267,44 @@ class EffectiveBuffsTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class HealTests(unittest.TestCase):
+    """Heal-per-round aura — exercised via Tech-Priest Dominus (6" aura).
 
-    def test_apothecary_heals_nearby_wounded(self):
-        # Grunt at 1HP, Apothecary 2" away (within 3" aura). After one
+    Apothecary's old heal-per-round was reclassified as a revive aura
+    (Narthecium) — see ReviveTests below.
+    """
+
+    def test_dominus_heals_nearby_wounded(self):
+        # Grunt at 1HP, Dominus 4" away (within 6" aura). After one
         # round-end heal, grunt should have 2HP.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _apothecary_profile()],
-            [(0.0, 0.0), (2.0, 0.0)],
+            [_grunt_profile(), _dominus_profile()],
+            [(0.0, 0.0), (4.0, 0.0)],
         )
         army.units[0].current_health = 1.0
         apply_round_end_healing(army)
         self.assertEqual(army.units[0].current_health, 2.0)
 
     def test_heal_capped_at_max_hp(self):
-        # Full-HP grunt next to Apothecary: no healing happens, leader self-heals
+        # Full-HP grunt next to Dominus: no healing happens, leader self-heals
         # only if wounded itself. Both at full HP -> no-op.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _apothecary_profile()],
-            [(0.0, 0.0), (2.0, 0.0)],
+            [_grunt_profile(), _dominus_profile()],
+            [(0.0, 0.0), (4.0, 0.0)],
         )
         # All at full health; verify nothing exceeds max.
         apply_round_end_healing(army)
         self.assertEqual(army.units[0].current_health, 2.0)
-        self.assertEqual(army.units[1].current_health, 4.0)
+        self.assertEqual(army.units[1].current_health, 7.0)
 
     def test_heal_out_of_range_no_effect(self):
-        # Grunt at 1HP but 6" from Apothecary (outside 3" aura). Apothecary
+        # Grunt at 1HP but 10" from Dominus (outside 6" aura). Dominus
         # itself is full HP. No healing.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _apothecary_profile()],
-            [(0.0, 0.0), (6.0, 0.0)],
+            [_grunt_profile(), _dominus_profile()],
+            [(0.0, 0.0), (10.0, 0.0)],
         )
         army.units[0].current_health = 1.0
         apply_round_end_healing(army)
@@ -333,6 +357,128 @@ class AuraAttackEffectTests(unittest.TestCase):
         # reroll-1s on a 4+ hit lifts hit chance from 3/6 -> ~3.5/6.
         # Margin should be visible at n=600 trials.
         self.assertGreater(total_with, total_no)
+
+
+# ---------------------------------------------------------------------------
+# Direction-corrected aura sweep — leader rewrites to match codex effects
+# ---------------------------------------------------------------------------
+
+class ApothecaryReviveTests(unittest.TestCase):
+    """Apothecary Narthecium: return a destroyed friendly INFANTRY model
+    to play each round end (proxy for the Command-phase return-a-model rule)."""
+
+    def test_revive_brings_dead_infantry_back(self):
+        # Two grunts + Apothecary. Kill one grunt; one revival call should
+        # restore the destroyed grunt to full HP.
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), _grunt_profile(), _apothecary_profile()],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        army.units[0].current_health = 0.0   # destroyed
+        apply_round_end_revival(army)
+        self.assertEqual(army.units[0].current_health, 2.0)
+        self.assertTrue(army.units[0].is_alive)
+
+    def test_revive_skips_characters(self):
+        # Captain (CHARACTER) is destroyed — Narthecium MUST NOT revive
+        # characters per codex ("excluding CHARACTER models"). The Apothecary
+        # also can't revive itself.
+        army = _make_army(
+            "Side",
+            [_captain_profile(), _apothecary_profile()],
+            [(0.0, 0.0), (1.0, 0.0)],
+        )
+        army.units[0].current_health = 0.0   # destroyed Captain
+        apply_round_end_revival(army)
+        self.assertEqual(army.units[0].current_health, 0.0)
+
+
+class LibrarianDefensiveFlipTests(unittest.TestCase):
+    """Librarian: real Mental Fortress is DEFENSIVE (FNP / invuln).
+    The registry now grants fnp=5 to nearby friendlies and DOES NOT grant
+    the old (wrong-direction) +1-to-wound offensive aura."""
+
+    def _librarian_profile(self) -> UnitProfile:
+        return UnitProfile(
+            name="Librarian",
+            health=4, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
+    def test_librarian_grants_fnp(self):
+        ab = lookup_ability("Librarian")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.fnp, 5)
+        self.assertFalse(ab.plus_one_to_wound)
+
+    def test_librarian_aura_applies_fnp_in_range(self):
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), self._librarian_profile()],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertEqual(buffs["fnp"], 5)
+        self.assertFalse(buffs["plus_one_to_wound"])
+
+
+class WarbossHitNotWoundTests(unittest.TestCase):
+    """Warboss Might is Right: +1 to the Hit roll on melee — NOT +1 wound."""
+
+    def _warboss_profile(self) -> UnitProfile:
+        return UnitProfile(
+            name="Warboss",
+            health=6, damage=2, hit_probability=2 / 3,
+            ap=-1, save=4, strength=7, toughness=6,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
+    def test_warboss_grants_plus_one_hit_not_wound(self):
+        ab = lookup_ability("Warboss")
+        self.assertIsNotNone(ab)
+        self.assertTrue(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+
+    def test_warboss_aura_lifts_hit(self):
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), self._warboss_profile()],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertTrue(buffs["plus_one_to_hit"])
+        self.assertFalse(buffs["plus_one_to_wound"])
+
+
+class CadreFirebladeAttackTests(unittest.TestCase):
+    """Cadre Fireblade Volley Fire: +1 Attack to ranged weapons in the led unit."""
+
+    def _fireblade_profile(self) -> UnitProfile:
+        return UnitProfile(
+            name="Cadre Fireblade",
+            health=4, damage=1, hit_probability=2 / 3,
+            ap=0, save=4, strength=4, toughness=3,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
+    def test_fireblade_grants_plus_one_attack(self):
+        ab = lookup_ability("Cadre Fireblade")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.plus_one_attack, 1)
+        self.assertFalse(ab.reroll_hit_ones)
+
+    def test_fireblade_aura_stacks_attacks(self):
+        # +1-attack from leader should appear in the merged buff dict and
+        # additively stack with any detachment plus_one_attack.
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), self._fireblade_profile()],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertEqual(buffs["plus_one_attack"], 1)
 
 
 if __name__ == "__main__":

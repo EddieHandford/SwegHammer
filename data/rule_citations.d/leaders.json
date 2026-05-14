@@ -1,0 +1,282 @@
+{
+  "_comment": "Citations for every LeaderAbility entry in code/leaders.py _REGISTRY. Many of our LeaderAbility.name fields are flavour labels that do NOT match the codex — where they differ, rule_name reflects the actual 10e datasheet ability and effect tags '(approximation)' where the simulator's always-on flag is a loose translation of the real rule. Sources: Wahapedia 10e datasheets (https://wahapedia.ru/wh40k10ed/).",
+
+  "LeaderAbility.Rites of Battle": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
+    "rule_name": "Rites of Battle",
+    "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by a Space Marines Captain in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Rites of Battle is a once-per-round CP discount on a Stratagem, which the simulator does not model — the always-on reroll-1s is a loose offensive-aura proxy)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Spiritual Leader": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Chaplain",
+    "rule_name": "Spiritual Leader",
+    "quoted_text": "Once per battle, at the start of any phase, you can select one friendly ADEPTUS ASTARTES unit that is Battle-shocked and within 12\" of this model. That unit is no longer Battle-shocked.",
+    "trigger": "attacker's unit is led by a Chaplain in aura range",
+    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Spiritual Leader removes Battle-shocked once per battle, which the simulator does not model — the always-on reroll-1s-to-wound is a flavour proxy for the Chaplain's litany-style offensive buff)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Narthecium": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Apothecary",
+    "rule_name": "Narthecium",
+    "quoted_text": "While this model is leading a unit, in your Command phase, you can return 1 destroyed model (excluding CHARACTER models) to that unit.",
+    "trigger": "Apothecary in aura range of destroyed friendly INFANTRY at each round end (simulator round-end revival step)",
+    "effect": "revive 1 destroyed friendly INFANTRY model (non-CHARACTER) per round at full HP, preferring models from a profile whose live peers are inside the 3\" aura. Faithful match to the codex's return-a-model effect — SwegHammer models multi-model squads as N single-model Units, so the codex's 'return 1 destroyed model to the led unit' lands as 'reset a dead Unit's current_health to max'. Triggered at round end rather than Command phase because the simulator has no separate Command sub-phase.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Mental Fortress": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Librarian",
+    "rule_name": "Psychic Hood / Mental Fortress",
+    "quoted_text": "Psychic Hood: While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks. Mental Fortress (Psychic): While this model is leading a unit, models in that unit have a 4+ invulnerable save.",
+    "trigger": "defender's unit is led by a Librarian in aura range",
+    "effect": "FNP 5+ in aura range (defensive proxy; the real Librarian rules grant FNP 4+ against PSYCHIC attacks plus a 4+ invuln from Mental Fortress. SwegHammer does not tag attacks as psychic or distinguish invuln-vs-armour for an aura-granted save, so we proxy the defensive bundle as army-wide FNP 5+ — a strictly weaker, direction-correct stand-in. Both halves of the codex effect are defensive, matching the FNP direction.)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Beacon of Faith": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Canoness",
+    "rule_name": "Sacred Command",
+    "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by a Canoness in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Sacred Command is a once-per-round Stratagem CP discount, which the simulator does not model — our 'Beacon of Faith' is invented label for a reroll-1s offensive proxy)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.My Will Be Done": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Overlord",
+    "rule_name": "My Will Be Done",
+    "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by a Necron Overlord in aura range",
+    "effect": "+1 to Hit in aura range (approximation; the real 10e 'My Will Be Done' is a Stratagem CP discount — the +1-to-hit aura is a holdover from prior editions / a loose offensive-character proxy)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Chronometron": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Chronomancer",
+    "rule_name": "Chronometron",
+    "quoted_text": "In your Shooting phase, after this model's unit has shot, if it is not within Engagement Range of any enemy units, that unit can make a Normal move of up to 5\" as if it were your Movement phase. If it does, until the end of the turn, that unit is not eligible to declare a charge.",
+    "trigger": "defender's unit is led by a Chronomancer in aura range",
+    "effect": "FNP 5+ in aura range (approximation; the real Chronometron is a post-shoot 5\" reposition, not a damage-mitigation save — the simulator does not model movement-style triggers, so we proxy the 'time-bending defensive flavour' as Feel No Pain 5+)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Harbinger of Destruction": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Plasmancer",
+    "rule_name": "Harbinger of Destruction",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes a ranged attack, a successful unmodified Hit roll of 5+ scores a Critical Hit.",
+    "trigger": "attacker's unit is led by a Plasmancer in aura range",
+    "effect": "FNP 5+ in aura range (approximation; the real Harbinger of Destruction lowers the Critical Hit threshold to 5+ on ranged attacks — the simulator does not model crit-threshold modifiers, so the registry currently mis-buckets this as a defensive FNP aura. Flagged for replacement once crit-hit support lands.)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Canoptek Cloak": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Technomancer",
+    "rule_name": "Rites of Reanimation",
+    "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
+    "trigger": "defender's unit is led by a Technomancer in aura range",
+    "effect": "FNP 5+ in aura range (faithful match — our LeaderAbility.name 'Canoptek Cloak' is a flavour label for the codex ability 'Rites of Reanimation')",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Might is Right": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/Warboss",
+    "rule_name": "Might is Right",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+    "trigger": "attacker's unit is led by an Ork Warboss in aura range",
+    "effect": "+1 to the Hit roll in aura range. The codex restricts the buff to melee attacks; SwegHammer's leader registry does not yet distinguish melee from ranged when applying offensive auras, so the implementation grants +1-to-hit on all attacks for in-aura units. Strictly stronger than the codex's melee-only effect by the ranged-attack share — known overshoot but direction-correct.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Synaptic Imperative": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/Hive-Tyrant",
+    "rule_name": "Onslaught",
+    "quoted_text": "While a friendly TYRANIDS unit is within 6\" of this model, ranged weapons equipped by models in that unit have the [ASSAULT] and [LETHAL HITS] abilities.",
+    "trigger": "attacker's unit is a Tyranids friendly within 6\" of a Hive Tyrant (Hive Tyrant is a Monster, not a formal attached leader)",
+    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Onslaught grants ASSAULT and LETHAL HITS to ranged weapons in aura. The simulator does not model the LETHAL HITS keyword on weapons, so reroll-wound-1s stands in as a loose offensive-aura proxy)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Runes of Fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Farseer",
+    "rule_name": "Branching Fates",
+    "quoted_text": "While this model is leading a unit, once per phase, you can change the result of one Hit roll, one Wound roll or one Damage roll made for a model in that unit (excluding SUPPORT WEAPON models) to an unmodified 6.",
+    "trigger": "attacker's unit is led by a Farseer in aura range",
+    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Branching Fates lets you fix one roll per phase to an unmodified 6, which the simulator does not model — reroll-1s is a loose stand-in for the Farseer's prescient dice-manipulation flavour)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Path of Command": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Autarch",
+    "rule_name": "Path of Command",
+    "quoted_text": "Once per battle round, one model from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that usage of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by an Autarch in aura range",
+    "effect": "+1 to Hit in aura range (approximation; the real Path of Command is a once-per-round Stratagem CP discount, which the simulator does not model — the +1-to-hit aura is a flavour proxy for the Autarch as offensive battlefield commander)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Avatar's Fury": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Avatar-of-Khaine",
+    "rule_name": "The Bloody-Handed",
+    "quoted_text": "While a friendly AELDARI unit is within 6\" of this model, add 1 to Advance and Charge rolls made for that unit.",
+    "trigger": "any friendly Aeldari unit is within 6\" of the Avatar of Khaine (Monster, no formal leader attachment)",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the codex grants +1 to Advance and Charge rolls — a movement-phase buff. SwegHammer's Charge resolution is 2D6 vs distance with no leader-modifier hook, and Advance is not modelled. Adding a +1-to-charge mechanic is deferred until charge resolution is rewritten to consume leader buffs; until then, reroll-1s-to-hit stands in as a loose offensive proxy for the Avatar's aggressive aura. Known limitation: wrong buff TYPE — direction-correct but mechanically unrelated.)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Failure Is Not an Option": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Ethereal",
+    "rule_name": "Failure Is Not an Option",
+    "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
+    "trigger": "defender's unit is led by an Ethereal in aura range",
+    "effect": "FNP 5+ in aura range (faithful match — the codex grants Feel No Pain 5+ to the led unit; the simulator implements this as fnp=5 on the LeaderAbility, which Unit.attack consumes via the target buffs' fnp field). Direction-correct defensive aura.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Coordinated Fire Plan": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Commander-In-Coldstar-Battlesuit",
+    "rule_name": "Coldstar Commander (Aura)",
+    "quoted_text": "While this model is leading a unit, models in that unit have a Move characteristic of 12\" and ranged weapons equipped by models in that unit have the [ASSAULT] ability.",
+    "trigger": "attacker's unit is led by a T'au Commander in aura range (Coldstar variant cited as canonical example; sister Commander variants — Enforcer, Crisis — have differently-named auras)",
+    "effect": "+1 to Hit in aura range (approximation; the Coldstar Commander grants 12\" Move and the ASSAULT keyword to ranged weapons in the led unit, not a Hit-roll bonus. The simulator does not model movement boosts or ASSAULT, so +1-to-hit is a loose offensive-Commander proxy)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Volley Fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Cadre-Fireblade",
+    "rule_name": "Volley Fire",
+    "quoted_text": "While this model is leading a unit, add 1 to the Attacks characteristic of ranged weapons equipped by models in that unit.",
+    "trigger": "attacker's unit is led by a Cadre Fireblade in aura range",
+    "effect": "+1 to the Attacks characteristic in aura range, implemented via the leader-aura plus_one_attack field (additively merged with detachment plus_one_attack in Unit.attack's n_attacks computation). The codex limits this to ranged weapons; SwegHammer's leader buff layer does not yet distinguish melee from ranged attacks, so the implementation grants +1 attack to all weapons of in-aura units. Strictly stronger than the codex's ranged-only effect by the melee-attack share — known overshoot but direction-correct.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Prescience": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Sorcerer",
+    "rule_name": "Prescience",
+    "quoted_text": "While this model is leading a unit, each time an attack targets that unit, subtract 1 from the Hit roll.",
+    "trigger": "defender's unit is led by a Chaos Sorcerer in aura range",
+    "effect": "FNP 5+ in aura range (defensive proxy; the real Prescience subtracts 1 from Hit rolls against the led unit — a DEFENSIVE -1-to-hit aura. SwegHammer's leader-aura layer does not yet expose a target-side -1-to-hit modifier without rewriting the attacker's hit_target computation, so we proxy the defensive direction as FNP 5+. Direction-correct (defensive). Our generic 'Sorcerer' key is a substring match — multiple Sorcerer datasheets exist; foot Sorcerer cited as canonical.)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Profane Litanies": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Dark-Apostle",
+    "rule_name": "Dark Zealotry",
+    "quoted_text": "While this unit is leading a unit and contains a DARK APOSTLE model, each time a model in that unit makes a melee attack, add 1 to the Wound roll.",
+    "trigger": "attacker's unit is led by a Dark Apostle in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Dark Zealotry is +1 to the Wound roll on melee attacks. The simulator's reroll-1s-to-hit is a weaker offensive proxy; flagged for swap to plus_one_to_wound on melee once the registry distinguishes melee from ranged)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Lord of Hosts": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Chaos-Lord",
+    "rule_name": "Lord of Chaos",
+    "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by a Chaos Lord in aura range",
+    "effect": "+1 to Wound in aura range (approximation; the real Lord of Chaos is a once-per-round Stratagem CP discount, which the simulator does not model — +1-to-wound is a flavour proxy for the Chaos Lord as offensive melee commander)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Stoic Vigil": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-captain",
+    "rule_name": "Master of the Stances / Strategic Mastery",
+    "quoted_text": "Master of the Stances: Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit, instead of only one. Strategic Mastery: Once per battle round, you can select one model from your army with this ability. That model's unit can be targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by a Shield-Captain in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Shield-Captain offers Ka'tah-stance flexibility and a Stratagem CP discount, neither of which the simulator models. The reroll-1s-to-hit aura is a flavour proxy for Custodes offensive precision)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Auric Sage": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris",
+    "rule_name": "Captain-General",
+    "quoted_text": "While this model is leading a unit, each time a model in this unit makes an attack, you can ignore any or all modifiers to that attack's Ballistic skill or Weapon skill characteristics and/or all modifiers to the Hit roll.",
+    "trigger": "attacker's unit is led by Trajann Valoris in aura range",
+    "effect": "+1 to Hit in aura range (approximation; the real Captain-General ability lets the led unit ignore all to-hit modifiers — typically a -1-to-hit cancellation. The simulator does not model modifier-cancelling, so +1-to-hit is an upper-bound flavour proxy)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Master of the Machine": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Tech-priest-Dominus",
+    "rule_name": "Lord of the Machine Cult",
+    "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability. If that unit has the ELECTRO-PRIESTS keyword, models in that unit have the Feel No Pain 4+ ability instead.",
+    "trigger": "attacker's unit is led by a Tech-Priest Dominus in aura range",
+    "effect": "re-roll Hit rolls of 1 AND restore 1 wound to the most-wounded friendly each round-end (approximation; the real Lord of the Machine Cult grants Feel No Pain 5+ — a DEFENSIVE buff, plus the unit's heal flavour comes from the Dominus's general AdMech repair role rather than this specific ability. Simulator currently mis-buckets the FNP as offensive reroll-1s; flagged for fnp=5 swap)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Plague-Ridden Champion": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/Lord-of-Contagion",
+    "rule_name": "Vector of Disease",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] and [LANCE] abilities.",
+    "trigger": "attacker's unit is led by a Lord of Contagion in aura range",
+    "effect": "+1 to Wound in aura range (approximation; the real Vector of Disease grants SUSTAINED HITS 1 and LANCE to the led unit's melee weapons. The simulator does not model SUSTAINED HITS or LANCE weapon keywords, so +1-to-wound is a flavour proxy for the melee-offensive boost)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.The Destroyer Hive": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/Typhus",
+    "rule_name": "The Destroyer Hive",
+    "quoted_text": "While this model is leading a unit, each time a melee attack targets that unit, subtract 1 from the Hit roll.",
+    "trigger": "defender's unit is led by Typhus in aura range",
+    "effect": "FNP 5+ in aura range (defensive proxy; the real Destroyer Hive subtracts 1 from Hit rolls on melee attacks against the led unit. SwegHammer's leader-aura layer does not yet expose a melee-only -1-to-hit modifier on the target side, so we proxy the defensive bundle as FNP 5+ — strictly weaker on melee-heavy match-ups but direction-correct. Once a target-side -1-to-hit-melee mechanic lands, swap fnp=5 → hit_penalty_melee=1.)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.First to the Fray": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/grey-knights/Brother-captain",
+    "rule_name": "Hammerhand (Psychic)",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [LETHAL HITS] ability.",
+    "trigger": "attacker's unit is led by a Grey Knights Brother-Captain in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Hammerhand grants LETHAL HITS to the led unit's melee weapons. The simulator does not model LETHAL HITS, so reroll-1s-to-hit is a flavour proxy for the Grey Knights' precision-strike role)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Tactical Acumen": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/grey-knights/Grand-Master",
+    "rule_name": "Warrior Strategist",
+    "quoted_text": "Once per battle round, one model from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
+    "trigger": "attacker's unit is led by a Grand Master in aura range",
+    "effect": "+1 to Wound in aura range (approximation; the real Warrior Strategist is a once-per-round Stratagem CP discount, which the simulator does not model. The +1-to-wound aura is a flavour proxy for the Grand Master as senior battle commander)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Overlord of Commorragh": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Archon",
+    "rule_name": "Hatred Eternal (Pain)",
+    "quoted_text": "In your Shooting phase or the Fight phase, when you select this model's unit to shoot or fight, you can spend 1 Pain token to Empower that unit. While that unit is Empowered, each time a model in that unit makes an attack, you can re-roll the Hit roll.",
+    "trigger": "attacker's unit is led by a Drukhari Archon in aura range",
+    "effect": "+1 to Hit in aura range (approximation; the real Hatred Eternal grants full Hit-roll re-rolls when 1 Pain token is spent to Empower the unit. The simulator does not model Pain tokens or the Empowered state, so +1-to-hit is a stronger-than-1s-only but weaker-than-full-rerolls proxy for the Archon's Pain-fuelled offensive aura)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Precision Blows": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus",
+    "rule_name": "Storm of Blades",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "attacker's unit is led by a Succubus in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Storm of Blades grants SUSTAINED HITS 1 to the led unit's melee weapons. The simulator does not model SUSTAINED HITS, so reroll-1s-to-hit is a flavour proxy for the Succubus's flurry-of-blows aesthetic)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Meticulous Uprising": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Primus",
+    "rule_name": "Cult Demagogue",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, you can add 1 to the Hit roll.",
+    "trigger": "attacker's unit is led by a Genestealer Cults Primus in aura range",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Cult Demagogue grants a full +1 to Hit on every attack — strictly stronger than reroll-1s. The simulator's reroll-1s-to-hit is a weaker offensive proxy; flagged for swap to plus_one_to_hit)",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Warrior-Forged Leadership": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl",
+    "rule_name": "Kindred Hero",
+    "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [LETHAL HITS] ability.",
+    "trigger": "attacker's unit is led by a Leagues of Votann Kâhl in aura range",
+    "effect": "+1 to Hit in aura range (approximation; the real Kindred Hero grants LETHAL HITS to all weapons in the led unit. The simulator does not model the LETHAL HITS keyword, so +1-to-hit is a flavour proxy for the increased threat output of a Kâhl-led squad)",
+    "scope": "unit-led"
+  }
+}

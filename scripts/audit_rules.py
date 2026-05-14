@@ -28,6 +28,7 @@ from typing import Dict, List, Set, Tuple
 
 from code.detachments import Detachment
 from code.leaders import LeaderAbility, _REGISTRY as LEADER_REGISTRY
+from code.stratagems import Stratagem, UNIVERSAL_STRATAGEMS
 import code.detachments as det_module
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -63,7 +64,40 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
 # field, but still implement a 10e core rule we need to cite. Add new
 # entries here when you add a new simulator gate.
 SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
+    # Weapon keywords (parsed from BSData onto every UnitProfile)
+    "weapon.heavy",
+    "weapon.assault",
+    "weapon.rapid_fire",
+    "weapon.melta",
+    "weapon.anti_x",
+    "weapon.lance",
+    "weapon.precision",
+    "weapon.pistol",
+    "weapon.indirect_fire",
+    "weapon.one_shot",
+    "weapon.torrent",
+    "weapon.lethal_hits",
+    "weapon.sustained_hits",
+    "weapon.devastating_wounds",
+    "weapon.twin_linked",
+    "weapon.ignores_cover",
+    "weapon.blast",
+    "weapon.hazardous",
+    # Unit-level core abilities
+    "unit.stealth",
+    "unit.fnp",
+    # Simulator-side gates (terrain, deployment, faction army rules, phases)
     "simulator.big_guns_never_tire",
+    "simulator.cover_light",
+    "simulator.cover_heavy",
+    "simulator.deep_strike",
+    "simulator.scout",
+    "simulator.infiltrators",
+    "simulator.reanimation_protocols",
+    "simulator.sticky_objective",
+    "simulator.battle_focus",
+    "simulator.battleshock",
+    "simulator.judgement_tokens",
 )
 
 
@@ -90,6 +124,28 @@ def _required_leader_keys() -> Set[str]:
         # Key on the LeaderAbility.name to disambiguate from substring
         # collisions ("Captain" vs "Captain in Terminator Armour").
         keys.add(f"LeaderAbility.{ability.name}")
+    return keys
+
+
+def _required_stratagem_keys() -> Set[str]:
+    """Every Stratagem accessible to any army needs a citation.
+
+    Sources:
+      * UNIVERSAL_STRATAGEMS — the four core stratagems every army can fire.
+      * Each `Detachment.stratagems` tuple — empty today; populated by #104.
+
+    Keys are formatted `Stratagem.<name>` to mirror the LeaderAbility scheme.
+    """
+    keys: Set[str] = set()
+    for strat in UNIVERSAL_STRATAGEMS:
+        keys.add(f"Stratagem.{strat.name}")
+    for var_name in dir(det_module):
+        obj = getattr(det_module, var_name)
+        if not isinstance(obj, Detachment):
+            continue
+        for strat in (obj.stratagems or ()):
+            if isinstance(strat, Stratagem):
+                keys.add(f"Stratagem.{strat.name}")
     return keys
 
 
@@ -144,7 +200,12 @@ def _validate_entry(key: str, entry: dict) -> List[str]:
 
 def main() -> int:
     citations = _load_citations()
-    required = _required_detachment_keys() | _required_leader_keys() | _required_simulator_keys()
+    required = (
+        _required_detachment_keys()
+        | _required_leader_keys()
+        | _required_stratagem_keys()
+        | _required_simulator_keys()
+    )
 
     missing = sorted(required - set(citations.keys()))
     stale = sorted(set(citations.keys()) - required)

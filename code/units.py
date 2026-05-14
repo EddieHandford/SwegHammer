@@ -260,6 +260,31 @@ class Unit:
     __slots__ = (
         "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
+        # ----- transient stratagem flags (cleared each round by Battle) -----
+        # Cult of Magic (Thousand Sons):
+        #   transient_plus_one_to_wound_shooting — Twist of Fate. Attacker buff:
+        #       +1 to wound on ranged attacks made by this unit for the round.
+        #   transient_invuln_4 — Glamour of Tzeentch. Defender buff: target gets
+        #       a transient 4++ invulnerable save for the round.
+        # Plague Company (Death Guard):
+        #   transient_minus_one_damage_taken — Disgustingly Resilient. Defender
+        #       buff: each per-shot damage reduced by 1 (floor 1) for the round.
+        #   transient_plus_one_to_wound_melee — Outbreak of Pestilence. Attacker
+        #       buff: +1 to wound on melee attacks for the round.
+        # Battle Host (Aeldari):
+        #   transient_plus_one_save — Lightning-Fast Reactions. Defender buff:
+        #       +1 to armour save (cap 2+) for the round.
+        #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
+        #       hit rolls in shooting are re-rolled (once) for the round.
+        #   transient_assault_this_round — Matchless Agility. Movement buff:
+        #       unit may shoot in the same round it advanced.
+        "transient_plus_one_to_wound_shooting",
+        "transient_invuln_4",
+        "transient_minus_one_damage_taken",
+        "transient_plus_one_to_wound_melee",
+        "transient_plus_one_save",
+        "transient_reroll_hits_shooting",
+        "transient_assault_this_round",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -289,6 +314,16 @@ class Unit:
         # is firing while inside an enemy's engagement range (Big Guns
         # Never Tire). Triggers a -1 to hit modifier per 10e core rules.
         self.shooting_in_engagement: bool = False
+        # Transient stratagem flags. Cleared every round by Battle._run_round
+        # before the new round's stratagems are decided. Documented on the
+        # __slots__ tuple above; default False on construction.
+        self.transient_plus_one_to_wound_shooting: bool = False
+        self.transient_invuln_4: bool = False
+        self.transient_minus_one_damage_taken: bool = False
+        self.transient_plus_one_to_wound_melee: bool = False
+        self.transient_plus_one_save: bool = False
+        self.transient_reroll_hits_shooting: bool = False
+        self.transient_assault_this_round: bool = False
 
     @property
     def is_alive(self) -> bool:
@@ -302,7 +337,15 @@ class Unit:
 
         `bonus_fnp` lets the caller pass in a transient FNP value from a
         leader aura (lower of profile.fnp and bonus_fnp wins). 7 = no aura.
+
+        Disgustingly Resilient (Plague Company stratagem): if the target
+        has `transient_minus_one_damage_taken` set for the round, subtract
+        1 from the per-call damage characteristic (to a minimum of 1). The
+        rule fires per-attack in the codex; receive_damage is called per
+        per-shot in Unit.attack, so the floor lives here.
         """
+        if self.transient_minus_one_damage_taken and amount > 0:
+            amount = max(1.0, amount - 1.0)
         effective_fnp = min(self.profile.fnp, bonus_fnp)
         if effective_fnp < 7 and amount > 0:
             survived = 0
@@ -400,6 +443,24 @@ class Unit:
         if att_buffs["plus_one_to_wound"]:
             wound_target = max(2, wound_target - 1)
 
+        # ---- Transient stratagem buffs (attacker side) ------------------
+        # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
+        # Twist of Fate (Cult of Magic): +1 to wound on attacks for the
+        # round; we route both through the same shooting flag because the
+        # simulator's Twist of Fate trigger fires on a TSons unit about to
+        # shoot. Outbreak of Pestilence (Plague Company): +1 to wound on
+        # melee attacks for the round.
+        if (
+            mode != "melee"
+            and self.transient_plus_one_to_wound_shooting
+        ):
+            wound_target = max(2, wound_target - 1)
+        if (
+            mode == "melee"
+            and self.transient_plus_one_to_wound_melee
+        ):
+            wound_target = max(2, wound_target - 1)
+
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
         if p.heavy and mode != "melee" and not self.moved_this_round:
@@ -459,18 +520,48 @@ class Unit:
         # ---- Target's buffs: +1 to armour save (cap 2+) ----
         if tgt_buffs["plus_one_save"]:
             save_after_ap = max(2, save_after_ap - 1)
+        # Lightning-Fast Reactions (Battle Host) — transient +1 save on the
+        # target unit for the round. Stacks with the army-wide flag above;
+        # capped at 2+ either way.
+        if target.transient_plus_one_save:
+            save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
         # ---- Target's buffs: army-wide invuln. Only overrides if better
         # (lower number) than what the target already has. 7 = unset.
         tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
         if tgt_invuln_buff <= 6 and tgt_invuln_buff < invuln:
             invuln = tgt_invuln_buff
+        # Glamour of Tzeentch (Cult of Magic) — transient 4++ invuln on the
+        # target unit for the round. Same "only override if better" rule.
+        if target.transient_invuln_4 and invuln > 4:
+            invuln = 4
         effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
         save_target = effective_save  # 7 = no save
 
         # Re-roll flags from attacker's buffs.
         att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
         att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
+        # "Re-roll ALL failed hits" defaults to off — only the Votann
+        # Judgement Tokens path (below) currently turns it on.
+        att_reroll_all_hits = False
+
+        # ---- Leagues of Votann — Eye of the Ancestors / Judgement Tokens ----
+        own_army = getattr(self, "army_ref", None)
+        if own_army is not None and getattr(own_army, "is_votann_army", False):
+            tokens = own_army.judgement_tokens.get(target.uid, 0)
+            if tokens >= 1:
+                att_reroll_hit_ones = True
+            if tokens >= 3:
+                att_reroll_all_hits = True
+                att_reroll_wound_ones = True
+
+        # Fire and Fade (Aeldari Battle Host stratagem) — transient
+        # re-roll hit rolls of 1 on shooting attacks for the round.
+        att_reroll_hits_shooting_ones = (
+            mode != "melee" and getattr(self, "transient_reroll_hits_shooting", False)
+        )
+        if att_reroll_hits_shooting_ones:
+            att_reroll_hit_ones = True
 
         total_damage = 0.0
         for _ in range(n_attacks):
@@ -479,10 +570,28 @@ class Unit:
                 crit_hit = False   # torrent has no crit-on-hit
             else:
                 roll = random.randint(1, 6)
-                # Detachment "re-roll 1s to hit": replace the natural 1 with a
-                # fresh d6, then proceed with the new value (used for crit /
-                # threshold). Applies BEFORE crit detection per spec.
-                if att_reroll_hit_ones and roll == 1:
+                # Re-roll handling. Two compatible flags:
+                #   att_reroll_hit_ones: replace a natural 1 (detachment /
+                #     Judgement Tokens tier-1).
+                #   att_reroll_all_hits: replace ANY failure (Judgement
+                #     Tokens tier-3; superset of reroll_hit_ones).
+                # Only one re-roll per die — `att_reroll_all_hits` takes
+                # priority and a fired re-roll under it does not stack
+                # another re-roll under reroll_hit_ones.
+                if att_reroll_all_hits and roll < hit_target:
+                    roll = random.randint(1, 6)
+                elif att_reroll_hit_ones and roll == 1:
+                    roll = random.randint(1, 6)
+                # Fire and Fade (Battle Host) — transient re-roll natural 1s
+                # to hit on shooting attacks. Compose with reroll_hit_ones
+                # above but never re-roll the same die twice — both flags
+                # target the natural-1 case so the first that triggered the
+                # re-roll has already swapped the value.
+                if (
+                    att_reroll_hits_shooting_ones
+                    and roll == 1
+                    and not att_reroll_hit_ones
+                ):
                     roll = random.randint(1, 6)
                 if roll < hit_target:
                     continue   # missed
@@ -506,6 +615,22 @@ class Unit:
                     if not wound_succeeded and p.twin_linked and not rerolled:
                         wroll = random.randint(1, 6)
                         wound_succeeded = (wroll >= wound_target)
+                        rerolled = True
+                    # Universal Core Stratagem — Command Re-Roll (1 CP):
+                    # if the wound roll is still a miss AND no re-roll has
+                    # already been used on this die AND our army's battle
+                    # reference has a stratagem hook AND the heuristic
+                    # green-lights the spend, re-roll once more.
+                    if (
+                        not wound_succeeded and not rerolled
+                        and self.army_ref is not None
+                        and getattr(self.army_ref, "_battle_ref", None) is not None
+                    ):
+                        battle = self.army_ref._battle_ref
+                        if battle.maybe_fire_command_reroll(self, target, "wound"):
+                            wroll = random.randint(1, 6)
+                            wound_succeeded = (wroll >= wound_target)
+                            rerolled = True
                     # Anti-X lowers the crit-wound threshold against that keyword
                     crit_wound = wound_succeeded and wroll >= anti_crit_threshold
                 if not wound_succeeded:

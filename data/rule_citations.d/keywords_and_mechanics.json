@@ -1,0 +1,264 @@
+{
+  "_comment": "Citations for 10e weapon keywords and unit-level core mechanics implemented in code/units.py and code/simulator.py. Sources are Wahapedia core rules and faction pages. Effects marked '(approximation)' note where the SwegHammer model is lossy vs the canonical rule.",
+
+  "weapon.heavy": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Heavy",
+    "rule_name": "[HEAVY]",
+    "quoted_text": "Each time an attack is made with such a weapon, if the attacking model's unit Remained Stationary this turn, add 1 to that attack's Hit roll.",
+    "trigger": "attacker did not move during this round's movement sub-phase",
+    "effect": "+1 to the Hit roll for this weapon",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.assault": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Assault",
+    "rule_name": "[ASSAULT]",
+    "quoted_text": "If a unit that Advanced this turn contains any models equipped with Assault weapons, it is still eligible to shoot in this turn's Shooting phase.",
+    "trigger": "attacker Advanced this round and has at least one Assault weapon",
+    "effect": "permitted to shoot this round even though the unit Advanced",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.rapid_fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Rapid-Fire",
+    "rule_name": "[RAPID FIRE X]",
+    "quoted_text": "Each time such a weapon targets a unit within half that weapon's range, the Attacks characteristic of that weapon is increased by the amount denoted by 'x'.",
+    "trigger": "target is within half the weapon's range",
+    "effect": "+X to the Attacks characteristic for this firing",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.melta": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Melta",
+    "rule_name": "[MELTA X]",
+    "quoted_text": "Each time an attack made with such a weapon targets a unit within half that weapon's range, that attack's Damage characteristic is increased by the amount denoted by 'x'.",
+    "trigger": "target is within half the weapon's range",
+    "effect": "+X to the Damage characteristic per shot for this firing",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.anti_x": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Anti",
+    "rule_name": "[ANTI-KEYWORD X+]",
+    "quoted_text": "Each time an attack is made with such a weapon against a target with the keyword after the word 'Anti-', an unmodified Wound roll of 'x+' scores a Critical Wound.",
+    "trigger": "target has the keyword named after Anti- (INFANTRY, VEHICLE, etc.)",
+    "effect": "lowers the crit-wound threshold for this weapon to X+ vs that keyword",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.lance": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Lance",
+    "rule_name": "[LANCE]",
+    "quoted_text": "Each time an attack is made with such a weapon, if the bearer made a Charge move this turn, add 1 to that attack's Wound roll.",
+    "trigger": "attacker declared and completed a successful Charge this round; melee attack",
+    "effect": "+1 to the Wound roll for this weapon",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.precision": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Precision",
+    "rule_name": "[PRECISION]",
+    "quoted_text": "Each time an attack made with such a weapon successfully wounds an Attached unit, if a CHARACTER model in that unit is visible to the attacking model, the attacking model's player can choose to have that attack allocated to that CHARACTER model instead of following the normal attack sequence.",
+    "trigger": "ranged attack with PRECISION; target has CHARACTER keyword",
+    "effect": "(approximation) cover save bonus does not apply when shooting a CHARACTER target. SwegHammer does not model Attached-unit wound allocation, so we substitute a cover-bypass effect that has roughly the same expected damage gain against bodyguarded characters.",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.pistol": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Pistol",
+    "rule_name": "[PISTOL]",
+    "quoted_text": "If a unit contains any models equipped with Pistols, that unit is eligible to shoot in its controlling player's Shooting phase even while it is within Engagement Range of one or more enemy units. In such circumstances, models in that unit equipped with Pistols can only target enemy units that their unit is within Engagement Range of, and can only resolve attacks using their Pistols.",
+    "trigger": "attacker is within Engagement Range (1\") of an enemy",
+    "effect": "(approximation) Pistols may fire while in engagement. SwegHammer does not restrict the Pistol shot to only target the engaging enemy or to forbid simultaneous non-Pistol firing; we just allow the activation to proceed instead of being blocked.",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.indirect_fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Indirect-Fire",
+    "rule_name": "[INDIRECT FIRE]",
+    "quoted_text": "Weapons with [INDIRECT FIRE] in their profile are known as Indirect Fire weapons, and attacks can be made with them even if the target is not visible to the attacking model. Each time a ranged attack is made with such a weapon against a unit that is not visible to the attacking model, subtract 1 from the Hit roll, the target has the Benefit of Cover against that attack, and an unmodified Hit roll of 1-3 always fails.",
+    "trigger": "ranged attack with INDIRECT FIRE; target is not visible",
+    "effect": "(approximation) Indirect Fire can target units it cannot see, at -1 to Hit. SwegHammer skips line-of-sight when picking the target and applies -1 to Hit when LoS is blocked, but does not grant the target Benefit of Cover or apply the auto-fail on rolls of 1-3.",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.one_shot": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#One-Shot",
+    "rule_name": "[ONE SHOT]",
+    "quoted_text": "A weapon with [ONE SHOT] can only be shot once per battle.",
+    "trigger": "the weapon is selected to shoot",
+    "effect": "the weapon may only be fired once per battle; subsequent activations skip shooting with it",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.torrent": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Torrent",
+    "rule_name": "[TORRENT]",
+    "quoted_text": "Each time an attack is made with such a weapon, that attack automatically hits the target.",
+    "trigger": "any attack with TORRENT",
+    "effect": "skips the to-hit roll, the attack auto-hits (no Critical Hit generated)",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.lethal_hits": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Lethal-Hits",
+    "rule_name": "[LETHAL HITS]",
+    "quoted_text": "Each time an attack is made with such a weapon, a Critical Hit automatically wounds the target.",
+    "trigger": "unmodified hit roll of 6 with a LETHAL HITS weapon",
+    "effect": "that Critical Hit auto-wounds (skip the Wound roll); the wound is treated as a normal (non-crit) wound for Devastating Wounds purposes",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.sustained_hits": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Sustained-Hits",
+    "rule_name": "[SUSTAINED HITS X]",
+    "quoted_text": "Each time an attack is made with such a weapon, if a Critical Hit is rolled, that attack scores a number of additional hits on the target as denoted by 'x'.",
+    "trigger": "unmodified hit roll of 6 with a SUSTAINED HITS weapon",
+    "effect": "the Critical Hit generates X additional normal hits in addition to the original one",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.devastating_wounds": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Devastating-Wounds",
+    "rule_name": "[DEVASTATING WOUNDS]",
+    "quoted_text": "Each time an attack is made with such a weapon, if that attack scores a Critical Wound, no saving throw of any kind can be made against that attack (including invulnerable saving throws).",
+    "trigger": "unmodified wound roll of 6 (or Anti-keyword crit threshold) with a DEVASTATING WOUNDS weapon",
+    "effect": "the wound bypasses armour, cover, and invulnerable saves; damage is applied directly",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.twin_linked": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Twin-linked",
+    "rule_name": "[TWIN-LINKED]",
+    "quoted_text": "Each time an attack is made with such a weapon, you can re-roll that attack's Wound roll.",
+    "trigger": "any wound roll with a TWIN-LINKED weapon",
+    "effect": "(approximation) re-roll a failed Wound roll once. The canonical rule allows re-rolling any wound roll (including a success) - we only re-roll failures, which is the optimal play but marginally less general.",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.ignores_cover": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ignores-Cover",
+    "rule_name": "[IGNORES COVER]",
+    "quoted_text": "Each time an attack is made with such a weapon, the target cannot have the Benefit of Cover against that attack.",
+    "trigger": "any ranged attack with IGNORES COVER",
+    "effect": "target loses the cover save bonus and the heavy-cover -1-to-hit modifier for this attack",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.blast": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Blast",
+    "rule_name": "[BLAST]",
+    "quoted_text": "Each time you determine how many attacks are made with a Blast weapon, add 1 to the result for every five models that were in the target unit when you selected it as the target (rounding down).",
+    "trigger": "ranged attack with BLAST against a multi-model unit",
+    "effect": "(approximation) +1 attack per 5 enemy models in the target unit. SwegHammer counts models in the target's army with the same profile name as a proxy for squad size; it cannot also enforce the canonical 'BLAST may not target units in engagement range' restriction.",
+    "scope": "weapon-keyword"
+  },
+
+  "weapon.hazardous": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Hazardous",
+    "rule_name": "[HAZARDOUS]",
+    "quoted_text": "After a unit attacks with one or more Hazardous weapons, that unit must take one Hazardous test for each such weapon used. To do so, roll one D6: on a 1, that test is failed and that unit suffers 3 mortal wounds, and if possible those mortal wounds must be allocated to a model equipped with a Hazardous weapon.",
+    "trigger": "any unit fires or fights with a HAZARDOUS weapon",
+    "effect": "(approximation) after firing, roll one D6; on a 1 the unit takes 3 mortal wounds. SwegHammer rolls a single test per attacker per activation rather than one per Hazardous weapon used, and bypasses the 'allocate to a model with the weapon' clause because squads are modelled as single Unit instances.",
+    "scope": "weapon-keyword"
+  },
+
+  "unit.stealth": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#STEALTH",
+    "rule_name": "Stealth",
+    "quoted_text": "If every model in a unit has this ability, then each time a ranged attack is made against it, subtract 1 from that attack's Hit roll.",
+    "trigger": "target unit has Stealth and is being shot at",
+    "effect": "-1 to the attacker's Hit roll (only ranged attacks; melee is unaffected)",
+    "scope": "keyword-gated"
+  },
+
+  "unit.fnp": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FEEL-NO-PAIN",
+    "rule_name": "Feel No Pain X+",
+    "quoted_text": "Each time a model with this ability suffers damage and so would lose a wound (including wounds lost due to mortal wounds), roll one D6: if the result is greater than or equal to the number denoted by 'x', that wound is ignored and is not lost.",
+    "trigger": "model with Feel No Pain takes an unsaved wound or mortal wound",
+    "effect": "(approximation) roll one D6 per point of damage; on X+ that wound is ignored. SwegHammer rounds incoming damage to an integer for the dice loop and preserves the fractional remainder un-FNP'd - close enough at expected-value scale but not strictly per-wound.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.cover_light": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
+    "rule_name": "Benefit of Cover",
+    "quoted_text": "Each time an attack is allocated to a model, if that model has the Benefit of Cover against that attack, add 1 to that attack's saving throw. Models with a Save characteristic of 3+ or better do not receive the Benefit of Cover against ranged attacks made with weapons that have an Armour Penetration characteristic of 0.",
+    "trigger": "target model stands in LIGHT_COVER terrain (or HEAVY_COVER - both grant standard cover)",
+    "effect": "(approximation) +1 to the armour save (capped at 2+). SwegHammer does not enforce the 'Save 3+ vs AP 0 ranged attacks ignore cover' exception, so 3+-save models incorrectly benefit from cover against AP 0.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.cover_heavy": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
+    "rule_name": "Ruins (Heavy Cover)",
+    "quoted_text": "Each time a ranged attack is made against a unit that has the Benefit of Cover and that is receiving the Benefit of Cover from a Ruin terrain feature, subtract 1 from that attack's Hit roll.",
+    "trigger": "target is in HEAVY_COVER terrain (Ruins) and the attack is ranged",
+    "effect": "(approximation) -1 to the attacker's Hit roll, on top of the standard cover +1 save. SwegHammer treats this as a flat modifier on any HEAVY_COVER terrain rather than checking the canonical 'INFANTRY/BEAST/SWARM wholly within Ruins' eligibility.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.deep_strike": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Strategic-Reserves",
+    "rule_name": "Deep Strike",
+    "quoted_text": "During deployment, you can set up this unit in Deep Strike Reserves instead of on the battlefield. If you do, then in the Reinforcements step of one of your subsequent Movement phases, you can set up this unit anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. Any Reserves units that have not been set up on the battlefield when the battle ends count as having been destroyed.",
+    "trigger": "unit profile has deep_strike=True; battle round >= 2",
+    "effect": "(approximation) unit starts in Reserves; arrives from Round 2 onward, placed more than 9\" from all enemy models. SwegHammer rolls a 66% chance to arrive each round from Round 2 and force-arrives by Round 4, instead of the canonical 'arrive any subsequent round, destroyed if not on by end of battle'. The unit also counts as having moved on arrival.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.scout": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Scouts",
+    "rule_name": "Scouts X\"",
+    "quoted_text": "Some models have 'Scouts X\"' listed in the abilities section of their datasheet. Before the first turn begins, if every model in a unit has this ability, that unit can make a Normal move of up to X\". A unit cannot end this move within 9\" horizontally of any enemy models.",
+    "trigger": "unit profile has scout_distance > 0; pre-game (before Round 1)",
+    "effect": "(approximation) before the first round, the unit makes a Normal move up to scout_distance inches toward the nearest enemy. SwegHammer does not enforce the 'cannot end within 9\" of an enemy' clause precisely - it just clamps movement and trusts the deployment distance.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.infiltrators": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Infiltrators",
+    "rule_name": "Infiltrators",
+    "quoted_text": "Some models have 'Infiltrators' listed in the abilities section of their datasheet. During deployment, when you set up a unit with this ability, it can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and all enemy models.",
+    "trigger": "unit profile has infiltrator=True; during deployment",
+    "effect": "(approximation) the unit deploys forward of its standard deployment line, roughly halfway between its own line and the centreline. SwegHammer does not measure 9\" from the enemy deployment zone - it just picks a forward line and trusts the geometry.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.reanimation_protocols": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
+    "rule_name": "Reanimation Protocols",
+    "quoted_text": "At the end of your Command phase, each unit from your army with this ability that is on the battlefield activates its Reanimation Protocols and reanimates D3 wounds. Each time a unit's Reanimation Protocols are activated and reanimate one or more wounds, select one model in that unit that has lost one or more wounds and reanimate one wound on that model. If there are no such models in that unit, instead select one destroyed model whose unit is still on the battlefield, and that model is returned to its unit with 1 wound remaining.",
+    "trigger": "end of round for a Necron army with Reanimation Protocols on a unit that still has at least one model on the battlefield",
+    "effect": "(approximation) D3 wounds restored per profile per round. SwegHammer uses median D3 = 2 deterministically (no dice), revives full models rather than single wounds because squads are single Unit instances, and runs end-of-round instead of start-of-Command-phase. Once a profile is completely wiped, reanimation stops (matches canonical 'unit still on battlefield' constraint).",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.sticky_objective": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/",
+    "rule_name": "Sticky Objective (e.g. Vigilance Eternal Stratagem)",
+    "quoted_text": "That objective marker remains under your control even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+    "trigger": "a sticky_objective unit currently controls an objective (more OC than the enemy within control range)",
+    "effect": "(approximation) once the unit claims the objective, ownership persists across rounds in self._sticky_owner until the opposing side outscores us on it. SwegHammer applies this as a profile-level flag rather than a per-Stratagem opt-in - the 'sticky' status is permanent for any unit with the flag, not single-use.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.battle_focus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Battle-Focus",
+    "rule_name": "Battle Focus (Star Engines manoeuvre)",
+    "quoted_text": "At the start of each battle round, you receive a number of Battle Focus tokens (4 at Strike Force). Each time one of the triggers shown in the Agile Manoeuvres section below occurs, you can spend one Battle Focus token to enable the relevant eligible unit to perform that Agile Manoeuvre. Star Engines: when an ASURYANI VEHICLE unit from your army Advances, you can spend one Battle Focus token; until the end of that turn, ranged weapons equipped by models in that unit have the [ASSAULT] ability.",
+    "trigger": "an ASURYANI unit Advanced this round and has at least one Battle Focus token available",
+    "effect": "(approximation) the army holds a per-battle pool of Battle Focus tokens; spending one lets an Advanced ASURYANI unit shoot anyway, as if its weapons had [ASSAULT]. SwegHammer conflates this with the Star Engines manoeuvre (the most simulator-relevant one); the other five manoeuvres (Swift as the Wind, Flitting Shadows, Sudden Strike, Opportunity Seized, Fade Back) are not modelled. Tokens are also issued once per battle in SwegHammer rather than refreshing each round.",
+    "scope": "army-wide"
+  },
+
+  "simulator.battleshock": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#2.-Battle-shock",
+    "rule_name": "Battle-shock",
+    "quoted_text": "If a unit is Below Half-Strength, you must take a Battle-shock test for it. To do so, roll 2D6: if the result equals or exceeds the unit's Leadership characteristic, that test is passed. Otherwise, that test is failed and that unit is Battle-shocked until the start of your next Command phase. While a unit is Battle-shocked, the Objective Control characteristic of all of its models is 0, you cannot use Stratagems to affect that unit, and that unit must take Desperate Escape tests if it Falls Back.",
+    "trigger": "start of own Command phase (Round 2 onward); unit is Below Half-Strength",
+    "effect": "(approximation) the unit rolls 2D6; fail (< Ld) drops its OC to 0 for objective scoring this round. SwegHammer ignores the 'cannot use Stratagems' and 'Desperate Escape on Fall Back' consequences because neither is otherwise modelled. Detachment ld_bonus / enemy_ld_penalty compose into the test target.",
+    "scope": "phase-gated"
+  }
+}

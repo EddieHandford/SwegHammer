@@ -16,9 +16,12 @@ into one buff dict the simulator can consume.
 Wiring:
   - `Unit.attack` calls `effective_buffs(attacker)` to compose flags from the
     detachment and any in-range leader auras (re-roll 1s, +1 to hit / wound,
-    extra invuln, FNP).
+    extra invuln, FNP, +1 attack).
   - `Battle._run_round` runs `apply_round_end_healing(army)` so leaders with
     `heal_per_round > 0` patch up a nearby wounded friendly each round end.
+  - `Battle._run_round` also runs `apply_round_end_revival(army)` so leaders
+    with `revive_destroyed_per_round > 0` (Apothecary Narthecium) return a
+    destroyed INFANTRY model from the led unit to play each round end.
 
 The registry is intentionally small. Substring matching against `profile.name`
 catches the obvious variants ("Captain in Terminator Armour" matches "Captain"),
@@ -61,12 +64,17 @@ class LeaderAbility:
     reroll_wound_ones: bool = False
     plus_one_to_hit: bool = False
     plus_one_to_wound: bool = False
+    plus_one_attack: int = 0                # +N extra attacks per weapon (Cadre Fireblade etc.)
     # Defensive modifiers (apply to DEFENDER when it's in range of this leader)
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
     # End-of-round healing: restore N HP to the nearest wounded friendly in
     # aura range (or to the leader itself if none are wounded).
     heal_per_round: int = 0
+    # End-of-round revive: return N destroyed friendly INFANTRY models from
+    # nearby units (within aura_range) to play at full HP. Apothecary
+    # Narthecium per the 10e Space Marines codex.
+    revive_destroyed_per_round: int = 0
     # Legal bodyguard hosts for the calibrator. Preference order; the
     # picker chooses the first key present in UNIT_CATALOG.
     host_keys: Tuple[str, ...] = ()
@@ -96,8 +104,8 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Space Marine HQ
     ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True,  host_keys=_MARINE_HOSTS)),
     ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True, host_keys=_MARINE_HOSTS)),
-    ("Apothecary",         LeaderAbility(name="Combat Restoratives",        aura_range=3.0, heal_per_round=1,       host_keys=_MARINE_HOSTS)),
-    ("Librarian",          LeaderAbility(name="Psychic Empowerment",        aura_range=6.0, plus_one_to_wound=True, host_keys=_MARINE_HOSTS)),
+    ("Apothecary",         LeaderAbility(name="Narthecium",                 aura_range=3.0, revive_destroyed_per_round=1, host_keys=_MARINE_HOSTS)),
+    ("Librarian",          LeaderAbility(name="Mental Fortress",             aura_range=6.0, fnp=5,                 host_keys=_MARINE_HOSTS)),
     # Adepta Sororitas
     ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("adepta_sororitas_battle_sisters_squad",))),
@@ -107,7 +115,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
     ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks
-    ("Warboss",            LeaderAbility(name="Waaagh! Boss",               aura_range=6.0, plus_one_to_wound=True, host_keys=("orks_boyz", "orks_nobz"))),
+    ("Warboss",            LeaderAbility(name="Might is Right",             aura_range=6.0, plus_one_to_hit=True,   host_keys=("orks_boyz", "orks_nobz"))),
     # Tyranids — Hive Tyrant is a Monster lead; aura still applies to nearby
     # gants/warriors but no formal attachment in 10e. Host picker uses the
     # synapse-cheap option for calibration purposes.
@@ -119,12 +127,12 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True,   host_keys=_AELDARI_GUARDIAN_HOSTS)),
     ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),  # Monster, no formal host
     # T'au Empire
-    ("Ethereal",           LeaderAbility(name="Guiding Hand of the Greater Good", aura_range=6.0, reroll_wound_ones=True, host_keys=_TAU_FIRE_HOSTS)),
+    ("Ethereal",           LeaderAbility(name="Failure Is Not an Option",   aura_range=6.0, fnp=5,                  host_keys=_TAU_FIRE_HOSTS)),
     ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),  # Battlesuit, no INFANTRY host
-    ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, reroll_hit_ones=True,   host_keys=_TAU_FIRE_HOSTS)),
+    ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, plus_one_attack=1,      host_keys=_TAU_FIRE_HOSTS)),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
-    ("Sorcerer",           LeaderAbility(name="Death Hex",                  aura_range=6.0, plus_one_to_wound=True,
+    ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0, fnp=5,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",
                                                      "chaos_space_marines_cultist_mob"))),
     ("Dark Apostle",       LeaderAbility(name="Profane Litanies",           aura_range=6.0, reroll_hit_ones=True,
@@ -143,7 +151,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Death Guard
     ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("death_guard_plague_marines",))),
-    ("Typhus",             LeaderAbility(name="Host of the Destroyer Hive", aura_range=6.0, reroll_wound_ones=True,
+    ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
                                           host_keys=("death_guard_plague_marines",))),
     # Grey Knights
     ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
@@ -295,6 +303,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_bool(buffs, ability, "reroll_wound_ones")
         _merge_bool(buffs, ability, "plus_one_to_hit")
         _merge_bool(buffs, ability, "plus_one_to_wound")
+        _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
 
@@ -352,3 +361,91 @@ def apply_round_end_healing(army: "Army") -> None:
             recipient.profile.health,
             recipient.current_health + ability.heal_per_round,
         )
+
+
+# ---------------------------------------------------------------------------
+# Round-end model revival (Apothecary Narthecium)
+# ---------------------------------------------------------------------------
+
+def apply_round_end_revival(army: "Army") -> None:
+    """
+    End-of-round revival: every alive leader with revive_destroyed_per_round > 0
+    returns N destroyed friendly INFANTRY models to play. Models the 10e
+    Apothecary's Narthecium ability:
+
+        "While this model is leading a unit, in your Command phase, you can
+         return 1 destroyed model (excluding CHARACTER models) to that unit."
+
+    SwegHammer models multi-model squads as N separate single-model Units
+    sharing a profile name, so "return 1 destroyed model" maps to "find a
+    dead Unit of an in-aura profile and reset its current_health to max".
+
+    Selection priority for the resurrection target:
+      1. dead non-CHARACTER unit whose live peers (same profile.name) are
+         within aura_range of the leader — prefer profile shared with the
+         most live peers (proxy for the led unit);
+      2. else any dead non-CHARACTER unit (within aura_range fallback);
+      3. else no-op.
+
+    The revived model reappears at the position of a living peer if available,
+    otherwise next to the leader.
+    """
+    for leader in army.alive_units:
+        ability = lookup_ability(leader.profile.name)
+        if ability is None or ability.revive_destroyed_per_round <= 0:
+            continue
+
+        # Inventory dead vs live non-character INFANTRY by profile name. We
+        # only consider profiles whose live peers (if any) are within aura
+        # range of the leader, otherwise the led-unit constraint is meaningless.
+        dead_by_profile: Dict[str, List["Unit"]] = {}
+        alive_by_profile: Dict[str, List["Unit"]] = {}
+        for u in army.units:
+            if u is leader:
+                continue
+            kw = set(u.profile.unit_keywords or ())
+            if "CHARACTER" in kw:
+                continue
+            if "INFANTRY" not in kw:
+                continue
+            bucket = (alive_by_profile if u.is_alive else dead_by_profile)
+            bucket.setdefault(u.profile.name, []).append(u)
+
+        if not dead_by_profile:
+            continue
+
+        # Score profiles by number of live peers within aura range (ties
+        # broken by total live peer count). A profile with no live peers
+        # still qualifies as a fallback, but ranks below profiles with
+        # at least one in-aura peer.
+        def _profile_priority(profile_name: str) -> Tuple[int, int]:
+            peers = alive_by_profile.get(profile_name, [])
+            if ability.aura_range > 0:
+                in_aura = sum(
+                    1 for p in peers
+                    if _distance(leader.position, p.position) <= ability.aura_range
+                )
+            else:
+                in_aura = len(peers)
+            return (in_aura, len(peers))
+
+        candidate_profiles = sorted(
+            dead_by_profile.keys(),
+            key=_profile_priority,
+            reverse=True,
+        )
+
+        revives_remaining = ability.revive_destroyed_per_round
+        for profile_name in candidate_profiles:
+            if revives_remaining <= 0:
+                break
+            pool = dead_by_profile[profile_name]
+            live_peers = alive_by_profile.get(profile_name, [])
+            anchor_pos: Tuple[float, float] = (
+                live_peers[0].position if live_peers else leader.position
+            )
+            while pool and revives_remaining > 0:
+                revived = pool.pop(0)
+                revived.current_health = revived.profile.health
+                revived.position = anchor_pos
+                revives_remaining -= 1

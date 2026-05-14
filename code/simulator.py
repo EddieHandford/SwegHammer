@@ -8,14 +8,25 @@ from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .events import (
-    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit, ObjectiveScored,
-    RoundEnded, RoundStarted, Subscriber, UnitActivated, UnitAdvanced,
-    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
-    UnitMoved, UnitReanimated, UnitScouted, UnitShot,
+    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit,
+    JudgementTokenAwarded, ObjectiveScored, RoundEnded, RoundStarted,
+    StratagemFired, Subscriber, UnitActivated, UnitAdvanced, UnitCharged,
+    UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
+    UnitReanimated, UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
-from .strategy import pick_move_intent
+from .strategy import pick_move_intent, should_fire_stratagem
+from .stratagems import (
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
+    # Cult of Magic (Thousand Sons)
+    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH,
+    # Plague Company (Death Guard)
+    DISGUSTINGLY_RESILIENT, PLAGUE_WEAPONS, OUTBREAK_OF_PESTILENCE,
+    # Battle Host (Aeldari)
+    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY,
+    award_command_phase_cp,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +171,17 @@ class Battle:
         # objective's index in self.map.objectives. Cleared when the opposing
         # side outscores the holder's army on the objective in a later round.
         self._sticky_owner: Dict[int, str] = {}
+        # Stratagem book-keeping. Each army keeps a set of stratagem names
+        # already fired this battle (used for once_per_battle stratagems —
+        # the four universals are not once-per-battle but the field is here
+        # for #104). Also a back-reference from each Army to this Battle so
+        # Unit.attack can dispatch the Command Re-Roll hook without dragging
+        # a callback through every call site.
+        self._stratagems_fired_this_battle: Dict[str, set] = {
+            self.a.name: set(), self.b.name: set(),
+        }
+        self.a._battle_ref = self
+        self.b._battle_ref = self
 
     # ------------------------------------------------------------------
     # Public interface
@@ -393,6 +415,368 @@ class Battle:
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Detachment-specific stratagem dispatch (round-start)
+    # ------------------------------------------------------------------
+
+    def _clear_transient_stratagem_flags(self, army: Army) -> None:
+        """Reset the per-round stratagem flags on every unit in `army`.
+
+        Called at the start of each round before the new round's stratagems
+        are decided. Keeps the transient buffs strictly one-round-scoped.
+        """
+        for u in army.units:
+            u.transient_plus_one_to_wound_shooting = False
+            u.transient_invuln_4 = False
+            u.transient_minus_one_damage_taken = False
+            u.transient_plus_one_to_wound_melee = False
+            u.transient_plus_one_save = False
+            u.transient_reroll_hits_shooting = False
+            u.transient_assault_this_round = False
+
+    def _apply_detachment_stratagems(self, army: Army, opponent: Army) -> None:
+        """Round-start dispatcher for detachment-specific stratagems.
+
+        Each detachment's stratagem tuple is iterated; the simulator's
+        per-stratagem `_try_*` helpers consult the AI heuristic in
+        `strategy.should_fire_stratagem` and, if green-lit, spend CP and
+        apply the transient effect for the round.
+
+        We bundle the dispatch here rather than scattering it across the
+        sub-phase methods because all three detachments' high-impact
+        stratagems are best modelled as "decide once per round, apply for
+        the round" — round-scoped buffs match the calibration target
+        (close the under-rating without inflating turn-by-turn variance).
+        """
+        det = army.resolve_detachment()
+        if det is None or not det.stratagems:
+            return
+        strat_names = {s.name for s in det.stratagems}
+
+        # ----- Cult of Magic (Thousand Sons) -----------------------------
+        if "Doombolt" in strat_names:
+            self._try_doombolt(army, opponent)
+        if "Twist of Fate" in strat_names:
+            self._try_twist_of_fate(army, opponent)
+        if "Glamour of Tzeentch" in strat_names:
+            self._try_glamour_of_tzeentch(army, opponent)
+
+        # ----- Plague Company (Death Guard) ------------------------------
+        if "Disgustingly Resilient" in strat_names:
+            self._try_disgustingly_resilient(army, opponent)
+        if "Plague Weapons" in strat_names:
+            self._try_plague_weapons(army, opponent)
+        if "Outbreak of Pestilence" in strat_names:
+            self._try_outbreak_of_pestilence(army, opponent)
+
+        # ----- Battle Host (Aeldari) ------------------------------------
+        if "Lightning-Fast Reactions" in strat_names:
+            self._try_lightning_fast_reactions(army, opponent)
+        if "Fire and Fade" in strat_names:
+            self._try_fire_and_fade(army, opponent)
+        if "Matchless Agility" in strat_names:
+            self._try_matchless_agility(army, opponent)
+
+    # ----- target-selection helpers used by the dispatchers --------------
+
+    @staticmethod
+    def _highest_threat_enemy(opponent: Army):
+        """Pick the alive enemy unit with the highest role-weighted threat.
+
+        Same role-weighting as `_apply_psychic_phase` so Doombolt and any
+        future MW-payload stratagem agree on what counts as a worthwhile
+        target — heavy / shooty / wounded enemies first, hordes last.
+        """
+        from .roles import classify
+        ROLE_THREAT = {"HEAVY": 3.0, "SHOOTY": 2.0, "DUAL": 1.5,
+                       "MELEE": 1.0, "SUPPORT": 1.2, "HORDE": 0.6}
+        targets = list(opponent.alive_units)
+        if not targets:
+            return None
+
+        def _score(u):
+            role = classify(u.profile)
+            return ROLE_THREAT.get(role, 1.0) * u.current_health
+        return max(targets, key=_score)
+
+    @staticmethod
+    def _unit_matches_filter(unit, keyword: str = "", faction: str = "") -> bool:
+        """Test a unit against the {keyword, faction} stratagem-target filter.
+
+        We check the keyword against `profile.unit_keywords` AND the faction
+        against `profile.faction` because BSData parsing emits faction tags
+        (e.g. "Aeldari", "Death Guard") on the `faction` field rather than
+        as unit keywords. The dispatcher accepts either signal so we don't
+        leak buffs onto units the detachment shouldn't include.
+        """
+        if not keyword and not faction:
+            return True
+        if keyword and keyword in (unit.profile.unit_keywords or ()):
+            return True
+        if faction and (unit.profile.faction or "").lower() == faction.lower():
+            return True
+        return False
+
+    @classmethod
+    def _highest_dpa_unit(cls, army: Army, keyword: str = "", faction: str = ""):
+        """Pick the alive friendly unit with the highest melee+ranged DPA.
+
+        Optional `keyword`/`faction` filter restricts to units carrying
+        that keyword (e.g. PSYKER) or belonging to that faction
+        (e.g. "Aeldari") so a Battle Host army with stray non-Aeldari
+        allies still targets the right detachment. See
+        `_unit_matches_filter` for the lookup logic.
+        """
+        candidates = [
+            u for u in army.alive_units
+            if cls._unit_matches_filter(u, keyword=keyword, faction=faction)
+        ]
+        if not candidates:
+            return None
+
+        def _dpa(u):
+            p = u.profile
+            ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            melee = (p.melee_attacks * p.melee_hit_probability
+                     * (p.melee_damage_per_shot or 0.0))
+            return ranged + melee
+        return max(candidates, key=_dpa)
+
+    @classmethod
+    def _most_vulnerable_unit(cls, army: Army, keyword: str = "", faction: str = ""):
+        """Pick the alive friendly unit most likely to benefit from a
+        defensive stratagem — wounded + high-value.
+
+        Score: (points_cost) × (1.0 - current_health/max_health). A unit at
+        full HP gets 0 (no buff needed); a Knight at 30% HP scores very
+        high. Restricted to units matching the keyword/faction filter.
+        """
+        candidates = [
+            u for u in army.alive_units
+            if cls._unit_matches_filter(u, keyword=keyword, faction=faction)
+        ]
+        if not candidates:
+            return None
+
+        def _vulnerability(u):
+            hp_max = max(1.0, u.profile.health)
+            hp_lost = 1.0 - (u.current_health / hp_max)
+            return float(u.profile.points_cost) * hp_lost
+        scored = max(candidates, key=_vulnerability)
+        # Only return if there's meaningful vulnerability — otherwise fall
+        # back to highest points-cost frontline unit (the canonical "save
+        # the Marneus from a stratagem" target).
+        if _vulnerability(scored) > 0:
+            return scored
+        return max(candidates, key=lambda u: float(u.profile.points_cost))
+
+    # ----- per-stratagem dispatchers -------------------------------------
+
+    def _try_doombolt(self, army: Army, opponent: Army) -> None:
+        """Doombolt (Cult of Magic): D3 mortal wounds (median 2) to the
+        highest-threat enemy unit. Fires once per round if the army has at
+        least one alive PSYKER unit and a viable target exists."""
+        has_psyker = any(
+            "PSYKER" in (u.profile.unit_keywords or ())
+            for u in army.alive_units
+        )
+        if not has_psyker:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"target": target, "has_psyker": True}
+        if not should_fire_stratagem(army, DOOMBOLT, ctx):
+            return
+        if not self._fire_stratagem(army, DOOMBOLT):
+            return
+        target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
+        if not target.is_alive:
+            self._emit(UnitKilled(unit_uid=target.uid))
+
+    def _try_twist_of_fate(self, army: Army, opponent: Army) -> None:
+        """Twist of Fate (Cult of Magic): +1 to wound on a friendly TSons
+        unit's shooting for the round. Picks the highest-DPA THOUSAND SONS
+        attacker so the buff lands on the biggest gun in the army."""
+        attacker = self._highest_dpa_unit(
+            army, keyword="THOUSAND SONS", faction="Thousand Sons",
+        )
+        if attacker is None:
+            # Fall back to highest-DPA in the whole army (faction tag may
+            # be missing on some datasheets after BSData parsing).
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, TWIST_OF_FATE, ctx):
+            return
+        if not self._fire_stratagem(army, TWIST_OF_FATE):
+            return
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_glamour_of_tzeentch(self, army: Army, opponent: Army) -> None:
+        """Glamour of Tzeentch (Cult of Magic, 2 CP): transient 4++ invuln
+        on the most vulnerable friendly TSons unit for the round."""
+        target = self._most_vulnerable_unit(
+            army, keyword="THOUSAND SONS", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, GLAMOUR_OF_TZEENTCH, ctx):
+            return
+        if not self._fire_stratagem(army, GLAMOUR_OF_TZEENTCH):
+            return
+        target.transient_invuln_4 = True
+
+    def _try_disgustingly_resilient(self, army: Army, opponent: Army) -> None:
+        """Disgustingly Resilient (Plague Company): -1 damage taken on a
+        DEATH GUARD unit for the round. Picks the most vulnerable DG unit."""
+        target = self._most_vulnerable_unit(
+            army, keyword="DEATH GUARD", faction="Death Guard",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, DISGUSTINGLY_RESILIENT, ctx):
+            return
+        if not self._fire_stratagem(army, DISGUSTINGLY_RESILIENT):
+            return
+        target.transient_minus_one_damage_taken = True
+
+    def _try_plague_weapons(self, army: Army, opponent: Army) -> None:
+        """Plague Weapons (Plague Company): +1 to wound on a friendly DG
+        unit's shooting for the round."""
+        attacker = self._highest_dpa_unit(
+            army, keyword="DEATH GUARD", faction="Death Guard",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PLAGUE_WEAPONS, ctx):
+            return
+        if not self._fire_stratagem(army, PLAGUE_WEAPONS):
+            return
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_outbreak_of_pestilence(self, army: Army, opponent: Army) -> None:
+        """Outbreak of Pestilence (Plague Company): +1 to wound on a
+        friendly DG unit's melee attacks for the round."""
+        # Pick the friendly DG melee threat — highest melee-DPA unit so the
+        # +1 to wound lands where it does the most work.
+        candidates = [
+            u for u in army.alive_units
+            if self._unit_matches_filter(u, keyword="DEATH GUARD", faction="Death Guard")
+            and u.profile.melee_attacks > 0
+        ]
+        if not candidates:
+            candidates = [
+                u for u in army.alive_units
+                if u.profile.melee_attacks > 0
+            ]
+        if not candidates:
+            return
+
+        def _melee_dpa(u):
+            p = u.profile
+            return (p.melee_attacks * p.melee_hit_probability
+                    * (p.melee_damage_per_shot or 0.0))
+        attacker = max(candidates, key=_melee_dpa)
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, OUTBREAK_OF_PESTILENCE, ctx):
+            return
+        if not self._fire_stratagem(army, OUTBREAK_OF_PESTILENCE):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
+        """Lightning-Fast Reactions (Battle Host): +1 save on the most
+        vulnerable AELDARI unit for the round."""
+        target = self._most_vulnerable_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, LIGHTNING_FAST_REACTIONS, ctx):
+            return
+        if not self._fire_stratagem(army, LIGHTNING_FAST_REACTIONS):
+            return
+        target.transient_plus_one_save = True
+
+    def _try_fire_and_fade(self, army: Army, opponent: Army) -> None:
+        """Fire and Fade (Battle Host): re-roll failed hits on a friendly
+        AELDARI unit's shooting for the round (approximating the canonical
+        shoot-then-move-6" via offensive uplift)."""
+        attacker = self._highest_dpa_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, FIRE_AND_FADE, ctx):
+            return
+        if not self._fire_stratagem(army, FIRE_AND_FADE):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_matchless_agility(self, army: Army, opponent: Army) -> None:
+        """Matchless Agility (Battle Host): transient Assault keyword on
+        a friendly AELDARI unit for the round (advance + shoot)."""
+        # Only worth firing on a unit that might want to Advance — i.e. one
+        # currently OUT of weapon range of the nearest enemy. Otherwise the
+        # transient Assault is wasted and we leak CP.
+        candidates = [
+            u for u in army.alive_units
+            if self._unit_matches_filter(u, keyword="AELDARI", faction="Aeldari")
+            and u.profile.range_inches >= 12   # actual shooter, not melee-only
+            and not u.profile.assault          # already-Assault gains nothing
+        ]
+        if not candidates:
+            return
+        # Pick one whose nearest enemy is out of weapon range — Matchless
+        # Agility is a "close the gap and still shoot" stratagem.
+        def _wants_advance(u):
+            if not opponent.alive_units:
+                return False
+            nearest = min(
+                opponent.alive_units,
+                key=lambda e: _distance(u.position, e.position),
+            )
+            return _distance(u.position, nearest.position) > u.profile.range_inches
+        viable = [u for u in candidates if _wants_advance(u)]
+        if not viable:
+            return
+        attacker = max(viable, key=lambda u: float(u.profile.points_cost))
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, MATCHLESS_AGILITY, ctx):
+            return
+        if not self._fire_stratagem(army, MATCHLESS_AGILITY):
+            return
+        attacker.transient_assault_this_round = True
 
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
@@ -755,6 +1139,26 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+
+        # ---- Command phase: each army gains 1 CP (capped at 6). 10e core
+        # rule. Starting CP (3 = Strike Force standard) is set by
+        # Army.__init__; this is the per-round drip on top. The smaller-army
+        # CP bonus is a separate SwegHammer-specific catch-up mechanism
+        # awarded later by _award_cp.
+        award_command_phase_cp(self.a)
+        award_command_phase_cp(self.b)
+        # Clear any per-round transient stratagem flags from the previous
+        # round (Disgustingly Resilient, Lightning-Fast Reactions, etc.)
+        # before deciding whether to spend CP on a new batch this round.
+        self._clear_transient_stratagem_flags(self.a)
+        self._clear_transient_stratagem_flags(self.b)
+        # Detachment-specific stratagems that fire at the start of a round
+        # (Cult of Magic, Plague Company, Battle Host). Doombolt also fires
+        # here as a per-round mortal-wound payload — it's nominally a
+        # Shooting-phase trigger but the simulator's per-round dispatcher
+        # is the cleanest hook for a deterministic "once per round" spend.
+        self._apply_detachment_stratagems(self.a, self.b)
+        self._apply_detachment_stratagems(self.b, self.a)
         # Phase I — fresh arrivals from the scout phase carry over INTO
         # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
         # the set first, THEN call _arrive_from_reserves so units arriving
@@ -861,10 +1265,15 @@ class Battle:
         # Thousand Sons Cabal-Points → Doombolt cadence.
         self._apply_psychic_phase()
 
-        # Leader auras: end-of-round heal_per_round from Apothecaries etc.
-        from .leaders import apply_round_end_healing
+        # Leader auras: end-of-round heal_per_round (Tech-Priest Dominus
+        # Lord of the Machine Cult repair flavour) and revive_destroyed_per_round
+        # (Apothecary Narthecium — return a destroyed INFANTRY model to the
+        # led unit) from registered character abilities.
+        from .leaders import apply_round_end_healing, apply_round_end_revival
         apply_round_end_healing(self.a)
         apply_round_end_healing(self.b)
+        apply_round_end_revival(self.a)
+        apply_round_end_revival(self.b)
 
         if round_num > 1:
             self._award_cp(self.a, self.b)
@@ -944,10 +1353,14 @@ class Battle:
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
-        # treat its weapons as [ASSAULT] for the turn (Aeldari rule).
+        # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
+        # Matchless Agility (Battle Host stratagem) has been fired this
+        # round to grant transient Assault.
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             kw = attacker.profile.unit_keywords or ()
-            if ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
+            if attacker.transient_assault_this_round:
+                pass   # stratagem already paid for; no token spend
+            elif ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
                 attacker_army.battle_focus_tokens -= 1
             else:
                 return
@@ -1043,6 +1456,12 @@ class Battle:
         ))
         if not target_alive_after:
             self._emit(UnitKilled(unit_uid=shoot_target.uid))
+            # Judgement Tokens: if the destroyed unit belonged to a Votann
+            # army, the killer (this attacker) earns a token on itself.
+            self._maybe_award_judgement_token(
+                killer=attacker, killer_army=attacker_army,
+                victim=shoot_target, victim_army=defender_army,
+            )
 
         if self.verbose:
             alive_str = (
@@ -1116,6 +1535,17 @@ class Battle:
             distance=dist, roll=roll, succeeded=True,
         ))
 
+        # Universal Core Stratagems on a successful charge:
+        # * Tank Shock (1 CP, attacker) — VEHICLE chargers deal D3 mortal
+        #   wounds.
+        # * Heroic Intervention (1 CP, defender) — friendly CHARACTER
+        #   within 6" of the charge target moves 3" into engagement range
+        #   with the charger. Fire AFTER Tank Shock so the character
+        #   intervenes against whatever's still standing.
+        self._try_tank_shock(attacker, target, attacker_army)
+        if target.is_alive:
+            self._try_heroic_intervention(attacker, target, defender_army)
+
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1")."""
         if attacker.profile.melee_attacks <= 0:
@@ -1144,6 +1574,22 @@ class Battle:
         ))
         if not alive_after:
             self._emit(UnitKilled(unit_uid=nearest.uid))
+            self._maybe_award_judgement_token(
+                killer=attacker, killer_army=attacker_army,
+                victim=nearest, victim_army=defender_army,
+            )
+
+        # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
+        # an out-of-sequence fight for the side that just got hit. The
+        # heuristic gates on (a) friendly unit in 1.5" of the attacker
+        # AND (b) the attacker killed a model. The retaliator strikes
+        # `attacker` immediately, before activation continues.
+        if attacker.is_alive:
+            self._try_counter_offensive(
+                loser_army=defender_army, loser_unit=nearest,
+                winner_army=attacker_army, winner_unit=attacker,
+                target_killed=not alive_after,
+            )
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1153,8 +1599,209 @@ class Battle:
         for s in self.subscribers:
             s.on_event(event)
 
+    def _maybe_award_judgement_token(
+        self, killer: "Unit", killer_army: Army,
+        victim: "Unit", victim_army: Army,
+    ) -> None:
+        """Eye of the Ancestors / Judgement Tokens (Leagues of Votann army rule).
+
+        When a non-Votann unit destroys a Votann model, the killer's unit
+        earns a token on itself. Tokens stack on the killer for the rest of
+        the battle and grant escalating re-roll buffs to subsequent Votann
+        attacks targeting that unit (resolved in `Unit.attack`).
+
+        Symmetry: a Votann unit killing another Votann unit (mirror match,
+        psychic, etc.) does NOT award a token — only the *opponent* of the
+        Votann army marks targets. We pin this off the victim's army
+        (`is_votann_army`), not the killer's, so a Votann attacker on a
+        Votann victim short-circuits before incrementing.
+        """
+        if not victim_army.is_votann_army:
+            return
+        # Don't mark yourself (a Votann unit killing one of its own
+        # in some pathological self-damage edge case).
+        if killer_army.is_votann_army:
+            return
+        tokens = victim_army.judgement_tokens
+        tokens[killer.uid] = tokens.get(killer.uid, 0) + 1
+        self._emit(JudgementTokenAwarded(
+            target_uid=killer.uid,
+            total_tokens=tokens[killer.uid],
+        ))
+
     @staticmethod
     def _award_cp(army: Army, opponent: Army) -> None:
         diff = opponent.unit_count - army.unit_count
         bonus = min(CP_BONUS_CAP, max(0, diff // CP_BONUS_DIVISOR))
         army.command_points += bonus
+
+    # ------------------------------------------------------------------
+    # Stratagem dispatch
+    # ------------------------------------------------------------------
+
+    def _fire_stratagem(self, army: Army, strat) -> bool:
+        """Spend CP and emit a StratagemFired event. Returns True iff the
+        stratagem actually fired (CP affordable + not already used when
+        flagged once_per_battle).
+
+        Callers are responsible for applying the stratagem's effect — this
+        method ONLY handles cost-paying + book-keeping + event emission.
+        """
+        if army.command_points < strat.cp_cost:
+            return False
+        already = self._stratagems_fired_this_battle.get(army.name, set())
+        if strat.once_per_battle and strat.name in already:
+            return False
+        army.command_points -= strat.cp_cost
+        already.add(strat.name)
+        self._stratagems_fired_this_battle[army.name] = already
+        self._emit(StratagemFired(
+            army_name=army.name,
+            stratagem_name=strat.name,
+            cp_cost=strat.cp_cost,
+        ))
+        return True
+
+    def maybe_fire_command_reroll(self, attacker_unit, target_unit, roll_kind: str) -> bool:
+        """Hook called by Unit.attack when a wound roll fails. Asks the
+        strategy heuristic whether to spend 1 CP to re-roll. Returns True
+        iff the stratagem fired.
+
+        Universal Core Stratagem (Wahapedia core rules): re-roll a single
+        Hit / Wound / Damage / Save / Advance / Charge / Battle-shock /
+        control roll. The simulator currently exposes this only on failed
+        wound rolls — that's the highest-value trigger and the others are
+        covered by detachment re-roll passives.
+        """
+        army = attacker_unit.army_ref
+        if army is None:
+            return False
+        ctx = {"target": target_unit, "roll_kind": roll_kind}
+        if not should_fire_stratagem(army, COMMAND_RE_ROLL, ctx):
+            return False
+        return self._fire_stratagem(army, COMMAND_RE_ROLL)
+
+    def _try_tank_shock(self, charger: "Unit", target: "Unit", charger_army: Army) -> None:
+        """After a VEHICLE charge resolves, optionally spend 1 CP for Tank
+        Shock — D3 mortal wounds to the charge target. Median D3 = 2
+        deterministically (matches the simulator's other 'median D3' uses
+        like Reanimation Protocols revival).
+        """
+        ctx = {"charger": charger, "succeeded": True}
+        if not should_fire_stratagem(charger_army, TANK_SHOCK, ctx):
+            return
+        if not self._fire_stratagem(charger_army, TANK_SHOCK):
+            return
+        # Mortal wounds bypass armour/invuln; honour FNP via receive_damage.
+        target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
+        alive_after = target.is_alive
+        if not alive_after:
+            self._emit(UnitKilled(unit_uid=target.uid))
+            # Tank Shock that finishes a Votann model still triggers the
+            # Judgement Token award — the killer's army is the charger's army.
+            target_army = self.b if charger_army is self.a else self.a
+            self._maybe_award_judgement_token(
+                killer=charger, killer_army=charger_army,
+                victim=target, victim_army=target_army,
+            )
+
+    def _try_heroic_intervention(
+        self, charger: "Unit", charge_target: "Unit",
+        defender_army: Army,
+    ) -> None:
+        """When an enemy charges a unit, look for a friendly CHARACTER
+        within 6" of the charge target — and if present, optionally spend
+        1 CP to pull them into engagement range with the charger.
+
+        Modelled as a free 3" move that places the CHARACTER 1" from the
+        charger (inside engagement range), so the next fight sub-phase
+        resolves their melee profile.
+        """
+        # Find the closest friendly CHARACTER to the charge target.
+        best = None
+        best_d = 999.0
+        for u in defender_army.alive_units:
+            if "CHARACTER" not in (u.profile.unit_keywords or ()):
+                continue
+            d = _distance(u.position, charge_target.position)
+            if d < best_d:
+                best_d = d
+                best = u
+        if best is None:
+            return
+        ctx = {
+            "character": best,
+            "charge_target": charge_target,
+            "distance": best_d,
+        }
+        if not should_fire_stratagem(defender_army, HEROIC_INTERVENTION, ctx):
+            return
+        if not self._fire_stratagem(defender_army, HEROIC_INTERVENTION):
+            return
+        # Move the character toward the charger up to 3", landing inside
+        # 1.0" engagement range if reachable.
+        old_pos = best.position
+        # Aim 1" short of the charger so we land in engagement, not on top.
+        new_pos = _move_toward(old_pos, charger.position, 3.0, self.map)
+        if new_pos != old_pos:
+            best.position = new_pos
+            self._emit(UnitMoved(
+                unit_uid=best.uid, from_pos=old_pos, to_pos=new_pos,
+            ))
+
+    def _try_counter_offensive(
+        self,
+        loser_army: Army, loser_unit: "Unit",
+        winner_army: Army, winner_unit: "Unit",
+        target_killed: bool,
+    ) -> None:
+        """After `winner_unit` (from winner_army) lands a fight that killed
+        a friendly model in `loser_unit`, the loser_army may spend 2 CP for
+        Counter-Offensive — a friendly unit in engagement range fights
+        immediately, out of sequence.
+
+        Effect: pick the loser_army unit with the best melee profile that is
+        within 1.5" of `winner_unit`, and fire its `_do_fight` against
+        winner_unit right now (before the rest of the fight sequence).
+        """
+        # Find a friendly unit in engagement range of the winner.
+        candidates = [
+            u for u in loser_army.alive_units
+            if u is not loser_unit
+            and u.profile.melee_attacks > 0
+            and _distance(u.position, winner_unit.position) <= 1.5
+        ]
+        in_engagement = bool(candidates)
+        ctx = {
+            "friendly_in_engagement": in_engagement,
+            "enemy_killed_model": target_killed,
+        }
+        if not should_fire_stratagem(loser_army, COUNTER_OFFENSIVE, ctx):
+            return
+        if not self._fire_stratagem(loser_army, COUNTER_OFFENSIVE):
+            return
+        # Pick the highest melee-DPA candidate.
+        def _melee_dpa(u):
+            return (
+                u.profile.melee_attacks * u.profile.melee_hit_probability
+                * (u.profile.melee_damage_per_shot or 1.0)
+            )
+        candidates.sort(key=_melee_dpa, reverse=True)
+        retaliator = candidates[0]
+        # Out-of-sequence fight: hit the enemy unit that just struck us,
+        # not whatever the retaliator's nearest happens to be.
+        dmg = retaliator.attack(winner_unit, distance=1.0, mode="melee")
+        alive_after = winner_unit.is_alive
+        self._emit(UnitFought(
+            attacker_uid=retaliator.uid,
+            target_uid=winner_unit.uid,
+            damage=dmg,
+            target_hp_after=winner_unit.current_health,
+            target_alive_after=alive_after,
+        ))
+        if not alive_after:
+            self._emit(UnitKilled(unit_uid=winner_unit.uid))
+            self._maybe_award_judgement_token(
+                killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )

@@ -6,6 +6,7 @@ import random
 from typing import Dict, List, Optional, Sequence
 
 from .army import Army
+from .detachments import default_detachment_for_faction, pick_detachment_for_army
 from .units import UnitProfile, UNIT_CATALOG
 
 
@@ -68,12 +69,21 @@ def build_homogeneous_army(
     """
     Fill an army with as many copies of a single unit type as the budget allows.
     Used for clean unit-vs-unit comparison.
+
+    Detachment: if `profile.faction` is non-empty, the army's detachment is
+    set to that faction's canonical default via `default_detachment_for_faction`.
+    This ensures calibration battles exercise army-wide passives (Awakened
+    Dynasty's bonus-to-hit-when-led, Gladius's wound-1 reroll, etc.) and
+    stratagems / CP economy on a representative footing rather than the
+    no-detachment baseline that earlier versions accidentally compared.
     """
     army = Army(name, in_cover=in_cover)
     remaining = points_budget
     while remaining >= profile.points_cost:
         army.add_unit(profile)
         remaining -= profile.points_cost
+    if profile.faction:
+        army.detachment = default_detachment_for_faction(profile.faction)
     return army
 
 
@@ -103,6 +113,12 @@ def build_attached_army(
     while remaining >= host_profile.points_cost:
         army.add_unit(host_profile)
         remaining -= host_profile.points_cost
+    # Detachment derives from the HOST's faction, not the leader's. A leader
+    # may be conceptually allied (Inquisitor attached to a Marine squad);
+    # the bodyguard squad's faction is what determines the army's detachment
+    # rule. Falls through silently when host_profile.faction is empty.
+    if host_profile.faction:
+        army.detachment = default_detachment_for_faction(host_profile.faction)
     return army
 
 
@@ -219,5 +235,13 @@ def build_faction_random_army(
                 army.add_unit(leader)
                 spent_by_name[leader.name] += leader.points_cost
                 remaining -= leader.points_cost
+
+    # Pick a detachment that suits the actual composition. Done AFTER unit
+    # selection so the picker can read the real vehicle / infantry mix
+    # rather than guessing from faction defaults. Falls back to None if
+    # the faction is unmapped — `Army.resolve_detachment` then re-tries
+    # the default lookup, preserving prior behaviour for edge cases.
+    if army.units:
+        army.detachment = pick_detachment_for_army(faction, army.units, rng)
 
     return army

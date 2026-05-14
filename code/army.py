@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .detachments import Detachment, default_detachment_for_faction
+from .stratagems import STARTING_CP
 from .units import Unit, UnitProfile
+
+
+# Faction tag for the Leagues of Votann army-rule (Eye of the Ancestors /
+# Judgement Tokens). Centralised so the detection in army.py + simulator.py
+# can't drift from each other. The string matches code.factions.faction_of
+# for the Leagues of Votann codex.
+VOTANN_FACTION_TAG = "Leagues of Votann"
 
 
 class Army:
@@ -17,7 +25,9 @@ class Army:
     ) -> None:
         self.name = name
         self.units: List[Unit] = []
-        self.command_points: int = 3
+        # 10e Strike Force standard: each side starts with 3 CP. Battle then
+        # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
+        self.command_points: int = STARTING_CP
         self.in_cover: bool = in_cover
         # Army-wide passive rules. Auto-resolves from the army's primary
         # faction (first unit's faction tag) when not explicitly set.
@@ -28,6 +38,36 @@ class Army:
         # an ASURYANI unit's activation to grant [ASSAULT] for that turn
         # (i.e. shoot after Advance).
         self.battle_focus_tokens: int = 0
+        # Back-reference to the Battle currently running this army. Set
+        # by Battle.__init__ so Unit.attack can dispatch the Command
+        # Re-Roll stratagem without threading callbacks through every
+        # call site. None when no Battle is active (catalogue tests, etc.).
+        self._battle_ref = None
+        # Leagues of Votann army rule — Eye of the Ancestors / Judgement
+        # Tokens. When an enemy unit destroys a Votann model, that enemy
+        # unit gains a token. Tokens stack on the enemy unit and grant
+        # escalating re-roll buffs to Votann attackers shooting/fighting
+        # that token-marked target. Keyed by enemy unit uid; value is the
+        # accumulated token count for that target. Only populated on a
+        # Votann army (see `is_votann_army`); other armies keep this dict
+        # empty for the whole battle.
+        self.judgement_tokens: Dict[str, int] = {}
+
+    # ------------------------------------------------------------------
+    # Faction detection
+    # ------------------------------------------------------------------
+
+    @property
+    def is_votann_army(self) -> bool:
+        """True iff at least one unit in this army carries the Votann faction
+        tag. Used to gate the Eye of the Ancestors / Judgement Tokens
+        bookkeeping — non-Votann armies never gain or read tokens.
+
+        The detection scans all units (not just `units[0]`) so an army that
+        leads with a Codex Agents allied character still resolves correctly
+        as long as the bulk of the roster is Votann.
+        """
+        return any(u.profile.faction == VOTANN_FACTION_TAG for u in self.units)
 
     # ------------------------------------------------------------------
     # Army construction
