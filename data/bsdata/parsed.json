@@ -43,7 +43,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -104,7 +105,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -166,7 +168,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -227,7 +230,8 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 3.0,
@@ -292,7 +296,8 @@
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -357,7 +362,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 3.0,
@@ -422,7 +428,8 @@
       "unit_keywords": [
         "DAEMON",
         "CHARACTER",
-        "MONSTER"
+        "MONSTER",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 5.5,
@@ -485,7 +492,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -548,7 +556,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "BATTLELINE"
+        "BATTLELINE",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -617,6 +626,7 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
+        "ASURYANI",
         "PSYKER"
       ],
       "melee_attacks": 3,
@@ -683,7 +693,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -745,7 +756,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -868,7 +880,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -935,7 +948,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 2.0,
@@ -997,7 +1011,8 @@
       "fnp": 7,
       "unit_keywords": [
         "FLY",
-        "VEHICLE"
+        "VEHICLE",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -1062,7 +1077,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 3.0,
@@ -1128,7 +1144,8 @@
         "CHARACTER",
         "FLY",
         "MOUNTED",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 3.0,
@@ -1191,7 +1208,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.12,
@@ -1255,7 +1273,8 @@
       "fnp": 7,
       "unit_keywords": [
         "FLY",
-        "VEHICLE"
+        "VEHICLE",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -1319,7 +1338,8 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -1381,7 +1401,8 @@
       "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -1444,7 +1465,8 @@
       "unit_keywords": [
         "VEHICLE",
         "FLY",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -1506,7 +1528,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 2.1,
@@ -1569,7 +1592,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -1631,7 +1655,8 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 2.0,
@@ -1692,7 +1717,8 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -1753,7 +1779,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "ASURYANI"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -1813,7 +1840,8 @@
       "fnp": 7,
       "unit_keywords": [
         "FLY",
-        "VEHICLE"
+        "VEHICLE",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -1876,7 +1904,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "ASURYANI"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 3.0,
@@ -1936,7 +1965,8 @@
       "infiltrator": true,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -2063,7 +2093,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 3.0,
@@ -2126,7 +2157,8 @@
       "fnp": 7,
       "unit_keywords": [
         "FLY",
-        "MOUNTED"
+        "MOUNTED",
+        "ASURYANI"
       ],
       "melee_attacks": 1,
       "melee_damage_per_shot": 1.0,
@@ -2313,7 +2345,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 2.0,
@@ -2435,7 +2468,8 @@
       "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -2499,6 +2533,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "INFANTRY"
       ],
       "melee_attacks": 2,
@@ -2561,7 +2596,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -2942,7 +2978,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -3003,7 +3040,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "WALKER"
+        "WALKER",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -3064,7 +3102,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 3.0,
@@ -3128,7 +3167,8 @@
       "fnp": 7,
       "unit_keywords": [
         "PSYKER",
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 2.5,
@@ -3191,6 +3231,7 @@
       "fnp": 7,
       "unit_keywords": [
         "PSYKER",
+        "ASURYANI",
         "MOUNTED",
         "FLY"
       ],
@@ -3259,7 +3300,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -3323,7 +3365,8 @@
       "fnp": 7,
       "unit_keywords": [
         "FLY",
-        "VEHICLE"
+        "VEHICLE",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -3441,7 +3484,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -3503,7 +3547,8 @@
         "MONSTER",
         "TITANIC",
         "TOWERING",
-        "WALKER"
+        "WALKER",
+        "ASURYANI"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -3567,7 +3612,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MONSTER",
-        "WALKER"
+        "WALKER",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 4.5,
@@ -3694,7 +3740,8 @@
       "infiltrator": true,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.1,
@@ -3758,7 +3805,8 @@
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -3822,7 +3870,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -3887,7 +3936,8 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -3947,7 +3997,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -4011,7 +4062,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -4072,6 +4124,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "VEHICLE",
         "FLY",
         "TITANIC"
@@ -4137,6 +4190,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "TOWERING",
         "TITANIC",
         "WALKER",
@@ -4204,7 +4258,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -4266,6 +4321,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "TITANIC",
         "TOWERING",
         "WALKER",
@@ -4335,6 +4391,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "WALKER",
         "TOWERING",
         "TITANIC",
@@ -4403,7 +4460,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -4468,6 +4526,7 @@
       "unit_keywords": [
         "WALKER",
         "MONSTER",
+        "ASURYANI",
         "PSYKER"
       ],
       "melee_attacks": 4,
@@ -4587,7 +4646,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "ASURYANI"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -4649,7 +4709,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "PSYKER"
+        "PSYKER",
+        "ASURYANI"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 2.0,
@@ -4907,7 +4968,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "VEHICLE"
+        "VEHICLE",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -4972,7 +5034,8 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
-        "FLY"
+        "FLY",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -5036,7 +5099,8 @@
       "unit_keywords": [
         "VEHICLE",
         "FLY",
-        "TITANIC"
+        "TITANIC",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -5100,7 +5164,8 @@
       "unit_keywords": [
         "VEHICLE",
         "FLY",
-        "TITANIC"
+        "TITANIC",
+        "ASURYANI"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -5163,7 +5228,8 @@
       "unit_keywords": [
         "VEHICLE",
         "FLY",
-        "WALKER"
+        "WALKER",
+        "ASURYANI"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 1.0,
@@ -5793,6 +5859,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "INFANTRY"
       ],
       "melee_attacks": 2,
@@ -5854,6 +5921,7 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
+        "ASURYANI",
         "INFANTRY"
       ],
       "melee_attacks": 2,
@@ -5917,6 +5985,7 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
+        "ASURYANI",
         "FLY"
       ],
       "melee_attacks": 5,
@@ -6036,7 +6105,8 @@
         "MONSTER",
         "TITANIC",
         "TOWERING",
-        "WALKER"
+        "WALKER",
+        "ASURYANI"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 6.0,

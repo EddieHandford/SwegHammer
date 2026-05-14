@@ -1412,15 +1412,32 @@ def _build_loadout_strings(
 # ---------------------------------------------------------------------------
 
 # Standard 10e unit keywords we care about for Anti-X targeting and rules.
+#
+# ASURYANI is a faction sub-keyword: every Eldar Craftworlds unit carries it
+# (Guardians, Aspect Warriors, Wraith constructs, etc.), and the simulator's
+# Aeldari Battle Focus mechanic gates on it. In BSData the keyword appears
+# as a <categoryLink name="Faction: Asuryani"/> on the unit's selectionEntry;
+# Drukhari, Harlequins, and Ynnari units do not carry that link (per the
+# 10e Aeldari codex), so we get correct discrimination for free from the
+# categoryLink → keyword mapping below.
 _TRACKED_UNIT_KEYWORDS = {
     "INFANTRY", "VEHICLE", "MONSTER", "CHARACTER", "FLY",
     "TITANIC", "TOWERING", "WALKER", "BATTLELINE", "SWARM",
     "BIKE", "MOUNTED", "BEAST", "DAEMON", "PSYKER",
+    "ASURYANI",
 }
 
 
 def extract_unit_keywords(entry: ET.Element) -> List[str]:
-    """Scan the unit's categoryLinks for known 10e keyword tags."""
+    """Scan the unit's categoryLinks for known 10e keyword tags.
+
+    Each categoryLink name is uppercased and any BSData prefix (e.g.
+    "Faction: ", "Allegiance: ") is stripped before matching against
+    ``_TRACKED_UNIT_KEYWORDS``. This means "Faction: Asuryani" becomes
+    "ASURYANI", "Infantry" becomes "INFANTRY", etc. — the cleaned name
+    is matched as-is, so the tracked set is the single source of truth
+    for which keywords are exposed to the simulator.
+    """
     found: List[str] = []
     for cl in entry.findall(".//categoryLink"):
         name = (cl.get("name") or "").upper().strip()
