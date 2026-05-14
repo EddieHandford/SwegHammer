@@ -472,7 +472,20 @@ class Battle:
         if not candidates:
             return
 
-        shoot_target = min(candidates, key=lambda u: u.current_health)
+        # Threat-aware target priority: prefer enemies contesting one of OUR
+        # objectives. If multiple, pick the lowest-HP among them (likely to
+        # finish off and clear the objective). If none on objectives, fall back
+        # to the global lowest-HP target.
+        def _contests_our_obj(u):
+            for obj in self.map.objectives:
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy <= obj.control_radius * obj.control_radius:
+                    return True
+            return False
+
+        contesting = [u for u in candidates if _contests_our_obj(u)]
+        shoot_target = min(contesting or candidates, key=lambda u: u.current_health)
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set.

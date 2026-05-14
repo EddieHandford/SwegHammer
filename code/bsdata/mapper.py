@@ -88,16 +88,26 @@ def parse_dice_expr(text: str) -> Optional[float]:
 
 def parse_plus_target(text: str) -> Optional[int]:
     """
-    Parse a "N+" target characteristic to the d6 target value.
+    Parse a "N+" target characteristic to the d6 target value. Some BSData
+    authors omit the '+' (e.g. SV="5" for a 5+ save) — accept those too.
 
         "3+"   -> 3
-        "2+"   -> 2
+        "5"    -> 5  (Jackal Alphus etc.)
         ""     -> None
     """
     if not text:
         return None
-    m = _PLUS_RE.search(text.strip())
-    return int(m.group(1)) if m else None
+    t = text.strip()
+    m = _PLUS_RE.search(t)
+    if m:
+        return int(m.group(1))
+    # Fallback: bare single-digit integer in range [1, 7]
+    bare = _INT_RE.search(t)
+    if bare:
+        v = int(bare.group(0))
+        if 1 <= v <= 7:
+            return v
+    return None
 
 
 def target_to_hit_probability(target: Optional[int]) -> float:
@@ -354,7 +364,7 @@ class UnitWargear:
 
 def _walk(
     elem: ET.Element, reg: Registry, seen: set, out: UnitWargear,
-    depth: int = 0, max_depth: int = 3,
+    depth: int = 0, max_depth: int = 3, primary_name: str = "",
 ) -> None:
     """Collect the unit profile + every ranged weapon reachable within depth."""
     if depth > max_depth:
@@ -367,7 +377,7 @@ def _walk(
 
     # Inline profiles
     for prof in elem.findall("./profiles/profile"):
-        _consume_profile(prof, out)
+        _consume_profile(prof, out, primary_name)
 
     # infoLinks → profiles
     for il in elem.findall("./infoLinks/infoLink"):
@@ -375,7 +385,7 @@ def _walk(
             continue
         target = reg.resolve(il.get("targetId") or "")
         if target is not None and target.tag == "profile":
-            _consume_profile(target, out)
+            _consume_profile(target, out, primary_name)
 
     # entryLinks — carry their own infoLinks, then recurse into the target
     for el in elem.findall("./entryLinks/entryLink"):
@@ -384,22 +394,34 @@ def _walk(
                 continue
             tgt = reg.resolve(il.get("targetId") or "")
             if tgt is not None and tgt.tag == "profile":
-                _consume_profile(tgt, out)
+                _consume_profile(tgt, out, primary_name)
         target = reg.resolve(el.get("targetId") or "")
         if target is not None:
-            _walk(target, reg, seen, out, depth + 1, max_depth)
+            _walk(target, reg, seen, out, depth + 1, max_depth, primary_name)
 
     # Nested selectionEntries / groups
     for child in elem.findall("./selectionEntries/selectionEntry"):
-        _walk(child, reg, seen, out, depth + 1, max_depth)
+        _walk(child, reg, seen, out, depth + 1, max_depth, primary_name)
     for grp in elem.findall("./selectionEntryGroups/selectionEntryGroup"):
-        _walk(grp, reg, seen, out, depth + 1, max_depth)
+        _walk(grp, reg, seen, out, depth + 1, max_depth, primary_name)
 
 
-def _consume_profile(prof: ET.Element, out: UnitWargear) -> None:
+def _consume_profile(prof: ET.Element, out: UnitWargear, primary_name: str = "") -> None:
+    """Collect a profile into the wargear bag.
+
+    Multi-profile units (Saint Celestine + Geminae Superia, Chaplain Grimaldus
+    + Cenobyte Servitors) put more than one Unit profile in the tree. We pick
+    the one whose name MATCHES the unit's display name when available, so the
+    "lead" character wins over their retinue.
+    """
     type_name = prof.get("typeName") or ""
-    if is_unit_profile(prof) and out.unit_profile is None:
-        out.unit_profile = prof
+    if is_unit_profile(prof):
+        prof_name = prof.get("name") or ""
+        if out.unit_profile is None:
+            out.unit_profile = prof
+        elif primary_name and prof_name == primary_name:
+            # Name match — prefer over previously-stored profile
+            out.unit_profile = prof
         return
     if "Ranged" in type_name:
         w = extract_ranged_weapon(prof)
@@ -413,7 +435,8 @@ def _consume_profile(prof: ET.Element, out: UnitWargear) -> None:
 
 def gather_wargear(entry: ET.Element, reg: Registry) -> UnitWargear:
     out = UnitWargear()
-    _walk(entry, reg, set(), out)
+    primary_name = entry.get("name") or ""
+    _walk(entry, reg, set(), out, primary_name=primary_name)
     return out
 
 

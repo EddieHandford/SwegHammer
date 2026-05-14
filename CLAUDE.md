@@ -95,18 +95,21 @@ Two agents launched mid-session both branched from main and produced
 unmergeable diffs because their base was missing the WIP commits.
 
 **Mandatory in every agent prompt that uses worktree isolation:**
-- Quote the exact parent commit SHA the agent should be working on top of
-- Tell the agent to run `git log --oneline -3` as its FIRST action and
-  **abort with a clear "WRONG BASE" report if it doesn't see the expected
-  parent SHA** — don't let it silently produce work on the wrong base.
+- Worktrees default to being created off the default branch (usually `main`),
+  NOT off your current WIP branch. The base will be wrong by default.
+- Push your WIP branch to `origin` first so the agent can pull from it.
+- In the prompt, tell the agent to RESET its worktree to your WIP branch
+  before doing any work — the worktree is fresh, so the reset is safe.
 
 Example briefing block:
-> Verify base before doing any work:
+> Run these first to align your base — the worktree is fresh, no
+> uncommitted work to lose:
 > ```
+> git fetch origin
+> git reset --hard origin/<your-wip-branch>
 > git log --oneline -3
 > ```
-> Expected parent: `<SHA>`. If the top commit isn't that, STOP and
-> report — do not start implementing.
+> Top commit must be `<SHA>`. If not, STOP and report "REBASE FAILED".
 
 ## 9. Don't hand-roll new units in code
 

@@ -50,8 +50,10 @@ def classify(p: UnitProfile) -> str:
     m = expected_melee_dpa(p)
     total = r + m
 
-    # HORDE check FIRST — H=1 Sv 5+/6+ infantry are HORDE even at very low DPA
-    if p.health == 1 and p.save >= 5 and total < 1.5:
+    # HORDE check FIRST — single-wound infantry that aren't space marines are
+    # HORDE. Save 4+ qualifies (Necron Warriors) since the defining trait is
+    # "many cheap bodies", not the armour rating specifically.
+    if p.health == 1 and p.save >= 4 and total < 1.5:
         return "HORDE"
 
     if total <= 0.4:
