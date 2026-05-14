@@ -43,6 +43,7 @@ from dataclasses import replace
 
 from .army_builder import build_homogeneous_army
 from .maps import DEFAULT_MAP
+from .roles import baseline_key_for, classify
 from .simulator import Battle
 from .units import UNIT_CATALOG, UnitProfile
 
@@ -50,6 +51,50 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CALIBRATED_PATH = REPO_ROOT / "data" / "calibrated_points.json"
 
 DEFAULT_BASELINE = "space_marines_intercessor_squad"
+
+# Sentinel value used by the CLI / programmatic callers to request that the
+# balancer choose a same-role baseline automatically rather than forcing a
+# single hard-coded one. Kept as a literal string so it round-trips through
+# argparse without bespoke type-coercion.
+AUTO_BASELINE = "auto"
+
+
+def resolve_baseline(unit_key: str, baseline_key: Optional[str]) -> str:
+    """
+    Pick the baseline catalogue key for calibrating `unit_key`.
+
+    Rules:
+      * Explicit non-auto `baseline_key` always wins.
+      * `None` or "auto" -> look up the unit's role and use
+        `baseline_key_for(role)`.
+      * If the role-baseline is the unit itself (e.g. calibrating Intercessor
+        Squad which is also the SHOOTY/DUAL baseline), fall back to the
+        DEFAULT_BASELINE; if that is also the unit, fall back to the first
+        catalogue key with the same role that isn't the unit. As a last
+        resort, return DEFAULT_BASELINE so callers still get a string.
+    """
+    if baseline_key and baseline_key != AUTO_BASELINE:
+        return baseline_key
+
+    unit_profile = UNIT_CATALOG[unit_key]
+    role = classify(unit_profile)
+    candidate = baseline_key_for(role)
+
+    if candidate != unit_key:
+        return candidate
+
+    # Unit IS the role baseline. Try the global default first.
+    if DEFAULT_BASELINE != unit_key and DEFAULT_BASELINE in UNIT_CATALOG:
+        return DEFAULT_BASELINE
+
+    # Otherwise hunt for a same-role peer.
+    for other_key, other_profile in UNIT_CATALOG.items():
+        if other_key == unit_key:
+            continue
+        if classify(other_profile) == role:
+            return other_key
+
+    return DEFAULT_BASELINE
 
 
 # ---------------------------------------------------------------------------
@@ -105,17 +150,30 @@ class CalibrationResult:
 
 def find_balanced_points(
     unit_key: str,
-    baseline_key: str = DEFAULT_BASELINE,
+    baseline_key: Optional[str] = None,
     target_win_rate: float = 0.5,
     tolerance: float = 0.05,
     n_battles: int = 200,
     max_iters: int = 8,
     points_budget: float = 1000.0,
     rng: Optional[random.Random] = None,
+    auto_baseline: bool = True,
 ) -> CalibrationResult:
     """
     Find the points-per-model that lands `unit_key`'s win rate within
-    `target ± tolerance` against `baseline_key` over `n_battles` simulations.
+    `target ± tolerance` against the baseline over `n_battles` simulations.
+
+    Baseline selection:
+      * Explicit `baseline_key` (anything other than "auto") is used verbatim.
+      * If `baseline_key` is None / "auto" AND `auto_baseline=True`, the
+        baseline is chosen by role via `code.roles.baseline_key_for` so a
+        Knight-class HEAVY is compared against another HEAVY rather than
+        a chaff-tier Intercessor squad.
+      * If `auto_baseline=False` and no explicit key, the legacy
+        DEFAULT_BASELINE is used.
+
+    Self-vs-self degeneracy (calibrating the role baseline itself) is avoided
+    by `resolve_baseline`, which falls back to a peer.
 
     Uses bisection on a multiplicative scale (factor 1.5 step initially,
     halving the step on each direction reversal). Cheap and good enough for
@@ -123,8 +181,16 @@ def find_balanced_points(
     """
     if rng is None:
         rng = random.Random()
+
+    if baseline_key and baseline_key != AUTO_BASELINE:
+        resolved_baseline = baseline_key
+    elif auto_baseline:
+        resolved_baseline = resolve_baseline(unit_key, baseline_key)
+    else:
+        resolved_baseline = DEFAULT_BASELINE
+
     unit_profile = UNIT_CATALOG[unit_key]
-    baseline_profile = UNIT_CATALOG[baseline_key]
+    baseline_profile = UNIT_CATALOG[resolved_baseline]
     starting = max(1.0, unit_profile.points_cost)
 
     lo, hi = starting / 4.0, starting * 4.0
@@ -141,7 +207,7 @@ def find_balanced_points(
 
         if abs(wr - target_win_rate) <= tolerance:
             return CalibrationResult(
-                unit_key=unit_key, baseline_key=baseline_key,
+                unit_key=unit_key, baseline_key=resolved_baseline,
                 starting_points=starting, balanced_points=round(current, 2),
                 final_win_rate=wr, iterations=iters, converged=True,
                 samples_per_iter=n_battles, points_budget=points_budget,
@@ -164,7 +230,7 @@ def find_balanced_points(
         last_direction = new_direction
 
     return CalibrationResult(
-        unit_key=unit_key, baseline_key=baseline_key,
+        unit_key=unit_key, baseline_key=resolved_baseline,
         starting_points=starting, balanced_points=round(current, 2),
         final_win_rate=last_wr, iterations=iters, converged=False,
         samples_per_iter=n_battles, points_budget=points_budget,
@@ -204,7 +270,11 @@ def main(argv: Optional[List[str]] = None) -> None:
     p = argparse.ArgumentParser(description="SwegHammer points-balancer")
     p.add_argument("--unit", type=str, default=None,
                    help="Catalogue key to calibrate (omit + use --all for sweep)")
-    p.add_argument("--baseline", type=str, default=DEFAULT_BASELINE)
+    p.add_argument("--baseline", type=str, default=AUTO_BASELINE,
+                   help=(
+                       "Baseline catalogue key, or 'auto' (default) for "
+                       "role-stratified selection via code.roles."
+                   ))
     p.add_argument("--all", action="store_true",
                    help="Calibrate every enabled unit in the catalogue (slow)")
     p.add_argument("--battles", type=int, default=200,
@@ -230,7 +300,11 @@ def main(argv: Optional[List[str]] = None) -> None:
     if args.unit:
         targets = [args.unit]
     else:
-        targets = [k for k, u in UNIT_CATALOG.items() if k != args.baseline]
+        # In sweep mode the only key we can never calibrate is one matching
+        # a literal explicit baseline. With auto-baseline the per-unit
+        # resolver handles self-vs-self by picking a peer instead.
+        skip_key = args.baseline if args.baseline != AUTO_BASELINE else None
+        targets = [k for k in UNIT_CATALOG if k != skip_key]
         if args.faction:
             targets = [k for k in targets if UNIT_CATALOG[k].faction == args.faction]
         if args.limit > 0:
@@ -238,7 +312,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     results: List[CalibrationResult] = []
     t0 = time.time()
-    print(f"Calibrating {len(targets)} unit(s) against {args.baseline}\n")
+    label = "auto (role-stratified)" if args.baseline == AUTO_BASELINE else args.baseline
+    print(f"Calibrating {len(targets)} unit(s) against {label}\n")
     for i, key in enumerate(targets, 1):
         try:
             r = find_balanced_points(
@@ -253,10 +328,14 @@ def main(argv: Optional[List[str]] = None) -> None:
             print(f"  [{i}/{len(targets)}] {key} — MISSING from catalogue, skipping")
             continue
         marker = "OK" if r.converged else "no-conv"
+        baseline_suffix = (
+            f"  vs {r.baseline_key[:32]}" if args.baseline == AUTO_BASELINE else ""
+        )
         print(
             f"  [{i:>4}/{len(targets)}] {key[:48]:<48}  "
             f"{r.starting_points:>5.1f} -> {r.balanced_points:>5.1f} pts/model  "
             f"wr={r.final_win_rate:.2f}  it={r.iterations}  [{marker}]"
+            f"{baseline_suffix}"
         )
         results.append(r)
 
