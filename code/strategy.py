@@ -409,7 +409,55 @@ def _wounded_seek_obscuring(unit, role: str, fallback_pos: Tuple[float, float], 
     return nearest
 
 
-__all__ = ["pick_move_intent", "should_fire_stratagem"]
+__all__ = ["pick_move_intent", "should_fire_stratagem", "should_declare_waaagh"]
+
+
+# ---------------------------------------------------------------------------
+# Orks WAAAGH! AI trigger (once-per-battle window)
+# ---------------------------------------------------------------------------
+
+# The simulator calls this at the start of each Ork player's Command phase
+# (Round 1 onwards). It returns True iff the Ork player should declare WAAAGH!
+# THIS round.
+#
+# Heuristic priorities (ranked):
+#   1. Already declared? Never again — once per battle.
+#   2. Round 4 fallback: force-fire so the buff isn't wasted entirely.
+#   3. Emergency: Orks below 70% starting points and at least Round 2 — fire
+#      now to hit back before the army crumbles further.
+#   4. Default: Round 3. Middle of the game, melee waves should be in range
+#      and a turn of +1 to wound melee turns the brawl.
+def should_declare_waaagh(army, round_num: int) -> bool:
+    """Decide whether the Ork player should declare WAAAGH! this round.
+
+    Args:
+        army: the Ork Army (must have `waaagh_round_unlocked` attribute).
+        round_num: the current battle round (1..MAX_ROUNDS).
+
+    Returns:
+        True iff the army should declare WAAAGH! NOW. Caller is responsible
+        for setting `army.waaagh_round_unlocked = round_num` and emitting
+        the WaaaghDeclared event.
+    """
+    if getattr(army, "waaagh_round_unlocked", None) is not None:
+        return False   # already used this battle
+
+    starting = float(getattr(army, "starting_points", 0.0) or 0.0)
+    current = float(sum(u.profile.points_cost for u in army.alive_units))
+
+    # Round 4: force-fire fallback — don't leave the buff on the table.
+    if round_num >= 4:
+        return True
+
+    # Emergency trigger: heavy losses, fire early to retaliate.
+    if round_num >= 2 and starting > 0 and current < 0.70 * starting:
+        return True
+
+    # Default: Round 3 declaration — peak melee engagement window.
+    if round_num == 3:
+        return True
+
+    return False
 
 
 # ---------------------------------------------------------------------------

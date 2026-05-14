@@ -461,6 +461,21 @@ class Unit:
         ):
             wound_target = max(2, wound_target - 1)
 
+        # ---- Orks WAAAGH! once-per-battle window: +1 to wound in melee for
+        # Ork attackers on the turn WAAAGH! was declared. Cited as
+        # `simulator.waaagh`. The army-level field `waaagh_round_unlocked`
+        # stores the round in which the AI declared; we compare against the
+        # live battle round via the army's _battle_ref so the buff applies
+        # ONLY on that turn (not the rest of the battle).
+        if mode == "melee" and p.faction == "Orks":
+            own_army = getattr(self, "army_ref", None)
+            if own_army is not None:
+                waaagh_round = getattr(own_army, "waaagh_round_unlocked", None)
+                battle = getattr(own_army, "_battle_ref", None)
+                cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                if waaagh_round is not None and waaagh_round == cur_round:
+                    wound_target = max(2, wound_target - 1)
+
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
         if p.heavy and mode != "melee" and not self.moved_this_round:

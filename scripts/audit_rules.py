@@ -98,6 +98,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.battle_focus",
     "simulator.battleshock",
     "simulator.judgement_tokens",
+    # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
+    # Ork units when the army has 10+ Ork models on the battlefield;
+    # waaagh is the once-per-battle Command-phase declaration that grants
+    # +1 to wound melee on the declaring turn.
+    "simulator.mob_rule",
+    "simulator.waaagh",
 )
 
 

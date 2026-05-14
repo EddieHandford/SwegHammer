@@ -183,6 +183,25 @@ class StratagemFired:
 
 
 @dataclass(frozen=True)
+class WaaaghDeclared:
+    """An Ork army declared WAAAGH! at the start of its Command phase.
+
+    10e Orks army rule (once per battle). While active until end of the
+    declaring turn: +1 to charge rolls for Ork units, Advance counts as a
+    charge for the Fight sub-phase, and Ork attackers add +1 to melee
+    wound rolls. SwegHammer currently models the +1-to-wound-melee leg as
+    a `simulator.waaagh` gate read by `Unit.attack`; the charge/advance
+    legs are descriptive (the AI picks WAAAGH! rounds to match a melee
+    push but the gates aren't separately implemented yet).
+
+    Renderers can ignore this event — the wound-roll math is applied via
+    `Army.waaagh_round_unlocked` at attack time.
+    """
+    army_name: str
+    round_num: int
+
+
+@dataclass(frozen=True)
 class BattleshockFailed:
     """A unit failed its Battleshock check this round and counts as OC 0."""
     unit_uid: str

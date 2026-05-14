@@ -137,10 +137,14 @@ WAAAGH_DETACHMENT = Detachment(
     name="WAAAGH! Tribe",
     faction="Orks",
     notes=(
-        "Always-on +1 Attack on every weapon: approximates the once-per-game "
-        "WAAAGH! plus the Orks-be-Orks aggression baseline."
+        "Placeholder detachment carrying no always-on passive. The real Ork "
+        "offensive teeth come from the once-per-game WAAAGH! army rule, which "
+        "now lives in `simulator.waaagh` (declared at Command-phase start, "
+        "Ork attackers gain +1 to wound in melee while active). The earlier "
+        "always-on +1 Attack approximation was removed because it stacked on "
+        "top of the round-gated buff, doubling Ork output. Detachment "
+        "stratagems are deferred to #104."
     ),
-    plus_one_attack=1,
     preferred_composition="infantry",
 )
 

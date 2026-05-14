@@ -12,11 +12,11 @@ from .events import (
     JudgementTokenAwarded, ObjectiveScored, RoundEnded, RoundStarted,
     StratagemFired, Subscriber, UnitActivated, UnitAdvanced, UnitCharged,
     UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
-    UnitReanimated, UnitScouted, UnitShot,
+    UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
-from .strategy import pick_move_intent, should_fire_stratagem
+from .strategy import pick_move_intent, should_declare_waaagh, should_fire_stratagem
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
     # Cult of Magic (Thousand Sons)
@@ -182,6 +182,10 @@ class Battle:
         }
         self.a._battle_ref = self
         self.b._battle_ref = self
+        # Current battle round (1..MAX_ROUNDS). Updated at the top of each
+        # _run_round; read by Unit.attack for round-gated faction rules
+        # like the Orks WAAAGH! +1 to wound melee window.
+        self._current_round: int = 0
 
     # ------------------------------------------------------------------
     # Public interface
@@ -207,6 +211,17 @@ class Battle:
         # army roster, not just what was on the board at deployment.
         a_start = len(self.a.units) + len(self._reserves.get(self.a.name, []))
         b_start = len(self.b.units) + len(self._reserves.get(self.b.name, []))
+        # Snapshot starting points across BOTH on-board and reserve units so
+        # the WAAAGH! AI's "below 70% starting points" emergency trigger
+        # measures attrition against the full roster, not just the deployed
+        # slice. Applied to every army (cheap, scoped attribute), only Ork
+        # armies actually consult it.
+        for army in (self.a, self.b):
+            roster_pts = sum(u.profile.points_cost for u in army.units) + sum(
+                u.profile.points_cost
+                for u in self._reserves.get(army.name, [])
+            )
+            army.starting_points = float(roster_pts)
         # Reanimation Protocols (#75): snapshot starting model counts per
         # profile per army, including reserves. End-of-round revival reads
         # this to compute how many models have been destroyed.
@@ -1133,6 +1148,12 @@ class Battle:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
 
+        # Expose the live round to Unit.attack via the army back-reference
+        # so faction-gated round windows (Orks WAAAGH! +1 to wound melee)
+        # can be checked without threading a round parameter through every
+        # call site.
+        self._current_round = round_num
+
         # New round = no unit has Advanced yet, no battleshock yet, no charges.
         self._advanced_this_round = set()
         self._battleshocked_this_round = set()
@@ -1147,6 +1168,19 @@ class Battle:
         # awarded later by _award_cp.
         award_command_phase_cp(self.a)
         award_command_phase_cp(self.b)
+        # ---- Orks WAAAGH! once-per-battle declaration (Command phase).
+        # 10e Orks army rule: declared at the start of a Command phase, once
+        # per battle. While active until the end of that turn, Ork attackers
+        # gain +1 to wound in melee (the simulator-side gate; +1 to charge
+        # rolls and Advance-counts-as-charge are descriptive — see
+        # `simulator.waaagh` citation). The AI fires per `should_declare_waaagh`.
+        for army in (self.a, self.b):
+            if any(u.profile.faction == "Orks" for u in army.units):
+                if should_declare_waaagh(army, round_num):
+                    army.waaagh_round_unlocked = round_num
+                    self._emit(WaaaghDeclared(
+                        army_name=army.name, round_num=round_num,
+                    ))
         # Clear any per-round transient stratagem flags from the previous
         # round (Disgustingly Resilient, Lightning-Fast Reactions, etc.)
         # before deciding whether to spend CP on a new batch this round.
@@ -1188,14 +1222,31 @@ class Battle:
         # strength" maps to "current HP < starting HP / 2".
         # Detachment modifiers compose: own ld_bonus LOWERS our test target
         # (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
+        #
+        # Mob Rule (Orks army rule, 10e): an Ork unit with 10+ models on the
+        # battlefield auto-passes its Battle-shock test — no roll, no chance
+        # of failure. SwegHammer models each squad member as a separate Unit
+        # instance, so "10+ models" maps to "10+ alive Ork units in the same
+        # army". When that threshold is met, every Ork unit in the army skips
+        # the roll regardless of its own current_health. Cited as
+        # `simulator.mob_rule`.
         if round_num > 1:
             for army, opponent in ((self.a, self.b), (self.b, self.a)):
                 opponent_det = opponent.resolve_detachment()
                 own_det = army.resolve_detachment()
                 ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
                 ld_bonus = own_det.ld_bonus if own_det else 0
+                # Mob Rule check: count alive Ork models army-wide.
+                ork_count = sum(
+                    1 for u in army.alive_units if u.profile.faction == "Orks"
+                )
+                mob_rule_active = ork_count >= 10
                 for u in army.alive_units:
                     if u.current_health < u.profile.health / 2.0:
+                        # Mob Rule short-circuit: Ork units auto-pass when the
+                        # army has 10+ Ork models on the battlefield.
+                        if mob_rule_active and u.profile.faction == "Orks":
+                            continue
                         roll = random.randint(1, 6) + random.randint(1, 6)
                         target = u.profile.leadership + ld_penalty - ld_bonus
                         if roll < target:

@@ -52,6 +52,18 @@ class Army:
         # Votann army (see `is_votann_army`); other armies keep this dict
         # empty for the whole battle.
         self.judgement_tokens: Dict[str, int] = {}
+        # Orks WAAAGH! army rule — declared once per battle at the start of
+        # an Ork player's Command phase. Stores the round in which WAAAGH!
+        # was unlocked; `Unit.attack` reads this against the live battle
+        # round to apply the +1 to wound melee buff. None = not yet declared.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!
+        # Cited as `simulator.waaagh`.
+        self.waaagh_round_unlocked: Optional[int] = None
+        # Starting points snapshot — captured once at battle start by the
+        # simulator so the WAAAGH! AI can compare current points to the
+        # initial roster (the trigger fires early if Orks are taking heavy
+        # losses). 0 until the simulator sets it.
+        self.starting_points: float = 0.0
 
     # ------------------------------------------------------------------
     # Faction detection

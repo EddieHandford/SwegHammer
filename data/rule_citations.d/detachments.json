@@ -28,15 +28,6 @@
     "scope": "army-wide"
   },
 
-  "WAAAGH_DETACHMENT.plus_one_attack": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Get-Stuck-In",
-    "rule_name": "Get Stuck In",
-    "quoted_text": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability.",
-    "trigger": "any friendly Orks melee attack",
-    "effect": "+1 Attack on every weapon (approximation of the War Horde detachment's Sustained Hits 1 on melee, plus the once-per-game Waaagh! army rule which our model rolls into the always-on +1A baseline; codex renames the launch-day 'WAAAGH! Tribe' index detachment to 'War Horde')",
-    "scope": "army-wide"
-  },
-
   "NOBLE_LANCE.plus_one_to_wound": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Bold-Gallantry",
     "rule_name": "Bold Gallantry",

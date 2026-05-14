@@ -260,5 +260,23 @@
     "trigger": "start of own Command phase (Round 2 onward); unit is Below Half-Strength",
     "effect": "(approximation) the unit rolls 2D6; fail (< Ld) drops its OC to 0 for objective scoring this round. SwegHammer ignores the 'cannot use Stratagems' and 'Desperate Escape on Fall Back' consequences because neither is otherwise modelled. Detachment ld_bonus / enemy_ld_penalty compose into the test target.",
     "scope": "phase-gated"
+  },
+
+  "simulator.mob_rule": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Mob-Rule",
+    "rule_name": "Mob Rule",
+    "quoted_text": "Each time a Battle-shock test is taken for an ORKS unit from your army, if that unit has 10 or more models in it, that test is automatically passed.",
+    "trigger": "Battle-shock test for an Orks unit; the Ork army has 10+ Ork models on the battlefield",
+    "effect": "(approximation) the unit auto-passes its Battle-shock test (no 2D6 roll). SwegHammer models each squad member as a separate Unit instance, so the canonical '10+ models in the unit' is approximated as '10+ alive Ork models army-wide' — close enough for Strike Force rosters where the Boyz / Gretchin blocks dominate the count.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.waaagh": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!",
+    "rule_name": "WAAAGH!",
+    "quoted_text": "Once per battle, at the start of your Command phase, you can declare a WAAAGH!. Until the end of the turn: add 1 to Advance and Charge rolls made for ORKS units from your army; ORKS units from your army that Advance are eligible to declare a charge in the turn in which they did so; and each time an ORKS model from your army makes a melee attack, add 1 to the Wound roll.",
+    "trigger": "Command phase of an Orks army; WAAAGH! has not yet been declared this battle; AI decides this is the round (default Round 3, emergency Round 2 if below 70% starting points, forced by Round 4)",
+    "effect": "(approximation) the army marks `waaagh_round_unlocked = current_round`; Ork attackers add +1 to the melee Wound roll for that turn only. SwegHammer implements ONLY the +1-to-wound-melee leg of the rule as a hard gate — the +1 to Advance/Charge rolls and the 'Advance counts as charge' leg are descriptive (the AI fires WAAAGH! to overlap with a melee push, but the simulator does not separately add to the 2D6 charge roll or unlock charges from an Advance).",
+    "scope": "phase-gated"
   }
 }
