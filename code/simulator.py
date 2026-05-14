@@ -164,6 +164,7 @@ class Battle:
                     army=army.name,
                     position=u.position,
                     max_health=u.profile.health,
+                    unit_keywords=tuple(u.profile.unit_keywords or ()),
                 )
                 for army in (self.a, self.b)
                 for u in army.units

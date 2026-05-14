@@ -31,6 +31,7 @@ class InitialUnit:
     army: str
     position: Tuple[float, float]
     max_health: float
+    unit_keywords: Tuple[str, ...] = ()   # 10e keywords (INFANTRY, VEHICLE, MONSTER, ...) — used by the renderer for shape variety
 
 
 @dataclass(frozen=True)

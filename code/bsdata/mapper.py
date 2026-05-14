@@ -246,6 +246,32 @@ _ANTI_RE = re.compile(r"Anti-([A-Z][A-Z_-]+)\s*(\d)\s*\+", re.IGNORECASE)
 _HEAVY_RE = re.compile(r"(?:^|[\s,;.])Heavy(?:$|[\s,;.])")
 _ASSAULT_RE = re.compile(r"(?:^|[\s,;.])Assault(?:$|[\s,;.])")
 _TORRENT_RE = re.compile(r"\bTorrent\b", re.IGNORECASE)
+# BSData seldom tags flamer-style weapons with a literal "Torrent" keyword
+# token — the rule is implied by the weapon's name. We fall back to a
+# substring sweep of the weapon name (case-insensitive) for the canonical
+# flamer-family weapon nouns.
+_TORRENT_NAME_TOKENS = (
+    "flamer",
+    "burna",
+    "incinerator",
+    "flamestorm",
+    "inferno cannon",
+    "heavy flamer",
+)
+
+
+def _torrent_from_name(name: str) -> bool:
+    """True if the weapon's display name implies the Torrent keyword.
+
+    Used as a fallback after the regex sweep of the Keywords characteristic,
+    because BSData does not tag flamer-family weapons with "Torrent"
+    explicitly — the rule is implied by the weapon noun (Flamer, Burna,
+    Heavy Flamer, Inferno Cannon, etc.).
+    """
+    if not name:
+        return False
+    lowered = name.lower()
+    return any(tok in lowered for tok in _TORRENT_NAME_TOKENS)
 _HAZARDOUS_RE = re.compile(r"\bHazardous\b", re.IGNORECASE)
 _BLAST_RE = re.compile(r"\bBlast\b", re.IGNORECASE)
 # Phase F — five niche keywords. All five appear as standalone tokens in the
@@ -362,17 +388,32 @@ def extract_ranged_weapon(profile: ET.Element) -> Optional[WeaponStats]:
     a = parse_dice_expr(chars.get("A", ""))
     d = parse_dice_expr(chars.get("D", ""))
     bs = parse_plus_target(chars.get("BS", ""))
-    if a is None or d is None or bs is None:
+    if a is None or d is None:
         return None
     keywords = chars.get("Keywords", "")
     abilities = parse_weapon_keywords(keywords)
     # Strength can be a number or "User" (melee) — fall back to 4 if non-numeric.
     s_text = chars.get("S", "")
     s_int = _to_int(s_text) if s_text else None
+    weapon_name = profile.get("name") or "?"
+    # BSData usually omits the Torrent keyword on flamer-family weapons —
+    # detect it from the weapon name as a fallback.
+    if not abilities.get("torrent") and _torrent_from_name(weapon_name):
+        abilities["torrent"] = True
+    # Torrent weapons auto-hit and so list BS="N/A" in BSData. Treat that as
+    # hit_prob=1.0 instead of dropping the weapon (the historical behaviour,
+    # which excluded most flamer-family weapons from the mapping altogether).
+    if bs is None:
+        if abilities.get("torrent"):
+            hit_prob = 1.0
+        else:
+            return None
+    else:
+        hit_prob = target_to_hit_probability(bs)
     return WeaponStats(
-        name=profile.get("name") or "?",
+        name=weapon_name,
         attacks=a,
-        hit_prob=target_to_hit_probability(bs),
+        hit_prob=hit_prob,
         damage=d,
         ap=parse_ap(chars.get("AP", "")),
         strength=s_int if s_int is not None else 4,

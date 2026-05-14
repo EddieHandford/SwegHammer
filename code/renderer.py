@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Ellipse, Rectangle
 
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, ObjectiveScored,
@@ -69,6 +69,7 @@ def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
                     "current_hp": u.max_health,
                     "max_hp": u.max_health,
                     "alive": True,
+                    "unit_keywords": tuple(getattr(u, "unit_keywords", ()) or ()),
                 }
             break
 
@@ -101,6 +102,91 @@ def _army_names(events: List) -> tuple:
         if isinstance(ev, BattleStarted):
             return ev.army_a_name, ev.army_b_name
     return "Army A", "Army B"
+
+
+# ---------------------------------------------------------------------------
+# Shape dispatcher — unit silhouette varies with 10e keywords
+# ---------------------------------------------------------------------------
+
+# Shape hint tags. The renderer interprets these when drawing a unit. We keep
+# them as small inert strings so they're trivial to assert on in tests and
+# easy to extend without touching the dispatcher.
+SHAPE_LARGE_RECT = "large_rect"        # TITANIC / TOWERING
+SHAPE_MEDIUM_RECT = "medium_rect"      # VEHICLE / WALKER (non-Titanic)
+SHAPE_LARGE_CIRCLE = "large_circle"    # MONSTER
+SHAPE_ELLIPSE = "ellipse"              # BIKE / MOUNTED
+SHAPE_SWARM = "swarm"                  # SWARM — cluster of jittered dots
+SHAPE_CHARACTER_CIRCLE = "character_circle"  # CHARACTER — small circle, thick outline
+SHAPE_SMALL_CIRCLE = "small_circle"    # default INFANTRY
+
+
+def _shape_for(unit_keywords) -> tuple:
+    """Map a unit's 10e keyword set to a (shape_tag, size_hint) pair.
+
+    Keywords are checked in priority order, biggest silhouettes first, so
+    e.g. a "TITANIC, VEHICLE" unit renders as a large rectangle rather than
+    a medium one. CHARACTER takes precedence over plain INFANTRY but loses
+    to anything bigger (a Vehicle-CHARACTER reads as a vehicle).
+
+    Returns:
+        (shape_tag, size_hint) where size_hint is either a scatter ``s=``
+        value for circle/swarm tags or a (width, height) tuple in world
+        inches for rectangle/ellipse tags.
+    """
+    kw = set(k.upper() for k in (unit_keywords or ()))
+    if "TITANIC" in kw or "TOWERING" in kw:
+        return SHAPE_LARGE_RECT, (1.5, 2.0)
+    if "VEHICLE" in kw or "WALKER" in kw:
+        return SHAPE_MEDIUM_RECT, (0.8, 1.4)
+    if "MONSTER" in kw:
+        return SHAPE_LARGE_CIRCLE, 180
+    if "BIKE" in kw or "MOUNTED" in kw:
+        return SHAPE_ELLIPSE, (0.4, 0.7)
+    if "SWARM" in kw:
+        return SHAPE_SWARM, 30
+    if "CHARACTER" in kw:
+        return SHAPE_CHARACTER_CIRCLE, 100
+    return SHAPE_SMALL_CIRCLE, 100
+
+
+def _draw_unit_shape(ax, x: float, y: float, color: str,
+                     shape_tag: str, size_hint) -> None:
+    """Draw a single alive unit using the shape dispatcher's output."""
+    if shape_tag == SHAPE_LARGE_RECT:
+        w, h = size_hint
+        ax.add_patch(Rectangle(
+            (x - w / 2, y - h / 2), w, h,
+            facecolor=color, edgecolor="white", linewidth=1.0, zorder=5,
+        ))
+    elif shape_tag == SHAPE_MEDIUM_RECT:
+        w, h = size_hint
+        ax.add_patch(Rectangle(
+            (x - w / 2, y - h / 2), w, h,
+            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
+        ))
+    elif shape_tag == SHAPE_LARGE_CIRCLE:
+        ax.scatter([x], [y], s=size_hint, c=color, edgecolors="white",
+                   linewidths=1.0, zorder=5)
+    elif shape_tag == SHAPE_ELLIPSE:
+        w, h = size_hint
+        ax.add_patch(Ellipse(
+            (x, y), w, h,
+            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
+        ))
+    elif shape_tag == SHAPE_SWARM:
+        # Cluster of 5 small dots jittered around the centre. Deterministic
+        # offsets so the same unit always draws the same swarm pattern.
+        offsets = [(0.0, 0.0), (0.3, 0.15), (-0.25, 0.2), (0.15, -0.3), (-0.2, -0.18)]
+        xs = [x + dx for dx, _ in offsets]
+        ys = [y + dy for _, dy in offsets]
+        ax.scatter(xs, ys, s=size_hint, c=color, edgecolors="white",
+                   linewidths=0.6, zorder=5)
+    elif shape_tag == SHAPE_CHARACTER_CIRCLE:
+        ax.scatter([x], [y], s=size_hint, c=color, edgecolors="white",
+                   linewidths=1.6, zorder=5)
+    else:  # SHAPE_SMALL_CIRCLE
+        ax.scatter([x], [y], s=size_hint, c=color, edgecolors="white",
+                   linewidths=0.9, zorder=5)
 
 
 # ---------------------------------------------------------------------------
@@ -194,9 +280,11 @@ def render_frame(
         color = COL_ARMY_A if s["army"] == a_name else COL_ARMY_B
         x, y = s["position"]
         if s["alive"]:
-            ax.scatter([x], [y], s=100, c=color, edgecolors="white",
-                       linewidths=0.9, zorder=5)
-            # HP indicator: if wounded, smaller inner dot
+            shape_tag, size_hint = _shape_for(s.get("unit_keywords", ()))
+            _draw_unit_shape(ax, x, y, color, shape_tag, size_hint)
+            # HP indicator: if wounded, smaller inner dot. Sized off a baseline
+            # 100 marker so it remains a readable overlay across all shape
+            # variants (rect/ellipse/circle).
             if s["max_hp"] > 1 and s["current_hp"] < s["max_hp"]:
                 hp_frac = max(0.05, s["current_hp"] / s["max_hp"])
                 ax.scatter([x], [y], s=100 * hp_frac, c="white", alpha=0.5, zorder=6)

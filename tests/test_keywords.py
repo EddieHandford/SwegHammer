@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import unittest
 
-from code.bsdata.mapper import parse_weapon_keywords
+from code.bsdata.mapper import _torrent_from_name, parse_weapon_keywords
 from code.units import Unit, UnitProfile
 
 
@@ -76,6 +76,42 @@ class ParseWeaponKeywordsTests(unittest.TestCase):
         self.assertEqual(out.get("rapid_fire"), 1)
         self.assertEqual(out.get("anti_keywords"), {"VEHICLE": 2})
         self.assertTrue(out.get("heavy"))
+
+
+class TorrentNameDetectionTests(unittest.TestCase):
+    """BSData seldom tags flamer-family weapons with a literal "Torrent"
+    keyword token — the rule is implied by the weapon noun. The mapper's
+    `_torrent_from_name` helper fills the gap."""
+
+    def test_burna_implies_torrent(self):
+        self.assertTrue(_torrent_from_name("Burna"))
+        self.assertTrue(_torrent_from_name("Burna-Bommer Skorcha"))
+
+    def test_inferno_cannon_implies_torrent(self):
+        self.assertTrue(_torrent_from_name("Inferno Cannon"))
+
+    def test_heavy_flamer_implies_torrent(self):
+        self.assertTrue(_torrent_from_name("Heavy Flamer"))
+
+    def test_flamestorm_implies_torrent(self):
+        self.assertTrue(_torrent_from_name("Flamestorm Cannon"))
+
+    def test_incinerator_implies_torrent(self):
+        self.assertTrue(_torrent_from_name("Incinerator"))
+
+    def test_bolter_does_not_imply_torrent(self):
+        self.assertFalse(_torrent_from_name("Bolter"))
+        self.assertFalse(_torrent_from_name("Boltgun"))
+        self.assertFalse(_torrent_from_name("Plasma Pistol"))
+
+    def test_empty_name_does_not_imply_torrent(self):
+        self.assertFalse(_torrent_from_name(""))
+        self.assertFalse(_torrent_from_name(None or ""))
+
+    def test_case_insensitive(self):
+        # Detection must be robust to BSData's mixed casing.
+        self.assertTrue(_torrent_from_name("FLAMER"))
+        self.assertTrue(_torrent_from_name("inferno cannon"))
 
 
 class RapidFireBehaviourTests(unittest.TestCase):
