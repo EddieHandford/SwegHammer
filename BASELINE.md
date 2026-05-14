@@ -46,8 +46,14 @@ The catalogue is derived from BSData's WH40k 10th-edition data files. There are
 ~1100 units in `UNIT_CATALOG`, built at import time from:
 
 - `data/bsdata/parsed.json` — base stats produced by `code/bsdata/mapper.py`
-  walking each unit's selectionEntry tree and picking the best legal weapon
-  (the loadout that maximises damage through baseline-Marine armour).
+  walking each unit's selectionEntry tree. For multi-model squads the mapper
+  builds a **weighted basket of per-model weapons** (e.g. 5 boltguns + 4
+  multi-meltas + 1 sergeant for a Devastator Squad) and averages the per-shot
+  stats (attacks / damage / AP / S / hit_prob) across the basket. Weapon
+  keyword effects (Melta, Anti-X, etc.) take the union — the squad picks the
+  right weapon for the right target in-game, but the scaled-down attack count
+  prevents this from recovering the all-best cheese. Single-model units fall
+  back to the legacy "best legal weapon in the tree" path.
 - `data/overrides.json` — per-unit hand tuning. Any field listed here overrides
   the BSData base. Entries without a corresponding BSData entry become
   fully hand-rolled units.
@@ -66,10 +72,13 @@ See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 ### Phase One (current)
 
 Points costs are derived from the offensive/defensive-ratio formula above against
-the baseline Marine. Stats come from BSData per the loadout-optimised mapper —
-each unit's "best legal weapon" sets its damage and AP. Overrides correct
-mapper artefacts (squad weapons mis-applied per-model, missing armour profiles
-that fall outside the depth-3 wargear walk, etc.).
+the baseline Marine. Stats come from BSData per the squad-aware mapper —
+multi-model squads use a weighted-average loadout (so a Devastator Squad's
+damage sits between bolter-only and multi-melta-only, not at the all-best
+cheese), while single-model units fall back to the best legal weapon in the
+tree. Overrides correct residual mapper artefacts (missing armour profiles
+that fall outside the depth-3 wargear walk, units whose squad SEG fails to
+parse, etc.).
 
 This does **not** guarantee Lanchester balance (equal aggregate score for equal
 points), but provides a well-understood baseline for the simulation to measure

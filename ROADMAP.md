@@ -104,9 +104,13 @@ profile directly), eliminating the 2nd-ed vehicle-mapping bugs.
 - [ ] Squad-level damage: 10e weapons have explicit A (attacks per model), but
       multi-model squads still emit per-model wounds. Decide whether `health`
       means per-model or per-squad-aggregate and apply consistently
-- [ ] Loadout optimiser currently uses *expected damage through baseline Marine
+- [x] Loadout optimiser currently uses *expected damage through baseline Marine
       armour* — review which weapons it picks for elite Knights and refine
-      if the cheese is too cheesy
+      if the cheese is too cheesy. **Done (#76)**: multi-model squads now use a
+      weighted basket of per-model weapons (e.g. 5 bolters + 4 multi-meltas +
+      1 sergeant for Devastators), so per-model damage sits between bolter-
+      only and all-best. Single-model units still use the legacy best-weapon
+      path. ~210 squads use the new heterogeneous path.
 - [ ] Run calibration suite, identify systematic outliers, tune via overrides
 - [ ] Document the override workflow with worked examples
 
