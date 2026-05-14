@@ -1,5 +1,5 @@
 """
-Equilibrium-points solver — Phase 1.
+Equilibrium-points solver — Phase 1 (shooting) and Phase 2 (shoot+melee).
 
 The premise (see PROJECT.tex / CLAUDE.md): unit value is not a sum of
 independent stat utilities. The wound table, AP-vs-save, and FNP combine
@@ -44,9 +44,17 @@ Phase 1 scope
 * Pure-melee units (attacks <= 0 or range_inches <= 0) get D[i, *] = 0
   and are dropped from the fit. They'll come back in Phase 2.
 
+Phase 2 scope
+-------------
+* Shooting + melee. `expected_melee_damage` mirrors the shooting routine on
+  the melee stat block (S/AP/attacks/hit_prob from `melee_*` fields), and
+  `pairwise_combat_matrix` blends the two matrices per-attacker via a
+  shoot_weight that defaults to a coarse role lookup
+  (SHOOTY=0.90, HEAVY=0.80, DUAL=0.55, HORDE=0.50, MELEE=0.20, SUPPORT=0.50).
+  Pure-melee units rejoin the fit; only noncombat profiles are still excluded.
+
 Later phases (TODO stubs at bottom of file)
 -------------------------------------------
-* Phase 2 — Melee damage matrix; combined shooting+melee with role mix.
 * Phase 3 — Defensive integration (already captured via wounds in T denominator;
             audit edge cases: high-FNP low-wound, MW-vulnerability).
 * Phase 4 — Tactical-utility term: move (non-linear), OC, deep strike,
@@ -73,9 +81,24 @@ from .units import UNIT_CATALOG, UnitProfile, wound_probability
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EQUILIBRIUM_PATH = REPO_ROOT / "data" / "equilibrium_points.json"
 EQUILIBRIUM_PLOT = REPO_ROOT / "data" / "equilibrium_points.png"
+EQUILIBRIUM_PHASE2_PATH = REPO_ROOT / "data" / "equilibrium_points_phase2.json"
+EQUILIBRIUM_PHASE2_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase2.png"
 
 DEFAULT_ANCHOR_KEY = "space_marines_intercessor_squad"
 DEFAULT_ANCHOR_PER_MODEL = 16.0   # GW listed: 80 pts / 5 models
+
+# Phase 2 — default shoot/melee mixing weights per coarse role from code.roles.
+# Per-attacker fraction of pairwise damage that comes from the shooting matrix;
+# the complement (1 - w) is melee. Tuned by hand for Phase 2; later phases may
+# learn this from sim data. Keys are the labels returned by code.roles.classify.
+DEFAULT_SHOOT_WEIGHT_BY_ROLE: Dict[str, float] = {
+    "SHOOTY":  0.90,
+    "HEAVY":   0.80,
+    "DUAL":    0.55,
+    "HORDE":   0.50,
+    "MELEE":   0.20,
+    "SUPPORT": 0.50,
+}
 
 # Numerical hygiene: clamp T[i,j] to avoid log-blow-ups when damage is tiny
 # but non-zero. Below this fraction-of-a-wound per turn we treat the matchup
@@ -184,6 +207,111 @@ def expected_shooting_damage(attacker: UnitProfile, defender: UnitProfile) -> fl
 
 
 # ---------------------------------------------------------------------------
+# Analytic melee damage (one attacker model -> one defender model, per turn)
+# ---------------------------------------------------------------------------
+
+def expected_melee_damage(attacker: UnitProfile, defender: UnitProfile) -> float:
+    """
+    Expected unsaved damage one attacker model inflicts on one defender model
+    in a single fight-phase melee swing. Mirrors `expected_shooting_damage`
+    structurally but routes through the melee stat block:
+
+      melee_attacks x melee_hit_probability x wound(melee_strength, T)
+        x (1 - max(save_after_melee_AP, invuln)) x melee_damage_per_shot
+        x fnp_multiplier
+
+    Lethal Hits / Sustained Hits / Twin-Linked / Devastating Wounds /
+    Anti-X are honoured symmetrically — they're carried at the unit level
+    in our model, so the melee branch enjoys (or suffers) the same.
+
+    Cover is ignored (melee always ignores cover). Charging Lance,
+    leader auras, fight-first, and stratagems are deferred to later phases.
+
+    Returns 0.0 for units with no usable melee profile.
+    """
+    if attacker.melee_attacks <= 0 or attacker.melee_hit_probability <= 0:
+        return 0.0
+
+    n_attacks = float(attacker.melee_attacks)
+    p_hit = float(attacker.melee_hit_probability)
+    if p_hit <= 0:
+        return 0.0
+
+    # ---- Hit phase: split into normal hits and crit hits (always 6+) ----
+    p_crit_hit = 1.0 / 6.0
+    p_normal_hit = max(0.0, p_hit - p_crit_hit)
+    sustained = int(attacker.sustained_hits)
+
+    # ---- Wound roll per surviving roll-to-wound input ----
+    p_wound_base = wound_probability(attacker.melee_strength, defender.toughness)
+    if attacker.twin_linked:
+        # Re-roll failed wounds = 1 - (1-p)^2 = 2p - p^2
+        p_wound = p_wound_base + (1.0 - p_wound_base) * p_wound_base
+    else:
+        p_wound = p_wound_base
+
+    # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
+    anti_crit_threshold = 6
+    if attacker.anti_keywords and defender.unit_keywords:
+        defender_kw = set(defender.unit_keywords)
+        for kw, thresh in attacker.anti_keywords:
+            if kw in defender_kw and thresh < anti_crit_threshold:
+                anti_crit_threshold = thresh
+    p_crit_wound = max(0.0, (7 - anti_crit_threshold) / 6.0)
+
+    # ---- Compose wound rolls per swing ----
+    if attacker.lethal_hits:
+        auto_wounds_per_shot = p_crit_hit
+        wound_rolls_per_shot = p_normal_hit + p_crit_hit * sustained
+    else:
+        auto_wounds_per_shot = 0.0
+        wound_rolls_per_shot = p_normal_hit + p_crit_hit * (1 + sustained)
+
+    # ---- Devastating Wounds: a fraction of wound rolls become mortals ----
+    if attacker.devastating_wounds:
+        mortals_per_roll = min(p_crit_wound, p_wound)
+        save_wounds_per_roll = max(0.0, p_wound - mortals_per_roll)
+    else:
+        mortals_per_roll = 0.0
+        save_wounds_per_roll = p_wound
+
+    mortals_per_shot = wound_rolls_per_shot * mortals_per_roll
+    save_wounds_per_shot = (
+        wound_rolls_per_shot * save_wounds_per_roll + auto_wounds_per_shot
+    )
+
+    # ---- Save phase (mortals bypass saves) ----
+    # Melee uses melee_ap; no cover bonus (melee ignores cover).
+    save_after_ap = defender.save - attacker.melee_ap
+    invuln = defender.invuln_save
+    effective_save = (
+        min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
+    )
+    if effective_save > 6:
+        p_save_succeeds = 0.0
+    elif effective_save <= 2:
+        p_save_succeeds = 5.0 / 6.0   # 2+ is the floor in 10e
+    else:
+        p_save_succeeds = (7 - effective_save) / 6.0
+    p_save_fails = 1.0 - p_save_succeeds
+
+    unsaved_wounds_per_shot = (
+        mortals_per_shot + save_wounds_per_shot * p_save_fails
+    )
+
+    # ---- Per-swing damage ----
+    dmg_per_shot = attacker.melee_damage_per_shot or 1.0
+
+    # ---- FNP: applied per point of damage post-save ----
+    if defender.fnp <= 6:
+        fnp_multiplier = 1.0 - (7 - defender.fnp) / 6.0
+    else:
+        fnp_multiplier = 1.0
+
+    return n_attacks * unsaved_wounds_per_shot * dmg_per_shot * fnp_multiplier
+
+
+# ---------------------------------------------------------------------------
 # Matrix builders
 # ---------------------------------------------------------------------------
 
@@ -197,6 +325,67 @@ def pairwise_damage_matrix(units: List[UnitProfile]) -> np.ndarray:
                 continue
             D[i, j] = expected_shooting_damage(units[i], units[j])
     return D
+
+
+def pairwise_melee_matrix(units: List[UnitProfile]) -> np.ndarray:
+    """D[i, j] = expected_melee_damage(units[i], units[j]) (per attacker model, per turn)."""
+    n = len(units)
+    D = np.zeros((n, n), dtype=float)
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            D[i, j] = expected_melee_damage(units[i], units[j])
+    return D
+
+
+def _default_shoot_weight(unit: UnitProfile) -> float:
+    """Per-attacker shoot weight from coarse role classification."""
+    from .roles import classify
+    role = classify(unit)
+    return DEFAULT_SHOOT_WEIGHT_BY_ROLE.get(role, 0.5)
+
+
+def pairwise_combat_matrix(
+    units: List[UnitProfile],
+    shoot_weight=None,
+) -> np.ndarray:
+    """
+    Combined shooting + melee damage matrix:
+
+        D[i, j] = w(i) * D_shoot[i, j] + (1 - w(i)) * D_melee[i, j]
+
+    The shoot/melee mix is per-attacker — a melee specialist doesn't suddenly
+    contribute shooting just because the matrix asks. `shoot_weight` may be:
+
+      * None        -> default per-role mix via `_default_shoot_weight`
+      * float       -> the same constant for every attacker
+      * callable    -> called as shoot_weight(unit_profile), must return [0, 1]
+      * sequence    -> indexed by row position; entry i applies to attacker i
+
+    Returns an (n, n) array of expected damage per attacker model per turn.
+    """
+    n = len(units)
+    D_shoot = pairwise_damage_matrix(units)
+    D_melee = pairwise_melee_matrix(units)
+
+    if shoot_weight is None:
+        weights = np.array([_default_shoot_weight(u) for u in units], dtype=float)
+    elif callable(shoot_weight):
+        weights = np.array([float(shoot_weight(u)) for u in units], dtype=float)
+    elif isinstance(shoot_weight, (int, float)):
+        weights = np.full(n, float(shoot_weight), dtype=float)
+    else:
+        weights = np.asarray(shoot_weight, dtype=float)
+        if weights.shape != (n,):
+            raise ValueError(
+                f"shoot_weight sequence must be length {n}, got {weights.shape}"
+            )
+    weights = np.clip(weights, 0.0, 1.0)
+
+    # Broadcast weights across columns: attacker (row) decides the mix.
+    w = weights[:, np.newaxis]
+    return w * D_shoot + (1.0 - w) * D_melee
 
 
 def time_to_kill_matrix(D: np.ndarray, units: List[UnitProfile]) -> np.ndarray:
@@ -275,9 +464,13 @@ class EquilibriumEntry:
 
 @dataclass
 class EquilibriumResult:
-    """Phase 1 output bundle. Includes both per-unit entries AND the raw
-    matrices that produced them, so the Streamlit UI can drill into the
-    pairwise structure (best/worst matchups for a chosen unit)."""
+    """Phase 1 / Phase 2 output bundle. Includes both per-unit entries AND
+    the raw matrices that produced them, so the Streamlit UI can drill into
+    the pairwise structure (best/worst matchups for a chosen unit).
+
+    The `phase` field marks which solver produced this result: 1 = shooting
+    only, 2 = combined shoot+melee with per-attacker role-weighted mix.
+    """
     entries: List[EquilibriumEntry]
     keys: List[str]                  # row/col ordering for the matrices
     D: np.ndarray                    # shape (n, n) — damage per turn per model
@@ -286,6 +479,7 @@ class EquilibriumResult:
     log_p: np.ndarray                # shape (n,)   — log equilibrium pts/model
     anchor_key: str
     anchor_per_model: float
+    phase: int = 1
 
     def index_of(self, key: str) -> int:
         return self.keys.index(key)
@@ -408,6 +602,100 @@ def compute_phase1(
     return EquilibriumResult(
         entries=entries, keys=keys, D=D, T=T, R=R, log_p=x,
         anchor_key=anchor_key, anchor_per_model=anchor_per_model,
+        phase=1,
+    )
+
+
+def compute_phase2(
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+    anchor_key: str = DEFAULT_ANCHOR_KEY,
+    anchor_per_model: float = DEFAULT_ANCHOR_PER_MODEL,
+    faction: Optional[str] = None,
+    limit: Optional[int] = None,
+    shoot_weight=None,
+) -> EquilibriumResult:
+    """
+    Phase 2 — combined shoot+melee equilibrium solve.
+
+    Same shape as `compute_phase1`, but the pairwise damage matrix is
+    `pairwise_combat_matrix` (a per-attacker-role weighted blend of the
+    shooting and melee matrices). Pure-melee units now contribute non-zero
+    damage and re-enter the fit. `shoot_weight=None` uses the
+    `DEFAULT_SHOOT_WEIGHT_BY_ROLE` table; pass a float / callable / sequence
+    to override (see `pairwise_combat_matrix`).
+
+    Noncombat units (no ranged AND no melee profile) are still excluded —
+    they get costed in the Phase 4 tactical-utility pass.
+    """
+    if catalog is None:
+        catalog = UNIT_CATALOG
+
+    items: List[Tuple[str, UnitProfile]] = sorted(catalog.items())
+    if faction:
+        items = [(k, u) for k, u in items if u.faction == faction]
+    if limit:
+        items = items[:limit]
+
+    # Phase 2: include shooty / dual / melee_only. Noncombat still excluded.
+    fittable = [
+        (k, u) for k, u in items
+        if _classify_role(u) in ("shooty", "dual", "melee_only")
+    ]
+    if anchor_key not in {k for k, _ in fittable}:
+        raise ValueError(
+            f"Anchor unit {anchor_key!r} is not in the fittable subset "
+            f"(faction={faction!r}, limit={limit!r}). Pick an anchor with a "
+            f"shooting or melee profile."
+        )
+
+    keys = [k for k, _ in fittable]
+    units = [u for _, u in fittable]
+    anchor_idx = keys.index(anchor_key)
+    anchor_log_p = math.log(anchor_per_model)
+
+    D = pairwise_combat_matrix(units, shoot_weight=shoot_weight)
+    T = time_to_kill_matrix(D, units)
+    x, counts = solve_log_points(T, anchor_idx, anchor_log_p)
+    eq_per_model = np.exp(x)
+
+    # Rebuild R for UI introspection. Same formula as Phase 1.
+    finite_T = np.isfinite(T)
+    log_T = np.zeros_like(T)
+    log_T[finite_T] = np.log(T[finite_T])
+    finite_mask = finite_T & finite_T.T
+    np.fill_diagonal(finite_mask, False)
+    R = np.where(finite_mask, 0.5 * (log_T.T - log_T), np.nan)
+
+    entries: List[EquilibriumEntry] = []
+    for key, u, eq_pm, vc in zip(keys, units, eq_per_model, counts):
+        gw_per_squad = float(u.points_per_squad)
+        gw_per_model = (
+            gw_per_squad / max(1, u.min_models) if gw_per_squad > 0 else 0.0
+        )
+        eq_per_squad = eq_pm * max(1, u.min_models)
+        if gw_per_model > 0:
+            mispricing = (gw_per_model - eq_pm) / eq_pm * 100.0
+        else:
+            mispricing = 0.0
+        entries.append(
+            EquilibriumEntry(
+                key=key,
+                name=u.name,
+                faction=u.faction,
+                gw_points_per_squad=round(gw_per_squad, 2),
+                gw_points_per_model=round(gw_per_model, 2),
+                min_models=int(u.min_models),
+                equilibrium_points_per_model=round(float(eq_pm), 2),
+                equilibrium_points_per_squad=round(float(eq_per_squad), 2),
+                mispricing_pct=round(float(mispricing), 1),
+                valid_matchups=int(vc),
+                role=_classify_role(u),
+            )
+        )
+    return EquilibriumResult(
+        entries=entries, keys=keys, D=D, T=T, R=R, log_p=x,
+        anchor_key=anchor_key, anchor_per_model=anchor_per_model,
+        phase=2,
     )
 
 
@@ -415,17 +703,33 @@ def compute_phase1(
 # Persistence
 # ---------------------------------------------------------------------------
 
+_PHASE_METADATA: Dict[int, Tuple[str, str]] = {
+    1: (
+        "Phase 1 equilibrium-points solver output. log-LSQ on pairwise "
+        "shooting-only time-to-kill. Pure-melee units excluded. See "
+        "code/equilibrium.py for full method and TODO list of later phases.",
+        "log-LSQ on pairwise shooting time-to-kill (row-mean closed form)",
+    ),
+    2: (
+        "Phase 2 equilibrium-points solver output. log-LSQ on pairwise "
+        "combined shoot+melee time-to-kill, with a per-attacker-role mix "
+        "of shooting and melee damage. Pure-melee units re-enter the fit. "
+        "See code/equilibrium.py for the role weights and TODO list.",
+        "log-LSQ on pairwise combined shoot+melee time-to-kill "
+        "(per-role attacker mix; row-mean closed form)",
+    ),
+}
+
+
 def write_json(entries: List[EquilibriumEntry], path: Path = EQUILIBRIUM_PATH,
                anchor_key: str = DEFAULT_ANCHOR_KEY,
-               anchor_per_model: float = DEFAULT_ANCHOR_PER_MODEL) -> None:
+               anchor_per_model: float = DEFAULT_ANCHOR_PER_MODEL,
+               phase: int = 1) -> None:
+    comment, method = _PHASE_METADATA.get(phase, _PHASE_METADATA[1])
     payload = {
-        "_comment": (
-            "Phase 1 equilibrium-points solver output. log-LSQ on pairwise "
-            "shooting-only time-to-kill. Pure-melee units excluded. See "
-            "code/equilibrium.py for full method and TODO list of later phases."
-        ),
-        "phase": 1,
-        "method": "log-LSQ on pairwise shooting time-to-kill (row-mean closed form)",
+        "_comment": comment,
+        "phase": phase,
+        "method": method,
         "anchor": {
             "key": anchor_key,
             "per_model_points": anchor_per_model,
@@ -511,14 +815,10 @@ def plot_scatter(entries: List[EquilibriumEntry], path: Path = EQUILIBRIUM_PLOT)
 # TODO — later phases
 # ---------------------------------------------------------------------------
 #
-# Phase 2: melee damage matrix
-#   def expected_melee_damage(attacker, defender) -> float: ...
-#   def pairwise_combat_matrix(units, shoot_weight: float) -> np.ndarray:
-#       D_shoot = pairwise_damage_matrix(units)
-#       D_melee = pairwise_melee_matrix(units)
-#       return shoot_weight * D_shoot + (1 - shoot_weight) * D_melee
-#   Open question: how to set `shoot_weight` per attacker — naive 0.5 for
-#   dual, 1.0 for shooty, 0.0 for melee-only? Or learn it from sim data?
+# Phase 2 — DONE: combined shoot+melee matrix via `compute_phase2` /
+#   `pairwise_combat_matrix`. Per-attacker `shoot_weight` defaults to a
+#   coarse-role lookup (`DEFAULT_SHOOT_WEIGHT_BY_ROLE`); a sim-data fit is
+#   left as a follow-up tuning task.
 #
 # Phase 3: defensive audit
 #   Edge cases where T denominator overstates durability — e.g., a unit
@@ -557,8 +857,11 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Phase 1 equilibrium-points solver (shooting only)."
+        description="Equilibrium-points solver. --phase 1 = shooting only; "
+                    "--phase 2 = combined shoot+melee."
     )
+    parser.add_argument("--phase", type=int, default=1, choices=(1, 2),
+                        help="Which solver to run (default 1)")
     parser.add_argument("--faction", type=str, default=None,
                         help="Restrict to a single faction (e.g. 'Necrons')")
     parser.add_argument("--limit", type=int, default=None,
@@ -566,24 +869,42 @@ if __name__ == "__main__":
     parser.add_argument("--anchor", type=str, default=DEFAULT_ANCHOR_KEY)
     parser.add_argument("--anchor-points", type=float, default=DEFAULT_ANCHOR_PER_MODEL)
     parser.add_argument("--no-plot", action="store_true")
-    parser.add_argument("--out", type=Path, default=EQUILIBRIUM_PATH)
-    parser.add_argument("--plot-out", type=Path, default=EQUILIBRIUM_PLOT)
+    parser.add_argument("--out", type=Path, default=None,
+                        help="Output JSON path (defaults: phase 1 -> "
+                             "equilibrium_points.json, phase 2 -> "
+                             "equilibrium_points_phase2.json)")
+    parser.add_argument("--plot-out", type=Path, default=None,
+                        help="Output PNG path (phase-specific default)")
     args = parser.parse_args()
 
-    result = compute_phase1(
-        anchor_key=args.anchor,
-        anchor_per_model=args.anchor_points,
-        faction=args.faction,
-        limit=args.limit,
-    )
+    if args.phase == 2:
+        out_path = args.out or EQUILIBRIUM_PHASE2_PATH
+        plot_path = args.plot_out or EQUILIBRIUM_PHASE2_PLOT
+        result = compute_phase2(
+            anchor_key=args.anchor,
+            anchor_per_model=args.anchor_points,
+            faction=args.faction,
+            limit=args.limit,
+        )
+    else:
+        out_path = args.out or EQUILIBRIUM_PATH
+        plot_path = args.plot_out or EQUILIBRIUM_PLOT
+        result = compute_phase1(
+            anchor_key=args.anchor,
+            anchor_per_model=args.anchor_points,
+            faction=args.faction,
+            limit=args.limit,
+        )
     entries = result.entries
-    write_json(entries, args.out, anchor_key=args.anchor, anchor_per_model=args.anchor_points)
+    write_json(entries, out_path, anchor_key=args.anchor,
+               anchor_per_model=args.anchor_points, phase=args.phase)
     if not args.no_plot:
-        plot_scatter(entries, args.plot_out)
+        plot_scatter(entries, plot_path)
 
     # Print top mispricings
     sorted_entries = sorted(entries, key=lambda e: e.mispricing_pct)
-    print(f"\n{len(entries)} units fitted. Anchor: {args.anchor} @ {args.anchor_points} pts/model.")
+    print(f"\nPhase {args.phase}: {len(entries)} units fitted. "
+          f"Anchor: {args.anchor} @ {args.anchor_points} pts/model.")
     print("\nMost UNDERCOSTED by GW (equilibrium says should cost more):")
     for e in sorted_entries[:10]:
         print(f"  {e.mispricing_pct:+6.1f}%   "
@@ -594,6 +915,6 @@ if __name__ == "__main__":
         print(f"  {e.mispricing_pct:+6.1f}%   "
               f"GW {e.gw_points_per_model:>5.1f} vs eq {e.equilibrium_points_per_model:>5.1f}   "
               f"{e.name[:50]} ({e.faction[:20]})")
-    print(f"\nWrote {args.out}")
+    print(f"\nWrote {out_path}")
     if not args.no_plot:
-        print(f"Wrote {args.plot_out}")
+        print(f"Wrote {plot_path}")
