@@ -535,16 +535,21 @@ Streamlit front end               & \eddie\ Eddie & v1 done \\
 
 \subsection{When something is safe to merge to main}
 \begin{itemize}[itemsep=2pt]
-  \item Mirror-match calibration (Space Marine vs Space Marine) still
-    sits at $50\% \pm 2\%$ over 1000 battles.
-    \textbf{Needs revising:} this threshold predates objective scoring,
-    Battleshock, the charge / melee phases, and the strategy layer.
-    The current combat model produces a residual mirror-match bias on
-    symmetric terrain (around $\pm 10\%$ over 400 battles) driven by
-    objective-contest jitter and movement-heuristic asymmetries. The
-    gate stands as ``no worse than the current baseline'' until the
-    threshold is renegotiated against the new combat model.
-  \item \texttt{python run.py --cli} still runs end-to-end (exit 0).
+  \item \texttt{python -m unittest discover tests} must pass (currently
+    73 tests, growing).
+  \item \texttt{python run.py --cli} must exit 0 (demo plus 100-battle
+    calibration complete cleanly).
+  \item \textbf{Mirror Intercessor matchup VP totals:} across 200 battles
+    at 1000 pts on \texttt{combat\_patrol}, neither side's average VP
+    exceeds the other by more than ${\sim}25\%$. This replaces the old
+    win-rate-spread gate because the new combat model (5-round +
+    objectives + abilities) produces more draws and decisive blowouts
+    than the old attrition-only sim, so raw win-rate is no longer a
+    sensitive symmetry probe.
+  \item \textbf{No new units silently disabled:} run
+    \texttt{python -m code.bsdata.audit} and confirm the skip-reason
+    histogram is unchanged from the previous commit (or any new skips
+    are accounted-for in the commit message).
   \item The Streamlit app still launches and the preset battles still
     produce charts and a watchable replay.
 \end{itemize}

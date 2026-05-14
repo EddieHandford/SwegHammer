@@ -96,10 +96,116 @@ OPEN_PLAINS = Map(
 )
 
 
+# ---------------------------------------------------------------------------
+# 10e mission-deployment maps with genuine asymmetry
+# ---------------------------------------------------------------------------
+
+CRUCIBLE_OF_BATTLE = Map(
+    name="Crucible of Battle",
+    width=44.0,
+    height=60.0,
+    objectives=_quincunx_objectives(44.0, 60.0),
+    # Diagonal asymmetry: heavy terrain on the NE-SW diagonal, light on NW-SE.
+    # Large ruin top-right, wooded copse mid-left, two short barricade ridges
+    # bridging them, one impassable wall blocking centre.
+    terrain=(
+        Terrain("Top-Right Ruin",      x=30.0, y=44.0, width=10.0, height=10.0, type=TerrainType.HEAVY_COVER),
+        Terrain("Mid-Left Copse",      x=4.0,  y=26.0, width=8.0,  height=10.0, type=TerrainType.OBSCURING),
+        Terrain("NE Barricade Ridge",  x=22.0, y=38.0, width=8.0,  height=2.0,  type=TerrainType.LIGHT_COVER),
+        Terrain("SW Barricade Ridge",  x=12.0, y=20.0, width=8.0,  height=2.0,  type=TerrainType.LIGHT_COVER),
+        Terrain("Central Wall",        x=20.0, y=28.0, width=4.0,  height=4.0,  type=TerrainType.IMPASSABLE),
+    ),
+    deployment_width=12.0,
+)
+
+
+def _search_and_destroy_objectives(width: float, height: float) -> tuple:
+    """
+    Search & Destroy: opposing-corner deployment with terrain massed in the
+    NW and SE quadrants. Objectives bias toward those heavy-terrain zones:
+    one centre, two NW (deeper into the heavy-terrain zone), two SE.
+    """
+    cx, cy = width / 2.0, height / 2.0
+    return (
+        Objective(name="Centre",          x=cx, y=cy),
+        Objective(name="NW Inner",        x=width * 0.30, y=height * 0.65),
+        Objective(name="NW Outer",        x=width * 0.18, y=height * 0.80),
+        Objective(name="SE Inner",        x=width * 0.70, y=height * 0.35),
+        Objective(name="SE Outer",        x=width * 0.82, y=height * 0.20),
+    )
+
+
+SEARCH_AND_DESTROY = Map(
+    name="Search and Destroy",
+    width=44.0,
+    height=60.0,
+    objectives=_search_and_destroy_objectives(44.0, 60.0),
+    # Corner deployment: NW and SE clusters of terrain, central no-man's-land
+    # mostly open. Players push out of corners across exposed ground to
+    # contest mid-board objectives.
+    terrain=(
+        # NW cluster
+        Terrain("NW Ruin",         x=4.0,  y=42.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
+        Terrain("NW Wood",         x=14.0, y=48.0, width=8.0,  height=8.0, type=TerrainType.OBSCURING),
+        Terrain("NW Barricade",    x=6.0,  y=36.0, width=10.0, height=2.0, type=TerrainType.LIGHT_COVER),
+        # SE cluster
+        Terrain("SE Ruin",         x=30.0, y=10.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
+        Terrain("SE Wood",         x=22.0, y=4.0,  width=8.0,  height=8.0, type=TerrainType.OBSCURING),
+        Terrain("SE Barricade",    x=28.0, y=22.0, width=10.0, height=2.0, type=TerrainType.LIGHT_COVER),
+        # Lone central feature breaking the open no-man's-land
+        Terrain("Centre Crater",   x=20.0, y=28.0, width=4.0,  height=4.0, type=TerrainType.LIGHT_COVER),
+    ),
+    deployment_width=12.0,
+)
+
+
+def _sweeping_engagement_objectives(width: float, height: float) -> tuple:
+    """
+    Sweeping Engagement (Strike Force, long-axis): three central objectives
+    strung along the long axis plus two corner objectives.
+    """
+    cx = width / 2.0
+    return (
+        Objective(name="South Spine",  x=cx,           y=height * 0.30),
+        Objective(name="Centre Spine", x=cx,           y=height * 0.50),
+        Objective(name="North Spine",  x=cx,           y=height * 0.70),
+        Objective(name="NW Corner",    x=width * 0.18, y=height * 0.85),
+        Objective(name="SE Corner",    x=width * 0.82, y=height * 0.15),
+    )
+
+
+SWEEPING_ENGAGEMENT = Map(
+    name="Sweeping Engagement",
+    width=44.0,
+    height=90.0,
+    objectives=_sweeping_engagement_objectives(44.0, 90.0),
+    # Long-axis Strike Force layout: two parallel ruin lines running down the
+    # middle channel the fight, woods clusters anchor each short edge.
+    terrain=(
+        # Two parallel ruins lines down the centre
+        Terrain("West Ruin Line North", x=16.0, y=58.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
+        Terrain("West Ruin Line South", x=16.0, y=22.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
+        Terrain("East Ruin Line North", x=24.0, y=58.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
+        Terrain("East Ruin Line South", x=24.0, y=22.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
+        # Woods clusters at each short edge
+        Terrain("South Wood West", x=6.0,  y=4.0,  width=8.0, height=8.0, type=TerrainType.OBSCURING),
+        Terrain("South Wood East", x=30.0, y=4.0,  width=8.0, height=8.0, type=TerrainType.OBSCURING),
+        Terrain("North Wood West", x=6.0,  y=78.0, width=8.0, height=8.0, type=TerrainType.OBSCURING),
+        Terrain("North Wood East", x=30.0, y=78.0, width=8.0, height=8.0, type=TerrainType.OBSCURING),
+        # Central spine wall to break direct line down the middle
+        Terrain("Central Spine Wall", x=20.0, y=43.0, width=4.0, height=4.0, type=TerrainType.IMPASSABLE),
+    ),
+    deployment_width=12.0,
+)
+
+
 STOCK_MAPS = {
-    "combat_patrol": COMBAT_PATROL_BASIC,
-    "open_plains":   OPEN_PLAINS,
-    "urban_sprawl":  URBAN_SPRAWL,
+    "combat_patrol":       COMBAT_PATROL_BASIC,
+    "open_plains":         OPEN_PLAINS,
+    "urban_sprawl":        URBAN_SPRAWL,
+    "crucible_of_battle":  CRUCIBLE_OF_BATTLE,
+    "search_and_destroy":  SEARCH_AND_DESTROY,
+    "sweeping_engagement": SWEEPING_ENGAGEMENT,
 }
 
 DEFAULT_MAP = COMBAT_PATROL_BASIC
@@ -118,9 +224,12 @@ DEFAULT_MAP = COMBAT_PATROL_BASIC
 # Our stock maps don't all match those exact footprints, but we tag each with
 # a sensible points range so the front end can auto-select or filter.
 MAP_POINTS_RANGE = {
-    "combat_patrol": (250, 1250),   # 44 x 60, ruin + barricade — Combat Patrol / Incursion
-    "open_plains":   (500, 2000),   # 44 x 60, sparse terrain — Strike Force friendly
-    "urban_sprawl":  (1500, 3500),  # 44 x 90, asymmetric — Strike Force / Onslaught
+    "combat_patrol":       (250, 1250),   # 44 x 60, ruin + barricade — Combat Patrol / Incursion
+    "open_plains":         (500, 2000),   # 44 x 60, sparse terrain — Strike Force friendly
+    "urban_sprawl":        (1500, 3500),  # 44 x 90, asymmetric — Strike Force / Onslaught
+    "crucible_of_battle":  (750, 2000),   # 44 x 60, diagonal asymmetry — Incursion / Strike Force
+    "search_and_destroy":  (750, 2000),   # 44 x 60, corner deployment — Incursion / Strike Force
+    "sweeping_engagement": (1500, 3500),  # 44 x 90, long-axis Strike Force — Strike Force / Onslaught
 }
 
 
