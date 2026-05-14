@@ -6,6 +6,7 @@ import random
 from typing import Dict, List, Optional, Sequence
 
 from .army import Army
+from .detachments import pick_detachment_for_army
 from .units import UnitProfile, UNIT_CATALOG
 
 
@@ -219,5 +220,13 @@ def build_faction_random_army(
                 army.add_unit(leader)
                 spent_by_name[leader.name] += leader.points_cost
                 remaining -= leader.points_cost
+
+    # Pick a detachment that suits the actual composition. Done AFTER unit
+    # selection so the picker can read the real vehicle / infantry mix
+    # rather than guessing from faction defaults. Falls back to None if
+    # the faction is unmapped — `Army.resolve_detachment` then re-tries
+    # the default lookup, preserving prior behaviour for edge cases.
+    if army.units:
+        army.detachment = pick_detachment_for_army(faction, army.units, rng)
 
     return army

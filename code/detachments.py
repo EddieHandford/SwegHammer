@@ -19,8 +19,9 @@ faction and document the simplification.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 from .stratagems import Stratagem
 
@@ -77,6 +78,12 @@ class Detachment:
     # code/stratagems.py). Detachment-specific entries land in #104.
     stratagems: Tuple[Stratagem, ...] = ()
 
+    # Composition affinity — used by the army builder to pick a detachment
+    # that suits the actual unit mix. Not a rule, just a selection tag.
+    # One of: "vehicle", "infantry", "monster", "character", "balanced", or
+    # "" (no preference, treated as balanced for scoring purposes).
+    preferred_composition: str = ""
+
 
 # ---------------------------------------------------------------------------
 # Canonical detachments — start small, one per major faction
@@ -90,6 +97,7 @@ GLADIUS_TASK_FORCE = Detachment(
         "Real rule rotates through Devastator/Tactical/Assault doctrines."
     ),
     reroll_wound_ones=True,
+    preferred_composition="balanced",
 )
 
 AWAKENED_DYNASTY = Detachment(
@@ -106,6 +114,7 @@ AWAKENED_DYNASTY = Detachment(
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
+    preferred_composition="balanced",
 )
 
 INVASION_FLEET = Detachment(
@@ -116,6 +125,7 @@ INVASION_FLEET = Detachment(
         "is range-gated; we apply army-wide."
     ),
     enemy_ld_penalty=1,
+    preferred_composition="balanced",
 )
 
 WAAAGH_DETACHMENT = Detachment(
@@ -126,6 +136,7 @@ WAAAGH_DETACHMENT = Detachment(
         "WAAAGH! plus the Orks-be-Orks aggression baseline."
     ),
     plus_one_attack=1,
+    preferred_composition="infantry",
 )
 
 NOBLE_LANCE = Detachment(
@@ -136,6 +147,7 @@ NOBLE_LANCE = Detachment(
         "conditional triggers (charged turn, lance keyword)."
     ),
     plus_one_to_wound=True,
+    preferred_composition="vehicle",
 )
 
 HALLOWED_MARTYRS = Detachment(
@@ -146,6 +158,7 @@ HALLOWED_MARTYRS = Detachment(
         "destroyed Sororitas units; we apply it always-on for the MVP."
     ),
     plus_one_to_wound=True,
+    preferred_composition="infantry",
 )
 
 SHIELD_HOST = Detachment(
@@ -156,6 +169,7 @@ SHIELD_HOST = Detachment(
         "Approximates the multiple bespoke save-stacking rules in 10e."
     ),
     plus_one_save=True,
+    preferred_composition="infantry",
 )
 
 SKITARII_HUNTER_COHORT = Detachment(
@@ -166,6 +180,7 @@ SKITARII_HUNTER_COHORT = Detachment(
         "Real rule rotates between offensive / defensive imperatives."
     ),
     reroll_hit_ones=True,
+    preferred_composition="infantry",
 )
 
 INQUISITION_TASK_FORCE = Detachment(
@@ -176,6 +191,7 @@ INQUISITION_TASK_FORCE = Detachment(
         "Imperial agents. Real rule is bespoke per Inquisitor archetype."
     ),
     reroll_hit_ones=True,
+    preferred_composition="balanced",
 )
 
 COMBINED_REGIMENT = Detachment(
@@ -186,6 +202,7 @@ COMBINED_REGIMENT = Detachment(
         "single-target buffs (FRFSRF, Take Aim, etc.)."
     ),
     plus_one_to_hit=True,
+    preferred_composition="balanced",
 )
 
 TELEPORT_STRIKE_FORCE = Detachment(
@@ -196,6 +213,7 @@ TELEPORT_STRIKE_FORCE = Detachment(
         "includes deep strike and bespoke psychic mechanics."
     ),
     reroll_wound_ones=True,
+    preferred_composition="infantry",
 )
 
 BATTLE_HOST = Detachment(
@@ -206,6 +224,7 @@ BATTLE_HOST = Detachment(
         "rotates +1 to hit / +1 to wound per Aspect Path."
     ),
     reroll_hit_ones=True,
+    preferred_composition="infantry",
 )
 
 SKYSPLINTER_ASSAULT = Detachment(
@@ -216,6 +235,7 @@ SKYSPLINTER_ASSAULT = Detachment(
         "Real rule grants +1 to wound on the turn a unit charged."
     ),
     reroll_wound_ones=True,
+    preferred_composition="vehicle",
 )
 
 MONTKA = Detachment(
@@ -226,6 +246,7 @@ MONTKA = Detachment(
         "alternates between Mont'ka (offensive) and Kauyon (defensive)."
     ),
     plus_one_to_hit=True,
+    preferred_composition="balanced",
 )
 
 PACTBOUND_ZEALOTS = Detachment(
@@ -236,6 +257,7 @@ PACTBOUND_ZEALOTS = Detachment(
         "Lethal Hits or Sustained Hits at the cost of Battleshock checks."
     ),
     reroll_wound_ones=True,
+    preferred_composition="balanced",
 )
 
 PLAGUE_COMPANY = Detachment(
@@ -249,6 +271,7 @@ PLAGUE_COMPANY = Detachment(
         "rule_citations audit flagged it. Re-introduce ONLY with a citable "
         "real rule (e.g. Plague Company stratagem effects when #103 lands)."
     ),
+    preferred_composition="infantry",
 )
 
 CULT_OF_MAGIC = Detachment(
@@ -264,6 +287,7 @@ CULT_OF_MAGIC = Detachment(
         "(Doombolt, Twist of Fate, etc.), not an end-of-round MW payload. "
         "Re-introduce as Stratagems when #103 lands."
     ),
+    preferred_composition="infantry",
 )
 
 BERZERKER_WARBAND = Detachment(
@@ -274,6 +298,7 @@ BERZERKER_WARBAND = Detachment(
         "Blood Tithe points on a roster of escalating effects."
     ),
     plus_one_to_hit=True,
+    preferred_composition="infantry",
 )
 
 DAEMONIC_INCURSION = Detachment(
@@ -284,6 +309,7 @@ DAEMONIC_INCURSION = Detachment(
         "Battle-shock immunity and bespoke god-specific buffs in friendly zones."
     ),
     plus_one_to_hit=True,
+    preferred_composition="balanced",
 )
 
 FINAL_DAY = Detachment(
@@ -294,6 +320,7 @@ FINAL_DAY = Detachment(
         "rotates between Ambush / Onslaught / Annihilation stages."
     ),
     reroll_hit_ones=True,
+    preferred_composition="infantry",
 )
 
 OATHBAND = Detachment(
@@ -304,6 +331,7 @@ OATHBAND = Detachment(
         "Judgement Tokens that escalate effects vs marked enemy units."
     ),
     reroll_hit_ones=True,
+    preferred_composition="balanced",
 )
 
 
@@ -383,3 +411,180 @@ def default_detachment_for_faction(faction: str) -> Optional[Detachment]:
     """Return the canonical detachment for a faction, or None if unmapped."""
     key = DEFAULT_BY_FACTION.get(faction)
     return DETACHMENTS.get(key) if key else None
+
+
+# ---------------------------------------------------------------------------
+# Composition-driven detachment selection (Phase: army-builder picker)
+# ---------------------------------------------------------------------------
+
+# All detachments registered for a faction. For now most factions only have
+# one entry — the catalogue expands in #104. Tuples preserve insertion order
+# so the picker is deterministic given a seeded RNG.
+FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
+    "Adeptus Astartes":         ("gladius_task_force",),
+    "Ultramarines":             ("gladius_task_force",),
+    "Blood Angels":             ("gladius_task_force",),
+    "Dark Angels":              ("gladius_task_force",),
+    "Black Templars":           ("gladius_task_force",),
+    "Space Wolves":             ("gladius_task_force",),
+    "Salamanders":              ("gladius_task_force",),
+    "Imperial Fists":           ("gladius_task_force",),
+    "Iron Hands":               ("gladius_task_force",),
+    "Raven Guard":              ("gladius_task_force",),
+    "White Scars":              ("gladius_task_force",),
+    "Deathwatch":               ("gladius_task_force",),
+    "Necrons":                  ("awakened_dynasty",),
+    "Tyranids":                 ("invasion_fleet",),
+    "Orks":                     ("waaagh_tribe",),
+    "Imperial Knights":         ("noble_lance",),
+    "Chaos Knights":            ("noble_lance",),
+    "Adepta Sororitas":         ("hallowed_martyrs",),
+    "Adeptus Custodes":         ("shield_host",),
+    "Adeptus Mechanicus":       ("skitarii_hunter_cohort",),
+    "Agents of the Imperium":   ("inquisition_task_force",),
+    "Imperial Agents":          ("inquisition_task_force",),
+    "Astra Militarum":          ("combined_regiment",),
+    "Grey Knights":             ("teleport_strike_force",),
+    "Aeldari":                  ("battle_host",),
+    "Aeldari (Craftworlds)":    ("battle_host",),
+    "Ynnari":                   ("battle_host",),
+    "Drukhari":                 ("skysplinter_assault",),
+    "T'au Empire":              ("montka",),
+    "Tau Empire":               ("montka",),
+    "Chaos Space Marines":      ("pactbound_zealots",),
+    "Heretic Astartes":         ("pactbound_zealots",),
+    "Death Guard":              ("plague_company",),
+    "Thousand Sons":            ("cult_of_magic",),
+    "World Eaters":             ("berzerker_warband",),
+    "Chaos Daemons":            ("daemonic_incursion",),
+    "Genestealer Cults":        ("final_day",),
+    "Leagues of Votann":        ("oathband",),
+}
+
+
+def _army_composition_signature(units) -> Dict[str, float]:
+    """
+    Compute the fraction of total army points spent on each composition tag.
+
+    Returns a dict with keys:
+      - vehicle_fraction: VEHICLE units
+      - infantry_fraction: INFANTRY units that aren't also VEHICLE
+      - monster_fraction: MONSTER units
+      - character_fraction: CHARACTER units
+
+    Buckets are not mutually exclusive (a CHARACTER may also be INFANTRY) —
+    each fraction is computed independently against total spent points. An
+    empty army returns all zeros.
+
+    `units` may be a list of `Unit` instances (with `.profile`) or a list of
+    `UnitProfile` instances directly — both are supported so the picker can
+    be called during army construction.
+    """
+    def _profile(u):
+        return u.profile if hasattr(u, "profile") else u
+
+    def _kw(u) -> set:
+        return set(_profile(u).unit_keywords or ())
+
+    def _pts(u) -> float:
+        return float(_profile(u).points_cost)
+
+    total = sum(_pts(u) for u in units)
+    if total <= 0:
+        return {
+            "vehicle_fraction": 0.0,
+            "infantry_fraction": 0.0,
+            "monster_fraction": 0.0,
+            "character_fraction": 0.0,
+        }
+
+    vehicle_pts = sum(_pts(u) for u in units if "VEHICLE" in _kw(u))
+    infantry_pts = sum(
+        _pts(u) for u in units
+        if "INFANTRY" in _kw(u) and "VEHICLE" not in _kw(u)
+    )
+    monster_pts = sum(_pts(u) for u in units if "MONSTER" in _kw(u))
+    character_pts = sum(_pts(u) for u in units if "CHARACTER" in _kw(u))
+
+    return {
+        "vehicle_fraction": vehicle_pts / total,
+        "infantry_fraction": infantry_pts / total,
+        "monster_fraction": monster_pts / total,
+        "character_fraction": character_pts / total,
+    }
+
+
+def _dominant_composition(composition: Dict[str, float]) -> str:
+    """
+    Return the composition tag with the largest fraction, or "balanced" if
+    no single bucket dominates (max fraction < 0.4). CHARACTER is excluded
+    from the dominance check — characters ride alongside other unit types
+    and shouldn't outweigh the army's actual chassis mix.
+    """
+    chassis = {
+        "vehicle":  composition.get("vehicle_fraction", 0.0),
+        "infantry": composition.get("infantry_fraction", 0.0),
+        "monster":  composition.get("monster_fraction", 0.0),
+    }
+    best = max(chassis, key=chassis.get)
+    if chassis[best] < 0.4:
+        return "balanced"
+    return best
+
+
+def _score_detachment_for_army(det: Detachment, composition: Dict[str, float]) -> float:
+    """
+    Score a detachment against an army composition. +10 if the detachment's
+    `preferred_composition` matches the dominant chassis tag; 0 otherwise.
+    An untagged ("") detachment is treated as "balanced".
+    """
+    dominant = _dominant_composition(composition)
+    pref = det.preferred_composition or "balanced"
+    return 10.0 if pref == dominant else 0.0
+
+
+def pick_detachment_for_army(
+    faction: str,
+    units,
+    rng: Optional[random.Random] = None,
+) -> Optional[Detachment]:
+    """
+    Pick a detachment that fits the army's composition.
+
+    - If the faction has zero registered detachments, falls back to the
+      `DEFAULT_BY_FACTION` resolver and returns whatever that gives (may be
+      None for unmapped factions).
+    - If exactly one detachment is registered, returns it deterministically.
+    - Otherwise scores each candidate against the composition and picks
+      weighted-randomly so the top-scoring detachment dominates (~60%) but
+      lower-scoring variants still appear occasionally for variety.
+
+    `units` accepts the same forms as `_army_composition_signature`.
+    """
+    if rng is None:
+        rng = random.Random()
+
+    keys = FACTION_DETACHMENTS.get(faction, ())
+    if not keys:
+        return default_detachment_for_faction(faction)
+
+    if len(keys) == 1:
+        return DETACHMENTS[keys[0]]
+
+    candidates = [DETACHMENTS[k] for k in keys if k in DETACHMENTS]
+    if not candidates:
+        return default_detachment_for_faction(faction)
+    if len(candidates) == 1:
+        return candidates[0]
+
+    composition = _army_composition_signature(units)
+    scores = [_score_detachment_for_army(d, composition) for d in candidates]
+
+    # Weight: best-scoring detachment gets a soft majority, not a landslide.
+    # With +10 for a match and 0 otherwise, exp(s / 25) yields a ~60/40 split
+    # between matching vs non-matching in the N=2 case
+    # (exp(0.4) / (exp(0.4) + 1) ≈ 0.598). Variants still surface so the
+    # picker doesn't collapse to a deterministic best.
+    import math
+    weights = [math.exp(s / 25.0) for s in scores]
+    return rng.choices(candidates, weights=weights, k=1)[0]
