@@ -31,14 +31,12 @@ from code.renderer import (
     aggregate_activations, event_description, frame_description, render_frame,
 )
 from code.simulator import Battle, BattleResult
-from code.tournament import (
-    bradley_terry,
-    derive_points,
-    faction_keys_in_results,
-    load_results as load_tournament_results,
-    win_rate_matrix,
-)
 from code.units import UNIT_CATALOG as _RAW_CATALOG, UnitProfile, balanced_catalog, save_probability
+from code.equilibrium import (
+    compute_phase1 as compute_equilibrium_phase1,
+    DEFAULT_ANCHOR_KEY as EQ_DEFAULT_ANCHOR,
+    DEFAULT_ANCHOR_PER_MODEL as EQ_DEFAULT_ANCHOR_PTS,
+)
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
 # below once the sidebar's "Use SwegHammer balanced points" toggle is read.
@@ -920,7 +918,9 @@ if run:
 # Tabs: Statistics + Watch a battle
 # ---------------------------------------------------------------------------
 
-tab_stats, tab_replay, tab_tournament = st.tabs(["Statistics", "Watch a battle", "Tournament"])
+tab_stats, tab_replay, tab_efficiency, tab_equilibrium = st.tabs(
+    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium"]
+)
 
 # --- Statistics tab ---
 with tab_stats:
@@ -1068,150 +1068,451 @@ with tab_replay:
                 )
 
 # ---------------------------------------------------------------------------
-# Tournament tab — heatmap + ranking + derived points from lookup table
+# Efficiency tab — Lanchester score vs points cost scatter
 # ---------------------------------------------------------------------------
 
-with tab_tournament:
-    st.markdown("## Tournament Results")
+with tab_efficiency:
+    st.markdown("## Lanchester Score vs Points Cost")
     st.caption(
-        "Pre-computed 1v1 round-robin results. "
-        "Run `python -m scripts.run_tournament --faction <Faction> --sims 100` "
-        "to populate the lookup table."
+        "Each dot is one unit. "
+        "X = points cost (derived or override). "
+        "Y = Lanchester score (DPS × durability vs baseline Marine). "
+        "Dots above the trend line are good value; below are expensive for their combat power."
     )
 
-    t_results = load_tournament_results()
+    # Collect data from the full catalogue
+    _eff_names: list[str] = []
+    _eff_pts: list[float] = []
+    _eff_scores: list[float] = []
+    _eff_factions: list[str] = []
+    _eff_colours: list[str] = []
 
-    if not t_results:
-        st.info(
-            "No tournament data yet. "
-            "Run the tournament script for a faction to get started:\n\n"
-            "```\npython -m scripts.run_tournament --faction Necrons --sims 100\n```"
-        )
+    for _key, _u in UNIT_CATALOG.items():
+        _pts = _u.points_cost
+        _sc = _u.score
+        if _pts <= 0 or _sc <= 0:
+            continue
+        _eff_names.append(_u.name)
+        _eff_pts.append(_pts)
+        _eff_scores.append(_sc)
+        _eff_factions.append(_u.faction)
+        _eff_colours.append(colour_for(_u.faction))
+
+    if not _eff_pts:
+        st.warning("No units found in catalogue.")
     else:
-        factions_in_data = faction_keys_in_results(t_results)
+        # --- faction filter ---
+        _all_factions = sorted(set(_eff_factions))
+        _selected_factions = st.multiselect(
+            "Filter factions",
+            options=_all_factions,
+            default=_all_factions,
+            key="eff_faction_filter",
+        )
 
-        t_col1, t_col2 = st.columns([2, 3])
-        with t_col1:
-            selected_faction = st.selectbox(
-                "Faction", list(factions_in_data.keys()), key="t_faction"
+        # Apply filter
+        _mask = [f in _selected_factions for f in _eff_factions]
+        _f_names   = [v for v, m in zip(_eff_names,   _mask) if m]
+        _f_pts     = [v for v, m in zip(_eff_pts,     _mask) if m]
+        _f_scores  = [v for v, m in zip(_eff_scores,  _mask) if m]
+        _f_colours = [v for v, m in zip(_eff_colours, _mask) if m]
+        _f_factions= [v for v, m in zip(_eff_factions,_mask) if m]
+
+        # --- scatter plot ---
+        _fig_eff, _ax_eff = plt.subplots(figsize=(12, 7))
+        _fig_eff.patch.set_facecolor("#0e1117")
+        _ax_eff.set_facecolor("#1a1d23")
+
+        _ax_eff.scatter(
+            _f_pts, _f_scores,
+            c=_f_colours,
+            s=40, alpha=0.8, linewidths=0.4, edgecolors="white",
+        )
+
+        # Trend line — linear fit in log-log space (power-law relationship)
+        _pts_arr = np.array(_f_pts, dtype=float)
+        _sc_arr  = np.array(_f_scores, dtype=float)
+        if len(_pts_arr) >= 2:
+            _m, _b = np.polyfit(np.log10(_pts_arr), np.log10(_sc_arr), 1)
+            _x_line = np.logspace(np.log10(_pts_arr.min()), np.log10(_pts_arr.max()), 300)
+            _y_line = 10 ** (_b + _m * np.log10(_x_line))
+            _ax_eff.plot(_x_line, _y_line, color="#FFD700", linewidth=1.2,
+                         linestyle="--", label=f"trend  (slope {_m:.2f})", zorder=3)
+
+        # Label the 10 most efficient outliers (score / pts)
+        _eff_ratio = _sc_arr / _pts_arr
+        _top_idx   = np.argsort(_eff_ratio)[-10:]
+        for _i in _top_idx:
+            _ax_eff.annotate(
+                _f_names[_i],
+                (_f_pts[_i], _f_scores[_i]),
+                fontsize=6, color="white", alpha=0.9,
+                xytext=(4, 3), textcoords="offset points",
             )
-        with t_col2:
-            # Anchor unit for points derivation
-            faction_unit_keys = factions_in_data[selected_faction]
-            anchor_options = {
-                UNIT_CATALOG[k].name: k
-                for k in faction_unit_keys
-                if k in UNIT_CATALOG
-            }
-            anchor_name = st.selectbox(
-                "Anchor unit (known GW cost)",
-                list(anchor_options.keys()),
-                key="t_anchor",
-            )
-            anchor_key = anchor_options[anchor_name]
-            anchor_cost = st.number_input(
-                "Anchor GW points cost",
-                min_value=1,
-                max_value=9999,
-                value=int(UNIT_CATALOG[anchor_key].points_cost)
-                if anchor_key in UNIT_CATALOG else 100,
-                step=1,
-                key="t_anchor_cost",
-            )
 
-        keys = faction_unit_keys
-        names = [UNIT_CATALOG[k].name if k in UNIT_CATALOG else k for k in keys]
+        # Legend: one entry per faction that's visible
+        _seen: set[str] = set()
+        for _fn, _fc in zip(_f_factions, _f_colours):
+            if _fn not in _seen:
+                _seen.add(_fn)
+                _ax_eff.scatter([], [], color=_fc, s=30, label=_fn)
 
-        # --- Bradley-Terry scores + derived points -------------------------
-        bt_scores = bradley_terry(keys, t_results)
-        derived_pts = derive_points(keys, bt_scores, anchor_key, anchor_cost)
+        _ax_eff.legend(
+            loc="upper left", fontsize=7,
+            facecolor="#1a1d23", edgecolor="#444", labelcolor="white",
+            ncol=max(1, len(_seen) // 20),
+        )
 
-        # --- Ranking table -------------------------------------------------
+        _ax_eff.set_xscale("log")
+        _ax_eff.set_yscale("log")
+        _ax_eff.set_xlabel("Points cost  (log scale)", color="white", fontsize=11)
+        _ax_eff.set_ylabel("Lanchester score  (log scale)", color="white", fontsize=11)
+        _ax_eff.set_title("Lanchester score vs Points cost", color="white", fontsize=13, pad=10)
+        _ax_eff.tick_params(colors="white", which="both")
+        for _spine in _ax_eff.spines.values():
+            _spine.set_edgecolor("#444")
+
+        _fig_eff.tight_layout()
+        st.pyplot(_fig_eff)
+
+        # --- efficiency ranking table ---
         st.divider()
-        st.markdown("### Unit Rankings")
-
-        ranking_rows = sorted(
+        st.markdown("### Efficiency ranking  (Lanchester score ÷ points)")
+        _eff_rows = sorted(
             [
                 {
-                    "Unit": UNIT_CATALOG[k].name if k in UNIT_CATALOG else k,
-                    "BT Score": f"{bt_scores[k]:.4f}",
-                    "SwegHammer pts": f"{derived_pts[k]:.1f}",
-                    "GW pts": f"{UNIT_CATALOG[k].points_cost:.0f}"
-                    if k in UNIT_CATALOG else "—",
-                    "Δ pts": f"{derived_pts[k] - UNIT_CATALOG[k].points_cost:+.1f}"
-                    if k in UNIT_CATALOG else "—",
+                    "Unit": _f_names[i],
+                    "Faction": _f_factions[i],
+                    "Points": round(_f_pts[i], 1),
+                    "Lanchester score": round(_f_scores[i], 4),
+                    "Score / pt": round(_eff_ratio[i], 5),
                 }
-                for k in keys
+                for i in range(len(_f_names))
             ],
-            key=lambda r: float(r["BT Score"]),
+            key=lambda r: r["Score / pt"],
             reverse=True,
         )
-        st.dataframe(ranking_rows, hide_index=True, use_container_width=True)
+        st.dataframe(_eff_rows, hide_index=True, use_container_width=True)
 
-        # --- Heatmap -------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Equilibrium tab — Phase 1 fair-points solver
+# ---------------------------------------------------------------------------
+with tab_equilibrium:
+    st.markdown("## Equilibrium points  —  Phase 1 (shooting only)")
+    st.caption(
+        "What SHOULD a unit cost if balance were perfect? "
+        "We treat the catalogue as a symmetric zero-sum game, compute every "
+        "pairwise time-to-kill, and solve for points that make every duel "
+        "mutually destructive in equal time."
+    )
+
+    # ---- Math explainer ----
+    with st.expander("How the math works", expanded=False):
+        st.markdown(
+            "**Step 1 — Pairwise damage.**  For every ordered pair of units "
+            "$(i, j)$ we compute the expected unsaved damage one model of $i$ "
+            "deals to one model of $j$ in a single shooting phase, accounting "
+            "for hit, wound (S vs T table), AP-vs-save, invuln, FNP, and the "
+            "stateless weapon keywords (Lethal Hits, Sustained Hits, "
+            "Twin-Linked, Devastating Wounds, Anti-X)."
+        )
+        st.latex(
+            r"D[i,j] = n_i \cdot p_{\text{hit}} \cdot p_{\text{wound}}(S_i, T_j) "
+            r"\cdot p_{\text{fail save}}(\text{save}_j, AP_i, \text{inv}_j) "
+            r"\cdot d_i \cdot \left(1 - p_{\text{FNP}_j}\right)"
+        )
+        st.markdown("**Step 2 — Time-to-kill.**")
+        st.latex(r"T[i,j] = \frac{W_j}{D[i,j]}")
+        st.markdown(
+            "**Step 3 — Fair-trade condition.**  Field $p_j$ points of $i$ "
+            "vs $p_j$ points of $j$ (equal budget). The side that wipes "
+            "first is the cheaper-per-model unit. Solving for "
+            "mutual destruction at the same instant:"
+        )
+        st.latex(r"\left(\frac{p_i}{p_j}\right)^2 = \frac{T[j,i]}{T[i,j]}")
+        st.markdown(
+            "Take logs and you get a linear equation in $\\log p$:"
+        )
+        st.latex(
+            r"\log p_i - \log p_j \;=\; \tfrac{1}{2} \log\!\frac{T[j,i]}{T[i,j]} "
+            r"\;\equiv\; R[i,j]"
+        )
+        st.markdown(
+            "**Step 4 — Closed-form solve.**  $R$ is skew-symmetric; the LSQ "
+            "optimum for $\\log p$ is the row mean (Bradley-Terry / PageRank "
+            "structure):"
+        )
+        st.latex(
+            r"\log p_i \;=\; \tfrac{1}{n}\sum_{j \neq i} R[i,j] \;+\; \text{anchor shift}"
+        )
+        st.markdown(
+            "The **anchor** pins one unit's per-model cost (default: "
+            "Intercessor @ 16 pts) to fix the overall scale. Everything else "
+            "is relative.\n\n"
+            "**Phase 1 limitations** (deferred to later phases — see "
+            "`code/equilibrium.py`):\n"
+            "- Shooting only (no melee, no charge value)\n"
+            "- No leader auras / detachment buffs\n"
+            "- No tactical utility: move, OC, deep strike, sticky objectives\n"
+            "- No meta-weighting of matchups (all pairs equal weight)\n"
+            "- No proper Nash mixed-strategy solve (would handle "
+            "rock-paper-scissors mispricing)\n\n"
+            "So aura-heavy characters and chaff swarms will look mispriced — "
+            "the model can't see what they're actually good at yet."
+        )
+
+    # ---- Controls ----
+    st.divider()
+    _col_anchor, _col_anchor_pts, _col_role = st.columns([3, 1, 2])
+
+    _shooty_keys = sorted([k for k, u in UNIT_CATALOG.items()
+                           if u.attacks > 0 and u.range_inches > 0])
+    _default_anchor = (
+        EQ_DEFAULT_ANCHOR if EQ_DEFAULT_ANCHOR in _shooty_keys else _shooty_keys[0]
+    )
+    with _col_anchor:
+        _anchor_key = st.selectbox(
+            "Anchor unit  (its cost is held fixed; everything else floats)",
+            _shooty_keys,
+            index=_shooty_keys.index(_default_anchor),
+            format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
+            key="eq_anchor_key",
+        )
+    with _col_anchor_pts:
+        _default_anchor_pts = float(
+            UNIT_CATALOG[_anchor_key].points_per_squad /
+            max(1, UNIT_CATALOG[_anchor_key].min_models)
+        )
+        if _default_anchor_pts <= 0:
+            _default_anchor_pts = EQ_DEFAULT_ANCHOR_PTS
+        _anchor_pts = st.number_input(
+            "Anchor pts / model",
+            min_value=1.0, max_value=2000.0,
+            value=_default_anchor_pts,
+            step=1.0,
+            key="eq_anchor_pts",
+        )
+    with _col_role:
+        _role_filter = st.multiselect(
+            "Role filter",
+            options=["shooty", "dual"],
+            default=["shooty", "dual"],
+            key="eq_role_filter",
+            help="`shooty` = no melee profile, `dual` = also has melee. Pure-melee units are excluded from Phase 1.",
+        )
+
+    # ---- Cached compute ----
+    @st.cache_data(show_spinner="Solving equilibrium points…")
+    def _equilibrium_result(anchor_key: str, anchor_pts: float):
+        # Catalog identity matters (raw vs balanced) but it's not hashable, so
+        # we just key on the user-controlled args. Cache invalidates when the
+        # process restarts, which is acceptable for an exploratory view.
+        return compute_equilibrium_phase1(
+            catalog=UNIT_CATALOG,
+            anchor_key=anchor_key,
+            anchor_per_model=anchor_pts,
+        )
+
+    try:
+        _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
+    except ValueError as _exc:
+        st.error(f"Couldn't compute equilibrium: {_exc}")
+        st.stop()
+
+    # ---- Faction filter (operates on cached entries — re-renders only) ----
+    _all_factions = sorted({e.faction for e in _result.entries if e.faction})
+    _selected_factions = st.multiselect(
+        "Show factions",
+        options=_all_factions,
+        default=_all_factions,
+        key="eq_faction_filter",
+    )
+
+    _filtered = [
+        e for e in _result.entries
+        if (e.faction in _selected_factions if _selected_factions else True)
+        and e.role in _role_filter
+    ]
+
+    if not _filtered:
+        st.warning("No units match the current filters.")
+    else:
+        # ---- Summary metrics ----
+        _under = [e for e in _filtered if e.mispricing_pct < -10]
+        _over  = [e for e in _filtered if e.mispricing_pct > 10]
+        _m1, _m2, _m3, _m4 = st.columns(4)
+        _m1.metric("Units fitted", len(_filtered))
+        _m2.metric("GW undercosted (>10%)", len(_under),
+                   help="Equilibrium says these should cost more than GW prices them.")
+        _m3.metric("GW overcosted (>10%)", len(_over),
+                   help="Equilibrium says these should cost less than GW prices them.")
+        _m4.metric("Anchor", f"{UNIT_CATALOG[_anchor_key].name[:18]}",
+                   f"{_anchor_pts:.0f} pts/model")
+
+        # ---- Scatter plot ----
+        _xs = np.array([e.gw_points_per_model for e in _filtered])
+        _ys = np.array([e.equilibrium_points_per_model for e in _filtered])
+        _factions = [e.faction for e in _filtered]
+        _names = [e.name for e in _filtered]
+        _cols = [colour_for(f) for f in _factions]
+
+        # Filter out degenerate points (GW = 0 means no listed points)
+        _valid = (_xs > 0) & (_ys > 0)
+        _xs_p, _ys_p = _xs[_valid], _ys[_valid]
+        _cols_p = [c for c, v in zip(_cols, _valid) if v]
+        _names_p = [n for n, v in zip(_names, _valid) if v]
+
+        _fig, _ax = plt.subplots(figsize=(12, 7))
+        _fig.patch.set_facecolor("#0e1117")
+        _ax.set_facecolor("#1a1d23")
+
+        _ax.scatter(_xs_p, _ys_p, c=_cols_p, s=28, alpha=0.78,
+                    linewidths=0.3, edgecolors="white")
+
+        _lo = float(min(_xs_p.min(), _ys_p.min())) if len(_xs_p) else 1.0
+        _hi = float(max(_xs_p.max(), _ys_p.max())) if len(_xs_p) else 1000.0
+        _ax.plot([_lo, _hi], [_lo, _hi], color="#FFD700", linestyle="--",
+                 linewidth=1.0, label="y = x (fair)")
+
+        # Label most-mispriced outliers
+        if len(_xs_p) >= 4:
+            _log_ratio = np.log(_ys_p / _xs_p)
+            _n_labels = min(6, len(_xs_p) // 5)
+            _worst_under = np.argsort(_log_ratio)[-_n_labels:]
+            _worst_over = np.argsort(_log_ratio)[:_n_labels]
+            for _i in list(_worst_under) + list(_worst_over):
+                _ax.annotate(
+                    _names_p[_i],
+                    (_xs_p[_i], _ys_p[_i]),
+                    fontsize=6.5, color="white", alpha=0.9,
+                    xytext=(4, 3), textcoords="offset points",
+                )
+
+        # Faction legend (sample of visible factions only)
+        _seen = set()
+        for _f, _c in zip(_factions, _cols):
+            if _f not in _seen and len(_seen) < 22:
+                _seen.add(_f)
+                _ax.scatter([], [], color=_c, s=30, label=_f)
+        _ax.legend(loc="upper left", fontsize=6.5,
+                   facecolor="#1a1d23", edgecolor="#444", labelcolor="white",
+                   ncol=max(1, len(_seen) // 18))
+
+        _ax.set_xscale("log")
+        _ax.set_yscale("log")
+        _ax.set_xlabel("GW points per model  (log)", color="white", fontsize=11)
+        _ax.set_ylabel("Equilibrium points per model  (log)", color="white", fontsize=11)
+        _ax.set_title(
+            "Above diagonal → GW undercosted  ·  Below diagonal → GW overcosted",
+            color="white", fontsize=11, pad=8,
+        )
+        _ax.tick_params(colors="white", which="both")
+        for _s in _ax.spines.values():
+            _s.set_edgecolor("#444")
+        _ax.grid(True, alpha=0.15, color="#888", linestyle=":")
+
+        _fig.tight_layout()
+        st.pyplot(_fig)
+
+        # ---- Sortable explorer table ----
         st.divider()
-        st.markdown("### Win-Rate Heatmap")
-        st.caption("Row beats column. Green > 50 %, red < 50 %, grey = no data.")
-
-        matrix, _ = win_rate_matrix(keys, t_results)
-        n = len(keys)
-
-        # Replace None with NaN for matplotlib
-        import numpy as _np
-        mat_np = _np.full((n, n), float("nan"))
-        for i in range(n):
-            for j in range(n):
-                if matrix[i][j] is not None:
-                    mat_np[i, j] = matrix[i][j]
-
-        # Scale figure height to number of units (cap at 30 per screen)
-        display_n = min(n, 40)
-        fig_size = max(6, display_n * 0.45)
-        fig_heat, ax_heat = plt.subplots(figsize=(fig_size, fig_size))
-        fig_heat.patch.set_facecolor("#0e1117")
-        ax_heat.set_facecolor("#0e1117")
-
-        cmap = plt.cm.RdYlGn
-        cmap.set_bad(color="#2a2d35")  # NaN colour
-
-        im = ax_heat.imshow(
-            mat_np[:display_n, :display_n],
-            cmap=cmap,
-            vmin=0.0,
-            vmax=1.0,
-            aspect="auto",
+        st.markdown("### Explore the data")
+        _rows = [
+            {
+                "Unit": e.name,
+                "Faction": e.faction,
+                "Role": e.role,
+                "GW pts/model": e.gw_points_per_model,
+                "Eq pts/model": e.equilibrium_points_per_model,
+                "Mispricing %": e.mispricing_pct,
+                "GW pts/squad": e.gw_points_per_squad,
+                "Eq pts/squad": e.equilibrium_points_per_squad,
+                "Min models": e.min_models,
+                "Matchups": e.valid_matchups,
+                "key": e.key,
+            }
+            for e in _filtered
+        ]
+        st.dataframe(
+            _rows,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "key": None,   # hide the catalogue key column
+                "Mispricing %": st.column_config.NumberColumn(
+                    help="Positive = GW prices it ABOVE equilibrium (overcosted). "
+                         "Negative = GW prices BELOW equilibrium (undercosted).",
+                    format="%+.1f%%",
+                ),
+            },
+        )
+        st.caption(
+            "Click any column header to sort. "
+            "**Mispricing %** = `(GW − equilibrium) / equilibrium`."
         )
 
-        display_names = names[:display_n]
-        ax_heat.set_xticks(range(display_n))
-        ax_heat.set_xticklabels(display_names, rotation=90, fontsize=7, color="white")
-        ax_heat.set_yticks(range(display_n))
-        ax_heat.set_yticklabels(display_names, fontsize=7, color="white")
-
-        # Annotate cells with win%
-        for i in range(display_n):
-            for j in range(display_n):
-                val = mat_np[i, j]
-                if not _np.isnan(val):
-                    text_col = "black" if 0.25 < val < 0.75 else "white"
-                    ax_heat.text(
-                        j, i, f"{val:.0%}",
-                        ha="center", va="center", fontsize=5.5,
-                        color=text_col, fontweight="bold",
-                    )
-
-        cbar = fig_heat.colorbar(im, ax=ax_heat, fraction=0.03, pad=0.02)
-        cbar.ax.tick_params(colors="white")
-        cbar.set_label("Win rate (row vs col)", color="white", fontsize=9)
-
-        ax_heat.set_title(
-            f"{selected_faction} — 1v1 win rates", color="white", fontsize=12, pad=10
+        # ---- Per-unit matchup drilldown ----
+        st.divider()
+        st.markdown("### Drill into a unit's matchups")
+        _drill_options = sorted([e.key for e in _filtered],
+                                key=lambda k: UNIT_CATALOG[k].name)
+        _drill_key = st.selectbox(
+            "Pick a unit",
+            _drill_options,
+            format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
+            key="eq_drill_key",
         )
-        fig_heat.tight_layout()
-        st.pyplot(fig_heat)
 
-        if n > 40:
-            st.caption(
-                f"Showing first 40 of {n} units. "
-                "Reduce the faction size or filter by sub-type to see all."
+        _drill_entry = next(e for e in _result.entries if e.key == _drill_key)
+        _d1, _d2, _d3 = st.columns(3)
+        _d1.metric("GW points / model", f"{_drill_entry.gw_points_per_model:.1f}")
+        _d2.metric("Equilibrium / model",
+                   f"{_drill_entry.equilibrium_points_per_model:.1f}",
+                   f"{_drill_entry.mispricing_pct:+.1f}% vs GW")
+        _d3.metric("Valid matchups", _drill_entry.valid_matchups)
+
+        _best, _worst = _result.matchups_for(_drill_key, top_n=10)
+
+        def _matchup_rows(matchups):
+            out = []
+            for m in matchups:
+                _opp = UNIT_CATALOG.get(m["opponent_key"])
+                if _opp is None:
+                    continue
+                out.append({
+                    "Opponent": _opp.name,
+                    "Faction": _opp.faction,
+                    "Turns I kill them": m["T_self_kills_opp"],
+                    "Turns they kill me": m["T_opp_kills_self"],
+                    "Log advantage R": m["R_log_advantage"],
+                    "Fair pts ratio (me/them)": m["fair_points_ratio"],
+                })
+            return out
+
+        _col_best, _col_worst = st.columns(2)
+        with _col_best:
+            st.markdown(
+                f"**Strongest matchups for {UNIT_CATALOG[_drill_key].name}**  "
+                "<br><span style='color:#aaa;font-size:0.85em'>(highest log "
+                "advantage = should cost most relative to opponent)</span>",
+                unsafe_allow_html=True,
             )
+            st.dataframe(_matchup_rows(_best), hide_index=True,
+                         use_container_width=True)
+        with _col_worst:
+            st.markdown(
+                f"**Weakest matchups for {UNIT_CATALOG[_drill_key].name}**  "
+                "<br><span style='color:#aaa;font-size:0.85em'>(lowest log "
+                "advantage = should cost least relative to opponent)</span>",
+                unsafe_allow_html=True,
+            )
+            st.dataframe(_matchup_rows(_worst), hide_index=True,
+                         use_container_width=True)
+
+        st.caption(
+            "**Log advantage R** is the value the solver averages to derive "
+            "equilibrium points. **Fair pts ratio** = $\\exp(R)$ = what "
+            "fraction of the opponent's points-per-model the equilibrium says "
+            "this unit should cost in an isolated 1-vs-1."
+        )

@@ -149,61 +149,6 @@ def _open_console(cmd: list, status_var: tk.StringVar, label: str) -> None:
         status_var.set("Launch failed — see error dialog.")
 
 
-def run_tournament_dialog(parent: tk.Tk, status_var: tk.StringVar) -> None:
-    """Small dialog: pick faction + sims, then launch the round-robin runner."""
-    # Load factions lazily so the main window opens fast
-    try:
-        from code.units import UNIT_CATALOG
-        factions = sorted({v.faction for v in UNIT_CATALOG.values() if v.faction})
-    except Exception as exc:
-        messagebox.showerror("Import error", str(exc))
-        return
-
-    dlg = tk.Toplevel(parent)
-    dlg.title("Run Round-Robin Tournament")
-    dlg.geometry("360x240")
-    dlg.resizable(False, False)
-    dlg.grab_set()  # modal
-
-    tk.Label(dlg, text="Round-Robin Tournament Runner",
-             font=("TkDefaultFont", 12, "bold")).pack(pady=(16, 4))
-
-    faction_choices = ["— All factions —"] + factions
-    faction_var = tk.StringVar(value="— All factions —")
-    tk.Label(dlg, text="Faction:", anchor="w").pack(fill="x", padx=24)
-    faction_menu = tk.OptionMenu(dlg, faction_var, *faction_choices)
-    faction_menu.config(width=30)
-    faction_menu.pack(padx=24, pady=(0, 8))
-
-    tk.Label(dlg, text="Simulations per matchup:", anchor="w").pack(fill="x", padx=24)
-    sims_var = tk.IntVar(value=100)
-    tk.Spinbox(dlg, from_=10, to=1000, increment=10, textvariable=sims_var,
-               width=8).pack(anchor="w", padx=24, pady=(0, 8))
-
-    skip_var = tk.BooleanVar(value=True)
-    tk.Checkbutton(dlg, text="Skip already-computed matchups (--skip-done)",
-                   variable=skip_var).pack(anchor="w", padx=20, pady=(0, 12))
-
-    def _launch() -> None:
-        faction = faction_var.get()
-        sims = sims_var.get()
-        cmd = [sys.executable, "-m", "scripts.run_tournament"]
-        if faction == "— All factions —":
-            cmd += ["--all"]
-            label = "Tournament (all factions)"
-        else:
-            cmd += ["--faction", faction]
-            label = f"Tournament ({faction})"
-        cmd += ["--sims", str(sims)]
-        if skip_var.get():
-            cmd += ["--skip-done"]
-        dlg.destroy()
-        _open_console(cmd, status_var, label)
-
-    tk.Button(dlg, text="▶  Run Tournament", command=_launch,
-              width=24, pady=5, font=("TkDefaultFont", 10, "bold")).pack()
-
-
 def run_cli_demo(status_var: tk.StringVar) -> None:
     """Open a new console window running the CLI demo."""
     status_var.set("Launching CLI demo in a new window...")
@@ -245,13 +190,6 @@ def launch_gui() -> None:
         root,
         text="Run CLI demo (new console)",
         command=lambda: run_cli_demo(status_var),
-        **btn_kwargs,
-    ).pack(pady=4)
-
-    tk.Button(
-        root,
-        text="Run Round-Robin Tournament…",
-        command=lambda: run_tournament_dialog(root, status_var),
         **btn_kwargs,
     ).pack(pady=4)
 
