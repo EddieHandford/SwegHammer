@@ -138,6 +138,20 @@ class UnitDeepStrike:
 
 
 @dataclass(frozen=True)
+class UnitReanimated:
+    """A previously-destroyed model in a REANIMATION-keyword unit was revived
+    at the end of a Command Phase by Reanimation Protocols.
+
+    We model squads as N single-model Unit instances; "revive a destroyed
+    model" means re-marking a dead Unit's `current_health` back to its
+    profile max. The renderer treats this like a Deep Strike arrival —
+    a fresh body appears on the board at `position`.
+    """
+    unit_uid: str
+    position: Tuple[float, float]
+
+
+@dataclass(frozen=True)
 class BattleshockFailed:
     """A unit failed its Battleshock check this round and counts as OC 0."""
     unit_uid: str

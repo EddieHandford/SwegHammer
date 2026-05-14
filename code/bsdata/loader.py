@@ -75,6 +75,9 @@ class CatalogEntry:
     scout_distance: int = 0
     infiltrator: bool = False
     fnp: int = 7
+    # 10e Sticky Objectives — control persists after the unit leaves until
+    # an opposing unit takes the objective back.
+    sticky_objective: bool = False
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
     melee_damage_per_shot: float = 0.0
@@ -133,6 +136,7 @@ class CatalogEntry:
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
             fnp=int(d.get("fnp", 7)),
+            sticky_objective=bool(d.get("sticky_objective", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
             melee_damage_per_shot=float(d.get("melee_damage_per_shot", 0)),
@@ -236,6 +240,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
         "fnp": override.get("fnp", base.fnp),
+        "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),
         "melee_damage_per_shot": override.get("melee_damage_per_shot", base.melee_damage_per_shot),

@@ -26,7 +26,7 @@ from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, ObjectiveScored,
     RoundEnded, RoundStarted, UnitActivated, UnitAdvanced, UnitCharged,
     UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
-    UnitScouted, UnitShot,
+    UnitReanimated, UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 
@@ -55,6 +55,7 @@ COL_SHOT_ARROW = "#f7d147"
 COL_CHARGE_ARROW = "#ff7f3f"   # orange — charge declaration
 COL_MELEE_FLASH = "#e05c5c"    # red — melee strike
 COL_OBJECTIVE = "#ffd700"      # gold — objective marker
+COL_REANIMATE = "#5cd65c"      # green — Necron Reanimation Protocols revival
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +174,14 @@ def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
         elif isinstance(ev, (UnitDeepStrike, UnitInfiltrated)):
             if ev.unit_uid in state:
                 state[ev.unit_uid]["position"] = ev.position
+        elif isinstance(ev, UnitReanimated):
+            # A previously-destroyed model is back on the board — flip it
+            # back to alive at full HP and update its position to wherever
+            # the simulator placed it.
+            if ev.unit_uid in state:
+                state[ev.unit_uid]["position"] = ev.position
+                state[ev.unit_uid]["alive"] = True
+                state[ev.unit_uid]["current_hp"] = state[ev.unit_uid]["max_hp"]
         elif isinstance(ev, UnitShot):
             if ev.target_uid in state:
                 state[ev.target_uid]["current_hp"] = ev.target_hp_after
@@ -372,20 +381,11 @@ def render_frame(
                 zorder=4,
             )
         elif isinstance(ev, UnitShot):
-            # Attacker position: use pre-activation position so the arrow
-            # starts where the unit was when it fired the *first* shot.
-            # By end_idx the unit has finished its activation, but the
-            # firing positions over multiple shots within one activation
-            # are essentially the same (you don't move between shoots in
-            # 10e), so this is the right anchor.
             attacker_pos = None
             if ev.attacker_uid in state:
                 attacker_pos = state[ev.attacker_uid]["position"]
             target_pos = None
             if ev.target_uid in pre_state:
-                # Use the target's position AT THE TIME of the shot — if it
-                # died and moved off in a later same-frame event, we still
-                # want the arrow to point where it was shot.
                 target_pos = pre_state[ev.target_uid]["position"]
             elif ev.target_uid in state:
                 target_pos = state[ev.target_uid]["position"]
@@ -398,9 +398,6 @@ def render_frame(
                 )
         elif isinstance(ev, UnitCharged):
             if ev.unit_uid in state and ev.target_uid in state:
-                # Use the pre-activation attacker position if available so
-                # the charge arrow shows the *gap closed*, not the final
-                # 1" engagement gap.
                 attacker_pos = (
                     pre_state[ev.unit_uid]["position"]
                     if ev.unit_uid in pre_state
@@ -418,6 +415,11 @@ def render_frame(
                 tg_pos = state[ev.target_uid]["position"]
                 ax.scatter([tg_pos[0]], [tg_pos[1]], s=220, c=COL_MELEE_FLASH,
                            marker="*", alpha=0.9, zorder=7)
+        elif isinstance(ev, UnitReanimated):
+            # Green "+" where a destroyed model just got back up.
+            px, py = ev.position
+            ax.scatter([px], [py], s=260, c=COL_REANIMATE, marker="+",
+                       linewidths=2.5, alpha=0.95, zorder=7)
 
     # Objective markers
     for obj in map_.objectives:
@@ -506,6 +508,9 @@ def event_description(event) -> str:
     if isinstance(event, UnitDeepStrike):
         px, py = event.position
         return f"  Deep Strike {event.unit_uid} arrives at ({px:.1f},{py:.1f})"
+    if isinstance(event, UnitReanimated):
+        px, py = event.position
+        return f"  Reanimate {event.unit_uid} rises again at ({px:.1f},{py:.1f})"
     if isinstance(event, UnitKilled):
         return f"  KO        {event.unit_uid}"
     if isinstance(event, BattleEnded):

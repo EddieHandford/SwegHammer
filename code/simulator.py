@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, InitialUnit, ObjectiveScored,
     RoundEnded, RoundStarted, Subscriber, UnitActivated, UnitAdvanced,
     UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
-    UnitMoved, UnitScouted, UnitShot,
+    UnitMoved, UnitReanimated, UnitScouted, UnitShot,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
@@ -149,6 +149,17 @@ class Battle:
         # so the simulator skips their movement sub-phase for one round.
         # Reset each round (except Round 1 inherits scout flags).
         self._fresh_arrivals: set = set()
+        # Issue #75 — Reanimation Protocols. Snapshot of how many units of
+        # each profile each army started with (army.units + reserves).
+        # Used end-of-round to compute `destroyed = initial - alive_now` and
+        # revive dead model instances by re-setting their current_health.
+        # Populated by Battle.run() once deployment has settled.
+        self._initial_unit_counts: Dict[str, Dict[str, int]] = {}
+        # Issue #85 — Sticky Objectives. Once a sticky_objective unit claims
+        # an objective for its army, ownership persists here keyed by the
+        # objective's index in self.map.objectives. Cleared when the opposing
+        # side outscores the holder's army on the objective in a later round.
+        self._sticky_owner: Dict[int, str] = {}
 
     # ------------------------------------------------------------------
     # Public interface
@@ -165,6 +176,16 @@ class Battle:
         # army roster, not just what was on the board at deployment.
         a_start = len(self.a.units) + len(self._reserves.get(self.a.name, []))
         b_start = len(self.b.units) + len(self._reserves.get(self.b.name, []))
+        # Reanimation Protocols (#75): snapshot starting model counts per
+        # profile per army, including reserves. End-of-round revival reads
+        # this to compute how many models have been destroyed.
+        for army in (self.a, self.b):
+            counts: Dict[str, int] = {}
+            for u in army.units:
+                counts[u.profile.name] = counts.get(u.profile.name, 0) + 1
+            for u in self._reserves.get(army.name, []):
+                counts[u.profile.name] = counts.get(u.profile.name, 0) + 1
+            self._initial_unit_counts[army.name] = counts
         # VP tally accumulates across rounds
         self._a_vp = 0
         self._b_vp = 0
@@ -277,12 +298,22 @@ class Battle:
 
     def _score_objectives(self) -> None:
         """End-of-round VP scoring: each objective awards its vp_per_round to
-        whichever side has more Objective Control within control_radius."""
-        for obj in self.map.objectives:
+        whichever side has more Objective Control within control_radius.
+
+        Sticky Objectives (issue #85): a unit with sticky_objective=True that
+        currently controls an objective marks self._sticky_owner[obj_idx] =
+        its army. If both sides contest the objective on a later round and
+        nobody currently controls, the sticky owner still scores. If the
+        opposing army takes control, the sticky owner is cleared (and the
+        new owner replaces it if THEY are sticky).
+        """
+        for obj_idx, obj in enumerate(self.map.objectives):
             obj_pos = (obj.x, obj.y)
             r2 = obj.control_radius * obj.control_radius
             a_oc = 0
             b_oc = 0
+            a_sticky_present = False
+            b_sticky_present = False
             for u in self.a.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue   # Battleshocked = OC 0
@@ -290,6 +321,8 @@ class Battle:
                 dy = u.position[1] - obj_pos[1]
                 if dx * dx + dy * dy <= r2:
                     a_oc += getattr(u.profile, "oc", 1) or 1
+                    if getattr(u.profile, "sticky_objective", False):
+                        a_sticky_present = True
             for u in self.b.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue
@@ -297,13 +330,46 @@ class Battle:
                 dy = u.position[1] - obj_pos[1]
                 if dx * dx + dy * dy <= r2:
                     b_oc += getattr(u.profile, "oc", 1) or 1
+                    if getattr(u.profile, "sticky_objective", False):
+                        b_sticky_present = True
+
+            # Resolve who actually scores this round. The fallback to
+            # sticky_owner is only used when NEITHER side has any OC on the
+            # objective — i.e. truly uncontested (not a tie at OC>0).
+            scorer: Optional[str] = None
             if a_oc > b_oc:
+                scorer = self.a.name
+            elif b_oc > a_oc:
+                scorer = self.b.name
+            elif a_oc == 0 and b_oc == 0:
+                # Nobody on it — fall back to sticky owner if any.
+                scorer = self._sticky_owner.get(obj_idx)
+
+            # Update sticky ownership BEFORE emitting the event, so a
+            # newly-claimed objective registers the sticky owner this round.
+            if a_sticky_present and a_oc >= b_oc and a_oc > 0:
+                self._sticky_owner[obj_idx] = self.a.name
+            elif b_sticky_present and b_oc >= a_oc and b_oc > 0:
+                self._sticky_owner[obj_idx] = self.b.name
+            else:
+                # An opposing non-sticky unit that takes control wrests the
+                # marker back — clear sticky ownership so the new controller
+                # scores fairly. (If the same side that owns sticky also
+                # controls now with a non-sticky unit, leave the sticky owner
+                # in place — they still hold it.)
+                cur_owner = self._sticky_owner.get(obj_idx)
+                if cur_owner == self.a.name and b_oc > a_oc:
+                    self._sticky_owner.pop(obj_idx, None)
+                elif cur_owner == self.b.name and a_oc > b_oc:
+                    self._sticky_owner.pop(obj_idx, None)
+
+            if scorer == self.a.name:
                 self._a_vp += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.a.name,
                     vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
                 ))
-            elif b_oc > a_oc:
+            elif scorer == self.b.name:
                 self._b_vp += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.b.name,
@@ -314,6 +380,74 @@ class Battle:
                     objective_name=obj.name, army_name=None,
                     vp_awarded=0, a_oc=a_oc, b_oc=b_oc,
                 ))
+
+    # ------------------------------------------------------------------
+    # Reanimation Protocols (issue #75)
+    # ------------------------------------------------------------------
+
+    def _apply_reanimation(self) -> None:
+        """End-of-round model revival for Reanimation Protocols armies.
+
+        Real 10e rule: at the start of each Command Phase, REANIMATION-keyword
+        units restore D3 destroyed wounds. We model squads as N separate
+        single-model `Unit` instances, so "restore D3 wounds" maps to "revive
+        D3 destroyed models per profile". We use median D3 = 2 deterministically
+        to keep round-to-round outcomes reproducible under a fixed seed.
+
+        Revived models reappear next to a living friendly of the same profile
+        if one exists; otherwise at the army's deployment edge midpoint.
+        """
+        for army_idx, (army, opponent) in enumerate(
+            ((self.a, self.b), (self.b, self.a))
+        ):
+            det = army.resolve_detachment()
+            if not det or det.reanimate_per_round <= 0:
+                continue
+            initial = self._initial_unit_counts.get(army.name, {})
+            if not initial:
+                continue
+            # Group dead instances by profile name. Reserves are not yet
+            # placed and can't be revived (they're not "destroyed").
+            dead_by_profile: Dict[str, List] = {}
+            alive_by_profile: Dict[str, List] = {}
+            for u in army.units:
+                bucket = (alive_by_profile if u.is_alive else dead_by_profile)
+                bucket.setdefault(u.profile.name, []).append(u)
+            # Deployment edge for fallback positioning. Army A deploys low-y,
+            # Army B high-y (mirrors _deploy_armies).
+            edge_y = (
+                self.map.deployment_width / 2.0 if army_idx == 0
+                else self.map.height - self.map.deployment_width / 2.0
+            )
+            edge_x = self.map.width / 2.0
+
+            for profile_name, initial_count in initial.items():
+                alive_now = len(alive_by_profile.get(profile_name, []))
+                destroyed = initial_count - alive_now
+                if destroyed <= 0:
+                    continue
+                # Median D3 roll = 2. Cap by however many are actually dead.
+                to_revive = min(destroyed, 2)
+                dead_pool = dead_by_profile.get(profile_name, [])
+                # Anchor position: nearest alive friendly of the same profile,
+                # or the army's deployment edge midpoint if the squad is wiped.
+                alive_peers = alive_by_profile.get(profile_name, [])
+                anchor_pos: Tuple[float, float]
+                if alive_peers:
+                    # Place at the first alive peer (caller-stable choice).
+                    anchor_pos = alive_peers[0].position
+                else:
+                    anchor_pos = (edge_x, edge_y)
+                # Make sure the anchor isn't on impassable terrain; nudge
+                # off to the deployment edge if it is.
+                if self.map.is_blocked(anchor_pos):
+                    anchor_pos = (edge_x, edge_y)
+                for revived in dead_pool[:to_revive]:
+                    revived.current_health = revived.profile.health
+                    revived.position = anchor_pos
+                    self._emit(UnitReanimated(
+                        unit_uid=revived.uid, position=anchor_pos,
+                    ))
 
     # ------------------------------------------------------------------
     # Setup
@@ -583,15 +717,12 @@ class Battle:
             if second_unit is not None and second_unit.is_alive:
                 self._do_fight(second_unit, second, first)
 
-        # Detachment passives: end-of-round reanimation/healing if any
-        for army in (self.a, self.b):
-            det = army.resolve_detachment()
-            if det and det.reanimate_per_round > 0:
-                for u in army.alive_units:
-                    u.current_health = min(
-                        u.profile.health,
-                        u.current_health + det.reanimate_per_round,
-                    )
+        # Reanimation Protocols (#75): revive destroyed models in armies
+        # whose detachment carries the Reanimation flag. This SUPERSEDES the
+        # old +1-HP-to-alive-units heal path (Awakened Dynasty no longer
+        # heals — it brings dead models back). Median D3 = 2 models revived
+        # per profile per round.
+        self._apply_reanimation()
 
         # Leader auras: end-of-round heal_per_round from Apothecaries etc.
         from .leaders import apply_round_end_healing

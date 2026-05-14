@@ -198,6 +198,7 @@ class UnitProfile:
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
     infiltrator: bool = False                  # deploys past the standard deployment line
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
+    sticky_objective: bool = False             # 10e Objective Secured / "remains controlled when the unit leaves" — once this unit claims an objective, ownership persists until an opposing unit takes it back
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
     melee_attacks: int = 0
@@ -584,6 +585,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,
             fnp=entry.fnp,
+            sticky_objective=entry.sticky_objective,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
             melee_damage_per_shot=entry.melee_damage_per_shot,
