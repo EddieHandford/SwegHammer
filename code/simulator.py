@@ -535,16 +535,22 @@ class Battle:
         shoot_target = min(contesting or candidates, key=lambda u: u.current_health)
 
         # Terrain-aware cover: target counts as in cover if it stands inside
-        # cover terrain, OR if the army-wide cover flag is set.
+        # cover terrain, OR if the army-wide cover flag is set. HEAVY cover
+        # also imposes -1 to hit on the attacker (handled in Unit.attack via
+        # the in_heavy_cover flag).
         saved_cover = shoot_target.in_cover
+        saved_heavy = shoot_target.in_heavy_cover
         cover_type = self.map.cover_at(shoot_target.position)
         if cover_type in (TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER):
             shoot_target.in_cover = True
+        if cover_type is TerrainType.HEAVY_COVER:
+            shoot_target.in_heavy_cover = True
 
         distance = _distance(attacker.position, shoot_target.position)
         has_los = self.map.has_line_of_sight(attacker.position, shoot_target.position)
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
         shoot_target.in_cover = saved_cover
+        shoot_target.in_heavy_cover = saved_heavy
         # Mark One Shot weapons as expended for the rest of the battle.
         if attacker.profile.one_shot:
             self._one_shot_fired.add(attacker.uid)

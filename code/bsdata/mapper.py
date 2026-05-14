@@ -214,6 +214,8 @@ class WeaponStats:
     pistol: bool = False         # may shoot while in engagement range
     indirect_fire: bool = False  # ignores LoS but -1 to hit vs non-visible targets
     one_shot: bool = False       # once per battle
+    # Phase H — Stealth (parsed but stored on UnitProfile, not weapon)
+    stealth: bool = False
 
     def expected_damage_through_baseline(self) -> float:
         """Expected damage per activation against a baseline Marine."""
@@ -254,6 +256,9 @@ _PRECISION_RE = re.compile(r"\bPrecision\b", re.IGNORECASE)
 _PISTOL_RE = re.compile(r"\bPistol\b", re.IGNORECASE)
 _INDIRECT_FIRE_RE = re.compile(r"\bIndirect\s+Fire\b", re.IGNORECASE)
 _ONE_SHOT_RE = re.compile(r"\bOne[\s-]Shot\b", re.IGNORECASE)
+# Phase H — Stealth keyword (-1 to be hit). Lives at unit level not weapon
+# but we sweep the same blob for completeness.
+_STEALTH_RE = re.compile(r"\bStealth\b", re.IGNORECASE)
 
 
 def parse_weapon_keywords(text: str) -> Dict[str, object]:
@@ -314,6 +319,8 @@ def parse_weapon_keywords(text: str) -> Dict[str, object]:
         out["indirect_fire"] = True
     if _ONE_SHOT_RE.search(s):
         out["one_shot"] = True
+    if _STEALTH_RE.search(s):
+        out["stealth"] = True
     return out
 
 
@@ -538,6 +545,8 @@ class MappedUnit:
     pistol: bool = False
     indirect_fire: bool = False
     one_shot: bool = False
+    # Phase H — Stealth (-1 to be hit when this unit is shot at)
+    stealth: bool = False
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
@@ -620,6 +629,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     invuln = extract_invuln(entry, reg)
     unit_kw = extract_unit_keywords(entry)
     fnp = extract_fnp(entry, reg)
+    stealth = extract_stealth(entry, reg)
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -672,6 +682,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         pistol=primary.pistol,
         indirect_fire=primary.indirect_fire,
         one_shot=primary.one_shot,
+        stealth=stealth or primary.stealth,
         fnp=fnp,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
@@ -714,6 +725,10 @@ def extract_unit_keywords(entry: ET.Element) -> List[str]:
 
 
 _FNP_RE = re.compile(r"Feel\s+No\s+Pain\s*\(?\s*(\d)\s*\+", re.IGNORECASE)
+# Unit-level "Stealth" ability: matches Stealth as a bare word (not "Stealthy"
+# adjectives). Used by extract_stealth to detect the defensive ability that
+# imposes -1 to hit when this unit is shot at.
+_STEALTH_ABILITY_RE = re.compile(r"(?:^|[\s,;.])Stealth(?:$|[\s,;.\)])")
 
 
 def extract_fnp(entry: ET.Element, reg: Registry) -> int:
@@ -750,6 +765,28 @@ def extract_fnp(entry: ET.Element, reg: Registry) -> int:
                 walk(tgt, depth + 1)
     walk(entry, 0)
     return best
+
+
+def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
+    """True iff the unit has the Stealth datasheet ability (-1 to be hit
+    by ranged attacks).
+
+    In BSData 10e Stealth is published as a shared rule (`type="rule"`
+    infoLink) attached to the unit entry, with `name="Stealth"`. A handful
+    of units also inline a profile named exactly "Stealth". We only match
+    those two shapes — never free-form prose that merely mentions the word
+    (descriptions like "models in that unit have the Stealth ability").
+    """
+    # Direct infoLinks on this entry — the common case (Eliminators,
+    # Infiltrators, Incursors, Reivers, Phobos characters, etc.).
+    for il in entry.findall(".//infoLink"):
+        if (il.get("name") or "").strip().lower() == "stealth":
+            return True
+    # Inline profile named "Stealth" — rare but seen in some xenos units.
+    for prof in entry.findall(".//profile"):
+        if (prof.get("name") or "").strip().lower() == "stealth":
+            return True
+    return False
 
 
 _INVULN_RE = re.compile(r"Invulnerable\s+Save\s*\(?\s*(\d)\s*\+", re.IGNORECASE)

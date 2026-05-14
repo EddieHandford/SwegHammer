@@ -64,6 +64,12 @@ class ParseWeaponKeywordsTests(unittest.TestCase):
         self.assertTrue(parse_weapon_keywords("One Shot").get("one_shot"))
         self.assertTrue(parse_weapon_keywords("One-Shot").get("one_shot"))
 
+    def test_stealth(self):
+        # Phase H: Stealth is parsed by the same regex sweep. Although the
+        # canonical source is a unit-level infoLink in BSData, the parser
+        # also accepts it as a bareword keyword on a weapon line.
+        self.assertTrue(parse_weapon_keywords("Stealth").get("stealth"))
+
     def test_combo(self):
         # A mix of keywords on a single line must all parse out.
         out = parse_weapon_keywords("Rapid Fire 1, Anti-VEHICLE 2+, Heavy")
@@ -113,6 +119,91 @@ class RapidFireBehaviourTests(unittest.TestCase):
         # At half range with RF2 we resolve 3 attacks each; at full range, 1.
         # Expected: half-range damage > full-range damage by a clear margin.
         self.assertGreater(half_range_total, full_range_total * 1.5)
+
+
+class HeavyCoverHitPenaltyTests(unittest.TestCase):
+    """Phase H: HEAVY_COVER gives both +1 to save AND -1 to hit, so damage
+    should drop strictly more than LIGHT cover (save bonus only) against
+    the same attacker / target combo.
+    """
+
+    def _attacker(self):
+        # 4+ to hit, generous attacks so the dice average out fast.
+        return UnitProfile(
+            name="CoverShooter", health=1, damage=0,
+            hit_probability=0.5, attacks=8, weapon_damage_per_shot=1.0,
+            strength=10,                # auto-wound vs T4 (5/6)
+            range_inches=24,
+        )
+
+    def _target(self):
+        # No save -> isolating the hit-roll effect from the save effect.
+        # We toggle in_cover / in_heavy_cover on the Unit instance, not
+        # the profile, so the same profile suffices.
+        return UnitProfile(
+            name="Tgt", health=1e9, damage=0, hit_probability=0,
+            toughness=4, save=7,
+        )
+
+    def test_heavy_cover_target_takes_strictly_less_damage_than_open(self):
+        n_trials = 400
+        attacker_p = self._attacker()
+        target_p = self._target()
+
+        random.seed(101)
+        open_total = 0.0
+        for _ in range(n_trials):
+            tgt = Unit(target_p)
+            open_total += Unit(attacker_p).attack(tgt, distance=12.0)
+
+        random.seed(101)
+        heavy_total = 0.0
+        for _ in range(n_trials):
+            tgt = Unit(target_p)
+            tgt.in_cover = True
+            tgt.in_heavy_cover = True
+            heavy_total += Unit(attacker_p).attack(tgt, distance=12.0)
+
+        # With save=7 the save-bonus part of cover does nothing; isolating
+        # the -1 to hit. 4+ → 5+ drops expected hits by 33%.
+        self.assertGreater(open_total, heavy_total * 1.2)
+
+
+class StealthTargetTests(unittest.TestCase):
+    """Phase H: a target with the Stealth ability soaks fewer hits because
+    the attacker takes -1 to hit (capped at 7+).
+    """
+
+    def _attacker(self):
+        return UnitProfile(
+            name="Shooter", health=1, damage=0,
+            hit_probability=0.5, attacks=8, weapon_damage_per_shot=1.0,
+            strength=10, range_inches=24,
+        )
+
+    def test_stealth_target_takes_less_damage(self):
+        n_trials = 400
+        attacker_p = self._attacker()
+        plain = UnitProfile(
+            name="Plain", health=1e9, damage=0, hit_probability=0,
+            toughness=4, save=7,
+        )
+        sneaky = UnitProfile(
+            name="Sneaky", health=1e9, damage=0, hit_probability=0,
+            toughness=4, save=7, stealth=True,
+        )
+
+        random.seed(202)
+        plain_total = 0.0
+        for _ in range(n_trials):
+            plain_total += Unit(attacker_p).attack(Unit(plain), distance=12.0)
+
+        random.seed(202)
+        stealth_total = 0.0
+        for _ in range(n_trials):
+            stealth_total += Unit(attacker_p).attack(Unit(sneaky), distance=12.0)
+
+        self.assertGreater(plain_total, stealth_total * 1.2)
 
 
 if __name__ == "__main__":

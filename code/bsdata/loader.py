@@ -68,6 +68,8 @@ class CatalogEntry:
     pistol: bool = False
     indirect_fire: bool = False
     one_shot: bool = False
+    # Phase H — Stealth (-1 to be hit)
+    stealth: bool = False
     fnp: int = 7
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
@@ -122,6 +124,7 @@ class CatalogEntry:
             pistol=bool(d.get("pistol", False)),
             indirect_fire=bool(d.get("indirect_fire", False)),
             one_shot=bool(d.get("one_shot", False)),
+            stealth=bool(d.get("stealth", False)),
             fnp=int(d.get("fnp", 7)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
@@ -221,6 +224,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "pistol": override.get("pistol", base.pistol),
         "indirect_fire": override.get("indirect_fire", base.indirect_fire),
         "one_shot": override.get("one_shot", base.one_shot),
+        "stealth": override.get("stealth", base.stealth),
         "fnp": override.get("fnp", base.fnp),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),

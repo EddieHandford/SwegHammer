@@ -191,6 +191,8 @@ class UnitProfile:
     pistol: bool = False                       # can shoot while in engagement (1.5") range
     indirect_fire: bool = False                # ignores LoS; -1 to hit vs non-visible targets
     one_shot: bool = False                     # weapon fires once per battle
+    # Phase H — Stealth (-1 to be hit when shot at)
+    stealth: bool = False
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
@@ -251,7 +253,7 @@ class Unit:
     """A live unit on the battlefield, tracking current health and position."""
 
     __slots__ = (
-        "profile", "current_health", "in_cover", "uid", "position",
+        "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref", "moved_this_round",
     )
 
@@ -259,6 +261,10 @@ class Unit:
         self.profile = profile
         self.current_health: float = profile.health
         self.in_cover: bool = in_cover
+        # Set by Battle._do_shoot when the target stands in HEAVY_COVER terrain.
+        # Drives the -1-to-hit penalty (in addition to the +1-to-save the
+        # plain in_cover flag already grants). Restored to False after shot.
+        self.in_heavy_cover: bool = False
         self.uid: str = ""                              # assigned by Battle at start
         self.position: tuple = (0.0, 0.0)               # (x, y) in inches
         # Back-reference to owning army (set by Army.add_unit). Lets
@@ -394,6 +400,22 @@ class Unit:
         # melee attack happens on a turn the attacker declared a charge.
         if p.lance and mode == "melee" and is_charging:
             wound_target = max(2, wound_target - 1)
+
+        # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
+        # the plain in_cover flag already grants below). Ranged shots only;
+        # melee always ignores cover. Ignores Cover bypasses both effects.
+        if (
+            mode != "melee"
+            and target.in_heavy_cover
+            and not ignore_cover
+        ):
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Stealth keyword: shooters take -1 to hit against the target.
+        # Same math as a worsened hit roll. Capped at 7 (no possible hit).
+        # Melee is unaffected (Stealth is a ranged defence).
+        if mode != "melee" and target.profile.stealth:
+            hit_target = min(7, hit_target + 1)
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
         anti_crit_threshold = 6
@@ -553,6 +575,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             pistol=entry.pistol,
             indirect_fire=entry.indirect_fire,
             one_shot=entry.one_shot,
+            stealth=entry.stealth,
             fnp=entry.fnp,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

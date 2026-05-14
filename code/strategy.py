@@ -27,7 +27,8 @@ Decision principles:
 
 from __future__ import annotations
 
-from typing import Tuple
+import math
+from typing import Optional, Tuple
 
 from .roles import classify
 
@@ -38,11 +39,78 @@ _STEAL_INTENT = "STEAL"
 _ENGAGE_INTENT = "ENGAGE"
 _REPOSITION_INTENT = "REPOSITION"
 
+# Terrain-strength ranking used by the cover-bias helper. Higher wins when
+# scoring candidate hold points around an objective. Imported lazily so this
+# module stays import-cheap when map / TerrainType aren't needed.
+_COVER_PRIORITY = {
+    "open": 0,
+    "light_cover": 1,
+    "obscuring": 2,
+    "heavy_cover": 3,
+    "impassable": -1,   # never stand in impassable
+}
+
 
 def _dist(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     dx = a[0] - b[0]
     dy = a[1] - b[1]
     return (dx * dx + dy * dy) ** 0.5
+
+
+def _best_nearby_cover_point(
+    map_,
+    base_pos: Tuple[float, float],
+    search_radius: float = 3.0,
+    n_samples: int = 12,
+) -> Tuple[float, float]:
+    """Return a point within search_radius of base_pos sitting in the
+    strongest cover terrain available (HEAVY > OBSCURING > LIGHT > OPEN).
+
+    Cheap circular sampling: n_samples points evenly spaced on a circle of
+    radius search_radius, plus base_pos itself. Ties resolve by proximity
+    to base_pos. Skips IMPASSABLE candidates.
+    """
+    if map_ is None:
+        return base_pos
+    candidates = [(base_pos, _COVER_PRIORITY.get(map_.cover_at(base_pos).value, 0), 0.0)]
+    for i in range(n_samples):
+        angle = (2.0 * math.pi * i) / n_samples
+        px = base_pos[0] + search_radius * math.cos(angle)
+        py = base_pos[1] + search_radius * math.sin(angle)
+        # Clamp inside the board
+        px = max(0.0, min(map_.width, px))
+        py = max(0.0, min(map_.height, py))
+        p = (px, py)
+        if map_.is_blocked(p):
+            continue
+        cover = map_.cover_at(p).value
+        prio = _COVER_PRIORITY.get(cover, 0)
+        candidates.append((p, prio, _dist(base_pos, p)))
+    # Highest cover priority wins; tie-break by closest to base_pos.
+    best = max(candidates, key=lambda c: (c[1], -c[2]))
+    return best[0]
+
+
+def _nearest_obscuring_centre(map_, pos: Tuple[float, float]) -> Optional[Tuple[float, float]]:
+    """Return the centre of the nearest OBSCURING terrain piece, or None.
+
+    Used by the wounded-unit branch: a hurting softer-role unit prefers to
+    break LoS by huddling against an obscuring ruin centre.
+    """
+    if map_ is None:
+        return None
+    best = None
+    best_d = float("inf")
+    for t in getattr(map_, "terrain", ()) or ():
+        if t.type.value != "obscuring":
+            continue
+        cx = t.x + t.width / 2.0
+        cy = t.y + t.height / 2.0
+        d = _dist(pos, (cx, cy))
+        if d < best_d:
+            best_d = d
+            best = (cx, cy)
+    return best
 
 
 def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
@@ -78,8 +146,11 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
         our_oc_no_self = _oc_on_objective(friendly.alive_units, obj, exclude_uid=unit.uid)
         their_oc = _oc_on_objective(enemy.alive_units, obj)
         # If leaving would flip control (or contest from win → tie), hold.
+        # Snap to a cover-rich point near where we already stand so the
+        # HOLD has a defensive benefit (HEAVY cover > OBSCURING > LIGHT).
         if own_oc > 0 and our_oc_no_self <= their_oc < our_oc_no_self + own_oc:
-            return unit.position, _HOLD_INTENT
+            hold_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
+            return hold_pos, _HOLD_INTENT
 
     # ----- 2. Score every objective; pick the most worth visiting -----
     objs = []
@@ -114,9 +185,10 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
     if role in ("SHOOTY", "HEAVY") and nearest_enemy is not None:
         rng = unit.profile.range_inches or 24
         if nearest_enemy_dist <= rng:
-            # In range — don't drift around. But if we're ALSO on an objective,
-            # we should hold (caught earlier in case 1 anyway).
-            return unit.position, _REPOSITION_INTENT
+            # In range — don't drift around. But snap to nearby cover when
+            # available so we get the defensive uplift.
+            repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
+            return repo_pos, _REPOSITION_INTENT
 
     # MELEE always closes on the nearest enemy (range = 1, can never shoot far)
     if role == "MELEE" and nearest_enemy is not None:
@@ -125,13 +197,48 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
     # ----- 4. Pick objective target if one scored well; else engage enemy -----
     if best is not None and best[0] > 0.2:
         _, intent, obj, _ = best
-        return (obj.x, obj.y), intent
+        # Wounded softer-role units bias toward OBSCURING terrain to break
+        # line of sight rather than marching openly onto the marker.
+        wounded_pos = _wounded_seek_obscuring(unit, role, (obj.x, obj.y), map_)
+        if wounded_pos is not None:
+            return wounded_pos, intent
+        # Snap the destination to the strongest cover point within ~3" of
+        # the objective marker. The control radius is 3" so any such point
+        # still scores the objective.
+        snap = _best_nearby_cover_point(map_, (obj.x, obj.y), search_radius=3.0)
+        return snap, intent
 
     if nearest_enemy is not None:
+        wounded_pos = _wounded_seek_obscuring(unit, role, nearest_enemy.position, map_)
+        if wounded_pos is not None:
+            return wounded_pos, _ENGAGE_INTENT
         return nearest_enemy.position, _ENGAGE_INTENT
 
     # No enemies left — sit still
     return unit.position, _HOLD_INTENT
+
+
+def _wounded_seek_obscuring(unit, role: str, fallback_pos: Tuple[float, float], map_):
+    """If `unit` is below half HP and is a softer role (HORDE / SUPPORT, or
+    MELEE not yet in engagement), return the nearest OBSCURING-terrain
+    centre as the new target — breaks line of sight while withdrawing.
+
+    Returns None when the unit doesn't qualify or no OBSCURING terrain
+    exists, in which case the caller keeps the original destination.
+    """
+    try:
+        half = unit.profile.health / 2.0
+    except Exception:
+        return None
+    if unit.current_health >= half:
+        return None
+    if role not in ("HORDE", "SUPPORT", "MELEE"):
+        return None
+    # MELEE units already in engagement (1" of fallback target) keep pushing.
+    if role == "MELEE" and _dist(unit.position, fallback_pos) <= 1.5:
+        return None
+    nearest = _nearest_obscuring_centre(map_, unit.position)
+    return nearest
 
 
 __all__ = ["pick_move_intent"]
