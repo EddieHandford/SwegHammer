@@ -74,6 +74,8 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # read by Unit.attack — SwegHammer has no Markerlight / Guided mechanic.
     ("army_wide_assault_rounds_1_3", False),
     ("lethal_hits_on_guided", False),
+    # Death Guard Virulent Vectorium detachment rule (#195).
+    ("worldblight_sticky_dg_objectives", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

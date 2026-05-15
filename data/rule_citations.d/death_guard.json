@@ -1,5 +1,5 @@
 {
-  "_comment": "Death Guard army rule citations (10e). Disgustingly Resilient — the codex-level Feel No Pain 5+ that applies to every DEATH GUARD model. The Plague Company detachment's stratagem of the same name (-1 damage taken on a DG unit for a round) is cited separately under Stratagem.Disgustingly Resilient in stratagems.json. Contagions of Nurgle / Nurgle's Gift — the escalating 6\" aura that debuffs enemy units near any DG model (-1 T round 1, -1 Ld round 2, -1 to hit round 3+).",
+  "_comment": "Death Guard army rule citations (10e). Disgustingly Resilient — the codex-level Feel No Pain 5+ that applies to every DEATH GUARD model. The Virulent Vectorium detachment's stratagem of the same name (-1 damage taken on a DG unit for a round) is cited separately under Stratagem.Disgustingly Resilient in stratagems.json. Contagions of Nurgle / Nurgle's Gift — the escalating 6\" aura that debuffs enemy units near any DG model (-1 T round 1, -1 Ld round 2, -1 to hit round 3+). Worldblight — Virulent Vectorium detachment passive (sticky DG objectives + Nurgle's Gift on locked objectives, APPROXIMATED to sticky-control only).",
 
   "simulator.disgustingly_resilient": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
@@ -7,6 +7,15 @@
     "quoted_text": "Each time a model in this unit would lose a wound, this ability has Feel No Pain 5+ against that lost wound.",
     "trigger": "any model with the DEATH GUARD keyword is about to lose a wound",
     "effect": "Unit.receive_damage faction-gates on profile.faction == 'Death Guard' and lowers `effective_fnp` to min(effective_fnp, 5). Composes with any leader-aura / profile FNP value by taking the lower (better) target — Plague Marines already carry profile.fnp=5 via overrides.json, so the min keeps them at 5+ rather than stacking to 4+. Independent of and composes with the Plague Company stratagem of the same name (which sets `transient_minus_one_damage_taken` for a round, reducing per-shot damage by 1 floor 1).",
+    "scope": "army-wide"
+  },
+
+  "VIRULENT_VECTORIUM.worldblight_sticky_dg_objectives": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Worldblight (Virulent Vectorium Detachment Rule)",
+    "quoted_text": "If you control an objective marker at the end of your Command phase and a DEATH GUARD unit from your army (excluding Battle-shocked units) is within range of that objective marker, that objective marker remains under your control until your opponent's Level of Control over that objective marker is greater than yours at the end of a phase. In addition, until you lose control of that objective marker, it has the Nurgle's Gift ability as if it were a DEATH GUARD model from your army.",
+    "trigger": "end of own Command phase, with a non-Battle-shocked DG unit in range of a controlled objective marker",
+    "effect": "approximation: only the sticky-control half is modelled — at the end of each Command phase the simulator's objective-scoring path treats DG-controlled objectives the same way as the `sticky_objective` profile flag (locks until the opponent outscores the DG army on it at end of phase). The 'objective gains Nurgle's Gift' half is dropped (we don't model objective markers as aura sources, so the contagion-on-objective effect has no consumer). Composes naturally with the existing `_sticky_owner` book-keeping in Battle._init",
     "scope": "army-wide"
   },
 

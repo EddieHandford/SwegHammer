@@ -200,16 +200,32 @@ WARHOST_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Virulent Vectorium (Death Guard) — Disgustingly Resilient
+# Virulent Vectorium (Death Guard) — 6 detachment stratagems
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
-# Disgustingly Resilient is the real DG stratagem — 2CP, found in the
-# Virulent Vectorium detachment. Previously this constant was attached to
-# the fabricated "Plague Company" detachment at 1CP; the fabrication audit
-# (commit fa9a957) corrected the attachment and CP cost. The actual effect
-# in the codex is more nuanced (-1 to wound vs the DG unit) than our current
-# "-1 damage taken" simplification; treat the effect identifier as an
-# APPROXIMATION pending a proper Virulent Vectorium detachment rebuild.
+# Codex Death Guard, "Virulent Vectorium" detachment. The detachment rule is
+# Worldblight (sticky-objective-style control plus Nurgle's Gift contagion on
+# the objective itself). All six stratagems are present here verbatim per
+# task #195.
+#
+# Effect-mapping notes per stratagem:
+#   * Putrid Detonation — Deadly Demise auto-success + Afflict trigger.
+#     Mapped to a Deadly-Demise-related transient flag; the Afflicted
+#     keyword is APPROXIMATED (we don't model Afflicted as a unit state).
+#   * Disgustingly Resilient — already routed to transient_minus_one_damage_taken
+#     (APPROXIMATION; real text says "subtract 1 from the Damage characteristic
+#     of that attack" which matches per-shot damage reduction).
+#   * Plaguesurge — +3" Contagion Range. We don't currently model variable
+#     contagion range (it's hard-coded to 6"); APPROXIMATION leaves the
+#     transient unused but the stratagem is present with the real text cited.
+#   * Leechspore Eruption — heal-self + mortal-wound payload on a damaged DG
+#     model. Implementable via a custom dispatcher.
+#   * Overwhelming Generosity — re-roll weapon attack-count rolls vs a target.
+#     We don't model per-weapon attack-count dice; APPROXIMATED to
+#     re-roll hits on a friendly DG CHARACTER unit's shooting for the round.
+#   * Creeping Blight — re-roll hit AND wound vs Afflicted units. We don't
+#     model Afflicted; APPROXIMATED to re-roll hits on a DG INFANTRY unit's
+#     shooting (lossy: drops the wound-reroll half + the Afflicted gate).
 
 DISGUSTINGLY_RESILIENT = Stratagem(
     name="Disgustingly Resilient",
@@ -217,6 +233,56 @@ DISGUSTINGLY_RESILIENT = Stratagem(
     phase="any",
     trigger="wounded_friendly_dg_unit",
     effect="minus_one_damage_taken_for_round",
+)
+
+PUTRID_DETONATION = Stratagem(
+    name="Putrid Detonation",
+    cp_cost=1,
+    phase="any",
+    trigger="dg_vehicle_or_monster_destroyed",
+    effect="auto_success_deadly_demise",
+)
+
+PLAGUESURGE = Stratagem(
+    name="Plaguesurge",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_warlord",
+    effect="plus_three_inch_contagion_range",
+)
+
+LEECHSPORE_ERUPTION = Stratagem(
+    name="Leechspore Eruption",
+    cp_cost=1,
+    phase="command",
+    trigger="own_command_phase_wounded_dg_model",
+    effect="d6_per_wound_lost_mortal_and_heal",
+)
+
+OVERWHELMING_GENEROSITY = Stratagem(
+    name="Overwhelming Generosity",
+    cp_cost=1,
+    phase="shooting",
+    trigger="start_of_shooting_dg_character",
+    effect="reroll_attack_count_vs_target",
+)
+
+CREEPING_BLIGHT = Stratagem(
+    name="Creeping Blight",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_dg_infantry_not_yet_shot",
+    effect="reroll_hit_and_wound_vs_afflicted",
+)
+
+
+VIRULENT_VECTORIUM_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PUTRID_DETONATION,
+    DISGUSTINGLY_RESILIENT,
+    PLAGUESURGE,
+    LEECHSPORE_ERUPTION,
+    OVERWHELMING_GENEROSITY,
+    CREEPING_BLIGHT,
 )
 
 
@@ -341,8 +407,14 @@ __all__ = [
     "BLITZING_FIREPOWER",
     "WEBWAY_TUNNEL",
     "WARHOST_STRATAGEMS",
-    # Virulent Vectorium (Death Guard) — Disgustingly Resilient (re-anchored)
+    # Virulent Vectorium (Death Guard) — 6 detachment stratagems
     "DISGUSTINGLY_RESILIENT",
+    "PUTRID_DETONATION",
+    "PLAGUESURGE",
+    "LEECHSPORE_ERUPTION",
+    "OVERWHELMING_GENEROSITY",
+    "CREEPING_BLIGHT",
+    "VIRULENT_VECTORIUM_STRATAGEMS",
     # Mont'ka (T'au Empire) — six real stratagems (#196)
     "PINPOINT_COUNTER_OFFENSIVE",
     "AGGRESSIVE_MOBILITY",

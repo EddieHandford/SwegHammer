@@ -170,6 +170,23 @@ class Army:
         # target. Reset to False each round by Battle._clear_transient_stratagem_flags.
         # Cited as `Stratagem.Cabbalistic Empowerment`.
         self.cabbalistic_doombolt_boost: bool = False
+        # Virulent Vectorium Putrid Detonation (Death Guard stratagem, 1 CP).
+        # When True for the round, any DG VEHICLE / DG MONSTER that dies on
+        # this army's side and has the Deadly Demise ability auto-succeeds
+        # the d6 roll (mortals always trigger). APPROXIMATION: real text
+        # targets one specific destruction; the simulator arms the flag at
+        # round start and any qualifying death this round auto-detonates.
+        # Reset by Battle._clear_transient_stratagem_flags. Cited as
+        # `Stratagem.Putrid Detonation`.
+        self.putrid_detonation_armed: bool = False
+        # Virulent Vectorium Plaguesurge (Death Guard stratagem, 2 CP).
+        # When True for the round, the army's Contagion Range is conceptually
+        # +3" — the simulator currently hard-codes contagion radius at 6"
+        # so this flag is APPROXIMATED as informational only (the buff isn't
+        # consumed by any active code path yet). Reset by
+        # Battle._clear_transient_stratagem_flags. Cited as
+        # `Stratagem.Plaguesurge`.
+        self.plaguesurge_active: bool = False
         # CP discount / refund mechanics tied to specific Warlord characters
         # (Belisarius Cawl, Roboute Guilliman, Trazyn the Infinite, Lord of
         # Contagion). The Battle initialiser scans this army's CHARACTER

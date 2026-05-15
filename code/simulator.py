@@ -26,9 +26,11 @@ from .strategy import (
 )
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
-    # Virulent Vectorium (Death Guard) — Disgustingly Resilient (re-anchored
-    # to the real detachment at 2CP per the 2026-05-15 fabrication audit)
-    DISGUSTINGLY_RESILIENT,
+    # Virulent Vectorium (Death Guard) — full 6-stratagem set, per #195.
+    # Disgustingly Resilient was re-anchored to the real detachment at 2 CP
+    # per the 2026-05-15 fabrication audit.
+    DISGUSTINGLY_RESILIENT, PUTRID_DETONATION, PLAGUESURGE,
+    LEECHSPORE_ERUPTION, OVERWHELMING_GENEROSITY, CREEPING_BLIGHT,
     # Warhost (Aeldari) — six real detachment stratagems
     LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE,
     SKYBORNE_SANCTUARY, FEIGNED_RETREAT, BLITZING_FIREPOWER, WEBWAY_TUNNEL,
@@ -467,6 +469,21 @@ class Battle:
         opposing army takes control, the sticky owner is cleared (and the
         new owner replaces it if THEY are sticky).
         """
+        # Virulent Vectorium Worldblight (Death Guard): every DG unit on a
+        # controlled objective acts as if it had the sticky_objective flag,
+        # per the detachment passive. Resolved once per call. Cited as
+        # `VIRULENT_VECTORIUM.worldblight_sticky_dg_objectives`.
+        a_det = self.a.resolve_detachment()
+        b_det = self.b.resolve_detachment()
+        a_worldblight = bool(
+            a_det is not None
+            and getattr(a_det, "worldblight_sticky_dg_objectives", False)
+        )
+        b_worldblight = bool(
+            b_det is not None
+            and getattr(b_det, "worldblight_sticky_dg_objectives", False)
+        )
+
         for obj_idx, obj in enumerate(self.map.objectives):
             obj_pos = (obj.x, obj.y)
             r2 = obj.control_radius * obj.control_radius
@@ -483,6 +500,12 @@ class Battle:
                     a_oc += getattr(u.profile, "oc", 1) or 1
                     if getattr(u.profile, "sticky_objective", False):
                         a_sticky_present = True
+                    # Worldblight: non-Battle-shocked DG unit grants sticky.
+                    if (
+                        a_worldblight
+                        and (u.profile.faction or "") == "Death Guard"
+                    ):
+                        a_sticky_present = True
             for u in self.b.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue
@@ -491,6 +514,11 @@ class Battle:
                 if dx * dx + dy * dy <= r2:
                     b_oc += getattr(u.profile, "oc", 1) or 1
                     if getattr(u.profile, "sticky_objective", False):
+                        b_sticky_present = True
+                    if (
+                        b_worldblight
+                        and (u.profile.faction or "") == "Death Guard"
+                    ):
                         b_sticky_present = True
 
             # Resolve who actually scores this round. The fallback to
@@ -568,8 +596,13 @@ class Battle:
             u.transient_halve_damage = False
         # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
         # this round's Doombolt damage; reset every round so the boost only
-        # applies the round the stratagem fires.
+        # applies the round the stratagem fires. Putrid Detonation arms the
+        # auto-success of Deadly Demise on DG VEHICLE/MONSTER deaths this
+        # round. Plaguesurge is informational (no consumer hooked yet, kept
+        # for future Contagion-range expansion).
         army.cabbalistic_doombolt_boost = False
+        army.putrid_detonation_armed = False
+        army.plaguesurge_active = False
 
     def _apply_detachment_stratagems(self, army: Army, opponent: Army) -> None:
         """Round-start dispatcher for detachment-specific stratagems.
@@ -594,6 +627,16 @@ class Battle:
         # ----- Virulent Vectorium (Death Guard) -------------------------
         if "Disgustingly Resilient" in strat_names:
             self._try_disgustingly_resilient(army, opponent)
+        if "Putrid Detonation" in strat_names:
+            self._try_putrid_detonation(army, opponent)
+        if "Plaguesurge" in strat_names:
+            self._try_plaguesurge(army, opponent)
+        if "Leechspore Eruption" in strat_names:
+            self._try_leechspore_eruption(army, opponent)
+        if "Overwhelming Generosity" in strat_names:
+            self._try_overwhelming_generosity(army, opponent)
+        if "Creeping Blight" in strat_names:
+            self._try_creeping_blight(army, opponent)
 
         # ----- Warhost (Aeldari) ----------------------------------------
         if "Lightning-Fast Reactions" in strat_names:
@@ -762,6 +805,175 @@ class Battle:
         if not self._fire_stratagem(army, DISGUSTINGLY_RESILIENT):
             return
         target.transient_minus_one_damage_taken = True
+
+    def _try_putrid_detonation(self, army: Army, opponent: Army) -> None:
+        """Putrid Detonation (Virulent Vectorium, 1 CP): auto-success on the
+        Deadly Demise d6 roll for the round. Fires when the army has at
+        least one DG VEHICLE or DG MONSTER on the table with deadly_demise > 0
+        (otherwise the buff is wasted). APPROXIMATION: real text targets one
+        specific destruction; we arm the flag for the round and any
+        qualifying DG VEHICLE / MONSTER death auto-detonates."""
+        # Eligible donor: any alive DG VEHICLE/MONSTER with deadly_demise > 0.
+        candidate = None
+        for u in army.alive_units:
+            kw = set(u.profile.unit_keywords or ())
+            if "VEHICLE" not in kw and "MONSTER" not in kw:
+                continue
+            if (u.profile.faction or "") != "Death Guard":
+                continue
+            if (getattr(u.profile, "deadly_demise", 0) or 0) <= 0:
+                continue
+            candidate = u
+            break
+        if candidate is None:
+            return
+        ctx = {"target": candidate}
+        if not should_fire_stratagem(army, PUTRID_DETONATION, ctx):
+            return
+        if not self._fire_stratagem(army, PUTRID_DETONATION):
+            return
+        army.putrid_detonation_armed = True
+
+    def _try_plaguesurge(self, army: Army, opponent: Army) -> None:
+        """Plaguesurge (Virulent Vectorium, 2 CP): +3" to Contagion Range
+        until next Command phase. APPROXIMATION: contagion radius is hard-
+        coded at 6" elsewhere; the flag is set for the round but not
+        consumed yet. The CP spend still fires + emits the StratagemFired
+        event so the AI's CP accounting stays honest."""
+        # Need a DG WARLORD on the battlefield to target.
+        warlord = None
+        for u in army.alive_units:
+            kw = set(u.profile.unit_keywords or ())
+            if "CHARACTER" in kw and (u.profile.faction or "") == "Death Guard":
+                warlord = u
+                break
+        if warlord is None:
+            return
+        ctx = {"target": warlord}
+        if not should_fire_stratagem(army, PLAGUESURGE, ctx):
+            return
+        if not self._fire_stratagem(army, PLAGUESURGE):
+            return
+        army.plaguesurge_active = True
+
+    def _try_leechspore_eruption(self, army: Army, opponent: Army) -> None:
+        """Leechspore Eruption (Virulent Vectorium, 1 CP): roll D6-per-wound-
+        lost on a damaged DG model; each 5+ deals 1 MW to a nearby enemy
+        (cap 6) AND heals 1 lost wound on the model (cap 6).
+
+        Implementation: pick a DG model with the most wounds lost; resolve
+        the dice deterministically by taking the expected value (each D6 has
+        2/6 = 33.3% chance of a 5+, so floor(wounds_lost * 1/3) mortals are
+        applied; matches the simulator's other 'median dice' approximations).
+        Heal the same number on the DG model. Target = nearest enemy within
+        3" of the DG model; skip if none."""
+        # Pick the DG model with the most wounds lost (current_health < max).
+        target = self._most_vulnerable_unit(
+            army, keyword="DEATH GUARD", faction="Death Guard",
+        )
+        if target is None:
+            return
+        wounds_lost = max(0.0, target.profile.health - target.current_health)
+        if wounds_lost < 1.0:
+            return
+        # Find nearest enemy within 3" — required for the targeting clause.
+        nearest = None
+        nearest_dist = 999.0
+        for e in opponent.alive_units:
+            d = _distance(target.position, e.position)
+            if d <= 3.0 and d < nearest_dist:
+                nearest = e
+                nearest_dist = d
+        if nearest is None:
+            return
+        ctx = {"target": target, "enemy": nearest}
+        if not should_fire_stratagem(army, LEECHSPORE_ERUPTION, ctx):
+            return
+        if not self._fire_stratagem(army, LEECHSPORE_ERUPTION):
+            return
+        # Median dice: each D6 has 2/6 chance of a 5+, so apply
+        # round(wounds_lost * 2/6) mortal wounds, capped at 6, matching the
+        # simulator's other 'median D3/D6' deterministic conversions.
+        mortals = min(6, int(round(wounds_lost * 2.0 / 6.0)))
+        heal = mortals  # cap 6 already enforced
+        if mortals > 0:
+            nearest.receive_damage(float(mortals), bonus_fnp=nearest.profile.fnp)
+            if not nearest.is_alive:
+                self._emit(UnitKilled(unit_uid=nearest.uid))
+        if heal > 0:
+            target.current_health = min(
+                target.profile.health, target.current_health + float(heal),
+            )
+
+    def _try_overwhelming_generosity(self, army: Army, opponent: Army) -> None:
+        """Overwhelming Generosity (Virulent Vectorium, 1 CP): re-roll the
+        number-of-attacks roll for a DG CHARACTER unit's ranged attacks vs a
+        visible enemy. APPROXIMATION: we don't model per-weapon attack-count
+        dice (BSData parses attacks as a fixed integer at mapper time), so
+        the simulator routes the effect through transient_reroll_hits_shooting
+        on the DG CHARACTER unit (re-roll failed hits on its shoot for the
+        round) — a more conservative buff than the real text's full-reroll-
+        attack-count, since attack-count rerolls average ~10% extra shots
+        while hit rerolls average ~17% extra hits on 4+ BS."""
+        # Pick highest-DPA friendly DG CHARACTER.
+        candidate = None
+        best_dpa = 0.0
+        for u in army.alive_units:
+            kw = set(u.profile.unit_keywords or ())
+            if "CHARACTER" not in kw:
+                continue
+            if (u.profile.faction or "") != "Death Guard":
+                continue
+            p = u.profile
+            ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            if ranged > best_dpa:
+                best_dpa = ranged
+                candidate = u
+        if candidate is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": candidate, "target": target}
+        if not should_fire_stratagem(army, OVERWHELMING_GENEROSITY, ctx):
+            return
+        if not self._fire_stratagem(army, OVERWHELMING_GENEROSITY):
+            return
+        candidate.transient_reroll_hits_shooting = True
+
+    def _try_creeping_blight(self, army: Army, opponent: Army) -> None:
+        """Creeping Blight (Virulent Vectorium, 1 CP): re-roll Hit AND Wound
+        rolls on a DG INFANTRY unit's ranged attacks vs Afflicted enemies.
+        APPROXIMATION: we don't model Afflicted enemy state, so we route the
+        effect through transient_reroll_hits_shooting on the DG INFANTRY unit
+        (re-roll hits only; the wound-reroll half + Afflicted gate are dropped).
+        Picks the highest-DPA friendly DG INFANTRY that has the gate's other
+        prerequisite (not yet shot this phase, which is implicit at round-
+        start dispatch)."""
+        candidate = None
+        best_dpa = 0.0
+        for u in army.alive_units:
+            kw = set(u.profile.unit_keywords or ())
+            if "INFANTRY" not in kw:
+                continue
+            if (u.profile.faction or "") != "Death Guard":
+                continue
+            p = u.profile
+            ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            if ranged > best_dpa:
+                best_dpa = ranged
+                candidate = u
+        if candidate is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": candidate, "target": target}
+        if not should_fire_stratagem(army, CREEPING_BLIGHT, ctx):
+            return
+        if not self._fire_stratagem(army, CREEPING_BLIGHT):
+            return
+        candidate.transient_reroll_hits_shooting = True
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
         """Lightning-Fast Reactions (Warhost): +1 save on the most
@@ -2523,8 +2735,22 @@ class Battle:
         x = getattr(victim.profile, "deadly_demise", 0) or 0
         if x <= 0:
             return
-        # Roll a d6 — 1-in-6 trigger.
-        if random.randint(1, 6) != 6:
+        # Putrid Detonation (Virulent Vectorium, Death Guard stratagem): if
+        # the dying unit belongs to a DG army that armed putrid_detonation
+        # this round AND the victim is a DG VEHICLE or MONSTER, skip the
+        # d6 gate (mortals auto-trigger). Cited as `Stratagem.Putrid Detonation`.
+        victim_army = getattr(victim, "army_ref", None)
+        victim_kw = set(victim.profile.unit_keywords or ())
+        is_dg = (victim.profile.faction or "") == "Death Guard"
+        is_vehicle_or_monster = "VEHICLE" in victim_kw or "MONSTER" in victim_kw
+        putrid_armed = (
+            victim_army is not None
+            and getattr(victim_army, "putrid_detonation_armed", False)
+            and is_dg
+            and is_vehicle_or_monster
+        )
+        # Roll a d6 — 1-in-6 trigger, bypassed when Putrid Detonation is armed.
+        if not putrid_armed and random.randint(1, 6) != 6:
             return
         # Scan every alive unit within 6" of the victim, on either side. The
         # victim itself is already at 0 HP and excluded by the alive filter,

@@ -1637,6 +1637,11 @@ def _predict_pivotal_turn(strat) -> int:
         # effect through transient_plus_one_save; they fire on the same
         # mid-game survival window as Lightning-Fast Reactions.
         "Skyborne Sanctuary", "Webway Tunnel",
+        # Virulent Vectorium defensive/heal stratagems also belong to the
+        # mid-game survival window: Putrid Detonation auto-detonates a
+        # half-dead vehicle, Leechspore Eruption heals + chips an adjacent
+        # foe, Plaguesurge widens the contagion bubble when CP is abundant.
+        "Putrid Detonation", "Leechspore Eruption", "Plaguesurge",
     ):
         return 3
     # Offensive alpha-strike window (T2 by default — the round where shooting
@@ -1822,6 +1827,84 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             cost = 0.0
         # ~8 pts of vulnerability swing required (matches _MIN_EXPECTED_SWING_PTS).
         return hp_frac > 0.0 and cost * hp_frac >= _MIN_EXPECTED_SWING_PTS
+
+    # ----- Virulent Vectorium (Death Guard) -------------------------------
+
+    if name == "Putrid Detonation":
+        # ctx expects {"target": Unit}. The target is the DG VEHICLE/MONSTER
+        # donor with deadly_demise > 0. Fire prophylactically: as long as a
+        # donor exists, the auto-success buff for the round is cheap (1 CP)
+        # and the EV is ~2 mortals to nearby enemies if the donor dies.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            demise = int(getattr(target.profile, "deadly_demise", 0) or 0)
+        except Exception:
+            demise = 0
+        # Only fire if the donor is meaningfully threatened — at full HP the
+        # demise auto-success is a 5-round bet that may never pay off; at
+        # below half HP the donor is likely to die this round and the spend
+        # is justified.
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            hp_frac = 0.0
+        return demise >= 2 and hp_frac > 0.3
+
+    if name == "Plaguesurge":
+        # ctx expects {"target": Unit} (DG WARLORD). 2 CP for +3" Contagion
+        # Range is informational in the simulator today (no consumer yet),
+        # so the heuristic skips it unless CP is abundant — the AI shouldn't
+        # waste CP on a stratagem with no live effect.
+        cp = int(getattr(army, "command_points", 0) or 0)
+        return cp >= 5
+
+    if name == "Leechspore Eruption":
+        # ctx expects {"target": Unit, "enemy": Unit}. Fire when the DG
+        # model has lost a meaningful share of HP (>= 50%) AND a target
+        # enemy exists within 3". The mortals payload + self-heal make this
+        # worth 1 CP whenever the donor is at half-HP+.
+        target = ctx.get("target")
+        enemy = ctx.get("enemy")
+        if target is None or enemy is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            return False
+        return hp_frac >= 0.5
+
+    if name == "Overwhelming Generosity":
+        # ctx expects {"attacker": Unit, "target": Unit}. Same gates as Plague
+        # Weapons / Fire and Fade for offensive shoot uplifts: real DG
+        # CHARACTER shooter (ranged DPA >= 2) AND a HEAVY target.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Creeping Blight":
+        # ctx expects {"attacker": Unit, "target": Unit}. Same gate as
+        # Overwhelming Generosity but for DG INFANTRY. The Afflicted gate is
+        # APPROXIMATED away so the heuristic just requires the DG INFANTRY
+        # unit have a real shooting profile and the target be HEAVY-class.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0 and _is_heavy_target(target)
 
     # ----- Plague Company (Death Guard) ----------------------------------
 

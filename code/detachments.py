@@ -29,6 +29,7 @@ from .stratagems import (
     WARHOST_STRATAGEMS,
     DISGUSTINGLY_RESILIENT,
     MONTKA_STRATAGEMS,
+    VIRULENT_VECTORIUM_STRATAGEMS,
 )
 
 
@@ -125,6 +126,22 @@ class Detachment:
     #     Unit.attack. Wire when the Guided mechanic is added.
     army_wide_assault_rounds_1_3: bool = False
     lethal_hits_on_guided: bool = False
+
+    # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
+    # (Wahapedia): "If you control an objective marker at the end of your
+    # Command phase and a DEATH GUARD unit from your army (excluding Battle-
+    # shocked units) is within range of that objective marker, that objective
+    # marker remains under your control until your opponent's Level of Control
+    # over that objective marker is greater than yours at the end of a phase.
+    # In addition, until you lose control of that objective marker, it has
+    # the Nurgle's Gift ability as if it were a DEATH GUARD model from your
+    # army." Modelled as army-wide sticky-objective behaviour on DG units —
+    # the Nurgle's-Gift-on-the-objective half is APPROXIMATED (not modelled).
+    # Gate: at the end of each Command phase the simulator promotes any DG-
+    # held objective into the sticky-owner set so it persists until an enemy
+    # outscores the DG army on it (matches the real lock-until-flipped
+    # mechanic; loses the contagion-on-objective half).
+    worldblight_sticky_dg_objectives: bool = False
 
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
@@ -379,7 +396,33 @@ PACTBOUND_ZEALOTS = Detachment(
 # detachments: Grand Coven, Changehost of Deceit, Warpmeld Pact, Rubricae
 # Phalanx, Warpforged Cabal, Hexwarp Thrallband. Disgustingly Resilient
 # (the real DG stratagem) has been re-anchored to Virulent Vectorium at
-# 2CP in code/stratagems.py; real detachment replacements land per-faction.
+# 2CP in code/stratagems.py.
+
+VIRULENT_VECTORIUM = Detachment(
+    name="Virulent Vectorium",
+    faction="Death Guard",
+    notes=(
+        "Worldblight: at the end of each Command phase, any objective the DG "
+        "army controls with a non-Battle-shocked DG unit in range stays "
+        "locked to the DG army until the opponent's Level of Control on it "
+        "exceeds the DG army's at the end of a phase. In addition, the "
+        "objective gains Nurgle's Gift while locked (the contagion-on-"
+        "objective half is APPROXIMATED — not modelled; only the sticky-"
+        "control half is implemented). Six detachment stratagems wired: "
+        "Putrid Detonation, Disgustingly Resilient, Plaguesurge, Leechspore "
+        "Eruption, Overwhelming Generosity, Creeping Blight. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium"
+    ),
+    # APPROXIMATION: only the sticky-control half is modelled — the
+    # "objective also has Nurgle's Gift" contagion-on-objective half is
+    # dropped (we don't model objective markers as aura sources).
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+    # Real rule: Worldblight — sticky control PLUS Nurgle's Gift on each
+    # locked objective until the DG army loses control of it.
+    worldblight_sticky_dg_objectives=True,
+    stratagems=VIRULENT_VECTORIUM_STRATAGEMS,
+    preferred_composition="infantry",
+)
 
 
 BERZERKER_WARBAND = Detachment(
@@ -510,6 +553,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Second detachments per major faction (#126).
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
+    # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
+    # set and Worldblight rule (sticky-control APPROXIMATION).
+    "virulent_vectorium":      VIRULENT_VECTORIUM,
     # Deleted per fabrication audit fa9a957: waaagh_tribe, plague_company,
     # cult_of_magic, saim_hann_wild_host, plague_marines_onslaught. Real
     # codex detachment replacements land in per-faction follow-up commits.
@@ -538,6 +584,7 @@ del _key, _det, _enh, _dc
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
 MONTKA             = DETACHMENTS["montka"]
+VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 
@@ -578,10 +625,10 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Tau Empire":               "montka",
     "Chaos Space Marines":      "pactbound_zealots",
     "Heretic Astartes":         "pactbound_zealots",
-    # Death Guard + Thousand Sons: no detachment after fa9a957 (plague_company
-    # and cult_of_magic were fabricated). Real detachment replacements land
-    # in follow-up per-faction commits.
-    "Death Guard":              "",
+    # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
+    # Thousand Sons: no detachment after fa9a957 (cult_of_magic was
+    # fabricated); real detachment replacement lands in a follow-up.
+    "Death Guard":              "virulent_vectorium",
     "Thousand Sons":            "",
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
@@ -645,9 +692,10 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Tau Empire":               ("montka",),
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
-    # Death Guard + Thousand Sons: no detachments mapped after fa9a957
-    # (plague_company, plague_marines_onslaught, cult_of_magic all fabricated).
-    "Death Guard":              (),
+    # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
+    # Thousand Sons: no detachments mapped after fa9a957 (cult_of_magic was
+    # fabricated). Real detachment replacement lands per-faction.
+    "Death Guard":              ("virulent_vectorium",),
     "Thousand Sons":            (),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),

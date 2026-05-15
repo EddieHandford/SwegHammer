@@ -59,6 +59,56 @@
     "approximation": true
   },
 
+  "Stratagem.Putrid Detonation": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Putrid Detonation (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Any phase. TARGET: One DEATH GUARD VEHICLE or DEATH GUARD MONSTER model from your army with the Deadly Demise ability that was just destroyed. EFFECT: Do not roll one D6 to determine whether mortal wounds are inflicted by your model's Deadly Demise ability. Instead, mortal wounds are automatically inflicted. In addition, any enemy units that suffer mortal wounds as a result of this Stratagem are Afflicted until the start of your next turn.",
+    "trigger": "any phase, when a friendly DG VEHICLE or DG MONSTER with Deadly Demise is destroyed",
+    "effect": "approximation: the simulator arms `Army.putrid_detonation_armed` for the round; any qualifying DG VEHICLE/MONSTER death this round skips the d6 gate in `_maybe_apply_deadly_demise` and auto-applies its mortal-wound payload. The Afflicted state granted to victims is NOT modelled (we have no Afflicted unit-state representation), so the rider clause that interacts with Creeping Blight is dropped",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Plaguesurge": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Plaguesurge (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your Command phase. TARGET: Your DEATH GUARD WARLORD that is on the battlefield. EFFECT: Until the start of your next Command phase, add 3\" to the Contagion Range of models from your army.",
+    "trigger": "own Command phase, with a DG WARLORD on the battlefield",
+    "effect": "approximation: the simulator hard-codes Contagion Range at 6\" inside `_contagion_round_for` / `_is_near_enemy_dg_model`, so the +3\" buff is set on `Army.plaguesurge_active` for the round but isn't consumed by any active code path yet. CP is spent and the StratagemFired event fires so the AI's CP accounting stays honest; the actual buff is informational pending a contagion-range refactor",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Leechspore Eruption": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Leechspore Eruption (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your Command phase. TARGET: One DEATH GUARD model your army that has lost one or more wounds. EFFECT: Select one enemy unit within 3\" of your model. Roll a number of D6 equal to the number of wounds your model has lost: for each 5+, that enemy unit suffers one mortal wound (to a maximum of 6 mortal wounds) and your model regains 1 lost wound (to a maximum of 6 lost wounds).",
+    "trigger": "own Command phase, on a DG model that has lost one or more wounds with a non-Battle-shocked enemy unit within 3\"",
+    "effect": "approximation: deterministic median-dice conversion — N = wounds_lost is folded into round(N * 2/6) mortal wounds (each D6 has 2/6 = 33.3% chance of a 5+), capped at 6; the DG model regains the same number of wounds (capped at 6 / max profile health). Matches the simulator's other deterministic median-D3/D6 conversions (Reanimation Protocols, Tank Shock). Routed through `Unit.receive_damage` so target FNP and Disgustingly Resilient compose with the mortals",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Overwhelming Generosity": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Overwhelming Generosity (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Start of your Shooting phase. TARGET: One DEATH GUARD CHARACTER unit from your army. EFFECT: Select one enemy unit visible to your unit. Until the end of the phase, each time a DEATH GUARD unit from your army selects that enemy unit as the target of any ranged attacks, you can re-roll the dice to determine how many attacks a weapon equipped by a model in that unit makes.",
+    "trigger": "start of own Shooting phase, on a DG CHARACTER unit with a visible enemy target",
+    "effect": "approximation: BSData parses weapon attacks as a fixed integer at mapper time, so per-weapon attack-count rerolls cannot be modelled directly. The buff is routed through `transient_reroll_hits_shooting` on the chosen DG CHARACTER unit (re-roll failed hits on its shooting for the round) — more conservative than the real text (hit rerolls average ~17% extra hits at BS 4+, vs attack-count rerolls averaging ~10% extra shots). Restricted to the firing CHARACTER only; the codex 'every DG unit shooting that target' aura is dropped",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Creeping Blight": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Creeping Blight (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase. TARGET: One DEATH GUARD INFANTRY unit from your army that has not been selected to shoot this phase. EFFECT: Until the end of the phase, each time a model in your unit makes a ranged attack that targets an Afflicted unit, you can re-roll the Hit roll and you can re-roll the Wound roll.",
+    "trigger": "own Shooting phase, on a DG INFANTRY unit that has not yet shot this phase, targeting an Afflicted enemy",
+    "effect": "approximation: the simulator has no Afflicted enemy state (Putrid Detonation's rider clause is also dropped), so the gate fires unconditionally on the chosen DG INFANTRY unit. The wound-reroll half is also dropped — only `transient_reroll_hits_shooting` is set on the attacker — so the buff lands at ~half real strength. Picks the highest-DPA DG INFANTRY unit with a HEAVY-class target via the standard shooting heuristic",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
   "Stratagem.Fire and Fade": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Fire and Fade (Warhost Stratagem)",
