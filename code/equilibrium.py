@@ -953,7 +953,7 @@ def compute_phase3_audit(
     targets = [
         ("death_guard_plague_marines", "plague_marines"),
         ("adeptus_custodes_custodian_guard", "custodian_guard"),
-        ("aeldari_aeldari_library_wraithguard", "wraithguard"),
+        ("aeldari_craftworlds_wraithguard", "wraithguard"),
     ]
     for canonical, substring in targets:
         defender_key = canonical if canonical in keys else _closest_key_by_substring(

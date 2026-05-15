@@ -22,12 +22,12 @@
       "fnp": 5,
       "notes": "Cross-codex BSData entry for Plague Marines; canonical datasheet lives in the Death Guard codex and carries Disgustingly Resilient (FNP 5+). Pricing and stats are identical to death_guard_plague_marines. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
     },
-    "aeldari_aeldari_library_wraithguard": {
+    "aeldari_craftworlds_wraithguard": {
       "invuln_save": 4,
       "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 218.68 -> 240.55 pts/model",
       "points_override": 240.55
     },
-    "aeldari_aeldari_library_wraithblades": {
+    "aeldari_craftworlds_wraithblades": {
       "invuln_save": 4,
       "notes": "Wraithblades have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithblades."
     },
@@ -45,7 +45,7 @@
       "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). | sweg_balance_mc down 1311.75 -> 1180.58 pts/model",
       "points_override": 1180.58
     },
-    "aeldari_aeldari_library_falcon": {
+    "aeldari_craftworlds_falcon": {
       "points_override": 644.45,
       "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"
     },

@@ -1,9 +1,9 @@
 {
   "units": [
     {
-      "key": "aeldari_aeldari_library_wraithguard",
+      "key": "aeldari_craftworlds_wraithguard",
       "name": "Wraithguard",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -68,9 +68,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_windriders",
+      "key": "aeldari_craftworlds_windriders",
       "name": "Windriders",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 6.75,
       "hit_probability": 0.667,
@@ -137,9 +137,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_asurmen",
+      "key": "aeldari_craftworlds_asurmen",
       "name": "Asurmen",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 12.0,
       "hit_probability": 0.833,
@@ -205,9 +205,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_autarch",
+      "key": "aeldari_craftworlds_autarch",
       "name": "Autarch",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 3.5,
       "hit_probability": 0.833,
@@ -276,9 +276,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_autarch_skyrunner_legends",
+      "key": "aeldari_craftworlds_autarch_skyrunner_legends",
       "name": "Autarch Skyrunner [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 3.5,
       "hit_probability": 0.833,
@@ -348,9 +348,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_autarch_wayleaper",
+      "key": "aeldari_craftworlds_autarch_wayleaper",
       "name": "Autarch Wayleaper",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 3.5,
       "hit_probability": 0.833,
@@ -420,9 +420,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_avatar_of_khaine",
+      "key": "aeldari_craftworlds_avatar_of_khaine",
       "name": "Avatar of Khaine",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 14.0,
       "damage": 5.5,
       "hit_probability": 0.833,
@@ -490,9 +490,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_baharroth",
+      "key": "aeldari_craftworlds_baharroth",
       "name": "Baharroth",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 8.0,
       "hit_probability": 0.833,
@@ -559,9 +559,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_corsair_voidreavers",
+      "key": "aeldari_craftworlds_corsair_voidreavers",
       "name": "Corsair Voidreavers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 1.32,
       "hit_probability": 0.683,
@@ -635,9 +635,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_corsair_voidscarred",
+      "key": "aeldari_craftworlds_corsair_voidscarred",
       "name": "Corsair Voidscarred",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 1.41,
       "hit_probability": 0.667,
@@ -710,9 +710,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_crimson_hunter",
+      "key": "aeldari_craftworlds_crimson_hunter",
       "name": "Crimson Hunter",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 10.5,
       "hit_probability": 0.667,
@@ -780,9 +780,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_dark_reapers",
+      "key": "aeldari_craftworlds_dark_reapers",
       "name": "Dark Reapers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 4.48,
       "hit_probability": 0.667,
@@ -849,9 +849,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_death_jester",
+      "key": "aeldari_craftworlds_death_jester",
       "name": "Death Jester",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 6.0,
       "hit_probability": 0.833,
@@ -916,9 +916,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_dire_avengers",
+      "key": "aeldari_craftworlds_dire_avengers",
       "name": "Dire Avengers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 4.0,
       "hit_probability": 0.667,
@@ -986,9 +986,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_eldrad_ulthran",
+      "key": "aeldari_craftworlds_eldrad_ulthran",
       "name": "Eldrad Ulthran",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 3.5,
       "hit_probability": 0.833,
@@ -1058,9 +1058,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_falcon",
+      "key": "aeldari_craftworlds_falcon",
       "name": "Falcon",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 10.5,
       "hit_probability": 0.667,
@@ -1129,9 +1129,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_farseer",
+      "key": "aeldari_craftworlds_farseer",
       "name": "Farseer",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -1201,9 +1201,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_farseer_skyrunner",
+      "key": "aeldari_craftworlds_farseer_skyrunner",
       "name": "Farseer Skyrunner",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -1274,9 +1274,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_fire_dragons",
+      "key": "aeldari_craftworlds_fire_dragons",
       "name": "Fire Dragons",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 4.71,
       "hit_probability": 0.7,
@@ -1344,9 +1344,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_fire_prism",
+      "key": "aeldari_craftworlds_fire_prism",
       "name": "Fire Prism",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 12.0,
       "hit_probability": 0.667,
@@ -1415,9 +1415,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_fuegan",
+      "key": "aeldari_craftworlds_fuegan",
       "name": "Fuegan",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 6.0,
       "hit_probability": 0.833,
@@ -1484,9 +1484,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_guardian_defenders",
+      "key": "aeldari_craftworlds_guardian_defenders",
       "name": "Guardian Defenders",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -1553,9 +1553,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_hemlock_wraithfighter",
+      "key": "aeldari_craftworlds_hemlock_wraithfighter",
       "name": "Hemlock Wraithfighter",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 7.0,
       "hit_probability": 0.5,
@@ -1622,9 +1622,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_howling_banshees",
+      "key": "aeldari_craftworlds_howling_banshees",
       "name": "Howling Banshees",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 1.2,
       "hit_probability": 0.667,
@@ -1693,9 +1693,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_illic_nightspear_legends",
+      "key": "aeldari_craftworlds_illic_nightspear_legends",
       "name": "Illic Nightspear [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 3.0,
       "hit_probability": 0.833,
@@ -1762,9 +1762,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_jain_zar",
+      "key": "aeldari_craftworlds_jain_zar",
       "name": "Jain Zar",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 6.0,
       "hit_probability": 0.833,
@@ -1830,9 +1830,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_karandras_legends",
+      "key": "aeldari_craftworlds_karandras_legends",
       "name": "Karandras [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 4.0,
       "hit_probability": 0.833,
@@ -1898,9 +1898,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_maugan_ra",
+      "key": "aeldari_craftworlds_maugan_ra",
       "name": "Maugan Ra",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 12.0,
       "hit_probability": 0.833,
@@ -1965,9 +1965,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_night_spinner",
+      "key": "aeldari_craftworlds_night_spinner",
       "name": "Night Spinner",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 13.0,
       "hit_probability": 0.667,
@@ -2035,9 +2035,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_prince_yriel_legends",
+      "key": "aeldari_craftworlds_prince_yriel_legends",
       "name": "Prince Yriel [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -2103,9 +2103,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_rangers",
+      "key": "aeldari_craftworlds_rangers",
       "name": "Rangers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 1.5,
       "hit_probability": 0.75,
@@ -2171,9 +2171,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_shadowseer",
+      "key": "aeldari_craftworlds_shadowseer",
       "name": "Shadowseer",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 1.0,
       "hit_probability": 0.833,
@@ -2242,9 +2242,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_shining_spears",
+      "key": "aeldari_craftworlds_shining_spears",
       "name": "Shining Spears",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 3.3,
       "hit_probability": 0.681,
@@ -2312,9 +2312,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_shroud_runners",
+      "key": "aeldari_craftworlds_shroud_runners",
       "name": "Shroud Runners",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 3.56,
       "hit_probability": 0.778,
@@ -2382,9 +2382,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_skyweavers",
+      "key": "aeldari_craftworlds_skyweavers",
       "name": "Skyweavers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 5.0,
       "hit_probability": 0.667,
@@ -2451,9 +2451,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_solitaire",
+      "key": "aeldari_craftworlds_solitaire",
       "name": "Solitaire",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 18.0,
       "hit_probability": 0.833,
@@ -2517,9 +2517,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_spiritseer",
+      "key": "aeldari_craftworlds_spiritseer",
       "name": "Spiritseer",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.833,
@@ -2586,9 +2586,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_starweaver",
+      "key": "aeldari_craftworlds_starweaver",
       "name": "Starweaver",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 6.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -2653,9 +2653,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_storm_guardians",
+      "key": "aeldari_craftworlds_storm_guardians",
       "name": "Storm Guardians",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 4.0,
       "hit_probability": 0.8,
@@ -2725,9 +2725,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_d_cannon_platform",
+      "key": "aeldari_craftworlds_d_cannon_platform",
       "name": "D-Cannon Platform",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 11.0,
       "hit_probability": 0.667,
@@ -2793,9 +2793,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_swooping_hawks",
+      "key": "aeldari_craftworlds_swooping_hawks",
       "name": "Swooping Hawks",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 4.18,
       "hit_probability": 0.667,
@@ -2864,9 +2864,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_the_visarch",
+      "key": "aeldari_ynnari_the_visarch",
       "name": "The Visarch",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Ynnari.cat.gz",
       "health": 5.0,
       "damage": 12.0,
       "hit_probability": 0.833,
@@ -2932,9 +2932,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_the_yncarne",
+      "key": "aeldari_ynnari_the_yncarne",
       "name": "The Yncarne",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Ynnari.cat.gz",
       "health": 12.0,
       "damage": 13.0,
       "hit_probability": 1.0,
@@ -3003,9 +3003,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_troupe",
+      "key": "aeldari_craftworlds_troupe",
       "name": "Troupe",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 1.21,
       "hit_probability": 0.667,
@@ -3071,9 +3071,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_troupe_master",
+      "key": "aeldari_craftworlds_troupe_master",
       "name": "Troupe Master",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 3.5,
       "hit_probability": 0.833,
@@ -3141,9 +3141,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_voidweaver",
+      "key": "aeldari_craftworlds_voidweaver",
       "name": "Voidweaver",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 6.0,
       "damage": 8.0,
       "hit_probability": 0.667,
@@ -3211,9 +3211,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_vypers",
+      "key": "aeldari_craftworlds_vypers",
       "name": "Vypers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 6.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -3279,9 +3279,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_war_walkers",
+      "key": "aeldari_craftworlds_war_walkers",
       "name": "War Walkers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 6.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -3346,9 +3346,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_warlock",
+      "key": "aeldari_craftworlds_warlock",
       "name": "Warlock",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -3418,9 +3418,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_warlock_conclave",
+      "key": "aeldari_craftworlds_warlock_conclave",
       "name": "Warlock Conclave",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 2.72,
       "hit_probability": 0.806,
@@ -3488,9 +3488,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_warlock_skyrunners",
+      "key": "aeldari_craftworlds_warlock_skyrunners",
       "name": "Warlock Skyrunners",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 2.63,
       "hit_probability": 0.759,
@@ -3563,9 +3563,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_warp_spiders",
+      "key": "aeldari_craftworlds_warp_spiders",
       "name": "Warp Spiders",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -3634,9 +3634,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wave_serpent",
+      "key": "aeldari_craftworlds_wave_serpent",
       "name": "Wave Serpent",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 13.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -3705,9 +3705,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_webway_gate_legends",
+      "key": "aeldari_craftworlds_webway_gate_legends",
       "name": "Webway Gate [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 14.0,
       "damage": 0,
       "hit_probability": 0,
@@ -3766,9 +3766,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "aeldari_aeldari_library_wraithblades",
+      "key": "aeldari_craftworlds_wraithblades",
       "name": "Wraithblades",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 10.0,
       "hit_probability": 0.5,
@@ -3832,9 +3832,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wraithknight",
+      "key": "aeldari_craftworlds_wraithknight",
       "name": "Wraithknight",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 18.0,
       "damage": 22.5,
       "hit_probability": 0.667,
@@ -3905,9 +3905,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wraithlord",
+      "key": "aeldari_craftworlds_wraithlord",
       "name": "Wraithlord",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 10.0,
       "damage": 5.5,
       "hit_probability": 0.5,
@@ -3976,9 +3976,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_yvraine",
+      "key": "aeldari_ynnari_yvraine",
       "name": "Yvraine",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Ynnari.cat.gz",
       "health": 4.0,
       "damage": 6.5,
       "hit_probability": 0.833,
@@ -4046,9 +4046,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_striking_scorpions",
+      "key": "aeldari_craftworlds_striking_scorpions",
       "name": "Striking Scorpions",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -4115,9 +4115,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_cobra_legends",
+      "key": "aeldari_craftworlds_cobra_legends",
       "name": "Cobra [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 24.0,
       "damage": 26.0,
       "hit_probability": 0.667,
@@ -4187,9 +4187,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_hornet_legends",
+      "key": "aeldari_craftworlds_hornet_legends",
       "name": "Hornet [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 8.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -4258,9 +4258,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_irillyth_legends",
+      "key": "aeldari_craftworlds_irillyth_legends",
       "name": "Irillyth [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 12.0,
       "hit_probability": 0.667,
@@ -4326,9 +4326,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_lynx_legends",
+      "key": "aeldari_craftworlds_lynx_legends",
       "name": "Lynx [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 16.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -4397,9 +4397,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_nightwing_legends",
+      "key": "aeldari_craftworlds_nightwing_legends",
       "name": "Nightwing [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -4466,9 +4466,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_scorpion_legends",
+      "key": "aeldari_craftworlds_scorpion_legends",
       "name": "Scorpion [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 24.0,
       "damage": 30.0,
       "hit_probability": 0.667,
@@ -4538,9 +4538,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_skathach_wraithknight_legends",
+      "key": "aeldari_craftworlds_skathach_wraithknight_legends",
       "name": "Skathach Wraithknight [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 18.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -4611,9 +4611,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_shadow_spectres_legends",
+      "key": "aeldari_craftworlds_shadow_spectres_legends",
       "name": "Shadow Spectres [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 3.0,
       "hit_probability": 0.667,
@@ -4681,9 +4681,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_phantom_titan",
+      "key": "aeldari_craftworlds_phantom_titan",
       "name": "Phantom Titan",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 55.0,
       "damage": 48.0,
       "hit_probability": 0.667,
@@ -4754,9 +4754,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_revenant_titan",
+      "key": "aeldari_craftworlds_revenant_titan",
       "name": "Revenant Titan",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 30.0,
       "damage": 19.0,
       "hit_probability": 1.0,
@@ -4831,9 +4831,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_warp_hunter_legends",
+      "key": "aeldari_craftworlds_warp_hunter_legends",
       "name": "Warp Hunter [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 6.0,
       "hit_probability": 1.0,
@@ -4902,9 +4902,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wraithseer_legends",
+      "key": "aeldari_craftworlds_wraithseer_legends",
       "name": "Wraithseer [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 10.0,
       "damage": 5.5,
       "hit_probability": 0.5,
@@ -4974,9 +4974,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_detachment",
+      "key": "aeldari_craftworlds_detachment",
       "name": "Detachment",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -5035,9 +5035,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "aeldari_aeldari_library_amallyn_shadowguide_legends",
+      "key": "aeldari_craftworlds_amallyn_shadowguide_legends",
       "name": "Amallyn Shadowguide [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -5103,9 +5103,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_bonesinger_legends",
+      "key": "aeldari_craftworlds_bonesinger_legends",
       "name": "Bonesinger [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 4.0,
       "hit_probability": 0.833,
@@ -5171,9 +5171,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_corsair_cloud_dancer_band_legends",
+      "key": "aeldari_craftworlds_corsair_cloud_dancer_band_legends",
       "name": "Corsair Cloud Dancer Band [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 4.6,
       "hit_probability": 0.667,
@@ -5243,9 +5243,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_corsair_reaver_band_legends",
+      "key": "aeldari_craftworlds_corsair_reaver_band_legends",
       "name": "Corsair Reaver Band [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 2.03,
       "hit_probability": 0.667,
@@ -5315,9 +5315,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_corsair_skyreaver_band_legends",
+      "key": "aeldari_craftworlds_corsair_skyreaver_band_legends",
       "name": "Corsair Skyreaver Band [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 3.0,
       "damage": 2.01,
       "hit_probability": 0.667,
@@ -5388,9 +5388,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_phoenix_legends",
+      "key": "aeldari_craftworlds_phoenix_legends",
       "name": "Phoenix [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 16.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -5457,9 +5457,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_firestorm_legends",
+      "key": "aeldari_craftworlds_firestorm_legends",
       "name": "Firestorm [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 12.0,
       "damage": 16.0,
       "hit_probability": 0.667,
@@ -5529,9 +5529,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_vampire_hunter_legends",
+      "key": "aeldari_craftworlds_vampire_hunter_legends",
       "name": "Vampire Hunter [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 30.0,
       "damage": 12.0,
       "hit_probability": 0.667,
@@ -5600,9 +5600,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_vampire_raider_legends",
+      "key": "aeldari_craftworlds_vampire_raider_legends",
       "name": "Vampire Raider [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 30.0,
       "damage": 10.5,
       "hit_probability": 0.667,
@@ -5670,9 +5670,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wasp_assault_walker_legends",
+      "key": "aeldari_craftworlds_wasp_assault_walker_legends",
       "name": "Wasp Assault Walker [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 6.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -5742,9 +5742,9 @@
       "skip_reason": ""
     },
     {
-      "key": "warhammer_40_000_show_hide_options",
+      "key": "aeldari_craftworlds_show_hide_options",
       "name": "Show/Hide Options",
-      "codex": "Warhammer 40,000.gst.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -5803,9 +5803,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_archon",
+      "key": "aeldari_craftworlds_ynnari_archon",
       "name": "Ynnari Archon",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -5871,9 +5871,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_incubi",
+      "key": "aeldari_craftworlds_ynnari_incubi",
       "name": "Ynnari Incubi",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -5937,9 +5937,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_kabalite_warriors",
+      "key": "aeldari_craftworlds_ynnari_kabalite_warriors",
       "name": "Ynnari Kabalite Warriors",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 3.9,
       "hit_probability": 0.667,
@@ -6012,9 +6012,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_raider",
+      "key": "aeldari_craftworlds_ynnari_raider",
       "name": "Ynnari Raider",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 10.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -6080,9 +6080,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_reavers",
+      "key": "aeldari_craftworlds_ynnari_reavers",
       "name": "Ynnari Reavers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 2.0,
       "damage": 2.24,
       "hit_probability": 0.75,
@@ -6154,9 +6154,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_succubus",
+      "key": "aeldari_craftworlds_ynnari_succubus",
       "name": "Ynnari Succubus",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 4.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -6222,9 +6222,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_venom",
+      "key": "aeldari_craftworlds_ynnari_venom",
       "name": "Ynnari Venom",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 6.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -6292,9 +6292,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ynnari_wyches",
+      "key": "aeldari_craftworlds_ynnari_wyches",
       "name": "Ynnari Wyches",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 1.0,
       "damage": 1.1,
       "hit_probability": 0.667,
@@ -6363,9 +6363,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_shadow_weaver_platform",
+      "key": "aeldari_craftworlds_shadow_weaver_platform",
       "name": "Shadow Weaver Platform",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -6431,9 +6431,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_vibro_cannon_platform",
+      "key": "aeldari_craftworlds_vibro_cannon_platform",
       "name": "Vibro Cannon Platform",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -6499,9 +6499,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_lhykhis",
+      "key": "aeldari_craftworlds_lhykhis",
       "name": "Lhykhis",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 5.0,
       "damage": 6.5,
       "hit_probability": 1.0,
@@ -6569,9 +6569,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_battle_focus_agile_manoeuvres",
+      "key": "aeldari_craftworlds_battle_focus_agile_manoeuvres",
       "name": "Battle Focus - Agile Manoeuvres",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -6630,9 +6630,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "aeldari_aeldari_library_wraithknight_with_ghostglaive",
+      "key": "aeldari_craftworlds_wraithknight_with_ghostglaive",
       "name": "Wraithknight with Ghostglaive",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Craftworlds.cat.gz",
       "health": 18.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -6703,9 +6703,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_archon",
+      "key": "aeldari_drukhari_archon",
       "name": "Archon",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 4.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -6771,9 +6771,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_beastmaster",
+      "key": "aeldari_drukhari_beastmaster",
       "name": "Beastmaster",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 3.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -6844,9 +6844,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_court_of_the_archon",
+      "key": "aeldari_drukhari_court_of_the_archon",
       "name": "Court of the Archon",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 2.0,
       "damage": 2.75,
       "hit_probability": 0.833,
@@ -6916,9 +6916,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_cronos",
+      "key": "aeldari_drukhari_cronos",
       "name": "Cronos",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 7.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -6983,9 +6983,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_drazhar",
+      "key": "aeldari_drukhari_drazhar",
       "name": "Drazhar",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 5.0,
       "damage": 14.0,
       "hit_probability": 0.833,
@@ -7050,9 +7050,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_grotesques",
+      "key": "aeldari_drukhari_grotesques",
       "name": "Grotesques",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 4.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -7115,9 +7115,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_haemonculus",
+      "key": "aeldari_drukhari_haemonculus",
       "name": "Haemonculus",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 5.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -7184,9 +7184,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_hellions",
+      "key": "aeldari_drukhari_hellions",
       "name": "Hellions",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 2.0,
       "damage": 1.95,
       "hit_probability": 0.667,
@@ -7256,9 +7256,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_incubi",
+      "key": "aeldari_drukhari_incubi",
       "name": "Incubi",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 1.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -7322,9 +7322,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_kabalite_warriors",
+      "key": "aeldari_drukhari_kabalite_warriors",
       "name": "Kabalite Warriors",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 1.0,
       "damage": 3.9,
       "hit_probability": 0.667,
@@ -7397,9 +7397,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_lelith_hesperax",
+      "key": "aeldari_drukhari_lelith_hesperax",
       "name": "Lelith Hesperax",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 4.0,
       "damage": 8.0,
       "hit_probability": 0.833,
@@ -7465,9 +7465,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_mandrakes",
+      "key": "aeldari_drukhari_mandrakes",
       "name": "Mandrakes",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 1.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -7533,9 +7533,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_raider",
+      "key": "aeldari_drukhari_raider",
       "name": "Raider",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 10.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -7601,9 +7601,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_ravager",
+      "key": "aeldari_drukhari_ravager",
       "name": "Ravager",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 11.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -7669,9 +7669,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_razorwing_jetfighter",
+      "key": "aeldari_drukhari_razorwing_jetfighter",
       "name": "Razorwing Jetfighter",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 10.0,
       "damage": 5.5,
       "hit_probability": 0.667,
@@ -7739,9 +7739,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_reavers",
+      "key": "aeldari_drukhari_reavers",
       "name": "Reavers",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 2.0,
       "damage": 2.24,
       "hit_probability": 0.75,
@@ -7813,9 +7813,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_scourges",
+      "key": "aeldari_drukhari_scourges",
       "name": "Scourges",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 1.0,
       "damage": 5.0,
       "hit_probability": 0.667,
@@ -7886,9 +7886,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_succubus",
+      "key": "aeldari_drukhari_succubus",
       "name": "Succubus",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 4.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -7954,9 +7954,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_talos",
+      "key": "aeldari_drukhari_talos",
       "name": "Talos",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 7.0,
       "damage": 4.88,
       "hit_probability": 0.75,
@@ -8025,9 +8025,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_urien_rakarth",
+      "key": "aeldari_drukhari_urien_rakarth",
       "name": "Urien Rakarth",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 5.0,
       "damage": 10.5,
       "hit_probability": 1.0,
@@ -8092,9 +8092,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_venom",
+      "key": "aeldari_drukhari_venom",
       "name": "Venom",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 6.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -8162,9 +8162,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_voidraven_bomber",
+      "key": "aeldari_drukhari_voidraven_bomber",
       "name": "Voidraven Bomber",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 12.0,
       "damage": 12.0,
       "hit_probability": 0.667,
@@ -8232,9 +8232,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wracks",
+      "key": "aeldari_drukhari_wracks",
       "name": "Wracks",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 1.0,
       "damage": 2.84,
       "hit_probability": 0.75,
@@ -8303,9 +8303,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_wyches",
+      "key": "aeldari_drukhari_wyches",
       "name": "Wyches",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 1.0,
       "damage": 1.1,
       "hit_probability": 0.667,
@@ -8374,9 +8374,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_tantalus_legends",
+      "key": "aeldari_drukhari_tantalus_legends",
       "name": "Tantalus [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 18.0,
       "damage": 24.0,
       "hit_probability": 0.667,
@@ -8441,9 +8441,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_reaper_legends",
+      "key": "aeldari_drukhari_reaper_legends",
       "name": "Reaper [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 11.0,
       "damage": 10.5,
       "hit_probability": 0.667,
@@ -8510,9 +8510,9 @@
       "skip_reason": ""
     },
     {
-      "key": "aeldari_aeldari_library_raven_strike_fighter_legends",
+      "key": "aeldari_drukhari_raven_strike_fighter_legends",
       "name": "Raven Strike Fighter [Legends]",
-      "codex": "Aeldari - Aeldari Library.cat.gz",
+      "codex": "Aeldari - Drukhari.cat.gz",
       "health": 10.0,
       "damage": 8.0,
       "hit_probability": 0.667,
@@ -8580,9 +8580,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_daemons_library_detachment_choice",
+      "key": "chaos_daemons_detachment_choice",
       "name": "Detachment Choice",
-      "codex": "Chaos - Chaos Daemons Library.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -13337,9 +13337,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_daemons_library_show_khorne_daemons",
+      "key": "chaos_daemons_show_khorne_daemons",
       "name": "Show Khorne Daemons",
-      "codex": "Chaos - Chaos Daemons Library.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -13398,9 +13398,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "chaos_daemons_library_show_nurgle_daemons",
+      "key": "chaos_daemons_show_nurgle_daemons",
       "name": "Show Nurgle Daemons",
-      "codex": "Chaos - Chaos Daemons Library.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -13459,9 +13459,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "chaos_daemons_library_show_tzeentch_daemons",
+      "key": "chaos_daemons_show_tzeentch_daemons",
       "name": "Show Tzeentch Daemons",
-      "codex": "Chaos - Chaos Daemons Library.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -13520,9 +13520,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "chaos_daemons_library_show_slaanesh_daemons",
+      "key": "chaos_daemons_show_slaanesh_daemons",
       "name": "Show Slaanesh Daemons",
-      "codex": "Chaos - Chaos Daemons Library.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -13581,9 +13581,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "chaos_space_marines_chaos_lord",
+      "key": "chaos_daemons_chaos_lord",
       "name": "Chaos Lord",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 5.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -13651,9 +13651,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_fellgor_beastmen",
+      "key": "chaos_daemons_fellgor_beastmen",
       "name": "Fellgor Beastmen",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 1.17,
       "hit_probability": 0.5,
@@ -13722,9 +13722,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_chaos_lord_with_jump_pack",
+      "key": "chaos_daemons_chaos_lord_with_jump_pack",
       "name": "Chaos Lord with Jump Pack",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 5.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -13793,9 +13793,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_chaos_terminator_squad",
+      "key": "chaos_daemons_chaos_terminator_squad",
       "name": "Chaos Terminator Squad",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 1.46,
       "hit_probability": 0.583,
@@ -13867,9 +13867,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_chosen",
+      "key": "chaos_daemons_chosen",
       "name": "Chosen",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 1.39,
       "hit_probability": 0.611,
@@ -13941,9 +13941,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_legionaries",
+      "key": "chaos_daemons_legionaries",
       "name": "Legionaries",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 2.0,
       "damage": 1.26,
       "hit_probability": 0.667,
@@ -14014,9 +14014,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_dark_apostle",
+      "key": "chaos_daemons_dark_apostle",
       "name": "Dark Apostle",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 4.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -14082,9 +14082,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_dark_commune",
+      "key": "chaos_daemons_dark_commune",
       "name": "Dark Commune",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 4.0,
       "damage": 2.22,
       "hit_probability": 0.556,
@@ -14152,9 +14152,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_havocs",
+      "key": "chaos_daemons_havocs",
       "name": "Havocs",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 2.0,
       "damage": 8.41,
       "hit_probability": 0.667,
@@ -14223,9 +14223,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_master_of_possession",
+      "key": "chaos_daemons_master_of_possession",
       "name": "Master of Possession",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 4.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -14295,9 +14295,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_possessed",
+      "key": "chaos_daemons_possessed",
       "name": "Possessed",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 8.0,
       "hit_probability": 0.667,
@@ -14361,9 +14361,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_raptors",
+      "key": "chaos_daemons_raptors",
       "name": "Raptors",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 2.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -14430,9 +14430,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_sorcerer",
+      "key": "chaos_daemons_sorcerer",
       "name": "Sorcerer",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 4.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -14500,9 +14500,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_sorcerer_in_terminator_armour",
+      "key": "chaos_daemons_sorcerer_in_terminator_armour",
       "name": "Sorcerer in Terminator Armour",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 5.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -14571,9 +14571,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_warp_talons",
+      "key": "chaos_daemons_warp_talons",
       "name": "Warp Talons",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 2.0,
       "damage": 4.0,
       "hit_probability": 0.667,
@@ -14638,9 +14638,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_traitor_guardsmen_squad",
+      "key": "chaos_daemons_traitor_guardsmen_squad",
       "name": "Traitor Guardsmen Squad",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -14706,9 +14706,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_cultist_mob",
+      "key": "chaos_daemons_cultist_mob",
       "name": "Cultist Mob",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -14773,9 +14773,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_chaos_lord_in_terminator_armour",
+      "key": "chaos_daemons_chaos_lord_in_terminator_armour",
       "name": "Chaos Lord in Terminator Armour",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 6.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -14843,9 +14843,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_cultist_firebrand",
+      "key": "chaos_daemons_cultist_firebrand",
       "name": "Cultist Firebrand",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 4.0,
       "damage": 6.5,
       "hit_probability": 1.0,
@@ -14910,9 +14910,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_cultist_mob_with_firearms_legends",
+      "key": "chaos_daemons_cultist_mob_with_firearms_legends",
       "name": "Cultist Mob with Firearms [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 3.31,
       "hit_probability": 0.595,
@@ -14979,9 +14979,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_rogue_psyker_legends",
+      "key": "chaos_daemons_rogue_psyker_legends",
       "name": "Rogue Psyker [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 13.0,
       "hit_probability": 0.667,
@@ -15049,9 +15049,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_traitor_enforcer",
+      "key": "chaos_daemons_traitor_enforcer",
       "name": "Traitor Enforcer",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -15117,9 +15117,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_gellerpox_infected_legends",
+      "key": "chaos_daemons_gellerpox_infected_legends",
       "name": "Gellerpox Infected [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -15184,9 +15184,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_negavolt_cultists_legends",
+      "key": "chaos_daemons_negavolt_cultists_legends",
       "name": "Negavolt Cultists [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 3.0,
       "hit_probability": 0.667,
@@ -15249,9 +15249,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_renegade_heavy_weapons_squad_legends",
+      "key": "chaos_daemons_renegade_heavy_weapons_squad_legends",
       "name": "Renegade Heavy Weapons Squad [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 2.0,
       "damage": 2.75,
       "hit_probability": 0.417,
@@ -15316,9 +15316,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_renegade_ogryn_beast_handler_legends",
+      "key": "chaos_daemons_renegade_ogryn_beast_handler_legends",
       "name": "Renegade Ogryn Beast Handler [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 4.0,
       "damage": 3.56,
       "hit_probability": 0.667,
@@ -15382,9 +15382,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_renegade_ogryn_brutes_legends",
+      "key": "chaos_daemons_renegade_ogryn_brutes_legends",
       "name": "Renegade Ogryn Brutes [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -15448,9 +15448,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_renegade_plague_ogryns_legends",
+      "key": "chaos_daemons_renegade_plague_ogryns_legends",
       "name": "Renegade Plague Ogryns [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -15513,9 +15513,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_renegade_enforcer_legends",
+      "key": "chaos_daemons_renegade_enforcer_legends",
       "name": "Renegade Enforcer [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -15583,9 +15583,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_mutoid_vermin_legends",
+      "key": "chaos_daemons_mutoid_vermin_legends",
       "name": "Mutoid Vermin [Legends]",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 1.0,
       "damage": 2.0,
       "hit_probability": 0.5,
@@ -15648,9 +15648,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_space_marines_accursed_cultists",
+      "key": "chaos_daemons_accursed_cultists",
       "name": "Accursed Cultists",
-      "codex": "Chaos - Chaos Space Marines.cat.gz",
+      "codex": "Chaos - Chaos Daemons.cat.gz",
       "health": 3.0,
       "damage": 11.0,
       "hit_probability": 0.5,
@@ -17082,9 +17082,9 @@
       "skip_reason": ""
     },
     {
-      "key": "chaos_knights_library_detachment_choice",
+      "key": "chaos_knights_detachment_choice",
       "name": "Detachment Choice",
-      "codex": "Chaos - Chaos Knights Library.cat.gz",
+      "codex": "Chaos - Chaos Knights.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -20567,9 +20567,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_decimator_legends",
+      "key": "chaos_space_marines_decimator_legends",
       "name": "Decimator [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 12.0,
       "damage": 8.0,
       "hit_probability": 0.667,
@@ -20638,9 +20638,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_greater_blight_drone_legends",
+      "key": "chaos_space_marines_greater_blight_drone_legends",
       "name": "Greater Blight Drone [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 10.0,
       "damage": 12.0,
       "hit_probability": 0.667,
@@ -20707,9 +20707,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_dreadclaw_drop_pod_legends",
+      "key": "chaos_space_marines_dreadclaw_drop_pod_legends",
       "name": "Dreadclaw Drop Pod [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 9.0,
       "damage": 8.0,
       "hit_probability": 0.5,
@@ -20773,9 +20773,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_blood_slaughterer_legends",
+      "key": "chaos_space_marines_blood_slaughterer_legends",
       "name": "Blood Slaughterer [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 10.0,
       "damage": 3.0,
       "hit_probability": 0.667,
@@ -20845,9 +20845,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_kytan_ravager_legends",
+      "key": "chaos_space_marines_kytan_ravager_legends",
       "name": "Kytan Ravager [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 24.0,
       "damage": 36.0,
       "hit_probability": 0.667,
@@ -20915,9 +20915,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_greater_brass_scorpion_legends",
+      "key": "chaos_space_marines_greater_brass_scorpion_legends",
       "name": "Greater Brass Scorpion [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 26.0,
       "damage": 22.75,
       "hit_probability": 0.667,
@@ -20987,9 +20987,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_kharybdis_assault_claw_legends",
+      "key": "chaos_space_marines_kharybdis_assault_claw_legends",
       "name": "Kharybdis Assault Claw [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 20.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -21057,9 +21057,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_sicaran_punisher_legends",
+      "key": "chaos_space_marines_sicaran_punisher_legends",
       "name": "Sicaran Punisher [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 14.0,
       "damage": 18.0,
       "hit_probability": 0.5,
@@ -21126,9 +21126,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_kratos_legends",
+      "key": "chaos_space_marines_kratos_legends",
       "name": "Kratos [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 18.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -21195,9 +21195,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_deredeo_dreadnought_legends",
+      "key": "chaos_space_marines_deredeo_dreadnought_legends",
       "name": "Deredeo Dreadnought [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 12.0,
       "damage": 18.0,
       "hit_probability": 0.667,
@@ -21265,9 +21265,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_leviathan_dreadnought_legends",
+      "key": "chaos_space_marines_leviathan_dreadnought_legends",
       "name": "Leviathan Dreadnought [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 12.0,
       "damage": 12.25,
       "hit_probability": 0.667,
@@ -21335,9 +21335,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_relic_contemptor_dreadnought_legends",
+      "key": "chaos_space_marines_relic_contemptor_dreadnought_legends",
       "name": "Relic Contemptor Dreadnought [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 10.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -21405,9 +21405,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_land_raider_proteus_legends",
+      "key": "chaos_space_marines_land_raider_proteus_legends",
       "name": "Land Raider Proteus [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 16.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -21474,9 +21474,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_land_raider_achilles_legends",
+      "key": "chaos_space_marines_land_raider_achilles_legends",
       "name": "Land Raider Achilles [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 16.0,
       "damage": 12.0,
       "hit_probability": 0.667,
@@ -21543,9 +21543,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_sicaran_battle_tank_legends",
+      "key": "chaos_space_marines_sicaran_battle_tank_legends",
       "name": "Sicaran Battle Tank [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 14.0,
       "damage": 18.0,
       "hit_probability": 0.667,
@@ -21612,9 +21612,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_sicaran_venator_legends",
+      "key": "chaos_space_marines_sicaran_venator_legends",
       "name": "Sicaran Venator [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 14.0,
       "damage": 15.0,
       "hit_probability": 0.667,
@@ -21681,9 +21681,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_terrax_pattern_termite_legends",
+      "key": "chaos_space_marines_terrax_pattern_termite_legends",
       "name": "Terrax-pattern Termite [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 14.0,
       "damage": 17.5,
       "hit_probability": 0.667,
@@ -21747,9 +21747,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_rapier_carrier_legends",
+      "key": "chaos_space_marines_rapier_carrier_legends",
       "name": "Rapier Carrier [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 6.0,
       "damage": 13.5,
       "hit_probability": 0.667,
@@ -21816,9 +21816,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_whirlwind_scorpius_legends",
+      "key": "chaos_space_marines_whirlwind_scorpius_legends",
       "name": "Whirlwind Scorpius [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 11.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -21884,9 +21884,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_chaos_thunderhawk_legends",
+      "key": "chaos_space_marines_chaos_thunderhawk_legends",
       "name": "Chaos Thunderhawk [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 30.0,
       "damage": 28.5,
       "hit_probability": 0.667,
@@ -21955,9 +21955,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_xiphon_interceptor_legends",
+      "key": "chaos_space_marines_xiphon_interceptor_legends",
       "name": "Xiphon Interceptor [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 12.0,
       "damage": 4.5,
       "hit_probability": 0.667,
@@ -22023,9 +22023,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_storm_eagle_gunship_legends",
+      "key": "chaos_space_marines_storm_eagle_gunship_legends",
       "name": "Storm Eagle Gunship [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 18.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -22093,9 +22093,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_fire_raptor_gunship_legends",
+      "key": "chaos_space_marines_fire_raptor_gunship_legends",
       "name": "Fire Raptor Gunship [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 18.0,
       "damage": 20.0,
       "hit_probability": 0.667,
@@ -22160,9 +22160,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_typhon_legends",
+      "key": "chaos_space_marines_typhon_legends",
       "name": "Typhon [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 18.0,
       "damage": 33.25,
       "hit_probability": 0.667,
@@ -22229,9 +22229,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_cerberus_legends",
+      "key": "chaos_space_marines_cerberus_legends",
       "name": "Cerberus [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 18.0,
       "damage": 19.5,
       "hit_probability": 0.667,
@@ -22298,9 +22298,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_spartan_legends",
+      "key": "chaos_space_marines_spartan_legends",
       "name": "Spartan [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 18.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -22367,9 +22367,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_fellblade_legends",
+      "key": "chaos_space_marines_fellblade_legends",
       "name": "Fellblade [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 24.0,
       "damage": 22.75,
       "hit_probability": 0.667,
@@ -22437,9 +22437,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_falchion_legends",
+      "key": "chaos_space_marines_falchion_legends",
       "name": "Falchion [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 24.0,
       "damage": 36.0,
       "hit_probability": 0.667,
@@ -22507,9 +22507,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_mastodon_legends",
+      "key": "chaos_space_marines_mastodon_legends",
       "name": "Mastodon [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 30.0,
       "damage": 21.0,
       "hit_probability": 0.667,
@@ -22575,9 +22575,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_sokar_pattern_stormbird_legends",
+      "key": "chaos_space_marines_sokar_pattern_stormbird_legends",
       "name": "Sokar-pattern Stormbird [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 40.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -28756,9 +28756,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_titans_reaver_titan",
+      "key": "titanicus_traitoris_reaver_titan",
       "name": "Reaver Titan",
-      "codex": "Library - Titans.cat.gz",
+      "codex": "Chaos - Titanicus Traitoris.cat.gz",
       "health": 60.0,
       "damage": 42.0,
       "hit_probability": 0.667,
@@ -28828,9 +28828,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_titans_warbringer_nemesis_titan",
+      "key": "titanicus_traitoris_warbringer_nemesis_titan",
       "name": "Warbringer Nemesis Titan",
-      "codex": "Library - Titans.cat.gz",
+      "codex": "Chaos - Titanicus Traitoris.cat.gz",
       "health": 80.0,
       "damage": 70.0,
       "hit_probability": 0.667,
@@ -28900,9 +28900,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_titans_warhound_titan",
+      "key": "titanicus_traitoris_warhound_titan",
       "name": "Warhound Titan",
-      "codex": "Library - Titans.cat.gz",
+      "codex": "Chaos - Titanicus Traitoris.cat.gz",
       "health": 40.0,
       "damage": 50.0,
       "hit_probability": 0.667,
@@ -28972,9 +28972,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_titans_warlord_titan",
+      "key": "titanicus_traitoris_warlord_titan",
       "name": "Warlord Titan",
-      "codex": "Library - Titans.cat.gz",
+      "codex": "Chaos - Titanicus Traitoris.cat.gz",
       "health": 100.0,
       "damage": 90.0,
       "hit_probability": 0.667,
@@ -32379,9 +32379,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_aegis_defence_line",
+      "key": "astra_militarum_aegis_defence_line",
       "name": "Aegis Defence Line",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 0,
       "hit_probability": 0,
@@ -32440,9 +32440,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "astra_militarum_library_armoured_sentinels",
+      "key": "astra_militarum_armoured_sentinels",
       "name": "Armoured Sentinels",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 7.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -32507,9 +32507,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_attilan_rough_riders",
+      "key": "astra_militarum_attilan_rough_riders",
       "name": "Attilan Rough Riders",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -32579,9 +32579,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_baneblade",
+      "key": "astra_militarum_baneblade",
       "name": "Baneblade",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 31.5,
       "hit_probability": 0.5,
@@ -32649,9 +32649,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_banehammer",
+      "key": "astra_militarum_banehammer",
       "name": "Banehammer",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 30.0,
       "hit_probability": 0.5,
@@ -32718,9 +32718,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_banesword",
+      "key": "astra_militarum_banesword",
       "name": "Banesword",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 38.0,
       "hit_probability": 0.5,
@@ -32787,9 +32787,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_basilisk",
+      "key": "astra_militarum_basilisk",
       "name": "Basilisk",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 13.0,
       "hit_probability": 0.5,
@@ -32854,9 +32854,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_cadian_castellan",
+      "key": "astra_militarum_cadian_castellan",
       "name": "Cadian Castellan",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -32924,9 +32924,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_cadian_command_squad",
+      "key": "astra_militarum_cadian_command_squad",
       "name": "Cadian Command Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -32991,9 +32991,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_cadian_shock_troops",
+      "key": "astra_militarum_cadian_shock_troops",
       "name": "Cadian Shock Troops",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 0,
       "hit_probability": 0,
@@ -33052,9 +33052,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "astra_militarum_library_chimera",
+      "key": "astra_militarum_chimera",
       "name": "Chimera",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 3.5,
       "hit_probability": 0.5,
@@ -33119,9 +33119,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_death_korps_of_krieg",
+      "key": "astra_militarum_death_korps_of_krieg",
       "name": "Death Korps of Krieg",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 0,
       "hit_probability": 0,
@@ -33180,9 +33180,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "astra_militarum_library_deathstrike",
+      "key": "astra_militarum_deathstrike",
       "name": "Deathstrike",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 7.0,
       "hit_probability": 0.833,
@@ -33247,9 +33247,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_doomhammer",
+      "key": "astra_militarum_doomhammer",
       "name": "Doomhammer",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 22.75,
       "hit_probability": 0.5,
@@ -33316,9 +33316,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_field_ordnance_battery",
+      "key": "astra_militarum_field_ordnance_battery",
       "name": "Field Ordnance Battery",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 2.77,
       "hit_probability": 0.444,
@@ -33385,9 +33385,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_cadian_heavy_weapons_squad",
+      "key": "astra_militarum_cadian_heavy_weapons_squad",
       "name": "Cadian Heavy Weapons Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 3.8,
       "hit_probability": 0.417,
@@ -33455,9 +33455,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_hellhammer",
+      "key": "astra_militarum_hellhammer",
       "name": "Hellhammer",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 22.75,
       "hit_probability": 0.5,
@@ -33525,9 +33525,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_hellhound",
+      "key": "astra_militarum_hellhound",
       "name": "Hellhound",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 9.0,
       "hit_probability": 1.0,
@@ -33596,9 +33596,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_hydra",
+      "key": "astra_militarum_hydra",
       "name": "Hydra",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 12.0,
       "hit_probability": 0.5,
@@ -33665,9 +33665,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_kasrkin",
+      "key": "astra_militarum_kasrkin",
       "name": "Kasrkin",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 1.22,
       "hit_probability": 0.667,
@@ -33735,9 +33735,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_battle_tank",
+      "key": "astra_militarum_leman_russ_battle_tank",
       "name": "Leman Russ Battle Tank",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 19.5,
       "hit_probability": 0.5,
@@ -33802,9 +33802,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_eradicator",
+      "key": "astra_militarum_leman_russ_eradicator",
       "name": "Leman Russ Eradicator",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 16.0,
       "hit_probability": 0.5,
@@ -33869,9 +33869,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_demolisher",
+      "key": "astra_militarum_leman_russ_demolisher",
       "name": "Leman Russ Demolisher",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 15.75,
       "hit_probability": 0.5,
@@ -33936,9 +33936,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_exterminator",
+      "key": "astra_militarum_leman_russ_exterminator",
       "name": "Leman Russ Exterminator",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 12.0,
       "hit_probability": 0.5,
@@ -34003,9 +34003,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_vanquisher",
+      "key": "astra_militarum_leman_russ_vanquisher",
       "name": "Leman Russ Vanquisher",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 9.5,
       "hit_probability": 0.5,
@@ -34070,9 +34070,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_punisher",
+      "key": "astra_militarum_leman_russ_punisher",
       "name": "Leman Russ Punisher",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 20.0,
       "hit_probability": 0.5,
@@ -34137,9 +34137,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_manticore",
+      "key": "astra_militarum_manticore",
       "name": "Manticore",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 10.5,
       "hit_probability": 0.5,
@@ -34206,9 +34206,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_primaris_psyker",
+      "key": "astra_militarum_primaris_psyker",
       "name": "Primaris Psyker",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 9.0,
       "hit_probability": 0.667,
@@ -34276,9 +34276,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_regimental_attach_s_legends",
+      "key": "astra_militarum_regimental_attach_s_legends",
       "name": "Regimental Attach\u00e9s [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -34344,9 +34344,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_rogal_dorn_battle_tank",
+      "key": "astra_militarum_rogal_dorn_battle_tank",
       "name": "Rogal Dorn Battle Tank",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 3.0,
       "hit_probability": 0.5,
@@ -34410,9 +34410,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_scout_sentinels",
+      "key": "astra_militarum_scout_sentinels",
       "name": "Scout Sentinels",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 7.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -34477,9 +34477,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_shadowsword",
+      "key": "astra_militarum_shadowsword",
       "name": "Shadowsword",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 36.0,
       "hit_probability": 0.5,
@@ -34546,9 +34546,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_stormlord",
+      "key": "astra_militarum_stormlord",
       "name": "Stormlord",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 40.0,
       "hit_probability": 0.5,
@@ -34616,9 +34616,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_commander",
+      "key": "astra_militarum_leman_russ_commander",
       "name": "Leman Russ Commander",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 3.5,
       "hit_probability": 0.5,
@@ -34683,9 +34683,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_taurox",
+      "key": "astra_militarum_taurox",
       "name": "Taurox",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -34750,9 +34750,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_taurox_prime",
+      "key": "astra_militarum_taurox_prime",
       "name": "Taurox Prime",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -34816,9 +34816,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_wyvern",
+      "key": "astra_militarum_wyvern",
       "name": "Wyvern",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 7.0,
       "hit_probability": 0.5,
@@ -34944,9 +34944,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "astra_militarum_library_medusa_carriage_battery_legends",
+      "key": "astra_militarum_medusa_carriage_battery_legends",
       "name": "Medusa Carriage Battery [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 10.5,
       "hit_probability": 0.333,
@@ -35011,9 +35011,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_tarantula_battery_legends",
+      "key": "astra_militarum_tarantula_battery_legends",
       "name": "Tarantula Battery [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -35077,9 +35077,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_trojan_support_vehicle_legends",
+      "key": "astra_militarum_trojan_support_vehicle_legends",
       "name": "Trojan Support Vehicle [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -35145,9 +35145,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_rapier_laser_destroyer_battery_legends",
+      "key": "astra_militarum_rapier_laser_destroyer_battery_legends",
       "name": "Rapier Laser Destroyer Battery [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 9.0,
       "hit_probability": 0.333,
@@ -35211,9 +35211,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_hades_breaching_drill_legends",
+      "key": "astra_militarum_hades_breaching_drill_legends",
       "name": "Hades Breaching Drill [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 8.0,
       "damage": 33.0,
       "hit_probability": 0.5,
@@ -35276,9 +35276,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_death_riders",
+      "key": "astra_militarum_death_riders",
       "name": "Death Riders",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 2.0,
       "hit_probability": 0.5,
@@ -35348,9 +35348,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_carnodon_legends",
+      "key": "astra_militarum_carnodon_legends",
       "name": "Carnodon [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 12.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -35417,9 +35417,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_cyclops_demolition_vehicle",
+      "key": "astra_militarum_cyclops_demolition_vehicle",
       "name": "Cyclops Demolition Vehicle",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 0,
       "hit_probability": 0,
@@ -35478,9 +35478,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "astra_militarum_library_malcador_legends",
+      "key": "astra_militarum_malcador_legends",
       "name": "Malcador [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 19.5,
       "hit_probability": 0.5,
@@ -35547,9 +35547,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_malcador_annihilator_legends",
+      "key": "astra_militarum_malcador_annihilator_legends",
       "name": "Malcador Annihilator [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 22.75,
       "hit_probability": 0.5,
@@ -35616,9 +35616,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_malcador_defender_legends",
+      "key": "astra_militarum_malcador_defender_legends",
       "name": "Malcador Defender [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 22.75,
       "hit_probability": 0.5,
@@ -35685,9 +35685,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_malcador_infernus_legends",
+      "key": "astra_militarum_malcador_infernus_legends",
       "name": "Malcador Infernus [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 13.0,
       "hit_probability": 1.0,
@@ -35754,9 +35754,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_earthshaker_carriage_battery_legends",
+      "key": "astra_militarum_earthshaker_carriage_battery_legends",
       "name": "Earthshaker Carriage Battery [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 13.0,
       "hit_probability": 0.333,
@@ -35820,9 +35820,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_stormblade_legends",
+      "key": "astra_militarum_stormblade_legends",
       "name": "Stormblade [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 26.0,
       "hit_probability": 0.5,
@@ -35890,9 +35890,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_macharius_legends",
+      "key": "astra_militarum_macharius_legends",
       "name": "Macharius [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 19.5,
       "hit_probability": 0.5,
@@ -35960,9 +35960,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_macharius_vanquisher_legends",
+      "key": "astra_militarum_macharius_vanquisher_legends",
       "name": "Macharius Vanquisher [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 9.5,
       "hit_probability": 0.5,
@@ -36030,9 +36030,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_macharius_vulcan_legends",
+      "key": "astra_militarum_macharius_vulcan_legends",
       "name": "Macharius Vulcan [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 32.0,
       "hit_probability": 0.5,
@@ -36100,9 +36100,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_praetor_legends",
+      "key": "astra_militarum_praetor_legends",
       "name": "Praetor [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 13.5,
       "hit_probability": 0.5,
@@ -36172,9 +36172,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_crassus_legends",
+      "key": "astra_militarum_crassus_legends",
       "name": "Crassus [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -36240,9 +36240,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_colossus_legends",
+      "key": "astra_militarum_colossus_legends",
       "name": "Colossus [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 19.25,
       "hit_probability": 0.5,
@@ -36309,9 +36309,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_valdor_legends",
+      "key": "astra_militarum_valdor_legends",
       "name": "Valdor [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 9.0,
       "hit_probability": 0.5,
@@ -36379,9 +36379,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_gorgon_heavy_transport_legends",
+      "key": "astra_militarum_gorgon_heavy_transport_legends",
       "name": "Gorgon Heavy Transport [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 3.5,
       "hit_probability": 0.5,
@@ -36447,9 +36447,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_arkurian_stormhammer_legends",
+      "key": "astra_militarum_arkurian_stormhammer_legends",
       "name": "Arkurian Stormhammer [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 31.5,
       "hit_probability": 0.5,
@@ -36517,9 +36517,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_dominus_armoured_siege_bombard_legends",
+      "key": "astra_militarum_dominus_armoured_siege_bombard_legends",
       "name": "Dominus Armoured Siege Bombard [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 21.0,
       "hit_probability": 0.5,
@@ -36587,9 +36587,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_death_korps_grenadier_squad_legends",
+      "key": "astra_militarum_death_korps_grenadier_squad_legends",
       "name": "Death Korps Grenadier Squad [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 1.28,
       "hit_probability": 0.704,
@@ -36655,9 +36655,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_heavy_mortar_team_legends",
+      "key": "astra_militarum_heavy_mortar_team_legends",
       "name": "Heavy Mortar Team [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 7.0,
       "hit_probability": 0.333,
@@ -36721,9 +36721,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_heavy_quad_launcher_team_legends",
+      "key": "astra_militarum_heavy_quad_launcher_team_legends",
       "name": "Heavy Quad Launcher Team [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 7.0,
       "hit_probability": 0.5,
@@ -36787,9 +36787,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_atlas_recovery_vehicle_legends",
+      "key": "astra_militarum_atlas_recovery_vehicle_legends",
       "name": "Atlas Recovery Vehicle [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -36856,9 +36856,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_elysian_drop_sentinel_legends",
+      "key": "astra_militarum_elysian_drop_sentinel_legends",
       "name": "Elysian Drop Sentinel [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 7.0,
       "hit_probability": 0.5,
@@ -36926,9 +36926,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_earthshaker_platform_legends",
+      "key": "astra_militarum_earthshaker_platform_legends",
       "name": "Earthshaker Platform [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 8.0,
       "damage": 13.0,
       "hit_probability": 0.5,
@@ -36990,9 +36990,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_mukaali_riders_legends",
+      "key": "astra_militarum_mukaali_riders_legends",
       "name": "Mukaali Riders [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 5.0,
       "damage": 2.0,
       "hit_probability": 0.5,
@@ -37057,9 +37057,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_salamander_scout_vehicle_legends",
+      "key": "astra_militarum_salamander_scout_vehicle_legends",
       "name": "Salamander Scout Vehicle [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -37126,9 +37126,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_tauros_venator_legends",
+      "key": "astra_militarum_tauros_venator_legends",
       "name": "Tauros Venator [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -37194,9 +37194,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_tauros_assault_vehicle_legends",
+      "key": "astra_militarum_tauros_assault_vehicle_legends",
       "name": "Tauros Assault Vehicle [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -37263,9 +37263,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_salamander_command_vehicle_legends",
+      "key": "astra_militarum_salamander_command_vehicle_legends",
       "name": "Salamander Command Vehicle [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -37332,9 +37332,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_storm_chimera_legends",
+      "key": "astra_militarum_storm_chimera_legends",
       "name": "Storm Chimera [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -37401,9 +37401,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_centaur_light_carrier_legends",
+      "key": "astra_militarum_centaur_light_carrier_legends",
       "name": "Centaur Light Carrier [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 7.0,
       "damage": 3.5,
       "hit_probability": 0.5,
@@ -37468,9 +37468,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_macharius_omega_legends",
+      "key": "astra_militarum_macharius_omega_legends",
       "name": "Macharius Omega [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 21.0,
       "hit_probability": 0.5,
@@ -37538,9 +37538,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_stygies_destroyer_tank_hunter_legends",
+      "key": "astra_militarum_stygies_destroyer_tank_hunter_legends",
       "name": "Stygies Destroyer Tank Hunter [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 13.0,
       "hit_probability": 0.5,
@@ -37607,9 +37607,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_leman_russ_executioner",
+      "key": "astra_militarum_leman_russ_executioner",
       "name": "Leman Russ Executioner",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 13.0,
       "damage": 19.5,
       "hit_probability": 0.5,
@@ -37675,9 +37675,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_armageddon_pattern_medusa_legends",
+      "key": "astra_militarum_armageddon_pattern_medusa_legends",
       "name": "Armageddon-pattern Medusa [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 14.0,
       "hit_probability": 0.5,
@@ -37744,9 +37744,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_elysian_sniper_squad_legends",
+      "key": "astra_militarum_elysian_sniper_squad_legends",
       "name": "Elysian Sniper Squad [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 1.5,
       "hit_probability": 0.583,
@@ -37811,9 +37811,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_griffon_mortar_carrier_legends",
+      "key": "astra_militarum_griffon_mortar_carrier_legends",
       "name": "Griffon Mortar Carrier [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 11.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -37945,9 +37945,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_hydra_platform_legends",
+      "key": "astra_militarum_hydra_platform_legends",
       "name": "Hydra Platform [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 8.0,
       "damage": 12.0,
       "hit_probability": 0.5,
@@ -38011,9 +38011,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_manticore_platform_legends",
+      "key": "astra_militarum_manticore_platform_legends",
       "name": "Manticore Platform [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 8.0,
       "damage": 13.5,
       "hit_probability": 0.5,
@@ -38075,9 +38075,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_minotaur_legends",
+      "key": "astra_militarum_minotaur_legends",
       "name": "Minotaur [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 13.0,
       "hit_probability": 0.5,
@@ -38141,9 +38141,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_quartermaster_cadre_squad_legends",
+      "key": "astra_militarum_quartermaster_cadre_squad_legends",
       "name": "Quartermaster Cadre Squad [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -38209,9 +38209,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_sabre_weapons_battery_legends",
+      "key": "astra_militarum_sabre_weapons_battery_legends",
       "name": "Sabre Weapons Battery [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -38273,9 +38273,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_sentinel_powerlifter_legends",
+      "key": "astra_militarum_sentinel_powerlifter_legends",
       "name": "Sentinel Powerlifter [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -38339,9 +38339,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_catachan_jungle_fighters",
+      "key": "astra_militarum_catachan_jungle_fighters",
       "name": "Catachan Jungle Fighters",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 0,
       "hit_probability": 0,
@@ -38400,9 +38400,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "astra_militarum_library_stormsword",
+      "key": "astra_militarum_stormsword",
       "name": "Stormsword",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 24.0,
       "damage": 52.25,
       "hit_probability": 0.5,
@@ -39338,9 +39338,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_krieg_command_squad",
+      "key": "astra_militarum_krieg_command_squad",
       "name": "Krieg Command Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 2.0,
       "hit_probability": 0.5,
@@ -39405,9 +39405,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_catachan_command_squad",
+      "key": "astra_militarum_catachan_command_squad",
       "name": "Catachan Command Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 2.25,
       "hit_probability": 0.5,
@@ -39473,9 +39473,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_rogal_dorn_commander",
+      "key": "astra_militarum_rogal_dorn_commander",
       "name": "Rogal Dorn Commander",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 18.0,
       "damage": 3.0,
       "hit_probability": 0.5,
@@ -39540,9 +39540,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_artillery_team",
+      "key": "astra_militarum_artillery_team",
       "name": "Artillery Team",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 10.0,
       "damage": 10.5,
       "hit_probability": 0.333,
@@ -39609,9 +39609,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_krieg_combat_engineers",
+      "key": "astra_militarum_krieg_combat_engineers",
       "name": "Krieg Combat Engineers",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 2.05,
       "hit_probability": 0.545,
@@ -39678,9 +39678,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_krieg_heavy_weapons_squad",
+      "key": "astra_militarum_krieg_heavy_weapons_squad",
       "name": "Krieg Heavy Weapons Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 2.81,
       "hit_probability": 0.417,
@@ -39746,9 +39746,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_catachan_heavy_weapons_squad",
+      "key": "astra_militarum_catachan_heavy_weapons_squad",
       "name": "Catachan Heavy Weapons Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 2.95,
       "hit_probability": 0.417,
@@ -39889,9 +39889,9 @@
       "skip_reason": ""
     },
     {
-      "key": "warhammer_40_000_order_of_battle",
+      "key": "genestealer_cults_order_of_battle",
       "name": "Order of Battle",
-      "codex": "Warhammer 40,000.gst.gz",
+      "codex": "Genestealer Cults.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -50051,9 +50051,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_iron_hand_straken_legends",
+      "key": "astra_militarum_iron_hand_straken_legends",
       "name": "\u2018Iron Hand\u2019 Straken [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -50120,9 +50120,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_bullgryn_squad",
+      "key": "astra_militarum_bullgryn_squad",
       "name": "Bullgryn Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 3.5,
       "hit_probability": 0.5,
@@ -50187,9 +50187,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_commissar",
+      "key": "astra_militarum_commissar",
       "name": "Commissar",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -50257,9 +50257,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_gaunt_s_ghosts",
+      "key": "astra_militarum_gaunt_s_ghosts",
       "name": "Gaunt\u2019s Ghosts",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 4.0,
       "hit_probability": 0.833,
@@ -50327,9 +50327,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_lord_solar_leontus",
+      "key": "astra_militarum_lord_solar_leontus",
       "name": "Lord Solar Leontus",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 8.0,
       "damage": 4.0,
       "hit_probability": 0.833,
@@ -50395,9 +50395,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_militarum_tempestus_command_squad",
+      "key": "astra_militarum_militarum_tempestus_command_squad",
       "name": "Militarum Tempestus Command Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 1.62,
       "hit_probability": 0.667,
@@ -50464,9 +50464,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_nork_deddog",
+      "key": "astra_militarum_nork_deddog",
       "name": "Nork Deddog",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -50531,9 +50531,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_ogryn_bodyguard",
+      "key": "astra_militarum_ogryn_bodyguard",
       "name": "Ogryn Bodyguard",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -50601,9 +50601,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_ogryn_squad",
+      "key": "astra_militarum_ogryn_squad",
       "name": "Ogryn Squad",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -50666,9 +50666,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_provisionally_prepared_legends",
+      "key": "astra_militarum_provisionally_prepared_legends",
       "name": "Provisionally Prepared [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 2.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -50733,9 +50733,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_tech_priest_enginseer",
+      "key": "astra_militarum_tech_priest_enginseer",
       "name": "Tech-Priest Enginseer",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -50801,9 +50801,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_sergeant_harker_legends",
+      "key": "astra_militarum_sergeant_harker_legends",
       "name": "Sergeant Harker [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -50868,9 +50868,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_sly_marbo",
+      "key": "astra_militarum_sly_marbo",
       "name": "Sly Marbo",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 6.0,
       "hit_probability": 0.833,
@@ -50937,9 +50937,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_tempestus_scions",
+      "key": "astra_militarum_tempestus_scions",
       "name": "Tempestus Scions",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -51005,9 +51005,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_ursula_creed",
+      "key": "astra_militarum_ursula_creed",
       "name": "Ursula Creed",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 4.0,
       "hit_probability": 0.667,
@@ -51072,9 +51072,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_valkyrie",
+      "key": "astra_militarum_valkyrie",
       "name": "Valkyrie",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 14.0,
       "damage": 3.0,
       "hit_probability": 0.5,
@@ -51138,9 +51138,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_detachment",
+      "key": "astra_militarum_detachment",
       "name": "Detachment",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -51199,9 +51199,9 @@
       "skip_reason": "no unit profile (no W/SV characteristic) in tree"
     },
     {
-      "key": "astra_militarum_library_munitorum_servitors_legends",
+      "key": "astra_militarum_munitorum_servitors_legends",
       "name": "Munitorum Servitors [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 7.0,
       "hit_probability": 0.167,
@@ -51265,9 +51265,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_hell_s_last_legends",
+      "key": "astra_militarum_hell_s_last_legends",
       "name": "Hell's Last [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -51332,9 +51332,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_avenger_strike_fighter",
+      "key": "astra_militarum_avenger_strike_fighter",
       "name": "Avenger Strike Fighter",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 14.0,
       "damage": 20.0,
       "hit_probability": 0.5,
@@ -51401,9 +51401,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_voss_pattern_lightning_legends",
+      "key": "astra_militarum_voss_pattern_lightning_legends",
       "name": "Voss-pattern Lightning [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 14.0,
       "damage": 7.0,
       "hit_probability": 0.5,
@@ -51471,9 +51471,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_vulture_gunship_legends",
+      "key": "astra_militarum_vulture_gunship_legends",
       "name": "Vulture Gunship [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 14.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -51538,9 +51538,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_marauder_bomber_legends",
+      "key": "astra_militarum_marauder_bomber_legends",
       "name": "Marauder Bomber [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 4.5,
       "hit_probability": 0.5,
@@ -51607,9 +51607,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_marauder_destroyer_legends",
+      "key": "astra_militarum_marauder_destroyer_legends",
       "name": "Marauder Destroyer [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 20.0,
       "damage": 12.0,
       "hit_probability": 0.5,
@@ -51678,9 +51678,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_valkyrie_sky_talon_legends",
+      "key": "astra_militarum_valkyrie_sky_talon_legends",
       "name": "Valkyrie Sky Talon [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 14.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -51745,9 +51745,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_aquila_lander_legends",
+      "key": "astra_militarum_aquila_lander_legends",
       "name": "Aquila Lander [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 12.0,
       "damage": 6.0,
       "hit_probability": 0.5,
@@ -51814,9 +51814,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_death_rider_commissar_legends",
+      "key": "astra_militarum_death_rider_commissar_legends",
       "name": "Death Rider Commissar [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 4.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -51882,9 +51882,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_rein_and_raus_legends",
+      "key": "astra_militarum_rein_and_raus_legends",
       "name": "Rein and Raus [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 13.0,
       "hit_probability": 0.5,
@@ -51952,9 +51952,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_arvus_lighter_legends",
+      "key": "astra_militarum_arvus_lighter_legends",
       "name": "Arvus Lighter [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 8.0,
       "damage": 2.0,
       "hit_probability": 0.5,
@@ -52018,9 +52018,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_vendetta_gunship_legends",
+      "key": "astra_militarum_vendetta_gunship_legends",
       "name": "Vendetta Gunship [Legends]",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 14.0,
       "damage": 7.0,
       "hit_probability": 0.5,
@@ -52089,9 +52089,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_tempestus_aquilons",
+      "key": "astra_militarum_tempestus_aquilons",
       "name": "Tempestus Aquilons",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 2.17,
       "hit_probability": 0.667,
@@ -52161,9 +52161,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_ratlings",
+      "key": "astra_militarum_ratlings",
       "name": "Ratlings",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 1.0,
       "damage": 2.15,
       "hit_probability": 0.667,
@@ -52229,9 +52229,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_lord_marshal_dreir",
+      "key": "astra_militarum_lord_marshal_dreir",
       "name": "Lord Marshal Dreir",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 6.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -52297,9 +52297,9 @@
       "skip_reason": ""
     },
     {
-      "key": "astra_militarum_library_ministorum_priest",
+      "key": "astra_militarum_ministorum_priest",
       "name": "Ministorum Priest",
-      "codex": "Imperium - Astra Militarum - Library.cat.gz",
+      "codex": "Imperium - Astra Militarum.cat.gz",
       "health": 3.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -61114,9 +61114,9 @@
       "skip_reason": ""
     },
     {
-      "key": "imperial_knights_library_detachment",
+      "key": "imperial_knights_detachment",
       "name": "Detachment",
-      "codex": "Imperium - Imperial Knights - Library.cat.gz",
+      "codex": "Imperium - Imperial Knights.cat.gz",
       "health": 0,
       "damage": 0,
       "hit_probability": 0,
@@ -68649,9 +68649,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_javelin_attack_speeder_legends",
+      "key": "space_marines_javelin_attack_speeder_legends",
       "name": "Javelin Attack Speeder [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 9.0,
       "damage": 10.5,
       "hit_probability": 0.667,
@@ -68719,9 +68719,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_deathstorm_drop_pod_legends",
+      "key": "space_marines_deathstorm_drop_pod_legends",
       "name": "Deathstorm Drop Pod [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 8.0,
       "damage": 14.0,
       "hit_probability": 0.5,
@@ -68785,9 +68785,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_sicaran_arcus_legends",
+      "key": "space_marines_sicaran_arcus_legends",
       "name": "Sicaran Arcus [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 14.0,
       "damage": 14.0,
       "hit_probability": 0.667,
@@ -68854,9 +68854,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_sicaran_omega_legends",
+      "key": "space_marines_sicaran_omega_legends",
       "name": "Sicaran Omega [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 14.0,
       "damage": 18.0,
       "hit_probability": 0.667,
@@ -68923,9 +68923,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_vindicator_laser_destroyer_legends",
+      "key": "space_marines_vindicator_laser_destroyer_legends",
       "name": "Vindicator Laser Destroyer [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 11.0,
       "damage": 19.5,
       "hit_probability": 0.667,
@@ -68992,9 +68992,9 @@
       "skip_reason": ""
     },
     {
-      "key": "library_astartes_heresy_legends_dreadnought_drop_pod_legends",
+      "key": "space_marines_dreadnought_drop_pod_legends",
       "name": "Dreadnought Drop Pod [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 8.0,
       "damage": 0,
       "hit_probability": 0,
@@ -69053,9 +69053,9 @@
       "skip_reason": "no ranged OR melee weapons resolvable in tree"
     },
     {
-      "key": "library_astartes_heresy_legends_tarantula_sentry_battery_legends",
+      "key": "space_marines_tarantula_sentry_battery_legends",
       "name": "Tarantula Sentry Battery [Legends]",
-      "codex": "Library - Astartes Heresy Legends.cat.gz",
+      "codex": "Imperium - Space Marines.cat.gz",
       "health": 4.0,
       "damage": 4.5,
       "hit_probability": 0.667,

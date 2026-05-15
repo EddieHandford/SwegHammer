@@ -240,5 +240,34 @@ class PainTokenEffectsTests(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# Catalogue coverage: BSData -> UNIT_CATALOG must surface Drukhari datasheets
+# ---------------------------------------------------------------------------
+
+class DrukhariCatalogueTests(unittest.TestCase):
+    """Without Drukhari units in UNIT_CATALOG, the Power From Pain gate (the
+    rule above) is dormant - no live unit ever has profile.faction='Drukhari'
+    for the simulator to gate on. These tests guard against the BSData mapper
+    silently dropping the Drukhari codex (which it did before #150: every
+    Drukhari datasheet is *defined* in the shared Aeldari Library .cat, so
+    the mapper credited them to Aeldari -> Drukhari count was 0)."""
+
+    def test_drukhari_units_present_in_catalogue(self):
+        from code.units import UNIT_CATALOG
+        drukhari = [u for u in UNIT_CATALOG.values() if u.faction == "Drukhari"]
+        self.assertGreaterEqual(
+            len(drukhari), 25,
+            f"Expected >=25 Drukhari units in UNIT_CATALOG, got {len(drukhari)}",
+        )
+
+    def test_kabalite_warriors_in_catalogue(self):
+        from code.units import UNIT_CATALOG
+        names = {u.name for u in UNIT_CATALOG.values() if u.faction == "Drukhari"}
+        self.assertIn(
+            "Kabalite Warriors", names,
+            f"Kabalite Warriors must be in the Drukhari catalogue; found: {sorted(names)}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

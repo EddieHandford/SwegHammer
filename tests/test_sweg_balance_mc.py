@@ -140,7 +140,7 @@ class PersistenceTests(unittest.TestCase):
         try:
             tmp_overrides = tmpdir / "overrides.json"
             seed = {"units": {
-                "aeldari_aeldari_library_wraithguard": {
+                "aeldari_craftworlds_wraithguard": {
                     "invuln_save": 4,
                     "notes": "preserve me",
                 }
@@ -151,7 +151,7 @@ class PersistenceTests(unittest.TestCase):
                 doc = sbm.apply_updates_to_overrides(updates)
                 sbm.write_overrides(doc)
                 reloaded = json.loads(tmp_overrides.read_text(encoding="utf-8"))
-            entry = reloaded["units"]["aeldari_aeldari_library_wraithguard"]
+            entry = reloaded["units"]["aeldari_craftworlds_wraithguard"]
             self.assertEqual(entry["invuln_save"], 4)
             self.assertIn("points_override", entry)
             # Notes preserved (with tag appended)

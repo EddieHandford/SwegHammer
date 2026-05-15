@@ -61,7 +61,14 @@ CODEX_TO_FACTION: Dict[str, str] = {
 
     # ---- Xenos ----
     "Aeldari - Aeldari Library.cat":               "Aeldari",
-    "Aeldari - Craftworlds.cat":                   "Aeldari (Craftworlds)",
+    # Note: the Craftworlds sub-codex maps to the umbrella "Aeldari" faction
+    # rather than a "Aeldari (Craftworlds)" sub-name. The Battle Focus army
+    # rule applies to all AELDARI keyword units (Asuryani + their characters),
+    # and the simulator + eval harness gate on faction == "Aeldari" — keeping
+    # the bucket flat ensures Wraithguard, Guardians, Aspect Warriors, etc.
+    # land in the same army-builder pool as Drukhari-adjacent allies. Sub-
+    # faction discrimination is handled via the ASURYANI unit keyword.
+    "Aeldari - Craftworlds.cat":                   "Aeldari",
     "Aeldari - Drukhari.cat":                      "Drukhari",
     "Aeldari - Ynnari.cat":                        "Ynnari",
     "Necrons.cat":                                 "Necrons",
@@ -115,7 +122,6 @@ FACTION_COLOURS: Dict[str, str] = {
 
     # Xenos
     "Aeldari":                  "#6A1B9A",   # Wraithbone purple (Ulthwé-ish)
-    "Aeldari (Craftworlds)":    "#6A1B9A",
     "Drukhari":                 "#3B0E2E",   # Dark Kin near-black-purple
     "Ynnari":                   "#1F2B5A",   # Reborn navy
     "Chaos Titans":             "#3A2A4F",   # Traitor titan dark plum

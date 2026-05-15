@@ -66,8 +66,8 @@ FACTION_ADJUSTMENTS: Dict[str, Tuple[str, List[str]]] = {
         "adeptus_custodes_allarus_custodians",
     ]),
     "Aeldari": ("up", [
-        "aeldari_aeldari_library_wraithguard",
-        "aeldari_aeldari_library_falcon",
+        "aeldari_craftworlds_wraithguard",
+        "aeldari_craftworlds_falcon",
     ]),
     # Under-strong on GW-anchored eval (sim WR < real WR): lower per-model cost.
     # T'au flipped direction post-points-fix: under Lanchester they were over-

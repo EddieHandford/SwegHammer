@@ -70,9 +70,10 @@ class FnpInfoLinkExtractionTest(unittest.TestCase):
         self._assert_fnp("death_guard_poxwalkers", 5)
 
     def test_wracks_have_fnp_5(self) -> None:
-        # BSData defines Wracks in the Aeldari Library catalogue, shared
-        # between Drukhari and Ynnari rosters.
-        self._assert_fnp("aeldari_aeldari_library_wracks", 5)
+        # BSData defines Wracks in the Aeldari Library catalogue, but the
+        # parser credits the Drukhari importing codex (see parser.py
+        # iter_unit_entries). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wracks
+        self._assert_fnp("aeldari_drukhari_wracks", 5)
 
     def test_wulfen_have_fnp_6(self) -> None:
         self._assert_fnp("space_wolves_wulfen", 6)

@@ -86,23 +86,36 @@ def load_registry(files: Optional[List[Path]] = None) -> Registry:
 
 def iter_unit_entries(reg: Registry) -> Iterator[tuple[str, ET.Element]]:
     """
-    Yield (codex_name, selectionEntry) for every "force-list" entry across all codices.
+    Yield (codex_filename, selectionEntry) for every "force-list" entry across all codices.
 
     The cleanest signal of what counts as a unit is the top-level <entryLinks> on each
     catalogue — these are the choices a player can directly add to their army roster.
     The `type="unit"` attribute on the underlying selectionEntry is inconsistent across
     BSData codices (some authors used `type="upgrade"` for everything), so we don't rely
     on it.
+
+    Each entry is credited to the most specific codex file that imports it. This
+    matters for sub-faction codices that share a library: e.g. Drukhari units are
+    *defined* in ``Aeldari - Aeldari Library.cat.gz`` but *imported* by
+    ``Aeldari - Drukhari.cat.gz``. Crediting the importing file lets the
+    downstream ``faction_of()`` lookup produce the right tag ("Drukhari" rather
+    than "Aeldari"). For entries imported by multiple non-library catalogues
+    (e.g. Harlequins are imported by both Craftworlds and Drukhari), we pick
+    the first importer in catalogue iteration order — typically the broader
+    Aeldari codex, matching the 10e AELDARI keyword.
     """
-    seen: set[str] = set()
+    # Map each top-level entry to the list of catalogue *filenames* importing it.
+    from collections import OrderedDict
+    imports: "OrderedDict[str, list[str]]" = OrderedDict()
     for cat_name, root in reg.catalogues.items():
-        # Game-system file has no force-list entries — skip its top-level entryLinks
-        # which would otherwise pick up shared rules / weapons.
         if root.tag != "catalogue":
             continue
         top_links = root.find("./entryLinks")
         if top_links is None:
             continue
+        # Translate root cat_name back to its source filename via the root's id.
+        root_id = root.get("id") or ""
+        cat_file = reg.source_file.get(root_id, cat_name)
         for el in top_links.findall("./entryLink"):
             target_id = el.get("targetId")
             if not target_id:
@@ -110,14 +123,52 @@ def iter_unit_entries(reg: Registry) -> Iterator[tuple[str, ET.Element]]:
             target = reg.resolve(target_id)
             if target is None or target.tag != "selectionEntry":
                 continue
-            if target_id in seen:
-                continue
-            seen.add(target_id)
-            # Use the codex where the entry is *defined* (not where it's imported via
-            # cross-codex entryLink). E.g. Space Marine Captain is defined in the
-            # Blood Angels codex and re-used by Ultramarines / Dark Angels.
-            owning_codex = reg.source_file.get(target_id, cat_name)
-            yield owning_codex, target
+            imports.setdefault(target_id, []).append(cat_file)
+
+    def _is_library(fname: str) -> bool:
+        # Library catalogues hold shared datasheets and have no top-level
+        # entryLinks of their own — they should never be picked as the
+        # crediting codex when a more specific importer is available.
+        low = fname.lower()
+        return "library" in low or low.endswith(".gst.gz") or low.endswith(".gst")
+
+    def _entry_faction_tag(entry: ET.Element) -> str:
+        # The "Faction: X" categoryLink on a unit's selectionEntry pins it to
+        # exactly one army-level faction. Used to disambiguate when multiple
+        # codices import the same datasheet via cross-faction allies (e.g.
+        # Genestealer Cults imports Astra Militarum's Cadians as allied
+        # units in 10e — the Cadians stay tagged "Faction: Astra Militarum",
+        # so we credit AM, not GSC).
+        for cl in entry.findall(".//categoryLink"):
+            name = (cl.get("name") or "").strip()
+            if name.lower().startswith("faction:"):
+                return name.split(":", 1)[1].strip()
+        return ""
+
+    # Late-bound import to avoid a parser → factions circular reference at
+    # module load (factions is a leaf module, but keep this lazy as a guard).
+    from code.factions import faction_of
+
+    for target_id, files in imports.items():
+        target = reg.resolve(target_id)
+        if target is None or target.tag != "selectionEntry":
+            continue
+        faction_tag = _entry_faction_tag(target)
+        # First choice: an importer whose CODEX_TO_FACTION mapping matches the
+        # entry's own Faction keyword. This handles cross-faction allies.
+        owning_codex = ""
+        if faction_tag:
+            for f in files:
+                if faction_of(f) == faction_tag:
+                    owning_codex = f
+                    break
+        # Second choice: any non-library importer.
+        if not owning_codex:
+            owning_codex = next((f for f in files if not _is_library(f)), "")
+        # Last resort: the first importer (typically a library).
+        if not owning_codex:
+            owning_codex = files[0]
+        yield owning_codex, target
 
 
 def get_profile(reg: Registry, target_id: str) -> Optional[ET.Element]:

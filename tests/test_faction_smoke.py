@@ -11,8 +11,10 @@ faction listed in `code.factions.FACTION_COLOURS` can:
   4. Emit a non-empty event stream.
 
 Skipped (counts as pass) when the catalogue has zero units for the faction
-— some codex subsets are empty after BSData regenerations (Drukhari, Ynnari,
-Aeldari (Craftworlds), Adeptus Titanicus, Chaos Titans at time of writing).
+— some codex subsets are empty after BSData regenerations (Ynnari, Adeptus
+Titanicus, Chaos Titans at time of writing; Drukhari was empty before #150
+re-wired the BSData mapper to credit cross-library imports to the importing
+codex rather than the defining library file).
 
 Speed: 500-pt budgets, seed=42 throughout. Whole suite adds <5s.
 """

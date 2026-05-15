@@ -154,7 +154,7 @@ class WraithguardInvulnTests(unittest.TestCase):
     """Wraithguard and Wraithblades have a 4++ via overrides."""
 
     def test_wraithguard_has_4plus_invuln(self):
-        u = UNIT_CATALOG["aeldari_aeldari_library_wraithguard"]
+        u = UNIT_CATALOG["aeldari_craftworlds_wraithguard"]
         self.assertEqual(
             u.invuln_save,
             4,
@@ -163,7 +163,7 @@ class WraithguardInvulnTests(unittest.TestCase):
         )
 
     def test_wraithblades_has_4plus_invuln(self):
-        u = UNIT_CATALOG["aeldari_aeldari_library_wraithblades"]
+        u = UNIT_CATALOG["aeldari_craftworlds_wraithblades"]
         self.assertEqual(u.invuln_save, 4)
 
 

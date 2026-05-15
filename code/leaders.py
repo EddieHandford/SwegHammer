@@ -113,8 +113,8 @@ _MARINE_HOSTS = (
 )
 _NECRON_HOSTS = ("necrons_necron_warriors", "necrons_immortals")
 _AELDARI_GUARDIAN_HOSTS = (
-    "aeldari_aeldari_library_guardian_defenders",
-    "aeldari_aeldari_library_storm_guardians",
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians",
 )
 _TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
 
@@ -196,9 +196,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                                      "grey_knights_strike_squad"))),
     # Drukhari (10e: folded into Aeldari faction)
     ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True,
-                                          host_keys=("aeldari_aeldari_library_kabalite_warriors",))),
+                                          host_keys=("aeldari_drukhari_kabalite_warriors",))),
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("aeldari_aeldari_library_wyches",))),
+                                          host_keys=("aeldari_drukhari_wyches",))),
     # Genestealer Cults
     ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("genestealer_cults_neophyte_hybrids",
