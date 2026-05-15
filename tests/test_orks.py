@@ -21,7 +21,10 @@ import random
 import unittest
 
 from code.army import Army
-from code.detachments import WAAAGH_DETACHMENT
+# WAAAGH_DETACHMENT removed per the 2026-05-15 fabrication audit (commit
+# fa9a957) — the detachment was fabricated. The WAAAGH! army rule itself
+# is unaffected (it lives in simulator.waaagh) and fires independent of
+# detachment selection.
 from code.events import EventLog, WaaaghDeclared
 from code.simulator import Battle
 from code.strategy import should_declare_waaagh
@@ -300,7 +303,7 @@ class WaaaghWoundBuffTests(unittest.TestCase):
         # Many trials: compare cumulative damage with vs without WAAAGH!.
         def _trial(waaagh_round, current_round, seed):
             random.seed(seed)
-            orks = Army("Orks", detachment=WAAAGH_DETACHMENT)
+            orks = Army("Orks")
             orks.add_unit(_ork_boy_profile())
             marines = Army("Marines")
             for _ in range(20):
@@ -395,32 +398,11 @@ class WaaaghWoundBuffTests(unittest.TestCase):
         )
 
 
-# ---------------------------------------------------------------------------
-# Detachment shape — placeholder WAAAGH! Tribe carries no always-on flag
-# ---------------------------------------------------------------------------
-
-
-class WaaaghDetachmentShapeTests(unittest.TestCase):
-    """The WAAAGH! Tribe detachment used to carry plus_one_attack=1 as an
-    always-on approximation. With #110, the real once-per-game window lives
-    in `simulator.waaagh`, so the detachment must be flat — no permanent
-    buff that would double-stack on top of the declared turn."""
-
-    def test_waaagh_detachment_has_no_plus_one_attack(self):
-        self.assertEqual(WAAAGH_DETACHMENT.plus_one_attack, 0)
-
-    def test_waaagh_detachment_has_no_passive_offensive_flags(self):
-        for field in (
-            "reroll_hit_ones",
-            "reroll_wound_ones",
-            "plus_one_to_hit",
-            "plus_one_to_wound",
-            "plus_one_save",
-        ):
-            self.assertFalse(
-                getattr(WAAAGH_DETACHMENT, field),
-                f"WAAAGH_DETACHMENT.{field} should be False (placeholder)",
-            )
+# WaaaghDetachmentShapeTests removed per the 2026-05-15 fabrication audit
+# (commit fa9a957). The WAAAGH! Tribe detachment was a fabricated name and
+# has been deleted; there's no detachment object left to assert shape on.
+# The WAAAGH! army rule itself lives in simulator.waaagh and is covered by
+# the AI-trigger / event-emission / wound-buff tests above.
 
 
 if __name__ == "__main__":

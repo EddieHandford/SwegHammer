@@ -41,7 +41,10 @@ import unittest
 from unittest import mock
 
 from code.army import Army, VOTANN_FACTION_TAG, can_target_for_ranged
-from code.detachments import AWAKENED_DYNASTY, WAAAGH_DETACHMENT
+from code.detachments import AWAKENED_DYNASTY
+# WAAAGH_DETACHMENT removed per the 2026-05-15 fabrication audit (commit
+# fa9a957). The WAAAGH! army rule lives in `simulator.waaagh` and fires
+# without a detachment — Ork armies can run the rule with detachment=None.
 from code.events import (
     DeadlyDemiseExploded, EventLog, JudgementTokenAwarded,
     UnitDeepStrike, UnitReanimated, WaaaghDeclared,
@@ -229,7 +232,9 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         Round 3 with an Ork side still alive (default AI fires Round 3).
         Cites: simulator.waaagh."""
         random.seed(0)
-        orks = Army("Orks", detachment=WAAAGH_DETACHMENT)
+        # WAAAGH! army rule fires from the simulator gate (simulator.waaagh)
+        # regardless of detachment — detachment=None is fine.
+        orks = Army("Orks")
         for _ in range(8):
             orks.add_unit(_ork_boy())
         marines = Army("Marines")

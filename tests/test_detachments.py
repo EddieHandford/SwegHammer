@@ -32,14 +32,12 @@ _NEW_DETACHMENTS = (
     ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
     ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
     ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
-    # plague_company + cult_of_magic + oathband carry no passive flag
-    # right now. plague_company / cult_of_magic earlier values were
-    # uncited (CLAUDE.md §10); oathband's "army-wide re-roll hit 1s"
-    # approximated the Eye of the Ancestors rule that now lives in
+    # oathband carries no passive flag right now — its "army-wide re-roll
+    # hit 1s" approximated the Eye of the Ancestors rule that now lives in
     # simulator.judgement_tokens, so the detachment-level reroll was
     # removed to avoid double-stacking with the Judgement Tokens buff.
-    # All three will gain stratagem-level passives when #104 lands.
-    # Registry presence is still checked separately below.
+    # plague_company + cult_of_magic were deleted per the 2026-05-15
+    # fabrication audit (commit fa9a957); their entries are gone.
     ("berzerker_warband",      "World Eaters",           "plus_one_to_hit",   True),
     ("daemonic_incursion",     "Chaos Daemons",          "plus_one_to_hit",   True),
     ("final_day",              "Genestealer Cults",      "reroll_hit_ones",   True),
@@ -71,8 +69,10 @@ class DetachmentRegistryTests(unittest.TestCase):
         self.assertIsNone(default_detachment_for_faction("Made-Up Faction"))
 
     def test_registry_grew(self):
-        # Original: 5 detachments. After expansion: should be at least 5+16=21.
-        self.assertGreaterEqual(len(DETACHMENTS), 21)
+        # Original: 5 detachments. After expansion and the 2026-05-15
+        # fabrication-audit cull (5 detachments removed): registry should
+        # carry at least 18 entries.
+        self.assertGreaterEqual(len(DETACHMENTS), 18)
 
 
 class ArmyResolveDetachmentTests(unittest.TestCase):
@@ -95,15 +95,11 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
         self.assertEqual(det.name, "Mont'ka")
         self.assertTrue(det.plus_one_to_hit)
 
-    def test_death_guard_army_resolves(self):
-        army = Army("DG")
-        army.add_unit(self._profile("Death Guard"))
-        det = army.resolve_detachment()
-        self.assertIsNotNone(det)
-        # Plague Company's fnp=5 was an uncited approximation, removed
-        # per CLAUDE.md §10. Re-introduce once real DG stratagem effects
-        # land in #103. For now, just verify the detachment resolves.
-        self.assertEqual(det.name, "Plague Company")
+    # test_death_guard_army_resolves removed per the 2026-05-15 fabrication
+    # audit (commit fa9a957) — plague_company was a fabricated detachment
+    # name and has been deleted. Death Guard now has no mapped detachment
+    # pending a real codex replacement (Virulent Vectorium / Mortarion's
+    # Hammer / etc.).
 
     def test_custodes_army_resolves(self):
         army = Army("Custodes")
@@ -302,43 +298,17 @@ class SecondDetachmentTests(unittest.TestCase):
         self.assertTrue(effective_buffs(wraiths)["plus_one_to_wound"])
         self.assertFalse(effective_buffs(warriors)["plus_one_to_wound"])
 
-    def test_saim_hann_grants_extra_move_to_aspect_warriors(self):
-        """Saim-Hann Wild Host: Aspect Warriors / Bikes gain +1" Move."""
-        from code.detachments import SAIM_HANN_WILD_HOST, effective_move
-        army = Army("Aeldari", detachment=SAIM_HANN_WILD_HOST)
-        army.add_unit(self._profile(
-            "Howling Banshees", "Aeldari", keywords=("INFANTRY",), move=8.0,
-        ))
-        army.add_unit(self._profile(
-            "Guardian Defenders", "Aeldari", keywords=("INFANTRY",), move=7.0,
-        ))
-        banshees = army.units[0]
-        guardians = army.units[1]
-        self.assertAlmostEqual(effective_move(banshees), 9.0)
-        self.assertAlmostEqual(effective_move(guardians), 7.0)
+    # test_saim_hann_grants_extra_move_to_aspect_warriors and
+    # test_plague_marines_onslaught_buffs_plague_marines removed per the
+    # 2026-05-15 fabrication audit (commit fa9a957) — saim_hann_wild_host
+    # and plague_marines_onslaught were fabricated detachment names and
+    # have been deleted from the registry.
 
-    def test_plague_marines_onslaught_buffs_plague_marines(self):
-        """Plague Marines Onslaught: only profile.name == 'Plague Marines'."""
-        from code.detachments import PLAGUE_MARINES_ONSLAUGHT
-        from code.leaders import effective_buffs
-        army = Army("Death Guard", detachment=PLAGUE_MARINES_ONSLAUGHT)
-        army.add_unit(self._profile(
-            "Plague Marines", "Death Guard", keywords=("INFANTRY",),
-        ))
-        army.add_unit(self._profile(
-            "Poxwalkers", "Death Guard", keywords=("INFANTRY",),
-        ))
-        for u in army.units:
-            u.position = (0.0, 0.0)
-        plague = army.units[0]
-        pox = army.units[1]
-        self.assertTrue(effective_buffs(plague)["plus_one_to_wound"])
-        self.assertFalse(effective_buffs(pox)["plus_one_to_wound"])
-
-    def test_registry_count_grew_by_four(self):
-        """Registry should have at least 25 entries after #126 (was 21)."""
+    def test_registry_count_after_fab_audit(self):
+        """Registry should carry at least 20 entries after #126 (added 4)
+        and the 2026-05-15 fabrication audit (removed 5)."""
         from code.detachments import DETACHMENTS
-        self.assertGreaterEqual(len(DETACHMENTS), 25)
+        self.assertGreaterEqual(len(DETACHMENTS), 20)
 
     def test_picker_tilts_canoptek_court_on_canoptek_heavy_army(self):
         """Necron army that's mostly Canoptek points should usually pick
