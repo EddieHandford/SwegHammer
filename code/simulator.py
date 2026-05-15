@@ -26,16 +26,11 @@ from .strategy import (
 )
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
-    # Cult of Magic (Thousand Sons)
-    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH, CABBALISTIC_EMPOWERMENT,
-    # Plague Company (Death Guard)
-    DISGUSTINGLY_RESILIENT, PLAGUE_WEAPONS, OUTBREAK_OF_PESTILENCE,
-    # Battle Host (Aeldari) + Saim-Hann attachment
-    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY, SPIRIT_STONES,
-    # Awakened Dynasty (Necrons)
-    IMPLACABLE_ONSLAUGHT, METHODICAL_DESTRUCTION,
-    # Mont'ka (T'au Empire)
-    STRIKE_SWIFTLY,
+    # Virulent Vectorium (Death Guard) — Disgustingly Resilient (re-anchored
+    # to the real detachment at 2CP per the 2026-05-15 fabrication audit)
+    DISGUSTINGLY_RESILIENT,
+    # Warhost (Aeldari) — real detachment stratagems
+    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -562,58 +557,27 @@ class Battle:
         `strategy.should_fire_stratagem` and, if green-lit, spend CP and
         apply the transient effect for the round.
 
-        We bundle the dispatch here rather than scattering it across the
-        sub-phase methods because all three detachments' high-impact
-        stratagems are best modelled as "decide once per round, apply for
-        the round" — round-scoped buffs match the calibration target
-        (close the under-rating without inflating turn-by-turn variance).
+        Post 2026-05-15 fabrication audit (commit fa9a957): 11 stratagems
+        previously dispatched here had no Wahapedia equivalent. The only
+        survivors are Disgustingly Resilient (re-anchored to Virulent
+        Vectorium at 2CP) and the two real Warhost (Aeldari) entries.
+        Real per-detachment stratagem sets land in follow-up per-faction
+        rebuild PRs.
         """
         det = army.resolve_detachment()
         if det is None or not det.stratagems:
             return
         strat_names = {s.name for s in det.stratagems}
 
-        # ----- Cult of Magic (Thousand Sons) -----------------------------
-        # Cabbalistic Empowerment must run BEFORE Doombolt: it boosts the
-        # round's Doombolt payload from 2 MW to 3 MW (via the army's
-        # `cabbalistic_doombolt_boost` flag), and Doombolt's dispatcher reads
-        # the flag at fire time.
-        if "Cabbalistic Empowerment" in strat_names:
-            self._try_cabbalistic_empowerment(army, opponent)
-        if "Doombolt" in strat_names:
-            self._try_doombolt(army, opponent)
-        if "Twist of Fate" in strat_names:
-            self._try_twist_of_fate(army, opponent)
-        if "Glamour of Tzeentch" in strat_names:
-            self._try_glamour_of_tzeentch(army, opponent)
-
-        # ----- Plague Company (Death Guard) ------------------------------
+        # ----- Virulent Vectorium (Death Guard) -------------------------
         if "Disgustingly Resilient" in strat_names:
             self._try_disgustingly_resilient(army, opponent)
-        if "Plague Weapons" in strat_names:
-            self._try_plague_weapons(army, opponent)
-        if "Outbreak of Pestilence" in strat_names:
-            self._try_outbreak_of_pestilence(army, opponent)
 
-        # ----- Battle Host (Aeldari) ------------------------------------
+        # ----- Warhost (Aeldari) ----------------------------------------
         if "Lightning-Fast Reactions" in strat_names:
             self._try_lightning_fast_reactions(army, opponent)
         if "Fire and Fade" in strat_names:
             self._try_fire_and_fade(army, opponent)
-        if "Matchless Agility" in strat_names:
-            self._try_matchless_agility(army, opponent)
-        if "Spirit Stones" in strat_names:
-            self._try_spirit_stones(army, opponent)
-
-        # ----- Awakened Dynasty (Necrons) -------------------------------
-        if "Implacable Onslaught" in strat_names:
-            self._try_implacable_onslaught(army, opponent)
-        if "Methodical Destruction" in strat_names:
-            self._try_methodical_destruction(army, opponent)
-
-        # ----- Mont'ka (T'au Empire) ------------------------------------
-        if "Strike Swiftly" in strat_names:
-            self._try_strike_swiftly(army, opponent)
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -723,79 +687,17 @@ class Battle:
         return max(candidates, key=lambda u: float(u.profile.points_cost))
 
     # ----- per-stratagem dispatchers -------------------------------------
-
-    def _try_doombolt(self, army: Army, opponent: Army) -> None:
-        """Doombolt (Cult of Magic): D3 mortal wounds (median 2) to the
-        highest-threat enemy unit. Fires once per round if the army has at
-        least one alive PSYKER unit and a viable target exists."""
-        has_psyker = any(
-            "PSYKER" in (u.profile.unit_keywords or ())
-            for u in army.alive_units
-        )
-        if not has_psyker:
-            return
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"target": target, "has_psyker": True}
-        if not should_fire_stratagem(army, DOOMBOLT, ctx):
-            return
-        if not self._fire_stratagem(army, DOOMBOLT):
-            return
-        # Base damage: median D3 = 2. Cabbalistic Empowerment (Cult of Magic
-        # stratagem, 1 CP) bumps a TSons psyker's psychic attack +1 to wound;
-        # we collapse that into +1 MW on the Doombolt payload (2 → 3) when
-        # the round's Cabbalistic Empowerment flag is set. Cited as
-        # `Stratagem.Cabbalistic Empowerment`.
-        dmg = 3.0 if getattr(army, "cabbalistic_doombolt_boost", False) else 2.0
-        target.receive_damage(dmg, bonus_fnp=target.profile.fnp)
-        if not target.is_alive:
-            self._emit(UnitKilled(unit_uid=target.uid))
-            self._maybe_apply_deadly_demise(target)
-
-    def _try_twist_of_fate(self, army: Army, opponent: Army) -> None:
-        """Twist of Fate (Cult of Magic): +1 to wound on a friendly TSons
-        unit's shooting for the round. Picks the highest-DPA THOUSAND SONS
-        attacker so the buff lands on the biggest gun in the army."""
-        attacker = self._highest_dpa_unit(
-            army, keyword="THOUSAND SONS", faction="Thousand Sons",
-        )
-        if attacker is None:
-            # Fall back to highest-DPA in the whole army (faction tag may
-            # be missing on some datasheets after BSData parsing).
-            attacker = self._highest_dpa_unit(army)
-        if attacker is None:
-            return
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"attacker": attacker, "target": target}
-        if not should_fire_stratagem(army, TWIST_OF_FATE, ctx):
-            return
-        if not self._fire_stratagem(army, TWIST_OF_FATE):
-            return
-        attacker.transient_plus_one_to_wound_shooting = True
-
-    def _try_glamour_of_tzeentch(self, army: Army, opponent: Army) -> None:
-        """Glamour of Tzeentch (Cult of Magic, 2 CP): transient 4++ invuln
-        on the most vulnerable friendly TSons unit for the round."""
-        target = self._most_vulnerable_unit(
-            army, keyword="THOUSAND SONS", faction="Thousand Sons",
-        )
-        if target is None:
-            target = self._most_vulnerable_unit(army)
-        if target is None:
-            return
-        ctx = {"target": target}
-        if not should_fire_stratagem(army, GLAMOUR_OF_TZEENTCH, ctx):
-            return
-        if not self._fire_stratagem(army, GLAMOUR_OF_TZEENTCH):
-            return
-        target.transient_invuln_4 = True
+    # Post 2026-05-15 fabrication audit (commit fa9a957): 11 dispatchers were
+    # removed alongside their fabricated stratagem constants. The three
+    # survivors below correspond to real Wahapedia entries.
 
     def _try_disgustingly_resilient(self, army: Army, opponent: Army) -> None:
-        """Disgustingly Resilient (Plague Company): -1 damage taken on a
-        DEATH GUARD unit for the round. Picks the most vulnerable DG unit."""
+        """Disgustingly Resilient (Virulent Vectorium, 2 CP): -1 damage taken
+        on a DEATH GUARD unit for the round. Picks the most vulnerable DG
+        unit. Re-anchored from the fabricated "Plague Company" 1CP attachment
+        to the real Virulent Vectorium detachment at 2CP per the fabrication
+        audit. Effect identifier is an APPROXIMATION pending a proper
+        Virulent Vectorium rebuild (real rule is -1 to wound vs the unit)."""
         target = self._most_vulnerable_unit(
             army, keyword="DEATH GUARD", faction="Death Guard",
         )
@@ -810,62 +712,10 @@ class Battle:
             return
         target.transient_minus_one_damage_taken = True
 
-    def _try_plague_weapons(self, army: Army, opponent: Army) -> None:
-        """Plague Weapons (Plague Company): +1 to wound on a friendly DG
-        unit's shooting for the round."""
-        attacker = self._highest_dpa_unit(
-            army, keyword="DEATH GUARD", faction="Death Guard",
-        )
-        if attacker is None:
-            attacker = self._highest_dpa_unit(army)
-        if attacker is None:
-            return
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"attacker": attacker, "target": target}
-        if not should_fire_stratagem(army, PLAGUE_WEAPONS, ctx):
-            return
-        if not self._fire_stratagem(army, PLAGUE_WEAPONS):
-            return
-        attacker.transient_plus_one_to_wound_shooting = True
-
-    def _try_outbreak_of_pestilence(self, army: Army, opponent: Army) -> None:
-        """Outbreak of Pestilence (Plague Company): +1 to wound on a
-        friendly DG unit's melee attacks for the round."""
-        # Pick the friendly DG melee threat — highest melee-DPA unit so the
-        # +1 to wound lands where it does the most work.
-        candidates = [
-            u for u in army.alive_units
-            if self._unit_matches_filter(u, keyword="DEATH GUARD", faction="Death Guard")
-            and u.profile.melee_attacks > 0
-        ]
-        if not candidates:
-            candidates = [
-                u for u in army.alive_units
-                if u.profile.melee_attacks > 0
-            ]
-        if not candidates:
-            return
-
-        def _melee_dpa(u):
-            p = u.profile
-            return (p.melee_attacks * p.melee_hit_probability
-                    * (p.melee_damage_per_shot or 0.0))
-        attacker = max(candidates, key=_melee_dpa)
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"attacker": attacker, "target": target}
-        if not should_fire_stratagem(army, OUTBREAK_OF_PESTILENCE, ctx):
-            return
-        if not self._fire_stratagem(army, OUTBREAK_OF_PESTILENCE):
-            return
-        attacker.transient_plus_one_to_wound_melee = True
-
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
-        """Lightning-Fast Reactions (Battle Host): +1 save on the most
-        vulnerable AELDARI unit for the round."""
+        """Lightning-Fast Reactions (Warhost): +1 save on the most
+        vulnerable AELDARI unit for the round. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
         target = self._most_vulnerable_unit(
             army, keyword="AELDARI", faction="Aeldari",
         )
@@ -881,9 +731,10 @@ class Battle:
         target.transient_plus_one_save = True
 
     def _try_fire_and_fade(self, army: Army, opponent: Army) -> None:
-        """Fire and Fade (Battle Host): re-roll failed hits on a friendly
+        """Fire and Fade (Warhost): re-roll failed hits on a friendly
         AELDARI unit's shooting for the round (approximating the canonical
-        shoot-then-move-6" via offensive uplift)."""
+        shoot-then-move-6" via offensive uplift). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
         attacker = self._highest_dpa_unit(
             army, keyword="AELDARI", faction="Aeldari",
         )
@@ -900,164 +751,6 @@ class Battle:
         if not self._fire_stratagem(army, FIRE_AND_FADE):
             return
         attacker.transient_reroll_hits_shooting = True
-
-    def _try_matchless_agility(self, army: Army, opponent: Army) -> None:
-        """Matchless Agility (Battle Host): transient Assault keyword on
-        a friendly AELDARI unit for the round (advance + shoot)."""
-        # Only worth firing on a unit that might want to Advance — i.e. one
-        # currently OUT of weapon range of the nearest enemy. Otherwise the
-        # transient Assault is wasted and we leak CP.
-        candidates = [
-            u for u in army.alive_units
-            if self._unit_matches_filter(u, keyword="AELDARI", faction="Aeldari")
-            and u.profile.range_inches >= 12   # actual shooter, not melee-only
-            and not u.profile.assault          # already-Assault gains nothing
-        ]
-        if not candidates:
-            return
-        # Pick one whose nearest enemy is out of weapon range — Matchless
-        # Agility is a "close the gap and still shoot" stratagem.
-        def _wants_advance(u):
-            if not opponent.alive_units:
-                return False
-            nearest = min(
-                opponent.alive_units,
-                key=lambda e: _distance(u.position, e.position),
-            )
-            return _distance(u.position, nearest.position) > u.profile.range_inches
-        viable = [u for u in candidates if _wants_advance(u)]
-        if not viable:
-            return
-        attacker = max(viable, key=lambda u: float(u.profile.points_cost))
-        ctx = {"attacker": attacker}
-        if not should_fire_stratagem(army, MATCHLESS_AGILITY, ctx):
-            return
-        if not self._fire_stratagem(army, MATCHLESS_AGILITY):
-            return
-        attacker.transient_assault_this_round = True
-
-    # ----- Awakened Dynasty (Necrons) dispatchers ------------------------
-
-    def _try_implacable_onslaught(self, army: Army, opponent: Army) -> None:
-        """Implacable Onslaught (Awakened Dynasty, 1 CP): transient FNP 5+ on
-        the most vulnerable NECRONS unit for the round. Composes with
-        Reanimation Protocols by lowering the unit's effective FNP target —
-        applied per receive_damage call. Cited as
-        `Stratagem.Implacable Onslaught`."""
-        target = self._most_vulnerable_unit(
-            army, keyword="NECRONS", faction="Necrons",
-        )
-        if target is None:
-            target = self._most_vulnerable_unit(army)
-        if target is None:
-            return
-        ctx = {"target": target}
-        if not should_fire_stratagem(army, IMPLACABLE_ONSLAUGHT, ctx):
-            return
-        if not self._fire_stratagem(army, IMPLACABLE_ONSLAUGHT):
-            return
-        target.transient_fnp_5 = True
-
-    def _try_methodical_destruction(self, army: Army, opponent: Army) -> None:
-        """Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on a
-        friendly NECRONS unit's ranged attacks for the round. Picks the
-        highest-DPA NECRONS shooter so the buff lands on the biggest gun.
-        Cited as `Stratagem.Methodical Destruction`."""
-        attacker = self._highest_dpa_unit(
-            army, keyword="NECRONS", faction="Necrons",
-        )
-        if attacker is None:
-            attacker = self._highest_dpa_unit(army)
-        if attacker is None:
-            return
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"attacker": attacker, "target": target}
-        if not should_fire_stratagem(army, METHODICAL_DESTRUCTION, ctx):
-            return
-        if not self._fire_stratagem(army, METHODICAL_DESTRUCTION):
-            return
-        attacker.transient_plus_one_to_hit_shooting = True
-
-    # ----- Cult of Magic (Thousand Sons) — Cabbalistic Empowerment -------
-
-    def _try_cabbalistic_empowerment(self, army: Army, opponent: Army) -> None:
-        """Cabbalistic Empowerment (Cult of Magic, 1 CP): boosts the round's
-        Doombolt payload from 2 MW to 3 MW. Requires a PSYKER and a viable
-        target (otherwise we're paying CP for a Doombolt that won't fire).
-        Cited as `Stratagem.Cabbalistic Empowerment`."""
-        has_psyker = any(
-            "PSYKER" in (u.profile.unit_keywords or ())
-            for u in army.alive_units
-        )
-        if not has_psyker:
-            return
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"target": target, "has_psyker": True}
-        if not should_fire_stratagem(army, CABBALISTIC_EMPOWERMENT, ctx):
-            return
-        if not self._fire_stratagem(army, CABBALISTIC_EMPOWERMENT):
-            return
-        army.cabbalistic_doombolt_boost = True
-
-    # ----- Saim-Hann (Aeldari) — Spirit Stones ---------------------------
-
-    def _try_spirit_stones(self, army: Army, opponent: Army) -> None:
-        """Spirit Stones (Saim-Hann, 1 CP): halve incoming damage on a damaged
-        AELDARI unit for the round (rounded up). Picks the most vulnerable
-        AELDARI unit. Cited as `Stratagem.Spirit Stones`."""
-        target = self._most_vulnerable_unit(
-            army, keyword="AELDARI", faction="Aeldari",
-        )
-        if target is None:
-            target = self._most_vulnerable_unit(army)
-        if target is None:
-            return
-        ctx = {"target": target}
-        if not should_fire_stratagem(army, SPIRIT_STONES, ctx):
-            return
-        if not self._fire_stratagem(army, SPIRIT_STONES):
-            return
-        target.transient_halve_damage = True
-
-    # ----- Mont'ka (T'au Empire) — Strike Swiftly ------------------------
-
-    def _try_strike_swiftly(self, army: Army, opponent: Army) -> None:
-        """Strike Swiftly (Mont'ka, 1 CP): transient ASSAULT on a friendly
-        T'AU unit so it can shoot after Advancing. Same mechanic as Battle
-        Host's Matchless Agility; we route both through
-        `transient_assault_this_round` since the simulator's _do_shoot path
-        already short-circuits the Advanced-this-round shoot block on that
-        flag. Cited as `Stratagem.Strike Swiftly`."""
-        candidates = [
-            u for u in army.alive_units
-            if self._unit_matches_filter(u, keyword="T'AU EMPIRE", faction="T'au Empire")
-            and u.profile.range_inches >= 12
-            and not u.profile.assault
-        ]
-        if not candidates:
-            return
-        def _wants_advance(u):
-            if not opponent.alive_units:
-                return False
-            nearest = min(
-                opponent.alive_units,
-                key=lambda e: _distance(u.position, e.position),
-            )
-            return _distance(u.position, nearest.position) > u.profile.range_inches
-        viable = [u for u in candidates if _wants_advance(u)]
-        if not viable:
-            return
-        attacker = max(viable, key=lambda u: float(u.profile.points_cost))
-        ctx = {"attacker": attacker}
-        if not should_fire_stratagem(army, STRIKE_SWIFTLY, ctx):
-            return
-        if not self._fire_stratagem(army, STRIKE_SWIFTLY):
-            return
-        attacker.transient_assault_this_round = True
 
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
