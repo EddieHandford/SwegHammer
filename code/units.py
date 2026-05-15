@@ -302,8 +302,25 @@ class UnitProfile:
 
     @property
     def points_cost(self) -> float:
+        """Per-model points cost in the simulator's currency.
+
+        Resolution order:
+          1. Sweg-balancer override (`points_override > 0`) wins outright.
+          2. GW canonical: `points_per_squad / min_models` when BSData
+             populated both. This is the printed datasheet cost.
+          3. Fallback: Lanchester-derived `points_for(...)` — used for
+             synthetic test profiles that have no BSData provenance.
+
+        The 2026-05 fix (Ed's TODO in PROJECT.tex `\eddie` commit
+        `a0d7702`): the property previously returned the Lanchester score
+        always, so every sim-side army budget ran in wrong-currency.
+        Sub-1 GW costs are clamped to 1.0 so degenerate cases (a hypothetical
+        free unit) don't divide-by-zero in downstream callers.
+        """
         if self.points_override and self.points_override > 0:
             return float(self.points_override)
+        if self.points_per_squad > 0 and self.min_models > 0:
+            return max(1.0, self.points_per_squad / self.min_models)
         return points_for(
             self.health, self.damage, self.hit_probability,
             self.ap, self.save, self.strength, self.toughness,
