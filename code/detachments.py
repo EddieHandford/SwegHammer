@@ -166,6 +166,9 @@ INVASION_FLEET = Detachment(
         "Shadow in the Warp: enemies have -1 Ld for Battleshock. Real rule "
         "is range-gated; we apply army-wide."
     ),
+    # APPROXIMATION: always-on -1 Ld passive substitutes for a once-per-battle Battleshock test.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Invasion-Fleet
+    # Real rule: Shadow in the Warp — once-per-battle army-wide Battleshock test, not a passive Ld debuff.
     enemy_ld_penalty=1,
     preferred_composition="balanced",
 )
@@ -207,6 +210,9 @@ SHIELD_HOST = Detachment(
         "Custodes durability: +1 to armour saves army-wide (cap at 2+). "
         "Approximates the multiple bespoke save-stacking rules in 10e."
     ),
+    # APPROXIMATION: +1 save (defensive) substitutes for an offensive Crit Hit / AP buff.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+    # Real rule: Martial Mastery — Critical Hit / AP buff (offensive), not +1 save (defensive).
     plus_one_save=True,
     preferred_composition="infantry",
 )
@@ -256,6 +262,9 @@ TELEPORT_STRIKE_FORCE = Detachment(
 )
 
 BATTLE_HOST = Detachment(
+    # APPROXIMATION: detachment name "Battle Host" is the launch-day index name; codex name is "Warhost".
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
+    # Real rule: same detachment, renamed in the codex — effects roughly match but the key/name should be Warhost.
     name="Battle Host",
     faction="Aeldari",
     notes=(
@@ -267,6 +276,9 @@ BATTLE_HOST = Detachment(
         "but have been removed per the 2026-05-15 fabrication audit "
         "(commit fa9a957) — neither was in the Aeldari codex."
     ),
+    # APPROXIMATION: army-wide hit-1s reroll stands in for the Martial Grace / Battle Focus buff.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
+    # Real rule: Martial Grace — Battle Focus / Agile Manoeuvre token mechanic, not a hit-roll reroll.
     reroll_hit_ones=True,
     stratagems=BATTLE_HOST_STRATAGEMS,
     preferred_composition="infantry",
@@ -287,13 +299,17 @@ MONTKA = Detachment(
     name="Mont'ka",
     faction="T'au Empire",
     notes=(
-        "APPROXIMATION: real Mont'ka detachment ('Killing Blow') grants "
-        "[ASSAULT] army-wide rounds 1-3 plus [LETHAL HITS] on Guided units, "
-        "not a flat +1 to hit. Wahapedia: "
-        "https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Montka. "
+        "APPROXIMATION: flat +1 to hit is a stand-in for the codex rule. "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Montka. "
+        "Real rule (Killing Blow): grants [ASSAULT] army-wide rounds 1-3 "
+        "plus [LETHAL HITS] on Guided units — keyword grants, not a hit-roll "
+        "bonus. Composes incorrectly with Strike Swiftly's transient_assault. "
         "Strike Swiftly stratagem previously attached here was an Enhancement "
         "(25 pts), not a stratagem — removed per 2026-05-15 fabrication audit."
     ),
+    # APPROXIMATION: real Mont'ka grants [ASSAULT] army-wide rounds 1-3 + [LETHAL HITS] on Guided units, not +1 to hit.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Montka
+    # Real rule: Killing Blow — keyword grants, not a flat hit-roll bonus.
     plus_one_to_hit=True,
     preferred_composition="balanced",
 )
@@ -353,6 +369,10 @@ FINAL_DAY = Detachment(
     preferred_composition="infantry",
 )
 
+# APPROXIMATION: "Oathband" is a generic stub; closest codex match is Hearthband.
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+# Real rule: codex Votann detachments are Needgaard Oathband, Persecution Prospect,
+# Delve Assault Shift, Brandfast Oathband, Hearthfyre Arsenal, Hearthband, Mercenary Oathband.
 OATHBAND = Detachment(
     name="Oathband",
     faction="Leagues of Votann",
@@ -384,6 +404,9 @@ IRONSTORM_SPEARHEAD = Detachment(
         "the codex replacement carries a similar VEHICLE-keyword reroll "
         "spine. Gate: attacker has the VEHICLE keyword."
     ),
+    # APPROXIMATION: offensive vehicle hit-reroll stands in for a defensive AP debuff.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Ironstorm-Spearhead
+    # Real rule: Armour of Contempt — -1 AP on Marine models (defensive), not vehicle hit rerolls (offensive).
     vehicles_reroll_hit_ones=True,
     preferred_composition="vehicle",
 )
@@ -398,6 +421,9 @@ CANOPTEK_COURT = Detachment(
         "into a flat +1 to wound on the Canoptek chassis. Gate: attacker "
         "profile name starts with 'Canoptek'."
     ),
+    # APPROXIMATION: always-on +1 to wound stands in for a once-per-battle full wound reroll.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Court
+    # Real rule: Hyper-Logical Strategy — once-per-battle full reroll, not always-on +1 to wound.
     canoptek_plus_one_to_wound=True,
     preferred_composition="balanced",
 )

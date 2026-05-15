@@ -261,6 +261,11 @@ class Battle:
     # ------------------------------------------------------------------
 
     def run(self) -> BattleResult:
+        # APPROXIMATION: Battle Focus modelled as a flat 4-token pool spent only on Star Engines / [ASSAULT].
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/
+        # Real rule: per-round token refresh + 6 named Agile Manoeuvres (Star Engines, Wraithwalk,
+        # Lightning-Fast Reactions, etc.). We conflate the whole bundle into a single shoot-after-Advance
+        # spend, omitting the other 5 named manoeuvres entirely.
         # Battle Focus tokens (Aeldari ASURYANI rule): 4 at Strike Force,
         # the default battle size for this simulator. We hand the tokens
         # out to any army that contains at least one ASURYANI unit — the
@@ -2148,6 +2153,10 @@ class Battle:
         if killer.profile.faction == "World Eaters":
             killer_army.blood_tithe += 1
 
+    # APPROXIMATION: models the retired Eye of the Ancestors rule; current codex army rule is Prioritised Efficiency.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
+    # Real rule (current 10e): Prioritised Efficiency — Yield Points / Hostile Acquisition / Fortify Takeover token economy,
+    # not the launch-day "enemies that kill Votann get marked for rerolls" mechanic this code implements.
     def _maybe_award_judgement_token(
         self, killer: "Unit", killer_army: Army,
         victim: "Unit", victim_army: Army,

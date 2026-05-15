@@ -53,6 +53,11 @@ def _prob_to_target(prob: float) -> int:
     return max(2, min(7, target))
 
 
+# APPROXIMATION: 3-round escalating model is the older index/launch-day Contagions shape.
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
+# Real rule (current 10e): Nurgle's Gift / Afflicted — Skullsquirm Blight, Rattlejoint Ague,
+# Scabrous Soulrot variants applied per unit, not a fixed -1T R1 / -1Ld R2 / -1 to hit R3+
+# sequence. Direction-correct (still debuffs enemies near DG models) but mechanics differ.
 def _contagion_round_for(unit: "Unit") -> int:
     """Return the active Death Guard Contagion round for the army that opposes
     `unit`'s army, or 0 when no DG army is on the opposing side / no battle is
@@ -743,6 +748,11 @@ class Unit:
         # stores the round in which the AI declared; we compare against the
         # live battle round via the army's _battle_ref so the buff applies
         # ONLY on that turn (not the rest of the battle).
+        # APPROXIMATION: we only model the +1-to-wound leg; the real WAAAGH! does much more.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH
+        # Real rule: +1 to wound (melee) AND +1 S AND +1 A on melee weapons AND
+        # army-wide 5+ invuln AND Advance-counts-as-Charge. We model only the
+        # +1-to-wound leg as a stand-in for the whole bundle.
         if mode == "melee" and p.faction == "Orks":
             own_army = getattr(self, "army_ref", None)
             if own_army is not None:
