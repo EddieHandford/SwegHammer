@@ -200,12 +200,13 @@ class Battle:
         self.verbose = verbose
         self.subscribers: List[Subscriber] = list(subscribers) if subscribers else []
         self.map: Map = map_ or DEFAULT_MAP
-        # Default is SwegHammer mode for backwards compatibility with the
-        # existing 588-test suite and current eval pipeline. The user-facing
-        # default flips to vanilla_10e() in a follow-up commit once the
-        # gates have been validated independently. See plan
-        # `enchanted-wiggling-sundae` step 1.
-        self.rules: RulesConfig = rules if rules is not None else RulesConfig.sweghammer()
+        # Default is vanilla WH40k 10e mode — the simulator's primary
+        # responsibility is faithfully reproducing tournament play (the
+        # MAE-vs-real-meta signal). SwegHammer's alternating-activation
+        # ruleset is opt-in via `RulesConfig.sweghammer()` for users who
+        # want to play games under SwegHammer rules; it does not touch
+        # calibration. See plan `enchanted-wiggling-sundae` step 1.
+        self.rules: RulesConfig = rules if rules is not None else RulesConfig.vanilla_10e()
         # UIDs of units that Advanced in the current round — they skip shooting.
         # Reset at the start of each round.
         self._advanced_this_round: set = set()

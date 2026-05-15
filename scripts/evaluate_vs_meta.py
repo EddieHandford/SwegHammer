@@ -142,16 +142,15 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--battles", type=int, default=20)
     p.add_argument(
-        "--vanilla-10e",
+        "--sweghammer",
         action="store_true",
-        help="Run under vanilla WH40k 10e rules (no alternating activations, "
-             "no simultaneous-movement sub-phase, no CP catch-up bonus, no "
-             "coordinated army-plan). Default is SwegHammer mode.",
+        help="Run under SwegHammer rules (alternating activations, "
+             "simultaneous-movement sub-phase, CP catch-up bonus, "
+             "coordinated army-plan). Default is vanilla WH40k 10e.",
     )
     args = p.parse_args()
-    rules = RulesConfig.vanilla_10e() if args.vanilla_10e else None
-    if args.vanilla_10e:
-        print("Mode: vanilla WH40k 10e\n")
+    rules = RulesConfig.sweghammer() if args.sweghammer else None
+    print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'}\n")
     sim = run_matrix(args.battles, rules=rules)
     mae_real, mae_sweg = report(sim)
     sys.exit(0)   # informational only — never error-exit

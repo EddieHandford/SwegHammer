@@ -59,13 +59,17 @@ class RulesConfigTests(unittest.TestCase):
         self.assertTrue(cfg.cp_catchup_bonus)
         self.assertTrue(cfg.coordinated_army_plan)
 
-    def test_default_battle_uses_sweghammer(self) -> None:
-        """Default Battle ctor preserves backward compat until the
-        explicit default-flip commit lands."""
+    def test_default_battle_uses_vanilla_10e(self) -> None:
+        """Default Battle ctor now runs vanilla WH40k 10e rules. The
+        simulator's primary job is reproducing real tournament play;
+        SwegHammer's alternating-activation ruleset is opt-in."""
         a = _two_unit_army("A", "AOne", [(10.0, 10.0)])
         b = _two_unit_army("B", "BOne", [(20.0, 20.0)])
         battle = Battle(a, b)
-        self.assertTrue(battle.rules.alternating_activations)
+        self.assertFalse(battle.rules.alternating_activations)
+        self.assertFalse(battle.rules.simultaneous_movement)
+        self.assertFalse(battle.rules.cp_catchup_bonus)
+        self.assertFalse(battle.rules.coordinated_army_plan)
 
 
 class CPCatchupBonusGateTests(unittest.TestCase):
