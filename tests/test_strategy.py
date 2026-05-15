@@ -6,7 +6,13 @@ import unittest
 
 from code.army import Army
 from code.map import Map, Objective, Terrain, TerrainType
-from code.strategy import pick_move_intent
+from code.strategy import (
+    _gunline_charge_bonus,
+    _is_gunline_target,
+    _melee_target_score,
+    pick_charge_target,
+    pick_move_intent,
+)
 from code.units import Unit, UnitProfile
 
 
@@ -209,6 +215,150 @@ class CoverSnapTests(unittest.TestCase):
             ruin.contains(target_pos),
             f"expected snap to ruin, got {target_pos}",
         )
+
+
+class GunlineChargeBonusTests(unittest.TestCase):
+    """One-sided gunline-charge bonus (#114).
+
+    Tough gunlines (T'au Crisis Battlesuits, Marine Devastators) under
+    save-aware durability score as low-priority charge targets. Real
+    opponents charge them anyway because letting them shoot is worse.
+    The bonus fires only when (a) defender is gunline-style AND (b)
+    attacker is NOT T'au — so T'au's own melee units (Vespid, Stealth
+    Suits) don't game the bonus when picking enemy heavies.
+    """
+
+    @staticmethod
+    def _battlesuit_profile(faction: str = "T'au Empire") -> UnitProfile:
+        # T'au Crisis Battlesuit-ish: T5/W4/Sv3+, big ranged DPA, tiny melee.
+        return UnitProfile(
+            name="Crisis Battlesuit", faction=faction,
+            health=4, damage=6, hit_probability=2 / 3,
+            ap=-1, save=3, toughness=5,
+            attacks=6, weapon_damage_per_shot=2.0,
+            strength=5, range_inches=18,
+            melee_attacks=2, melee_damage_per_shot=1.0,
+            melee_hit_probability=0.5, melee_strength=4,
+        )
+
+    @staticmethod
+    def _devastator_profile() -> UnitProfile:
+        # Marine Devastators — gunline shape but Astartes faction.
+        return UnitProfile(
+            name="Devastator Squad", faction="Adeptus Astartes",
+            health=2, damage=4, hit_probability=2 / 3,
+            ap=-2, save=3, toughness=4,
+            attacks=4, weapon_damage_per_shot=2.0,
+            strength=8, range_inches=48,
+            melee_attacks=2, melee_damage_per_shot=1.0,
+            melee_hit_probability=0.5, melee_strength=4,
+        )
+
+    @staticmethod
+    def _brawler_profile(faction: str = "Orks") -> UnitProfile:
+        # Generic melee profile — close to neutral on the gunline detector.
+        return UnitProfile(
+            name="Brawler", faction=faction,
+            health=2, damage=0, hit_probability=0,
+            ap=0, save=4, toughness=4,
+            attacks=0, range_inches=1,
+            melee_attacks=4, melee_damage_per_shot=1.0,
+            melee_hit_probability=2 / 3, melee_strength=5,
+        )
+
+    @staticmethod
+    def _vespid_profile() -> UnitProfile:
+        # T'au Vespid Stingwings — melee-leaning T'au unit. Faction is the
+        # only thing that disqualifies it from the bonus.
+        return UnitProfile(
+            name="Vespid Stingwings", faction="T'au Empire",
+            health=2, damage=2, hit_probability=0.5,
+            ap=-1, save=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0,
+            strength=5, range_inches=18,
+            melee_attacks=3, melee_damage_per_shot=1.0,
+            melee_hit_probability=2 / 3, melee_strength=4,
+        )
+
+    def _unit_at(self, profile: UnitProfile, pos):
+        army = Army("X")
+        army.add_unit(profile)
+        u = army.units[-1]
+        u.position = pos
+        return u, army
+
+    def test_opposing_army_attacker_gets_bonus_charging_battlesuit(self):
+        # Ork brawler scoring a T'au battlesuit — bonus fires.
+        ork = self._brawler_profile("Orks")
+        suit = self._battlesuit_profile()
+        bonus = _gunline_charge_bonus(ork, suit)
+        self.assertGreater(
+            bonus, 1.0,
+            f"opposing-faction attacker should get gunline bonus, got {bonus}",
+        )
+
+    def test_tau_attacker_does_not_get_bonus_on_enemy_heavy(self):
+        # T'au Vespid scoring an enemy Devastator gunline — NO bonus (T'au
+        # attackers are excluded so the fix doesn't help T'au itself).
+        vespid = self._vespid_profile()
+        dev = self._devastator_profile()
+        bonus = _gunline_charge_bonus(vespid, dev)
+        self.assertEqual(
+            bonus, 1.0,
+            f"T'au attacker must not gain gunline bonus, got {bonus}",
+        )
+
+    def test_bonus_magnitude_on_synthetic_battlesuit(self):
+        # Score Battlesuit as charge target from non-T'au attacker AND
+        # compare to the same scoring with the bonus stripped — must be
+        # >= 1.5x and bounded by 2.5x.
+        attacker_prof = self._brawler_profile("Orks")
+        target_prof = self._battlesuit_profile()
+        bonus = _gunline_charge_bonus(attacker_prof, target_prof)
+        self.assertGreaterEqual(
+            bonus, 1.5,
+            f"expected >=1.5x bonus on pure-gunline target, got {bonus}",
+        )
+        self.assertLessEqual(
+            bonus, 2.5,
+            f"bonus cap of 2.5x violated, got {bonus}",
+        )
+
+        # And the per-target score should reflect this multiplier.
+        attacker, _ = self._unit_at(attacker_prof, (0.0, 0.0))
+        target, _ = self._unit_at(target_prof, (5.0, 0.0))
+        scored = _melee_target_score(attacker, target)
+        # Recompute the base by routing through a "T'au attacker" — which
+        # is forced to bonus=1.0. Use a stand-in T'au attacker with the
+        # same stats so the only difference is the bonus gate.
+        tau_stand_in = UnitProfile(
+            **{**attacker_prof.__dict__, "faction": "T'au Empire"}
+        )
+        tau_attacker, _ = self._unit_at(tau_stand_in, (0.0, 0.0))
+        base = _melee_target_score(tau_attacker, target)
+        self.assertAlmostEqual(scored / base, bonus, places=4)
+        self.assertGreaterEqual(scored / base, 1.5)
+
+    def test_non_tau_gunline_also_gets_bonus(self):
+        # Necron / Astartes attackers charging Marine Devastators should
+        # ALSO trigger the bonus — it's a general gunline incentive, not
+        # T'au-only. Choose a Necron-flavoured attacker faction.
+        necron_attacker = self._brawler_profile("Necrons")
+        dev = self._devastator_profile()
+        self.assertTrue(_is_gunline_target(dev), "Devastators should classify as gunline target")
+        bonus = _gunline_charge_bonus(necron_attacker, dev)
+        self.assertGreater(
+            bonus, 1.0,
+            f"non-T'au gunline target should still trigger bonus, got {bonus}",
+        )
+
+    def test_brawler_target_does_not_get_bonus(self):
+        # Sanity: a melee-heavy brawler is NOT a gunline target; bonus stays 1.0
+        # even with the opposing-faction gate satisfied.
+        ork_attacker = self._brawler_profile("Orks")
+        marine_brawler = self._brawler_profile("Adeptus Astartes")
+        bonus = _gunline_charge_bonus(ork_attacker, marine_brawler)
+        self.assertEqual(bonus, 1.0)
 
 
 if __name__ == "__main__":

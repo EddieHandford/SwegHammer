@@ -152,6 +152,70 @@ def _durability(profile, current_health: float, attacker_ap: int) -> float:
     return profile.toughness * max(1.0, current_health) / unsaved_fraction
 
 
+# Factions whose own melee units should NOT receive the gunline-charge bonus
+# when scoring enemy targets. The bonus is a one-sided incentive: opponents
+# should attack T'au-style gunlines because letting them shoot is worse than
+# eating a counter-charge. But applied symmetrically, T'au's own melee units
+# (Vespid Stingwings, Stealth Suits) game the bonus too — net helping T'au
+# (the earlier #107 attempt actually moved T'au's calibration from +10.3 to
+# +12.9 by being two-sided). Keep this list tight; expand only if a faction
+# has the same shape (low-melee gunline army with token melee escorts).
+_GUNLINE_ATTACKER_FACTIONS = frozenset({"T'au Empire"})
+
+
+def _is_gunline_target(profile) -> bool:
+    """True when `profile` is a 'gunline' — ranged DPA meaningfully exceeds
+    melee DPA. Captures T'au Battlesuits / Pathfinders / Broadsides, Marine
+    Devastators / Hellblasters, Sororitas Retributors, etc.
+
+    A target's *role* is also gunline-ish if its melee profile is so thin
+    that opponents are better off charging it than letting it shoot.
+    """
+    ranged_dpa = (
+        profile.attacks * profile.hit_probability
+        * (profile.weapon_damage_per_shot or 0.0)
+    )
+    melee_dpa = (
+        profile.melee_attacks * profile.melee_hit_probability
+        * (profile.melee_damage_per_shot or 0.0)
+    )
+    if ranged_dpa <= 0.5:
+        return False
+    # Ratio >= 2x of ranged over melee qualifies. The 0.5 floor on melee_dpa
+    # protects against divide-by-zero and treats pure gunlines (no melee
+    # profile at all) as fully ranged-dependent.
+    return ranged_dpa >= 2.0 * max(0.5, melee_dpa)
+
+
+def _gunline_charge_bonus(attacker_profile, defender_profile) -> float:
+    """One-sided gunline-charge incentive: returns a multiplier in [1.0, 2.5]
+    applied to the score of `defender` AS A MELEE TARGET.
+
+    Only fires when (a) the attacker is NOT one of `_GUNLINE_ATTACKER_FACTIONS`
+    AND (b) the defender is a gunline-style profile. This makes opponents
+    prioritise charging T'au battlesuits / Marine Devastators / etc., while
+    preventing T'au's own melee escorts from gaming the bonus when picking
+    enemy heavies.
+
+    Scale: ratio 2x ranged-over-melee -> 1.5x score; 4x -> 2.5x; cap 2.5x.
+    """
+    if attacker_profile.faction in _GUNLINE_ATTACKER_FACTIONS:
+        return 1.0
+    if not _is_gunline_target(defender_profile):
+        return 1.0
+    ranged_dpa = (
+        defender_profile.attacks * defender_profile.hit_probability
+        * (defender_profile.weapon_damage_per_shot or 0.0)
+    )
+    melee_dpa = (
+        defender_profile.melee_attacks * defender_profile.melee_hit_probability
+        * (defender_profile.melee_damage_per_shot or 0.0)
+    )
+    ratio = ranged_dpa / max(0.5, melee_dpa)
+    # ratio 2x -> 1.5x; 4x -> 2.5x; cap at 2.5x.
+    return min(2.5, 0.5 + ratio * 0.5)
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -180,7 +244,11 @@ def _melee_target_score(attacker, defender) -> float:
         tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)
     ) * (tp.range_inches / 24.0)
 
-    return (kill_potential + 0.5 * ranged_value) / (1.0 + threat_back)
+    base = (kill_potential + 0.5 * ranged_value) / (1.0 + threat_back)
+    # One-sided gunline incentive: opposing armies prioritise tying up
+    # T'au-style gunlines. T'au's own melee units don't game the bonus —
+    # see `_gunline_charge_bonus` for the asymmetry.
+    return base * _gunline_charge_bonus(p, tp)
 
 
 def pick_charge_target(attacker, enemy):
@@ -257,8 +325,12 @@ def pick_charge_target(attacker, enemy):
         else:
             charge_p = 0.08
 
+        # One-sided gunline incentive — same multiplier used in
+        # `_melee_target_score`. Only opposing-army attackers get the
+        # bonus; T'au's own melee units don't game it.
+        gunline_bonus = _gunline_charge_bonus(p, tp)
         score = ((kill_potential + 0.5 * ranged_value)
-                 / (1.0 + threat_against)) * charge_p
+                 / (1.0 + threat_against)) * charge_p * gunline_bonus
         candidates.append((score, d, e))
 
     if not candidates:
