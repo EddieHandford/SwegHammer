@@ -63,11 +63,53 @@
     },
     "thousand_sons_rubric_marines": {
       "points_override": 59.94,
-      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model"
+      "invuln_save": 5,
+      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model | Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
     },
     "thousand_sons_scarab_occult_terminators": {
       "points_override": 98.98,
-      "notes": "sweg_balance_mc down 109.98 -> 98.98 pts/model"
+      "invuln_save": 4,
+      "notes": "sweg_balance_mc down 109.98 -> 98.98 pts/model | Scarab Occult Terminators: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Scarab-Occult-Terminators"
+    },
+    "thousand_sons_magnus_the_red": {
+      "invuln_save": 4,
+      "notes": "Magnus the Red: 4++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red"
+    },
+    "thousand_sons_ahriman": {
+      "invuln_save": 4,
+      "notes": "Ahriman: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman"
+    },
+    "thousand_sons_infernal_master": {
+      "invuln_save": 5,
+      "notes": "Infernal Master: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Infernal-Master"
+    },
+    "thousand_sons_exalted_sorcerer": {
+      "invuln_save": 5,
+      "notes": "Exalted Sorcerer: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Exalted-Sorcerer"
+    },
+    "thousand_sons_exalted_sorcerer_on_disc_of_tzeentch": {
+      "invuln_save": 5,
+      "notes": "Exalted Sorcerer on Disc of Tzeentch: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Exalted-Sorcerer-on-Disc-of-Tzeentch"
+    },
+    "thousand_sons_daemon_prince_of_tzeentch": {
+      "invuln_save": 4,
+      "notes": "Daemon Prince of Tzeentch: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Daemon-Prince-of-Tzeentch"
+    },
+    "thousand_sons_daemon_prince_of_tzeentch_with_wings": {
+      "invuln_save": 4,
+      "notes": "Daemon Prince of Tzeentch with Wings: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Daemon-Prince-of-Tzeentch-with-Wings"
+    },
+    "thousand_sons_tzaangor_shaman": {
+      "invuln_save": 5,
+      "notes": "Tzaangor Shaman: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Tzaangor-Shaman"
+    },
+    "thousand_sons_kairos_fateweaver": {
+      "invuln_save": 4,
+      "notes": "Kairos Fateweaver: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Kairos-Fateweaver"
+    },
+    "thousand_sons_lord_of_change": {
+      "invuln_save": 4,
+      "notes": "Lord of Change: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Lord-of-Change"
     },
     "space_marines_intercessor_squad": {
       "base_shape": "circle",
