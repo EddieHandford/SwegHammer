@@ -59,6 +59,11 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("psychic_mortal_wounds_per_round", 0),
     ("ld_bonus", 0),
     ("enemy_ld_penalty", 0),
+    # Keyword-gated second-detachment buffs (#126).
+    ("vehicles_reroll_hit_ones", False),
+    ("canoptek_plus_one_to_wound", False),
+    ("aspect_warrior_or_bike_plus_one_move", False),
+    ("plague_marines_plus_one_to_wound", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

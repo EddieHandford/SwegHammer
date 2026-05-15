@@ -77,6 +77,28 @@ class Detachment:
     # of D3 = 2 maps cleanly to the typical Cult-of-Magic Doombolt yield.
     psychic_mortal_wounds_per_round: int = 0
 
+    # Keyword-gated attack buffs introduced in #126 (second-detachment pass).
+    # Each fires only when the ATTACKER unit matches the detachment's gate:
+    #   * vehicles_reroll_hit_ones — Adeptus Astartes Ironstorm Spearhead.
+    #     Friendly VEHICLE units re-roll Hit rolls of 1. Gate: attacker has
+    #     the VEHICLE keyword.
+    #   * canoptek_plus_one_to_wound — Necrons Canoptek Court. Friendly
+    #     CANOPTEK units get +1 to wound rolls. Gate: attacker profile name
+    #     starts with "Canoptek".
+    #   * aspect_warrior_or_bike_plus_one_move — Aeldari Saim-Hann Wild Host.
+    #     Aspect Warriors and Bike-mounted units gain +1" Movement. Gate:
+    #     attacker profile name matches an Aspect Warrior datasheet (Howling
+    #     Banshees, Striking Scorpions, Fire Dragons, Dark Reapers, Swooping
+    #     Hawks, Warp Spiders, Shining Spears) or a bike chassis (Windriders,
+    #     Shining Spears, Shroud Runners). Applied via `effective_move`.
+    #   * plague_marines_plus_one_to_wound — Death Guard Plague Marines
+    #     Onslaught. Plague Marines get +1 to wound rolls. Gate: attacker
+    #     profile name == "Plague Marines".
+    vehicles_reroll_hit_ones: bool = False
+    canoptek_plus_one_to_wound: bool = False
+    aspect_warrior_or_bike_plus_one_move: bool = False
+    plague_marines_plus_one_to_wound: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -383,6 +405,73 @@ OATHBAND = Detachment(
 
 
 # ---------------------------------------------------------------------------
+# Second detachments per major faction (#126). Each is keyword-gated so the
+# buff only fires on the units the codex actually empowers — not army-wide.
+# ---------------------------------------------------------------------------
+
+IRONSTORM_SPEARHEAD = Detachment(
+    name="Ironstorm Spearhead",
+    faction="Adeptus Astartes",
+    notes=(
+        "Armoured Superiority: friendly VEHICLE units re-roll Hit rolls of 1. "
+        "Lossy approximation of the canonical 'Armour of Contempt'-style "
+        "vehicle-themed buffs in the launch-day Ironstorm Spearhead index; "
+        "the codex replacement carries a similar VEHICLE-keyword reroll "
+        "spine. Gate: attacker has the VEHICLE keyword."
+    ),
+    vehicles_reroll_hit_ones=True,
+    preferred_composition="vehicle",
+)
+
+CANOPTEK_COURT = Detachment(
+    name="Canoptek Court",
+    faction="Necrons",
+    notes=(
+        "Canoptek-led command: friendly CANOPTEK units gain +1 to Wound "
+        "rolls. Lossy approximation of the Canoptek Court detachment's "
+        "Cryptek-led repair / acceleration buffs; we collapse the bundle "
+        "into a flat +1 to wound on the Canoptek chassis. Gate: attacker "
+        "profile name starts with 'Canoptek'."
+    ),
+    canoptek_plus_one_to_wound=True,
+    preferred_composition="balanced",
+)
+
+SAIM_HANN_WILD_HOST = Detachment(
+    name="Saim-Hann Wild Host",
+    faction="Aeldari",
+    notes=(
+        "Wild Riders of Saim-Hann: friendly Aspect Warriors and Bike-mounted "
+        "units gain +1\" Movement. Lossy approximation of the Wild Host's "
+        "advance-and-charge spine, which in 10e grants ASSAULT and an "
+        "advance reroll to Aeldari Bikes; we collapse the mobility bundle "
+        "into a flat +1\" to the Move characteristic for the relevant "
+        "datasheets. Gate: attacker profile name matches one of the seven "
+        "Aspect Warrior datasheets (Howling Banshees, Striking Scorpions, "
+        "Fire Dragons, Dark Reapers, Swooping Hawks, Warp Spiders, Shining "
+        "Spears) or a Bike chassis (Windriders, Shining Spears, Shroud "
+        "Runners). Applied through `effective_move`."
+    ),
+    aspect_warrior_or_bike_plus_one_move=True,
+    preferred_composition="infantry",
+)
+
+PLAGUE_MARINES_ONSLAUGHT = Detachment(
+    name="Plague Marines Onslaught",
+    faction="Death Guard",
+    notes=(
+        "Plague Marines spearhead: PLAGUE MARINES units gain +1 to Wound "
+        "rolls. Lossy approximation of the codex's Plague Marines-themed "
+        "detachment spine (heavy on Plague Weapons buffs); we collapse the "
+        "bundle into a flat +1 to wound on the Plague Marines datasheet. "
+        "Gate: attacker profile name == 'Plague Marines'."
+    ),
+    plague_marines_plus_one_to_wound=True,
+    preferred_composition="infantry",
+)
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -408,6 +497,11 @@ DETACHMENTS: Dict[str, Detachment] = {
     "daemonic_incursion":      DAEMONIC_INCURSION,
     "final_day":               FINAL_DAY,
     "oathband":                OATHBAND,
+    # Second detachments per major faction (#126).
+    "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
+    "canoptek_court":          CANOPTEK_COURT,
+    "saim_hann_wild_host":     SAIM_HANN_WILD_HOST,
+    "plague_marines_onslaught": PLAGUE_MARINES_ONSLAUGHT,
 }
 
 
@@ -421,6 +515,13 @@ for _key, _det in list(DETACHMENTS.items()):
     _enh = enhancements_for_detachment(_key)
     if _enh:
         DETACHMENTS[_key] = _dc.replace(_det, enhancements=_enh)
+# Clean up the loop variables so `dir(detachments)` doesn't expose a stray
+# `_det` Detachment instance that the rule auditor would otherwise scan for
+# citations. The trailing underscore-prefixed names from the for-loop survive
+# scope otherwise (CPython doesn't garbage-collect loop locals in module
+# bodies), and the audit picked up the last-iteration Detachment as a
+# spurious `_det.<field>` citation requirement.
+del _key, _det, _enh, _dc
 # Re-bind the module-level constants so downstream `from .detachments import
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
@@ -487,19 +588,25 @@ def default_detachment_for_faction(faction: str) -> Optional[Detachment]:
 # one entry — the catalogue expands in #104. Tuples preserve insertion order
 # so the picker is deterministic given a seeded RNG.
 FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
-    "Adeptus Astartes":         ("gladius_task_force",),
-    "Ultramarines":             ("gladius_task_force",),
-    "Blood Angels":             ("gladius_task_force",),
-    "Dark Angels":              ("gladius_task_force",),
-    "Black Templars":           ("gladius_task_force",),
-    "Space Wolves":             ("gladius_task_force",),
-    "Salamanders":              ("gladius_task_force",),
-    "Imperial Fists":           ("gladius_task_force",),
-    "Iron Hands":               ("gladius_task_force",),
-    "Raven Guard":              ("gladius_task_force",),
-    "White Scars":              ("gladius_task_force",),
-    "Deathwatch":               ("gladius_task_force",),
-    "Necrons":                  ("awakened_dynasty",),
+    # Marines chapters now carry BOTH Gladius Task Force (balanced) and
+    # Ironstorm Spearhead (vehicle-heavy) per #126. Picker selects by army
+    # composition: vehicle-dominant rosters favour Ironstorm.
+    "Adeptus Astartes":         ("gladius_task_force", "ironstorm_spearhead"),
+    "Ultramarines":             ("gladius_task_force", "ironstorm_spearhead"),
+    "Blood Angels":             ("gladius_task_force", "ironstorm_spearhead"),
+    "Dark Angels":              ("gladius_task_force", "ironstorm_spearhead"),
+    "Black Templars":           ("gladius_task_force", "ironstorm_spearhead"),
+    "Space Wolves":             ("gladius_task_force", "ironstorm_spearhead"),
+    "Salamanders":              ("gladius_task_force", "ironstorm_spearhead"),
+    "Imperial Fists":           ("gladius_task_force", "ironstorm_spearhead"),
+    "Iron Hands":               ("gladius_task_force", "ironstorm_spearhead"),
+    "Raven Guard":              ("gladius_task_force", "ironstorm_spearhead"),
+    "White Scars":              ("gladius_task_force", "ironstorm_spearhead"),
+    "Deathwatch":               ("gladius_task_force", "ironstorm_spearhead"),
+    # Necrons: Awakened Dynasty (balanced character-led) vs Canoptek Court
+    # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
+    # army leans on its Canoptek units.
+    "Necrons":                  ("awakened_dynasty", "canoptek_court"),
     "Tyranids":                 ("invasion_fleet",),
     "Orks":                     ("waaagh_tribe",),
     "Imperial Knights":         ("noble_lance",),
@@ -511,15 +618,19 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Imperial Agents":          ("inquisition_task_force",),
     "Astra Militarum":          ("combined_regiment",),
     "Grey Knights":             ("teleport_strike_force",),
-    "Aeldari":                  ("battle_host",),
-    "Aeldari (Craftworlds)":    ("battle_host",),
-    "Ynnari":                   ("battle_host",),
+    # Aeldari: Battle Host (balanced) vs Saim-Hann Wild Host (mobility-
+    # themed; tilts on Aspect-Warrior / Bike-heavy rosters).
+    "Aeldari":                  ("battle_host", "saim_hann_wild_host"),
+    "Aeldari (Craftworlds)":    ("battle_host", "saim_hann_wild_host"),
+    "Ynnari":                   ("battle_host", "saim_hann_wild_host"),
     "Drukhari":                 ("skysplinter_assault",),
     "T'au Empire":              ("montka",),
     "Tau Empire":               ("montka",),
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
-    "Death Guard":              ("plague_company",),
+    # Death Guard: Plague Company (balanced) vs Plague Marines Onslaught
+    # (Plague Marines-heavy rosters).
+    "Death Guard":              ("plague_company", "plague_marines_onslaught"),
     "Thousand Sons":            ("cult_of_magic",),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
@@ -598,15 +709,124 @@ def _dominant_composition(composition: Dict[str, float]) -> str:
     return best
 
 
-def _score_detachment_for_army(det: Detachment, composition: Dict[str, float]) -> float:
+# Aspect Warrior / Bike datasheet names — used by the Saim-Hann picker
+# affinity (and by `effective_move` to gate the +1" Movement buff). Matched
+# against `UnitProfile.name` exactly.
+ASPECT_WARRIOR_OR_BIKE_NAMES: Tuple[str, ...] = (
+    "Howling Banshees",
+    "Striking Scorpions",
+    "Fire Dragons",
+    "Dark Reapers",
+    "Swooping Hawks",
+    "Warp Spiders",
+    "Shining Spears",
+    "Windriders",
+    "Shroud Runners",
+)
+
+
+def _keyword_affinity_score(det: Detachment, units) -> float:
+    """Bonus score for detachments whose gate matches a sizable chunk of the
+    army's points. Returns 0 when the detachment has no keyword gate; up to
+    +20 when >=30% of points fit the gate (i.e. the detachment's buff would
+    fire on a meaningful slice of the army).
+
+    Each gate is checked against the actual unit list via the same predicates
+    `effective_buffs` / `effective_move` use at runtime, so the picker and
+    the simulator agree on what counts as a "Canoptek" / "Plague Marines"
+    / Aspect-or-Bike unit.
+    """
+    def _profile(u):
+        return u.profile if hasattr(u, "profile") else u
+    def _pts(u) -> float:
+        return float(_profile(u).points_cost)
+    def _kw(u) -> set:
+        return set(_profile(u).unit_keywords or ())
+    def _name(u) -> str:
+        return _profile(u).name or ""
+
+    total = sum(_pts(u) for u in units)
+    if total <= 0:
+        return 0.0
+
+    if det.canoptek_plus_one_to_wound:
+        matched = sum(_pts(u) for u in units if _name(u).startswith("Canoptek"))
+    elif det.plague_marines_plus_one_to_wound:
+        matched = sum(_pts(u) for u in units if _name(u) == "Plague Marines")
+    elif det.aspect_warrior_or_bike_plus_one_move:
+        matched = sum(
+            _pts(u) for u in units if _name(u) in ASPECT_WARRIOR_OR_BIKE_NAMES
+        )
+    elif det.vehicles_reroll_hit_ones:
+        # VEHICLE already drives `preferred_composition="vehicle"`, but the
+        # keyword affinity adds an extra nudge so Ironstorm dominates when
+        # the army is genuinely tank-heavy rather than relying on the
+        # chassis-dominant heuristic alone.
+        matched = sum(_pts(u) for u in units if "VEHICLE" in _kw(u))
+    else:
+        return 0.0
+
+    fraction = matched / total
+    if fraction >= 0.3:
+        return 20.0
+    if fraction >= 0.15:
+        return 10.0
+    return 0.0
+
+
+def _score_detachment_for_army(
+    det: Detachment,
+    composition: Dict[str, float],
+    units=None,
+) -> float:
     """
     Score a detachment against an army composition. +10 if the detachment's
     `preferred_composition` matches the dominant chassis tag; 0 otherwise.
     An untagged ("") detachment is treated as "balanced".
+
+    If `units` is provided, ADD a keyword-affinity bonus for the four #126
+    second detachments whose buff fires only on specific datasheet keywords
+    (Canoptek / Plague Marines / Aspect-or-Bike / VEHICLE) — see
+    `_keyword_affinity_score`. The two-stage score lets the chassis tag
+    drive coarse picks (which composition is dominant) while the keyword
+    affinity layers in finer disambiguation (a Necron army that is 40%
+    Canoptek points tilts firmly to Canoptek Court, not Awakened Dynasty).
     """
     dominant = _dominant_composition(composition)
     pref = det.preferred_composition or "balanced"
-    return 10.0 if pref == dominant else 0.0
+    score = 10.0 if pref == dominant else 0.0
+    if units is not None:
+        score += _keyword_affinity_score(det, units)
+    return score
+
+
+def effective_move(unit) -> float:
+    """Movement allowance for `unit` after detachment passives.
+
+    Reads `unit.profile.move` and adds any detachment-side movement bonus
+    that gates on the attacker. Currently only Saim-Hann Wild Host
+    (`aspect_warrior_or_bike_plus_one_move`) — Aspect Warriors and Bike
+    chassis units gain +1" Movement.
+
+    Falls back cleanly when the unit has no army_ref / no detachment, so
+    catalogue and unit-test code paths that construct bare Units still
+    work. Cited as `SAIM_HANN_WILD_HOST.aspect_warrior_or_bike_plus_one_move`.
+    """
+    base = float(getattr(unit.profile, "move", 6.0) or 6.0)
+    army = getattr(unit, "army_ref", None)
+    if army is None:
+        return base
+    try:
+        det = army.resolve_detachment()
+    except Exception:
+        det = None
+    if det is None:
+        return base
+    if getattr(det, "aspect_warrior_or_bike_plus_one_move", False):
+        name = getattr(unit.profile, "name", "") or ""
+        if name in ASPECT_WARRIOR_OR_BIKE_NAMES:
+            return base + 1.0
+    return base
 
 
 def pick_detachment_for_army(
@@ -644,7 +864,10 @@ def pick_detachment_for_army(
         return candidates[0]
 
     composition = _army_composition_signature(units)
-    scores = [_score_detachment_for_army(d, composition) for d in candidates]
+    scores = [
+        _score_detachment_for_army(d, composition, units=units)
+        for d in candidates
+    ]
 
     # Weight: best-scoring detachment gets a soft majority, not a landslide.
     # With +10 for a match and 0 otherwise, exp(s / 25) yields a ~60/40 split

@@ -30,6 +30,7 @@ from __future__ import annotations
 import math
 from typing import Optional, Tuple
 
+from .detachments import effective_move
 from .roles import classify
 
 
@@ -365,7 +366,7 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
 
     Helper for the Fall Back move (10e core). Cited as ``simulator.fall_back``.
     """
-    move = float(unit.profile.move or 6.0)
+    move = float(effective_move(unit))
     if move <= 0.0:
         return None
     px, py = unit.position
@@ -517,7 +518,7 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
     # to objective logic. This is what real Intercessor / Boyz / similar
     # do — bias toward enemies with weak melee, not just the closest body.
     if role == "DUAL" and enemy.alive_units:
-        move_dist = unit.profile.move or 6.0
+        move_dist = effective_move(unit)
         threat_range = move_dist + 12.0
         viable = [
             e for e in enemy.alive_units

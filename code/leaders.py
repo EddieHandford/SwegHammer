@@ -363,6 +363,34 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
                     and in_range_leaders(attacker):
                 buffs["plus_one_to_hit"] = True
 
+            # Keyword-gated second-detachment buffs (#126). Each fires only
+            # when the attacker's datasheet matches the detachment's gate.
+            attacker_kw = set(getattr(attacker.profile, "unit_keywords", ()) or ())
+            attacker_name = getattr(attacker.profile, "name", "") or ""
+            # Ironstorm Spearhead — VEHICLE units re-roll Hit rolls of 1.
+            if (
+                getattr(det, "vehicles_reroll_hit_ones", False)
+                and "VEHICLE" in attacker_kw
+            ):
+                buffs["reroll_hit_ones"] = True
+            # Canoptek Court — CANOPTEK units get +1 to wound. Datasheet
+            # detection via name-prefix matches all four BSData entries
+            # (Reanimator, Spyders, Scarab Swarms, Wraiths).
+            if (
+                getattr(det, "canoptek_plus_one_to_wound", False)
+                and attacker_name.startswith("Canoptek")
+            ):
+                buffs["plus_one_to_wound"] = True
+            # Plague Marines Onslaught — Plague Marines get +1 to wound.
+            if (
+                getattr(det, "plague_marines_plus_one_to_wound", False)
+                and attacker_name == "Plague Marines"
+            ):
+                buffs["plus_one_to_wound"] = True
+            # NB: Saim-Hann Wild Host's +1" Movement is a phase-side buff,
+            # not an attack-side modifier; it's applied via the
+            # `effective_move` helper, not here.
+
     for leader in in_range_leaders(attacker):
         ability = lookup_ability(leader.profile.name)
         if ability is None:

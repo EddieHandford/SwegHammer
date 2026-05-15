@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from .army import Army
+from .detachments import effective_move
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, ObjectiveScored, RoundEnded,
@@ -1748,7 +1749,7 @@ class Battle:
             if attacker.uid in self._advanced_this_round:
                 # Already advanced this round — don't compound activations.
                 return
-            normal_move = attacker.profile.move
+            normal_move = effective_move(attacker)
             old_pos = attacker.position
             new_pos = _move_toward(
                 attacker.position, target_pos,
@@ -1781,7 +1782,7 @@ class Battle:
         # We Advance only when a normal move would NOT bring us into shooting
         # range of the target — the speed boost is wasted otherwise and the
         # shoot foregone.
-        normal_move = attacker.profile.move
+        normal_move = effective_move(attacker)
         # For ENGAGE intent, "in range" = weapon range. For CAPTURE/STEAL,
         # "in range" = within the objective's control radius (we want to be on
         # the marker). REPOSITION is a small jiggle (always normal-move).
