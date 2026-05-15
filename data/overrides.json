@@ -12,6 +12,22 @@
     "genestealer_cults_acolyte_hybrids_with_autopistols": {
       "sticky_objective": true,
       "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."
+    },
+    "death_guard_plague_marines": {
+      "fnp": 5,
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it — override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient)."
+    },
+    "chaos_space_marines_plague_marines": {
+      "fnp": 5,
+      "notes": "Cross-codex BSData entry for Plague Marines; canonical datasheet lives in the Death Guard codex and carries Disgustingly Resilient (FNP 5+). Pricing and stats are identical to death_guard_plague_marines. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
+    },
+    "aeldari_aeldari_library_wraithguard": {
+      "invuln_save": 4,
+      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard."
+    },
+    "aeldari_aeldari_library_wraithblades": {
+      "invuln_save": 4,
+      "notes": "Wraithblades have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithblades."
     }
   }
 }

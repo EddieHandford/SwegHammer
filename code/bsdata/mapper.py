@@ -1608,12 +1608,66 @@ def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
 
 
 _INVULN_RE = re.compile(r"Invulnerable\s+Save\s*\(?\s*(\d)\s*\+", re.IGNORECASE)
+# Match the digit inside an Invuln-Save profile's Description characteristic.
+# Three canonical phrasings appear across BSData (surveyed across all codices):
+#   "Models in this unit have a 4+ invulnerable save."
+#   "This model has a 4+ invulnerable save."
+#   "Invulnerable Save of 4+." (Drukhari Archon, etc.)
+# A handful of profiles store ONLY the bare digit ("4+") in the Description,
+# leaning on the profile's name="Invulnerable Save" for context — covered by
+# `_INVULN_BARE_RE` as a fallback.
+_INVULN_DESC_PRE_RE = re.compile(r"(\d)\+\s*[Ii]nvulnerable\s+[Ss]ave", re.IGNORECASE)
+_INVULN_DESC_POST_RE = re.compile(r"[Ii]nvulnerable\s+[Ss]ave\s+of\s+(\d)\+", re.IGNORECASE)
+_INVULN_BARE_RE = re.compile(r"^\s*(\d)\+\s*$")
+# We deliberately do NOT exclude phrasings like "against ranged attacks only".
+# The simulator doesn't model ranged-vs-melee invuln separately, and an invuln
+# that only applies vs ranged attacks is still strictly better than no invuln
+# (vs the simulator's symmetric shooting-then-melee phase, the effective uplift
+# is approximate but on the correct side). If we later add ranged-only invuln
+# modelling, that's the right place to slice this distinction.
+
+
+def _parse_invuln_from_description(desc: str) -> Optional[int]:
+    """Pull the digit from an Invuln-Save profile's Description characteristic.
+
+    Returns None if no recognisable invuln value is present.
+    """
+    if not desc:
+        return None
+    m = _INVULN_DESC_PRE_RE.search(desc)
+    if m:
+        return int(m.group(1))
+    m = _INVULN_DESC_POST_RE.search(desc)
+    if m:
+        return int(m.group(1))
+    m = _INVULN_BARE_RE.match(desc.strip())
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _is_bare_invuln_name(name: str) -> bool:
+    """True if an infoLink/profile name is exactly "Invulnerable Save" with no
+    qualifying parenthetical (e.g. "Invulnerable Save (Yvraine)" — conditional
+    on a leader — should NOT match: those infoLinks point at non-Invuln rules).
+    """
+    s = (name or "").strip()
+    return s.lower() == "invulnerable save"
 
 
 def extract_invuln(entry: ET.Element, reg: Registry) -> int:
     """
-    Find the best invulnerable save on a unit by scanning infoLinks to profiles
-    named "Invulnerable Save (X+*)". Returns 7 if none.
+    Find the best invulnerable save on a unit by scanning infoLinks for two shapes:
+
+      1. The infoLink's own name carries the digit ("Invulnerable Save (4+*)")
+         — historical shape, e.g. Genestealer Cults Patriarch.
+      2. The infoLink's name is the bare "Invulnerable Save" and the digit
+         lives in the LINKED profile's Description characteristic — the shape
+         used by Adeptus Custodes (all 31 datasheets), Adeptus Mechanicus,
+         Terminator squads, Sanguinary Guard, Marneus Calgar etc. Discovered
+         missing in May 2026 Phase 3 defensive audit.
+
+    Returns the best (lowest) value found, or 7 if none.
     """
     best = 7
     seen: set = set()
@@ -1628,11 +1682,27 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
             seen.add(eid)
         for il in elem.findall(".//infoLink"):
             name = il.get("name") or ""
+            # Shape 1: digit embedded in the infoLink name.
             m = _INVULN_RE.search(name)
             if m:
                 v = int(m.group(1))
                 if v < best:
                     best = v
+                continue
+            # Shape 2: bare "Invulnerable Save" name → resolve target profile
+            # and parse its Description characteristic for the digit.
+            if not _is_bare_invuln_name(name):
+                continue
+            target = reg.resolve(il.get("targetId") or "")
+            if target is None or target.tag != "profile":
+                continue
+            for ch in target.iter("characteristic"):
+                if ch.get("name") != "Description":
+                    continue
+                v = _parse_invuln_from_description(ch.text or "")
+                if v is not None and v < best:
+                    best = v
+                break
         for el in elem.findall("./entryLinks/entryLink"):
             target = reg.resolve(el.get("targetId") or "")
             if target is not None:
