@@ -153,3 +153,71 @@ rule-bearing parts of `code/simulator.py` / `code/units.py`. If you can't
 find a Wahapedia / canonical citation for a rule, **stop and ask the user**.
 Don't approximate or invent — that's the failure mode that got Awakened
 Dynasty's rule wrong in the May 2026 calibration work.
+
+## 11. No acronyms in pull requests or documentation — ever
+
+Write every term out in full in pull request titles, pull request descriptions,
+commit messages, and any documentation file (`*.md`, `*.tex`, in-repo guides).
+This applies even to terms that feel universal in the hobby or in software.
+
+Examples:
+- "pull request", not "PR"
+- "pull request description", not "PR description"
+- "feel no pain", not "FNP"
+- "ballistic skill", not "BS"
+- "weapon skill", not "WS"
+- "command point", not "CP"
+- "user interface", not "UI"
+- "application programming interface", not "API"
+- "continuous integration", not "CI"
+
+Code identifiers, file names, and quoted rule text are exempt — keep
+`UNIT_CATALOG`, `app.py`, and verbatim Wahapedia citations as-is. The rule is
+about prose written for humans, where an acronym costs the reader a lookup the
+author could have spared them.
+
+## 12. Every pull request must update the main documentation and state its goal clearly
+
+Two things every pull request must do, no exceptions:
+
+**Update the main documentation.** Before the pull request is opened, sweep the
+documentation files listed in rule 2 (`BASELINE.md`, `ROADMAP.md`, `README.md`,
+`THEORY.md`, `SIMULATION.md`) and `PROJECT.tex`, and update any section the
+change touches. If the change genuinely touches no documented subject, say so
+explicitly in the pull request description ("no documentation impact, swept
+the following files and confirmed: …") so the reader knows it was checked, not
+forgotten. Documentation updates land in the same pull request as the code,
+never in a follow-up.
+
+**Explain very clearly what the pull request is meant to achieve.** The
+description must open with a plain-language statement of the goal — what
+problem is being solved, what behaviour will be different after the merge, and
+why this approach was chosen over alternatives. Assume the reader has not been
+in the conversation that led to the change. A reviewer should be able to read
+the first paragraph and know whether the pull request is worth their time,
+without scrolling through the diff to reconstruct intent. Write out terms in
+full per rule 11 — no acronyms in the goal statement.
+
+## 13. Fail loud when data is missing — no silent defaults
+
+When code cannot find a unit, override, rule citation, detachment, leader,
+stratagem, or any other piece of structured data it expected to find, raise an
+error that names the missing key and the file it was looked up in. Do not
+substitute a default value, do not fall back to a sibling entry, and do not
+return `None` and let the caller carry on as if nothing happened.
+
+Silent fallbacks have already caused real harm on this project: a missing rule
+citation that defaulted to "no effect" let the simulator run a wrong version
+of Awakened Dynasty for weeks, and a typo in an override key once resolved to
+the baseline unit profile without anyone noticing the catalogue load was
+incomplete. Both failures would have been caught at the first run if the
+lookup had thrown.
+
+The rule applies to loaders (`code/bsdata/mapper.py`, the override merger, the
+catalogue builder), to registries (`code/detachments.py`, `code/leaders.py`,
+`code/stratagems.py`), and to anything else that reads from
+`data/overrides.json`, `data/rule_citations.json`, or `data/bsdata/parsed.json`.
+If a default genuinely is the right behaviour for a specific field — for
+instance, an optional override flag that means "leave the base stat alone" —
+that default must be set explicitly at the call site with a comment explaining
+why silence is acceptable there, never buried in a generic `.get(key, None)`.

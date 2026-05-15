@@ -94,7 +94,7 @@ points implies equal expected battlefield score.
 | `ROADMAP.md` | Development milestones organised around Goals A–D |
 | `docs/CORE_RULES_AUDIT.md` | 10e core rules vs implementation coverage map |
 | `code/` | Python simulation engine |
-| `app.py` | Streamlit dashboard — 5 tabs (Statistics, Watch a battle, Efficiency, Equilibrium, Compare to SwegHammer) |
+| `app.py` | Streamlit dashboard — 6 tabs (Statistics, Watch a battle, Efficiency, Equilibrium, Compare to SwegHammer, Convergence) |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 | `code/factions.py` | Codex → faction mapping + per-faction display colours; Marine umbrella detection |
 | `code/archetypes.py` | Curated per-faction tournament list templates (opt-in via `use_archetype=True`) |
@@ -134,8 +134,8 @@ python run.py --cli
 python -m streamlit run app.py
 ```
 
-Requires Python 3.9+. Dashboard needs Streamlit and matplotlib; the
-core simulator has no external dependencies.
+Requires Python 3.9+. Dashboard needs Streamlit, matplotlib, Plotly, and
+pandas; the core simulator has no external dependencies.
 # Run a demo battle + quick calibration
 python run.py
 
@@ -150,8 +150,8 @@ python -m code.bsdata.fetch --tag v10.6.0
 python -m code.bsdata.mapper
 ```
 
-Requires Python 3.9+. Streamlit + matplotlib for the UI; the core simulator
-is stdlib-only.
+Requires Python 3.9+. Streamlit, matplotlib, Plotly, and pandas for the
+dashboard; the core simulator is standard-library only.
 
 On Windows: prepend `PYTHONIOENCODING=utf-8` so the console doesn't crash on
 the simulator's arrow character.
