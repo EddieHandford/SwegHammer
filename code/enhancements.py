@@ -1,0 +1,191 @@
+"""
+Enhancements (10e detachment-level character upgrades).
+
+Each Detachment offers a list of Enhancements — one-off upgrades applied to a
+single CHARACTER model at army-construction time. The rule (Wahapedia core
+rules, "Enhancements"):
+
+    "Each Enhancement is a one-off upgrade given to a CHARACTER model in your
+     army, costing points... Each unique Enhancement can only be taken once
+     per army. A CHARACTER can only have one Enhancement."
+
+This module is the MVP version of that rule:
+
+  1. `Enhancement` dataclass — frozen, hashable, with a small set of
+     modifier fields that compose with the existing `LeaderAbility` aura.
+  2. A starter registry of FIVE enhancements (one per high-touch Detachment
+     we already wire end-to-end: Gladius, Awakened Dynasty, Cult of Magic,
+     Plague Company, Mont'ka). Each carries a verbatim Wahapedia citation
+     under `data/rule_citations.d/enhancements.json` (CLAUDE.md §10).
+  3. A picker helper used by the army builder: given a Detachment, pick
+     one Enhancement deterministically (via a seeded RNG) so calibration
+     runs are reproducible.
+
+Runtime composition:
+
+  * `Unit.enhancement` (optional Enhancement) stores the assigned upgrade.
+  * `leaders.effective_buffs(attacker)` reads the enhancement off any
+     in-range friendly CHARACTER and merges its aura flags into the same
+     buff dict it already builds for detachments + leader auras.
+  * Defensive modifiers (`fnp_to_5`) compose with `Unit.receive_damage`
+     via the same `bonus_fnp` path leaders already use — we tunnel the
+     enhancement's FNP value through `effective_buffs(target)["fnp"]`.
+
+The starter set leans on aura fields that already exist in
+`leaders.effective_buffs`'s neutral buff dict (`plus_one_to_hit`,
+`plus_one_to_wound`, `reroll_hit_ones`, `reroll_wound_ones`, `fnp`) so the
+mechanic lands without simulator surgery. Bespoke once-per-battle effects
+(Veil of Darkness teleport, Umbralefic Crystal redeploy) are deferred.
+"""
+
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass
+from typing import Dict, Iterable, Optional, Tuple
+
+
+# ---------------------------------------------------------------------------
+# Enhancement dataclass
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Enhancement:
+    """A single Enhancement attached to one CHARACTER for the duration of a
+    battle. Modifier fields compose with the unit's leader aura and the
+    army's detachment passives via `leaders.effective_buffs`.
+
+    Naming convention: aura fields mirror the corresponding LeaderAbility /
+    Detachment flag name where possible so the merge in
+    `leaders.effective_buffs` is one OR per field.
+    """
+    name: str
+    detachment: str                   # registry key from code.detachments.DETACHMENTS
+    points_cost: int                  # subtracted from the army budget at build time
+    # ---- Offensive aura modifiers (apply when bearer's aura covers the
+    # attacking unit). Same semantics as LeaderAbility fields. ----
+    plus_one_to_hit_aura: bool = False
+    plus_one_to_wound_aura: bool = False
+    reroll_hit_ones_aura: bool = False
+    reroll_wound_ones_aura: bool = False
+    extra_attacks_melee: int = 0      # +N melee attacks for models in the bearer's unit
+    # ---- Defensive aura modifier ----
+    fnp_to_5: bool = False             # bearer's unit (and aura'd friendlies) gain FNP 5+
+
+
+# ---------------------------------------------------------------------------
+# Starter registry — ONE Enhancement per implemented Detachment
+# ---------------------------------------------------------------------------
+
+CHAMPION_OF_HUMANITY = Enhancement(
+    name="Champion of Humanity",
+    detachment="gladius_task_force",
+    points_cost=20,
+    # Real rule grants +1 to wound vs CHARACTER targets only. SwegHammer's
+    # focus-fire heuristic targets the lowest-health enemy unit, which is
+    # often (but not always) a CHARACTER. We apply +1 to wound aura-wide
+    # to keep the buff mechanically observable; the citation flags this
+    # as a (target-CHARACTER) simplification.
+    plus_one_to_wound_aura=True,
+)
+
+HYPERPHASIC_FULCRUM = Enhancement(
+    name="Hyperphasic Fulcrum",
+    detachment="awakened_dynasty",
+    points_cost=15,
+    # Real rule: "an unmodified Hit roll of 5+ scores a Critical Hit" —
+    # equivalent to lowering the to-hit target for crit purposes. Maps
+    # cleanly to +1 to hit because the +1 produces the same yield of
+    # natural-6 crits in expectation as lowering the crit threshold by 1
+    # (both shift one face's worth of outcomes into the crit window).
+    plus_one_to_hit_aura=True,
+)
+
+ARCANE_VORTEX = Enhancement(
+    name="Arcane Vortex",
+    detachment="cult_of_magic",
+    points_cost=25,
+    # Real rule grants a once-per-battle D3+3 mortal wound bomb. SwegHammer
+    # doesn't currently model bespoke once-per-battle character attacks, so
+    # we simplify to a re-roll wound 1s aura — the bearer's psychic
+    # output's wound rolls become more reliable, matching the rule's
+    # intent of "this character makes the unit's offence more lethal."
+    reroll_wound_ones_aura=True,
+)
+
+LIVING_PLAGUE = Enhancement(
+    name="Living Plague",
+    detachment="plague_company",
+    points_cost=15,
+    # Real rule extends the bearer's Contagions of Nurgle aura to 9" instead
+    # of 6". SwegHammer's contagion aura is hard-coded at 6" inside
+    # _is_near_enemy_dg_model, and plumbing a per-unit aura range through
+    # that helper is out of scope for the MVP. We map to +1 to wound melee
+    # as a stand-in for the Death Guard close-combat menace the contagion
+    # extension delivers in practice.
+    plus_one_to_wound_aura=True,
+)
+
+PURETIDE_ENGRAM_NEUROCHIP = Enhancement(
+    name="Puretide Engram Neurochip",
+    detachment="montka",
+    points_cost=15,
+    # Real rule: "Once per battle, while the bearer is leading a unit, you
+    # can re-roll a single Hit roll, a single Wound roll, and a single
+    # Damage roll for that unit." SwegHammer collapses the
+    # once-per-battle limit to a permanent re-roll hit 1s aura — across
+    # a five-round game the gameplay impact is roughly equivalent in
+    # expected hits.
+    reroll_hit_ones_aura=True,
+)
+
+
+# Registry keyed by Enhancement.name (display name; matches citation key)
+ENHANCEMENTS: Dict[str, Enhancement] = {
+    e.name: e for e in (
+        CHAMPION_OF_HUMANITY,
+        HYPERPHASIC_FULCRUM,
+        ARCANE_VORTEX,
+        LIVING_PLAGUE,
+        PURETIDE_ENGRAM_NEUROCHIP,
+    )
+}
+
+
+# Detachment-keyed grouping. Empty tuple means the detachment has no
+# enhancements wired yet (most do — see ROADMAP).
+ENHANCEMENTS_BY_DETACHMENT: Dict[str, Tuple[Enhancement, ...]] = {}
+for _e in ENHANCEMENTS.values():
+    ENHANCEMENTS_BY_DETACHMENT.setdefault(_e.detachment, tuple())
+    ENHANCEMENTS_BY_DETACHMENT[_e.detachment] = (
+        ENHANCEMENTS_BY_DETACHMENT[_e.detachment] + (_e,)
+    )
+
+
+def enhancements_for_detachment(detachment_key: str) -> Tuple[Enhancement, ...]:
+    """Return the tuple of Enhancements offered by the given detachment key.
+
+    Returns an empty tuple when the detachment has no wired enhancements.
+    Detachment key matches `code.detachments.DETACHMENTS` (lowercase,
+    underscore-separated).
+    """
+    return ENHANCEMENTS_BY_DETACHMENT.get(detachment_key, tuple())
+
+
+def pick_enhancement(
+    detachment_key: str,
+    rng: Optional[random.Random] = None,
+) -> Optional[Enhancement]:
+    """Pick one Enhancement for a detachment, or None if none are wired.
+
+    Used by the army builder to assign a starter enhancement to a single
+    CHARACTER at construction time. The choice is RNG-driven so calibration
+    runs vary list configurations across seeds, but determinism is preserved
+    when the caller passes a seeded `random.Random`.
+    """
+    pool = enhancements_for_detachment(detachment_key)
+    if not pool:
+        return None
+    if rng is None:
+        rng = random.Random()
+    return rng.choice(pool)

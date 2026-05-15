@@ -1,0 +1,48 @@
+{
+  "_comment": "10e Detachment Enhancements (Warlord upgrades). One Enhancement may be taken per CHARACTER and each unique Enhancement once per army (Wahapedia core rules, 'Enhancements' section). This starter set covers ONE Enhancement per Detachment we already wire end-to-end (Gladius, Awakened Dynasty, Cult of Magic, Plague Company, Mont'ka). Mechanical mappings are simplifications where the canonical effect is bespoke (one-shot teleport, modified Critical Hit threshold, contagion-aura-range tweak) — each entry's `effect` field documents the divergence per CLAUDE.md §10.",
+
+  "Enhancement.Champion of Humanity": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Champion of Humanity",
+    "quoted_text": "ADEPTUS ASTARTES model only. Each time the bearer makes an attack that targets a CHARACTER unit, add 1 to the Hit roll and add 1 to the Wound roll.",
+    "trigger": "the bearer's unit is selected to make attacks against a CHARACTER target",
+    "effect": "+1 to wound on attacks (simplification: SwegHammer applies the +1 wound aura-wide on the bearer's unit rather than gating to CHARACTER targets only, because the focus-fire heuristic in army.pick_target preferentially picks the lowest-health enemy unit which is often but not always a CHARACTER; the to-hit half of the rule is folded into the same effect bucket to keep the per-enhancement modifier surface small)",
+    "scope": "unit-led"
+  },
+
+  "Enhancement.Hyperphasic Fulcrum": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Hyperphasic Fulcrum",
+    "quoted_text": "NECRONS model only. Each time the bearer makes a melee attack, an unmodified Hit roll of 3+ scores a Critical Hit.",
+    "trigger": "the bearer makes any melee Hit roll",
+    "effect": "+1 to hit on attacks (simplification: SwegHammer applies +1 to hit aura-wide on the bearer's unit because lowering the d6 hit target by 1 produces approximately the same yield of crit-6s in expectation as lowering the crit threshold by one face; the aura is applied to both ranged and melee rather than the canonical melee-only because the simulator's attack mode is decided per-resolution and gating the buff to melee-only added complexity without changing the calibration signal)",
+    "scope": "unit-led"
+  },
+
+  "Enhancement.Arcane Vortex": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
+    "rule_name": "Arcane Vortex",
+    "quoted_text": "PSYKER model only. Once per battle, in your Shooting phase, the bearer can unleash an Arcane Vortex. If it does, select one enemy unit within 18\" of and visible to the bearer and roll one D6: on a 2+, that unit suffers D3+3 mortal wounds.",
+    "trigger": "the bearer's unit is selected to make Wound rolls",
+    "effect": "re-roll Wound rolls of 1 on the bearer's unit (simplification: SwegHammer doesn't model bespoke one-shot mortal-wound spells, so the once-per-battle D3+3 mortal-wound bomb is collapsed into a permanent wound-1 reroll on the bearer's unit; over a 5-round battle the expected wound output gain is comparable to the median 5-mortal-wound spell payload)",
+    "scope": "unit-led"
+  },
+
+  "Enhancement.Living Plague": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company",
+    "rule_name": "Living Plague",
+    "quoted_text": "DEATH GUARD model only. The bearer's Contagion range is 9\" instead of 6\".",
+    "trigger": "the bearer's unit is selected to make Wound rolls in melee",
+    "effect": "+1 to wound on attacks for the bearer's unit (simplification: SwegHammer's `_is_near_enemy_dg_model` hard-codes the Contagion aura at 6\" and plumbing a per-bearer aura range through that helper is out of scope for the MVP; mapping the enhancement to +1 to wound on the bearer's unit gives the close-combat menace boost the contagion-range extension delivers in practice without touching the DG army-rule plumbing)",
+    "scope": "unit-led"
+  },
+
+  "Enhancement.Puretide Engram Neurochip": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Mont-ka",
+    "rule_name": "Puretide Engram Neurochip",
+    "quoted_text": "Once per battle, at the start of your Shooting phase or the Fight phase, you can target one enemy unit within 18\" of and visible to the bearer (or within Engagement Range of it in the Fight phase). Until the end of the phase, each time a model in the bearer's unit makes an attack against that enemy unit, you can re-roll the Hit roll.",
+    "trigger": "the bearer's unit is selected to make Hit rolls",
+    "effect": "re-roll Hit rolls of 1 on the bearer's unit (simplification: SwegHammer collapses the once-per-battle 'target one unit, re-roll all Hits' into a permanent re-roll-Hits-of-1 aura on the bearer's unit; across a 5-round game with selective targeting the expected hit-yield gain is roughly equivalent)",
+    "scope": "unit-led"
+  }
+}

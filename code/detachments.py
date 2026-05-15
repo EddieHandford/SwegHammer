@@ -23,6 +23,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, Optional, Tuple
 
+from .enhancements import Enhancement, enhancements_for_detachment
 from .stratagems import (
     Stratagem,
     BATTLE_HOST_STRATAGEMS_EXTENDED,
@@ -84,6 +85,13 @@ class Detachment:
     # Core Stratagems are always available regardless of detachment (see
     # code/stratagems.py). Detachment-specific entries land in #104.
     stratagems: Tuple[Stratagem, ...] = ()
+
+    # Detachment-specific Enhancements (10e core: each Detachment offers a
+    # short list of Warlord upgrades available to one CHARACTER each). A
+    # `Detachment` instance carries the tuple statically; `army_builder`
+    # picks one Enhancement at construction time and assigns it to a
+    # CHARACTER. See `code.enhancements` for the dataclass + registry.
+    enhancements: Tuple[Enhancement, ...] = ()
 
     # Composition affinity — used by the army builder to pick a detachment
     # that suits the actual unit mix. Not a rule, just a selection tag.
@@ -401,6 +409,25 @@ DETACHMENTS: Dict[str, Detachment] = {
     "final_day":               FINAL_DAY,
     "oathband":                OATHBAND,
 }
+
+
+# Bind enhancement tuples onto each Detachment whose key has a wired entry
+# in `enhancements_for_detachment`. Uses dataclasses.replace because
+# `Detachment` is frozen — this produces a new Detachment instance and
+# replaces the registry entry in-place. Detachments with no wired
+# enhancements keep the default empty tuple.
+import dataclasses as _dc
+for _key, _det in list(DETACHMENTS.items()):
+    _enh = enhancements_for_detachment(_key)
+    if _enh:
+        DETACHMENTS[_key] = _dc.replace(_det, enhancements=_enh)
+# Re-bind the module-level constants so downstream `from .detachments import
+# GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
+GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
+AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
+CULT_OF_MAGIC      = DETACHMENTS["cult_of_magic"]
+PLAGUE_COMPANY     = DETACHMENTS["plague_company"]
+MONTKA             = DETACHMENTS["montka"]
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.

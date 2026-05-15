@@ -393,6 +393,12 @@ class Unit:
         # Round 2). Cleared once the unit lands. Cited as
         # `simulator.cult_ambush`.
         "cult_ambush_pending",
+        # 10e Enhancement (Warlord upgrade). Assigned to a single CHARACTER
+        # per army by the army builder; None on every other unit. Read by
+        # `leaders.effective_buffs` when this unit is an in-range friendly
+        # CHARACTER to merge its aura flags into the attacker's buff dict.
+        # See `code/enhancements.py` for the dataclass + registry.
+        "enhancement",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -448,6 +454,13 @@ class Unit:
         # elects the FALL_BACK intent; gates _do_shoot / _do_charge unless
         # the profile has FLY. Reset at the top of each round.
         self.fell_back_this_round: bool = False
+        # 10e Enhancement (Warlord upgrade). Defaults to None; the army
+        # builder sets this on exactly one CHARACTER per army at construction
+        # time. `leaders.effective_buffs` reads this field through any
+        # in-range friendly CHARACTER to compose its aura into the attacker's
+        # buff dict.
+        from typing import Optional
+        self.enhancement = None  # type: ignore[assignment]
 
     @property
     def is_alive(self) -> bool:

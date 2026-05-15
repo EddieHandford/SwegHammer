@@ -375,6 +375,47 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
 
+    # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
+    # may carry one Enhancement; if it does, OR-merge the aura modifier
+    # flags onto the same buff dict. Enhancement fields are namespaced
+    # with `_aura` to keep them visually distinct from the LeaderAbility
+    # equivalents, but they merge into the same neutral-buffs keys.
+    # We also include `attacker.enhancement` itself: a CHARACTER carrying
+    # an Enhancement is its own bearer, so its unit benefits even without
+    # a separate friendly CHARACTER nearby.
+    enh_carriers: List["Unit"] = []
+    army = getattr(attacker, "army_ref", None)
+    if army is not None:
+        # Bearer is the attacker itself, when applicable.
+        if getattr(attacker, "enhancement", None) is not None:
+            enh_carriers.append(attacker)
+        # Plus every other in-range friendly CHARACTER carrying an
+        # Enhancement (the bearer's unit gets the aura through proximity).
+        for leader in in_range_leaders(attacker):
+            if leader is attacker:
+                continue
+            if getattr(leader, "enhancement", None) is not None:
+                enh_carriers.append(leader)
+    for carrier in enh_carriers:
+        enh = carrier.enhancement
+        if enh is None:
+            continue
+        if getattr(enh, "plus_one_to_hit_aura", False):
+            buffs["plus_one_to_hit"] = True
+        if getattr(enh, "plus_one_to_wound_aura", False):
+            buffs["plus_one_to_wound"] = True
+        if getattr(enh, "reroll_hit_ones_aura", False):
+            buffs["reroll_hit_ones"] = True
+        if getattr(enh, "reroll_wound_ones_aura", False):
+            buffs["reroll_wound_ones"] = True
+        extra_atk = int(getattr(enh, "extra_attacks_melee", 0) or 0)
+        if extra_atk:
+            buffs["plus_one_attack"] = int(buffs["plus_one_attack"]) + extra_atk
+        if getattr(enh, "fnp_to_5", False):
+            cur_fnp = int(buffs["fnp"])
+            if cur_fnp > 5:
+                buffs["fnp"] = 5
+
     return buffs
 
 

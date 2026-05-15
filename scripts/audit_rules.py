@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from code.detachments import Detachment
+from code.enhancements import ENHANCEMENTS
 from code.leaders import LeaderAbility, _REGISTRY as LEADER_REGISTRY
 from code.stratagems import Stratagem, UNIVERSAL_STRATAGEMS
 import code.detachments as det_module
@@ -222,6 +223,13 @@ def _required_simulator_keys() -> Set[str]:
     return set(SIMULATOR_RULE_KEYS)
 
 
+def _required_enhancement_keys() -> Set[str]:
+    """Every Enhancement registered in `code.enhancements.ENHANCEMENTS` needs
+    a citation. Key format: `Enhancement.<name>` (matches the Stratagem and
+    LeaderAbility schemes already used by the auditor)."""
+    return {f"Enhancement.{e.name}" for e in ENHANCEMENTS.values()}
+
+
 def _load_citations() -> Dict[str, dict]:
     """Merge data/rule_citations.json with every fragment under
     data/rule_citations.d/*.json. Fragments enable parallel agents to
@@ -274,6 +282,7 @@ def main() -> int:
         | _required_leader_keys()
         | _required_stratagem_keys()
         | _required_simulator_keys()
+        | _required_enhancement_keys()
     )
 
     missing = sorted(required - set(citations.keys()))
