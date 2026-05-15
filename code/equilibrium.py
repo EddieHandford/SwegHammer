@@ -87,6 +87,8 @@ EQUILIBRIUM_PHASE4_PATH = REPO_ROOT / "data" / "equilibrium_points_phase4.json"
 EQUILIBRIUM_PHASE4_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase4.png"
 EQUILIBRIUM_PHASE5_PATH = REPO_ROOT / "data" / "equilibrium_points_phase5.json"
 EQUILIBRIUM_PHASE5_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase5.png"
+EQUILIBRIUM_PHASE6_PATH = REPO_ROOT / "data" / "equilibrium_points_phase6.json"
+EQUILIBRIUM_PHASE6_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase6.png"
 
 DEFAULT_ANCHOR_KEY = "space_marines_intercessor_squad"
 DEFAULT_ANCHOR_PER_MODEL = 16.0   # GW listed: 80 pts / 5 models
@@ -1673,6 +1675,326 @@ def compute_phase5(
 
 
 # ---------------------------------------------------------------------------
+# Phase 6 — Nash equilibrium for mixed strategies
+# ---------------------------------------------------------------------------
+#
+# Phase 5 reweights the row-mean LSQ residuals by a *fixed exogenous* meta
+# distribution (May 2026 warpfriends play-share). Phase 6 asks the deeper
+# question: what defender distribution would the WORST-CASE opponent play
+# against you? That distribution is the Nash equilibrium of the symmetric
+# two-player zero-sum game over the catalogue.
+#
+# Payoff matrix
+# -------------
+# Per the brief, the symmetric payoff is the trade ratio:
+#
+#     M[i, j] = (T[j, i] - T[i, j]) / (T[i, j] + T[j, i])    in [-1, 1]
+#
+# Antisymmetric (M[i, j] == -M[j, i]) by construction. Positive M[i, j] means
+# row-player's unit i kills column-player's unit j faster than the reverse —
+# i.e. i is better than j. For pairs where either T is infinite (no damage in
+# at least one direction) we set M[i, j] = 0: no usable game signal.
+#
+# LP formulation
+# --------------
+# Row player's max-min problem:
+#
+#     max v
+#     s.t. sigma^T @ M[:, j] >= v   for all j
+#          sum(sigma) = 1
+#          sigma >= 0
+#
+# Standard linprog form (minimise c^T x, A_ub x <= b_ub, A_eq x = b_eq, bounds):
+#   variables x = [sigma_1, ..., sigma_n, v]
+#   minimise:   c = [0, ..., 0, -1]                 (maximise v)
+#   A_ub row j: [-M[1,j], -M[2,j], ..., -M[n,j], 1] <= 0
+#               (rewrite v - sigma^T M[:,j] <= 0)
+#   A_eq:       [1, 1, ..., 1, 0] = 1               (simplex)
+#   bounds:     sigma_i in [0, None], v in (-inf, inf)
+#
+# Because M is antisymmetric the game value v is zero (by the symmetric-game
+# lemma) — we don't use v, we use sigma. sigma is the Nash mixed strategy:
+# the defender distribution against which every unit's expected payoff is at
+# least v=0, with equality on the support.
+#
+# Fair points from the Nash strategy
+# ----------------------------------
+# Two reasonable readings of "fair value from dual variables":
+#   (a) sigma itself — the relative weight a unit gets in the Nash mix is its
+#       strategic importance, and prices should reflect that.
+#   (b) the dual of the inequality constraints (the column player's strategy
+#       tau, equal to sigma in a symmetric game) — same numbers, same prices.
+#
+# We use sigma as a per-defender column weight in `solve_log_points_weighted`,
+# operating on the SAME T matrix Phase 5 used. This treats the Nash mixed
+# strategy as "the meta you should price against" — replacing Phase 5's
+# exogenous warpfriends meta with an endogenous, game-theoretic one.
+#
+# We anchor on the same Intercessor baseline as Phase 1-5 by pinning the
+# anchor's post-shift log-price to log(anchor_per_model). The tactical-utility
+# overlay (Phase 4) and attacker-meta uplift (Phase 5) are NOT re-applied at
+# Phase 6 — they remain part of the prior_result's log-prices and would
+# double-count if added a second time. We start from phase5.T, not from
+# phase5.log_p, and rebuild log_p with the Nash-weighted solve.
+
+# Numerical regulariser: when sigma's support is very sparse the column-
+# weighted LSQ can become near-degenerate for low-support attackers. We mix a
+# tiny epsilon of the uniform distribution into the weight vector so every
+# defender contributes some signal — Tikhonov-style stabilisation.
+_PHASE6_SIGMA_REGULARISATION = 1e-3
+
+
+def _build_nash_payoff_matrix(T: np.ndarray) -> np.ndarray:
+    """Antisymmetric trade-ratio matrix M[i, j] = (T[j,i] - T[i,j]) / (T[i,j] + T[j,i]).
+
+    Where either T is non-finite or the denominator vanishes, M = 0 (no game
+    signal). Diagonal is forced to 0. Entries are guaranteed in [-1, 1] and
+    M == -M.T to numerical precision (subject to inf-handling).
+    """
+    n = T.shape[0]
+    M = np.zeros((n, n), dtype=float)
+    finite = np.isfinite(T) & np.isfinite(T.T)
+    np.fill_diagonal(finite, False)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        num = T.T - T
+        den = T + T.T
+        ratio = np.where((den > 0) & finite, num / den, 0.0)
+    M[finite] = ratio[finite]
+    # Force exact antisymmetry — numerical noise can leak in via the inf-mask
+    # asymmetry. (1/2)(M - M^T) projects onto the antisymmetric subspace.
+    M = 0.5 * (M - M.T)
+    np.fill_diagonal(M, 0.0)
+    # Pre-normalise to [-1, 1] (defensive; the formula guarantees it).
+    max_abs = float(np.max(np.abs(M))) if M.size else 0.0
+    if max_abs > 1.0:
+        M = M / max_abs
+    return M
+
+
+def solve_nash_mixed_strategy(M: np.ndarray) -> Tuple[np.ndarray, float, bool]:
+    """Solve the symmetric zero-sum LP and return the row player's Nash sigma.
+
+    Maximise v s.t. M^T sigma >= v 1, sum(sigma) = 1, sigma >= 0.
+    Encoded into scipy.optimize.linprog standard form (minimise -v with
+    -M^T sigma + v <= 0 inequality rows). Returns `(sigma, v, ok)` where
+    `ok=False` signals the LP failed (infeasible/unbounded) and `sigma` falls
+    back to the uniform distribution.
+    """
+    from scipy.optimize import linprog
+
+    n = M.shape[0]
+    # Variables: x = [sigma_0, ..., sigma_{n-1}, v].
+    # Objective: minimise -v  <=> maximise v.
+    c = np.zeros(n + 1, dtype=float)
+    c[-1] = -1.0
+    # Inequalities: for each j, v - sum_i sigma_i * M[i, j] <= 0
+    #   row j: [-M[0,j], -M[1,j], ..., -M[n-1,j], 1] <= 0
+    A_ub = np.zeros((n, n + 1), dtype=float)
+    A_ub[:, :n] = -M.T
+    A_ub[:, -1] = 1.0
+    b_ub = np.zeros(n, dtype=float)
+    # Equality: sum(sigma) = 1
+    A_eq = np.zeros((1, n + 1), dtype=float)
+    A_eq[0, :n] = 1.0
+    b_eq = np.array([1.0], dtype=float)
+    # Bounds: sigma >= 0, v unbounded
+    bounds = [(0.0, None)] * n + [(None, None)]
+
+    res = linprog(
+        c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds,
+        method="highs",
+    )
+    if not res.success or res.x is None:
+        # Fall back to uniform; caller will log the warning.
+        return np.full(n, 1.0 / max(n, 1), dtype=float), 0.0, False
+    sigma = np.asarray(res.x[:n], dtype=float)
+    v = float(res.x[-1])
+    # Clip tiny negatives from interior-point slack and re-normalise to the
+    # simplex — Nash sigma is defined exactly on it.
+    sigma = np.clip(sigma, 0.0, None)
+    s = sigma.sum()
+    if s > 0:
+        sigma = sigma / s
+    else:
+        sigma = np.full(n, 1.0 / max(n, 1), dtype=float)
+    return sigma, v, True
+
+
+@dataclass
+class Phase6NashResult:
+    """Phase 6 output bundle. Carries an EquilibriumResult-shaped result plus
+    the Nash mixed strategy and the game value v.
+
+    `result` is a standard `EquilibriumResult` (phase=6) so downstream UI /
+    persistence consume it unchanged. `nash_strategy` is the row player's
+    optimal sigma on the simplex — by symmetry it's also the column player's
+    optimal tau. `game_value` is the LP's v; in a symmetric antisymmetric game
+    this is identically zero to numerical precision, and we report it for the
+    audit trail.
+    """
+    result: EquilibriumResult
+    nash_strategy: np.ndarray
+    game_value: float
+    lp_ok: bool
+    prior_result: EquilibriumResult
+
+
+def compute_phase6_nash(
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+    anchor_key: str = DEFAULT_ANCHOR_KEY,
+    anchor_per_model: float = DEFAULT_ANCHOR_PER_MODEL,
+    faction: Optional[str] = None,
+    limit: Optional[int] = None,
+    shoot_weight=None,
+    weights: TacticalWeights = TacticalWeights(),
+    prior_result: Optional[EquilibriumResult] = None,
+) -> Phase6NashResult:
+    """Phase 6 — Nash equilibrium-weighted pricing.
+
+    Pipeline:
+      1. Get the prior (Phase 5) result. If `prior_result=None`, run Phase 5
+         on the same catalogue / anchor / faction filter to produce it.
+      2. Build the antisymmetric trade-ratio matrix M from prior_result.T.
+      3. Solve the zero-sum LP for the row player's Nash sigma.
+      4. Use sigma (plus a tiny uniform regulariser) as the column weight in
+         `solve_log_points_weighted` on the SAME T matrix the prior used.
+      5. Anchor-pin: the weighted solver subtracts x_raw[anchor_idx] and adds
+         log(anchor_per_model), so the anchor stays at its configured price.
+
+    If the LP fails (infeasible / unbounded — shouldn't happen on real data,
+    but defensive), sigma falls back to uniform and `Phase6NashResult.lp_ok`
+    is `False`. The result is then effectively a uniform-meta solve (which is
+    Phase 4's solve, anchored).
+
+    The tactical-utility log-shift and Phase-5 attacker-meta uplift are NOT
+    re-applied at Phase 6 — they're already baked into the prior_result's
+    `log_p`, but we don't use that vector here; we re-solve from prior_result.T
+    with the Nash weights. To keep the tactical overlay, we add it on top
+    AFTER the Nash-weighted solve (mirroring Phase 4/5 composition).
+    """
+    if prior_result is None:
+        phase5_bundle = compute_phase5(
+            catalog=catalog,
+            anchor_key=anchor_key,
+            anchor_per_model=anchor_per_model,
+            faction=faction,
+            limit=limit,
+            shoot_weight=shoot_weight,
+            weights=weights,
+        )
+        prior_result = phase5_bundle.result
+
+    src = catalog if catalog is not None else UNIT_CATALOG
+    units = [src[k] for k in prior_result.keys]
+    if anchor_key not in prior_result.keys:
+        raise ValueError(
+            f"Anchor unit {anchor_key!r} is not in the prior result; cannot "
+            f"anchor Phase 6."
+        )
+    anchor_idx = prior_result.keys.index(anchor_key)
+    anchor_log_p = math.log(anchor_per_model)
+
+    # 1. Antisymmetric trade-ratio matrix.
+    M = _build_nash_payoff_matrix(prior_result.T)
+
+    # 2. Solve LP for Nash sigma.
+    sigma, v, lp_ok = solve_nash_mixed_strategy(M)
+    if not lp_ok:
+        import warnings
+        warnings.warn(
+            "Phase 6 LP failed; falling back to uniform column weights. "
+            "Result is effectively a uniform-meta solve.",
+            RuntimeWarning,
+        )
+
+    # 3. Tikhonov-style regularisation: tiny mix of uniform so very-low-sigma
+    # defenders still contribute (otherwise the weighted row-mean for some
+    # attackers can collapse onto a single defender).
+    n = len(units)
+    uniform = np.full(n, 1.0 / max(n, 1), dtype=float)
+    column_weights = (
+        (1.0 - _PHASE6_SIGMA_REGULARISATION) * sigma
+        + _PHASE6_SIGMA_REGULARISATION * uniform
+    )
+
+    # 4. Weighted closed-form LSQ on the prior's T matrix.
+    x_weighted, weight_totals = solve_log_points_weighted(
+        prior_result.T, column_weights, anchor_idx, anchor_log_p,
+    )
+
+    # 5. Re-apply the tactical-utility overlay so Phase 6 stays comparable to
+    # Phase 4/5 — same multiplicative shift, anchor-relative. The attacker-
+    # meta uplift from Phase 5 is *not* re-applied at Phase 6: it was a fix
+    # for the column-weight scheme being unable to discriminate same-stat
+    # different-faction units, but Phase 6's Nash weights already differ
+    # per-unit (not per-faction), so the symptom doesn't recur.
+    tv = np.array([tactical_value(u, weights) for u in units], dtype=float)
+    log_factor = np.log1p(tv)
+    log_factor = log_factor - log_factor[anchor_idx]
+    x_phase6 = x_weighted + log_factor
+
+    # Fallback: any unit whose weighted-solve totals collapsed to zero falls
+    # back to the prior result's price (so we don't ship NaNs / anchor pins
+    # for things the LP simply couldn't price).
+    zero_mask = weight_totals <= 0
+    if zero_mask.any():
+        x_phase6[zero_mask] = prior_result.log_p[zero_mask]
+
+    eq_per_model = np.exp(x_phase6)
+
+    entries: List[EquilibriumEntry] = []
+    prior_by_key = {e.key: e for e in prior_result.entries}
+    for key, u, eq_pm in zip(prior_result.keys, units, eq_per_model):
+        gw_per_squad = float(u.points_per_squad)
+        gw_per_model = (
+            gw_per_squad / max(1, u.min_models) if gw_per_squad > 0 else 0.0
+        )
+        eq_per_squad = eq_pm * max(1, u.min_models)
+        if gw_per_model > 0:
+            mispricing = (gw_per_model - eq_pm) / eq_pm * 100.0
+        else:
+            mispricing = 0.0
+        # Carry the prior's valid_matchups count (it was computed on the same
+        # T matrix and is unchanged by the reweighting).
+        vc = prior_by_key[key].valid_matchups if key in prior_by_key else 0
+        entries.append(
+            EquilibriumEntry(
+                key=key,
+                name=u.name,
+                faction=u.faction,
+                gw_points_per_squad=round(gw_per_squad, 2),
+                gw_points_per_model=round(gw_per_model, 2),
+                min_models=int(u.min_models),
+                equilibrium_points_per_model=round(float(eq_pm), 2),
+                equilibrium_points_per_squad=round(float(eq_per_squad), 2),
+                mispricing_pct=round(float(mispricing), 1),
+                valid_matchups=int(vc),
+                role=_classify_role(u),
+            )
+        )
+
+    result = EquilibriumResult(
+        entries=entries,
+        keys=prior_result.keys,
+        D=prior_result.D,
+        T=prior_result.T,
+        R=prior_result.R,
+        log_p=x_phase6,
+        anchor_key=anchor_key,
+        anchor_per_model=anchor_per_model,
+        phase=6,
+    )
+
+    return Phase6NashResult(
+        result=result,
+        nash_strategy=sigma,
+        game_value=v,
+        lp_ok=lp_ok,
+        prior_result=prior_result,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
 
@@ -1711,6 +2033,18 @@ _PHASE_METADATA: Dict[int, Tuple[str, str]] = {
         "`solve_log_points_weighted` in code/equilibrium.py.",
         "Phase 4 solve + meta-share-weighted log-LSQ (defender-column "
         "reweighting on R[i, j])",
+    ),
+    6: (
+        "Phase 6 equilibrium-points solver output. Phase 5 T-matrix re-solved "
+        "with column weights from the Nash mixed strategy of the symmetric "
+        "zero-sum game M[i, j] = (T[j,i] - T[i,j]) / (T[i,j] + T[j,i]). The "
+        "Nash sigma is the worst-case defender distribution — a unit's fair "
+        "price is what it costs against that adversarial mix, plus the same "
+        "tactical-utility overlay Phase 4 applies. LP solved via "
+        "`scipy.optimize.linprog` (HiGHS). See `compute_phase6_nash` in "
+        "code/equilibrium.py for the LP formulation.",
+        "Phase 5 T matrix + Nash-mixed-strategy column-weighted log-LSQ "
+        "(scipy.optimize.linprog) + tactical-utility overlay",
     ),
 }
 
@@ -1833,12 +2167,15 @@ def plot_scatter(entries: List[EquilibriumEntry], path: Path = EQUILIBRIUM_PLOT)
 #   table aligned with `scripts.evaluate_vs_meta`). Same tactical overlay
 #   applied on top. Pure analysis — no simulator or rule-citation impact.
 #
-# Phase 6: actual Nash equilibrium
-#   Solve the symmetric zero-sum game:
-#     - Payoff M[i, j] = (T[j,i] - T[i,j]) / (T[i,j] + T[j,i])   # trade ratio
-#     - Find mixed strategies sigma, tau on simplex maximising min-payoff
-#   Use the LP formulation (scipy.optimize.linprog) — needs scipy installed.
-#   The "fair points" are then derived from the dual variables.
+# Phase 6 — DONE: Nash equilibrium of the symmetric zero-sum game over the
+#   trade-ratio payoff matrix M[i, j] = (T[j,i] - T[i,j]) / (T[i,j] + T[j,i]).
+#   `compute_phase6_nash` runs Phase 5 first, builds M, solves the LP for the
+#   row player's mixed strategy sigma via `scipy.optimize.linprog` (HiGHS),
+#   then uses sigma as the column weight in the same closed-form weighted
+#   LSQ Phase 5 uses (with a small uniform regulariser for stability). The
+#   tactical-utility overlay is re-applied on top so Phase 6 prices stay
+#   comparable to Phase 4/5. Game value v is reported but should be ~0 by
+#   the symmetric-antisymmetric-game lemma.
 
 
 if __name__ == "__main__":
@@ -1849,9 +2186,11 @@ if __name__ == "__main__":
                     "--phase 2 = combined shoot+melee; --phase 3 = Phase 2 "
                     "solve + defensive-audit report (no extra plotting); "
                     "--phase 4 = Phase 2 + tactical-utility overlay; "
-                    "--phase 5 = Phase 4 + meta-share-weighted LSQ."
+                    "--phase 5 = Phase 4 + meta-share-weighted LSQ; "
+                    "--phase 6 = Phase 5 T-matrix + Nash mixed-strategy "
+                    "column weights (zero-sum LP)."
     )
-    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3, 4, 5),
+    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3, 4, 5, 6),
                         help="Which solver to run (default 1)")
     parser.add_argument("--calibrate", action="store_true",
                         help="(--phase 4 only) re-run weight grid search "
@@ -1920,7 +2259,27 @@ if __name__ == "__main__":
         print()
     else:
         phase5_bundle: Optional[Phase5Result] = None
-        if args.phase == 5:
+        phase6_bundle: Optional[Phase6NashResult] = None
+        if args.phase == 6:
+            out_path = args.out or EQUILIBRIUM_PHASE6_PATH
+            plot_path = args.plot_out or EQUILIBRIUM_PHASE6_PLOT
+            print("\nPhase 6: running Phase 4/5 first, then Nash mixed-strategy "
+                  "re-solve on top.")
+            phase5_bundle = compute_phase5(
+                anchor_key=args.anchor,
+                anchor_per_model=args.anchor_points,
+                faction=args.faction,
+                limit=args.limit,
+            )
+            phase6_bundle = compute_phase6_nash(
+                anchor_key=args.anchor,
+                anchor_per_model=args.anchor_points,
+                faction=args.faction,
+                limit=args.limit,
+                prior_result=phase5_bundle.result,
+            )
+            result = phase6_bundle.result
+        elif args.phase == 5:
             out_path = args.out or EQUILIBRIUM_PHASE5_PATH
             plot_path = args.plot_out or EQUILIBRIUM_PHASE5_PLOT
             print("\nPhase 5: running Phase 4 first (utility) then meta-weighted "
@@ -2038,3 +2397,38 @@ if __name__ == "__main__":
                 share_s = f"{share:.3f}" if share is not None else "(default)"
                 print(f"  share={share_s:>9s}  ratio={mean_r:.3f}  "
                       f"({len(ratios)} units)  {fac}")
+
+        if phase6_bundle is not None:
+            sigma = phase6_bundle.nash_strategy
+            print(f"\nPhase 6 Nash LP: lp_ok={phase6_bundle.lp_ok}, "
+                  f"v={phase6_bundle.game_value:+.4f}, "
+                  f"sigma support (>= 1e-4) = {int((sigma >= 1e-4).sum())}/{len(sigma)}.")
+            # Top sigma weights — units the Nash strategy actually wants to play.
+            keys = phase6_bundle.result.keys
+            top_sigma = sorted(
+                zip(keys, sigma), key=lambda kv: kv[1], reverse=True,
+            )[:15]
+            print("\nTop 15 units by Nash strategy weight (sigma):")
+            for k, s in top_sigma:
+                u = UNIT_CATALOG.get(k)
+                name = u.name if u else k
+                print(f"  sigma={s:.4f}  {name[:45]} ({u.faction[:18] if u else ''})")
+            # Phase 5 -> Phase 6 movers.
+            p5_by_key = {
+                e.key: e.equilibrium_points_per_model
+                for e in phase6_bundle.prior_result.entries
+            }
+            movers6: List[Tuple[str, float, float, float, str, str]] = []
+            for e in phase6_bundle.result.entries:
+                p5 = p5_by_key.get(e.key)
+                if p5 is None or p5 <= 0 or e.equilibrium_points_per_model <= 0:
+                    continue
+                ratio = e.equilibrium_points_per_model / p5
+                movers6.append(
+                    (e.key, p5, e.equilibrium_points_per_model, ratio, e.name, e.faction)
+                )
+            movers6.sort(key=lambda r: abs(math.log(r[3])), reverse=True)
+            print("\nTop 10 Phase 5 -> Phase 6 movers (per-model price ratio):")
+            for _, p5, p6, r, name, fac in movers6[:10]:
+                print(f"  ratio {r:>6.3f}  P5 {p5:>5.1f} -> P6 {p6:>5.1f}  "
+                      f"{name[:42]} ({fac[:18]})")
