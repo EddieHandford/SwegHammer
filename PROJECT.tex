@@ -439,6 +439,16 @@ we will end up rewriting \texttt{units.py} twice.
 
 \paragraph{Phase 2 follow-ups (see \texttt{ROADMAP.md}).}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+  \item \todo \eddie\ \textbf{Points-per-model cost is imported wrong.}
+    The per-model points value coming through the BSData $\to$
+    \texttt{UnitProfile} pipeline does not match the printed datasheet
+    cost (likely a squad-total vs per-model confusion, or wrong cost
+    entry chosen when a datasheet has multiple costed variants). Audit
+    \texttt{code/bsdata/mapper.py} + \texttt{loader.py} against a known-
+    good sample (e.g.\ Intercessors $=$ 80 pts / 5 models, Terminators
+    $=$ 185 pts / 5 models) and fix before any further calibration
+    work \textemdash{} the Lanchester-derived fair cost has no signal
+    until the printed-cost baseline is correct.
   \item \todo \jake\ Extract \texttt{S} (weapon Strength) and \texttt{T}
     (unit Toughness) from BSData into \texttt{UnitProfile} \textemdash{}
     currently defaulted to S$=$T$=4$ via \texttt{BASELINE\_*}.
