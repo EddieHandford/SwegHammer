@@ -157,17 +157,28 @@ class ArchetypeFallbackTests(unittest.TestCase):
 
     def test_use_archetype_true_engages_curated(self):
         """Passing use_archetype=True for a faction with a defined archetype
-        routes through `build_archetype_army`."""
+        routes through `build_archetype_army`.
+
+        After task #174, the T'au Kauyon archetype is battlesuit-heavy
+        (Crisis Fireknife / Sunforge / Broadside as the multi-copy spine),
+        not Fire Warriors. We assert at least one Crisis variant is seeded,
+        which is the count=3+count=2 anchor pair that always wins the
+        anchor-first sort.
+        """
         rng = random.Random(8)
         army = build_faction_random_army(
             "Y", "T'au Empire", 1000.0, rng=rng, use_archetype=True,
         )
         self.assertGreater(len(army.units), 0)
-        # T'au archetype must contribute at least its STRIKE TEAM seed.
         names = {u.profile.name for u in army.units}
-        strike_team_profile = UNIT_CATALOG.get("t_au_empire_strike_team")
-        if strike_team_profile is not None:
-            self.assertIn(strike_team_profile.name, names)
+        # At least one Crisis variant must appear — these are the count=3
+        # (Fireknife) and count=2 (Sunforge) template anchors that the
+        # anchor-first sort guarantees fit in any reasonable seed budget.
+        crisis_present = any("Crisis" in n for n in names)
+        self.assertTrue(
+            crisis_present,
+            f"T'au archetype produced no Crisis battlesuit. Names: {sorted(names)}",
+        )
 
 
 if __name__ == "__main__":

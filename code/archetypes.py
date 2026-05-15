@@ -54,7 +54,7 @@ from .units import UNIT_CATALOG, UnitProfile
 ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     "Adeptus Astartes": {
         "Gladius Strike Force": {
-            "space_marines_intercessor_squad": 2,
+            "space_marines_intercessor_squad": 1,
             "space_marines_hellblaster_squad": 1,
             "space_marines_eradicator_squad": 1,
             "space_marines_aggressor_squad": 1,
@@ -109,16 +109,29 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "T'au Empire": {
-        # Kauyon-style balanced list — markerlight infantry, mobile suits,
-        # one big platform. Critically NOT all Crisis suits + Riptide spam.
+        # Kauyon-style battlesuit-heavy list. The May 2026 real meta T'au lists
+        # (Warp Friends weekly, Goonhammer top tables) revolve around Crisis
+        # suits + Riptide + Broadsides + occasional Stormsurge — markerlight
+        # infantry and Pathfinders are support, not the spine. The previous
+        # template seeded only Strike/Breacher/Pathfinder + one Crisis, which
+        # made calibrated T'au lists shoot like a Fire Warrior army (~ -4.9pt
+        # under-perform). Task #174.
+        #
+        # Multi-copy entries here are deliberate: with the post-G5 anchor-first
+        # sort (-template_count, -squad_cost), Crisis Fireknife (c=3) and
+        # Sunforge (c=2) seed before single-copy entries, ensuring the army
+        # spine is battlesuit-dominated even at the 30%-of-budget seed slice.
         "Kauyon": {
-            "t_au_empire_strike_team": 2,
-            "t_au_empire_breacher_team": 1,
-            "t_au_empire_pathfinder_team": 2,
-            "t_au_empire_crisis_fireknife_battlesuits": 1,
+            "t_au_empire_crisis_fireknife_battlesuits": 3,
+            "t_au_empire_crisis_sunforge_battlesuits": 2,
+            "t_au_empire_broadside_battlesuits": 2,
+            "t_au_empire_riptide_battlesuit": 1,
+            "t_au_empire_stormsurge": 1,
+            "t_au_empire_ghostkeel_battlesuit": 1,
             "t_au_empire_stealth_battlesuits": 1,
-            "t_au_empire_broadside_battlesuits": 1,
             "t_au_empire_commander_in_enforcer_battlesuit": 1,
+            "t_au_empire_pathfinder_team": 1,
+            "t_au_empire_strike_team": 1,
             "t_au_empire_devilfish": 1,
         },
     },

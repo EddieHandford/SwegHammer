@@ -275,7 +275,7 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!",
     "rule_name": "WAAAGH!",
     "quoted_text": "Once per battle, at the start of your Command phase, you can declare a WAAAGH!. Until the end of the turn: add 1 to Advance and Charge rolls made for ORKS units from your army; ORKS units from your army that Advance are eligible to declare a charge in the turn in which they did so; and each time an ORKS model from your army makes a melee attack, add 1 to the Wound roll.",
-    "trigger": "Command phase of an Orks army; WAAAGH! has not yet been declared this battle; AI decides this is the round (default Round 3, emergency Round 2 if below 70% starting points, forced by Round 4)",
+    "trigger": "Command phase of an Orks army; WAAAGH! has not yet been declared this battle; AI decides this is the round (first-charge trigger: ≥1 Ork unit wants_to_charge AND has a chargeable target within 12\" AND Boyz at ≥40% of starting count; emergency Round 2+ if below 70% starting points; Round 4 fallback if first-charge trigger never fired; Round 5 force-fire)",
     "effect": "(approximation) the army marks `waaagh_round_unlocked = current_round`; Ork attackers add +1 to the melee Wound roll for that turn only. SwegHammer implements ONLY the +1-to-wound-melee leg of the rule as a hard gate — the +1 to Advance/Charge rolls and the 'Advance counts as charge' leg are descriptive (the AI fires WAAAGH! to overlap with a melee push, but the simulator does not separately add to the 2D6 charge roll or unlock charges from an Advance).",
     "scope": "phase-gated"
   }

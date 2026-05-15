@@ -42,8 +42,7 @@
     "t_au_empire_riptide_battlesuit": {
       "base_shape": "circle",
       "base_diameter_mm": 80,
-      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). | sweg_balance_mc down 1311.75 -> 1180.58 pts/model",
-      "points_override": 1180.58
+      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 — was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
     "aeldari_craftworlds_falcon": {
       "points_override": 644.45,

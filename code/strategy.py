@@ -1211,17 +1211,63 @@ def pick_doctrina_imperative(army, enemy) -> str:
 #
 # Heuristic priorities (ranked):
 #   1. Already declared? Never again — once per battle.
-#   2. Round 4 fallback: force-fire so the buff isn't wasted entirely.
-#   3. Emergency: Orks below 70% starting points and at least Round 2 — fire
-#      now to hit back before the army crumbles further.
-#   4. Default: Round 3. Middle of the game, melee waves should be in range
-#      and a turn of +1 to wound melee turns the brawl.
-def should_declare_waaagh(army, round_num: int) -> bool:
+#   2. Round 5 fallback: force-fire so the buff isn't wasted entirely.
+#   3. First-charge trigger (#175 G9): declare on the first round where at
+#      least one Ork unit has a chargeable target within 12" right now AND
+#      Boyz remain at >= 40% of starting count. Pure shooters don't trigger
+#      this — the gate uses the same `_wants_to_charge` melee/ranged DPA
+#      ratio that the simulator's charge phase uses. This lines the +1 to
+#      melee Wound up with the first turn the army actually swings melee,
+#      instead of firing on a fixed R3 when most chargers have already
+#      committed and the buff is wasted (the bug #175 fixes).
+#   4. Emergency: Orks below 70% starting points and at least Round 2 — fire
+#      now to hit back before the army crumbles further, regardless of Boyz.
+#   5. Round 4 fallback: if nothing above triggered, fire — better late than
+#      never.
+def _has_chargeable_target(attacker, enemy) -> bool:
+    """True iff `attacker` has at least one chargeable enemy within 12".
+
+    Mirrors the cheap pre-checks `_do_charge` does at strike time: out of
+    engagement range (>1") and within charge distance (<=12"). Pure
+    distance gate — doesn't simulate the 2D6 roll itself.
+    """
+    if enemy is None:
+        return False
+    ax, ay = attacker.position
+    for e in enemy.alive_units:
+        ex, ey = e.position
+        d = ((ax - ex) ** 2 + (ay - ey) ** 2) ** 0.5
+        if 1.0 < d <= 12.0:
+            return True
+    return False
+
+
+def _ork_wants_to_charge(attacker) -> bool:
+    """Same melee-vs-ranged DPA gate the simulator uses (`_wants_to_charge`).
+
+    Kept inline here so the strategy layer doesn't import simulator. If the
+    formula drifts in `code.simulator.Battle._wants_to_charge`, update
+    both — they need to agree so the AI declares WAAAGH on a round it
+    actually plans to charge.
+    """
+    p = attacker.profile
+    if p.melee_attacks <= 0 or p.melee_hit_probability <= 0:
+        return False
+    melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 1.0)
+    ranged_dpa = max(1, p.attacks) * p.hit_probability * p.per_shot_damage
+    return melee_dpa >= max(ranged_dpa, 1.0)
+
+
+def should_declare_waaagh(army, round_num: int, opponent=None) -> bool:
     """Decide whether the Ork player should declare WAAAGH! this round.
 
     Args:
         army: the Ork Army (must have `waaagh_round_unlocked` attribute).
         round_num: the current battle round (1..MAX_ROUNDS).
+        opponent: the enemy Army. Optional — if omitted, the AI falls back
+            to the old round-default heuristic (legacy callers without
+            opponent context). The first-charge-round trigger needs the
+            opponent to scan chargeable distances.
 
     Returns:
         True iff the army should declare WAAAGH! NOW. Caller is responsible
@@ -1234,16 +1280,40 @@ def should_declare_waaagh(army, round_num: int) -> bool:
     starting = float(getattr(army, "starting_points", 0.0) or 0.0)
     current = float(sum(u.profile.points_cost for u in army.alive_units))
 
-    # Round 4: force-fire fallback — don't leave the buff on the table.
-    if round_num >= 4:
+    # Round 5: hard force-fire — last command phase, use it or lose it.
+    if round_num >= 5:
         return True
 
-    # Emergency trigger: heavy losses, fire early to retaliate.
+    # Emergency: heavy losses, fire now to retaliate before army crumbles.
     if round_num >= 2 and starting > 0 and current < 0.70 * starting:
         return True
 
-    # Default: Round 3 declaration — peak melee engagement window.
-    if round_num == 3:
+    # First-charge-round trigger (#175 G9). Need opponent context AND Boyz
+    # bench-strength to avoid firing on a turn-1 token charge or a turn-5
+    # corpse-flail.
+    if opponent is not None:
+        starting_boyz = sum(
+            1 for u in army.units if "Boyz" in u.profile.name
+        )
+        alive_boyz = sum(
+            1 for u in army.units
+            if u.is_alive and "Boyz" in u.profile.name
+        )
+        boyz_ok = (
+            starting_boyz == 0   # no Boyz roster — Nobz/Meganobz core
+            or alive_boyz >= 0.40 * starting_boyz
+        )
+        if boyz_ok:
+            for u in army.alive_units:
+                if u.profile.faction != "Orks":
+                    continue
+                if not _ork_wants_to_charge(u):
+                    continue
+                if _has_chargeable_target(u, opponent):
+                    return True
+
+    # Round 4 fallback: if no first-charge / emergency triggered, fire now.
+    if round_num >= 4:
         return True
 
     return False
