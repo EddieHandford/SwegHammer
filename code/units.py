@@ -367,6 +367,15 @@ class Unit:
         if self.transient_minus_one_damage_taken and amount > 0:
             amount = max(1.0, amount - 1.0)
         effective_fnp = min(self.profile.fnp, bonus_fnp)
+        # Death Guard Disgustingly Resilient (army rule, 10e): every DEATH
+        # GUARD model has Feel No Pain 5+. The rule is codex-level and not
+        # encoded on individual BSData datasheets, so we faction-gate it
+        # here. Composes with any pre-existing FNP profile / leader aura
+        # by taking the lower (better) value — Plague Marines already have
+        # profile.fnp=5 (via overrides) so the min keeps them at 5, not 4.
+        # Cited as `simulator.disgustingly_resilient`.
+        if self.profile.faction == "Death Guard":
+            effective_fnp = min(effective_fnp, 5)
         # Drukhari Power From Pain: while the defender holds a Pain Token,
         # treat the unit as having FNP 6+ (lowest "active" target = best
         # roll). Composes with any pre-existing FNP profile / leader aura

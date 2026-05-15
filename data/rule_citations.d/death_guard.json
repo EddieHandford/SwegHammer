@@ -1,0 +1,12 @@
+{
+  "_comment": "Death Guard army rule citations (10e). Currently only Disgustingly Resilient — the codex-level Feel No Pain 5+ that applies to every DEATH GUARD model. The Plague Company detachment's stratagem of the same name (-1 damage taken on a DG unit for a round) is cited separately under Stratagem.Disgustingly Resilient in stratagems.json; this entry is the army rule, not the stratagem.",
+
+  "simulator.disgustingly_resilient": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
+    "rule_name": "Disgustingly Resilient",
+    "quoted_text": "Each time a model in this unit would lose a wound, this ability has Feel No Pain 5+ against that lost wound.",
+    "trigger": "any model with the DEATH GUARD keyword is about to lose a wound",
+    "effect": "Unit.receive_damage faction-gates on profile.faction == 'Death Guard' and lowers `effective_fnp` to min(effective_fnp, 5). Composes with any leader-aura / profile FNP value by taking the lower (better) target — Plague Marines already carry profile.fnp=5 via overrides.json, so the min keeps them at 5+ rather than stacking to 4+. Independent of and composes with the Plague Company stratagem of the same name (which sets `transient_minus_one_damage_taken` for a round, reducing per-shot damage by 1 floor 1).",
+    "scope": "army-wide"
+  }
+}

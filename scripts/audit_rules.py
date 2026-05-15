@@ -113,6 +113,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
+    # Death Guard army rule (10e). Every DEATH GUARD model has Feel No
+    # Pain 5+. Faction-gated in Unit.receive_damage; composes with the
+    # existing transient_minus_one_damage_taken (Plague Company strat)
+    # and with leader/profile FNP by taking the lower value.
+    "simulator.disgustingly_resilient",
     # Thousand Sons army rule (10e). -1 to wound on any single-damage
     # attack allocated to a non-daemon TSons model (Rubric Marines,
     # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
