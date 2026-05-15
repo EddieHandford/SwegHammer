@@ -20,8 +20,9 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    decide_deepstrike_drops, pick_doctrina_imperative, pick_mass_arrival_anchor,
-    pick_move_intent, should_declare_waaagh, should_fire_stratagem,
+    decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
+    pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
+    should_fire_stratagem,
 )
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
@@ -1726,6 +1727,16 @@ class Battle:
                                 unit_uid=u.uid, roll=roll, target=target,
                             ))
 
+        # ---- Coordinated army-level activation plan (#161). At the start of
+        # each round, each army picks ONE plan that biases both its activation
+        # ORDER (units physically aligned with the plan activate first) and
+        # the per-unit strategy layer (objective/charge biases). Without this,
+        # the AI picks each activation independently and no alpha strike
+        # materialises. Internal AI scheduler — not a 10e rule, no
+        # citation required.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.army_plan = pick_army_plan(army, opponent, round_num, self.map)
+
         first, second = (
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
         )
@@ -1734,8 +1745,8 @@ class Battle:
         second_activated: set = set()
 
         while True:
-            first_q = first.activation_queue(first_activated)
-            second_q = second.activation_queue(second_activated)
+            first_q = first.activation_queue(first_activated, map_=self.map)
+            second_q = second.activation_queue(second_activated, map_=self.map)
             if not first_q and not second_q:
                 break
 
@@ -1838,6 +1849,7 @@ class Battle:
             return
         target_pos, intent = pick_move_intent(
             attacker, attacker_army, defender_army, self.map,
+            army_plan=attacker_army.army_plan,
         )
 
         # Fall Back (10e core). Units already locked in melee that the

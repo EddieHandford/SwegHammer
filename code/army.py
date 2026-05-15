@@ -188,6 +188,20 @@ class Army:
         # means "no oath this round" (e.g. round 0, or no Marine units alive).
         # Cited as `simulator.oath_of_moment`.
         self.oath_target_uid: Optional[str] = None
+        # Coordinated army-level activation plan (#161 / S3). Picked once per
+        # round by the simulator's `_pick_army_plan` and consulted by both
+        # `activation_queue` (to order units that align with the plan first)
+        # and `pick_move_intent` (to bias objective / charge scoring toward
+        # the chosen flank). One of:
+        #   "LEFT_FLANK"  — push the left half of the map
+        #   "RIGHT_FLANK" — push the right half
+        #   "MID_PUSH"    — converge on map centre
+        #   "HOME_HOLD"   — protect own backline + nearest home objective
+        #   "COUNTER"     — react to opponent's biggest threat
+        # None outside a battle (catalogue tests, etc.) — the strategy
+        # bias is short-circuited when the field is None, preserving the
+        # backward-compatible per-unit picks.
+        self.army_plan: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Faction detection
@@ -255,10 +269,66 @@ class Army:
             return None
         return min(alive, key=lambda u: u.current_health)
 
-    def activation_queue(self, excluded_ids: set) -> List[Unit]:
-        """Return alive units not yet activated, sorted by score descending."""
+    def activation_queue(
+        self, excluded_ids: set, map_=None,
+    ) -> List[Unit]:
+        """Return alive units not yet activated, sorted for activation order.
+
+        Default (no `army_plan` set, or `map_` is None): sort by Lanchester
+        score descending so the highest-impact unit activates first.
+
+        With an `army_plan` set on this Army (see `pick_army_plan` in the
+        simulator), units whose physical position aligns with the plan's
+        target flank activate before units that don't, *then* score breaks
+        ties within each group. This makes coordinated alpha-strikes
+        materialise: every unit in the left-flank push activates before
+        right-side units start their turn, so right-side enemies see a fully
+        committed left flank in one round rather than a trickle. Internal
+        AI heuristic (no GW rule citation — it's an activation-order
+        scheduler, not a 10e mechanic).
+
+        `map_` is required to compute the flank assignment (left half vs
+        right half of the board); when omitted the spatial sort short-
+        circuits and the queue collapses to the legacy score-only order.
+        """
         available = [u for u in self.alive_units if id(u) not in excluded_ids]
-        return sorted(available, key=lambda u: u.profile.score, reverse=True)
+        plan = self.army_plan
+        if plan is None or map_ is None:
+            return sorted(available, key=lambda u: u.profile.score, reverse=True)
+
+        half_x = map_.width / 2.0
+        half_y = map_.height / 2.0
+
+        def _plan_priority(u: Unit) -> int:
+            """Lower value = earlier in the queue.
+
+            Match (priority 0) = unit aligns with the plan's target zone.
+            No-match (priority 1) = unit is elsewhere on the board.
+            """
+            px, py = u.position
+            if plan == "LEFT_FLANK":
+                return 0 if px < half_x else 1
+            if plan == "RIGHT_FLANK":
+                return 0 if px >= half_x else 1
+            if plan == "MID_PUSH":
+                # Centre-aligned: within a quarter-width band around midline.
+                quarter = map_.width / 4.0
+                return 0 if abs(px - half_x) <= quarter else 1
+            if plan == "HOME_HOLD":
+                # Friendly back-half (the half closer to our deployment side).
+                # We assume the army that's HOME_HOLD-ing wants units already
+                # on its own side to activate first. The Y half is the cleaner
+                # proxy because deployment zones split the board along Y in
+                # the default map.
+                return 0 if py < half_y else 1
+            # COUNTER: no per-unit prioritisation here — the strategy biases
+            # handle target selection. Fall through to score-only ordering.
+            return 0
+
+        return sorted(
+            available,
+            key=lambda u: (_plan_priority(u), -u.profile.score),
+        )
 
     # ------------------------------------------------------------------
     # Representation

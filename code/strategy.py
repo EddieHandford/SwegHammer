@@ -418,13 +418,196 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
     return None
 
 
-def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], str]:
+_PLAN_LEFT = "LEFT_FLANK"
+_PLAN_RIGHT = "RIGHT_FLANK"
+_PLAN_MID = "MID_PUSH"
+_PLAN_HOME = "HOME_HOLD"
+_PLAN_COUNTER = "COUNTER"
+_VALID_PLANS = (_PLAN_LEFT, _PLAN_RIGHT, _PLAN_MID, _PLAN_HOME, _PLAN_COUNTER)
+
+
+def pick_army_plan(army, opponent, round_num: int, map_) -> str:
+    """Pick the army's coordinated activation plan for this round.
+
+    Real tournament armies don't pick each activation independently — they
+    commit a round's worth of activations to a single objective: alpha-strike
+    one flank, counter-charge the biggest threat, fall back to home objectives
+    in the closing turns when ahead. Without an army-level plan the per-unit
+    strategy picks scatter activations across the board and no alpha strike
+    materialises.
+
+    Decision logic:
+      1. Round 1-2: aggressive push. Pick the flank where the opponent's
+         centre of mass sits. T1-T2 want to engage before the gunline finishes
+         setting up.
+      2. Round 3-5: posture depends on score and threat:
+         - Winning by >= 5 VP at this point AND in T4-T5: HOME_HOLD (lock in
+           the win, protect own objectives).
+         - Losing by >= 5 VP at T4-T5: COUNTER (target opponent's biggest
+           threat, salvage VP).
+         - Otherwise: continue the aggressive push, but COUNTER on T3+
+           if the opponent has a clear high-DPA brick (Knight, Wraithlord,
+           Battlesuit pile) worth committing to.
+
+    Internal AI heuristic — not a 10e rule, no citation required (the
+    auditor only enforces citations on simulator gates that implement GW
+    rules; this is purely an activation scheduler).
+    """
+    # Round 1: pure push. Pick LEFT/RIGHT/MID based on opponent centre of mass.
+    enemy_alive = list(opponent.alive_units) if opponent is not None else []
+    if not enemy_alive:
+        return _PLAN_MID
+
+    # Centre of mass — point-weighted average of enemy positions.
+    total_pts = 0.0
+    sum_x = 0.0
+    sum_y = 0.0
+    for e in enemy_alive:
+        w = max(1.0, float(getattr(e.profile, "points_cost", 1.0) or 1.0))
+        sum_x += e.position[0] * w
+        sum_y += e.position[1] * w
+        total_pts += w
+    enemy_com_x = sum_x / total_pts if total_pts > 0 else map_.width / 2.0
+
+    half_x = map_.width / 2.0
+    quarter = map_.width / 4.0
+
+    # T4-T5 endgame: posture flips based on VP differential.
+    if round_num >= 4:
+        a_vp = getattr(getattr(army, "_battle_ref", None), "_a_vp", 0)
+        b_vp = getattr(getattr(army, "_battle_ref", None), "_b_vp", 0)
+        battle = getattr(army, "_battle_ref", None)
+        if battle is not None:
+            own_vp = a_vp if army is battle.a else b_vp
+            other_vp = b_vp if army is battle.a else a_vp
+            vp_diff = own_vp - other_vp
+            if vp_diff >= 5:
+                return _PLAN_HOME
+            if vp_diff <= -5:
+                return _PLAN_COUNTER
+
+    # T3+: opt into COUNTER if the opponent has a single brick that dominates
+    # their DPA contribution (Knight, Battlesuit pile, Wraithlord). Threshold:
+    # one unit accounts for >= 40% of opponent's total points cost.
+    if round_num >= 3:
+        total_enemy_pts = sum(
+            float(getattr(e.profile, "points_cost", 0.0) or 0.0)
+            for e in enemy_alive
+        )
+        if total_enemy_pts > 0:
+            biggest = max(
+                enemy_alive,
+                key=lambda e: float(getattr(e.profile, "points_cost", 0.0) or 0.0),
+            )
+            biggest_pts = float(getattr(biggest.profile, "points_cost", 0.0) or 0.0)
+            if biggest_pts / total_enemy_pts >= 0.40:
+                return _PLAN_COUNTER
+
+    # Default: aggressive push aligned with enemy centre of mass.
+    if enemy_com_x < half_x - quarter * 0.25:
+        return _PLAN_LEFT
+    if enemy_com_x > half_x + quarter * 0.25:
+        return _PLAN_RIGHT
+    return _PLAN_MID
+
+
+def _plan_objective_bias(
+    plan: Optional[str], obj, map_, friendly,
+) -> float:
+    """Return the multiplier the plan applies to an objective's score.
+
+    LEFT_FLANK / RIGHT_FLANK: objectives on that flank get 1.5x; others 1.0x.
+    MID_PUSH: centre objectives get 1.4x; others 1.0x.
+    HOME_HOLD: friendly-side objectives 2.0x; enemy-side objectives 0.5x.
+    COUNTER: no per-objective bias (target selection handles it).
+    None: 1.0x (legacy behaviour).
+    """
+    if plan is None or map_ is None:
+        return 1.0
+    half_x = map_.width / 2.0
+    half_y = map_.height / 2.0
+    quarter = map_.width / 4.0
+    if plan == _PLAN_LEFT:
+        return 1.5 if obj.x < half_x else 1.0
+    if plan == _PLAN_RIGHT:
+        return 1.5 if obj.x >= half_x else 1.0
+    if plan == _PLAN_MID:
+        return 1.4 if abs(obj.x - half_x) <= quarter else 1.0
+    if plan == _PLAN_HOME:
+        # "Friendly side" — the half of the map nearer the army's own bulk.
+        # Use friendly centre-of-mass Y to pick the home half cleanly.
+        if friendly is not None and friendly.alive_units:
+            cy = sum(u.position[1] for u in friendly.alive_units) / len(
+                friendly.alive_units
+            )
+            home_top = cy < half_y
+            obj_top = obj.y < half_y
+            return 2.0 if home_top == obj_top else 0.5
+        return 1.0
+    return 1.0
+
+
+def _plan_engage_bias(
+    plan: Optional[str], unit, target, map_,
+) -> float:
+    """Plan multiplier on engaging/charging a particular enemy.
+
+    LEFT_FLANK / RIGHT_FLANK: enemies on the matching half get 1.2x; others 1.0x.
+    MID_PUSH: centre enemies get 1.2x; flank enemies 1.0x.
+    COUNTER: highest-DPA enemy unit gets 1.5x (handled at call site since it
+             requires the full enemy list).
+    HOME_HOLD: 1.0x (we'd rather not chase).
+    """
+    if plan is None or map_ is None:
+        return 1.0
+    half_x = map_.width / 2.0
+    quarter = map_.width / 4.0
+    tx = target.position[0]
+    if plan == _PLAN_LEFT:
+        return 1.2 if tx < half_x else 1.0
+    if plan == _PLAN_RIGHT:
+        return 1.2 if tx >= half_x else 1.0
+    if plan == _PLAN_MID:
+        return 1.2 if abs(tx - half_x) <= quarter else 1.0
+    return 1.0
+
+
+def _counter_priority_uid(plan: Optional[str], enemy) -> Optional[str]:
+    """For COUNTER plan, return the uid of the opponent's highest-DPA unit.
+
+    Returns None for any other plan or when the enemy has no units.
+    """
+    if plan != _PLAN_COUNTER or enemy is None:
+        return None
+    alive = list(enemy.alive_units)
+    if not alive:
+        return None
+    def _dpa(u):
+        p = u.profile
+        ranged = p.attacks * p.hit_probability * (p.weapon_damage_per_shot or 0.0)
+        melee = p.melee_attacks * p.melee_hit_probability * (
+            p.melee_damage_per_shot or 0.0
+        )
+        return max(ranged, melee)
+    return max(alive, key=_dpa).uid
+
+
+def pick_move_intent(
+    unit, friendly, enemy, map_, army_plan: Optional[str] = None,
+) -> Tuple[Tuple[float, float], str]:
     """
     Decide where `unit` should move this activation, and label the reason.
 
     Returns (target_position, intent_string). The simulator's _do_move
     treats target_position as the goal point — if it's the same as the
     unit's current position, no move happens (HOLD).
+
+    `army_plan` (optional, default None) is the army's coordinated plan for
+    the round (`LEFT_FLANK` / `RIGHT_FLANK` / `MID_PUSH` / `HOME_HOLD` /
+    `COUNTER`). When set, objective and engage scoring receive plan-aware
+    biases so units physically aligned with the plan push toward the
+    plan's target zone. None preserves the legacy per-unit behaviour
+    (callers that don't supply a plan see identical output to pre-#161).
     """
     role = classify(unit.profile)
     own_oc = getattr(unit.profile, "oc", 1) or 0
@@ -479,6 +662,10 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
             intent = _CAPTURE_INTENT
         # Distance-weighted: closer objectives win unless their value dominates
         score = value / (1.0 + d / 12.0)
+        # Plan bias: LEFT/RIGHT/MID push tilt toward objectives on the plan's
+        # target zone; HOME_HOLD doubles friendly-side and halves enemy-side.
+        # No-op (1.0x) when army_plan is None.
+        score *= _plan_objective_bias(army_plan, obj, map_, friendly)
         objs.append((score, intent, obj, d))
 
     best = max(objs, key=lambda t: t[0]) if objs else None
@@ -518,6 +705,16 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
             repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
             return repo_pos, _REPOSITION_INTENT
 
+    # COUNTER plan: precompute the highest-DPA enemy uid once, then weight
+    # its score 1.5x in MELEE/DUAL pick.
+    counter_uid = _counter_priority_uid(army_plan, enemy)
+
+    def _plan_target_score(base: float, target) -> float:
+        s = base * _plan_engage_bias(army_plan, unit, target, map_)
+        if counter_uid is not None and target.uid == counter_uid:
+            s *= 1.5
+        return s
+
     # MELEE closes on the BEST melee target (the gunline / battlesuit /
     # support character whose squishy melee profile we can crack open),
     # not just the nearest enemy. Without this bias, melee bricks waste
@@ -526,7 +723,7 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
     if role == "MELEE" and enemy.alive_units:
         scored = sorted(
             enemy.alive_units,
-            key=lambda e: _melee_target_score(unit, e),
+            key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),
             reverse=True,
         )
         return scored[0].position, _ENGAGE_INTENT
@@ -543,7 +740,10 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
             if _dist(unit.position, e.position) <= threat_range
         ]
         if viable:
-            best_melee = max(viable, key=lambda e: _melee_target_score(unit, e))
+            best_melee = max(
+                viable,
+                key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),
+            )
             # Only engage if the target's score beats a neutral baseline —
             # otherwise the objective-grabbing fallback handles it better.
             if _melee_target_score(unit, best_melee) > 0.1:
@@ -598,7 +798,7 @@ def _wounded_seek_obscuring(unit, role: str, fallback_pos: Tuple[float, float], 
 
 __all__ = [
     "pick_move_intent", "should_fire_stratagem", "should_declare_waaagh",
-    "pick_doctrina_imperative",
+    "pick_doctrina_imperative", "pick_army_plan",
 ]
 
 
