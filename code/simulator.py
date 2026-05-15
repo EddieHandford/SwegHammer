@@ -37,6 +37,13 @@ from .stratagems import (
     # Mont'ka (T'au Empire) — six real detachment stratagems (#196)
     PINPOINT_COUNTER_OFFENSIVE, AGGRESSIVE_MOBILITY, FOCUSED_FIRE,
     COMBAT_DEBARKATION, PULSE_ONSLAUGHT, COUNTERFIRE_DEFENCE_SYSTEMS,
+    # Awakened Dynasty (Necrons) — six real Protocol stratagems (#194)
+    PROTOCOL_OF_THE_ETERNAL_REVENANT,
+    PROTOCOL_OF_THE_UNDYING_LEGIONS,
+    PROTOCOL_OF_THE_HUNGRY_VOID,
+    PROTOCOL_OF_THE_SUDDEN_STORM,
+    PROTOCOL_OF_THE_CONQUERING_TYRANT,
+    PROTOCOL_OF_THE_VENGEFUL_STARS,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -594,6 +601,7 @@ class Battle:
             u.transient_fnp_5 = False
             u.transient_plus_one_to_hit_shooting = False
             u.transient_halve_damage = False
+            u.transient_undying_legions_pulse = 0
         # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
         # this round's Doombolt damage; reset every round so the boost only
         # applies the round the stratagem fires. Putrid Detonation arms the
@@ -672,6 +680,25 @@ class Battle:
             self._try_pulse_onslaught(army, opponent)
         if "Counterfire Defence Systems" in strat_names:
             self._try_counterfire_defence_systems(army, opponent)
+
+        # ----- Awakened Dynasty (Necrons) -------------------------------
+        # Six real Protocol stratagems (#194). Two are catalogued-but-no-op
+        # APPROXIMATIONs (Eternal Revenant, Vengeful Stars) — the simulator
+        # has no model-resurrection or out-of-sequence shoot hook, so the
+        # dispatchers below skip them entirely. The other four wire onto
+        # existing or new transient_* flags.
+        if "Protocol of the Undying Legions" in strat_names:
+            self._try_protocol_undying_legions(army, opponent)
+        if "Protocol of the Hungry Void" in strat_names:
+            self._try_protocol_hungry_void(army, opponent)
+        if "Protocol of the Sudden Storm" in strat_names:
+            self._try_protocol_sudden_storm(army, opponent)
+        if "Protocol of the Conquering Tyrant" in strat_names:
+            self._try_protocol_conquering_tyrant(army, opponent)
+        # Protocol of the Eternal Revenant + Protocol of the Vengeful Stars:
+        # catalogued in the detachment so they show up in stratagems_for_army,
+        # but the simulator has no clean hook to fire them. See
+        # data/rule_citations.d/stratagems.json for the APPROXIMATION note.
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -1264,6 +1291,205 @@ class Battle:
         if not self._fire_stratagem(army, COUNTERFIRE_DEFENCE_SYSTEMS):
             return
         target.transient_minus_one_damage_taken = True
+
+    # ----- Awakened Dynasty (Necrons) protocol dispatchers ---------------
+    # Six real Protocol stratagems (#194). Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+    # Of the six, two are catalogued-but-no-op APPROXIMATIONs because the
+    # effect ("return a destroyed CHARACTER" / "out-of-sequence shoot at
+    # the unit that just destroyed a friendly Necron") has no clean hook
+    # in the current simulator. Eligible-but-not-fired so any future
+    # extension can wire them without touching the citation file.
+
+    def _is_led_unit(self, unit) -> bool:
+        """Approximation: a NECRONS unit counts as 'led by a CHARACTER' for
+        the protocol stratagems' optional uplift if any alive friendly
+        CHARACTER is within 6" (the canonical Lead-ability aura range).
+        """
+        try:
+            army = unit.army_ref
+            if army is None:
+                return False
+            for u in army.alive_units:
+                if u is unit:
+                    continue
+                kw = u.profile.unit_keywords or ()
+                if "CHARACTER" not in kw:
+                    continue
+                if _distance(u.position, unit.position) <= 6.0:
+                    return True
+        except Exception:
+            return False
+        return False
+
+    def _try_protocol_undying_legions(self, army: Army, opponent: Army) -> None:
+        """Protocol of the Undying Legions (Awakened Dynasty, 1 CP): a
+        friendly NECRONS unit that just lost models reanimates D3 wounds
+        (D3+1 if led). The simulator fires this at round start as an
+        anticipatory pulse on the most-wounded NECRONS unit; the pulse
+        triggers in `_apply_undying_legions_pulse` at the end of the
+        opponent's activations (we collapse opponent shooting / fight
+        into the round-end reanimation step). Median D3 = 2, so
+        unled = 2 wounds, led = 3 wounds. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, PROTOCOL_OF_THE_UNDYING_LEGIONS, ctx):
+            return
+        if not self._fire_stratagem(army, PROTOCOL_OF_THE_UNDYING_LEGIONS):
+            return
+        # Median D3 = 2; +1 if led.
+        wounds = 3 if self._is_led_unit(target) else 2
+        target.transient_undying_legions_pulse = wounds
+
+    def _try_protocol_hungry_void(self, army: Army, opponent: Army) -> None:
+        """Protocol of the Hungry Void (Awakened Dynasty, 1 CP): +1 S
+        melee (+1 AP melee if led) on a NECRONS unit for the round.
+        APPROXIMATION: the simulator doesn't expose a clean per-round S/AP
+        boost slot, so we route the equivalent offensive uplift through
+        `transient_plus_one_to_wound_melee` (the existing +1-to-wound flag
+        used by Outbreak of Pestilence). Same direction, slightly more
+        generous than the true +1 S (because +1 to wound always closes a
+        bracket whereas +1 S only sometimes does). The AP leg is dropped
+        in the unled case and folded into the wound buff when led.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PROTOCOL_OF_THE_HUNGRY_VOID, ctx):
+            return
+        if not self._fire_stratagem(army, PROTOCOL_OF_THE_HUNGRY_VOID):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_protocol_sudden_storm(self, army: Army, opponent: Army) -> None:
+        """Protocol of the Sudden Storm (Awakened Dynasty, 1 CP): ranged
+        weapons on a NECRONS unit gain [ASSAULT] for the turn (re-roll
+        Advance rolls if led — that leg is dropped because the simulator
+        has no Advance re-roll hook and the Assault grant alone is the
+        primary value). Maps cleanly to `transient_assault_this_round`.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, PROTOCOL_OF_THE_SUDDEN_STORM, ctx):
+            return
+        if not self._fire_stratagem(army, PROTOCOL_OF_THE_SUDDEN_STORM):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_protocol_conquering_tyrant(self, army: Army, opponent: Army) -> None:
+        """Protocol of the Conquering Tyrant (Awakened Dynasty, 1 CP):
+        re-roll Hit rolls of 1 within half range on a NECRONS unit's
+        shoot (full re-roll if led). APPROXIMATION: the simulator's
+        `transient_reroll_hits_shooting` flag triggers a full hit
+        re-roll, not just 1s — direction-correct but slightly more
+        generous than the unled stratagem. Range gate is dropped because
+        the simulator already computes half-range mechanics per shot
+        and the AI only fires this when there's a meaningful shooter.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PROTOCOL_OF_THE_CONQUERING_TYRANT, ctx):
+            return
+        if not self._fire_stratagem(army, PROTOCOL_OF_THE_CONQUERING_TYRANT):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _apply_undying_legions_pulse(self) -> None:
+        """Mid-round reanimation pulse for Protocol of the Undying Legions.
+        Each NECRONS unit with `transient_undying_legions_pulse > 0` gets
+        an extra reanimation pulse equal to that wound count, applied
+        end-of-round just before the routine `_apply_reanimation` call.
+
+        Mirrors `_apply_reanimation`'s revive-models-of-the-same-profile
+        logic so the pulse stacks naturally on top of the per-round
+        reanimation budget without double-counting wound restoration on
+        the same destroyed model.
+        """
+        for army_idx, army in enumerate((self.a, self.b)):
+            initial = self._initial_unit_counts.get(army.name, {})
+            if not initial:
+                continue
+            edge_y = (
+                self.map.deployment_width / 2.0 if army_idx == 0
+                else self.map.height - self.map.deployment_width / 2.0
+            )
+            edge_x = self.map.width / 2.0
+
+            # Apply per-unit pulses. We iterate twice: first collect units
+            # that have a pulse, then for each pulse, revive dead peers in
+            # that unit's profile.
+            pulsing = [u for u in army.units if u.transient_undying_legions_pulse > 0]
+            if not pulsing:
+                continue
+
+            # Group by profile name like _apply_reanimation does.
+            dead_by_profile: Dict[str, List] = {}
+            alive_by_profile: Dict[str, List] = {}
+            for u in army.units:
+                bucket = (alive_by_profile if u.is_alive else dead_by_profile)
+                bucket.setdefault(u.profile.name, []).append(u)
+
+            for unit in pulsing:
+                wounds = unit.transient_undying_legions_pulse
+                unit.transient_undying_legions_pulse = 0
+                if wounds <= 0:
+                    continue
+                profile_name = unit.profile.name
+                dead_pool = dead_by_profile.get(profile_name, [])
+                alive_peers = alive_by_profile.get(profile_name, [])
+                if not alive_peers:
+                    # Squad wiped — Reanimation rules say nothing happens.
+                    continue
+                anchor_pos: Tuple[float, float] = alive_peers[0].position
+                if self.map.is_blocked(anchor_pos):
+                    anchor_pos = (edge_x, edge_y)
+                to_revive = min(len(dead_pool), wounds)
+                for revived in dead_pool[:to_revive]:
+                    revived.current_health = revived.profile.health
+                    revived.position = anchor_pos
+                    self._emit(UnitReanimated(
+                        unit_uid=revived.uid, position=anchor_pos,
+                    ))
+                # Move just-revived models out of the dead pool for any
+                # subsequent pulse iteration in this loop.
+                dead_by_profile[profile_name] = dead_pool[to_revive:]
+                alive_by_profile.setdefault(profile_name, []).extend(
+                    dead_pool[:to_revive]
+                )
 
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
@@ -2020,6 +2246,12 @@ class Battle:
             self._run_round_alternating(first, second)
         else:
             self._run_round_vanilla_turns(first, second)
+
+        # Protocol of the Undying Legions (Awakened Dynasty, 1 CP, #194):
+        # one extra reanimation pulse before the routine Reanimation
+        # Protocols pass, for any unit the AI fired the stratagem on this
+        # round. No-op for armies that didn't fire it.
+        self._apply_undying_legions_pulse()
 
         # Reanimation Protocols (#75): revive destroyed models in armies
         # whose detachment carries the Reanimation flag. This SUPERSEDES the

@@ -2118,8 +2118,78 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return hp_frac > 0.5 and cost >= 150.0
 
-    # ----- Awakened Dynasty (Necrons) -----------------------------------
+    # ----- Awakened Dynasty (Necrons) — six real Protocols (#194) -------
+    # Two Protocols (Eternal Revenant, Vengeful Stars) have no clean
+    # simulator hook and are catalogued-but-no-op. The four below match the
+    # four `_try_protocol_*` dispatchers in simulator.py.
 
+    if name == "Protocol of the Undying Legions":
+        # ctx expects {"target": Unit}. 1 CP defensive — fire when a real
+        # NECRONS unit has taken meaningful HP loss so the extra D3 (+1
+        # if led) reanimation pulse actually has dead peers to revive.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        # Wounded multi-model squad worth at least 80 pts — leans on the
+        # canonical "Warrior brick blown apart by alpha strike" scenario.
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Protocol of the Hungry Void":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 S melee (+1
+        # AP if led) — fire when the attacker has real melee DPA AND the
+        # target is a heavy threat (a +1 S that closes T4→T8 wound bracket
+        # is wasted on Cultists). Worth 1 CP on multi-attack melee Necrons.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Protocol of the Sudden Storm":
+        # ctx expects {"attacker": Unit}. [ASSAULT] for the round — fire
+        # for a real ranged shooter that benefits from advancing-and-shooting
+        # (move pressure into half range / clear a screen). Threshold 80 pts
+        # so we don't burn CP for Warriors with gauss flayers.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 80.0
+
+    if name == "Protocol of the Conquering Tyrant":
+        # ctx expects {"attacker": Unit, "target": Unit}. Re-roll hits of 1
+        # within half range (full re-roll if led) — fire when the attacker
+        # has serious DPA AND the target is heavy. Direction-correct
+        # ~25% damage uplift; cheap 1 CP gate matches Methodical Destruction's
+        # old shape (which it replaces).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 2.0 and _is_heavy_target(target)
+
+    # Legacy Awakened Dynasty heuristics (kept for backwards compatibility
+    # with any external caller; the stratagem constants themselves were
+    # deleted in the fabrication audit so these branches are unreachable
+    # via the simulator's dispatcher).
     if name == "Implacable Onslaught":
         # ctx expects {"target": Unit}. 1 CP for a transient FNP 5+ on a
         # Necron unit. Cheap defensive — fire whenever a meaningful Necron

@@ -200,6 +200,91 @@ WARHOST_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Awakened Dynasty (Necrons) — six real Protocol stratagems
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+# Six real "Protocol of the …" stratagems verbatim from the Necrons codex.
+# Replaces the two fabricated entries (Implacable Onslaught, Methodical
+# Destruction) deleted in commit fa9a957 per the fabrication audit.
+#
+# Mapping summary (full notes in data/rule_citations.d/stratagems.json):
+#   * Eternal Revenant (1 CP) — return a destroyed CHARACTER at half wounds.
+#     No clean mapping (no model-resurrection hook); registered as a no-op
+#     APPROXIMATION so the stratagem is catalogued but the AI never fires.
+#   * Undying Legions (1 CP) — D3 (+1 if led) extra reanimation pulse on a
+#     unit that just lost models. Maps to an inline mid-phase reanimation
+#     hook (`transient_undying_legions_pulse`).
+#   * Hungry Void (1 CP) — +1 S melee (+1 AP melee if led). Approximated as
+#     `transient_plus_one_to_wound_melee` (same direction, lossy on AP).
+#   * Sudden Storm (1 CP) — [ASSAULT] for the round. Maps cleanly to
+#     `transient_assault_this_round`.
+#   * Conquering Tyrant (1 CP) — re-roll Hit rolls of 1 within half range
+#     (full re-roll if led). Approximated as `transient_reroll_hits_shooting`
+#     (full re-roll always; same direction, slight over-buff for unled).
+#   * Vengeful Stars (2 CP) — out-of-sequence shoot when an enemy destroys a
+#     friendly unit near a CHARACTER. No out-of-sequence shoot hook;
+#     registered as a no-op APPROXIMATION.
+
+PROTOCOL_OF_THE_ETERNAL_REVENANT = Stratagem(
+    name="Protocol of the Eternal Revenant",
+    cp_cost=1,
+    phase="any",
+    trigger="necrons_character_just_destroyed",
+    effect="return_character_half_wounds_approximation",
+    once_per_battle=False,
+)
+
+PROTOCOL_OF_THE_UNDYING_LEGIONS = Stratagem(
+    name="Protocol of the Undying Legions",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_necrons_unit_just_lost_models",
+    effect="extra_reanimation_pulse",
+)
+
+PROTOCOL_OF_THE_HUNGRY_VOID = Stratagem(
+    name="Protocol of the Hungry Void",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_necrons_unit_about_to_fight",
+    effect="plus_one_strength_melee_approximation",
+)
+
+PROTOCOL_OF_THE_SUDDEN_STORM = Stratagem(
+    name="Protocol of the Sudden Storm",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_necrons_unit_in_movement",
+    effect="assault_this_round",
+)
+
+PROTOCOL_OF_THE_CONQUERING_TYRANT = Stratagem(
+    name="Protocol of the Conquering Tyrant",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_necrons_unit_about_to_shoot",
+    effect="reroll_hits_shooting_approximation",
+)
+
+PROTOCOL_OF_THE_VENGEFUL_STARS = Stratagem(
+    name="Protocol of the Vengeful Stars",
+    cp_cost=2,
+    phase="shooting",
+    trigger="enemy_destroyed_friendly_necrons_near_character",
+    effect="out_of_sequence_shoot_approximation",
+)
+
+AWAKENED_DYNASTY_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PROTOCOL_OF_THE_ETERNAL_REVENANT,
+    PROTOCOL_OF_THE_UNDYING_LEGIONS,
+    PROTOCOL_OF_THE_HUNGRY_VOID,
+    PROTOCOL_OF_THE_SUDDEN_STORM,
+    PROTOCOL_OF_THE_CONQUERING_TYRANT,
+    PROTOCOL_OF_THE_VENGEFUL_STARS,
+)
+
+
+# ---------------------------------------------------------------------------
 # Virulent Vectorium (Death Guard) — 6 detachment stratagems
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
@@ -407,6 +492,14 @@ __all__ = [
     "BLITZING_FIREPOWER",
     "WEBWAY_TUNNEL",
     "WARHOST_STRATAGEMS",
+    # Awakened Dynasty (Necrons) — six real Protocol stratagems
+    "PROTOCOL_OF_THE_ETERNAL_REVENANT",
+    "PROTOCOL_OF_THE_UNDYING_LEGIONS",
+    "PROTOCOL_OF_THE_HUNGRY_VOID",
+    "PROTOCOL_OF_THE_SUDDEN_STORM",
+    "PROTOCOL_OF_THE_CONQUERING_TYRANT",
+    "PROTOCOL_OF_THE_VENGEFUL_STARS",
+    "AWAKENED_DYNASTY_STRATAGEMS",
     # Virulent Vectorium (Death Guard) — 6 detachment stratagems
     "DISGUSTINGLY_RESILIENT",
     "PUTRID_DETONATION",

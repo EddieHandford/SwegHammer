@@ -403,11 +403,17 @@ class Unit:
         #       Swiftly (T'au Mont'ka). Movement buff: unit may shoot in the
         #       same round it advanced.
         # Awakened Dynasty (Necrons):
-        #   transient_fnp_5 — Implacable Onslaught. Defender buff: target gets a
-        #       transient FNP 5+ for the round (composes with existing FNP by
-        #       taking the lower / better value in receive_damage).
-        #   transient_plus_one_to_hit_shooting — Methodical Destruction.
-        #       Attacker buff: +1 to hit on ranged attacks for the round.
+        #   transient_fnp_5 — (legacy slot, retained for stable layout) was
+        #       Implacable Onslaught, deleted in the fabrication audit. Now
+        #       reused if a future Necron stratagem grants FNP 5+.
+        #   transient_plus_one_to_hit_shooting — (legacy slot, retained) was
+        #       Methodical Destruction, deleted in the fabrication audit. Now
+        #       a generic +1-to-hit-shooting slot any stratagem can set.
+        #   transient_undying_legions_pulse — Protocol of the Undying Legions
+        #       (Awakened Dynasty, 1 CP). When set, the affected NECRONS unit
+        #       gets one extra mid-round reanimation pulse equal to this
+        #       integer wound count. Consumed + reset by
+        #       Battle._apply_undying_legions_pulse and the round-clear hook.
         # Saim-Hann (Aeldari):
         #   transient_halve_damage — Spirit Stones. Defender buff: each per-shot
         #       damage is halved (rounded up) for the round.
@@ -421,6 +427,7 @@ class Unit:
         "transient_fnp_5",
         "transient_plus_one_to_hit_shooting",
         "transient_halve_damage",
+        "transient_undying_legions_pulse",
         # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
         # each Command phase to any Drukhari unit below Starting Strength;
         # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
@@ -495,6 +502,9 @@ class Unit:
         self.transient_plus_one_to_hit_shooting: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
+        # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
+        # number of wounds to reanimate in a follow-up pulse. 0 = no pulse.
+        self.transient_undying_legions_pulse: int = 0
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is

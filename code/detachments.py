@@ -27,6 +27,7 @@ from .enhancements import Enhancement, enhancements_for_detachment
 from .stratagems import (
     Stratagem,
     WARHOST_STRATAGEMS,
+    AWAKENED_DYNASTY_STRATAGEMS,
     DISGUSTINGLY_RESILIENT,
     MONTKA_STRATAGEMS,
     VIRULENT_VECTORIUM_STRATAGEMS,
@@ -195,14 +196,18 @@ AWAKENED_DYNASTY = Detachment(
         "a NECRONS CHARACTER model is leading this unit, each time a model "
         "in this unit makes an attack, add 1 to the Hit roll.\"' The whole "
         "detachment's offensive teeth are gated on being character-led; "
-        "lone Warrior squads get nothing. Detachment stratagems were "
-        "previously fabricated (Implacable Onslaught, Methodical Destruction) "
-        "and have been removed per the 2026-05-15 fabrication audit "
-        "(commit fa9a957). Real Awakened Dynasty stratagems are the six "
-        "'Protocol of the …' entries; replacement lands in a follow-up."
+        "lone Warrior squads get nothing. Detachment stratagems (#194 "
+        "rebuild) are the six real 'Protocol of the …' entries from the "
+        "Necrons codex: Eternal Revenant, Undying Legions, Hungry Void, "
+        "Sudden Storm, Conquering Tyrant, Vengeful Stars. Two of those "
+        "(Eternal Revenant, Vengeful Stars) have no clean simulator hook "
+        "and are catalogued-but-no-op APPROXIMATIONs; the other four map "
+        "onto existing transient_* flags (plus a new "
+        "transient_undying_legions_pulse for the extra reanimation pulse)."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )
 
