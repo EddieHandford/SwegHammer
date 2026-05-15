@@ -2033,7 +2033,21 @@ class Battle:
             return False
 
         contesting = [u for u in candidates if _contests_our_obj(u)]
-        shoot_target = min(contesting or candidates, key=lambda u: u.current_health)
+        pool = contesting or candidates
+        # S6 (#166) — anti-swarm shooting priority: bias toward OC-bearing
+        # chaff before high-DPA bricks. Real tournament play clears the
+        # screen first so the opposing army can't flip primary while we
+        # chew through Carnifexes. The bonus is multiplicative on a
+        # "lower is better" picker, so we *divide* a profile-based score
+        # by the bonus — a 1.4x screen gets scored as 0.71x its raw HP
+        # for picking purposes, biasing the min() toward it. Additive
+        # bias only; the fragile chaff that loses ties anyway still loses,
+        # but a Termagant unit at 5 HP outscores a Carnifex at 8 HP.
+        from .strategy import _screen_target_bonus
+        shoot_target = min(
+            pool,
+            key=lambda u: u.current_health / _screen_target_bonus(u),
+        )
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. HEAVY cover

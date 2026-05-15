@@ -390,6 +390,57 @@ def _support_target_bonus(defender) -> float:
     return 1.0
 
 
+# ---------------------------------------------------------------------------
+# S6 — Anti-swarm / screen-target priority (task #166)
+# ---------------------------------------------------------------------------
+# Tournament play prioritises CHAFF first: kill the OC-bearing swarm before
+# the big-DPA target. Tyranids in particular over-perform in our sim because
+# the opposing AI shoots at Carnifexes while Termagants drown the board and
+# score primary. The bonus fires on profiles that are simultaneously:
+#   - OC-relevant (oc >= 2) — the swarm exists to flip objectives
+#   - Fragile (health <= 5 per model OR role classifies as HORDE)
+# A 2-wound 0-OC unit (e.g. a non-OC tag-along) gets nothing; only OC-bearing
+# chaff. The bonus is a 1.4x multiplier on the existing kill-potential score,
+# stacking multiplicatively with `_gunline_charge_bonus` and
+# `_support_target_bonus` — additive in the colloquial sense (it never
+# *replaces* the underlying kill-potential math).
+_SCREEN_TARGET_BONUS: float = 1.4
+
+
+def _is_screen_target(profile) -> bool:
+    """True when `profile` represents OC-bearing CHAFF that should be cleared
+    before higher-DPA targets.
+
+    Gated tightly:
+      - profile.oc >= 2                                 # objective-relevant
+      - per-model health <= 5 OR role classify == HORDE  # fragile / swarm
+    """
+    oc = getattr(profile, "oc", 0) or 0
+    if oc < 2:
+        return False
+    health = getattr(profile, "health", 0) or 0
+    if health <= 5:
+        return True
+    try:
+        return classify(profile) == "HORDE"
+    except Exception:
+        return False
+
+
+def _screen_target_bonus(defender) -> float:
+    """Return 1.4x when `defender.profile` is a screen / chaff target, else 1.0.
+
+    Applied as a multiplier on melee target-score and on ranged target
+    priority. Additive bias only — never replaces the kill-potential calc.
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return 1.0
+    if _is_screen_target(profile):
+        return _SCREEN_TARGET_BONUS
+    return 1.0
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -424,7 +475,14 @@ def _melee_target_score(attacker, defender) -> float:
     # see `_gunline_charge_bonus` for the asymmetry.
     # S4: also apply a SUPPORT / leader-aura priority bonus so melee bricks
     # bias toward killing the buff character before the bodyguard squad.
-    return base * _gunline_charge_bonus(p, tp) * _support_target_bonus(defender)
+    # S6 (#166): screen-target bonus biases attackers toward OC-bearing
+    # chaff (Termagants, Cultists, Boyz) before high-DPA bricks. Tightly
+    # gated to oc>=2 + (low W per-model OR HORDE role); see
+    # `_is_screen_target`.
+    return (base
+            * _gunline_charge_bonus(p, tp)
+            * _support_target_bonus(defender)
+            * _screen_target_bonus(defender))
 
 
 def pick_charge_target(attacker, enemy):
@@ -508,8 +566,12 @@ def pick_charge_target(attacker, enemy):
         # S4 — SUPPORT / leader-aura priority bonus: real play kills the
         # buff character before the bodyguard squad.
         support_bonus = _support_target_bonus(e)
-        score = ((kill_potential + 0.5 * ranged_value)
-                 / (1.0 + threat_against)) * charge_p * gunline_bonus * support_bonus
+        # S6 (#166) — screen-target bonus: bias charges into OC-bearing
+        # chaff before high-DPA bricks.
+        screen_bonus = _screen_target_bonus(e)
+        score = (((kill_potential + 0.5 * ranged_value)
+                  / (1.0 + threat_against))
+                 * charge_p * gunline_bonus * support_bonus * screen_bonus)
         candidates.append((score, d, e))
 
     if not candidates:
