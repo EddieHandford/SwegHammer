@@ -1,0 +1,12 @@
+{
+  "_comment": "Thousand Sons army rule (10e). All Is Dust applies a -1 to the wound roll for any single-damage attack allocated to a 'dust' THOUSAND SONS unit (Rubric Marines, Scarab Occult Terminators, etc.). Faction-gated on profile.faction == 'Thousand Sons'; daemon units excluded by the 'DAEMON' unit-keyword check.",
+
+  "simulator.all_is_dust": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "All Is Dust",
+    "quoted_text": "Each time an attack with a Damage characteristic of 1 is allocated to a model in this unit, subtract 1 from the Wound roll.",
+    "trigger": "the unit being attacked has profile.faction == 'Thousand Sons' AND does NOT carry the DAEMON unit-keyword, AND the incoming attack's weapon_damage_per_shot <= 1.0",
+    "effect": "Increase the attacker's wound_target by 1 (capped at 7 — wound roll auto-fails). Stacks consistently with attacker-side +1 to wound buffs (e.g. detachment Outbreak of Pestilence) — a single-damage attack with a +1 to wound and a -1 from All Is Dust nets to the base wound target.",
+    "scope": "keyword-gated"
+  }
+}

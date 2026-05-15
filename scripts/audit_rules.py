@@ -113,6 +113,10 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
+    # Thousand Sons army rule (10e). -1 to wound on any single-damage
+    # attack allocated to a non-daemon TSons model (Rubric Marines,
+    # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
+    "simulator.all_is_dust",
 )
 
 

@@ -491,6 +491,22 @@ class Unit:
                 if waaagh_round is not None and waaagh_round == cur_round:
                     wound_target = max(2, wound_target - 1)
 
+        # ---- Thousand Sons "All Is Dust" (army rule, 10e). Subtract 1 from
+        # the wound roll when a Damage-1 attack is allocated to a non-daemon
+        # TSons unit (Rubric Marines, Scarab Occult Terminators, etc.). This
+        # mirrors the +1-to-wound idioms above but in reverse (raise the d6
+        # target, capped at 7 — wound roll auto-fails). Stacks with attacker
+        # +1 to wound (e.g. Outbreak of Pestilence) — a single-damage attack
+        # with both buffs nets back to the base wound target. The DAEMON
+        # exclusion keeps Tzaangors / Pink Horrors / Spawn from benefiting.
+        # Cited as `simulator.all_is_dust`.
+        if (
+            target.profile.faction == "Thousand Sons"
+            and per_shot_dmg <= 1.0
+            and "DAEMON" not in (target.profile.unit_keywords or ())
+        ):
+            wound_target = min(7, wound_target + 1)
+
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
         if p.heavy and mode != "melee" and not self.moved_this_round:
