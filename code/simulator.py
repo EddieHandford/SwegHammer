@@ -18,8 +18,8 @@ from .events import (
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    pick_doctrina_imperative, pick_move_intent, should_declare_waaagh,
-    should_fire_stratagem,
+    decide_deepstrike_drops, pick_doctrina_imperative, pick_mass_arrival_anchor,
+    pick_move_intent, should_declare_waaagh, should_fire_stratagem,
 )
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
@@ -1186,9 +1186,13 @@ class Battle:
     def _arrive_from_reserves(self, round_num: int) -> None:
         """Bring reserves onto the board.
 
-        Deep Strike: from Round 2 onwards, each waiting deep-striker has a
-        66% chance to land per round; forced arrival from Round 4 (10e: reserves
-        destroyed if not on by end of Round 3 — we soft-enforce by auto-arriving).
+        Deep Strike (#153 overhaul — coordinated alpha-strike AI):
+        from Round 2 onwards, the strategy layer (`decide_deepstrike_drops`)
+        decides whether to drop NOW or hold. If the drop fires, all selected
+        units arrive the same round (mass drop), clustered near a shared
+        anchor — high-threat enemy for T2-T3, contested objective for T4+.
+        Round 3 forces all remaining DS units down (alpha-strike window);
+        Round 4+ never leaves reserves on the table (tempo cost).
 
         Cult Ambush (Genestealer Cults army rule, 10e): a unit flagged
         `cult_ambush_pending` arrives at the top of Round 1, deterministically
@@ -1196,46 +1200,78 @@ class Battle:
         The ambush flag is cleared on landing so any subsequent revival /
         re-entry doesn't re-trigger the path. Cited as `simulator.cult_ambush`.
 
-        Each arriving unit is placed > 9" from every alive enemy. Picks the
-        centre of the board first; if it's too close, tries corners and a
-        coarse grid sweep. Units that just arrived are flagged in
-        `_fresh_arrivals` so they skip movement this round.
+        Each arriving unit is placed > 9" from every alive enemy. The picker
+        scores candidates by proximity to high-threat enemies and to
+        contested objectives (T4+ weights objectives more). Mass-drop units
+        share a landing anchor so they end up within ~12" of each other.
         """
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             waiting = self._reserves.get(army.name, [])
             if not waiting:
                 continue
+
+            # Cult Ambush units always arrive on R1; they bypass the DS gate.
+            ambush_now = [u for u in waiting if getattr(u, "cult_ambush_pending", False)]
+            ds_waiting = [u for u in waiting if not getattr(u, "cult_ambush_pending", False)]
+
+            # Strategy layer decides which DS units (non-ambush) land this round.
+            ds_dropping = decide_deepstrike_drops(
+                round_num, ds_waiting, opponent, army, self.map,
+            )
+            ds_dropping_ids = {id(u) for u in ds_dropping}
+
+            arriving = ambush_now + ds_dropping
+            if not arriving:
+                # No drops this round — keep everyone in reserves.
+                continue
+
+            # Pick a shared anchor for the mass drop so multiple units cluster.
+            # Cult Ambush units are placed independently (no anchor) — the
+            # whole GSC army is dropping, individual scoring stays cleanest.
+            anchor = None
+            if len(ds_dropping) >= 2:
+                anchor = pick_mass_arrival_anchor(
+                    round_num, ds_dropping, opponent, army, self.map,
+                )
+
             still_waiting = []
+            anchor_placed: list = []   # track placed positions for clustering
             for u in waiting:
                 is_ambush = getattr(u, "cult_ambush_pending", False)
-                if round_num < 2 and not is_ambush:
-                    # Deep-strikers cannot land before Round 2.
+                if not is_ambush and id(u) not in ds_dropping_ids:
+                    # Strategy held this unit back this round.
                     still_waiting.append(u)
                     continue
-                # Cult Ambush units land deterministically on Round 1; deep
-                # strikers land on a 66% gate from Round 2, forced from Round 4.
-                will_arrive = (
-                    is_ambush
-                    or round_num >= 4
-                    or random.random() < 0.66
+                # Mass-drop: cluster around anchor for non-ambush DS units.
+                use_anchor = anchor if (not is_ambush and anchor is not None) else None
+                pos = self._pick_arrival_point(
+                    opponent,
+                    arriving_unit=u,
+                    round_num=round_num,
+                    anchor=use_anchor,
+                    placed_positions=anchor_placed if use_anchor else None,
                 )
-                if will_arrive:
-                    pos = self._pick_arrival_point(opponent, arriving_unit=u)
-                    if pos is None:
-                        # No valid arrival spot — defer to next round.
-                        still_waiting.append(u)
-                        continue
-                    u.position = pos
-                    u.cult_ambush_pending = False
-                    army.units.append(u)
-                    self._fresh_arrivals.add(u.uid)
-                    self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
-                else:
+                if pos is None:
+                    # No valid arrival spot — defer to next round (rare;
+                    # only happens on saturated maps).
                     still_waiting.append(u)
+                    continue
+                u.position = pos
+                u.cult_ambush_pending = False
+                army.units.append(u)
+                self._fresh_arrivals.add(u.uid)
+                self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
+                if use_anchor is not None:
+                    anchor_placed.append(pos)
             self._reserves[army.name] = still_waiting
 
     def _pick_arrival_point(
-        self, opponent: Army, arriving_unit: Optional[Unit] = None,
+        self,
+        opponent: Army,
+        arriving_unit: Optional[Unit] = None,
+        round_num: int = 0,
+        anchor: Optional[Tuple[float, float]] = None,
+        placed_positions: Optional[list] = None,
     ) -> Optional[Tuple[float, float]]:
         """Pick a tactically-useful Deep Strike landing point.
 
@@ -1245,8 +1281,11 @@ class Battle:
           * Proximity to high-threat enemies (SHOOTY/HEAVY weighted up).
             For a melee-capable arriving unit, "closer-to-a-threat" wins —
             we want to land into charge range of a sniper or Knight.
-          * Proximity to uncontested objectives.
-            For a shooty arriving unit, this dominates — drop and claim.
+          * Proximity to uncontested / contested objectives. T4+ weights
+            this hard — late-game DS exists to grab end-game VP.
+          * Proximity to `anchor` (mass-drop clustering). When 2+ units
+            drop the same round they share an anchor; later arrivals also
+            get a bonus for being near already-placed siblings.
 
         Falls back to the legacy centre-then-corners pick if no candidates
         are valid (e.g. a tiny board mid-late game).
@@ -1297,6 +1336,14 @@ class Battle:
         threat_w = 2.0 if is_melee_leaning else 1.0
         objective_w = 0.7 if is_melee_leaning else 1.6
 
+        # T4+ override: late-game DS prioritises objective steals over kills
+        # (the unit's job is end-game VP, not damage). Multiply objective
+        # weight up sharply and dampen threat weight so the score function
+        # picks objective-adjacent landings even when an enemy is nearby.
+        if round_num >= 4:
+            objective_w *= 3.0
+            threat_w *= 0.5
+
         # Identify uncontested objectives (no friendly within control radius).
         friendly = self.a if opponent is self.b else self.b
         targetable_objs = []
@@ -1317,6 +1364,23 @@ class Battle:
             for obj in targetable_objs:
                 d = _distance(p, (obj.x, obj.y))
                 s += objective_w / (d + 4.0)
+                # T4+ extra bonus: massive reward for landing within the
+                # 3" control radius of a contested objective.
+                if round_num >= 4 and d <= obj.control_radius:
+                    s += 12.0
+            # Mass-drop clustering: pull candidate near the squad anchor and
+            # near any already-placed siblings from this round's drop.
+            if anchor is not None:
+                d_anchor = _distance(p, anchor)
+                s += 4.0 / (d_anchor + 4.0)
+                # Hard cap: candidates more than 12" from the anchor are
+                # de-ranked so the squad lands as a coherent body.
+                if d_anchor > 12.0:
+                    s -= 5.0
+            if placed_positions:
+                for sib in placed_positions:
+                    d_sib = _distance(p, sib)
+                    s += 2.0 / (d_sib + 4.0)
             return s
 
         # Dense candidate grid (~3" spacing). Cheap; runs at most ~5 times

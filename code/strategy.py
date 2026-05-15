@@ -686,6 +686,227 @@ def should_declare_waaagh(army, round_num: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Deep Strike arrival AI (#153)
+# ---------------------------------------------------------------------------
+#
+# Real tournament deep-strike is a coordinated alpha-strike, not a per-unit
+# trickle. The simulator's old behaviour rolled a 66% gate per unit per round,
+# which meant a 4-unit reserves pool dribbled in over 3-4 rounds and got
+# picked off piecemeal. The new AI:
+#
+#   * Round 2: hold unless the enemy gunline is exposed (no screens within 9")
+#     OR an objective steal is open. If holding, the units stay in reserves.
+#   * Round 3: drop ALL remaining DS units (alpha strike window).
+#   * Round 4-5: drop ALL remaining DS units, biased toward objective grabs
+#     over max-threat targets. Never leave a unit in reserves past Round 4 —
+#     it scores zero VP and contributes zero damage.
+#
+# The scoring inside `_pick_arrival_point` (simulator.py) handles the
+# "what to land near" question; this module answers "should we land NOW"
+# and (via `pick_mass_arrival_anchor`) "where is the squad's centre point
+# when multiple units drop the same round".
+
+
+def _is_gunline_screened(opponent) -> bool:
+    """True iff the opponent's gunline (SHOOTY/HEAVY units) is screened.
+
+    A gunline unit is "screened" if any friendly INFANTRY/HORDE/SUPPORT
+    body sits within 9" of it — that body soaks the deep-strike charge and
+    blocks LOS to the squishy shooters. Returns True iff EVERY shooty unit
+    has at least one screen-eligible friend within 9".
+
+    Used by `decide_deepstrike_drops` to decide whether an alpha strike is
+    worthwhile at Round 2. If every shooter is screened, the DS unit can't
+    reach the soft target without going through a tarpit — better to wait.
+    """
+    if opponent is None:
+        return False
+    shooters = []
+    screeners = []
+    for u in opponent.alive_units:
+        try:
+            role = classify(u.profile)
+        except Exception:
+            role = ""
+        if role in ("SHOOTY", "HEAVY"):
+            shooters.append(u)
+        # A screener is anything cheap-bodied that isn't itself a primary
+        # gunline piece: HORDE/SUPPORT/MELEE INFANTRY counts.
+        if role in ("HORDE", "SUPPORT", "MELEE", "DUAL"):
+            screeners.append(u)
+    if not shooters:
+        return False   # no gunline to screen
+    if not screeners:
+        return False   # gunline is naked
+    for s in shooters:
+        sx, sy = s.position
+        protected = False
+        for f in screeners:
+            if f is s:
+                continue
+            fx, fy = f.position
+            if ((sx - fx) ** 2 + (sy - fy) ** 2) ** 0.5 <= 9.0:
+                protected = True
+                break
+        if not protected:
+            return False
+    return True
+
+
+def _has_objective_steal_open(opponent, friendly, map_) -> bool:
+    """True iff at least one objective is contested-or-enemy-held AND a DS
+    landing point > 9" from every enemy can plausibly reach within 3"
+    of it. Cheap heuristic — we check the objective is not friendly-only
+    and that the legal-landing radius around it (12" annulus) is on the
+    map. The actual landing-point picker will refuse impossible placements.
+    """
+    if map_ is None or not getattr(map_, "objectives", ()):
+        return False
+    friendly_units = list(getattr(friendly, "alive_units", ()) or ())
+    enemy_units = list(getattr(opponent, "alive_units", ()) or ())
+    for obj in map_.objectives:
+        ox, oy = obj.x, obj.y
+        f_oc = sum(
+            getattr(u.profile, "oc", 1)
+            for u in friendly_units
+            if ((u.position[0] - ox) ** 2 + (u.position[1] - oy) ** 2) ** 0.5
+            <= obj.control_radius
+        )
+        e_oc = sum(
+            getattr(u.profile, "oc", 1)
+            for u in enemy_units
+            if ((u.position[0] - ox) ** 2 + (u.position[1] - oy) ** 2) ** 0.5
+            <= obj.control_radius
+        )
+        if e_oc >= f_oc:
+            # The enemy is currently winning (or tying) this objective —
+            # a deep-strike onto it is a steal candidate. We don't try to
+            # check >9"-from-every-enemy here; the landing picker enforces
+            # that, and refusing the drop here would leave units stranded.
+            return True
+    return False
+
+
+def decide_deepstrike_drops(
+    round_num: int,
+    waiting_units,
+    opponent,
+    friendly,
+    map_,
+):
+    """Return the subset of `waiting_units` that should land THIS round.
+
+    Decision table:
+      Round 1: never (deep-strikers can't arrive before Round 2; Cult
+               Ambush is handled separately via cult_ambush_pending).
+      Round 2: drop ALL only if the gunline is exposed OR an objective
+               steal is open. Otherwise hold everything.
+      Round 3: drop ALL remaining (alpha-strike window).
+      Round 4+: drop ALL remaining (never waste reserves on a final round).
+
+    The caller (`Battle._arrive_from_reserves`) is responsible for handling
+    Cult Ambush separately — those units are flagged `cult_ambush_pending`
+    and land deterministically on Round 1, bypassing this gate.
+
+    Args:
+        round_num: current battle round (1..MAX_ROUNDS).
+        waiting_units: list of Unit instances in reserves (excluding any
+            cult-ambush-pending units, which the caller drops directly).
+        opponent: the enemy Army (alive_units used for screen detection).
+        friendly: this Army (used for objective-control check).
+        map_: the battlefield Map (objectives, dimensions).
+
+    Returns:
+        List of Unit instances to land this round. May be empty.
+    """
+    if not waiting_units:
+        return []
+    if round_num < 2:
+        return []
+    if round_num >= 3:
+        # Alpha-strike window opens at T3. Empty reserves by end of T4 latest.
+        return list(waiting_units)
+    # Round 2: gated on enemy posture.
+    gunline_exposed = not _is_gunline_screened(opponent)
+    steal_open = _has_objective_steal_open(opponent, friendly, map_)
+    if gunline_exposed or steal_open:
+        return list(waiting_units)
+    return []
+
+
+def pick_mass_arrival_anchor(
+    round_num: int,
+    units_dropping,
+    opponent,
+    friendly,
+    map_,
+):
+    """Pick a centre point for a coordinated mass-drop landing zone.
+
+    When 2+ units arrive the same round, they should land near each other
+    so they can charge / support the same target. This returns the anchor
+    coordinate; the simulator's `_pick_arrival_point` is then asked to
+    place each unit's actual landing point near this anchor (within ~12").
+
+    For T2-T3 mass drops the anchor is the highest-threat enemy position.
+    For T4+ drops the anchor is the centre of the nearest non-friendly
+    objective — late-game DS exists to grab end-game VP.
+
+    Returns None if no sensible anchor can be picked (no enemies, no
+    objectives, or empty drop list).
+    """
+    if not units_dropping or opponent is None:
+        return None
+    enemies = list(getattr(opponent, "alive_units", ()) or ())
+    friendly_units = list(getattr(friendly, "alive_units", ()) or ())
+
+    # Round 4+: prefer an objective anchor (steal / contest endgame VP).
+    if round_num >= 4 and map_ is not None and getattr(map_, "objectives", ()):
+        best_obj = None
+        best_d = float("inf")
+        for obj in map_.objectives:
+            ox, oy = obj.x, obj.y
+            controlled_by_us = any(
+                ((u.position[0] - ox) ** 2 + (u.position[1] - oy) ** 2) ** 0.5
+                <= obj.control_radius
+                for u in friendly_units
+            )
+            if controlled_by_us:
+                continue
+            # Distance from board centre as a tie-breaker — central
+            # objectives are usually the contested ones.
+            cx, cy = map_.width / 2.0, map_.height / 2.0
+            d = ((ox - cx) ** 2 + (oy - cy) ** 2) ** 0.5
+            if d < best_d:
+                best_d = d
+                best_obj = obj
+        if best_obj is not None:
+            return (best_obj.x, best_obj.y)
+
+    # T2-T3 (and T4 fallback if no contestable objective): aim at the
+    # heaviest enemy threat. We use the same role-weighted scoring as
+    # the per-unit landing picker so the anchor sits where the DS scoring
+    # function will agree.
+    if not enemies:
+        return None
+    role_weight = {
+        "HEAVY":   3.0,
+        "SHOOTY":  2.5,
+        "DUAL":    1.5,
+        "MELEE":   1.0,
+        "SUPPORT": 1.2,
+        "HORDE":   0.8,
+    }
+    def _w(e):
+        try:
+            return role_weight.get(classify(e.profile), 1.0)
+        except Exception:
+            return 1.0
+    best = max(enemies, key=_w)
+    return best.position
+
+
+# ---------------------------------------------------------------------------
 # Stratagem firing heuristic
 # ---------------------------------------------------------------------------
 
