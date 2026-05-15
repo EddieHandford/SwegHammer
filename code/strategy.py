@@ -492,6 +492,24 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
             nearest_enemy_dist = d
             nearest_enemy = e
 
+    # Aeldari Battle Focus — ASURYANI units bias toward advancing when:
+    #   (a) the unit has a Battle Focus token available
+    #   (b) the unit is OUT of weapon range of the nearest enemy
+    # In that case, return an ENGAGE intent toward the enemy so the
+    # simulator's Advance + token-spend logic fires. Without this branch the
+    # SHOOTY/HEAVY in-range hold below traps Aeldari shooters into staying
+    # put with tokens unspent. Token-spend itself is handled by _do_shoot.
+    kw = unit.profile.unit_keywords or ()
+    if (
+        "ASURYANI" in kw
+        and getattr(friendly, "battle_focus_tokens", 0) > 0
+        and nearest_enemy is not None
+    ):
+        rng = unit.profile.range_inches or 24
+        if nearest_enemy_dist > rng:
+            # Out of range — advance + shoot is better than stay-and-skip.
+            return nearest_enemy.position, _ENGAGE_INTENT
+
     if role in ("SHOOTY", "HEAVY") and nearest_enemy is not None:
         rng = unit.profile.range_inches or 24
         if nearest_enemy_dist <= rng:
