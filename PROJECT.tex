@@ -107,18 +107,27 @@ work tracks against the goals below.
 
 \subsection*{Goal A --- Sim matches real tournament data}
 Drive the per-faction matchup-matrix MAE down by implementing the
-faction-specific mechanics that distinguish factions in real play. A
-faction-blind simulator cannot reproduce a meta where Necrons hit 53\%
-and Aeldari hit 44\%. Headline metric: MAE vs the May 2026 Warp Friends
-tournament aggregate, currently $5.11$ pts, target $\le 2.0$ pts. See
-\texttt{scripts/evaluate\_vs\_meta.py}.
+faction-specific mechanics that distinguish factions in real play.
+Headline metric: MAE vs the May 2026 Warp Friends tournament aggregate,
+currently $5.48$ pts at $N{=}30$ / $7.01$ pts at $N{=}200$ (the honest
+reading), target $\le 2.0$ pts. As of 2026-05-15, 9 of 10 faction army
+rules ship (Tyranids Synapse, Drukhari Pain Tokens, AdMech Doctrina,
+GSC Cult Ambush, World Eaters Blood Tithe, Death Guard Disgustingly
+Resilient $+$ Contagions, Thousand Sons All Is Dust, Necrons Reanimation,
+Orks WAAAGH! $+$ Mob Rule). Marines Oath of Moment remains
+\texttt{[NEEDS RETRY]}. Plus 5 core 10e rules shipped this session:
+Look Out Sir, Lone Operative, Deadly Demise X, Fall Back, Desperate
+Escape. See \texttt{scripts/evaluate\_vs\_meta.py}.
 
 \subsection*{Goal B --- Equal-quality simulation per faction}
-Bring every faction to the same depth of in-game representation. The two
-big knobs are stratagems (CP-priced effects) and leader auras (CHARACTER
-attached to bodyguard unit), with the per-detachment enhancement system
-as a follow-up. Universal Core Stratagems plus three detachment-specific
-sets shipped; $\sim18$ detachments still have empty stratagem tuples.
+Bring every faction to the same depth of in-game representation. As of
+2026-05-15: 25 detachments registered (up from 21), 5 new per-faction
+stratagems on top of the 4 universal core $+$ 3 original detachment
+sets, 5 Warlord enhancements, 4 CP-discount HQs, 32 leader abilities
+all with verbatim Wahapedia citations, $122/122$ rules cited. A
+mechanic-fire validator (\texttt{tests/test\_faction\_mechanic\_smoke.py})
+confirms 19 implemented faction mechanics actually trigger in seeded
+battles.
 
 \subsection*{Goal C --- Generate balanced SwegHammer points (two-track)}
 Replace GW's commercially-driven points with empirically-derived costs.
@@ -133,15 +142,27 @@ itself a calibration signal:
     terrain, charge variance, objective contest, CP).
   \item \textbf{Equilibrium} (\texttt{code/equilibrium.py}, Ed's solver)
     --- closed-form Bradley-Terry / log-LSQ on the pairwise time-to-kill
-    matrix. Fast, exposes pairwise structure. Phases 1 (shooting) and 2
-    (shoot + melee) shipped; Phases 3--6 planned.
+    matrix. All 6 phases shipped: 1 (shoot), 2 ($+$melee), 3 (defensive
+    audit), 4 (tactical utility), 5 (meta-weighted), 6 (Nash mixed-
+    strategy).
 \end{itemize}
+
+A cross-validation script (\texttt{scripts/cross\_validate\_pricing.py})
+compares the two signals; 2 disagreements (Wraithguard, Crisis Sunforge)
+and 5 confirmations on the live catalogue. Both tracks are blocked on
+Ed's points-per-model import fix --- until \texttt{points\_cost}
+returns the GW per-model cost rather than the Lanchester-derived score,
+the sim's army budgets run in wrong-currency.
 
 \subsection*{Goal D --- Price non-damaging abilities}
 Speed, deep strike, scout, sticky objective, OC bonuses, re-deploy ---
 abilities that don't show up in the pairwise damage matrix but are real
-points value. Collapsed into Equilibrium Phase 4 as the
-\texttt{tactical\_value(u)} term added post-LSQ.
+points value. Implemented as Equilibrium Phase 4's
+\texttt{tactical\_value(u)} multiplicative log-overlay on Phase 2.
+Weights grid-search calibrated on 9 anchors; the anchor set under-
+identifies \texttt{w\_move}, \texttt{w\_oc}, \texttt{w\_infiltrator},
+\texttt{w\_deep\_strike} (all calibrate to 0). Widening the anchor set
+is the next Goal D step.
 
 % =========================================================================
 \section{Where the project stands today}
@@ -648,16 +669,23 @@ fix the overall scale.
   \item \done\ \textbf{Phase 2} --- shoot $+$ melee. Per-attacker
     role-weighted mix (SHOOTY $0.90$, HEAVY $0.80$, DUAL $0.55$,
     HORDE $0.50$, MELEE $0.20$, SUPPORT $0.50$).
-  \item \todo\ \textbf{Phase 3} --- defensive integration audit
-    (high-FNP low-wound edge cases, MW-vulnerability).
-  \item \todo\ \textbf{Phase 4} --- tactical-utility term
-    $\text{tactical\_value}(u)$ for non-damaging abilities. This is
+  \item \done\ \textbf{Phase 3} --- defensive integration audit.
+    \texttt{compute\_phase3\_audit()} flags 69 high-FNP / 21 invuln-cliff
+    / 819 multi-wound units; surfaced BSData mapper FNP/invuln drop bugs
+    (subsequently fixed in tasks A12 / A21).
+  \item \done\ \textbf{Phase 4} --- tactical-utility term
+    $\text{tactical\_value}(u)$ multiplicative overlay on Phase 2.
+    Anchor-relative log-shift keeps Intercessor pinned; weights grid-
+    search calibrated on 9 anchors (RSS $38932 \to 33666$). This is
     \textbf{Goal D}.
-  \item \todo\ \textbf{Phase 5} --- meta-weighting (weight residuals
-    by $P(\text{facing } j)$ from tournament data).
-  \item \todo\ \textbf{Phase 6} --- solve the actual zero-sum game
-    (mixed strategies on the simplex) to handle rock-paper-scissors
-    mispricing.
+  \item \done\ \textbf{Phase 5} --- meta-weighting using May 2026 Warp
+    Friends faction shares. Re-weighted LSQ; high-meta-share factions
+    price up monotonically.
+  \item \done\ \textbf{Phase 6} --- Nash mixed-strategy solve on the
+    antisymmetric trade-ratio payoff matrix via
+    \texttt{scipy.optimize.linprog}. Pearson $r=0.968$ vs Phase 5 (Nash
+    correctly collapses on Warlord Titan as universal dominant unit;
+    pricing-wise extreme but mathematically right).
 \end{itemize}
 
 \emph{Strengths.} Fast (analytic, no simulation). Exposes the pairwise
@@ -790,11 +818,25 @@ an authoritative aggregate, and are flagged in the report so they don't
 dominate the MAE.
 
 \subsection{Current state}
-\textbf{MAE 5.11 pts}, target $\le 2.0$ pts. The MAE bounces as Goal A
-fills in --- each faction-specific mechanic (Reanimation, Shadow in the
-Warp, WAAAGH! \& Mob Rule) perturbs the matrix until the next mechanic
-lands. The aim is monotone-decreasing MAE per faction-mechanic landed,
-\emph{not} a smooth descent (the matrix is too coarse for that).
+\textbf{MAE 5.48 pts at $N{=}30$ / 7.01 pts at $N{=}200$}, target $\le 2.0$
+pts. The May 2026 sprint shipped 9 of 10 faction army rules (Tyranids,
+Drukhari, AdMech, GSC, World Eaters, Death Guard FNP $+$ Contagions,
+Thousand Sons All Is Dust, plus Necrons / Orks foundation) and 5 core 10e
+mechanics (Look Out Sir, Lone Operative, Deadly Demise X, Fall Back,
+Desperate Escape). Marines Oath of Moment $+$ Combat Doctrines remain
+\texttt{[NEEDS RETRY]} --- three attempts have regressed because the
+buffs add ${\sim}5$ pts to Marines without concurrent re-pricing.
+
+The $N{=}30$ reading carries ${\sim}3$ pt sample noise. $N{=}200$ is the
+honest baseline. Persistent residual outliers at $N{=}200$: Necrons
+$-15.2$, Aeldari $+13.9$, Thousand Sons $-11.6$, T'au $+10.3$.
+
+\textbf{Blocker.} The Lanchester-derived \texttt{points\_cost} property
+on \texttt{UnitProfile} is being used as a per-model GW cost by the army
+builder. Until the points-per-model import fix flagged in the Phase 2
+follow-ups lands (Ed's TODO), every Sweg-side calibration runs in
+wrong-currency. The equilibrium pipeline already anchors on
+\texttt{points\_per\_squad} so its outputs are honest.
 
 Determinism: \texttt{PYTHONHASHSEED=0} is re-execed at startup, and the
 per-battle RNG is seeded by faction-index pair plus battle counter, so
