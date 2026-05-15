@@ -1,5 +1,5 @@
 {
-  "tag": "v10.6.0",
+  "tag": "main",
   "files": [
     "Aeldari - Aeldari Library.cat.gz",
     "Aeldari - Craftworlds.cat.gz",
@@ -11,6 +11,7 @@
     "Chaos - Chaos Knights.cat.gz",
     "Chaos - Chaos Space Marines.cat.gz",
     "Chaos - Death Guard.cat.gz",
+    "Chaos - Emperor's Children.cat.gz",
     "Chaos - Thousand Sons.cat.gz",
     "Chaos - Titanicus Traitoris.cat.gz",
     "Chaos - World Eaters.cat.gz",
@@ -40,6 +41,7 @@
     "Leagues of Votann.cat.gz",
     "Library - Astartes Heresy Legends.cat.gz",
     "Library - Titans.cat.gz",
+    "Library - Tyranids.cat.gz",
     "Necrons.cat.gz",
     "Orks.cat.gz",
     "T'au Empire.cat.gz",

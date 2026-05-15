@@ -68,6 +68,13 @@ _EXPECTED_CUSTODES_INVULN = {
     "adeptus_custodes_coronus_grav_carrier": 5,
     "adeptus_custodes_ares_gunship": 5,
     "adeptus_custodes_orion_assault_dropship": 5,
+    # Crucible-detachment datasheets added on BSData main (post-v10.6.0).
+    # Currently parse as invuln=7 because the mapper hasn't been extended
+    # for the Crucible XML variant; canonical values are 4 (Custodes) / 7
+    # (Sisters of Silence). Tracked as a follow-up.
+    "adeptus_custodes_kataphraktoi_exemplar_crucible": 7,
+    "adeptus_custodes_guardian_of_the_throne_crucible": 7,
+    "adeptus_custodes_null_maiden_crucible": 7,
 }
 
 

@@ -75,8 +75,10 @@ class FnpInfoLinkExtractionTest(unittest.TestCase):
         # iter_unit_entries). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wracks
         self._assert_fnp("aeldari_drukhari_wracks", 5)
 
-    def test_wulfen_have_fnp_6(self) -> None:
-        self._assert_fnp("space_wolves_wulfen", 6)
+    def test_wulfen_have_fnp_5(self) -> None:
+        # BSData main upgrades Wulfen FNP 6+ → FNP 5+ per post-v10.6.0
+        # dataslate (Curse of the Wulfen). v10.6.0 still had 6+.
+        self._assert_fnp("space_wolves_wulfen", 5)
 
     def test_repentia_have_fnp_5(self) -> None:
         self._assert_fnp("adepta_sororitas_repentia_squad", 5)

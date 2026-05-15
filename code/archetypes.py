@@ -149,7 +149,7 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "thousand_sons_tzaangors": 1,
             "thousand_sons_exalted_sorcerer": 1,
             "thousand_sons_infernal_master": 1,
-            "thousand_sons_thousand_sons_helbrute": 1,
+            "thousand_sons_helbrute": 1,
         },
     },
     "Leagues of Votann": {
