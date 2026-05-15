@@ -132,6 +132,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
     # on attacker.profile.faction == "Adeptus Mechanicus".
     "simulator.doctrina_imperatives",
+    # Core targeting restrictions (10e core rules). Both filter the ranged
+    # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
+    # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
+    # friendly within 3"; Lone Operative is a unit-level keyword that hard-caps
+    # ranged targeting to 12".
+    "simulator.look_out_sir",
+    "simulator.lone_operative",
 )
 
 

@@ -2,11 +2,85 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
 from .units import Unit, UnitProfile
+
+
+# Engagement distance (in inches) inside which Look Out Sir / Lone Operative
+# stop blocking the shot. Wahapedia 10e core: "...unless the attacking unit
+# is within 12\" of the target."
+_LOS_RANGE_INCHES: float = 12.0
+# Bodyguard radius (in inches) used by Look Out Sir — a friendly non-CHARACTER
+# within this distance of the target shields it. Wahapedia 10e core wording.
+_BODYGUARD_RADIUS_INCHES: float = 3.0
+
+
+def _xy_distance(a, b) -> float:
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def can_target_for_ranged(
+    attacker: Unit,
+    target: Unit,
+    friendly_units: Iterable[Unit],
+) -> bool:
+    """Return True iff `attacker` is permitted to make a ranged attack against
+    `target` under the 10e core targeting rules (Look Out Sir + Lone Operative).
+
+    Args:
+        attacker: the firing unit. Its `.position` is read for the 12" check.
+        target: the prospective target unit. Its profile keywords and
+            `.lone_operative` flag drive the gates. `target.position` is read
+            for the bodyguard / 12" checks.
+        friendly_units: alive units allied to the TARGET (i.e. the defender's
+            army), used to find non-CHARACTER bodyguards within 3" of the
+            target for Look Out Sir.
+
+    Rules implemented (Wahapedia 10e core):
+      * Look Out Sir (`simulator.look_out_sir`): if the target is a CHARACTER
+        unit and is NOT also MONSTER or VEHICLE, and a friendly non-CHARACTER
+        unit (other than the target itself) is within 3" of the target, then
+        the attack cannot be made unless the attacker is within 12" of the
+        target.
+      * Lone Operative (`simulator.lone_operative`): if the target has the
+        Lone Operative ability, the attack can only be made from within 12".
+
+    Returns False when either gate blocks the shot, True otherwise. The check
+    is order-insensitive — both gates compose so a Lone Operative CHARACTER
+    huddled next to an INFANTRY unit just gets the same 12" cap.
+    """
+    distance = _xy_distance(attacker.position, target.position)
+    tp = target.profile
+    target_kw = set(tp.unit_keywords or ())
+
+    # Lone Operative — keyword-gated, hard 12" cap.
+    if getattr(tp, "lone_operative", False) and distance > _LOS_RANGE_INCHES:
+        return False
+
+    # Look Out Sir — only fires on CHARACTERS that aren't MONSTER/VEHICLE.
+    is_los_eligible_character = (
+        "CHARACTER" in target_kw
+        and "MONSTER" not in target_kw
+        and "VEHICLE" not in target_kw
+    )
+    if is_los_eligible_character and distance > _LOS_RANGE_INCHES:
+        # Bodyguard scan: any friendly non-CHARACTER unit within 3" of the
+        # target (excluding the target itself).
+        for f in friendly_units:
+            if f is target or not f.is_alive:
+                continue
+            fkw = set(f.profile.unit_keywords or ())
+            if "CHARACTER" in fkw:
+                continue
+            if _xy_distance(f.position, target.position) <= _BODYGUARD_RADIUS_INCHES:
+                return False
+
+    return True
 
 
 # Faction tag for the Leagues of Votann army-rule (Eye of the Ancestors /

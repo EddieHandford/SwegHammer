@@ -1577,6 +1577,16 @@ class Battle:
                 if _distance(attacker.position, u.position) <= rng
                 and self.map.has_line_of_sight(attacker.position, u.position)
             ]
+        # 10e core targeting restrictions: Look Out Sir + Lone Operative. The
+        # helper composes both rules — `friendly_units` to a candidate target
+        # is its OWN army's alive units (bodyguards live with the target).
+        # Cited as `simulator.look_out_sir` and `simulator.lone_operative`.
+        from .army import can_target_for_ranged
+        defender_alive = defender_army.alive_units
+        candidates = [
+            u for u in candidates
+            if can_target_for_ranged(attacker, u, defender_alive)
+        ]
         if not candidates:
             return
 

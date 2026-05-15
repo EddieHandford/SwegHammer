@@ -1159,6 +1159,9 @@ class MappedUnit:
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit when this unit is shot at)
     stealth: bool = False
+    # Lone Operative (10e core ability) — ranged attackers must be within 12"
+    # to target this unit. Parsed via `extract_lone_operative` from BSData.
+    lone_operative: bool = False
     # Phase I — deployment abilities (parsed from unit-level infoLinks)
     deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
     scout_distance: int = 0                       # pre-game Normal Move up to N"
@@ -1295,6 +1298,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     unit_kw = extract_unit_keywords(entry)
     fnp = extract_fnp(entry, reg)
     stealth = extract_stealth(entry, reg)
+    lone_operative = extract_lone_operative(entry, reg)
     deployment = extract_deployment_abilities(entry)
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
@@ -1349,6 +1353,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         indirect_fire=primary.indirect_fire,
         one_shot=primary.one_shot,
         stealth=stealth or primary.stealth,
+        lone_operative=lone_operative,
         deep_strike=bool(deployment["deep_strike"]),
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),
@@ -1603,6 +1608,25 @@ def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
     # Inline profile named "Stealth" — rare but seen in some xenos units.
     for prof in entry.findall(".//profile"):
         if (prof.get("name") or "").strip().lower() == "stealth":
+            return True
+    return False
+
+
+def extract_lone_operative(entry: ET.Element, reg: Registry) -> bool:
+    """True iff the unit has the Lone Operative core ability (ranged attackers
+    must be within 12" to target it).
+
+    Detection mirrors `extract_stealth`: BSData publishes Lone Operative as a
+    shared rule infoLink with `name="Lone Operative"` attached to the unit
+    entry, plus a small number of datasheets inline it as a profile named
+    "Lone Operative". Only those two structured shapes count — never
+    free-form prose that merely mentions the words.
+    """
+    for il in entry.findall(".//infoLink"):
+        if (il.get("name") or "").strip().lower() == "lone operative":
+            return True
+    for prof in entry.findall(".//profile"):
+        if (prof.get("name") or "").strip().lower() == "lone operative":
             return True
     return False
 

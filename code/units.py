@@ -193,6 +193,12 @@ class UnitProfile:
     one_shot: bool = False                     # weapon fires once per battle
     # Phase H — Stealth (-1 to be hit when shot at)
     stealth: bool = False
+    # Lone Operative (10e core ability). A unit with this ability can only be
+    # targeted by a ranged attack if the attacking model is within 12" of it.
+    # Parsed from BSData by the mapper when a "Lone Operative" infoLink /
+    # profile is attached to the datasheet. Cited as
+    # `simulator.lone_operative`.
+    lone_operative: bool = False
     # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
     deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
@@ -820,6 +826,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             indirect_fire=entry.indirect_fire,
             one_shot=entry.one_shot,
             stealth=entry.stealth,
+            lone_operative=entry.lone_operative,
             deep_strike=entry.deep_strike,
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,
