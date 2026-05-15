@@ -291,6 +291,13 @@ class Unit:
         # and FNP 6+. Persists across rounds (not cleared with the transient
         # stratagem flags). Cited as `simulator.power_from_pain`.
         "pain_tokens",
+        # Genestealer Cults Cult Ambush (army rule, 10e). Flagged True at
+        # deployment time for every GSC unit; the Battle._arrive_from_reserves
+        # path consumes it at the top of Round 1 to place the unit > 9"
+        # from any enemy model (regular Deep Strikers still wait until
+        # Round 2). Cleared once the unit lands. Cited as
+        # `simulator.cult_ambush`.
+        "cult_ambush_pending",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -332,6 +339,11 @@ class Unit:
         self.transient_assault_this_round: bool = False
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
+        # Cult Ambush (Genestealer Cults army rule). True means the unit is
+        # waiting to land at the top of Round 1 via the simulator's reserves
+        # path; cleared the moment it arrives on the battlefield. See
+        # `simulator.cult_ambush` citation for the verbatim Wahapedia quote.
+        self.cult_ambush_pending: bool = False
 
     @property
     def is_alive(self) -> bool:

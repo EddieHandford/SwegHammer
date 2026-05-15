@@ -909,15 +909,25 @@ class Battle:
         via `_arrive_from_reserves`. Units with `infiltrator=True` are placed
         past the standard deployment line (forward of their own edge, ~halfway
         between the deployment line and the centreline).
+
+        Genestealer Cults — Cult Ambush (army rule, 10e): every GSC unit is
+        routed into reserves regardless of its `deep_strike` flag, and tagged
+        `cult_ambush_pending=True`. The arrival path picks ambush-flagged
+        units up at the top of Round 1 (not Round 2+), placing them >9" from
+        any enemy model. Cited as `simulator.cult_ambush`.
         """
         a_y = self.map.deployment_width / 2.0
         b_y = self.map.height - self.map.deployment_width / 2.0
 
-        # Pull deep-strikers out of each army into reserves.
+        # Pull deep-strikers (and the whole GSC army, per Cult Ambush) out of
+        # each army into reserves.
         for army in (self.a, self.b):
             standard, reserves = [], []
             for u in army.units:
-                if u.profile.deep_strike:
+                is_gsc = u.profile.faction == "Genestealer Cults"
+                if is_gsc:
+                    u.cult_ambush_pending = True
+                if u.profile.deep_strike or is_gsc:
                     reserves.append(u)
                 else:
                     standard.append(u)
@@ -988,31 +998,49 @@ class Battle:
                     ))
 
     def _arrive_from_reserves(self, round_num: int) -> None:
-        """Bring Deep Strike reserves onto the board starting Round 2. Each
-        unit is placed > 9" from every alive enemy. Picks the centre of the
-        board first; if it's too close to an enemy, tries each board corner
-        and falls back to a coarse grid sweep. Units that just arrived are
-        flagged in `_fresh_arrivals` so they skip movement this round.
+        """Bring reserves onto the board.
+
+        Deep Strike: from Round 2 onwards, each waiting deep-striker has a
+        66% chance to land per round; forced arrival from Round 4 (10e: reserves
+        destroyed if not on by end of Round 3 — we soft-enforce by auto-arriving).
+
+        Cult Ambush (Genestealer Cults army rule, 10e): a unit flagged
+        `cult_ambush_pending` arrives at the top of Round 1, deterministically
+        (the whole GSC army can redeploy at the start of the first battle round).
+        The ambush flag is cleared on landing so any subsequent revival /
+        re-entry doesn't re-trigger the path. Cited as `simulator.cult_ambush`.
+
+        Each arriving unit is placed > 9" from every alive enemy. Picks the
+        centre of the board first; if it's too close, tries corners and a
+        coarse grid sweep. Units that just arrived are flagged in
+        `_fresh_arrivals` so they skip movement this round.
         """
-        if round_num < 2:
-            return
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             waiting = self._reserves.get(army.name, [])
             if not waiting:
                 continue
             still_waiting = []
             for u in waiting:
-                # 66% chance to arrive each round from Round 2; forced
-                # arrival from Round 4 onwards (10e: reserves must come on
-                # by end of Round 3 or are destroyed — we soft-enforce by
-                # auto-arriving). Avoids dumping the whole army turn 2.
-                if round_num >= 4 or random.random() < 0.66:
+                is_ambush = getattr(u, "cult_ambush_pending", False)
+                if round_num < 2 and not is_ambush:
+                    # Deep-strikers cannot land before Round 2.
+                    still_waiting.append(u)
+                    continue
+                # Cult Ambush units land deterministically on Round 1; deep
+                # strikers land on a 66% gate from Round 2, forced from Round 4.
+                will_arrive = (
+                    is_ambush
+                    or round_num >= 4
+                    or random.random() < 0.66
+                )
+                if will_arrive:
                     pos = self._pick_arrival_point(opponent, arriving_unit=u)
                     if pos is None:
                         # No valid arrival spot — defer to next round.
                         still_waiting.append(u)
                         continue
                     u.position = pos
+                    u.cult_ambush_pending = False
                     army.units.append(u)
                     self._fresh_arrivals.add(u.uid)
                     self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
@@ -1215,9 +1243,16 @@ class Battle:
         # the set first, THEN call _arrive_from_reserves so units arriving
         # this round are flagged for "skip movement" but those that arrived
         # last round are eligible to move normally.
+        #
+        # Round 1: do NOT reset `_fresh_arrivals` (scouted units inherit
+        # their flag), and call `_arrive_from_reserves` to handle Cult
+        # Ambush (Genestealer Cults army rule) — every GSC unit lands at
+        # the top of Round 1 via the same arrival path. Regular deep
+        # strikers are gated off Round 1 inside _arrive_from_reserves so
+        # only ambush-flagged units actually come on here.
         if round_num >= 2:
             self._fresh_arrivals = set()
-            self._arrive_from_reserves(round_num)
+        self._arrive_from_reserves(round_num)
         for army in (self.a, self.b):
             for u in army.units:
                 u.moved_this_round = False

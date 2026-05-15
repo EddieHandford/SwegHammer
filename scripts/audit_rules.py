@@ -117,6 +117,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # attack allocated to a non-daemon TSons model (Rubric Marines,
     # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
     "simulator.all_is_dust",
+    # Genestealer Cults army rule (10e). Cult Ambush — at the start of the
+    # first battle round, any number of GSC units can be set up anywhere on
+    # the battlefield > 9" from enemy models. Modelled as an army-wide
+    # turn-1 Deep Strike: every GSC unit is routed to reserves at deploy
+    # time, then placed via the existing arrival path at the top of Round 1.
+    "simulator.cult_ambush",
 )
 
 
