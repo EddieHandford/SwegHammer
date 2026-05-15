@@ -285,6 +285,12 @@ class Unit:
         "transient_plus_one_save",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
+        # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
+        # each Command phase to any Drukhari unit below Starting Strength;
+        # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
+        # and FNP 6+. Persists across rounds (not cleared with the transient
+        # stratagem flags). Cited as `simulator.power_from_pain`.
+        "pain_tokens",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -324,6 +330,8 @@ class Unit:
         self.transient_plus_one_save: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
+        # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
+        self.pain_tokens: int = 0
 
     @property
     def is_alive(self) -> bool:
@@ -347,6 +355,13 @@ class Unit:
         if self.transient_minus_one_damage_taken and amount > 0:
             amount = max(1.0, amount - 1.0)
         effective_fnp = min(self.profile.fnp, bonus_fnp)
+        # Drukhari Power From Pain: while the defender holds a Pain Token,
+        # treat the unit as having FNP 6+ (lowest "active" target = best
+        # roll). Composes with any pre-existing FNP profile / leader aura
+        # by taking the lower (better) value. Faction-gated to avoid ever
+        # lighting up on a non-Drukhari unit that somehow carries a token.
+        if self.pain_tokens > 0 and self.profile.faction == "Drukhari":
+            effective_fnp = min(effective_fnp, 6)
         if effective_fnp < 7 and amount > 0:
             survived = 0
             for _ in range(int(round(amount))):
@@ -578,6 +593,14 @@ class Unit:
         if att_reroll_hits_shooting_ones:
             att_reroll_hit_ones = True
 
+        # Drukhari Power From Pain (army rule). While the attacker holds a
+        # Pain Token, treat every attack from this unit as having Lethal
+        # Hits for the duration of this resolution. Faction-gated to avoid
+        # ever lighting up if another codex has a same-named field someday.
+        effective_lethal_hits = p.lethal_hits or (
+            self.pain_tokens > 0 and p.faction == "Drukhari"
+        )
+
         total_damage = 0.0
         for _ in range(n_attacks):
             # ---- Torrent: skip the to-hit roll, attack auto-hits ----
@@ -614,7 +637,7 @@ class Unit:
             n_hits = 1 + (p.sustained_hits if crit_hit else 0)
 
             for hit_i in range(n_hits):
-                if p.lethal_hits and crit_hit and hit_i == 0:
+                if effective_lethal_hits and crit_hit and hit_i == 0:
                     wound_succeeded = True
                     crit_wound = False
                 else:

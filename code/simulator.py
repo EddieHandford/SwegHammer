@@ -1181,6 +1181,23 @@ class Battle:
                     self._emit(WaaaghDeclared(
                         army_name=army.name, round_num=round_num,
                     ))
+        # ---- Drukhari Power From Pain (10e army rule). At the start of
+        # each Command phase, every Drukhari unit below Starting Strength
+        # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's
+        # models gain Lethal Hits + FNP 6+; the buffs themselves are
+        # applied in Unit.attack and Unit.receive_damage. We model each
+        # squad member as a separate Unit instance with starting
+        # current_health = profile.health, so "below Starting Strength"
+        # reads as "current_health < profile.health". Cited as
+        # `simulator.power_from_pain`.
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.profile.faction != "Drukhari":
+                    continue
+                if u.pain_tokens >= 1:
+                    continue   # cap: each unit holds at most 1 token
+                if u.current_health < u.profile.health:
+                    u.pain_tokens = 1
         # Clear any per-round transient stratagem flags from the previous
         # round (Disgustingly Resilient, Lightning-Fast Reactions, etc.)
         # before deciding whether to spend CP on a new batch this round.

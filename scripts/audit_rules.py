@@ -110,6 +110,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 12" of a Tyranid SYNAPSE model.
     "simulator.synapse_imperative",
     "simulator.shadow_in_the_warp",
+    # Drukhari army rule (10e). Command-phase token award + while-held
+    # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
+    "simulator.power_from_pain",
 )
 
 
