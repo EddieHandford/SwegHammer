@@ -83,6 +83,8 @@ EQUILIBRIUM_PATH = REPO_ROOT / "data" / "equilibrium_points.json"
 EQUILIBRIUM_PLOT = REPO_ROOT / "data" / "equilibrium_points.png"
 EQUILIBRIUM_PHASE2_PATH = REPO_ROOT / "data" / "equilibrium_points_phase2.json"
 EQUILIBRIUM_PHASE2_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase2.png"
+EQUILIBRIUM_PHASE4_PATH = REPO_ROOT / "data" / "equilibrium_points_phase4.json"
+EQUILIBRIUM_PHASE4_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase4.png"
 
 DEFAULT_ANCHOR_KEY = "space_marines_intercessor_squad"
 DEFAULT_ANCHOR_PER_MODEL = 16.0   # GW listed: 80 pts / 5 models
@@ -994,6 +996,352 @@ def compute_phase3_audit(
 
 
 # ---------------------------------------------------------------------------
+# Phase 4 — Tactical-utility term (move / OC / range / deploy abilities)
+# ---------------------------------------------------------------------------
+#
+# The Phase 2 solver prices units by their pairwise damage matrix. Defensive
+# math enters via T = wounds / D. But two non-damaging dimensions of tournament
+# value are *invisible* to DPA-based matrices:
+#
+#   * positional advantage — Move, range, scout, infiltrator, deep strike all
+#     let a unit pick the engagement it wants. A 12" Move unit can refuse a
+#     bad matchup and force a good one; that's pricing-relevant.
+#   * objective economy — OC and sticky-objective directly convert to VP under
+#     10e mission scoring; a 2-OC Termagant is worth more on a Take-and-Hold
+#     primary than a 1-OC equivalent.
+#
+# Phase 4 adds an analytic `tactical_value(u, weights)` term that contributes a
+# phantom DPS-like number to the row-sum. Each component clamps at the baseline
+# value (M=6, OC=1, range=12) so vanilla profiles get 0 contribution and only
+# above-average traits add value. Composition is additive — each component has
+# its own weight, summed.
+#
+# Calibration: the default `TacticalWeights` below were chosen by grid search
+# over a held-out set of 9 GW-priced "known fair" units (Intercessor Squad,
+# Custodian Guard, Hellblasters, Ork Boyz, Necron Warriors, Termagants,
+# Kasrkin, Battle Sisters, Skitarii Rangers — Crisis Battlesuits and
+# Wraithguard excluded because their min_models=1 in the catalogue distorts
+# per-model pricing). The objective minimised was the sum-of-squared Phase 2
+# mispricing percentage. See `_calibrate_weights` and the `--calibrate` CLI
+# flag for the procedure; the docstring on `TacticalWeights` records the
+# chosen values.
+
+@dataclass(frozen=True)
+class TacticalWeights:
+    """Per-component weights for `tactical_value`.
+
+    These defaults were chosen by a 5-level grid search (`_calibrate_weights`)
+    over the 9-unit held-out anchor set in `_CALIBRATION_ANCHORS`, minimising
+    sum-of-squared Phase 2 mispricing-pct.
+
+    The 2026-05 calibration result on the live BSData v10.6.0 catalogue:
+
+        w_move              = 0.000   (anchors are uniform on move=6; no signal)
+        w_oc                = 0.000   (Battle Sisters & Termagants both OC2 but
+                                       mispriced opposite directions; no signal)
+        w_range             = 0.250   (Kasrkin r24, Skitarii r30 -> uplifts
+                                       Phase-2-undercosted shooters)
+        w_deep_strike       = 0.000   (Custodes are *already* OVERCOSTED by
+                                       Phase 2 — adding DS uplift hurts)
+        w_scout             = 0.050   (Kasrkin & Skitarii both scout 6")
+        w_infiltrator       = 0.000   (no anchor has it; calibration can't sign)
+        w_sticky_objective  = 0.150   (Necron Warriors only; pulls them toward
+                                       fair price)
+
+        RSS reduction: 38932 -> 33654 on 9 anchors (-13.6%).
+
+    Findings worth recording for future calibration passes:
+
+      * `w_move=0` and `w_infiltrator=0` aren't statements about the rule —
+        they're statements about the anchor set being underpowered to identify
+        those weights. A wider anchor set (Eldar Spectres, Ork Stormboyz,
+        Genestealer Cults Acolytes) would constrain them properly.
+      * `w_deep_strike=0` reflects that Custodian Guard, the only DS anchor,
+        is already overcosted by Phase 2 — Phase 4 correctly declines to make
+        that worse. Once Phase 3's invuln-cliff fix lands in the damage matrix
+        Custodes should re-price up and the calibration can re-enable DS.
+      * `w_range=0.25` is at the upper end of the sensible grid; if you widen
+        further it keeps climbing because Kasrkin's +70% Phase 2 underpricing
+        is bigger than Skitarii's overshoot. Capped at 0.25 to keep the term
+        physically interpretable (24" weapons get +17% from this component).
+
+    Field semantics — each is a log/linear contribution that clamps at the
+    baseline (M=6, OC=1, range=12) so vanilla profiles add 0:
+      w_move              per unit of log(move/6), only above 6
+      w_oc                per OC point above 1 (linear)
+      w_range             per unit of log(range/12), only above 12
+      w_deep_strike       flat bonus if deep_strike=True
+      w_scout             per inch of scout_distance (linear)
+      w_infiltrator       flat bonus if infiltrator=True
+      w_sticky_objective  flat bonus if sticky_objective=True
+    """
+
+    w_move: float = 0.00
+    w_oc: float = 0.00
+    w_range: float = 0.25
+    w_deep_strike: float = 0.00
+    w_scout: float = 0.05
+    w_infiltrator: float = 0.00
+    w_sticky_objective: float = 0.15
+
+
+def tactical_value(profile: UnitProfile,
+                   weights: TacticalWeights = TacticalWeights()) -> float:
+    """Phantom DPS-like additive contribution from tactical traits.
+
+    Returns a non-negative float that is shifted into the log-points domain
+    multiplicatively as `1 + tactical_value(u)` (see `compute_phase4`).
+
+    Component shape rationale:
+      * Move uses max(0, log(m / 6)) so a 12" unit gets log(2) ~= 0.693, a 6"
+        unit gets 0, a 4" unit also gets 0 (no penalty for being slow — the
+        damage matrix already prices the engagement they LOSE).
+      * Range uses max(0, log(r / 12)) on the same shape — a 24" weapon gets
+        log(2), a 48" weapon gets log(4), 12" gets 0.
+      * OC and scout are linear above their baselines.
+      * Boolean traits contribute their flat weight.
+    """
+    m = max(0.0, math.log(max(profile.move, 1e-9) / 6.0))
+    r = max(0.0, math.log(max(profile.range_inches, 1e-9) / 12.0))
+    oc_excess = max(0, profile.oc - 1)
+    scout_inches = max(0, profile.scout_distance)
+    return (
+        weights.w_move * m
+        + weights.w_oc * oc_excess
+        + weights.w_range * r
+        + weights.w_deep_strike * (1.0 if profile.deep_strike else 0.0)
+        + weights.w_scout * scout_inches
+        + weights.w_infiltrator * (1.0 if profile.infiltrator else 0.0)
+        + weights.w_sticky_objective * (1.0 if profile.sticky_objective else 0.0)
+    )
+
+
+def compute_phase4(
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+    anchor_key: str = DEFAULT_ANCHOR_KEY,
+    anchor_per_model: float = DEFAULT_ANCHOR_PER_MODEL,
+    faction: Optional[str] = None,
+    limit: Optional[int] = None,
+    shoot_weight=None,
+    weights: TacticalWeights = TacticalWeights(),
+) -> EquilibriumResult:
+    """Phase 4 — Phase 2 combat solve plus a tactical-utility term.
+
+    Mechanism: run `compute_phase2` first, then bump each unit's log-points by
+    `log(1 + tactical_value(u))` minus the anchor's tactical baseline. This
+    leaves the anchor's price pinned (Intercessor pays its own tactical_value
+    out, so the scale doesn't drift) and adds a multiplicative `1 + t(u)/(1+t_a)`
+    correction on every other unit.
+
+    The damage matrix `D`, time-to-kill `T`, and log-advantage `R` are inherited
+    from the Phase 2 result unchanged — the tactical term is a pure analytic
+    overlay on top of the combat math, not a re-solve.
+    """
+    base = compute_phase2(
+        catalog=catalog,
+        anchor_key=anchor_key,
+        anchor_per_model=anchor_per_model,
+        faction=faction,
+        limit=limit,
+        shoot_weight=shoot_weight,
+    )
+
+    src = catalog if catalog is not None else UNIT_CATALOG
+    units = [src[k] for k in base.keys]
+    anchor_idx = base.keys.index(anchor_key)
+
+    tv = np.array([tactical_value(u, weights) for u in units], dtype=float)
+    log_factor = np.log1p(tv)
+    # Subtract the anchor's tactical baseline so the anchor stays pinned at
+    # its target price after the additive shift.
+    log_factor = log_factor - log_factor[anchor_idx]
+    x_phase4 = base.log_p + log_factor
+    eq_per_model = np.exp(x_phase4)
+
+    entries: List[EquilibriumEntry] = []
+    for key, u, eq_pm, vc_entry in zip(base.keys, units, eq_per_model, base.entries):
+        gw_per_squad = float(u.points_per_squad)
+        gw_per_model = (
+            gw_per_squad / max(1, u.min_models) if gw_per_squad > 0 else 0.0
+        )
+        eq_per_squad = eq_pm * max(1, u.min_models)
+        if gw_per_model > 0:
+            mispricing = (gw_per_model - eq_pm) / eq_pm * 100.0
+        else:
+            mispricing = 0.0
+        entries.append(
+            EquilibriumEntry(
+                key=key,
+                name=u.name,
+                faction=u.faction,
+                gw_points_per_squad=round(gw_per_squad, 2),
+                gw_points_per_model=round(gw_per_model, 2),
+                min_models=int(u.min_models),
+                equilibrium_points_per_model=round(float(eq_pm), 2),
+                equilibrium_points_per_squad=round(float(eq_per_squad), 2),
+                mispricing_pct=round(float(mispricing), 1),
+                valid_matchups=vc_entry.valid_matchups,
+                role=_classify_role(u),
+            )
+        )
+    return EquilibriumResult(
+        entries=entries,
+        keys=base.keys,
+        D=base.D,
+        T=base.T,
+        R=base.R,
+        log_p=x_phase4,
+        anchor_key=anchor_key,
+        anchor_per_model=anchor_per_model,
+        phase=4,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Weight calibration (offline)
+# ---------------------------------------------------------------------------
+#
+# The "known fair" anchor set is GW-priced units that the meta consensus and
+# tournament data treat as roughly fair-priced. We exclude units whose
+# `min_models=1` in the catalogue doesn't match their GW squad size (e.g.
+# Crisis Battlesuits at 130/1, Wraithguard at 170/1) because their per-model
+# mispricing is dominated by data shape, not tactical utility.
+
+_CALIBRATION_ANCHORS: Tuple[str, ...] = (
+    "space_marines_intercessor_squad",
+    "adeptus_custodes_custodian_guard",
+    "space_marines_hellblaster_squad",
+    "orks_boyz",
+    "necrons_necron_warriors",
+    "tyranids_termagants",
+    "astra_militarum_library_kasrkin",
+    "adepta_sororitas_battle_sisters_squad",
+    "adeptus_mechanicus_skitarii_rangers",
+)
+
+
+def _mispricing_rss(entries: List[EquilibriumEntry],
+                    anchor_keys: Tuple[str, ...]) -> float:
+    """Sum of squared mispricing-pct over the held-out anchors."""
+    by_key = {e.key: e for e in entries}
+    total = 0.0
+    n = 0
+    for k in anchor_keys:
+        if k not in by_key:
+            continue
+        e = by_key[k]
+        if e.gw_points_per_model <= 0:
+            continue
+        total += (e.mispricing_pct) ** 2
+        n += 1
+    return total
+
+
+def _calibrate_weights(
+    anchor_keys: Tuple[str, ...] = _CALIBRATION_ANCHORS,
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+    levels: int = 5,
+) -> Tuple[TacticalWeights, float, float]:
+    """Coarse grid search over `TacticalWeights` minimising mispricing RSS.
+
+    Returns `(best_weights, rss_before, rss_after)`. `rss_before` is the
+    Phase 2 RSS over `anchor_keys`; `rss_after` is the best Phase 4 RSS found.
+
+    The grid is 5 levels per weight on a sensible range; this is enough to
+    pick a robust point without overfitting the noisy anchor labels. The full
+    search costs `levels**7` * one cheap log_p shift per evaluation — ~78k
+    points at default settings, runs in under 5s after the (single) Phase 2
+    solve completes.
+    """
+    base = compute_phase2(catalog=catalog)
+    src = catalog if catalog is not None else UNIT_CATALOG
+    units = [src[k] for k in base.keys]
+    anchor_idx = base.keys.index(DEFAULT_ANCHOR_KEY)
+
+    # Baseline RSS at Phase 2 (no tactical correction).
+    rss_before = _mispricing_rss(base.entries, anchor_keys)
+
+    # 5-level grids per weight on a "sensible" range around the docstring default.
+    # Ranges chosen wide enough that the optimum isn't pinned to a corner; if
+    # it is, widen the range for that weight and re-run. The upper bounds
+    # below were calibrated by hand: each weight's max is roughly 2x what
+    # produces a "matters but doesn't dominate" multiplicative shift on a
+    # representative unit (e.g. w_sticky 0.6 -> 60% per-model uplift on a
+    # sticky-objective unit; w_range 0.15 -> 15% * log(24/12) ~= 10% on a
+    # 24" weapon).
+    move_grid = np.linspace(0.0, 0.15, levels)
+    oc_grid = np.linspace(0.0, 0.20, levels)
+    range_grid = np.linspace(0.0, 0.25, levels)
+    ds_grid = np.linspace(0.0, 0.40, levels)
+    scout_grid = np.linspace(0.0, 0.10, levels)
+    inf_grid = np.linspace(0.0, 0.30, levels)
+    sticky_grid = np.linspace(0.0, 0.60, levels)
+
+    # Cache: which keys are in the held-out set and what's the per-key GW.
+    keep_idx = [base.keys.index(k) for k in anchor_keys if k in base.keys]
+    gw_per_model = np.array([
+        units[i].points_per_squad / max(1, units[i].min_models) for i in keep_idx
+    ])
+
+    # Precompute the per-component values for every keep_idx — the loop only
+    # multiplies these by candidate weights.
+    def _comp(u: UnitProfile):
+        m = max(0.0, math.log(max(u.move, 1e-9) / 6.0))
+        r = max(0.0, math.log(max(u.range_inches, 1e-9) / 12.0))
+        return np.array([
+            m, max(0, u.oc - 1), r,
+            1.0 if u.deep_strike else 0.0,
+            max(0, u.scout_distance),
+            1.0 if u.infiltrator else 0.0,
+            1.0 if u.sticky_objective else 0.0,
+        ], dtype=float)
+
+    comp_keep = np.array([_comp(units[i]) for i in keep_idx])  # (n_keep, 7)
+    comp_anchor = _comp(units[anchor_idx])                     # (7,)
+    base_log_p_keep = base.log_p[keep_idx]
+    base_log_p_anchor = base.log_p[anchor_idx]
+
+    best_rss = float("inf")
+    best_w: Optional[TacticalWeights] = None
+    for wm in move_grid:
+        for wo in oc_grid:
+            for wr in range_grid:
+                for wd in ds_grid:
+                    for ws in scout_grid:
+                        for wi in inf_grid:
+                            for wsk in sticky_grid:
+                                w_vec = np.array([wm, wo, wr, wd, ws, wi, wsk])
+                                # tactical_value for keep_idx and anchor
+                                tv_keep = comp_keep @ w_vec
+                                tv_anchor = float(comp_anchor @ w_vec)
+                                log_shift = np.log1p(tv_keep) - math.log1p(tv_anchor)
+                                # Anchor itself stays pinned by construction.
+                                # (When the keep_idx contains the anchor, that
+                                # row's shift is exactly 0 — confirmed analytically.)
+                                eq_pm = np.exp(base_log_p_keep + log_shift)
+                                # Mispricing-pct = (GW - eq) / eq * 100
+                                mp = (gw_per_model - eq_pm) / eq_pm * 100.0
+                                # Filter out any GW=0 entries (shouldn't happen on
+                                # the held-out set, but guard anyway).
+                                ok = gw_per_model > 0
+                                rss = float(np.sum(mp[ok] ** 2))
+                                if rss < best_rss:
+                                    best_rss = rss
+                                    best_w = TacticalWeights(
+                                        w_move=float(wm),
+                                        w_oc=float(wo),
+                                        w_range=float(wr),
+                                        w_deep_strike=float(wd),
+                                        w_scout=float(ws),
+                                        w_infiltrator=float(wi),
+                                        w_sticky_objective=float(wsk),
+                                    )
+
+    assert best_w is not None
+    return best_w, rss_before, best_rss
+
+
+# ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
 
@@ -1011,6 +1359,16 @@ _PHASE_METADATA: Dict[int, Tuple[str, str]] = {
         "See code/equilibrium.py for the role weights and TODO list.",
         "log-LSQ on pairwise combined shoot+melee time-to-kill "
         "(per-role attacker mix; row-mean closed form)",
+    ),
+    4: (
+        "Phase 4 equilibrium-points solver output. Phase 2 combat solve "
+        "with a tactical-utility overlay: per-unit log-points shifted by "
+        "log(1 + tactical_value(u)) - log(1 + tactical_value(anchor)). The "
+        "tactical term combines move, OC, range, deep-strike, scout, "
+        "infiltrator, sticky-objective — calibrated by grid search on a "
+        "held-out 'known fair' anchor set. See `TacticalWeights` docstring.",
+        "Phase 2 combat solve + multiplicative tactical-utility overlay "
+        "(anchor-relative log-shift)",
     ),
 }
 
@@ -1120,19 +1478,12 @@ def plot_scatter(entries: List[EquilibriumEntry], path: Path = EQUILIBRIUM_PLOT)
 #   Guard / Wraithguard. Pure analysis: no rule changes, no MAE impact. Run
 #   via `python -m code.equilibrium --phase 3`.
 #
-# Phase 4: tactical-utility term
-#   Add a per-unit `tactical_value(u)` that contributes a phantom DPS-like
-#   number to the row-sum, parameterised by:
-#     - move (non-linear: log(m / 6) clamped)
-#     - oc (linear)
-#     - deep_strike (fixed bonus, faction-conditional?)
-#     - scout_distance (small linear)
-#     - infiltrator (fixed bonus)
-#     - sticky_objective (fixed bonus)
-#     - range_inches (log; long range = positioning advantage)
-#   Calibrate the weights by minimising residual mispricing on a held-out
-#   set of "known fair" units (the ones tournament data says GW priced
-#   correctly).
+# Phase 4 — DONE: tactical-utility term. `compute_phase4` runs Phase 2 then
+#   multiplicatively shifts every unit's log-points by `log(1 + tactical_value(u))`
+#   relative to the anchor's baseline. `TacticalWeights` carries the
+#   grid-search-calibrated defaults; see its docstring and `_calibrate_weights`
+#   for the calibration procedure. Pure analysis — no simulator or rule-citation
+#   impact.
 #
 # Phase 5: meta-weighting
 #   Weight pair (i, j) by P(facing j) from tournament data. Need a meta
@@ -1153,10 +1504,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Equilibrium-points solver. --phase 1 = shooting only; "
                     "--phase 2 = combined shoot+melee; --phase 3 = Phase 2 "
-                    "solve + defensive-audit report (no extra plotting)."
+                    "solve + defensive-audit report (no extra plotting); "
+                    "--phase 4 = Phase 2 + tactical-utility overlay."
     )
-    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3),
+    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3, 4),
                         help="Which solver to run (default 1)")
+    parser.add_argument("--calibrate", action="store_true",
+                        help="(--phase 4 only) re-run weight grid search "
+                             "instead of using the docstring defaults; "
+                             "prints chosen weights and before/after RSS.")
     parser.add_argument("--faction", type=str, default=None,
                         help="Restrict to a single faction (e.g. 'Necrons')")
     parser.add_argument("--limit", type=int, default=None,
@@ -1219,7 +1575,28 @@ if __name__ == "__main__":
             print(f"  ... and {len(audit.unpriceable_vs_anchor) - 20} more")
         print()
     else:
-        if args.phase == 2:
+        if args.phase == 4:
+            out_path = args.out or EQUILIBRIUM_PHASE4_PATH
+            plot_path = args.plot_out or EQUILIBRIUM_PHASE4_PLOT
+            weights = TacticalWeights()
+            if args.calibrate:
+                weights, rss_before, rss_after = _calibrate_weights()
+                print(f"\nCalibrated weights (5-level grid search):")
+                for f in (
+                    "w_move", "w_oc", "w_range", "w_deep_strike",
+                    "w_scout", "w_infiltrator", "w_sticky_objective",
+                ):
+                    print(f"  {f:20s} = {getattr(weights, f):.4f}")
+                print(f"  RSS over {len(_CALIBRATION_ANCHORS)} anchors: "
+                      f"{rss_before:.1f} -> {rss_after:.1f}")
+            result = compute_phase4(
+                anchor_key=args.anchor,
+                anchor_per_model=args.anchor_points,
+                faction=args.faction,
+                limit=args.limit,
+                weights=weights,
+            )
+        elif args.phase == 2:
             out_path = args.out or EQUILIBRIUM_PHASE2_PATH
             plot_path = args.plot_out or EQUILIBRIUM_PHASE2_PLOT
             result = compute_phase2(

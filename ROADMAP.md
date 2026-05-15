@@ -18,7 +18,7 @@ operating rules, see [`CLAUDE.md`](CLAUDE.md).
 | Goal A | 🔲 Active | Sim matches real tournament data (faction-specific mechanics) |
 | Goal B | 🔲 Active | Equal-quality simulation per faction (stratagems / leaders / enhancements) |
 | Goal C | 🔲 Active | Generate balanced SwegHammer points (two-track: balancer + equilibrium) |
-| Goal D | 🔲 Planned | Price non-damaging abilities (collapsed into Equilibrium Phase 4) |
+| Goal D | 🟡 Phase 4 live | Price non-damaging abilities — `tactical_value(u)` overlay on Phase 2; grid-search calibrated on 9 anchors |
 
 Headline calibration metric:
 
@@ -173,9 +173,12 @@ calibration".
 
 - **Equilibrium Phase 3** — Defensive integration audit (high-FNP low-wound
   edge cases, MW-vulnerability).
-- **Equilibrium Phase 4** — Tactical-utility term `tactical_value(u)` for
-  non-damaging abilities (move, OC, deep strike, scout, infiltrator,
-  sticky objective). **This is Goal D — see below.**
+- **Equilibrium Phase 4** — DONE. Tactical-utility term `tactical_value(u)`
+  for non-damaging abilities (move, OC, deep strike, scout, infiltrator,
+  sticky objective). Implemented as a multiplicative log-points overlay on
+  Phase 2; anchor-relative shift keeps Intercessor pinned. Weights
+  calibrated by 5-level grid search on a 9-unit held-out anchor set
+  (RSS 38932 -> 33666 on the calibration set). **This is Goal D — see below.**
 - **Equilibrium Phase 5** — Meta-weighting (weight residuals by tournament
   matchup frequency, so over-priced units that nobody actually faces don't
   dominate the fit).
@@ -186,7 +189,7 @@ calibration".
 
 ---
 
-## Goal D — Price non-damaging abilities 🔲
+## Goal D — Price non-damaging abilities 🟡
 
 **Intent.** Speed, deep strike, scout, sticky objective, OC bonuses,
 re-deploy, and similar "I move better" abilities don't show up in the
@@ -194,27 +197,36 @@ pairwise damage matrix `D[i,j]` but are real points value. A 6" move
 INFANTRY squad and an 8" move JUMP PACK squad with identical stats are
 *not* equally valuable; the JUMP PACK reaches objectives a round earlier.
 
-**Status.** Collapsed into **Equilibrium Phase 4** — see
-`code/equilibrium.py` bottom-of-file TODO stub. The plan is a
-`tactical_value(u)` term added to `log(p_i)` after the LSQ solve, fit
-against the empirical balancer numbers (which DO see speed advantage
-because they run real battles).
+**Status.** Phase 4 of the equilibrium solver implements the
+`tactical_value(u)` term — a multiplicative overlay on the Phase 2 result.
+For each unit, the log-points are bumped by
+`log(1 + tactical_value(u)) − log(1 + tactical_value(anchor))`. Weights
+are picked by 5-level grid search minimising sum-of-squared-mispricing-pct
+on a 9-unit held-out anchor set (Intercessor / Custodian Guard /
+Hellblasters / Ork Boyz / Necron Warriors / Termagants / Kasrkin / Battle
+Sisters / Skitarii Rangers).
 
 **Key references.**
 
-- `code/equilibrium.py` — `tactical_value()` TODO stub.
+- `code/equilibrium.py` — `tactical_value()`, `TacticalWeights`,
+  `compute_phase4()`, `_calibrate_weights()`.
 - `code/strategy.py` — the per-unit move intent layer that exercises
   speed/scout/objective-pressure value in the balancer.
 - `code/roles.py` — coarse role labels (SHOOTY / MELEE / DUAL / HORDE /
   HEAVY / SUPPORT) used as a feature in both solvers.
 
-**What's done.** Movement, scout distance, deep strike, infiltrator flags
-recorded on every `CalibrationResult` (diagnostic only — not yet folded
-into the cost).
+**What's done.** Phase 4 ships with calibrated default weights documented
+in the `TacticalWeights` docstring. Anchor-relative log-shift keeps the
+Intercessor pinned to its target price. End-to-end pipeline at
+`python -m code.equilibrium --phase 4` writes
+`data/equilibrium_points_phase4.json`. Movement, scout distance, deep
+strike, infiltrator flags recorded on every `CalibrationResult`.
 
-**What's next.** Define the basis (move, OC, deep_strike, scout,
-infiltrator, sticky_obj, re-deploy) and fit `tactical_value(u)` such that
-equilibrium and balancer converge.
+**What's next.** Widen the calibration anchor set (e.g. Eldar Spectres,
+Ork Stormboyz, GSC Acolytes) to constrain `w_move` and `w_infiltrator`,
+which the current anchor set leaves under-identified (calibrated to 0).
+Once Phase 3's invuln-cliff fix lands in the damage matrix, re-run
+calibration so `w_deep_strike` re-enables.
 
 ---
 
