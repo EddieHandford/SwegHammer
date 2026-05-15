@@ -96,6 +96,54 @@ enough to run thousands of battles in a calibration sweep, and
 for sanity-checking the model.
 
 % =========================================================================
+\section{The four goals}
+\label{sec:goals}
+
+As of the 2026-05 reorganisation, project work is tracked against four
+goals rather than the previous phase numbering. The phases that delivered
+the substrate (Phase 0 / 1 / 1.5 / 1.6, Phase A2 / B / C / D / E) are
+shipped and live in \texttt{ROADMAP.md} as a historical record. Active
+work tracks against the goals below.
+
+\subsection*{Goal A --- Sim matches real tournament data}
+Drive the per-faction matchup-matrix MAE down by implementing the
+faction-specific mechanics that distinguish factions in real play. A
+faction-blind simulator cannot reproduce a meta where Necrons hit 53\%
+and Aeldari hit 44\%. Headline metric: MAE vs the May 2026 Warp Friends
+tournament aggregate, currently $5.11$ pts, target $\le 2.0$ pts. See
+\texttt{scripts/evaluate\_vs\_meta.py}.
+
+\subsection*{Goal B --- Equal-quality simulation per faction}
+Bring every faction to the same depth of in-game representation. The two
+big knobs are stratagems (CP-priced effects) and leader auras (CHARACTER
+attached to bodyguard unit), with the per-detachment enhancement system
+as a follow-up. Universal Core Stratagems plus three detachment-specific
+sets shipped; $\sim18$ detachments still have empty stratagem tuples.
+
+\subsection*{Goal C --- Generate balanced SwegHammer points (two-track)}
+Replace GW's commercially-driven points with empirically-derived costs.
+Two independent solvers run in parallel; the divergence between them is
+itself a calibration signal:
+
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{Sweg-balancer} (\texttt{code/balancer.py}) ---
+    Monte Carlo bisection. For each unit, bisect points-per-model until
+    armies-of-U vs armies-of-baseline-peer land at $50\% \pm 5\%$. Slow,
+    but exercises \emph{every} rule in the simulator (movement, range,
+    terrain, charge variance, objective contest, CP).
+  \item \textbf{Equilibrium} (\texttt{code/equilibrium.py}, Ed's solver)
+    --- closed-form Bradley-Terry / log-LSQ on the pairwise time-to-kill
+    matrix. Fast, exposes pairwise structure. Phases 1 (shooting) and 2
+    (shoot + melee) shipped; Phases 3--6 planned.
+\end{itemize}
+
+\subsection*{Goal D --- Price non-damaging abilities}
+Speed, deep strike, scout, sticky objective, OC bonuses, re-deploy ---
+abilities that don't show up in the pairwise damage matrix but are real
+points value. Collapsed into Equilibrium Phase 4 as the
+\texttt{tactical\_value(u)} term added post-LSQ.
+
+% =========================================================================
 \section{Where the project stands today}
 
 \subsection{What works}
@@ -507,6 +555,242 @@ distance-weighted; role bias (\texttt{code/roles.py}, classifying units
 into \textsc{Shooty} / \textsc{Melee} / \textsc{Dual} / \textsc{Horde}
 / \textsc{Heavy} / \textsc{Support}) tips ties towards holding when in
 range vs always-closing.
+
+% =========================================================================
+\section{Two-track points calibration}
+\label{sec:two-track}
+
+Goal C runs two independent points solvers. They disagree on purpose;
+the disagreement is the calibration signal.
+
+\subsection{Track 1 --- Sweg-balancer (Monte Carlo bisection)}
+\texttt{code/balancer.py}; output \texttt{data/calibrated\_points.json}.
+
+For each candidate unit $U$:
+\begin{enumerate}[itemsep=2pt]
+  \item Build two equal-points armies: one of $U$, one of a role-matched
+    baseline peer (SHOOTY $\to$ Intercessor, MELEE $\to$ Assault
+    Intercessor, HORDE $\to$ Boyz, HEAVY $\to$ Knight, SUPPORT $\to$
+    Terminator Captain).
+  \item Simulate $N$ full battles on \texttt{combat\_patrol}, with
+    detachments wired on both sides.
+  \item Bisect $U$'s points-per-model until the empirical win rate lands
+    inside $[45\%, 55\%]$.
+\end{enumerate}
+
+Three modes:
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{Homogeneous} (default) --- same-role peer.
+  \item \textbf{\texttt{--leader-attached}} --- for CHARACTER units, the
+    candidate is built as (host $+$ leader) pairs vs (host alone) at
+    equal points. Exercises the leader's aura on a real bodyguard.
+  \item \textbf{\texttt{--aura-uplift}} --- for SUPPORT characters whose
+    value lives entirely in buffing. Measures the win-rate delta between
+    (client $+$ support) vs (client alone) and converts to points via a
+    fixed linear factor.
+\end{itemize}
+
+\emph{Strengths.} The bisection sees terrain, charge variance, CP, and
+objective contest. Coupling between rules is preserved.
+
+\emph{Weaknesses.} A unit that beats average opponents but loses
+catastrophically to one matchup is priced \emph{too cheaply} by the
+bisection (the bad matchup is averaged away in the win-rate). It also
+takes 1--10 minutes per unit and ${\sim}24$ hours for the full catalogue.
+
+\subsection{Track 2 --- Equilibrium (closed-form log-LSQ)}
+\texttt{code/equilibrium.py}; output \texttt{data/equilibrium\_points.json}
+and \texttt{data/equilibrium\_points\_phase2.json}.
+
+The premise: unit value is a function over the space of enemies it
+faces. The honest answer to ``what should this unit cost?'' is the
+solution of a symmetric zero-sum game over the catalogue.
+
+For every pair $(i, j)$ of units, compute the analytic per-model damage
+$D[i, j]$ inflicted by one $i$ on one $j$ per turn (hit / wound /
+save / FNP / Lethal / Sustained / Twin-Linked / Devastating / Anti-X).
+Then the time-to-kill matrix
+\[
+  T[i, j] \;=\; \frac{\text{wounds}(j)}{D[i, j]}
+\]
+and the log-advantage matrix
+\[
+  R[i, j] \;=\; \tfrac{1}{2} \log\!\left( \frac{T[j, i]}{T[i, j]} \right).
+\]
+The factor $\tfrac{1}{2}$ and the direction $T[j, i] / T[i, j]$ come
+from the mutual-destruction equilibrium: fielding $p_j$ worth of $i$ vs
+$p_j$ worth of $j$, the side that kills first should be the cheaper-per-model
+unit. Solving $(p_i / p_j)^2 = T[j, i] / T[i, j]$ gives $R$ above.
+
+The fair-trade condition $\log p_i - \log p_j \approx R[i, j]$ is then
+solved in closed form by the row mean over valid entries:
+\[
+  \log p_i \;=\; \frac{1}{|V_i|} \sum_{j \in V_i} R[i, j] \;+\; \text{anchor shift},
+\]
+where $V_i$ is the set of $j$ such that both $T[i, j]$ and $T[j, i]$
+are finite. One unit (Intercessor Squad at 16 pts/model) is pinned to
+fix the overall scale.
+
+\paragraph{Phase ladder.}
+\begin{itemize}[itemsep=2pt]
+  \item \done\ \textbf{Phase 1} --- shooting only, with the keyword
+    suite above.
+  \item \done\ \textbf{Phase 2} --- shoot $+$ melee. Per-attacker
+    role-weighted mix (SHOOTY $0.90$, HEAVY $0.80$, DUAL $0.55$,
+    HORDE $0.50$, MELEE $0.20$, SUPPORT $0.50$).
+  \item \todo\ \textbf{Phase 3} --- defensive integration audit
+    (high-FNP low-wound edge cases, MW-vulnerability).
+  \item \todo\ \textbf{Phase 4} --- tactical-utility term
+    $\text{tactical\_value}(u)$ for non-damaging abilities. This is
+    \textbf{Goal D}.
+  \item \todo\ \textbf{Phase 5} --- meta-weighting (weight residuals
+    by $P(\text{facing } j)$ from tournament data).
+  \item \todo\ \textbf{Phase 6} --- solve the actual zero-sum game
+    (mixed strategies on the simplex) to handle rock-paper-scissors
+    mispricing.
+\end{itemize}
+
+\emph{Strengths.} Fast (analytic, no simulation). Exposes the pairwise
+structure --- best/worst matchups for every unit are directly readable
+off $R$.
+
+\emph{Weaknesses.} Distance-conditional keywords (Rapid Fire, Melta,
+Heavy, Lance) and battlefield context (terrain, charge variance,
+objective pressure) are deferred to later phases. Phase 4 is where the
+analytic and empirical tracks finally have to agree.
+
+\subsection{Why two tracks}
+
+The bisection captures emergent dynamics the analytic solver can't see.
+The equilibrium captures pairwise rock-paper-scissors structure the
+bisection averages away. The \emph{divergence} between the two prices
+for the same unit is more informative than either price alone:
+
+\begin{itemize}[itemsep=2pt]
+  \item Balancer $\approx$ Equilibrium $\implies$ both methods agree;
+    high confidence in the price.
+  \item Balancer $\ll$ Equilibrium $\implies$ unit has good pairwise
+    stats but loses to battlefield context (slow speed, no objective
+    play, hard counter in the sim's terrain).
+  \item Balancer $\gg$ Equilibrium $\implies$ unit gets value from
+    non-damaging utility the analytic model doesn't see yet (this is
+    the Goal D / Phase 4 signal).
+\end{itemize}
+
+% =========================================================================
+\section{Rule-citation system}
+\label{sec:citations}
+
+Every 10e rule the simulator implements --- detachment flag, leader
+ability, stratagem effect, simulator-side gate (Mob Rule, WAAAGH!,
+Shadow in the Warp, etc.) --- carries a verbatim Wahapedia citation.
+This is enforced by CLAUDE.md \S 10 and the \texttt{scripts/audit\_rules.py}
+script.
+
+\subsection{Why}
+The simulator's behaviour must be auditable against canonical rules
+text. Without citations the model drifts: a flag named
+\texttt{bonus\_to\_hit\_when\_led} can quietly start to mean ``$+1$ to
+hit'' instead of the correct ``re-roll Hit rolls of 1'', and the next
+calibration sweep reports false MAE improvements driven by an invented
+rule. This actually happened during the May 2026 Awakened Dynasty work,
+which is the failure mode the policy exists to prevent.
+
+\subsection{Format}
+Each citation lives in \texttt{data/rule\_citations.d/*.json} (sharded
+by category: detachments, leaders, stratagems, judgement\_tokens,
+keywords\_and\_mechanics) or in the top-level \texttt{data/rule\_citations.json}.
+Required fields per entry:
+\begin{itemize}[itemsep=2pt]
+  \item \texttt{source} --- Wahapedia URL, or, if not on Wahapedia, the
+    canonical free reference (Goonhammer datasheet readout, GW errata PDF).
+  \item \texttt{rule\_name} --- exact in-game name (e.g.\ ``Reanimation
+    Protocols'', ``Mob Rule'').
+  \item \texttt{quoted\_text} --- verbatim rules text, including the
+    ``While~\dots'' trigger half.
+  \item \texttt{trigger} --- when the rule fires, in plain English.
+  \item \texttt{effect} --- what changes, including ``(approximation)''
+    if the simulator's behaviour diverges from canonical.
+  \item \texttt{scope} --- one of \texttt{army-wide}, \texttt{unit-led},
+    \texttt{character-only}, \texttt{phase-gated}, \texttt{keyword-gated},
+    \texttt{weapon-keyword}.
+\end{itemize}
+
+Key format: \texttt{<REGISTRY\_NAME>.<field>} for detachment / leader /
+stratagem flags, or a dotted path for simulator gates
+(e.g.\ \texttt{simulator.big\_guns\_never\_tire}).
+
+\subsection{Enforcement}
+\texttt{scripts/audit\_rules.py} walks every \texttt{Detachment},
+\texttt{LeaderAbility}, registered \texttt{Stratagem}, and the
+hand-maintained \texttt{SIMULATOR\_RULE\_KEYS} list. For each
+rule-bearing flag set away from its default, it confirms a citation
+exists with all six required fields. Exit code 1 if any citation is
+missing, incomplete, or stale.
+
+Run before committing any change to \texttt{code/detachments.py},
+\texttt{code/leaders.py}, \texttt{code/stratagems.py}, or rule-bearing
+parts of \texttt{code/simulator.py} / \texttt{code/units.py}:
+\begin{verbatim}
+PYTHONIOENCODING=utf-8 python -m scripts.audit_rules
+\end{verbatim}
+
+Current coverage: $95/95$ active rules cited. If you can't find a
+canonical citation for a rule, \textbf{stop and ask} rather than
+approximate.
+
+% =========================================================================
+\section{Matchup-matrix calibration (\texttt{evaluate\_vs\_meta})}
+\label{sec:evaluate-vs-meta}
+
+The headline calibration metric for Goal A is the mean absolute error
+(MAE) between the simulator's per-faction win rate and the real
+tournament aggregate. Lives in \texttt{scripts/evaluate\_vs\_meta.py}.
+
+\subsection{How it runs}
+For each ordered pair $(a, b)$ of factions in the 10-faction list, build
+$N$ random $1000$-pt armies per faction and run a battle on
+\texttt{DEFAULT\_MAP}. Average $A$-wins to get $\mathrm{wr}_{\text{sim}}(a, b)$.
+Per-faction sim win rate is the mean of $\mathrm{wr}_{\text{sim}}(a, \cdot)$
+over all opponents.
+
+\subsection{Reference data}
+The tournament-side numbers come from the Warp Friends weekly aggregate
+of \emph{${\sim}10k$ games} in May 2026:
+
+\begin{tabular}{lr}
+\toprule
+Faction & Real WR \\
+\midrule
+Necrons          & $53.2\%$ \\
+T'au Empire      & $54.5\%$ \\
+Thousand Sons    & $54.6\%$ \\
+Aeldari          & $44.4\%$ \\
+Orks             & $44.9\%$ \\
+Leagues of Votann & $46.0\%$ (approx) \\
+Adeptus Astartes & $48.0\%$ (approx) \\
+Tyranids         & $48.0\%$ (approx) \\
+Death Guard      & $48.0\%$ (approx) \\
+Adeptus Custodes & $48.0\%$ (approx) \\
+\bottomrule
+\end{tabular}
+
+Factions tagged ``approx'' use the meta midpoint of $48\%$ rather than
+an authoritative aggregate, and are flagged in the report so they don't
+dominate the MAE.
+
+\subsection{Current state}
+\textbf{MAE 5.11 pts}, target $\le 2.0$ pts. The MAE bounces as Goal A
+fills in --- each faction-specific mechanic (Reanimation, Shadow in the
+Warp, WAAAGH! \& Mob Rule) perturbs the matrix until the next mechanic
+lands. The aim is monotone-decreasing MAE per faction-mechanic landed,
+\emph{not} a smooth descent (the matrix is too coarse for that).
+
+Determinism: \texttt{PYTHONHASHSEED=0} is re-execed at startup, and the
+per-battle RNG is seeded by faction-index pair plus battle counter, so
+the same code base produces the same matrix across re-runs --- otherwise
+dice noise alone moves MAE by ${\sim}3$ pts between back-to-back
+invocations.
 
 % =========================================================================
 \section{Collaboration workflow}

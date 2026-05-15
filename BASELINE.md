@@ -69,7 +69,18 @@ See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 
 ## Calibration Methodology
 
-### Phase One (current)
+SwegHammer runs **three layers** of points calibration. The analytic
+formula above produces a fast, well-understood baseline; two empirical
+solvers refine it. See `ROADMAP.md` Goal C and `PROJECT.tex` §"Two-track
+points calibration" for the full picture.
+
+> **Naming note.** This section used to be titled "Phase One / Phase Two /
+> Phase Three". The numbering was renamed to "Layer / Track" in the
+> 2026-05 docs reorganisation to avoid colliding with the equilibrium
+> solver's own Phase 1 / Phase 2 / Phase 3 ladder (which has different
+> semantics — see `code/equilibrium.py`).
+
+### Layer 1 — Analytic baseline (current default)
 
 Points costs are derived from the offensive/defensive-ratio formula above against
 the baseline Marine. Stats come from BSData per the squad-aware mapper —
@@ -84,13 +95,18 @@ This does **not** guarantee Lanchester balance (equal aggregate score for equal
 points), but provides a well-understood baseline for the simulation to measure
 against.
 
-### Phase Two — Empirical bisection (implemented)
+### Track 1 — Sweg-balancer (Monte Carlo bisection, implemented)
 
 `code/balancer.py` runs Monte-Carlo bisection against a **role-stratified
 baseline**: each candidate fights a same-role peer (SHOOTY → Intercessor,
 MELEE → Assault Intercessor, HORDE → Boyz, HEAVY → Knight, SUPPORT →
 Terminator Captain), with the role chosen by `code/roles.py::classify`. The
 balanced cost is the points-per-model that lands a 50% ± 5% win rate.
+
+Output: `data/calibrated_points.json`. Slow (1–10 minutes per unit) but
+exercises **every** rule in the simulator — terrain, charge variance,
+objective contest, CP economy. Captures emergent dynamics analytic models
+can't see.
 
 **Leader-attached mode** (`--leader-attached`): for `CHARACTER` units, the
 candidate is built as `(host + leader)` pairs vs. a baseline of `host alone`
@@ -117,10 +133,34 @@ diagnostic — used to spot whether the simulator's 5-round window is
 under-rewarding speed (e.g. a MELEE@M=5 unit consistently calibrating
 cheaper than a MELEE@M=8 unit). No effect on the bisection itself.
 
-### Phase Three (Planned)
+### Track 2 — Equilibrium solver (closed-form log-LSQ, implemented Phases 1+2)
 
-A multidimensional regression fit will replace the linear formula with a calibrated cost surface.
-The target: for any pair of equal-points armies, the expected win rate converges to 50% ± 5%.
+`code/equilibrium.py` solves the symmetric zero-sum game over the
+catalogue. Build a pairwise time-to-kill matrix `T[i,j] = wounds(j) / D[i,j]`,
+derive the log advantage `R[i,j] = ½·log(T[j,i]/T[i,j])`, and solve the
+fair-trade condition `log(p_i) − log(p_j) ≈ R[i,j]` in closed form
+(row mean over valid entries, anchor pinned to Intercessor Squad at
+16 pts/model). See file docstring for the derivation.
+
+Output: `data/equilibrium_points.json` (Phase 1, shooting only) and
+`data/equilibrium_points_phase2.json` (Phase 2, shoot+melee blend).
+Fast (one analytic damage call per pair, no simulation) and exposes
+the pairwise structure — best/worst matchups for every unit are
+directly readable off `R`.
+
+The two tracks **disagree on purpose**. Their divergence per unit is
+the calibration signal:
+
+- Balancer ≈ Equilibrium → high confidence in the price.
+- Balancer ≪ Equilibrium → unit has good pairwise stats but loses to
+  battlefield context (slow, no objective play, sim terrain counter).
+- Balancer ≫ Equilibrium → unit gets value from non-damaging utility
+  the analytic model doesn't see yet (the Goal D signal).
+
+Equilibrium's planned Phases 3–6 (defensive integration audit,
+tactical-utility term for non-damaging abilities, meta-weighting,
+mixed-strategy zero-sum solve) are tracked under Goal C/D in
+`ROADMAP.md`.
 
 ### Validation Criteria
 
@@ -129,6 +169,9 @@ A unit is considered "reasonably costed" when:
    45–55%.
 2. The result holds across at least three different random army compositions.
 3. The cost is within the ±tolerance band of its synergy-adjusted value.
+4. The Sweg-balancer and Equilibrium prices agree within ±30% (significant
+   divergence signals either a context-dependent unit or a non-damaging
+   ability the equilibrium doesn't see yet).
 
 ## Notes on Hit Probability
 

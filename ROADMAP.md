@@ -1,271 +1,273 @@
 # Development Roadmap
 
+SwegHammer is organised around **four goals**. Each goal owns a strand of work
+that runs end-to-end through the simulator, the points solvers, and the
+calibration harness. Progress is measured against a single headline metric —
+the mean absolute error (MAE) of the per-faction win rate vs the May 2026
+Warp Friends tournament aggregate — currently **MAE 5.11 pts** (target
+≤ 2.0 pts).
+
+This file is the high-level status board. For the human-facing checklist with
+ownership tags and math, see [`PROJECT.tex`](PROJECT.tex). For Claude
+operating rules, see [`CLAUDE.md`](CLAUDE.md).
+
 ## Status Overview
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 0 | ✅ Complete | Objectives + VP-based win condition |
-| Phase 1 | ✅ Complete | Deterministic simulator, initial 18-unit hand-rolled catalogue |
-| Phase 1.5 | ✅ Complete | Stochastic damage, armour saves, AP, cover |
-| Phase 1.6 | ✅ Complete | BSData WH40k 10th-ed ingestion, override layer |
-| Phase 2 | 🔲 Active | Override tuning — repair mapper artefacts, balance the BSData catalogue |
-| Phase 3 | 🔲 Planned | Nonlinear cost surface fit |
-| Phase 4 | 🔲 Planned | Rule variant testing, edge cases |
-| Phase A2 / A3 | ✅ Complete | Ten weapon keywords + Feel No Pain |
-| Phase B | ✅ Complete | Charge + Fight (melee) phases |
-| Phase C | ✅ Complete | Battleshock + Ld/OC on UnitProfile |
-| Phase D | ✅ Partial | Detachment scaffolding + 2 live effects (8 flags still unwired) |
-| Phase E | ✅ Partial | Stratagems: 4 universals + 3 detachments (Cult of Magic, Plague Company, Battle Host) |
-| Phase F | 🔲 Planned | Niche weapon / unit keywords |
-| Phase G | 🔲 Planned | Leader / character abilities |
+| Goal | Status | Description |
+|------|--------|-------------|
+| Goal A | 🔲 Active | Sim matches real tournament data (faction-specific mechanics) |
+| Goal B | 🔲 Active | Equal-quality simulation per faction (stratagems / leaders / enhancements) |
+| Goal C | 🔲 Active | Generate balanced SwegHammer points (two-track: balancer + equilibrium) |
+| Goal D | 🔲 Planned | Price non-damaging abilities (collapsed into Equilibrium Phase 4) |
+
+Headline calibration metric:
+
+- **MAE 5.11 pts** vs Warp Friends May 2026 (10-faction matchup matrix).
+- Trajectory: range bounces as Goal A fills in — each new faction-specific
+  mechanic perturbs the matrix until the next mechanic lands.
+- Measured by `python -m scripts.evaluate_vs_meta`.
 
 ---
 
-## Phase 0 — Objectives + VP win condition ✅
+## Goal A — Sim matches real tournament data 🔲
 
-**Goal**: Move the simulator off "most surviving units wins" onto a 10e-flavoured
-Primary VP system.
+**Intent.** Drive the per-faction MAE down by implementing the
+faction-specific mechanics that distinguish Necrons from Tyranids from Orks
+in real play. The premise: a faction-blind simulator can never reproduce a
+tournament meta where Necrons hit 53% and Aeldari hit 44%.
 
-- [x] `Objective` dataclass on `code/map.py` — `(x, y, control_radius=3", vp_per_round=5)`
-- [x] Every stock map ships a 5-objective quincunx (centre + four ~30% in from each corner)
-- [x] End-of-round Primary VP scoring — strict OC majority within control radius banks the marker
-- [x] Win condition: one-sided wipe → VP → remaining army points → draw (10% margin)
-- [x] `BattleResult.a_vp`, `b_vp`, `a_points_remaining`, `b_points_remaining` exposed for the dashboard
+**Target.** MAE ≤ 2.0 pts vs Warp Friends aggregate. Currently 5.11 pts.
 
-**Foundation docs** (delivered earlier, retained as living references):
+**Key references.**
 
-- README.md — problem statement and rules overview
-- THEORY.md — Lanchester derivations and nonlinearity analysis
-- BASELINE.md — baseline unit definition and initial unit catalogue
-- SIMULATION.md — simulator design documentation
-- ROADMAP.md — this file
+- `scripts/evaluate_vs_meta.py` — the matchup-matrix harness; runs N
+  battles per (faction_a, faction_b) pair and reports per-faction sim WR
+  next to the tournament target.
+- `code/detachments.py` — army-wide passive flags; 10 modifier fields,
+  registered detachments per faction.
+- `code/leaders.py` — character-attached aura abilities.
+- `code/simulator.py` — gate where faction-specific rules fire
+  (Mob Rule, WAAAGH!, Reanimation Protocols, Shadow in the Warp, etc.).
 
----
+**What's done.**
 
-## Phase 1 — Deterministic Simulator ✅
+- 18 canonical detachments registered with Wahapedia-cited rule effects.
+- Faction-specific gates: Reanimation Protocols (Necrons), Shadow in the
+  Warp (Tyranids), WAAAGH! once-per-battle window + Mob Rule (Orks).
+- Faction-blind core combat: hit / wound (S vs T) / save (AP) / cover /
+  invuln / FNP / a dozen weapon keywords (Lethal Hits, Sustained Hits,
+  Twin-Linked, Devastating Wounds, Anti-X, Melta, Rapid Fire, etc.).
+- Stochastic damage; Battleshock from Round 2; objective scoring; CP economy.
 
-**Goal**: Build a working simulation engine and run initial calibration battles.
+**What's next.**
 
-- [x] `code/units.py` — UnitProfile, Unit, UNIT_CATALOG
-- [x] `code/army.py` — Army class with CP tracking
-- [x] `code/simulator.py` — Battle engine with unit-by-unit activation
-- [x] `code/army_builder.py` — Random army generation within points budget
-- [x] `code/calibration.py` — Batch runner and win-rate analysis
-- [x] `code/main.py` — Demo entry point
-
-**Deliverables**: Working simulator; initial win-rate report for all unit pairings.
-
-**Acceptance criteria**:
-- Baseline Marine vs Marine army yields 50% ± 1% win rate over 1000 battles.
-- All unit types produce a result (no crashes, infinite loops, or degenerate outcomes).
-- Output report is human-readable and shows win rate, draw rate, avg rounds.
-
----
-
-## Phase 1.5 — Stochastic Damage, AP, Armour Saves, Cover ✅
-
-**Goal**: Replace the deterministic-damage placeholder with real dice rolls.
-
-- [x] To-hit roll using `hit_probability`
-- [x] Target armour save roll with AP modifier
-- [x] Cover gives +1 to saves, capped at 2+
-- [x] `UnitProfile` gains `ap` and `save` fields; `points_for` weighs both axes
-
-**Delivered**: Combat resolution now matches the design in `SIMULATION.md`.
+- Audit which factions still wash out — Aeldari and Death Guard are the
+  current outliers. Their detachments parse but the simulator-side gates
+  are thin (most flags compose into `Unit.attack()` only when led).
+- Wire the remaining 8-of-10 Detachment modifier flags into the per-attack
+  resolution path (`reroll_hit_ones`, `reroll_wound_ones`, `plus_one_to_hit`,
+  `plus_one_to_wound`, `plus_one_attack`, `plus_one_save`, `extra_invuln`,
+  `ld_bonus`). Most parse and store today but produce no in-game effect.
+- Re-run `evaluate_vs_meta` after each mechanic lands; aim for monotone
+  MAE decrease.
 
 ---
 
-## Phase 1.6 — BSData Ingestion ✅
+## Goal B — Equal-quality simulation per faction 🔲
 
-**Goal**: Pull unit stats from the BSData WH40k 10th-edition project rather than
-hand-rolling them, with an override layer for fine tuning.
+**Intent.** Bring every faction to the same depth of in-game representation
+so cross-faction matchups aren't biased by which factions had their abilities
+modelled first. The two big knobs are stratagems (CP-priced effects) and
+leader auras (CHARACTER attached to bodyguard unit).
 
-- [x] `code/bsdata/fetch.py` — pinned-tag download + cache (45 .cat + .gst files)
-- [x] `code/bsdata/parser.py` — XML registry across all files
-- [x] `code/bsdata/mapper.py` — force-list walk, best-legal-loadout optimiser,
-      SwegHammer mapping (10e schema: SV on unit, ranged-weapon A/BS/S/AP/D)
-- [x] `code/bsdata/loader.py` — merge parsed.json + overrides.json at import time
-- [x] `data/overrides.json` — hand-tuned modifications (starts empty)
-- [x] Wire `UNIT_CATALOG` to load from the merged catalogue
+**Key references.**
 
-**Delivered**: ~1100 BSData 10e-derived units replace the 18 hand-rolled ones.
-Vehicles and Imperial Knights now have proper stat lines (T, SV, W on the unit
-profile directly), eliminating the 2nd-ed vehicle-mapping bugs.
+- `code/stratagems.py` — `Stratagem` dataclass + universal core stratagems +
+  detachment-specific stratagems wired onto `Detachment.stratagems`.
+- `code/leaders.py` — `LeaderAbility` registry; `_REGISTRY` keyed per
+  CHARACTER unit; aura wiring composes into the attached squad's
+  `Unit.attack()`.
+- `data/rule_citations.d/` — every Stratagem, Detachment, Leader needs a
+  matching Wahapedia citation entry (CLAUDE.md §10).
+- `scripts/audit_rules.py` — enforces the citation requirement; currently
+  95/95 active rules cited.
 
----
+**What's done.**
 
-## Phase 2 — Override Tuning 🔲 (active)
-
-**Goal**: Repair mapper artefacts and start balancing the BSData catalogue.
-
-- [ ] Sweep `data/bsdata/parsed.json` for the ~260 currently-skipped entries
-      (mostly characters/units with no ranged weapons — melee-only models) —
-      fix the mapper to fall back to melee weapons, or formally disable
-- [ ] Squad-level damage: 10e weapons have explicit A (attacks per model), but
-      multi-model squads still emit per-model wounds. Decide whether `health`
-      means per-model or per-squad-aggregate and apply consistently
-- [x] Loadout optimiser currently uses *expected damage through baseline Marine
-      armour* — review which weapons it picks for elite Knights and refine
-      if the cheese is too cheesy. **Done (#76)**: multi-model squads now use a
-      weighted basket of per-model weapons (e.g. 5 bolters + 4 multi-meltas +
-      1 sergeant for Devastators), so per-model damage sits between bolter-
-      only and all-best. Single-model units still use the legacy best-weapon
-      path. ~210 squads use the new heterogeneous path.
-- [ ] Run calibration suite, identify systematic outliers, tune via overrides
-- [ ] Document the override workflow with worked examples
-
-**Deliverables**: A balanced BSData-derived catalogue with documented overrides.
-
----
-
-## Phase 3 — Nonlinear Cost Surface Fit 🔲
-
-**Goal**: Replace the linear Phase One cost formula with an empirically derived surface.
-
-- [ ] Run full sweep of unit-vs-unit pairings (homogeneous and mixed armies)
-- [ ] Build regression dataset: (unit stats) → (win rate deviation from 50%)
-- [ ] Fit cost surface using `scipy.optimize` or gradient descent
-- [ ] Validate: all pairings within 45–55% win rate
-- [ ] Produce updated `BASELINE.md` with calibrated costs
-- [ ] Document attribute nonlinearities observed (movement, toughness, accuracy)
-
-**Deliverables**: Calibrated cost formula; updated unit catalogue; validation report.
-
----
-
-## Phase 4 — Rule Variants and Edge Cases 🔲
-
-**Goal**: Test CP economy tuning, first-player advantage, and synergy handling.
-
-- [ ] Measure first-player win rate with and without unit-by-unit activation
-- [ ] Calibrate CP bonus formula (current: `floor(unit_diff / 2)`)
-- [ ] Test CP cap values (1 CP/round, 2 CP/round, uncapped)
-- [ ] Evaluate Turn 1 exclusion from CP awards
-- [ ] Model simple aura effects (reroll hits within 6") and measure cost impact
-- [ ] Identify units where synergy value exceeds the ±3 pt tolerance band
-
-**Deliverables**: Final CP formula; aura tolerance band guidelines; recommended rule text for
-players.
-
----
-
-## Phase A2 / A3 — Weapon keywords + Feel No Pain ✅
-
-**Goal**: Wire ten 10e weapon keywords plus FNP into the combat resolver.
-
-- [x] Mapper extracts: Rapid Fire N, Melta N, Ignores Cover, Anti-KEYWORD N+,
-      Heavy, Assault, Torrent, Hazardous, Blast
-- [x] `extract_unit_keywords()` scans `categoryLinks` for 10e tags (INFANTRY,
-      VEHICLE, MONSTER, CHARACTER, FLY, TITANIC, etc.)
-- [x] `extract_fnp()` sweeps profile + linked-rule text for "Feel No Pain N+"
-- [x] `Unit.attack()` applies the keywords; `Unit.receive_damage` rolls per-point FNP
-- [x] Heavy keyword parsed and stored — application deferred (needs a "did not
-      move this turn" flag, which the sim doesn't yet expose meaningfully)
-
----
-
-## Phase B — Charge + Fight (melee) ✅
-
-**Goal**: Add the missing close-combat half of the game.
-
-- [x] Mapper picks a best-legal melee weapon alongside the best ranged
-- [x] `UnitProfile.melee_*` fields (attacks, damage, hit prob, strength, AP, weapon)
-- [x] `Unit.attack(target, distance, mode="ranged"|"melee")` switches stat block
-- [x] `Battle._do_charge` — declaration, 2d6 roll, move into 1" engagement
-- [x] `Battle._do_fight` — units within 1.5" of an enemy fight; chargers first
-- [x] Charge-desire heuristic: only charge when `melee_dpa >= max(ranged_dpa, 1.0)`
-- [x] 191 previously-disabled melee-only units reactivated (Hormagaunts, Berzerkers,
-      Bloodletters, Daemonettes, Skorpekh Destroyers, etc.)
-
----
-
-## Phase C — Battleshock ✅
-
-**Goal**: 10e-flavoured morale check on wounded units.
-
-- [x] `UnitProfile` gains `leadership` (Ld) and `oc` (Objective Control)
-- [x] Mapper extracts both from the unit profile
-- [x] From Round 2, units below half HP roll 2d6 vs Ld
-- [x] Failed test → Battleshocked for the round → OC counts as 0 for objective scoring
-
----
-
-## Phase D — Detachments ✅ partial
-
-**Goal**: Army-wide passive buffs (the always-on piece of a 10e detachment rule).
-
-- [x] `Detachment` dataclass with ten modifier flags
-- [x] Five canonical detachments registered (Gladius, Awakened Dynasty, Invasion
-      Fleet, WAAAGH! Tribe, Noble Lance)
-- [x] `DEFAULT_BY_FACTION` resolves a sensible default per primary faction
-- [x] `Army.detachment` slot + `resolve_detachment()`
-
-**Follow-ups (8-of-10-flag gap):** only `reanimate_per_round` and
-`enemy_ld_penalty` are wired into the simulator. The remaining eight flags
-(`reroll_hit_ones`, `reroll_wound_ones`, `plus_one_to_hit`, `plus_one_to_wound`,
-`plus_one_attack`, `plus_one_save`, `extra_invuln`, `ld_bonus`) parse and store
-but produce no in-game effect yet. Wiring needs to compose into the Phase A2/A3
-keyword path in `Unit.attack()`.
-
----
-
-## Phase E — Stratagems ✅ partial
-
-CP-priced effects fire on triggers each round. Framework lives in
-`code/stratagems.py` (`Stratagem` dataclass, four universal Core
-Stratagems, and detachment tuples wired onto `Detachment.stratagems`).
-The simulator dispatches via `Battle._fire_stratagem` (universals through
-the existing hooks: failed wound roll, vehicle charge, enemy fight,
-out-of-sequence retaliate) and `Battle._apply_detachment_stratagems`
-(detachment-specific, fired at round start).
-
-Implemented:
-- **Universal Core Stratagems** (4): Command Re-Roll, Counter-Offensive,
+- Universal Core Stratagems (4): Command Re-Roll, Counter-Offensive,
   Tank Shock, Heroic Intervention.
-- **Cult of Magic (Thousand Sons)**: Doombolt (D3 mortal wounds),
-  Twist of Fate (+1 to wound shooting), Glamour of Tzeentch (transient 4++).
-- **Plague Company (Death Guard)**: Disgustingly Resilient (-1 damage
-  taken), Plague Weapons (+1 to wound shooting), Outbreak of Pestilence
-  (+1 to wound melee).
-- **Battle Host (Aeldari)**: Lightning-Fast Reactions (+1 save), Fire and
-  Fade (re-roll 1s to hit shooting, approximating the canonical 6"
-  reposition), Matchless Agility (transient Assault).
+- Three detachment stratagem sets: Cult of Magic (Thousand Sons), Plague
+  Company (Death Guard), Battle Host (Aeldari).
+- 32 leader abilities registered with Wahapedia citations.
+- Citation audit enforces coverage on every commit that touches a rule.
 
-The remaining 18+ detachments still have empty `stratagems` tuples —
-follow-up tasks will wire Awakened Dynasty, Gladius Task Force, etc.
+**What's next.**
 
----
-
-## Phase F — Niche keywords 🔲 planned
-
-The long tail of weapon and unit keywords that don't fall into the Phase A2/A3
-ten: Lethal Hits, Sustained Hits, Lance, Twin-Linked, Precision, Indirect Fire,
-Pistol, One Shot, etc. Mapper already stores raw keyword text on each weapon
-profile; the work is the combat-side implementation.
+- The remaining ~18 detachments still have empty `stratagems` tuples —
+  Awakened Dynasty, Gladius Task Force, WAAAGH! Tribe, Noble Lance, etc.
+- Per-faction enhancement system (the four-points-each character upgrades
+  that further differentiate detachments). Not yet scaffolded.
+- Leader-auditing pass: confirm every leader's ability fires through the
+  same `Unit.attack()` keyword path used by Detachment flags, so the buffs
+  compose rather than override.
 
 ---
 
-## Phase G — Leader / character abilities 🔲 planned
+## Goal C — Generate balanced SwegHammer points 🔲
 
-Attachment to bodyguard units, ATTACHED → LEADER target redirection, aura
-buffs within a radius, Look Out Sir wound redirection. Depends on Phase F
-unit-keyword work (CHARACTER + INFANTRY + bodyguard-eligibility gating).
+**Intent.** Replace GW's commercially-driven points with empirically-derived
+costs that produce 50/50 matchups at equal points. Two independent solvers
+run in parallel; the divergence between them is itself a calibration signal.
+
+**Track 1 — Sweg-balancer (Monte Carlo bisection).**
+
+- Lives in `code/balancer.py`; writes `data/calibrated_points.json`.
+- For each unit: bisect its points-per-model UP/DOWN until armies-of-U vs
+  armies-of-baseline-peer land at 50% ± 5% win rate over N battles.
+- Slow (N × bisection steps per unit) but exercises **every** rule in the
+  simulator: movement, range, terrain, charge probability, objective
+  contests, CP economy. The Monte Carlo is honest about coupling.
+- Modes: homogeneous (same-role peer baseline), `--leader-attached`
+  (CHARACTER + host vs host alone), `--aura-uplift` (delta-WR for SUPPORT
+  characters whose value is buffs rather than direct damage).
+
+**Track 2 — Equilibrium solver (closed-form log-LSQ on time-to-kill).**
+
+- Lives in `code/equilibrium.py`; writes `data/equilibrium_points.json` and
+  `data/equilibrium_points_phase2.json`.
+- Solves the symmetric zero-sum game over the catalogue: build a pairwise
+  time-to-kill matrix `T[i,j]`, derive log advantage `R[i,j] = ½·log(T[j,i]/T[i,j])`,
+  closed-form log-LSQ for `log(p_i)`. See file docstring for derivation.
+- Fast (one analytic damage call per pair, no simulation), exposes the
+  Bradley-Terry pairwise structure (best/worst matchups for any unit).
+- Ed's solver; landed in phases.
+
+**Two-track rationale.** Balancer captures emergent dynamics the analytic
+solver can't see (terrain, objective contest, charge variance, CP).
+Equilibrium captures pairwise rock-paper-scissors structure the bisection
+hides (a unit that beats average opponents but loses hard to one matchup is
+priced correctly by the equilibrium and incorrectly by the bisection). The
+divergence is the calibration signal — see PROJECT.tex §"Two-track points
+calibration".
+
+**Key references.**
+
+- `code/balancer.py`, `data/calibrated_points.json`
+- `code/equilibrium.py`, `data/equilibrium_points.json` (Phase 1),
+  `data/equilibrium_points_phase2.json` (Phase 2)
+- `BASELINE.md` — points formula and baseline-Marine definition.
+
+**What's done.**
+
+- **Balancer**: homogeneous bisection, leader-attached mode, aura-uplift mode,
+  detachments wired into calibration builders (audit in `BALANCER_AUDIT.md`).
+- **Equilibrium Phase 1** (shooting): analytic shooting damage with
+  hit / wound / save / invuln / FNP / Lethal / Sustained / Twin-Linked /
+  Devastating / Anti-X.
+- **Equilibrium Phase 2** (shoot + melee): per-attacker role-weighted blend
+  of shooting and melee matrices. Pure-melee units rejoin the fit.
+
+**What's next.**
+
+- **Equilibrium Phase 3** — Defensive integration audit (high-FNP low-wound
+  edge cases, MW-vulnerability).
+- **Equilibrium Phase 4** — Tactical-utility term `tactical_value(u)` for
+  non-damaging abilities (move, OC, deep strike, scout, infiltrator,
+  sticky objective). **This is Goal D — see below.**
+- **Equilibrium Phase 5** — Meta-weighting (weight residuals by tournament
+  matchup frequency, so over-priced units that nobody actually faces don't
+  dominate the fit).
+- **Equilibrium Phase 6** — Solve the actual two-player zero-sum game
+  (mixed strategies on the simplex) to handle rock-paper-scissors mispricing.
+- **Cross-track validation**: walk the catalogue, find units where
+  balancer and equilibrium disagree by > 30%, dig in.
+
+---
+
+## Goal D — Price non-damaging abilities 🔲
+
+**Intent.** Speed, deep strike, scout, sticky objective, OC bonuses,
+re-deploy, and similar "I move better" abilities don't show up in the
+pairwise damage matrix `D[i,j]` but are real points value. A 6" move
+INFANTRY squad and an 8" move JUMP PACK squad with identical stats are
+*not* equally valuable; the JUMP PACK reaches objectives a round earlier.
+
+**Status.** Collapsed into **Equilibrium Phase 4** — see
+`code/equilibrium.py` bottom-of-file TODO stub. The plan is a
+`tactical_value(u)` term added to `log(p_i)` after the LSQ solve, fit
+against the empirical balancer numbers (which DO see speed advantage
+because they run real battles).
+
+**Key references.**
+
+- `code/equilibrium.py` — `tactical_value()` TODO stub.
+- `code/strategy.py` — the per-unit move intent layer that exercises
+  speed/scout/objective-pressure value in the balancer.
+- `code/roles.py` — coarse role labels (SHOOTY / MELEE / DUAL / HORDE /
+  HEAVY / SUPPORT) used as a feature in both solvers.
+
+**What's done.** Movement, scout distance, deep strike, infiltrator flags
+recorded on every `CalibrationResult` (diagnostic only — not yet folded
+into the cost).
+
+**What's next.** Define the basis (move, OC, deep_strike, scout,
+infiltrator, sticky_obj, re-deploy) and fit `tactical_value(u)` such that
+equilibrium and balancer converge.
+
+---
+
+## Foundation work (delivered) ✅
+
+The 2025–early-2026 phase-based work that built the substrate Goals A–D
+run on top of. Retained as a historical record; the phase numbering is
+**no longer the current organising structure** (see Changelog).
+
+- **Phase 0** — Objectives + Primary VP win condition (5-objective quincunx,
+  end-of-round scoring, OC-majority banks the marker, VP > points > draw).
+- **Phase 1** — Deterministic simulator and the initial 18-unit hand-rolled
+  catalogue.
+- **Phase 1.5** — Stochastic damage, armour saves, AP, cover.
+- **Phase 1.6** — BSData WH40k 10e ingestion (~1294 units), override layer.
+- **Phase A2/A3** — Ten weapon keywords + Feel No Pain.
+- **Phase B** — Charge + Fight (melee) phases.
+- **Phase C** — Battleshock + Ld/OC on `UnitProfile`.
+- **Phase D** — Detachment scaffolding (5 → 18 canonical detachments,
+  10 modifier fields, faction defaults).
+- **Phase E** — Stratagem framework (4 universals + 3 detachment-specific).
+
+---
+
+## Changelog
+
+- **2026-05-15** — Reorganised around **Goals A–D**. The previous
+  Phase 0 / 1 / 1.5 / 1.6 / 2 / 3 / 4 numbering plus the parallel
+  Phase A2 / B / C / D / E / F / G strand had drifted into something
+  nobody could navigate. The shipped foundation phases are retained as
+  a historical record above. New work tracks against goals.
+- **2026-05-14** — Orks Mob Rule + WAAAGH! window landed.
+- **2026-05-11** — Equilibrium Phase 2 (melee damage matrix) landed.
+- **2026-05-?? to 2025** — Phases 0–E shipped; see git log for detail.
 
 ---
 
 ## Future Considerations
 
-### Faction-Level Balance
+### Faction-level balance
 
-Once individual units are well-priced, the next question is whether faction army special rules
-create systemic advantages. This is deferred until Phase 4 is complete.
+Once individual units are well-priced (Goal C settled), the next question
+is whether **faction army special rules** create systemic advantages that
+the matchup matrix can't decompose into unit prices. This is deferred
+until Goal A's MAE target is hit.
 
-### Web Interface
+### Web interface
 
-A lightweight web UI to input an army list and receive a cost evaluation report. Deferred until
-the cost model is stable.
+Streamlit dashboard (`app.py`) already exists with attrition curves,
+survivor histograms, points-vs-winrate sweep, and a scrub-through battle
+replay. Future work: army-builder UI, calibration browser (drill into
+outlier matchups from `evaluate_vs_meta`).
 
-### Community Calibration
+### Community calibration
 
-Open simulation runs where community members can submit their own battle logs to feed into the
-calibration dataset, replacing pure-simulation data with real-world outcomes.
+Open simulation runs where players submit battle logs to feed the
+calibration dataset, replacing pure-simulation data with real-world
+outcomes. Deferred until the cost model is stable.
