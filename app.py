@@ -37,6 +37,7 @@ from code.equilibrium import (
     DEFAULT_ANCHOR_KEY as EQ_DEFAULT_ANCHOR,
     DEFAULT_ANCHOR_PER_MODEL as EQ_DEFAULT_ANCHOR_PTS,
 )
+from code.compare_view import render_compare_tab
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
 # below once the sidebar's "Use SwegHammer balanced points" toggle is read.
@@ -918,8 +919,8 @@ if run:
 # Tabs: Statistics + Watch a battle
 # ---------------------------------------------------------------------------
 
-tab_stats, tab_replay, tab_efficiency, tab_equilibrium = st.tabs(
-    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium"]
+tab_stats, tab_replay, tab_efficiency, tab_equilibrium, tab_compare = st.tabs(
+    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium", "Compare"]
 )
 
 # --- Statistics tab ---
@@ -1516,3 +1517,8 @@ with tab_equilibrium:
             "fraction of the opponent's points-per-model the equilibrium says "
             "this unit should cost in an isolated 1-vs-1."
         )
+
+
+# --- Compare tab ---
+with tab_compare:
+    render_compare_tab(st)
