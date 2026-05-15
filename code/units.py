@@ -767,6 +767,22 @@ class Unit:
         effective_lethal_hits = p.lethal_hits or (
             self.pain_tokens > 0 and p.faction == "Drukhari"
         )
+        # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
+        # WE unit for the phase. SwegHammer collapses "this phase" to "this
+        # round" since the activation loop doesn't break phases out. The
+        # army-level flag stores the round in which BT-4 fired; we compare
+        # against the live battle round so the buff lapses next round even
+        # if we skip clearing it. Faction-gated to keep allies clean.
+        # Composes with profile.lethal_hits via OR (never double-fires —
+        # the gate is at the crit-to-hit branch below, fires once per crit).
+        if p.faction == "World Eaters" and not effective_lethal_hits:
+            own_army = getattr(self, "army_ref", None)
+            if own_army is not None:
+                bt_round = getattr(own_army, "blood_tithe_lethal_hits_round", None)
+                battle = getattr(own_army, "_battle_ref", None)
+                cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                if bt_round is not None and bt_round == cur_round:
+                    effective_lethal_hits = True
 
         total_damage = 0.0
         for _ in range(n_attacks):

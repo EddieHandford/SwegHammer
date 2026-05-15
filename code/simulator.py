@@ -1243,6 +1243,33 @@ class Battle:
             army.doctrina_imperative = None
             if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
                 army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
+        # ---- World Eaters Blood Tithe spend (10e army rule). The codex
+        # allows spending at the start of any phase; we elect once per round
+        # at the start of the Command phase, priority-greedy on the WE
+        # army. Order:
+        #   BT >= 4: spend 4, set blood_tithe_lethal_hits_round = round_num
+        #            (read by Unit.attack against the live battle round to
+        #            grant [LETHAL HITS] on WE-faction attackers for this
+        #            round only — collapses the codex's "this phase" scope).
+        #   BT >= 3: spend 3, gain +1 CP (capped at the per-round +1 ceiling
+        #            via min(6, command_points+1) — matches the per-round
+        #            drip behaviour the simulator already applies for the
+        #            Command-phase CP gain).
+        # The 1-BT charge-roll re-roll, 2-BT +1-to-wound-vs-target, and 5-BT
+        # auto-pass Battle-shock are skipped intentionally: the simulator's
+        # charge loop doesn't expose a re-roll hook, the target-tagging gate
+        # is a per-target side-band that doesn't ride the existing buff plumbing,
+        # and the auto-pass is a rare per-battle event whose impact on MAE
+        # would be negligible. Cited as `simulator.blood_tithe`.
+        for army in (self.a, self.b):
+            if not any(u.profile.faction == "World Eaters" for u in army.units):
+                continue
+            if army.blood_tithe >= 4:
+                army.blood_tithe -= 4
+                army.blood_tithe_lethal_hits_round = round_num
+            elif army.blood_tithe >= 3:
+                army.blood_tithe -= 3
+                army.command_points = min(6, army.command_points + 1)
         # Clear any per-round transient stratagem flags from the previous
         # round (Disgustingly Resilient, Lightning-Fast Reactions, etc.)
         # before deciding whether to spend CP on a new batch this round.
@@ -1673,6 +1700,10 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=shoot_target, victim_army=defender_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=attacker, killer_army=attacker_army,
+                victim=shoot_target, victim_army=defender_army,
+            )
 
         if self.verbose:
             alive_str = (
@@ -1789,6 +1820,10 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=nearest, victim_army=defender_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=attacker, killer_army=attacker_army,
+                victim=nearest, victim_army=defender_army,
+            )
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The
@@ -1809,6 +1844,28 @@ class Battle:
     def _emit(self, event) -> None:
         for s in self.subscribers:
             s.on_event(event)
+
+    def _maybe_award_blood_tithe(
+        self, killer: "Unit", killer_army: Army,
+        victim: "Unit", victim_army: Army,
+    ) -> None:
+        """World Eaters army rule — Blood Tithe (10e).
+
+        Two trigger sources, both awarding +1 BT to the World Eaters army:
+          1. A friendly WE unit was destroyed (victim is WE) — award to
+             victim_army.
+          2. An enemy unit was destroyed by a WE unit (killer is WE) —
+             award to killer_army.
+
+        Both can fire at once in a WE mirror-match (victim's army gets +1
+        for the death AND killer's army gets +1 for the kill — that's the
+        codex behaviour). Non-WE armies are left at 0. Cited as
+        `simulator.blood_tithe`.
+        """
+        if victim.profile.faction == "World Eaters":
+            victim_army.blood_tithe += 1
+        if killer.profile.faction == "World Eaters":
+            killer_army.blood_tithe += 1
 
     def _maybe_award_judgement_token(
         self, killer: "Unit", killer_army: Army,
@@ -1915,6 +1972,10 @@ class Battle:
                 killer=charger, killer_army=charger_army,
                 victim=target, victim_army=target_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=charger, killer_army=charger_army,
+                victim=target, victim_army=target_army,
+            )
 
     def _try_heroic_intervention(
         self, charger: "Unit", charge_target: "Unit",
@@ -2013,6 +2074,10 @@ class Battle:
         if not alive_after:
             self._emit(UnitKilled(unit_uid=winner_unit.uid))
             self._maybe_award_judgement_token(
+                killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )
+            self._maybe_award_blood_tithe(
                 killer=retaliator, killer_army=loser_army,
                 victim=winner_unit, victim_army=winner_army,
             )

@@ -148,6 +148,22 @@ class Army:
         # army (the gate is faction-checked at attack-resolution time too).
         # Cited as `simulator.doctrina_imperatives`.
         self.doctrina_imperative: Optional[str] = None
+        # World Eaters army rule — Blood Tithe (10e). Codex-wide accumulator
+        # incremented by 1 each time a friendly WORLD EATERS unit dies OR an
+        # enemy unit is destroyed by a WORLD EATERS unit. Spent at the start
+        # of any phase on Boons of Khorne benefits — the simulator's AI
+        # spends priority-greedy in `_run_round` (BT>=4 grants Lethal Hits
+        # on a WE unit for the phase; BT>=3 grants +1 CP). Stays 0 on a
+        # non-WE army (the spend gate checks faction tag before running).
+        # Cited as `simulator.blood_tithe`.
+        self.blood_tithe: int = 0
+        # Round number in which a 4-BT Lethal Hits spend fired. Read by
+        # Unit.attack against the live battle round (via _battle_ref) to
+        # gate effective_lethal_hits for World Eaters attackers; the buff
+        # is scoped to "this phase" in the codex, which we collapse to
+        # "this round" because the simulator activation loop doesn't break
+        # round-internal phases out separately. None = not active.
+        self.blood_tithe_lethal_hits_round: Optional[int] = None
 
     # ------------------------------------------------------------------
     # Faction detection

@@ -148,6 +148,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # ranged targeting to 12".
     "simulator.look_out_sir",
     "simulator.lone_operative",
+    # World Eaters army rule (10e). Blood Tithe: 1 BT awarded per friendly
+    # WE death OR enemy unit destroyed by a WE unit; spent at the start of
+    # any phase on benefits (1=re-roll charge, 2=+1 to wound vs target,
+    # 3=+1 CP, 4=Lethal Hits on a WE unit for the phase, 5=auto-pass next
+    # Battle-shock). Faction-gated on attacker.profile.faction == "World
+    # Eaters" for the Lethal Hits buff; awards run off victim/killer army
+    # checks in the kill-emission code paths.
+    "simulator.blood_tithe",
 )
 
 
