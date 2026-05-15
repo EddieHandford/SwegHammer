@@ -275,6 +275,17 @@ class UnitProfile:
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
 
     @property
+    def fly(self) -> bool:
+        """True if this unit has the FLY keyword (10e). Derived from
+        ``unit_keywords`` so the mapper does not need a separate field —
+        BSData already tags every FLY datasheet with the keyword. Used by
+        the simulator's Fall Back gate (units with FLY may still shoot /
+        charge after Falling Back; everyone else may not). Cited as
+        ``simulator.fall_back``.
+        """
+        return "FLY" in (self.unit_keywords or ())
+
+    @property
     def avg_damage_per_action(self) -> float:
         """Expected damage dealt per activation against a baseline Marine."""
         wound_p = wound_probability(self.strength, BASELINE_TOUGHNESS)
@@ -325,6 +336,11 @@ class Unit:
     __slots__ = (
         "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
+        # Set by Battle._do_move when the unit elects the FALL_BACK intent.
+        # While True, _do_shoot and _do_charge refuse to fire the unit unless
+        # its profile has the FLY keyword. Cleared at the top of each round.
+        # Cited as `simulator.fall_back`.
+        "fell_back_this_round",
         # ----- transient stratagem flags (cleared each round by Battle) -----
         # Cult of Magic (Thousand Sons):
         #   transient_plus_one_to_wound_shooting — Twist of Fate. Attacker buff:
@@ -409,6 +425,10 @@ class Unit:
         # path; cleared the moment it arrives on the battlefield. See
         # `simulator.cult_ambush` citation for the verbatim Wahapedia quote.
         self.cult_ambush_pending: bool = False
+        # Fall Back (10e core). Set True by Battle._do_move when the unit
+        # elects the FALL_BACK intent; gates _do_shoot / _do_charge unless
+        # the profile has FLY. Reset at the top of each round.
+        self.fell_back_this_round: bool = False
 
     @property
     def is_alive(self) -> bool:

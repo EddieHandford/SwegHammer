@@ -1,0 +1,21 @@
+{
+  "_comment": "Citations for the Fall Back move and Desperate Escape Test core rules (10e). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
+
+  "simulator.fall_back": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Fall-Back",
+    "rule_name": "Fall Back",
+    "quoted_text": "A unit can make a Fall Back move in your Movement phase if it is within Engagement Range of one or more enemy units. The unit can move up to its Move characteristic in inches and can move through enemy models when doing so. A unit that Falls Back can shoot or charge only if it has the FLY keyword.",
+    "trigger": "owning player's Movement phase; unit is within Engagement Range (1.5\" in SwegHammer's continuous model) of one or more enemy units",
+    "effect": "unit moves up to M\" away, may move through enemy models, and is barred from shooting and charging this turn unless it has the FLY keyword. SwegHammer sets a per-round fell_back_this_round flag on the unit and gates _do_shoot / _do_charge on (flag and not FLY).",
+    "scope": "army-wide"
+  },
+
+  "simulator.desperate_escape": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Fall-Back",
+    "rule_name": "Desperate Escape test",
+    "quoted_text": "When a unit Falls Back, if it moved through any enemy models then, after its move, roll one D6 for each model in the unit: for each result of 1, one model in the unit is destroyed.",
+    "trigger": "immediately after a Fall Back move that passed through one or more enemy models",
+    "effect": "roll 1D6 per model in the falling-back unit; each 1 destroys one model. SwegHammer models units as one Unit per model, so a single D6 is rolled and on a 1 the unit's current_health is zeroed (one model destroyed).",
+    "scope": "army-wide"
+  }
+}

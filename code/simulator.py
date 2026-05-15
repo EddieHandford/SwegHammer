@@ -1301,6 +1301,10 @@ class Battle:
         for army in (self.a, self.b):
             for u in army.units:
                 u.moved_this_round = False
+                # Fall Back (10e core): the shoot/charge lockout only lasts
+                # the turn the unit fell back, so clear it at the top of
+                # every round before the new Movement phase runs.
+                u.fell_back_this_round = False
 
         # Pre-compute on-objective state for the round so Unit.attack() can
         # cheaply apply detachment buffs gated on objective control (Awakened
@@ -1535,6 +1539,43 @@ class Battle:
             attacker, attacker_army, defender_army, self.map,
         )
 
+        # Fall Back (10e core). Units already locked in melee that the
+        # strategy layer wants to disengage move up to M" toward the picked
+        # destination, then take a Desperate Escape test (1D6 per model;
+        # each 1 destroys a model — we model unit-per-model, so this is one
+        # roll). Falling back blocks shoot / charge for the turn unless the
+        # unit has FLY. Cited as `simulator.fall_back` /
+        # `simulator.desperate_escape`. Advance-this-turn and Fall Back are
+        # mutually exclusive: Fall Back uses the normal-move pool.
+        if intent == "FALL_BACK":
+            if attacker.uid in self._advanced_this_round:
+                # Already advanced this round — don't compound activations.
+                return
+            normal_move = attacker.profile.move
+            old_pos = attacker.position
+            new_pos = _move_toward(
+                attacker.position, target_pos,
+                float(normal_move), self.map,
+            )
+            if new_pos != old_pos:
+                attacker.position = new_pos
+                self._did_move_this_round.add(attacker.uid)
+                attacker.moved_this_round = True
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=old_pos,
+                    to_pos=new_pos,
+                ))
+            attacker.fell_back_this_round = True
+            # Desperate Escape: 1D6 per model — SwegHammer is one Unit per
+            # model, so a single d6; on a 1 the model is destroyed.
+            if random.randint(1, 6) == 1:
+                attacker.current_health = 0.0
+                if not attacker.is_alive:
+                    self._emit(UnitKilled(unit_uid=attacker.uid))
+                    self._maybe_apply_deadly_demise(attacker)
+            return
+
         dist = _distance(attacker.position, target_pos)
         if dist < 0.5 or intent == "HOLD":
             return   # already where we want to be — stay and shoot
@@ -1580,6 +1621,11 @@ class Battle:
             ))
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # Fall Back lockout (10e core): a unit that Fell Back this turn can
+        # only shoot if it has the FLY keyword. Cited as
+        # `simulator.fall_back`.
+        if attacker.fell_back_this_round and not attacker.profile.fly:
+            return
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
         # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
@@ -1749,6 +1795,11 @@ class Battle:
             return
         if attacker.uid in self._advanced_this_round:
             return   # advanced units cannot charge
+        # Fall Back lockout (10e core): a unit that Fell Back this turn can
+        # only charge if it has the FLY keyword. Cited as
+        # `simulator.fall_back`.
+        if attacker.fell_back_this_round and not attacker.profile.fly:
+            return
 
         from .strategy import pick_charge_target
         target, dist = pick_charge_target(attacker, defender_army)

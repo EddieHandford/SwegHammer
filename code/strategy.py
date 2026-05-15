@@ -38,6 +38,16 @@ _CAPTURE_INTENT = "CAPTURE"
 _STEAL_INTENT = "STEAL"
 _ENGAGE_INTENT = "ENGAGE"
 _REPOSITION_INTENT = "REPOSITION"
+# Fall Back (10e core): a unit within Engagement Range of an enemy may move
+# up to M" away, passing through enemy models, but cannot shoot or charge
+# this turn unless it has the FLY keyword. SHOOTY / HEAVY units that get
+# tagged in melee prefer disengaging so they can resume shooting next round.
+# Cited as `simulator.fall_back`.
+_FALL_BACK_INTENT = "FALL_BACK"
+
+# Engagement Range in SwegHammer's continuous model. Mirrors the simulator's
+# in-engagement check inside _do_shoot.
+_ENGAGEMENT_RANGE = 1.5
 
 # Terrain-strength ranking used by the cover-bias helper. Higher wins when
 # scoring candidate hold points around an objective. Imported lazily so this
@@ -340,6 +350,73 @@ def pick_charge_target(attacker, enemy):
     return target, dist
 
 
+def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, float]]:
+    """Pick a point up to ``M`` inches from ``unit`` that sits outside the
+    engagement range (1.5") of every enemy in ``enemies``.
+
+    Strategy: average the directions from each in-engagement enemy to the
+    unit (i.e. the "away from the swarm" vector), step out by the unit's
+    full Move characteristic, and verify the result clears every enemy by
+    more than the engagement range. If the primary point is still inside an
+    enemy's engagement bubble, sample a handful of points around the unit
+    and return the first that clears all enemies. Returns None if no point
+    on or near the unit can break engagement — caller falls through to the
+    normal-move pick.
+
+    Helper for the Fall Back move (10e core). Cited as ``simulator.fall_back``.
+    """
+    move = float(unit.profile.move or 6.0)
+    if move <= 0.0:
+        return None
+    px, py = unit.position
+
+    # Direction "away from enemies": sum of unit_pos - enemy_pos vectors,
+    # weighted by 1/distance so closer enemies dominate the retreat heading.
+    dx_sum = 0.0
+    dy_sum = 0.0
+    for e in enemies:
+        ddx = px - e.position[0]
+        ddy = py - e.position[1]
+        d = (ddx * ddx + ddy * ddy) ** 0.5
+        if d < 1e-6:
+            continue
+        dx_sum += ddx / d
+        dy_sum += ddy / d
+    mag = (dx_sum * dx_sum + dy_sum * dy_sum) ** 0.5
+
+    def _candidate(angle: float) -> Optional[Tuple[float, float]]:
+        cx = px + move * math.cos(angle)
+        cy = py + move * math.sin(angle)
+        if map_ is not None:
+            cx = max(0.0, min(map_.width, cx))
+            cy = max(0.0, min(map_.height, cy))
+            if map_.is_blocked((cx, cy)):
+                return None
+        # Must clear every enemy's engagement bubble by a small margin so
+        # the simulator's strict `< 1.5` check actually flips to False.
+        for e in enemies:
+            if _dist((cx, cy), e.position) <= _ENGAGEMENT_RANGE + 0.01:
+                return None
+        return (cx, cy)
+
+    # Primary heading: averaged away-vector.
+    if mag > 1e-6:
+        base_angle = math.atan2(dy_sum, dx_sum)
+        cand = _candidate(base_angle)
+        if cand is not None:
+            return cand
+    else:
+        base_angle = 0.0
+
+    # Fallback sweep: 12 angles around the unit. First clearing candidate wins.
+    for i in range(12):
+        offset = (2.0 * math.pi * i) / 12
+        cand = _candidate(base_angle + offset)
+        if cand is not None:
+            return cand
+    return None
+
+
 def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], str]:
     """
     Decide where `unit` should move this activation, and label the reason.
@@ -350,6 +427,25 @@ def pick_move_intent(unit, friendly, enemy, map_) -> Tuple[Tuple[float, float], 
     """
     role = classify(unit.profile)
     own_oc = getattr(unit.profile, "oc", 1) or 0
+
+    # ----- 0. Fall Back (10e core) ------------------------------------------
+    # A SHOOTY / HEAVY unit pinned inside enemy Engagement Range (1.5") loses
+    # its activation — it can neither shoot nor (usefully) charge. The right
+    # answer is to Fall Back: move up to M" away, eat a Desperate Escape test,
+    # and resume shooting next round. Only run this when there's a viable
+    # destination outside engagement of every enemy (otherwise the move would
+    # just re-pin us). Cited as `simulator.fall_back` /
+    # `simulator.desperate_escape`.
+    if role in ("SHOOTY", "HEAVY"):
+        enemies = enemy.alive_units
+        in_engagement = any(
+            _dist(unit.position, e.position) < _ENGAGEMENT_RANGE
+            for e in enemies
+        )
+        if in_engagement and enemies:
+            fall_back_pos = _pick_fall_back_destination(unit, enemies, map_)
+            if fall_back_pos is not None:
+                return fall_back_pos, _FALL_BACK_INTENT
 
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
     for obj in map_.objectives:

@@ -160,6 +160,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # destroyed, roll 1D6; on a 6 each unit within 6" suffers X mortal
     # wounds. Mapper parses the X from BSData infoLink modifiers.
     "simulator.deadly_demise",
+    # Fall Back move (10e core). A unit within Engagement Range may move
+    # up to M\" in the Movement phase and pass through enemy models; it
+    # cannot shoot or charge that turn unless it has the FLY keyword.
+    "simulator.fall_back",
+    # Desperate Escape test (10e core). After a Fall Back that passed
+    # through enemy models, roll 1D6 per model; each 1 destroys one model.
+    "simulator.desperate_escape",
 )
 
 
