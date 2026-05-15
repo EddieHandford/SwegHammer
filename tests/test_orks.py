@@ -1,13 +1,15 @@
-"""Tests for the Ork-specific army rules implemented in #110 + #111.
+"""Tests for the Ork-specific army rules implemented in #110 + #111 + #175.
 
 Covered:
   - Mob Rule (#111): Ork unit with 10+ models in the army auto-passes
     Battle-shock — no roll, no chance to fail. Cited as `simulator.mob_rule`.
-  - WAAAGH! (#110): once-per-battle window declared at Command-phase start.
-    While active (the declared turn), Ork attackers gain +1 to wound in
-    melee. The AI fires at Round 3 by default, Round 2 if the Orks fall
-    below 70% starting points, and is force-fired by Round 4. Cited as
-    `simulator.waaagh`.
+  - WAAAGH! (#110 + #175 G9): once-per-battle window declared at
+    Command-phase start. While active (the declared turn), Ork attackers
+    gain +1 to wound in melee. The AI fires on the first round an Ork unit
+    has a chargeable target within 12" AND Boyz remain at >=40% strength
+    (#175 G9 first-charge trigger), with Round 2 emergency if below 70%
+    starting points, Round 4 fallback if first-charge never fired, and
+    Round 5 force-fire. Cited as `simulator.waaagh`.
 
 Both mechanics are simulator-side gates (not detachment fields), so we
 exercise them through the AI heuristic + a small Battle scenario.
@@ -132,7 +134,14 @@ class MobRuleTests(unittest.TestCase):
 
 
 class WaaaghAITriggerTests(unittest.TestCase):
-    """Direct tests of `should_declare_waaagh` — the simulator-side AI."""
+    """Direct tests of `should_declare_waaagh` — the simulator-side AI.
+
+    #175 G9: the trigger is now the first round where an Ork unit has a
+    chargeable target within 12" AND Boyz remain at >=40% of starting
+    count. Round 2 emergency below 70% pts; Round 4 fallback if first-charge
+    never fired; Round 5 force-fire. The tests below build positions
+    explicitly so the chargeable-target gate is deterministic.
+    """
 
     def _ork_army(self, n: int = 5, starting_points: float = 0.0) -> Army:
         army = Army("Orks")
@@ -145,30 +154,59 @@ class WaaaghAITriggerTests(unittest.TestCase):
         army.starting_points = starting_points
         return army
 
-    def test_default_fires_round_3(self):
-        army = self._ork_army()
-        self.assertFalse(should_declare_waaagh(army, round_num=1))
-        # Round 2 with all units alive: not below 70%, so AI holds.
-        self.assertFalse(should_declare_waaagh(army, round_num=2))
-        self.assertTrue(should_declare_waaagh(army, round_num=3))
+    def _enemy(self, dist: float = 6.0) -> Army:
+        """An opponent army with a single Marine at (dist, 0) from origin."""
+        enemy = Army("Marines")
+        enemy.add_unit(_marine_profile())
+        # Position the unit so distance from (0,0) is `dist`.
+        enemy.units[0].position = (dist, 0.0)
+        return enemy
 
-    def test_round_4_forces_fire(self):
-        """If somehow the AI got to Round 4 without firing, the fallback
-        force-fires so the buff isn't entirely wasted."""
+    def _position_orks_at_origin(self, army: Army) -> None:
+        for u in army.units:
+            u.position = (0.0, 0.0)
+
+    def test_fires_when_chargeable_target_in_range(self):
+        """First-charge trigger: Ork unit within 12" of enemy → fire."""
         army = self._ork_army()
-        self.assertTrue(should_declare_waaagh(army, round_num=4))
+        self._position_orks_at_origin(army)
+        enemy = self._enemy(dist=6.0)   # within 12" charge range
+        self.assertTrue(should_declare_waaagh(army, round_num=2, opponent=enemy))
+
+    def test_holds_round_1_when_no_chargeable_target(self):
+        """Round 1, enemy far away (>12"), no losses → AI holds."""
+        army = self._ork_army()
+        self._position_orks_at_origin(army)
+        enemy = self._enemy(dist=24.0)   # out of 12" charge range
+        self.assertFalse(should_declare_waaagh(army, round_num=1, opponent=enemy))
+        self.assertFalse(should_declare_waaagh(army, round_num=2, opponent=enemy))
+        self.assertFalse(should_declare_waaagh(army, round_num=3, opponent=enemy))
+
+    def test_round_4_fallback_force_fires(self):
+        """If first-charge trigger never fired by Round 4 (enemy stays out
+        of charge range), the fallback force-fires."""
+        army = self._ork_army()
+        self._position_orks_at_origin(army)
+        enemy = self._enemy(dist=24.0)
+        self.assertTrue(should_declare_waaagh(army, round_num=4, opponent=enemy))
+        self.assertTrue(should_declare_waaagh(army, round_num=5, opponent=enemy))
+
+    def test_round_5_force_fires_without_opponent(self):
+        """Round 5 hard force-fire even without opponent context."""
+        army = self._ork_army()
         self.assertTrue(should_declare_waaagh(army, round_num=5))
 
     def test_below_70_percent_fires_round_2(self):
         # 10 Orks worth ~5 pts each = 50 starting points. Kill 4 of them →
-        # 6 alive, points = 30 < 70% of 50 (=35).
+        # 6 alive, points = 30 < 70% of 50 (=35). Emergency fires regardless
+        # of chargeable target.
         army = self._ork_army(n=10, starting_points=0.0)
         army.starting_points = float(
             sum(u.profile.points_cost for u in army.units)
         )
-        # Kill 4 Orks by zeroing their HP.
         for u in army.units[:4]:
             u.current_health = 0.0
+        # No opponent in range — the emergency leg still fires.
         self.assertTrue(should_declare_waaagh(army, round_num=2))
 
     def test_once_per_battle(self):
@@ -177,12 +215,33 @@ class WaaaghAITriggerTests(unittest.TestCase):
         self.assertFalse(should_declare_waaagh(army, round_num=4))
         self.assertFalse(should_declare_waaagh(army, round_num=5))
 
-    def test_above_threshold_round_2_does_not_fire(self):
-        """Default Round 2 should not fire if Orks are healthy."""
+    def test_boyz_below_40_percent_blocks_first_charge_trigger(self):
+        """If Boyz are decimated (<40% of starting), the first-charge trigger
+        is blocked — declaring WAAAGH on a corpse-flail is wasted. The R4
+        fallback / emergency leg still applies."""
         army = self._ork_army(n=10)
-        # Replace the snapshot with the current roster value (no losses).
-        army.starting_points = float(sum(u.profile.points_cost for u in army.units))
-        self.assertFalse(should_declare_waaagh(army, round_num=2))
+        # The _ork_boy_profile is tagged 'Ork Boy' which contains 'Boyz'?
+        # No — 'Boy' != 'Boyz'. Force the Boyz substring by renaming the
+        # army's units' profile names through a fresh profile.
+        boyz_profile = _ork_boy_profile(name="Ork Boyz")
+        for u in army.units:
+            u.profile = boyz_profile
+        self._position_orks_at_origin(army)
+        # Kill 7/10 Boyz → 3 alive = 30% < 40% threshold.
+        for u in army.units[:7]:
+            u.current_health = 0.0
+        # Set starting_points low enough that current >= 70% (emergency
+        # leg must NOT fire — we're isolating the Boyz-count gate).
+        current_pts = float(
+            sum(u.profile.points_cost for u in army.alive_units)
+        )
+        army.starting_points = current_pts   # ratio = 100%, no emergency
+        enemy = self._enemy(dist=6.0)
+        # First-charge gate blocked by low Boyz; round 2 / 3 should hold.
+        self.assertFalse(should_declare_waaagh(army, round_num=2, opponent=enemy))
+        self.assertFalse(should_declare_waaagh(army, round_num=3, opponent=enemy))
+        # R4 fallback still fires.
+        self.assertTrue(should_declare_waaagh(army, round_num=4, opponent=enemy))
 
 
 class WaaaghEventEmissionTests(unittest.TestCase):

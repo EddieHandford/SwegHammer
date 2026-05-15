@@ -1595,9 +1595,9 @@ class Battle:
         # gain +1 to wound in melee (the simulator-side gate; +1 to charge
         # rolls and Advance-counts-as-charge are descriptive — see
         # `simulator.waaagh` citation). The AI fires per `should_declare_waaagh`.
-        for army in (self.a, self.b):
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
             if any(u.profile.faction == "Orks" for u in army.units):
-                if should_declare_waaagh(army, round_num):
+                if should_declare_waaagh(army, round_num, opponent):
                     army.waaagh_round_unlocked = round_num
                     self._emit(WaaaghDeclared(
                         army_name=army.name, round_num=round_num,
