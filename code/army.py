@@ -178,6 +178,16 @@ class Army:
         self.cp_refund_remaining: int = 0
         self.first_stratagem_free_this_round: bool = False
         self._warlord_first_strat_free_enabled: bool = False
+        # Adeptus Astartes Oath of Moment (army rule, 10e). At the start of
+        # each Command phase the Marine player picks one enemy unit; until
+        # the start of their next Command phase, every Marine attack against
+        # that unit re-rolls BOTH the hit roll and the wound roll (any
+        # failure, not just 1s). The simulator picks this in _run_round per
+        # round, stores the chosen enemy unit's uid here, and Unit.attack
+        # reads it via the army back-reference to gate the re-rolls. None
+        # means "no oath this round" (e.g. round 0, or no Marine units alive).
+        # Cited as `simulator.oath_of_moment`.
+        self.oath_target_uid: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Faction detection

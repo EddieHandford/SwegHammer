@@ -145,6 +145,42 @@ FACTION_COLOURS: Dict[str, str] = {
 # Public helpers
 # ---------------------------------------------------------------------------
 
+# Top-level Adeptus Astartes umbrella — every chapter codex tagged as a
+# Space Marines successor for the purposes of army rules like Oath of
+# Moment and Combat Doctrines. The Adeptus Astartes army rules from the
+# Space Marines codex apply to every chapter; supplements layer on top
+# (e.g. Blood Angels keep Oath + Doctrines and add Sons of Sanguinius).
+# Grey Knights are excluded: they have their own dedicated army rule
+# ("Teleport Strike" / "Brotherhood Psyker") and do not use Oath /
+# Doctrines on Wahapedia.
+MARINE_FACTIONS = frozenset({
+    "Adeptus Astartes",
+    "Ultramarines",
+    "Blood Angels",
+    "Dark Angels",
+    "Black Templars",
+    "Space Wolves",
+    "Imperial Fists",
+    "Iron Hands",
+    "Raven Guard",
+    "Salamanders",
+    "White Scars",
+    "Deathwatch",
+})
+
+
+def is_marine_faction(faction: str) -> bool:
+    """Return True iff `faction` is any flavour of Adeptus Astartes chapter.
+
+    Used to gate army-rule effects (Oath of Moment, Combat Doctrines) that
+    are shared across every Marine chapter codex. The check is a pure
+    membership test against `MARINE_FACTIONS` — no substring matching, no
+    case normalisation. Grey Knights are deliberately excluded (they have
+    their own army rule).
+    """
+    return faction in MARINE_FACTIONS
+
+
 def faction_of(codex: str) -> str:
     """Return the faction string for a codex filename, or '' if unrecognised.
 

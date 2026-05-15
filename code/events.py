@@ -230,6 +230,26 @@ class WaaaghDeclared:
 
 
 @dataclass(frozen=True)
+class OathTargetChosen:
+    """An Adeptus Astartes army picked an enemy unit as its Oath of Moment
+    target at the start of its Command phase.
+
+    10e Adeptus Astartes army rule (every round). The Marine player picks
+    one enemy unit; until the start of their next Command phase, every
+    Marine attack against that unit re-rolls BOTH the hit roll AND the
+    wound roll. The simulator's AI picks the highest-points enemy unit
+    each round; Unit.attack reads `army.oath_target_uid` to gate the
+    re-rolls. Cited as `simulator.oath_of_moment`.
+
+    Informational — renderers can ignore this event; the re-roll math is
+    applied at attack time via `Army.oath_target_uid`.
+    """
+    army_name: str
+    round_num: int
+    target_uid: str
+
+
+@dataclass(frozen=True)
 class BattleshockFailed:
     """A unit failed its Battleshock check this round and counts as OC 0."""
     unit_uid: str

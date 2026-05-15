@@ -130,10 +130,14 @@ GLADIUS_TASK_FORCE = Detachment(
     name="Gladius Task Force",
     faction="Adeptus Astartes",
     notes=(
-        "Combat Doctrines: lossy approximation as army-wide re-roll wound 1s. "
-        "Real rule rotates through Devastator/Tactical/Assault doctrines."
+        "Combat Doctrines: round-rotating +1 to wound active for ADEPTUS "
+        "ASTARTES units (Devastator R1 ranged-only / Tactical R2 both / "
+        "Assault R3+ melee-only). The doctrine rotation lives in Unit.attack, "
+        "gated on this detachment's name + faction. Cited as "
+        "`simulator.combat_doctrines`. The detachment dataclass intentionally "
+        "carries no offensive flags — Doctrines is round-and-mode-gated, "
+        "not a static buff, so it can't be reduced to a single boolean field."
     ),
-    reroll_wound_ones=True,
     preferred_composition="balanced",
 )
 

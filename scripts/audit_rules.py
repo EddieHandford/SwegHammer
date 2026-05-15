@@ -173,6 +173,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Desperate Escape test (10e core). After a Fall Back that passed
     # through enemy models, roll 1D6 per model; each 1 destroys one model.
     "simulator.desperate_escape",
+    # Adeptus Astartes Oath of Moment army rule (10e). At the start of each
+    # Command phase the Marine army picks one enemy unit; Marine attacks
+    # against that unit re-roll both the Hit roll and the Wound roll (any
+    # failure, not just 1s). Faction-gated via code.factions.is_marine_faction
+    # so every chapter codex inherits the rule.
+    "simulator.oath_of_moment",
+    # Adeptus Astartes Combat Doctrines (Gladius Task Force detachment, 10e).
+    # Round-rotating +1 to wound: Devastator R1 (ranged), Tactical R2 (both),
+    # Assault R3+ (melee). Faction-gated to Marines AND detachment-gated to
+    # "Gladius Task Force" — Ironstorm Spearhead gets nothing here.
+    "simulator.combat_doctrines",
 )
 
 

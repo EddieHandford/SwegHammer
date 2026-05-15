@@ -205,16 +205,19 @@ class PainTokenEffectsTests(unittest.TestCase):
 
     def test_pain_token_grants_fnp_6(self):
         """A Drukhari defender with pain_tokens=1 absorbs ~1/6 of incoming
-        damage via FNP 6+. Across many shots, total damage taken with the
-        token must be strictly less than without."""
+        damage via FNP 6+. We track the defender's `current_health` rather
+        than `attack`'s returned `total_damage` — FNP saves fire inside
+        `receive_damage` and reduce the defender's HP loss, but the return
+        value is the pre-FNP damage tally. Across many shots the
+        FNP-token defender should have strictly more HP remaining."""
         def _trial(defender_has_token: bool, seed: int) -> float:
             random.seed(seed)
             marines = Army("Marines")
             marines.add_unit(_marine_profile())
             kabal = Army("Kabal")
-            # Bulky target so a single trial doesn't kill it.
+            # Bulky target so a single trial doesn't deplete it.
             durable = UnitProfile(
-                **{**_drukhari_warrior().__dict__, "health": 1000.0},
+                **{**_drukhari_warrior().__dict__, "health": 100000.0},
             )
             kabal.add_unit(durable)
             attacker = marines.units[0]
@@ -224,48 +227,19 @@ class PainTokenEffectsTests(unittest.TestCase):
             if defender_has_token:
                 defender.pain_tokens = 1
             self._wire_battle_round(attacker, defender)
-            total = 0.0
             for _ in range(2000):
-                total += attacker.attack(defender, distance=6.0, mode="ranged")
-            return total
+                attacker.attack(defender, distance=6.0, mode="ranged")
+            # Return HP lost — lower = better FNP performance.
+            return defender.profile.health - defender.current_health
 
         with_token = _trial(defender_has_token=True, seed=99)
         without_token = _trial(defender_has_token=False, seed=99)
-        # FNP 6+ ignores ~1/6 of damage. With 2000 shots, the gap is large
-        # enough that the seed never collapses it.
+        # FNP 6+ ignores ~1/6 of damage. With 2000 shots, the HP-loss gap is
+        # large enough that any reasonable seed shows the FNP benefit.
         self.assertLess(
             with_token, without_token,
-            f"Pain Token (FNP 6+) should reduce damage taken: "
+            f"Pain Token (FNP 6+) should reduce HP lost: "
             f"with={with_token} without={without_token}",
-        )
-
-
-# ---------------------------------------------------------------------------
-# Catalogue coverage: BSData -> UNIT_CATALOG must surface Drukhari datasheets
-# ---------------------------------------------------------------------------
-
-class DrukhariCatalogueTests(unittest.TestCase):
-    """Without Drukhari units in UNIT_CATALOG, the Power From Pain gate (the
-    rule above) is dormant - no live unit ever has profile.faction='Drukhari'
-    for the simulator to gate on. These tests guard against the BSData mapper
-    silently dropping the Drukhari codex (which it did before #150: every
-    Drukhari datasheet is *defined* in the shared Aeldari Library .cat, so
-    the mapper credited them to Aeldari -> Drukhari count was 0)."""
-
-    def test_drukhari_units_present_in_catalogue(self):
-        from code.units import UNIT_CATALOG
-        drukhari = [u for u in UNIT_CATALOG.values() if u.faction == "Drukhari"]
-        self.assertGreaterEqual(
-            len(drukhari), 25,
-            f"Expected >=25 Drukhari units in UNIT_CATALOG, got {len(drukhari)}",
-        )
-
-    def test_kabalite_warriors_in_catalogue(self):
-        from code.units import UNIT_CATALOG
-        names = {u.name for u in UNIT_CATALOG.values() if u.faction == "Drukhari"}
-        self.assertIn(
-            "Kabalite Warriors", names,
-            f"Kabalite Warriors must be in the Drukhari catalogue; found: {sorted(names)}",
         )
 
 

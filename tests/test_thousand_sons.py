@@ -155,8 +155,17 @@ class AllIsDustTests(unittest.TestCase):
 
     def test_non_tson_target_unaffected(self):
         """D1 attacker vs vanilla Marine (faction != TSons). Wound rate
-        must equal the no-rule baseline — verifies the faction gate."""
-        atk = _single_damage_attacker()
+        must equal the no-rule baseline — verifies the faction gate.
+
+        We swap the attacker's faction to "Chaos Space Marines" so the
+        Adeptus Astartes Combat Doctrines +1-to-wound (Round 1 Devastator
+        on ranged attacks) doesn't perturb the wound rate. The D1 attacker
+        in this codepath ALWAYS rolls vs a 4+ wound target (S4 vs T4)."""
+        atk = dataclasses.replace(
+            _single_damage_attacker(),
+            faction="Chaos Space Marines",
+            name="D1 Bolter (CSM)",
+        )
         marine = _rubric_marine(faction="Adeptus Astartes")
         rate = _wound_rate(atk, marine, seed=2)
         # Baseline ~0.167 (50% wound * 33% fail save). Wide bounds for noise.

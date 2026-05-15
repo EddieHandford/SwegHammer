@@ -10,11 +10,13 @@ from .army import Army
 from .detachments import effective_move
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
-    InitialUnit, JudgementTokenAwarded, ObjectiveScored, RoundEnded,
-    RoundStarted, StratagemFired, Subscriber, UnitActivated, UnitAdvanced,
-    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
-    UnitMoved, UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
+    InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
+    RoundEnded, RoundStarted, StratagemFired, Subscriber, UnitActivated,
+    UnitAdvanced, UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated,
+    UnitKilled, UnitMoved, UnitReanimated, UnitScouted, UnitShot,
+    WaaaghDeclared,
 )
+from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
@@ -1514,6 +1516,17 @@ class Battle:
             army.doctrina_imperative = None
             if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
                 army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
+        # ---- Adeptus Astartes Oath of Moment (army rule, 10e). At the start
+        # of each Command phase a Marine player picks one enemy unit; every
+        # Marine attack against that unit re-rolls hits AND wounds (full
+        # re-rolls, not just 1s) until the start of the next Command phase.
+        # We reset to None at the top of the round so a stale uid never
+        # leaks across rounds (the buff only fires while uid == current
+        # target). Cited as `simulator.oath_of_moment`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.oath_target_uid = None
+            if any(is_marine_faction(u.profile.faction) for u in army.units):
+                self._pick_oath_target(army, opponent, round_num)
         # ---- World Eaters Blood Tithe spend (10e army rule). The codex
         # allows spending at the start of any phase; we elect once per round
         # at the start of the Command phase, priority-greedy on the WE
@@ -2169,6 +2182,34 @@ class Battle:
     def _emit(self, event) -> None:
         for s in self.subscribers:
             s.on_event(event)
+
+    def _pick_oath_target(
+        self, army: Army, opponent: Army, round_num: int,
+    ) -> None:
+        """Adeptus Astartes Oath of Moment — pick this round's oath target.
+
+        AI heuristic: pick the highest-points alive enemy unit. The codex
+        rule lets the Marine player pick freely, so a points-weighted
+        threat heuristic matches the typical "kill their most valuable
+        thing" play pattern. Sets `army.oath_target_uid` and emits
+        `OathTargetChosen`. No-op (and no event) when the opponent has no
+        alive units left — Oath can still be declared on a wiped enemy by
+        the rules text but the re-roll is dead weight, so we skip cleanly.
+
+        The buff itself (re-roll all hits AND all wounds against the
+        chosen unit) is applied in Unit.attack, gated on the attacker
+        being a Marine and `attacker_army.oath_target_uid == target.uid`.
+        """
+        alive = opponent.alive_units
+        if not alive:
+            return
+        target = max(alive, key=lambda u: u.profile.points_cost)
+        army.oath_target_uid = target.uid
+        self._emit(OathTargetChosen(
+            army_name=army.name,
+            round_num=round_num,
+            target_uid=target.uid,
+        ))
 
     def _maybe_award_blood_tithe(
         self, killer: "Unit", killer_army: Army,

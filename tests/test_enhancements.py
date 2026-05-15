@@ -136,17 +136,20 @@ class EffectiveBuffsCompositionTests(unittest.TestCase):
         # Pick a grunt (not the captain) to read attacker buffs on.
         grunt = army.units[1]
         buffs = effective_buffs(grunt)
-        # Gladius detachment grants reroll_wound_ones, but NOT plus_one_to_wound.
+        # Gladius no longer carries reroll_wound_ones (that was the lossy
+        # Combat Doctrines approximation, replaced in #115/#116 by the
+        # round-rotating +1-to-wound simulator gate). Both flags off here.
         self.assertFalse(buffs["plus_one_to_wound"])
-        self.assertTrue(buffs["reroll_wound_ones"])
+        self.assertFalse(buffs["reroll_wound_ones"])
 
     def test_enhancement_grants_plus_one_to_wound(self):
         army = self._make_marine_army(with_enhancement=True)
         grunt = army.units[1]
         buffs = effective_buffs(grunt)
         self.assertTrue(buffs["plus_one_to_wound"])
-        # Other Gladius flags still merged.
-        self.assertTrue(buffs["reroll_wound_ones"])
+        # Gladius itself no longer touches reroll_wound_ones; only the
+        # enhancement's plus_one_to_wound shows up on the grunt.
+        self.assertFalse(buffs["reroll_wound_ones"])
 
 
 # ---------------------------------------------------------------------------

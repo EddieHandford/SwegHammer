@@ -1,15 +1,6 @@
 {
   "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged '(approximation)' where the simulator's behaviour diverges from the canonical rule.",
 
-  "GLADIUS_TASK_FORCE.reroll_wound_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
-    "rule_name": "Combat Doctrines",
-    "quoted_text": "At the start of your Command phase, you can select one of the Combat Doctrines listed below. Until the start of your next Command phase, that Combat Doctrine is active and its effects apply to all ADEPTUS ASTARTES units from your army. You can only select each Combat Doctrine once per battle. Devastator Doctrine: 'This unit is eligible to shoot in a turn in which it Advanced.' Tactical Doctrine: 'This unit is eligible to shoot and declare a charge in a turn in which it Fell Back.' Assault Doctrine: 'This unit is eligible to declare a charge in a turn in which it Advanced.'",
-    "trigger": "any friendly Adeptus Astartes attack",
-    "effect": "re-roll wound rolls of 1 (approximation of the Devastator/Tactical/Assault Combat Doctrines rotation, which actually grants conditional movement-keyword shooting/charging)",
-    "scope": "army-wide"
-  },
-
   "AWAKENED_DYNASTY.reanimate_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",

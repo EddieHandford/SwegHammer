@@ -7,6 +7,8 @@ import random
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
+from .factions import is_marine_faction
+
 # ---------------------------------------------------------------------------
 # Baseline calibration constants — Space Marine is the reference unit
 # ---------------------------------------------------------------------------
@@ -638,6 +640,32 @@ class Unit:
         if att_buffs["plus_one_to_wound"]:
             wound_target = max(2, wound_target - 1)
 
+        # ---- Adeptus Astartes Combat Doctrines (Gladius Task Force
+        # detachment rule, 10e). At the start of each Command phase the
+        # Marine player picks an active Doctrine. SwegHammer's AI rotates
+        # deterministically: round 1 Devastator (+1 to wound, ranged only),
+        # round 2 Tactical (+1 to wound, both modes), round 3+ Assault
+        # (+1 to wound, melee only). Faction-gated to Marines AND
+        # detachment-gated to "Gladius Task Force" — Ironstorm Spearhead
+        # Marines get nothing here. Applied alongside the +1-to-wound
+        # buff above so later compounding effects (All Is Dust, Lance,
+        # etc.) see the boosted target. Cited as `simulator.combat_doctrines`.
+        own_army = getattr(self, "army_ref", None)
+        if own_army is not None and is_marine_faction(p.faction):
+            det = own_army.resolve_detachment()
+            if det is not None and det.name == "Gladius Task Force":
+                battle = getattr(own_army, "_battle_ref", None)
+                cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                doctrine_applies = False
+                if cur_round == 1 and mode != "melee":
+                    doctrine_applies = True   # Devastator
+                elif cur_round == 2:
+                    doctrine_applies = True   # Tactical
+                elif cur_round >= 3 and mode == "melee":
+                    doctrine_applies = True   # Assault
+                if doctrine_applies:
+                    wound_target = max(2, wound_target - 1)
+
         # Capture the hit target AFTER positive buffs but BEFORE any negative
         # modifiers (Heavy in engagement / Indirect / cover / Stealth / DG
         # Contagions round 3+). Used to enforce 10e's "modifiers to hit
@@ -845,8 +873,14 @@ class Unit:
         att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
         att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
         # "Re-roll ALL failed hits" defaults to off — only the Votann
-        # Judgement Tokens path (below) currently turns it on.
+        # Judgement Tokens path (below) and Marines Oath of Moment turn
+        # it on.
         att_reroll_all_hits = False
+        # "Re-roll ALL failed wounds" defaults to off. Set by Oath of
+        # Moment for a Marine attacker firing at the army's oath target.
+        # Distinct from `att_reroll_wound_ones` (1s only): the rule grants
+        # a full failure re-roll, not just nat-1s.
+        att_reroll_all_wounds = False
 
         # ---- Leagues of Votann — Eye of the Ancestors / Judgement Tokens ----
         own_army = getattr(self, "army_ref", None)
@@ -857,6 +891,22 @@ class Unit:
             if tokens >= 3:
                 att_reroll_all_hits = True
                 att_reroll_wound_ones = True
+
+        # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
+        # attacker is a Marine (any chapter) AND its army has declared
+        # this round's oath target on this defender's uid, every attack
+        # against that defender re-rolls BOTH the hit roll and the wound
+        # roll. The flag composes with the existing 1s-only re-rolls but
+        # the `att_reroll_all_*` branches take priority in the loop below
+        # (one re-roll per die — never stacks). Cited as
+        # `simulator.oath_of_moment`.
+        if (
+            own_army is not None
+            and is_marine_faction(p.faction)
+            and getattr(own_army, "oath_target_uid", None) == target.uid
+        ):
+            att_reroll_all_hits = True
+            att_reroll_all_wounds = True
 
         # Fire and Fade (Aeldari Battle Host stratagem) — transient
         # re-roll hit rolls of 1 on shooting attacks for the round.
@@ -932,10 +982,19 @@ class Unit:
                 else:
                     wroll = random.randint(1, 6)
                     rerolled = False
-                    # Re-roll natural 1s to wound (detachment). Compose with
-                    # Twin-Linked (re-roll any failure) but never re-roll the
-                    # same die twice.
-                    if att_reroll_wound_ones and wroll == 1:
+                    # Re-roll handling for wounds. Two compatible flags:
+                    #   att_reroll_all_wounds: replace ANY failure (Marines
+                    #     Oath of Moment; superset of reroll_wound_ones).
+                    #   att_reroll_wound_ones: replace a natural 1 only
+                    #     (Gladius / detachment / Votann tier-3).
+                    # Only one re-roll per die — `att_reroll_all_wounds`
+                    # takes priority and a fired re-roll under it does not
+                    # stack another re-roll under reroll_wound_ones or
+                    # Twin-Linked.
+                    if att_reroll_all_wounds and wroll < wound_target:
+                        wroll = random.randint(1, 6)
+                        rerolled = True
+                    elif att_reroll_wound_ones and wroll == 1:
                         wroll = random.randint(1, 6)
                         rerolled = True
                     wound_succeeded = (wroll >= wound_target)
