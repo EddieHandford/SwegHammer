@@ -33,12 +33,11 @@ cost-anchored work until landed.
 1. **[E] Points-per-model import fix.** The bottleneck. Once landed, the
    Sweg-balancer overrides need re-anchoring and the Compare view's
    mispricing numbers become trustworthy.
-2. **[?] Marines Oath of Moment retry.** Three attempts have regressed
-   MAE (Marines push from baseline to +5pt). Needs a damped version
-   (re-roll 1s only, not full re-roll) or concurrent re-pricing.
-3. **[?] Widen Phase 4 calibration anchor set.** Adds units with diverse
-   mobility (Spectres, Stormboyz, Acolytes) so `w_move` and
-   `w_infiltrator` are no longer under-identified.
+2. **[J] Deepstrike AI overhaul** (see Sim engine open items below).
+   Strategic, not blocked on Ed.
+3. **[J] Renderer: real-world base sizes** — circles / rectangles / ovals
+   sized to actual Wahapedia model footprints (see Visualisation below).
+   Quick UX win, not blocked on Ed.
 
 ---
 
@@ -63,6 +62,14 @@ cost-anchored work until landed.
 - `[J]` **Iterative MC bisection per-faction** post-fix — current pass
   was single-shot ±10% on 10 units; needs convergent loop until MAE
   plateaus.
+- `[J]` **Dual headline metric** — split MAE-vs-real-meta from
+  MAE-vs-Sweg-balanced-meta. The "minimal rule changes" design
+  (alternating activation, CP-for-fewer-units) creates a structural
+  floor on vs-real-meta MAE that can't be closed by adding more rules.
+  Sweg-balanced-meta is what the calibration should actually converge
+  toward. **Hold this until Ed's points-cost fix lands** — without GW-
+  anchored points neither metric is honest. Spec lives in `ROADMAP.md`
+  Goal C future considerations.
 
 ### Tactical utility (Goal D)
 - `[?]` **Widen calibration anchor set** — add Spectres / Stormboyz /
@@ -70,12 +77,55 @@ cost-anchored work until landed.
   `w_deep_strike` are no longer calibrated to 0.
 
 ### Sim engine open items
+- `[J]` **Deepstrike AI overhaul.** Current behaviour brings units in
+  one-at-a-time across rounds, low impact. Real-tournament deepstrike
+  thinking:
+  - **Massed arrival**: if multiple units can drop, coordinate them
+    into the same round on the same flank — 4 units arriving together
+    overwhelm the defending fire; 1 unit per round gets stripped.
+  - **Tempo cost of staying off-table**: a unit in reserves contributes
+    zero VP and zero damage. Holding past T3 is usually wrong unless
+    the late-turn objective grab is the explicit play.
+  - **Late-game objective steal**: T4/T5 deepstrikes should target
+    enemy/contested objective markers, not maximum-threat enemy units.
+  - **Confirmed**: arriving units CAN shoot and charge the turn they
+    land (10e rule, our sim already allows this — only the move sub-
+    phase is skipped). No engine change needed here, just AI.
+  Implementation lives in `code/simulator.py:_arrive_from_reserves`
+  and the strategy layer that picks DS targets.
+- `[?]` **Transports (Embark / Disembark / Firing Deck).** Not currently
+  modelled — confirmed by grep returning no matches. Big surface area;
+  Marines (Rhinos / Repulsors / Impulsors), T'au (Devilfish), Custodes
+  (Caladius), Aeldari (Wave Serpents) all rely on transports for 6"+
+  pre-move + Firing Deck shooting. Direction-of-MAE will buff vehicle-
+  mobility factions, so wait until after Ed's points fix + a calibration
+  pass before landing, otherwise it'll just push T'au further off
+  baseline.
 - `[E]` **Per-segment movement collision** — currently only the
   destination is checked, so units can tunnel through walls.
 - `[E]` **Regenerate `BASELINE.md` catalogue table** — points columns
   stale since the wound roll landed.
 
 ### Visualisation / app
+- `[J]` **Real-world base sizes in the renderer.** Pull canonical base
+  dimensions from Wahapedia / GW datasheets and draw shapes
+  proportionally. Three shape families:
+  - **Circles** — INFANTRY / most CHARACTERs. Real diameters: 25mm
+    (cultists), 28mm (most), 32mm (Marines), 40mm (Terminators / big
+    infantry), 50mm (heroes), 60mm (Riptide-sized), 80–170mm (monsters
+    / dreadnoughts).
+  - **Rectangles** — most VEHICLEs. Reference: ~6×3.5" footprint
+    (Rhino-sized) but variable per-datasheet; Repulsor / Predator
+    larger, Razorback smaller. Source from Wahapedia "base size" field
+    or hand-curate from datasheet images.
+  - **Ovals** — flying / monstrous units with elliptical bases. 60×35mm,
+    75×42mm, 105×70mm, 130×85mm, 170×105mm are the GW standard sizes.
+  Field `base_shape` and `base_dimensions` on UnitProfile; mapper
+  pulls from BSData if available, else hand-override in
+  `data/overrides.json`. Renderer (`code/renderer.py:render_frame`)
+  picks the right matplotlib patch (`Circle` / `Rectangle` /
+  `Ellipse`) and scales radius / width / height from world inches.
+  Default fallback retains current shape variety map.
 - `[?]` **PygameRenderer** — third button in `run.py` launcher;
   subscribes to the event stream and paints a live battle in a native
   window. Headless event-stream contract already in `code/events.py`.
