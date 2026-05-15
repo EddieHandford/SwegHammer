@@ -32,7 +32,7 @@ from .stratagems import (
     IMPLACABLE_ONSLAUGHT, METHODICAL_DESTRUCTION,
     # Mont'ka (T'au Empire)
     STRIKE_SWIFTLY,
-    award_command_phase_cp,
+    CP_CAP, award_command_phase_cp,
 )
 
 
@@ -207,6 +207,21 @@ class Battle:
             if any("ASURYANI" in (u.profile.unit_keywords or ())
                    for u in army.units):
                 army.battle_focus_tokens = 4
+
+        # CP-econ Warlord scan (Belisarius Cawl, Roboute Guilliman, Trazyn
+        # the Infinite, Lord of Contagion). Seeds Army.cp_refund_remaining
+        # and Army._warlord_first_strat_free_enabled from the resolved
+        # Warlord's LeaderAbility. Armies without a CP-econ Warlord keep
+        # their defaults and the discount/refund gates stay dormant — this
+        # is the gate that ensures the mechanic never accidentally grants
+        # CP to a non-Warlord-having army.
+        from .leaders import warlord_ability
+        for army in (self.a, self.b):
+            wl = warlord_ability(army)
+            if wl is None:
+                continue
+            army.cp_refund_remaining = wl.cp_refund_per_battle
+            army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
 
         self._assign_uids()
         self._deploy_armies()
@@ -1358,6 +1373,30 @@ class Battle:
         # awarded later by _award_cp.
         award_command_phase_cp(self.a)
         award_command_phase_cp(self.b)
+        # ---- Warlord-gated CP discount (Roboute Guilliman, Lord of
+        # Contagion). After the per-round drip, look up the army's Warlord
+        # and apply any additional per-round CP mechanic:
+        #   * `cp_discount_per_round > 0`: bump command_points by that
+        #     amount (capped at the universal CP_CAP=6). Guilliman's
+        #     "Author of the Codex" extra +1 CP / round.
+        #   * `first_stratagem_free_per_round`: re-arm the "next stratagem
+        #     is free" latch for this round. Lord of Contagion's "Lord of
+        #     the Death Guard" Warlord trait.
+        # The Warlord scan is keyed off `_warlord_first_strat_free_enabled`
+        # / `warlord_ability(army)` — armies without a CP-econ Warlord skip
+        # this block entirely and the discount never fires.
+        from .leaders import warlord_ability as _warlord_ability_for_round
+        for army in (self.a, self.b):
+            wl = _warlord_ability_for_round(army)
+            if wl is None:
+                continue
+            if wl.cp_discount_per_round > 0:
+                army.command_points = min(
+                    CP_CAP,
+                    army.command_points + wl.cp_discount_per_round,
+                )
+            if army._warlord_first_strat_free_enabled:
+                army.first_stratagem_free_this_round = True
         # ---- Orks WAAAGH! once-per-battle declaration (Command phase).
         # 10e Orks army rule: declared at the start of a Command phase, once
         # per battle. While active until the end of that turn, Ork attackers
@@ -2182,6 +2221,23 @@ class Battle:
         if strat.once_per_battle and strat.name in already:
             return False
         army.command_points -= strat.cp_cost
+        # Warlord-gated CP refund. Two independent mechanics, applied in
+        # priority order so each pool drains separately:
+        #   1. `first_stratagem_free_this_round` (Lord of Contagion's "Lord
+        #      of the Death Guard" Warlord trait): the first stratagem this
+        #      army fires this round is refunded its full cost and the flag
+        #      flips off until the next Command phase re-arms it.
+        #   2. `cp_refund_remaining` (Belisarius Cawl, Trazyn the Infinite):
+        #      one-time-per-battle refund pool. Each spend that bypasses (1)
+        #      pops one refund, gaining +1 CP and decrementing the pool.
+        # Both refunds respect the CP_CAP=6 ceiling so a refunded spend at
+        # cap still floors at cap — they refund the OLD CP value, not above.
+        if army.first_stratagem_free_this_round:
+            army.command_points = min(CP_CAP, army.command_points + strat.cp_cost)
+            army.first_stratagem_free_this_round = False
+        elif army.cp_refund_remaining > 0:
+            army.command_points = min(CP_CAP, army.command_points + 1)
+            army.cp_refund_remaining -= 1
         already.add(strat.name)
         self._stratagems_fired_this_battle[army.name] = already
         self._emit(StratagemFired(

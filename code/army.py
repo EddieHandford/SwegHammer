@@ -170,6 +170,14 @@ class Army:
         # target. Reset to False each round by Battle._clear_transient_stratagem_flags.
         # Cited as `Stratagem.Cabbalistic Empowerment`.
         self.cabbalistic_doombolt_boost: bool = False
+        # CP discount / refund mechanics tied to specific Warlord characters
+        # (Belisarius Cawl, Roboute Guilliman, Trazyn the Infinite, Lord of
+        # Contagion). The Battle initialiser scans this army's CHARACTER
+        # units at start-of-battle and seeds the fields below from the
+        # bearer's LeaderAbility, IFF that character is the army's Warlord.
+        self.cp_refund_remaining: int = 0
+        self.first_stratagem_free_this_round: bool = False
+        self._warlord_first_strat_free_enabled: bool = False
 
     # ------------------------------------------------------------------
     # Faction detection

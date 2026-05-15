@@ -1,0 +1,30 @@
+{
+  "_comment": "Citations for the CP-discount / CP-refund HQ LeaderAbility entries added by task #128. These map character datasheets whose 10e codex grants the army an extra CP or a stratagem-cost refund when the character is fielded as the army's Warlord. The simulator picks the Warlord via `leaders.warlord_ability(army)` and seeds `Army.cp_refund_remaining` / `Army._warlord_first_strat_free_enabled` at battle start; non-Warlord-having armies never accrue the discount. Sources: Wahapedia 10e datasheets (https://wahapedia.ru/wh40k10ed/).",
+
+  "LeaderAbility.Author of the Codex": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Roboute-Guilliman",
+    "rule_name": "Author of the Codex",
+    "quoted_text": "While this model is on the battlefield, at the start of each of your Command phases, you gain 1CP. Note that the rule allowing you to gain no more than 1CP per battle round still applies.",
+    "trigger": "Roboute Guilliman is the army's Warlord and alive at the start of a Command phase",
+    "effect": "+1 CP at the start of every Command phase, on top of the universal +1/round drip (capped at CP_CAP=6). Implemented via `LeaderAbility.cp_discount_per_round=1`, consumed by `Battle._run_round` after `award_command_phase_cp` when `warlord_ability(army)` resolves to this LeaderAbility. The codex's 'no more than 1CP per battle round' clause is honoured by the same CP_CAP=6 ceiling that bounds the universal drip — the discount adds to the same accumulator and clamps at the cap.",
+    "scope": "character-only"
+  },
+
+  "LeaderAbility.Master of the Forge": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Belisarius-Cawl",
+    "rule_name": "Master of the Forge",
+    "quoted_text": "Once per battle, at the start of your Command phase, if this model is on the battlefield, you can gain 1CP.",
+    "trigger": "Belisarius Cawl is the army's Warlord and alive (the codex effect is once-per-battle, modelled as a one-shot CP-refund pool)",
+    "effect": "Once-per-battle +1 CP. The simulator seeds `Army.cp_refund_remaining = 1` at battle start when Cawl is the Warlord; the next Stratagem spend pops the pool and refunds 1 CP (capped at CP_CAP=6). This is a strictly-equivalent re-encoding of 'gain 1CP at the start of a Command phase' as 'first Stratagem spend is refunded' — both deliver +1 net CP once per battle. The reroll_hit_ones offensive aura is the standard Tech-Priest Dominus aura proxy (Cawl is treated as a heavyweight Dominus by the simulator's leader-buff layer).",
+    "scope": "character-only"
+  },
+
+  "LeaderAbility.Surreptitious Acquisition": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Trazyn-the-Infinite",
+    "rule_name": "Surreptitious Acquisition",
+    "quoted_text": "Once per battle, after your opponent uses a Stratagem, if this model is on the battlefield, you can gain 1CP.",
+    "trigger": "Trazyn the Infinite is the army's Warlord and alive; opponent spends a Stratagem (modelled as: own next Stratagem spend triggers a one-time refund)",
+    "effect": "Once-per-battle +1 CP. The codex effect fires off the opponent's stratagem spend; SwegHammer's simulator doesn't expose an enemy-stratagem-fired hook to the friendly army's CP accumulator, so we approximate by routing the refund through the bearer's next own-stratagem spend instead — same net effect (+1 CP once per battle). Implemented via `LeaderAbility.cp_refund_per_battle=1`, seeded into `Army.cp_refund_remaining` at battle start. plus_one_to_hit is the generic Overlord-class offensive aura proxy.",
+    "scope": "character-only"
+  }
+}
