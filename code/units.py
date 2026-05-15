@@ -390,14 +390,18 @@ class Unit:
         #       buff: each per-shot damage reduced by 1 (floor 1) for the round.
         #   transient_plus_one_to_wound_melee — Outbreak of Pestilence. Attacker
         #       buff: +1 to wound on melee attacks for the round.
-        # Battle Host (Aeldari):
-        #   transient_plus_one_save — Lightning-Fast Reactions. Defender buff:
-        #       +1 to armour save (cap 2+) for the round.
+        # Warhost (Aeldari, was "Battle Host" pre-#197):
+        #   transient_plus_one_save — Lightning-Fast Reactions (also reused by
+        #       Skyborne Sanctuary and Webway Tunnel as defensive proxies).
+        #       Defender buff: +1 to armour save (cap 2+) for the round.
         #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
         #       hit rolls in shooting are re-rolled (once) for the round.
-        #   transient_assault_this_round — Matchless Agility OR Strike Swiftly
-        #       (T'au Mont'ka). Movement buff: unit may shoot in the same round
-        #       it advanced.
+        #   transient_plus_one_to_hit_shooting — Blitzing Firepower (Warhost
+        #       proxy for Sustained Hits 1). Attacker buff: +1 to hit on ranged
+        #       attacks for the round. Reused by Methodical Destruction too.
+        #   transient_assault_this_round — Feigned Retreat (Warhost), Strike
+        #       Swiftly (T'au Mont'ka). Movement buff: unit may shoot in the
+        #       same round it advanced.
         # Awakened Dynasty (Necrons):
         #   transient_fnp_5 — Implacable Onslaught. Defender buff: target gets a
         #       transient FNP 5+ for the round (composes with existing FNP by
@@ -878,7 +882,7 @@ class Unit:
         # ---- Target's buffs: +1 to armour save (cap 2+) ----
         if tgt_buffs["plus_one_save"]:
             save_after_ap = max(2, save_after_ap - 1)
-        # Lightning-Fast Reactions (Battle Host) — transient +1 save on the
+        # Lightning-Fast Reactions (Warhost) — transient +1 save on the
         # target unit for the round. Stacks with the army-wide flag above;
         # capped at 2+ either way.
         if target.transient_plus_one_save:
@@ -935,7 +939,7 @@ class Unit:
             att_reroll_all_hits = True
             att_reroll_all_wounds = True
 
-        # Fire and Fade (Aeldari Battle Host stratagem) — transient
+        # Fire and Fade (Aeldari Warhost stratagem) — transient
         # re-roll hit rolls of 1 on shooting attacks for the round.
         att_reroll_hits_shooting_ones = (
             mode != "melee" and getattr(self, "transient_reroll_hits_shooting", False)
@@ -986,7 +990,7 @@ class Unit:
                     roll = random.randint(1, 6)
                 elif att_reroll_hit_ones and roll == 1:
                     roll = random.randint(1, 6)
-                # Fire and Fade (Battle Host) — transient re-roll natural 1s
+                # Fire and Fade (Warhost) — transient re-roll natural 1s
                 # to hit on shooting attacks. Compose with reroll_hit_ones
                 # above but never re-roll the same die twice — both flags
                 # target the natural-1 case so the first that triggered the

@@ -1,5 +1,5 @@
 {
-  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus two Warhost (Aeldari) detachment stratagems and the re-anchored Disgustingly Resilient (Virulent Vectorium, Death Guard). 11 fabricated stratagems were removed in commit e4b057f per the fabrication audit; their citations have been deleted here.",
+  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus the six Warhost (Aeldari) detachment stratagems and the re-anchored Disgustingly Resilient (Virulent Vectorium, Death Guard). 11 fabricated stratagems were removed in commit e4b057f per the fabrication audit; their citations have been deleted here. The four remaining real Warhost stratagems (Skyborne Sanctuary, Feigned Retreat, Blitzing Firepower, Webway Tunnel) were added in #197.",
 
   "Stratagem.Command Re-Roll": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
@@ -50,20 +50,61 @@
   },
 
   "Stratagem.Lightning-Fast Reactions": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
-    "rule_name": "Lightning-Fast Reactions (Battle Host Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES A SAVING THROW, ADD 1 TO THE ROLL.",
-    "trigger": "any phase, when a friendly AELDARI unit is the target of an attack",
-    "effect": "the unit's `transient_plus_one_save` flag is set; Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1 (capped at 2+). Fires at start of round on a vulnerable Aeldari unit when AI greenlights the spend",
-    "scope": "phase-gated"
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Lightning-Fast Reactions (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S SHOOTING PHASE OR FIGHT PHASE, JUST AFTER AN ENEMY UNIT HAS SELECTED ITS TARGETS. UNTIL THE END OF THE PHASE, SUBTRACT 1 FROM HIT ROLLS TARGETING YOUR UNIT.",
+    "trigger": "opponent's Shooting phase or Fight phase, just after an enemy unit selects a friendly AELDARI unit as target",
+    "effect": "the unit's `transient_plus_one_save` flag is set; Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1 (capped at 2+). Fires at start of round on a vulnerable Aeldari unit when AI greenlights the spend. APPROXIMATION: codex effect is a -1 to incoming Hit rolls on the friendly unit; SwegHammer routes the defensive value through +1 save instead because the to-hit calculation path doesn't expose a clean per-target-defender penalty flag at present",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
   "Stratagem.Fire and Fade": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
-    "rule_name": "Fire and Fade (Battle Host Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, AFTER AN AELDARI UNIT FROM YOUR ARMY HAS SHOT. THAT UNIT CAN MAKE A NORMAL MOVE OF UP TO 6\". IT CANNOT END THAT MOVE WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS.",
-    "trigger": "shooting phase, after a friendly AELDARI unit has shot",
-    "effect": "approximation: a grid-free sim can't usefully model post-shoot 6\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Fire and Fade (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, JUST AFTER AN AELDARI INFANTRY UNIT FROM YOUR ARMY HAS SHOT. THAT UNIT CAN MAKE A NORMAL MOVE OF UP TO D6+1\". IT CANNOT DECLARE A CHARGE OR EMBARK WITHIN A TRANSPORT THIS TURN.",
+    "trigger": "shooting phase, just after a friendly AELDARI INFANTRY unit has shot",
+    "effect": "approximation: a grid-free sim can't usefully model post-shoot D6+1\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Skyborne Sanctuary": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Skyborne Sanctuary (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM AT THE END OF THE FIGHT PHASE. ONE AELDARI INFANTRY UNIT FROM YOUR ARMY THAT IS NOT WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS AND IS WHOLLY WITHIN 6\" OF A FRIENDLY AELDARI TRANSPORT CAN EMBARK WITHIN THAT TRANSPORT.",
+    "trigger": "end of Fight phase, on a friendly AELDARI INFANTRY unit not in engagement range and wholly within 6\" of a friendly AELDARI TRANSPORT",
+    "effect": "APPROXIMATION: SwegHammer's stratagem dispatcher fires at round start, not end-of-fight, and mid-battle re-embark isn't wired into the activation loop. The unit's `transient_plus_one_save` flag is set on the most vulnerable AELDARI unit instead — the closest single-flag stand-in for 'shelter the wounded unit', which is the canonical use case for this stratagem in tournament play",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Feigned Retreat": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Feigned Retreat (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR MOVEMENT PHASE, JUST AFTER AN AELDARI INFANTRY UNIT FROM YOUR ARMY HAS FALLEN BACK. UNTIL THE END OF THE TURN, THAT UNIT IS ELIGIBLE TO SHOOT AND DECLARE A CHARGE, EVEN THOUGH IT FELL BACK THIS TURN.",
+    "trigger": "your Movement phase, just after a friendly AELDARI INFANTRY unit Falls Back",
+    "effect": "APPROXIMATION: the round-start dispatcher fires before any Fall Back has been resolved this round. The unit's `transient_assault_this_round` flag is set on the highest-DPA AELDARI unit instead — the closest single-flag stand-in for 'lets the unit reposition AND shoot the same round', which captures the offensive value of the Fall-Back-then-shoot codex effect",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Blitzing Firepower": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Blitzing Firepower (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED TO SHOOT. UNTIL THE END OF THE PHASE, RANGED WEAPONS EQUIPPED BY MODELS IN THAT UNIT HAVE THE [SUSTAINED HITS 1] ABILITY WHEN TARGETING ENEMY UNITS WITHIN 12\". IF A RANGED WEAPON IN THAT UNIT ALREADY HAS [SUSTAINED HITS X], IT INSTEAD SCORES A CRITICAL HIT ON AN UNMODIFIED HIT ROLL OF 5+.",
+    "trigger": "your Shooting phase, when a friendly AELDARI unit is selected to shoot at a target within 12\"",
+    "effect": "APPROXIMATION: SwegHammer has no per-weapon SUSTAINED HITS toggle exposed via a transient flag, so the round-long offensive uplift is routed through `transient_plus_one_to_hit_shooting` — a +1 to hit roughly delivers the same expected damage uplift as Sustained Hits 1 on a 12\"-range engagement. The 5+ Critical Hit clause on weapons already carrying SUSTAINED HITS X is not modelled separately",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Webway Tunnel": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Webway Tunnel (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM AT THE END OF YOUR OPPONENT'S FIGHT PHASE. ONE AELDARI INFANTRY UNIT FROM YOUR ARMY THAT IS WHOLLY WITHIN 9\" OF ANY BATTLEFIELD EDGE AND IS NOT WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS IS PLACED INTO STRATEGIC RESERVES.",
+    "trigger": "end of opponent's Fight phase, on a friendly AELDARI INFANTRY unit wholly within 9\" of a battlefield edge and not in engagement range",
+    "effect": "APPROXIMATION: SwegHammer's reserve queue has no mid-battle re-entry hook, so the 'pull the unit off the table to avoid the next attack' defensive payoff is routed through `transient_plus_one_save` on the most vulnerable AELDARI unit for the round",
     "scope": "phase-gated",
     "approximation": true
   }

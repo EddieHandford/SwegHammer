@@ -91,12 +91,12 @@
     "approximation": true
   },
 
-  "BATTLE_HOST.reroll_hit_ones": {
+  "WARHOST.martial_grace": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Martial Grace",
     "quoted_text": "At the start of the battle round, you receive 1 additional Battle Focus token. Each time a unit from your army performs the Swift as the Wind Agile Manoeuvre, until the end of the phase, add an additional 1\" to the Move characteristic of models in that unit. Each time a unit from your army performs an Agile Manoeuvre that involves rolling a D6, add 1 to the result.",
-    "trigger": "any friendly Aeldari hit roll",
-    "effect": "re-roll hit rolls of 1 (approximation; the canonical Warhost 'Martial Grace' rule is a mobility/Battle-Focus buff with no offensive reroll, so this flag stands in for the launch-index 'Battle Host' Aspect-of-the-Path rotation — codex renamed the index detachment to 'Warhost'). BATTLE_HOST is the simulator's variable name; the codex name is Warhost",
+    "trigger": "start of each battle round, while the Warhost detachment is active and the army contains at least one ASURYANI unit",
+    "effect": "Battle Focus token starting pool is bumped from 4 to 5 when the Warhost detachment is active (approximation: SwegHammer's Battle Focus model is a flat once-at-start pool rather than a per-round +1 refresh, so we collapse the round-by-round bump into a single +1 to the starting pool). The Swift-as-the-Wind +1\" Move and the +1-to-D6 Agile-Manoeuvre boon are APPROXIMATED away — the grid-free movement model can't usefully consume per-phase +1\" / +1-to-d6 buffs. Renamed from BATTLE_HOST.reroll_hit_ones in #197 to use the real Martial Grace rule",
     "scope": "army-wide",
     "approximation": true
   },

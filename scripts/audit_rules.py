@@ -64,6 +64,10 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("canoptek_plus_one_to_wound", False),
     ("aspect_warrior_or_bike_plus_one_move", False),
     ("plague_marines_plus_one_to_wound", False),
+    # Warhost (Aeldari) detachment rule (#197 — replaces the previous
+    # reroll_hit_ones approximation with the real Martial Grace Battle
+    # Focus token buff).
+    ("martial_grace", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

@@ -29,8 +29,9 @@ from .stratagems import (
     # Virulent Vectorium (Death Guard) — Disgustingly Resilient (re-anchored
     # to the real detachment at 2CP per the 2026-05-15 fabrication audit)
     DISGUSTINGLY_RESILIENT,
-    # Warhost (Aeldari) — real detachment stratagems
+    # Warhost (Aeldari) — six real detachment stratagems
     LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE,
+    SKYBORNE_SANCTUARY, FEIGNED_RETREAT, BLITZING_FIREPOWER, WEBWAY_TUNNEL,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -270,10 +271,23 @@ class Battle:
         # the default battle size for this simulator. We hand the tokens
         # out to any army that contains at least one ASURYANI unit — the
         # rule is faction-wide, not detachment-gated.
+        # Warhost detachment rule "Martial Grace" (#197) grants +1 token
+        # at start of each battle round; since SwegHammer's Battle Focus
+        # model is a flat once-at-start pool rather than a per-round
+        # refresh, we collapse the +1/round buff into +1 to the starting
+        # pool (over 5 rounds the codex hands out +5, but the simulator
+        # only spends tokens on the rarely-triggered shoot-after-Advance
+        # path; +1 to the pool is a clean single-bump approximation).
+        # Gates on Detachment.martial_grace via resolve_detachment so the
+        # bump fires only when Warhost is the active detachment.
         for army in (self.a, self.b):
             if any("ASURYANI" in (u.profile.unit_keywords or ())
                    for u in army.units):
-                army.battle_focus_tokens = 4
+                base_tokens = 4
+                det = army.resolve_detachment() if hasattr(army, "resolve_detachment") else None
+                if det is not None and getattr(det, "martial_grace", False):
+                    base_tokens += 1
+                army.battle_focus_tokens = base_tokens
 
         # CP-econ Warlord scan (Belisarius Cawl, Roboute Guilliman, Trazyn
         # the Infinite, Lord of Contagion). Seeds Army.cp_refund_remaining
@@ -583,6 +597,14 @@ class Battle:
             self._try_lightning_fast_reactions(army, opponent)
         if "Fire and Fade" in strat_names:
             self._try_fire_and_fade(army, opponent)
+        if "Skyborne Sanctuary" in strat_names:
+            self._try_skyborne_sanctuary(army, opponent)
+        if "Feigned Retreat" in strat_names:
+            self._try_feigned_retreat(army, opponent)
+        if "Blitzing Firepower" in strat_names:
+            self._try_blitzing_firepower(army, opponent)
+        if "Webway Tunnel" in strat_names:
+            self._try_webway_tunnel(army, opponent)
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -635,7 +657,7 @@ class Battle:
 
         Optional `keyword`/`faction` filter restricts to units carrying
         that keyword (e.g. PSYKER) or belonging to that faction
-        (e.g. "Aeldari") so a Battle Host army with stray non-Aeldari
+        (e.g. "Aeldari") so a Warhost army with stray non-Aeldari
         allies still targets the right detachment. See
         `_unit_matches_filter` for the lookup logic.
 
@@ -756,6 +778,107 @@ class Battle:
         if not self._fire_stratagem(army, FIRE_AND_FADE):
             return
         attacker.transient_reroll_hits_shooting = True
+
+    def _try_skyborne_sanctuary(self, army: Army, opponent: Army) -> None:
+        """Skyborne Sanctuary (Warhost, 1 CP). Real rule: end of Fight
+        phase, an AELDARI INFANTRY unit not in engagement range and wholly
+        within 6" of a friendly AELDARI TRANSPORT can embark within it.
+        APPROXIMATION: SwegHammer's stratagem dispatcher fires at round
+        start, not end-of-fight, and re-embark mid-battle isn't wired into
+        the activation loop. We route the defensive value through the
+        existing `transient_plus_one_save` flag on the most vulnerable
+        AELDARI unit for the round, which captures the "shelter the
+        wounded unit" use case the codex stratagem most often serves.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        target = self._most_vulnerable_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, SKYBORNE_SANCTUARY, ctx):
+            return
+        if not self._fire_stratagem(army, SKYBORNE_SANCTUARY):
+            return
+        target.transient_plus_one_save = True
+
+    def _try_feigned_retreat(self, army: Army, opponent: Army) -> None:
+        """Feigned Retreat (Warhost, 1 CP). Real rule: your Movement
+        phase, just after an AELDARI INFANTRY unit Falls Back — until
+        end of turn the unit can shoot and declare a charge despite
+        Falling Back. APPROXIMATION: the round-start dispatcher fires
+        before any Fall Back has been resolved this round, so we route
+        the offensive value through `transient_assault_this_round` on
+        the highest-DPA AELDARI unit (closest single-flag stand-in for
+        "lets the unit reposition AND shoot the same round"). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        attacker = self._highest_dpa_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, FEIGNED_RETREAT, ctx):
+            return
+        if not self._fire_stratagem(army, FEIGNED_RETREAT):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_blitzing_firepower(self, army: Army, opponent: Army) -> None:
+        """Blitzing Firepower (Warhost, 1 CP). Real rule: your Shooting
+        phase, when an AELDARI unit is selected to shoot — until end of
+        phase its ranged weapons gain [SUSTAINED HITS 1] vs targets
+        within 12" (or improve to 5+ Critical Hit if already having the
+        ability). APPROXIMATION: SwegHammer has no per-weapon SUSTAINED
+        HITS toggle exposed via a transient flag, so the round-long
+        offensive uplift is routed through `transient_plus_one_to_hit_shooting`
+        — a +1 to hit roughly delivers the same expected damage uplift
+        as Sustained Hits 1 on a 12"-range engagement. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        attacker = self._highest_dpa_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, BLITZING_FIREPOWER, ctx):
+            return
+        if not self._fire_stratagem(army, BLITZING_FIREPOWER):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_webway_tunnel(self, army: Army, opponent: Army) -> None:
+        """Webway Tunnel (Warhost, 1 CP). Real rule: end of opponent's
+        Fight phase, an AELDARI INFANTRY unit wholly within 9" of a
+        battlefield edge and not in engagement range may enter Strategic
+        Reserves. APPROXIMATION: SwegHammer's reserve queue has no
+        mid-battle re-entry hook, so the "pull the unit off the table
+        to avoid the next attack" defensive payoff is routed through
+        the existing `transient_plus_one_save` flag on the most
+        vulnerable AELDARI unit for the round. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
+        target = self._most_vulnerable_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, WEBWAY_TUNNEL, ctx):
+            return
+        if not self._fire_stratagem(army, WEBWAY_TUNNEL):
+            return
+        target.transient_plus_one_save = True
 
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
@@ -1445,7 +1568,7 @@ class Battle:
         # `_most_vulnerable_unit` / `_highest_dpa_unit`. See task #168.
         self._run_battleshock_phase(round_num)
         # Detachment-specific stratagems that fire at the start of a round
-        # (Cult of Magic, Plague Company, Battle Host). Doombolt also fires
+        # (Virulent Vectorium, Warhost). Doombolt also fires
         # here as a per-round mortal-wound payload — it's nominally a
         # Shooting-phase trigger but the simulator's per-round dispatcher
         # is the cleanest hook for a deterministic "once per round" spend.
@@ -1784,8 +1907,8 @@ class Battle:
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
         # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
-        # Matchless Agility (Battle Host stratagem) has been fired this
-        # round to grant transient Assault.
+        # Feigned Retreat (Warhost stratagem) has been fired this round to
+        # grant transient Assault on the unit.
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             kw = attacker.profile.unit_keywords or ()
             if attacker.transient_assault_this_round:

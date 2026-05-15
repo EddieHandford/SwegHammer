@@ -28,7 +28,10 @@ _NEW_DETACHMENTS = (
     ("inquisition_task_force", "Agents of the Imperium", "reroll_hit_ones",   True),
     ("combined_regiment",      "Astra Militarum",        "plus_one_to_hit",   True),
     ("teleport_strike_force",  "Grey Knights",           "reroll_wound_ones", True),
-    ("battle_host",            "Aeldari",                "reroll_hit_ones",   True),
+    # #197: renamed Battle Host → Warhost (codex name) and replaced the
+    # approximated reroll_hit_ones flag with the real Martial Grace
+    # detachment rule.
+    ("warhost",                "Aeldari",                "martial_grace",     True),
     ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
     ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
     ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),

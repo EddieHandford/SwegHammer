@@ -26,7 +26,7 @@ from typing import Dict, Iterable, Optional, Tuple
 from .enhancements import Enhancement, enhancements_for_detachment
 from .stratagems import (
     Stratagem,
-    BATTLE_HOST_STRATAGEMS,
+    WARHOST_STRATAGEMS,
     DISGUSTINGLY_RESILIENT,
 )
 
@@ -95,6 +95,20 @@ class Detachment:
     canoptek_plus_one_to_wound: bool = False
     aspect_warrior_or_bike_plus_one_move: bool = False
     plague_marines_plus_one_to_wound: bool = False
+
+    # Martial Grace — Warhost (Aeldari) detachment rule (#197). Real text:
+    # "At the start of the battle round, you receive 1 additional Battle Focus
+    # token. Each time a unit from your army performs the Swift as the Wind
+    # Agile Manoeuvre, until the end of the phase, add an additional 1\" to
+    # the Move characteristic of models in that unit. Each time a unit from
+    # your army performs an Agile Manoeuvre that involves rolling a D6, add
+    # 1 to the result." Modelled in the simulator as a +1 to the round-start
+    # Battle Focus token refresh (so the Aeldari Agile Manoeuvre / Star
+    # Engine spend is more readily available). The Swift-as-the-Wind +1"
+    # move and the D6 +1 Agile-Manoeuvre boon are APPROXIMATED away — the
+    # simulator's grid-free movement model can't usefully consume per-phase
+    # +1" / +1-to-d6 buffs.
+    martial_grace: bool = False
 
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
@@ -261,26 +275,35 @@ TELEPORT_STRIKE_FORCE = Detachment(
     preferred_composition="infantry",
 )
 
-BATTLE_HOST = Detachment(
-    # APPROXIMATION: detachment name "Battle Host" is the launch-day index name; codex name is "Warhost".
+WARHOST = Detachment(
+    # #197: renamed from BATTLE_HOST (launch-index name) to WARHOST (codex
+    # name). The detachment rule is now the real "Martial Grace" Battle
+    # Focus token buff rather than the previous reroll_hit_ones approximation.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
-    # Real rule: same detachment, renamed in the codex — effects roughly match but the key/name should be Warhost.
-    name="Battle Host",
+    name="Warhost",
     faction="Aeldari",
     notes=(
-        "Aspect of the Path: lossy as army-wide re-roll hit 1s. Real rule "
-        "rotates +1 to hit / +1 to wound per Aspect Path. Detachment "
-        "stratagems implemented: Lightning-Fast Reactions (+1 save), "
-        "and Fire and Fade (re-roll hits on a friendly Aeldari unit's shoot). "
-        "Matchless Agility and Spirit Stones were previously included here "
-        "but have been removed per the 2026-05-15 fabrication audit "
-        "(commit fa9a957) — neither was in the Aeldari codex."
+        "Martial Grace (Wahapedia): \"At the start of the battle round, you "
+        "receive 1 additional Battle Focus token. Each time a unit from your "
+        "army performs the Swift as the Wind Agile Manoeuvre, until the end "
+        "of the phase, add an additional 1\" to the Move characteristic of "
+        "models in that unit. Each time a unit from your army performs an "
+        "Agile Manoeuvre that involves rolling a D6, add 1 to the result.\" "
+        "Simulator implementation: the round-start Battle Focus token refresh "
+        "for any Aeldari army is incremented by 1 when this detachment is "
+        "active (gates on Detachment.martial_grace). The Swift-as-the-Wind "
+        "+1\" move and the D6 +1 Agile-Manoeuvre boon are APPROXIMATED away "
+        "— the grid-free movement model can't usefully consume per-phase "
+        "+1\" / +1-to-d6 buffs. Detachment stratagems (six real entries, all "
+        "from Wahapedia, #197): Lightning-Fast Reactions (+1 save), Fire and "
+        "Fade (re-roll hits on a friendly Aeldari unit's shoot), Skyborne "
+        "Sanctuary (+1 save proxy for end-of-fight re-embark), Feigned "
+        "Retreat (transient Assault proxy for shoot-after-Fall-Back), "
+        "Blitzing Firepower (+1 to hit shooting proxy for Sustained Hits 1), "
+        "Webway Tunnel (+1 save proxy for end-of-enemy-fight reserve pull)."
     ),
-    # APPROXIMATION: army-wide hit-1s reroll stands in for the Martial Grace / Battle Focus buff.
-    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
-    # Real rule: Martial Grace — Battle Focus / Agile Manoeuvre token mechanic, not a hit-roll reroll.
-    reroll_hit_ones=True,
-    stratagems=BATTLE_HOST_STRATAGEMS,
+    martial_grace=True,
+    stratagems=WARHOST_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -453,7 +476,7 @@ DETACHMENTS: Dict[str, Detachment] = {
     "inquisition_task_force":  INQUISITION_TASK_FORCE,
     "combined_regiment":       COMBINED_REGIMENT,
     "teleport_strike_force":   TELEPORT_STRIKE_FORCE,
-    "battle_host":             BATTLE_HOST,
+    "warhost":                 WARHOST,
     "skysplinter_assault":     SKYSPLINTER_ASSAULT,
     "montka":                  MONTKA,
     "pactbound_zealots":       PACTBOUND_ZEALOTS,
@@ -524,9 +547,9 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Imperial Agents":          "inquisition_task_force",
     "Astra Militarum":          "combined_regiment",
     "Grey Knights":             "teleport_strike_force",
-    "Aeldari":                  "battle_host",
-    "Aeldari (Craftworlds)":    "battle_host",
-    "Ynnari":                   "battle_host",
+    "Aeldari":                  "warhost",
+    "Aeldari (Craftworlds)":    "warhost",
+    "Ynnari":                   "warhost",
     "Drukhari":                 "skysplinter_assault",
     "T'au Empire":              "montka",
     "Tau Empire":               "montka",
@@ -588,11 +611,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Imperial Agents":          ("inquisition_task_force",),
     "Astra Militarum":          ("combined_regiment",),
     "Grey Knights":             ("teleport_strike_force",),
-    # Aeldari: Battle Host only. saim_hann_wild_host was deleted per
-    # fabrication audit fa9a957 (closest real: Windrider Host).
-    "Aeldari":                  ("battle_host",),
-    "Aeldari (Craftworlds)":    ("battle_host",),
-    "Ynnari":                   ("battle_host",),
+    # Aeldari: Warhost only (renamed from "battle_host" in #197 to match
+    # the codex name). saim_hann_wild_host was deleted per fabrication
+    # audit fa9a957 (closest real: Windrider Host).
+    "Aeldari":                  ("warhost",),
+    "Aeldari (Craftworlds)":    ("warhost",),
+    "Ynnari":                   ("warhost",),
     "Drukhari":                 ("skysplinter_assault",),
     "T'au Empire":              ("montka",),
     "Tau Empire":               ("montka",),

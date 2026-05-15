@@ -1632,6 +1632,11 @@ def _predict_pivotal_turn(strat) -> int:
     if name in (
         "Disgustingly Resilient", "Glamour of Tzeentch",
         "Lightning-Fast Reactions", "Implacable Onslaught",
+        # Warhost defensive proxies (#197): Skyborne Sanctuary and Webway
+        # Tunnel both route their canonical "pull unit out of harm's way"
+        # effect through transient_plus_one_save; they fire on the same
+        # mid-game survival window as Lightning-Fast Reactions.
+        "Skyborne Sanctuary", "Webway Tunnel",
     ):
         return 3
     # Offensive alpha-strike window (T2 by default — the round where shooting
@@ -1869,7 +1874,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             melee_dpa = 0.0
         return melee_dpa >= 3.0 and _is_heavy_target(target)
 
-    # ----- Battle Host (Aeldari) -----------------------------------------
+    # ----- Warhost (Aeldari) ---------------------------------------------
+    # (Was "Battle Host" before #197 — codex renamed the launch-index name.
+    # Heuristics here cover all six real codex stratagems.)
 
     if name == "Lightning-Fast Reactions":
         # ctx expects {"target": Unit}. Defensive — fire only on a
@@ -1915,6 +1922,74 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             and _is_heavy_target(target)
             and tgt_hp_frac > 0.15
         )
+
+    if name == "Skyborne Sanctuary":
+        # ctx expects {"target": Unit}. Defensive +1 save proxy for the
+        # end-of-fight re-embark. Same gate as Lightning-Fast Reactions
+        # (substantially-wounded high-value Aeldari unit) — both spend
+        # 1 CP to shelter a survivor.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.4 and cost >= 100.0
+
+    if name == "Feigned Retreat":
+        # ctx expects {"attacker": Unit}. Transient Assault on a real
+        # AELDARI shooter — fire for a high-cost shooter (the codex use
+        # case is "pull a key shooter out of melee and still let it
+        # shoot"). 150+ pts so we're not paying 1 CP on a Guardian squad.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 150.0
+
+    if name == "Blitzing Firepower":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 to hit
+        # shooting proxy for Sustained Hits 1. Same gate as Fire and
+        # Fade (real shooter, heavy target, target already softened).
+        # Aeldari already overperforms vs the meta, so the gate is
+        # intentionally tight.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+            tgt_hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            return False
+        return (
+            ranged_dpa >= 2.0
+            and atk_cost >= 150.0
+            and _is_heavy_target(target)
+            and tgt_hp_frac > 0.15
+        )
+
+    if name == "Webway Tunnel":
+        # ctx expects {"target": Unit}. Defensive +1 save proxy for the
+        # end-of-enemy-fight Strategic Reserves pull. Same gate as
+        # Lightning-Fast Reactions and Skyborne Sanctuary — defensive
+        # spend on a wounded high-value Aeldari brick.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.4 and cost >= 100.0
 
     if name == "Matchless Agility":
         # ctx expects {"attacker": Unit}. Advance + still shoot — only fire

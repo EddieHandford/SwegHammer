@@ -10,11 +10,15 @@ Sources for every stratagem entry are cited in
 `data/rule_citations.d/stratagems.json` per CLAUDE.md §10.
 
 Audit history (2026-05-15, commit fa9a957): 11 fabricated stratagems were
-removed from this file — they had no Wahapedia equivalent. The remaining
-entries are: the four universal Core Stratagems (verbatim 10e), two real
-Warhost (Aeldari) stratagems, and Disgustingly Resilient (DG) which was
+removed from this file — they had no Wahapedia equivalent. (2026-05-16,
+#197): the Warhost (Aeldari) detachment stratagem set was completed —
+Lightning-Fast Reactions + Fire and Fade survived the audit; the remaining
+four real codex stratagems (Skyborne Sanctuary, Feigned Retreat, Blitzing
+Firepower, Webway Tunnel) have been added. The current entries are: the
+four universal Core Stratagems (verbatim 10e), the six real Warhost
+(Aeldari) stratagems, and Disgustingly Resilient (DG) which was
 re-anchored to Virulent Vectorium at 2CP. Per-detachment real stratagem
-sets are wired in follow-up per-faction PRs.
+sets for other factions are wired in follow-up per-faction PRs.
 
 Dispatch model:
   * `name` — display label.
@@ -101,13 +105,14 @@ UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Warhost (Aeldari) — two real detachment stratagems
+# Warhost (Aeldari) — six real detachment stratagems
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
-# The fabrication audit (commit fa9a957) confirmed these two stratagems exist
-# verbatim in the Warhost detachment. Matchless Agility (previously here)
-# was deleted as fabricated. Per-detachment stratagem set will be filled out
-# in a follow-up Aeldari rebuild PR.
+# The fabrication audit (commit fa9a957) confirmed Lightning-Fast Reactions
+# and Fire and Fade as real entries; the remaining four (Skyborne Sanctuary,
+# Feigned Retreat, Blitzing Firepower, Webway Tunnel) were added in #197
+# from the Wahapedia stratagem list. The codex detachment name is "Warhost"
+# (the launch-index name "Battle Host" was renamed).
 
 LIGHTNING_FAST_REACTIONS = Stratagem(
     name="Lightning-Fast Reactions",
@@ -125,8 +130,67 @@ FIRE_AND_FADE = Stratagem(
     effect="reroll_hits_shooting_for_round",
 )
 
-BATTLE_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
-    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE,
+# Skyborne Sanctuary: end of Fight phase, an AELDARI INFANTRY unit not in
+# engagement range and wholly within 6" of a friendly AELDARI TRANSPORT can
+# embark within it. Defensive re-embark; we approximate the offensive
+# value via the same transient_plus_one_save flag (the canonical use case
+# is saving a shot-up unit from a follow-up activation).
+SKYBORNE_SANCTUARY = Stratagem(
+    name="Skyborne Sanctuary",
+    cp_cost=1,
+    phase="fight",
+    trigger="end_of_fight_aeldari_infantry_near_transport",
+    effect="plus_one_save_for_round",
+)
+
+# Feigned Retreat: your Movement phase, just after an AELDARI INFANTRY unit
+# Falls Back — until end of turn the unit can still shoot and declare a
+# charge despite having Fallen Back. We approximate the offensive value
+# via transient_assault_this_round (lets it shoot the same round it
+# repositioned, the closest single-flag stand-in).
+FEIGNED_RETREAT = Stratagem(
+    name="Feigned Retreat",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_aeldari_infantry_just_fell_back",
+    effect="transient_assault_for_round",
+)
+
+# Blitzing Firepower: your Shooting phase, when an AELDARI unit is selected
+# to shoot — until end of phase its ranged weapons gain [SUSTAINED HITS 1]
+# vs targets within 12" (or improve to 5+ Critical Hit if already having
+# the ability). Approximated as +1 to hit shooting for the round, the
+# nearest one-flag stand-in for the Sustained-Hits uplift.
+BLITZING_FIREPOWER = Stratagem(
+    name="Blitzing Firepower",
+    cp_cost=1,
+    phase="shooting",
+    trigger="aeldari_unit_about_to_shoot_short_range",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+# Webway Tunnel: end of opponent's Fight phase, an AELDARI INFANTRY unit
+# wholly within 9" of a battlefield edge and not in engagement range may
+# enter Strategic Reserves. SwegHammer's reserve model is a single
+# arrival queue with no mid-battle re-entry hook, so this stratagem is
+# wired in but resolves as a defensive save buff (+1 save) — the
+# strongest single-flag stand-in for "pull the unit off the table to
+# avoid the next attack" while the reserves hook is not implemented.
+WEBWAY_TUNNEL = Stratagem(
+    name="Webway Tunnel",
+    cp_cost=1,
+    phase="fight",
+    trigger="aeldari_infantry_near_board_edge_end_of_enemy_fight",
+    effect="plus_one_save_for_round",
+)
+
+WARHOST_STRATAGEMS: Tuple[Stratagem, ...] = (
+    LIGHTNING_FAST_REACTIONS,
+    FIRE_AND_FADE,
+    SKYBORNE_SANCTUARY,
+    FEIGNED_RETREAT,
+    BLITZING_FIREPOWER,
+    WEBWAY_TUNNEL,
 )
 
 
@@ -189,10 +253,14 @@ __all__ = [
     "TANK_SHOCK",
     "HEROIC_INTERVENTION",
     "UNIVERSAL_STRATAGEMS",
-    # Warhost (Aeldari) — real stratagems
+    # Warhost (Aeldari) — six real stratagems
     "LIGHTNING_FAST_REACTIONS",
     "FIRE_AND_FADE",
-    "BATTLE_HOST_STRATAGEMS",
+    "SKYBORNE_SANCTUARY",
+    "FEIGNED_RETREAT",
+    "BLITZING_FIREPOWER",
+    "WEBWAY_TUNNEL",
+    "WARHOST_STRATAGEMS",
     # Virulent Vectorium (Death Guard) — Disgustingly Resilient (re-anchored)
     "DISGUSTINGLY_RESILIENT",
     # CP economy
