@@ -6462,7 +6462,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "FLY"
@@ -6586,7 +6586,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -6648,7 +6648,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -7427,7 +7427,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "FLY"
@@ -7491,7 +7491,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -7685,7 +7685,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY"
@@ -9661,7 +9661,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER"
       ],
@@ -9721,7 +9721,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -10820,7 +10820,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -10946,7 +10946,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -11011,7 +11011,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -14068,7 +14068,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -14130,7 +14130,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -14374,7 +14374,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -14499,7 +14499,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "SWARM"
       ],
@@ -14559,7 +14559,7 @@
       "deep_strike": false,
       "scout_distance": 6,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -16140,7 +16140,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -16456,7 +16456,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "SWARM"
       ],
@@ -16516,7 +16516,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -16764,7 +16764,7 @@
       "deep_strike": false,
       "scout_distance": 6,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -16885,7 +16885,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -17446,7 +17446,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -18858,7 +18858,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "BEAST"
       ],
@@ -22806,7 +22806,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -23379,7 +23379,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "BEAST"
       ],
@@ -23954,7 +23954,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "PSYKER",
@@ -24206,7 +24206,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -24395,7 +24395,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "SWARM"
       ],
@@ -25022,7 +25022,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "BEAST"
       ],
@@ -25734,7 +25734,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "DAEMON"
@@ -27569,7 +27569,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -27693,7 +27693,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "DAEMON"
@@ -28333,7 +28333,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "BEAST"
       ],
@@ -29262,7 +29262,7 @@
       "deep_strike": true,
       "scout_distance": 6,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -37154,7 +37154,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -37976,7 +37976,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -38236,7 +38236,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -38361,7 +38361,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -39288,7 +39288,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -39478,7 +39478,7 @@
       "deep_strike": false,
       "scout_distance": 6,
       "infiltrator": false,
-      "fnp": 3,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -39664,7 +39664,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -40108,7 +40108,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -41617,7 +41617,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -41677,7 +41677,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -44625,7 +44625,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -45839,7 +45839,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -46516,7 +46516,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -46835,7 +46835,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -46897,7 +46897,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -46962,7 +46962,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -47147,7 +47147,7 @@
       "deep_strike": false,
       "scout_distance": 6,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -48470,7 +48470,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -49487,7 +49487,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -49803,7 +49803,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -49932,7 +49932,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -50115,7 +50115,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -50558,7 +50558,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -50618,7 +50618,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -50946,7 +50946,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -51013,7 +51013,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -51077,7 +51077,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -51142,7 +51142,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -52479,7 +52479,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -55306,7 +55306,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -57288,7 +57288,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -61326,7 +61326,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": true,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -66076,7 +66076,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -66205,7 +66205,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -67102,7 +67102,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -67164,7 +67164,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 5,
+      "fnp": 6,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -67227,7 +67227,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -68818,7 +68818,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -69450,7 +69450,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -70078,7 +70078,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 4,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -71073,7 +71073,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 4,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -71566,7 +71566,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -71629,7 +71629,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -71693,7 +71693,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -71759,7 +71759,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -74018,7 +74018,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -74768,7 +74768,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -74896,7 +74896,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "VEHICLE",
         "PSYKER"
@@ -75598,7 +75598,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -75791,7 +75791,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -76665,7 +76665,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -76730,7 +76730,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -77866,7 +77866,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -78504,7 +78504,7 @@
       "deep_strike": false,
       "scout_distance": 6,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED",
@@ -78941,7 +78941,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -79005,7 +79005,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -83327,7 +83327,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER"
@@ -84932,7 +84932,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 6,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER"
       ],
@@ -85794,7 +85794,7 @@
       "deep_strike": true,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER"
@@ -86051,7 +86051,7 @@
       "deep_strike": false,
       "scout_distance": 0,
       "infiltrator": false,
-      "fnp": 7,
+      "fnp": 5,
       "unit_keywords": [
         "MONSTER"
       ],

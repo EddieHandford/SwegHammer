@@ -1462,18 +1462,101 @@ def extract_unit_keywords(entry: ET.Element) -> List[str]:
 
 
 _FNP_RE = re.compile(r"Feel\s+No\s+Pain\s*\(?\s*(\d)\s*\+", re.IGNORECASE)
+# Matches the value attribute on a <modifier type="append" field="name" value="5+"/>
+# child of an FNP infoLink (BSData's canonical encoding for the threshold).
+_FNP_MOD_VALUE_RE = re.compile(r"(\d)\s*\+?")
 # Unit-level "Stealth" ability: matches Stealth as a bare word (not "Stealthy"
 # adjectives). Used by extract_stealth to detect the defensive ability that
 # imposes -1 to hit when this unit is shot at.
 _STEALTH_ABILITY_RE = re.compile(r"(?:^|[\s,;.])Stealth(?:$|[\s,;.\)])")
 
 
+def _fnp_from_infolink_modifier(il: ET.Element) -> int:
+    """
+    Read the FNP threshold from a Feel No Pain infoLink's modifier-append child.
+
+    BSData encodes the FNP value as:
+        <infoLink name="Feel No Pain" type="rule" targetId="...">
+          <modifiers>
+            <modifier type="append" field="name" value="5+"/>
+          </modifiers>
+        </infoLink>
+
+    The linked "Feel No Pain" rule body itself just says "Feel No Pain x+"
+    (no number), so the only place to recover the per-unit threshold is
+    this modifier. Returns 7 if the infoLink isn't actually an FNP link or
+    no readable threshold is present.
+    """
+    name = (il.get("name") or "").strip()
+    if name.lower() != "feel no pain":
+        return 7
+    best = 7
+    for mod in il.iter():
+        tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+        if tag != "modifier":
+            continue
+        if (mod.get("type") or "").lower() != "append":
+            continue
+        if (mod.get("field") or "").lower() != "name":
+            continue
+        value = (mod.get("value") or "").strip()
+        m = _FNP_MOD_VALUE_RE.search(value)
+        if not m:
+            continue
+        try:
+            v = int(m.group(1))
+        except ValueError:
+            continue
+        if 2 <= v <= 6 and v < best:
+            best = v
+    return best
+
+
 def extract_fnp(entry: ET.Element, reg: Registry) -> int:
     """
-    Walk the unit's profiles + linked rules for prose "Feel No Pain N+" mentions.
+    Resolve the unit's Feel No Pain threshold.
+
+    Strategy (canonical first, prose as fallback):
+      1. Scan the unit's direct infoLinks for ``name="Feel No Pain"`` carrying
+         a ``<modifier type="append" field="name" value="N+"/>`` — this is the
+         BSData-canonical encoding. ~107 units across 27 catalogues use this
+         shape (Poxwalkers, Wracks, Wulfen, Repentia, Death Company, etc.),
+         and they were previously dropped to FNP 7 because the linked rule
+         body says "Feel No Pain x+" with no number.
+      2. Fall back to the legacy depth-limited walk that hunts for prose
+         "Feel No Pain N+" in characteristic text on linked profiles / rules.
     Returns the lowest N (best for the unit), or 7 if none.
     """
     best = 7
+    # (1) Canonical modifier-append at unit-direct infoLinks. We also look
+    # one level deep into entryLinks (some units expose FNP via an upgrade
+    # selectionEntry's infoLinks, e.g. wargear-granted FNP), but never
+    # follow rule targetIds — the rule body never carries the threshold.
+    canonical_found = False
+    for il in entry.findall("./infoLinks/infoLink"):
+        v = _fnp_from_infolink_modifier(il)
+        if v < best:
+            best = v
+        if (il.get("name") or "").strip().lower() == "feel no pain":
+            canonical_found = True
+    for il in entry.findall("./entryLinks/entryLink/infoLinks/infoLink"):
+        v = _fnp_from_infolink_modifier(il)
+        if v < best:
+            best = v
+        if (il.get("name") or "").strip().lower() == "feel no pain":
+            canonical_found = True
+    # When a canonical Feel No Pain infoLink is present on the unit (or one
+    # of its direct upgrade selectionEntries), trust its modifier-append
+    # value as authoritative. The legacy prose walk traverses shared rules
+    # / library entries that frequently mention OTHER units' FNP thresholds
+    # in passing (e.g. "X works against Feel No Pain 5+ abilities"), which
+    # would otherwise pull a stronger but incorrect threshold here.
+    if canonical_found:
+        return best
+    # (2) Legacy prose walk — catches the older shape where the threshold is
+    # baked into an ability description ("This unit has the Feel No Pain 5+
+    # ability."). Kept as a fallback for units that don't use the canonical
+    # infoLink+modifier idiom.
     seen: set = set()
     def walk(elem: ET.Element, depth: int):
         nonlocal best
