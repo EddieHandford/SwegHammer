@@ -481,7 +481,63 @@ def _wounded_seek_obscuring(unit, role: str, fallback_pos: Tuple[float, float], 
     return nearest
 
 
-__all__ = ["pick_move_intent", "should_fire_stratagem", "should_declare_waaagh"]
+__all__ = [
+    "pick_move_intent", "should_fire_stratagem", "should_declare_waaagh",
+    "pick_doctrina_imperative",
+]
+
+
+# ---------------------------------------------------------------------------
+# Adeptus Mechanicus Doctrina Imperatives AI (per-round pick)
+# ---------------------------------------------------------------------------
+
+# The simulator calls this once per Command phase for each AdMech army.
+# Returns "protector" or "conqueror" — the imperative the army should run
+# THIS round. The decision logic:
+#   * Count "shooty" units (ranged DPA > 0) vs "melee" units (melee DPA > 0).
+#     Most AdMech units are dual-profile, so we use a relative comparison.
+#   * Count engaged units (within 12" of any enemy) — proxy for "the army is
+#     committing to melee this turn".
+#   * Rule: if engaged_count >= shooty_count, pick "conqueror" (the army has
+#     committed; melee buff pays). Otherwise pick "protector" (default
+#     gunline posture).
+def pick_doctrina_imperative(army, enemy) -> str:
+    """Return the imperative the AdMech AI should select THIS Command phase.
+
+    Args:
+        army: the AdMech Army whose imperative is being picked.
+        enemy: the opposing Army (for engagement-range calculation).
+
+    Returns:
+        "protector" or "conqueror".
+    """
+    alive = army.alive_units
+    if not alive:
+        return "protector"   # nothing to buff; pick the default
+
+    shooty_count = 0
+    for u in alive:
+        p = u.profile
+        ranged_dpa = (
+            p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        )
+        if ranged_dpa > 0.0:
+            shooty_count += 1
+
+    # Engagement-range count: units within 12" of any alive enemy unit.
+    engaged_count = 0
+    enemies = enemy.alive_units if enemy is not None else []
+    for u in alive:
+        ux, uy = u.position
+        for e in enemies:
+            ex, ey = e.position
+            if ((ux - ex) ** 2 + (uy - ey) ** 2) ** 0.5 <= 12.0:
+                engaged_count += 1
+                break
+
+    if engaged_count >= shooty_count:
+        return "conqueror"
+    return "protector"
 
 
 # ---------------------------------------------------------------------------

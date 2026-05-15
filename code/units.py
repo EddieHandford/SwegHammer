@@ -519,6 +519,30 @@ class Unit:
         ):
             wound_target = min(7, wound_target + 1)
 
+        # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
+        # The army picks an imperative each Command phase; the attacker's
+        # hit_target is shifted up or down depending on attack mode. Cited
+        # as `simulator.doctrina_imperatives`. Faction-gated on the
+        # attacker — a non-AdMech unit in the same battle is unaffected
+        # even if the OPPOSING army happens to be AdMech with an active
+        # imperative (the gate reads attacker.profile.faction).
+        if p.faction == "Adeptus Mechanicus":
+            own_army = getattr(self, "army_ref", None)
+            imperative = (
+                getattr(own_army, "doctrina_imperative", None)
+                if own_army is not None else None
+            )
+            if imperative == "protector":
+                if mode != "melee":
+                    hit_target = max(2, hit_target - 1)   # +1 to hit ranged
+                else:
+                    hit_target = min(6, hit_target + 1)   # -1 to hit melee
+            elif imperative == "conqueror":
+                if mode == "melee":
+                    hit_target = max(2, hit_target - 1)   # +1 to hit melee
+                else:
+                    hit_target = min(6, hit_target + 1)   # -1 to hit ranged
+
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
         if p.heavy and mode != "melee" and not self.moved_this_round:

@@ -16,7 +16,10 @@ from .events import (
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
-from .strategy import pick_move_intent, should_declare_waaagh, should_fire_stratagem
+from .strategy import (
+    pick_doctrina_imperative, pick_move_intent, should_declare_waaagh,
+    should_fire_stratagem,
+)
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
     # Cult of Magic (Thousand Sons)
@@ -1226,6 +1229,20 @@ class Battle:
                     continue   # cap: each unit holds at most 1 token
                 if u.current_health < u.profile.health:
                     u.pain_tokens = 1
+        # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
+        # At the start of each Command phase the AdMech player picks ONE of
+        # two imperatives — "protector" (+1 to hit ranged, -1 to hit melee)
+        # or "conqueror" (mirror). Active until the start of their next
+        # Command phase; in SwegHammer that maps to "for this round". We
+        # reset to None first so a faction-tag flip mid-battle (paranoia)
+        # doesn't leak stale state, then re-pick via the strategy heuristic.
+        # The hit-roll modifier itself is applied in Unit.attack, gated on
+        # `attacker.profile.faction == "Adeptus Mechanicus"`. Cited as
+        # `simulator.doctrina_imperatives`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.doctrina_imperative = None
+            if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
+                army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
         # Clear any per-round transient stratagem flags from the previous
         # round (Disgustingly Resilient, Lightning-Fast Reactions, etc.)
         # before deciding whether to spend CP on a new batch this round.

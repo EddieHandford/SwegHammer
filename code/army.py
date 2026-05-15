@@ -64,6 +64,16 @@ class Army:
         # initial roster (the trigger fires early if Orks are taking heavy
         # losses). 0 until the simulator sets it.
         self.starting_points: float = 0.0
+        # Adeptus Mechanicus army rule — Doctrina Imperatives. At the start
+        # of each Command phase, the AdMech player picks ONE of two
+        # imperatives, active until the start of their next Command phase:
+        #   * "protector": +1 to hit ranged, -1 to hit melee
+        #   * "conqueror": +1 to hit melee, -1 to hit ranged
+        # Reset to None each round; re-picked by the simulator's AI based on
+        # the army's role mix and engagement count. None on a non-AdMech
+        # army (the gate is faction-checked at attack-resolution time too).
+        # Cited as `simulator.doctrina_imperatives`.
+        self.doctrina_imperative: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Faction detection
