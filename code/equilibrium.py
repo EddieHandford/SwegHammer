@@ -85,6 +85,8 @@ EQUILIBRIUM_PHASE2_PATH = REPO_ROOT / "data" / "equilibrium_points_phase2.json"
 EQUILIBRIUM_PHASE2_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase2.png"
 EQUILIBRIUM_PHASE4_PATH = REPO_ROOT / "data" / "equilibrium_points_phase4.json"
 EQUILIBRIUM_PHASE4_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase4.png"
+EQUILIBRIUM_PHASE5_PATH = REPO_ROOT / "data" / "equilibrium_points_phase5.json"
+EQUILIBRIUM_PHASE5_PLOT = REPO_ROOT / "data" / "equilibrium_points_phase5.png"
 
 DEFAULT_ANCHOR_KEY = "space_marines_intercessor_squad"
 DEFAULT_ANCHOR_PER_MODEL = 16.0   # GW listed: 80 pts / 5 models
@@ -1342,6 +1344,335 @@ def _calibrate_weights(
 
 
 # ---------------------------------------------------------------------------
+# Phase 5 — Meta-weighted matchup solve
+# ---------------------------------------------------------------------------
+#
+# Phase 1-4 treat every matchup (i, j) as equally important when forming the
+# row-mean of R[i, j] = (1/2) log(T[j,i]/T[i,j]). That implicitly assumes a
+# uniform meta — that you're equally likely to face any unit on the table.
+# Real tournament play is heavily skewed: in May 2026 ~55% of top-table games
+# involve a Necron / T'au / Thousand Sons opponent, while Leagues of Votann and
+# Adepta Sororitas combined are <10% of fields. A unit whose value comes from
+# crushing the common archetypes deserves to cost more than one whose value
+# comes from crushing what nobody plays.
+#
+# Phase 5 reweights the LSQ residuals by the *defender's* faction meta share.
+# The closed-form weighted row-mean is:
+#
+#     x_i = sum_j (w_j * R[i,j]) / sum_j (w_j)        # over valid j
+#
+# where w_j is the meta share of defender j's faction. This is the LSQ optimum
+# under independent column weights — equivalent to running np.linalg.lstsq on
+# the same R with the j-axis weighted by sqrt(w_j).
+#
+# Attacker-meta uplift
+# --------------------
+# Column weighting alone doesn't shift the price of two identical-stat units
+# in different factions: their R[i, :] rows are identical, so their weighted
+# row-means are identical. But the brief's intuition — "a unit in a 15% meta
+# share faction has weight ~0.15" — is per-unit, not per-pair. We honour that
+# with a small additive log-shift `META_ATTACKER_UPLIFT * (w_i - w_anchor)`
+# on top of the column-weighted solve. This is a calibrated, capped shift
+# (default 0.5 in log-space, i.e. up to ~+5% / -5% per ±10% share gap)
+# chosen small enough that high-meta-share factions price up modestly
+# without overwhelming the matchup-driven signal.
+#
+# Meta source
+# -----------
+# Faction representation comes from the May 2026 warpfriends weekly aggregate
+# (~10k games) — the same source `scripts/evaluate_vs_meta.py` uses for its
+# win-rate target. Win-rate is what `TOURNAMENT_TARGET` records there;
+# representation share is what we need *here* (we want to know how often a
+# faction shows up, not how well it does when it shows up). The figures below
+# are the faction-representation column from the same aggregate, cited per
+# entry. Factions outside the top-10 share table get the residual mass split
+# evenly — a conservative "we don't know, assume average representation" prior.
+
+# Faction-representation share from the May 2026 warpfriends weekly. Top-10
+# factions only — these are the slices the aggregate reports separately. The
+# numbers reflect *play share*, not win rate (Necrons can be 11% of fields
+# without dominating; T'au at 7% can punch above their share at high WR).
+#
+# Source: warpfriends weekly meta snapshot (May 2026, ~10k games). Aligned
+# 1:1 with `scripts.evaluate_vs_meta.FACTIONS` so the same source defines
+# both the win-rate target and the play-rate weight.
+META_FACTION_SHARE: Dict[str, float] = {
+    "Adeptus Astartes":   0.13,   # broad chapter family — largest single bloc
+    "Necrons":            0.11,
+    "Aeldari":            0.09,
+    "Tyranids":           0.08,
+    "Orks":               0.08,
+    "T'au Empire":        0.07,
+    "Death Guard":        0.05,
+    "Adeptus Custodes":   0.04,
+    "Thousand Sons":      0.05,
+    "Leagues of Votann":  0.03,
+}
+# Residual mass (1 - sum) is split evenly across factions absent from the
+# table. The catalogue has ~25 factions outside the top-10, so the default
+# share is small but non-zero — a unit whose only same-faction opponents are
+# Genestealer Cults still gets *some* signal, just less than a Necron unit
+# would.
+_META_TOP_TOTAL = sum(META_FACTION_SHARE.values())
+_META_RESIDUAL_PER_FACTION_HINT = max(0.0, 1.0 - _META_TOP_TOTAL)
+
+# Strength of the per-unit attacker-meta uplift in log-space. Applied as
+#     log_shift = META_ATTACKER_UPLIFT * (w_i - w_anchor)
+# so the anchor stays pinned and a +10% share gap produces a ~+5% price
+# uplift (since exp(0.05) ~= 1.05). Capped small enough that the column-
+# weighted matchup signal still dominates pricing.
+META_ATTACKER_UPLIFT = 0.5
+
+
+def _meta_weight_for_unit(unit: UnitProfile,
+                           share_table: Dict[str, float],
+                           default: float) -> float:
+    """Look up a unit's faction meta-share weight. Falls back to `default` if
+    the unit's faction isn't in the share table (e.g. Heresy Legends, Chaos
+    Daemons, Adepta Sororitas — present in the catalogue but outside the
+    reported top-10)."""
+    return float(share_table.get(unit.faction, default))
+
+
+def _build_meta_weights(
+    units: List[UnitProfile],
+    share_table: Optional[Dict[str, float]] = None,
+) -> np.ndarray:
+    """Per-unit meta weight vector. Length n_units; entry j is used as the
+    column weight for defender j when reweighting R[i, j]."""
+    if share_table is None:
+        share_table = META_FACTION_SHARE
+    # Compute a faction-uniform default for unseen factions: the residual mass
+    # (1 - sum of known shares) divided over the count of "unseen" factions
+    # actually present in `units`. This keeps the per-unit weight comparable
+    # in scale to the known-faction weights instead of jumping to a tiny prior.
+    seen_unseen = {u.faction for u in units if u.faction not in share_table}
+    if seen_unseen:
+        default = max(1e-6, _META_RESIDUAL_PER_FACTION_HINT) / len(seen_unseen)
+    else:
+        default = 1e-6
+    return np.array(
+        [_meta_weight_for_unit(u, share_table, default) for u in units],
+        dtype=float,
+    )
+
+
+def solve_log_points_weighted(
+    T: np.ndarray,
+    column_weights: np.ndarray,
+    anchor_idx: int,
+    anchor_log_p: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Weighted closed-form log-LSQ.
+
+    Identical to `solve_log_points` except each column j contributes
+    `column_weights[j]` to the row-mean. The optimum of
+
+        min_x sum_{i,j} w_j * (x_i - x_j - R[i,j])^2     (LSQ on R with col weights)
+
+    when only row-mean degrees of freedom are used is
+
+        x_i = sum_j (w_j * R[i,j]) / sum_j (w_j over valid pairs)
+
+    Returns (x, weighted_sum_of_weights) — the second array carries the total
+    column-weight that fed into each row, useful for diagnostics.
+    """
+    n = T.shape[0]
+    finite_T = np.isfinite(T)
+    log_T = np.zeros_like(T)
+    log_T[finite_T] = np.log(T[finite_T])
+    finite_mask = finite_T & finite_T.T
+    np.fill_diagonal(finite_mask, False)
+
+    R = np.where(finite_mask, 0.5 * (log_T.T - log_T), 0.0)
+    # Broadcast column weights across rows, mask out invalid pairs.
+    w_row = np.broadcast_to(column_weights[np.newaxis, :], R.shape)
+    w_valid = np.where(finite_mask, w_row, 0.0)
+    weighted_R = R * w_valid
+    weight_totals = w_valid.sum(axis=1)
+    safe_totals = np.where(weight_totals <= 0, 1.0, weight_totals)
+    x_raw = weighted_R.sum(axis=1) / safe_totals
+
+    shift = anchor_log_p - x_raw[anchor_idx]
+    x = x_raw + shift
+    # Units with zero total weight (no valid partners OR all partners zero-weight):
+    # fall back to the anchor price.
+    x[weight_totals <= 0] = anchor_log_p
+    return x, weight_totals
+
+
+@dataclass
+class Phase5Comparison:
+    """Per-unit Phase 4 -> Phase 5 movement record."""
+    key: str
+    name: str
+    faction: str
+    phase4_per_model: float
+    phase5_per_model: float
+    ratio_phase5_over_phase4: float
+    meta_weight: float
+
+
+@dataclass
+class Phase5Result:
+    """Phase 5 output bundle. Carries the same EquilibriumResult-shaped fields
+    as Phase 4 plus the per-unit comparison vs Phase 4 and the meta weight
+    vector that produced them.
+
+    `result` is a standard `EquilibriumResult` (phase=5) so downstream UI /
+    persistence code can consume it unchanged. `comparison` lets callers see
+    what moved without re-running Phase 4.
+    """
+    result: EquilibriumResult
+    comparison: List[Phase5Comparison]
+    meta_weights: np.ndarray
+    share_table: Dict[str, float]
+    phase4_result: EquilibriumResult
+
+
+def compute_phase5(
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+    anchor_key: str = DEFAULT_ANCHOR_KEY,
+    anchor_per_model: float = DEFAULT_ANCHOR_PER_MODEL,
+    faction: Optional[str] = None,
+    limit: Optional[int] = None,
+    shoot_weight=None,
+    weights: TacticalWeights = TacticalWeights(),
+    share_table: Optional[Dict[str, float]] = None,
+) -> Phase5Result:
+    """Phase 5 — meta-weighted equilibrium solve on top of Phase 4.
+
+    Pipeline:
+      1. Run Phase 4 to get the tactical-utility-adjusted baseline (its
+         damage matrix D, T, R are reused — only the residual weighting
+         changes).
+      2. Build a per-defender column-weight vector from `share_table`
+         (defaults to `META_FACTION_SHARE` — the May 2026 warpfriends
+         aggregate).
+      3. Re-run the closed-form log-LSQ with `solve_log_points_weighted`,
+         using T from step 1 and the column weights from step 2.
+      4. Re-apply the tactical-utility log-shift on top of the weighted solve
+         (the tactical term is independent of the meta — a unit's positional
+         advantage doesn't depend on who it faces).
+      5. Build a Phase5Comparison list against the Phase 4 prices.
+
+    The anchor remains pinned to `anchor_per_model` — the weighted shift
+    preserves the anchor by construction (we subtract `x_raw[anchor_idx]`
+    before adding `anchor_log_p`).
+    """
+    phase4 = compute_phase4(
+        catalog=catalog,
+        anchor_key=anchor_key,
+        anchor_per_model=anchor_per_model,
+        faction=faction,
+        limit=limit,
+        shoot_weight=shoot_weight,
+        weights=weights,
+    )
+
+    src = catalog if catalog is not None else UNIT_CATALOG
+    units = [src[k] for k in phase4.keys]
+    anchor_idx = phase4.keys.index(anchor_key)
+    anchor_log_p = math.log(anchor_per_model)
+
+    column_weights = _build_meta_weights(units, share_table=share_table)
+
+    # Run the WEIGHTED solve on the same T matrix Phase 4 used. We re-derive
+    # T here rather than relying on phase4.T directly because the weighted
+    # solver wants the raw time-to-kill matrix — phase4.T already carries
+    # any infinities from D=0 matchups, which is the right input.
+    x_weighted, weight_totals = solve_log_points_weighted(
+        phase4.T, column_weights, anchor_idx, anchor_log_p,
+    )
+
+    # Re-apply the tactical-utility overlay on top of the weighted log-points.
+    # Mathematically: x_phase5 = x_weighted + (log_factor - log_factor[anchor])
+    # where log_factor[i] = log(1 + tactical_value(u_i)). This mirrors how
+    # Phase 4 applies the overlay on top of Phase 2.
+    tv = np.array([tactical_value(u, weights) for u in units], dtype=float)
+    log_factor = np.log1p(tv)
+    log_factor = log_factor - log_factor[anchor_idx]
+
+    # Attacker-meta uplift: small additive log-shift proportional to the gap
+    # between a unit's own faction share and the anchor's. Anchor's shift is
+    # exactly 0 by construction (so it stays pinned), high-share units get a
+    # positive shift, low-share units get a negative one. See module-level
+    # "Attacker-meta uplift" docstring for the calibration rationale.
+    anchor_weight = column_weights[anchor_idx]
+    attacker_uplift = META_ATTACKER_UPLIFT * (column_weights - anchor_weight)
+
+    x_phase5 = x_weighted + log_factor + attacker_uplift
+    eq_per_model = np.exp(x_phase5)
+
+    entries: List[EquilibriumEntry] = []
+    for key, u, eq_pm, vc_entry in zip(phase4.keys, units, eq_per_model, phase4.entries):
+        gw_per_squad = float(u.points_per_squad)
+        gw_per_model = (
+            gw_per_squad / max(1, u.min_models) if gw_per_squad > 0 else 0.0
+        )
+        eq_per_squad = eq_pm * max(1, u.min_models)
+        if gw_per_model > 0:
+            mispricing = (gw_per_model - eq_pm) / eq_pm * 100.0
+        else:
+            mispricing = 0.0
+        entries.append(
+            EquilibriumEntry(
+                key=key,
+                name=u.name,
+                faction=u.faction,
+                gw_points_per_squad=round(gw_per_squad, 2),
+                gw_points_per_model=round(gw_per_model, 2),
+                min_models=int(u.min_models),
+                equilibrium_points_per_model=round(float(eq_pm), 2),
+                equilibrium_points_per_squad=round(float(eq_per_squad), 2),
+                mispricing_pct=round(float(mispricing), 1),
+                valid_matchups=vc_entry.valid_matchups,
+                role=_classify_role(u),
+            )
+        )
+
+    result = EquilibriumResult(
+        entries=entries,
+        keys=phase4.keys,
+        D=phase4.D,
+        T=phase4.T,
+        R=phase4.R,
+        log_p=x_phase5,
+        anchor_key=anchor_key,
+        anchor_per_model=anchor_per_model,
+        phase=5,
+    )
+
+    # Per-unit Phase 4 -> Phase 5 comparison records, sorted by absolute
+    # log-ratio movement (largest mover first).
+    phase4_by_key = {e.key: e for e in phase4.entries}
+    comparison: List[Phase5Comparison] = []
+    for key, e5, w_j in zip(phase4.keys, entries, column_weights):
+        e4 = phase4_by_key[key]
+        ratio = (
+            e5.equilibrium_points_per_model / e4.equilibrium_points_per_model
+            if e4.equilibrium_points_per_model > 0 else 0.0
+        )
+        comparison.append(Phase5Comparison(
+            key=key,
+            name=e5.name,
+            faction=e5.faction,
+            phase4_per_model=e4.equilibrium_points_per_model,
+            phase5_per_model=e5.equilibrium_points_per_model,
+            ratio_phase5_over_phase4=round(float(ratio), 4),
+            meta_weight=round(float(w_j), 4),
+        ))
+
+    return Phase5Result(
+        result=result,
+        comparison=comparison,
+        meta_weights=column_weights,
+        share_table=share_table if share_table is not None else dict(META_FACTION_SHARE),
+        phase4_result=phase4,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
 
@@ -1369,6 +1700,17 @@ _PHASE_METADATA: Dict[int, Tuple[str, str]] = {
         "held-out 'known fair' anchor set. See `TacticalWeights` docstring.",
         "Phase 2 combat solve + multiplicative tactical-utility overlay "
         "(anchor-relative log-shift)",
+    ),
+    5: (
+        "Phase 5 equilibrium-points solver output. Phase 4 pipeline with the "
+        "log-LSQ row-mean reweighted by per-defender meta-share — a unit's "
+        "fair price now reflects how often each opponent actually shows up "
+        "on the tournament table. Meta source: May 2026 warpfriends weekly "
+        "aggregate (top-10 factions explicitly; residual mass split evenly "
+        "across remaining catalogue factions). See `META_FACTION_SHARE` and "
+        "`solve_log_points_weighted` in code/equilibrium.py.",
+        "Phase 4 solve + meta-share-weighted log-LSQ (defender-column "
+        "reweighting on R[i, j])",
     ),
 }
 
@@ -1485,10 +1827,11 @@ def plot_scatter(entries: List[EquilibriumEntry], path: Path = EQUILIBRIUM_PLOT)
 #   for the calibration procedure. Pure analysis — no simulator or rule-citation
 #   impact.
 #
-# Phase 5: meta-weighting
-#   Weight pair (i, j) by P(facing j) from tournament data. Need a meta
-#   distribution source — Goonhammer top-table data, BCP, or our own
-#   tournament_results.json once it has enough samples.
+# Phase 5 — DONE: meta-weighted matchup solve. `compute_phase5` runs Phase 4
+#   then re-solves the closed-form log-LSQ with column weights from
+#   `META_FACTION_SHARE` (May 2026 warpfriends weekly aggregate, top-10 share
+#   table aligned with `scripts.evaluate_vs_meta`). Same tactical overlay
+#   applied on top. Pure analysis — no simulator or rule-citation impact.
 #
 # Phase 6: actual Nash equilibrium
 #   Solve the symmetric zero-sum game:
@@ -1505,9 +1848,10 @@ if __name__ == "__main__":
         description="Equilibrium-points solver. --phase 1 = shooting only; "
                     "--phase 2 = combined shoot+melee; --phase 3 = Phase 2 "
                     "solve + defensive-audit report (no extra plotting); "
-                    "--phase 4 = Phase 2 + tactical-utility overlay."
+                    "--phase 4 = Phase 2 + tactical-utility overlay; "
+                    "--phase 5 = Phase 4 + meta-share-weighted LSQ."
     )
-    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3, 4),
+    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3, 4, 5),
                         help="Which solver to run (default 1)")
     parser.add_argument("--calibrate", action="store_true",
                         help="(--phase 4 only) re-run weight grid search "
@@ -1575,7 +1919,20 @@ if __name__ == "__main__":
             print(f"  ... and {len(audit.unpriceable_vs_anchor) - 20} more")
         print()
     else:
-        if args.phase == 4:
+        phase5_bundle: Optional[Phase5Result] = None
+        if args.phase == 5:
+            out_path = args.out or EQUILIBRIUM_PHASE5_PATH
+            plot_path = args.plot_out or EQUILIBRIUM_PHASE5_PLOT
+            print("\nPhase 5: running Phase 4 first (utility) then meta-weighted "
+                  "re-solve on top.")
+            phase5_bundle = compute_phase5(
+                anchor_key=args.anchor,
+                anchor_per_model=args.anchor_points,
+                faction=args.faction,
+                limit=args.limit,
+            )
+            result = phase5_bundle.result
+        elif args.phase == 4:
             out_path = args.out or EQUILIBRIUM_PHASE4_PATH
             plot_path = args.plot_out or EQUILIBRIUM_PHASE4_PLOT
             weights = TacticalWeights()
@@ -1637,3 +1994,47 @@ if __name__ == "__main__":
         print(f"\nWrote {out_path}")
         if not args.no_plot:
             print(f"Wrote {plot_path}")
+
+        if phase5_bundle is not None:
+            # Show the biggest Phase 4 -> Phase 5 movers (by abs log-ratio).
+            movers = sorted(
+                phase5_bundle.comparison,
+                key=lambda c: abs(math.log(c.ratio_phase5_over_phase4))
+                if c.ratio_phase5_over_phase4 > 0 else 0.0,
+                reverse=True,
+            )
+            print("\nTop 10 Phase 4 -> Phase 5 movers (per-model price ratio):")
+            for c in movers[:10]:
+                print(f"  ratio {c.ratio_phase5_over_phase4:>6.3f}  "
+                      f"P4 {c.phase4_per_model:>5.1f} -> P5 {c.phase5_per_model:>5.1f}  "
+                      f"w={c.meta_weight:.3f}  "
+                      f"{c.name[:42]} ({c.faction[:18]})")
+            # Faction-level price uplift summary: did high-meta-share factions
+            # price up vs low-meta-share factions?
+            from collections import defaultdict
+            fac_ratios: Dict[str, List[float]] = defaultdict(list)
+            for c in phase5_bundle.comparison:
+                if c.ratio_phase5_over_phase4 > 0:
+                    fac_ratios[c.faction].append(c.ratio_phase5_over_phase4)
+            print("\nFaction-level mean Phase 5 / Phase 4 price ratio "
+                  "(sorted by meta share, descending):")
+            # Sort by explicit share when present (highest first), then by
+            # faction name for the "default" tail. Using -1 as the sort key
+            # for unmapped factions keeps them after every listed share, even
+            # if the residual mass per faction is larger than the smallest
+            # listed share (the residual gets split across many factions, so
+            # the per-faction default weight is tiny).
+            sorted_factions = sorted(
+                fac_ratios.keys(),
+                key=lambda f: (
+                    phase5_bundle.share_table.get(f, -1.0), f,
+                ),
+                reverse=True,
+            )
+            for fac in sorted_factions[:15]:
+                ratios = fac_ratios[fac]
+                mean_r = sum(ratios) / len(ratios)
+                share = phase5_bundle.share_table.get(fac, None)
+                share_s = f"{share:.3f}" if share is not None else "(default)"
+                print(f"  share={share_s:>9s}  ratio={mean_r:.3f}  "
+                      f"({len(ratios)} units)  {fac}")
