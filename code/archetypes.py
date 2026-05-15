@@ -54,7 +54,7 @@ from .units import UNIT_CATALOG, UnitProfile
 ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     "Adeptus Astartes": {
         "Gladius Strike Force": {
-            "space_marines_intercessor_squad": 2,
+            "space_marines_intercessor_squad": 1,
             "space_marines_hellblaster_squad": 1,
             "space_marines_eradicator_squad": 1,
             "space_marines_aggressor_squad": 1,
@@ -117,14 +117,6 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # made calibrated T'au lists shoot like a Fire Warrior army (~ -4.9pt
         # under-perform). Task #174.
         #
-        # Note: t_au_empire_riptide_battlesuit currently has a points_cost of
-        # 1180.58 in the catalogue (sweg_balance_mc output vs Wahapedia's real
-        # 180pt). That cost exceeds the seed budget at any realistic points
-        # value AND exceeds random_fill's per-type cap, so Riptide cannot
-        # appear in built armies until the cost anomaly is fixed in a
-        # separate task. The other battlesuits (Crisis variants, Broadside,
-        # Stormsurge, Ghostkeel, Stealth) are realistically priced.
-        #
         # Multi-copy entries here are deliberate: with the post-G5 anchor-first
         # sort (-template_count, -squad_cost), Crisis Fireknife (c=3) and
         # Sunforge (c=2) seed before single-copy entries, ensuring the army
@@ -133,6 +125,7 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "t_au_empire_crisis_fireknife_battlesuits": 3,
             "t_au_empire_crisis_sunforge_battlesuits": 2,
             "t_au_empire_broadside_battlesuits": 2,
+            "t_au_empire_riptide_battlesuit": 1,
             "t_au_empire_stormsurge": 1,
             "t_au_empire_ghostkeel_battlesuit": 1,
             "t_au_empire_stealth_battlesuits": 1,
