@@ -88,12 +88,12 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     },
     "Tyranids": {
         "Invasion Fleet": {
-            "tyranids_termagants": 2,
+            "tyranids_termagants": 1,
             "tyranids_hormagaunts": 1,
             "tyranids_hive_tyrant": 1,
             "tyranids_zoanthropes": 1,
             "tyranids_exocrine": 1,
-            "tyranids_carnifexes": 1,
+            "tyranids_carnifexes": 2,
             "tyranids_gargoyles": 1,
         },
     },
