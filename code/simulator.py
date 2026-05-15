@@ -554,18 +554,24 @@ class Battle:
 
     # ----- target-selection helpers used by the dispatchers --------------
 
-    @staticmethod
-    def _highest_threat_enemy(opponent: Army):
+    def _highest_threat_enemy(self, opponent: Army):
         """Pick the alive enemy unit with the highest role-weighted threat.
 
         Same role-weighting as `_apply_psychic_phase` so Doombolt and any
         future MW-payload stratagem agree on what counts as a worthwhile
         target — heavy / shooty / wounded enemies first, hordes last.
+
+        Battle-shocked enemies are excluded — 10e core forbids using
+        Stratagems to affect a Battle-shocked unit regardless of side.
+        Cited as `simulator.battleshock` (task #168).
         """
         from .roles import classify
         ROLE_THREAT = {"HEAVY": 3.0, "SHOOTY": 2.0, "DUAL": 1.5,
                        "MELEE": 1.0, "SUPPORT": 1.2, "HORDE": 0.6}
-        targets = list(opponent.alive_units)
+        targets = [
+            u for u in opponent.alive_units
+            if u.uid not in self._battleshocked_this_round
+        ]
         if not targets:
             return None
 
@@ -592,8 +598,7 @@ class Battle:
             return True
         return False
 
-    @classmethod
-    def _highest_dpa_unit(cls, army: Army, keyword: str = "", faction: str = ""):
+    def _highest_dpa_unit(self, army: Army, keyword: str = "", faction: str = ""):
         """Pick the alive friendly unit with the highest melee+ranged DPA.
 
         Optional `keyword`/`faction` filter restricts to units carrying
@@ -601,10 +606,15 @@ class Battle:
         (e.g. "Aeldari") so a Battle Host army with stray non-Aeldari
         allies still targets the right detachment. See
         `_unit_matches_filter` for the lookup logic.
+
+        Battle-shocked units are excluded — 10e core: "While a unit is
+        Battle-shocked, ... you cannot use Stratagems to affect that
+        unit." Cited as `simulator.battleshock` (task #168).
         """
         candidates = [
             u for u in army.alive_units
-            if cls._unit_matches_filter(u, keyword=keyword, faction=faction)
+            if self._unit_matches_filter(u, keyword=keyword, faction=faction)
+            and u.uid not in self._battleshocked_this_round
         ]
         if not candidates:
             return None
@@ -617,18 +627,22 @@ class Battle:
             return ranged + melee
         return max(candidates, key=_dpa)
 
-    @classmethod
-    def _most_vulnerable_unit(cls, army: Army, keyword: str = "", faction: str = ""):
+    def _most_vulnerable_unit(self, army: Army, keyword: str = "", faction: str = ""):
         """Pick the alive friendly unit most likely to benefit from a
         defensive stratagem — wounded + high-value.
 
         Score: (points_cost) × (1.0 - current_health/max_health). A unit at
         full HP gets 0 (no buff needed); a Knight at 30% HP scores very
         high. Restricted to units matching the keyword/faction filter.
+
+        Battle-shocked units are excluded — 10e core: "While a unit is
+        Battle-shocked, ... you cannot use Stratagems to affect that
+        unit." Cited as `simulator.battleshock` (task #168).
         """
         candidates = [
             u for u in army.alive_units
-            if cls._unit_matches_filter(u, keyword=keyword, faction=faction)
+            if self._unit_matches_filter(u, keyword=keyword, faction=faction)
+            and u.uid not in self._battleshocked_this_round
         ]
         if not candidates:
             return None
@@ -1431,6 +1445,102 @@ class Battle:
     # Round logic
     # ------------------------------------------------------------------
 
+    def _run_battleshock_phase(self, round_num: int) -> None:
+        """10e Battle-shock step (after Round 1). For each unit Below
+        Half-Strength, roll 2D6 vs Ld; fail (< Ld) sets the unit as
+        Battle-shocked for the round — OC drops to 0 AND it cannot be the
+        subject of Stratagems. We populate `_battleshocked_this_round`
+        BEFORE the stratagem dispatcher runs so target-pickers
+        (`_most_vulnerable_unit`, `_highest_dpa_unit`) can filter the set
+        out. Cited as `simulator.battleshock`.
+
+        Detachment modifiers compose: own ld_bonus LOWERS our test target
+        (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
+
+        Faction-rule short-circuits:
+          - Mob Rule (Orks, 10e): 10+ alive Ork models army-wide → auto-pass.
+            Cited as `simulator.mob_rule`.
+          - Synapse Imperative (Tyranids, 10e): a Tyranid unit within 6"
+            of any friendly SYNAPSE model auto-passes. Cited as
+            `simulator.synapse_imperative`.
+          - Shadow in the Warp (Tyranids, 10e): an enemy unit within 12"
+            of any Tyranid SYNAPSE model takes the test at -1. Cited as
+            `simulator.shadow_in_the_warp`.
+          - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
+            enemy units within 6" of any DG model take -1 Ld. Cited as
+            `simulator.contagions_of_nurgle`.
+        """
+        if round_num <= 1:
+            return
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            opponent_det = opponent.resolve_detachment()
+            own_det = army.resolve_detachment()
+            ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
+            ld_bonus = own_det.ld_bonus if own_det else 0
+            ork_count = sum(
+                1 for u in army.alive_units if u.profile.faction == "Orks"
+            )
+            mob_rule_active = ork_count >= 10
+            own_synapse = [
+                s for s in army.alive_units
+                if "SYNAPSE" in (s.profile.unit_keywords or ())
+            ]
+            shadow_sources = [
+                s for s in opponent.alive_units
+                if "SYNAPSE" in (s.profile.unit_keywords or ())
+                and s.profile.faction == "Tyranids"
+            ]
+            contagion_sources = (
+                [
+                    s for s in opponent.alive_units
+                    if s.profile.faction == "Death Guard"
+                ]
+                if round_num == 2 else []
+            )
+            for u in army.alive_units:
+                if u.current_health < u.profile.health / 2.0:
+                    if mob_rule_active and u.profile.faction == "Orks":
+                        continue
+                    if (
+                        u.profile.faction == "Tyranids"
+                        and own_synapse
+                        and any(
+                            _distance(u.position, s.position) <= 6.0
+                            for s in own_synapse
+                            if s.uid != u.uid
+                        )
+                    ):
+                        continue
+                    shadow_penalty = 0
+                    if shadow_sources and any(
+                        _distance(u.position, s.position) <= 12.0
+                        for s in shadow_sources
+                    ):
+                        shadow_penalty = 1
+                    contagion_penalty = 0
+                    if (
+                        contagion_sources
+                        and u.profile.faction != "Death Guard"
+                        and any(
+                            _distance(u.position, s.position) <= 6.0
+                            for s in contagion_sources
+                        )
+                    ):
+                        contagion_penalty = 1
+                    roll = random.randint(1, 6) + random.randint(1, 6)
+                    target = (
+                        u.profile.leadership
+                        + ld_penalty
+                        - ld_bonus
+                        + shadow_penalty
+                        + contagion_penalty
+                    )
+                    if roll < target:
+                        self._battleshocked_this_round.add(u.uid)
+                        self._emit(BattleshockFailed(
+                            unit_uid=u.uid, roll=roll, target=target,
+                        ))
+
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
@@ -1566,6 +1676,13 @@ class Battle:
         # before deciding whether to spend CP on a new batch this round.
         self._clear_transient_stratagem_flags(self.a)
         self._clear_transient_stratagem_flags(self.b)
+        # Battleshock check MUST run before the stratagem dispatcher so
+        # battleshocked units are excluded from "use Stratagems to affect
+        # that unit" (10e core: while a unit is Battle-shocked, you cannot
+        # use Stratagems to affect that unit). The dispatcher reads the
+        # `_battleshocked_this_round` set when picking targets via
+        # `_most_vulnerable_unit` / `_highest_dpa_unit`. See task #168.
+        self._run_battleshock_phase(round_num)
         # Detachment-specific stratagems that fire at the start of a round
         # (Cult of Magic, Plague Company, Battle Host). Doombolt also fires
         # here as a per-round mortal-wound payload — it's nominally a
@@ -1607,125 +1724,10 @@ class Battle:
                     for obj in self.map.objectives
                 )
 
-        # Battleshock phase (after Round 1). 10e core rule: any unit Below
-        # Half-Strength tests; pass on 2d6 >= Ld. We treat each Unit
-        # instance as a stand-in for a single squad member; "below half
-        # strength" maps to "current HP < starting HP / 2".
-        # Detachment modifiers compose: own ld_bonus LOWERS our test target
-        # (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
-        #
-        # Mob Rule (Orks army rule, 10e): an Ork unit with 10+ models on the
-        # battlefield auto-passes its Battle-shock test — no roll, no chance
-        # of failure. SwegHammer models each squad member as a separate Unit
-        # instance, so "10+ models" maps to "10+ alive Ork units in the same
-        # army". When that threshold is met, every Ork unit in the army skips
-        # the roll regardless of its own current_health. Cited as
-        # `simulator.mob_rule`.
-        #
-        # Synapse Imperative (Tyranids army rule, 10e): a Tyranid unit within
-        # 6" of any friendly SYNAPSE model cannot be Battle-shocked — it
-        # auto-passes. Cited as `simulator.synapse_imperative`.
-        #
-        # Shadow in the Warp (Tyranids army rule, 10e): an enemy unit within
-        # 12" of any SYNAPSE model from the Tyranid army takes its Battle-shock
-        # test at -1 (i.e. the test target is raised by 1, making the pass
-        # harder). Cited as `simulator.shadow_in_the_warp`.
-        if round_num > 1:
-            for army, opponent in ((self.a, self.b), (self.b, self.a)):
-                opponent_det = opponent.resolve_detachment()
-                own_det = army.resolve_detachment()
-                ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
-                ld_bonus = own_det.ld_bonus if own_det else 0
-                # Mob Rule check: count alive Ork models army-wide.
-                ork_count = sum(
-                    1 for u in army.alive_units if u.profile.faction == "Orks"
-                )
-                mob_rule_active = ork_count >= 10
-                # SYNAPSE pools — own-side (Synapse Imperative shelter) and
-                # opposing-side (Shadow in the Warp penalty). We snapshot
-                # the alive SYNAPSE units once per army before iterating so
-                # the inner loop only re-evaluates the per-target distance.
-                own_synapse = [
-                    s for s in army.alive_units
-                    if "SYNAPSE" in (s.profile.unit_keywords or ())
-                ]
-                shadow_sources = [
-                    s for s in opponent.alive_units
-                    if "SYNAPSE" in (s.profile.unit_keywords or ())
-                    and s.profile.faction == "Tyranids"
-                ]
-                # Death Guard Contagions of Nurgle (army rule, 10e) — Round 2
-                # Maladictive Pall: enemy units within 6" of any DG model on
-                # the opposing side suffer -1 Leadership. We pool every alive
-                # DG model on the opponent's roster as a potential aura
-                # source. The penalty applies ONLY in round 2 of the
-                # escalating contagion. Round 1 (-1 T) and Round 3+ (-1 to
-                # hit) are handled in Unit.attack. Cited as
-                # `simulator.contagions_of_nurgle`.
-                contagion_sources = (
-                    [
-                        s for s in opponent.alive_units
-                        if s.profile.faction == "Death Guard"
-                    ]
-                    if round_num == 2 else []
-                )
-                for u in army.alive_units:
-                    if u.current_health < u.profile.health / 2.0:
-                        # Mob Rule short-circuit: Ork units auto-pass when the
-                        # army has 10+ Ork models on the battlefield.
-                        if mob_rule_active and u.profile.faction == "Orks":
-                            continue
-                        # Synapse Imperative: a Tyranid unit within 6" of any
-                        # friendly SYNAPSE model auto-passes. Faction-gated
-                        # so a non-Tyranid drifting near a stray SYNAPSE
-                        # unit doesn't inherit the shelter.
-                        if (
-                            u.profile.faction == "Tyranids"
-                            and own_synapse
-                            and any(
-                                _distance(u.position, s.position) <= 6.0
-                                for s in own_synapse
-                                if s.uid != u.uid
-                            )
-                        ):
-                            continue
-                        # Shadow in the Warp: enemy units within 12" of any
-                        # SYNAPSE model from the Tyranid army take the test
-                        # at -1 (raises the test target by 1).
-                        shadow_penalty = 0
-                        if shadow_sources and any(
-                            _distance(u.position, s.position) <= 12.0
-                            for s in shadow_sources
-                        ):
-                            shadow_penalty = 1
-                        # Contagions of Nurgle — Round 2 Maladictive Pall:
-                        # -1 Ld on enemy units within 6" of any DG model on
-                        # the opposing side. We never debuff a DG unit
-                        # itself (the aura targets *enemies* of DG). The
-                        # gate already skips this list outside round 2.
-                        contagion_penalty = 0
-                        if (
-                            contagion_sources
-                            and u.profile.faction != "Death Guard"
-                            and any(
-                                _distance(u.position, s.position) <= 6.0
-                                for s in contagion_sources
-                            )
-                        ):
-                            contagion_penalty = 1
-                        roll = random.randint(1, 6) + random.randint(1, 6)
-                        target = (
-                            u.profile.leadership
-                            + ld_penalty
-                            - ld_bonus
-                            + shadow_penalty
-                            + contagion_penalty
-                        )
-                        if roll < target:
-                            self._battleshocked_this_round.add(u.uid)
-                            self._emit(BattleshockFailed(
-                                unit_uid=u.uid, roll=roll, target=target,
-                            ))
+        # Battleshock phase already ran before the stratagem dispatcher
+        # (task #168 — stratagems can't target battleshocked units, so the
+        # test must populate `_battleshocked_this_round` first). See
+        # `_run_battleshock_phase` for the rule logic.
 
         # ---- Coordinated army-level activation plan (#161). At the start of
         # each round, each army picks ONE plan that biases both its activation
@@ -2043,10 +2045,18 @@ class Battle:
         # for picking purposes, biasing the min() toward it. Additive
         # bias only; the fragile chaff that loses ties anyway still loses,
         # but a Termagant unit at 5 HP outscores a Carnifex at 8 HP.
-        from .strategy import _screen_target_bonus
+        # S7 (#168) — synapse-source shooting priority: a non-Tyranid
+        # attacker biases toward SYNAPSE units (Hive Tyrant, Tervigon) so
+        # killing them revokes the Tyranid army's Battle-shock shelter.
+        # Same "lower-is-better" inversion as the screen bonus — we divide
+        # the score so a 1.5x bonus reads as 0.67x its raw HP, biasing
+        # min() toward it.
+        from .strategy import _screen_target_bonus, _synapse_target_bonus
         shoot_target = min(
             pool,
-            key=lambda u: u.current_health / _screen_target_bonus(u),
+            key=lambda u: u.current_health / (
+                _screen_target_bonus(u) * _synapse_target_bonus(attacker, u)
+            ),
         )
 
         # Terrain-aware cover: target counts as in cover if it stands inside

@@ -441,6 +441,45 @@ def _screen_target_bonus(defender) -> float:
     return 1.0
 
 
+# ---------------------------------------------------------------------------
+# S7 — Synapse-source target priority (task #168)
+# ---------------------------------------------------------------------------
+# Experienced opponents KILL the synapse-source unit (Hive Tyrant, Tervigon,
+# Tyranid Prime) before the cheap chaff: dropping the SYNAPSE umbrella revokes
+# the swarm's auto-pass Battle-shock shelter and opens every wounded Termagant
+# brick to a real Ld test. This is a different mechanism from `_is_screen_target`
+# — synapse sources are HIGH-W BRICKS (Hive Tyrant T9 W12), not chaff. The
+# bonus stacks multiplicatively with screen / support / gunline biases.
+#
+# Gated:
+#   - target carries the SYNAPSE keyword (`"SYNAPSE" in unit_keywords`)
+#   - attacker is NOT Tyranids (intra-faction Tyranid combats don't get it —
+#     two Tyranid armies in a mirror would otherwise both bias toward each
+#     other's brood-lord, which is fine for non-mirror play but a no-op /
+#     wash for mirror — easier to just hard-gate on attacker faction).
+_SYNAPSE_TARGET_BONUS: float = 1.5
+
+
+def _is_synapse_source(profile) -> bool:
+    """True when `profile` carries the SYNAPSE keyword (Hive Tyrant, Tervigon,
+    Tyranid Prime, Neurotyrant, etc.)."""
+    return "SYNAPSE" in (getattr(profile, "unit_keywords", ()) or ())
+
+
+def _synapse_target_bonus(attacker, defender) -> float:
+    """Return 1.5x when `defender` is a SYNAPSE source AND `attacker` is
+    non-Tyranid; else 1.0. See module docstring for motivation."""
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction == "Tyranids":
+        return 1.0
+    if not _is_synapse_source(d_profile):
+        return 1.0
+    return _SYNAPSE_TARGET_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -479,10 +518,14 @@ def _melee_target_score(attacker, defender) -> float:
     # chaff (Termagants, Cultists, Boyz) before high-DPA bricks. Tightly
     # gated to oc>=2 + (low W per-model OR HORDE role); see
     # `_is_screen_target`.
+    # S7 (#168): synapse-source bonus biases non-Tyranid attackers toward
+    # killing the Hive Tyrant / Tervigon BEFORE the chaff so the swarm
+    # loses its Synapse Imperative auto-pass shelter.
     return (base
             * _gunline_charge_bonus(p, tp)
             * _support_target_bonus(defender)
-            * _screen_target_bonus(defender))
+            * _screen_target_bonus(defender)
+            * _synapse_target_bonus(attacker, defender))
 
 
 def pick_charge_target(attacker, enemy):
@@ -569,9 +612,13 @@ def pick_charge_target(attacker, enemy):
         # S6 (#166) — screen-target bonus: bias charges into OC-bearing
         # chaff before high-DPA bricks.
         screen_bonus = _screen_target_bonus(e)
+        # S7 (#168) — synapse-source bonus: bias non-Tyranid attackers
+        # into the Hive Tyrant / Tervigon to revoke Synapse Imperative.
+        synapse_bonus = _synapse_target_bonus(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
-                 * charge_p * gunline_bonus * support_bonus * screen_bonus)
+                 * charge_p * gunline_bonus * support_bonus
+                 * screen_bonus * synapse_bonus)
         candidates.append((score, d, e))
 
     if not candidates:

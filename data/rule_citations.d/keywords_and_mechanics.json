@@ -258,7 +258,7 @@
     "rule_name": "Battle-shock",
     "quoted_text": "If a unit is Below Half-Strength, you must take a Battle-shock test for it. To do so, roll 2D6: if the result equals or exceeds the unit's Leadership characteristic, that test is passed. Otherwise, that test is failed and that unit is Battle-shocked until the start of your next Command phase. While a unit is Battle-shocked, the Objective Control characteristic of all of its models is 0, you cannot use Stratagems to affect that unit, and that unit must take Desperate Escape tests if it Falls Back.",
     "trigger": "start of own Command phase (Round 2 onward); unit is Below Half-Strength",
-    "effect": "(approximation) the unit rolls 2D6; fail (< Ld) drops its OC to 0 for objective scoring this round. SwegHammer ignores the 'cannot use Stratagems' and 'Desperate Escape on Fall Back' consequences because neither is otherwise modelled. Detachment ld_bonus / enemy_ld_penalty compose into the test target.",
+    "effect": "(approximation) the unit rolls 2D6; fail (< Ld) drops its OC to 0 for objective scoring this round AND the unit is removed from the candidate pool of friend/enemy stratagem target pickers (`_highest_dpa_unit`, `_most_vulnerable_unit`, `_highest_threat_enemy`) so detachment stratagems cannot select it as their subject for the round. SwegHammer ignores the 'Desperate Escape on Fall Back' consequence because Fall Back desperate escape is otherwise handled by the dedicated Fall Back gate (#171). Detachment ld_bonus / enemy_ld_penalty compose into the test target. Task #168 moved the test to run BEFORE the round-start stratagem dispatcher so the lockout is observable when the dispatcher picks targets.",
     "scope": "phase-gated"
   },
 
