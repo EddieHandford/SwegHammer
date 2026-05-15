@@ -700,6 +700,300 @@ def compute_phase2(
 
 
 # ---------------------------------------------------------------------------
+# Phase 3 — Defensive audit (pure analysis; no rule changes)
+# ---------------------------------------------------------------------------
+#
+# The defensive math (save_after_ap, invuln, fnp_multiplier) already enters the
+# pricing via `expected_*_damage` -> D[i,j] -> T[i,j] = wounds(j) / D[i,j].
+# Phase 3 is an audit pass: surface the edge-case unit classes where defence
+# does the heaviest lifting, sanity-check that they're being captured, and
+# detect units the anchor simply can't damage (so future phases know which
+# matchups need a fallback).
+#
+# This module is read-only over an EquilibriumResult; it generates no new
+# SIMULATOR_RULE_KEYS / detachment / leader entries.
+
+# Edge-case thresholds for the four audit classes. Tuned to match the
+# wording in the task brief and the in-code comments — adjust if the
+# definition of "elite" / "cliff" shifts.
+_PHASE3_FNP_THRESHOLD = 5      # FNP <= 5+ (i.e. fnp in {2..5}) counts as "high"
+_PHASE3_LOW_WOUND_MAX = 2      # health <= 2 is "low wound" for the FNP class
+_PHASE3_DURABILITY_UPLIFT_FLOOR = 1.5 - 1e-9   # flag when FNP makes you >=50%
+                                                # more durable. The 1e-9 epsilon
+                                                # admits FNP 5+ at its exact
+                                                # 1.5x boundary (the float
+                                                # 1/(4/6) = 1.4999...e0).
+_PHASE3_INVULN_CEIL = 4        # invuln <= 4+ is "good"
+_PHASE3_INVULN_GAP_MIN = 2     # |save - invuln| >= 2 is a real "cliff" —
+                               # captures both directions: a Ministorum
+                               # Priest (Sv 6+ / Inv 4+, gap +2) AND a
+                               # Custodian Guard (Sv 2+ / Inv 4+, gap -2,
+                               # |gap|=2). The Custodes "cliff" only shows
+                               # up vs high AP that strips the armour past
+                               # the invuln, but at the unit-classification
+                               # layer we flag both directions and let the
+                               # damage routine's min(save, invuln) handle
+                               # the AP-conditional pricing.
+_PHASE3_ELITE_WOUND_MIN = 3    # health >= 3 is "multi-wound"
+_PHASE3_ELITE_SAVE_MAX = 3     # save <= 3+ is "elite armour"
+_PHASE3_NEAR_ZERO_DAMAGE = 0.05  # D < this/turn = anchor can't price this unit
+
+
+@dataclass
+class Phase3Audit:
+    """Defensive-audit findings over an EquilibriumResult.
+
+    All collections are sorted for deterministic output; spot_checks preserves
+    insertion order so the brief's named pairings stay readable.
+
+    Fields:
+      high_fnp_units      — (unit_key, durability_uplift_vs_save_only) for
+                            units with FNP <= 5+ AND health <= 2 whose FNP
+                            multiplies effective survivability by >1.5x.
+      invuln_cliff_units  — (unit_key, save, invuln) where invuln <= 4+ AND
+                            |save - invuln| >= 2 — defensive math is doing
+                            real work in either direction (a strong invuln
+                            that dominates a poor save, or an invuln floor
+                            that backstops a great save when armour is stripped).
+      multiwound_elite_units — keys with health >= 3 AND save <= 3+ (heavy
+                            infantry: linear T scaling with wound count).
+      spot_checks         — list of dicts: {attacker_key, defender_key, T_value,
+                            expected_vs_naive_ratio, ...} for the brief's
+                            named anchor-vs-X comparisons.
+      unpriceable_vs_anchor — keys where anchor cannot deal meaningful
+                            (<0.05/turn) damage; these can't be priced via
+                            the anchor's row alone and need fallback treatment.
+      anchor_key          — the EquilibriumResult anchor reused for spot checks.
+    """
+    high_fnp_units: List[Tuple[str, float]]
+    invuln_cliff_units: List[Tuple[str, int, int]]
+    multiwound_elite_units: List[str]
+    spot_checks: List[dict]
+    unpriceable_vs_anchor: List[str]
+    anchor_key: str
+
+
+def _fnp_multiplier(fnp: int) -> float:
+    """Same FNP curve `expected_*_damage` uses. 7 = no FNP -> 1.0 (full damage)."""
+    if fnp <= 6:
+        return 1.0 - (7 - fnp) / 6.0
+    return 1.0
+
+
+def _save_fail_prob(save: int, ap: int = 0, invuln: int = 7) -> float:
+    """Probability a save FAILS — mirrors the in-damage save block.
+
+    Uses min(save_after_ap, invuln) when invuln <= 6, else just save_after_ap.
+    2+ is the floor in 10e (a natural 1 always fails -> 5/6 succeed).
+    """
+    save_after_ap = save - ap
+    effective = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
+    if effective > 6:
+        return 1.0
+    if effective <= 2:
+        return 1.0 - 5.0 / 6.0
+    return 1.0 - (7 - effective) / 6.0
+
+
+def _spot_check(
+    result: EquilibriumResult,
+    attacker_key: str,
+    defender_key: str,
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+) -> Optional[dict]:
+    """Return T[i,j] and a defence-amplification ratio for a labelled matchup.
+
+    `expected_vs_naive_ratio` is T_with_defence / T_naive, where T_naive is
+    what the time-to-kill would be against a stripped defender (save=7, no
+    invuln, no FNP). Ratio > 1 means defensive stats are extending survival;
+    ratio == 1 means the defender's stats don't matter for this matchup.
+    """
+    if attacker_key not in result.keys or defender_key not in result.keys:
+        return None
+    i = result.index_of(attacker_key)
+    j = result.index_of(defender_key)
+    if not np.isfinite(result.T[i, j]):
+        # Anchor can't damage defender at all — record the matchup as
+        # unpriceable rather than fabricating a finite ratio.
+        return {
+            "attacker_key": attacker_key,
+            "defender_key": defender_key,
+            "T_value": float("inf"),
+            "expected_vs_naive_ratio": float("inf"),
+            "note": "anchor cannot damage defender (T = inf)",
+        }
+    # Naive baseline: rebuild D with a stripped defender clone.
+    from dataclasses import replace
+    units_by_key = {
+        k: u for k, u in zip(result.keys, _units_from_result(result, catalog=catalog))
+    }
+    naive_defender = replace(
+        units_by_key[defender_key], save=7, invuln_save=7, fnp=7,
+    )
+    naive_attacker = units_by_key[attacker_key]
+    # Use the same combined / shooting damage routine the result phase used.
+    if result.phase == 2:
+        from .roles import classify
+        w = DEFAULT_SHOOT_WEIGHT_BY_ROLE.get(classify(naive_attacker), 0.5)
+        D_naive = (
+            w * expected_shooting_damage(naive_attacker, naive_defender)
+            + (1.0 - w) * expected_melee_damage(naive_attacker, naive_defender)
+        )
+    else:
+        D_naive = expected_shooting_damage(naive_attacker, naive_defender)
+    if D_naive <= _MIN_DAMAGE_PER_TURN:
+        ratio = float("inf")
+    else:
+        T_naive = naive_defender.health / D_naive
+        ratio = float(result.T[i, j]) / T_naive
+    return {
+        "attacker_key": attacker_key,
+        "defender_key": defender_key,
+        "T_value": round(float(result.T[i, j]), 3),
+        "expected_vs_naive_ratio": round(float(ratio), 3),
+    }
+
+
+def _units_from_result(
+    result: EquilibriumResult,
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+) -> List[UnitProfile]:
+    """Look up UnitProfile objects in the same order as result.keys.
+
+    `catalog` lets tests inject a synthetic dict; defaults to UNIT_CATALOG.
+    """
+    src = catalog if catalog is not None else UNIT_CATALOG
+    return [src[k] for k in result.keys]
+
+
+def _closest_key_by_substring(keys: List[str], substring: str) -> Optional[str]:
+    """Find the first key in `keys` that contains `substring` (case-insensitive).
+
+    Used by the spot-check pipeline when the brief's canonical key isn't in
+    the current catalogue build — we fall back to the closest match by name
+    and the caller logs the substitution.
+    """
+    needle = substring.lower()
+    matches = [k for k in keys if needle in k.lower()]
+    return matches[0] if matches else None
+
+
+def compute_phase3_audit(
+    result: EquilibriumResult,
+    catalog: Optional[Dict[str, UnitProfile]] = None,
+) -> Phase3Audit:
+    """Phase 3 — defensive-audit pass over an EquilibriumResult.
+
+    Identifies the unit classes where defensive math does the heaviest lifting
+    (high FNP + low wounds, invuln cliffs, multi-wound elites) and verifies
+    the pricing captures them. Also lists units the anchor can't meaningfully
+    damage. No mutation of the result; returns a Phase3Audit report.
+
+    `catalog` lets callers inject a synthetic profile map (used by tests to
+    sanity-check the logic when the live catalogue's invuln data is sparse).
+    Defaults to `UNIT_CATALOG`.
+
+    See module-level Phase 3 block for class definitions and thresholds.
+    """
+    keys = list(result.keys)
+    units = _units_from_result(result, catalog=catalog)
+
+    high_fnp_units: List[Tuple[str, float]] = []
+    invuln_cliff_units: List[Tuple[str, int, int]] = []
+    multiwound_elite_units: List[str] = []
+
+    for key, u in zip(keys, units):
+        # ---- Class 1: high FNP + low wounds. ----
+        # Uplift = T_with_fnp / T_save_only = (1/fnp_mult). FNP 5+ -> 1.5x,
+        # FNP 4+ -> 2.0x, FNP 3+ -> 3.0x. Threshold is uplift > 1.5x, which
+        # captures FNP 4+ AND FNP 5+ at the boundary.
+        if u.fnp <= _PHASE3_FNP_THRESHOLD and u.health <= _PHASE3_LOW_WOUND_MAX:
+            mult = _fnp_multiplier(u.fnp)
+            if mult > 0:
+                uplift = 1.0 / mult
+                if uplift >= _PHASE3_DURABILITY_UPLIFT_FLOOR:
+                    high_fnp_units.append((key, round(uplift, 3)))
+
+        # ---- Class 2: invuln cliff. ----
+        # The damage routine uses `min(save_after_ap, invuln)`. We flag a
+        # cliff when |save - invuln| >= 2 with invuln <= 4+. Two regimes:
+        #   (a) save WORSE than invuln (Sv 6+/Inv 4+ Priest, gap +2):
+        #       invuln dominates from the start.
+        #   (b) save BETTER than invuln (Sv 2+/Inv 4+ Custodes, gap -2):
+        #       invuln only kicks in vs AP-2-or-better, but it provides
+        #       a hard 4+ floor that armour-stripping shots cannot break.
+        # Both regimes show up as "defensive math is doing real work" —
+        # the bare save number alone undersells durability.
+        if (
+            u.invuln_save <= _PHASE3_INVULN_CEIL
+            and abs(u.save - u.invuln_save) >= _PHASE3_INVULN_GAP_MIN
+        ):
+            invuln_cliff_units.append((key, int(u.save), int(u.invuln_save)))
+
+        # ---- Class 3: multi-wound elite. ----
+        # T scales linearly with wounds (T = wounds / D), so health=3 -> 50%
+        # longer to kill than health=2 at the same D. List these for the
+        # sanity check at the end.
+        if u.health >= _PHASE3_ELITE_WOUND_MIN and u.save <= _PHASE3_ELITE_SAVE_MAX:
+            multiwound_elite_units.append(key)
+
+    high_fnp_units.sort(key=lambda x: x[1], reverse=True)
+    invuln_cliff_units.sort()
+    multiwound_elite_units.sort()
+
+    # ---- Class 4: spot-checks against the anchor. ----
+    anchor_key = result.anchor_key
+    spot_checks: List[dict] = []
+    targets = [
+        ("death_guard_plague_marines", "plague_marines"),
+        ("adeptus_custodes_custodian_guard", "custodian_guard"),
+        ("aeldari_aeldari_library_wraithguard", "wraithguard"),
+    ]
+    for canonical, substring in targets:
+        defender_key = canonical if canonical in keys else _closest_key_by_substring(
+            keys, substring,
+        )
+        if defender_key is None:
+            spot_checks.append({
+                "attacker_key": anchor_key,
+                "defender_key": None,
+                "T_value": None,
+                "expected_vs_naive_ratio": None,
+                "note": f"no catalogue match for {substring!r}",
+            })
+            continue
+        entry = _spot_check(result, anchor_key, defender_key, catalog=catalog)
+        if entry is None:
+            continue
+        if defender_key != canonical:
+            entry["note"] = f"substituted for missing {canonical!r}"
+        spot_checks.append(entry)
+
+    # ---- Class 5: unpriceable vs anchor. ----
+    # Units the anchor's shooting matrix can't put a meaningful dent in
+    # (D < 0.05/turn). The full-row solver still computes log_p from valid
+    # off-axis matchups, but these matchups specifically need a fallback.
+    if anchor_key in keys:
+        i = result.index_of(anchor_key)
+        anchor_row = result.D[i]
+        unpriceable_vs_anchor = sorted(
+            keys[j] for j in range(len(keys))
+            if j != i and anchor_row[j] < _PHASE3_NEAR_ZERO_DAMAGE
+        )
+    else:
+        unpriceable_vs_anchor = []
+
+    return Phase3Audit(
+        high_fnp_units=high_fnp_units,
+        invuln_cliff_units=invuln_cliff_units,
+        multiwound_elite_units=multiwound_elite_units,
+        spot_checks=spot_checks,
+        unpriceable_vs_anchor=unpriceable_vs_anchor,
+        anchor_key=anchor_key,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
 
@@ -820,11 +1114,11 @@ def plot_scatter(entries: List[EquilibriumEntry], path: Path = EQUILIBRIUM_PLOT)
 #   coarse-role lookup (`DEFAULT_SHOOT_WEIGHT_BY_ROLE`); a sim-data fit is
 #   left as a follow-up tuning task.
 #
-# Phase 3: defensive audit
-#   Edge cases where T denominator overstates durability — e.g., a unit
-#   with FNP 5+ and 1 wound should be ~50% more durable, but our T already
-#   captures that via the multiplicative fnp_multiplier inside D. Verify
-#   with a spot-check on Death Guard Plague Marines vs. baseline Marines.
+# Phase 3 — DONE: defensive audit. `compute_phase3_audit` (above) flags four
+#   classes — high-FNP-low-wound, invuln-cliff, multiwound-elite, anchor-can't-
+#   touch — plus spot-checks of the anchor against Plague Marines / Custodian
+#   Guard / Wraithguard. Pure analysis: no rule changes, no MAE impact. Run
+#   via `python -m code.equilibrium --phase 3`.
 #
 # Phase 4: tactical-utility term
 #   Add a per-unit `tactical_value(u)` that contributes a phantom DPS-like
@@ -858,9 +1152,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description="Equilibrium-points solver. --phase 1 = shooting only; "
-                    "--phase 2 = combined shoot+melee."
+                    "--phase 2 = combined shoot+melee; --phase 3 = Phase 2 "
+                    "solve + defensive-audit report (no extra plotting)."
     )
-    parser.add_argument("--phase", type=int, default=1, choices=(1, 2),
+    parser.add_argument("--phase", type=int, default=1, choices=(1, 2, 3),
                         help="Which solver to run (default 1)")
     parser.add_argument("--faction", type=str, default=None,
                         help="Restrict to a single faction (e.g. 'Necrons')")
@@ -877,44 +1172,91 @@ if __name__ == "__main__":
                         help="Output PNG path (phase-specific default)")
     args = parser.parse_args()
 
-    if args.phase == 2:
-        out_path = args.out or EQUILIBRIUM_PHASE2_PATH
-        plot_path = args.plot_out or EQUILIBRIUM_PHASE2_PLOT
+    if args.phase == 3:
+        # Phase 3 is an audit pass that consumes a Phase 2 result; it produces
+        # no JSON/plot of its own and writes nothing — pure stdout report.
         result = compute_phase2(
             anchor_key=args.anchor,
             anchor_per_model=args.anchor_points,
             faction=args.faction,
             limit=args.limit,
         )
-    else:
-        out_path = args.out or EQUILIBRIUM_PATH
-        plot_path = args.plot_out or EQUILIBRIUM_PLOT
-        result = compute_phase1(
-            anchor_key=args.anchor,
-            anchor_per_model=args.anchor_points,
-            faction=args.faction,
-            limit=args.limit,
-        )
-    entries = result.entries
-    write_json(entries, out_path, anchor_key=args.anchor,
-               anchor_per_model=args.anchor_points, phase=args.phase)
-    if not args.no_plot:
-        plot_scatter(entries, plot_path)
+        audit = compute_phase3_audit(result)
+        print(f"\nPhase 3 defensive audit — anchor {audit.anchor_key} "
+              f"(Phase 2 result over {len(result.keys)} units).")
 
-    # Print top mispricings
-    sorted_entries = sorted(entries, key=lambda e: e.mispricing_pct)
-    print(f"\nPhase {args.phase}: {len(entries)} units fitted. "
-          f"Anchor: {args.anchor} @ {args.anchor_points} pts/model.")
-    print("\nMost UNDERCOSTED by GW (equilibrium says should cost more):")
-    for e in sorted_entries[:10]:
-        print(f"  {e.mispricing_pct:+6.1f}%   "
-              f"GW {e.gw_points_per_model:>5.1f} vs eq {e.equilibrium_points_per_model:>5.1f}   "
-              f"{e.name[:50]} ({e.faction[:20]})")
-    print("\nMost OVERCOSTED by GW (equilibrium says should cost less):")
-    for e in sorted_entries[-10:][::-1]:
-        print(f"  {e.mispricing_pct:+6.1f}%   "
-              f"GW {e.gw_points_per_model:>5.1f} vs eq {e.equilibrium_points_per_model:>5.1f}   "
-              f"{e.name[:50]} ({e.faction[:20]})")
-    print(f"\nWrote {out_path}")
-    if not args.no_plot:
-        print(f"Wrote {plot_path}")
+        print(f"\nHigh-FNP low-wound class ({len(audit.high_fnp_units)} units, "
+              f"top 20 by uplift):")
+        for key, uplift in audit.high_fnp_units[:20]:
+            print(f"  {uplift:>5.2f}x  {key}")
+
+        print(f"\nInvuln-cliff class ({len(audit.invuln_cliff_units)} units, "
+              f"top 20 by save):")
+        for key, sv, inv in audit.invuln_cliff_units[:20]:
+            print(f"  Sv {sv}+ / Inv {inv}+ (cliff = {sv - inv})  {key}")
+
+        print(f"\nMulti-wound elite class ({len(audit.multiwound_elite_units)} "
+              f"units, top 20 alphabetical):")
+        for key in audit.multiwound_elite_units[:20]:
+            u = UNIT_CATALOG[key]
+            print(f"  T{u.toughness} W{u.health:.0f} Sv{u.save}+  {key}")
+
+        print(f"\nSpot-checks vs anchor:")
+        for sc in audit.spot_checks:
+            if sc.get("defender_key") is None:
+                print(f"  [skip] {sc.get('note', 'no defender')}")
+                continue
+            note = f"  ({sc['note']})" if "note" in sc else ""
+            print(f"  {sc['attacker_key']} -> {sc['defender_key']}: "
+                  f"T = {sc['T_value']}  defence-amp = "
+                  f"{sc['expected_vs_naive_ratio']}x{note}")
+
+        print(f"\nUnpriceable vs anchor (D < {_PHASE3_NEAR_ZERO_DAMAGE}/turn): "
+              f"{len(audit.unpriceable_vs_anchor)} units")
+        for key in audit.unpriceable_vs_anchor[:20]:
+            print(f"  {key}")
+        if len(audit.unpriceable_vs_anchor) > 20:
+            print(f"  ... and {len(audit.unpriceable_vs_anchor) - 20} more")
+        print()
+    else:
+        if args.phase == 2:
+            out_path = args.out or EQUILIBRIUM_PHASE2_PATH
+            plot_path = args.plot_out or EQUILIBRIUM_PHASE2_PLOT
+            result = compute_phase2(
+                anchor_key=args.anchor,
+                anchor_per_model=args.anchor_points,
+                faction=args.faction,
+                limit=args.limit,
+            )
+        else:
+            out_path = args.out or EQUILIBRIUM_PATH
+            plot_path = args.plot_out or EQUILIBRIUM_PLOT
+            result = compute_phase1(
+                anchor_key=args.anchor,
+                anchor_per_model=args.anchor_points,
+                faction=args.faction,
+                limit=args.limit,
+            )
+        entries = result.entries
+        write_json(entries, out_path, anchor_key=args.anchor,
+                   anchor_per_model=args.anchor_points, phase=args.phase)
+        if not args.no_plot:
+            plot_scatter(entries, plot_path)
+
+        # Print top mispricings
+        sorted_entries = sorted(entries, key=lambda e: e.mispricing_pct)
+        print(f"\nPhase {args.phase}: {len(entries)} units fitted. "
+              f"Anchor: {args.anchor} @ {args.anchor_points} pts/model.")
+        print("\nMost UNDERCOSTED by GW (equilibrium says should cost more):")
+        for e in sorted_entries[:10]:
+            print(f"  {e.mispricing_pct:+6.1f}%   "
+                  f"GW {e.gw_points_per_model:>5.1f} vs eq {e.equilibrium_points_per_model:>5.1f}   "
+                  f"{e.name[:50]} ({e.faction[:20]})")
+        print("\nMost OVERCOSTED by GW (equilibrium says should cost less):")
+        for e in sorted_entries[-10:][::-1]:
+            print(f"  {e.mispricing_pct:+6.1f}%   "
+                  f"GW {e.gw_points_per_model:>5.1f} vs eq {e.equilibrium_points_per_model:>5.1f}   "
+                  f"{e.name[:50]} ({e.faction[:20]})")
+        print(f"\nWrote {out_path}")
+        if not args.no_plot:
+            print(f"Wrote {plot_path}")
