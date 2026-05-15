@@ -65,6 +65,44 @@
     "thousand_sons_scarab_occult_terminators": {
       "points_override": 109.98,
       "notes": "sweg_balance_mc down 122.2 -> 109.98 pts/model"
+    },
+    "space_marines_intercessor_squad": {
+      "base_shape": "circle",
+      "base_diameter_mm": 32,
+      "notes": "Standard Primaris Marine 32mm round. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad (Base size)."
+    },
+    "adeptus_custodes_custodian_guard": {
+      "base_shape": "circle",
+      "base_diameter_mm": 40,
+      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size)."
+    },
+    "space_marines_repulsor_executioner": {
+      "base_shape": "rect",
+      "base_width_mm": 102,
+      "base_length_mm": 178,
+      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base — kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
+    },
+    "t_au_empire_riptide_battlesuit": {
+      "base_shape": "circle",
+      "base_diameter_mm": 80,
+      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). | sweg_balance_mc up 1192.5 -> 1311.75 pts/model",
+      "points_override": 1311.75
+    },
+    "tyranids_hive_tyrant": {
+      "base_shape": "circle",
+      "base_diameter_mm": 80,
+      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size)."
+    },
+    "tyranids_winged_hive_tyrant": {
+      "base_shape": "oval",
+      "base_width_mm": 105,
+      "base_length_mm": 170,
+      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size)."
+    },
+    "space_marines_terminator_squad": {
+      "base_shape": "circle",
+      "base_diameter_mm": 40,
+      "notes": "Terminators ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Terminator-Squad (Base size)."
     }
   }
 }

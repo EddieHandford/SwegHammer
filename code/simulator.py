@@ -270,6 +270,10 @@ class Battle:
                     uid=u.uid, name=u.profile.name, army=army.name,
                     position=u.position, max_health=u.profile.health,
                     unit_keywords=tuple(u.profile.unit_keywords or ()),
+                    base_shape=u.profile.base_shape,
+                    base_diameter_mm=u.profile.base_diameter_mm,
+                    base_width_mm=u.profile.base_width_mm,
+                    base_length_mm=u.profile.base_length_mm,
                 ))
             for u in self._reserves.get(army.name, []):
                 snapshot.append(InitialUnit(
@@ -277,6 +281,10 @@ class Battle:
                     position=(-100.0, -100.0),
                     max_health=u.profile.health,
                     unit_keywords=tuple(u.profile.unit_keywords or ()),
+                    base_shape=u.profile.base_shape,
+                    base_diameter_mm=u.profile.base_diameter_mm,
+                    base_width_mm=u.profile.base_width_mm,
+                    base_length_mm=u.profile.base_length_mm,
                 ))
         self._emit(BattleStarted(
             army_a_name=self.a.name,

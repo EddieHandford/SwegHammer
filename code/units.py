@@ -274,6 +274,18 @@ class UnitProfile:
     melee_ap: int = 0
     melee_weapon: str = ""
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
+    # ---- Renderer-only: real-world GW model base footprint ---------------
+    # Informational only — the simulator's collision / range logic still
+    # uses the 0.5" abstraction. Three shape families:
+    #   "circle" — INFANTRY / most CHARACTERs (GW round bases: 25-170mm)
+    #   "rect"   — most VEHICLEs (rectangular footprint, no GW standard size)
+    #   "oval"   — flying / monstrous / BIKE (GW oval bases: 60x35..170x105mm)
+    # Default = 32mm round (standard Marine). The renderer maps mm to world
+    # inches at 25.4 mm/inch via `code.renderer._mm_to_inches`.
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32                 # used when base_shape == "circle"
+    base_width_mm: int = 32                    # used when base_shape == "rect" or "oval"
+    base_length_mm: int = 32                   # used when base_shape == "rect" or "oval"
 
     @property
     def fly(self) -> bool:
@@ -1052,6 +1064,10 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             melee_weapon=entry.melee_weapon,
             range_inches=entry.range_inches,
             points_override=entry.points_override,
+            base_shape=entry.base_shape,
+            base_diameter_mm=entry.base_diameter_mm,
+            base_width_mm=entry.base_width_mm,
+            base_length_mm=entry.base_length_mm,
         )
     return catalog
 

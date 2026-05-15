@@ -1182,10 +1182,55 @@ class MappedUnit:
     melee_ap: int = 0
     melee_weapon: str = ""
     range_inches: int = 24       # primary-weapon range; melee-only => 1
+    # Renderer-only base footprint. BSData doesn't encode base sizes, so we
+    # derive a sensible default from the unit's keywords at map time; the
+    # hand-curated override path in data/overrides.json wins for precision
+    # cases (Repulsor 102x178mm, Riptide 80mm, etc.). See UnitProfile.base_shape
+    # for the shape vocabulary.
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32
+    base_width_mm: int = 32
+    base_length_mm: int = 32
     loadout: List[str] = field(default_factory=list)
     notes: str = ""
     enabled: bool = True
     skip_reason: str = ""
+
+
+def _derive_base_footprint(unit_keywords: List[str]) -> tuple:
+    """Best-effort base footprint from 10e keywords. BSData doesn't encode
+    real GW base sizes, so we pick a sensible default per silhouette family
+    and let `data/overrides.json` overwrite per-unit precision values
+    (Repulsor 102x178mm, Riptide 80mm, etc.).
+
+    Returns (shape, diameter_mm, width_mm, length_mm). For "circle" only
+    diameter is meaningful; for "rect"/"oval" only width and length matter.
+
+    Defaults chosen to match common GW kits:
+      TITANIC / TOWERING     -> 170x105mm oval (typical Knight footprint)
+      VEHICLE / WALKER       -> 152x89mm rect (Rhino chassis footprint)
+      MONSTER (no FLY)       -> 80mm circle  (typical mid-monster base)
+      MONSTER + FLY          -> 105x70mm oval (typical flying monster)
+      BIKE / MOUNTED         -> 75x42mm oval (GW small oval)
+      SWARM                  -> 40mm circle  (cluster base)
+      CHARACTER (no others)  -> 32mm circle  (named hero default)
+      INFANTRY / fallback    -> 32mm circle  (Marine default)
+    """
+    kw = set(k.upper() for k in (unit_keywords or ()))
+    if "TITANIC" in kw or "TOWERING" in kw:
+        return ("oval", 32, 105, 170)
+    if "VEHICLE" in kw or "WALKER" in kw:
+        return ("rect", 32, 89, 152)
+    if "MONSTER" in kw:
+        if "FLY" in kw:
+            return ("oval", 32, 70, 105)
+        return ("circle", 80, 80, 80)
+    if "BIKE" in kw or "MOUNTED" in kw:
+        return ("oval", 32, 42, 75)
+    if "SWARM" in kw:
+        return ("circle", 40, 40, 40)
+    # CHARACTER / INFANTRY / nothing -> standard 32mm Marine round
+    return ("circle", 32, 32, 32)
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -1316,6 +1361,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     else:
         m = re.search(r"(\d+)", best.range or "")
         primary_range = int(m.group(1)) if m else 24
+    base_shape, base_diameter, base_width, base_length = _derive_base_footprint(list(unit_kw))
     return MappedUnit(
         key=key,
         name=name,
@@ -1373,6 +1419,10 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         melee_ap=best_melee.ap if best_melee else 0,
         melee_weapon=best_melee.name if best_melee else "",
         range_inches=primary_range,
+        base_shape=base_shape,
+        base_diameter_mm=base_diameter,
+        base_width_mm=base_width,
+        base_length_mm=base_length,
         loadout=_build_loadout_strings(
             primary, gear, squad_models, used_heterogeneous,
         ),

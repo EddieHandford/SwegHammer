@@ -32,6 +32,13 @@ class InitialUnit:
     position: Tuple[float, float]
     max_health: float
     unit_keywords: Tuple[str, ...] = ()   # 10e keywords (INFANTRY, VEHICLE, MONSTER, ...) — used by the renderer for shape variety
+    # Renderer-only model base footprint (see UnitProfile.base_shape).
+    # Optional with defaults so legacy event logs without these fields keep
+    # rendering as 32mm round bases.
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32
+    base_width_mm: int = 32
+    base_length_mm: int = 32
 
 
 @dataclass(frozen=True)

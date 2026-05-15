@@ -93,6 +93,11 @@ class CatalogEntry:
     melee_weapon: str = ""
     range_inches: int = 24
     points_override: float = 0.0
+    # Renderer-only model base footprint (see UnitProfile.base_shape).
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32
+    base_width_mm: int = 32
+    base_length_mm: int = 32
     loadout: Optional[List[str]] = None
     notes: str = ""
     enabled: bool = True
@@ -154,6 +159,10 @@ class CatalogEntry:
             melee_weapon=d.get("melee_weapon", ""),
             range_inches=int(d.get("range_inches", 24)),
             points_override=float(d.get("points_override", 0)),
+            base_shape=str(d.get("base_shape", "circle")),
+            base_diameter_mm=int(d.get("base_diameter_mm", 32)),
+            base_width_mm=int(d.get("base_width_mm", 32)),
+            base_length_mm=int(d.get("base_length_mm", 32)),
             loadout=d.get("loadout") or [],
             notes=d.get("notes", ""),
             enabled=bool(d.get("enabled", True)),
@@ -260,6 +269,10 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "melee_weapon": override.get("melee_weapon", base.melee_weapon),
         "range_inches": override.get("range_inches", base.range_inches),
         "points_override": override.get("points_override", base.points_override),
+        "base_shape": override.get("base_shape", base.base_shape),
+        "base_diameter_mm": override.get("base_diameter_mm", base.base_diameter_mm),
+        "base_width_mm": override.get("base_width_mm", base.base_width_mm),
+        "base_length_mm": override.get("base_length_mm", base.base_length_mm),
         "loadout": override.get("loadout", base.loadout),
         "notes": override.get("notes", base.notes),
         "enabled": override.get("enabled", base.enabled),

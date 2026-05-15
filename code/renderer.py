@@ -161,6 +161,11 @@ def reconstruct_state(events: List, tick: int) -> Dict[str, dict]:
                     "max_hp": u.max_health,
                     "alive": True,
                     "unit_keywords": tuple(getattr(u, "unit_keywords", ()) or ()),
+                    # Renderer-only base footprint snapshot — see UnitProfile.
+                    "base_shape": getattr(u, "base_shape", "circle"),
+                    "base_diameter_mm": int(getattr(u, "base_diameter_mm", 32)),
+                    "base_width_mm": int(getattr(u, "base_width_mm", 32)),
+                    "base_length_mm": int(getattr(u, "base_length_mm", 32)),
                 }
             break
 
@@ -210,12 +215,32 @@ def _army_names(events: List) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# Shape dispatcher — unit silhouette varies with 10e keywords
+# Model base footprint — real-world GW dimensions in world inches
 # ---------------------------------------------------------------------------
+#
+# Each `UnitProfile` carries a `base_shape` ("circle" / "rect" / "oval") plus
+# the relevant millimetre dimensions (diameter for circles, width+length for
+# rect/oval). The renderer converts those to world inches at the 25.4 mm/inch
+# scale and draws a matching matplotlib patch. This replaces the previous
+# keyword-driven "TITANIC = big rectangle, MONSTER = big circle" dispatcher
+# with a data-driven path that respects each unit's actual model footprint
+# (e.g. Repulsor 102x178mm rect, Riptide 80mm circle, Hive Tyrant 80mm).
+#
+# The keyword dispatcher below (``_shape_for``) is retained as a legacy
+# fallback for callers that only have keyword data — primarily the existing
+# tests, and any consumer that hasn't been ported to ``base_shape`` yet.
 
-# Shape hint tags. The renderer interprets these when drawing a unit. We keep
-# them as small inert strings so they're trivial to assert on in tests and
-# easy to extend without touching the dispatcher.
+MM_PER_INCH = 25.4
+
+
+def _mm_to_inches(mm: float) -> float:
+    """Convert millimetres to world inches at the GW scale (25.4 mm/inch)."""
+    return float(mm) / MM_PER_INCH
+
+
+# Shape hint tags. Legacy dispatcher output — kept for backward compatibility
+# with `_shape_for`. The new draw path uses `base_shape` directly off the
+# unit's state dict and ignores these tags.
 SHAPE_LARGE_RECT = "large_rect"        # TITANIC / TOWERING
 SHAPE_MEDIUM_RECT = "medium_rect"      # VEHICLE / WALKER (non-Titanic)
 SHAPE_LARGE_CIRCLE = "large_circle"    # MONSTER
@@ -226,12 +251,12 @@ SHAPE_SMALL_CIRCLE = "small_circle"    # default INFANTRY
 
 
 def _shape_for(unit_keywords) -> tuple:
-    """Map a unit's 10e keyword set to a (shape_tag, size_hint) pair.
+    """Legacy: map a unit's 10e keyword set to a (shape_tag, size_hint) pair.
 
-    Keywords are checked in priority order, biggest silhouettes first, so
-    e.g. a "TITANIC, VEHICLE" unit renders as a large rectangle rather than
-    a medium one. CHARACTER takes precedence over plain INFANTRY but loses
-    to anything bigger (a Vehicle-CHARACTER reads as a vehicle).
+    Superseded by the data-driven ``base_shape`` path in ``render_frame``.
+    Retained because the existing renderer tests assert on its dispatch
+    behaviour and because callers that only have a keyword tuple (no real
+    base size) still need a sensible fallback silhouette.
 
     Returns:
         (shape_tag, size_hint) where size_hint is either a scatter ``s=``
@@ -254,9 +279,56 @@ def _shape_for(unit_keywords) -> tuple:
     return SHAPE_SMALL_CIRCLE, 100
 
 
+def _draw_unit_base(
+    ax, x: float, y: float, color: str,
+    base_shape: str,
+    base_diameter_mm: int,
+    base_width_mm: int,
+    base_length_mm: int,
+) -> None:
+    """Draw a single alive unit using its real-world GW base footprint.
+
+    All millimetre dimensions are converted to world inches at the
+    ``MM_PER_INCH`` scale. The ``base_shape`` selects the matplotlib patch:
+
+      - ``"circle"`` -> matplotlib ``Circle`` of diameter ``base_diameter_mm``
+      - ``"rect"``   -> ``Rectangle`` sized ``base_width_mm`` x ``base_length_mm``
+      - ``"oval"``   -> ``Ellipse`` sized ``base_width_mm`` x ``base_length_mm``
+
+    Any unrecognised shape value silently falls back to a 32mm round so a
+    bad override doesn't take the renderer down.
+    """
+    shape = (base_shape or "circle").lower()
+    if shape == "rect":
+        w = _mm_to_inches(base_width_mm)
+        h = _mm_to_inches(base_length_mm)
+        ax.add_patch(Rectangle(
+            (x - w / 2, y - h / 2), w, h,
+            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
+        ))
+    elif shape == "oval":
+        w = _mm_to_inches(base_width_mm)
+        h = _mm_to_inches(base_length_mm)
+        ax.add_patch(Ellipse(
+            (x, y), w, h,
+            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
+        ))
+    else:  # "circle" or fallback
+        r = _mm_to_inches(base_diameter_mm) / 2.0
+        ax.add_patch(plt.Circle(
+            (x, y), r,
+            facecolor=color, edgecolor="white", linewidth=0.9, zorder=5,
+        ))
+
+
 def _draw_unit_shape(ax, x: float, y: float, color: str,
                      shape_tag: str, size_hint) -> None:
-    """Draw a single alive unit using the shape dispatcher's output."""
+    """Legacy: draw a single alive unit using the shape dispatcher's output.
+
+    Retained for backward compatibility; the new draw path is
+    ``_draw_unit_base``. Both are kept in the public surface so external
+    consumers (older notebooks, regression scripts) keep working.
+    """
     if shape_tag == SHAPE_LARGE_RECT:
         w, h = size_hint
         ax.add_patch(Rectangle(
@@ -439,13 +511,21 @@ def render_frame(
         ax.scatter([obj.x], [obj.y], s=40, c=COL_OBJECTIVE, marker="D",
                    edgecolors="black", linewidths=0.5, alpha=0.75, zorder=3)
 
-    # Units
+    # Units — drawn at their real-world GW base footprint. The state dict
+    # carries base_shape + dimensions sourced from UnitProfile via the
+    # BattleStarted snapshot; missing fields default to a 32mm round so
+    # legacy / synthetic event logs keep rendering.
     for uid, s in state.items():
         color = colour_a if s["army"] == a_name else colour_b
         x, y = s["position"]
         if s["alive"]:
-            shape_tag, size_hint = _shape_for(s.get("unit_keywords", ()))
-            _draw_unit_shape(ax, x, y, color, shape_tag, size_hint)
+            _draw_unit_base(
+                ax, x, y, color,
+                base_shape=s.get("base_shape", "circle"),
+                base_diameter_mm=int(s.get("base_diameter_mm", 32)),
+                base_width_mm=int(s.get("base_width_mm", 32)),
+                base_length_mm=int(s.get("base_length_mm", 32)),
+            )
             # HP indicator: if wounded, smaller inner dot. Sized off a baseline
             # 100 marker so it remains a readable overlay across all shape
             # variants (rect/ellipse/circle).
