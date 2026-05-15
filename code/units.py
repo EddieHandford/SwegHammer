@@ -50,6 +50,64 @@ def _prob_to_target(prob: float) -> int:
     return max(2, min(7, target))
 
 
+def _contagion_round_for(unit: "Unit") -> int:
+    """Return the active Death Guard Contagion round for the army that opposes
+    `unit`'s army, or 0 when no DG army is on the opposing side / no battle is
+    active. Used by `Unit.attack` to gate the 6" Nurgle's Gift aura.
+
+    Contagions of Nurgle (Death Guard army rule, 10e — escalating order):
+      Round 1 — Virulent Rot:       -1 T on enemy units within 6" of a DG model
+      Round 2 — Maladictive Pall:   -1 Ld on enemy units within 6" (battleshock)
+      Round 3+ — Fulminating Plague: -1 to hit on enemy units within 6"
+    """
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return 0
+    battle = getattr(own_army, "_battle_ref", None)
+    if battle is None:
+        return 0
+    cur_round = getattr(battle, "_current_round", 0)
+    return int(cur_round) if cur_round > 0 else 0
+
+
+def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
+    """True iff any DEATH GUARD model from the army opposing `unit` is within
+    `radius` inches of `unit.position`. The aura is projected by every DG
+    model ("Each model in your army has the following aura ability"), so we
+    scan the full opposing roster, not just CHARACTERS / SYNAPSE-style sources.
+
+    Returns False when `unit` has no army / no live battle / the opposing army
+    contains no DG units. Cited as `simulator.contagions_of_nurgle`.
+    """
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return False
+    battle = getattr(own_army, "_battle_ref", None)
+    if battle is None:
+        return False
+    # Identify the OPPOSING army — the one that's NOT unit.army_ref.
+    if own_army is getattr(battle, "a", None):
+        opposing = getattr(battle, "b", None)
+    elif own_army is getattr(battle, "b", None):
+        opposing = getattr(battle, "a", None)
+    else:
+        return False
+    if opposing is None:
+        return False
+    # Aura source = any DG model on the opposing side.
+    ux, uy = unit.position
+    r2 = radius * radius
+    for m in opposing.alive_units:
+        if m.profile.faction != "Death Guard":
+            continue
+        mx, my = m.position
+        dx = mx - ux
+        dy = my - uy
+        if dx * dx + dy * dy <= r2:
+            return True
+    return False
+
+
 def save_probability(save: int, ap: int = 0, in_cover: bool = False) -> float:
     """
     Probability of passing an armour save roll on a d6.
@@ -485,6 +543,14 @@ class Unit:
         if att_buffs["plus_one_to_wound"]:
             wound_target = max(2, wound_target - 1)
 
+        # Capture the hit target AFTER positive buffs but BEFORE any negative
+        # modifiers (Heavy in engagement / Indirect / cover / Stealth / DG
+        # Contagions round 3+). Used to enforce 10e's "modifiers to hit
+        # cannot exceed -1 or +1" cap — if hit_target was already RAISED by
+        # another -1-to-hit source, the DG Contagion -1 to hit must not
+        # compound it. Same value drives the stack-cap logic below.
+        _hit_target_after_buffs = hit_target
+
         # ---- Transient stratagem buffs (attacker side) ------------------
         # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
         # Twist of Fate (Cult of Magic): +1 to wound on attacks for the
@@ -500,6 +566,23 @@ class Unit:
         if (
             mode == "melee"
             and self.transient_plus_one_to_wound_melee
+        ):
+            wound_target = max(2, wound_target - 1)
+
+        # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
+        # Virulent Rot: enemy units within 6" of any DG model have -1 T (only
+        # for the purpose of wound rolls against them). We don't mutate
+        # target.profile.toughness; instead we apply the equivalent +1 to wound
+        # (lower wound_target by 1, min 2) when the DEFENDER is within 6" of
+        # any DG model on the army OPPOSING the defender's army. The aura is
+        # projected by every DG model (Nurgle's Gift), not just characters.
+        # Cited as `simulator.contagions_of_nurgle`. Round 2 and 3+ effects
+        # are handled elsewhere (battleshock Ld penalty in _run_round;
+        # round-3+ -1 to hit lower in this function).
+        if (
+            _contagion_round_for(target) == 1
+            and target.profile.faction != "Death Guard"
+            and _is_near_enemy_dg_model(target, radius=6.0)
         ):
             wound_target = max(2, wound_target - 1)
 
@@ -593,6 +676,23 @@ class Unit:
         # Same math as a worsened hit roll. Capped at 7 (no possible hit).
         # Melee is unaffected (Stealth is a ranged defence).
         if mode != "melee" and target.profile.stealth:
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
+        # an enemy unit (the ATTACKER here) within 6" of any DG model takes
+        # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
+        # DG model on the opposing side, and on the attacker NOT being a DG
+        # model itself (the aura debuffs *enemy* units). 10e cap: "modifiers
+        # to hit rolls cannot exceed -1" — if another effect (Big Guns,
+        # Indirect, Heavy cover, Stealth) has ALREADY raised hit_target above
+        # its post-buff value, we skip the contagion penalty rather than
+        # compound it. Cited as `simulator.contagions_of_nurgle`.
+        if (
+            _contagion_round_for(self) >= 3
+            and p.faction != "Death Guard"
+            and hit_target == _hit_target_after_buffs
+            and _is_near_enemy_dg_model(self, radius=6.0)
+        ):
             hit_target = min(7, hit_target + 1)
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----

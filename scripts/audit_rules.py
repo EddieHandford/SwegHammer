@@ -118,6 +118,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # existing transient_minus_one_damage_taken (Plague Company strat)
     # and with leader/profile FNP by taking the lower value.
     "simulator.disgustingly_resilient",
+    # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
+    # every DG model projects a 6" aura that subjects enemy units within
+    # it to the active Contagion. Escalates by round: round 1 -1 T (via
+    # +1 to wound in Unit.attack), round 2 -1 Ld (battleshock in
+    # _run_round), round 3+ -1 to hit on enemy attackers near a DG model
+    # (Unit.attack). Faction-gated on the DG aura source; never debuffs
+    # DG units themselves; the round-3+ -1 to hit doesn't compound with
+    # other -1-to-hit modifiers (10e cap).
+    "simulator.contagions_of_nurgle",
     # Thousand Sons army rule (10e). -1 to wound on any single-damage
     # attack allocated to a non-daemon TSons model (Rubric Marines,
     # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.

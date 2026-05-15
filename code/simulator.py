@@ -1332,6 +1332,21 @@ class Battle:
                     if "SYNAPSE" in (s.profile.unit_keywords or ())
                     and s.profile.faction == "Tyranids"
                 ]
+                # Death Guard Contagions of Nurgle (army rule, 10e) — Round 2
+                # Maladictive Pall: enemy units within 6" of any DG model on
+                # the opposing side suffer -1 Leadership. We pool every alive
+                # DG model on the opponent's roster as a potential aura
+                # source. The penalty applies ONLY in round 2 of the
+                # escalating contagion. Round 1 (-1 T) and Round 3+ (-1 to
+                # hit) are handled in Unit.attack. Cited as
+                # `simulator.contagions_of_nurgle`.
+                contagion_sources = (
+                    [
+                        s for s in opponent.alive_units
+                        if s.profile.faction == "Death Guard"
+                    ]
+                    if round_num == 2 else []
+                )
                 for u in army.alive_units:
                     if u.current_health < u.profile.health / 2.0:
                         # Mob Rule short-circuit: Ork units auto-pass when the
@@ -1361,12 +1376,28 @@ class Battle:
                             for s in shadow_sources
                         ):
                             shadow_penalty = 1
+                        # Contagions of Nurgle — Round 2 Maladictive Pall:
+                        # -1 Ld on enemy units within 6" of any DG model on
+                        # the opposing side. We never debuff a DG unit
+                        # itself (the aura targets *enemies* of DG). The
+                        # gate already skips this list outside round 2.
+                        contagion_penalty = 0
+                        if (
+                            contagion_sources
+                            and u.profile.faction != "Death Guard"
+                            and any(
+                                _distance(u.position, s.position) <= 6.0
+                                for s in contagion_sources
+                            )
+                        ):
+                            contagion_penalty = 1
                         roll = random.randint(1, 6) + random.randint(1, 6)
                         target = (
                             u.profile.leadership
                             + ld_penalty
                             - ld_bonus
                             + shadow_penalty
+                            + contagion_penalty
                         )
                         if roll < target:
                             self._battleshocked_this_round.add(u.uid)
