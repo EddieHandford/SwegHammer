@@ -211,6 +211,36 @@ class DeadlyDemiseExploded:
 
 
 @dataclass(frozen=True)
+class TransportEmbarked:
+    """A passenger unit embarked inside a TRANSPORT (10e core).
+
+    Emitted from `Battle._embark_pregame_passengers` at deploy time. The
+    passenger is removed from the active battlefield (its position is set to
+    the transport's position and the simulator skips its activations until
+    it disembarks). Cited as `simulator.embark`.
+    """
+    transport_uid: str
+    passenger_uid: str
+
+
+@dataclass(frozen=True)
+class TransportDisembarked:
+    """A passenger unit disembarked from a TRANSPORT (10e core).
+
+    Emitted by `Battle._maybe_disembark_before_move` (voluntary disembark at
+    the start of the Movement phase) and by `Battle._destroyed_transport_disembark`
+    (forced disembark when the transport is destroyed). `position` is the
+    placed disembark location (within 3" of the transport's last position).
+    `forced` is True iff this disembark was triggered by transport destruction.
+    Cited as `simulator.disembark` / `simulator.destroyed_transport`.
+    """
+    transport_uid: str
+    passenger_uid: str
+    position: Tuple[float, float]
+    forced: bool = False
+
+
+@dataclass(frozen=True)
 class WaaaghDeclared:
     """An Ork army declared WAAAGH! at the start of its Command phase.
 

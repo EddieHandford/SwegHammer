@@ -1171,6 +1171,11 @@ class MappedUnit:
     # text (D3→2, D6→3, D3+3→5, plain integer N→N). 0 = no Deadly Demise.
     # Cited as `simulator.deadly_demise`.
     deadly_demise: int = 0
+    # Firing Deck X (10e core, TRANSPORT keyword). When this unit shoots,
+    # up to X embarked passenger models may also shoot using the transport's
+    # BS. Integer X parsed from the BSData "Firing Deck" infoLink modifier.
+    # 0 = no Firing Deck. Cited as `simulator.firing_deck`.
+    firing_deck: int = 0
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
@@ -1351,6 +1356,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     lone_operative = extract_lone_operative(entry, reg)
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
+    firing_deck = extract_firing_deck(entry)
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -1410,6 +1416,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),
         deadly_demise=deadly_demise,
+        firing_deck=firing_deck,
         fnp=fnp,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
@@ -1487,6 +1494,12 @@ _TRACKED_UNIT_KEYWORDS = {
     "TITANIC", "TOWERING", "WALKER", "BATTLELINE", "SWARM",
     "BIKE", "MOUNTED", "BEAST", "DAEMON", "PSYKER",
     "ASURYANI",
+    # TRANSPORT (10e core). Any model that can carry passengers carries this
+    # keyword (Rhino, Repulsor, Impulsor, Wave Serpent, Devilfish, Chimera,
+    # Trukk, Caladius Grav-Tank, etc.) plus a "Transport" Ability profile on
+    # its datasheet. Read by simulator.embark / simulator.disembark /
+    # simulator.firing_deck / simulator.destroyed_transport gates.
+    "TRANSPORT",
     # SYNAPSE: Tyranids army-rule keyword. Used by simulator.synapse_imperative
     # (friendly Tyranids within 6" auto-pass Battle-shock) and
     # simulator.shadow_in_the_warp (enemy units within 12" take Battle-shock
@@ -1792,6 +1805,42 @@ def extract_deadly_demise(entry: ET.Element) -> int:
                 return v
         # Fall back: an infoLink named "Deadly Demise" with no suffix is
         # rare but should still record the ability (treat as 1).
+        return 1
+    return 0
+
+
+_FIRING_DECK_INT_RE = re.compile(r"^\s*(\d+)\s*$")
+
+
+def extract_firing_deck(entry: ET.Element) -> int:
+    """Scan the unit's directly-attached infoLinks for the Firing Deck ability.
+
+    In BSData 10e, Firing Deck is published as a shared-rule infoLink with
+    name="Firing Deck" and a child <modifier type="append" field="name"
+    value="X"/> that carries the integer X (e.g. "2", "6", "10"). Returns
+    the parsed integer, or 0 if not present.
+
+    Cited as `simulator.firing_deck`.
+    """
+    for il in entry.findall(".//infoLink"):
+        name = (il.get("name") or "").strip()
+        if name != "Firing Deck":
+            continue
+        for mod in il.iter():
+            tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+            if tag != "modifier":
+                continue
+            if mod.get("field") != "name" or mod.get("type") != "append":
+                continue
+            val = (mod.get("value") or "").strip()
+            m = _FIRING_DECK_INT_RE.match(val)
+            if m:
+                try:
+                    return int(m.group(1))
+                except ValueError:
+                    return 0
+        # Firing Deck with no parsed X — fall back to 1 so the keyword
+        # still registers (rare; defensive).
         return 1
     return 0
 

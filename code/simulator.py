@@ -11,10 +11,10 @@ from .detachments import effective_move
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
-    RoundEnded, RoundStarted, StratagemFired, Subscriber, UnitActivated,
-    UnitAdvanced, UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated,
-    UnitKilled, UnitMoved, UnitReanimated, UnitScouted, UnitShot,
-    WaaaghDeclared,
+    RoundEnded, RoundStarted, StratagemFired, Subscriber, TransportDisembarked,
+    TransportEmbarked, UnitActivated, UnitAdvanced, UnitCharged,
+    UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
+    UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
 from .factions import is_marine_faction
 from .map import Map, TerrainType
@@ -1146,6 +1146,12 @@ class Battle:
         for u in b_infil:
             self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
 
+        # Transports (10e core): after standard deployment, embark eligible
+        # INFANTRY passengers into available TRANSPORT units. Embarking removes
+        # the passenger from active gameplay (position pinned to transport,
+        # activation skipped by the embarked gate). Cited as `simulator.embark`.
+        self._embark_pregame_passengers()
+
     def _deploy_line(self, units, y: float) -> None:
         if not units:
             return
@@ -1800,6 +1806,12 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # Embarked passengers do not act on their own activation — the
+        # transport carries them. The simulator emits UnitActivated for the
+        # transport, not the passenger. Cited as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
+
         self._emit(UnitActivated(
             unit_uid=attacker.uid,
             army_name=attacker_army.name,
@@ -1810,6 +1822,12 @@ class Battle:
         # ability — skip their normal-move sub-phase for one activation.
         if attacker.uid in self._fresh_arrivals:
             return
+
+        # Transport voluntary disembark hook (10e core). Fires BEFORE the
+        # transport's move so the rule "the transport hasn't moved this turn"
+        # is satisfied. Cited as `simulator.disembark`.
+        if self._is_transport(attacker) and attacker.passengers:
+            self._maybe_disembark_before_move(attacker, attacker_army, defender_army)
 
         # Strategy layer (code/strategy.py): role + objective-aware pick of
         # where this unit wants to go. The simulator USED to always march at
@@ -1904,6 +1922,11 @@ class Battle:
             ))
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # Embarked passengers cannot shoot on their own activation (10e core).
+        # Their fire is folded into the transport's via Firing Deck X. Cited
+        # as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
         # Fall Back lockout (10e core): a unit that Fell Back this turn can
         # only shoot if it has the FLY keyword. Cited as
         # `simulator.fall_back`.
@@ -1951,17 +1974,24 @@ class Battle:
             attacker.shooting_in_engagement = False
 
         rng = attacker.profile.range_inches
+        # Embarked passengers are off-board — they cannot be targeted by
+        # ranged attacks. Targeting passes through the transport itself.
+        # Cited as `simulator.embark`.
+        targetable = [
+            u for u in defender_army.alive_units
+            if getattr(u, "embarked_in", None) is None
+        ]
         # Indirect Fire lets us target units we cannot see; otherwise LoS is
         # required. The has_los flag is plumbed into Unit.attack so it can
         # apply the -1 to hit when shooting blind.
         if attacker.profile.indirect_fire:
             candidates = [
-                u for u in defender_army.alive_units
+                u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
             ]
         else:
             candidates = [
-                u for u in defender_army.alive_units
+                u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
                 and self.map.has_line_of_sight(attacker.position, u.position)
             ]
@@ -2008,6 +2038,19 @@ class Battle:
         distance = _distance(attacker.position, shoot_target.position)
         has_los = self.map.has_line_of_sight(attacker.position, shoot_target.position)
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
+        # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
+        # TRANSPORT with embarked passengers and firing_deck > 0, up to X
+        # passenger weapons also fire this Shooting phase. Cited as
+        # `simulator.firing_deck`.
+        if (
+            self._is_transport(attacker)
+            and getattr(attacker.profile, "firing_deck", 0) > 0
+            and attacker.passengers
+            and shoot_target.is_alive
+        ):
+            dmg += self._apply_firing_deck(
+                attacker, shoot_target, attacker_army, defender_army,
+            )
         shoot_target.in_cover = saved_cover
         shoot_target.in_heavy_cover = saved_heavy
         # Mark One Shot weapons as expended for the rest of the battle.
@@ -2074,6 +2117,9 @@ class Battle:
         units, which is closer to real tournament melee play and brings the
         sim's over-rating of T'au / Astartes / Votann shooty factions down.
         """
+        # Embarked passengers cannot charge (10e core). Cited as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
         if not self._wants_to_charge(attacker):
             return
         if attacker.uid in self._advanced_this_round:
@@ -2127,6 +2173,9 @@ class Battle:
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1")."""
+        # Embarked passengers cannot fight (10e core). Cited as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
         if attacker.profile.melee_attacks <= 0:
             return
         alive_enemies = defender_army.alive_units
@@ -2276,8 +2325,17 @@ class Battle:
         counter-offensive, doombolt). Bypasses armour/invuln; routed through
         receive_damage so target FNP and Disgustingly Resilient compose.
 
-        Cited as `simulator.deadly_demise`.
+        Side effect — Destroyed Transport (10e core): if the dying unit is a
+        TRANSPORT, every embarked passenger force-disembarks before removal,
+        rolling 1D6 per model and destroying on a 1. Routed here because all
+        death-detection sites already fan out through this method. Cited as
+        `simulator.destroyed_transport`.
         """
+        # Destroyed Transport disembark fires BEFORE deadly demise so any
+        # passengers that survive the disembark D6 are positioned for the
+        # demise blast (and so they can also be caught by it).
+        if self._is_transport(victim) and victim.passengers:
+            self._destroyed_transport_disembark(victim)
         x = getattr(victim.profile, "deadly_demise", 0) or 0
         if x <= 0:
             return
@@ -2292,6 +2350,11 @@ class Battle:
         for army in (self.a, self.b):
             for u in army.alive_units:
                 if u is victim:
+                    continue
+                # Embarked passengers are off-board — they don't take demise
+                # mortals from blasts that go off near their transport. Cited
+                # as `simulator.embark`.
+                if getattr(u, "embarked_in", None) is not None:
                     continue
                 if _distance(u.position, victim_pos) > 6.0:
                     continue
@@ -2310,6 +2373,252 @@ class Battle:
             mortals=int(x),
             victims=tuple(victims_hit),
         ))
+
+    # ------------------------------------------------------------------
+    # Transports (Embark / Disembark / Firing Deck / Destroyed Transport)
+    # ------------------------------------------------------------------
+    #
+    # 10e core rules (Wahapedia):
+    #   * Embark: a unit within 3" of a friendly TRANSPORT at the end of a
+    #     Normal/Advance/Fall Back move may embark. Once embarked, the unit
+    #     does not act normally — it's tracked as a passenger on the transport.
+    #   * Disembark: at the start of any Movement phase a unit may disembark
+    #     from a transport that hasn't moved this turn; the disembarked unit
+    #     is placed wholly within 3" of the transport, then may move normally.
+    #   * Firing Deck X: a TRANSPORT with Firing Deck X may select up to X
+    #     embarked passenger models' weapons each Shooting phase and shoot
+    #     with them as if they were the transport's own weapons (transport's BS).
+    #   * Destroyed Transport: when a TRANSPORT is destroyed, before removing
+    #     it, each embarked unit disembarks wholly within 3". For each model
+    #     in the disembarking unit, roll 1D6; on a 1, that model is destroyed.
+    #
+    # SwegHammer simplifications (first pass):
+    #   - Transport capacity is hardcoded to 12 INFANTRY models (Rhino-tier).
+    #   - Pre-game embark only: at deploy time, if an army has a TRANSPORT
+    #     with capacity for an INFANTRY unit, that infantry is embarked.
+    #   - No mid-game voluntary embark (would need a Movement-phase hook).
+    #   - Disembark fires on (a) destroyed transport, (b) at the start of the
+    #     transport's Movement sub-phase if the AI judges the passenger needs
+    #     to be off-board now (capture nearby objective, transport about to die).
+    #   - Firing Deck: when a transport shoots, up to firing_deck passengers
+    #     each fire ONE extra shot using the transport's hit_probability.
+    #   - Emergency disembark (placement >3" but ≤6" with mortal wounds on
+    #     1-3" path) is NOT modelled — first pass just skips placement if
+    #     blocked.
+
+    _TRANSPORT_CAPACITY = 12   # first-pass simplification — Rhino-tier
+
+    @staticmethod
+    def _is_transport(unit: "Unit") -> bool:
+        """True iff this unit's profile carries the TRANSPORT keyword."""
+        return "TRANSPORT" in (unit.profile.unit_keywords or ())
+
+    def _embark_pregame_passengers(self) -> None:
+        """Pre-game embark pass (10e core).
+
+        For each army that owns at least one TRANSPORT, pick the highest-
+        threat INFANTRY unit that fits (1 model after squad-flattening) and
+        embark it on the first available transport. Repeats per transport so
+        a list of Rhinos all get a passenger if possible. Passengers are
+        removed from the active deployment line — their position becomes the
+        transport's, and the simulator's activation loop skips embarked units
+        via the `embarked_in` gate. Cited as `simulator.embark`.
+
+        First-pass simplification: capacity is fixed at 12 INFANTRY models
+        per transport (Rhino-tier). SwegHammer models units as a single
+        Unit-per-model so we can fit up to 12 such Units inside one transport,
+        but for the pre-game pass we only embark ONE infantry instance per
+        transport (the most tactical-value passenger) to keep the pre-game
+        deterministic and easy to reason about.
+        """
+        for army in (self.a, self.b):
+            transports = [u for u in army.units if self._is_transport(u)]
+            if not transports:
+                continue
+            # Pool of embark-eligible INFANTRY (not already a passenger, not
+            # CHARACTER — we keep characters free to attach as Leaders).
+            def _eligible(u):
+                kw = u.profile.unit_keywords or ()
+                if "INFANTRY" not in kw:
+                    return False
+                if "CHARACTER" in kw:
+                    return False
+                if self._is_transport(u):
+                    return False
+                if u.embarked_in is not None:
+                    return False
+                return True
+
+            for transport in transports:
+                if len(transport.passengers) >= self._TRANSPORT_CAPACITY:
+                    continue
+                candidates = [u for u in army.units if _eligible(u)]
+                if not candidates:
+                    break
+                # Highest-Lanchester-score INFANTRY rides — biggest gun
+                # benefits from the +6" pre-move the most.
+                passenger = max(candidates, key=lambda u: u.profile.score)
+                self._embark(passenger, transport)
+
+    def _embark(self, passenger: "Unit", transport: "Unit") -> None:
+        """Place `passenger` inside `transport` (10e core embark step).
+
+        The passenger is co-located with the transport (position copied), its
+        `embarked_in` back-pointer is set, and it's added to the transport's
+        `passengers` list. The passenger remains in `army.units` (still alive,
+        still has HP) but the activation loop skips it. Cited as
+        `simulator.embark`.
+        """
+        passenger.position = transport.position
+        passenger.embarked_in = transport
+        transport.passengers.append(passenger)
+        self._emit(TransportEmbarked(
+            transport_uid=transport.uid,
+            passenger_uid=passenger.uid,
+        ))
+
+    def _disembark(
+        self, passenger: "Unit", transport: "Unit", forced: bool = False,
+    ) -> None:
+        """Place `passenger` wholly within 3" of `transport` (10e core).
+
+        Looks for a placement point in a small spiral around the transport's
+        last position. If no unblocked point is found, places the passenger
+        on the transport's position (degraded fallback — better than nothing).
+        Clears the embark back-pointer and removes the passenger from the
+        transport's list. Cited as `simulator.disembark`.
+        """
+        # Try a handful of candidate offsets around the transport, each <= 3".
+        # Order: cardinals first, then diagonals.
+        cx, cy = transport.position
+        candidates = [
+            (cx + 2.5, cy), (cx - 2.5, cy), (cx, cy + 2.5), (cx, cy - 2.5),
+            (cx + 2.0, cy + 2.0), (cx - 2.0, cy + 2.0),
+            (cx + 2.0, cy - 2.0), (cx - 2.0, cy - 2.0),
+            (cx + 1.0, cy), (cx, cy + 1.0),
+        ]
+        placed = None
+        for pt in candidates:
+            x = max(0.0, min(self.map.width, pt[0]))
+            y = max(0.0, min(self.map.height, pt[1]))
+            if not self.map.is_blocked((x, y)):
+                placed = (x, y)
+                break
+        if placed is None:
+            placed = transport.position
+        passenger.position = placed
+        passenger.embarked_in = None
+        if passenger in transport.passengers:
+            transport.passengers.remove(passenger)
+        self._emit(TransportDisembarked(
+            transport_uid=transport.uid,
+            passenger_uid=passenger.uid,
+            position=placed,
+            forced=forced,
+        ))
+
+    def _destroyed_transport_disembark(self, transport: "Unit") -> None:
+        """Force-disembark every passenger when a TRANSPORT is destroyed (10e).
+
+        For each model in the disembarking unit, roll 1D6; on a 1 that model
+        is destroyed. SwegHammer models units as one Unit instance per model,
+        so a single D6 is rolled per passenger Unit; on a 1 the passenger's
+        current_health is zeroed and a UnitKilled event is emitted. Cited as
+        `simulator.destroyed_transport`.
+
+        We snapshot the passenger list because `_disembark` mutates it as it
+        runs.
+        """
+        if not transport.passengers:
+            return
+        survivors = list(transport.passengers)
+        for passenger in survivors:
+            self._disembark(passenger, transport, forced=True)
+            # Per-model D6: on a 1, the model is destroyed.
+            if random.randint(1, 6) == 1:
+                passenger.current_health = 0.0
+                if not passenger.is_alive:
+                    self._emit(UnitKilled(unit_uid=passenger.uid))
+
+    def _maybe_disembark_before_move(
+        self, transport: "Unit", army: Army, opponent: Army,
+    ) -> None:
+        """Voluntary disembark hook fired at the start of a TRANSPORT's
+        Movement sub-phase (10e core).
+
+        Heuristic: disembark when EITHER
+          (a) the transport currently sits within 6" of an objective marker —
+              the passenger should grab it while the transport repositions; OR
+          (b) the transport is below 50% HP — likely to die soon, so eject
+              before Destroyed Transport mortals fire.
+
+        Otherwise we keep the passenger embarked so they continue to ride
+        toward an objective. Cited as `simulator.disembark`.
+        """
+        if not transport.passengers:
+            return
+        # Already moved this round (e.g. arrival) — disembark skipped because
+        # the rule requires the transport to NOT have moved yet.
+        if transport.uid in self._did_move_this_round:
+            return
+        # (a) within 6" of an objective?
+        near_obj = any(
+            _distance(transport.position, (obj.x, obj.y)) <= 6.0
+            for obj in self.map.objectives
+        )
+        # (b) below half HP?
+        damaged = transport.current_health < transport.profile.health / 2.0
+        if not near_obj and not damaged:
+            return
+        # Disembark the best passenger (the one most likely to claim an obj
+        # or pour fire downrange). First-pass: just disembark all of them.
+        for passenger in list(transport.passengers):
+            self._disembark(passenger, transport, forced=False)
+
+    def _apply_firing_deck(
+        self, transport: "Unit", target: "Unit",
+        attacker_army: Army, defender_army: Army,
+    ) -> float:
+        """Firing Deck X (10e core).
+
+        When a TRANSPORT shoots, up to X embarked passenger models may fire
+        their weapons as if they were the transport's. SwegHammer applies a
+        simplified version: each of the first X passengers does a single
+        Unit.attack against the target using the passenger's own profile,
+        but inheriting the transport's hit_probability (per the codex's
+        "shoot with them as if they were the transport's weapons" wording).
+
+        Returns total damage dealt by the firing-deck passengers (0 if no
+        firing deck or no passengers). Cited as `simulator.firing_deck`.
+
+        First-pass simplification: passenger attacks use the passenger's own
+        hit_probability rather than swapping in the transport's, because the
+        Unit.attack stochastic loop reads hit_probability off the passenger's
+        profile. The codex says "use the transport's BS"; in practice for
+        Marine transports that's BS3+ which matches the passenger's anyway.
+        Future task: thread a BS-override into Unit.attack.
+        """
+        x = getattr(transport.profile, "firing_deck", 0) or 0
+        if x <= 0:
+            return 0.0
+        if not transport.passengers:
+            return 0.0
+        # Take up to X passengers; the first ones are highest-DPA by virtue
+        # of the embark routine picking the best Lanchester-scorers.
+        firing = transport.passengers[:x]
+        total = 0.0
+        distance = _distance(transport.position, target.position)
+        has_los = self.map.has_line_of_sight(transport.position, target.position)
+        for passenger in firing:
+            if not passenger.is_alive:
+                continue
+            # Out of range from the transport's position — skip silently.
+            if distance > passenger.profile.range_inches:
+                continue
+            total += passenger.attack(
+                target, distance=distance, has_los=has_los,
+            )
+        return total
 
     @staticmethod
     def _award_cp(army: Army, opponent: Army) -> None:

@@ -1,0 +1,39 @@
+{
+  "_comment": "Citations for the Transport core rules (10e). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
+
+  "simulator.embark": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
+    "rule_name": "Transport (Embark)",
+    "quoted_text": "If a unit from your army makes a Normal, Advance or Fall Back move, and every model in that unit ends that move within 3\" of a friendly TRANSPORT, that unit can embark within it. A unit cannot embark within a TRANSPORT if it has already disembarked from a TRANSPORT in the same turn. Once a unit is embarked within a TRANSPORT, it is removed from the battlefield.",
+    "trigger": "owning player's Movement phase; an eligible unit ends its move with every model within 3\" of a friendly TRANSPORT that has remaining capacity",
+    "effect": "the unit is removed from the battlefield and tracked as a passenger on the transport. It cannot act normally while embarked. SwegHammer models this with passenger.embarked_in = transport (back-pointer) and transport.passengers append; activation gates in _do_move / _do_shoot / _do_charge / _do_fight return early for any unit with embarked_in set, and ranged targeting filters embarked units out of the candidate list. First-pass: pre-game embark only — the deploy pass embarks one INFANTRY squad per available TRANSPORT (capacity hardcoded to 12 INFANTRY models).",
+    "scope": "army-wide"
+  },
+
+  "simulator.disembark": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
+    "rule_name": "Transport (Disembark)",
+    "quoted_text": "At the start of your Movement phase, any unit can disembark from a TRANSPORT in your army provided that TRANSPORT has not moved this turn. When a unit disembarks, set it up on the battlefield wholly within 3\" of the TRANSPORT and not within Engagement Range of any enemy models. If a unit disembarks from a TRANSPORT, it can then move normally, but it cannot Advance or Charge in the same turn.",
+    "trigger": "owning player's Movement phase; the transport has not moved yet this turn",
+    "effect": "the passenger is placed wholly within 3\" of the transport's position. SwegHammer searches a spiral of candidate offsets (cardinals first, then diagonals) up to 3\" away; if all are blocked it falls back to the transport's own tile. Voluntary disembark fires in _do_move BEFORE the transport's move (so the 'transport hasn't moved' rule is honoured); the heuristic disembarks when the transport sits within 6\" of an objective marker OR is below 50% HP. First-pass: skips the Advance/Charge prohibition and the >3\" emergency-disembark fallback.",
+    "scope": "army-wide"
+  },
+
+  "simulator.firing_deck": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
+    "rule_name": "Firing Deck X",
+    "quoted_text": "Each time a TRANSPORT with this ability shoots, you can select up to 'x' of the models embarked within it. Until that TRANSPORT's shooting attacks have been resolved, those models are not counted as being embarked within that TRANSPORT for the purposes of measuring distances and determining visibility, and can shoot using their ranged weapons.",
+    "trigger": "the transport shoots in its Shooting phase",
+    "effect": "up to X embarked passenger models also resolve a ranged attack against the same target as the transport, measured from the transport's position. SwegHammer applies this after the transport's own attack lands: it walks the first X passengers (highest Lanchester score by virtue of the embark routine picking best-scorers first), and each that is in range fires one Unit.attack against the target. The codex says 'using the transport's BS'; first-pass uses the passenger's own hit_probability because Unit.attack reads BS off the firing profile — for Marine transports both are typically 3+ so the divergence is small.",
+    "scope": "army-wide"
+  },
+
+  "simulator.destroyed_transport": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
+    "rule_name": "Destroyed Transport (Emergency Disembarkation)",
+    "quoted_text": "If a TRANSPORT is destroyed, any units embarked within it must immediately disembark before that TRANSPORT model is removed from play (this is an exception to the normal rules for disembarking). When they do so, for each model in those embarked units, roll one D6: for each result of 1, one model in that unit is destroyed.",
+    "trigger": "a TRANSPORT's current_health drops to 0 with one or more embarked passengers",
+    "effect": "every passenger force-disembarks (placed within 3\" of the transport's last position via the same spiral search as voluntary disembark), then each model in each disembarking unit rolls 1D6 and is destroyed on a 1. SwegHammer models units as one Unit per model, so a single D6 is rolled per passenger Unit; on a 1 the passenger's current_health is zeroed and a UnitKilled event is emitted. Fires from _maybe_apply_deadly_demise (which is called at every kill-detection site) before the deadly demise blast, so surviving passengers are correctly placed within demise blast range.",
+    "scope": "army-wide"
+  }
+}

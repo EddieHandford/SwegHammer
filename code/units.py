@@ -266,6 +266,7 @@ class UnitProfile:
     infiltrator: bool = False                  # deploys past the standard deployment line
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
     deadly_demise: int = 0                     # Deadly Demise X (10e core): when destroyed, d6; on 6, each unit within 6" suffers X mortal wounds. Integer expected value (D3→2, D6→3, D3+3→5, N→N). Cited as `simulator.deadly_demise`.
+    firing_deck: int = 0                       # Firing Deck X (10e core, TRANSPORT keyword): up to X embarked passenger models may also shoot using the transport's BS each Shooting phase. 0 = no Firing Deck. Cited as `simulator.firing_deck`.
     sticky_objective: bool = False             # 10e Objective Secured / "remains controlled when the unit leaves" — once this unit claims an objective, ownership persists until an opposing unit takes it back
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
@@ -430,6 +431,17 @@ class Unit:
         # CHARACTER to merge its aura flags into the attacker's buff dict.
         # See `code/enhancements.py` for the dataclass + registry.
         "enhancement",
+        # Transport state (10e core). `passengers` is a list of Unit instances
+        # currently embarked inside this transport (only populated when the
+        # owning profile has TRANSPORT in its unit_keywords). Passengers are
+        # removed from the live battlefield (army.alive_units still returns
+        # them because they're still alive HP-wise, but their position is the
+        # transport's position and the simulator skips their activations
+        # while they're embarked). `embarked_in` is the back-pointer set on
+        # the passenger pointing at its carrier; None when not embarked.
+        # Cited as `simulator.embark` / `simulator.disembark`.
+        "passengers",
+        "embarked_in",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -492,6 +504,11 @@ class Unit:
         # buff dict.
         from typing import Optional
         self.enhancement = None  # type: ignore[assignment]
+        # Transport bookkeeping. `passengers` is a fresh list on every Unit so
+        # mutating it on one transport doesn't leak into another. `embarked_in`
+        # is the carrier pointer for a passenger; both default to empty / None.
+        self.passengers: list = []
+        self.embarked_in = None  # type: ignore[assignment]
 
     @property
     def is_alive(self) -> bool:
@@ -1113,6 +1130,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             infiltrator=entry.infiltrator,
             fnp=entry.fnp,
             deadly_demise=entry.deadly_demise,
+            firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

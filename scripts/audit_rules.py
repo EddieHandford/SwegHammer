@@ -184,6 +184,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Assault R3+ (melee). Faction-gated to Marines AND detachment-gated to
     # "Gladius Task Force" — Ironstorm Spearhead gets nothing here.
     "simulator.combat_doctrines",
+    # Transports (10e core). Four sub-mechanics: embark (pre-game and end-of-
+    # move), disembark (start of own Movement phase, transport hasn't moved),
+    # firing_deck (X passenger weapons fire alongside the transport), and
+    # destroyed_transport (force-disembark + 1D6-per-model on a 1).
+    "simulator.embark",
+    "simulator.disembark",
+    "simulator.firing_deck",
+    "simulator.destroyed_transport",
 )
 
 
