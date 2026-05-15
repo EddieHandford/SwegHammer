@@ -48,24 +48,45 @@ ANCHOR_UNIT_KEY = "space_marines_intercessor_squad"
 # staples per faction, sourced from May 2026 meta lists (Wahapedia / GW
 # datasheets) and confirmed present in the SwegHammer catalogue.
 FACTION_ADJUSTMENTS: Dict[str, Tuple[str, List[str]]] = {
-    "T'au Empire": ("up", [
-        "t_au_empire_crisis_sunforge_battlesuits",
-        "t_au_empire_crisis_fireknife_battlesuits",
-        "t_au_empire_riptide_battlesuit",
+    # Over-strong on GW-anchored eval (sim WR > real WR): raise per-model cost.
+    # NB: never include the Intercessor anchor — gated by the AnchorPreservedTests.
+    "Adeptus Astartes": ("up", [
+        "space_marines_hellblaster_squad",
+        "space_marines_repulsor",
+        "space_marines_bladeguard_veteran_squad",
+    ]),
+    "Death Guard": ("up", [
+        "death_guard_plague_marines",
+        "death_guard_plagueburst_crawler",
+        "death_guard_deathshroud_terminators",
+    ]),
+    "Adeptus Custodes": ("up", [
+        "adeptus_custodes_custodian_guard",
+        "adeptus_custodes_caladius_grav_tank",
+        "adeptus_custodes_allarus_custodians",
     ]),
     "Aeldari": ("up", [
         "aeldari_aeldari_library_wraithguard",
         "aeldari_aeldari_library_falcon",
     ]),
-    "Necrons": ("down", [
-        "necrons_lokhust_heavy_destroyers",
-        "necrons_lokhust_destroyers",
-        "necrons_tomb_blades",
+    # Under-strong on GW-anchored eval (sim WR < real WR): lower per-model cost.
+    # T'au flipped direction post-points-fix: under Lanchester they were over-
+    # strong, under GW they're severely under-priced for their performance.
+    "T'au Empire": ("down", [
+        "t_au_empire_crisis_sunforge_battlesuits",
+        "t_au_empire_crisis_fireknife_battlesuits",
+        "t_au_empire_riptide_battlesuit",
     ]),
     "Thousand Sons": ("down", [
         "thousand_sons_rubric_marines",
         "thousand_sons_scarab_occult_terminators",
     ]),
+    "Leagues of Votann": ("down", [
+        "leagues_of_votann_hearthkyn_warriors",
+        "leagues_of_votann_sagitaur",
+        "leagues_of_votann_hekaton_land_fortress",
+    ]),
+    # Necrons removed — now ~equilibrium (+3.5pt off, within sample noise).
 }
 
 

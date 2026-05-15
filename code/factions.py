@@ -49,6 +49,10 @@ CODEX_TO_FACTION: Dict[str, str] = {
     "Chaos - Death Guard.cat":                     "Death Guard",
     "Chaos - Thousand Sons.cat":                   "Thousand Sons",
     "Chaos - World Eaters.cat":                    "World Eaters",
+    # Emperor's Children — Slaanesh-aligned Chaos Marines. Standalone codex
+    # WIP on BSData master; not yet in the latest tagged release (v10.6.0).
+    # Will auto-pick-up when the BSData refresh lands.
+    "Chaos - Emperor's Children.cat":              "Emperor's Children",
     "Chaos - Chaos Daemons.cat":                   "Chaos Daemons",
     "Chaos - Chaos Daemons Library.cat":           "Chaos Daemons",
     "Chaos - Chaos Knights.cat":                   "Chaos Knights",
@@ -105,6 +109,7 @@ FACTION_COLOURS: Dict[str, str] = {
     "Death Guard":              "#9CA876",   # Nurgle pale plague-green
     "Thousand Sons":            "#1E5BA8",   # Tzeentch blue + gold trim
     "World Eaters":             "#B71C1C",   # Khorne blood red
+    "Emperor's Children":       "#E91E63",   # Slaaneshi pink-magenta
     "Chaos Daemons":            "#4B0082",   # Slaaneshi/Tzeentch purple
     "Chaos Knights":            "#5A0E18",
 

@@ -15,7 +15,8 @@
     },
     "death_guard_plague_marines": {
       "fnp": 5,
-      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient)."
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | sweg_balance_mc up 22.5 -> 24.75 pts/model",
+      "points_override": 24.75
     },
     "chaos_space_marines_plague_marines": {
       "fnp": 5,
@@ -23,28 +24,30 @@
     },
     "aeldari_aeldari_library_wraithguard": {
       "invuln_save": 4,
-      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 198.8 -> 218.68 pts/model",
-      "points_override": 218.68
+      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 218.68 -> 240.55 pts/model",
+      "points_override": 240.55
     },
     "aeldari_aeldari_library_wraithblades": {
       "invuln_save": 4,
       "notes": "Wraithblades have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithblades."
     },
     "t_au_empire_crisis_sunforge_battlesuits": {
-      "points_override": 157.74,
-      "notes": "sweg_balance_mc up 143.4 -> 157.74 pts/model"
+      "points_override": 141.97,
+      "notes": "sweg_balance_mc down 157.74 -> 141.97 pts/model"
     },
     "t_au_empire_crisis_fireknife_battlesuits": {
-      "points_override": 126.83,
-      "notes": "sweg_balance_mc up 115.3 -> 126.83 pts/model"
+      "points_override": 114.15,
+      "notes": "sweg_balance_mc down 126.83 -> 114.15 pts/model"
     },
     "t_au_empire_riptide_battlesuit": {
-      "points_override": 1311.75,
-      "notes": "sweg_balance_mc up 1192.5 -> 1311.75 pts/model"
+      "base_shape": "circle",
+      "base_diameter_mm": 80,
+      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). | sweg_balance_mc down 1311.75 -> 1180.58 pts/model",
+      "points_override": 1180.58
     },
     "aeldari_aeldari_library_falcon": {
-      "points_override": 585.86,
-      "notes": "sweg_balance_mc up 532.6 -> 585.86 pts/model"
+      "points_override": 644.45,
+      "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"
     },
     "necrons_lokhust_heavy_destroyers": {
       "points_override": 243.09,
@@ -59,12 +62,12 @@
       "notes": "sweg_balance_mc down 45.0 -> 40.5 pts/model"
     },
     "thousand_sons_rubric_marines": {
-      "points_override": 66.6,
-      "notes": "sweg_balance_mc down 74.0 -> 66.6 pts/model"
+      "points_override": 59.94,
+      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model"
     },
     "thousand_sons_scarab_occult_terminators": {
-      "points_override": 109.98,
-      "notes": "sweg_balance_mc down 122.2 -> 109.98 pts/model"
+      "points_override": 98.98,
+      "notes": "sweg_balance_mc down 109.98 -> 98.98 pts/model"
     },
     "space_marines_intercessor_squad": {
       "base_shape": "circle",
@@ -74,19 +77,14 @@
     "adeptus_custodes_custodian_guard": {
       "base_shape": "circle",
       "base_diameter_mm": 40,
-      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size)."
+      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model",
+      "points_override": 46.75
     },
     "space_marines_repulsor_executioner": {
       "base_shape": "rect",
       "base_width_mm": 102,
       "base_length_mm": 178,
-      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base — kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
-    },
-    "t_au_empire_riptide_battlesuit": {
-      "base_shape": "circle",
-      "base_diameter_mm": 80,
-      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). | sweg_balance_mc up 1192.5 -> 1311.75 pts/model",
-      "points_override": 1311.75
+      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base \u2014 kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
     },
     "tyranids_hive_tyrant": {
       "base_shape": "circle",
@@ -103,6 +101,46 @@
       "base_shape": "circle",
       "base_diameter_mm": 40,
       "notes": "Terminators ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Terminator-Squad (Base size)."
+    },
+    "space_marines_hellblaster_squad": {
+      "points_override": 25.3,
+      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model"
+    },
+    "space_marines_repulsor": {
+      "points_override": 198.0,
+      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model"
+    },
+    "space_marines_bladeguard_veteran_squad": {
+      "points_override": 29.33,
+      "notes": "sweg_balance_mc up 26.67 -> 29.33 pts/model"
+    },
+    "death_guard_plagueburst_crawler": {
+      "points_override": 198.0,
+      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model"
+    },
+    "death_guard_deathshroud_terminators": {
+      "points_override": 60.5,
+      "notes": "sweg_balance_mc up 55.0 -> 60.5 pts/model"
+    },
+    "adeptus_custodes_caladius_grav_tank": {
+      "points_override": 236.5,
+      "notes": "sweg_balance_mc up 215.0 -> 236.5 pts/model"
+    },
+    "adeptus_custodes_allarus_custodians": {
+      "points_override": 71.5,
+      "notes": "sweg_balance_mc up 65.0 -> 71.5 pts/model"
+    },
+    "leagues_of_votann_hearthkyn_warriors": {
+      "points_override": 90.0,
+      "notes": "sweg_balance_mc down 100.0 -> 90.0 pts/model"
+    },
+    "leagues_of_votann_sagitaur": {
+      "points_override": 103.5,
+      "notes": "sweg_balance_mc down 115.0 -> 103.5 pts/model"
+    },
+    "leagues_of_votann_hekaton_land_fortress": {
+      "points_override": 101.25,
+      "notes": "sweg_balance_mc down 112.5 -> 101.25 pts/model"
     }
   }
 }

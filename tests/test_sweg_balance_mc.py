@@ -75,7 +75,13 @@ class ShiftCapTests(unittest.TestCase):
 
 
 class FactionScopeTests(unittest.TestCase):
-    TARGET_FACTIONS = {"T'au Empire", "Aeldari", "Necrons", "Thousand Sons"}
+    # Refreshed for the GW-anchored calibration state (post-points-fix).
+    # Old set was {T'au, Aeldari, Necrons, TSON} based on Lanchester eval;
+    # the new set targets the actual eval outliers on GW pricing.
+    TARGET_FACTIONS = {
+        "Adeptus Astartes", "Death Guard", "Adeptus Custodes",
+        "Aeldari", "T'au Empire", "Thousand Sons", "Leagues of Votann",
+    }
 
     def test_only_targeted_factions_appear_in_adjustments(self) -> None:
         self.assertEqual(set(sbm.FACTION_ADJUSTMENTS), self.TARGET_FACTIONS)
