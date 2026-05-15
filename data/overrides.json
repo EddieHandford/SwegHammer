@@ -3,7 +3,7 @@
   "units": {
     "necrons_necron_warriors": {
       "sticky_objective": true,
-      "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet."
+      "notes": "10e Necron Warriors carry the Their Number Is Legion rule \u2014 they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet."
     },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
@@ -15,7 +15,7 @@
     },
     "death_guard_plague_marines": {
       "fnp": 5,
-      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it — override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient)."
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient)."
     },
     "chaos_space_marines_plague_marines": {
       "fnp": 5,
@@ -23,11 +23,48 @@
     },
     "aeldari_aeldari_library_wraithguard": {
       "invuln_save": 4,
-      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard."
+      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 198.8 -> 218.68 pts/model",
+      "points_override": 218.68
     },
     "aeldari_aeldari_library_wraithblades": {
       "invuln_save": 4,
       "notes": "Wraithblades have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithblades."
+    },
+    "t_au_empire_crisis_sunforge_battlesuits": {
+      "points_override": 157.74,
+      "notes": "sweg_balance_mc up 143.4 -> 157.74 pts/model"
+    },
+    "t_au_empire_crisis_fireknife_battlesuits": {
+      "points_override": 126.83,
+      "notes": "sweg_balance_mc up 115.3 -> 126.83 pts/model"
+    },
+    "t_au_empire_riptide_battlesuit": {
+      "points_override": 1311.75,
+      "notes": "sweg_balance_mc up 1192.5 -> 1311.75 pts/model"
+    },
+    "aeldari_aeldari_library_falcon": {
+      "points_override": 585.86,
+      "notes": "sweg_balance_mc up 532.6 -> 585.86 pts/model"
+    },
+    "necrons_lokhust_heavy_destroyers": {
+      "points_override": 243.09,
+      "notes": "sweg_balance_mc down 270.1 -> 243.09 pts/model"
+    },
+    "necrons_lokhust_destroyers": {
+      "points_override": 138.42,
+      "notes": "sweg_balance_mc down 153.8 -> 138.42 pts/model"
+    },
+    "necrons_tomb_blades": {
+      "points_override": 40.5,
+      "notes": "sweg_balance_mc down 45.0 -> 40.5 pts/model"
+    },
+    "thousand_sons_rubric_marines": {
+      "points_override": 66.6,
+      "notes": "sweg_balance_mc down 74.0 -> 66.6 pts/model"
+    },
+    "thousand_sons_scarab_occult_terminators": {
+      "points_override": 109.98,
+      "notes": "sweg_balance_mc down 122.2 -> 109.98 pts/model"
     }
   }
 }
