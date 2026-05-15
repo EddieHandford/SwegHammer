@@ -959,6 +959,116 @@ def _is_heavy_target(target) -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# CP reservation by predicted-pivotal-turn (#160)
+# ---------------------------------------------------------------------------
+# Top players RESERVE CP for known-pivotal turns rather than burning it on the
+# first eligible trigger. The greedy heuristic in should_fire_stratagem below
+# is augmented with a deferral layer: if the current round is *before* the
+# stratagem's pivotal turn AND the army doesn't have abundant CP, hold.
+#
+# Reactive stratagems (Counter-Offensive, Heroic Intervention, Tank Shock,
+# Spirit Stones) have no predictable pivotal turn — they fire whenever the
+# trigger is met. We model that by returning 0 from _predict_pivotal_turn,
+# which the deferral layer treats as "no preferred turn — defer to the
+# existing trigger heuristic".
+#
+# T5 escape hatch: if the battle is on its final round and the army still
+# has CP for an offensive stratagem with no future opportunity to spend it,
+# fire anyway rather than waste the CP.
+
+_FINAL_ROUND: int = 5     # 10e core: 5-round Strike Force battle
+
+
+def _predict_pivotal_turn(strat) -> int:
+    """Return the round the stratagem is most valuable to fire on.
+
+    0 means "reactive — no predictable pivotal turn; defer to trigger logic".
+    Values 1..5 indicate the preferred firing round; earlier rounds defer
+    unless CP is abundant.
+
+    Pivotal-turn assignments by stratagem class (per task #160):
+      * Counter-Offensive: reactive (opponent fight-phase kill triggers it).
+      * Heroic Intervention: reactive (enemy charge near friendly CHARACTER).
+      * Tank Shock: reactive (vehicle charge succeeds).
+      * Spirit Stones: reactive (damage taken).
+      * Command Re-Roll: T2 (highest-stakes early swing); T5 also escapes.
+      * Implacable Onslaught (Necron, defensive FNP): T3 — alpha-strike
+        recovery, mid-game wounded brick.
+      * Methodical Destruction (Necron, offensive hit buff): T2 — alpha
+        shooting window.
+      * Cabbalistic Empowerment (TSons psychic +1 wound): T2.
+      * Plague Weapons, Outbreak of Pestilence, Doombolt, Twist of Fate,
+        Fire and Fade, Matchless Agility, Strike Swiftly,
+        Methodical Destruction-class offensive: T2 — the alpha-strike
+        window when shooting / fighting decides the game.
+      * Disgustingly Resilient, Glamour of Tzeentch, Lightning-Fast
+        Reactions: T3 — mid-game survival window.
+    """
+    name = strat.name
+    # Reactive — no deferral; trigger-driven only.
+    if name in (
+        "Counter-Offensive", "Heroic Intervention", "Tank Shock",
+        "Spirit Stones",
+    ):
+        return 0
+    # Defensive mid-game (wounded high-value brick survival).
+    if name in (
+        "Disgustingly Resilient", "Glamour of Tzeentch",
+        "Lightning-Fast Reactions", "Implacable Onslaught",
+    ):
+        return 3
+    # Offensive alpha-strike window (T2 by default — the round where shooting
+    # and combat decide the game). Command Re-Roll lives here too.
+    return 2
+
+
+def _get_current_round(army) -> int:
+    """Pull the live round from the army's back-reference to its Battle.
+
+    Returns 0 if the round isn't available (e.g. unit tests instantiate the
+    army without running a Battle) — which the deferral layer treats as
+    "no round info, don't defer".
+    """
+    battle = getattr(army, "_battle_ref", None)
+    if battle is None:
+        return 0
+    return int(getattr(battle, "_current_round", 0) or 0)
+
+
+def _should_hold_for_pivotal_turn(army, strat) -> bool:
+    """Return True if the army should DEFER firing this stratagem rather than
+    spending CP now, based on the predicted pivotal turn.
+
+    Rules:
+      * pivotal_turn == 0 (reactive): never hold — defer to trigger logic.
+      * cost <= 0 (refunded by an ability): never hold.
+      * current_round == pivotal_turn or beyond: never hold.
+      * current_round == final round (T5): never hold — use it or lose it.
+      * remaining CP > 2 * cost: never hold (CP abundant).
+      * current_round < pivotal_turn AND cost > 0 AND CP not abundant: HOLD.
+    """
+    cost = int(getattr(strat, "cp_cost", 0) or 0)
+    if cost <= 0:
+        return False
+    pivotal = _predict_pivotal_turn(strat)
+    if pivotal <= 0:
+        return False
+    current = _get_current_round(army)
+    if current <= 0:
+        # No live round (unit tests) — don't defer.
+        return False
+    if current >= _FINAL_ROUND:
+        return False     # T5 escape hatch: spend or waste.
+    if current >= pivotal:
+        return False     # We've reached the pivotal turn (or later).
+    # Abundant CP — fire anyway, we can afford it.
+    cp = int(getattr(army, "command_points", 0) or 0)
+    if cp > 2 * cost:
+        return False
+    return True
+
+
 def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     """Greedy heuristic: return True iff the army should spend CP on `strat`
     right now given the current battle context.
@@ -975,6 +1085,13 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     if ctx is None:
         ctx = {}
     if army.command_points < strat.cp_cost:
+        return False
+
+    # CP reservation by predicted-pivotal-turn (#160). Top players hold CP
+    # for known-pivotal rounds rather than burning it on the first eligible
+    # trigger. Reactive stratagems (Counter-Offensive, Heroic Intervention,
+    # Tank Shock, Spirit Stones) and zero-cost stratagems are exempt.
+    if _should_hold_for_pivotal_turn(army, strat):
         return False
 
     name = strat.name
