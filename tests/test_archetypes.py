@@ -81,6 +81,58 @@ class ArchetypeBuilderTests(unittest.TestCase):
         self.assertGreater(big.total_points, 1000.0)
 
 
+class ArchetypeAnchorSeedingTests(unittest.TestCase):
+    """Regression tests for task #170 — anchor units must always be seeded.
+
+    Before the fix, `_instantiate_template` walked cheapest-first and a
+    SEED_FRACTION=0.3 slice of a 1000pt budget exhausted on cheap chaff
+    (Tzaangors, Sorcerers, Rangers, Farseers) before reaching the
+    archetype-defining anchors (Rubric Marines, Wraithguard, etc.).
+    The fix sorts by (-template_count, -squad_cost) so multi-copy and/or
+    expensive flagship units land first.
+    """
+
+    def test_tson_archetype_includes_rubrics(self):
+        """TSON archetype at 1000 pts must produce >=1 Rubric squad — they
+        are the count=2 template entry and the spine of every Cult of Magic
+        list."""
+        rubric_name = UNIT_CATALOG["thousand_sons_rubric_marines"].name
+        for seed in range(5):
+            rng = random.Random(seed)
+            army = build_faction_random_army(
+                "T", "Thousand Sons", 1000.0, rng=rng, use_archetype=True,
+            )
+            names = {u.profile.name for u in army.units}
+            self.assertIn(
+                rubric_name, names,
+                f"seed={seed}: TSON archetype missing Rubric Marines, got {sorted(names)}",
+            )
+
+    def test_aeldari_archetype_includes_wraith_or_falcon(self):
+        """Aeldari Battle Host at 1000 pts must produce at least one heavy
+        anchor — Wraithguard, Wraithblades, Wave Serpent, or Falcon. These
+        are the expensive units the cheapest-first bug used to drop."""
+        anchor_keys = [
+            "aeldari_craftworlds_wraithguard",
+            "aeldari_craftworlds_wave_serpent",
+            "aeldari_craftworlds_falcon",
+        ]
+        anchor_names = {
+            UNIT_CATALOG[k].name for k in anchor_keys if k in UNIT_CATALOG
+        }
+        for seed in range(5):
+            rng = random.Random(seed)
+            army = build_faction_random_army(
+                "A", "Aeldari", 1000.0, rng=rng, use_archetype=True,
+            )
+            names = {u.profile.name for u in army.units}
+            self.assertTrue(
+                names & anchor_names,
+                f"seed={seed}: Aeldari archetype missing all heavy anchors "
+                f"({anchor_names}), got {sorted(names)}",
+            )
+
+
 class ArchetypeFallbackTests(unittest.TestCase):
     def test_archetype_fallback_when_no_curated(self):
         """A faction not present in ARCHETYPES still builds an army via the

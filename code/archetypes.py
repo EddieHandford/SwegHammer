@@ -209,39 +209,35 @@ def _instantiate_template(
 
     seed_budget = points_budget * SEED_FRACTION
 
-    # Step 1: start from one squad of each entry, but drop any single squad
-    # whose cost exceeds the SEED budget outright.
+    # Walk the template in (-template_count, -squad_cost) order so that
+    # archetype-defining units land first:
+    #   * Multi-copy entries (e.g. Rubric Marines @ count=2) outrank
+    #     single-copy entries — they're the spine of the archetype.
+    #   * Within the same template count, instantiate the more expensive
+    #     squad first so flagship anchors (Wraithguard, Falcon, Scarab
+    #     Occult Terminators) are seeded before chaff that could otherwise
+    #     soak the budget cheaply.
+    #
+    # Previously this walked cheapest-first, which meant a 1000pt seed
+    # (SEED_FRACTION*1000 = 300pt) exhausted on Tzaangors (70pt) +
+    # Sorcerer (80pt) + Infernal Master (95pt) and never reached the
+    # Rubric Marine entry. See task #170.
+    #
+    # We instantiate exactly one squad per template entry here — extra
+    # copies past 1 are left to `_random_fill`, which keeps the seeded
+    # slice tight and lets the random topup handle distribution.
+    def sort_key(key: str):
+        return (-template.get(key, 0), -_squad_cost(key))
+
     scaled: Dict[str, int] = {}
     running = 0.0
-    # Iterate cheapest-first so we lock in the affordable core before any
-    # expensive vehicle would push us over.
-    for key in sorted(template, key=_squad_cost):
+    for key in sorted(template, key=sort_key):
         cost = _squad_cost(key)
         if running + cost <= seed_budget:
             scaled[key] = 1
             running += cost
-        # else: skip this entry entirely — too expensive at this budget.
-
-    # Step 2: top up the SEED slice with extra squads in proportion to
-    # template counts. Soft-cap each entry at its template count so we don't
-    # spam any single line.
-    def sort_key(key: str):
-        return (-template.get(key, 0), _squad_cost(key))
-
-    progress = True
-    while progress:
-        progress = False
-        for key in sorted(scaled.keys(), key=sort_key):
-            profile = UNIT_CATALOG[key]
-            template_count = max(1, template.get(key, 1))
-            current = scaled.get(key, 0)
-            if current >= template_count:
-                continue
-            cost = _squad_cost(key)
-            if running + cost <= seed_budget:
-                scaled[key] = current + 1
-                running += cost
-                progress = True
+        # else: skip — too expensive at this budget. Cheaper subsequent
+        # entries may still fit, so keep walking rather than break.
 
     return scaled
 
