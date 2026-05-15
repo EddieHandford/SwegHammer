@@ -120,6 +120,61 @@ CP_BONUS_DIVISOR = 2    # opponent must have this many more units per 1 CP award
 CP_BONUS_CAP = 2        # max CP awarded per round
 
 
+@dataclass(frozen=True)
+class RulesConfig:
+    """Toggles for SwegHammer's non-10e rule modifications.
+
+    Vanilla 10e mode (all False) runs the simulator under standard WH40k 10e
+    core rules: I-go-you-go player turns, no smaller-army CP catch-up, no
+    coordinated army-plan activation scheduler, sequential per-unit
+    move→shoot→charge→fight inside each player's turn. This is the mode the
+    MC bisection (code/balancer.py) and the eval-vs-meta script run against
+    so the simulator faithfully reproduces tournament play.
+
+    SwegHammer mode (all True via .sweghammer()) is the project's original
+    ruleset: alternating per-unit activations across both armies within a
+    round, simultaneous-movement sub-phase, CP catch-up bonus for the
+    smaller army, coordinated army-level activation plans. Opt-in only;
+    used when simulating gameplay UNDER the SwegHammer ruleset rather than
+    deriving prices.
+    """
+
+    alternating_activations: bool = False
+    """Per-unit alternation between armies within a round. Vanilla 10e is
+    I-go-you-go player turns. SwegHammer flips this for action density."""
+
+    simultaneous_movement: bool = False
+    """Both units in the alternating-activation pair move BEFORE either
+    shoots — avoids the second-mover-sees-closing-distance asymmetry that
+    plain per-unit-sequence would create. Implies alternating_activations."""
+
+    cp_catchup_bonus: bool = False
+    """After Round 1, if the opponent has ≥2× more units, the smaller army
+    gains 1 CP per round (max +2). Pure SwegHammer catch-up; 10e has no
+    such mechanic."""
+
+    coordinated_army_plan: bool = False
+    """Each army picks ONE plan (LEFT_FLANK / RIGHT_FLANK / CENTRE) per
+    round biasing both activation order and per-unit move/charge intent.
+    Internal AI scheduler with cross-unit coordination no real 10e player
+    has mid-battle."""
+
+    @classmethod
+    def vanilla_10e(cls) -> "RulesConfig":
+        """Standard WH40k 10e core rules — all SwegHammer mods off."""
+        return cls()
+
+    @classmethod
+    def sweghammer(cls) -> "RulesConfig":
+        """All SwegHammer rule modifications on."""
+        return cls(
+            alternating_activations=True,
+            simultaneous_movement=True,
+            cp_catchup_bonus=True,
+            coordinated_army_plan=True,
+        )
+
+
 class Battle:
     """
     Runs a single engagement between two armies under SwegHammer rules:
@@ -138,12 +193,19 @@ class Battle:
         verbose: bool = False,
         subscribers: Optional[List[Subscriber]] = None,
         map_: Optional[Map] = None,
+        rules: Optional[RulesConfig] = None,
     ) -> None:
         self.a = army_a
         self.b = army_b
         self.verbose = verbose
         self.subscribers: List[Subscriber] = list(subscribers) if subscribers else []
         self.map: Map = map_ or DEFAULT_MAP
+        # Default is SwegHammer mode for backwards compatibility with the
+        # existing 588-test suite and current eval pipeline. The user-facing
+        # default flips to vanilla_10e() in a follow-up commit once the
+        # gates have been validated independently. See plan
+        # `enchanted-wiggling-sundae` step 1.
+        self.rules: RulesConfig = rules if rules is not None else RulesConfig.sweghammer()
         # UIDs of units that Advanced in the current round — they skip shooting.
         # Reset at the start of each round.
         self._advanced_this_round: set = set()
@@ -1735,57 +1797,22 @@ class Battle:
         # the per-unit strategy layer (objective/charge biases). Without this,
         # the AI picks each activation independently and no alpha strike
         # materialises. Internal AI scheduler — not a 10e rule, no
-        # citation required.
+        # citation required. Gated off in vanilla mode: `activation_queue`
+        # already short-circuits to score-only sort when `army_plan is None`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
-            army.army_plan = pick_army_plan(army, opponent, round_num, self.map)
+            if self.rules.coordinated_army_plan:
+                army.army_plan = pick_army_plan(army, opponent, round_num, self.map)
+            else:
+                army.army_plan = None
 
         first, second = (
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
         )
 
-        first_activated: set = set()
-        second_activated: set = set()
-
-        while True:
-            first_q = first.activation_queue(first_activated, map_=self.map)
-            second_q = second.activation_queue(second_activated, map_=self.map)
-            if not first_q and not second_q:
-                break
-
-            # Pick the next attacker on each side for this pair
-            first_unit = first_q[0] if first_q else None
-            second_unit = second_q[0] if second_q else None
-            if first_unit is not None:
-                first_activated.add(id(first_unit))
-            if second_unit is not None:
-                second_activated.add(id(second_unit))
-
-            # ---- MOVEMENT sub-phase: both move before either shoots ----
-            # This avoids the "second mover sees an updated target position"
-            # asymmetry that would otherwise let the second player close into
-            # range while the first player can't.
-            if first_unit is not None and first_unit.is_alive:
-                self._do_move(first_unit, first, second)
-            if second_unit is not None and second_unit.is_alive:
-                self._do_move(second_unit, second, first)
-
-            # ---- SHOOTING sub-phase: both shoot from their new positions ----
-            if first_unit is not None and first_unit.is_alive:
-                self._do_shoot(first_unit, first, second)
-            if second_unit is not None and second_unit.is_alive:
-                self._do_shoot(second_unit, second, first)
-
-            # ---- CHARGE sub-phase: both attempt charges if they want melee ----
-            if first_unit is not None and first_unit.is_alive:
-                self._do_charge(first_unit, first, second)
-            if second_unit is not None and second_unit.is_alive:
-                self._do_charge(second_unit, second, first)
-
-            # ---- FIGHT sub-phase: chargers fight first, then others ----
-            if first_unit is not None and first_unit.is_alive:
-                self._do_fight(first_unit, first, second)
-            if second_unit is not None and second_unit.is_alive:
-                self._do_fight(second_unit, second, first)
+        if self.rules.alternating_activations:
+            self._run_round_alternating(first, second)
+        else:
+            self._run_round_vanilla_turns(first, second)
 
         # Reanimation Protocols (#75): revive destroyed models in armies
         # whose detachment carries the Reanimation flag. This SUPERSEDES the
@@ -1810,9 +1837,118 @@ class Battle:
         apply_round_end_revival(self.a)
         apply_round_end_revival(self.b)
 
-        if round_num > 1:
+        if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)
             self._award_cp(self.b, self.a)
+
+    # ------------------------------------------------------------------
+    # Round body — alternating (SwegHammer) vs turn-based (vanilla 10e)
+    # ------------------------------------------------------------------
+
+    def _run_round_alternating(self, first: Army, second: Army) -> None:
+        """SwegHammer alternating-activation round: pairs of units from
+        opposing armies sub-phase by sub-phase (move, shoot, charge, fight),
+        first player randomised.
+
+        When `simultaneous_movement` is True (default in SwegHammer mode),
+        both units in a pair complete a sub-phase before either advances
+        to the next — avoids the second-mover-closes-into-range asymmetry.
+        When False, each unit in a pair completes its full
+        move→shoot→charge→fight before the next unit acts — closer to the
+        per-unit-cadence of bolt-action style activations.
+        """
+        first_activated: set = set()
+        second_activated: set = set()
+
+        while True:
+            first_q = first.activation_queue(first_activated, map_=self.map)
+            second_q = second.activation_queue(second_activated, map_=self.map)
+            if not first_q and not second_q:
+                break
+
+            first_unit = first_q[0] if first_q else None
+            second_unit = second_q[0] if second_q else None
+            if first_unit is not None:
+                first_activated.add(id(first_unit))
+            if second_unit is not None:
+                second_activated.add(id(second_unit))
+
+            if self.rules.simultaneous_movement:
+                # Both units complete each sub-phase before either moves on
+                if first_unit is not None and first_unit.is_alive:
+                    self._do_move(first_unit, first, second)
+                if second_unit is not None and second_unit.is_alive:
+                    self._do_move(second_unit, second, first)
+
+                if first_unit is not None and first_unit.is_alive:
+                    self._do_shoot(first_unit, first, second)
+                if second_unit is not None and second_unit.is_alive:
+                    self._do_shoot(second_unit, second, first)
+
+                if first_unit is not None and first_unit.is_alive:
+                    self._do_charge(first_unit, first, second)
+                if second_unit is not None and second_unit.is_alive:
+                    self._do_charge(second_unit, second, first)
+
+                if first_unit is not None and first_unit.is_alive:
+                    self._do_fight(first_unit, first, second)
+                if second_unit is not None and second_unit.is_alive:
+                    self._do_fight(second_unit, second, first)
+            else:
+                # Each unit completes its full sequence in turn
+                for unit, own, foe in (
+                    (first_unit, first, second),
+                    (second_unit, second, first),
+                ):
+                    if unit is None:
+                        continue
+                    if unit.is_alive:
+                        self._do_move(unit, own, foe)
+                    if unit.is_alive:
+                        self._do_shoot(unit, own, foe)
+                    if unit.is_alive:
+                        self._do_charge(unit, own, foe)
+                    if unit.is_alive:
+                        self._do_fight(unit, own, foe)
+
+    def _run_round_vanilla_turns(self, first: Army, second: Army) -> None:
+        """Vanilla WH40k 10e I-go-you-go turn structure: the first player
+        completes their entire turn (Movement → Shooting → Charge → Fight
+        across all their units) before the second player begins.
+
+        The per-round state set in `_run_round` (oath target, doctrina
+        imperative, battleshock results, fresh-arrival flags) is shared
+        across both turns within a round — same logical scope as the
+        Command-phase setup that ran once at round start.
+
+        Within each phase, units activate in `activation_queue` order
+        (score-only sort because `army_plan is None` under vanilla rules);
+        the player picks the order in real play and the heuristic picker
+        approximates that choice.
+        """
+        for active, other in ((first, second), (second, first)):
+            # Movement phase — all active units move
+            for unit in list(active.units):
+                if unit.is_alive:
+                    self._do_move(unit, active, other)
+            # Shooting phase — all active units shoot
+            for unit in list(active.units):
+                if unit.is_alive:
+                    self._do_shoot(unit, active, other)
+            # Charge phase — all active units attempt charges
+            for unit in list(active.units):
+                if unit.is_alive:
+                    self._do_charge(unit, active, other)
+            # Fight phase — active player's units fight. Real 10e Fight phase
+            # interleaves both players' chargers + locked units; this
+            # approximates by giving the active player their full fight pass,
+            # and the other player's reactive fights resolve in their own
+            # turn's Fight phase. Fights First (`_charging_this_round`) is
+            # already round-scoped, so chargers from this round still get
+            # the bonus when their own player's turn rolls around.
+            for unit in list(active.units):
+                if unit.is_alive:
+                    self._do_fight(unit, active, other)
 
     # ------------------------------------------------------------------
     # Sub-phases

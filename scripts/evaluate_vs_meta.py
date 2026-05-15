@@ -28,7 +28,7 @@ if os.environ.get("PYTHONHASHSEED") != "0":
 
 from code.army_builder import build_faction_random_army
 from code.maps import DEFAULT_MAP
-from code.simulator import Battle
+from code.simulator import Battle, RulesConfig
 
 FACTIONS: List[str] = [
     "Adeptus Astartes",
@@ -62,7 +62,7 @@ APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
                    "Adeptus Custodes", "Leagues of Votann"}
 
 
-def run_matrix(n: int) -> Dict[str, float]:
+def run_matrix(n: int, rules: RulesConfig = None) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -88,7 +88,7 @@ def run_matrix(n: int) -> Dict[str, float]:
                 b = build_faction_random_army("B", b_fac, 1000, rng=random.Random(s + 10000))
                 if not a.units or not b.units:
                     continue
-                r = Battle(a, b, map_=DEFAULT_MAP).run()
+                r = Battle(a, b, map_=DEFAULT_MAP, rules=rules).run()
                 winners[r.winner] += 1
             sim_wr[(a_fac, b_fac)] = winners.get("A", 0) / n * 100
 
@@ -141,8 +141,18 @@ def report(sim: Dict[str, float]) -> Tuple[float, float]:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--battles", type=int, default=20)
+    p.add_argument(
+        "--vanilla-10e",
+        action="store_true",
+        help="Run under vanilla WH40k 10e rules (no alternating activations, "
+             "no simultaneous-movement sub-phase, no CP catch-up bonus, no "
+             "coordinated army-plan). Default is SwegHammer mode.",
+    )
     args = p.parse_args()
-    sim = run_matrix(args.battles)
+    rules = RulesConfig.vanilla_10e() if args.vanilla_10e else None
+    if args.vanilla_10e:
+        print("Mode: vanilla WH40k 10e\n")
+    sim = run_matrix(args.battles, rules=rules)
     mae_real, mae_sweg = report(sim)
     sys.exit(0)   # informational only — never error-exit
 
