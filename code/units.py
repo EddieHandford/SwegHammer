@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass
 from typing import Dict, Tuple
@@ -357,8 +358,18 @@ class Unit:
         #       +1 to armour save (cap 2+) for the round.
         #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
         #       hit rolls in shooting are re-rolled (once) for the round.
-        #   transient_assault_this_round — Matchless Agility. Movement buff:
-        #       unit may shoot in the same round it advanced.
+        #   transient_assault_this_round — Matchless Agility OR Strike Swiftly
+        #       (T'au Mont'ka). Movement buff: unit may shoot in the same round
+        #       it advanced.
+        # Awakened Dynasty (Necrons):
+        #   transient_fnp_5 — Implacable Onslaught. Defender buff: target gets a
+        #       transient FNP 5+ for the round (composes with existing FNP by
+        #       taking the lower / better value in receive_damage).
+        #   transient_plus_one_to_hit_shooting — Methodical Destruction.
+        #       Attacker buff: +1 to hit on ranged attacks for the round.
+        # Saim-Hann (Aeldari):
+        #   transient_halve_damage — Spirit Stones. Defender buff: each per-shot
+        #       damage is halved (rounded up) for the round.
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -366,6 +377,9 @@ class Unit:
         "transient_plus_one_save",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
+        "transient_fnp_5",
+        "transient_plus_one_to_hit_shooting",
+        "transient_halve_damage",
         # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
         # each Command phase to any Drukhari unit below Starting Strength;
         # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
@@ -418,6 +432,11 @@ class Unit:
         self.transient_plus_one_save: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
+        # Awakened Dynasty (Necrons) per-round stratagem flags.
+        self.transient_fnp_5: bool = False
+        self.transient_plus_one_to_hit_shooting: bool = False
+        # Saim-Hann (Aeldari) per-round stratagem flag.
+        self.transient_halve_damage: bool = False
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is
@@ -451,7 +470,20 @@ class Unit:
         """
         if self.transient_minus_one_damage_taken and amount > 0:
             amount = max(1.0, amount - 1.0)
+        # Saim-Hann Spirit Stones (Aeldari stratagem, 1 CP): halve incoming
+        # damage (rounded up) for the round. Applied per receive_damage call —
+        # mirrors the per-attack codex wording since receive_damage is called
+        # per-shot from Unit.attack. Cited as `Stratagem.Spirit Stones`.
+        if self.transient_halve_damage and amount > 0:
+            amount = math.ceil(amount / 2.0)
         effective_fnp = min(self.profile.fnp, bonus_fnp)
+        # Awakened Dynasty Implacable Onslaught (Necron stratagem, 1 CP):
+        # transient FNP 5+ for the round. Composes with the unit's existing
+        # FNP / leader-aura FNP by taking the lower (better) value, identical
+        # to the Death Guard / Drukhari composition pattern below. Cited as
+        # `Stratagem.Implacable Onslaught`.
+        if self.transient_fnp_5:
+            effective_fnp = min(effective_fnp, 5)
         # Death Guard Disgustingly Resilient (army rule, 10e): every DEATH
         # GUARD model has Feel No Pain 5+. The rule is codex-level and not
         # encoded on individual BSData datasheets, so we faction-gate it
@@ -589,6 +621,17 @@ class Unit:
             and self.transient_plus_one_to_wound_melee
         ):
             wound_target = max(2, wound_target - 1)
+        # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
+        # selected NECRON unit's ranged attacks for the round. Re-uses the same
+        # "lower hit_target by 1, min 2" idiom as att_buffs.plus_one_to_hit so
+        # the 10e modifier-cap (max +1) is enforced uniformly. Cited as
+        # `Stratagem.Methodical Destruction`.
+        if (
+            mode != "melee"
+            and self.transient_plus_one_to_hit_shooting
+        ):
+            hit_target = max(2, hit_target - 1)
+            _hit_target_after_buffs = hit_target
 
         # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
         # Virulent Rot: enemy units within 6" of any DG model have -1 T (only

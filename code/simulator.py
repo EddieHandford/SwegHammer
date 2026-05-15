@@ -23,11 +23,15 @@ from .strategy import (
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
     # Cult of Magic (Thousand Sons)
-    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH,
+    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH, CABBALISTIC_EMPOWERMENT,
     # Plague Company (Death Guard)
     DISGUSTINGLY_RESILIENT, PLAGUE_WEAPONS, OUTBREAK_OF_PESTILENCE,
-    # Battle Host (Aeldari)
-    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY,
+    # Battle Host (Aeldari) + Saim-Hann attachment
+    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY, SPIRIT_STONES,
+    # Awakened Dynasty (Necrons)
+    IMPLACABLE_ONSLAUGHT, METHODICAL_DESTRUCTION,
+    # Mont'ka (T'au Empire)
+    STRIKE_SWIFTLY,
     award_command_phase_cp,
 )
 
@@ -452,6 +456,13 @@ class Battle:
             u.transient_plus_one_save = False
             u.transient_reroll_hits_shooting = False
             u.transient_assault_this_round = False
+            u.transient_fnp_5 = False
+            u.transient_plus_one_to_hit_shooting = False
+            u.transient_halve_damage = False
+        # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
+        # this round's Doombolt damage; reset every round so the boost only
+        # applies the round the stratagem fires.
+        army.cabbalistic_doombolt_boost = False
 
     def _apply_detachment_stratagems(self, army: Army, opponent: Army) -> None:
         """Round-start dispatcher for detachment-specific stratagems.
@@ -473,6 +484,12 @@ class Battle:
         strat_names = {s.name for s in det.stratagems}
 
         # ----- Cult of Magic (Thousand Sons) -----------------------------
+        # Cabbalistic Empowerment must run BEFORE Doombolt: it boosts the
+        # round's Doombolt payload from 2 MW to 3 MW (via the army's
+        # `cabbalistic_doombolt_boost` flag), and Doombolt's dispatcher reads
+        # the flag at fire time.
+        if "Cabbalistic Empowerment" in strat_names:
+            self._try_cabbalistic_empowerment(army, opponent)
         if "Doombolt" in strat_names:
             self._try_doombolt(army, opponent)
         if "Twist of Fate" in strat_names:
@@ -495,6 +512,18 @@ class Battle:
             self._try_fire_and_fade(army, opponent)
         if "Matchless Agility" in strat_names:
             self._try_matchless_agility(army, opponent)
+        if "Spirit Stones" in strat_names:
+            self._try_spirit_stones(army, opponent)
+
+        # ----- Awakened Dynasty (Necrons) -------------------------------
+        if "Implacable Onslaught" in strat_names:
+            self._try_implacable_onslaught(army, opponent)
+        if "Methodical Destruction" in strat_names:
+            self._try_methodical_destruction(army, opponent)
+
+        # ----- Mont'ka (T'au Empire) ------------------------------------
+        if "Strike Swiftly" in strat_names:
+            self._try_strike_swiftly(army, opponent)
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -609,7 +638,13 @@ class Battle:
             return
         if not self._fire_stratagem(army, DOOMBOLT):
             return
-        target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
+        # Base damage: median D3 = 2. Cabbalistic Empowerment (Cult of Magic
+        # stratagem, 1 CP) bumps a TSons psyker's psychic attack +1 to wound;
+        # we collapse that into +1 MW on the Doombolt payload (2 → 3) when
+        # the round's Cabbalistic Empowerment flag is set. Cited as
+        # `Stratagem.Cabbalistic Empowerment`.
+        dmg = 3.0 if getattr(army, "cabbalistic_doombolt_boost", False) else 2.0
+        target.receive_damage(dmg, bonus_fnp=target.profile.fnp)
         if not target.is_alive:
             self._emit(UnitKilled(unit_uid=target.uid))
             self._maybe_apply_deadly_demise(target)
@@ -794,6 +829,129 @@ class Battle:
         if not should_fire_stratagem(army, MATCHLESS_AGILITY, ctx):
             return
         if not self._fire_stratagem(army, MATCHLESS_AGILITY):
+            return
+        attacker.transient_assault_this_round = True
+
+    # ----- Awakened Dynasty (Necrons) dispatchers ------------------------
+
+    def _try_implacable_onslaught(self, army: Army, opponent: Army) -> None:
+        """Implacable Onslaught (Awakened Dynasty, 1 CP): transient FNP 5+ on
+        the most vulnerable NECRONS unit for the round. Composes with
+        Reanimation Protocols by lowering the unit's effective FNP target —
+        applied per receive_damage call. Cited as
+        `Stratagem.Implacable Onslaught`."""
+        target = self._most_vulnerable_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, IMPLACABLE_ONSLAUGHT, ctx):
+            return
+        if not self._fire_stratagem(army, IMPLACABLE_ONSLAUGHT):
+            return
+        target.transient_fnp_5 = True
+
+    def _try_methodical_destruction(self, army: Army, opponent: Army) -> None:
+        """Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on a
+        friendly NECRONS unit's ranged attacks for the round. Picks the
+        highest-DPA NECRONS shooter so the buff lands on the biggest gun.
+        Cited as `Stratagem.Methodical Destruction`."""
+        attacker = self._highest_dpa_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, METHODICAL_DESTRUCTION, ctx):
+            return
+        if not self._fire_stratagem(army, METHODICAL_DESTRUCTION):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    # ----- Cult of Magic (Thousand Sons) — Cabbalistic Empowerment -------
+
+    def _try_cabbalistic_empowerment(self, army: Army, opponent: Army) -> None:
+        """Cabbalistic Empowerment (Cult of Magic, 1 CP): boosts the round's
+        Doombolt payload from 2 MW to 3 MW. Requires a PSYKER and a viable
+        target (otherwise we're paying CP for a Doombolt that won't fire).
+        Cited as `Stratagem.Cabbalistic Empowerment`."""
+        has_psyker = any(
+            "PSYKER" in (u.profile.unit_keywords or ())
+            for u in army.alive_units
+        )
+        if not has_psyker:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"target": target, "has_psyker": True}
+        if not should_fire_stratagem(army, CABBALISTIC_EMPOWERMENT, ctx):
+            return
+        if not self._fire_stratagem(army, CABBALISTIC_EMPOWERMENT):
+            return
+        army.cabbalistic_doombolt_boost = True
+
+    # ----- Saim-Hann (Aeldari) — Spirit Stones ---------------------------
+
+    def _try_spirit_stones(self, army: Army, opponent: Army) -> None:
+        """Spirit Stones (Saim-Hann, 1 CP): halve incoming damage on a damaged
+        AELDARI unit for the round (rounded up). Picks the most vulnerable
+        AELDARI unit. Cited as `Stratagem.Spirit Stones`."""
+        target = self._most_vulnerable_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, SPIRIT_STONES, ctx):
+            return
+        if not self._fire_stratagem(army, SPIRIT_STONES):
+            return
+        target.transient_halve_damage = True
+
+    # ----- Mont'ka (T'au Empire) — Strike Swiftly ------------------------
+
+    def _try_strike_swiftly(self, army: Army, opponent: Army) -> None:
+        """Strike Swiftly (Mont'ka, 1 CP): transient ASSAULT on a friendly
+        T'AU unit so it can shoot after Advancing. Same mechanic as Battle
+        Host's Matchless Agility; we route both through
+        `transient_assault_this_round` since the simulator's _do_shoot path
+        already short-circuits the Advanced-this-round shoot block on that
+        flag. Cited as `Stratagem.Strike Swiftly`."""
+        candidates = [
+            u for u in army.alive_units
+            if self._unit_matches_filter(u, keyword="T'AU EMPIRE", faction="T'au Empire")
+            and u.profile.range_inches >= 12
+            and not u.profile.assault
+        ]
+        if not candidates:
+            return
+        def _wants_advance(u):
+            if not opponent.alive_units:
+                return False
+            nearest = min(
+                opponent.alive_units,
+                key=lambda e: _distance(u.position, e.position),
+            )
+            return _distance(u.position, nearest.position) > u.profile.range_inches
+        viable = [u for u in candidates if _wants_advance(u)]
+        if not viable:
+            return
+        attacker = max(viable, key=lambda u: float(u.profile.points_cost))
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, STRIKE_SWIFTLY, ctx):
+            return
+        if not self._fire_stratagem(army, STRIKE_SWIFTLY):
             return
         attacker.transient_assault_this_round = True
 

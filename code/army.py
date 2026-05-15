@@ -164,6 +164,12 @@ class Army:
         # "this round" because the simulator activation loop doesn't break
         # round-internal phases out separately. None = not active.
         self.blood_tithe_lethal_hits_round: Optional[int] = None
+        # Cult of Magic Cabbalistic Empowerment (Thousand Sons stratagem,
+        # 1 CP). When set True for the round, the simulator's _try_doombolt
+        # dispatcher pays 3 MW instead of the base 2 MW (median D3) to its
+        # target. Reset to False each round by Battle._clear_transient_stratagem_flags.
+        # Cited as `Stratagem.Cabbalistic Empowerment`.
+        self.cabbalistic_doombolt_boost: bool = False
 
     # ------------------------------------------------------------------
     # Faction detection

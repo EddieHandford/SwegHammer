@@ -25,9 +25,11 @@ from typing import Dict, Iterable, Optional, Tuple
 
 from .stratagems import (
     Stratagem,
-    BATTLE_HOST_STRATAGEMS,
-    CULT_OF_MAGIC_STRATAGEMS,
+    BATTLE_HOST_STRATAGEMS_EXTENDED,
+    CULT_OF_MAGIC_STRATAGEMS_EXTENDED,
     PLAGUE_COMPANY_STRATAGEMS,
+    AWAKENED_DYNASTY_STRATAGEMS,
+    MONTKA_STRATAGEMS,
 )
 
 
@@ -115,10 +117,15 @@ AWAKENED_DYNASTY = Detachment(
         "a NECRONS CHARACTER model is leading this unit, each time a model "
         "in this unit makes an attack, add 1 to the Hit roll.\"' The whole "
         "detachment's offensive teeth are gated on being character-led; "
-        "lone Warrior squads get nothing."
+        "lone Warrior squads get nothing. Detachment stratagems implemented: "
+        "Implacable Onslaught (1 CP, transient FNP 5+ on a Necron unit for "
+        "the round; composes with Reanimation Protocols) and Methodical "
+        "Destruction (1 CP, +1 to hit on a Necron shooter's ranged attacks "
+        "for the round, lowering the modifier into the 10e +1 cap)."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -233,10 +240,14 @@ BATTLE_HOST = Detachment(
         "rotates +1 to hit / +1 to wound per Aspect Path. Detachment "
         "stratagems implemented: Lightning-Fast Reactions (+1 save), "
         "Fire and Fade (re-roll hits on a friendly Aeldari unit's shoot), "
-        "Matchless Agility (transient ASSAULT granting advance-and-shoot)."
+        "Matchless Agility (transient ASSAULT granting advance-and-shoot), "
+        "and Spirit Stones (1 CP, halve incoming damage on a damaged "
+        "Aeldari unit for the round). Spirit Stones is canonically a "
+        "Saim-Hann Craftworld stratagem but the simulator carries one "
+        "Aeldari detachment, so the entry is attached here."
     ),
     reroll_hit_ones=True,
-    stratagems=BATTLE_HOST_STRATAGEMS,
+    stratagems=BATTLE_HOST_STRATAGEMS_EXTENDED,
     preferred_composition="infantry",
 )
 
@@ -256,9 +267,15 @@ MONTKA = Detachment(
     faction="T'au Empire",
     notes=(
         "Killing Blow doctrine: lossy as army-wide +1 to hit. Real rule "
-        "alternates between Mont'ka (offensive) and Kauyon (defensive)."
+        "alternates between Mont'ka (offensive) and Kauyon (defensive). "
+        "Detachment stratagem implemented: Strike Swiftly (1 CP, transient "
+        "ASSAULT on a T'au shooter for the round so it can shoot after "
+        "Advancing). Re-uses the same transient_assault_this_round flag "
+        "as the Aeldari Matchless Agility stratagem since both share the "
+        "Advance-and-shoot pattern."
     ),
     plus_one_to_hit=True,
+    stratagems=MONTKA_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -297,12 +314,14 @@ CULT_OF_MAGIC = Detachment(
         "no citable always-on rule), but the detachment's identity lands "
         "via stratagems: Doombolt (1 CP, D3 mortal wounds in shooting), "
         "Twist of Fate (1 CP, +1 damage on attacks vs target enemy for the "
-        "round), and Glamour of Tzeentch (2 CP, transient 4++ invuln on a "
-        "friendly TSons unit). Doombolt is the per-Shooting-Phase ritual "
-        "cast that previously sat as a made-up `psychic_mortal_wounds_per_round` "
-        "field — now it's a proper CP-gated stratagem."
+        "round), Glamour of Tzeentch (2 CP, transient 4++ invuln on a "
+        "friendly TSons unit), and Cabbalistic Empowerment (1 CP, boosts "
+        "the per-round Doombolt payload from 2 MW to 3 MW). Doombolt is "
+        "the per-Shooting-Phase ritual cast that previously sat as a "
+        "made-up `psychic_mortal_wounds_per_round` field — now it's a "
+        "proper CP-gated stratagem."
     ),
-    stratagems=CULT_OF_MAGIC_STRATAGEMS,
+    stratagems=CULT_OF_MAGIC_STRATAGEMS_EXTENDED,
     preferred_composition="infantry",
 )
 

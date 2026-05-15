@@ -116,5 +116,50 @@
     "trigger": "movement phase, when a friendly AELDARI unit is selected to make an Advance move",
     "effect": "the unit's `transient_assault_this_round` flag is set; the move sub-phase treats the unit as having Assault weapons for the round (advance and still shoot) and the Heavy-keyword movement penalty is short-circuited. Fires at start of round when AI greenlights spend on an Aeldari shooter not already in range",
     "scope": "phase-gated"
+  },
+
+  "Stratagem.Implacable Onslaught": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
+    "rule_name": "Implacable Onslaught (Awakened Dynasty Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM AT THE END OF YOUR OPPONENT'S CHARGE PHASE. ONE NECRONS UNIT FROM YOUR ARMY THAT WAS THE TARGET OF A CHARGE THIS PHASE HAS THE FEEL NO PAIN 5+ ABILITY UNTIL THE START OF YOUR NEXT TURN.",
+    "trigger": "end of opponent's charge phase, on a NECRONS unit (real rule: that was the target of a charge; the simulator widens the trigger to 'any vulnerable Necron unit' since we don't track per-unit charge-target state across the round)",
+    "effect": "the unit's `transient_fnp_5` flag is set; receive_damage takes the min of (profile.fnp, bonus_fnp, 5) so the FNP 5+ composes with any pre-existing FNP value. Cleared at the start of the next round, matching the codex 'until the start of your next turn' duration",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Methodical Destruction": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
+    "rule_name": "Methodical Destruction (Awakened Dynasty Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, WHEN A NECRONS UNIT FROM YOUR ARMY IS SELECTED TO SHOOT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES AN ATTACK THAT TARGETS AN ENEMY UNIT THAT HAS HAD ANY OF ITS MODELS DESTROYED BY ANOTHER FRIENDLY NECRONS UNIT THIS PHASE, RE-ROLL THE HIT ROLL AND RE-ROLL THE WOUND ROLL.",
+    "trigger": "shooting phase, when a friendly NECRONS unit shoots at an enemy already damaged by friendly Necrons fire this phase",
+    "effect": "approximation: the simulator doesn't track 'damaged this phase by a Necron unit' state, so we collapse the rule into a flat +1 to hit on the selected Necron shooter's ranged attacks for the round (lowers hit_target by 1, min 2, capped by the 10e modifier cap). Captures the intended 'pour fire into a priority target' identity without the per-target bookkeeping the codex assumes",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Cabbalistic Empowerment": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Cabbalistic Empowerment (Cult of Magic Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, WHEN A THOUSAND SONS PSYKER UNIT FROM YOUR ARMY IS SELECTED TO SHOOT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES AN ATTACK WITH A WITCHFIRE OR PSYCHIC WEAPON, ADD 1 TO THE WOUND ROLL.",
+    "trigger": "shooting phase, when a friendly THOUSAND SONS PSYKER unit is selected to shoot a psychic weapon",
+    "effect": "approximation: the simulator's Cult of Magic Doombolt is the only psychic-weapon path that exposes mortal-wound damage, so Cabbalistic Empowerment is collapsed into 'boost the round's Doombolt payload by +1 MW' (from median-D3 2 to 3) when the stratagem fires. The army-level flag `cabbalistic_doombolt_boost` carries the buff for the round and is reset at start-of-round. Composes with the existing Doombolt dispatcher",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Spirit Stones": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/",
+    "rule_name": "Spirit Stones (Saim-Hann Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME AN ATTACK IS ALLOCATED TO A MODEL IN YOUR UNIT, HALVE THE DAMAGE CHARACTERISTIC OF THAT ATTACK (ROUNDING UP).",
+    "trigger": "any phase, when a friendly AELDARI unit is the target of an attack",
+    "effect": "the unit's `transient_halve_damage` flag is set; receive_damage halves the per-call damage characteristic (math.ceil(amount / 2)) before applying FNP. Composes with the Disgustingly Resilient `transient_minus_one_damage_taken` flag by stacking after the -1 (the codex order is unspecified; we apply -1 first because it's already in place from existing Plague Company plumbing). Cited as Saim-Hann but attached to the Battle Host detachment since the simulator carries one Aeldari detachment",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Strike Swiftly": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tau-empire/",
+    "rule_name": "Strike Swiftly (Mont'ka Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR MOVEMENT PHASE, WHEN A T'AU EMPIRE UNIT FROM YOUR ARMY IS SELECTED TO MAKE AN ADVANCE MOVE. UNTIL THE END OF YOUR TURN, WEAPONS EQUIPPED BY MODELS IN YOUR UNIT HAVE THE [ASSAULT] ABILITY.",
+    "trigger": "movement phase, when a friendly T'AU EMPIRE unit is selected to make an Advance move",
+    "effect": "the unit's `transient_assault_this_round` flag is set; _do_shoot's Advanced-this-round gate short-circuits when the flag is True so the unit can shoot in the same round it advanced. Same mechanic as the Aeldari Battle Host Matchless Agility stratagem; both share the underlying flag. Fires at start of round on a T'au shooter currently out of weapon range",
+    "scope": "phase-gated"
   }
 }

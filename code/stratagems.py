@@ -220,6 +220,117 @@ BATTLE_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Awakened Dynasty (Necrons) — two flagship detachment stratagems
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+# Calibration (N=200) shows Necrons under-rated by ~15 pts vs the meta. The
+# detachment's two best-known stratagems are picked here: Implacable Onslaught
+# (army-wide FNP 5+ at end of opponent's Charge phase — composes with
+# Reanimation Protocols) and Methodical Destruction (the targeting / re-roll-
+# adjacent buff that lets a NECRON shooter pour fire into a priority target).
+
+IMPLACABLE_ONSLAUGHT = Stratagem(
+    name="Implacable Onslaught",
+    cp_cost=1,
+    phase="charge",
+    trigger="end_of_opponent_charge_phase",
+    effect="grant_fnp_5_to_necron_units_for_round",
+)
+
+METHODICAL_DESTRUCTION = Stratagem(
+    name="Methodical Destruction",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_necron_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+AWAKENED_DYNASTY_STRATAGEMS: Tuple[Stratagem, ...] = (
+    IMPLACABLE_ONSLAUGHT, METHODICAL_DESTRUCTION,
+)
+
+
+# ---------------------------------------------------------------------------
+# Cult of Magic (Thousand Sons) — additional stratagem
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# Cabbalistic Empowerment: a TSons psyker's psychic attack gains +1 to wound
+# for the phase. Modelled here as an upgrade to the existing Doombolt
+# mortal-wound payload — when this stratagem fires, the round's Doombolt
+# damage rises from the base median-D3 = 2 to 3 (the same path Doombolt
+# already uses, just boosted). Keeps the Stratagem dispatcher path uniform
+# without forcing every TSons shooter to track per-attack wound buffs.
+
+CABBALISTIC_EMPOWERMENT = Stratagem(
+    name="Cabbalistic Empowerment",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_tson_psyker_in_shooting_phase",
+    effect="boost_doombolt_damage_for_round",
+)
+
+
+# ---------------------------------------------------------------------------
+# Saim-Hann (Aeldari) — Spirit Stones stratagem
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/
+# Spirit Stones (1 CP): when an AELDARI unit is targeted by an attack, halve
+# incoming Damage (rounding up) for the rest of the phase. Modelled per round
+# via the unit's transient_halve_damage flag (parallel to the existing
+# transient_minus_one_damage_taken Plague Company stratagem).
+
+SPIRIT_STONES = Stratagem(
+    name="Spirit Stones",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_aeldari_unit_takes_a_hit",
+    effect="halve_incoming_damage_for_round",
+)
+
+
+# ---------------------------------------------------------------------------
+# Mont'ka (T'au Empire) — Strike Swiftly stratagem
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/
+# Strike Swiftly (1 CP): a T'AU unit can shoot in the same turn it Advanced.
+# Re-uses the same transient_assault_this_round flag as the existing
+# Matchless Agility stratagem — the simulator's _do_shoot path already
+# short-circuits the Advanced-this-round shoot block on that flag, so we
+# only need to set it for a T'au shooter currently out of weapon range.
+
+STRIKE_SWIFTLY = Stratagem(
+    name="Strike Swiftly",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tau_unit_advancing",
+    effect="grant_assault_for_round",
+)
+
+
+MONTKA_STRATAGEMS: Tuple[Stratagem, ...] = (
+    STRIKE_SWIFTLY,
+)
+
+
+# Augmented Cult of Magic stratagems tuple — the original three plus
+# Cabbalistic Empowerment. The detachment registry re-exports
+# CULT_OF_MAGIC_STRATAGEMS as-is, then `Detachment.stratagems` is rebuilt to
+# include the new entry alongside the existing ones.
+CULT_OF_MAGIC_STRATAGEMS_EXTENDED: Tuple[Stratagem, ...] = (
+    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH, CABBALISTIC_EMPOWERMENT,
+)
+
+
+# Augmented Battle Host stratagems tuple — the original three plus Spirit
+# Stones. Saim-Hann is a Craftworld of the broader Aeldari faction; the
+# simulator only carries one Aeldari detachment, Battle Host, so we attach
+# Spirit Stones there rather than splitting into a separate detachment.
+BATTLE_HOST_STRATAGEMS_EXTENDED: Tuple[Stratagem, ...] = (
+    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY, SPIRIT_STONES,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -272,6 +383,19 @@ __all__ = [
     "FIRE_AND_FADE",
     "MATCHLESS_AGILITY",
     "BATTLE_HOST_STRATAGEMS",
+    # Awakened Dynasty (Necrons)
+    "IMPLACABLE_ONSLAUGHT",
+    "METHODICAL_DESTRUCTION",
+    "AWAKENED_DYNASTY_STRATAGEMS",
+    # Cult of Magic (Thousand Sons) — Cabbalistic Empowerment addition
+    "CABBALISTIC_EMPOWERMENT",
+    "CULT_OF_MAGIC_STRATAGEMS_EXTENDED",
+    # Saim-Hann (Aeldari) — Spirit Stones, attached to Battle Host
+    "SPIRIT_STONES",
+    "BATTLE_HOST_STRATAGEMS_EXTENDED",
+    # Mont'ka (T'au) — Strike Swiftly
+    "STRIKE_SWIFTLY",
+    "MONTKA_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

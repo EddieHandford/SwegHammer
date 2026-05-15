@@ -966,6 +966,95 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # over-rated.
         return cost >= 150.0
 
+    # ----- Saim-Hann (Aeldari) — Spirit Stones --------------------------
+
+    if name == "Spirit Stones":
+        # ctx expects {"target": Unit}. Defensive 1 CP — fire on a heavily
+        # damaged Aeldari brick. Aeldari already over-rates by +7.5 vs the
+        # meta in calibration, so the gate is intentionally tighter than
+        # Lightning-Fast Reactions: require HP loss > 50% AND points cost
+        # >= 150 (Wraithlord / Avatar / vehicle bracket). Halving damage
+        # is a big swing on multi-wound models with serious HP left, so
+        # this stratagem must be reserved for the canonical "save the
+        # Knight-class unit" scenarios.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.5 and cost >= 150.0
+
+    # ----- Awakened Dynasty (Necrons) -----------------------------------
+
+    if name == "Implacable Onslaught":
+        # ctx expects {"target": Unit}. 1 CP for a transient FNP 5+ on a
+        # Necron unit. Cheap defensive — fire whenever a meaningful Necron
+        # unit has taken any HP loss. FNP 5+ delivers ~33% damage reduction
+        # in expectation, comfortably worth 1 CP on a multi-wound model.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        # Even at full HP the prophylactic value of FNP 5+ on a 100+ pt
+        # Necron unit is worth 1 CP this round — Reanimation Protocols are
+        # less effective against alpha strikes. Lowered HP gate to >= 0.0.
+        return cost >= 80.0 and hp_frac >= 0.0
+
+    if name == "Methodical Destruction":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 to hit on a
+        # NECRONS unit's shooting for the round — fire when the attacker
+        # has serious DPA AND the target is heavy. The +1 closes a 4+ to
+        # a 3+, lifting per-shot expected damage by ~25%. Worth 1 CP on a
+        # real ranged threat hitting a real target.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 2.0 and _is_heavy_target(target)
+
+    # ----- Cult of Magic (Thousand Sons) — Cabbalistic Empowerment ------
+
+    if name == "Cabbalistic Empowerment":
+        # ctx expects {"target": Unit, "has_psyker": bool}. 1 CP to boost
+        # the round's Doombolt payload from 2 MW to 3 MW. Only fires if a
+        # psyker exists AND the target is HEAVY-class (otherwise the extra
+        # MW is wasted on chip damage). Doombolt itself fires whenever a
+        # psyker + target exist, so this is "pay 2 CP combined this round
+        # for 3 MW" — only worth it on a meaningful target.
+        target = ctx.get("target")
+        if target is None or not ctx.get("has_psyker", False):
+            return False
+        return _is_heavy_target(target)
+
+    # ----- Mont'ka (T'au Empire) — Strike Swiftly -----------------------
+
+    if name == "Strike Swiftly":
+        # ctx expects {"attacker": Unit}. Advance + shoot — fire for a
+        # high-cost T'au shooter currently out of weapon range. T'au already
+        # over-rates by +12 in calibration so the gate matches Matchless
+        # Agility (cost >= 150) — Crisis Battlesuits / Broadsides only, not
+        # Fire Warrior squads or Pathfinders.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 150.0
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 
