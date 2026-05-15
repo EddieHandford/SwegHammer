@@ -39,6 +39,129 @@ _CAPTURE_INTENT = "CAPTURE"
 _STEAL_INTENT = "STEAL"
 _ENGAGE_INTENT = "ENGAGE"
 _REPOSITION_INTENT = "REPOSITION"
+
+
+# ---------------------------------------------------------------------------
+# S1 — Faction strategic posture (AI tuning, not a 10e rule)
+# ---------------------------------------------------------------------------
+# IRL top-faction play biases very differently per army: T'au alpha-strike,
+# Aeldari shimmy-step, Necrons grind objectives, Custodes elite-control, etc.
+# Our previous AI applied the same heuristic to every faction. This dict
+# tags each faction with a strategic posture; per-posture modifier helpers
+# below adjust the existing intent scoring without replacing the core logic.
+#
+# This is AI behaviour-shaping, NOT a 10e rule — no rule_citations entry is
+# required (see docs/STRATEGY_ANALYSIS.md S1 for the design rationale).
+FACTION_POSTURE: dict = {
+    # Aeldari — shimmy-step (Battle Focus, never sit still).
+    "Aeldari":              "shimmy",
+    "Aeldari (Craftworlds)": "shimmy",
+    # Drukhari — fast strike, mobile alpha, low-toughness raiders.
+    "Drukhari":             "fast_strike",
+    "Ynnari":               "fast_strike",
+    # T'au — Mont'ka alpha-strike gunline.
+    "T'au Empire":          "alpha_strike",
+    # Custodes — elite control, hold the middle.
+    "Adeptus Custodes":     "objective_hold",
+    # Necrons — Awakened Dynasty objective grind.
+    "Necrons":              "objective_hold",
+    # Death Guard — spread Plague Marines to every objective.
+    "Death Guard":          "attrition",
+    # Thousand Sons — psychic attrition + Rubric durability.
+    "Thousand Sons":        "psychic_attrition",
+    # Orks / Tyranids — horde alpha.
+    "Orks":                 "horde_push",
+    "Tyranids":             "horde_push",
+    # Genestealer Cults — Cult Ambush turn-1 close-in.
+    "Genestealer Cults":    "ambush_alpha",
+    # Marines — baseline (no posture-specific bias).
+    "Adeptus Astartes":     "balanced",
+    "Ultramarines":         "balanced",
+    "Blood Angels":         "balanced",
+    "Dark Angels":          "balanced",
+    "Space Wolves":         "balanced",
+    "Black Templars":       "balanced",
+    "Imperial Fists":       "balanced",
+    "Iron Hands":           "balanced",
+    "Raven Guard":          "balanced",
+    "Salamanders":          "balanced",
+    "White Scars":          "balanced",
+    "Deathwatch":           "balanced",
+    "Grey Knights":         "balanced",
+}
+
+
+def _posture_for(faction: str) -> str:
+    """Return the strategic posture for `faction`, defaulting to 'balanced'.
+
+    Unknown / approximate factions fall through to 'balanced' so the AI's
+    existing behaviour is preserved on anything we haven't explicitly tuned.
+    """
+    return FACTION_POSTURE.get(faction or "", "balanced")
+
+
+# S5 — Aeldari shimmy-step config. SHOOTY/HEAVY Aeldari units actively pick
+# a NEW position each round (not the cover-snap to current spot) so they
+# threat-range from a different vector and don't sit still. Sample circle
+# radius = shimmy_distance inches around the unit.
+_SHIMMY_DISTANCE: float = 4.0
+
+
+def _shimmy_target(unit, nearest_enemy, map_) -> Optional[Tuple[float, float]]:
+    """Pick a NEW position for an Aeldari shimmy-step.
+
+    Constraints:
+      1. Stays in range of `nearest_enemy` (so we can still shoot next phase).
+      2. Sits in cover at least as strong as our current cover (prefer better).
+      3. Is at least `_SHIMMY_DISTANCE * 0.75` from the unit's current pos so
+         we actually move (avoids the cover-snap returning the same spot).
+
+    Falls back to None if no point satisfies (1) & (3); the caller then
+    drops back to the existing REPOSITION branch.
+    """
+    if map_ is None or nearest_enemy is None:
+        return None
+    rng = unit.profile.range_inches or 24
+    px, py = unit.position
+    ex, ey = nearest_enemy.position
+    cur_cover_prio = _COVER_PRIORITY.get(map_.cover_at(unit.position).value, 0)
+    min_move = _SHIMMY_DISTANCE * 0.75
+
+    # Sample a ring at _SHIMMY_DISTANCE; pick the candidate with the highest
+    # cover priority that's still in weapon range AND >=min_move away from us.
+    best = None
+    best_score = -1.0
+    for i in range(16):
+        angle = (2.0 * math.pi * i) / 16
+        cx = px + _SHIMMY_DISTANCE * math.cos(angle)
+        cy = py + _SHIMMY_DISTANCE * math.sin(angle)
+        cx = max(0.0, min(map_.width, cx))
+        cy = max(0.0, min(map_.height, cy))
+        cand = (cx, cy)
+        if map_.is_blocked(cand):
+            continue
+        if _dist(cand, (ex, ey)) > rng:
+            continue
+        if _dist(cand, unit.position) < min_move:
+            continue
+        cover_prio = _COVER_PRIORITY.get(map_.cover_at(cand).value, 0)
+        # Weight cover heavily, then distance moved (so among equal-cover
+        # candidates we prefer the one furthest from the previous spot).
+        score = cover_prio * 10.0 + _dist(cand, unit.position)
+        if score > best_score:
+            best_score = score
+            best = cand
+    # Only accept the shimmy if we can STRICTLY improve our cover priority.
+    # On a bare map with no terrain, every candidate has the same cover priority
+    # as the current spot — fall back to the cover-snap branch (which on bare
+    # terrain returns the unit's current position, i.e. no move). This keeps
+    # the shimmy behaviour conservative: only step out when there's a cover
+    # uplift to gain.
+    if best is not None:
+        new_prio = _COVER_PRIORITY.get(map_.cover_at(best).value, 0)
+        if new_prio > cur_cover_prio:
+            return best
+    return None
 # Fall Back (10e core): a unit within Engagement Range of an enemy may move
 # up to M" away, passing through enemy models, but cannot shoot or charge
 # this turn unless it has the FLY keyword. SHOOTY / HEAVY units that get
@@ -227,6 +350,46 @@ def _gunline_charge_bonus(attacker_profile, defender_profile) -> float:
     return min(2.5, 0.5 + ratio * 0.5)
 
 
+# S4 — Support / leader target priority bonus.
+#
+# Real top-faction play kills the buff aura first: a 95-pt Captain providing
+# +1-to-hit to a 500-pt squad is worth more than its raw kill value. Our old
+# scoring was kill_potential + ranged_value / threat_back, which under-rated
+# support-role characters AND CHARACTER units carrying a leader aura.
+#
+# Multiplier applies when the defender's role is SUPPORT OR the defender has
+# the CHARACTER keyword AND a registered LeaderAbility (i.e. a real aura).
+_SUPPORT_TARGET_BONUS: float = 1.3
+
+
+def _support_target_bonus(defender) -> float:
+    """Return 1.3x when `defender` is a SUPPORT-role unit or a CHARACTER
+    leader with a registered aura, else 1.0.
+
+    The CHARACTER-with-aura branch uses `code.leaders.lookup_ability` so the
+    bonus matches the in-sim leader registry (Captain / Farseer / Overlord /
+    Cadre Fireblade / Lord of Contagion / etc.). A bare CHARACTER without
+    an entry in the registry does NOT receive the bonus — it has no aura
+    to take down. Imported lazily to avoid a strategy ↔ leaders cycle.
+    """
+    try:
+        role = classify(defender.profile)
+    except Exception:
+        role = ""
+    if role == "SUPPORT":
+        return _SUPPORT_TARGET_BONUS
+    kw = (defender.profile.unit_keywords or ()) if hasattr(defender, "profile") else ()
+    if "CHARACTER" in kw:
+        try:
+            from .leaders import lookup_ability
+            ability = lookup_ability(defender.profile.name)
+        except Exception:
+            ability = None
+        if ability is not None:
+            return _SUPPORT_TARGET_BONUS
+    return 1.0
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -259,7 +422,9 @@ def _melee_target_score(attacker, defender) -> float:
     # One-sided gunline incentive: opposing armies prioritise tying up
     # T'au-style gunlines. T'au's own melee units don't game the bonus —
     # see `_gunline_charge_bonus` for the asymmetry.
-    return base * _gunline_charge_bonus(p, tp)
+    # S4: also apply a SUPPORT / leader-aura priority bonus so melee bricks
+    # bias toward killing the buff character before the bodyguard squad.
+    return base * _gunline_charge_bonus(p, tp) * _support_target_bonus(defender)
 
 
 def pick_charge_target(attacker, enemy):
@@ -340,8 +505,11 @@ def pick_charge_target(attacker, enemy):
         # `_melee_target_score`. Only opposing-army attackers get the
         # bonus; T'au's own melee units don't game it.
         gunline_bonus = _gunline_charge_bonus(p, tp)
+        # S4 — SUPPORT / leader-aura priority bonus: real play kills the
+        # buff character before the bodyguard squad.
+        support_bonus = _support_target_bonus(e)
         score = ((kill_potential + 0.5 * ranged_value)
-                 / (1.0 + threat_against)) * charge_p * gunline_bonus
+                 / (1.0 + threat_against)) * charge_p * gunline_bonus * support_bonus
         candidates.append((score, d, e))
 
     if not candidates:
@@ -612,6 +780,20 @@ def pick_move_intent(
     role = classify(unit.profile)
     own_oc = getattr(unit.profile, "oc", 1) or 0
 
+    # S1 — faction posture lookup. AI behaviour-shaping per faction, not a
+    # 10e rule. `balanced` preserves the pre-S1 behaviour exactly.
+    posture = _posture_for(unit.profile.faction)
+
+    # S2 — round-weighted objective scoring. Late-game objective contests
+    # (T4-T5) are worth more in real play than T2 sit-on-objective. Read
+    # the live battle round via the army back-reference; default to 1 if
+    # we're not running inside a Battle (catalogue tests, etc.).
+    battle = getattr(friendly, "_battle_ref", None)
+    cur_round = getattr(battle, "_current_round", 0) if battle is not None else 0
+    if cur_round < 1:
+        cur_round = 1
+    round_weight = 1.0 + 0.15 * (cur_round - 1)
+
     # ----- 0. Fall Back (10e core) ------------------------------------------
     # A SHOOTY / HEAVY unit pinned inside enemy Engagement Range (1.5") loses
     # its activation — it can neither shoot nor (usefully) charge. The right
@@ -646,6 +828,10 @@ def pick_move_intent(
             return hold_pos, _HOLD_INTENT
 
     # ----- 2. Score every objective; pick the most worth visiting -----
+    # S2: late-round contests dominate — multiply base value by `round_weight`
+    # = 1 + 0.15*(round-1), so T5 stays-on-objective scores ~1.6x a T2 hold
+    # and STEAL value at T5 (~5.6) easily beats sitting on a friendly-held
+    # objective (~1.6). Round defaults to 1 when no Battle is active.
     objs = []
     for obj in map_.objectives:
         a_oc = _oc_on_objective(friendly.alive_units, obj)
@@ -660,6 +846,18 @@ def pick_move_intent(
         else:
             value = 2.5           # uncontested or tied — claim it
             intent = _CAPTURE_INTENT
+        value *= round_weight
+        # S1 — posture bias: objective_hold / attrition / psychic_attrition
+        # armies value CAPTURE more (they want to fill every objective);
+        # horde_push only boosts CAPTURE for HORDE units (the bodies, not
+        # the smashers).
+        if posture in ("objective_hold", "attrition", "psychic_attrition"):
+            value *= 1.3
+        elif posture == "horde_push" and role == "HORDE":
+            value *= 1.3
+        elif posture == "ambush_alpha" and cur_round >= 2:
+            # GSC: T1 close-in, T2+ pivot to objective focus.
+            value *= 1.3
         # Distance-weighted: closer objectives win unless their value dominates
         score = value / (1.0 + d / 12.0)
         # Plan bias: LEFT/RIGHT/MID push tilt toward objectives on the plan's
@@ -667,6 +865,20 @@ def pick_move_intent(
         # No-op (1.0x) when army_plan is None.
         score *= _plan_objective_bias(army_plan, obj, map_, friendly)
         objs.append((score, intent, obj, d))
+
+    # S1 — attrition: prefer the closest UNDER-DEFENDED objective over the
+    # converged-on best one, so DG / Tsons spread Plague Marines onto every
+    # marker. Implementation: bias scoring slightly toward objectives where
+    # no friendly is already within control radius. This is a tie-breaker
+    # multiplier, not a replacement.
+    if posture in ("attrition", "psychic_attrition") and objs:
+        new_objs = []
+        for score, intent, obj, d in objs:
+            our_count = _oc_on_objective(friendly.alive_units, obj, exclude_uid=unit.uid)
+            if our_count == 0:
+                score *= 1.25   # boost objectives no friend already covers
+            new_objs.append((score, intent, obj, d))
+        objs = new_objs
 
     best = max(objs, key=lambda t: t[0]) if objs else None
 
@@ -700,6 +912,31 @@ def pick_move_intent(
     if role in ("SHOOTY", "HEAVY") and nearest_enemy is not None:
         rng = unit.profile.range_inches or 24
         if nearest_enemy_dist <= rng:
+            # S5 — Aeldari shimmy-step. ASURYANI / shimmy-posture SHOOTY/
+            # HEAVY units actively pick a NEW position each round (different
+            # cover, different firing lane) rather than sitting still. Falls
+            # back to the cover-snap below if no shimmy candidate satisfies
+            # the in-range constraint.
+            if posture == "shimmy":
+                shimmy_pos = _shimmy_target(unit, nearest_enemy, map_)
+                if shimmy_pos is not None:
+                    return shimmy_pos, _REPOSITION_INTENT
+            # S1 — alpha_strike: at T1 a T'au gunline still wants to reposition
+            # into a better fire-lane (find best cover within ~6" rather than
+            # the tighter 3" snap). After T1 the unit holds. fast_strike same
+            # shape but biased toward closer to the enemy backline.
+            if posture == "alpha_strike" and cur_round == 1:
+                repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=6.0)
+                return repo_pos, _REPOSITION_INTENT
+            if posture == "fast_strike" and cur_round == 1:
+                # Step toward the enemy slightly to compress on the backline.
+                ex, ey = nearest_enemy.position
+                step_to = (
+                    unit.position[0] + 0.3 * (ex - unit.position[0]),
+                    unit.position[1] + 0.3 * (ey - unit.position[1]),
+                )
+                repo_pos = _best_nearby_cover_point(map_, step_to, search_radius=4.0)
+                return repo_pos, _REPOSITION_INTENT
             # In range — don't drift around. But snap to nearby cover when
             # available so we get the defensive uplift.
             repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
