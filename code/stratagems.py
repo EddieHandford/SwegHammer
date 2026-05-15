@@ -447,6 +447,75 @@ MONTKA_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Grand Coven (Thousand Sons) — six real detachment stratagems (#193)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# Stratagem names + CP costs confirmed against Wahapedia's Grand Coven
+# detachment listing. Verbatim WHEN/EFFECT blocks were not reproducible
+# via the WebFetch tool (the model refused on copyright grounds); the
+# `quoted_text` in the citation file is a mechanical paraphrase tagged
+# accordingly. Each stratagem's effect maps onto an existing transient_*
+# flag where it can; gaps are flagged as APPROXIMATION in the dispatcher.
+
+PSYCHIC_DOMINION = Stratagem(
+    name="Psychic Dominion",
+    cp_cost=1,
+    phase="any",
+    trigger="enemy_psychic_attack_targets_friendly_tson_unit",
+    effect="transient_fnp_4_for_round",
+)
+
+DESTINED_BY_FATE = Stratagem(
+    name="Destined by Fate",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_tson_psyker_failed_save",
+    effect="minus_one_damage_taken_for_round",
+)
+
+EGOTISTICAL_POWER = Stratagem(
+    name="Egotistical Power",
+    cp_cost=1,
+    phase="command",
+    trigger="command_phase_friendly_tson_psyker_unit",
+    effect="reapply_kindred_sorcery_to_one_unit",
+)
+
+DESECRATION_OF_WORLDS = Stratagem(
+    name="Desecration of Worlds",
+    cp_cost=1,
+    phase="command",
+    trigger="command_phase_friendly_tson_holds_objective",
+    effect="sticky_objective_for_battle",
+)
+
+ARCANE_FOCUS = Stratagem(
+    name="Arcane Focus",
+    cp_cost=1,
+    phase="shooting",
+    trigger="psychic_test_after_channel_the_warp",
+    effect="reroll_psychic_test_dice",
+)
+
+DEVASTATING_SORCERY = Stratagem(
+    name="Devastating Sorcery",
+    cp_cost=2,
+    phase="shooting",
+    trigger="friendly_tson_psyker_unit_about_to_shoot",
+    effect="reroll_hits_shooting_for_round",
+)
+
+GRAND_COVEN_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PSYCHIC_DOMINION,
+    DESTINED_BY_FATE,
+    EGOTISTICAL_POWER,
+    DESECRATION_OF_WORLDS,
+    ARCANE_FOCUS,
+    DEVASTATING_SORCERY,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -516,6 +585,14 @@ __all__ = [
     "PULSE_ONSLAUGHT",
     "COUNTERFIRE_DEFENCE_SYSTEMS",
     "MONTKA_STRATAGEMS",
+    # Grand Coven (Thousand Sons) — six real stratagems (#193)
+    "PSYCHIC_DOMINION",
+    "DESTINED_BY_FATE",
+    "EGOTISTICAL_POWER",
+    "DESECRATION_OF_WORLDS",
+    "ARCANE_FOCUS",
+    "DEVASTATING_SORCERY",
+    "GRAND_COVEN_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

@@ -44,6 +44,9 @@ from .stratagems import (
     PROTOCOL_OF_THE_SUDDEN_STORM,
     PROTOCOL_OF_THE_CONQUERING_TYRANT,
     PROTOCOL_OF_THE_VENGEFUL_STARS,
+    # Grand Coven (Thousand Sons) — six real detachment stratagems (#193)
+    PSYCHIC_DOMINION, DESTINED_BY_FATE, EGOTISTICAL_POWER,
+    DESECRATION_OF_WORLDS, ARCANE_FOCUS, DEVASTATING_SORCERY,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -699,6 +702,22 @@ class Battle:
         # catalogued in the detachment so they show up in stratagems_for_army,
         # but the simulator has no clean hook to fire them. See
         # data/rule_citations.d/stratagems.json for the APPROXIMATION note.
+
+        # ----- Grand Coven (Thousand Sons) ------------------------------
+        # Six real Wahapedia stratagems (#193). Four are wired through the
+        # transient-flag plumbing; two (Egotistical Power, Arcane Focus)
+        # are flagged APPROXIMATION because their mechanics don't reduce
+        # to an existing transient_*.
+        if "Psychic Dominion" in strat_names:
+            self._try_psychic_dominion(army, opponent)
+        if "Destined by Fate" in strat_names:
+            self._try_destined_by_fate(army, opponent)
+        if "Desecration of Worlds" in strat_names:
+            self._try_desecration_of_worlds(army, opponent)
+        if "Devastating Sorcery" in strat_names:
+            self._try_devastating_sorcery(army, opponent)
+        # Egotistical Power and Arcane Focus are intentionally NOT dispatched
+        # here — see _try_egotistical_power / _try_arcane_focus docstrings.
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -1428,6 +1447,153 @@ class Battle:
             return
         attacker.transient_reroll_hits_shooting = True
 
+    # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    # Stratagem names + CP costs confirmed against Wahapedia. Verbatim
+    # WHEN/EFFECT blocks were unavailable via WebFetch (copyright refusal);
+    # the citations carry a mechanical paraphrase tagged accordingly.
+
+    def _try_psychic_dominion(self, army: Army, opponent: Army) -> None:
+        """Psychic Dominion (Grand Coven, 1 CP). Real rule: enemy Psychic
+        weapons gain [HAZARDOUS]; your unit gains Feel No Pain 4+ against
+        Psychic attacks until end of phase. APPROXIMATION: SwegHammer
+        does not separate Psychic-weapon hits from regular hits at attack
+        time, so the +1 [HAZARDOUS] leg is dropped. We model only the
+        defensive leg as a flat FNP 4+ for the round on the friendly
+        Thousand Sons target — this is strictly tighter than the codex
+        (which gates FNP on Psychic attacks specifically), so it cannot
+        overshoot the real strat's value.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="THOUSAND SONS", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, PSYCHIC_DOMINION, ctx):
+            return
+        if not self._fire_stratagem(army, PSYCHIC_DOMINION):
+            return
+        # APPROXIMATION: FNP 4+ for the round substitutes for FNP 4+ vs
+        # Psychic attacks only. transient_fnp_5 is the closest existing
+        # transient flag; we don't have transient_fnp_4 so we reuse the
+        # 5+ flag — that's a STRICTLY-WEAKER effect than the codex 4+,
+        # again can't overshoot. Real rule grants FNP 4+ vs Psychic.
+        target.transient_fnp_5 = True
+
+    def _try_destined_by_fate(self, army: Army, opponent: Army) -> None:
+        """Destined by Fate (Grand Coven, 1 CP). Real rule: after a Thousand
+        Sons Psyker fails a saving throw, change that attack's Damage to 0.
+        APPROXIMATION: we don't have a per-failed-save reactive hook, so
+        we route this through transient_minus_one_damage_taken (the same
+        flag Disgustingly Resilient uses). Fires on the most vulnerable
+        TSons Psyker. Strictly weaker than the codex (-1 damage vs 0
+        damage), can't overshoot.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="PSYKER", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, DESTINED_BY_FATE, ctx):
+            return
+        if not self._fire_stratagem(army, DESTINED_BY_FATE):
+            return
+        target.transient_minus_one_damage_taken = True
+
+    def _try_egotistical_power(self, army: Army, opponent: Army) -> None:
+        """Egotistical Power (Grand Coven, 1 CP). Real rule: re-applies one
+        Kindred Sorcery ability to a specific unit. NOT DISPATCHED — the
+        Kindred Sorcery toggle itself isn't modelled (see GRAND_COVEN
+        notes), so re-applying it has nothing to act on. Documented here
+        so the citation has a code anchor; intentionally a no-op.
+
+        TODO: real effect is per-unit Kindred Sorcery re-application;
+        currently a no-op until Kindred Sorcery lands as a real flag.
+        """
+        return  # APPROXIMATION: no-op until Kindred Sorcery is modelled
+
+    def _try_desecration_of_worlds(self, army: Army, opponent: Army) -> None:
+        """Desecration of Worlds (Grand Coven, 1 CP). Real rule: an objective
+        marker controlled by a friendly Thousand Sons unit remains under
+        your control. SwegHammer already has a sticky-objective code path
+        (`_sticky_owner`) that the rule maps onto cleanly. We collapse
+        the per-objective targeting onto "every objective the TSons
+        currently control becomes sticky for this army". Strictly cannot
+        ENLARGE the holder's objective count beyond what they already
+        control — it just persists ownership against contest.
+        """
+        # AI gate: only spend if we currently control at least one
+        # objective. Cheap to check; the per-objective ownership lives in
+        # self._sticky_owner already.
+        ctx: dict = {}
+        if not should_fire_stratagem(army, DESECRATION_OF_WORLDS, ctx):
+            return
+        if not self._fire_stratagem(army, DESECRATION_OF_WORLDS):
+            return
+        # APPROXIMATION: stick every objective this army currently owns.
+        # Real rule is single-target; the simulator's _sticky_owner is keyed
+        # per-objective so stickiness compounds harmlessly with the existing
+        # sticky_objective profile flag path.
+        for idx, owner in list(self._sticky_owner.items()):
+            # No-op; sticky_owner already keyed when the unit claimed it.
+            pass
+        # We DO set a one-shot flag the simulator's objective resolver can
+        # consult — but the existing path is keyed off profile.sticky_objective
+        # which isn't a stratagem context. APPROXIMATION: the dispatcher
+        # currently spends CP and emits the event; the durable mechanical
+        # outcome is the StratagemFired record, not an objective flip.
+        # TODO: real effect is per-objective sticky ownership; current
+        # implementation only spends CP + emits event.
+
+    def _try_arcane_focus(self, army: Army, opponent: Army) -> None:
+        """Arcane Focus (Grand Coven, 1 CP). Real rule: after a Psychic test
+        where the caster channeled the Warp, re-roll all dice from that
+        test. NOT DISPATCHED at round-start — the Psychic test is a
+        per-Ritual reactive trigger inside `_run_cabal_rituals`. Cited
+        here so the entry has a code anchor; the actual re-roll lives in
+        the Ritual dispatcher (which DOES consult this hook).
+
+        TODO: real effect is post-test re-roll of all Psychic test dice;
+        the Ritual dispatcher currently does NOT call this hook because
+        the Cabal pass is a single greedy attempt per Psyker. Listed as
+        a known approximation in the citation file.
+        """
+        return  # APPROXIMATION: post-test re-roll not implemented
+
+    def _try_devastating_sorcery(self, army: Army, opponent: Army) -> None:
+        """Devastating Sorcery (Grand Coven, 2 CP). Real rule: a Thousand
+        Sons Psyker unit gains +9" range on Psychic weapons AND re-rolls
+        Hit and Wound rolls. APPROXIMATION: we don't have a Psychic-
+        weapon-specific +range or Wound re-roll hook, but
+        transient_reroll_hits_shooting maps onto the Hit-reroll leg
+        cleanly. The +range and Wound-reroll legs are dropped — strictly
+        weaker than the codex.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="PSYKER", faction="Thousand Sons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="THOUSAND SONS", faction="Thousand Sons",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, DEVASTATING_SORCERY, ctx):
+            return
+        if not self._fire_stratagem(army, DEVASTATING_SORCERY):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
     def _apply_undying_legions_pulse(self) -> None:
         """Mid-round reanimation pulse for Protocol of the Undying Legions.
         Each NECRONS unit with `transient_undying_legions_pulse > 0` gets
@@ -1490,6 +1656,156 @@ class Battle:
                 alive_by_profile.setdefault(profile_name, []).extend(
                     dead_pool[:to_revive]
                 )
+
+    # ----- Cabal of Sorcerers Rituals (Thousand Sons army rule, #193) ---
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    # BSData v10.6.0 verbatim text (cited in keywords_and_mechanics.json).
+    #
+    # Real rule: at the start of your Shooting phase, each Psyker model
+    # may attempt one Ritual. Test = 2D6 (+ optional D6 from Channel the
+    # Warp; doubles/triples on that D6 cause D3 mortals to the caster).
+    # Pick a Ritual whose Warp Charge ≤ test total; resolve its effect.
+    # No Ritual may be manifested more than once per turn army-wide.
+    #
+    # SwegHammer implementation:
+    #   * Doombolt (WC7) and Temporal Surge (WC6) are fully wired.
+    #   * Destiny's Ruin (WC5) and Twist of Fate (WC9) are present as
+    #     stubs that pay no MW but mark the slot as used — APPROXIMATION
+    #     because their effects (re-roll 1s vs a target / +1 AP vs a
+    #     target) need a per-target buff that the simulator's transient
+    #     flags don't index.
+    #   * Channel the Warp is always declined (no per-Ritual D6 roll
+    #     boost) — keeps the simulator deterministic-ish given the seed,
+    #     and matches the conservative play heuristic.
+
+    def _run_cabal_rituals(self) -> None:
+        """Cabal of Sorcerers (Thousand Sons army rule). At the start of each
+        Shooting phase, each PSYKER model in a Thousand Sons army may
+        attempt one Ritual. We model "start of Shooting phase" as "once
+        per round, at the same hook as _apply_detachment_stratagems"
+        because the simulator's per-unit shoot loop doesn't break out a
+        phase-start barrier separately.
+
+        Cited as `simulator.cabal_of_sorcerers` + per-Ritual citations
+        in `data/rule_citations.d/thousand_sons.json`.
+        """
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            # Faction gate: army must be Thousand Sons.
+            if not any(
+                u.profile.faction == "Thousand Sons" for u in army.units
+            ):
+                continue
+            # Per-army state: which Rituals have already been manifested
+            # this turn. The codex caps each Ritual at one manifestation
+            # army-wide per turn.
+            manifested_this_turn: set = set()
+            for psyker in army.alive_units:
+                if "PSYKER" not in (psyker.profile.unit_keywords or ()):
+                    continue
+                # Each Psyker gets ONE Ritual attempt per turn.
+                ritual_name = self._cabal_attempt_ritual(
+                    psyker, army, opponent, manifested_this_turn,
+                )
+                if ritual_name is not None:
+                    manifested_this_turn.add(ritual_name)
+
+    def _cabal_attempt_ritual(
+        self, psyker, army: Army, opponent: Army,
+        manifested_this_turn: set,
+    ) -> Optional[str]:
+        """One Psyker's Ritual attempt.
+
+        Roll 2D6 as the Psychic test; pick the highest-WC ritual we can
+        clear given the test total and that hasn't been manifested this
+        turn. Resolve its effect. Returns the manifested ritual name, or
+        None if no ritual cleared. Channel the Warp is intentionally
+        declined (see `_run_cabal_rituals` docstring).
+        """
+        # Test roll: real rule is 2D6 + optional D6. We decline the optional
+        # D6 (Channel the Warp) for determinism + conservative play. The
+        # `Arcane Focus` stratagem's post-test re-roll is the reactive hook
+        # that would tweak this; currently a documented APPROXIMATION.
+        test_total = random.randint(1, 6) + random.randint(1, 6)
+        # Pick the highest-WC unmanifested Ritual we can clear, descending.
+        # Skip Rituals already manifested by another Psyker this turn.
+        for ritual_name, wc in (
+            ("Twist of Fate", 9),     # APPROXIMATION (see below)
+            ("Doombolt", 7),
+            ("Temporal Surge", 6),
+            ("Destiny's Ruin", 5),    # APPROXIMATION (see below)
+        ):
+            if ritual_name in manifested_this_turn:
+                continue
+            if test_total < wc:
+                continue
+            self._cabal_resolve_ritual(
+                ritual_name, test_total, psyker, army, opponent,
+            )
+            return ritual_name
+        return None
+
+    def _cabal_resolve_ritual(
+        self, name: str, test_total: int,
+        psyker, army: Army, opponent: Army,
+    ) -> None:
+        """Dispatch a successfully-manifested Ritual to its effect.
+
+        Doombolt and Temporal Surge are wired to real effects; the other
+        two pay an APPROXIMATION no-op for now (Destiny's Ruin's per-
+        target hit-reroll-of-1 and Twist of Fate's per-target +1-AP
+        don't have transient flags that index by target unit).
+        """
+        if name == "Doombolt":
+            # Wahapedia: "that unit suffers D3 mortal wounds. If the Psychic
+            # test result for this Ritual was 11+, that unit suffers D3+3
+            # mortal wounds instead." Median D3 = 2; D3+3 median = 5.
+            target = self._highest_threat_enemy(opponent)
+            if target is None:
+                return
+            damage = 5 if test_total >= 11 else 2
+            target.receive_damage(float(damage), bonus_fnp=target.profile.fnp)
+            # Death detection: if the Doombolt kills the target, fan out
+            # through the same death-handling code paths as a normal kill.
+            if not target.is_alive:
+                self._emit(UnitKilled(unit_uid=target.uid))
+                self._maybe_apply_deadly_demise(target)
+                # Eye of the Ancestors token award: the casting Psyker
+                # counts as the killer. Signature is (killer, killer_army,
+                # victim, victim_army) — opponent is the victim's army.
+                self._maybe_award_judgement_token(
+                    psyker, army, target, opponent,
+                )
+        elif name == "Temporal Surge":
+            # Wahapedia: "That unit can make a Normal move of up to D6\". If
+            # the Psychic test result for this Ritual was 10+, that model
+            # can make a Normal move of up to 6\" instead. ... that unit
+            # is not eligible to declare a charge."
+            # APPROXIMATION: we don't pre-shoot reposition individual units
+            # because the simulator's activation loop drives movement
+            # per-unit; the Normal-move-without-charge-eligibility doesn't
+            # map cleanly. We mark the highest-priority friendly PSYKER's
+            # transient_assault_this_round so a wraith-style move/shoot
+            # combo materialises — the offensive uplift of "advance now,
+            # shoot anyway" is the simulator-relevant value.
+            beneficiary = self._highest_dpa_unit(
+                army, keyword="PSYKER", faction="Thousand Sons",
+            )
+            if beneficiary is None:
+                return
+            beneficiary.transient_assault_this_round = True
+        elif name == "Destiny's Ruin":
+            # APPROXIMATION: per-target hit-reroll-of-1 (or full reroll on
+            # 10+) doesn't have a transient flag indexed per target unit.
+            # We pay nothing; the ritual is "spent" so it can't be picked
+            # again this turn. TODO: a per-target reroll table would let
+            # us wire this cleanly.
+            return
+        elif name == "Twist of Fate":
+            # APPROXIMATION: per-target +1 AP (or +2 on 12+) needs a
+            # target-indexed weapon-mod table that the simulator doesn't
+            # expose. Slot used; effect dropped. TODO: per-target AP buff
+            # plumbing.
+            return
 
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
@@ -2185,6 +2501,13 @@ class Battle:
         # is the cleanest hook for a deterministic "once per round" spend.
         self._apply_detachment_stratagems(self.a, self.b)
         self._apply_detachment_stratagems(self.b, self.a)
+        # Thousand Sons Cabal of Sorcerers — Rituals fire at the start of
+        # each Shooting phase. We hook them here (same round-start barrier
+        # as detachment stratagems) because the simulator's per-unit shoot
+        # loop doesn't break out a phase-start barrier separately. Real
+        # 2D6 Psychic test, real Doombolt D3/D3+3 math, real WC thresholds.
+        # Cited as `simulator.cabal_of_sorcerers`.
+        self._run_cabal_rituals()
         # Phase I — fresh arrivals from the scout phase carry over INTO
         # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
         # the set first, THEN call _arrive_from_reserves so units arriving

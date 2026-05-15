@@ -1,5 +1,5 @@
 {
-  "_comment": "Thousand Sons army rule (10e). All Is Dust applies a -1 to the wound roll for any single-damage attack allocated to a 'dust' THOUSAND SONS unit (Rubric Marines, Scarab Occult Terminators, etc.). Faction-gated on profile.faction == 'Thousand Sons'; daemon units excluded by the 'DAEMON' unit-keyword check.",
+  "_comment": "Thousand Sons army rule (10e) — All Is Dust (faction-gated -1 to wound on D1 attacks) and Cabal of Sorcerers (Shooting-phase Rituals: real 2D6 Psychic test with Doombolt / Temporal Surge / Destiny's Ruin / Twist of Fate). Quoted text is from BSData v10.6.0 (Chaos - Thousand Sons.cat) which carries the verbatim Wahapedia rule descriptions; per-Ritual effect text mirrors the BSData characteristic field. Grand Coven detachment + Kindred Sorcery citation lives at GRAND_COVEN.psychic_mortal_wounds_per_round below.",
 
   "simulator.all_is_dust": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
@@ -8,5 +8,59 @@
     "trigger": "the unit being attacked has profile.faction == 'Thousand Sons' AND does NOT carry the DAEMON unit-keyword, AND the incoming attack's weapon_damage_per_shot <= 1.0",
     "effect": "Increase the attacker's wound_target by 1 (capped at 7 — wound roll auto-fails). Stacks consistently with attacker-side +1 to wound buffs (e.g. detachment Outbreak of Pestilence) — a single-damage attack with a +1 to wound and a -1 from All Is Dust nets to the base wound target.",
     "scope": "keyword-gated"
+  },
+
+  "simulator.cabal_of_sorcerers": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Cabal of Sorcerers",
+    "quoted_text": "If your army Faction is Thousand Sons, at the start of your Shooting phase, one or more models from your army with this ability can attempt Rituals. To do so, select one model from your army with this ability that has not yet attempted a Ritual this turn and select one Ritual no model from your army has attempted to manifest this turn, then take a Psychic test by following the sequence below: 1. Roll 2D6 2. Optionally, roll one additional D6 (Channel the Warp). Then, if one or more doubles or triples were rolled during this test, that model's unit suffers D3 mortal wounds. 3. If that model is not destroyed, the combined total of all the dice rolled during this test is the Psychic test result. If this equals or exceeds the Warp Charge value of the Ritual being attempted, that model manifests that Ritual and you resolve its effects.",
+    "trigger": "start of Shooting phase for a Thousand Sons army; each alive PSYKER may attempt one Ritual, each Ritual at most once per turn army-wide",
+    "effect": "(approximation) the simulator rolls 2D6 (no Channel the Warp — declined for determinism), greedy-picks the highest unmanifested Ritual whose Warp Charge <= test total, and resolves its effect via _cabal_resolve_ritual. The Channel the Warp doubles/triples mortal-wound penalty is therefore never paid; in real play the AI would gate Channel on test margin, which we elide. Hooked at the round-start barrier alongside _apply_detachment_stratagems because the simulator's per-unit shoot loop has no separate Shooting-phase-start barrier.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.ritual_doombolt": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Doombolt (Ritual, WC 7)",
+    "quoted_text": "Select one enemy unit within 24\" of and visible to the manifesting model (excluding units with the Lone Operative ability that are not part of an Attached unit and are not within 12\" of the manifesting model); that unit suffers D3 mortal wounds. If the Psychic test result for this Ritual was 11+, that unit suffers D3+3 mortal wounds instead.",
+    "trigger": "manifested as part of the Cabal of Sorcerers ritual pass with Warp Charge >= 7; one Doombolt per turn army-wide",
+    "effect": "(approximation) the highest-threat enemy takes 2 mortal wounds (median of D3), or 5 mortal wounds (median of D3+3) if the 2D6 Psychic test rolled 11+. SwegHammer collapses the D3 / D3+3 rolls to medians (matches the deterministic-MW convention used for Reanimation Protocols, Tank Shock). Target picked via _highest_threat_enemy; 24\" range gate is not enforced (the simulator's targeting picks the highest role-weighted enemy regardless of distance).",
+    "scope": "phase-gated"
+  },
+
+  "simulator.ritual_temporal_surge": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Temporal Surge (Ritual, WC 6)",
+    "quoted_text": "Select one friendly Thousand Sons or Scintillating Legion unit that is not within Engagement Range of one or more enemy units and is within 24\" of and visible to the manifesting model. That unit can make a Normal move of up to D6\". If the Psychic test result for this Ritual was 10+, that model can make a Normal move of up to 6\" instead. In either case, until the end of the turn, that unit is not eligible to declare a charge.",
+    "trigger": "manifested as part of the Cabal of Sorcerers ritual pass with Warp Charge >= 6; one Temporal Surge per turn army-wide",
+    "effect": "(approximation) the highest-DPA friendly PSYKER gets transient_assault_this_round set, letting it shoot after Advancing. SwegHammer's activation loop drives movement per-unit and we don't have a separate pre-shoot reposition hook; the assault-keyword swap captures the offensive uplift of 'move further AND shoot' that the Normal-move-of-D6\" represents in the codex. The 'not eligible to declare a charge' restriction is not separately enforced — the simulator's charge AI almost never selects PSYKER chassis as chargers anyway.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.ritual_destinys_ruin": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Destiny's Ruin (Ritual, WC 5)",
+    "quoted_text": "Select one enemy unit within 24\" of and visible to the manifesting model. Until the end of the phase, each time a Thousand Sons or Scintillating Legion model from your army makes an attack that targets that unit, re-roll a Hit roll of 1. If the Psychic test result for this Ritual was 10+, you can re-roll the Hit roll instead.",
+    "trigger": "manifested as part of the Cabal of Sorcerers ritual pass with Warp Charge >= 5; one Destiny's Ruin per turn army-wide",
+    "effect": "(approximation, NO-OP) the per-target re-roll-1s-to-hit buff does not have a transient flag indexed by target unit in the simulator. The Ritual slot is marked used (so it can't be re-picked this turn) but no mechanical buff is applied. TODO: add a target-indexed hit-reroll table to wire this real-rule effect.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.ritual_twist_of_fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Twist of Fate (Ritual, WC 9)",
+    "quoted_text": "Select one enemy unit within 24\" of and visible to the manifesting model. Until the end of the phase, each time a Thousand Sons or Scintillating Legion model from your army makes an attack that targets that unit, improve the Armour Penetration characteristic of that attack by 1. If the Psychic test result for this Ritual was 12+, improve the Armour Penetration characteristic of that attack by 2 instead.",
+    "trigger": "manifested as part of the Cabal of Sorcerers ritual pass with Warp Charge >= 9; one Twist of Fate per turn army-wide",
+    "effect": "(approximation, NO-OP) the per-target +1 AP buff requires a target-indexed weapon-mod table the simulator doesn't expose. The Ritual slot is marked used (cap of one Twist of Fate per turn upheld) but no mechanical buff is applied. TODO: per-target AP buff plumbing.",
+    "scope": "phase-gated"
+  },
+
+  "GRAND_COVEN.psychic_mortal_wounds_per_round": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Kindred Sorcery (Grand Coven Detachment Rule)",
+    "quoted_text": "In your Command phase, you can select one of the abilities listed below to take effect until the start of your next Command phase. You can only select each of these abilities once per battle. Imbued Manifestation: Add 6\" to the range characteristic of ranged Psychic weapons equipped by Thousand Sons models in your army. Psychic Maelstrom: Each time a Thousand Sons model from your army makes an attack with a Psychic weapon, add 1 to the Wound roll. Wrath of the Immaterium: Psychic weapons equipped by Thousand Sons models in your army have the [Devastating Wounds] ability.",
+    "trigger": "Thousand Sons army with the Grand Coven detachment selected; once per Command phase the player picks one of three abilities, each pickable once per battle",
+    "effect": "(approximation) the once-per-battle-each, Psychic-weapon-keyword-gated, selectable detachment rule does not reduce cleanly to a static Detachment flag. The simulator implements the army's psychic teeth via the Cabal of Sorcerers Ritual pass (real 2D6 Psychic test, real WC values, real Doombolt D3 / D3+3 mortals) PLUS a `psychic_mortal_wounds_per_round=2` baseline that fires end-of-round to cover median-D3 Doombolt damage when no Ritual manifested. The actual Kindred Sorcery toggle (Imbued Manifestation / Psychic Maelstrom / Wrath of the Immaterium) is NOT modelled — see GRAND_COVEN notes for the gap.",
+    "scope": "army-wide"
   }
 }

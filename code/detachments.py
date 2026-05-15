@@ -31,6 +31,7 @@ from .stratagems import (
     DISGUSTINGLY_RESILIENT,
     MONTKA_STRATAGEMS,
     VIRULENT_VECTORIUM_STRATAGEMS,
+    GRAND_COVEN_STRATAGEMS,
 )
 
 
@@ -430,6 +431,58 @@ VIRULENT_VECTORIUM = Detachment(
 )
 
 
+# ---------------------------------------------------------------------------
+# Grand Coven (Thousand Sons) — psychic-pressure detachment (#193)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+#
+# Detachment Rule (Kindred Sorcery, verbatim from BSData v10.6.0): once per
+# battle each, the Thousand Sons player picks ONE of three abilities during
+# their Command phase, active until the start of their next Command phase:
+#   * Imbued Manifestation — +6" range to Psychic weapons
+#   * Psychic Maelstrom — +1 to wound rolls with Psychic weapons
+#   * Wrath of the Immaterium — Psychic weapons gain [DEVASTATING WOUNDS]
+#
+# The selectable, once-per-battle-each, Psychic-weapon-gated structure does
+# not map cleanly onto any existing always-on transient_* flag, so we model
+# the army's psychic teeth via the simulator-level Cabal of Sorcerers ritual
+# pass (real 2D6 + optional D6 Psychic test) PLUS the legacy
+# `psychic_mortal_wounds_per_round = 2` baseline (covering median-D3 Doombolt
+# when the Ritual fails its test or no Ritual was selected). The Kindred
+# Sorcery toggle itself remains UNIMPLEMENTED at the detachment-flag layer;
+# see APPROXIMATION note below.
+
+GRAND_COVEN = Detachment(
+    name="Grand Coven",
+    faction="Thousand Sons",
+    notes=(
+        "Kindred Sorcery (Wahapedia): once-per-battle-each selection of "
+        "Imbued Manifestation (+6\" Psychic weapon range) / Psychic "
+        "Maelstrom (+1 to wound with Psychic weapons) / Wrath of the "
+        "Immaterium (Psychic weapons gain [DEVASTATING WOUNDS]). The army's "
+        "core teeth is the Cabal of Sorcerers Rituals pass (handled in the "
+        "simulator at start of Shooting phase, real 2D6+optional D6 Psychic "
+        "test); the baseline `psychic_mortal_wounds_per_round=2` covers "
+        "median-D3 Doombolt damage when the ritual pass produces no MW "
+        "payload. Six real stratagems wired (Psychic Dominion, Destined by "
+        "Fate, Egotistical Power, Desecration of Worlds, Arcane Focus, "
+        "Devastating Sorcery)."
+    ),
+    # APPROXIMATION: Kindred Sorcery's selectable, once-per-battle Psychic-
+    # weapon-keyword buff cannot reduce to a single static Detachment flag.
+    # The Cabal of Sorcerers Rituals pass (real Psychic test, real WC values,
+    # real D3 / D3+3 Doombolt math) is the actual implementation surface; the
+    # `psychic_mortal_wounds_per_round=2` baseline is a fallback for rounds
+    # where no Ritual fires successfully. Wahapedia URL above.
+    # Real rule: per-Command-phase choose-one (range / wound / DevWounds) on
+    # Psychic weapons, once-per-battle each; SwegHammer collapses to a flat
+    # 2-MW-per-round payload + the Cabal Rituals pass.
+    psychic_mortal_wounds_per_round=2,
+    stratagems=GRAND_COVEN_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+
 BERZERKER_WARBAND = Detachment(
     name="Berzerker Warband",
     faction="World Eaters",
@@ -561,6 +614,8 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
     # set and Worldblight rule (sticky-control APPROXIMATION).
     "virulent_vectorium":      VIRULENT_VECTORIUM,
+    # Thousand Sons real detachment (#193).
+    "grand_coven":             GRAND_COVEN,
     # Deleted per fabrication audit fa9a957: waaagh_tribe, plague_company,
     # cult_of_magic, saim_hann_wild_host, plague_marines_onslaught. Real
     # codex detachment replacements land in per-faction follow-up commits.
@@ -590,6 +645,7 @@ GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
 MONTKA             = DETACHMENTS["montka"]
 VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
+GRAND_COVEN        = DETACHMENTS["grand_coven"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 
@@ -631,10 +687,10 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Chaos Space Marines":      "pactbound_zealots",
     "Heretic Astartes":         "pactbound_zealots",
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: no detachment after fa9a957 (cult_of_magic was
-    # fabricated); real detachment replacement lands in a follow-up.
+    # Thousand Sons: Grand Coven landed in #193 — real Wahapedia detachment
+    # with Kindred Sorcery + 6 stratagems + Cabal of Sorcerers Rituals.
     "Death Guard":              "virulent_vectorium",
-    "Thousand Sons":            "",
+    "Thousand Sons":            "grand_coven",
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
     "Genestealer Cults":        "final_day",
@@ -698,10 +754,10 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: no detachments mapped after fa9a957 (cult_of_magic was
-    # fabricated). Real detachment replacement lands per-faction.
+    # Thousand Sons: Grand Coven landed in #193 — the real Wahapedia
+    # psychic-pressure detachment with Cabal of Sorcerers + 6 stratagems.
     "Death Guard":              ("virulent_vectorium",),
-    "Thousand Sons":            (),
+    "Thousand Sons":            ("grand_coven",),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
     "Genestealer Cults":        ("final_day",),

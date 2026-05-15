@@ -217,5 +217,65 @@
     "effect": "the most vulnerable T'au unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1, same as Disgustingly Resilient). 2 CP",
     "scope": "phase-gated",
     "approximation": true
+  },
+
+  "Stratagem.Psychic Dominion": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Psychic Dominion (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: an enemy unit selects targets in the Shooting or Fight phase, one or more of which are friendly Thousand Sons units. Effect: until the end of the phase, the enemy unit's Psychic weapons gain [HAZARDOUS], and the targeted Thousand Sons unit has Feel No Pain 4+ against Psychic attacks.",
+    "trigger": "opponent's Shooting or Fight phase, when an enemy unit selects a friendly Thousand Sons unit as the target of an attack",
+    "effect": "(approximation) the simulator sets `transient_fnp_5` on the most vulnerable friendly Thousand Sons unit for the round. FNP 5+ is strictly WEAKER than the codex's FNP 4+, and the FNP applies to ALL incoming attacks for the round rather than only Psychic-keyword attacks — net effect is comparable but mis-targeted. The [HAZARDOUS] kickback on enemy Psychic weapons is dropped because SwegHammer does not separate Psychic-weapon hits from regular hits at attack time. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Destined by Fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Destined by Fate (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: a Thousand Sons Psyker model from your army fails a saving throw against an attack. Effect: change the Damage characteristic of that attack to 0.",
+    "trigger": "any phase, when a friendly Thousand Sons PSYKER model fails a saving throw",
+    "effect": "(approximation) the simulator sets `transient_minus_one_damage_taken` on the most vulnerable friendly Thousand Sons PSYKER unit for the round, dropping incoming damage by 1 (floor 1). The codex's 'damage to 0' on one failed save is strictly STRONGER than -1 damage for a round, but our reactive plumbing doesn't expose a per-failed-save hook; the per-round -1 substitutes the spirit at lower variance. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Egotistical Power": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Egotistical Power (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Command phase. Effect: select one Thousand Sons Psyker unit from your army; until the start of your next Command phase, that unit gains the benefit of one of the Kindred Sorcery abilities (Imbued Manifestation, Psychic Maelstrom, or Wrath of the Immaterium), even if you have already used that ability this battle.",
+    "trigger": "your Command phase; a friendly Thousand Sons PSYKER unit is selected",
+    "effect": "(approximation, NO-OP) the Kindred Sorcery toggle is not modelled in the simulator (see GRAND_COVEN notes), so re-applying it to a specific unit has nothing to act on. The dispatcher returns without spending CP or emitting a StratagemFired event. Name + CP cost (1) confirmed against Wahapedia. TODO: real effect is per-unit Kindred Sorcery re-application once Kindred Sorcery lands as a real flag.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Desecration of Worlds": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Desecration of Worlds (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Command phase. Effect: select one objective marker your army controls within range of a friendly Thousand Sons Psyker unit; that objective marker remains under your control until your opponent controls it at the start or end of any turn.",
+    "trigger": "your Command phase; the army controls at least one objective marker within range of a friendly Thousand Sons PSYKER unit",
+    "effect": "(approximation) the simulator spends 1 CP and emits a StratagemFired event but does NOT flip any objective into the sticky_owner table — the sticky-objective code path is profile-keyed (`UnitProfile.sticky_objective`) and not stratagem-keyed. Net mechanical outcome is a CP tax. TODO: extend `_sticky_owner` to accept a stratagem-driven per-objective flag. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Arcane Focus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Arcane Focus (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Shooting phase, after a Thousand Sons Psyker model from your army has taken a Psychic test and rolled the additional D6 from Channel the Warp. Effect: re-roll all the dice from that Psychic test.",
+    "trigger": "Shooting phase, immediately after a Cabal of Sorcerers Psychic test that included a Channel the Warp D6",
+    "effect": "(approximation, NO-OP) the simulator's Cabal of Sorcerers ritual pass intentionally declines Channel the Warp (see `simulator.cabal_of_sorcerers`), so the trigger for Arcane Focus never fires. The dispatcher returns without spending CP. TODO: wire Channel the Warp + this re-roll once the Psychic test AI can weigh the doubles/triples MW penalty against the WC margin. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Devastating Sorcery": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Devastating Sorcery (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Shooting phase, when a Thousand Sons Psyker unit from your army is selected to shoot. Effect: until the end of the phase, add 9\" to the range of Psychic weapons equipped by models in that unit, and re-roll Hit rolls and Wound rolls for attacks made with Psychic weapons by that unit.",
+    "trigger": "Shooting phase, when a friendly Thousand Sons PSYKER unit is selected to shoot",
+    "effect": "(approximation) the simulator sets `transient_reroll_hits_shooting` on the highest-DPA friendly Thousand Sons PSYKER for the round. The +9\" range and Wound-reroll legs are dropped — SwegHammer doesn't track Psychic-weapon-specific range modifiers, and the Wound-reroll buff would need a per-weapon-keyword wound-reroll table the simulator doesn't expose. Net effect is strictly weaker than the codex (Hit reroll only, all weapons not just Psychic — but on a PSYKER chassis nearly all weapons are Psychic). Name + CP cost (2) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

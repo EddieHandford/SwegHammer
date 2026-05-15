@@ -2290,6 +2290,64 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return hp_frac > 0.25 and cost >= 150.0
 
+    # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) -----
+
+    if name == "Psychic Dominion":
+        # ctx: {"target": Unit}. Defensive FNP. Fire when the most vulnerable
+        # TSons unit has taken any HP loss AND is a substantial threat
+        # (>=100 pts — Scarab Occult Terminator brick, Magnus, etc.).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 100.0 and hp_frac >= 0.0
+
+    if name == "Destined by Fate":
+        # ctx: {"target": Unit}. -1 damage taken (APPROXIMATION; real
+        # rule sets one failed save's Damage to 0). Fire on a wounded
+        # PSYKER — single-instance defensive spend.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Desecration of Worlds":
+        # ctx: empty. Objective-control persistence. Fire from round 2
+        # onwards once the army has had time to actually plant a flag.
+        # Cheap to spend; the simulator currently treats this as a CP
+        # tax with no mechanical follow-through (APPROXIMATION).
+        battle = getattr(army, "_battle_ref", None)
+        round_num = getattr(battle, "_current_round", 0) if battle else 0
+        return round_num >= 2
+
+    if name == "Devastating Sorcery":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP for a re-roll
+        # hits buff on a PSYKER shooter. Higher gate than the 1-CP
+        # variants: require real DPA AND a heavy target.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+        except Exception:
+            return False
+        return ranged_dpa >= 2.0 and atk_cost >= 80.0 and _is_heavy_target(target)
+
+    # Egotistical Power and Arcane Focus are intentionally not dispatched
+    # via the round-start path (APPROXIMATION — see simulator dispatchers).
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

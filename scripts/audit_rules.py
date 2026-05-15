@@ -149,6 +149,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # attack allocated to a non-daemon TSons model (Rubric Marines,
     # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
     "simulator.all_is_dust",
+    # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
+    # Shooting phase, each PSYKER attempts one of four Rituals via a
+    # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData
+    # verbatim quoted in thousand_sons.json. Each Ritual is a separate
+    # citation (Doombolt WC7, Temporal Surge WC6, Destiny's Ruin WC5,
+    # Twist of Fate WC9) so the auditor can track which are wired vs
+    # which are no-op approximations.
+    "simulator.cabal_of_sorcerers",
+    "simulator.ritual_doombolt",
+    "simulator.ritual_temporal_surge",
+    "simulator.ritual_destinys_ruin",
+    "simulator.ritual_twist_of_fate",
     # Genestealer Cults army rule (10e). Cult Ambush — at the start of the
     # first battle round, any number of GSC units can be set up anywhere on
     # the battlefield > 9" from enemy models. Modelled as an army-wide
