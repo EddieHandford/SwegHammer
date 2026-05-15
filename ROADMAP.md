@@ -52,8 +52,10 @@ tournament meta where Necrons hit 53% and Aeldari hit 44%.
 **What's done.**
 
 - 18 canonical detachments registered with Wahapedia-cited rule effects.
-- Faction-specific gates: Reanimation Protocols (Necrons), Shadow in the
-  Warp (Tyranids), WAAAGH! once-per-battle window + Mob Rule (Orks).
+- Faction-specific gates: Reanimation Protocols (Necrons); Synapse
+  Imperative (auto-pass Battle-shock within 6") + Shadow in the Warp
+  (-1 to enemy Battle-shock within 12") for Tyranids; WAAAGH! once-per-
+  battle window + Mob Rule (Orks).
 - Faction-blind core combat: hit / wound (S vs T) / save (AP) / cover /
   invuln / FNP / a dozen weapon keywords (Lethal Hits, Sustained Hits,
   Twin-Linked, Devastating Wounds, Anti-X, Melta, Rapid Fire, etc.).
@@ -90,7 +92,7 @@ leader auras (CHARACTER attached to bodyguard unit).
 - `data/rule_citations.d/` — every Stratagem, Detachment, Leader needs a
   matching Wahapedia citation entry (CLAUDE.md §10).
 - `scripts/audit_rules.py` — enforces the citation requirement; currently
-  95/95 active rules cited.
+  97/97 active rules cited.
 
 **What's done.**
 

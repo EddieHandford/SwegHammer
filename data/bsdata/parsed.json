@@ -35408,7 +35408,8 @@
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
-        "FLY"
+        "FLY",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -35651,7 +35652,8 @@
       "unit_keywords": [
         "CHARACTER",
         "FLY",
-        "INFANTRY"
+        "INFANTRY",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -35892,7 +35894,8 @@
       "infiltrator": true,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -36390,7 +36393,8 @@
         "MONSTER",
         "CHARACTER",
         "PSYKER",
-        "FLY"
+        "FLY",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -81764,7 +81768,8 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -81828,7 +81833,8 @@
       "unit_keywords": [
         "CHARACTER",
         "MONSTER",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 4.5,
@@ -81892,6 +81898,7 @@
       "unit_keywords": [
         "CHARACTER",
         "MONSTER",
+        "SYNAPSE",
         "PSYKER"
       ],
       "melee_attacks": 8,
@@ -81954,7 +81961,8 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -82074,7 +82082,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "SYNAPSE"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 1.0,
@@ -82134,7 +82143,8 @@
       "infiltrator": false,
       "fnp": 7,
       "unit_keywords": [
-        "INFANTRY"
+        "INFANTRY",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -82439,7 +82449,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MONSTER",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 4.5,
@@ -82503,7 +82514,8 @@
         "CHARACTER",
         "MONSTER",
         "FLY",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -82807,7 +82819,8 @@
       "unit_keywords": [
         "INFANTRY",
         "FLY",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -84189,7 +84202,8 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
-        "FLY"
+        "FLY",
+        "SYNAPSE"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -84249,7 +84263,8 @@
       "fnp": 4,
       "unit_keywords": [
         "MONSTER",
-        "PSYKER"
+        "PSYKER",
+        "SYNAPSE"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -84312,7 +84327,8 @@
       "infiltrator": false,
       "fnp": 5,
       "unit_keywords": [
-        "MONSTER"
+        "MONSTER",
+        "SYNAPSE"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 4.5,

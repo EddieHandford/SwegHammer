@@ -1425,6 +1425,12 @@ _TRACKED_UNIT_KEYWORDS = {
     "TITANIC", "TOWERING", "WALKER", "BATTLELINE", "SWARM",
     "BIKE", "MOUNTED", "BEAST", "DAEMON", "PSYKER",
     "ASURYANI",
+    # SYNAPSE: Tyranids army-rule keyword. Used by simulator.synapse_imperative
+    # (friendly Tyranids within 6" auto-pass Battle-shock) and
+    # simulator.shadow_in_the_warp (enemy units within 12" take Battle-shock
+    # at -1 to the test). Carried by Hive Tyrants, Tervigons, Maleceptors,
+    # Tyranid Primes, Old One Eye, Norn Emissary, Broodlords, etc.
+    "SYNAPSE",
 }
 
 

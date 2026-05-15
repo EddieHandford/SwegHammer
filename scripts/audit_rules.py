@@ -104,6 +104,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # +1 to wound melee on the declaring turn.
     "simulator.mob_rule",
     "simulator.waaagh",
+    # Tyranids faction army rules (10e). synapse_imperative auto-passes
+    # Battle-shock for Tyranid units within 6" of a friendly SYNAPSE model;
+    # shadow_in_the_warp subtracts 1 from enemy Battle-shock tests within
+    # 12" of a Tyranid SYNAPSE model.
+    "simulator.synapse_imperative",
+    "simulator.shadow_in_the_warp",
 )
 
 

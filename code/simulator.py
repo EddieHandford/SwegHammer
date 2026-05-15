@@ -1230,6 +1230,15 @@ class Battle:
         # army". When that threshold is met, every Ork unit in the army skips
         # the roll regardless of its own current_health. Cited as
         # `simulator.mob_rule`.
+        #
+        # Synapse Imperative (Tyranids army rule, 10e): a Tyranid unit within
+        # 6" of any friendly SYNAPSE model cannot be Battle-shocked — it
+        # auto-passes. Cited as `simulator.synapse_imperative`.
+        #
+        # Shadow in the Warp (Tyranids army rule, 10e): an enemy unit within
+        # 12" of any SYNAPSE model from the Tyranid army takes its Battle-shock
+        # test at -1 (i.e. the test target is raised by 1, making the pass
+        # harder). Cited as `simulator.shadow_in_the_warp`.
         if round_num > 1:
             for army, opponent in ((self.a, self.b), (self.b, self.a)):
                 opponent_det = opponent.resolve_detachment()
@@ -1241,14 +1250,55 @@ class Battle:
                     1 for u in army.alive_units if u.profile.faction == "Orks"
                 )
                 mob_rule_active = ork_count >= 10
+                # SYNAPSE pools — own-side (Synapse Imperative shelter) and
+                # opposing-side (Shadow in the Warp penalty). We snapshot
+                # the alive SYNAPSE units once per army before iterating so
+                # the inner loop only re-evaluates the per-target distance.
+                own_synapse = [
+                    s for s in army.alive_units
+                    if "SYNAPSE" in (s.profile.unit_keywords or ())
+                ]
+                shadow_sources = [
+                    s for s in opponent.alive_units
+                    if "SYNAPSE" in (s.profile.unit_keywords or ())
+                    and s.profile.faction == "Tyranids"
+                ]
                 for u in army.alive_units:
                     if u.current_health < u.profile.health / 2.0:
                         # Mob Rule short-circuit: Ork units auto-pass when the
                         # army has 10+ Ork models on the battlefield.
                         if mob_rule_active and u.profile.faction == "Orks":
                             continue
+                        # Synapse Imperative: a Tyranid unit within 6" of any
+                        # friendly SYNAPSE model auto-passes. Faction-gated
+                        # so a non-Tyranid drifting near a stray SYNAPSE
+                        # unit doesn't inherit the shelter.
+                        if (
+                            u.profile.faction == "Tyranids"
+                            and own_synapse
+                            and any(
+                                _distance(u.position, s.position) <= 6.0
+                                for s in own_synapse
+                                if s.uid != u.uid
+                            )
+                        ):
+                            continue
+                        # Shadow in the Warp: enemy units within 12" of any
+                        # SYNAPSE model from the Tyranid army take the test
+                        # at -1 (raises the test target by 1).
+                        shadow_penalty = 0
+                        if shadow_sources and any(
+                            _distance(u.position, s.position) <= 12.0
+                            for s in shadow_sources
+                        ):
+                            shadow_penalty = 1
                         roll = random.randint(1, 6) + random.randint(1, 6)
-                        target = u.profile.leadership + ld_penalty - ld_bonus
+                        target = (
+                            u.profile.leadership
+                            + ld_penalty
+                            - ld_bonus
+                            + shadow_penalty
+                        )
                         if roll < target:
                             self._battleshocked_this_round.add(u.uid)
                             self._emit(BattleshockFailed(
