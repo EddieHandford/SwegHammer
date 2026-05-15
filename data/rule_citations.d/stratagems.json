@@ -1,5 +1,5 @@
 {
-  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus the six Warhost (Aeldari) detachment stratagems and the re-anchored Disgustingly Resilient (Virulent Vectorium, Death Guard). 11 fabricated stratagems were removed in commit e4b057f per the fabrication audit; their citations have been deleted here. The four remaining real Warhost stratagems (Skyborne Sanctuary, Feigned Retreat, Blitzing Firepower, Webway Tunnel) were added in #197.",
+  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus the six Warhost (Aeldari) detachment stratagems, the re-anchored Disgustingly Resilient (Virulent Vectorium, Death Guard), and the six real Mont'ka (T'au Empire) stratagems wired in #196. 11 fabricated stratagems were removed in commit e4b057f per the fabrication audit; their citations have been deleted here.",
 
   "Stratagem.Command Re-Roll": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
@@ -105,6 +105,66 @@
     "quoted_text": "USE THIS STRATAGEM AT THE END OF YOUR OPPONENT'S FIGHT PHASE. ONE AELDARI INFANTRY UNIT FROM YOUR ARMY THAT IS WHOLLY WITHIN 9\" OF ANY BATTLEFIELD EDGE AND IS NOT WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS IS PLACED INTO STRATEGIC RESERVES.",
     "trigger": "end of opponent's Fight phase, on a friendly AELDARI INFANTRY unit wholly within 9\" of a battlefield edge and not in engagement range",
     "effect": "APPROXIMATION: SwegHammer's reserve queue has no mid-battle re-entry hook, so the 'pull the unit off the table to avoid the next attack' defensive payoff is routed through `transient_plus_one_save` on the most vulnerable AELDARI unit for the round",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Pinpoint Counter-Offensive": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Pinpoint Counter-Offensive (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Any phase, just after a T'AU EMPIRE unit from your army is destroyed. EFFECT: Until the end of the phase, each time a model in another T'AU EMPIRE unit from your army makes an attack that targets the enemy unit responsible, you can re-roll the Hit roll.",
+    "trigger": "any phase, just after a friendly T'au Empire unit is destroyed",
+    "effect": "approximation: the round-start dispatcher can't observe a fresh kill, so the gate is widened to any T'au shooter and the value is routed through `transient_reroll_hits_shooting` on the highest-DPA T'au unit for the round (modelling the average payoff across the game). 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Aggressive Mobility": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Aggressive Mobility (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your Movement phase. EFFECT: Replace any Advance roll made for that unit with a flat 6\".",
+    "trigger": "movement phase, when a friendly T'au unit Advances",
+    "effect": "approximation: SwegHammer doesn't expose a per-unit Advance-roll replacement, so we route the mobility uplift through `transient_assault_this_round` on the highest-DPA T'au shooter — the unit may shoot in the same round it Advanced. Composes with the Mont'ka [ASSAULT] window (rounds 1-3) by being redundant during that window and active during rounds 4-5. 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Focused Fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Focused Fire (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Start of your Shooting phase. EFFECT: Select two T'AU EMPIRE units from your army; they can only target one enemy unit this phase, but improve the Armour Penetration characteristic of attacks they make this phase by 1. RESTRICTIONS: You cannot use this Stratagem during battle rounds 4 or 5.",
+    "trigger": "start of friendly Shooting phase, battle rounds 1-3 only",
+    "effect": "approximation: SwegHammer has no AP-improvement transient, so the offensive value is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA T'au shooter (more landed wounds per shoot — same swing direction as +1 AP). Round-3 cap is enforced at dispatch. 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Combat Debarkation": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Combat Debarkation (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase. EFFECT: Until the end of the phase, each time a model in a T'AU EMPIRE unit that disembarked this turn makes a ranged attack that targets the closest enemy unit, you can re-roll the Wound roll.",
+    "trigger": "shooting phase, after a friendly T'au unit has disembarked this turn",
+    "effect": "approximation: the round-start dispatcher does not track per-unit disembark-this-turn state, so the disembark gate is widened to any T'au shooter and the canonical wound-reroll is routed through `transient_reroll_hits_shooting` (closest available reroll proxy — SwegHammer has no wound-reroll transient flag). 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Pulse Onslaught": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Pulse Onslaught (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase, just after a T'AU EMPIRE unit from your army has resolved its attacks. EFFECT: Select one enemy unit that lost one or more wounds as a result of those attacks. Until the start of your next turn, subtract 2 from the Move characteristic of models in that unit, and subtract 2 from Advance and Charge rolls made for that unit.",
+    "trigger": "shooting phase, just after a friendly T'au unit resolves attacks that wounded an enemy unit",
+    "effect": "TODO APPROXIMATION: SwegHammer has no enemy-movement-debuff transient flag (no Move characteristic mutation, no Charge / Advance roll modifier infrastructure), so the offensive value is routed through `transient_plus_one_to_hit_shooting` on the firing T'au unit — models the 'shaken' enemy as easier to hit. Wire a proper enemy move-debuff transient when the simulator gains the infrastructure. 2 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Counterfire Defence Systems": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Counterfire Defence Systems (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Shooting phase, just after an enemy unit has selected its targets. EFFECT: Until the end of the phase, each time an attack is allocated to a model in a T'AU EMPIRE unit from your army that was selected as a target, subtract 1 from the Damage characteristic of that attack (to a minimum of 1).",
+    "trigger": "opponent's Shooting phase, just after an enemy unit selects a friendly T'au unit as a target",
+    "effect": "the most vulnerable T'au unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1, same as Disgustingly Resilient). 2 CP",
     "scope": "phase-gated",
     "approximation": true
   }

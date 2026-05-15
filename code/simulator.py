@@ -32,6 +32,9 @@ from .stratagems import (
     # Warhost (Aeldari) — six real detachment stratagems
     LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE,
     SKYBORNE_SANCTUARY, FEIGNED_RETREAT, BLITZING_FIREPOWER, WEBWAY_TUNNEL,
+    # Mont'ka (T'au Empire) — six real detachment stratagems (#196)
+    PINPOINT_COUNTER_OFFENSIVE, AGGRESSIVE_MOBILITY, FOCUSED_FIRE,
+    COMBAT_DEBARKATION, PULSE_ONSLAUGHT, COUNTERFIRE_DEFENCE_SYSTEMS,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -606,6 +609,27 @@ class Battle:
         if "Webway Tunnel" in strat_names:
             self._try_webway_tunnel(army, opponent)
 
+        # ----- Mont'ka (T'au Empire) — six real stratagems (#196) -------
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka.
+        # Each dispatcher consults `should_fire_stratagem` for the AI gate,
+        # spends CP via `_fire_stratagem`, then applies the transient effect
+        # via the existing `transient_*` flag set on the chosen unit. Where
+        # the canonical effect doesn't map to a flag (e.g. Pulse Onslaught's
+        # enemy Move debuff), the dispatcher routes the value through the
+        # nearest existing transient — see per-dispatcher APPROXIMATION notes.
+        if "Pinpoint Counter-Offensive" in strat_names:
+            self._try_pinpoint_counter_offensive(army, opponent)
+        if "Aggressive Mobility" in strat_names:
+            self._try_aggressive_mobility(army, opponent)
+        if "Focused Fire" in strat_names:
+            self._try_focused_fire(army, opponent)
+        if "Combat Debarkation" in strat_names:
+            self._try_combat_debarkation(army, opponent)
+        if "Pulse Onslaught" in strat_names:
+            self._try_pulse_onslaught(army, opponent)
+        if "Counterfire Defence Systems" in strat_names:
+            self._try_counterfire_defence_systems(army, opponent)
+
     # ----- target-selection helpers used by the dispatchers --------------
 
     def _highest_threat_enemy(self, opponent: Army):
@@ -879,6 +903,155 @@ class Battle:
         if not self._fire_stratagem(army, WEBWAY_TUNNEL):
             return
         target.transient_plus_one_save = True
+
+    # ----- Mont'ka (T'au Empire) per-stratagem dispatchers (#196) --------
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+
+    def _try_pinpoint_counter_offensive(self, army: Army, opponent: Army) -> None:
+        """Pinpoint Counter-Offensive (1 CP). Real rule: when a T'AU EMPIRE
+        unit is destroyed, until end of phase, other friendly T'AU EMPIRE
+        units re-roll Hit rolls against the enemy unit responsible.
+        APPROXIMATION: round-start dispatch can't observe a fresh kill, so
+        we gate on the AI heuristic (general 'fire when shooty unit will
+        actually swing') and grant a flat transient hit re-roll on the
+        highest-DPA T'au unit for the round."""
+        attacker = self._highest_dpa_unit(
+            army, faction="T'au Empire",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Tau Empire")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PINPOINT_COUNTER_OFFENSIVE, ctx):
+            return
+        if not self._fire_stratagem(army, PINPOINT_COUNTER_OFFENSIVE):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_aggressive_mobility(self, army: Army, opponent: Army) -> None:
+        """Aggressive Mobility (1 CP). Real rule: in your Movement phase,
+        replace an Advance roll with a flat +6" Move and treat the unit as
+        having Advanced — its ranged weapons would then need [ASSAULT] (or
+        Killing Blow rounds 1-3) to shoot. SwegHammer collapses the
+        movement-replacement clause and routes the value as a transient
+        [ASSAULT] grant for the round (same flag Matchless Agility uses).
+        Gate: pick the highest-DPA T'au shooter."""
+        attacker = self._highest_dpa_unit(
+            army, faction="T'au Empire",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Tau Empire")
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, AGGRESSIVE_MOBILITY, ctx):
+            return
+        if not self._fire_stratagem(army, AGGRESSIVE_MOBILITY):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_focused_fire(self, army: Army, opponent: Army) -> None:
+        """Focused Fire (1 CP). Real rule: in your Shooting phase, two T'au
+        units selecting the same target gain +1 AP for that shoot. Cannot
+        be used in rounds 4-5. APPROXIMATION: the simulator's flag set has
+        no AP-improvement transient, so we route the offensive value
+        through `transient_plus_one_to_hit_shooting` on the highest-DPA
+        T'au shooter (it's the same swing direction — more landed wounds
+        per shoot). Round gate skipped at round-start dispatch."""
+        if self._current_round >= 4:
+            return     # canonical rounds 1-3 only
+        attacker = self._highest_dpa_unit(
+            army, faction="T'au Empire",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Tau Empire")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, FOCUSED_FIRE, ctx):
+            return
+        if not self._fire_stratagem(army, FOCUSED_FIRE):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_combat_debarkation(self, army: Army, opponent: Army) -> None:
+        """Combat Debarkation (1 CP). Real rule: a T'au unit that
+        disembarked this turn re-rolls Wound rolls against the closest
+        enemy unit in its shooting. APPROXIMATION: we don't track
+        'disembarked-this-turn' at stratagem-dispatch time, so the gate
+        is widened to any T'au shooter and the value is routed through
+        the existing `transient_reroll_hits_shooting` flag (the closest
+        Wound-reroll proxy SwegHammer has)."""
+        attacker = self._highest_dpa_unit(
+            army, faction="T'au Empire",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Tau Empire")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, COMBAT_DEBARKATION, ctx):
+            return
+        if not self._fire_stratagem(army, COMBAT_DEBARKATION):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_pulse_onslaught(self, army: Army, opponent: Army) -> None:
+        """Pulse Onslaught (2 CP). Real rule: target an enemy unit; until
+        the end of the phase its Move is reduced by 2 and its Charge /
+        Advance rolls are reduced by 2. TODO: APPROXIMATION — SwegHammer
+        has no enemy-movement-debuff transient, so we route the offensive
+        value through `transient_plus_one_to_hit_shooting` on the
+        firing T'au unit (models the 'shaken' enemy being easier to hit).
+        Wire a proper enemy move debuff when the simulator gains the
+        infrastructure."""
+        attacker = self._highest_dpa_unit(
+            army, faction="T'au Empire",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Tau Empire")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PULSE_ONSLAUGHT, ctx):
+            return
+        if not self._fire_stratagem(army, PULSE_ONSLAUGHT):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_counterfire_defence_systems(self, army: Army, opponent: Army) -> None:
+        """Counterfire Defence Systems (2 CP). Real rule: in your
+        opponent's Shooting phase, after targets selected, a T'au unit
+        being shot at gets -1 Damage for the phase. Maps cleanly to
+        `transient_minus_one_damage_taken` on the most vulnerable T'au
+        unit for the round (matching how Disgustingly Resilient
+        routes its DG defensive payload)."""
+        target = self._most_vulnerable_unit(
+            army, faction="T'au Empire",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army, faction="Tau Empire")
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, COUNTERFIRE_DEFENCE_SYSTEMS, ctx):
+            return
+        if not self._fire_stratagem(army, COUNTERFIRE_DEFENCE_SYSTEMS):
+            return
+        target.transient_minus_one_damage_taken = True
 
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
@@ -1907,12 +2080,25 @@ class Battle:
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
         # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
-        # Feigned Retreat (Warhost stratagem) has been fired this round to
-        # grant transient Assault on the unit.
+        # Feigned Retreat (Warhost stratagem) or Matchless Agility / Aggressive
+        # Mobility (Battle Host / Mont'ka stratagems) has been fired this round
+        # to grant transient Assault on the unit — or Mont'ka's Killing Blow
+        # detachment rule is active and we are in rounds 1-3 (army-wide
+        # [ASSAULT] grant to T'au Empire ranged weapons). Cited as
+        # `MONTKA.army_wide_assault_rounds_1_3`.
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             kw = attacker.profile.unit_keywords or ()
+            det = attacker_army.resolve_detachment()
+            montka_assault_window = (
+                det is not None
+                and getattr(det, "army_wide_assault_rounds_1_3", False)
+                and self._current_round <= 3
+                and (attacker.profile.faction or "").lower() in ("t'au empire", "tau empire")
+            )
             if attacker.transient_assault_this_round:
                 pass   # stratagem already paid for; no token spend
+            elif montka_assault_window:
+                pass   # detachment rule grants [ASSAULT] free this round
             elif ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
                 attacker_army.battle_focus_tokens -= 1
             else:

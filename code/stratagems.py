@@ -20,6 +20,11 @@ four universal Core Stratagems (verbatim 10e), the six real Warhost
 re-anchored to Virulent Vectorium at 2CP. Per-detachment real stratagem
 sets for other factions are wired in follow-up per-faction PRs.
 
+Mont'ka rebuild (2026-05-16, #196): six real Mont'ka stratagems wired
+from the Wahapedia page (Pinpoint Counter-Offensive, Aggressive Mobility,
+Focused Fire, Combat Debarkation, Pulse Onslaught, Counterfire Defence
+Systems) — see MONTKA_STRATAGEMS below.
+
 Dispatch model:
   * `name` — display label.
   * `cp_cost` — integer CP price.
@@ -216,6 +221,81 @@ DISGUSTINGLY_RESILIENT = Stratagem(
 
 
 # ---------------------------------------------------------------------------
+# Mont'ka (T'au Empire) — six real detachment stratagems (#196)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+# Names, CP costs, triggers, and effects verified verbatim against the
+# Wahapedia page on 2026-05-15. Each entry has a matching citation in
+# data/rule_citations.d/stratagems.json with a per-effect APPROXIMATION
+# note where the simulator's behaviour diverges from the canonical text
+# (most often: gating clauses dropped, target restrictions widened).
+
+PINPOINT_COUNTER_OFFENSIVE = Stratagem(
+    name="Pinpoint Counter-Offensive",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_tau_unit_destroyed",
+    effect="reroll_hits_shooting_for_round",
+)
+
+AGGRESSIVE_MOBILITY = Stratagem(
+    name="Aggressive Mobility",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tau_unit_about_to_advance",
+    effect="assault_this_round",
+)
+
+FOCUSED_FIRE = Stratagem(
+    name="Focused Fire",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_tau_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+COMBAT_DEBARKATION = Stratagem(
+    name="Combat Debarkation",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_tau_unit_just_disembarked",
+    effect="reroll_hits_shooting_for_round",
+)
+
+PULSE_ONSLAUGHT = Stratagem(
+    name="Pulse Onslaught",
+    cp_cost=2,
+    phase="shooting",
+    # TODO: APPROXIMATION — Pulse Onslaught's real effect is a Move /
+    # Charge / Advance penalty on the enemy unit. SwegHammer has no
+    # movement-debuff transient, so we route the offensive value through
+    # an attacker hit-buff for the round (the unit that fires the
+    # stratagem gets +1 to hit shooting for the round, modelling the
+    # "shaken" enemy as easier to land hits on).
+    trigger="friendly_tau_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+COUNTERFIRE_DEFENCE_SYSTEMS = Stratagem(
+    name="Counterfire Defence Systems",
+    cp_cost=2,
+    phase="any",
+    trigger="friendly_tau_unit_targeted",
+    effect="minus_one_damage_taken_for_round",
+)
+
+
+MONTKA_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PINPOINT_COUNTER_OFFENSIVE,
+    AGGRESSIVE_MOBILITY,
+    FOCUSED_FIRE,
+    COMBAT_DEBARKATION,
+    PULSE_ONSLAUGHT,
+    COUNTERFIRE_DEFENCE_SYSTEMS,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -263,6 +343,14 @@ __all__ = [
     "WARHOST_STRATAGEMS",
     # Virulent Vectorium (Death Guard) — Disgustingly Resilient (re-anchored)
     "DISGUSTINGLY_RESILIENT",
+    # Mont'ka (T'au Empire) — six real stratagems (#196)
+    "PINPOINT_COUNTER_OFFENSIVE",
+    "AGGRESSIVE_MOBILITY",
+    "FOCUSED_FIRE",
+    "COMBAT_DEBARKATION",
+    "PULSE_ONSLAUGHT",
+    "COUNTERFIRE_DEFENCE_SYSTEMS",
+    "MONTKA_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

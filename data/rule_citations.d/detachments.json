@@ -111,13 +111,22 @@
     "approximation": true
   },
 
-  "MONTKA.plus_one_to_hit": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Mont-ka",
-    "rule_name": "Killing Blow",
-    "quoted_text": "During the first, second and third battle rounds, ranged weapons equipped by T'AU EMPIRE models from your army have the [ASSAULT] ability. During the first, second and third battle rounds, while a unit is a Guided unit, its ranged weapons have the [LETHAL HITS] ability.",
-    "trigger": "any friendly T'au Empire hit roll",
-    "effect": "+1 to hit rolls (approximation of Killing Blow's Assault keyword + Guided-unit Lethal Hits during rounds 1-3; we collapse both into always-on +1 to hit)",
-    "scope": "army-wide",
+  "MONTKA.army_wide_assault_rounds_1_3": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Killing Blow (Mont'ka, [ASSAULT] half)",
+    "quoted_text": "During the first, second and third battle rounds, ranged weapons equipped by T'AU EMPIRE models from your army have the [ASSAULT] ability.",
+    "trigger": "any friendly T'AU EMPIRE unit attempting to shoot in battle rounds 1-3 after Advancing",
+    "effect": "ranged weapons gain the [ASSAULT] keyword for battle rounds 1-3 — simulator reads the flag in _do_shoot to exempt T'au attackers from the Advance-then-no-shoot lockout during the window (free, no Battle Focus token spend). Cited as MONTKA.army_wide_assault_rounds_1_3",
+    "scope": "phase-gated"
+  },
+
+  "MONTKA.lethal_hits_on_guided": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Killing Blow (Mont'ka, [LETHAL HITS] on Guided half)",
+    "quoted_text": "During the first, second and third battle rounds, while a unit is a Guided unit, its ranged weapons have the [LETHAL HITS] ability.",
+    "trigger": "any friendly T'AU EMPIRE Guided unit's ranged attack in battle rounds 1-3",
+    "effect": "ranged weapons gain [LETHAL HITS] (Crit Hit auto-wounds) for the round window. TODO APPROXIMATION: SwegHammer has no Markerlight / Guided mechanic, so the simulator currently does not read this flag — it is wired for citation completeness only and will be activated when the Guided mechanic is added.",
+    "scope": "phase-gated",
     "approximation": true
   },
 

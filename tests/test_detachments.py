@@ -33,7 +33,11 @@ _NEW_DETACHMENTS = (
     # detachment rule.
     ("warhost",                "Aeldari",                "martial_grace",     True),
     ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
-    ("montka",                 "T'au Empire",            "plus_one_to_hit",   True),
+    # Mont'ka rebuilt per #196 (2026-05-16): the launch-day +1-to-hit
+    # approximation was replaced by the real Killing Blow rule, which grants
+    # [ASSAULT] army-wide in rounds 1-3 (army_wide_assault_rounds_1_3) plus
+    # [LETHAL HITS] on Guided units (lethal_hits_on_guided, citation-only).
+    ("montka",                 "T'au Empire",            "army_wide_assault_rounds_1_3", True),
     ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
     # oathband carries no passive flag right now — its "army-wide re-roll
     # hit 1s" approximated the Eye of the Ancestors rule that now lives in
@@ -96,7 +100,10 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
         det = army.resolve_detachment()
         self.assertIsNotNone(det)
         self.assertEqual(det.name, "Mont'ka")
-        self.assertTrue(det.plus_one_to_hit)
+        # Real rule (Killing Blow, #196): [ASSAULT] army-wide rounds 1-3.
+        # The launch-day +1-to-hit approximation was replaced in #196.
+        self.assertTrue(det.army_wide_assault_rounds_1_3)
+        self.assertFalse(det.plus_one_to_hit)
 
     # test_death_guard_army_resolves removed per the 2026-05-15 fabrication
     # audit (commit fa9a957) — plague_company was a fabricated detachment

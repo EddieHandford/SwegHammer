@@ -28,6 +28,7 @@ from .stratagems import (
     Stratagem,
     WARHOST_STRATAGEMS,
     DISGUSTINGLY_RESILIENT,
+    MONTKA_STRATAGEMS,
 )
 
 
@@ -109,6 +110,21 @@ class Detachment:
     # simulator's grid-free movement model can't usefully consume per-phase
     # +1" / +1-to-d6 buffs.
     martial_grace: bool = False
+
+    # Mont'ka (T'au Empire) Killing Blow detachment rule (#196). Two flags,
+    # both round-gated to battle rounds 1-3 by the simulator:
+    #   * army_wide_assault_rounds_1_3 — grants the [ASSAULT] keyword to
+    #     every T'AU EMPIRE ranged weapon during rounds 1-3. Read by
+    #     `_do_shoot` to exempt T'au attackers from the Advance-then-
+    #     no-shoot lockout (mirrors the Aeldari Battle Focus / Matchless
+    #     Agility pathway, but army-wide and free during the window).
+    #   * lethal_hits_on_guided — grants [LETHAL HITS] to Guided units'
+    #     ranged weapons during rounds 1-3. TODO: APPROXIMATION — the
+    #     simulator currently has no Markerlight / Guided concept, so the
+    #     flag is wired for citation completeness only and not yet read by
+    #     Unit.attack. Wire when the Guided mechanic is added.
+    army_wide_assault_rounds_1_3: bool = False
+    lethal_hits_on_guided: bool = False
 
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
@@ -322,18 +338,25 @@ MONTKA = Detachment(
     name="Mont'ka",
     faction="T'au Empire",
     notes=(
-        "APPROXIMATION: flat +1 to hit is a stand-in for the codex rule. "
-        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Montka. "
-        "Real rule (Killing Blow): grants [ASSAULT] army-wide rounds 1-3 "
-        "plus [LETHAL HITS] on Guided units — keyword grants, not a hit-roll "
-        "bonus. Composes incorrectly with Strike Swiftly's transient_assault. "
-        "Strike Swiftly stratagem previously attached here was an Enhancement "
-        "(25 pts), not a stratagem — removed per 2026-05-15 fabrication audit."
+        "Killing Blow (real 10e rule, #196). Two parts, both gated on "
+        "battle rounds 1-3: every T'AU EMPIRE ranged weapon gains [ASSAULT] "
+        "(simulator: army_wide_assault_rounds_1_3 — read by _do_shoot to "
+        "exempt T'au attackers from the Advance-then-no-shoot lockout in "
+        "rounds 1-3), AND Guided units' ranged weapons gain [LETHAL HITS] "
+        "(simulator: lethal_hits_on_guided — flag present for citation "
+        "completeness, NOT YET READ because SwegHammer has no Markerlight / "
+        "Guided mechanic). Six real stratagems wired below from "
+        "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka."
     ),
-    # APPROXIMATION: real Mont'ka grants [ASSAULT] army-wide rounds 1-3 + [LETHAL HITS] on Guided units, not +1 to hit.
-    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Montka
-    # Real rule: Killing Blow — keyword grants, not a flat hit-roll bonus.
-    plus_one_to_hit=True,
+    # Real rule: Killing Blow grants [ASSAULT] army-wide rounds 1-3 +
+    # [LETHAL HITS] on Guided units during rounds 1-3.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+    army_wide_assault_rounds_1_3=True,
+    # TODO: APPROXIMATION — flag present for citation completeness; the
+    # simulator currently has no Markerlight / Guided concept, so this
+    # field is not read by Unit.attack. Wire when Guided is added.
+    lethal_hits_on_guided=True,
+    stratagems=MONTKA_STRATAGEMS,
     preferred_composition="balanced",
 )
 

@@ -2103,6 +2103,40 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             cost = 0.0
         return cost >= 150.0
 
+    # ----- Mont'ka (T'au Empire) — six real detachment stratagems (#196)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+    # Same `cost >= 150` brick filter as Strike Swiftly / Matchless Agility —
+    # T'au already over-rates so CP only ever fires on real shooters (Crisis
+    # Battlesuits / Broadsides / Riptide), not Fire Warrior squads.
+
+    if name in (
+        "Pinpoint Counter-Offensive", "Aggressive Mobility", "Focused Fire",
+        "Combat Debarkation", "Pulse Onslaught",
+    ):
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 150.0
+
+    if name == "Counterfire Defence Systems":
+        # Defensive 2 CP — fire on a wounded high-value T'au unit. Same
+        # gate shape as Disgustingly Resilient / Lightning-Fast Reactions:
+        # require visible HP loss AND points cost >= 150, so we don't
+        # waste 2 CP keeping a Fire Warrior squad alive.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.25 and cost >= 150.0
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

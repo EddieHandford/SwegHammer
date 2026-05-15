@@ -68,6 +68,12 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # reroll_hit_ones approximation with the real Martial Grace Battle
     # Focus token buff).
     ("martial_grace", False),
+    # Mont'ka (T'au Empire) Killing Blow detachment rule (#196). Two flags,
+    # both round-gated to battle rounds 1-3 in the simulator. The Lethal
+    # Hits on Guided half is flagged for citation completeness but not yet
+    # read by Unit.attack — SwegHammer has no Markerlight / Guided mechanic.
+    ("army_wide_assault_rounds_1_3", False),
+    ("lethal_hits_on_guided", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
