@@ -52,11 +52,10 @@ codebase at HEAD `945c840`. Output is a punch-list keyed by MAE impact.
 - **Direction**: mixed. T'au (+11.4) and Aeldari (+12.3) would gain disengage option but lose attrition + a turn of shooting. Net unclear without testing.
 - **Priority**: MEDIUM. Big surface area to implement (movement + AI + stratagem gate "Heroic Tag Team-like"). Defer unless other tier-1 work doesn't close MAE.
 
-### 2.2 Deadly Demise X — **MISSING**
-- Canonical: when a model with this ability is destroyed, roll 1d6 per unit within 6"; on 6, that unit suffers X mortals.
-- Affects Custodes (Caladius, Telemon, Sky Talons), Marines (Dreads, Repulsors), T'au (Battlesuits with Demise 1), Necrons (Doomsday Ark), Astra Militarum (every tank).
-- **Direction**: taxes vehicle stacking. Custodes (+3.5) and T'au (+11.4) currently over-perform — Deadly Demise would weaken them slightly. Slight positive.
-- **Priority**: MEDIUM. Small implementation: emit a `_apply_deadly_demise` hook when a `VEHICLE` or `MONSTER` Unit dies, scan nearby enemies, roll, apply mortals.
+### 2.2 Deadly Demise X — **DONE** (task #147)
+- Canonical: when a model with this ability is destroyed, roll 1d6 BEFORE removing it; on a 6 each unit within 6" suffers X mortals.
+- Mapper (`code/bsdata/mapper.py`) parses the X from each datasheet's `<infoLink name="Deadly Demise">` modifier and stores it on `UnitProfile.deadly_demise`. Codex variants collapse to expected-value integers (D3→2, D6→3, D3+3→5, N→N) — the 1-in-6 trigger rate stays.
+- Simulator (`code/simulator.py::_maybe_apply_deadly_demise`) fires from every death-detection site (shoot / fight / Tank Shock / Counter-Offensive / Doombolt), routes mortals through `receive_damage` so FNP + Death Guard's Disgustingly Resilient compose. Emits `DeadlyDemiseExploded` per detonation. Cited as `simulator.deadly_demise`.
 
 ### 2.3 Look Out Sir / Lone Operative — **MISSING**
 - Look Out Sir: CHARACTER within 3" of a non-CHARACTER bodyguard can't be directly targeted by ranged unless attacker is within 12".

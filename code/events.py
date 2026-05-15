@@ -183,6 +183,27 @@ class StratagemFired:
 
 
 @dataclass(frozen=True)
+class DeadlyDemiseExploded:
+    """A unit with the Deadly Demise X ability rolled a 6 on its demise d6
+    and detonated, dealing X mortal wounds to every unit within 6".
+
+    Wahapedia 10e core rule: when a model with Deadly Demise X is destroyed,
+    roll one D6 BEFORE removing it from the battlefield (after resolving the
+    attack that destroyed it). On a 6, each unit within 6" suffers X mortal
+    wounds. The simulator interprets D3/D6/D3+3 codex variants as fixed
+    integer expected values (D3→2, D6→3, D3+3→5). Cited as
+    `simulator.deadly_demise`.
+
+    Informational — the renderer can ignore freely; the mortal-wound dispatch
+    has already mutated each victim's current_health by the time the event
+    fires.
+    """
+    unit_uid: str                 # uid of the exploding unit
+    mortals: int                  # X — mortal wounds applied to each victim
+    victims: Tuple[str, ...]      # uids of the units that took the mortals
+
+
+@dataclass(frozen=True)
 class WaaaghDeclared:
     """An Ork army declared WAAAGH! at the start of its Command phase.
 

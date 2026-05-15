@@ -8,11 +8,11 @@ from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .events import (
-    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit,
-    JudgementTokenAwarded, ObjectiveScored, RoundEnded, RoundStarted,
-    StratagemFired, Subscriber, UnitActivated, UnitAdvanced, UnitCharged,
-    UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
-    UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
+    BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
+    InitialUnit, JudgementTokenAwarded, ObjectiveScored, RoundEnded,
+    RoundStarted, StratagemFired, Subscriber, UnitActivated, UnitAdvanced,
+    UnitCharged, UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled,
+    UnitMoved, UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
@@ -612,6 +612,7 @@ class Battle:
         target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
         if not target.is_alive:
             self._emit(UnitKilled(unit_uid=target.uid))
+            self._maybe_apply_deadly_demise(target)
 
     def _try_twist_of_fate(self, army: Army, opponent: Army) -> None:
         """Twist of Fate (Cult of Magic): +1 to wound on a friendly TSons
@@ -1704,6 +1705,8 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=shoot_target, victim_army=defender_army,
             )
+            # Deadly Demise (10e core): the destroyed unit may detonate.
+            self._maybe_apply_deadly_demise(shoot_target)
 
         if self.verbose:
             alive_str = (
@@ -1824,6 +1827,7 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=nearest, victim_army=defender_army,
             )
+            self._maybe_apply_deadly_demise(nearest)
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The
@@ -1895,6 +1899,54 @@ class Battle:
         self._emit(JudgementTokenAwarded(
             target_uid=killer.uid,
             total_tokens=tokens[killer.uid],
+        ))
+
+    def _maybe_apply_deadly_demise(self, victim: "Unit") -> None:
+        """Deadly Demise X (10e core rule).
+
+        When a model with this ability is destroyed, roll 1D6 BEFORE removing
+        it from the battlefield. On a 6, each unit within 6" of this model
+        suffers X mortal wounds. SwegHammer interprets the codex D3/D6/D3+3
+        variants as fixed integer expected values at mapper time; the runtime
+        sees a single integer in `profile.deadly_demise`.
+
+        Called from every death-detection site (shoot, fight, tank shock,
+        counter-offensive, doombolt). Bypasses armour/invuln; routed through
+        receive_damage so target FNP and Disgustingly Resilient compose.
+
+        Cited as `simulator.deadly_demise`.
+        """
+        x = getattr(victim.profile, "deadly_demise", 0) or 0
+        if x <= 0:
+            return
+        # Roll a d6 — 1-in-6 trigger.
+        if random.randint(1, 6) != 6:
+            return
+        # Scan every alive unit within 6" of the victim, on either side. The
+        # victim itself is already at 0 HP and excluded by the alive filter,
+        # so no special-casing is required.
+        victim_pos = victim.position
+        victims_hit: List[str] = []
+        for army in (self.a, self.b):
+            for u in army.alive_units:
+                if u is victim:
+                    continue
+                if _distance(u.position, victim_pos) > 6.0:
+                    continue
+                # Mortal wounds: route through receive_damage so FNP / DG's
+                # army-wide Disgustingly Resilient apply consistently with
+                # other mortal-wound paths (Tank Shock, Doombolt).
+                u.receive_damage(float(x), bonus_fnp=u.profile.fnp)
+                victims_hit.append(u.uid)
+                # A demise that kills another unit does NOT cascade — the
+                # canonical rule rolls the secondary victim's own demise at
+                # its own death event in a subsequent activation, not here.
+                if not u.is_alive:
+                    self._emit(UnitKilled(unit_uid=u.uid))
+        self._emit(DeadlyDemiseExploded(
+            unit_uid=victim.uid,
+            mortals=int(x),
+            victims=tuple(victims_hit),
         ))
 
     @staticmethod
@@ -1976,6 +2028,7 @@ class Battle:
                 killer=charger, killer_army=charger_army,
                 victim=target, victim_army=target_army,
             )
+            self._maybe_apply_deadly_demise(target)
 
     def _try_heroic_intervention(
         self, charger: "Unit", charge_target: "Unit",
@@ -2081,3 +2134,4 @@ class Battle:
                 killer=retaliator, killer_army=loser_army,
                 victim=winner_unit, victim_army=winner_army,
             )
+            self._maybe_apply_deadly_demise(winner_unit)

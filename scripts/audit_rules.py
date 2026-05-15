@@ -156,6 +156,10 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Eaters" for the Lethal Hits buff; awards run off victim/killer army
     # checks in the kill-emission code paths.
     "simulator.blood_tithe",
+    # Deadly Demise X (10e core). When a model with this ability is
+    # destroyed, roll 1D6; on a 6 each unit within 6" suffers X mortal
+    # wounds. Mapper parses the X from BSData infoLink modifiers.
+    "simulator.deadly_demise",
 )
 
 

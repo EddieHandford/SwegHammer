@@ -77,6 +77,9 @@ class CatalogEntry:
     deep_strike: bool = False
     scout_distance: int = 0
     infiltrator: bool = False
+    # Deadly Demise X — when destroyed, roll 1D6; on 6, each unit within 6"
+    # suffers X mortal wounds. Integer expected-value of the codex text.
+    deadly_demise: int = 0
     fnp: int = 7
     # 10e Sticky Objectives — control persists after the unit leaves until
     # an opposing unit takes the objective back.
@@ -139,6 +142,7 @@ class CatalogEntry:
             deep_strike=bool(d.get("deep_strike", False)),
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
+            deadly_demise=int(d.get("deadly_demise", 0)),
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -244,6 +248,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "deep_strike": override.get("deep_strike", base.deep_strike),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
+        "deadly_demise": override.get("deadly_demise", base.deadly_demise),
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),

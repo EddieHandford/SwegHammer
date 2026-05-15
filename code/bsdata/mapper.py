@@ -1166,6 +1166,11 @@ class MappedUnit:
     deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
     scout_distance: int = 0                       # pre-game Normal Move up to N"
     infiltrator: bool = False                     # deploy past the deployment line
+    # Deadly Demise X — when destroyed, roll 1D6; on 6, each unit within 6"
+    # suffers X mortal wounds. Integer X is the expected-value of the codex
+    # text (D3→2, D6→3, D3+3→5, plain integer N→N). 0 = no Deadly Demise.
+    # Cited as `simulator.deadly_demise`.
+    deadly_demise: int = 0
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
@@ -1300,6 +1305,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     stealth = extract_stealth(entry, reg)
     lone_operative = extract_lone_operative(entry, reg)
     deployment = extract_deployment_abilities(entry)
+    deadly_demise = extract_deadly_demise(entry)
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -1357,6 +1363,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         deep_strike=bool(deployment["deep_strike"]),
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),
+        deadly_demise=deadly_demise,
         fnp=fnp,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
@@ -1671,6 +1678,72 @@ def extract_deployment_abilities(entry: ET.Element) -> Dict[str, object]:
         "scout_distance": scout_distance,
         "infiltrator": infiltrator,
     }
+
+
+_DEADLY_DEMISE_INT_RE = re.compile(r"^\s*(\d+)\s*$")
+
+
+def _parse_demise_value(s: str) -> int:
+    """Map a 'Deadly Demise N' suffix string to its expected-value integer.
+
+    Canonical forms seen in BSData 10e infoLink modifiers:
+       "1", "2", "3", "D3", "D6", "D3+3"
+    Returns 0 if unrecognised. Mapping:
+       integer N -> N
+       "D3"      -> 2   (expected value)
+       "D6"      -> 3   (expected value, rounded down from 3.5)
+       "D3+3"    -> 5   (E[D3] + 3 = 2 + 3)
+    """
+    s = (s or "").strip()
+    if not s:
+        return 0
+    su = s.upper().replace(" ", "")
+    if su == "D3":
+        return 2
+    if su == "D6":
+        return 3
+    if su == "D3+3":
+        return 5
+    if su == "D6+3":
+        return 6
+    m = _DEADLY_DEMISE_INT_RE.match(s)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return 0
+    return 0
+
+
+def extract_deadly_demise(entry: ET.Element) -> int:
+    """Scan the unit's directly-attached infoLinks for the Deadly Demise ability.
+
+    In BSData 10e, Deadly Demise is published as a shared-rule infoLink with
+    name="Deadly Demise" and a child <modifier type="append" field="name"
+    value="X"/> that carries the X value as a literal (e.g. "1", "D3", "D6",
+    "D3+3"). Returns the parsed integer expected value, or 0 if not present.
+
+    Cited as `simulator.deadly_demise`.
+    """
+    for il in entry.findall(".//infoLink"):
+        name = (il.get("name") or "").strip()
+        if name != "Deadly Demise":
+            continue
+        # Find the modifier carrying the X suffix
+        for mod in il.iter():
+            tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+            if tag != "modifier":
+                continue
+            if mod.get("field") != "name" or mod.get("type") != "append":
+                continue
+            val = (mod.get("value") or "").strip()
+            v = _parse_demise_value(val)
+            if v > 0:
+                return v
+        # Fall back: an infoLink named "Deadly Demise" with no suffix is
+        # rare but should still record the ability (treat as 1).
+        return 1
+    return 0
 
 
 def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
