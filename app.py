@@ -1688,6 +1688,11 @@ def _outcomes_to_dataframes(
     DataFrame rows for those new battles, indexed by their absolute
     battle number. Both DataFrames carry percent-scale values (0-100).
     """
+    if a_label == b_label:
+        raise ValueError(
+            f"a_label and b_label must be distinct (got {a_label!r} for both); "
+            "side-prefixed labels at the call site are how that is enforced."
+        )
     rate_rows, hw_rows, indices = [], [], []
     for outcome in outcomes_iter:
         if outcome == A_OUTCOME:
@@ -1993,13 +1998,10 @@ with tab_convergence:
     # ----- Display + live loop (inside a fragment so reruns don't flash) -----
     _a_profile = UNIT_CATALOG[_conv_a_key]
     _b_profile = UNIT_CATALOG[_conv_b_key]
-    _a_label = f"{_a_profile.name} x{int(_conv_a_squads)}"
-    _b_label = f"{_b_profile.name} x{int(_conv_b_squads)}"
-    # Mirror matches (same unit, same count both sides) produce identical
-    # labels — disambiguate so DataFrame columns stay distinct.
-    if _a_label == _b_label:
-        _a_label = f"{_a_label} (A)"
-        _b_label = f"{_b_label} (B)"
+    # Always prefix with the side so mirror matches (same unit + count on
+    # both sides) cannot collide into a single DataFrame column.
+    _a_label = f"A — {_a_profile.name} x{int(_conv_a_squads)}"
+    _b_label = f"B — {_b_profile.name} x{int(_conv_b_squads)}"
     _a_colour = colour_for(_a_profile.faction) if _a_profile.faction else DEFAULT_COL_A
     _b_colour = colour_for(_b_profile.faction) if _b_profile.faction else DEFAULT_COL_B
     # If the two sides share a faction colour (e.g. Space Marines mirror match),

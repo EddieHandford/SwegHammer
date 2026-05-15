@@ -191,6 +191,83 @@ no positions, and no terrain beyond a binary cover flag. The rest of
 this document is the plan to fill that in.
 
 % =========================================================================
+\section{Sprint plan: May 2026 handover (Ed/Jake)}
+\label{sec:sprint-may-2026}
+
+This section captures the architecture clarification and near-term work
+sequence agreed between Ed and Jake on 2026-05-15. It supersedes any
+ad-hoc next-steps notes scattered through the older sections.
+
+\subsection*{Architecture clarification}
+
+SwegHammer is two interlocking systems, not one:
+
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{Equilibrium model} (\texttt{code/equilibrium.py}) ---
+    the core mathematics-hammer engine. Lancaster-derived,
+    multi-dimensional, non-linear. Computes pairwise unit matchup
+    outcomes in closed form. \emph{This is what ships in the final
+    product.}
+  \item \textbf{Simulator} (\texttt{code/simulator.py}) --- exists to
+    tune the utility factors (deep strike, sticky objectives, scout,
+    re-deploy and so on) that feed back into the equilibrium model.
+    Slow and iterative; only needed for calibration.
+\end{itemize}
+
+\paragraph{Why the split matters.} The end-user-facing front end
+(``Fire Prism vs Wraithknight --- what are the odds?'') runs the
+equilibrium equation only. The simulator stays in the toolbox for the
+specific case where Games Workshop releases a weird new model and we
+need to derive its tactical utility weights before plugging it into
+the equation.
+
+\paragraph{Calibration constraint.} Real tournament data is scarce.
+Even a major event like the Las Vegas Open produces only a few
+thousand games across roughly twenty factions \textemdash{} too thin
+for faction-vs-faction matchup matrices on its own. The simulator
+covers the gap by generating the synthetic matchup volume the
+analytic solver needs.
+
+\subsection*{Current focus (Jake)}
+
+Drive the simulator's mean absolute error down to 2--4\,\% against
+real tournament results, using the Games Workshop printed point costs
+as the baseline for army budgets. The current honest reading is
+$7.01$ points at $N{=}200$ (see \S\ref{sec:goals} Goal A); 2--4\,\%
+is the threshold at which the simulator's outputs are trustworthy
+enough to drive points re-derivation in production.
+
+\subsection*{Near-term sequence (priority order)}
+
+\begin{enumerate}[itemsep=2pt]
+  \item \todo \eddie\ Speed up the user interface for faster
+    iteration. The convergence tab is the right shape; extend the
+    same live-streaming pattern to the calibration sweep so a tuning
+    loop does not block on a multi-minute wait. See also the
+    longer-term front-end items in \S\ref{sec:front-end}.
+  \item \wip \jake\ Get the simulator's mean absolute error down to
+    2--4\,\% against the May 2026 Warp Friends aggregate. Headline
+    metric for this sprint; everything downstream blocks on it.
+  \item \todo \either\ Generate a trial balanced points dataset.
+    Once the mean absolute error is in the 2--4\,\% band, run the
+    two-track points solvers (\texttt{code/balancer.py} and
+    \texttt{code/equilibrium.py}, see \S\ref{sec:goals} Goal C) and
+    cache the output as a candidate full-catalogue re-pricing.
+  \item \todo \either\ Sanity-check the trial dataset, then play-test
+    in person. After the cross-validation script
+    (\texttt{scripts/cross\_validate\_pricing.py}) clears the
+    obvious outliers, approach local game groups for a structured
+    blind play-test round \textemdash{} unit costs swapped in
+    without telling players which units have been re-priced, then a
+    post-game survey on perceived fairness.
+\end{enumerate}
+
+\paragraph{Final product vision.} When this sprint lands, the
+shipped product is the front end running the equilibrium equation on
+the trial-balanced points dataset, with the simulator preserved as a
+calibration utility for future Games Workshop releases.
+
+% =========================================================================
 \section{Game phases}
 \label{sec:phases}
 
@@ -453,6 +530,7 @@ the visualisation therefore cannot affect calibration numbers.
 
 % =========================================================================
 \section{Front end}
+\label{sec:front-end}
 
 The current Streamlit app (\texttt{app.py}) is a good v1 dashboard. We
 will extend it rather than replace it.
