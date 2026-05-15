@@ -177,6 +177,7 @@ def build_faction_random_army(
     in_cover: bool = False,
     size_policy: str = "max",
     max_unit_fraction: float = 0.5,
+    use_archetype: bool = False,
 ) -> Army:
     """
     Build a random army drawing only from a single faction's unit pool.
@@ -185,7 +186,26 @@ def build_faction_random_army(
     linearly, and adds N copies of the UnitProfile to the army. Fills until
     no affordable picks remain. `max_unit_fraction` caps spend per unit type
     to avoid degenerate "20 Termagants and nothing else" outcomes.
+
+    If `use_archetype=True` and a curated tournament archetype exists for
+    the faction in `code.archetypes`, the army is built from that template
+    instead. Default is `False` — the curated archetypes regressed eval-vs-
+    meta MAE in the May 2026 calibration (4.14 -> 16+), because the
+    random-pool's accidental cost balance is more representative of real
+    win-rates than the MSU-tournament templates allow given the catalogue's
+    lopsided per-unit SwegHammer pricing. Archetypes remain available for
+    opt-in experimentation and for callers who want flavoured lists.
     """
+    # Curated-archetype shortcut (opt-in only). Local import to avoid
+    # circular import (archetypes -> army -> nothing, but staying defensive).
+    if use_archetype:
+        from .archetypes import build_archetype_army, has_archetype
+        if has_archetype(faction):
+            return build_archetype_army(
+                name, faction, points_budget,
+                rng=rng, in_cover=in_cover,
+            )
+
     if rng is None:
         rng = random.Random()
 
