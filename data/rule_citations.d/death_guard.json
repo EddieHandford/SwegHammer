@@ -1,0 +1,21 @@
+{
+  "_comment": "Death Guard army rule citations (10e). Disgustingly Resilient — the codex-level Feel No Pain 5+ that applies to every DEATH GUARD model. The Plague Company detachment's stratagem of the same name (-1 damage taken on a DG unit for a round) is cited separately under Stratagem.Disgustingly Resilient in stratagems.json. Contagions of Nurgle / Nurgle's Gift — the escalating 6\" aura that debuffs enemy units near any DG model (-1 T round 1, -1 Ld round 2, -1 to hit round 3+).",
+
+  "simulator.disgustingly_resilient": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
+    "rule_name": "Disgustingly Resilient",
+    "quoted_text": "Each time a model in this unit would lose a wound, this ability has Feel No Pain 5+ against that lost wound.",
+    "trigger": "any model with the DEATH GUARD keyword is about to lose a wound",
+    "effect": "Unit.receive_damage faction-gates on profile.faction == 'Death Guard' and lowers `effective_fnp` to min(effective_fnp, 5). Composes with any leader-aura / profile FNP value by taking the lower (better) target — Plague Marines already carry profile.fnp=5 via overrides.json, so the min keeps them at 5+ rather than stacking to 4+. Independent of and composes with the Plague Company stratagem of the same name (which sets `transient_minus_one_damage_taken` for a round, reducing per-shot damage by 1 floor 1).",
+    "scope": "army-wide"
+  },
+
+  "simulator.contagions_of_nurgle": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
+    "rule_name": "Nurgle's Gift / Contagions of Nurgle",
+    "quoted_text": "Each model in your army has the following aura ability: 'Aura: While an enemy unit is within 6\" of this model, that enemy unit is subject to your active Contagion'. Round 1 — Virulent Rot: Subtract 1 from the Toughness characteristic of enemy units for the purposes of determining what to roll to wound them. Round 2 — Maladictive Pall: Subtract 1 from the Leadership characteristic of enemy units. Round 3+ — Fulminating Plague: Subtract 1 from the Hit roll for attacks made by enemy units.",
+    "trigger": "an enemy unit is within 6\" of any DEATH GUARD model on the opposing side at the moment the relevant roll is taken (wound roll round 1, battleshock test round 2, hit roll round 3+)",
+    "effect": "Unit.attack lowers wound_target by 1 when the defender is within 6\" of an enemy DG model and battle round == 1 (Virulent Rot, equivalent to -1 T); Battle._run_round adds +1 to the battleshock test target for enemy units within 6\" of a DG model when round == 2 (Maladictive Pall, -1 Ld); Unit.attack raises hit_target by 1 on the attacker when the attacker is within 6\" of an enemy DG model and battle round >= 3 (Fulminating Plague, -1 to hit) — the +1 only fires if no other -1-to-hit source already shifted hit_target this attack, per the 10e modifier cap. DG units themselves are excluded (the aura debuffs *enemy* units only). Implemented via helpers `_contagion_round_for` and `_is_near_enemy_dg_model` in code/units.py which read the live battle round and walk the opposing army's roster for DG models within 6\". Round-2 path lives in code/simulator.py:_run_round alongside Shadow in the Warp.",
+    "scope": "phase-gated"
+  }
+}

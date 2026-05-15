@@ -37,6 +37,7 @@ from code.equilibrium import (
     DEFAULT_ANCHOR_KEY as EQ_DEFAULT_ANCHOR,
     DEFAULT_ANCHOR_PER_MODEL as EQ_DEFAULT_ANCHOR_PTS,
 )
+from code.compare_view import render_compare_tab
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
 # below once the sidebar's "Use SwegHammer balanced points" toggle is read.
@@ -918,8 +919,8 @@ if run:
 # Tabs: Statistics + Watch a battle
 # ---------------------------------------------------------------------------
 
-tab_stats, tab_replay, tab_efficiency, tab_equilibrium = st.tabs(
-    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium"]
+tab_stats, tab_replay, tab_efficiency, tab_equilibrium, tab_compare = st.tabs(
+    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium", "Compare"]
 )
 
 # --- Statistics tab ---
@@ -1455,8 +1456,16 @@ with tab_equilibrium:
         # ---- Per-unit matchup drilldown ----
         st.divider()
         st.markdown("### Drill into a unit's matchups")
-        _drill_options = sorted([e.key for e in _filtered],
-                                key=lambda k: UNIT_CATALOG[k].name)
+        # Defensive: filter out keys no longer in UNIT_CATALOG (the
+        # equilibrium JSONs are snapshotted with the catalogue at solve
+        # time; renames in the BSData mapper can leave stale keys).
+        _drill_options = sorted(
+            [e.key for e in _filtered if e.key in UNIT_CATALOG],
+            key=lambda k: UNIT_CATALOG[k].name,
+        )
+        if not _drill_options:
+            st.info("No comparable units — regenerate `data/equilibrium_points_*.json` to match the current catalogue.")
+            st.stop()
         _drill_key = st.selectbox(
             "Pick a unit",
             _drill_options,
@@ -1516,3 +1525,8 @@ with tab_equilibrium:
             "fraction of the opponent's points-per-model the equilibrium says "
             "this unit should cost in an isolated 1-vs-1."
         )
+
+
+# --- Compare tab ---
+with tab_compare:
+    render_compare_tab(st)

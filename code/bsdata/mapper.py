@@ -1159,10 +1159,23 @@ class MappedUnit:
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit when this unit is shot at)
     stealth: bool = False
+    # Lone Operative (10e core ability) — ranged attackers must be within 12"
+    # to target this unit. Parsed via `extract_lone_operative` from BSData.
+    lone_operative: bool = False
     # Phase I — deployment abilities (parsed from unit-level infoLinks)
     deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
     scout_distance: int = 0                       # pre-game Normal Move up to N"
     infiltrator: bool = False                     # deploy past the deployment line
+    # Deadly Demise X — when destroyed, roll 1D6; on 6, each unit within 6"
+    # suffers X mortal wounds. Integer X is the expected-value of the codex
+    # text (D3→2, D6→3, D3+3→5, plain integer N→N). 0 = no Deadly Demise.
+    # Cited as `simulator.deadly_demise`.
+    deadly_demise: int = 0
+    # Firing Deck X (10e core, TRANSPORT keyword). When this unit shoots,
+    # up to X embarked passenger models may also shoot using the transport's
+    # BS. Integer X parsed from the BSData "Firing Deck" infoLink modifier.
+    # 0 = no Firing Deck. Cited as `simulator.firing_deck`.
+    firing_deck: int = 0
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
     unit_keywords: List[str] = field(default_factory=list)
@@ -1174,10 +1187,55 @@ class MappedUnit:
     melee_ap: int = 0
     melee_weapon: str = ""
     range_inches: int = 24       # primary-weapon range; melee-only => 1
+    # Renderer-only base footprint. BSData doesn't encode base sizes, so we
+    # derive a sensible default from the unit's keywords at map time; the
+    # hand-curated override path in data/overrides.json wins for precision
+    # cases (Repulsor 102x178mm, Riptide 80mm, etc.). See UnitProfile.base_shape
+    # for the shape vocabulary.
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32
+    base_width_mm: int = 32
+    base_length_mm: int = 32
     loadout: List[str] = field(default_factory=list)
     notes: str = ""
     enabled: bool = True
     skip_reason: str = ""
+
+
+def _derive_base_footprint(unit_keywords: List[str]) -> tuple:
+    """Best-effort base footprint from 10e keywords. BSData doesn't encode
+    real GW base sizes, so we pick a sensible default per silhouette family
+    and let `data/overrides.json` overwrite per-unit precision values
+    (Repulsor 102x178mm, Riptide 80mm, etc.).
+
+    Returns (shape, diameter_mm, width_mm, length_mm). For "circle" only
+    diameter is meaningful; for "rect"/"oval" only width and length matter.
+
+    Defaults chosen to match common GW kits:
+      TITANIC / TOWERING     -> 170x105mm oval (typical Knight footprint)
+      VEHICLE / WALKER       -> 152x89mm rect (Rhino chassis footprint)
+      MONSTER (no FLY)       -> 80mm circle  (typical mid-monster base)
+      MONSTER + FLY          -> 105x70mm oval (typical flying monster)
+      BIKE / MOUNTED         -> 75x42mm oval (GW small oval)
+      SWARM                  -> 40mm circle  (cluster base)
+      CHARACTER (no others)  -> 32mm circle  (named hero default)
+      INFANTRY / fallback    -> 32mm circle  (Marine default)
+    """
+    kw = set(k.upper() for k in (unit_keywords or ()))
+    if "TITANIC" in kw or "TOWERING" in kw:
+        return ("oval", 32, 105, 170)
+    if "VEHICLE" in kw or "WALKER" in kw:
+        return ("rect", 32, 89, 152)
+    if "MONSTER" in kw:
+        if "FLY" in kw:
+            return ("oval", 32, 70, 105)
+        return ("circle", 80, 80, 80)
+    if "BIKE" in kw or "MOUNTED" in kw:
+        return ("oval", 32, 42, 75)
+    if "SWARM" in kw:
+        return ("circle", 40, 40, 40)
+    # CHARACTER / INFANTRY / nothing -> standard 32mm Marine round
+    return ("circle", 32, 32, 32)
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -1295,7 +1353,10 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     unit_kw = extract_unit_keywords(entry)
     fnp = extract_fnp(entry, reg)
     stealth = extract_stealth(entry, reg)
+    lone_operative = extract_lone_operative(entry, reg)
     deployment = extract_deployment_abilities(entry)
+    deadly_demise = extract_deadly_demise(entry)
+    firing_deck = extract_firing_deck(entry)
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -1306,6 +1367,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     else:
         m = re.search(r"(\d+)", best.range or "")
         primary_range = int(m.group(1)) if m else 24
+    base_shape, base_diameter, base_width, base_length = _derive_base_footprint(list(unit_kw))
     return MappedUnit(
         key=key,
         name=name,
@@ -1349,9 +1411,12 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         indirect_fire=primary.indirect_fire,
         one_shot=primary.one_shot,
         stealth=stealth or primary.stealth,
+        lone_operative=lone_operative,
         deep_strike=bool(deployment["deep_strike"]),
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),
+        deadly_demise=deadly_demise,
+        firing_deck=firing_deck,
         fnp=fnp,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
@@ -1361,6 +1426,10 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         melee_ap=best_melee.ap if best_melee else 0,
         melee_weapon=best_melee.name if best_melee else "",
         range_inches=primary_range,
+        base_shape=base_shape,
+        base_diameter_mm=base_diameter,
+        base_width_mm=base_width,
+        base_length_mm=base_length,
         loadout=_build_loadout_strings(
             primary, gear, squad_models, used_heterogeneous,
         ),
@@ -1412,15 +1481,44 @@ def _build_loadout_strings(
 # ---------------------------------------------------------------------------
 
 # Standard 10e unit keywords we care about for Anti-X targeting and rules.
+#
+# ASURYANI is a faction sub-keyword: every Eldar Craftworlds unit carries it
+# (Guardians, Aspect Warriors, Wraith constructs, etc.), and the simulator's
+# Aeldari Battle Focus mechanic gates on it. In BSData the keyword appears
+# as a <categoryLink name="Faction: Asuryani"/> on the unit's selectionEntry;
+# Drukhari, Harlequins, and Ynnari units do not carry that link (per the
+# 10e Aeldari codex), so we get correct discrimination for free from the
+# categoryLink → keyword mapping below.
 _TRACKED_UNIT_KEYWORDS = {
     "INFANTRY", "VEHICLE", "MONSTER", "CHARACTER", "FLY",
     "TITANIC", "TOWERING", "WALKER", "BATTLELINE", "SWARM",
     "BIKE", "MOUNTED", "BEAST", "DAEMON", "PSYKER",
+    "ASURYANI",
+    # TRANSPORT (10e core). Any model that can carry passengers carries this
+    # keyword (Rhino, Repulsor, Impulsor, Wave Serpent, Devilfish, Chimera,
+    # Trukk, Caladius Grav-Tank, etc.) plus a "Transport" Ability profile on
+    # its datasheet. Read by simulator.embark / simulator.disembark /
+    # simulator.firing_deck / simulator.destroyed_transport gates.
+    "TRANSPORT",
+    # SYNAPSE: Tyranids army-rule keyword. Used by simulator.synapse_imperative
+    # (friendly Tyranids within 6" auto-pass Battle-shock) and
+    # simulator.shadow_in_the_warp (enemy units within 12" take Battle-shock
+    # at -1 to the test). Carried by Hive Tyrants, Tervigons, Maleceptors,
+    # Tyranid Primes, Old One Eye, Norn Emissary, Broodlords, etc.
+    "SYNAPSE",
 }
 
 
 def extract_unit_keywords(entry: ET.Element) -> List[str]:
-    """Scan the unit's categoryLinks for known 10e keyword tags."""
+    """Scan the unit's categoryLinks for known 10e keyword tags.
+
+    Each categoryLink name is uppercased and any BSData prefix (e.g.
+    "Faction: ", "Allegiance: ") is stripped before matching against
+    ``_TRACKED_UNIT_KEYWORDS``. This means "Faction: Asuryani" becomes
+    "ASURYANI", "Infantry" becomes "INFANTRY", etc. — the cleaned name
+    is matched as-is, so the tracked set is the single source of truth
+    for which keywords are exposed to the simulator.
+    """
     found: List[str] = []
     for cl in entry.findall(".//categoryLink"):
         name = (cl.get("name") or "").upper().strip()
@@ -1434,18 +1532,101 @@ def extract_unit_keywords(entry: ET.Element) -> List[str]:
 
 
 _FNP_RE = re.compile(r"Feel\s+No\s+Pain\s*\(?\s*(\d)\s*\+", re.IGNORECASE)
+# Matches the value attribute on a <modifier type="append" field="name" value="5+"/>
+# child of an FNP infoLink (BSData's canonical encoding for the threshold).
+_FNP_MOD_VALUE_RE = re.compile(r"(\d)\s*\+?")
 # Unit-level "Stealth" ability: matches Stealth as a bare word (not "Stealthy"
 # adjectives). Used by extract_stealth to detect the defensive ability that
 # imposes -1 to hit when this unit is shot at.
 _STEALTH_ABILITY_RE = re.compile(r"(?:^|[\s,;.])Stealth(?:$|[\s,;.\)])")
 
 
+def _fnp_from_infolink_modifier(il: ET.Element) -> int:
+    """
+    Read the FNP threshold from a Feel No Pain infoLink's modifier-append child.
+
+    BSData encodes the FNP value as:
+        <infoLink name="Feel No Pain" type="rule" targetId="...">
+          <modifiers>
+            <modifier type="append" field="name" value="5+"/>
+          </modifiers>
+        </infoLink>
+
+    The linked "Feel No Pain" rule body itself just says "Feel No Pain x+"
+    (no number), so the only place to recover the per-unit threshold is
+    this modifier. Returns 7 if the infoLink isn't actually an FNP link or
+    no readable threshold is present.
+    """
+    name = (il.get("name") or "").strip()
+    if name.lower() != "feel no pain":
+        return 7
+    best = 7
+    for mod in il.iter():
+        tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+        if tag != "modifier":
+            continue
+        if (mod.get("type") or "").lower() != "append":
+            continue
+        if (mod.get("field") or "").lower() != "name":
+            continue
+        value = (mod.get("value") or "").strip()
+        m = _FNP_MOD_VALUE_RE.search(value)
+        if not m:
+            continue
+        try:
+            v = int(m.group(1))
+        except ValueError:
+            continue
+        if 2 <= v <= 6 and v < best:
+            best = v
+    return best
+
+
 def extract_fnp(entry: ET.Element, reg: Registry) -> int:
     """
-    Walk the unit's profiles + linked rules for prose "Feel No Pain N+" mentions.
+    Resolve the unit's Feel No Pain threshold.
+
+    Strategy (canonical first, prose as fallback):
+      1. Scan the unit's direct infoLinks for ``name="Feel No Pain"`` carrying
+         a ``<modifier type="append" field="name" value="N+"/>`` — this is the
+         BSData-canonical encoding. ~107 units across 27 catalogues use this
+         shape (Poxwalkers, Wracks, Wulfen, Repentia, Death Company, etc.),
+         and they were previously dropped to FNP 7 because the linked rule
+         body says "Feel No Pain x+" with no number.
+      2. Fall back to the legacy depth-limited walk that hunts for prose
+         "Feel No Pain N+" in characteristic text on linked profiles / rules.
     Returns the lowest N (best for the unit), or 7 if none.
     """
     best = 7
+    # (1) Canonical modifier-append at unit-direct infoLinks. We also look
+    # one level deep into entryLinks (some units expose FNP via an upgrade
+    # selectionEntry's infoLinks, e.g. wargear-granted FNP), but never
+    # follow rule targetIds — the rule body never carries the threshold.
+    canonical_found = False
+    for il in entry.findall("./infoLinks/infoLink"):
+        v = _fnp_from_infolink_modifier(il)
+        if v < best:
+            best = v
+        if (il.get("name") or "").strip().lower() == "feel no pain":
+            canonical_found = True
+    for il in entry.findall("./entryLinks/entryLink/infoLinks/infoLink"):
+        v = _fnp_from_infolink_modifier(il)
+        if v < best:
+            best = v
+        if (il.get("name") or "").strip().lower() == "feel no pain":
+            canonical_found = True
+    # When a canonical Feel No Pain infoLink is present on the unit (or one
+    # of its direct upgrade selectionEntries), trust its modifier-append
+    # value as authoritative. The legacy prose walk traverses shared rules
+    # / library entries that frequently mention OTHER units' FNP thresholds
+    # in passing (e.g. "X works against Feel No Pain 5+ abilities"), which
+    # would otherwise pull a stronger but incorrect threshold here.
+    if canonical_found:
+        return best
+    # (2) Legacy prose walk — catches the older shape where the threshold is
+    # baked into an ability description ("This unit has the Feel No Pain 5+
+    # ability."). Kept as a fallback for units that don't use the canonical
+    # infoLink+modifier idiom.
     seen: set = set()
     def walk(elem: ET.Element, depth: int):
         nonlocal best
@@ -1562,6 +1743,108 @@ def extract_deployment_abilities(entry: ET.Element) -> Dict[str, object]:
     }
 
 
+_DEADLY_DEMISE_INT_RE = re.compile(r"^\s*(\d+)\s*$")
+
+
+def _parse_demise_value(s: str) -> int:
+    """Map a 'Deadly Demise N' suffix string to its expected-value integer.
+
+    Canonical forms seen in BSData 10e infoLink modifiers:
+       "1", "2", "3", "D3", "D6", "D3+3"
+    Returns 0 if unrecognised. Mapping:
+       integer N -> N
+       "D3"      -> 2   (expected value)
+       "D6"      -> 3   (expected value, rounded down from 3.5)
+       "D3+3"    -> 5   (E[D3] + 3 = 2 + 3)
+    """
+    s = (s or "").strip()
+    if not s:
+        return 0
+    su = s.upper().replace(" ", "")
+    if su == "D3":
+        return 2
+    if su == "D6":
+        return 3
+    if su == "D3+3":
+        return 5
+    if su == "D6+3":
+        return 6
+    m = _DEADLY_DEMISE_INT_RE.match(s)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return 0
+    return 0
+
+
+def extract_deadly_demise(entry: ET.Element) -> int:
+    """Scan the unit's directly-attached infoLinks for the Deadly Demise ability.
+
+    In BSData 10e, Deadly Demise is published as a shared-rule infoLink with
+    name="Deadly Demise" and a child <modifier type="append" field="name"
+    value="X"/> that carries the X value as a literal (e.g. "1", "D3", "D6",
+    "D3+3"). Returns the parsed integer expected value, or 0 if not present.
+
+    Cited as `simulator.deadly_demise`.
+    """
+    for il in entry.findall(".//infoLink"):
+        name = (il.get("name") or "").strip()
+        if name != "Deadly Demise":
+            continue
+        # Find the modifier carrying the X suffix
+        for mod in il.iter():
+            tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+            if tag != "modifier":
+                continue
+            if mod.get("field") != "name" or mod.get("type") != "append":
+                continue
+            val = (mod.get("value") or "").strip()
+            v = _parse_demise_value(val)
+            if v > 0:
+                return v
+        # Fall back: an infoLink named "Deadly Demise" with no suffix is
+        # rare but should still record the ability (treat as 1).
+        return 1
+    return 0
+
+
+_FIRING_DECK_INT_RE = re.compile(r"^\s*(\d+)\s*$")
+
+
+def extract_firing_deck(entry: ET.Element) -> int:
+    """Scan the unit's directly-attached infoLinks for the Firing Deck ability.
+
+    In BSData 10e, Firing Deck is published as a shared-rule infoLink with
+    name="Firing Deck" and a child <modifier type="append" field="name"
+    value="X"/> that carries the integer X (e.g. "2", "6", "10"). Returns
+    the parsed integer, or 0 if not present.
+
+    Cited as `simulator.firing_deck`.
+    """
+    for il in entry.findall(".//infoLink"):
+        name = (il.get("name") or "").strip()
+        if name != "Firing Deck":
+            continue
+        for mod in il.iter():
+            tag = mod.tag.split("}")[-1] if "}" in mod.tag else mod.tag
+            if tag != "modifier":
+                continue
+            if mod.get("field") != "name" or mod.get("type") != "append":
+                continue
+            val = (mod.get("value") or "").strip()
+            m = _FIRING_DECK_INT_RE.match(val)
+            if m:
+                try:
+                    return int(m.group(1))
+                except ValueError:
+                    return 0
+        # Firing Deck with no parsed X — fall back to 1 so the keyword
+        # still registers (rare; defensive).
+        return 1
+    return 0
+
+
 def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
     """True iff the unit has the Stealth datasheet ability (-1 to be hit
     by ranged attacks).
@@ -1584,13 +1867,86 @@ def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
     return False
 
 
+def extract_lone_operative(entry: ET.Element, reg: Registry) -> bool:
+    """True iff the unit has the Lone Operative core ability (ranged attackers
+    must be within 12" to target it).
+
+    Detection mirrors `extract_stealth`: BSData publishes Lone Operative as a
+    shared rule infoLink with `name="Lone Operative"` attached to the unit
+    entry, plus a small number of datasheets inline it as a profile named
+    "Lone Operative". Only those two structured shapes count — never
+    free-form prose that merely mentions the words.
+    """
+    for il in entry.findall(".//infoLink"):
+        if (il.get("name") or "").strip().lower() == "lone operative":
+            return True
+    for prof in entry.findall(".//profile"):
+        if (prof.get("name") or "").strip().lower() == "lone operative":
+            return True
+    return False
+
+
 _INVULN_RE = re.compile(r"Invulnerable\s+Save\s*\(?\s*(\d)\s*\+", re.IGNORECASE)
+# Match the digit inside an Invuln-Save profile's Description characteristic.
+# Three canonical phrasings appear across BSData (surveyed across all codices):
+#   "Models in this unit have a 4+ invulnerable save."
+#   "This model has a 4+ invulnerable save."
+#   "Invulnerable Save of 4+." (Drukhari Archon, etc.)
+# A handful of profiles store ONLY the bare digit ("4+") in the Description,
+# leaning on the profile's name="Invulnerable Save" for context — covered by
+# `_INVULN_BARE_RE` as a fallback.
+_INVULN_DESC_PRE_RE = re.compile(r"(\d)\+\s*[Ii]nvulnerable\s+[Ss]ave", re.IGNORECASE)
+_INVULN_DESC_POST_RE = re.compile(r"[Ii]nvulnerable\s+[Ss]ave\s+of\s+(\d)\+", re.IGNORECASE)
+_INVULN_BARE_RE = re.compile(r"^\s*(\d)\+\s*$")
+# We deliberately do NOT exclude phrasings like "against ranged attacks only".
+# The simulator doesn't model ranged-vs-melee invuln separately, and an invuln
+# that only applies vs ranged attacks is still strictly better than no invuln
+# (vs the simulator's symmetric shooting-then-melee phase, the effective uplift
+# is approximate but on the correct side). If we later add ranged-only invuln
+# modelling, that's the right place to slice this distinction.
+
+
+def _parse_invuln_from_description(desc: str) -> Optional[int]:
+    """Pull the digit from an Invuln-Save profile's Description characteristic.
+
+    Returns None if no recognisable invuln value is present.
+    """
+    if not desc:
+        return None
+    m = _INVULN_DESC_PRE_RE.search(desc)
+    if m:
+        return int(m.group(1))
+    m = _INVULN_DESC_POST_RE.search(desc)
+    if m:
+        return int(m.group(1))
+    m = _INVULN_BARE_RE.match(desc.strip())
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _is_bare_invuln_name(name: str) -> bool:
+    """True if an infoLink/profile name is exactly "Invulnerable Save" with no
+    qualifying parenthetical (e.g. "Invulnerable Save (Yvraine)" — conditional
+    on a leader — should NOT match: those infoLinks point at non-Invuln rules).
+    """
+    s = (name or "").strip()
+    return s.lower() == "invulnerable save"
 
 
 def extract_invuln(entry: ET.Element, reg: Registry) -> int:
     """
-    Find the best invulnerable save on a unit by scanning infoLinks to profiles
-    named "Invulnerable Save (X+*)". Returns 7 if none.
+    Find the best invulnerable save on a unit by scanning infoLinks for two shapes:
+
+      1. The infoLink's own name carries the digit ("Invulnerable Save (4+*)")
+         — historical shape, e.g. Genestealer Cults Patriarch.
+      2. The infoLink's name is the bare "Invulnerable Save" and the digit
+         lives in the LINKED profile's Description characteristic — the shape
+         used by Adeptus Custodes (all 31 datasheets), Adeptus Mechanicus,
+         Terminator squads, Sanguinary Guard, Marneus Calgar etc. Discovered
+         missing in May 2026 Phase 3 defensive audit.
+
+    Returns the best (lowest) value found, or 7 if none.
     """
     best = 7
     seen: set = set()
@@ -1605,11 +1961,27 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
             seen.add(eid)
         for il in elem.findall(".//infoLink"):
             name = il.get("name") or ""
+            # Shape 1: digit embedded in the infoLink name.
             m = _INVULN_RE.search(name)
             if m:
                 v = int(m.group(1))
                 if v < best:
                     best = v
+                continue
+            # Shape 2: bare "Invulnerable Save" name → resolve target profile
+            # and parse its Description characteristic for the digit.
+            if not _is_bare_invuln_name(name):
+                continue
+            target = reg.resolve(il.get("targetId") or "")
+            if target is None or target.tag != "profile":
+                continue
+            for ch in target.iter("characteristic"):
+                if ch.get("name") != "Description":
+                    continue
+                v = _parse_invuln_from_description(ch.text or "")
+                if v is not None and v < best:
+                    best = v
+                break
         for el in elem.findall("./entryLinks/entryLink"):
             target = reg.resolve(el.get("targetId") or "")
             if target is not None:

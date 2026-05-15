@@ -163,12 +163,14 @@ class PickerSingleDetachmentTests(unittest.TestCase):
     """Factions with one registered detachment always resolve to it."""
 
     def test_picker_returns_unique_when_only_one(self):
-        # Necrons has only awakened_dynasty in FACTION_DETACHMENTS for now.
-        self.assertEqual(FACTION_DETACHMENTS["Necrons"], ("awakened_dynasty",))
+        # Tyranids still has only invasion_fleet in FACTION_DETACHMENTS
+        # (Necrons gained canoptek_court in #126, so use Tyranids as the
+        # 1-detachment canary).
+        self.assertEqual(FACTION_DETACHMENTS["Tyranids"], ("invasion_fleet",))
         rng = random.Random(42)
-        det = pick_detachment_for_army("Necrons", [], rng)
+        det = pick_detachment_for_army("Tyranids", [], rng)
         self.assertIsNotNone(det)
-        self.assertEqual(det.name, "Awakened Dynasty")
+        self.assertEqual(det.name, "Invasion Fleet")
 
     def test_picker_unmapped_faction_falls_back(self):
         det = pick_detachment_for_army("Made-Up Faction", [], random.Random(0))
@@ -244,6 +246,129 @@ class ScoringTests(unittest.TestCase):
         self.assertGreater(
             _score_detachment_for_army(veh_det, vehicle_comp),
             _score_detachment_for_army(inf_det, vehicle_comp),
+        )
+
+
+class SecondDetachmentTests(unittest.TestCase):
+    """#126: each second detachment fires its buff under the trigger condition."""
+
+    @staticmethod
+    def _profile(name: str, faction: str, keywords=(), move: float = 6.0) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=1, damage=1, hit_probability=0.5,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            unit_keywords=tuple(keywords),
+            faction=faction,
+            move=move,
+        )
+
+    def test_ironstorm_buffs_vehicle_attacker(self):
+        """Ironstorm Spearhead: VEHICLE attacker gets reroll_hit_ones."""
+        from code.detachments import IRONSTORM_SPEARHEAD
+        from code.leaders import effective_buffs
+        army = Army("Marines", detachment=IRONSTORM_SPEARHEAD)
+        army.add_unit(self._profile(
+            "Predator", "Adeptus Astartes", keywords=("VEHICLE",),
+        ))
+        army.add_unit(self._profile(
+            "Intercessor", "Adeptus Astartes", keywords=("INFANTRY",),
+        ))
+        # Position both at origin so leader-aura distance code is unambiguous.
+        for u in army.units:
+            u.position = (0.0, 0.0)
+        vehicle = army.units[0]
+        infantry = army.units[1]
+        veh_buffs = effective_buffs(vehicle)
+        inf_buffs = effective_buffs(infantry)
+        self.assertTrue(veh_buffs["reroll_hit_ones"], "VEHICLE should get reroll_hit_ones")
+        self.assertFalse(inf_buffs["reroll_hit_ones"], "INFANTRY shouldn't")
+
+    def test_canoptek_court_buffs_canoptek_attacker(self):
+        """Canoptek Court: profile-name-prefix 'Canoptek' gets +1 to wound."""
+        from code.detachments import CANOPTEK_COURT
+        from code.leaders import effective_buffs
+        army = Army("Necrons", detachment=CANOPTEK_COURT)
+        army.add_unit(self._profile(
+            "Canoptek Wraiths", "Necrons", keywords=("INFANTRY",),
+        ))
+        army.add_unit(self._profile(
+            "Necron Warriors", "Necrons", keywords=("INFANTRY",),
+        ))
+        for u in army.units:
+            u.position = (0.0, 0.0)
+        wraiths = army.units[0]
+        warriors = army.units[1]
+        self.assertTrue(effective_buffs(wraiths)["plus_one_to_wound"])
+        self.assertFalse(effective_buffs(warriors)["plus_one_to_wound"])
+
+    def test_saim_hann_grants_extra_move_to_aspect_warriors(self):
+        """Saim-Hann Wild Host: Aspect Warriors / Bikes gain +1" Move."""
+        from code.detachments import SAIM_HANN_WILD_HOST, effective_move
+        army = Army("Aeldari", detachment=SAIM_HANN_WILD_HOST)
+        army.add_unit(self._profile(
+            "Howling Banshees", "Aeldari", keywords=("INFANTRY",), move=8.0,
+        ))
+        army.add_unit(self._profile(
+            "Guardian Defenders", "Aeldari", keywords=("INFANTRY",), move=7.0,
+        ))
+        banshees = army.units[0]
+        guardians = army.units[1]
+        self.assertAlmostEqual(effective_move(banshees), 9.0)
+        self.assertAlmostEqual(effective_move(guardians), 7.0)
+
+    def test_plague_marines_onslaught_buffs_plague_marines(self):
+        """Plague Marines Onslaught: only profile.name == 'Plague Marines'."""
+        from code.detachments import PLAGUE_MARINES_ONSLAUGHT
+        from code.leaders import effective_buffs
+        army = Army("Death Guard", detachment=PLAGUE_MARINES_ONSLAUGHT)
+        army.add_unit(self._profile(
+            "Plague Marines", "Death Guard", keywords=("INFANTRY",),
+        ))
+        army.add_unit(self._profile(
+            "Poxwalkers", "Death Guard", keywords=("INFANTRY",),
+        ))
+        for u in army.units:
+            u.position = (0.0, 0.0)
+        plague = army.units[0]
+        pox = army.units[1]
+        self.assertTrue(effective_buffs(plague)["plus_one_to_wound"])
+        self.assertFalse(effective_buffs(pox)["plus_one_to_wound"])
+
+    def test_registry_count_grew_by_four(self):
+        """Registry should have at least 25 entries after #126 (was 21)."""
+        from code.detachments import DETACHMENTS
+        self.assertGreaterEqual(len(DETACHMENTS), 25)
+
+    def test_picker_tilts_canoptek_court_on_canoptek_heavy_army(self):
+        """Necron army that's mostly Canoptek points should usually pick
+        Canoptek Court, not Awakened Dynasty."""
+        canoptek = UnitProfile(
+            name="Canoptek Wraiths", health=4, damage=1, hit_probability=0.667,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            unit_keywords=("INFANTRY",), faction="Necrons",
+            points_override=200.0,
+        )
+        warrior = UnitProfile(
+            name="Necron Warriors", health=1, damage=1, hit_probability=0.667,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            unit_keywords=("INFANTRY",), faction="Necrons",
+            points_override=50.0,
+        )
+        # 600 pts Canoptek vs 50 pts Warriors → ~92% Canoptek.
+        army_units = [canoptek, canoptek, canoptek, warrior]
+        picks = []
+        for seed in range(60):
+            rng = random.Random(seed)
+            det = pick_detachment_for_army("Necrons", army_units, rng)
+            picks.append(det.name)
+        canoptek_picks = picks.count("Canoptek Court")
+        self.assertGreater(
+            canoptek_picks, 30,
+            f"Canoptek-heavy Necron army picked Canoptek Court "
+            f"{canoptek_picks}/60 — expected >30",
         )
 
 

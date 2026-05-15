@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from code.detachments import Detachment
+from code.enhancements import ENHANCEMENTS
 from code.leaders import LeaderAbility, _REGISTRY as LEADER_REGISTRY
 from code.stratagems import Stratagem, UNIVERSAL_STRATAGEMS
 import code.detachments as det_module
@@ -58,6 +59,11 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("psychic_mortal_wounds_per_round", 0),
     ("ld_bonus", 0),
     ("enemy_ld_penalty", 0),
+    # Keyword-gated second-detachment buffs (#126).
+    ("vehicles_reroll_hit_ones", False),
+    ("canoptek_plus_one_to_wound", False),
+    ("aspect_warrior_or_bike_plus_one_move", False),
+    ("plague_marines_plus_one_to_wound", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -98,6 +104,94 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.battle_focus",
     "simulator.battleshock",
     "simulator.judgement_tokens",
+    # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
+    # Ork units when the army has 10+ Ork models on the battlefield;
+    # waaagh is the once-per-battle Command-phase declaration that grants
+    # +1 to wound melee on the declaring turn.
+    "simulator.mob_rule",
+    "simulator.waaagh",
+    # Tyranids faction army rules (10e). synapse_imperative auto-passes
+    # Battle-shock for Tyranid units within 6" of a friendly SYNAPSE model;
+    # shadow_in_the_warp subtracts 1 from enemy Battle-shock tests within
+    # 12" of a Tyranid SYNAPSE model.
+    "simulator.synapse_imperative",
+    "simulator.shadow_in_the_warp",
+    # Drukhari army rule (10e). Command-phase token award + while-held
+    # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
+    "simulator.power_from_pain",
+    # Death Guard army rule (10e). Every DEATH GUARD model has Feel No
+    # Pain 5+. Faction-gated in Unit.receive_damage; composes with the
+    # existing transient_minus_one_damage_taken (Plague Company strat)
+    # and with leader/profile FNP by taking the lower value.
+    "simulator.disgustingly_resilient",
+    # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
+    # every DG model projects a 6" aura that subjects enemy units within
+    # it to the active Contagion. Escalates by round: round 1 -1 T (via
+    # +1 to wound in Unit.attack), round 2 -1 Ld (battleshock in
+    # _run_round), round 3+ -1 to hit on enemy attackers near a DG model
+    # (Unit.attack). Faction-gated on the DG aura source; never debuffs
+    # DG units themselves; the round-3+ -1 to hit doesn't compound with
+    # other -1-to-hit modifiers (10e cap).
+    "simulator.contagions_of_nurgle",
+    # Thousand Sons army rule (10e). -1 to wound on any single-damage
+    # attack allocated to a non-daemon TSons model (Rubric Marines,
+    # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
+    "simulator.all_is_dust",
+    # Genestealer Cults army rule (10e). Cult Ambush — at the start of the
+    # first battle round, any number of GSC units can be set up anywhere on
+    # the battlefield > 9" from enemy models. Modelled as an army-wide
+    # turn-1 Deep Strike: every GSC unit is routed to reserves at deploy
+    # time, then placed via the existing arrival path at the top of Round 1.
+    "simulator.cult_ambush",
+    # Adeptus Mechanicus army rule (10e). Command-phase pick of Protector
+    # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
+    # on attacker.profile.faction == "Adeptus Mechanicus".
+    "simulator.doctrina_imperatives",
+    # Core targeting restrictions (10e core rules). Both filter the ranged
+    # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
+    # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER
+    # friendly within 3"; Lone Operative is a unit-level keyword that hard-caps
+    # ranged targeting to 12".
+    "simulator.look_out_sir",
+    "simulator.lone_operative",
+    # World Eaters army rule (10e). Blood Tithe: 1 BT awarded per friendly
+    # WE death OR enemy unit destroyed by a WE unit; spent at the start of
+    # any phase on benefits (1=re-roll charge, 2=+1 to wound vs target,
+    # 3=+1 CP, 4=Lethal Hits on a WE unit for the phase, 5=auto-pass next
+    # Battle-shock). Faction-gated on attacker.profile.faction == "World
+    # Eaters" for the Lethal Hits buff; awards run off victim/killer army
+    # checks in the kill-emission code paths.
+    "simulator.blood_tithe",
+    # Deadly Demise X (10e core). When a model with this ability is
+    # destroyed, roll 1D6; on a 6 each unit within 6" suffers X mortal
+    # wounds. Mapper parses the X from BSData infoLink modifiers.
+    "simulator.deadly_demise",
+    # Fall Back move (10e core). A unit within Engagement Range may move
+    # up to M\" in the Movement phase and pass through enemy models; it
+    # cannot shoot or charge that turn unless it has the FLY keyword.
+    "simulator.fall_back",
+    # Desperate Escape test (10e core). After a Fall Back that passed
+    # through enemy models, roll 1D6 per model; each 1 destroys one model.
+    "simulator.desperate_escape",
+    # Adeptus Astartes Oath of Moment army rule (10e). At the start of each
+    # Command phase the Marine army picks one enemy unit; Marine attacks
+    # against that unit re-roll both the Hit roll and the Wound roll (any
+    # failure, not just 1s). Faction-gated via code.factions.is_marine_faction
+    # so every chapter codex inherits the rule.
+    "simulator.oath_of_moment",
+    # Adeptus Astartes Combat Doctrines (Gladius Task Force detachment, 10e).
+    # Round-rotating +1 to wound: Devastator R1 (ranged), Tactical R2 (both),
+    # Assault R3+ (melee). Faction-gated to Marines AND detachment-gated to
+    # "Gladius Task Force" — Ironstorm Spearhead gets nothing here.
+    "simulator.combat_doctrines",
+    # Transports (10e core). Four sub-mechanics: embark (pre-game and end-of-
+    # move), disembark (start of own Movement phase, transport hasn't moved),
+    # firing_deck (X passenger weapons fire alongside the transport), and
+    # destroyed_transport (force-disembark + 1D6-per-model on a 1).
+    "simulator.embark",
+    "simulator.disembark",
+    "simulator.firing_deck",
+    "simulator.destroyed_transport",
 )
 
 
@@ -153,6 +247,13 @@ def _required_simulator_keys() -> Set[str]:
     return set(SIMULATOR_RULE_KEYS)
 
 
+def _required_enhancement_keys() -> Set[str]:
+    """Every Enhancement registered in `code.enhancements.ENHANCEMENTS` needs
+    a citation. Key format: `Enhancement.<name>` (matches the Stratagem and
+    LeaderAbility schemes already used by the auditor)."""
+    return {f"Enhancement.{e.name}" for e in ENHANCEMENTS.values()}
+
+
 def _load_citations() -> Dict[str, dict]:
     """Merge data/rule_citations.json with every fragment under
     data/rule_citations.d/*.json. Fragments enable parallel agents to
@@ -205,6 +306,7 @@ def main() -> int:
         | _required_leader_keys()
         | _required_stratagem_keys()
         | _required_simulator_keys()
+        | _required_enhancement_keys()
     )
 
     missing = sorted(required - set(citations.keys()))

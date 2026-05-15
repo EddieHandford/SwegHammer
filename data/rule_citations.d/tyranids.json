@@ -1,0 +1,21 @@
+{
+  "_comment": "Citations for the Tyranids army rules implemented in code/simulator.py (#117). Both effects key off the SYNAPSE keyword extracted from BSData categoryLinks. Source: Wahapedia core Tyranids faction page.",
+
+  "simulator.synapse_imperative": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
+    "rule_name": "Synapse Imperative",
+    "quoted_text": "While a Tyranids unit is within 6\" of one or more friendly Synapse units, the unit cannot be Battle-shocked.",
+    "trigger": "Battle-shock test for a Tyranids unit; any friendly model with the SYNAPSE keyword is within 6\" of that unit",
+    "effect": "(approximation) the unit auto-passes its Battle-shock test (no 2D6 roll). SwegHammer models each squad member as a separate Unit instance, so the canonical 6\" aura is measured from the SYNAPSE Unit's position to the testing unit's position (not model-to-model).",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.shadow_in_the_warp": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
+    "rule_name": "Shadow in the Warp",
+    "quoted_text": "At the start of each Battle-shock test taken for an enemy unit while it is within 12\" of one or more units with this ability, subtract 1 from that test.",
+    "trigger": "Battle-shock test for an enemy unit; any Tyranids SYNAPSE model from the opposing army is within 12\" of the testing unit",
+    "effect": "(approximation) subtract 1 from the 2D6 result, modelled equivalently by raising the test target Leadership by 1. Composes additively with detachment ld_bonus / enemy_ld_penalty.",
+    "scope": "keyword-gated"
+  }
+}

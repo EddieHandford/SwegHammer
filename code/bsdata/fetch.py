@@ -21,7 +21,11 @@ from pathlib import Path
 from typing import List, Optional
 
 REPO = "BSData/wh40k-10e"
-DEFAULT_TAG = "v10.6.0"
+# Tagged releases lag the live data by ~14 months as of 2026-05 (latest tag
+# v10.6.0 dates from 2025-03-17). Phone apps like New Recruit pull from
+# main, which has all current dataslate updates + new codices (Emperor's
+# Children etc). We default to main for parity with consumer apps.
+DEFAULT_TAG = "main"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_DIR = REPO_ROOT / "data" / "bsdata" / "cache"

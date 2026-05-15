@@ -1,15 +1,6 @@
 {
   "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged '(approximation)' where the simulator's behaviour diverges from the canonical rule.",
 
-  "GLADIUS_TASK_FORCE.reroll_wound_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
-    "rule_name": "Combat Doctrines",
-    "quoted_text": "At the start of your Command phase, you can select one of the Combat Doctrines listed below. Until the start of your next Command phase, that Combat Doctrine is active and its effects apply to all ADEPTUS ASTARTES units from your army. You can only select each Combat Doctrine once per battle. Devastator Doctrine: 'This unit is eligible to shoot in a turn in which it Advanced.' Tactical Doctrine: 'This unit is eligible to shoot and declare a charge in a turn in which it Fell Back.' Assault Doctrine: 'This unit is eligible to declare a charge in a turn in which it Advanced.'",
-    "trigger": "any friendly Adeptus Astartes attack",
-    "effect": "re-roll wound rolls of 1 (approximation of the Devastator/Tactical/Assault Combat Doctrines rotation, which actually grants conditional movement-keyword shooting/charging)",
-    "scope": "army-wide"
-  },
-
   "AWAKENED_DYNASTY.reanimate_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
@@ -25,15 +16,6 @@
     "quoted_text": "Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
     "trigger": "any enemy Leadership/Battle-shock check",
     "effect": "-1 to enemy Leadership (approximation of Shadow in the Warp, which actually subtracts 1 from Battle-shock tests within 6\" of a Synapse unit rather than modifying Ld army-wide)",
-    "scope": "army-wide"
-  },
-
-  "WAAAGH_DETACHMENT.plus_one_attack": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Get-Stuck-In",
-    "rule_name": "Get Stuck In",
-    "quoted_text": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability.",
-    "trigger": "any friendly Orks melee attack",
-    "effect": "+1 Attack on every weapon (approximation of the War Horde detachment's Sustained Hits 1 on melee, plus the once-per-game Waaagh! army rule which our model rolls into the always-on +1A baseline; codex renames the launch-day 'WAAAGH! Tribe' index detachment to 'War Horde')",
     "scope": "army-wide"
   },
 
@@ -161,5 +143,41 @@
     "trigger": "any friendly Genestealer Cults hit roll",
     "effect": "re-roll hit rolls of 1 (approximation of Psionic Parasitism, which actually grants +1 to Hit to one Tyranids unit per Synapse unit at the cost of mortal wounds on a Genestealer Cults unit; we collapse the per-unit gated +1 hit into army-wide reroll-1s)",
     "scope": "army-wide"
+  },
+
+  "IRONSTORM_SPEARHEAD.vehicles_reroll_hit_ones": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Ironstorm-Spearhead",
+    "rule_name": "Armour of Contempt",
+    "quoted_text": "Each time an attack is allocated to an ADEPTUS ASTARTES model from your army, worsen the Armour Penetration characteristic of that attack by 1.",
+    "trigger": "attacker's unit has the VEHICLE keyword",
+    "effect": "re-roll Hit rolls of 1 (approximation of the launch-day Ironstorm Spearhead spine, whose canonical rule worsens incoming AP by 1 on Marine models; we collapse the vehicle-centric detachment identity into a flat reroll-hit-1s gated to VEHICLE attackers so the buff fires on the units the codex empowers)",
+    "scope": "keyword-gated"
+  },
+
+  "CANOPTEK_COURT.canoptek_plus_one_to_wound": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Court",
+    "rule_name": "Hyper-Logical Strategy",
+    "quoted_text": "Once per battle, at the start of any phase, you can use this ability. If you do, until the end of that phase, each time a CANOPTEK model from your army makes an attack, re-roll the Wound roll.",
+    "trigger": "attacker's profile name starts with 'Canoptek'",
+    "effect": "+1 to wound rolls (approximation of the Canoptek Court detachment's Cryptek-led Canoptek-buff spine, which canonically grants a once-per-battle full wound re-roll to all CANOPTEK models for a phase; we collapse the per-phase reroll plus the rest of the Cryptek toolkit into an always-on +1 to wound on CANOPTEK datasheets, gated on profile-name prefix because BSData doesn't carry a CANOPTEK keyword)",
+    "scope": "keyword-gated"
+  },
+
+  "SAIM_HANN_WILD_HOST.aspect_warrior_or_bike_plus_one_move": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wind-Riders-of-Saim-Hann",
+    "rule_name": "Wild Rider Charge",
+    "quoted_text": "Each time an AELDARI MOUNTED unit from your army makes a Charge move, until the end of the turn, each time a model in that unit makes an attack, add 1 to the Wound roll.",
+    "trigger": "attacker's profile name matches an Aspect Warrior datasheet (Howling Banshees, Striking Scorpions, Fire Dragons, Dark Reapers, Swooping Hawks, Warp Spiders, Shining Spears) or a Bike chassis (Windriders, Shining Spears, Shroud Runners)",
+    "effect": "+1\" Movement (approximation of the Saim-Hann Wild Host's hit-and-run identity, which canonically grants a charge-gated +1 to wound on Aeldari Bikes; we collapse the mobility/charge spine into a flat +1\" to the Move characteristic for the Aspect Warrior + Bike datasheets so the wildhost-themed list plays faster across the table)",
+    "scope": "keyword-gated"
+  },
+
+  "PLAGUE_MARINES_ONSLAUGHT.plague_marines_plus_one_to_wound": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company",
+    "rule_name": "Sacred Plagues",
+    "quoted_text": "Each time a PLAGUE MARINE model from your army makes an attack with a Plague weapon, you can re-roll the Wound roll.",
+    "trigger": "attacker's profile name == 'Plague Marines'",
+    "effect": "+1 to wound rolls (approximation of the Plague Marines-themed detachment spine, which canonically grants a re-roll wound rolls on Plague Weapons fired by Plague Marines; we collapse the per-weapon reroll into a flat +1 to wound on the Plague Marines datasheet so the on-foot 'Plague Marines Onslaught' list benefits when it actually fields the eponymous unit)",
+    "scope": "keyword-gated"
   }
 }

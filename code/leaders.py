@@ -75,6 +75,24 @@ class LeaderAbility:
     # nearby units (within aura_range) to play at full HP. Apothecary
     # Narthecium per the 10e Space Marines codex.
     revive_destroyed_per_round: int = 0
+    # Command Point economy modifiers — these fire only when the bearer is
+    # this army's Warlord. The simulator picks the Warlord at battle start
+    # (first alive CHARACTER unit with any non-zero CP field set).
+    #
+    # `cp_discount_per_round`: extra CP awarded at the start of every Command
+    # phase (capped at 6 by the universal CP_CAP). Roboute Guilliman's
+    # "Author of the Codex" army-rule slot per the Ultramarines 10e codex.
+    cp_discount_per_round: int = 0
+    # `cp_refund_per_battle`: one-time-per-battle refund pool. When > 0, the
+    # next stratagem spend by this army is refunded 1 CP and the pool
+    # decrements. Models Belisarius Cawl's "Master of the Forge" once-per-
+    # battle bonus CP and Trazyn the Infinite's "Surreptitious Acquisition"
+    # CP-stealing trickery (10e Necrons codex).
+    cp_refund_per_battle: int = 0
+    # `first_stratagem_free_per_round`: the first stratagem fired each round
+    # by this army costs 0 CP. Models Lord of Contagion's "Lord of the
+    # Death Guard" Warlord trait when fielded as Warlord.
+    first_stratagem_free_per_round: bool = False
     # Legal bodyguard hosts for the calibrator. Preference order; the
     # picker chooses the first key present in UNIT_CATALOG.
     host_keys: Tuple[str, ...] = ()
@@ -95,13 +113,17 @@ _MARINE_HOSTS = (
 )
 _NECRON_HOSTS = ("necrons_necron_warriors", "necrons_immortals")
 _AELDARI_GUARDIAN_HOSTS = (
-    "aeldari_aeldari_library_guardian_defenders",
-    "aeldari_aeldari_library_storm_guardians",
+    "aeldari_craftworlds_guardian_defenders",
+    "aeldari_craftworlds_storm_guardians",
 )
 _TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
 
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
-    # Space Marine HQ
+    # Space Marine HQ — named characters first so they win the substring
+    # match before the generic "Captain" entry below.
+    ("Roboute Guilliman", LeaderAbility(name="Author of the Codex",         aura_range=6.0, reroll_hit_ones=True,
+                                          cp_discount_per_round=1,
+                                          host_keys=_MARINE_HOSTS)),
     ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True,  host_keys=_MARINE_HOSTS)),
     ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True, host_keys=_MARINE_HOSTS)),
     ("Apothecary",         LeaderAbility(name="Narthecium",                 aura_range=3.0, revive_destroyed_per_round=1, host_keys=_MARINE_HOSTS)),
@@ -109,7 +131,11 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Adepta Sororitas
     ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("adepta_sororitas_battle_sisters_squad",))),
-    # Necrons
+    # Necrons — named characters first so they win the substring match
+    # before the generic "Overlord" entry below.
+    ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0, plus_one_to_hit=True,
+                                          cp_refund_per_battle=1,
+                                          host_keys=_NECRON_HOSTS)),
     ("Overlord",           LeaderAbility(name="My Will Be Done",            aura_range=6.0, plus_one_to_hit=True,  host_keys=_NECRON_HOSTS)),
     ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
@@ -145,11 +171,20 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
                                           host_keys=("adeptus_custodes_custodian_guard",))),
     # Adeptus Mechanicus
+    # Belisarius Cawl — entry must precede the generic Tech-Priest match so
+    # the longer name wins the substring lookup. "Master of the Forge" once-
+    # per-battle CP bonus + a baseline reroll-1s offensive aura (codex grants
+    # full hit re-rolls on Cawl's unit; reroll-1s is the loose proxy).
+    ("Belisarius Cawl",    LeaderAbility(name="Master of the Forge",        aura_range=6.0, reroll_hit_ones=True,
+                                          cp_refund_per_battle=1,
+                                          host_keys=("adeptus_mechanicus_skitarii_vanguard",
+                                                     "adeptus_mechanicus_skitarii_rangers"))),
     ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, reroll_hit_ones=True, heal_per_round=1,
                                           host_keys=("adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
     # Death Guard
     ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
+                                          first_stratagem_free_per_round=True,
                                           host_keys=("death_guard_plague_marines",))),
     ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
                                           host_keys=("death_guard_plague_marines",))),
@@ -161,9 +196,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                                      "grey_knights_strike_squad"))),
     # Drukhari (10e: folded into Aeldari faction)
     ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True,
-                                          host_keys=("aeldari_aeldari_library_kabalite_warriors",))),
+                                          host_keys=("aeldari_drukhari_kabalite_warriors",))),
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("aeldari_aeldari_library_wyches",))),
+                                          host_keys=("aeldari_drukhari_wyches",))),
     # Genestealer Cults
     ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("genestealer_cults_neophyte_hybrids",
@@ -172,6 +207,39 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, plus_one_to_hit=True,
                                           host_keys=("leagues_of_votann_hearthkyn_warriors",))),
 )
+
+
+def warlord_ability(army: "Army") -> Optional[LeaderAbility]:
+    """Return the LeaderAbility of this army's Warlord, if any.
+
+    Warlord is defined here as the first alive CHARACTER unit (in iteration
+    order on `army.units`) whose LeaderAbility carries any CP-economy field
+    (`cp_discount_per_round`, `cp_refund_per_battle`, or
+    `first_stratagem_free_per_round`). This narrow definition is sufficient
+    for the simulator's CP-econ gates: a non-Warlord-having army returns
+    None and never accrues a discount.
+
+    A character that loses its alive status mid-battle does NOT cause the
+    discount to retroactively disappear from the army's accumulated CP —
+    the latches in `Army.cp_refund_remaining` /
+    `Army._warlord_first_strat_free_enabled` are set at battle start once.
+    """
+    for u in army.units:
+        if not u.is_alive:
+            continue
+        kw = set(u.profile.unit_keywords or ())
+        if "CHARACTER" not in kw:
+            continue
+        ability = lookup_ability(u.profile.name)
+        if ability is None:
+            continue
+        if (
+            ability.cp_discount_per_round > 0
+            or ability.cp_refund_per_battle > 0
+            or ability.first_stratagem_free_per_round
+        ):
+            return ability
+    return None
 
 
 def lookup_ability(profile_name: str) -> Optional[LeaderAbility]:
@@ -295,6 +363,34 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
                     and in_range_leaders(attacker):
                 buffs["plus_one_to_hit"] = True
 
+            # Keyword-gated second-detachment buffs (#126). Each fires only
+            # when the attacker's datasheet matches the detachment's gate.
+            attacker_kw = set(getattr(attacker.profile, "unit_keywords", ()) or ())
+            attacker_name = getattr(attacker.profile, "name", "") or ""
+            # Ironstorm Spearhead — VEHICLE units re-roll Hit rolls of 1.
+            if (
+                getattr(det, "vehicles_reroll_hit_ones", False)
+                and "VEHICLE" in attacker_kw
+            ):
+                buffs["reroll_hit_ones"] = True
+            # Canoptek Court — CANOPTEK units get +1 to wound. Datasheet
+            # detection via name-prefix matches all four BSData entries
+            # (Reanimator, Spyders, Scarab Swarms, Wraiths).
+            if (
+                getattr(det, "canoptek_plus_one_to_wound", False)
+                and attacker_name.startswith("Canoptek")
+            ):
+                buffs["plus_one_to_wound"] = True
+            # Plague Marines Onslaught — Plague Marines get +1 to wound.
+            if (
+                getattr(det, "plague_marines_plus_one_to_wound", False)
+                and attacker_name == "Plague Marines"
+            ):
+                buffs["plus_one_to_wound"] = True
+            # NB: Saim-Hann Wild Host's +1" Movement is a phase-side buff,
+            # not an attack-side modifier; it's applied via the
+            # `effective_move` helper, not here.
+
     for leader in in_range_leaders(attacker):
         ability = lookup_ability(leader.profile.name)
         if ability is None:
@@ -306,6 +402,47 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
+
+    # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
+    # may carry one Enhancement; if it does, OR-merge the aura modifier
+    # flags onto the same buff dict. Enhancement fields are namespaced
+    # with `_aura` to keep them visually distinct from the LeaderAbility
+    # equivalents, but they merge into the same neutral-buffs keys.
+    # We also include `attacker.enhancement` itself: a CHARACTER carrying
+    # an Enhancement is its own bearer, so its unit benefits even without
+    # a separate friendly CHARACTER nearby.
+    enh_carriers: List["Unit"] = []
+    army = getattr(attacker, "army_ref", None)
+    if army is not None:
+        # Bearer is the attacker itself, when applicable.
+        if getattr(attacker, "enhancement", None) is not None:
+            enh_carriers.append(attacker)
+        # Plus every other in-range friendly CHARACTER carrying an
+        # Enhancement (the bearer's unit gets the aura through proximity).
+        for leader in in_range_leaders(attacker):
+            if leader is attacker:
+                continue
+            if getattr(leader, "enhancement", None) is not None:
+                enh_carriers.append(leader)
+    for carrier in enh_carriers:
+        enh = carrier.enhancement
+        if enh is None:
+            continue
+        if getattr(enh, "plus_one_to_hit_aura", False):
+            buffs["plus_one_to_hit"] = True
+        if getattr(enh, "plus_one_to_wound_aura", False):
+            buffs["plus_one_to_wound"] = True
+        if getattr(enh, "reroll_hit_ones_aura", False):
+            buffs["reroll_hit_ones"] = True
+        if getattr(enh, "reroll_wound_ones_aura", False):
+            buffs["reroll_wound_ones"] = True
+        extra_atk = int(getattr(enh, "extra_attacks_melee", 0) or 0)
+        if extra_atk:
+            buffs["plus_one_attack"] = int(buffs["plus_one_attack"]) + extra_atk
+        if getattr(enh, "fnp_to_5", False):
+            cur_fnp = int(buffs["fnp"])
+            if cur_fnp > 5:
+                buffs["fnp"] = 5
 
     return buffs
 

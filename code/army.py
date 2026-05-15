@@ -2,11 +2,85 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
 from .units import Unit, UnitProfile
+
+
+# Engagement distance (in inches) inside which Look Out Sir / Lone Operative
+# stop blocking the shot. Wahapedia 10e core: "...unless the attacking unit
+# is within 12\" of the target."
+_LOS_RANGE_INCHES: float = 12.0
+# Bodyguard radius (in inches) used by Look Out Sir — a friendly non-CHARACTER
+# within this distance of the target shields it. Wahapedia 10e core wording.
+_BODYGUARD_RADIUS_INCHES: float = 3.0
+
+
+def _xy_distance(a, b) -> float:
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def can_target_for_ranged(
+    attacker: Unit,
+    target: Unit,
+    friendly_units: Iterable[Unit],
+) -> bool:
+    """Return True iff `attacker` is permitted to make a ranged attack against
+    `target` under the 10e core targeting rules (Look Out Sir + Lone Operative).
+
+    Args:
+        attacker: the firing unit. Its `.position` is read for the 12" check.
+        target: the prospective target unit. Its profile keywords and
+            `.lone_operative` flag drive the gates. `target.position` is read
+            for the bodyguard / 12" checks.
+        friendly_units: alive units allied to the TARGET (i.e. the defender's
+            army), used to find non-CHARACTER bodyguards within 3" of the
+            target for Look Out Sir.
+
+    Rules implemented (Wahapedia 10e core):
+      * Look Out Sir (`simulator.look_out_sir`): if the target is a CHARACTER
+        unit and is NOT also MONSTER or VEHICLE, and a friendly non-CHARACTER
+        unit (other than the target itself) is within 3" of the target, then
+        the attack cannot be made unless the attacker is within 12" of the
+        target.
+      * Lone Operative (`simulator.lone_operative`): if the target has the
+        Lone Operative ability, the attack can only be made from within 12".
+
+    Returns False when either gate blocks the shot, True otherwise. The check
+    is order-insensitive — both gates compose so a Lone Operative CHARACTER
+    huddled next to an INFANTRY unit just gets the same 12" cap.
+    """
+    distance = _xy_distance(attacker.position, target.position)
+    tp = target.profile
+    target_kw = set(tp.unit_keywords or ())
+
+    # Lone Operative — keyword-gated, hard 12" cap.
+    if getattr(tp, "lone_operative", False) and distance > _LOS_RANGE_INCHES:
+        return False
+
+    # Look Out Sir — only fires on CHARACTERS that aren't MONSTER/VEHICLE.
+    is_los_eligible_character = (
+        "CHARACTER" in target_kw
+        and "MONSTER" not in target_kw
+        and "VEHICLE" not in target_kw
+    )
+    if is_los_eligible_character and distance > _LOS_RANGE_INCHES:
+        # Bodyguard scan: any friendly non-CHARACTER unit within 3" of the
+        # target (excluding the target itself).
+        for f in friendly_units:
+            if f is target or not f.is_alive:
+                continue
+            fkw = set(f.profile.unit_keywords or ())
+            if "CHARACTER" in fkw:
+                continue
+            if _xy_distance(f.position, target.position) <= _BODYGUARD_RADIUS_INCHES:
+                return False
+
+    return True
 
 
 # Faction tag for the Leagues of Votann army-rule (Eye of the Ancestors /
@@ -52,6 +126,82 @@ class Army:
         # Votann army (see `is_votann_army`); other armies keep this dict
         # empty for the whole battle.
         self.judgement_tokens: Dict[str, int] = {}
+        # Orks WAAAGH! army rule — declared once per battle at the start of
+        # an Ork player's Command phase. Stores the round in which WAAAGH!
+        # was unlocked; `Unit.attack` reads this against the live battle
+        # round to apply the +1 to wound melee buff. None = not yet declared.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!
+        # Cited as `simulator.waaagh`.
+        self.waaagh_round_unlocked: Optional[int] = None
+        # Starting points snapshot — captured once at battle start by the
+        # simulator so the WAAAGH! AI can compare current points to the
+        # initial roster (the trigger fires early if Orks are taking heavy
+        # losses). 0 until the simulator sets it.
+        self.starting_points: float = 0.0
+        # Adeptus Mechanicus army rule — Doctrina Imperatives. At the start
+        # of each Command phase, the AdMech player picks ONE of two
+        # imperatives, active until the start of their next Command phase:
+        #   * "protector": +1 to hit ranged, -1 to hit melee
+        #   * "conqueror": +1 to hit melee, -1 to hit ranged
+        # Reset to None each round; re-picked by the simulator's AI based on
+        # the army's role mix and engagement count. None on a non-AdMech
+        # army (the gate is faction-checked at attack-resolution time too).
+        # Cited as `simulator.doctrina_imperatives`.
+        self.doctrina_imperative: Optional[str] = None
+        # World Eaters army rule — Blood Tithe (10e). Codex-wide accumulator
+        # incremented by 1 each time a friendly WORLD EATERS unit dies OR an
+        # enemy unit is destroyed by a WORLD EATERS unit. Spent at the start
+        # of any phase on Boons of Khorne benefits — the simulator's AI
+        # spends priority-greedy in `_run_round` (BT>=4 grants Lethal Hits
+        # on a WE unit for the phase; BT>=3 grants +1 CP). Stays 0 on a
+        # non-WE army (the spend gate checks faction tag before running).
+        # Cited as `simulator.blood_tithe`.
+        self.blood_tithe: int = 0
+        # Round number in which a 4-BT Lethal Hits spend fired. Read by
+        # Unit.attack against the live battle round (via _battle_ref) to
+        # gate effective_lethal_hits for World Eaters attackers; the buff
+        # is scoped to "this phase" in the codex, which we collapse to
+        # "this round" because the simulator activation loop doesn't break
+        # round-internal phases out separately. None = not active.
+        self.blood_tithe_lethal_hits_round: Optional[int] = None
+        # Cult of Magic Cabbalistic Empowerment (Thousand Sons stratagem,
+        # 1 CP). When set True for the round, the simulator's _try_doombolt
+        # dispatcher pays 3 MW instead of the base 2 MW (median D3) to its
+        # target. Reset to False each round by Battle._clear_transient_stratagem_flags.
+        # Cited as `Stratagem.Cabbalistic Empowerment`.
+        self.cabbalistic_doombolt_boost: bool = False
+        # CP discount / refund mechanics tied to specific Warlord characters
+        # (Belisarius Cawl, Roboute Guilliman, Trazyn the Infinite, Lord of
+        # Contagion). The Battle initialiser scans this army's CHARACTER
+        # units at start-of-battle and seeds the fields below from the
+        # bearer's LeaderAbility, IFF that character is the army's Warlord.
+        self.cp_refund_remaining: int = 0
+        self.first_stratagem_free_this_round: bool = False
+        self._warlord_first_strat_free_enabled: bool = False
+        # Adeptus Astartes Oath of Moment (army rule, 10e). At the start of
+        # each Command phase the Marine player picks one enemy unit; until
+        # the start of their next Command phase, every Marine attack against
+        # that unit re-rolls BOTH the hit roll and the wound roll (any
+        # failure, not just 1s). The simulator picks this in _run_round per
+        # round, stores the chosen enemy unit's uid here, and Unit.attack
+        # reads it via the army back-reference to gate the re-rolls. None
+        # means "no oath this round" (e.g. round 0, or no Marine units alive).
+        # Cited as `simulator.oath_of_moment`.
+        self.oath_target_uid: Optional[str] = None
+        # Coordinated army-level activation plan (#161 / S3). Picked once per
+        # round by the simulator's `_pick_army_plan` and consulted by both
+        # `activation_queue` (to order units that align with the plan first)
+        # and `pick_move_intent` (to bias objective / charge scoring toward
+        # the chosen flank). One of:
+        #   "LEFT_FLANK"  — push the left half of the map
+        #   "RIGHT_FLANK" — push the right half
+        #   "MID_PUSH"    — converge on map centre
+        #   "HOME_HOLD"   — protect own backline + nearest home objective
+        #   "COUNTER"     — react to opponent's biggest threat
+        # None outside a battle (catalogue tests, etc.) — the strategy
+        # bias is short-circuited when the field is None, preserving the
+        # backward-compatible per-unit picks.
+        self.army_plan: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Faction detection
@@ -119,10 +269,66 @@ class Army:
             return None
         return min(alive, key=lambda u: u.current_health)
 
-    def activation_queue(self, excluded_ids: set) -> List[Unit]:
-        """Return alive units not yet activated, sorted by score descending."""
+    def activation_queue(
+        self, excluded_ids: set, map_=None,
+    ) -> List[Unit]:
+        """Return alive units not yet activated, sorted for activation order.
+
+        Default (no `army_plan` set, or `map_` is None): sort by Lanchester
+        score descending so the highest-impact unit activates first.
+
+        With an `army_plan` set on this Army (see `pick_army_plan` in the
+        simulator), units whose physical position aligns with the plan's
+        target flank activate before units that don't, *then* score breaks
+        ties within each group. This makes coordinated alpha-strikes
+        materialise: every unit in the left-flank push activates before
+        right-side units start their turn, so right-side enemies see a fully
+        committed left flank in one round rather than a trickle. Internal
+        AI heuristic (no GW rule citation — it's an activation-order
+        scheduler, not a 10e mechanic).
+
+        `map_` is required to compute the flank assignment (left half vs
+        right half of the board); when omitted the spatial sort short-
+        circuits and the queue collapses to the legacy score-only order.
+        """
         available = [u for u in self.alive_units if id(u) not in excluded_ids]
-        return sorted(available, key=lambda u: u.profile.score, reverse=True)
+        plan = self.army_plan
+        if plan is None or map_ is None:
+            return sorted(available, key=lambda u: u.profile.score, reverse=True)
+
+        half_x = map_.width / 2.0
+        half_y = map_.height / 2.0
+
+        def _plan_priority(u: Unit) -> int:
+            """Lower value = earlier in the queue.
+
+            Match (priority 0) = unit aligns with the plan's target zone.
+            No-match (priority 1) = unit is elsewhere on the board.
+            """
+            px, py = u.position
+            if plan == "LEFT_FLANK":
+                return 0 if px < half_x else 1
+            if plan == "RIGHT_FLANK":
+                return 0 if px >= half_x else 1
+            if plan == "MID_PUSH":
+                # Centre-aligned: within a quarter-width band around midline.
+                quarter = map_.width / 4.0
+                return 0 if abs(px - half_x) <= quarter else 1
+            if plan == "HOME_HOLD":
+                # Friendly back-half (the half closer to our deployment side).
+                # We assume the army that's HOME_HOLD-ing wants units already
+                # on its own side to activate first. The Y half is the cleaner
+                # proxy because deployment zones split the board along Y in
+                # the default map.
+                return 0 if py < half_y else 1
+            # COUNTER: no per-unit prioritisation here — the strategy biases
+            # handle target selection. Fall through to score-only ordering.
+            return 0
+
+        return sorted(
+            available,
+            key=lambda u: (_plan_priority(u), -u.profile.score),
+        )
 
     # ------------------------------------------------------------------
     # Representation

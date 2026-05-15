@@ -70,10 +70,19 @@ class CatalogEntry:
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit)
     stealth: bool = False
+    # Lone Operative (10e core ability) — can only be targeted by ranged
+    # attacks from within 12". Parsed from BSData "Lone Operative" infoLinks.
+    lone_operative: bool = False
     # Phase I — deployment abilities
     deep_strike: bool = False
     scout_distance: int = 0
     infiltrator: bool = False
+    # Deadly Demise X — when destroyed, roll 1D6; on 6, each unit within 6"
+    # suffers X mortal wounds. Integer expected-value of the codex text.
+    deadly_demise: int = 0
+    # Firing Deck X (10e core, TRANSPORT keyword) — up to X embarked passenger
+    # models may shoot using the transport's BS in its Shooting phase. 0 = none.
+    firing_deck: int = 0
     fnp: int = 7
     # 10e Sticky Objectives — control persists after the unit leaves until
     # an opposing unit takes the objective back.
@@ -87,6 +96,11 @@ class CatalogEntry:
     melee_weapon: str = ""
     range_inches: int = 24
     points_override: float = 0.0
+    # Renderer-only model base footprint (see UnitProfile.base_shape).
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32
+    base_width_mm: int = 32
+    base_length_mm: int = 32
     loadout: Optional[List[str]] = None
     notes: str = ""
     enabled: bool = True
@@ -132,9 +146,12 @@ class CatalogEntry:
             indirect_fire=bool(d.get("indirect_fire", False)),
             one_shot=bool(d.get("one_shot", False)),
             stealth=bool(d.get("stealth", False)),
+            lone_operative=bool(d.get("lone_operative", False)),
             deep_strike=bool(d.get("deep_strike", False)),
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
+            deadly_demise=int(d.get("deadly_demise", 0)),
+            firing_deck=int(d.get("firing_deck", 0)),
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -146,6 +163,10 @@ class CatalogEntry:
             melee_weapon=d.get("melee_weapon", ""),
             range_inches=int(d.get("range_inches", 24)),
             points_override=float(d.get("points_override", 0)),
+            base_shape=str(d.get("base_shape", "circle")),
+            base_diameter_mm=int(d.get("base_diameter_mm", 32)),
+            base_width_mm=int(d.get("base_width_mm", 32)),
+            base_length_mm=int(d.get("base_length_mm", 32)),
             loadout=d.get("loadout") or [],
             notes=d.get("notes", ""),
             enabled=bool(d.get("enabled", True)),
@@ -236,9 +257,12 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "indirect_fire": override.get("indirect_fire", base.indirect_fire),
         "one_shot": override.get("one_shot", base.one_shot),
         "stealth": override.get("stealth", base.stealth),
+        "lone_operative": override.get("lone_operative", base.lone_operative),
         "deep_strike": override.get("deep_strike", base.deep_strike),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
+        "deadly_demise": override.get("deadly_demise", base.deadly_demise),
+        "firing_deck": override.get("firing_deck", base.firing_deck),
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
@@ -250,6 +274,10 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "melee_weapon": override.get("melee_weapon", base.melee_weapon),
         "range_inches": override.get("range_inches", base.range_inches),
         "points_override": override.get("points_override", base.points_override),
+        "base_shape": override.get("base_shape", base.base_shape),
+        "base_diameter_mm": override.get("base_diameter_mm", base.base_diameter_mm),
+        "base_width_mm": override.get("base_width_mm", base.base_width_mm),
+        "base_length_mm": override.get("base_length_mm", base.base_length_mm),
         "loadout": override.get("loadout", base.loadout),
         "notes": override.get("notes", base.notes),
         "enabled": override.get("enabled", base.enabled),

@@ -1,0 +1,21 @@
+{
+  "_comment": "Core 10e targeting restrictions for ranged attacks. Look Out Sir is a universal core rule that protects non-MONSTER/VEHICLE CHARACTERS shielded by a nearby unit. Lone Operative is a unit-level ability granted to specific datasheets (Eliminators, Lictors, Callidus Assassins, etc.) that hard-caps ranged targeting to within 12\".",
+
+  "simulator.look_out_sir": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Look-Out-Sir",
+    "rule_name": "Look Out, Sir",
+    "quoted_text": "Each time a Character unit (excluding Monster and Vehicle units) is targeted by a ranged attack, if a friendly non-Character unit is within 3\" of that Character unit, the ranged attack cannot be made unless the attacking unit is within 12\" of the target.",
+    "trigger": "ranged attack targets a non-MONSTER/non-VEHICLE CHARACTER unit, friendly non-CHARACTER unit within 3\" of the target, attacker >12\" away",
+    "effect": "the ranged attack cannot be made (target invalid)",
+    "scope": "army-wide"
+  },
+
+  "simulator.lone_operative": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Lone-Operative",
+    "rule_name": "Lone Operative",
+    "quoted_text": "A unit with this ability can only be selected as the target of a ranged attack if the attacking model is within 12\" of it.",
+    "trigger": "ranged attack targets a unit with the Lone Operative ability, attacker >12\" away",
+    "effect": "the ranged attack cannot be made (target invalid)",
+    "scope": "keyword-gated"
+  }
+}

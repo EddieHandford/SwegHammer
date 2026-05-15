@@ -3,7 +3,7 @@
   "units": {
     "necrons_necron_warriors": {
       "sticky_objective": true,
-      "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet."
+      "notes": "10e Necron Warriors carry the Their Number Is Legion rule \u2014 they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet."
     },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
@@ -12,6 +12,177 @@
     "genestealer_cults_acolyte_hybrids_with_autopistols": {
       "sticky_objective": true,
       "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."
+    },
+    "death_guard_plague_marines": {
+      "fnp": 5,
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | sweg_balance_mc up 22.5 -> 24.75 pts/model",
+      "points_override": 24.75
+    },
+    "chaos_space_marines_plague_marines": {
+      "fnp": 5,
+      "notes": "Cross-codex BSData entry for Plague Marines; canonical datasheet lives in the Death Guard codex and carries Disgustingly Resilient (FNP 5+). Pricing and stats are identical to death_guard_plague_marines. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
+    },
+    "aeldari_craftworlds_wraithguard": {
+      "invuln_save": 4,
+      "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 218.68 -> 240.55 pts/model",
+      "points_override": 240.55
+    },
+    "aeldari_craftworlds_wraithblades": {
+      "invuln_save": 4,
+      "notes": "Wraithblades have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithblades."
+    },
+    "t_au_empire_crisis_sunforge_battlesuits": {
+      "points_override": 141.97,
+      "notes": "sweg_balance_mc down 157.74 -> 141.97 pts/model"
+    },
+    "t_au_empire_crisis_fireknife_battlesuits": {
+      "points_override": 114.15,
+      "notes": "sweg_balance_mc down 126.83 -> 114.15 pts/model"
+    },
+    "t_au_empire_riptide_battlesuit": {
+      "base_shape": "circle",
+      "base_diameter_mm": 80,
+      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). | sweg_balance_mc down 1311.75 -> 1180.58 pts/model",
+      "points_override": 1180.58
+    },
+    "aeldari_craftworlds_falcon": {
+      "points_override": 644.45,
+      "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"
+    },
+    "necrons_lokhust_heavy_destroyers": {
+      "points_override": 243.09,
+      "notes": "sweg_balance_mc down 270.1 -> 243.09 pts/model"
+    },
+    "necrons_lokhust_destroyers": {
+      "points_override": 138.42,
+      "notes": "sweg_balance_mc down 153.8 -> 138.42 pts/model"
+    },
+    "necrons_tomb_blades": {
+      "points_override": 40.5,
+      "notes": "sweg_balance_mc down 45.0 -> 40.5 pts/model"
+    },
+    "thousand_sons_rubric_marines": {
+      "points_override": 59.94,
+      "invuln_save": 5,
+      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model | Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
+    },
+    "thousand_sons_scarab_occult_terminators": {
+      "points_override": 98.98,
+      "invuln_save": 4,
+      "notes": "sweg_balance_mc down 109.98 -> 98.98 pts/model | Scarab Occult Terminators: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Scarab-Occult-Terminators"
+    },
+    "thousand_sons_magnus_the_red": {
+      "invuln_save": 4,
+      "notes": "Magnus the Red: 4++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red"
+    },
+    "thousand_sons_ahriman": {
+      "invuln_save": 4,
+      "notes": "Ahriman: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman"
+    },
+    "thousand_sons_infernal_master": {
+      "invuln_save": 5,
+      "notes": "Infernal Master: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Infernal-Master"
+    },
+    "thousand_sons_exalted_sorcerer": {
+      "invuln_save": 5,
+      "notes": "Exalted Sorcerer: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Exalted-Sorcerer"
+    },
+    "thousand_sons_exalted_sorcerer_on_disc_of_tzeentch": {
+      "invuln_save": 5,
+      "notes": "Exalted Sorcerer on Disc of Tzeentch: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Exalted-Sorcerer-on-Disc-of-Tzeentch"
+    },
+    "thousand_sons_daemon_prince_of_tzeentch": {
+      "invuln_save": 4,
+      "notes": "Daemon Prince of Tzeentch: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Daemon-Prince-of-Tzeentch"
+    },
+    "thousand_sons_daemon_prince_of_tzeentch_with_wings": {
+      "invuln_save": 4,
+      "notes": "Daemon Prince of Tzeentch with Wings: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Daemon-Prince-of-Tzeentch-with-Wings"
+    },
+    "thousand_sons_tzaangor_shaman": {
+      "invuln_save": 5,
+      "notes": "Tzaangor Shaman: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Tzaangor-Shaman"
+    },
+    "thousand_sons_kairos_fateweaver": {
+      "invuln_save": 4,
+      "notes": "Kairos Fateweaver: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Kairos-Fateweaver"
+    },
+    "thousand_sons_lord_of_change": {
+      "invuln_save": 4,
+      "notes": "Lord of Change: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Lord-of-Change"
+    },
+    "space_marines_intercessor_squad": {
+      "base_shape": "circle",
+      "base_diameter_mm": 32,
+      "notes": "Standard Primaris Marine 32mm round. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad (Base size)."
+    },
+    "adeptus_custodes_custodian_guard": {
+      "base_shape": "circle",
+      "base_diameter_mm": 40,
+      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model",
+      "points_override": 46.75
+    },
+    "space_marines_repulsor_executioner": {
+      "base_shape": "rect",
+      "base_width_mm": 102,
+      "base_length_mm": 178,
+      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base \u2014 kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
+    },
+    "tyranids_hive_tyrant": {
+      "base_shape": "circle",
+      "base_diameter_mm": 80,
+      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size)."
+    },
+    "tyranids_winged_hive_tyrant": {
+      "base_shape": "oval",
+      "base_width_mm": 105,
+      "base_length_mm": 170,
+      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size)."
+    },
+    "space_marines_terminator_squad": {
+      "base_shape": "circle",
+      "base_diameter_mm": 40,
+      "notes": "Terminators ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Terminator-Squad (Base size)."
+    },
+    "space_marines_hellblaster_squad": {
+      "points_override": 25.3,
+      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model"
+    },
+    "space_marines_repulsor": {
+      "points_override": 198.0,
+      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model"
+    },
+    "space_marines_bladeguard_veteran_squad": {
+      "points_override": 29.33,
+      "notes": "sweg_balance_mc up 26.67 -> 29.33 pts/model"
+    },
+    "death_guard_plagueburst_crawler": {
+      "points_override": 198.0,
+      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model"
+    },
+    "death_guard_deathshroud_terminators": {
+      "points_override": 60.5,
+      "notes": "sweg_balance_mc up 55.0 -> 60.5 pts/model"
+    },
+    "adeptus_custodes_caladius_grav_tank": {
+      "points_override": 236.5,
+      "notes": "sweg_balance_mc up 215.0 -> 236.5 pts/model"
+    },
+    "adeptus_custodes_allarus_custodians": {
+      "points_override": 71.5,
+      "notes": "sweg_balance_mc up 65.0 -> 71.5 pts/model"
+    },
+    "leagues_of_votann_hearthkyn_warriors": {
+      "points_override": 90.0,
+      "notes": "sweg_balance_mc down 100.0 -> 90.0 pts/model"
+    },
+    "leagues_of_votann_sagitaur": {
+      "points_override": 103.5,
+      "notes": "sweg_balance_mc down 115.0 -> 103.5 pts/model"
+    },
+    "leagues_of_votann_hekaton_land_fortress": {
+      "points_override": 101.25,
+      "notes": "sweg_balance_mc down 112.5 -> 101.25 pts/model"
     }
   }
 }

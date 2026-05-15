@@ -49,6 +49,10 @@ CODEX_TO_FACTION: Dict[str, str] = {
     "Chaos - Death Guard.cat":                     "Death Guard",
     "Chaos - Thousand Sons.cat":                   "Thousand Sons",
     "Chaos - World Eaters.cat":                    "World Eaters",
+    # Emperor's Children — Slaanesh-aligned Chaos Marines. Standalone codex
+    # WIP on BSData master; not yet in the latest tagged release (v10.6.0).
+    # Will auto-pick-up when the BSData refresh lands.
+    "Chaos - Emperor's Children.cat":              "Emperor's Children",
     "Chaos - Chaos Daemons.cat":                   "Chaos Daemons",
     "Chaos - Chaos Daemons Library.cat":           "Chaos Daemons",
     "Chaos - Chaos Knights.cat":                   "Chaos Knights",
@@ -57,7 +61,14 @@ CODEX_TO_FACTION: Dict[str, str] = {
 
     # ---- Xenos ----
     "Aeldari - Aeldari Library.cat":               "Aeldari",
-    "Aeldari - Craftworlds.cat":                   "Aeldari (Craftworlds)",
+    # Note: the Craftworlds sub-codex maps to the umbrella "Aeldari" faction
+    # rather than a "Aeldari (Craftworlds)" sub-name. The Battle Focus army
+    # rule applies to all AELDARI keyword units (Asuryani + their characters),
+    # and the simulator + eval harness gate on faction == "Aeldari" — keeping
+    # the bucket flat ensures Wraithguard, Guardians, Aspect Warriors, etc.
+    # land in the same army-builder pool as Drukhari-adjacent allies. Sub-
+    # faction discrimination is handled via the ASURYANI unit keyword.
+    "Aeldari - Craftworlds.cat":                   "Aeldari",
     "Aeldari - Drukhari.cat":                      "Drukhari",
     "Aeldari - Ynnari.cat":                        "Ynnari",
     "Necrons.cat":                                 "Necrons",
@@ -105,12 +116,12 @@ FACTION_COLOURS: Dict[str, str] = {
     "Death Guard":              "#9CA876",   # Nurgle pale plague-green
     "Thousand Sons":            "#1E5BA8",   # Tzeentch blue + gold trim
     "World Eaters":             "#B71C1C",   # Khorne blood red
+    "Emperor's Children":       "#E91E63",   # Slaaneshi pink-magenta
     "Chaos Daemons":            "#4B0082",   # Slaaneshi/Tzeentch purple
     "Chaos Knights":            "#5A0E18",
 
     # Xenos
     "Aeldari":                  "#6A1B9A",   # Wraithbone purple (Ulthwé-ish)
-    "Aeldari (Craftworlds)":    "#6A1B9A",
     "Drukhari":                 "#3B0E2E",   # Dark Kin near-black-purple
     "Ynnari":                   "#1F2B5A",   # Reborn navy
     "Chaos Titans":             "#3A2A4F",   # Traitor titan dark plum
@@ -133,6 +144,42 @@ FACTION_COLOURS: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Public helpers
 # ---------------------------------------------------------------------------
+
+# Top-level Adeptus Astartes umbrella — every chapter codex tagged as a
+# Space Marines successor for the purposes of army rules like Oath of
+# Moment and Combat Doctrines. The Adeptus Astartes army rules from the
+# Space Marines codex apply to every chapter; supplements layer on top
+# (e.g. Blood Angels keep Oath + Doctrines and add Sons of Sanguinius).
+# Grey Knights are excluded: they have their own dedicated army rule
+# ("Teleport Strike" / "Brotherhood Psyker") and do not use Oath /
+# Doctrines on Wahapedia.
+MARINE_FACTIONS = frozenset({
+    "Adeptus Astartes",
+    "Ultramarines",
+    "Blood Angels",
+    "Dark Angels",
+    "Black Templars",
+    "Space Wolves",
+    "Imperial Fists",
+    "Iron Hands",
+    "Raven Guard",
+    "Salamanders",
+    "White Scars",
+    "Deathwatch",
+})
+
+
+def is_marine_faction(faction: str) -> bool:
+    """Return True iff `faction` is any flavour of Adeptus Astartes chapter.
+
+    Used to gate army-rule effects (Oath of Moment, Combat Doctrines) that
+    are shared across every Marine chapter codex. The check is a pure
+    membership test against `MARINE_FACTIONS` — no substring matching, no
+    case normalisation. Grey Knights are deliberately excluded (they have
+    their own army rule).
+    """
+    return faction in MARINE_FACTIONS
+
 
 def faction_of(codex: str) -> str:
     """Return the faction string for a codex filename, or '' if unrecognised.

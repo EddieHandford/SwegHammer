@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass
 from typing import Dict, Tuple
+
+from .factions import is_marine_faction
 
 # ---------------------------------------------------------------------------
 # Baseline calibration constants — Space Marine is the reference unit
@@ -48,6 +51,64 @@ def _prob_to_target(prob: float) -> int:
     """
     target = int(round(7 - prob * 6))
     return max(2, min(7, target))
+
+
+def _contagion_round_for(unit: "Unit") -> int:
+    """Return the active Death Guard Contagion round for the army that opposes
+    `unit`'s army, or 0 when no DG army is on the opposing side / no battle is
+    active. Used by `Unit.attack` to gate the 6" Nurgle's Gift aura.
+
+    Contagions of Nurgle (Death Guard army rule, 10e — escalating order):
+      Round 1 — Virulent Rot:       -1 T on enemy units within 6" of a DG model
+      Round 2 — Maladictive Pall:   -1 Ld on enemy units within 6" (battleshock)
+      Round 3+ — Fulminating Plague: -1 to hit on enemy units within 6"
+    """
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return 0
+    battle = getattr(own_army, "_battle_ref", None)
+    if battle is None:
+        return 0
+    cur_round = getattr(battle, "_current_round", 0)
+    return int(cur_round) if cur_round > 0 else 0
+
+
+def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
+    """True iff any DEATH GUARD model from the army opposing `unit` is within
+    `radius` inches of `unit.position`. The aura is projected by every DG
+    model ("Each model in your army has the following aura ability"), so we
+    scan the full opposing roster, not just CHARACTERS / SYNAPSE-style sources.
+
+    Returns False when `unit` has no army / no live battle / the opposing army
+    contains no DG units. Cited as `simulator.contagions_of_nurgle`.
+    """
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return False
+    battle = getattr(own_army, "_battle_ref", None)
+    if battle is None:
+        return False
+    # Identify the OPPOSING army — the one that's NOT unit.army_ref.
+    if own_army is getattr(battle, "a", None):
+        opposing = getattr(battle, "b", None)
+    elif own_army is getattr(battle, "b", None):
+        opposing = getattr(battle, "a", None)
+    else:
+        return False
+    if opposing is None:
+        return False
+    # Aura source = any DG model on the opposing side.
+    ux, uy = unit.position
+    r2 = radius * radius
+    for m in opposing.alive_units:
+        if m.profile.faction != "Death Guard":
+            continue
+        mx, my = m.position
+        dx = mx - ux
+        dy = my - uy
+        if dx * dx + dy * dy <= r2:
+            return True
+    return False
 
 
 def save_probability(save: int, ap: int = 0, in_cover: bool = False) -> float:
@@ -193,11 +254,19 @@ class UnitProfile:
     one_shot: bool = False                     # weapon fires once per battle
     # Phase H — Stealth (-1 to be hit when shot at)
     stealth: bool = False
+    # Lone Operative (10e core ability). A unit with this ability can only be
+    # targeted by a ranged attack if the attacking model is within 12" of it.
+    # Parsed from BSData by the mapper when a "Lone Operative" infoLink /
+    # profile is attached to the datasheet. Cited as
+    # `simulator.lone_operative`.
+    lone_operative: bool = False
     # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
     deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
     infiltrator: bool = False                  # deploys past the standard deployment line
     fnp: int = 7                               # Feel No Pain target (7 = none); roll after each unsaved wound
+    deadly_demise: int = 0                     # Deadly Demise X (10e core): when destroyed, d6; on 6, each unit within 6" suffers X mortal wounds. Integer expected value (D3→2, D6→3, D3+3→5, N→N). Cited as `simulator.deadly_demise`.
+    firing_deck: int = 0                       # Firing Deck X (10e core, TRANSPORT keyword): up to X embarked passenger models may also shoot using the transport's BS each Shooting phase. 0 = no Firing Deck. Cited as `simulator.firing_deck`.
     sticky_objective: bool = False             # 10e Objective Secured / "remains controlled when the unit leaves" — once this unit claims an objective, ownership persists until an opposing unit takes it back
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
@@ -208,6 +277,29 @@ class UnitProfile:
     melee_ap: int = 0
     melee_weapon: str = ""
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
+    # ---- Renderer-only: real-world GW model base footprint ---------------
+    # Informational only — the simulator's collision / range logic still
+    # uses the 0.5" abstraction. Three shape families:
+    #   "circle" — INFANTRY / most CHARACTERs (GW round bases: 25-170mm)
+    #   "rect"   — most VEHICLEs (rectangular footprint, no GW standard size)
+    #   "oval"   — flying / monstrous / BIKE (GW oval bases: 60x35..170x105mm)
+    # Default = 32mm round (standard Marine). The renderer maps mm to world
+    # inches at 25.4 mm/inch via `code.renderer._mm_to_inches`.
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32                 # used when base_shape == "circle"
+    base_width_mm: int = 32                    # used when base_shape == "rect" or "oval"
+    base_length_mm: int = 32                   # used when base_shape == "rect" or "oval"
+
+    @property
+    def fly(self) -> bool:
+        """True if this unit has the FLY keyword (10e). Derived from
+        ``unit_keywords`` so the mapper does not need a separate field —
+        BSData already tags every FLY datasheet with the keyword. Used by
+        the simulator's Fall Back gate (units with FLY may still shoot /
+        charge after Falling Back; everyone else may not). Cited as
+        ``simulator.fall_back``.
+        """
+        return "FLY" in (self.unit_keywords or ())
 
     @property
     def avg_damage_per_action(self) -> float:
@@ -225,8 +317,25 @@ class UnitProfile:
 
     @property
     def points_cost(self) -> float:
+        """Per-model points cost in the simulator's currency.
+
+        Resolution order:
+          1. Sweg-balancer override (`points_override > 0`) wins outright.
+          2. GW canonical: `points_per_squad / min_models` when BSData
+             populated both. This is the printed datasheet cost.
+          3. Fallback: Lanchester-derived `points_for(...)` — used for
+             synthetic test profiles that have no BSData provenance.
+
+        The 2026-05 fix (Ed's TODO in PROJECT.tex `\eddie` commit
+        `a0d7702`): the property previously returned the Lanchester score
+        always, so every sim-side army budget ran in wrong-currency.
+        Sub-1 GW costs are clamped to 1.0 so degenerate cases (a hypothetical
+        free unit) don't divide-by-zero in downstream callers.
+        """
         if self.points_override and self.points_override > 0:
             return float(self.points_override)
+        if self.points_per_squad > 0 and self.min_models > 0:
+            return max(1.0, self.points_per_squad / self.min_models)
         return points_for(
             self.health, self.damage, self.hit_probability,
             self.ap, self.save, self.strength, self.toughness,
@@ -260,6 +369,11 @@ class Unit:
     __slots__ = (
         "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
+        # Set by Battle._do_move when the unit elects the FALL_BACK intent.
+        # While True, _do_shoot and _do_charge refuse to fire the unit unless
+        # its profile has the FLY keyword. Cleared at the top of each round.
+        # Cited as `simulator.fall_back`.
+        "fell_back_this_round",
         # ----- transient stratagem flags (cleared each round by Battle) -----
         # Cult of Magic (Thousand Sons):
         #   transient_plus_one_to_wound_shooting — Twist of Fate. Attacker buff:
@@ -276,8 +390,18 @@ class Unit:
         #       +1 to armour save (cap 2+) for the round.
         #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
         #       hit rolls in shooting are re-rolled (once) for the round.
-        #   transient_assault_this_round — Matchless Agility. Movement buff:
-        #       unit may shoot in the same round it advanced.
+        #   transient_assault_this_round — Matchless Agility OR Strike Swiftly
+        #       (T'au Mont'ka). Movement buff: unit may shoot in the same round
+        #       it advanced.
+        # Awakened Dynasty (Necrons):
+        #   transient_fnp_5 — Implacable Onslaught. Defender buff: target gets a
+        #       transient FNP 5+ for the round (composes with existing FNP by
+        #       taking the lower / better value in receive_damage).
+        #   transient_plus_one_to_hit_shooting — Methodical Destruction.
+        #       Attacker buff: +1 to hit on ranged attacks for the round.
+        # Saim-Hann (Aeldari):
+        #   transient_halve_damage — Spirit Stones. Defender buff: each per-shot
+        #       damage is halved (rounded up) for the round.
         "transient_plus_one_to_wound_shooting",
         "transient_invuln_4",
         "transient_minus_one_damage_taken",
@@ -285,6 +409,39 @@ class Unit:
         "transient_plus_one_save",
         "transient_reroll_hits_shooting",
         "transient_assault_this_round",
+        "transient_fnp_5",
+        "transient_plus_one_to_hit_shooting",
+        "transient_halve_damage",
+        # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
+        # each Command phase to any Drukhari unit below Starting Strength;
+        # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
+        # and FNP 6+. Persists across rounds (not cleared with the transient
+        # stratagem flags). Cited as `simulator.power_from_pain`.
+        "pain_tokens",
+        # Genestealer Cults Cult Ambush (army rule, 10e). Flagged True at
+        # deployment time for every GSC unit; the Battle._arrive_from_reserves
+        # path consumes it at the top of Round 1 to place the unit > 9"
+        # from any enemy model (regular Deep Strikers still wait until
+        # Round 2). Cleared once the unit lands. Cited as
+        # `simulator.cult_ambush`.
+        "cult_ambush_pending",
+        # 10e Enhancement (Warlord upgrade). Assigned to a single CHARACTER
+        # per army by the army builder; None on every other unit. Read by
+        # `leaders.effective_buffs` when this unit is an in-range friendly
+        # CHARACTER to merge its aura flags into the attacker's buff dict.
+        # See `code/enhancements.py` for the dataclass + registry.
+        "enhancement",
+        # Transport state (10e core). `passengers` is a list of Unit instances
+        # currently embarked inside this transport (only populated when the
+        # owning profile has TRANSPORT in its unit_keywords). Passengers are
+        # removed from the live battlefield (army.alive_units still returns
+        # them because they're still alive HP-wise, but their position is the
+        # transport's position and the simulator skips their activations
+        # while they're embarked). `embarked_in` is the back-pointer set on
+        # the passenger pointing at its carrier; None when not embarked.
+        # Cited as `simulator.embark` / `simulator.disembark`.
+        "passengers",
+        "embarked_in",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -324,6 +481,34 @@ class Unit:
         self.transient_plus_one_save: bool = False
         self.transient_reroll_hits_shooting: bool = False
         self.transient_assault_this_round: bool = False
+        # Awakened Dynasty (Necrons) per-round stratagem flags.
+        self.transient_fnp_5: bool = False
+        self.transient_plus_one_to_hit_shooting: bool = False
+        # Saim-Hann (Aeldari) per-round stratagem flag.
+        self.transient_halve_damage: bool = False
+        # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
+        self.pain_tokens: int = 0
+        # Cult Ambush (Genestealer Cults army rule). True means the unit is
+        # waiting to land at the top of Round 1 via the simulator's reserves
+        # path; cleared the moment it arrives on the battlefield. See
+        # `simulator.cult_ambush` citation for the verbatim Wahapedia quote.
+        self.cult_ambush_pending: bool = False
+        # Fall Back (10e core). Set True by Battle._do_move when the unit
+        # elects the FALL_BACK intent; gates _do_shoot / _do_charge unless
+        # the profile has FLY. Reset at the top of each round.
+        self.fell_back_this_round: bool = False
+        # 10e Enhancement (Warlord upgrade). Defaults to None; the army
+        # builder sets this on exactly one CHARACTER per army at construction
+        # time. `leaders.effective_buffs` reads this field through any
+        # in-range friendly CHARACTER to compose its aura into the attacker's
+        # buff dict.
+        from typing import Optional
+        self.enhancement = None  # type: ignore[assignment]
+        # Transport bookkeeping. `passengers` is a fresh list on every Unit so
+        # mutating it on one transport doesn't leak into another. `embarked_in`
+        # is the carrier pointer for a passenger; both default to empty / None.
+        self.passengers: list = []
+        self.embarked_in = None  # type: ignore[assignment]
 
     @property
     def is_alive(self) -> bool:
@@ -346,7 +531,36 @@ class Unit:
         """
         if self.transient_minus_one_damage_taken and amount > 0:
             amount = max(1.0, amount - 1.0)
+        # Saim-Hann Spirit Stones (Aeldari stratagem, 1 CP): halve incoming
+        # damage (rounded up) for the round. Applied per receive_damage call —
+        # mirrors the per-attack codex wording since receive_damage is called
+        # per-shot from Unit.attack. Cited as `Stratagem.Spirit Stones`.
+        if self.transient_halve_damage and amount > 0:
+            amount = math.ceil(amount / 2.0)
         effective_fnp = min(self.profile.fnp, bonus_fnp)
+        # Awakened Dynasty Implacable Onslaught (Necron stratagem, 1 CP):
+        # transient FNP 5+ for the round. Composes with the unit's existing
+        # FNP / leader-aura FNP by taking the lower (better) value, identical
+        # to the Death Guard / Drukhari composition pattern below. Cited as
+        # `Stratagem.Implacable Onslaught`.
+        if self.transient_fnp_5:
+            effective_fnp = min(effective_fnp, 5)
+        # Death Guard Disgustingly Resilient (army rule, 10e): every DEATH
+        # GUARD model has Feel No Pain 5+. The rule is codex-level and not
+        # encoded on individual BSData datasheets, so we faction-gate it
+        # here. Composes with any pre-existing FNP profile / leader aura
+        # by taking the lower (better) value — Plague Marines already have
+        # profile.fnp=5 (via overrides) so the min keeps them at 5, not 4.
+        # Cited as `simulator.disgustingly_resilient`.
+        if self.profile.faction == "Death Guard":
+            effective_fnp = min(effective_fnp, 5)
+        # Drukhari Power From Pain: while the defender holds a Pain Token,
+        # treat the unit as having FNP 6+ (lowest "active" target = best
+        # roll). Composes with any pre-existing FNP profile / leader aura
+        # by taking the lower (better) value. Faction-gated to avoid ever
+        # lighting up on a non-Drukhari unit that somehow carries a token.
+        if self.pain_tokens > 0 and self.profile.faction == "Drukhari":
+            effective_fnp = min(effective_fnp, 6)
         if effective_fnp < 7 and amount > 0:
             survived = 0
             for _ in range(int(round(amount))):
@@ -443,6 +657,40 @@ class Unit:
         if att_buffs["plus_one_to_wound"]:
             wound_target = max(2, wound_target - 1)
 
+        # ---- Adeptus Astartes Combat Doctrines (Gladius Task Force
+        # detachment rule, 10e). At the start of each Command phase the
+        # Marine player picks an active Doctrine. SwegHammer's AI rotates
+        # deterministically: round 1 Devastator (+1 to wound, ranged only),
+        # round 2 Tactical (+1 to wound, both modes), round 3+ Assault
+        # (+1 to wound, melee only). Faction-gated to Marines AND
+        # detachment-gated to "Gladius Task Force" — Ironstorm Spearhead
+        # Marines get nothing here. Applied alongside the +1-to-wound
+        # buff above so later compounding effects (All Is Dust, Lance,
+        # etc.) see the boosted target. Cited as `simulator.combat_doctrines`.
+        own_army = getattr(self, "army_ref", None)
+        if own_army is not None and is_marine_faction(p.faction):
+            det = own_army.resolve_detachment()
+            if det is not None and det.name == "Gladius Task Force":
+                battle = getattr(own_army, "_battle_ref", None)
+                cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                doctrine_applies = False
+                if cur_round == 1 and mode != "melee":
+                    doctrine_applies = True   # Devastator
+                elif cur_round == 2:
+                    doctrine_applies = True   # Tactical
+                elif cur_round >= 3 and mode == "melee":
+                    doctrine_applies = True   # Assault
+                if doctrine_applies:
+                    wound_target = max(2, wound_target - 1)
+
+        # Capture the hit target AFTER positive buffs but BEFORE any negative
+        # modifiers (Heavy in engagement / Indirect / cover / Stealth / DG
+        # Contagions round 3+). Used to enforce 10e's "modifiers to hit
+        # cannot exceed -1 or +1" cap — if hit_target was already RAISED by
+        # another -1-to-hit source, the DG Contagion -1 to hit must not
+        # compound it. Same value drives the stack-cap logic below.
+        _hit_target_after_buffs = hit_target
+
         # ---- Transient stratagem buffs (attacker side) ------------------
         # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
         # Twist of Fate (Cult of Magic): +1 to wound on attacks for the
@@ -460,6 +708,89 @@ class Unit:
             and self.transient_plus_one_to_wound_melee
         ):
             wound_target = max(2, wound_target - 1)
+        # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
+        # selected NECRON unit's ranged attacks for the round. Re-uses the same
+        # "lower hit_target by 1, min 2" idiom as att_buffs.plus_one_to_hit so
+        # the 10e modifier-cap (max +1) is enforced uniformly. Cited as
+        # `Stratagem.Methodical Destruction`.
+        if (
+            mode != "melee"
+            and self.transient_plus_one_to_hit_shooting
+        ):
+            hit_target = max(2, hit_target - 1)
+            _hit_target_after_buffs = hit_target
+
+        # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
+        # Virulent Rot: enemy units within 6" of any DG model have -1 T (only
+        # for the purpose of wound rolls against them). We don't mutate
+        # target.profile.toughness; instead we apply the equivalent +1 to wound
+        # (lower wound_target by 1, min 2) when the DEFENDER is within 6" of
+        # any DG model on the army OPPOSING the defender's army. The aura is
+        # projected by every DG model (Nurgle's Gift), not just characters.
+        # Cited as `simulator.contagions_of_nurgle`. Round 2 and 3+ effects
+        # are handled elsewhere (battleshock Ld penalty in _run_round;
+        # round-3+ -1 to hit lower in this function).
+        if (
+            _contagion_round_for(target) == 1
+            and target.profile.faction != "Death Guard"
+            and _is_near_enemy_dg_model(target, radius=6.0)
+        ):
+            wound_target = max(2, wound_target - 1)
+
+        # ---- Orks WAAAGH! once-per-battle window: +1 to wound in melee for
+        # Ork attackers on the turn WAAAGH! was declared. Cited as
+        # `simulator.waaagh`. The army-level field `waaagh_round_unlocked`
+        # stores the round in which the AI declared; we compare against the
+        # live battle round via the army's _battle_ref so the buff applies
+        # ONLY on that turn (not the rest of the battle).
+        if mode == "melee" and p.faction == "Orks":
+            own_army = getattr(self, "army_ref", None)
+            if own_army is not None:
+                waaagh_round = getattr(own_army, "waaagh_round_unlocked", None)
+                battle = getattr(own_army, "_battle_ref", None)
+                cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                if waaagh_round is not None and waaagh_round == cur_round:
+                    wound_target = max(2, wound_target - 1)
+
+        # ---- Thousand Sons "All Is Dust" (army rule, 10e). Subtract 1 from
+        # the wound roll when a Damage-1 attack is allocated to a non-daemon
+        # TSons unit (Rubric Marines, Scarab Occult Terminators, etc.). This
+        # mirrors the +1-to-wound idioms above but in reverse (raise the d6
+        # target, capped at 7 — wound roll auto-fails). Stacks with attacker
+        # +1 to wound (e.g. Outbreak of Pestilence) — a single-damage attack
+        # with both buffs nets back to the base wound target. The DAEMON
+        # exclusion keeps Tzaangors / Pink Horrors / Spawn from benefiting.
+        # Cited as `simulator.all_is_dust`.
+        if (
+            target.profile.faction == "Thousand Sons"
+            and per_shot_dmg <= 1.0
+            and "DAEMON" not in (target.profile.unit_keywords or ())
+        ):
+            wound_target = min(7, wound_target + 1)
+
+        # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
+        # The army picks an imperative each Command phase; the attacker's
+        # hit_target is shifted up or down depending on attack mode. Cited
+        # as `simulator.doctrina_imperatives`. Faction-gated on the
+        # attacker — a non-AdMech unit in the same battle is unaffected
+        # even if the OPPOSING army happens to be AdMech with an active
+        # imperative (the gate reads attacker.profile.faction).
+        if p.faction == "Adeptus Mechanicus":
+            own_army = getattr(self, "army_ref", None)
+            imperative = (
+                getattr(own_army, "doctrina_imperative", None)
+                if own_army is not None else None
+            )
+            if imperative == "protector":
+                if mode != "melee":
+                    hit_target = max(2, hit_target - 1)   # +1 to hit ranged
+                else:
+                    hit_target = min(6, hit_target + 1)   # -1 to hit melee
+            elif imperative == "conqueror":
+                if mode == "melee":
+                    hit_target = max(2, hit_target - 1)   # +1 to hit melee
+                else:
+                    hit_target = min(6, hit_target + 1)   # -1 to hit ranged
 
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits. Same math as +1-to-hit.
@@ -496,6 +827,23 @@ class Unit:
         # Same math as a worsened hit roll. Capped at 7 (no possible hit).
         # Melee is unaffected (Stealth is a ranged defence).
         if mode != "melee" and target.profile.stealth:
+            hit_target = min(7, hit_target + 1)
+
+        # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
+        # an enemy unit (the ATTACKER here) within 6" of any DG model takes
+        # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
+        # DG model on the opposing side, and on the attacker NOT being a DG
+        # model itself (the aura debuffs *enemy* units). 10e cap: "modifiers
+        # to hit rolls cannot exceed -1" — if another effect (Big Guns,
+        # Indirect, Heavy cover, Stealth) has ALREADY raised hit_target above
+        # its post-buff value, we skip the contagion penalty rather than
+        # compound it. Cited as `simulator.contagions_of_nurgle`.
+        if (
+            _contagion_round_for(self) >= 3
+            and p.faction != "Death Guard"
+            and hit_target == _hit_target_after_buffs
+            and _is_near_enemy_dg_model(self, radius=6.0)
+        ):
             hit_target = min(7, hit_target + 1)
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
@@ -542,8 +890,14 @@ class Unit:
         att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
         att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
         # "Re-roll ALL failed hits" defaults to off — only the Votann
-        # Judgement Tokens path (below) currently turns it on.
+        # Judgement Tokens path (below) and Marines Oath of Moment turn
+        # it on.
         att_reroll_all_hits = False
+        # "Re-roll ALL failed wounds" defaults to off. Set by Oath of
+        # Moment for a Marine attacker firing at the army's oath target.
+        # Distinct from `att_reroll_wound_ones` (1s only): the rule grants
+        # a full failure re-roll, not just nat-1s.
+        att_reroll_all_wounds = False
 
         # ---- Leagues of Votann — Eye of the Ancestors / Judgement Tokens ----
         own_army = getattr(self, "army_ref", None)
@@ -555,6 +909,22 @@ class Unit:
                 att_reroll_all_hits = True
                 att_reroll_wound_ones = True
 
+        # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
+        # attacker is a Marine (any chapter) AND its army has declared
+        # this round's oath target on this defender's uid, every attack
+        # against that defender re-rolls BOTH the hit roll and the wound
+        # roll. The flag composes with the existing 1s-only re-rolls but
+        # the `att_reroll_all_*` branches take priority in the loop below
+        # (one re-roll per die — never stacks). Cited as
+        # `simulator.oath_of_moment`.
+        if (
+            own_army is not None
+            and is_marine_faction(p.faction)
+            and getattr(own_army, "oath_target_uid", None) == target.uid
+        ):
+            att_reroll_all_hits = True
+            att_reroll_all_wounds = True
+
         # Fire and Fade (Aeldari Battle Host stratagem) — transient
         # re-roll hit rolls of 1 on shooting attacks for the round.
         att_reroll_hits_shooting_ones = (
@@ -562,6 +932,30 @@ class Unit:
         )
         if att_reroll_hits_shooting_ones:
             att_reroll_hit_ones = True
+
+        # Drukhari Power From Pain (army rule). While the attacker holds a
+        # Pain Token, treat every attack from this unit as having Lethal
+        # Hits for the duration of this resolution. Faction-gated to avoid
+        # ever lighting up if another codex has a same-named field someday.
+        effective_lethal_hits = p.lethal_hits or (
+            self.pain_tokens > 0 and p.faction == "Drukhari"
+        )
+        # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
+        # WE unit for the phase. SwegHammer collapses "this phase" to "this
+        # round" since the activation loop doesn't break phases out. The
+        # army-level flag stores the round in which BT-4 fired; we compare
+        # against the live battle round so the buff lapses next round even
+        # if we skip clearing it. Faction-gated to keep allies clean.
+        # Composes with profile.lethal_hits via OR (never double-fires —
+        # the gate is at the crit-to-hit branch below, fires once per crit).
+        if p.faction == "World Eaters" and not effective_lethal_hits:
+            own_army = getattr(self, "army_ref", None)
+            if own_army is not None:
+                bt_round = getattr(own_army, "blood_tithe_lethal_hits_round", None)
+                battle = getattr(own_army, "_battle_ref", None)
+                cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                if bt_round is not None and bt_round == cur_round:
+                    effective_lethal_hits = True
 
         total_damage = 0.0
         for _ in range(n_attacks):
@@ -599,16 +993,25 @@ class Unit:
             n_hits = 1 + (p.sustained_hits if crit_hit else 0)
 
             for hit_i in range(n_hits):
-                if p.lethal_hits and crit_hit and hit_i == 0:
+                if effective_lethal_hits and crit_hit and hit_i == 0:
                     wound_succeeded = True
                     crit_wound = False
                 else:
                     wroll = random.randint(1, 6)
                     rerolled = False
-                    # Re-roll natural 1s to wound (detachment). Compose with
-                    # Twin-Linked (re-roll any failure) but never re-roll the
-                    # same die twice.
-                    if att_reroll_wound_ones and wroll == 1:
+                    # Re-roll handling for wounds. Two compatible flags:
+                    #   att_reroll_all_wounds: replace ANY failure (Marines
+                    #     Oath of Moment; superset of reroll_wound_ones).
+                    #   att_reroll_wound_ones: replace a natural 1 only
+                    #     (Gladius / detachment / Votann tier-3).
+                    # Only one re-roll per die — `att_reroll_all_wounds`
+                    # takes priority and a fired re-roll under it does not
+                    # stack another re-roll under reroll_wound_ones or
+                    # Twin-Linked.
+                    if att_reroll_all_wounds and wroll < wound_target:
+                        wroll = random.randint(1, 6)
+                        rerolled = True
+                    elif att_reroll_wound_ones and wroll == 1:
                         wroll = random.randint(1, 6)
                         rerolled = True
                     wound_succeeded = (wroll >= wound_target)
@@ -721,10 +1124,13 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             indirect_fire=entry.indirect_fire,
             one_shot=entry.one_shot,
             stealth=entry.stealth,
+            lone_operative=entry.lone_operative,
             deep_strike=entry.deep_strike,
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,
             fnp=entry.fnp,
+            deadly_demise=entry.deadly_demise,
+            firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
@@ -735,6 +1141,10 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             melee_weapon=entry.melee_weapon,
             range_inches=entry.range_inches,
             points_override=entry.points_override,
+            base_shape=entry.base_shape,
+            base_diameter_mm=entry.base_diameter_mm,
+            base_width_mm=entry.base_width_mm,
+            base_length_mm=entry.base_length_mm,
         )
     return catalog
 

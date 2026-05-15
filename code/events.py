@@ -32,6 +32,13 @@ class InitialUnit:
     position: Tuple[float, float]
     max_health: float
     unit_keywords: Tuple[str, ...] = ()   # 10e keywords (INFANTRY, VEHICLE, MONSTER, ...) — used by the renderer for shape variety
+    # Renderer-only model base footprint (see UnitProfile.base_shape).
+    # Optional with defaults so legacy event logs without these fields keep
+    # rendering as 32mm round bases.
+    base_shape: str = "circle"
+    base_diameter_mm: int = 32
+    base_width_mm: int = 32
+    base_length_mm: int = 32
 
 
 @dataclass(frozen=True)
@@ -180,6 +187,96 @@ class StratagemFired:
     army_name: str
     stratagem_name: str
     cp_cost: int
+
+
+@dataclass(frozen=True)
+class DeadlyDemiseExploded:
+    """A unit with the Deadly Demise X ability rolled a 6 on its demise d6
+    and detonated, dealing X mortal wounds to every unit within 6".
+
+    Wahapedia 10e core rule: when a model with Deadly Demise X is destroyed,
+    roll one D6 BEFORE removing it from the battlefield (after resolving the
+    attack that destroyed it). On a 6, each unit within 6" suffers X mortal
+    wounds. The simulator interprets D3/D6/D3+3 codex variants as fixed
+    integer expected values (D3→2, D6→3, D3+3→5). Cited as
+    `simulator.deadly_demise`.
+
+    Informational — the renderer can ignore freely; the mortal-wound dispatch
+    has already mutated each victim's current_health by the time the event
+    fires.
+    """
+    unit_uid: str                 # uid of the exploding unit
+    mortals: int                  # X — mortal wounds applied to each victim
+    victims: Tuple[str, ...]      # uids of the units that took the mortals
+
+
+@dataclass(frozen=True)
+class TransportEmbarked:
+    """A passenger unit embarked inside a TRANSPORT (10e core).
+
+    Emitted from `Battle._embark_pregame_passengers` at deploy time. The
+    passenger is removed from the active battlefield (its position is set to
+    the transport's position and the simulator skips its activations until
+    it disembarks). Cited as `simulator.embark`.
+    """
+    transport_uid: str
+    passenger_uid: str
+
+
+@dataclass(frozen=True)
+class TransportDisembarked:
+    """A passenger unit disembarked from a TRANSPORT (10e core).
+
+    Emitted by `Battle._maybe_disembark_before_move` (voluntary disembark at
+    the start of the Movement phase) and by `Battle._destroyed_transport_disembark`
+    (forced disembark when the transport is destroyed). `position` is the
+    placed disembark location (within 3" of the transport's last position).
+    `forced` is True iff this disembark was triggered by transport destruction.
+    Cited as `simulator.disembark` / `simulator.destroyed_transport`.
+    """
+    transport_uid: str
+    passenger_uid: str
+    position: Tuple[float, float]
+    forced: bool = False
+
+
+@dataclass(frozen=True)
+class WaaaghDeclared:
+    """An Ork army declared WAAAGH! at the start of its Command phase.
+
+    10e Orks army rule (once per battle). While active until end of the
+    declaring turn: +1 to charge rolls for Ork units, Advance counts as a
+    charge for the Fight sub-phase, and Ork attackers add +1 to melee
+    wound rolls. SwegHammer currently models the +1-to-wound-melee leg as
+    a `simulator.waaagh` gate read by `Unit.attack`; the charge/advance
+    legs are descriptive (the AI picks WAAAGH! rounds to match a melee
+    push but the gates aren't separately implemented yet).
+
+    Renderers can ignore this event — the wound-roll math is applied via
+    `Army.waaagh_round_unlocked` at attack time.
+    """
+    army_name: str
+    round_num: int
+
+
+@dataclass(frozen=True)
+class OathTargetChosen:
+    """An Adeptus Astartes army picked an enemy unit as its Oath of Moment
+    target at the start of its Command phase.
+
+    10e Adeptus Astartes army rule (every round). The Marine player picks
+    one enemy unit; until the start of their next Command phase, every
+    Marine attack against that unit re-rolls BOTH the hit roll AND the
+    wound roll. The simulator's AI picks the highest-points enemy unit
+    each round; Unit.attack reads `army.oath_target_uid` to gate the
+    re-rolls. Cited as `simulator.oath_of_moment`.
+
+    Informational — renderers can ignore this event; the re-roll math is
+    applied at attack time via `Army.oath_target_uid`.
+    """
+    army_name: str
+    round_num: int
+    target_uid: str
 
 
 @dataclass(frozen=True)

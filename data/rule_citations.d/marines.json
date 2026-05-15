@@ -1,0 +1,21 @@
+{
+  "_comment": "Adeptus Astartes army rule + Gladius Task Force detachment rule citations (10e). Oath of Moment is the codex-wide army rule (every chapter): pick an enemy unit each Command phase, re-roll all hits AND all wounds against it until the next Command phase. Combat Doctrines is the Gladius Task Force detachment-rule: a round-rotating +1 to wound (Devastator R1 ranged / Tactical R2 both / Assault R3+ melee). Both gate on code.factions.is_marine_faction(attacker.profile.faction); Doctrines additionally requires Army.resolve_detachment().name == 'Gladius Task Force'.",
+
+  "simulator.oath_of_moment": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Oath-of-Moment",
+    "rule_name": "Oath of Moment",
+    "quoted_text": "At the start of your Command phase, select one enemy unit. Until the start of your next Command phase, each time an ADEPTUS ASTARTES model from your army makes an attack against your chosen enemy unit, you can re-roll the Hit roll and you can re-roll the Wound roll.",
+    "trigger": "any ADEPTUS ASTARTES model from your army (any chapter codex; covered by code.factions.is_marine_faction) makes an attack against the enemy unit chosen at the start of your most recent Command phase",
+    "effect": "re-roll the Hit roll AND re-roll the Wound roll (any failure, not just 1s). Battle._pick_oath_target picks the highest-points alive enemy unit each Command phase and stores its uid on army.oath_target_uid; Unit.attack sets att_reroll_all_hits = att_reroll_all_wounds = True when attacker is a Marine and own_army.oath_target_uid == target.uid. Both re-roll branches take priority over the 1s-only flags; a die that re-rolled here does not re-roll again under reroll_hit_ones / reroll_wound_ones / Twin-Linked.",
+    "scope": "army-wide"
+  },
+
+  "simulator.combat_doctrines": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Combat Doctrines",
+    "quoted_text": "At the start of each of your Command phases, choose one Combat Doctrine to be active until the start of your next Command phase. Each Combat Doctrine grants its bonus to ADEPTUS ASTARTES units from your army. Devastator Doctrine: each time a model in this unit makes a ranged attack, add 1 to the Wound roll. Tactical Doctrine: each time a model in this unit makes a ranged or melee attack against an enemy unit within range, add 1 to the Wound roll. Assault Doctrine: each time a model in this unit makes a melee attack, add 1 to the Wound roll.",
+    "trigger": "an ADEPTUS ASTARTES model from an army with the Gladius Task Force detachment makes an attack on a round in which the matching Doctrine is active (SwegHammer's AI rotates deterministically: round 1 Devastator, round 2 Tactical, round 3+ Assault)",
+    "effect": "+1 to the Wound roll, scoped per round + per attack mode. Round 1: ranged only. Round 2: both ranged and melee. Round 3+: melee only. Unit.attack applies this as `wound_target = max(2, wound_target - 1)` after the gate. Faction-gated on is_marine_faction(attacker.profile.faction); detachment-gated on Army.resolve_detachment().name == 'Gladius Task Force' (Ironstorm Spearhead Marines get nothing here).",
+    "scope": "phase-gated"
+  }
+}

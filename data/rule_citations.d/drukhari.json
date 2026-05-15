@@ -1,0 +1,12 @@
+{
+  "_comment": "Drukhari army rules + faction-specific citations (10e). Currently only Power From Pain — the army rule that gates Lethal Hits + FNP 6+ on a per-unit token state.",
+
+  "simulator.power_from_pain": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/",
+    "rule_name": "Power From Pain",
+    "quoted_text": "At the start of each Command phase, each Drukhari unit from your army that is below its Starting Strength gains 1 Pain Token. Each unit can hold a maximum of 1 Pain Token. While a Drukhari unit from your army has a Pain Token, models in that unit have the [LETHAL HITS] keyword and a Feel No Pain 6+ ability.",
+    "trigger": "start of own Command phase; the Drukhari unit's current_health is below profile.health AND the unit does not already hold a Pain Token",
+    "effect": "(approximation) the unit's `pain_tokens` field is set to 1. While > 0, Unit.attack treats the unit's attacks as having the Lethal Hits keyword (crit-to-hit auto-wounds, no save roll bypass) and Unit.receive_damage treats the unit as having Feel No Pain 6+ (post-save ignored on a d6 6+). Faction-gated on `profile.faction == 'Drukhari'` so the same field cannot accidentally fire for a non-Drukhari unit.",
+    "scope": "army-wide"
+  }
+}

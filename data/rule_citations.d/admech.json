@@ -1,0 +1,12 @@
+{
+  "_comment": "Adeptus Mechanicus army-rule citations (10e). Currently only Doctrina Imperatives — the Command-phase pick that swings the army between a +1-to-hit ranged stance (Protector) and a +1-to-hit melee stance (Conqueror), with the unpicked attack type taking a symmetric -1 to hit for the turn.",
+
+  "simulator.doctrina_imperatives": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/",
+    "rule_name": "Doctrina Imperatives",
+    "quoted_text": "At the start of your Command phase, select one of the following Doctrina Imperatives to be active for your army until the start of your next Command phase: Protector Imperative — each time an ADEPTUS MECHANICUS model from your army makes a ranged attack, add 1 to the Hit roll; each time an ADEPTUS MECHANICUS model from your army makes a melee attack, subtract 1 from the Hit roll. Conqueror Imperative — each time an ADEPTUS MECHANICUS model from your army makes a melee attack, add 1 to the Hit roll; each time an ADEPTUS MECHANICUS model from your army makes a ranged attack, subtract 1 from the Hit roll.",
+    "trigger": "start of own Command phase; the AdMech player selects exactly one of Protector / Conqueror, active until the start of their next Command phase. SwegHammer collapses 'until next Command phase' to 'for this round' since the simulator's round boundary aligns with both players' Command phases.",
+    "effect": "Sets Army.doctrina_imperative to 'protector' or 'conqueror' for the round. In Unit.attack, when the attacker's faction is 'Adeptus Mechanicus' and its army has an imperative active: Protector lowers hit_target by 1 (cap 2+) on ranged attacks and raises it by 1 (cap 6+) on melee; Conqueror is the symmetric inverse. Faction-gated so a non-AdMech unit in the same battle is unaffected.",
+    "scope": "army-wide"
+  }
+}

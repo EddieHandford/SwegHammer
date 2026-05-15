@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the Deadly Demise X core rule (10e). Mapper parses the integer from BSData infoLink modifier; simulator rolls 1D6 on death, applies X mortals within 6\" on a 6.",
+
+  "simulator.deadly_demise": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Deadly-Demise",
+    "rule_name": "Deadly Demise",
+    "quoted_text": "Some models have 'Deadly Demise x' listed in the abilities section of their datasheet. If a model has this ability, then when it is destroyed, roll one D6 before removing it from the battlefield: on a 6, each unit within 6\" of the bearer suffers a number of mortal wounds denoted by 'x'.",
+    "trigger": "a model with Deadly Demise X is destroyed; before removing it from the battlefield",
+    "effect": "(approximation) roll 1D6; on a 6, each unit within 6\" of the destroyed model suffers X mortal wounds. SwegHammer collapses the codex variants (D3, D6, D3+3, integer N) to a fixed integer expected value at mapper time (D3→2, D6→3, D3+3→5, N→N) so the runtime sees a single integer; the 1-in-6 trigger rate is preserved. Mortal wounds route through receive_damage so FNP and Death Guard's Disgustingly Resilient compose; secondary kills from a demise do NOT cascade-trigger their own demise in the same dispatch.",
+    "scope": "weapon-keyword"
+  }
+}

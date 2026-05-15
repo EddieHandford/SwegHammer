@@ -1,0 +1,12 @@
+{
+  "_comment": "Genestealer Cults army rule citations (10e). Currently only Cult Ambush — the army rule that lets the entire GSC army redeploy at the start of the first battle round after both sides have deployed, set up anywhere on the battlefield more than 9\" from enemy models. Effectively an army-wide turn-1 Deep Strike.",
+
+  "simulator.cult_ambush": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/",
+    "rule_name": "Cult Ambush",
+    "quoted_text": "At the start of the first battle round, after both sides have deployed, you can redeploy any number of units from your army. When doing so, each of those units can be set up anywhere on the battlefield that is more than 9\" horizontally away from all enemy models. If both players have a rule that re-deploys units in this way, the player who finished deploying their army first re-deploys their units first.",
+    "trigger": "start of the first battle round; any unit from a Genestealer Cults army",
+    "effect": "(approximation) every GSC unit is routed to the simulator's reserves bucket at deployment time instead of being placed on the standard deployment line. At the start of Round 1 — before any activations — those units are placed via the existing Deep Strike arrival path (>9\" from every enemy model, with the same threat/objective-scoring landing-point picker). Each unit is flagged in `_fresh_arrivals` so it skips its movement sub-phase that round, mirroring how a regular Deep Strike arrival is treated. A UnitDeepStrike event is emitted per landing so renderers/tests can observe the ambush.",
+    "scope": "army-wide"
+  }
+}

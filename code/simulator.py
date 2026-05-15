@@ -7,25 +7,36 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from .army import Army
+from .detachments import effective_move
 from .events import (
-    BattleEnded, BattleStarted, BattleshockFailed, InitialUnit,
-    JudgementTokenAwarded, ObjectiveScored, RoundEnded, RoundStarted,
-    StratagemFired, Subscriber, UnitActivated, UnitAdvanced, UnitCharged,
+    BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
+    InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
+    RoundEnded, RoundStarted, StratagemFired, Subscriber, TransportDisembarked,
+    TransportEmbarked, UnitActivated, UnitAdvanced, UnitCharged,
     UnitDeepStrike, UnitFought, UnitInfiltrated, UnitKilled, UnitMoved,
-    UnitReanimated, UnitScouted, UnitShot,
+    UnitReanimated, UnitScouted, UnitShot, WaaaghDeclared,
 )
+from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
-from .strategy import pick_move_intent, should_fire_stratagem
+from .strategy import (
+    decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
+    pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
+    should_fire_stratagem,
+)
 from .stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
     # Cult of Magic (Thousand Sons)
-    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH,
+    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH, CABBALISTIC_EMPOWERMENT,
     # Plague Company (Death Guard)
     DISGUSTINGLY_RESILIENT, PLAGUE_WEAPONS, OUTBREAK_OF_PESTILENCE,
-    # Battle Host (Aeldari)
-    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY,
-    award_command_phase_cp,
+    # Battle Host (Aeldari) + Saim-Hann attachment
+    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY, SPIRIT_STONES,
+    # Awakened Dynasty (Necrons)
+    IMPLACABLE_ONSLAUGHT, METHODICAL_DESTRUCTION,
+    # Mont'ka (T'au Empire)
+    STRIKE_SWIFTLY,
+    CP_CAP, award_command_phase_cp,
 )
 
 
@@ -182,6 +193,10 @@ class Battle:
         }
         self.a._battle_ref = self
         self.b._battle_ref = self
+        # Current battle round (1..MAX_ROUNDS). Updated at the top of each
+        # _run_round; read by Unit.attack for round-gated faction rules
+        # like the Orks WAAAGH! +1 to wound melee window.
+        self._current_round: int = 0
 
     # ------------------------------------------------------------------
     # Public interface
@@ -197,6 +212,21 @@ class Battle:
                    for u in army.units):
                 army.battle_focus_tokens = 4
 
+        # CP-econ Warlord scan (Belisarius Cawl, Roboute Guilliman, Trazyn
+        # the Infinite, Lord of Contagion). Seeds Army.cp_refund_remaining
+        # and Army._warlord_first_strat_free_enabled from the resolved
+        # Warlord's LeaderAbility. Armies without a CP-econ Warlord keep
+        # their defaults and the discount/refund gates stay dormant — this
+        # is the gate that ensures the mechanic never accidentally grants
+        # CP to a non-Warlord-having army.
+        from .leaders import warlord_ability
+        for army in (self.a, self.b):
+            wl = warlord_ability(army)
+            if wl is None:
+                continue
+            army.cp_refund_remaining = wl.cp_refund_per_battle
+            army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
+
         self._assign_uids()
         self._deploy_armies()
         # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
@@ -207,6 +237,17 @@ class Battle:
         # army roster, not just what was on the board at deployment.
         a_start = len(self.a.units) + len(self._reserves.get(self.a.name, []))
         b_start = len(self.b.units) + len(self._reserves.get(self.b.name, []))
+        # Snapshot starting points across BOTH on-board and reserve units so
+        # the WAAAGH! AI's "below 70% starting points" emergency trigger
+        # measures attrition against the full roster, not just the deployed
+        # slice. Applied to every army (cheap, scoped attribute), only Ork
+        # armies actually consult it.
+        for army in (self.a, self.b):
+            roster_pts = sum(u.profile.points_cost for u in army.units) + sum(
+                u.profile.points_cost
+                for u in self._reserves.get(army.name, [])
+            )
+            army.starting_points = float(roster_pts)
         # Reanimation Protocols (#75): snapshot starting model counts per
         # profile per army, including reserves. End-of-round revival reads
         # this to compute how many models have been destroyed.
@@ -232,6 +273,10 @@ class Battle:
                     uid=u.uid, name=u.profile.name, army=army.name,
                     position=u.position, max_health=u.profile.health,
                     unit_keywords=tuple(u.profile.unit_keywords or ()),
+                    base_shape=u.profile.base_shape,
+                    base_diameter_mm=u.profile.base_diameter_mm,
+                    base_width_mm=u.profile.base_width_mm,
+                    base_length_mm=u.profile.base_length_mm,
                 ))
             for u in self._reserves.get(army.name, []):
                 snapshot.append(InitialUnit(
@@ -239,6 +284,10 @@ class Battle:
                     position=(-100.0, -100.0),
                     max_health=u.profile.health,
                     unit_keywords=tuple(u.profile.unit_keywords or ()),
+                    base_shape=u.profile.base_shape,
+                    base_diameter_mm=u.profile.base_diameter_mm,
+                    base_width_mm=u.profile.base_width_mm,
+                    base_length_mm=u.profile.base_length_mm,
                 ))
         self._emit(BattleStarted(
             army_a_name=self.a.name,
@@ -434,6 +483,13 @@ class Battle:
             u.transient_plus_one_save = False
             u.transient_reroll_hits_shooting = False
             u.transient_assault_this_round = False
+            u.transient_fnp_5 = False
+            u.transient_plus_one_to_hit_shooting = False
+            u.transient_halve_damage = False
+        # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
+        # this round's Doombolt damage; reset every round so the boost only
+        # applies the round the stratagem fires.
+        army.cabbalistic_doombolt_boost = False
 
     def _apply_detachment_stratagems(self, army: Army, opponent: Army) -> None:
         """Round-start dispatcher for detachment-specific stratagems.
@@ -455,6 +511,12 @@ class Battle:
         strat_names = {s.name for s in det.stratagems}
 
         # ----- Cult of Magic (Thousand Sons) -----------------------------
+        # Cabbalistic Empowerment must run BEFORE Doombolt: it boosts the
+        # round's Doombolt payload from 2 MW to 3 MW (via the army's
+        # `cabbalistic_doombolt_boost` flag), and Doombolt's dispatcher reads
+        # the flag at fire time.
+        if "Cabbalistic Empowerment" in strat_names:
+            self._try_cabbalistic_empowerment(army, opponent)
         if "Doombolt" in strat_names:
             self._try_doombolt(army, opponent)
         if "Twist of Fate" in strat_names:
@@ -477,21 +539,39 @@ class Battle:
             self._try_fire_and_fade(army, opponent)
         if "Matchless Agility" in strat_names:
             self._try_matchless_agility(army, opponent)
+        if "Spirit Stones" in strat_names:
+            self._try_spirit_stones(army, opponent)
+
+        # ----- Awakened Dynasty (Necrons) -------------------------------
+        if "Implacable Onslaught" in strat_names:
+            self._try_implacable_onslaught(army, opponent)
+        if "Methodical Destruction" in strat_names:
+            self._try_methodical_destruction(army, opponent)
+
+        # ----- Mont'ka (T'au Empire) ------------------------------------
+        if "Strike Swiftly" in strat_names:
+            self._try_strike_swiftly(army, opponent)
 
     # ----- target-selection helpers used by the dispatchers --------------
 
-    @staticmethod
-    def _highest_threat_enemy(opponent: Army):
+    def _highest_threat_enemy(self, opponent: Army):
         """Pick the alive enemy unit with the highest role-weighted threat.
 
         Same role-weighting as `_apply_psychic_phase` so Doombolt and any
         future MW-payload stratagem agree on what counts as a worthwhile
         target — heavy / shooty / wounded enemies first, hordes last.
+
+        Battle-shocked enemies are excluded — 10e core forbids using
+        Stratagems to affect a Battle-shocked unit regardless of side.
+        Cited as `simulator.battleshock` (task #168).
         """
         from .roles import classify
         ROLE_THREAT = {"HEAVY": 3.0, "SHOOTY": 2.0, "DUAL": 1.5,
                        "MELEE": 1.0, "SUPPORT": 1.2, "HORDE": 0.6}
-        targets = list(opponent.alive_units)
+        targets = [
+            u for u in opponent.alive_units
+            if u.uid not in self._battleshocked_this_round
+        ]
         if not targets:
             return None
 
@@ -518,8 +598,7 @@ class Battle:
             return True
         return False
 
-    @classmethod
-    def _highest_dpa_unit(cls, army: Army, keyword: str = "", faction: str = ""):
+    def _highest_dpa_unit(self, army: Army, keyword: str = "", faction: str = ""):
         """Pick the alive friendly unit with the highest melee+ranged DPA.
 
         Optional `keyword`/`faction` filter restricts to units carrying
@@ -527,10 +606,15 @@ class Battle:
         (e.g. "Aeldari") so a Battle Host army with stray non-Aeldari
         allies still targets the right detachment. See
         `_unit_matches_filter` for the lookup logic.
+
+        Battle-shocked units are excluded — 10e core: "While a unit is
+        Battle-shocked, ... you cannot use Stratagems to affect that
+        unit." Cited as `simulator.battleshock` (task #168).
         """
         candidates = [
             u for u in army.alive_units
-            if cls._unit_matches_filter(u, keyword=keyword, faction=faction)
+            if self._unit_matches_filter(u, keyword=keyword, faction=faction)
+            and u.uid not in self._battleshocked_this_round
         ]
         if not candidates:
             return None
@@ -543,18 +627,22 @@ class Battle:
             return ranged + melee
         return max(candidates, key=_dpa)
 
-    @classmethod
-    def _most_vulnerable_unit(cls, army: Army, keyword: str = "", faction: str = ""):
+    def _most_vulnerable_unit(self, army: Army, keyword: str = "", faction: str = ""):
         """Pick the alive friendly unit most likely to benefit from a
         defensive stratagem — wounded + high-value.
 
         Score: (points_cost) × (1.0 - current_health/max_health). A unit at
         full HP gets 0 (no buff needed); a Knight at 30% HP scores very
         high. Restricted to units matching the keyword/faction filter.
+
+        Battle-shocked units are excluded — 10e core: "While a unit is
+        Battle-shocked, ... you cannot use Stratagems to affect that
+        unit." Cited as `simulator.battleshock` (task #168).
         """
         candidates = [
             u for u in army.alive_units
-            if cls._unit_matches_filter(u, keyword=keyword, faction=faction)
+            if self._unit_matches_filter(u, keyword=keyword, faction=faction)
+            and u.uid not in self._battleshocked_this_round
         ]
         if not candidates:
             return None
@@ -591,9 +679,16 @@ class Battle:
             return
         if not self._fire_stratagem(army, DOOMBOLT):
             return
-        target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
+        # Base damage: median D3 = 2. Cabbalistic Empowerment (Cult of Magic
+        # stratagem, 1 CP) bumps a TSons psyker's psychic attack +1 to wound;
+        # we collapse that into +1 MW on the Doombolt payload (2 → 3) when
+        # the round's Cabbalistic Empowerment flag is set. Cited as
+        # `Stratagem.Cabbalistic Empowerment`.
+        dmg = 3.0 if getattr(army, "cabbalistic_doombolt_boost", False) else 2.0
+        target.receive_damage(dmg, bonus_fnp=target.profile.fnp)
         if not target.is_alive:
             self._emit(UnitKilled(unit_uid=target.uid))
+            self._maybe_apply_deadly_demise(target)
 
     def _try_twist_of_fate(self, army: Army, opponent: Army) -> None:
         """Twist of Fate (Cult of Magic): +1 to wound on a friendly TSons
@@ -778,6 +873,129 @@ class Battle:
             return
         attacker.transient_assault_this_round = True
 
+    # ----- Awakened Dynasty (Necrons) dispatchers ------------------------
+
+    def _try_implacable_onslaught(self, army: Army, opponent: Army) -> None:
+        """Implacable Onslaught (Awakened Dynasty, 1 CP): transient FNP 5+ on
+        the most vulnerable NECRONS unit for the round. Composes with
+        Reanimation Protocols by lowering the unit's effective FNP target —
+        applied per receive_damage call. Cited as
+        `Stratagem.Implacable Onslaught`."""
+        target = self._most_vulnerable_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, IMPLACABLE_ONSLAUGHT, ctx):
+            return
+        if not self._fire_stratagem(army, IMPLACABLE_ONSLAUGHT):
+            return
+        target.transient_fnp_5 = True
+
+    def _try_methodical_destruction(self, army: Army, opponent: Army) -> None:
+        """Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on a
+        friendly NECRONS unit's ranged attacks for the round. Picks the
+        highest-DPA NECRONS shooter so the buff lands on the biggest gun.
+        Cited as `Stratagem.Methodical Destruction`."""
+        attacker = self._highest_dpa_unit(
+            army, keyword="NECRONS", faction="Necrons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, METHODICAL_DESTRUCTION, ctx):
+            return
+        if not self._fire_stratagem(army, METHODICAL_DESTRUCTION):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    # ----- Cult of Magic (Thousand Sons) — Cabbalistic Empowerment -------
+
+    def _try_cabbalistic_empowerment(self, army: Army, opponent: Army) -> None:
+        """Cabbalistic Empowerment (Cult of Magic, 1 CP): boosts the round's
+        Doombolt payload from 2 MW to 3 MW. Requires a PSYKER and a viable
+        target (otherwise we're paying CP for a Doombolt that won't fire).
+        Cited as `Stratagem.Cabbalistic Empowerment`."""
+        has_psyker = any(
+            "PSYKER" in (u.profile.unit_keywords or ())
+            for u in army.alive_units
+        )
+        if not has_psyker:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"target": target, "has_psyker": True}
+        if not should_fire_stratagem(army, CABBALISTIC_EMPOWERMENT, ctx):
+            return
+        if not self._fire_stratagem(army, CABBALISTIC_EMPOWERMENT):
+            return
+        army.cabbalistic_doombolt_boost = True
+
+    # ----- Saim-Hann (Aeldari) — Spirit Stones ---------------------------
+
+    def _try_spirit_stones(self, army: Army, opponent: Army) -> None:
+        """Spirit Stones (Saim-Hann, 1 CP): halve incoming damage on a damaged
+        AELDARI unit for the round (rounded up). Picks the most vulnerable
+        AELDARI unit. Cited as `Stratagem.Spirit Stones`."""
+        target = self._most_vulnerable_unit(
+            army, keyword="AELDARI", faction="Aeldari",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, SPIRIT_STONES, ctx):
+            return
+        if not self._fire_stratagem(army, SPIRIT_STONES):
+            return
+        target.transient_halve_damage = True
+
+    # ----- Mont'ka (T'au Empire) — Strike Swiftly ------------------------
+
+    def _try_strike_swiftly(self, army: Army, opponent: Army) -> None:
+        """Strike Swiftly (Mont'ka, 1 CP): transient ASSAULT on a friendly
+        T'AU unit so it can shoot after Advancing. Same mechanic as Battle
+        Host's Matchless Agility; we route both through
+        `transient_assault_this_round` since the simulator's _do_shoot path
+        already short-circuits the Advanced-this-round shoot block on that
+        flag. Cited as `Stratagem.Strike Swiftly`."""
+        candidates = [
+            u for u in army.alive_units
+            if self._unit_matches_filter(u, keyword="T'AU EMPIRE", faction="T'au Empire")
+            and u.profile.range_inches >= 12
+            and not u.profile.assault
+        ]
+        if not candidates:
+            return
+        def _wants_advance(u):
+            if not opponent.alive_units:
+                return False
+            nearest = min(
+                opponent.alive_units,
+                key=lambda e: _distance(u.position, e.position),
+            )
+            return _distance(u.position, nearest.position) > u.profile.range_inches
+        viable = [u for u in candidates if _wants_advance(u)]
+        if not viable:
+            return
+        attacker = max(viable, key=lambda u: float(u.profile.points_cost))
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, STRIKE_SWIFTLY, ctx):
+            return
+        if not self._fire_stratagem(army, STRIKE_SWIFTLY):
+            return
+        attacker.transient_assault_this_round = True
+
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
 
@@ -894,15 +1112,25 @@ class Battle:
         via `_arrive_from_reserves`. Units with `infiltrator=True` are placed
         past the standard deployment line (forward of their own edge, ~halfway
         between the deployment line and the centreline).
+
+        Genestealer Cults — Cult Ambush (army rule, 10e): every GSC unit is
+        routed into reserves regardless of its `deep_strike` flag, and tagged
+        `cult_ambush_pending=True`. The arrival path picks ambush-flagged
+        units up at the top of Round 1 (not Round 2+), placing them >9" from
+        any enemy model. Cited as `simulator.cult_ambush`.
         """
         a_y = self.map.deployment_width / 2.0
         b_y = self.map.height - self.map.deployment_width / 2.0
 
-        # Pull deep-strikers out of each army into reserves.
+        # Pull deep-strikers (and the whole GSC army, per Cult Ambush) out of
+        # each army into reserves.
         for army in (self.a, self.b):
             standard, reserves = [], []
             for u in army.units:
-                if u.profile.deep_strike:
+                is_gsc = u.profile.faction == "Genestealer Cults"
+                if is_gsc:
+                    u.cult_ambush_pending = True
+                if u.profile.deep_strike or is_gsc:
                     reserves.append(u)
                 else:
                     standard.append(u)
@@ -932,6 +1160,12 @@ class Battle:
         self._deploy_line(b_infil, b_forward_y)
         for u in b_infil:
             self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
+
+        # Transports (10e core): after standard deployment, embark eligible
+        # INFANTRY passengers into available TRANSPORT units. Embarking removes
+        # the passenger from active gameplay (position pinned to transport,
+        # activation skipped by the embarked gate). Cited as `simulator.embark`.
+        self._embark_pregame_passengers()
 
     def _deploy_line(self, units, y: float) -> None:
         if not units:
@@ -973,40 +1207,94 @@ class Battle:
                     ))
 
     def _arrive_from_reserves(self, round_num: int) -> None:
-        """Bring Deep Strike reserves onto the board starting Round 2. Each
-        unit is placed > 9" from every alive enemy. Picks the centre of the
-        board first; if it's too close to an enemy, tries each board corner
-        and falls back to a coarse grid sweep. Units that just arrived are
-        flagged in `_fresh_arrivals` so they skip movement this round.
+        """Bring reserves onto the board.
+
+        Deep Strike (#153 overhaul — coordinated alpha-strike AI):
+        from Round 2 onwards, the strategy layer (`decide_deepstrike_drops`)
+        decides whether to drop NOW or hold. If the drop fires, all selected
+        units arrive the same round (mass drop), clustered near a shared
+        anchor — high-threat enemy for T2-T3, contested objective for T4+.
+        Round 3 forces all remaining DS units down (alpha-strike window);
+        Round 4+ never leaves reserves on the table (tempo cost).
+
+        Cult Ambush (Genestealer Cults army rule, 10e): a unit flagged
+        `cult_ambush_pending` arrives at the top of Round 1, deterministically
+        (the whole GSC army can redeploy at the start of the first battle round).
+        The ambush flag is cleared on landing so any subsequent revival /
+        re-entry doesn't re-trigger the path. Cited as `simulator.cult_ambush`.
+
+        Each arriving unit is placed > 9" from every alive enemy. The picker
+        scores candidates by proximity to high-threat enemies and to
+        contested objectives (T4+ weights objectives more). Mass-drop units
+        share a landing anchor so they end up within ~12" of each other.
         """
-        if round_num < 2:
-            return
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             waiting = self._reserves.get(army.name, [])
             if not waiting:
                 continue
+
+            # Cult Ambush units always arrive on R1; they bypass the DS gate.
+            ambush_now = [u for u in waiting if getattr(u, "cult_ambush_pending", False)]
+            ds_waiting = [u for u in waiting if not getattr(u, "cult_ambush_pending", False)]
+
+            # Strategy layer decides which DS units (non-ambush) land this round.
+            ds_dropping = decide_deepstrike_drops(
+                round_num, ds_waiting, opponent, army, self.map,
+            )
+            ds_dropping_ids = {id(u) for u in ds_dropping}
+
+            arriving = ambush_now + ds_dropping
+            if not arriving:
+                # No drops this round — keep everyone in reserves.
+                continue
+
+            # Pick a shared anchor for the mass drop so multiple units cluster.
+            # Cult Ambush units are placed independently (no anchor) — the
+            # whole GSC army is dropping, individual scoring stays cleanest.
+            anchor = None
+            if len(ds_dropping) >= 2:
+                anchor = pick_mass_arrival_anchor(
+                    round_num, ds_dropping, opponent, army, self.map,
+                )
+
             still_waiting = []
+            anchor_placed: list = []   # track placed positions for clustering
             for u in waiting:
-                # 66% chance to arrive each round from Round 2; forced
-                # arrival from Round 4 onwards (10e: reserves must come on
-                # by end of Round 3 or are destroyed — we soft-enforce by
-                # auto-arriving). Avoids dumping the whole army turn 2.
-                if round_num >= 4 or random.random() < 0.66:
-                    pos = self._pick_arrival_point(opponent, arriving_unit=u)
-                    if pos is None:
-                        # No valid arrival spot — defer to next round.
-                        still_waiting.append(u)
-                        continue
-                    u.position = pos
-                    army.units.append(u)
-                    self._fresh_arrivals.add(u.uid)
-                    self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
-                else:
+                is_ambush = getattr(u, "cult_ambush_pending", False)
+                if not is_ambush and id(u) not in ds_dropping_ids:
+                    # Strategy held this unit back this round.
                     still_waiting.append(u)
+                    continue
+                # Mass-drop: cluster around anchor for non-ambush DS units.
+                use_anchor = anchor if (not is_ambush and anchor is not None) else None
+                pos = self._pick_arrival_point(
+                    opponent,
+                    arriving_unit=u,
+                    round_num=round_num,
+                    anchor=use_anchor,
+                    placed_positions=anchor_placed if use_anchor else None,
+                )
+                if pos is None:
+                    # No valid arrival spot — defer to next round (rare;
+                    # only happens on saturated maps).
+                    still_waiting.append(u)
+                    continue
+                u.position = pos
+                u.cult_ambush_pending = False
+                army.units.append(u)
+                self._fresh_arrivals.add(u.uid)
+                self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
+                if use_anchor is not None:
+                    anchor_placed.append(pos)
             self._reserves[army.name] = still_waiting
 
     def _pick_arrival_point(
-        self, opponent: Army, arriving_unit: Optional[Unit] = None,
+        self,
+        opponent: Army,
+        arriving_unit: Optional[Unit] = None,
+        round_num: int = 0,
+        anchor: Optional[Tuple[float, float]] = None,
+        placed_positions: Optional[list] = None,
     ) -> Optional[Tuple[float, float]]:
         """Pick a tactically-useful Deep Strike landing point.
 
@@ -1016,8 +1304,11 @@ class Battle:
           * Proximity to high-threat enemies (SHOOTY/HEAVY weighted up).
             For a melee-capable arriving unit, "closer-to-a-threat" wins —
             we want to land into charge range of a sniper or Knight.
-          * Proximity to uncontested objectives.
-            For a shooty arriving unit, this dominates — drop and claim.
+          * Proximity to uncontested / contested objectives. T4+ weights
+            this hard — late-game DS exists to grab end-game VP.
+          * Proximity to `anchor` (mass-drop clustering). When 2+ units
+            drop the same round they share an anchor; later arrivals also
+            get a bonus for being near already-placed siblings.
 
         Falls back to the legacy centre-then-corners pick if no candidates
         are valid (e.g. a tiny board mid-late game).
@@ -1068,6 +1359,14 @@ class Battle:
         threat_w = 2.0 if is_melee_leaning else 1.0
         objective_w = 0.7 if is_melee_leaning else 1.6
 
+        # T4+ override: late-game DS prioritises objective steals over kills
+        # (the unit's job is end-game VP, not damage). Multiply objective
+        # weight up sharply and dampen threat weight so the score function
+        # picks objective-adjacent landings even when an enemy is nearby.
+        if round_num >= 4:
+            objective_w *= 3.0
+            threat_w *= 0.5
+
         # Identify uncontested objectives (no friendly within control radius).
         friendly = self.a if opponent is self.b else self.b
         targetable_objs = []
@@ -1088,6 +1387,23 @@ class Battle:
             for obj in targetable_objs:
                 d = _distance(p, (obj.x, obj.y))
                 s += objective_w / (d + 4.0)
+                # T4+ extra bonus: massive reward for landing within the
+                # 3" control radius of a contested objective.
+                if round_num >= 4 and d <= obj.control_radius:
+                    s += 12.0
+            # Mass-drop clustering: pull candidate near the squad anchor and
+            # near any already-placed siblings from this round's drop.
+            if anchor is not None:
+                d_anchor = _distance(p, anchor)
+                s += 4.0 / (d_anchor + 4.0)
+                # Hard cap: candidates more than 12" from the anchor are
+                # de-ranked so the squad lands as a coherent body.
+                if d_anchor > 12.0:
+                    s -= 5.0
+            if placed_positions:
+                for sib in placed_positions:
+                    d_sib = _distance(p, sib)
+                    s += 2.0 / (d_sib + 4.0)
             return s
 
         # Dense candidate grid (~3" spacing). Cheap; runs at most ~5 times
@@ -1129,9 +1445,111 @@ class Battle:
     # Round logic
     # ------------------------------------------------------------------
 
+    def _run_battleshock_phase(self, round_num: int) -> None:
+        """10e Battle-shock step (after Round 1). For each unit Below
+        Half-Strength, roll 2D6 vs Ld; fail (< Ld) sets the unit as
+        Battle-shocked for the round — OC drops to 0 AND it cannot be the
+        subject of Stratagems. We populate `_battleshocked_this_round`
+        BEFORE the stratagem dispatcher runs so target-pickers
+        (`_most_vulnerable_unit`, `_highest_dpa_unit`) can filter the set
+        out. Cited as `simulator.battleshock`.
+
+        Detachment modifiers compose: own ld_bonus LOWERS our test target
+        (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
+
+        Faction-rule short-circuits:
+          - Mob Rule (Orks, 10e): 10+ alive Ork models army-wide → auto-pass.
+            Cited as `simulator.mob_rule`.
+          - Synapse Imperative (Tyranids, 10e): a Tyranid unit within 6"
+            of any friendly SYNAPSE model auto-passes. Cited as
+            `simulator.synapse_imperative`.
+          - Shadow in the Warp (Tyranids, 10e): an enemy unit within 12"
+            of any Tyranid SYNAPSE model takes the test at -1. Cited as
+            `simulator.shadow_in_the_warp`.
+          - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
+            enemy units within 6" of any DG model take -1 Ld. Cited as
+            `simulator.contagions_of_nurgle`.
+        """
+        if round_num <= 1:
+            return
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            opponent_det = opponent.resolve_detachment()
+            own_det = army.resolve_detachment()
+            ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
+            ld_bonus = own_det.ld_bonus if own_det else 0
+            ork_count = sum(
+                1 for u in army.alive_units if u.profile.faction == "Orks"
+            )
+            mob_rule_active = ork_count >= 10
+            own_synapse = [
+                s for s in army.alive_units
+                if "SYNAPSE" in (s.profile.unit_keywords or ())
+            ]
+            shadow_sources = [
+                s for s in opponent.alive_units
+                if "SYNAPSE" in (s.profile.unit_keywords or ())
+                and s.profile.faction == "Tyranids"
+            ]
+            contagion_sources = (
+                [
+                    s for s in opponent.alive_units
+                    if s.profile.faction == "Death Guard"
+                ]
+                if round_num == 2 else []
+            )
+            for u in army.alive_units:
+                if u.current_health < u.profile.health / 2.0:
+                    if mob_rule_active and u.profile.faction == "Orks":
+                        continue
+                    if (
+                        u.profile.faction == "Tyranids"
+                        and own_synapse
+                        and any(
+                            _distance(u.position, s.position) <= 6.0
+                            for s in own_synapse
+                            if s.uid != u.uid
+                        )
+                    ):
+                        continue
+                    shadow_penalty = 0
+                    if shadow_sources and any(
+                        _distance(u.position, s.position) <= 12.0
+                        for s in shadow_sources
+                    ):
+                        shadow_penalty = 1
+                    contagion_penalty = 0
+                    if (
+                        contagion_sources
+                        and u.profile.faction != "Death Guard"
+                        and any(
+                            _distance(u.position, s.position) <= 6.0
+                            for s in contagion_sources
+                        )
+                    ):
+                        contagion_penalty = 1
+                    roll = random.randint(1, 6) + random.randint(1, 6)
+                    target = (
+                        u.profile.leadership
+                        + ld_penalty
+                        - ld_bonus
+                        + shadow_penalty
+                        + contagion_penalty
+                    )
+                    if roll < target:
+                        self._battleshocked_this_round.add(u.uid)
+                        self._emit(BattleshockFailed(
+                            unit_uid=u.uid, roll=roll, target=target,
+                        ))
+
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
             print(f"\n--- Round {round_num} ---")
+
+        # Expose the live round to Unit.attack via the army back-reference
+        # so faction-gated round windows (Orks WAAAGH! +1 to wound melee)
+        # can be checked without threading a round parameter through every
+        # call site.
+        self._current_round = round_num
 
         # New round = no unit has Advanced yet, no battleshock yet, no charges.
         self._advanced_this_round = set()
@@ -1147,11 +1565,124 @@ class Battle:
         # awarded later by _award_cp.
         award_command_phase_cp(self.a)
         award_command_phase_cp(self.b)
+        # ---- Warlord-gated CP discount (Roboute Guilliman, Lord of
+        # Contagion). After the per-round drip, look up the army's Warlord
+        # and apply any additional per-round CP mechanic:
+        #   * `cp_discount_per_round > 0`: bump command_points by that
+        #     amount (capped at the universal CP_CAP=6). Guilliman's
+        #     "Author of the Codex" extra +1 CP / round.
+        #   * `first_stratagem_free_per_round`: re-arm the "next stratagem
+        #     is free" latch for this round. Lord of Contagion's "Lord of
+        #     the Death Guard" Warlord trait.
+        # The Warlord scan is keyed off `_warlord_first_strat_free_enabled`
+        # / `warlord_ability(army)` — armies without a CP-econ Warlord skip
+        # this block entirely and the discount never fires.
+        from .leaders import warlord_ability as _warlord_ability_for_round
+        for army in (self.a, self.b):
+            wl = _warlord_ability_for_round(army)
+            if wl is None:
+                continue
+            if wl.cp_discount_per_round > 0:
+                army.command_points = min(
+                    CP_CAP,
+                    army.command_points + wl.cp_discount_per_round,
+                )
+            if army._warlord_first_strat_free_enabled:
+                army.first_stratagem_free_this_round = True
+        # ---- Orks WAAAGH! once-per-battle declaration (Command phase).
+        # 10e Orks army rule: declared at the start of a Command phase, once
+        # per battle. While active until the end of that turn, Ork attackers
+        # gain +1 to wound in melee (the simulator-side gate; +1 to charge
+        # rolls and Advance-counts-as-charge are descriptive — see
+        # `simulator.waaagh` citation). The AI fires per `should_declare_waaagh`.
+        for army in (self.a, self.b):
+            if any(u.profile.faction == "Orks" for u in army.units):
+                if should_declare_waaagh(army, round_num):
+                    army.waaagh_round_unlocked = round_num
+                    self._emit(WaaaghDeclared(
+                        army_name=army.name, round_num=round_num,
+                    ))
+        # ---- Drukhari Power From Pain (10e army rule). At the start of
+        # each Command phase, every Drukhari unit below Starting Strength
+        # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's
+        # models gain Lethal Hits + FNP 6+; the buffs themselves are
+        # applied in Unit.attack and Unit.receive_damage. We model each
+        # squad member as a separate Unit instance with starting
+        # current_health = profile.health, so "below Starting Strength"
+        # reads as "current_health < profile.health". Cited as
+        # `simulator.power_from_pain`.
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.profile.faction != "Drukhari":
+                    continue
+                if u.pain_tokens >= 1:
+                    continue   # cap: each unit holds at most 1 token
+                if u.current_health < u.profile.health:
+                    u.pain_tokens = 1
+        # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
+        # At the start of each Command phase the AdMech player picks ONE of
+        # two imperatives — "protector" (+1 to hit ranged, -1 to hit melee)
+        # or "conqueror" (mirror). Active until the start of their next
+        # Command phase; in SwegHammer that maps to "for this round". We
+        # reset to None first so a faction-tag flip mid-battle (paranoia)
+        # doesn't leak stale state, then re-pick via the strategy heuristic.
+        # The hit-roll modifier itself is applied in Unit.attack, gated on
+        # `attacker.profile.faction == "Adeptus Mechanicus"`. Cited as
+        # `simulator.doctrina_imperatives`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.doctrina_imperative = None
+            if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
+                army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
+        # ---- Adeptus Astartes Oath of Moment (army rule, 10e). At the start
+        # of each Command phase a Marine player picks one enemy unit; every
+        # Marine attack against that unit re-rolls hits AND wounds (full
+        # re-rolls, not just 1s) until the start of the next Command phase.
+        # We reset to None at the top of the round so a stale uid never
+        # leaks across rounds (the buff only fires while uid == current
+        # target). Cited as `simulator.oath_of_moment`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.oath_target_uid = None
+            if any(is_marine_faction(u.profile.faction) for u in army.units):
+                self._pick_oath_target(army, opponent, round_num)
+        # ---- World Eaters Blood Tithe spend (10e army rule). The codex
+        # allows spending at the start of any phase; we elect once per round
+        # at the start of the Command phase, priority-greedy on the WE
+        # army. Order:
+        #   BT >= 4: spend 4, set blood_tithe_lethal_hits_round = round_num
+        #            (read by Unit.attack against the live battle round to
+        #            grant [LETHAL HITS] on WE-faction attackers for this
+        #            round only — collapses the codex's "this phase" scope).
+        #   BT >= 3: spend 3, gain +1 CP (capped at the per-round +1 ceiling
+        #            via min(6, command_points+1) — matches the per-round
+        #            drip behaviour the simulator already applies for the
+        #            Command-phase CP gain).
+        # The 1-BT charge-roll re-roll, 2-BT +1-to-wound-vs-target, and 5-BT
+        # auto-pass Battle-shock are skipped intentionally: the simulator's
+        # charge loop doesn't expose a re-roll hook, the target-tagging gate
+        # is a per-target side-band that doesn't ride the existing buff plumbing,
+        # and the auto-pass is a rare per-battle event whose impact on MAE
+        # would be negligible. Cited as `simulator.blood_tithe`.
+        for army in (self.a, self.b):
+            if not any(u.profile.faction == "World Eaters" for u in army.units):
+                continue
+            if army.blood_tithe >= 4:
+                army.blood_tithe -= 4
+                army.blood_tithe_lethal_hits_round = round_num
+            elif army.blood_tithe >= 3:
+                army.blood_tithe -= 3
+                army.command_points = min(6, army.command_points + 1)
         # Clear any per-round transient stratagem flags from the previous
         # round (Disgustingly Resilient, Lightning-Fast Reactions, etc.)
         # before deciding whether to spend CP on a new batch this round.
         self._clear_transient_stratagem_flags(self.a)
         self._clear_transient_stratagem_flags(self.b)
+        # Battleshock check MUST run before the stratagem dispatcher so
+        # battleshocked units are excluded from "use Stratagems to affect
+        # that unit" (10e core: while a unit is Battle-shocked, you cannot
+        # use Stratagems to affect that unit). The dispatcher reads the
+        # `_battleshocked_this_round` set when picking targets via
+        # `_most_vulnerable_unit` / `_highest_dpa_unit`. See task #168.
+        self._run_battleshock_phase(round_num)
         # Detachment-specific stratagems that fire at the start of a round
         # (Cult of Magic, Plague Company, Battle Host). Doombolt also fires
         # here as a per-round mortal-wound payload — it's nominally a
@@ -1164,12 +1695,23 @@ class Battle:
         # the set first, THEN call _arrive_from_reserves so units arriving
         # this round are flagged for "skip movement" but those that arrived
         # last round are eligible to move normally.
+        #
+        # Round 1: do NOT reset `_fresh_arrivals` (scouted units inherit
+        # their flag), and call `_arrive_from_reserves` to handle Cult
+        # Ambush (Genestealer Cults army rule) — every GSC unit lands at
+        # the top of Round 1 via the same arrival path. Regular deep
+        # strikers are gated off Round 1 inside _arrive_from_reserves so
+        # only ambush-flagged units actually come on here.
         if round_num >= 2:
             self._fresh_arrivals = set()
-            self._arrive_from_reserves(round_num)
+        self._arrive_from_reserves(round_num)
         for army in (self.a, self.b):
             for u in army.units:
                 u.moved_this_round = False
+                # Fall Back (10e core): the shoot/charge lockout only lasts
+                # the turn the unit fell back, so clear it at the top of
+                # every round before the new Movement phase runs.
+                u.fell_back_this_round = False
 
         # Pre-compute on-objective state for the round so Unit.attack() can
         # cheaply apply detachment buffs gated on objective control (Awakened
@@ -1182,27 +1724,20 @@ class Battle:
                     for obj in self.map.objectives
                 )
 
-        # Battleshock phase (after Round 1). 10e core rule: any unit Below
-        # Half-Strength tests; pass on 2d6 >= Ld. We treat each Unit
-        # instance as a stand-in for a single squad member; "below half
-        # strength" maps to "current HP < starting HP / 2".
-        # Detachment modifiers compose: own ld_bonus LOWERS our test target
-        # (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
-        if round_num > 1:
-            for army, opponent in ((self.a, self.b), (self.b, self.a)):
-                opponent_det = opponent.resolve_detachment()
-                own_det = army.resolve_detachment()
-                ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
-                ld_bonus = own_det.ld_bonus if own_det else 0
-                for u in army.alive_units:
-                    if u.current_health < u.profile.health / 2.0:
-                        roll = random.randint(1, 6) + random.randint(1, 6)
-                        target = u.profile.leadership + ld_penalty - ld_bonus
-                        if roll < target:
-                            self._battleshocked_this_round.add(u.uid)
-                            self._emit(BattleshockFailed(
-                                unit_uid=u.uid, roll=roll, target=target,
-                            ))
+        # Battleshock phase already ran before the stratagem dispatcher
+        # (task #168 — stratagems can't target battleshocked units, so the
+        # test must populate `_battleshocked_this_round` first). See
+        # `_run_battleshock_phase` for the rule logic.
+
+        # ---- Coordinated army-level activation plan (#161). At the start of
+        # each round, each army picks ONE plan that biases both its activation
+        # ORDER (units physically aligned with the plan activate first) and
+        # the per-unit strategy layer (objective/charge biases). Without this,
+        # the AI picks each activation independently and no alpha strike
+        # materialises. Internal AI scheduler — not a 10e rule, no
+        # citation required.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.army_plan = pick_army_plan(army, opponent, round_num, self.map)
 
         first, second = (
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
@@ -1212,8 +1747,8 @@ class Battle:
         second_activated: set = set()
 
         while True:
-            first_q = first.activation_queue(first_activated)
-            second_q = second.activation_queue(second_activated)
+            first_q = first.activation_queue(first_activated, map_=self.map)
+            second_q = second.activation_queue(second_activated, map_=self.map)
             if not first_q and not second_q:
                 break
 
@@ -1284,6 +1819,12 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # Embarked passengers do not act on their own activation — the
+        # transport carries them. The simulator emits UnitActivated for the
+        # transport, not the passenger. Cited as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
+
         self._emit(UnitActivated(
             unit_uid=attacker.uid,
             army_name=attacker_army.name,
@@ -1295,6 +1836,12 @@ class Battle:
         if attacker.uid in self._fresh_arrivals:
             return
 
+        # Transport voluntary disembark hook (10e core). Fires BEFORE the
+        # transport's move so the rule "the transport hasn't moved this turn"
+        # is satisfied. Cited as `simulator.disembark`.
+        if self._is_transport(attacker) and attacker.passengers:
+            self._maybe_disembark_before_move(attacker, attacker_army, defender_army)
+
         # Strategy layer (code/strategy.py): role + objective-aware pick of
         # where this unit wants to go. The simulator USED to always march at
         # the nearest enemy, which abandoned objectives and lost VP. Now units
@@ -1304,7 +1851,45 @@ class Battle:
             return
         target_pos, intent = pick_move_intent(
             attacker, attacker_army, defender_army, self.map,
+            army_plan=attacker_army.army_plan,
         )
+
+        # Fall Back (10e core). Units already locked in melee that the
+        # strategy layer wants to disengage move up to M" toward the picked
+        # destination, then take a Desperate Escape test (1D6 per model;
+        # each 1 destroys a model — we model unit-per-model, so this is one
+        # roll). Falling back blocks shoot / charge for the turn unless the
+        # unit has FLY. Cited as `simulator.fall_back` /
+        # `simulator.desperate_escape`. Advance-this-turn and Fall Back are
+        # mutually exclusive: Fall Back uses the normal-move pool.
+        if intent == "FALL_BACK":
+            if attacker.uid in self._advanced_this_round:
+                # Already advanced this round — don't compound activations.
+                return
+            normal_move = effective_move(attacker)
+            old_pos = attacker.position
+            new_pos = _move_toward(
+                attacker.position, target_pos,
+                float(normal_move), self.map,
+            )
+            if new_pos != old_pos:
+                attacker.position = new_pos
+                self._did_move_this_round.add(attacker.uid)
+                attacker.moved_this_round = True
+                self._emit(UnitMoved(
+                    unit_uid=attacker.uid,
+                    from_pos=old_pos,
+                    to_pos=new_pos,
+                ))
+            attacker.fell_back_this_round = True
+            # Desperate Escape: 1D6 per model — SwegHammer is one Unit per
+            # model, so a single d6; on a 1 the model is destroyed.
+            if random.randint(1, 6) == 1:
+                attacker.current_health = 0.0
+                if not attacker.is_alive:
+                    self._emit(UnitKilled(unit_uid=attacker.uid))
+                    self._maybe_apply_deadly_demise(attacker)
+            return
 
         dist = _distance(attacker.position, target_pos)
         if dist < 0.5 or intent == "HOLD":
@@ -1314,7 +1899,7 @@ class Battle:
         # We Advance only when a normal move would NOT bring us into shooting
         # range of the target — the speed boost is wasted otherwise and the
         # shoot foregone.
-        normal_move = attacker.profile.move
+        normal_move = effective_move(attacker)
         # For ENGAGE intent, "in range" = weapon range. For CAPTURE/STEAL,
         # "in range" = within the objective's control radius (we want to be on
         # the marker). REPOSITION is a small jiggle (always normal-move).
@@ -1351,6 +1936,16 @@ class Battle:
             ))
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # Embarked passengers cannot shoot on their own activation (10e core).
+        # Their fire is folded into the transport's via Firing Deck X. Cited
+        # as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
+        # Fall Back lockout (10e core): a unit that Fell Back this turn can
+        # only shoot if it has the FLY keyword. Cited as
+        # `simulator.fall_back`.
+        if attacker.fell_back_this_round and not attacker.profile.fly:
+            return
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
         # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
@@ -1393,20 +1988,37 @@ class Battle:
             attacker.shooting_in_engagement = False
 
         rng = attacker.profile.range_inches
+        # Embarked passengers are off-board — they cannot be targeted by
+        # ranged attacks. Targeting passes through the transport itself.
+        # Cited as `simulator.embark`.
+        targetable = [
+            u for u in defender_army.alive_units
+            if getattr(u, "embarked_in", None) is None
+        ]
         # Indirect Fire lets us target units we cannot see; otherwise LoS is
         # required. The has_los flag is plumbed into Unit.attack so it can
         # apply the -1 to hit when shooting blind.
         if attacker.profile.indirect_fire:
             candidates = [
-                u for u in defender_army.alive_units
+                u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
             ]
         else:
             candidates = [
-                u for u in defender_army.alive_units
+                u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
                 and self.map.has_line_of_sight(attacker.position, u.position)
             ]
+        # 10e core targeting restrictions: Look Out Sir + Lone Operative. The
+        # helper composes both rules — `friendly_units` to a candidate target
+        # is its OWN army's alive units (bodyguards live with the target).
+        # Cited as `simulator.look_out_sir` and `simulator.lone_operative`.
+        from .army import can_target_for_ranged
+        defender_alive = defender_army.alive_units
+        candidates = [
+            u for u in candidates
+            if can_target_for_ranged(attacker, u, defender_alive)
+        ]
         if not candidates:
             return
 
@@ -1423,7 +2035,29 @@ class Battle:
             return False
 
         contesting = [u for u in candidates if _contests_our_obj(u)]
-        shoot_target = min(contesting or candidates, key=lambda u: u.current_health)
+        pool = contesting or candidates
+        # S6 (#166) — anti-swarm shooting priority: bias toward OC-bearing
+        # chaff before high-DPA bricks. Real tournament play clears the
+        # screen first so the opposing army can't flip primary while we
+        # chew through Carnifexes. The bonus is multiplicative on a
+        # "lower is better" picker, so we *divide* a profile-based score
+        # by the bonus — a 1.4x screen gets scored as 0.71x its raw HP
+        # for picking purposes, biasing the min() toward it. Additive
+        # bias only; the fragile chaff that loses ties anyway still loses,
+        # but a Termagant unit at 5 HP outscores a Carnifex at 8 HP.
+        # S7 (#168) — synapse-source shooting priority: a non-Tyranid
+        # attacker biases toward SYNAPSE units (Hive Tyrant, Tervigon) so
+        # killing them revokes the Tyranid army's Battle-shock shelter.
+        # Same "lower-is-better" inversion as the screen bonus — we divide
+        # the score so a 1.5x bonus reads as 0.67x its raw HP, biasing
+        # min() toward it.
+        from .strategy import _screen_target_bonus, _synapse_target_bonus
+        shoot_target = min(
+            pool,
+            key=lambda u: u.current_health / (
+                _screen_target_bonus(u) * _synapse_target_bonus(attacker, u)
+            ),
+        )
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. HEAVY cover
@@ -1440,6 +2074,19 @@ class Battle:
         distance = _distance(attacker.position, shoot_target.position)
         has_los = self.map.has_line_of_sight(attacker.position, shoot_target.position)
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
+        # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
+        # TRANSPORT with embarked passengers and firing_deck > 0, up to X
+        # passenger weapons also fire this Shooting phase. Cited as
+        # `simulator.firing_deck`.
+        if (
+            self._is_transport(attacker)
+            and getattr(attacker.profile, "firing_deck", 0) > 0
+            and attacker.passengers
+            and shoot_target.is_alive
+        ):
+            dmg += self._apply_firing_deck(
+                attacker, shoot_target, attacker_army, defender_army,
+            )
         shoot_target.in_cover = saved_cover
         shoot_target.in_heavy_cover = saved_heavy
         # Mark One Shot weapons as expended for the rest of the battle.
@@ -1462,6 +2109,12 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=shoot_target, victim_army=defender_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=attacker, killer_army=attacker_army,
+                victim=shoot_target, victim_army=defender_army,
+            )
+            # Deadly Demise (10e core): the destroyed unit may detonate.
+            self._maybe_apply_deadly_demise(shoot_target)
 
         if self.verbose:
             alive_str = (
@@ -1500,10 +2153,18 @@ class Battle:
         units, which is closer to real tournament melee play and brings the
         sim's over-rating of T'au / Astartes / Votann shooty factions down.
         """
+        # Embarked passengers cannot charge (10e core). Cited as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
         if not self._wants_to_charge(attacker):
             return
         if attacker.uid in self._advanced_this_round:
             return   # advanced units cannot charge
+        # Fall Back lockout (10e core): a unit that Fell Back this turn can
+        # only charge if it has the FLY keyword. Cited as
+        # `simulator.fall_back`.
+        if attacker.fell_back_this_round and not attacker.profile.fly:
+            return
 
         from .strategy import pick_charge_target
         target, dist = pick_charge_target(attacker, defender_army)
@@ -1548,6 +2209,9 @@ class Battle:
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1")."""
+        # Embarked passengers cannot fight (10e core). Cited as `simulator.embark`.
+        if getattr(attacker, "embarked_in", None) is not None:
+            return
         if attacker.profile.melee_attacks <= 0:
             return
         alive_enemies = defender_army.alive_units
@@ -1578,6 +2242,11 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=nearest, victim_army=defender_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=attacker, killer_army=attacker_army,
+                victim=nearest, victim_army=defender_army,
+            )
+            self._maybe_apply_deadly_demise(nearest)
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The
@@ -1598,6 +2267,56 @@ class Battle:
     def _emit(self, event) -> None:
         for s in self.subscribers:
             s.on_event(event)
+
+    def _pick_oath_target(
+        self, army: Army, opponent: Army, round_num: int,
+    ) -> None:
+        """Adeptus Astartes Oath of Moment — pick this round's oath target.
+
+        AI heuristic: pick the highest-points alive enemy unit. The codex
+        rule lets the Marine player pick freely, so a points-weighted
+        threat heuristic matches the typical "kill their most valuable
+        thing" play pattern. Sets `army.oath_target_uid` and emits
+        `OathTargetChosen`. No-op (and no event) when the opponent has no
+        alive units left — Oath can still be declared on a wiped enemy by
+        the rules text but the re-roll is dead weight, so we skip cleanly.
+
+        The buff itself (re-roll all hits AND all wounds against the
+        chosen unit) is applied in Unit.attack, gated on the attacker
+        being a Marine and `attacker_army.oath_target_uid == target.uid`.
+        """
+        alive = opponent.alive_units
+        if not alive:
+            return
+        target = max(alive, key=lambda u: u.profile.points_cost)
+        army.oath_target_uid = target.uid
+        self._emit(OathTargetChosen(
+            army_name=army.name,
+            round_num=round_num,
+            target_uid=target.uid,
+        ))
+
+    def _maybe_award_blood_tithe(
+        self, killer: "Unit", killer_army: Army,
+        victim: "Unit", victim_army: Army,
+    ) -> None:
+        """World Eaters army rule — Blood Tithe (10e).
+
+        Two trigger sources, both awarding +1 BT to the World Eaters army:
+          1. A friendly WE unit was destroyed (victim is WE) — award to
+             victim_army.
+          2. An enemy unit was destroyed by a WE unit (killer is WE) —
+             award to killer_army.
+
+        Both can fire at once in a WE mirror-match (victim's army gets +1
+        for the death AND killer's army gets +1 for the kill — that's the
+        codex behaviour). Non-WE armies are left at 0. Cited as
+        `simulator.blood_tithe`.
+        """
+        if victim.profile.faction == "World Eaters":
+            victim_army.blood_tithe += 1
+        if killer.profile.faction == "World Eaters":
+            killer_army.blood_tithe += 1
 
     def _maybe_award_judgement_token(
         self, killer: "Unit", killer_army: Army,
@@ -1629,6 +2348,314 @@ class Battle:
             total_tokens=tokens[killer.uid],
         ))
 
+    def _maybe_apply_deadly_demise(self, victim: "Unit") -> None:
+        """Deadly Demise X (10e core rule).
+
+        When a model with this ability is destroyed, roll 1D6 BEFORE removing
+        it from the battlefield. On a 6, each unit within 6" of this model
+        suffers X mortal wounds. SwegHammer interprets the codex D3/D6/D3+3
+        variants as fixed integer expected values at mapper time; the runtime
+        sees a single integer in `profile.deadly_demise`.
+
+        Called from every death-detection site (shoot, fight, tank shock,
+        counter-offensive, doombolt). Bypasses armour/invuln; routed through
+        receive_damage so target FNP and Disgustingly Resilient compose.
+
+        Side effect — Destroyed Transport (10e core): if the dying unit is a
+        TRANSPORT, every embarked passenger force-disembarks before removal,
+        rolling 1D6 per model and destroying on a 1. Routed here because all
+        death-detection sites already fan out through this method. Cited as
+        `simulator.destroyed_transport`.
+        """
+        # Destroyed Transport disembark fires BEFORE deadly demise so any
+        # passengers that survive the disembark D6 are positioned for the
+        # demise blast (and so they can also be caught by it).
+        if self._is_transport(victim) and victim.passengers:
+            self._destroyed_transport_disembark(victim)
+        x = getattr(victim.profile, "deadly_demise", 0) or 0
+        if x <= 0:
+            return
+        # Roll a d6 — 1-in-6 trigger.
+        if random.randint(1, 6) != 6:
+            return
+        # Scan every alive unit within 6" of the victim, on either side. The
+        # victim itself is already at 0 HP and excluded by the alive filter,
+        # so no special-casing is required.
+        victim_pos = victim.position
+        victims_hit: List[str] = []
+        for army in (self.a, self.b):
+            for u in army.alive_units:
+                if u is victim:
+                    continue
+                # Embarked passengers are off-board — they don't take demise
+                # mortals from blasts that go off near their transport. Cited
+                # as `simulator.embark`.
+                if getattr(u, "embarked_in", None) is not None:
+                    continue
+                if _distance(u.position, victim_pos) > 6.0:
+                    continue
+                # Mortal wounds: route through receive_damage so FNP / DG's
+                # army-wide Disgustingly Resilient apply consistently with
+                # other mortal-wound paths (Tank Shock, Doombolt).
+                u.receive_damage(float(x), bonus_fnp=u.profile.fnp)
+                victims_hit.append(u.uid)
+                # A demise that kills another unit does NOT cascade — the
+                # canonical rule rolls the secondary victim's own demise at
+                # its own death event in a subsequent activation, not here.
+                if not u.is_alive:
+                    self._emit(UnitKilled(unit_uid=u.uid))
+        self._emit(DeadlyDemiseExploded(
+            unit_uid=victim.uid,
+            mortals=int(x),
+            victims=tuple(victims_hit),
+        ))
+
+    # ------------------------------------------------------------------
+    # Transports (Embark / Disembark / Firing Deck / Destroyed Transport)
+    # ------------------------------------------------------------------
+    #
+    # 10e core rules (Wahapedia):
+    #   * Embark: a unit within 3" of a friendly TRANSPORT at the end of a
+    #     Normal/Advance/Fall Back move may embark. Once embarked, the unit
+    #     does not act normally — it's tracked as a passenger on the transport.
+    #   * Disembark: at the start of any Movement phase a unit may disembark
+    #     from a transport that hasn't moved this turn; the disembarked unit
+    #     is placed wholly within 3" of the transport, then may move normally.
+    #   * Firing Deck X: a TRANSPORT with Firing Deck X may select up to X
+    #     embarked passenger models' weapons each Shooting phase and shoot
+    #     with them as if they were the transport's own weapons (transport's BS).
+    #   * Destroyed Transport: when a TRANSPORT is destroyed, before removing
+    #     it, each embarked unit disembarks wholly within 3". For each model
+    #     in the disembarking unit, roll 1D6; on a 1, that model is destroyed.
+    #
+    # SwegHammer simplifications (first pass):
+    #   - Transport capacity is hardcoded to 12 INFANTRY models (Rhino-tier).
+    #   - Pre-game embark only: at deploy time, if an army has a TRANSPORT
+    #     with capacity for an INFANTRY unit, that infantry is embarked.
+    #   - No mid-game voluntary embark (would need a Movement-phase hook).
+    #   - Disembark fires on (a) destroyed transport, (b) at the start of the
+    #     transport's Movement sub-phase if the AI judges the passenger needs
+    #     to be off-board now (capture nearby objective, transport about to die).
+    #   - Firing Deck: when a transport shoots, up to firing_deck passengers
+    #     each fire ONE extra shot using the transport's hit_probability.
+    #   - Emergency disembark (placement >3" but ≤6" with mortal wounds on
+    #     1-3" path) is NOT modelled — first pass just skips placement if
+    #     blocked.
+
+    _TRANSPORT_CAPACITY = 12   # first-pass simplification — Rhino-tier
+
+    @staticmethod
+    def _is_transport(unit: "Unit") -> bool:
+        """True iff this unit's profile carries the TRANSPORT keyword."""
+        return "TRANSPORT" in (unit.profile.unit_keywords or ())
+
+    def _embark_pregame_passengers(self) -> None:
+        """Pre-game embark pass (10e core).
+
+        For each army that owns at least one TRANSPORT, pick the highest-
+        threat INFANTRY unit that fits (1 model after squad-flattening) and
+        embark it on the first available transport. Repeats per transport so
+        a list of Rhinos all get a passenger if possible. Passengers are
+        removed from the active deployment line — their position becomes the
+        transport's, and the simulator's activation loop skips embarked units
+        via the `embarked_in` gate. Cited as `simulator.embark`.
+
+        First-pass simplification: capacity is fixed at 12 INFANTRY models
+        per transport (Rhino-tier). SwegHammer models units as a single
+        Unit-per-model so we can fit up to 12 such Units inside one transport,
+        but for the pre-game pass we only embark ONE infantry instance per
+        transport (the most tactical-value passenger) to keep the pre-game
+        deterministic and easy to reason about.
+        """
+        for army in (self.a, self.b):
+            transports = [u for u in army.units if self._is_transport(u)]
+            if not transports:
+                continue
+            # Pool of embark-eligible INFANTRY (not already a passenger, not
+            # CHARACTER — we keep characters free to attach as Leaders).
+            def _eligible(u):
+                kw = u.profile.unit_keywords or ()
+                if "INFANTRY" not in kw:
+                    return False
+                if "CHARACTER" in kw:
+                    return False
+                if self._is_transport(u):
+                    return False
+                if u.embarked_in is not None:
+                    return False
+                return True
+
+            for transport in transports:
+                if len(transport.passengers) >= self._TRANSPORT_CAPACITY:
+                    continue
+                candidates = [u for u in army.units if _eligible(u)]
+                if not candidates:
+                    break
+                # Highest-Lanchester-score INFANTRY rides — biggest gun
+                # benefits from the +6" pre-move the most.
+                passenger = max(candidates, key=lambda u: u.profile.score)
+                self._embark(passenger, transport)
+
+    def _embark(self, passenger: "Unit", transport: "Unit") -> None:
+        """Place `passenger` inside `transport` (10e core embark step).
+
+        The passenger is co-located with the transport (position copied), its
+        `embarked_in` back-pointer is set, and it's added to the transport's
+        `passengers` list. The passenger remains in `army.units` (still alive,
+        still has HP) but the activation loop skips it. Cited as
+        `simulator.embark`.
+        """
+        passenger.position = transport.position
+        passenger.embarked_in = transport
+        transport.passengers.append(passenger)
+        self._emit(TransportEmbarked(
+            transport_uid=transport.uid,
+            passenger_uid=passenger.uid,
+        ))
+
+    def _disembark(
+        self, passenger: "Unit", transport: "Unit", forced: bool = False,
+    ) -> None:
+        """Place `passenger` wholly within 3" of `transport` (10e core).
+
+        Looks for a placement point in a small spiral around the transport's
+        last position. If no unblocked point is found, places the passenger
+        on the transport's position (degraded fallback — better than nothing).
+        Clears the embark back-pointer and removes the passenger from the
+        transport's list. Cited as `simulator.disembark`.
+        """
+        # Try a handful of candidate offsets around the transport, each <= 3".
+        # Order: cardinals first, then diagonals.
+        cx, cy = transport.position
+        candidates = [
+            (cx + 2.5, cy), (cx - 2.5, cy), (cx, cy + 2.5), (cx, cy - 2.5),
+            (cx + 2.0, cy + 2.0), (cx - 2.0, cy + 2.0),
+            (cx + 2.0, cy - 2.0), (cx - 2.0, cy - 2.0),
+            (cx + 1.0, cy), (cx, cy + 1.0),
+        ]
+        placed = None
+        for pt in candidates:
+            x = max(0.0, min(self.map.width, pt[0]))
+            y = max(0.0, min(self.map.height, pt[1]))
+            if not self.map.is_blocked((x, y)):
+                placed = (x, y)
+                break
+        if placed is None:
+            placed = transport.position
+        passenger.position = placed
+        passenger.embarked_in = None
+        if passenger in transport.passengers:
+            transport.passengers.remove(passenger)
+        self._emit(TransportDisembarked(
+            transport_uid=transport.uid,
+            passenger_uid=passenger.uid,
+            position=placed,
+            forced=forced,
+        ))
+
+    def _destroyed_transport_disembark(self, transport: "Unit") -> None:
+        """Force-disembark every passenger when a TRANSPORT is destroyed (10e).
+
+        For each model in the disembarking unit, roll 1D6; on a 1 that model
+        is destroyed. SwegHammer models units as one Unit instance per model,
+        so a single D6 is rolled per passenger Unit; on a 1 the passenger's
+        current_health is zeroed and a UnitKilled event is emitted. Cited as
+        `simulator.destroyed_transport`.
+
+        We snapshot the passenger list because `_disembark` mutates it as it
+        runs.
+        """
+        if not transport.passengers:
+            return
+        survivors = list(transport.passengers)
+        for passenger in survivors:
+            self._disembark(passenger, transport, forced=True)
+            # Per-model D6: on a 1, the model is destroyed.
+            if random.randint(1, 6) == 1:
+                passenger.current_health = 0.0
+                if not passenger.is_alive:
+                    self._emit(UnitKilled(unit_uid=passenger.uid))
+
+    def _maybe_disembark_before_move(
+        self, transport: "Unit", army: Army, opponent: Army,
+    ) -> None:
+        """Voluntary disembark hook fired at the start of a TRANSPORT's
+        Movement sub-phase (10e core).
+
+        Heuristic: disembark when EITHER
+          (a) the transport currently sits within 6" of an objective marker —
+              the passenger should grab it while the transport repositions; OR
+          (b) the transport is below 50% HP — likely to die soon, so eject
+              before Destroyed Transport mortals fire.
+
+        Otherwise we keep the passenger embarked so they continue to ride
+        toward an objective. Cited as `simulator.disembark`.
+        """
+        if not transport.passengers:
+            return
+        # Already moved this round (e.g. arrival) — disembark skipped because
+        # the rule requires the transport to NOT have moved yet.
+        if transport.uid in self._did_move_this_round:
+            return
+        # (a) within 6" of an objective?
+        near_obj = any(
+            _distance(transport.position, (obj.x, obj.y)) <= 6.0
+            for obj in self.map.objectives
+        )
+        # (b) below half HP?
+        damaged = transport.current_health < transport.profile.health / 2.0
+        if not near_obj and not damaged:
+            return
+        # Disembark the best passenger (the one most likely to claim an obj
+        # or pour fire downrange). First-pass: just disembark all of them.
+        for passenger in list(transport.passengers):
+            self._disembark(passenger, transport, forced=False)
+
+    def _apply_firing_deck(
+        self, transport: "Unit", target: "Unit",
+        attacker_army: Army, defender_army: Army,
+    ) -> float:
+        """Firing Deck X (10e core).
+
+        When a TRANSPORT shoots, up to X embarked passenger models may fire
+        their weapons as if they were the transport's. SwegHammer applies a
+        simplified version: each of the first X passengers does a single
+        Unit.attack against the target using the passenger's own profile,
+        but inheriting the transport's hit_probability (per the codex's
+        "shoot with them as if they were the transport's weapons" wording).
+
+        Returns total damage dealt by the firing-deck passengers (0 if no
+        firing deck or no passengers). Cited as `simulator.firing_deck`.
+
+        First-pass simplification: passenger attacks use the passenger's own
+        hit_probability rather than swapping in the transport's, because the
+        Unit.attack stochastic loop reads hit_probability off the passenger's
+        profile. The codex says "use the transport's BS"; in practice for
+        Marine transports that's BS3+ which matches the passenger's anyway.
+        Future task: thread a BS-override into Unit.attack.
+        """
+        x = getattr(transport.profile, "firing_deck", 0) or 0
+        if x <= 0:
+            return 0.0
+        if not transport.passengers:
+            return 0.0
+        # Take up to X passengers; the first ones are highest-DPA by virtue
+        # of the embark routine picking the best Lanchester-scorers.
+        firing = transport.passengers[:x]
+        total = 0.0
+        distance = _distance(transport.position, target.position)
+        has_los = self.map.has_line_of_sight(transport.position, target.position)
+        for passenger in firing:
+            if not passenger.is_alive:
+                continue
+            # Out of range from the transport's position — skip silently.
+            if distance > passenger.profile.range_inches:
+                continue
+            total += passenger.attack(
+                target, distance=distance, has_los=has_los,
+            )
+        return total
+
     @staticmethod
     def _award_cp(army: Army, opponent: Army) -> None:
         diff = opponent.unit_count - army.unit_count
@@ -1653,6 +2680,23 @@ class Battle:
         if strat.once_per_battle and strat.name in already:
             return False
         army.command_points -= strat.cp_cost
+        # Warlord-gated CP refund. Two independent mechanics, applied in
+        # priority order so each pool drains separately:
+        #   1. `first_stratagem_free_this_round` (Lord of Contagion's "Lord
+        #      of the Death Guard" Warlord trait): the first stratagem this
+        #      army fires this round is refunded its full cost and the flag
+        #      flips off until the next Command phase re-arms it.
+        #   2. `cp_refund_remaining` (Belisarius Cawl, Trazyn the Infinite):
+        #      one-time-per-battle refund pool. Each spend that bypasses (1)
+        #      pops one refund, gaining +1 CP and decrementing the pool.
+        # Both refunds respect the CP_CAP=6 ceiling so a refunded spend at
+        # cap still floors at cap — they refund the OLD CP value, not above.
+        if army.first_stratagem_free_this_round:
+            army.command_points = min(CP_CAP, army.command_points + strat.cp_cost)
+            army.first_stratagem_free_this_round = False
+        elif army.cp_refund_remaining > 0:
+            army.command_points = min(CP_CAP, army.command_points + 1)
+            army.cp_refund_remaining -= 1
         already.add(strat.name)
         self._stratagems_fired_this_battle[army.name] = already
         self._emit(StratagemFired(
@@ -1704,6 +2748,11 @@ class Battle:
                 killer=charger, killer_army=charger_army,
                 victim=target, victim_army=target_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=charger, killer_army=charger_army,
+                victim=target, victim_army=target_army,
+            )
+            self._maybe_apply_deadly_demise(target)
 
     def _try_heroic_intervention(
         self, charger: "Unit", charge_target: "Unit",
@@ -1805,3 +2854,8 @@ class Battle:
                 killer=retaliator, killer_army=loser_army,
                 victim=winner_unit, victim_army=winner_army,
             )
+            self._maybe_award_blood_tithe(
+                killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )
+            self._maybe_apply_deadly_demise(winner_unit)
