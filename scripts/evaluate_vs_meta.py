@@ -16,7 +16,7 @@ import random
 import statistics
 import sys
 from collections import Counter
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 # Lock Python's hash randomisation off so set() / dict-of-string iteration
 # order is reproducible across runs — without this the sim's internal sets
@@ -99,21 +99,43 @@ def run_matrix(n: int) -> Dict[str, float]:
     return out
 
 
-def report(sim: Dict[str, float]) -> float:
-    """Print the sim-vs-real table and return MAE over the FACTIONS list."""
-    print(f"{'Faction':22s}  {'Sim%':>6s}  {'Real%':>6s}  {'Diff':>6s}")
-    print("-" * 46)
-    diffs = []
+def report(sim: Dict[str, float]) -> Tuple[float, float]:
+    """Print the sim-vs-real table and return (mae_real, mae_sweg).
+
+    Returns a dual headline:
+      * `mae_real` — MAE between simulator and the real-meta tournament
+        target. This is the calibration-against-GW signal that adding
+        more faction rules can move.
+      * `mae_sweg` — MAE between simulator and 50% across all factions.
+        This is the Sweg-balanced target: a perfectly balanced rule set
+        produces 50/50 cross-faction win rates. SwegHammer's "minimal
+        rule changes" (alternating activation, CP-for-fewer-units) drift
+        from real 10e by design, so `mae_real` has a structural floor that
+        `mae_sweg` does not. Once the Sweg-balancer settles, `mae_sweg`
+        should converge to ~0 while `mae_real` plateaus at the design
+        floor.
+    """
+    print(f"{'Faction':22s}  {'Sim%':>6s}  {'Real%':>6s}  {'Diff':>6s}  {'vs50':>6s}")
+    print("-" * 55)
+    diffs_real = []
+    diffs_sweg = []
     for fac in FACTIONS:
         target = TOURNAMENT_TARGET[fac]
-        diff = sim[fac] - target
+        diff_real = sim[fac] - target
+        diff_sweg = sim[fac] - 50.0
         marker = "" if fac not in APPROX_FACTIONS else " (~)"
-        print(f"{fac:22s}  {sim[fac]:6.1f}  {target:6.1f}  {diff:+6.1f}{marker}")
-        diffs.append(abs(diff))
-    mae = statistics.mean(diffs)
-    print("-" * 46)
-    print(f"Mean absolute error: {mae:.2f} pts  (target: < 5.0)")
-    return mae
+        print(f"{fac:22s}  {sim[fac]:6.1f}  {target:6.1f}  "
+              f"{diff_real:+6.1f}  {diff_sweg:+6.1f}{marker}")
+        diffs_real.append(abs(diff_real))
+        diffs_sweg.append(abs(diff_sweg))
+    mae_real = statistics.mean(diffs_real)
+    mae_sweg = statistics.mean(diffs_sweg)
+    print("-" * 55)
+    print(f"MAE vs real meta:    {mae_real:6.2f} pts  (target ≤ 2.0; "
+          f"the calibration-against-GW signal)")
+    print(f"MAE vs Sweg-balanced: {mae_sweg:6.2f} pts  (target ≤ 2.0; "
+          f"the rule-internal-balance signal — 50/50 across factions)")
+    return mae_real, mae_sweg
 
 
 def main() -> None:
@@ -121,8 +143,8 @@ def main() -> None:
     p.add_argument("--battles", type=int, default=20)
     args = p.parse_args()
     sim = run_matrix(args.battles)
-    mae = report(sim)
-    sys.exit(0 if mae < 5.0 else 0)   # informational only — never error-exit
+    mae_real, mae_sweg = report(sim)
+    sys.exit(0)   # informational only — never error-exit
 
 
 if __name__ == "__main__":
