@@ -514,9 +514,29 @@ class UnitWargear:
 
 def _walk(
     elem: ET.Element, reg: Registry, seen: set, out: UnitWargear,
-    depth: int = 0, max_depth: int = 3, primary_name: str = "",
+    depth: int = 0, max_depth: int = 5, primary_name: str = "",
 ) -> None:
-    """Collect the unit profile + every ranged weapon reachable within depth."""
+    """Collect the unit profile + every ranged weapon reachable within depth.
+
+    ``max_depth`` was historically 3, which sufficed for Marine-shape squads
+    (unit → group → model → weapon entryLink). Astra Militarum (and any
+    codex that wraps its squad's models inside an intermediate
+    ``selectionEntry type="upgrade"`` "Unit Composition" choice — Cadian
+    Shock Troops, Catachan Jungle Fighters, Death Korps of Krieg) nests
+    weapons two extra layers deeper:
+
+        unit
+        └─ selectionEntryGroup "Unit Composition"
+            └─ selectionEntry type="upgrade"  (e.g. "1 Sergeant + 9 Troopers")
+                └─ selectionEntryGroup "9 Troopers"  (Krieg) — OR direct
+                    └─ selectionEntry type="model"
+                        └─ entryLink → weapon
+
+    Depth 5 covers both AM shapes (Cadian-style direct entryLinks at depth 4
+    and Krieg-style nested group at depth 5) while the ``seen`` set still
+    prevents weapon-tree cycles. Bumping the depth does NOT pull in extra
+    "wrong" weapons: each unique element id is visited at most once.
+    """
     if depth > max_depth:
         return
     eid = elem.get("id")
