@@ -1,0 +1,10 @@
+{
+  "simulator.strands_of_fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate",
+    "rule_name": "Strands of Fate",
+    "quoted_text": "At the start of the first battle round, before the first turn begins, roll 6D6 and set those dice aside; this is your pool of Fate dice. Each time an AELDARI model from your army is the source of an attack, or a unit from your army is the target of an attack, or a unit from your army is making an Advance, Charge, or Battle-shock roll, before making any of those rolls, you can select a Fate dice from your pool to use as the substitute for that roll, even if such a roll would not normally be made. Then remove that Fate dice from your pool.",
+    "trigger": "any d6 roll made by an AELDARI unit (hit, wound, save, charge, advance, Battle-shock) or by an opponent against an AELDARI unit; pool is rolled at start of battle round 1",
+    "effect": "(approximation) Army.fate_dice is populated with 6D6 at battle start. Spent greedily by a heuristic that pops the lowest die in the pool that flips a fail->success on hit rolls (Aeldari attacker), save rolls (Aeldari target), charge rolls (Aeldari charger), and advance rolls (Aeldari mover). Pool depletes; once empty, no further substitutions. The simulator's spend AI is conservative — it never spends a Fate die on a roll that would still fail, and it doesn't yet model defensive substitution of the OPPONENT's hit/wound dice or Battle-shock substitution.",
+    "scope": "army-wide"
+  }
+}

@@ -316,6 +316,32 @@ class Battle:
                     base_tokens += 1
                 army.battle_focus_tokens = base_tokens
 
+        # Strands of Fate (Aeldari army rule, 10e). At the start of the
+        # first battle round, before the first turn begins, the AELDARI
+        # player rolls 6D6 and sets those dice aside as their pool of
+        # Fate dice. Each die can later be substituted for one d6 roll
+        # made by/against an AELDARI unit (hit, wound, save, charge,
+        # advance, Battle-shock). The pool depletes with each spend; once
+        # empty, no more substitutions are available. Cited as
+        # `simulator.strands_of_fate`. APPROXIMATION: the simulator's
+        # spend AI is a greedy heuristic (pop the lowest die that
+        # successfully flips a fail -> success), not the optimal play of
+        # a real Aeldari player. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        # Gate on faction tag (Aeldari codex) rather than the AELDARI
+        # unit keyword — BSData's parser keeps the codex-wide AELDARI
+        # keyword as faction meta rather than per-unit unit_keywords, so
+        # the keyword check would never fire on real Aeldari datasheets
+        # (Troupe, Solitaire, Shroud Runners). The faction tag is set
+        # by code.factions.faction_of and uniquely identifies the
+        # Aeldari codex (Drukhari are a separate faction string).
+        for army in (self.a, self.b):
+            if any(u.profile.faction == "Aeldari" for u in army.units):
+                army.fate_dice = sorted(
+                    [random.randint(1, 6) for _ in range(6)],
+                    reverse=True,
+                )
+
         # CP-econ Warlord scan (Belisarius Cawl, Roboute Guilliman, Trazyn
         # the Infinite, Lord of Contagion). Seeds Army.cp_refund_remaining
         # and Army._warlord_first_strat_free_enabled from the resolved
@@ -3084,6 +3110,24 @@ class Battle:
             range_threshold = 3.0   # objective control radius
         needs_to_close = dist - range_threshold
         advance_d6 = random.randint(1, 6) if needs_to_close > normal_move else 0
+        # Strands of Fate (Aeldari army rule, 10e) — substitute the
+        # Advance d6 with a higher Fate die when doing so would clear
+        # the remaining distance (the unit Advances *into* range that a
+        # natural roll wouldn't reach). The threshold is the d6 we'd need
+        # to bridge `needs_to_close - normal_move`; we only spend when the
+        # substitution flips a fail -> success. Cited as
+        # `simulator.strands_of_fate`. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        if (
+            advance_d6 > 0
+            and attacker.profile.faction == "Aeldari"
+            and attacker_army.has_fate_dice()
+        ):
+            need = needs_to_close - normal_move
+            if advance_d6 < need and need <= 6:
+                sub = attacker_army.pop_fate_die_meeting(int(need))
+                if sub is not None:
+                    advance_d6 = sub
         move_distance = normal_move + advance_d6
         did_advance = advance_d6 > 0
 
@@ -3359,7 +3403,26 @@ class Battle:
         if target is None:
             return
 
-        roll = random.randint(1, 6) + random.randint(1, 6)
+        d1 = random.randint(1, 6)
+        d2 = random.randint(1, 6)
+        roll = d1 + d2
+        # Strands of Fate (Aeldari army rule, 10e) — substitute one of
+        # the 2D6 with a Fate die when the natural total would fail the
+        # charge. We replace the LOWER d6 with the lowest die in the
+        # pool that lifts the total to >= dist. The substitution only
+        # fires if it would flip fail -> success (greedy heuristic).
+        # Cited as `simulator.strands_of_fate`. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        if (
+            roll < dist
+            and attacker.profile.faction == "Aeldari"
+            and attacker_army.has_fate_dice()
+        ):
+            lower = min(d1, d2)
+            needed = int(dist) - (roll - lower)   # the die value we need
+            sub = attacker_army.pop_fate_die_meeting(max(1, needed))
+            if sub is not None:
+                roll = roll - lower + sub
         succeeded = (roll >= dist)
         if not succeeded:
             self._emit(UnitCharged(

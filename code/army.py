@@ -112,6 +112,14 @@ class Army:
         # an ASURYANI unit's activation to grant [ASSAULT] for that turn
         # (i.e. shoot after Advance).
         self.battle_focus_tokens: int = 0
+        # Strands of Fate (Aeldari army rule, 10e) — 6D6 Fate dice pool
+        # rolled at start of battle and spent thereafter as substitute
+        # rolls (hit/wound/save/charge/advance). Stored sorted descending
+        # so the spend heuristic can `pop_high(threshold)` / `pop_low()`
+        # in O(1) on a tiny list. Populated by Battle.run for AELDARI
+        # armies; empty on non-Aeldari armies and once exhausted.
+        # Cited as `simulator.strands_of_fate`.
+        self.fate_dice: List[int] = []
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
@@ -238,6 +246,76 @@ class Army:
     # ------------------------------------------------------------------
     # Faction detection
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Strands of Fate helpers (Aeldari army rule, 10e). See Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+    # Real rule: 6D6 rolled at battle start; each die can later be
+    # substituted for ONE roll of any d6 the army would make (hit, wound,
+    # save, charge, advance, Battle-shock) or that an opponent makes
+    # against an AELDARI unit. The simulator uses a greedy heuristic:
+    # for "needs N+ to succeed" rolls, pop the lowest die in the pool
+    # that still meets N+. Cited as `simulator.strands_of_fate`.
+    # ------------------------------------------------------------------
+
+    def has_fate_dice(self) -> bool:
+        """True iff at least one Fate die remains in the pool."""
+        return bool(self.fate_dice)
+
+    def pop_fate_die_meeting(self, threshold: int) -> Optional[int]:
+        """Greedy spend: remove and return the LOWEST die in the pool
+        that is >= `threshold` (so we don't waste a 6 to pass a 3+ save
+        when a 3 in the pool would do). Returns None if no die qualifies.
+
+        The heuristic intentionally avoids ever spending a die that
+        would fail the roll — substitution is only worth doing when it
+        flips fail -> success.
+        """
+        if not self.fate_dice:
+            return None
+        # fate_dice is kept sorted descending. Scan from the back (lowest)
+        # for the first die that meets the threshold.
+        best_idx = None
+        best_val = None
+        for i in range(len(self.fate_dice) - 1, -1, -1):
+            v = self.fate_dice[i]
+            if v >= threshold:
+                if best_val is None or v < best_val:
+                    best_idx = i
+                    best_val = v
+                    # Since the list is sorted descending, the FIRST hit
+                    # from the right (lowest) is already the optimum.
+                    break
+        if best_idx is None:
+            return None
+        return self.fate_dice.pop(best_idx)
+
+    def pop_fate_die_for_opponent(self, max_value: int = 1) -> Optional[int]:
+        """Defensive substitution: when an OPPONENT is rolling against an
+        AELDARI unit (their hit / wound roll), we can substitute one of
+        OUR Fate dice for the opponent's roll. We want the substitution
+        to FAIL — so pop a die with value <= `max_value` (default 1).
+        Returns None if no qualifying die remains.
+
+        This implements the rule's text: "...or a unit from your army is
+        the target of an attack...". The simulator currently only uses
+        this in the most clear-cut cases (forcing an enemy hit roll to a
+        natural 1 to whiff the attack outright) to keep the heuristic
+        conservative.
+        """
+        if not self.fate_dice:
+            return None
+        # Scan from the back (lowest) for the first die <= max_value.
+        # Sorted-descending invariant means the smallest are at the end.
+        for i in range(len(self.fate_dice) - 1, -1, -1):
+            v = self.fate_dice[i]
+            if v <= max_value:
+                return self.fate_dice.pop(i)
+            else:
+                # Once we cross above max_value, no further candidates
+                # exist (list is sorted descending).
+                break
+        return None
 
     @property
     def is_votann_army(self) -> bool:

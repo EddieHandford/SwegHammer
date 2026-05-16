@@ -120,6 +120,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # and sticky-claim promotion (`_score_objectives`, `_sticky_owner`).
     "simulator.objective_control_strictly_greater",
     "simulator.battle_focus",
+    # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
+    # battle into Army.fate_dice; each die later substituted for one d6
+    # roll made by/against an AELDARI unit (hit, wound, save, charge,
+    # advance, Battle-shock). Pool depletes per spend. Greedy AI fires
+    # the substitution only when it flips a fail -> success.
+    "simulator.strands_of_fate",
     "simulator.battleshock",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for

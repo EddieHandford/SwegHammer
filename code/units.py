@@ -1065,6 +1065,24 @@ class Unit:
                     and not att_reroll_hit_ones
                 ):
                     roll = random.randint(1, 6)
+                # Strands of Fate (Aeldari army rule, 10e) — Fate dice
+                # substitution on a failed Hit roll. If the attacker is an
+                # AELDARI model from an army with at least one Fate die
+                # in pool, and the natural roll is a miss, we pop the
+                # lowest die in the pool that still hits and substitute.
+                # No die is spent if substitution wouldn't convert the
+                # miss to a hit (greedy floor at hit_target). Cited as
+                # `simulator.strands_of_fate`. Wahapedia:
+                # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+                if (
+                    roll < hit_target
+                    and p.faction == "Aeldari"
+                ):
+                    own_army = getattr(self, "army_ref", None)
+                    if own_army is not None and own_army.has_fate_dice():
+                        sub = own_army.pop_fate_die_meeting(hit_target)
+                        if sub is not None:
+                            roll = sub
                 if roll < hit_target:
                     continue   # missed
                 crit_hit = (roll == 6)
@@ -1125,6 +1143,22 @@ class Unit:
 
                 if save_target <= 6:
                     sroll = random.randint(1, 6)
+                    # Strands of Fate (Aeldari army rule, 10e) — defensive
+                    # substitution on a failed save. If the DEFENDER is an
+                    # AELDARI model from an army with at least one Fate
+                    # die in pool, and the natural save fails, pop the
+                    # lowest die that still passes the save and use it.
+                    # Cited as `simulator.strands_of_fate`. Wahapedia:
+                    # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+                    if (
+                        sroll < save_target
+                        and target.profile.faction == "Aeldari"
+                    ):
+                        tgt_army = getattr(target, "army_ref", None)
+                        if tgt_army is not None and tgt_army.has_fate_dice():
+                            sub = tgt_army.pop_fate_die_meeting(save_target)
+                            if sub is not None:
+                                sroll = sub
                     if sroll >= save_target:
                         continue   # saved
                 target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
