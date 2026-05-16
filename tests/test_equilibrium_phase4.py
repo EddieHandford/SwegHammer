@@ -274,27 +274,23 @@ class Phase4EndToEndTests(unittest.TestCase):
         # All vanilla units must shift by the same factor (1 / (1 + t(anchor))).
         # Specifically: ratio eq_phase4 / eq_phase2 should be identical
         # (within float tolerance) across the whole vanilla set.
-        ratios = [
-            by_k4[k].equilibrium_points_per_model
-            / by_k2[k].equilibrium_points_per_model
-            for k in vanilla_keys
-        ]
-        spread = max(ratios) - min(ratios)
+        # NOTE: the EquilibriumEntry public surface rounds prices to 2 decimals,
+        # which is too coarse for this invariant when the shared shift factor
+        # is non-unity (e.g. when the anchor's tactical_value > 0 because its
+        # range_inches > 12). Use the unrounded log_p arrays directly.
+        log_p2 = {k: lp for k, lp in zip(r2.keys, r2.log_p)}
+        log_p4 = {k: lp for k, lp in zip(r4.keys, r4.log_p)}
+        diffs = [log_p4[k] - log_p2[k] for k in vanilla_keys]
+        spread = max(diffs) - min(diffs)
         self.assertLess(
             spread, 1e-6,
-            f"vanilla units should all shift by the same factor; "
+            f"vanilla units should all shift by the same log-factor; "
             f"spread={spread:.6g}",
         )
 
         # And as a stronger sanity check: the rank order is exactly preserved.
-        order_2 = sorted(
-            vanilla_keys,
-            key=lambda k: by_k2[k].equilibrium_points_per_model,
-        )
-        order_4 = sorted(
-            vanilla_keys,
-            key=lambda k: by_k4[k].equilibrium_points_per_model,
-        )
+        order_2 = sorted(vanilla_keys, key=lambda k: log_p2[k])
+        order_4 = sorted(vanilla_keys, key=lambda k: log_p4[k])
         self.assertEqual(order_2, order_4)
 
 

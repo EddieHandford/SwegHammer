@@ -125,7 +125,8 @@
     "space_marines_intercessor_squad": {
       "base_shape": "circle",
       "base_diameter_mm": 32,
-      "notes": "Standard Primaris Marine 32mm round. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad (Base size)."
+      "range_inches": 24,
+      "notes": "Standard Primaris Marine 32mm round. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad (Base size). | Bolt rifle range corrected to 24\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad"
     },
     "adeptus_custodes_custodian_guard": {
       "base_shape": "circle",
@@ -157,7 +158,12 @@
     },
     "space_marines_hellblaster_squad": {
       "points_override": 25.3,
-      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model"
+      "range_inches": 24,
+      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model | Plasma incinerator range corrected to 24\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Hellblaster-Squad"
+    },
+    "space_marines_eradicator_squad": {
+      "range_inches": 18,
+      "notes": "Melta rifle range corrected to 18\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Eradicator-Squad"
     },
     "space_marines_repulsor": {
       "points_override": 198.0,
