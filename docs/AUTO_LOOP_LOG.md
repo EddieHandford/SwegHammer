@@ -70,3 +70,44 @@ or 3 consecutive iterations with Δ < 0.1pt.
 - DG +19.2 hasn't moved; needs different lever (Marines OC stack #179 may also be cross-faction unlock).
 - Marines +17.0 needs the F5b random_fill cap (#179) — that's the only single fix likely to drop Marines back into noise.
 
+### Iter 2 (2026-05-16)
+
+**Batch dispatched**: 5 fix agents (A2, A4, #179, C2, C4).
+
+**Results (cumulative, post-merge measurement)**:
+- A2 Necron Reanimation fresh-loss gate: solo −0.23pt; landed (Wahapedia "restore one destroyed bodyguard model")
+- A4 DG Contagions 3" radius gate: solo −0.55pt (N=10); landed (radius-only, escalation pattern preserved)
+- #179 random_fill BATTLELINE cap: 0.0pt — agent confirmed the existing `0.5 * remaining_budget` cap already prevents Intercessor stacking; commit kept as defensive safeguard
+- C2 Charge picker won't-crack penalty (faction-neutral): solo −0.63pt (N=10); landed
+- C4 Leader-before-led activation priority (faction-neutral): solo 0.0pt — dormant in vanilla mode because `_run_round_vanilla_turns` iterates `active.units` directly. Commit kept; activates when C3 (vanilla uses activation_queue) lands.
+
+**Cumulative**: MAE 6.39 → **5.66pt** (Δ **−0.73pt**). MAE-vs-Sweg 6.67 → 5.94pt.
+
+**Per-faction shifts (iter 1 → iter 2)**:
+- Marines: +17.0 → +13.1 (−3.9, C2 + leader priority eating Marines' wasted-charge / under-led-squad overhead)
+- Necrons: +6.2 → +4.6 (−1.6, A2 RP fresh-loss working)
+- Aeldari: −2.7 → −3.8 (small backslide)
+- Tyranids: +6.4 → +3.7 (−2.7, C2 wont-crack drops failed charges into Carnifex bricks)
+- Orks: −5.5 → −4.3 (improved)
+- T'au: −3.9 → −3.9 (unchanged)
+- DG: +19.2 → +17.0 (−2.2, A4 Contagions 3" gate)
+- Custodes: +3.1 → +0.3 (big improvement)
+- TSON: −2.4 → −1.8 (improved)
+- Votann: +3.4 → +4.0 (similar)
+
+**Iter 2 commits on origin**:
+- `79b5817` #C4 Leader-before-led
+- `e821940` #C2 Charge won't-crack
+- `fd69ef5` #A2 Necron RP fresh-loss
+- `3737802` #A4 DG Contagions 3"
+- `f2e8e67` #179 random_fill cap
+
+**Iter 3 priorities**:
+- DG +17.0 still biggest outlier — A5 stratagem firing-cap bundle remains, or look at Marines and DG's interaction directly.
+- Marines +13.1 — explore which mechanic still dominates now that #179 isn't the root cause; cluster A's diagnostic noted "Combat Doctrines + Oath rerolls compound" but solo Doctrines is real per Wahapedia.
+- B2 Aeldari Strands of Fate (high infra) — would close Aeldari −3.8.
+- B3 T'au Markerlights (high infra) — would close T'au −3.9.
+- Iter 3 cluster re-diagnostics: the previous cluster docs are stale post iter 2; consider fresh diagnostic round before iter 3 dispatch.
+
+**Loop exit status**: ΔMAE 0.33 (iter 1) + 0.73 (iter 2) → cumulative −1.06pt. Neither exit condition hit yet (MAE 5.66 > 1.0; Δ 0.73 > 0.1).
+
