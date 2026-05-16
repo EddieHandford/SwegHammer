@@ -95,6 +95,11 @@ class CatalogEntry:
     melee_ap: int = 0
     melee_weapon: str = ""
     range_inches: int = 24
+    # 10e Movement characteristic (inches). 0 = use UnitProfile default (6.0).
+    # Most BSData datasheets don't expose M numerically to the mapper, so this
+    # is typically set via overrides.json (e.g. Vertus Praetors M=14"). Cited
+    # per-unit in overrides.json notes.
+    move: float = 0.0
     points_override: float = 0.0
     # Renderer-only model base footprint (see UnitProfile.base_shape).
     base_shape: str = "circle"
@@ -162,6 +167,7 @@ class CatalogEntry:
             melee_ap=int(d.get("melee_ap", 0)),
             melee_weapon=d.get("melee_weapon", ""),
             range_inches=int(d.get("range_inches", 24)),
+            move=float(d.get("move", 0)),
             points_override=float(d.get("points_override", 0)),
             base_shape=str(d.get("base_shape", "circle")),
             base_diameter_mm=int(d.get("base_diameter_mm", 32)),
@@ -273,6 +279,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "melee_ap": override.get("melee_ap", base.melee_ap),
         "melee_weapon": override.get("melee_weapon", base.melee_weapon),
         "range_inches": override.get("range_inches", base.range_inches),
+        "move": override.get("move", base.move),
         "points_override": override.get("points_override", base.points_override),
         "base_shape": override.get("base_shape", base.base_shape),
         "base_diameter_mm": override.get("base_diameter_mm", base.base_diameter_mm),

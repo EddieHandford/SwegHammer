@@ -3,7 +3,7 @@
   "units": {
     "necrons_necron_warriors": {
       "sticky_objective": true,
-      "notes": "10e Necron Warriors carry the Their Number Is Legion rule \u2014 they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) \u2014 Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
+      "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) — Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
     },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
@@ -15,7 +15,7 @@
     },
     "death_guard_plague_marines": {
       "fnp": 5,
-      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | sweg_balance_mc up 22.5 -> 24.75 pts/model | Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines",
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it — override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | sweg_balance_mc up 22.5 -> 24.75 pts/model | Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines",
       "points_override": 24.75
     },
     "chaos_space_marines_plague_marines": {
@@ -139,7 +139,7 @@
       "base_shape": "rect",
       "base_width_mm": 102,
       "base_length_mm": 178,
-      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base \u2014 kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
+      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base — kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
     },
     "tyranids_hive_tyrant": {
       "base_shape": "circle",
@@ -184,11 +184,21 @@
     },
     "adeptus_custodes_caladius_grav_tank": {
       "points_override": 236.5,
-      "notes": "sweg_balance_mc up 215.0 -> 236.5 pts/model"
+      "move": 12.0,
+      "notes": "sweg_balance_mc up 215.0 -> 236.5 pts/model | iter8 mobility audit: M=12\" per Wahapedia datasheet (BSData parser does not emit numeric M, defaulted to 6\"). VEHICLE+FLY (hover) already on the keyword list. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Caladius-Grav-tank"
     },
     "adeptus_custodes_allarus_custodians": {
       "points_override": 71.5,
-      "notes": "sweg_balance_mc up 65.0 -> 71.5 pts/model"
+      "move": 5.0,
+      "notes": "sweg_balance_mc up 65.0 -> 71.5 pts/model | iter8 mobility audit: M=5\" per Wahapedia datasheet (Terminator armour). Deep Strike already flagged True on the BSData entry. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Allarus-Custodian-Squad"
+    },
+    "adeptus_custodes_vertus_praetors": {
+      "move": 14.0,
+      "notes": "iter8 mobility audit: M=14\" per Wahapedia datasheet (jetbike). MOUNTED+FLY keywords already set on the BSData entry; the M value is the missing piece that was capping the simulator's reach at the universal 6\" default. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Vertus-Praetors"
+    },
+    "adeptus_custodes_prosecutors": {
+      "move": 7.0,
+      "notes": "iter8 mobility audit: M=7\" per Wahapedia datasheet (Sisters of Silence light infantry — faster than power-armoured marines). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Prosecutors"
     },
     "leagues_of_votann_hearthkyn_warriors": {
       "points_override": 90.0,
