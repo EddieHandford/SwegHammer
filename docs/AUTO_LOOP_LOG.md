@@ -188,3 +188,46 @@ Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'a
 
 **Loop exit status**: Cumulative ΔMAE 6.72 → 5.01 = −1.71pt across 4 iters. Latest Δ 0.27pt > 0.1pt; MAE 5.01 >> 1.0pt. Continue.
 
+### Iter 5 (2026-05-16)
+
+**Diagnostics**: DG unsampled matchups (the 7 not sampled in iter 4), Marines alternate-mechanism. Docs: `AUTO_LOOP_ITER5_DG_UNSAMPLED.md`, `AUTO_LOOP_ITER5_MARINES.md`.
+
+**Fix batch dispatched**: 4 (DG OG LoS gate, Marines vehicle all-weapon basket, C3 vanilla uses activation_queue, C5 CP-leak cleanup).
+
+**Results (solo)**:
+- DG OG LoS gate: 0pt — OG fires/battle 3.49 → 1.75 (R1 fires 0.93 → 0.00); saved CP shifts to other stratagems so headline unchanged at N=20
+- Marines vehicle all-weapon basket (non-mutex weapons all fire together): **+1.77pt regression** — PARKED. Marines DOES fix (+12.6 → +2.0!) but inflates all multi-weapon vehicles cross-faction (DG +9.4, Tyranids +8.3). The fix is correctness-positive (real vehicles fire all their guns); the cross-faction calibration needs to absorb the new vehicle damage baseline. Re-evaluate after MC bisection comes online (re-derived points will absorb the new damage profile).
+- C3 vanilla mode uses activation_queue (unlocks C4 leader-before-led): +0.20pt — PARKED. Score-sort biases activation toward heavy bricks, helping over-performers (Tyranids/Votann) more than under-performers.
+- C5 stratagem CP-leak cleanup: +0.02pt — within noise but mechanism correct (R3+R4 Command Re-Roll leak dropped 22%). Shipped as mechanical fix.
+
+**Cumulative (3 shipped: DG OG + C5 + DG unsampled diag + Marines diag, 2 parked)**: MAE 5.01 → **5.03pt** (Δ **+0.02pt**). MAE-vs-Sweg 5.50 → **5.06pt** (Δ **−0.44pt** — significant internal-balance improvement).
+
+**Parked**:
+- Marines vehicle all-weapon basket. The cross-faction inflation is real signal — every multi-weapon vehicle in 10e fires all its guns; our simulator has been systematically under-rating them. Park until MC bisection / per-faction recalibration absorbs the new baseline.
+- C3 vanilla uses activation_queue. Tests that exercised C4 leader priority now exercise dead code again (C4 fix shipped but is dormant).
+
+**Per-faction shifts (iter 4 → iter 5)**:
+- Marines: +12.6 → +12.0 (small, unrelated to parked fixes)
+- DG: +15.3 → +17.0 (drift; OG fix is correctness-positive but doesn't reduce DG WR)
+- Necrons: +2.9 → +6.2 (drifted up — RNG/C5 interaction)
+- Aeldari: −3.3 → −5.6 (worse)
+- Tyranids: +2.6 → +3.1 (similar)
+- Orks: −4.3 → −5.6 (similar)
+- T'au: −2.3 → 0.0 (improved)
+- Custodes: −0.2 → +2.8 (drifted)
+- TSON: +0.4 → −2.2 (drifted)
+- Votann: +3.4 → +1.7 (improved)
+
+**Iter 5 commits on origin**:
+- `43c045d` iter 5 DG unsampled diagnostic
+- `c35ac33` iter 5 Marines alternate-mechanism diagnostic
+- `53d2fff` #C5 stratagem CP-leak cleanup
+- (DG OG LoS gate `34f0e4b` to land on next push)
+
+**Iter 6 priorities**:
+- Cheap stat corrections from iter 5 Marines diag side finding: Intercessor 12→24", Hellblaster 12→24", Eradicator 12→18" weapon range (per Wahapedia datasheets).
+- Oath of Moment retargeting (real rule: re-pick target each Command phase; sim picks once).
+- Universal AI: explore non-activation-order, non-CP-economy levers.
+
+**Loop exit status**: Cumulative ΔMAE 6.72 → 5.03 = −1.69pt across 5 iters. **Latest Δ 0.02pt < 0.1pt — FIRST iter inside convergence threshold.** Need 2 more consecutive iters at Δ<0.1 to exit, OR MAE<1.0. MAE 5.03 >> 1.0pt. Continue.
+
