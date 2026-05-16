@@ -245,6 +245,15 @@
     "scope": "keyword-gated"
   },
 
+  "simulator.objective_control_strictly_greater": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Mission-Objectives",
+    "rule_name": "Objective Markers — Level of Control",
+    "quoted_text": "A player's Level of Control over an objective marker is equal to the sum of the Objective Control characteristics of all of that player's models within range of that objective marker. The player with the greater Level of Control over the objective marker controls it.",
+    "trigger": "any phase-end objective control check (scoring or sticky-claim promotion)",
+    "effect": "control of an objective requires strictly greater OC than the opponent; ties yield no controller and therefore cannot trigger sticky-objective promotion (e.g. VIRULENT_VECTORIUM.worldblight_sticky_dg_objectives or any other sticky_objective profile flag). Previously SwegHammer accepted OC ties for sticky promotion (>=), which let Worldblight DG claim sticky on contested markers — corrected to strict > to match Wahapedia's 'greater Level of Control' wording.",
+    "scope": "phase-gated"
+  },
+
   "simulator.battle_focus": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Battle-Focus",
     "rule_name": "Battle Focus (Star Engines manoeuvre)",
@@ -278,6 +287,15 @@
     "quoted_text": "Once per battle, in your Command phase, you can declare a WAAAGH! is in effect for that turn. While a WAAAGH! is in effect for your turn: In your Movement phase, each unit in your army that has the WAAAGH! ability is eligible to declare a charge in that phase even if it Advanced in your Movement phase. Add 1 to Charge rolls made for units in your army. Add 1 to the Wound rolls for melee attacks made by models in your army. Each model in your army has a 5+ invulnerable save against melee attacks.",
     "trigger": "Command phase of an Orks army; WAAAGH! has not yet been declared this battle; AI decides this is the round (first-charge trigger: ≥1 Ork unit wants_to_charge AND has a chargeable target within 12\" AND Boyz at ≥40% of starting count; emergency Round 2+ if below 70% starting points; Round 4 fallback if first-charge trigger never fired; Round 5 force-fire)",
     "effect": "(approximation) the army marks `waaagh_round_unlocked = current_round`; on that turn only, Ork attackers (a) add +1 to the melee Wound roll and (b) add +1 to the 2D6 Charge roll. APPROXIMATION: the army-wide 5+ invulnerable save vs melee attacks and the 'Advance counts as Charge' leg are still NOT modelled — deferred to future iterations.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.markerlights": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights",
+    "rule_name": "Markerlights / Guided",
+    "quoted_text": "If, when an enemy unit is selected as the target of an attack made by a model in your army, one or more friendly units with the MARKERLIGHT keyword have line of sight to that enemy unit, that enemy unit is a Guided unit until the end of the phase. While a unit is a Guided unit, ranged attacks made against it by T'AU EMPIRE models from your army can be made as if that target had been Marked (see Marked units below) and that target is treated as being Guided. Note: where the rule's army-wide Guided LETHAL HITS keyword interaction is granted is via the army rule, which says ranged weapons gain [LETHAL HITS] when shooting Guided units in the controlling player's Shooting phase.",
+    "trigger": "start of T'au Shooting phase; one or more friendly MARKERLIGHT-keyword units alive in the army, with LoS to at least one enemy unit",
+    "effect": "(approximation) each alive MARKERLIGHT unit in a T'au army marks one enemy unit (highest-points threat within 36\" LoS) per round; uids stored in `Army.guided_enemy_uids`. While the detachment carries `lethal_hits_on_guided=True` (Mont'ka), any T'au attacker firing ranged weapons at a uid in the set gains [LETHAL HITS] for that resolution (read by Unit.attack at the `effective_lethal_hits` gate). APPROXIMATION: SwegHammer collapses the canonical Markerlight-token stacking (which requires N tokens to upgrade a Marked target into a Guided target in some editions / cadre rulings) to a single 'one MARKERLIGHT carrier = Guided' check. Tokens persist for the round and are cleared at end-of-round.",
     "scope": "phase-gated"
   }
 }

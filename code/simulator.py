@@ -557,9 +557,14 @@ class Battle:
 
             # Update sticky ownership BEFORE emitting the event, so a
             # newly-claimed objective registers the sticky owner this round.
-            if a_sticky_present and a_oc >= b_oc and a_oc > 0:
+            # Per 10e core rules: "The player with the greater Level of Control
+            # over the objective marker controls it." Strictly greater — ties
+            # do NOT grant control, so they cannot register sticky ownership.
+            # https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Mission-Objectives
+            # Cited as `simulator.objective_control_strictly_greater`.
+            if a_sticky_present and a_oc > b_oc:
                 self._sticky_owner[obj_idx] = self.a.name
-            elif b_sticky_present and b_oc >= a_oc and b_oc > 0:
+            elif b_sticky_present and b_oc > a_oc:
                 self._sticky_owner[obj_idx] = self.b.name
             else:
                 # An opposing non-sticky unit that takes control wrests the

@@ -116,6 +116,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.infiltrators",
     "simulator.reanimation_protocols",
     "simulator.sticky_objective",
+    # 10e core "greater Level of Control" rule — applies to objective scoring
+    # and sticky-claim promotion (`_score_objectives`, `_sticky_owner`).
+    "simulator.objective_control_strictly_greater",
     "simulator.battle_focus",
     "simulator.battleshock",
     "simulator.judgement_tokens",
@@ -221,6 +224,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.disembark",
     "simulator.firing_deck",
     "simulator.destroyed_transport",
+    # T'au Empire Markerlights → Guided (10e army-wide army rule). At the
+    # start of each Shooting phase, MARKERLIGHT-keyword units mark enemies
+    # as Guided; while the active detachment carries lethal_hits_on_guided
+    # (Mont'ka), T'au ranged attackers gain [LETHAL HITS] against Guided
+    # targets. Plumbed via Army.guided_enemy_uids, Battle._run_markerlight_phase,
+    # and the effective_lethal_hits gate in Unit.attack.
+    "simulator.markerlights",
 )
 
 
