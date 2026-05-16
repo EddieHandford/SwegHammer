@@ -42,10 +42,10 @@
   "Stratagem.Disgustingly Resilient": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Disgustingly Resilient (Virulent Vectorium Stratagem)",
-    "quoted_text": "WHEN: Your opponent's Shooting phase or the Fight phase, just after an enemy unit has selected its targets. EFFECT: Until the end of the phase, each time an attack is allocated to a model in your unit, subtract 1 from the Damage characteristic of that attack.",
-    "trigger": "opponent's Shooting phase or Fight phase, just after an enemy unit has selected its targets against a friendly DEATH GUARD unit",
-    "effect": "the unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1). Re-anchored at 2 CP per Virulent Vectorium (was previously misattributed to fabricated 'Plague Company' at 1 CP). Approximation: 10e text floors damage at 1 implicitly via the codex's 'minimum 1' damage rule, which our receive_damage path already enforces. Effect duration widened to the round rather than the phase since the simulator's stratagem dispatcher fires at round start",
-    "scope": "phase-gated",
+    "quoted_text": "WHEN: Your opponent's Shooting phase or the Fight phase, just after an attack is allocated to a model in a DEATH GUARD INFANTRY or DEATH GUARD CHARACTER unit from your army. EFFECT: Until the end of the phase, each time an attack is allocated to a model in your unit, subtract 1 from the Damage characteristic of that attack.",
+    "trigger": "opponent's Shooting phase or Fight phase, just after an attack is allocated to a friendly DEATH GUARD INFANTRY or DEATH GUARD CHARACTER unit (VEHICLE / MONSTER datasheets such as Plagueburst Crawler, Foetid Bloat-drone, Plague Hulk are NOT eligible)",
+    "effect": "the eligible DG INFANTRY/CHARACTER unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1). 2 CP per Virulent Vectorium. Keyword gate added in iter 1 F-DG-1 (#A1): VEHICLE/MONSTER DG units no longer benefit; if no eligible target exists the stratagem does not fire. Approximation: 10e text floors damage at 1 implicitly via the codex's 'minimum 1' damage rule, which our receive_damage path already enforces. Effect duration widened to the round rather than the phase since the simulator's stratagem dispatcher fires at round start",
+    "scope": "keyword-gated",
     "approximation": true
   },
 

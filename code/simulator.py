@@ -834,18 +834,41 @@ class Battle:
 
     def _try_disgustingly_resilient(self, army: Army, opponent: Army) -> None:
         """Disgustingly Resilient (Virulent Vectorium, 2 CP): -1 damage taken
-        on a DEATH GUARD unit for the round. Picks the most vulnerable DG
-        unit. Re-anchored from the fabricated "Plague Company" 1CP attachment
-        to the real Virulent Vectorium detachment at 2CP per the fabrication
-        audit. Effect identifier is an APPROXIMATION pending a proper
-        Virulent Vectorium rebuild (real rule is -1 to wound vs the unit)."""
-        target = self._most_vulnerable_unit(
-            army, keyword="DEATH GUARD", faction="Death Guard",
-        )
-        if target is None:
-            target = self._most_vulnerable_unit(army)
-        if target is None:
+        on a DEATH GUARD INFANTRY or DEATH GUARD CHARACTER unit for the
+        round. Picks the most vulnerable eligible unit; if none qualifies
+        the stratagem does not fire (per F-DG-1, iter 1: real Wahapedia
+        scope is DG INFANTRY / DG CHARACTER only — VEHICLEs and MONSTERs
+        like Plagueburst Crawler / Foetid Bloat-Drone / Plague Hulk are
+        NOT eligible). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+        """
+        # Eligible: alive DG unit with INFANTRY or CHARACTER keyword and
+        # NOT a VEHICLE or MONSTER (a real DG datasheet may list both
+        # CHARACTER and MONSTER — e.g. Mortarion — but the stratagem
+        # text restricts the buff to the INFANTRY/CHARACTER half).
+        def _eligible(u) -> bool:
+            if (u.profile.faction or "") != "Death Guard":
+                return False
+            kw = set(u.profile.unit_keywords or ())
+            if "VEHICLE" in kw or "MONSTER" in kw:
+                return False
+            return "INFANTRY" in kw or "CHARACTER" in kw
+
+        candidates = [
+            u for u in army.alive_units
+            if _eligible(u) and u.uid not in self._battleshocked_this_round
+        ]
+        if not candidates:
             return
+
+        def _vulnerability(u):
+            hp_max = max(1.0, u.profile.health)
+            hp_lost = 1.0 - (u.current_health / hp_max)
+            return float(u.profile.points_cost) * hp_lost
+
+        target = max(candidates, key=_vulnerability)
+        if _vulnerability(target) <= 0:
+            target = max(candidates, key=lambda u: float(u.profile.points_cost))
         ctx = {"target": target}
         if not should_fire_stratagem(army, DISGUSTINGLY_RESILIENT, ctx):
             return

@@ -351,6 +351,87 @@ class LeechsporeEruptionTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Disgustingly Resilient — keyword gate (DG INFANTRY/CHARACTER only)
+# ---------------------------------------------------------------------------
+
+
+class DisgustinglyResilientKeywordGateTests(unittest.TestCase):
+    """Pin the F-DG-1 (iter 1) keyword gate: real Wahapedia scope is DG
+    INFANTRY or DG CHARACTER only. VEHICLE / MONSTER DG units must NOT
+    receive `transient_minus_one_damage_taken` from this stratagem.
+    Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+    """
+
+    def _build_battle(self, dg_units):
+        dg = Army("Death Guard")
+        for prof in dg_units:
+            dg.add_unit(prof)
+        ast = Army("Astartes")
+        ast.add_unit(_marine_profile())
+        battle = Battle(dg, ast)
+        battle._assign_uids()
+        dg._battle_ref = battle
+        ast._battle_ref = battle
+        dg.command_points = 5
+        battle._current_round = 3
+        return battle, dg, ast
+
+    def test_fires_on_dg_character(self):
+        """A DG CHARACTER (Typhus — CHARACTER, INFANTRY, health 6) is
+        eligible AND clears the strategy gate (max_hp >= 4, hp_frac > 0.2)."""
+        random.seed(0)
+        battle, dg, ast = self._build_battle([_typhus_profile()])
+        # Wound Typhus to >20% HP loss so the strategy gate fires.
+        battle.a.units[0].current_health = 2.0   # 2/6 HP -> 67% HP lost
+        battle._try_disgustingly_resilient(dg, ast)
+        self.assertTrue(
+            battle.a.units[0].transient_minus_one_damage_taken,
+            "DG CHARACTER should receive -1 damage flag",
+        )
+
+    def test_does_not_fire_on_dg_vehicle_only(self):
+        """A DG VEHICLE/MONSTER-only roster (Plagueburst Crawler) is NOT
+        eligible — the stratagem must not fire and must not set the flag
+        on the crawler."""
+        random.seed(0)
+        battle, dg, ast = self._build_battle([_plagueburst_crawler_profile()])
+        battle.a.units[0].current_health = 1.0  # wounded but ineligible
+        cp_before = dg.command_points
+        battle._try_disgustingly_resilient(dg, ast)
+        self.assertFalse(
+            getattr(battle.a.units[0], "transient_minus_one_damage_taken", False),
+            "DG VEHICLE/MONSTER must NOT receive Disgustingly Resilient -1 damage",
+        )
+        self.assertEqual(
+            dg.command_points, cp_before,
+            "No eligible target — CP must not be spent",
+        )
+
+    def test_picks_character_when_vehicle_more_vulnerable(self):
+        """With both a heavily-wounded Plagueburst Crawler AND a wounded
+        Typhus (CHARACTER+INFANTRY), the stratagem targets Typhus — the
+        VEHICLE is ineligible per keyword gate even though it's more
+        'vulnerable' by raw points × HP-lost."""
+        random.seed(0)
+        battle, dg, ast = self._build_battle([
+            _plagueburst_crawler_profile(),
+            _typhus_profile(),
+        ])
+        crawler, typhus = battle.a.units[0], battle.a.units[1]
+        crawler.current_health = 1.0     # 1/12 HP — huge "vulnerability" score
+        typhus.current_health = 2.0      # 2/6 HP — wounded enough to clear gate
+        battle._try_disgustingly_resilient(dg, ast)
+        self.assertFalse(
+            getattr(crawler, "transient_minus_one_damage_taken", False),
+            "Crawler is VEHICLE/MONSTER — must not be picked",
+        )
+        self.assertTrue(
+            typhus.transient_minus_one_damage_taken,
+            "Typhus (CHARACTER+INFANTRY) should be the picked target",
+        )
+
+
+# ---------------------------------------------------------------------------
 # Overall smoke: a full battle with Virulent Vectorium runs cleanly
 # ---------------------------------------------------------------------------
 
