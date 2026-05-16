@@ -1165,8 +1165,24 @@ class Unit:
                             wroll = random.randint(1, 6)
                             wound_succeeded = (wroll >= wound_target)
                             rerolled = True
-                    # Anti-X lowers the crit-wound threshold against that keyword
-                    crit_wound = wound_succeeded and wroll >= anti_crit_threshold
+                    # Anti-X (10e core): "Each time an attack is made with such
+                    # a weapon against a target that has the keyword after the
+                    # word 'Anti-', an unmodified Wound roll of 'x+' scores a
+                    # Critical Wound." A Critical Wound is by definition a
+                    # successful Wound roll (10e core: "An unmodified Wound
+                    # roll of 6 is always considered to be a successful Wound
+                    # roll, irrespective of the attack's Strength and the
+                    # target's Toughness characteristic. This is known as a
+                    # Critical Wound."). So a roll of >= anti_crit_threshold
+                    # auto-succeeds AND is a Critical Wound — even if the
+                    # roll would otherwise fail the normal S-vs-T target.
+                    # Cited as `weapon.anti_x`.
+                    # Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#ANTI-X
+                    if wroll >= anti_crit_threshold:
+                        wound_succeeded = True
+                        crit_wound = True
+                    else:
+                        crit_wound = False
                 if not wound_succeeded:
                     continue
 

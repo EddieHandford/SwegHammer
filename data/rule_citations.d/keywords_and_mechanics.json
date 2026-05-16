@@ -38,11 +38,11 @@
   },
 
   "weapon.anti_x": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Anti",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#ANTI-X",
     "rule_name": "[ANTI-KEYWORD X+]",
     "quoted_text": "Each time an attack is made with such a weapon against a target with the keyword after the word 'Anti-', an unmodified Wound roll of 'x+' scores a Critical Wound.",
     "trigger": "target has the keyword named after Anti- (INFANTRY, VEHICLE, etc.)",
-    "effect": "lowers the crit-wound threshold for this weapon to X+ vs that keyword",
+    "effect": "an unmodified Wound roll of X+ auto-succeeds AND counts as a Critical Wound (10e core: a Critical Wound is by definition a successful Wound roll). Stacks with [DEVASTATING WOUNDS] to bypass saves on the crit.",
     "scope": "weapon-keyword"
   },
 
