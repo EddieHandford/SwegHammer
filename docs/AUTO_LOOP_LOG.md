@@ -231,3 +231,35 @@ Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'a
 
 **Loop exit status**: Cumulative ΔMAE 6.72 → 5.03 = −1.69pt across 5 iters. **Latest Δ 0.02pt < 0.1pt — FIRST iter inside convergence threshold.** Need 2 more consecutive iters at Δ<0.1 to exit, OR MAE<1.0. MAE 5.03 >> 1.0pt. Continue.
 
+### Iter 6 (2026-05-16)
+
+**Fix batch**: 2 (Marines weapon-range corrections, Oath of Moment retargeting per Command phase).
+
+**Results (solo)**:
+- Marines weapon ranges (Intercessor 12→24", Hellblaster 12→24", Eradicator 12→18", per Wahapedia datasheets): −0.11pt ✓
+- Oath of Moment retargeting (real rule re-picks target each Command phase; sim was using static `points_cost` score, sticking on same anchor): 0.0pt headline but Marines diff −3.3pt (+14.2 → +10.9). Cross-faction noise cancels (T'au regressed, Custodes/Votann drifted).
+
+**Cumulative**: MAE 5.03 → **5.03pt** (Δ **0.00pt**). MAE-vs-Sweg 5.06 → 5.44pt.
+
+**Per-faction shifts (iter 5 → iter 6)**:
+- Marines: +12.0 → +10.9 (Oath retargeting + range fix)
+- Necrons: +6.2 → +5.7
+- Aeldari: −5.6 → +1.2 (massive improvement — Oath retargeting indirectly helps Aeldari by reducing Marine focus-fire concentration)
+- Tyranids: +3.1 → +3.7
+- Orks: −5.6 → −0.5 (massive improvement, same dynamic)
+- T'au: 0.0 → −2.8 (regression — less Marine pressure they may have been benefiting from in a non-obvious way)
+- DG: +17.0 → +17.6 (slight drift)
+- Custodes: +2.8 → +4.2 (regression)
+- TSON: −2.2 → +0.4
+- Votann: +1.7 → +3.4
+
+**Iter 6 commits on origin**:
+- `5f98496` / `60ea2a0` #iter6 Marines weapon ranges
+- `a4f1740` #iter6 Oath of Moment retargeting
+
+**Iter 7 priorities**:
+- DG +17.6 dominates remaining MAE (~⅓ of total). Need a different attack vector — sticky/Contagion/OG-LoS already addressed.
+- Cross-faction calibration drift is the new pattern: rule fixes shift WR but cross-faction interactions cancel headlines. MC bisection (Plan Step 4) becomes increasingly relevant.
+
+**Loop exit status**: Cumulative ΔMAE 6.72 → 5.03 = −1.69pt across 6 iters. **Latest Δ 0.00pt < 0.1pt — SECOND consecutive sub-0.1 iter.** Need 1 more to exit on convergence, OR MAE<1.0. MAE 5.03 >> 1.0pt. Continue.
+
