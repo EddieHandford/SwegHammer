@@ -111,3 +111,11 @@ or 3 consecutive iterations with Δ < 0.1pt.
 
 **Loop exit status**: ΔMAE 0.33 (iter 1) + 0.73 (iter 2) → cumulative −1.06pt. Neither exit condition hit yet (MAE 5.66 > 1.0; Δ 0.73 > 0.1).
 
+### Iter 3 — PAUSED (API rate limit)
+
+Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'au). All 5 died early with Anthropic API rate-limit error ("You've hit your limit · resets 4:50am Europe/London"). No commits landed.
+
+**Resume**: re-dispatch the same 5 per-faction diagnostics. Prompts were faction-specific deep audits with mechanism trace + Wahapedia gap + AI gap + single top-ranked fix proposal. Worktree IDs are dead — fresh dispatch needed.
+
+**Pre-pause state**: MAE-vs-real 5.66pt, MAE-vs-Sweg 5.94pt, HEAD `08b841e`, 644 tests green.
+
