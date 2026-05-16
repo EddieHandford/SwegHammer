@@ -1188,7 +1188,11 @@ class Battle:
             for enemy in opponent.alive_units:
                 if _distance(cand.position, enemy.position) > rng:
                     continue
-                if not self.map.has_line_of_sight(cand.position, enemy.position):
+                if not self.map.has_line_of_sight(
+                    cand.position, enemy.position,
+                    attacker_keywords=cand.profile.unit_keywords or (),
+                    target_keywords=enemy.profile.unit_keywords or (),
+                ):
                     continue
                 candidate = cand
                 break
@@ -3730,10 +3734,15 @@ class Battle:
                 if _distance(attacker.position, u.position) <= rng
             ]
         else:
+            attacker_kw = attacker.profile.unit_keywords or ()
             candidates = [
                 u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
-                and self.map.has_line_of_sight(attacker.position, u.position)
+                and self.map.has_line_of_sight(
+                    attacker.position, u.position,
+                    attacker_keywords=attacker_kw,
+                    target_keywords=u.profile.unit_keywords or (),
+                )
             ]
         # 10e core targeting restrictions: Look Out Sir + Lone Operative. The
         # helper composes both rules — `friendly_units` to a candidate target
@@ -3792,13 +3801,19 @@ class Battle:
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
         cover_type = self.map.cover_at(shoot_target.position)
-        if cover_type in (TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER):
+        if cover_type in (
+            TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
+        ):
             shoot_target.in_cover = True
-        if cover_type is TerrainType.HEAVY_COVER:
+        if cover_type in (TerrainType.HEAVY_COVER, TerrainType.RUIN):
             shoot_target.in_heavy_cover = True
 
         distance = _distance(attacker.position, shoot_target.position)
-        has_los = self.map.has_line_of_sight(attacker.position, shoot_target.position)
+        has_los = self.map.has_line_of_sight(
+            attacker.position, shoot_target.position,
+            attacker_keywords=attacker.profile.unit_keywords or (),
+            target_keywords=shoot_target.profile.unit_keywords or (),
+        )
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
         # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
         # TRANSPORT with embarked passengers and firing_deck > 0, up to X
@@ -4538,13 +4553,22 @@ class Battle:
         firing = transport.passengers[:x]
         total = 0.0
         distance = _distance(transport.position, target.position)
-        has_los = self.map.has_line_of_sight(transport.position, target.position)
+        target_kw = target.profile.unit_keywords or ()
         for passenger in firing:
             if not passenger.is_alive:
                 continue
             # Out of range from the transport's position — skip silently.
             if distance > passenger.profile.range_inches:
                 continue
+            # 10e Ruins: the FIRING model's keywords decide whether LoS
+            # passes through a Ruin wall, not the transport's. Each
+            # passenger gets its own LoS check from the transport's
+            # firing-deck position.
+            has_los = self.map.has_line_of_sight(
+                transport.position, target.position,
+                attacker_keywords=passenger.profile.unit_keywords or (),
+                target_keywords=target_kw,
+            )
             total += passenger.attack(
                 target, distance=distance, has_los=has_los,
             )

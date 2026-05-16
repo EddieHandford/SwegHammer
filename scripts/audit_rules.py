@@ -259,6 +259,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # template-instantiated units so the random topup can't duplicate a
     # hero the archetype already drafted).
     "simulator.epic_hero_one_per_army",
+    # 10e Ruins terrain core rule. A Ruin acts as Heavy Cover (+1 save,
+    # -1 to hit) and its walls block line of sight EXCEPT when both the
+    # firing model and the target model have the INFANTRY, BEAST or SWARM
+    # keyword. Wired through code.map.Map.has_line_of_sight via
+    # attacker_keywords / target_keywords arguments threaded from the
+    # simulator's _do_shoot / _apply_firing_deck call sites. Cover
+    # promotion handled alongside TerrainType.HEAVY_COVER in
+    # Battle._do_shoot.
+    "terrain.ruin_infantry_los",
 )
 
 

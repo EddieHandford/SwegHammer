@@ -37,12 +37,12 @@ COMBAT_PATROL_BASIC = Map(
         Terrain(
             name="Ruin Alpha",
             x=8.0, y=18.0, width=8.0, height=6.0,
-            type=TerrainType.HEAVY_COVER,
+            type=TerrainType.RUIN,
         ),
         Terrain(
             name="Ruin Bravo",
             x=28.0, y=36.0, width=8.0, height=6.0,
-            type=TerrainType.HEAVY_COVER,
+            type=TerrainType.RUIN,
         ),
         Terrain(
             name="Woods",
@@ -70,8 +70,8 @@ URBAN_SPRAWL = Map(
     height=90.0,
     objectives=_quincunx_objectives(44.0, 90.0),
     terrain=(
-        Terrain("Ruin North",  x=6.0,  y=68.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
-        Terrain("Ruin South",  x=28.0, y=14.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
+        Terrain("Ruin North",  x=6.0,  y=68.0, width=10.0, height=8.0, type=TerrainType.RUIN),
+        Terrain("Ruin South",  x=28.0, y=14.0, width=10.0, height=8.0, type=TerrainType.RUIN),
         Terrain("Central Wall", x=20.0, y=43.0, width=4.0,  height=4.0, type=TerrainType.IMPASSABLE),
         Terrain("West Wood",   x=4.0,  y=38.0, width=8.0,  height=10.0, type=TerrainType.OBSCURING),
         Terrain("East Wood",   x=32.0, y=52.0, width=8.0,  height=10.0, type=TerrainType.OBSCURING),
@@ -109,7 +109,7 @@ CRUCIBLE_OF_BATTLE = Map(
     # Large ruin top-right, wooded copse mid-left, two short barricade ridges
     # bridging them, one impassable wall blocking centre.
     terrain=(
-        Terrain("Top-Right Ruin",      x=30.0, y=44.0, width=10.0, height=10.0, type=TerrainType.HEAVY_COVER),
+        Terrain("Top-Right Ruin",      x=30.0, y=44.0, width=10.0, height=10.0, type=TerrainType.RUIN),
         Terrain("Mid-Left Copse",      x=4.0,  y=26.0, width=8.0,  height=10.0, type=TerrainType.OBSCURING),
         Terrain("NE Barricade Ridge",  x=22.0, y=38.0, width=8.0,  height=2.0,  type=TerrainType.LIGHT_COVER),
         Terrain("SW Barricade Ridge",  x=12.0, y=20.0, width=8.0,  height=2.0,  type=TerrainType.LIGHT_COVER),
@@ -145,11 +145,11 @@ SEARCH_AND_DESTROY = Map(
     # contest mid-board objectives.
     terrain=(
         # NW cluster
-        Terrain("NW Ruin",         x=4.0,  y=42.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
+        Terrain("NW Ruin",         x=4.0,  y=42.0, width=10.0, height=8.0, type=TerrainType.RUIN),
         Terrain("NW Wood",         x=14.0, y=48.0, width=8.0,  height=8.0, type=TerrainType.OBSCURING),
         Terrain("NW Barricade",    x=6.0,  y=36.0, width=10.0, height=2.0, type=TerrainType.LIGHT_COVER),
         # SE cluster
-        Terrain("SE Ruin",         x=30.0, y=10.0, width=10.0, height=8.0, type=TerrainType.HEAVY_COVER),
+        Terrain("SE Ruin",         x=30.0, y=10.0, width=10.0, height=8.0, type=TerrainType.RUIN),
         Terrain("SE Wood",         x=22.0, y=4.0,  width=8.0,  height=8.0, type=TerrainType.OBSCURING),
         Terrain("SE Barricade",    x=28.0, y=22.0, width=10.0, height=2.0, type=TerrainType.LIGHT_COVER),
         # Lone central feature breaking the open no-man's-land
@@ -183,10 +183,10 @@ SWEEPING_ENGAGEMENT = Map(
     # middle channel the fight, woods clusters anchor each short edge.
     terrain=(
         # Two parallel ruins lines down the centre
-        Terrain("West Ruin Line North", x=16.0, y=58.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
-        Terrain("West Ruin Line South", x=16.0, y=22.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
-        Terrain("East Ruin Line North", x=24.0, y=58.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
-        Terrain("East Ruin Line South", x=24.0, y=22.0, width=4.0, height=12.0, type=TerrainType.HEAVY_COVER),
+        Terrain("West Ruin Line North", x=16.0, y=58.0, width=4.0, height=12.0, type=TerrainType.RUIN),
+        Terrain("West Ruin Line South", x=16.0, y=22.0, width=4.0, height=12.0, type=TerrainType.RUIN),
+        Terrain("East Ruin Line North", x=24.0, y=58.0, width=4.0, height=12.0, type=TerrainType.RUIN),
+        Terrain("East Ruin Line South", x=24.0, y=22.0, width=4.0, height=12.0, type=TerrainType.RUIN),
         # Woods clusters at each short edge
         Terrain("South Wood West", x=6.0,  y=4.0,  width=8.0, height=8.0, type=TerrainType.OBSCURING),
         Terrain("South Wood East", x=30.0, y=4.0,  width=8.0, height=8.0, type=TerrainType.OBSCURING),

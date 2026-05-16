@@ -182,6 +182,7 @@ _COVER_PRIORITY = {
     "light_cover": 1,
     "obscuring": 2,
     "heavy_cover": 3,
+    "ruin": 3,          # 10e Ruin: Heavy Cover save bonus + LoS shield vs non-INFANTRY shooters
     "impassable": -1,   # never stand in impassable
 }
 
