@@ -63,8 +63,9 @@ def _contagion_round_for(unit: "Unit") -> int:
     `unit`'s army, or 0 when no DG army is on the opposing side / no battle is
     active. Used by `Unit.attack` to gate the 3" Nurgle's Gift aura.
 
-    Contagions of Nurgle (Death Guard army rule, 10e — escalating order):
-      Round 1 — Virulent Rot:       -1 T on enemy units within 3" of a DG model
+    Contagions of Nurgle (Death Guard army rule, 10e — post iter-4 shape):
+      Round 1 — (no debuff; the legacy Virulent Rot -1 T branch was dropped
+                in iter-4 — it had no anchor in the modern codex)
       Round 2 — Maladictive Pall:   -1 Ld on enemy units within 3" (battleshock)
       Round 3+ — Fulminating Plague: -1 to hit on enemy units within 3"
     """
@@ -740,28 +741,21 @@ class Unit:
             _hit_target_after_buffs = hit_target
 
         # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
-        # Virulent Rot: enemy units within 3" of any DG model have -1 T (only
-        # for the purpose of wound rolls against them). We don't mutate
-        # target.profile.toughness; instead we apply the equivalent +1 to wound
-        # (lower wound_target by 1, min 2) when the DEFENDER is within 3" of
-        # any DG model on the army OPPOSING the defender's army. The aura is
-        # projected by every DG model (Nurgle's Gift), not just characters.
-        # APPROXIMATION: real 10e is "Nurgle's Gift / Afflicted" with Skullsquirm
-        # Blight / Rattlejoint Ague / Scabrous Soulrot variants applied to enemy
-        # units within 3" of a DG model. We retain the 3-round escalating
-        # -1T/-1Ld/-1-to-hit shape (older index rule) but gate radius to 3" per
-        # the modern rule. Real ailments are direction-correct (each debuffs the
-        # enemy unit) so the substitution is rule-conservative.
+        # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
+        # launch-index wording. The current 10e codex replaces it with
+        # randomly-assigned Afflictions (Skullsquirm Blight / Rattlejoint
+        # Ague / Scabrous Soulrot). The strongest of those — Scabrous
+        # Soulrot's -1 to hit — is already modelled by the R3+ branch
+        # below, and Rattlejoint Ague's direction (debuff to enemy unit's
+        # action economy) maps onto the R2 -1 Ld battleshock penalty in
+        # Battle._run_round. So the R1 -1 T effect has no modern-rule
+        # anchor and is removed entirely. R2 -1 Ld and R3+ -1 to hit are
+        # preserved (see comment further down in this function for R3+,
+        # and code/simulator.py:_run_round for R2 battleshock).
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
-        # Cited as `simulator.contagions_of_nurgle`. Round 2 and 3+ effects
-        # are handled elsewhere (battleshock Ld penalty in _run_round;
-        # round-3+ -1 to hit lower in this function).
-        if (
-            _contagion_round_for(target) == 1
-            and target.profile.faction != "Death Guard"
-            and _is_near_enemy_dg_model(target, radius=3.0)
-        ):
-            wound_target = max(2, wound_target - 1)
+        # Cited as `simulator.contagions_of_nurgle` (approximation flag
+        # remains true; effect text in the citation reflects the 2-round
+        # shape post-removal).
 
         # ---- Orks WAAAGH! once-per-battle window: +1 to wound in melee for
         # Ork attackers on the turn WAAAGH! was declared. Cited as

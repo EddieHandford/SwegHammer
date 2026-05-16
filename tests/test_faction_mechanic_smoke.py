@@ -447,10 +447,12 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             f"DG FNP did not reduce damage: dg={dg_taken:.1f} ctrl={ctrl_taken:.1f}",
         )
 
-    def test_death_guard_contagions_minus_t_in_round_1(self):
-        """A DG attacker firing into a Marine within 3" in round 1 must
-        land more wounds than the same shooter into a Marine 12" away
-        (out of aura range). Cites: simulator.contagions_of_nurgle."""
+    def test_death_guard_contagions_no_r1_toughness_debuff(self):
+        """Iter-4 dropped the legacy R1 Virulent Rot (-1 T) branch — the
+        modern 10e codex replaces it with randomly-assigned Afflictions and
+        none of those are a toughness debuff. A DG attacker firing into a
+        Marine within 3" in round 1 must NOT land more wounds than the same
+        shooter into a Marine 12" away. Cites: simulator.contagions_of_nurgle."""
         # In-aura run.
         random.seed(2026)
         dg_in = Army("Death Guard")
@@ -487,10 +489,12 @@ class FactionMechanicSmokeTests(unittest.TestCase):
                 ast_out.units[0], distance=12.0, mode="ranged", has_los=True,
             )
 
-        self.assertGreater(
-            in_dmg, out_dmg,
-            f"Round-1 Contagion (-1 T) didn't increase wound rate: "
-            f"in={in_dmg:.1f} out={out_dmg:.1f}",
+        # Allow 15% stochastic band for noise. Before the iter-4 fix the
+        # in-aura run was ~50% higher than out (-1 T turned T4 into T3).
+        self.assertLessEqual(
+            in_dmg, out_dmg * 1.15,
+            f"Iter-4 dropped R1 -1 T; in-aura damage should NOT be uplifted "
+            f"vs out-of-aura. got in={in_dmg:.1f} out={out_dmg:.1f}",
         )
 
     # ----- Thousand Sons -----------------------------------------------
