@@ -1708,7 +1708,10 @@ def _get_current_round(army) -> int:
     return int(getattr(battle, "_current_round", 0) or 0)
 
 
-def _should_hold_for_pivotal_turn(army, strat) -> bool:
+_HIGH_VALUE_TARGET_PTS: float = 100.0    # iter5 C5: bypass pivotal-hold on premium targets
+
+
+def _should_hold_for_pivotal_turn(army, strat, ctx: Optional[dict] = None) -> bool:
     """Return True if the army should DEFER firing this stratagem rather than
     spending CP now, based on the predicted pivotal turn.
 
@@ -1718,6 +1721,13 @@ def _should_hold_for_pivotal_turn(army, strat) -> bool:
       * current_round == pivotal_turn or beyond: never hold.
       * current_round == final round (T5): never hold — use it or lose it.
       * remaining CP > 2 * cost: never hold (CP abundant).
+      * High-value trigger override (iter5 C5, faction-neutral): if ctx
+        carries a `target` whose `points_cost >= _HIGH_VALUE_TARGET_PTS` AND
+        the army can afford a second spend (cp >= 2 * cost), bypass the
+        pivotal hold. This stops CP leaking to R4/R5 when a premium target
+        (Knight / Wraithlord / Custodian-tier brick) is on the table now.
+        Applies uniformly across all factions — the threshold keys on the
+        target's BSData points_cost, no faction lookup.
       * current_round < pivotal_turn AND cost > 0 AND CP not abundant: HOLD.
     """
     cost = int(getattr(strat, "cp_cost", 0) or 0)
@@ -1738,6 +1748,20 @@ def _should_hold_for_pivotal_turn(army, strat) -> bool:
     cp = int(getattr(army, "command_points", 0) or 0)
     if cp > 2 * cost:
         return False
+    # iter5 C5: high-value target override — burn-on-trigger for premium
+    # rolls when we can afford the spend twice over (cp >= 2 * cost). This
+    # is faction-neutral: the threshold is a universal points-cost bar, not
+    # a faction- or keyword-specific bypass. Without this, CP held through
+    # R1 for "pivotal R2" leaks to R4/R5 when R2 didn't produce a trigger.
+    if ctx is not None and cp >= 2 * cost:
+        target = ctx.get("target") or ctx.get("charge_target")
+        if target is not None:
+            try:
+                tcost = float(target.profile.points_cost)
+            except Exception:
+                tcost = 0.0
+            if tcost >= _HIGH_VALUE_TARGET_PTS:
+                return False
     return True
 
 
@@ -1763,7 +1787,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # for known-pivotal rounds rather than burning it on the first eligible
     # trigger. Reactive stratagems (Counter-Offensive, Heroic Intervention,
     # Tank Shock, Spirit Stones) and zero-cost stratagems are exempt.
-    if _should_hold_for_pivotal_turn(army, strat):
+    # iter5 C5: ctx is now consulted so a high-value trigger can bypass the
+    # hold gate uniformly across factions (faction-neutral CP-leak cleanup).
+    if _should_hold_for_pivotal_turn(army, strat, ctx):
         return False
 
     name = strat.name
@@ -1791,7 +1817,16 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             value = target_cost * hp_frac * 0.15   # ~15% of full value per wound
         except Exception:
             value = target_cost * 0.15
-        return value >= _MIN_EXPECTED_SWING_PTS
+        # iter5 C5: tighten the post-pivotal value bar so leaked CP doesn't
+        # burn on R3-R4 marginal triggers. After the alpha-strike window
+        # (R > pivotal_turn = R3+), require ~50% higher expected swing.
+        # Faction-neutral: keys on round number + universal points-cost.
+        bar = _MIN_EXPECTED_SWING_PTS
+        cur = _get_current_round(army)
+        pivot = _predict_pivotal_turn(strat)
+        if cur > 0 and pivot > 0 and cur > pivot and cur < _FINAL_ROUND:
+            bar = _MIN_EXPECTED_SWING_PTS * 1.5
+        return value >= bar
 
     if name == "Counter-Offensive":
         # ctx expects {"friendly_in_engagement": bool, "enemy_killed_model": bool}.
