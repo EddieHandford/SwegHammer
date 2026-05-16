@@ -54,6 +54,9 @@ from .stratagems import (
     # Shield Host (Adeptus Custodes) — six real detachment stratagems (iter-8)
     ARCANE_GENETIC_ALCHEMY, UNWAVERING_SENTINELS, MULTIPOTENTIALITY,
     VIGILANCE_ETERNAL, ARCHAEOTECH_MUNITIONS, AVENGE_THE_FALLEN,
+    # Oathband (Leagues of Votann) — six real detachment stratagems (iter-9)
+    WARRIOR_PRIDE, WRATH_OF_THE_ANCESTORS, GLORY_OF_THE_HEARTH,
+    IRONKIN_SEQUENCE, ANCESTRAL_SENTENCE, VOID_ARMOURED_RESILIENCE,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -836,6 +839,28 @@ class Battle:
             # auditor + stratagems_for_army listing, but the dispatcher is a
             # no-op APPROXIMATION (sticky-objective mechanism is per-detachment-
             # flag-gated, not per-stratagem-fire).
+
+            # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+            # All six wire onto existing transient_* flags / judgement_tokens
+            # plumbing; the Judgement-Token-bearing gate is APPROXIMATED to
+            # "the highest-threat enemy" because the AI heuristic doesn't
+            # track per-unit token presence yet. Stacks with the existing
+            # `simulator.judgement_tokens` re-roll buffs at 1+/3+ thresholds
+            # — Warrior Pride / Wrath / Ancestral Sentence compound the token
+            # economy rather than replacing it.
+            if not self._strat_cap_reached(army) and "Warrior Pride" in strat_names:
+                self._try_warrior_pride(army, opponent)
+            if not self._strat_cap_reached(army) and "Wrath of the Ancestors" in strat_names:
+                self._try_wrath_of_the_ancestors(army, opponent)
+            if not self._strat_cap_reached(army) and "Glory of the Hearth" in strat_names:
+                self._try_glory_of_the_hearth(army, opponent)
+            if not self._strat_cap_reached(army) and "Ironkin Sequence" in strat_names:
+                self._try_ironkin_sequence(army, opponent)
+            if not self._strat_cap_reached(army) and "Ancestral Sentence" in strat_names:
+                self._try_ancestral_sentence(army, opponent)
+            if not self._strat_cap_reached(army) and "Void-Armoured Resilience" in strat_names:
+                self._try_void_armoured_resilience(army, opponent)
         finally:
             # Always drop the dispatch flag — Tank Shock / Heroic Intervention /
             # Counter-Offensive / Command Re-Roll fire out-of-band via
@@ -1921,6 +1946,194 @@ class Battle:
         if not self._fire_stratagem(army, AVENGE_THE_FALLEN):
             return
         target.transient_plus_one_to_wound_melee = True
+
+    # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9) ----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+    # Replaces the iter-0 zero-stratagem state where Votann burned every
+    # strat fire on Command Re-Roll (universal Core). iter-8 anti-DG audit
+    # (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) flagged this set as the
+    # top fix for Votann-vs-DG (one of the 7 unsampled-but-positive DG
+    # matchups, +8pt over real per iter-5). All six dispatchers follow the
+    # Shield Host / Mont'ka / War Horde pattern — route through the nearest
+    # existing transient_* flag (or directly into the `judgement_tokens`
+    # dict, which already has full plumbing) and document any gap.
+
+    def _try_warrior_pride(self, army: Army, opponent: Army) -> None:
+        """Warrior Pride (Oathband, 1 CP). Real rule: re-roll Wound rolls
+        for a Votann unit's attacks against a Judgement-Token-bearing enemy.
+        APPROXIMATION: routed through `transient_plus_one_to_wound_melee` +
+        `transient_plus_one_to_wound_shooting` on the highest-DPA Votann
+        unit — same direction (more landed wounds), comparable magnitude on
+        a 4+ wound roll. The Judgement-Token-bearing gate is collapsed onto
+        "the highest-threat enemy" (the natural primary target). Stacks
+        with the existing `simulator.judgement_tokens` re-roll buffs at
+        1+/3+ thresholds — the codex effect compounds rather than replaces.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, WARRIOR_PRIDE, ctx):
+            return
+        if not self._fire_stratagem(army, WARRIOR_PRIDE):
+            return
+        # APPROXIMATION: +1 to wound on melee AND shooting routes the wound-
+        # reroll value through the closest existing transient flag pair.
+        attacker.transient_plus_one_to_wound_melee = True
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_wrath_of_the_ancestors(self, army: Army, opponent: Army) -> None:
+        """Wrath of the Ancestors (Oathband, 1 CP). Real rule: a Votann unit's
+        ranged attacks gain [LETHAL HITS] vs a Judgement-Token-bearing
+        target. APPROXIMATION: SwegHammer has no per-round transient
+        [LETHAL HITS] flag, so the offensive uplift is routed through
+        `transient_plus_one_to_hit_shooting` on the highest-DPA Votann
+        shooter — same direction (more landed hits/damage), comparable
+        magnitude on a 4+ hit roll. The Judgement-Token gate is collapsed
+        onto highest-threat-enemy as in Warrior Pride.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, WRATH_OF_THE_ANCESTORS, ctx):
+            return
+        if not self._fire_stratagem(army, WRATH_OF_THE_ANCESTORS):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_glory_of_the_hearth(self, army: Army, opponent: Army) -> None:
+        """Glory of the Hearth (Oathband, 1 CP). Real rule: a Votann VEHICLE
+        unit re-rolls Hit AND Wound rolls when shooting. APPROXIMATION:
+        SwegHammer routes the offensive value through
+        `transient_reroll_hits_shooting` on the highest-DPA Votann VEHICLE
+        — the wound-reroll leg is dropped (no transient wound-reroll flag).
+        Strictly weaker than the codex (~half the value), direction-correct.
+
+        Strictly AND-gated on (faction=Votann AND keyword=VEHICLE): the
+        helper `_unit_matches_filter` is OR-gated, so the unfiltered result
+        would leak the buff onto non-VEHICLE Votann (Hearthkyn). We post-
+        filter here so the spend is skipped on a Hearthkyn-mono list.
+        """
+        candidates = [
+            u for u in army.alive_units
+            if (u.profile.faction or "").lower() == "leagues of votann"
+            and "VEHICLE" in (u.profile.unit_keywords or ())
+            and u.uid not in self._battleshocked_this_round
+        ]
+        if not candidates:
+            return
+        # Pick the highest-DPA among the strict-filter candidates.
+        def _dpa(u):
+            p = u.profile
+            ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+            return ranged + melee
+        attacker = max(candidates, key=_dpa)
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, GLORY_OF_THE_HEARTH, ctx):
+            return
+        if not self._fire_stratagem(army, GLORY_OF_THE_HEARTH):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_ironkin_sequence(self, army: Army, opponent: Army) -> None:
+        """Ironkin Sequence (Oathband, 1 CP). Real rule: a Votann IRONKIN
+        unit gains +1 to Hit for the phase. Maps DIRECTLY onto
+        `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN
+        unit — clean mapping, no approximation gap. Falls back to any
+        Votann unit if no IRONKIN unit is in the list (Hearthkyn lists
+        ARE IRONKIN, so this normally finds a target).
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="IRONKIN", faction="Leagues of Votann",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, IRONKIN_SEQUENCE, ctx):
+            return
+        if not self._fire_stratagem(army, IRONKIN_SEQUENCE):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_ancestral_sentence(self, army: Army, opponent: Army) -> None:
+        """Ancestral Sentence (Oathband, 2 CP). Real rule: at the start of
+        the phase, issue a Judgement Token to an enemy unit. Maps DIRECTLY
+        onto the existing `Army.judgement_tokens[uid]` dict — increments
+        the token count on the highest-threat enemy unit so subsequent
+        Votann attacks fire the 1+/3+ re-roll thresholds via the existing
+        `_maybe_award_judgement_token` plumbing. Clean mapping, no
+        approximation gap.
+
+        Gated on `army.is_votann_army` (since the token dict lives on the
+        Votann army's `judgement_tokens`) so a non-Votann list carrying
+        the Oathband detachment by accident skips the spend.
+        """
+        if not army.is_votann_army:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, ANCESTRAL_SENTENCE, ctx):
+            return
+        if not self._fire_stratagem(army, ANCESTRAL_SENTENCE):
+            return
+        # Direct mapping: increment the Judgement Token count on the target's
+        # uid. The token store lives on the VOTANN army (the victim of
+        # opponent kills awards tokens; Ancestral Sentence is a "free" token
+        # the Votann player issues without needing a kill).
+        tokens = army.judgement_tokens
+        tokens[target.uid] = tokens.get(target.uid, 0) + 1
+        self._emit(JudgementTokenAwarded(
+            target_uid=target.uid,
+            total_tokens=tokens[target.uid],
+        ))
+
+    def _try_void_armoured_resilience(self, army: Army, opponent: Army) -> None:
+        """Void-Armoured Resilience (Oathband, 1 CP). Real rule: a Votann
+        unit gains 5+ Feel No Pain for the phase. Maps DIRECTLY onto
+        `transient_fnp_5` on the most vulnerable Votann unit — clean
+        mapping, no approximation gap. Real codex effect is per-phase
+        rather than per-round; the simulator's round/phase boundary is
+        the same flag scope.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army, faction="Leagues of Votann")
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, VOID_ARMOURED_RESILIENCE, ctx):
+            return
+        if not self._fire_stratagem(army, VOID_ARMOURED_RESILIENCE):
+            return
+        target.transient_fnp_5 = True
 
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/

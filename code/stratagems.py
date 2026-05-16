@@ -726,6 +726,107 @@ SHIELD_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Oathband (Leagues of Votann) — six real detachment stratagems (iter-9 fix)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+# Replaces the iter-0 zero-stratagem state where Votann fired Core only.
+# iter-8 anti-DG audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) flagged
+# Oathband as one of the top-priority missing stratagem sets — Votann is one
+# of the 7 unsampled-but-positive DG matchups (~+8pt over real per iter-5).
+#
+# Six stratagems per the iter-8 audit table, drawn from the codex Oathband
+# detachment listing. SwegHammer's OATHBAND is a generic stub for the
+# Votann codex detachments (Hearthband, Needgaard Oathband, etc.); the
+# six stratagems chosen here are the canonical "Oathband-style" set that
+# share the Judgement-Token-leveraging trigger spine.
+#
+# Effect-mapping summary (full notes in data/rule_citations.d/stratagems.json):
+#   * Warrior Pride (1 CP) — Re-roll Wound rolls vs a Judgement-Token-bearing
+#     enemy. Maps to `transient_plus_one_to_wound_melee` +
+#     `transient_plus_one_to_wound_shooting` on the highest-DPA Votann unit
+#     (full wound-reroll APPROXIMATED as +1 to wound on a 4+ wound roll,
+#     same direction). Stacks naturally with `simulator.judgement_tokens`
+#     plumbing that already grants per-attack re-roll buffs at 1+/3+ token
+#     thresholds.
+#   * Wrath of the Ancestors (1 CP) — [LETHAL HITS] on ranged vs token-bearing.
+#     Maps to `transient_plus_one_to_hit_shooting` on highest-DPA Votann
+#     shooter (LETHAL HITS APPROXIMATED as +1 to hit — same direction,
+#     comparable magnitude on a 4+ hit roll).
+#   * Glory of the Hearth (1 CP) — Re-roll Hit AND Wound for a Votann VEHICLE
+#     shooting. Maps to `transient_reroll_hits_shooting` on the highest-DPA
+#     Votann VEHICLE (the wound-reroll leg is dropped — APPROXIMATION).
+#   * Ironkin Sequence (1 CP) — IRONKIN unit gets +1 to hit. Maps directly to
+#     `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN unit
+#     (clean mapping, no approximation gap).
+#   * Ancestral Sentence (2 CP) — Issue a Judgement Token to an enemy unit at
+#     the start of the phase. Maps DIRECTLY onto the existing
+#     `Army.judgement_tokens[uid]` dict — increments the token count on
+#     the highest-threat enemy unit so subsequent Votann attacks fire the
+#     1+/3+ re-roll thresholds. No approximation: this is a clean wiring.
+#   * Void-Armoured Resilience (1 CP) — 5+ Feel No Pain for the phase. Maps
+#     directly to `transient_fnp_5` on the most vulnerable Votann unit
+#     (clean mapping).
+
+WARRIOR_PRIDE = Stratagem(
+    name="Warrior Pride",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_votann_unit_attacks_token_bearer",
+    effect="reroll_wounds_vs_token_bearer_approximation",
+)
+
+WRATH_OF_THE_ANCESTORS = Stratagem(
+    name="Wrath of the Ancestors",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_unit_shoots_token_bearer",
+    effect="lethal_hits_ranged_approximation",
+)
+
+GLORY_OF_THE_HEARTH = Stratagem(
+    name="Glory of the Hearth",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_vehicle_about_to_shoot",
+    effect="reroll_hits_and_wounds_shooting_approximation",
+)
+
+IRONKIN_SEQUENCE = Stratagem(
+    name="Ironkin Sequence",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_ironkin_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+ANCESTRAL_SENTENCE = Stratagem(
+    name="Ancestral Sentence",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_votann_warlord",
+    effect="issue_judgement_token_to_enemy",
+)
+
+VOID_ARMOURED_RESILIENCE = Stratagem(
+    name="Void-Armoured Resilience",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_votann_unit",
+    effect="fnp_5_for_round",
+)
+
+
+OATHBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
+    WARRIOR_PRIDE,
+    WRATH_OF_THE_ANCESTORS,
+    GLORY_OF_THE_HEARTH,
+    IRONKIN_SEQUENCE,
+    ANCESTRAL_SENTENCE,
+    VOID_ARMOURED_RESILIENCE,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -819,6 +920,14 @@ __all__ = [
     "ARCHAEOTECH_MUNITIONS",
     "AVENGE_THE_FALLEN",
     "SHIELD_HOST_STRATAGEMS",
+    # Oathband (Leagues of Votann) — six real stratagems (iter-9 fix)
+    "WARRIOR_PRIDE",
+    "WRATH_OF_THE_ANCESTORS",
+    "GLORY_OF_THE_HEARTH",
+    "IRONKIN_SEQUENCE",
+    "ANCESTRAL_SENTENCE",
+    "VOID_ARMOURED_RESILIENCE",
+    "OATHBAND_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

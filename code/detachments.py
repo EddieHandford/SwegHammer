@@ -34,6 +34,7 @@ from .stratagems import (
     GRAND_COVEN_STRATAGEMS,
     WAR_HORDE_STRATAGEMS,
     SHIELD_HOST_STRATAGEMS,
+    OATHBAND_STRATAGEMS,
 )
 
 
@@ -622,9 +623,15 @@ OATHBAND = Detachment(
         "not modelled. Removed once `simulator.judgement_tokens` (Battle's "
         "per-army token store + Unit.attack re-roll buffs at 1+ / 3+ "
         "thresholds) landed — keeping the blanket re-roll on top of the real "
-        "mechanic would double-stack the buff. Real Oathband detachment "
-        "stratagems are deferred to #104."
+        "mechanic would double-stack the buff. Six real Oathband detachment "
+        "stratagems wired (iter-9 fix, Wahapedia: Warrior Pride, Wrath of "
+        "the Ancestors, Glory of the Hearth, Ironkin Sequence, Ancestral "
+        "Sentence, Void-Armoured Resilience). Replaces the iter-0 zero-"
+        "stratagem state where Votann fired Core only. iter-8 anti-DG "
+        "audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) identified "
+        "this set as the top fix for Votann-vs-DG (~+8pt over real meta)."
     ),
+    stratagems=OATHBAND_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -745,6 +752,7 @@ VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 GRAND_COVEN        = DETACHMENTS["grand_coven"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
 SHIELD_HOST        = DETACHMENTS["shield_host"]
+OATHBAND           = DETACHMENTS["oathband"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 

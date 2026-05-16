@@ -2608,6 +2608,103 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Vigilance Eternal — no-op dispatcher (sticky-objective is per-
     # detachment-flag-gated, not per-stratagem-fire). No AI gate needed.
 
+    # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9) ----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+    # Replaces the iter-0 zero-stratagem state where Votann only fired
+    # Command Re-Roll (universal Core). Gates are permissive — Votann lists
+    # are typically 8-10 units with Hearthkyn / Hekaton anchors that easily
+    # clear the 80-pt threshold. The Judgement-Token-bearing gate is
+    # collapsed onto "target is heavy/shooty" since the AI doesn't track
+    # per-unit token state at gate time.
+
+    if name == "Warrior Pride":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-wound
+        # both modes. Fire when the Votann attacker has meaningful melee+
+        # ranged DPA AND target is heavy/expensive — same gate shape as
+        # Avenge the Fallen / Big Krumpin' on the wound-reroll axis.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0 and _is_heavy_target(target)
+
+    if name == "Wrath of the Ancestors":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting approximation for [LETHAL HITS]. Fire when the Votann
+        # attacker has real ranged DPA AND target is HEAVY-class (same gate
+        # shape as Archaeotech Munitions / Focused Fire).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Glory of the Hearth":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive hit-reroll on
+        # a Votann VEHICLE — only Hekaton / Sagitaur / Brokhyr Thunderkyn
+        # clear this. Fire on a heavy target to maximise value (vehicles
+        # are typically anti-tank shooters).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 100.0 and _is_heavy_target(target)
+
+    if name == "Ironkin Sequence":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit on
+        # an IRONKIN unit (Hearthkyn etc.). Fire when the unit has real
+        # ranged DPA — cheap at 1 CP, no need for heavy-target gate.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0
+
+    if name == "Ancestral Sentence":
+        # ctx: {"target": Unit}. Issue a Judgement Token at 2 CP — gate on
+        # target being heavy/expensive so the subsequent re-roll buffs land
+        # on a worthwhile victim. 2 CP is the most expensive Oathband
+        # stratagem; require a real heavy target.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 100.0 and _is_heavy_target(target)
+
+    if name == "Void-Armoured Resilience":
+        # ctx: {"target": Unit}. Defensive FNP-5. Fire on a wounded high-
+        # value Votann unit — same gate shape as Lightning-Fast Reactions /
+        # Arcane Genetic Alchemy.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 
