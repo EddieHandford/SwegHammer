@@ -263,3 +263,11 @@ Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'a
 
 **Loop exit status**: Cumulative ΔMAE 6.72 → 5.03 = −1.69pt across 6 iters. **Latest Δ 0.00pt < 0.1pt — SECOND consecutive sub-0.1 iter.** Need 1 more to exit on convergence, OR MAE<1.0. MAE 5.03 >> 1.0pt. Continue.
 
+### Iter 7 — PAUSED (API rate limit, second time)
+
+Dispatched 3 agents (DG vs Custodes deep diag, shoot picker won't-crack penalty, BATTLELINE range audit across all factions). All 3 died early on Anthropic rate limit ("resets 4:10pm Europe/London"). No commits landed.
+
+**Resume**: re-dispatch the same 3 agents. Prompts unchanged. Pre-pause state: MAE-vs-real 5.03pt, MAE-vs-Sweg 5.44pt, HEAD `611d555`, 666 tests green.
+
+**Convergence status**: Iter 5 and iter 6 both Δ<0.1pt (consecutive). Iter 7 will be the third — if it lands Δ<0.1 the loop exits on convergence criterion.
+
