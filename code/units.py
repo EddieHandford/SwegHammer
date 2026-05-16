@@ -762,11 +762,13 @@ class Unit:
         # stores the round in which the AI declared; we compare against the
         # live battle round via the army's _battle_ref so the buff applies
         # ONLY on that turn (not the rest of the battle).
-        # APPROXIMATION: we only model the +1-to-wound leg; the real WAAAGH! does much more.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH
-        # Real rule: +1 to wound (melee) AND +1 S AND +1 A on melee weapons AND
-        # army-wide 5+ invuln AND Advance-counts-as-Charge. We model only the
-        # +1-to-wound leg as a stand-in for the whole bundle.
+        # Real rule: +1 to wound (melee) AND +1 to Charge rolls AND
+        # army-wide 5+ invuln vs melee AND Advance-counts-as-Charge.
+        # Modelled: +1-to-wound-melee (here) and +1-to-charge-roll
+        # (simulator._do_charge).
+        # APPROXIMATION: army-wide 5++ vs melee + Advance-counts-as-Charge
+        # legs are NOT yet modelled — deferred to future iterations.
         if mode == "melee" and p.faction == "Orks":
             own_army = getattr(self, "army_ref", None)
             if own_army is not None:

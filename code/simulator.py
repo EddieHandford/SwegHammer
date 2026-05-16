@@ -20,6 +20,7 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
+    _melee_target_score,
     decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
     pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
     should_fire_stratagem,
@@ -3128,36 +3129,44 @@ class Battle:
         alive_enemies = defender_army.alive_units
         if not alive_enemies:
             return
-        # Find an enemy in engagement range
-        nearest = min(
-            alive_enemies,
-            key=lambda e: _distance(attacker.position, e.position),
-        )
-        if _distance(attacker.position, nearest.position) > 1.5:
+        # #C1 (auto-loop iter1): pick the engagement-range candidate with
+        # the highest `_melee_target_score` rather than the geometrically
+        # nearest. The score is faction-neutral — it's a pure DPA-vs-
+        # durability ratio with role-based screen/synapse/support
+        # multipliers that apply universally. Replaces the prior
+        # `min(enemies, key=distance)` so that when 2+ enemies are in
+        # engagement, the simulator picks the one whose death actually
+        # breaks the lock rather than the closest brick.
+        in_range = [
+            e for e in alive_enemies
+            if _distance(attacker.position, e.position) <= 1.5
+        ]
+        if not in_range:
             return
+        target = max(in_range, key=lambda e: _melee_target_score(attacker, e))
         is_charging = attacker.uid in self._charging_this_round
         dmg = attacker.attack(
-            nearest, distance=1.0, mode="melee", is_charging=is_charging,
+            target, distance=1.0, mode="melee", is_charging=is_charging,
         )
-        alive_after = nearest.is_alive
+        alive_after = target.is_alive
         self._emit(UnitFought(
             attacker_uid=attacker.uid,
-            target_uid=nearest.uid,
+            target_uid=target.uid,
             damage=dmg,
-            target_hp_after=nearest.current_health,
+            target_hp_after=target.current_health,
             target_alive_after=alive_after,
         ))
         if not alive_after:
-            self._emit(UnitKilled(unit_uid=nearest.uid))
+            self._emit(UnitKilled(unit_uid=target.uid))
             self._maybe_award_judgement_token(
                 killer=attacker, killer_army=attacker_army,
-                victim=nearest, victim_army=defender_army,
+                victim=target, victim_army=defender_army,
             )
             self._maybe_award_blood_tithe(
                 killer=attacker, killer_army=attacker_army,
-                victim=nearest, victim_army=defender_army,
+                victim=target, victim_army=defender_army,
             )
-            self._maybe_apply_deadly_demise(nearest)
+            self._maybe_apply_deadly_demise(target)
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The
@@ -3166,7 +3175,7 @@ class Battle:
         # `attacker` immediately, before activation continues.
         if attacker.is_alive:
             self._try_counter_offensive(
-                loser_army=defender_army, loser_unit=nearest,
+                loser_army=defender_army, loser_unit=target,
                 winner_army=attacker_army, winner_unit=attacker,
                 target_killed=not alive_after,
             )
