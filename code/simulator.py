@@ -255,6 +255,14 @@ class Battle:
         # revive dead model instances by re-setting their current_health.
         # Populated by Battle.run() once deployment has settled.
         self._initial_unit_counts: Dict[str, Dict[str, int]] = {}
+        # Fix F-NEC-1 (iter 2): RP must gate on "lost a model THIS round"
+        # per Wahapedia "has had one or more destroyed bodyguard models"
+        # clause. Snapshot taken at the top of each round so end-of-round
+        # `_apply_reanimation` can diff alive_now vs round_start to see
+        # whether any model died this round. Without this gate, a stable
+        # squad keeps reviving every round just because its current count
+        # is below STARTING strength.
+        self._round_start_alive_counts: Dict[str, Dict[str, int]] = {}
         # Issue #85 — Sticky Objectives. Once a sticky_objective unit claims
         # an objective for its army, ownership persists here keyed by the
         # objective's index in self.map.objectives. Cleared when the opposing
@@ -2041,11 +2049,28 @@ class Battle:
     def _apply_reanimation(self) -> None:
         """End-of-round model revival for Reanimation Protocols armies.
 
-        Real 10e rule: at the start of each Command Phase, REANIMATION-keyword
-        units restore D3 destroyed wounds. We model squads as N separate
-        single-model `Unit` instances, so "restore D3 wounds" maps to "revive
-        D3 destroyed models per profile". We use median D3 = 2 deterministically
-        to keep round-to-round outcomes reproducible under a fixed seed.
+        Real 10e rule (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
+        necrons/#Reanimation-Protocols): "If your Warlord is a NECRONS model,
+        then at the end of each of your Command phases, each unit from your
+        army with this ability that has had one or more destroyed bodyguard
+        models can use this ability. If it does, restore one destroyed
+        bodyguard model in that unit to your army (with its full wounds
+        remaining)."
+
+        Fix F-NEC-1 (iter 2): the rule fires ONLY for squads that LOST a
+        model this round. Compare round-start alive-count (snapshot at top
+        of `_run_round`) vs alive-now. Squads stable across the round get
+        no revive — this stops the "infinite endurance" loop where a Necron
+        squad that took damage in R1 keeps reviving every round forever.
+
+        APPROXIMATION: The verbatim text restores "one destroyed bodyguard
+        model" (singular) per unit per Command phase. We cap revives at 1
+        per profile per round — strictly correct for the verbatim text, but
+        previous behaviour was "median D3 = 2 models" mapping the related
+        per-unit-D3-wounds wording from earlier codex revisions. The cap
+        change composes with the fresh-loss gate to fix the over-fire that
+        the iter-1 diagnostic flagged (RP firing 5-6 revives/battle even in
+        stable-line matchups).
 
         Revived models reappear next to a living friendly of the same profile
         if one exists; otherwise at the army's deployment edge midpoint.
@@ -2059,6 +2084,7 @@ class Battle:
             initial = self._initial_unit_counts.get(army.name, {})
             if not initial:
                 continue
+            round_start = self._round_start_alive_counts.get(army.name, {})
             # Group dead instances by profile name. Reserves are not yet
             # placed and can't be revived (they're not "destroyed").
             dead_by_profile: Dict[str, List] = {}
@@ -2084,8 +2110,24 @@ class Battle:
                 # left for the rule to attach to.
                 if alive_now <= 0:
                     continue
-                # Median D3 roll = 2. Cap by however many are actually dead.
-                to_revive = min(destroyed, 2)
+                # Fix F-NEC-1: gate on "lost a model THIS round". If the
+                # squad had N alive at round start and still has N alive
+                # now, no model died this round — skip. Round-start
+                # snapshot was only populated for RP-eligible armies, so
+                # absence of the profile means it was at zero at round
+                # start (the squad was already wiped before; the
+                # alive_now > 0 check above also covers this) OR the
+                # snapshot wasn't taken (shouldn't happen for an RP army).
+                prev_alive = round_start.get(profile_name, alive_now)
+                deaths_this_round = prev_alive - alive_now
+                if deaths_this_round <= 0:
+                    continue
+                # APPROXIMATION: cap revives at 1 per profile per round.
+                # Verbatim Wahapedia text is "restore one destroyed
+                # bodyguard model"; the previous median-D3=2 behaviour
+                # over-fired in stable-line matchups (see iter-1 cluster
+                # A diagnostic, RP firing 5-6 revives/battle).
+                to_revive = min(destroyed, deaths_this_round, 1)
                 dead_pool = dead_by_profile.get(profile_name, [])
                 # Anchor at the first alive peer (squad still has at least
                 # one model since the wipe-out short-circuit above).
@@ -2564,6 +2606,22 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+
+        # Fix F-NEC-1: snapshot per-profile alive counts AT ROUND START for
+        # any army with Reanimation Protocols. End-of-round `_apply_reanimation`
+        # compares this to alive-now to see if at least one model died this
+        # round; if not, RP does NOT fire (Wahapedia: "has had one or more
+        # destroyed bodyguard models"). Reserves (deep-strikers not yet on
+        # board) are excluded — they're not eligible to die.
+        for army in (self.a, self.b):
+            det = army.resolve_detachment()
+            if not det or det.reanimate_per_round <= 0:
+                continue
+            counts: Dict[str, int] = {}
+            for u in army.units:
+                if u.is_alive:
+                    counts[u.profile.name] = counts.get(u.profile.name, 0) + 1
+            self._round_start_alive_counts[army.name] = counts
 
         # ---- Command phase: each army gains 1 CP (capped at 6). 10e core
         # rule. Starting CP (3 = Strike Force standard) is set by

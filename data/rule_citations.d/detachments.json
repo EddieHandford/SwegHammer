@@ -2,11 +2,11 @@
   "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged 'approximation: true' where the simulator's behaviour diverges from the canonical rule. 5 fabricated detachments (CULT_OF_MAGIC, PLAGUE_COMPANY, PLAGUE_MARINES_ONSLAUGHT, SAIM_HANN_WILD_HOST, WAAAGH_DETACHMENT) and their citations were deleted in commit e4b057f per the fabrication audit.",
 
   "AWAKENED_DYNASTY.reanimate_per_round": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/factions/necrons/#Reanimation-Protocols",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
-    "quoted_text": "If your Army Faction is NECRONS, at the end of your Command phase, each unit from your army with this ability that is on the battlefield activates its Reanimation Protocols and reanimates D3 wounds. Each time such a unit reanimates a wound: If that unit contains one or more models with fewer than their starting number of wounds remaining, select one of those models; that model regains one lost wound. If all models in that unit have their starting number of wounds, but that unit is not at its Starting Strength, one destroyed model is returned to that unit with one wound remaining.",
-    "trigger": "end of each round, for every friendly Necrons unit with the Reanimation Protocols ability",
-    "effect": "regain 1 wound per unit per round end (approximation of the canonical D3-wound reanimation; median of D3 is 2 so this under-reanimates slightly, but the flat-1 model keeps the round-end pass cheap)",
+    "quoted_text": "If your Warlord is a NECRONS model, then at the end of each of your Command phases, each unit from your army with this ability that has had one or more destroyed bodyguard models can use this ability. If it does, restore one destroyed bodyguard model in that unit to your army (with its full wounds remaining).",
+    "trigger": "end of each round, for every friendly Necrons unit that lost at least one model THIS round (gated by a round-start alive-count snapshot — Fix F-NEC-1, iter 2)",
+    "effect": "restore 1 destroyed model per profile per round at full wounds, anchored on a living peer. APPROXIMATION: real rule is verbatim 'one destroyed bodyguard model' per unit; we group identical profiles together as a unit. See simulator.reanimation_protocols citation for full implementation notes.",
     "scope": "army-wide",
     "approximation": true
   },

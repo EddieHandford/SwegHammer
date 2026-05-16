@@ -599,6 +599,11 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             necrons.name: {"Necron Warrior": 5},
             marines.name: {"Marine": 1},
         }
+        # Fix F-NEC-1: snapshot round-start alive counts BEFORE the kills,
+        # so the gate sees deaths-this-round > 0.
+        battle._round_start_alive_counts = {
+            necrons.name: {"Necron Warrior": 5},
+        }
         # Kill 3 of 5, leaving 2 alive to anchor the squad.
         for u in necrons.units[:3]:
             u.current_health = 0

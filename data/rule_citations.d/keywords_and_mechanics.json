@@ -229,10 +229,11 @@
   "simulator.reanimation_protocols": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
-    "quoted_text": "At the end of your Command phase, each unit from your army with this ability that is on the battlefield activates its Reanimation Protocols and reanimates D3 wounds. Each time a unit's Reanimation Protocols are activated and reanimate one or more wounds, select one model in that unit that has lost one or more wounds and reanimate one wound on that model. If there are no such models in that unit, instead select one destroyed model whose unit is still on the battlefield, and that model is returned to its unit with 1 wound remaining.",
-    "trigger": "end of round for a Necron army with Reanimation Protocols on a unit that still has at least one model on the battlefield",
-    "effect": "(approximation) D3 wounds restored per profile per round. SwegHammer uses median D3 = 2 deterministically (no dice), revives full models rather than single wounds because squads are single Unit instances, and runs end-of-round instead of start-of-Command-phase. Once a profile is completely wiped, reanimation stops (matches canonical 'unit still on battlefield' constraint).",
-    "scope": "keyword-gated"
+    "quoted_text": "If your Warlord is a NECRONS model, then at the end of each of your Command phases, each unit from your army with this ability that has had one or more destroyed bodyguard models can use this ability. If it does, restore one destroyed bodyguard model in that unit to your army (with its full wounds remaining).",
+    "trigger": "end of round for a Necron army with Reanimation Protocols on a unit that (a) still has at least one alive model and (b) had at least one model destroyed THIS round",
+    "effect": "(approximation) per profile per round: if the squad lost at least one model this round, revive 1 destroyed model at full wounds anchored on a living peer. Round-start snapshot vs alive-now gates the 'lost a model this round' clause (Fix F-NEC-1, iter 2 — without this, squads kept reviving every round just because they were below STARTING strength, granting infinite endurance). Cap of 1 per profile per round matches the verbatim 'restore one destroyed bodyguard model' singular wording; previous behaviour was median D3 = 2 which over-fired (RP firing 5-6 revives/battle in iter-1 stable-line matchups). End-of-round timing rather than start-of-Command-phase. Once a profile is completely wiped, reanimation stops (matches canonical 'still on battlefield' constraint).",
+    "scope": "keyword-gated",
+    "approximation": true
   },
 
   "simulator.sticky_objective": {

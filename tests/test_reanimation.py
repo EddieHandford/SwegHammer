@@ -49,8 +49,11 @@ class ReanimationProtocolsTests(unittest.TestCase):
 
     def test_dead_warriors_revive_at_round_end(self):
         """Kill 5 of 10 Necron Warriors manually, run one round, expect the
-        alive count to go UP — not stay flat. Median D3 = 2 revives per
-        profile per round, so 5 alive -> 7 alive is the expected step."""
+        alive count to go UP by exactly 1 — per Fix F-NEC-1, the cap is
+        1 revive per profile per round (verbatim Wahapedia: 'restore one
+        destroyed bodyguard model'), and the deaths happened this round
+        (round-start snapshot was 10, alive-now is 5, deaths-this-round=5
+        is greater than the 1 cap)."""
         random.seed(0)
         necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
         for _ in range(10):
@@ -73,6 +76,11 @@ class ReanimationProtocolsTests(unittest.TestCase):
             necrons.name: {"Necron Warrior": 10},
             marines.name: {"Marine": 1},
         }
+        # Fix F-NEC-1: round-start alive-count snapshot. The 5 deaths happen
+        # AFTER this snapshot in the manual lifecycle below.
+        battle._round_start_alive_counts = {
+            necrons.name: {"Necron Warrior": 10},
+        }
 
         # Kill 5 warriors by zeroing their HP directly. They sit at the
         # standard deployment line so the revival anchor (their living
@@ -82,7 +90,7 @@ class ReanimationProtocolsTests(unittest.TestCase):
         self.assertEqual(len([u for u in necrons.units if u.is_alive]), 5)
 
         # Invoke reanimation directly — this is what _run_round calls at
-        # round end. Median D3 = 2 means we revive exactly 2.
+        # round end. Fix F-NEC-1 caps revives at 1/profile/round.
         battle._apply_reanimation()
 
         alive_after = len([u for u in necrons.units if u.is_alive])
@@ -90,11 +98,11 @@ class ReanimationProtocolsTests(unittest.TestCase):
             alive_after, 5,
             f"Expected reanimation to revive some warriors; alive count stayed at {alive_after}.",
         )
-        # Specifically: median D3 = 2 means we should see 7 alive.
-        self.assertEqual(alive_after, 7)
+        # Per Fix F-NEC-1 cap: 1 revive per profile per round.
+        self.assertEqual(alive_after, 6)
 
         reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
-        self.assertEqual(len(reanim_events), 2, "Expected 2 UnitReanimated events.")
+        self.assertEqual(len(reanim_events), 1, "Expected 1 UnitReanimated event.")
         # Revived units should be at full HP.
         for ev in reanim_events:
             revived = next(u for u in necrons.units if u.uid == ev.unit_uid)
@@ -130,7 +138,8 @@ class ReanimationProtocolsTests(unittest.TestCase):
         self.assertEqual(reanim_events, [])
 
     def test_revival_caps_at_destroyed_count(self):
-        """If only 1 warrior is dead, we revive 1 — not 2 (median D3)."""
+        """If only 1 warrior is dead and the death happened this round, we
+        revive 1. Per Fix F-NEC-1 the cap is min(destroyed, deaths_this_round, 1)."""
         random.seed(0)
         necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
         for _ in range(4):
@@ -146,6 +155,10 @@ class ReanimationProtocolsTests(unittest.TestCase):
             necrons.name: {"Necron Warrior": 4},
             marines.name: {"Marine": 1},
         }
+        # Round-start snapshot: 4 alive. Then we kill 1.
+        battle._round_start_alive_counts = {
+            necrons.name: {"Necron Warrior": 4},
+        }
         necrons.units[0].current_health = 0
 
         battle._apply_reanimation()
@@ -154,6 +167,40 @@ class ReanimationProtocolsTests(unittest.TestCase):
         self.assertEqual(alive_after, 4)
         reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
         self.assertEqual(len(reanim_events), 1)
+
+    def test_no_revival_when_no_deaths_this_round(self):
+        """Fix F-NEC-1: a squad with destroyed models from a PREVIOUS round
+        but no new deaths this round must NOT reanimate. This is the gate
+        that fixes the 'infinite endurance' over-fire in iter-1."""
+        random.seed(0)
+        necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
+        for _ in range(4):
+            necrons.add_unit(_necron_warrior_profile())
+        marines = Army("Marines")
+        marines.add_unit(_vanilla_profile("Marine"))
+
+        log = EventLog()
+        battle = Battle(necrons, marines, subscribers=[log])
+        battle._assign_uids()
+        battle._deploy_armies()
+        battle._initial_unit_counts = {
+            necrons.name: {"Necron Warrior": 4},
+            marines.name: {"Marine": 1},
+        }
+        # Two warriors were killed in a prior round — kill them BEFORE the
+        # round-start snapshot is taken, so the snapshot only sees 2 alive.
+        necrons.units[0].current_health = 0
+        necrons.units[1].current_health = 0
+        battle._round_start_alive_counts = {
+            necrons.name: {"Necron Warrior": 2},
+        }
+        # No new deaths this round. Reanimation must NOT fire.
+        battle._apply_reanimation()
+
+        alive_after = len([u for u in necrons.units if u.is_alive])
+        self.assertEqual(alive_after, 2, "Stable squad must not reanimate.")
+        reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
+        self.assertEqual(reanim_events, [], "No fresh deaths → no UnitReanimated.")
 
     def test_squad_wipeout_short_circuits_revival(self):
         """10e: once every model in the squad is destroyed, Reanimation
