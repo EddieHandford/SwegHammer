@@ -268,6 +268,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # promotion handled alongside TerrainType.HEAVY_COVER in
     # Battle._do_shoot.
     "terrain.ruin_infantry_los",
+    # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
+    # roll for an attack can never be modified by more than -1 or +1." Same
+    # text for the Wound roll. Enforced in code/units.py Unit.attack by
+    # accumulating +/-1 contributions into hit_mod_delta / wound_mod_delta
+    # then clamping to [-1, +1] before applying to the d6 target.
+    "simulator.modifier_cap_plus_minus_one",
 )
 
 

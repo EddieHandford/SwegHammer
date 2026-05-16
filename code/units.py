@@ -694,11 +694,29 @@ class Unit:
         wound_p = wound_probability(strength, target.profile.toughness)
         wound_target = _prob_to_target(wound_p)
 
-        # ---- Buffs: +1 to hit / +1 to wound (lower the d6 target, min 2) ----
+        # ---- 10e core-rules modifier cap (Wahapedia core rules / Hit Roll &
+        # Wound Roll): "Hit roll modifiers are cumulative, but the Hit roll
+        # for an attack can never be modified by more than -1 or +1." Same
+        # wording for the Wound roll. Cited as
+        # `simulator.modifier_cap_plus_minus_one`.
+        #
+        # Each per-source +1 / -1 modifier is added to `hit_mod_delta` /
+        # `wound_mod_delta` instead of being applied directly to
+        # hit_target / wound_target. After all sources have contributed,
+        # we clamp the delta to [-1, +1] (see `_apply_modifier_cap` block
+        # at the end of this section) and apply the clamped delta to the
+        # base targets. This keeps multiple +1-to-hit sources (Oath of
+        # Moment is a re-roll, but e.g. detachment-aura +1 to hit +
+        # stratagem +1 to hit) from netting to +2.
+        hit_mod_delta: int = 0
+        wound_mod_delta: int = 0
+
+        # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
+        # enhancement — all merged to a single bool by leaders.effective_buffs).
         if att_buffs["plus_one_to_hit"]:
-            hit_target = max(2, hit_target - 1)
+            hit_mod_delta += 1
         if att_buffs["plus_one_to_wound"]:
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
 
         # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
         # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
@@ -719,14 +737,6 @@ class Unit:
         # and simulator._do_charge as Advance/Fall-Back lockout exemptions.
         # Cited as `simulator.combat_doctrines`.
 
-        # Capture the hit target AFTER positive buffs but BEFORE any negative
-        # modifiers (Heavy in engagement / Indirect / cover / Stealth / DG
-        # Contagions round 3+). Used to enforce 10e's "modifiers to hit
-        # cannot exceed -1 or +1" cap — if hit_target was already RAISED by
-        # another -1-to-hit source, the DG Contagion -1 to hit must not
-        # compound it. Same value drives the stack-cap logic below.
-        _hit_target_after_buffs = hit_target
-
         # ---- Transient stratagem buffs (attacker side) ------------------
         # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
         # Twist of Fate (Cult of Magic): +1 to wound on attacks for the
@@ -738,23 +748,23 @@ class Unit:
             mode != "melee"
             and self.transient_plus_one_to_wound_shooting
         ):
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
         if (
             mode == "melee"
             and self.transient_plus_one_to_wound_melee
         ):
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
         # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
-        # selected NECRON unit's ranged attacks for the round. Re-uses the same
-        # "lower hit_target by 1, min 2" idiom as att_buffs.plus_one_to_hit so
-        # the 10e modifier-cap (max +1) is enforced uniformly. Cited as
+        # selected NECRON unit's ranged attacks for the round. Stacks at the
+        # delta level so the post-clamp behaviour matches 10e (e.g. layered
+        # with Awakened Dynasty's bonus_to_hit_when_led both wanting +1 to
+        # hit, the clamp keeps the net at +1). Cited as
         # `Stratagem.Methodical Destruction`.
         if (
             mode != "melee"
             and self.transient_plus_one_to_hit_shooting
         ):
-            hit_target = max(2, hit_target - 1)
-            _hit_target_after_buffs = hit_target
+            hit_mod_delta += 1
 
         # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
         # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
@@ -793,31 +803,27 @@ class Unit:
                 battle = getattr(own_army, "_battle_ref", None)
                 cur_round = getattr(battle, "_current_round", 0) if battle else 0
                 if waaagh_round is not None and waaagh_round == cur_round:
-                    wound_target = max(2, wound_target - 1)
+                    wound_mod_delta += 1
 
         # ---- Thousand Sons "All Is Dust" (army rule, 10e). Subtract 1 from
         # the wound roll when a Damage-1 attack is allocated to a non-daemon
-        # TSons unit (Rubric Marines, Scarab Occult Terminators, etc.). This
-        # mirrors the +1-to-wound idioms above but in reverse (raise the d6
-        # target, capped at 7 — wound roll auto-fails). Stacks with attacker
-        # +1 to wound (e.g. Outbreak of Pestilence) — a single-damage attack
-        # with both buffs nets back to the base wound target. The DAEMON
-        # exclusion keeps Tzaangors / Pink Horrors / Spawn from benefiting.
+        # TSons unit (Rubric Marines, Scarab Occult Terminators, etc.). The
+        # DAEMON exclusion keeps Tzaangors / Pink Horrors / Spawn from
+        # benefiting. This contributes -1 to wound_mod_delta; it composes
+        # with attacker +1 to wound under the ±1 cap (a single-damage attack
+        # with a single +1 attacker buff plus All Is Dust nets to 0).
         # Cited as `simulator.all_is_dust`.
         if (
             target.profile.faction == "Thousand Sons"
             and per_shot_dmg <= 1.0
             and "DAEMON" not in (target.profile.unit_keywords or ())
         ):
-            wound_target = min(7, wound_target + 1)
+            wound_mod_delta -= 1
 
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # The army picks an imperative each Command phase; the attacker's
-        # hit_target is shifted up or down depending on attack mode. Cited
-        # as `simulator.doctrina_imperatives`. Faction-gated on the
-        # attacker — a non-AdMech unit in the same battle is unaffected
-        # even if the OPPOSING army happens to be AdMech with an active
-        # imperative (the gate reads attacker.profile.faction).
+        # The army picks an imperative each Command phase; one mode gets
+        # +1 to hit, the opposite mode gets -1 to hit. Cited as
+        # `simulator.doctrina_imperatives`. Faction-gated on the attacker.
         if p.faction == "Adeptus Mechanicus":
             own_army = getattr(self, "army_ref", None)
             imperative = (
@@ -825,36 +831,28 @@ class Unit:
                 if own_army is not None else None
             )
             if imperative == "protector":
-                if mode != "melee":
-                    hit_target = max(2, hit_target - 1)   # +1 to hit ranged
-                else:
-                    hit_target = min(6, hit_target + 1)   # -1 to hit melee
+                hit_mod_delta += 1 if mode != "melee" else -1
             elif imperative == "conqueror":
-                if mode == "melee":
-                    hit_target = max(2, hit_target - 1)   # +1 to hit melee
-                else:
-                    hit_target = min(6, hit_target + 1)   # -1 to hit ranged
+                hit_mod_delta += 1 if mode == "melee" else -1
 
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
-        # NOT move this round. Melee never benefits. Same math as +1-to-hit.
+        # NOT move this round. Melee never benefits.
         if p.heavy and mode != "melee" and not self.moved_this_round:
-            hit_target = max(2, hit_target - 1)
+            hit_mod_delta += 1
 
         # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
-        # while in engagement range pay -1 to hit (raises the d6 target).
-        # Mode is ranged because we already blocked melee above.
+        # while in engagement range pay -1 to hit. Ranged only.
         if mode != "melee" and self.shooting_in_engagement:
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
-        # ---- Indirect Fire: -1 to hit when target is not visible (raises target).
-        # Only meaningful in ranged mode.
+        # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.
         if p.indirect_fire and mode != "melee" and not has_los:
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
-        # ---- Lance: +1 to wound (lower wound_target by 1, min 2) when this
-        # melee attack happens on a turn the attacker declared a charge.
+        # ---- Lance: +1 to wound when this melee attack happens on a turn
+        # the attacker declared a charge.
         if p.lance and mode == "melee" and is_charging:
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
 
         # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
         # the plain in_cover flag already grants below). Ranged shots only;
@@ -864,31 +862,43 @@ class Unit:
             and target.in_heavy_cover
             and not ignore_cover
         ):
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
         # ---- Stealth keyword: shooters take -1 to hit against the target.
-        # Same math as a worsened hit roll. Capped at 7 (no possible hit).
         # Melee is unaffected (Stealth is a ranged defence).
         if mode != "melee" and target.profile.stealth:
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
         # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
         # an enemy unit (the ATTACKER here) within 3" of any DG model takes
         # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
         # DG model on the opposing side, and on the attacker NOT being a DG
-        # model itself (the aura debuffs *enemy* units). 10e cap: "modifiers
-        # to hit rolls cannot exceed -1" — if another effect (Big Guns,
-        # Indirect, Heavy cover, Stealth) has ALREADY raised hit_target above
-        # its post-buff value, we skip the contagion penalty rather than
-        # compound it. Radius gated to 3" per the modern Nurgle's Gift /
-        # Afflicted rule (Wahapedia). Cited as `simulator.contagions_of_nurgle`.
+        # model itself (the aura debuffs *enemy* units). The ±1 cap below
+        # subsumes the old "skip if already capped" gate — adding -1 here
+        # when the delta is already -1 is harmless because the clamp
+        # collapses the net to -1 anyway. Radius gated to 3" per the modern
+        # Nurgle's Gift / Afflicted rule (Wahapedia). Cited as
+        # `simulator.contagions_of_nurgle`.
         if (
             _contagion_round_for(self) >= 3
             and p.faction != "Death Guard"
-            and hit_target == _hit_target_after_buffs
             and _is_near_enemy_dg_model(self, radius=3.0)
         ):
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
+
+        # ---- Apply the ±1 modifier cap (Wahapedia core rules: "Hit roll
+        # modifiers are cumulative, but the Hit roll for an attack can
+        # never be modified by more than -1 or +1." Same for Wound rolls).
+        # `hit_target` was already set to its base value; positive delta =
+        # +1 to hit = LOWER target (easier roll); negative delta = -1 to
+        # hit = HIGHER target (harder roll). Symmetric for wound. The
+        # arithmetic clamps to [2, 7] which preserves existing semantics
+        # (target 7 = auto-miss, target 2 = always succeeds bar nat-1).
+        # Cited as `simulator.modifier_cap_plus_minus_one`.
+        hit_mod_clamped = max(-1, min(1, hit_mod_delta))
+        wound_mod_clamped = max(-1, min(1, wound_mod_delta))
+        hit_target = max(2, min(7, hit_target - hit_mod_clamped))
+        wound_target = max(2, min(7, wound_target - wound_mod_clamped))
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
         anti_crit_threshold = 6
