@@ -1511,6 +1511,12 @@ _TRACKED_UNIT_KEYWORDS = {
     # at -1 to the test). Carried by Hive Tyrants, Tervigons, Maleceptors,
     # Tyranid Primes, Old One Eye, Norn Emissary, Broodlords, etc.
     "SYNAPSE",
+    # EPIC HERO: 10e core rule — "EPIC HERO units can only be taken once per
+    # army." Universal across every codex. Read by army-composition gates
+    # (build_faction_random_army, _random_fill, archetype seed) to refuse
+    # duplicate inclusion. Source:
+    # https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Datasheets
+    "EPIC HERO",
 }
 
 

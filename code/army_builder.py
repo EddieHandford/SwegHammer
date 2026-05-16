@@ -11,6 +11,16 @@ from .enhancements import Enhancement, pick_enhancement
 from .units import UnitProfile, UNIT_CATALOG
 
 
+def is_epic_hero(profile: UnitProfile) -> bool:
+    """True if a UnitProfile carries the EPIC HERO keyword (10e core rule).
+
+    10e core: "EPIC HERO units can only be taken once per army." This rule is
+    universal across every codex; the cap is faction-neutral. Source:
+    https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Datasheets
+    """
+    return "EPIC HERO" in (profile.unit_keywords or ())
+
+
 def _assign_enhancement_to_warlord(army: Army, rng: random.Random) -> None:
     """Pick a single Enhancement from the army's Detachment list (if any)
     and attach it to one alive CHARACTER. No-op if:
@@ -94,6 +104,9 @@ def build_random_army(
     army = Army(name, in_cover=in_cover)
     remaining = points_budget
     unit_type_spend: Dict[str, float] = {p.name: 0.0 for p in profiles}
+    # 10e core: EPIC HERO units can only be taken once per army. Track which
+    # epic-hero names have already been added so subsequent picks skip them.
+    epic_heroes_taken: set = set()
 
     while True:
         affordable = [
@@ -101,6 +114,7 @@ def build_random_army(
             if p.points_cost <= remaining
             and unit_type_spend[p.name] + p.points_cost
                <= points_budget * max_unit_fraction
+            and not (is_epic_hero(p) and p.name in epic_heroes_taken)
         ]
         if not affordable:
             break
@@ -108,6 +122,8 @@ def build_random_army(
         army.add_unit(chosen)
         remaining -= chosen.points_cost
         unit_type_spend[chosen.name] += chosen.points_cost
+        if is_epic_hero(chosen):
+            epic_heroes_taken.add(chosen.name)
 
     # Detachment + Enhancement: assign once units are picked so we can
     # see which CHARACTERS the army actually contains. Detachment derives
@@ -283,6 +299,10 @@ def build_faction_random_army(
     remaining = float(points_budget)
     spent_by_name: Dict[str, float] = {p.name: 0.0 for p in pool}
     cap = points_budget * max_unit_fraction
+    # 10e core: EPIC HERO units can only be taken once per army. Track which
+    # epic-hero profiles have been drafted so duplicate squads are refused.
+    # Faction-neutral — applies universally to every codex.
+    epic_heroes_taken: set = set()
 
     # CHARACTER-tagged profiles are eligible to be drafted as attached leaders.
     # 10e: a leader sits inside an infantry / battleline unit and grants auras.
@@ -294,6 +314,8 @@ def build_faction_random_army(
     while True:
         affordable = []
         for p in pool:
+            if is_epic_hero(p) and p.name in epic_heroes_taken:
+                continue
             size = _squad_size(p, size_policy, rng)
             cost = _squad_points(p, size)
             if cost <= remaining and spent_by_name[p.name] + cost <= cap:
@@ -305,6 +327,8 @@ def build_faction_random_army(
             army.add_unit(chosen)
         spent_by_name[chosen.name] += cost
         remaining -= cost
+        if is_epic_hero(chosen):
+            epic_heroes_taken.add(chosen.name)
 
         # 50% preference: when we just added a non-character squad, try to
         # attach a same-faction character leader. Skip if the chosen profile
@@ -315,12 +339,15 @@ def build_faction_random_army(
                 c for c in character_pool
                 if c.points_cost <= remaining
                 and spent_by_name[c.name] + c.points_cost <= cap
+                and not (is_epic_hero(c) and c.name in epic_heroes_taken)
             ]
             if leaders_affordable:
                 leader = rng.choice(leaders_affordable)
                 army.add_unit(leader)
                 spent_by_name[leader.name] += leader.points_cost
                 remaining -= leader.points_cost
+                if is_epic_hero(leader):
+                    epic_heroes_taken.add(leader.name)
 
     # Pick a detachment that suits the actual composition. Done AFTER unit
     # selection so the picker can read the real vehicle / infantry mix

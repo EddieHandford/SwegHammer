@@ -251,6 +251,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # at round start. Enforced inside `Battle._apply_detachment_stratagems`
     # via Army.stratagems_fired_this_command_phase + `_strat_cap_reached`.
     "simulator.stratagem_per_command_phase_cap",
+    # 10e core EPIC HERO rule. "EPIC HERO units can only be taken once per
+    # army." Universal across every codex; the cap is faction-neutral.
+    # Enforced at army-composition time by code.army_builder.is_epic_hero
+    # gates in build_random_army, build_faction_random_army, and
+    # code.archetypes._random_fill (which also seeds the tracker from
+    # template-instantiated units so the random topup can't duplicate a
+    # hero the archetype already drafted).
+    "simulator.epic_hero_one_per_army",
 )
 
 

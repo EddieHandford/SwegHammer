@@ -185,6 +185,7 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER",
         "ASURYANI"
       ],
@@ -472,6 +473,7 @@
       "fnp": 7,
       "unit_keywords": [
         "DAEMON",
+        "EPIC HERO",
         "CHARACTER",
         "MONSTER",
         "ASURYANI"
@@ -542,6 +544,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "FLY",
@@ -1034,6 +1037,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "PSYKER",
@@ -1466,6 +1470,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY",
         "ASURYANI"
       ],
@@ -1745,6 +1750,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "ASURYANI"
       ],
       "melee_attacks": 4,
@@ -1814,6 +1820,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY",
         "ASURYANI"
       ],
@@ -1882,6 +1889,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "ASURYANI"
@@ -1952,6 +1960,7 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER",
         "ASURYANI"
       ],
@@ -2092,6 +2101,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "ASURYANI"
       ],
       "melee_attacks": 5,
@@ -2511,6 +2521,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 9,
@@ -2928,6 +2939,7 @@
       "fnp": 4,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 4,
@@ -2996,6 +3008,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "MONSTER",
         "CHARACTER",
         "FLY",
@@ -4055,6 +4068,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 5,
@@ -4335,6 +4349,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER",
         "FLY",
@@ -5123,6 +5138,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER",
         "ASURYANI"
@@ -6609,6 +6625,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY",
         "ASURYANI",
         "FLY"
@@ -6879,6 +6896,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "ASURYANI"
       ],
       "melee_attacks": 5,
@@ -6952,6 +6970,7 @@
         "INFANTRY",
         "ASURYANI",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 3,
@@ -7659,6 +7678,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -8079,6 +8099,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -8708,6 +8729,7 @@
       "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 5,
@@ -9271,7 +9293,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -9688,6 +9711,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "TITANIC",
         "TOWERING",
         "DAEMON"
@@ -9761,6 +9785,7 @@
         "MONSTER",
         "CHARACTER",
         "FLY",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -10318,6 +10343,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "TITANIC",
         "TOWERING",
         "FLY",
@@ -10743,6 +10769,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 6,
@@ -11713,6 +11740,7 @@
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 4,
@@ -11852,6 +11880,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "FLY",
         "PSYKER",
         "DAEMON"
@@ -11924,6 +11953,7 @@
       "unit_keywords": [
         "BEAST",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 6,
@@ -12838,6 +12868,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -12909,6 +12940,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -13192,6 +13224,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -13265,6 +13298,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 8,
@@ -13535,6 +13569,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 6,
@@ -13878,6 +13913,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -13953,6 +13989,7 @@
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
+        "EPIC HERO",
         "FLY",
         "DAEMON"
       ],
@@ -14022,6 +14059,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -14093,6 +14131,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "FLY",
         "DAEMON"
       ],
@@ -14376,6 +14415,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -18621,7 +18661,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 3.0,
@@ -18690,6 +18731,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "FLY"
       ],
       "melee_attacks": 6,
@@ -18758,7 +18800,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -18968,6 +19011,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -19039,7 +19083,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 2.0,
@@ -19732,6 +19777,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "FLY",
         "DAEMON"
       ],
@@ -23975,6 +24021,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "PSYKER"
       ],
@@ -24404,7 +24451,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 7,
       "melee_damage_per_shot": 2.0,
@@ -24678,6 +24726,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 6,
@@ -26575,6 +26624,7 @@
         "PSYKER",
         "FLY",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 15,
@@ -27543,6 +27593,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -28021,7 +28072,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -28091,6 +28143,7 @@
         "DAEMON",
         "MONSTER",
         "FLY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 6,
@@ -29277,6 +29330,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "DAEMON"
       ],
@@ -30040,6 +30094,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER",
         "FLY",
         "MOUNTED"
@@ -31026,6 +31081,7 @@
         "PSYKER",
         "FLY",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 7,
@@ -32588,6 +32644,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "FLY",
         "PSYKER",
         "DAEMON"
@@ -33303,6 +33360,7 @@
         "MONSTER",
         "FLY",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 8,
@@ -33371,7 +33429,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 3.0,
@@ -33440,7 +33499,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 7,
       "melee_damage_per_shot": 2.0,
@@ -35310,6 +35370,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "DAEMON"
       ],
       "melee_attacks": 8,
@@ -43992,6 +44053,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -45730,6 +45792,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "MONSTER"
       ],
       "melee_attacks": 12,
@@ -45797,6 +45860,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -46698,6 +46762,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "FLY",
         "MOUNTED"
@@ -46837,7 +46902,8 @@
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 3.0,
@@ -47325,6 +47391,7 @@
       "unit_keywords": [
         "INFANTRY",
         "FLY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 5,
@@ -47604,7 +47671,8 @@
       "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 18,
       "melee_damage_per_shot": 1.0,
@@ -47741,6 +47809,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -48208,6 +48277,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -48639,7 +48709,8 @@
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -48849,6 +48920,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -49472,6 +49544,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -49541,7 +49614,8 @@
       "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 7,
       "melee_damage_per_shot": 2.0,
@@ -51336,6 +51410,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "MONSTER",
         "CHARACTER"
       ],
@@ -53561,7 +53636,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 3.0,
@@ -53917,6 +53993,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "MONSTER",
         "CHARACTER"
       ],
@@ -54133,7 +54210,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -54204,7 +54282,8 @@
       "fnp": 2,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -54274,7 +54353,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -54344,7 +54424,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -54845,6 +54926,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 3,
@@ -54918,6 +55000,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 3,
@@ -54990,6 +55073,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 4,
@@ -55060,7 +55144,8 @@
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -55128,7 +55213,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 2.0,
@@ -55197,6 +55283,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 5,
@@ -55337,7 +55424,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -55407,7 +55495,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -56455,6 +56544,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -57062,6 +57152,7 @@
       "fnp": 4,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 5,
@@ -57205,6 +57296,7 @@
       "firing_deck": 0,
       "fnp": 4,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -57551,7 +57643,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 1.0,
@@ -57621,7 +57714,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -57829,6 +57923,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -57901,6 +57996,7 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 6,
@@ -58039,6 +58135,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -58245,7 +58342,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 1.0,
@@ -58382,6 +58480,7 @@
       "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 2,
@@ -58452,7 +58551,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -58588,6 +58688,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -58854,6 +58955,7 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 4,
@@ -59484,6 +59586,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -59839,6 +59942,7 @@
       "fnp": 6,
       "unit_keywords": [
         "MOUNTED",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 6,
@@ -60188,6 +60292,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "VEHICLE",
         "CHARACTER"
       ],
@@ -60259,6 +60364,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -60328,7 +60434,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -60399,6 +60506,7 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 6,
@@ -60470,6 +60578,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -61868,6 +61977,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "FLY"
@@ -62006,6 +62116,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -62076,6 +62187,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -62145,6 +62257,7 @@
       "firing_deck": 0,
       "fnp": 4,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "PSYKER"
@@ -62217,6 +62330,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "FLY"
@@ -62419,6 +62533,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -62487,6 +62602,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "FLY"
@@ -62767,6 +62883,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 6,
@@ -62835,6 +62952,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "FLY"
@@ -63676,6 +63794,7 @@
       "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 6,
@@ -63744,6 +63863,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 6,
@@ -63812,6 +63932,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "MOUNTED",
         "FLY"
       ],
@@ -63883,6 +64004,7 @@
       "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY",
         "PSYKER"
       ],
@@ -63954,6 +64076,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 5,
@@ -64023,6 +64146,7 @@
       "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "MONSTER"
       ],
       "melee_attacks": 8,
@@ -64093,6 +64217,7 @@
       "fnp": 3,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 6,
@@ -65070,6 +65195,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -65210,6 +65336,7 @@
       "fnp": 4,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 5,
@@ -65837,6 +65964,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "PSYKER"
@@ -66260,6 +66388,7 @@
       "fnp": 7,
       "unit_keywords": [
         "PSYKER",
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -66474,6 +66603,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "PSYKER"
@@ -67254,6 +67384,7 @@
       "firing_deck": 0,
       "fnp": 4,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER",
         "PSYKER"
@@ -68313,6 +68444,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -68382,6 +68514,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -68450,6 +68583,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -68592,6 +68726,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "VEHICLE",
         "WALKER",
@@ -70314,6 +70449,7 @@
       "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 6,
@@ -70384,7 +70520,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -70452,6 +70589,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY",
         "FLY"
@@ -70522,6 +70660,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY",
         "FLY"
       ],
@@ -70590,6 +70729,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -70658,6 +70798,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -78723,7 +78864,8 @@
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 4.0,
@@ -80069,6 +80211,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 5,
@@ -80352,7 +80495,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -80422,7 +80566,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -80493,6 +80638,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "PSYKER"
       ],
       "melee_attacks": 4,
@@ -80564,7 +80710,8 @@
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -80638,7 +80785,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 3.0,
@@ -80705,7 +80853,8 @@
       "fnp": 6,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -80774,7 +80923,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 2.0,
@@ -80842,7 +80992,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -80910,7 +81061,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -80979,7 +81131,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 1.0,
@@ -81475,7 +81628,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 1.0,
@@ -81819,7 +81973,8 @@
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 3.0,
@@ -83264,6 +83419,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -83334,6 +83490,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -83403,6 +83560,7 @@
       "fnp": 4,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY",
         "PSYKER"
       ],
@@ -83473,6 +83631,7 @@
       "firing_deck": 0,
       "fnp": 4,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -83541,6 +83700,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "MONSTER"
       ],
@@ -83610,7 +83770,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 3,
       "melee_damage_per_shot": 3.0,
@@ -83677,6 +83838,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -83820,6 +83982,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 6,
@@ -83957,7 +84120,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 1.0,
@@ -84024,6 +84188,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -84092,6 +84257,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 4,
@@ -84161,6 +84327,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 5,
@@ -84231,7 +84398,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 8,
       "melee_damage_per_shot": 2.0,
@@ -84300,7 +84468,8 @@
       "fnp": 7,
       "unit_keywords": [
         "PSYKER",
-        "INFANTRY"
+        "INFANTRY",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -84370,6 +84539,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -84439,7 +84609,8 @@
       "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -84645,7 +84816,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 5,
       "melee_damage_per_shot": 2.0,
@@ -85492,6 +85664,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -86258,6 +86431,7 @@
       "firing_deck": 0,
       "fnp": 4,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -86328,7 +86502,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -86396,7 +86571,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 2,
       "melee_damage_per_shot": 2.0,
@@ -86525,7 +86701,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -86593,7 +86770,8 @@
       "fnp": 4,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 3.0,
@@ -86661,7 +86839,8 @@
       "fnp": 4,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -86728,7 +86907,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 1.0,
@@ -86795,7 +86975,8 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 4,
       "melee_damage_per_shot": 2.0,
@@ -88219,6 +88400,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "FLY"
       ],
       "melee_attacks": 8,
@@ -88288,6 +88470,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "FLY"
       ],
       "melee_attacks": 6,
@@ -88360,6 +88543,7 @@
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
+        "EPIC HERO",
         "FLY"
       ],
       "melee_attacks": 5,
@@ -89665,6 +89849,7 @@
       "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 5,
@@ -90624,7 +90809,8 @@
       "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
-        "CHARACTER"
+        "CHARACTER",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 3.0,
@@ -90906,6 +91092,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "MOUNTED",
         "VEHICLE"
@@ -91392,6 +91579,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -91462,6 +91650,7 @@
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
+        "EPIC HERO",
         "FLY"
       ],
       "melee_attacks": 6,
@@ -92076,6 +92265,7 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 6,
@@ -92352,6 +92542,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "CHARACTER"
       ],
@@ -92768,6 +92959,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -93192,6 +93384,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "MOUNTED"
       ],
@@ -94434,6 +94627,7 @@
       "firing_deck": 0,
       "fnp": 6,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -95340,6 +95534,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -96382,6 +96577,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "MOUNTED",
         "FLY"
@@ -96452,6 +96648,7 @@
       "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 4,
@@ -97001,6 +97198,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -97069,6 +97267,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "VEHICLE",
         "WALKER"
@@ -97414,6 +97613,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "INFANTRY",
         "FLY",
         "CHARACTER"
@@ -97486,6 +97686,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "VEHICLE",
         "WALKER",
         "FLY",
@@ -97912,6 +98113,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "INFANTRY"
       ],
@@ -97981,7 +98183,8 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
-        "INFANTRY"
+        "INFANTRY",
+        "EPIC HERO"
       ],
       "melee_attacks": 6,
       "melee_damage_per_shot": 2.0,
@@ -98048,6 +98251,7 @@
       "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
+        "EPIC HERO",
         "INFANTRY"
       ],
       "melee_attacks": 3,
@@ -98115,6 +98319,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "FLY",
         "VEHICLE"
@@ -100902,6 +101107,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "VEHICLE",
         "WALKER",
@@ -101945,6 +102151,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "VEHICLE",
         "WALKER",
         "FLY",
@@ -102162,6 +102369,7 @@
       "firing_deck": 0,
       "fnp": 7,
       "unit_keywords": [
+        "EPIC HERO",
         "CHARACTER",
         "MONSTER",
         "SYNAPSE",
@@ -102301,6 +102509,7 @@
       "firing_deck": 0,
       "fnp": 5,
       "unit_keywords": [
+        "EPIC HERO",
         "MONSTER",
         "CHARACTER"
       ],
@@ -105961,6 +106170,7 @@
       "fnp": 7,
       "unit_keywords": [
         "MONSTER",
+        "EPIC HERO",
         "CHARACTER"
       ],
       "melee_attacks": 4,

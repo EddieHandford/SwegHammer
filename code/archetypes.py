@@ -40,6 +40,7 @@ import random
 from typing import Dict, Optional
 
 from .army import Army
+from .army_builder import is_epic_hero
 from .detachments import pick_detachment_for_army
 from .units import UNIT_CATALOG, UnitProfile
 
@@ -302,9 +303,18 @@ def _random_fill(
     fill_squads_by_name: Dict[str, int] = {}
     cap = remaining_budget * 0.5
 
+    # 10e core EPIC HERO 1-per-army cap. Seed the tracker with any epic
+    # heroes already present in the army from the template seed, so the
+    # fill pass cannot duplicate a hero that the archetype already drafted.
+    epic_heroes_taken: set = {
+        u.profile.name for u in army.units if is_epic_hero(u.profile)
+    }
+
     while remaining_budget > 0:
         affordable = []
         for p in pool:
+            if is_epic_hero(p) and p.name in epic_heroes_taken:
+                continue
             size = max(1, p.max_models)
             cost = p.points_cost * size
             if cost > remaining_budget:
@@ -328,6 +338,8 @@ def _random_fill(
         spent_by_name[chosen.name] = spent_by_name.get(chosen.name, 0.0) + cost
         fill_squads_by_name[chosen.name] = fill_squads_by_name.get(chosen.name, 0) + 1
         remaining_budget -= cost
+        if is_epic_hero(chosen):
+            epic_heroes_taken.add(chosen.name)
 
 
 def build_archetype_army(
