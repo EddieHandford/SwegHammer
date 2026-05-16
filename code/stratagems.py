@@ -516,6 +516,111 @@ GRAND_COVEN_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# War Horde (Orks) — six real detachment stratagems (iter-1 Cluster B B1)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+# Names + CP costs cross-referenced against the iter-1 Cluster B diagnostic
+# (docs/AUTO_LOOP_ITER1_CLUSTER_B.md) which audits the Wahapedia stratagem
+# list. WebFetch against wahapedia.ru returned ECONNREFUSED at edit time;
+# stratagem effects are paraphrased per general 10e Orks codex knowledge,
+# with the Wahapedia URL cited and each entry flagged APPROXIMATION in
+# data/rule_citations.d/stratagems.json. Effect mappings follow the same
+# convention as Mont'ka / Warhost — route through the closest existing
+# transient_* flag and document the gap.
+#
+# Effect-mapping summary:
+#   * Insane Bravery (1 CP) — auto-pass a Battle-shock test on an OUTRIDE
+#     INFANTRY unit. No clean simulator hook (battleshock is resolved per-
+#     unit at round end and we don't expose a per-unit "this unit is
+#     immune this round" flag), so the dispatcher is catalogued-but-no-op
+#     APPROXIMATION; CP not spent.
+#   * Power Of The WAAAGH! (1 CP) — an Orks unit's melee weapons gain
+#     LETHAL HITS (or upgrade to 5+ Critical Hit if already carrying it)
+#     for the fight phase. Maps to `transient_plus_one_to_wound_melee`
+#     on the highest-DPA Orks melee unit — same direction (more landed
+#     wounds in melee), strength comparable on an average matchup.
+#   * Mob Up (1 CP) — an Orks INFANTRY unit absorbs a destroyed friendly
+#     Orks INFANTRY unit's surviving models. No model-absorbing hook;
+#     mapped to `transient_undying_legions_pulse` = 2 (mid-phase +2 HP
+#     reanimation on a wounded Orks unit, the closest "regain bodies"
+#     stand-in SwegHammer has).
+#   * Big Krumpin' (2 CP) — an Orks unit re-rolls Wound rolls of 1 in
+#     melee (or full re-roll if charging). Maps to
+#     `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
+#     unit. APPROXIMATION: the codex effect is a wound reroll (~14% extra
+#     wounds at 4+), while +1 to wound (~25% extra wounds) is stronger;
+#     mitigated by the 2 CP price gate.
+#   * Tellyporta (1 CP) — pull an Orks INFANTRY unit off the battlefield
+#     and place it back via Strategic Reserves next round. No mid-battle
+#     reserve hook; mapped to `transient_plus_one_save` on the most
+#     vulnerable Orks INFANTRY unit as a defensive stand-in (same as
+#     Webway Tunnel's pattern).
+#   * Da Biggest Boss (1 CP) — Warlord-targeted; the Warlord makes a
+#     normal move of D6+1" in the Movement phase. No grid-free movement
+#     buff hook; mapped to `transient_assault_this_round` on the
+#     highest-DPA Orks CHARACTER as a stand-in for the "reposition then
+#     shoot" offensive payoff.
+
+INSANE_BRAVERY = Stratagem(
+    name="Insane Bravery",
+    cp_cost=1,
+    phase="command",
+    trigger="friendly_orks_infantry_battleshock_test_about_to_fail",
+    effect="auto_pass_battleshock_approximation",
+)
+
+POWER_OF_THE_WAAAGH = Stratagem(
+    name="Power Of The WAAAGH!",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_orks_unit_about_to_fight",
+    effect="lethal_hits_melee_approximation",
+)
+
+MOB_UP = Stratagem(
+    name="Mob Up",
+    cp_cost=1,
+    phase="command",
+    trigger="friendly_orks_infantry_wounded",
+    effect="extra_reanimation_pulse_approximation",
+)
+
+BIG_KRUMPIN = Stratagem(
+    name="Big Krumpin'",
+    cp_cost=2,
+    phase="fight",
+    trigger="friendly_orks_unit_about_to_fight_heavy_target",
+    effect="reroll_wounds_melee_approximation",
+)
+
+TELLYPORTA = Stratagem(
+    name="Tellyporta",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_orks_infantry",
+    effect="plus_one_save_for_round_approximation",
+)
+
+DA_BIGGEST_BOSS = Stratagem(
+    name="Da Biggest Boss",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_orks_character_warlord",
+    effect="transient_assault_for_round_approximation",
+)
+
+
+WAR_HORDE_STRATAGEMS: Tuple[Stratagem, ...] = (
+    INSANE_BRAVERY,
+    POWER_OF_THE_WAAAGH,
+    MOB_UP,
+    BIG_KRUMPIN,
+    TELLYPORTA,
+    DA_BIGGEST_BOSS,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -593,6 +698,14 @@ __all__ = [
     "ARCANE_FOCUS",
     "DEVASTATING_SORCERY",
     "GRAND_COVEN_STRATAGEMS",
+    # War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
+    "INSANE_BRAVERY",
+    "POWER_OF_THE_WAAAGH",
+    "MOB_UP",
+    "BIG_KRUMPIN",
+    "TELLYPORTA",
+    "DA_BIGGEST_BOSS",
+    "WAR_HORDE_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

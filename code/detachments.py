@@ -32,6 +32,7 @@ from .stratagems import (
     MONTKA_STRATAGEMS,
     VIRULENT_VECTORIUM_STRATAGEMS,
     GRAND_COVEN_STRATAGEMS,
+    WAR_HORDE_STRATAGEMS,
 )
 
 
@@ -128,6 +129,15 @@ class Detachment:
     #     Unit.attack. Wire when the Guided mechanic is added.
     army_wide_assault_rounds_1_3: bool = False
     lethal_hits_on_guided: bool = False
+
+    # Orks War Horde detachment rule (Get Stuck In). Real text (BSData
+    # verbatim, v10.6.0): "Melee weapons equipped by ORKS models from your
+    # army have the [SUSTAINED HITS 1] ability." Simulator gate: when this
+    # flag is True AND the attacker is faction=="Orks" AND mode=="melee",
+    # `Unit.attack` adds +1 to the sustained-hits multiplier on a crit-to-hit
+    # (matches how per-weapon sustained_hits already composes). Army-wide
+    # passive — no proximity / keyword filter beyond the Orks faction tag.
+    melee_sustained_hits_army_wide: bool = False
 
     # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
     # (Wahapedia): "If you control an objective marker at the end of your
@@ -483,6 +493,36 @@ GRAND_COVEN = Detachment(
 )
 
 
+WAR_HORDE = Detachment(
+    name="War Horde",
+    faction="Orks",
+    notes=(
+        "Get Stuck In (BSData v10.6.0 verbatim): \"Melee weapons equipped "
+        "by ORKS models from your army have the [SUSTAINED HITS 1] "
+        "ability.\" Army-wide passive — every Ork melee weapon picks up "
+        "[SUSTAINED HITS 1] regardless of leader / aura / character-led "
+        "state. Simulator implementation: a new flag "
+        "`melee_sustained_hits_army_wide` read by `Unit.attack` when "
+        "`mode == 'melee'` AND attacker is Orks; the per-weapon "
+        "`sustained_hits` is incremented by 1 for the duration of the "
+        "attack resolution, so a crit-to-hit generates one extra normal "
+        "hit. Stacks additively with any weapon that already carries the "
+        "ability (e.g. Flash Gitz Snazzguns) — matching the codex "
+        "compounding (a SUSTAINED HITS 1 weapon with this detachment "
+        "would become SUSTAINED HITS 2). Six real stratagems wired below "
+        "from https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde "
+        "per the iter-1 Cluster B diagnostic — Insane Bravery, Power Of "
+        "The WAAAGH!, Mob Up, Big Krumpin', Tellyporta, Da Biggest Boss. "
+        "Each is flagged APPROXIMATION where the simulator's transient_* "
+        "plumbing can't capture the literal codex effect (see per-entry "
+        "citations in data/rule_citations.d/stratagems.json)."
+    ),
+    melee_sustained_hits_army_wide=True,
+    stratagems=WAR_HORDE_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+
 BERZERKER_WARBAND = Detachment(
     name="Berzerker Warband",
     faction="World Eaters",
@@ -616,6 +656,10 @@ DETACHMENTS: Dict[str, Detachment] = {
     "virulent_vectorium":      VIRULENT_VECTORIUM,
     # Thousand Sons real detachment (#193).
     "grand_coven":             GRAND_COVEN,
+    # Orks real-codex detachment (War Horde, iter-1 Cluster B B1 fix). Wired
+    # with full 6-stratagem set and the Get Stuck In army-wide [SUSTAINED
+    # HITS 1] melee passive.
+    "war_horde":               WAR_HORDE,
     # Deleted per fabrication audit fa9a957: waaagh_tribe, plague_company,
     # cult_of_magic, saim_hann_wild_host, plague_marines_onslaught. Real
     # codex detachment replacements land in per-faction follow-up commits.
@@ -646,6 +690,7 @@ AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
 MONTKA             = DETACHMENTS["montka"]
 VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 GRAND_COVEN        = DETACHMENTS["grand_coven"]
+WAR_HORDE          = DETACHMENTS["war_horde"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 
@@ -666,9 +711,8 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Deathwatch":               "gladius_task_force",
     "Necrons":                  "awakened_dynasty",
     "Tyranids":                 "invasion_fleet",
-    # Orks: no detachment mapped after fa9a957 (waaagh_tribe was a
-    # fabricated placeholder). Real Ork detachments land in follow-up.
-    "Orks":                     "",
+    # Orks: real codex detachment "War Horde" wired in iter-1 Cluster B B1.
+    "Orks":                     "war_horde",
     "Imperial Knights":         "noble_lance",
     "Chaos Knights":            "noble_lance",
     "Adepta Sororitas":         "hallowed_martyrs",
@@ -732,7 +776,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # army leans on its Canoptek units.
     "Necrons":                  ("awakened_dynasty", "canoptek_court"),
     "Tyranids":                 ("invasion_fleet",),
-    "Orks":                     (),
+    # Orks: War Horde wired in iter-1 Cluster B B1 (real codex detachment).
+    # Other 10e Ork detachments (Green Tide, Bully Boyz, Kult of Speed,
+    # Dread Mob, Da Big Hunt, Taktikal Brigade, More Dakka!, Freebooter
+    # Krew, Speedwaaagh!, Blitz Brigade) remain UNIMPLEMENTED — they land
+    # in per-detachment follow-up tasks.
+    "Orks":                     ("war_horde",),
     "Imperial Knights":         ("noble_lance",),
     "Chaos Knights":            ("noble_lance",),
     "Adepta Sororitas":         ("hallowed_martyrs",),

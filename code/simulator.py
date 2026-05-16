@@ -48,6 +48,9 @@ from .stratagems import (
     # Grand Coven (Thousand Sons) — six real detachment stratagems (#193)
     PSYCHIC_DOMINION, DESTINED_BY_FATE, EGOTISTICAL_POWER,
     DESECRATION_OF_WORLDS, ARCANE_FOCUS, DEVASTATING_SORCERY,
+    # War Horde (Orks) — six real detachment stratagems (iter-1 B1)
+    INSANE_BRAVERY, POWER_OF_THE_WAAAGH, MOB_UP, BIG_KRUMPIN,
+    TELLYPORTA, DA_BIGGEST_BOSS,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -719,6 +722,25 @@ class Battle:
             self._try_devastating_sorcery(army, opponent)
         # Egotistical Power and Arcane Focus are intentionally NOT dispatched
         # here — see _try_egotistical_power / _try_arcane_focus docstrings.
+
+        # ----- War Horde (Orks) — six real stratagems (iter-1 B1) ------
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+        # Insane Bravery is catalogued-but-no-op APPROXIMATION (no per-unit
+        # battleshock-immunity hook). The other five wire onto existing
+        # transient_* flags via the standard pattern.
+        if "Power Of The WAAAGH!" in strat_names:
+            self._try_power_of_the_waaagh(army, opponent)
+        if "Mob Up" in strat_names:
+            self._try_mob_up(army, opponent)
+        if "Big Krumpin'" in strat_names:
+            self._try_big_krumpin(army, opponent)
+        if "Tellyporta" in strat_names:
+            self._try_tellyporta(army, opponent)
+        if "Da Biggest Boss" in strat_names:
+            self._try_da_biggest_boss(army, opponent)
+        # Insane Bravery — catalogued in WAR_HORDE_STRATAGEMS for the
+        # auditor + stratagems_for_army listing, but the dispatcher is a
+        # no-op (no per-unit battleshock-immunity transient flag exists).
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -1470,6 +1492,155 @@ class Battle:
         if not self._fire_stratagem(army, PROTOCOL_OF_THE_CONQUERING_TYRANT):
             return
         attacker.transient_reroll_hits_shooting = True
+
+    # ----- War Horde (Orks) per-stratagem dispatchers (iter-1 B1) --------
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+    # WebFetch returned ECONNREFUSED at edit time; effects below are
+    # paraphrased per the iter-1 Cluster B diagnostic and routed through
+    # existing transient_* flags. Each dispatcher consults the AI gate
+    # via `should_fire_stratagem` and spends CP via `_fire_stratagem` —
+    # standard pattern, mirroring the Mont'ka / Warhost dispatchers above.
+
+    def _try_power_of_the_waaagh(self, army: Army, opponent: Army) -> None:
+        """Power Of The WAAAGH! (War Horde, 1 CP). Real rule (paraphrase):
+        an ORKS unit's melee weapons gain [LETHAL HITS] for the fight phase
+        (or upgrade to 5+ Critical Hit if they already carry the ability).
+        APPROXIMATION: SwegHammer has no per-round transient [LETHAL HITS]
+        flag, so the offensive uplift is routed through
+        `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
+        unit — same direction (more landed wounds in melee), comparable
+        magnitude on a 4+ wound roll.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="ORKS", faction="Orks",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, POWER_OF_THE_WAAAGH, ctx):
+            return
+        if not self._fire_stratagem(army, POWER_OF_THE_WAAAGH):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_mob_up(self, army: Army, opponent: Army) -> None:
+        """Mob Up (War Horde, 1 CP). Real rule (paraphrase): an ORKS
+        INFANTRY unit that has lost models absorbs surviving models from
+        a destroyed friendly ORKS INFANTRY unit. APPROXIMATION: no model-
+        absorbing hook in SwegHammer, so we route the "regain bodies"
+        value through `transient_undying_legions_pulse = 2` on the most
+        vulnerable Orks INFANTRY unit — fires the existing mid-phase
+        reanimation pulse Awakened Dynasty's Undying Legions uses.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ORKS", faction="Orks",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, MOB_UP, ctx):
+            return
+        if not self._fire_stratagem(army, MOB_UP):
+            return
+        target.transient_undying_legions_pulse = 2
+
+    def _try_big_krumpin(self, army: Army, opponent: Army) -> None:
+        """Big Krumpin' (War Horde, 2 CP). Real rule (paraphrase): an
+        ORKS unit re-rolls Wound rolls of 1 in melee (full re-roll if
+        charging). APPROXIMATION: SwegHammer has no melee-wound-reroll
+        transient flag, so the offensive uplift is routed through
+        `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
+        unit. Strictly stronger than the codex (a +1 averages ~25%
+        extra wounds; a 1s-reroll averages ~14%); the 2 CP price gate
+        keeps the AI from over-spending.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="ORKS", faction="Orks",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, BIG_KRUMPIN, ctx):
+            return
+        if not self._fire_stratagem(army, BIG_KRUMPIN):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_tellyporta(self, army: Army, opponent: Army) -> None:
+        """Tellyporta (War Horde, 1 CP). Real rule (paraphrase): an ORKS
+        INFANTRY unit is removed from the battlefield and placed back via
+        Strategic Reserves at the start of the next round. APPROXIMATION:
+        no mid-battle reserve hook, so the defensive payoff ("pull the
+        unit off the table to avoid the next attack") is routed through
+        `transient_plus_one_save` on the most vulnerable Orks INFANTRY
+        unit — same single-flag stand-in Webway Tunnel uses for Aeldari.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ORKS", faction="Orks",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, TELLYPORTA, ctx):
+            return
+        if not self._fire_stratagem(army, TELLYPORTA):
+            return
+        target.transient_plus_one_save = True
+
+    def _try_da_biggest_boss(self, army: Army, opponent: Army) -> None:
+        """Da Biggest Boss (War Horde, 1 CP). Real rule (paraphrase):
+        Warlord-targeted; the ORKS CHARACTER Warlord makes a free D6+1"
+        Normal Move in the Movement phase. APPROXIMATION: SwegHammer's
+        grid-free movement model can't usefully consume per-phase D6+1"
+        repositioning, so the offensive payoff (reposition into firing
+        / charging range) is routed through `transient_assault_this_round`
+        on the highest-DPA Orks CHARACTER — lets the Warlord shoot the
+        same round it would have repositioned.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+        """
+        # Pick the highest-DPA Orks CHARACTER.
+        warlord = None
+        best_dpa = 0.0
+        for u in army.alive_units:
+            kw = set(u.profile.unit_keywords or ())
+            if "CHARACTER" not in kw:
+                continue
+            if (u.profile.faction or "") != "Orks":
+                continue
+            p = u.profile
+            ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            melee = (p.melee_attacks * p.melee_hit_probability
+                     * (p.melee_damage_per_shot or 0.0))
+            dpa = ranged + melee
+            if dpa > best_dpa:
+                best_dpa = dpa
+                warlord = u
+        if warlord is None:
+            return
+        ctx = {"attacker": warlord}
+        if not should_fire_stratagem(army, DA_BIGGEST_BOSS, ctx):
+            return
+        if not self._fire_stratagem(army, DA_BIGGEST_BOSS):
+            return
+        warlord.transient_assault_this_round = True
 
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/

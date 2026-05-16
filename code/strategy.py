@@ -2348,6 +2348,95 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Egotistical Power and Arcane Focus are intentionally not dispatched
     # via the round-start path (APPROXIMATION — see simulator dispatchers).
 
+    # ----- War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+    # Orks under-performed by -6.6pt at iter-0 baseline (docs/AUTO_LOOP
+    # _ITER1_CLUSTER_B.md). Gates here are deliberately permissive —
+    # Orks have plentiful CP and no other detachment to spend on, so
+    # the army should be firing stratagems aggressively when its
+    # melee-DPA bricks engage. Insane Bravery is intentionally not
+    # listed (no-op dispatcher, never fires; no AI gate needed).
+
+    if name == "Power Of The WAAAGH!":
+        # ctx: {"attacker": Unit, "target": Unit}. +1-to-wound melee
+        # approximation. Fire when the Orks attacker has real melee
+        # DPA AND the target is HEAVY-class — matches the Outbreak of
+        # Pestilence / Protocol of the Hungry Void heuristic shape.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Mob Up":
+        # ctx: {"target": Unit}. Reanimation-pulse approximation on a
+        # wounded Orks unit. Fire when the target has lost meaningful HP
+        # (>= 30%) AND the unit has a multi-model footprint (max HP >=
+        # 4.0, i.e. Boyz squad / Lootas / Nobz — not single-wound
+        # single-model squads like a Warboss).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            max_hp = float(target.profile.health)
+        except Exception:
+            return False
+        return hp_frac >= 0.3 and max_hp >= 4.0
+
+    if name == "Big Krumpin'":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP gate — tighter
+        # than Power Of The WAAAGH!. Require real melee DPA AND a
+        # HEAVY-class target AND a meaningfully large Orks attacker
+        # (cost >= 80, i.e. a real brick — not a Grot squad).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+            cost = float(p.points_cost)
+        except Exception:
+            return False
+        return melee_dpa >= 3.0 and cost >= 80.0 and _is_heavy_target(target)
+
+    if name == "Tellyporta":
+        # ctx: {"target": Unit}. Defensive +1 save approximation. Fire
+        # on a wounded high-value Orks INFANTRY unit — same shape as
+        # Lightning-Fast Reactions but with a lower point gate because
+        # Orks bricks are cheaper per-point than Aeldari.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.3 and cost >= 80.0
+
+    if name == "Da Biggest Boss":
+        # ctx: {"attacker": Unit}. Warlord-only mobility approximation.
+        # Fire whenever a real Orks CHARACTER exists — the [ASSAULT]-
+        # for-the-round transient routes a single free shoot-after-move,
+        # cheap at 1 CP. Gate the spend on the character being a real
+        # contender (cost >= 60 covers Warboss, Ghazghkull, Beastboss
+        # and shuts out the 35-pt Mek).
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 60.0
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

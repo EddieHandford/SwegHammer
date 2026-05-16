@@ -983,6 +983,30 @@ class Unit:
                 if bt_round is not None and bt_round == cur_round:
                     effective_lethal_hits = True
 
+        # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
+        # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
+        # by ORKS models from your army have the [SUSTAINED HITS 1] ability."
+        # Gate: mode == "melee" AND attacker faction == "Orks" AND the
+        # attacker's army's detachment carries the `melee_sustained_hits
+        # _army_wide` flag (set by WAR_HORDE). The effective sustained-hits
+        # multiplier is incremented by 1 for the duration of this attack
+        # resolution; stacks additively with any per-weapon `sustained_hits`
+        # already on the profile (a SUSTAINED HITS 1 weapon would compound
+        # to SUSTAINED HITS 2, matching codex behaviour). Cited as
+        # `WAR_HORDE.melee_sustained_hits_army_wide`.
+        effective_sustained_hits = int(p.sustained_hits or 0)
+        if mode == "melee" and p.faction == "Orks":
+            _own_army = getattr(self, "army_ref", None)
+            if _own_army is not None:
+                try:
+                    _det = _own_army.resolve_detachment()
+                except Exception:
+                    _det = None
+                if _det is not None and getattr(
+                    _det, "melee_sustained_hits_army_wide", False,
+                ):
+                    effective_sustained_hits += 1
+
         total_damage = 0.0
         for _ in range(n_attacks):
             # ---- Torrent: skip the to-hit roll, attack auto-hits ----
@@ -1016,7 +1040,7 @@ class Unit:
                 if roll < hit_target:
                     continue   # missed
                 crit_hit = (roll == 6)
-            n_hits = 1 + (p.sustained_hits if crit_hit else 0)
+            n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
             for hit_i in range(n_hits):
                 if effective_lethal_hits and crit_hit and hit_i == 0:

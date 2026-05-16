@@ -277,5 +277,74 @@
     "effect": "(approximation) the simulator sets `transient_reroll_hits_shooting` on the highest-DPA friendly Thousand Sons PSYKER for the round. The +9\" range and Wound-reroll legs are dropped — SwegHammer doesn't track Psychic-weapon-specific range modifiers, and the Wound-reroll buff would need a per-weapon-keyword wound-reroll table the simulator doesn't expose. Net effect is strictly weaker than the codex (Hit reroll only, all weapons not just Psychic — but on a PSYKER chassis nearly all weapons are Psychic). Name + CP cost (2) confirmed against Wahapedia.",
     "scope": "phase-gated",
     "approximation": true
+  },
+
+  "WAR_HORDE.melee_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Get Stuck In (War Horde detachment rule)",
+    "quoted_text": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability.",
+    "trigger": "any ORKS model in a War Horde detachment army makes a melee attack",
+    "effect": "Unit.attack increments `effective_sustained_hits` by 1 for the duration of the resolution when mode==melee AND attacker.profile.faction=='Orks' AND the army's detachment carries this flag. Stacks additively with any per-weapon `sustained_hits` already on the profile (e.g. Flash Gitz). Verbatim text sourced from BSData WH40k 10e v10.6.0 cache (data/bsdata/cache/Orks.cat.gz, rule 'Get Stuck In' id 7d88-fb67-ac56-ec9). Wahapedia URL cited per CLAUDE.md §10.",
+    "scope": "army-wide"
+  },
+
+  "Stratagem.Insane Bravery": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Insane Bravery (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase, or just before a Battle-shock test is taken for an ORKS INFANTRY unit from your army. Effect: that unit automatically passes any Battle-shock tests it is required to take this turn.",
+    "trigger": "Battle-shock test about to be taken for a friendly ORKS INFANTRY unit",
+    "effect": "(APPROXIMATION, NO-OP) the simulator has no per-unit battleshock-immunity transient flag — the existing battleshock resolution applies army-wide modifiers per Mob Rule but no per-unit override hook. The stratagem is catalogued in WAR_HORDE_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally not wired and the AI heuristic returns False, so CP is never spent. Name + CP cost (1) per the iter-1 Cluster B diagnostic (docs/AUTO_LOOP_ITER1_CLUSTER_B.md).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Power Of The WAAAGH!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Power Of The WAAAGH! (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Fight phase, when an ORKS unit from your army is selected to fight. Effect: until the end of the phase, melee weapons equipped by models in that unit have the [LETHAL HITS] ability. If a weapon already has [LETHAL HITS], it instead scores a Critical Hit on an unmodified Hit roll of 5+.",
+    "trigger": "your Fight phase, when a friendly ORKS unit is selected to fight",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [LETHAL HITS] flag, so the offensive uplift is routed through `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee unit — same direction (more landed wounds in melee), comparable magnitude on a 4+ wound roll. The 5+ Critical-Hit upgrade leg for weapons already carrying [LETHAL HITS] is dropped. Name + CP cost (1) per the iter-1 Cluster B diagnostic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Mob Up": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Mob Up (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase. Target: one ORKS INFANTRY unit from your army that has lost one or more models. Effect: surviving models from another destroyed friendly ORKS INFANTRY unit are added back to the target unit.",
+    "trigger": "your Command phase, on an ORKS INFANTRY unit that has lost models",
+    "effect": "(APPROXIMATION) SwegHammer has no model-absorbing hook between distinct unit instances. The 'regain bodies' offensive value is routed through `transient_undying_legions_pulse = 2` on the most vulnerable Orks INFANTRY unit — fires the existing mid-phase reanimation pulse Awakened Dynasty's Undying Legions uses, restoring 2 wounds at the end of the next combat resolution. Less generous than the codex (which can recover a whole sub-squad) but uses the same plumbing without inventing new state. Name + CP cost (1) per the iter-1 Cluster B diagnostic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Big Krumpin'": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Big Krumpin' (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Fight phase, just after an ORKS unit from your army has fought. Effect: until the end of the phase, each time a model in that unit makes a melee attack, you can re-roll the Wound roll of 1 (or re-roll any failed Wound roll if the unit declared a charge this turn).",
+    "trigger": "your Fight phase, just after a friendly ORKS unit has fought",
+    "effect": "(APPROXIMATION) SwegHammer has no melee-wound-reroll transient flag, so the offensive uplift is routed through `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee unit. Strictly stronger than the codex on average (+1 averages ~25% extra wounds vs ~14% for 1s-reroll), but the 2 CP price gate keeps the AI from over-spending. The full-reroll-when-charging leg is folded into the same flag. Name + CP cost (2) per the iter-1 Cluster B diagnostic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Tellyporta": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Tellyporta (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase. Target: one ORKS INFANTRY unit from your army that is not within Engagement Range of any enemy units. Effect: remove that unit from the battlefield and place it into Strategic Reserves; it can return at the start of your next Movement phase.",
+    "trigger": "your Command phase, on a friendly ORKS INFANTRY unit not in engagement range",
+    "effect": "(APPROXIMATION) SwegHammer's reserve queue has no mid-battle re-entry hook, so the 'pull the unit off the table to avoid the next attack' defensive payoff is routed through `transient_plus_one_save` on the most vulnerable Orks INFANTRY unit for the round — same single-flag stand-in Webway Tunnel (Warhost) uses. Name + CP cost (1) per the iter-1 Cluster B diagnostic; the in-codex stratagem set lists Tellyporta separately from the Tellyporta Enhancement (BSData id b44f-e2fb-29d5-72f5) and the two share the same Tech profile reference.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Da Biggest Boss": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Da Biggest Boss (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Movement phase. Target: your ORKS WARLORD. Effect: your Warlord can make a normal move of up to D6+1\" even if it has already moved this phase.",
+    "trigger": "your Movement phase, on the friendly ORKS WARLORD",
+    "effect": "(APPROXIMATION) SwegHammer's grid-free movement model can't usefully consume per-phase D6+1\" repositioning, so the offensive payoff (reposition into firing / charging range) is routed through `transient_assault_this_round` on the highest-DPA Orks CHARACTER — lets the Warlord shoot the same round it would have repositioned. Name + CP cost (1) per the iter-1 Cluster B diagnostic; the in-codex stratagem set lists Da Biggest Boss separately from the Da Biggest Boss Enhancement (BSData id ccd6-6490-a314-78a0, attached to Bully Boyz).",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

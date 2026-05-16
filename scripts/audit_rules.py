@@ -76,6 +76,9 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("lethal_hits_on_guided", False),
     # Death Guard Virulent Vectorium detachment rule (#195).
     ("worldblight_sticky_dg_objectives", False),
+    # Orks War Horde detachment rule (iter-1 Cluster B B1 fix). Army-wide
+    # [SUSTAINED HITS 1] on Ork melee weapons via Get Stuck In.
+    ("melee_sustained_hits_army_wide", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
