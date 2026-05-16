@@ -2473,8 +2473,9 @@ class Battle:
             of any Tyranid SYNAPSE model takes the test at -1. Cited as
             `simulator.shadow_in_the_warp`.
           - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
-            enemy units within 6" of any DG model take -1 Ld. Cited as
-            `simulator.contagions_of_nurgle`.
+            enemy units within 3" of any DG model take -1 Ld. Cited as
+            `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
+            modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
         """
         if round_num <= 1:
             return
@@ -2528,7 +2529,7 @@ class Battle:
                         contagion_sources
                         and u.profile.faction != "Death Guard"
                         and any(
-                            _distance(u.position, s.position) <= 6.0
+                            _distance(u.position, s.position) <= 3.0
                             for s in contagion_sources
                         )
                     ):

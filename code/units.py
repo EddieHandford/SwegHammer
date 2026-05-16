@@ -61,12 +61,12 @@ def _prob_to_target(prob: float) -> int:
 def _contagion_round_for(unit: "Unit") -> int:
     """Return the active Death Guard Contagion round for the army that opposes
     `unit`'s army, or 0 when no DG army is on the opposing side / no battle is
-    active. Used by `Unit.attack` to gate the 6" Nurgle's Gift aura.
+    active. Used by `Unit.attack` to gate the 3" Nurgle's Gift aura.
 
     Contagions of Nurgle (Death Guard army rule, 10e — escalating order):
-      Round 1 — Virulent Rot:       -1 T on enemy units within 6" of a DG model
-      Round 2 — Maladictive Pall:   -1 Ld on enemy units within 6" (battleshock)
-      Round 3+ — Fulminating Plague: -1 to hit on enemy units within 6"
+      Round 1 — Virulent Rot:       -1 T on enemy units within 3" of a DG model
+      Round 2 — Maladictive Pall:   -1 Ld on enemy units within 3" (battleshock)
+      Round 3+ — Fulminating Plague: -1 to hit on enemy units within 3"
     """
     own_army = getattr(unit, "army_ref", None)
     if own_army is None:
@@ -740,19 +740,26 @@ class Unit:
             _hit_target_after_buffs = hit_target
 
         # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
-        # Virulent Rot: enemy units within 6" of any DG model have -1 T (only
+        # Virulent Rot: enemy units within 3" of any DG model have -1 T (only
         # for the purpose of wound rolls against them). We don't mutate
         # target.profile.toughness; instead we apply the equivalent +1 to wound
-        # (lower wound_target by 1, min 2) when the DEFENDER is within 6" of
+        # (lower wound_target by 1, min 2) when the DEFENDER is within 3" of
         # any DG model on the army OPPOSING the defender's army. The aura is
         # projected by every DG model (Nurgle's Gift), not just characters.
+        # APPROXIMATION: real 10e is "Nurgle's Gift / Afflicted" with Skullsquirm
+        # Blight / Rattlejoint Ague / Scabrous Soulrot variants applied to enemy
+        # units within 3" of a DG model. We retain the 3-round escalating
+        # -1T/-1Ld/-1-to-hit shape (older index rule) but gate radius to 3" per
+        # the modern rule. Real ailments are direction-correct (each debuffs the
+        # enemy unit) so the substitution is rule-conservative.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
         # Cited as `simulator.contagions_of_nurgle`. Round 2 and 3+ effects
         # are handled elsewhere (battleshock Ld penalty in _run_round;
         # round-3+ -1 to hit lower in this function).
         if (
             _contagion_round_for(target) == 1
             and target.profile.faction != "Death Guard"
-            and _is_near_enemy_dg_model(target, radius=6.0)
+            and _is_near_enemy_dg_model(target, radius=3.0)
         ):
             wound_target = max(2, wound_target - 1)
 
@@ -856,19 +863,20 @@ class Unit:
             hit_target = min(7, hit_target + 1)
 
         # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
-        # an enemy unit (the ATTACKER here) within 6" of any DG model takes
+        # an enemy unit (the ATTACKER here) within 3" of any DG model takes
         # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
         # DG model on the opposing side, and on the attacker NOT being a DG
         # model itself (the aura debuffs *enemy* units). 10e cap: "modifiers
         # to hit rolls cannot exceed -1" — if another effect (Big Guns,
         # Indirect, Heavy cover, Stealth) has ALREADY raised hit_target above
         # its post-buff value, we skip the contagion penalty rather than
-        # compound it. Cited as `simulator.contagions_of_nurgle`.
+        # compound it. Radius gated to 3" per the modern Nurgle's Gift /
+        # Afflicted rule (Wahapedia). Cited as `simulator.contagions_of_nurgle`.
         if (
             _contagion_round_for(self) >= 3
             and p.faction != "Death Guard"
             and hit_target == _hit_target_after_buffs
-            and _is_near_enemy_dg_model(self, radius=6.0)
+            and _is_near_enemy_dg_model(self, radius=3.0)
         ):
             hit_target = min(7, hit_target + 1)
 

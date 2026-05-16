@@ -448,7 +448,7 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         )
 
     def test_death_guard_contagions_minus_t_in_round_1(self):
-        """A DG attacker firing into a Marine within 6" in round 1 must
+        """A DG attacker firing into a Marine within 3" in round 1 must
         land more wounds than the same shooter into a Marine 12" away
         (out of aura range). Cites: simulator.contagions_of_nurgle."""
         # In-aura run.
@@ -460,13 +460,13 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         battle_in = Battle(dg_in, ast_in)
         battle_in._assign_uids()
         dg_in.units[0].position = (0.0, 0.0)
-        ast_in.units[0].position = (4.0, 0.0)
+        ast_in.units[0].position = (2.0, 0.0)
         ast_in.units[0].current_health = 10000.0
         battle_in._current_round = 1
         in_dmg = 0.0
         for _ in range(1500):
             in_dmg += dg_in.units[0].attack(
-                ast_in.units[0], distance=4.0, mode="ranged", has_los=True,
+                ast_in.units[0], distance=2.0, mode="ranged", has_los=True,
             )
 
         # Out-of-aura run.
@@ -478,7 +478,7 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         battle_out = Battle(dg_out, ast_out)
         battle_out._assign_uids()
         dg_out.units[0].position = (0.0, 0.0)
-        ast_out.units[0].position = (12.0, 0.0)   # > 6"
+        ast_out.units[0].position = (12.0, 0.0)   # > 3"
         ast_out.units[0].current_health = 10000.0
         battle_out._current_round = 1
         out_dmg = 0.0
