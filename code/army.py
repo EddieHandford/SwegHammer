@@ -230,6 +230,14 @@ class Army:
         # means "no oath this round" (e.g. round 0, or no Marine units alive).
         # Cited as `simulator.oath_of_moment`.
         self.oath_target_uid: Optional[str] = None
+        # Previous round's Oath target uid, snapshotted at the top of the
+        # Command phase before `oath_target_uid` is reset. _pick_oath_target
+        # reads this to bias picks AWAY from a still-alive prior target when
+        # a comparably-valuable runner-up exists — modelling the real-player
+        # behaviour of spreading damage across multiple anchors rather than
+        # spamming the same anchor 5 rounds in a row. Cited as part of
+        # `simulator.oath_of_moment` (heuristic, not a codex constraint).
+        self.prev_oath_target_uid: Optional[str] = None
         # T'au Empire Markerlights → Guided mechanic (10e army-wide). At the
         # start of this army's Shooting phase, every alive MARKERLIGHT-keyword
         # unit in this army "spots" one enemy unit in LoS within 36"; that

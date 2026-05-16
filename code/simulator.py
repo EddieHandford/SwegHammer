@@ -2822,6 +2822,11 @@ class Battle:
         # leaks across rounds (the buff only fires while uid == current
         # target). Cited as `simulator.oath_of_moment`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            # Snapshot prior round's target before clearing — _pick_oath_target
+            # uses this to rotate off a still-alive anchor when a comparable
+            # runner-up exists, so the picker doesn't lock onto one unit for
+            # the whole game (iter-5 diag: 1.42 unique targets / 5 picks).
+            army.prev_oath_target_uid = army.oath_target_uid
             army.oath_target_uid = None
             if any(is_marine_faction(u.profile.faction) for u in army.units):
                 self._pick_oath_target(army, opponent, round_num)
@@ -3688,13 +3693,28 @@ class Battle:
     ) -> None:
         """Adeptus Astartes Oath of Moment — pick this round's oath target.
 
-        AI heuristic: pick the highest-points alive enemy unit. The codex
-        rule lets the Marine player pick freely, so a points-weighted
-        threat heuristic matches the typical "kill their most valuable
-        thing" play pattern. Sets `army.oath_target_uid` and emits
-        `OathTargetChosen`. No-op (and no event) when the opponent has no
-        alive units left — Oath can still be declared on a wiped enemy by
-        the rules text but the re-roll is dead weight, so we skip cleanly.
+        AI heuristic: re-pick fresh every Command phase based on the LIVE
+        battlefield state (Wahapedia: "At the start of your Command phase,
+        select one enemy unit"). Score each alive enemy as
+            score = points_cost * (current_health / max_health)
+        so wounded fat anchors fade as the next-largest fresh target rises.
+        Without the health-ratio weighting the picker used `points_cost`
+        alone, which is static — the same anchor scored highest every
+        round until it died, producing 1.42 unique targets per 5 picks in
+        the iter-5 Marine diagnostic.
+
+        On top of the score, if the highest-scoring candidate matches LAST
+        round's pick AND a runner-up exists within 50% of the top score,
+        rotate to the runner-up. This models real-player behaviour of
+        spreading damage across multiple anchors rather than dumping a
+        full round of re-rolls into a unit that's already taking fire.
+        When the runner-up is far weaker (e.g. 50pt Cheap vs 300pt
+        Expensive at full HP, ratio 0.17 < 0.5), the rotation is
+        suppressed and we stay on the dominant threat — preserving the
+        intent of the iter-1 `test_oath_picks_highest_points_enemy` test.
+
+        Sets `army.oath_target_uid` and emits `OathTargetChosen`. No-op
+        (and no event) when the opponent has no alive units left.
 
         The buff itself (re-roll all hits AND all wounds against the
         chosen unit) is applied in Unit.attack, gated on the attacker
@@ -3703,7 +3723,35 @@ class Battle:
         alive = opponent.alive_units
         if not alive:
             return
-        target = max(alive, key=lambda u: u.profile.points_cost)
+
+        def score(u: "Unit") -> float:
+            max_hp = max(1.0, float(u.profile.health))
+            ratio = max(0.0, u.current_health / max_hp)
+            return float(u.profile.points_cost) * ratio
+
+        # Sort by live-weighted score, points_cost as a stable tiebreak so
+        # round 1 (all full HP) collapses to the legacy "highest points"
+        # ordering for test compatibility.
+        ranked = sorted(
+            alive,
+            key=lambda u: (score(u), u.profile.points_cost),
+            reverse=True,
+        )
+        target = ranked[0]
+        # Rotate off the prior anchor when a comparable runner-up exists.
+        # Threshold 0.5: runner-up must be at least half the top score to
+        # justify the swap. Keeps the 300pt-vs-50pt test passing (ratio
+        # 0.17 < 0.5) while letting two similar-points anchors alternate.
+        if (
+            army.prev_oath_target_uid is not None
+            and target.uid == army.prev_oath_target_uid
+            and len(ranked) >= 2
+        ):
+            top_score = score(target)
+            runner_up = ranked[1]
+            if top_score > 0 and score(runner_up) / top_score >= 0.5:
+                target = runner_up
+
         army.oath_target_uid = target.uid
         self._emit(OathTargetChosen(
             army_name=army.name,

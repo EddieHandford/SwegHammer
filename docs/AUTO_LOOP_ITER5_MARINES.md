@@ -31,7 +31,11 @@ Leagues of Votann 75.0  1009  1537      5.0         1.50          0.50
   onto one anchor and keeps re-picking it because tough anchors survive across
   rounds. iter-3 already showed Oath-attacks are only 12.65% of total. Oath is
   not driving over-perform; retargeting is rule-correct (picks every Command
-  phase, simulator.py:2789-2792).
+  phase, simulator.py:2789-2792). **iter-6 fix (commit pending)**: picker now
+  scores `points_cost * (current_health / max_health)` and rotates off the
+  prior round's anchor when a runner-up is within 50% of top score. Post-fix:
+  unique targets/battle 1.42 → 2.48; changes/battle 0.43 → 3.45;
+  Marines diff 14.2 → 10.9pt; realmeta MAE stays 5.03pt at 2dp.
 - **H3 — Repulsor stats**: catalogue line `A=2 D=9.0 S=10 AP-3 rng=36 dpa=4.21`
   — mapper picks Twin Lascannon (`A=2 D=D6+1=4.5`) as the single best ranged
   weapon. **Repulsor accounts for 20.5% of all Marine damage** (2695.5 dmg / 13133
