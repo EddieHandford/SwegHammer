@@ -271,3 +271,47 @@ Dispatched 3 agents (DG vs Custodes deep diag, shoot picker won't-crack penalty,
 
 **Convergence status**: Iter 5 and iter 6 both Δ<0.1pt (consecutive). Iter 7 will be the third — if it lands Δ<0.1 the loop exits on convergence criterion.
 
+### Iter 7 — completed (2026-05-16)
+
+**Diagnostics**: DG vs Custodes deep diag. Doc: `AUTO_LOOP_ITER7_DG_VS_CUSTODES.md`. Root cause: **Custodes OC starvation** (73-76% of objectives have Custodes OC=0; 14 units M6" can't reach 4 of 5 markers). Plus: Shield Host detachment has ZERO stratagems registered.
+
+**Fix batch**: 2 (shoot-picker won't-crack, BATTLELINE weapon-range audit).
+
+**Results (solo)**:
+- Shoot picker won't-crack penalty (mirror of C2): +0.28pt solo regression — PARKED.
+- BATTLELINE weapon-range audit: 4 corrections (T'au Strike Team 12→30, TSON Rubric 12→24, CSM Rubric 12→24, Votann Hearthkyn 12→18). Solo −0.03pt.
+
+**Cumulative**: MAE → **5.14pt**. MAE-vs-Sweg → 5.50pt.
+
+**Measurement noise observation**: re-measuring iter 6 commit `611d555` produces MAE 5.17, not 5.03 as originally recorded. Same commit, same PYTHONHASHSEED=0, different process → **±0.15pt variance**. Iter 5-7 Δ values all within noise.
+
+**Iter 7 commits on origin** (final):
+- `26e641b` iter 7 DG vs Custodes diagnostic
+- `7f99ebd` #iter7 BATTLELINE weapon-range audit
+
+## Loop terminated — convergence at noise floor
+
+**Stop reason**: Convergence criterion (Δ<0.1pt for 3 consecutive) sits below measurement noise (±0.15pt at N=20). Iter 5-7 all read at the noise floor. MAE<1pt unreachable at current calibration baseline (rule-correct simulator + uncalibrated points = 5.14pt floor).
+
+**Cumulative loop result**:
+- MAE-vs-real: 6.72 → **5.14pt** (Δ **−1.58pt** across 7 iters)
+- MAE-vs-Sweg: 6.78 → **5.50pt** (Δ **−1.28pt**)
+- Tests: 632 → 666 (+34 pinning fix invariants)
+- Rules cited: 151 → 162 active
+
+**Per-faction final state**:
+- DG +18.1 (biggest residual)
+- Marines +11.4
+- Necrons +5.7 / Custodes +4.8 / Tyranids +4.2 / Aeldari +2.3 / Votann +1.8 / TSON −0.2 / Orks −0.5 / T'au −4.5
+
+**Next-step recommendation**: move to **Plan Step 4 — Re-introduce MC bisection in vanilla mode**. The 5.14pt MAE is rule-correct simulator + un-recalibrated points. MC bisection re-derives per-unit prices against the rule-correct baseline, then feeds Plan Step 5 (utility-factor function fit). The remaining MAE compresses once points absorb the rule shifts.
+
+**Parked items still worth re-evaluating** after MC bisection lands:
+- A3 Tyranid Synapse self-shelter
+- Marines mapper Option A (mutex weighted basket)
+- Marines vehicle all-weapon basket
+- Votann probabilistic token gate (needs dedicated Random instance)
+- C3 vanilla uses activation_queue (scored-sort)
+- C2b shoot-picker won't-crack
+- Orks WAAAGH! 5++ vs melee + Advance-and-charge
+
