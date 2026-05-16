@@ -1241,8 +1241,13 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
 
     catalog: Dict[str, UnitProfile] = {}
     for key, entry in load_catalog(use_calibrated=use_calibrated).items():
+        # entry.move > 0 means the loader saw a movement value (either set in
+        # parsed.json or — more commonly — pinned via overrides.json). Fall
+        # back to the UnitProfile default (6.0) when no value is supplied.
+        _move = entry.move if entry.move and entry.move > 0 else 6.0
         catalog[key] = UnitProfile(
             name=entry.name,
+            move=_move,
             health=entry.health,
             damage=entry.damage,
             hit_probability=entry.hit_probability,
