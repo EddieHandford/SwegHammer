@@ -32,6 +32,7 @@ from typing import Optional, Tuple
 
 from .detachments import effective_move
 from .roles import classify
+from .units import save_probability, wound_probability
 
 
 _HOLD_INTENT = "HOLD"
@@ -528,6 +529,42 @@ def _melee_target_score(attacker, defender) -> float:
             * _synapse_target_bonus(attacker, defender))
 
 
+def _kill_potential_wounds(attacker_profile, target_profile) -> float:
+    """Expected wounds inflicted by one round of melee from `attacker_profile`
+    against `target_profile`. Pure stats — no faction conditionals.
+
+    Composes universal 10e math:
+        DPA          = melee_attacks * melee_hit_probability
+        wound_prob   = standard S-vs-T table (`wound_probability`)
+        save_fail    = 1 - best(armour_after_AP, invuln)
+        damage/shot  = melee_damage_per_shot (defaults to 1)
+
+    Used by `pick_charge_target` to detect "won't-crack" charges (#C2,
+    iter 2). See `docs/AUTO_LOOP_ITER1_CLUSTER_C.md` fix #2.
+    """
+    dpa = attacker_profile.melee_attacks * attacker_profile.melee_hit_probability
+    wound_p = wound_probability(
+        attacker_profile.melee_strength, target_profile.toughness
+    )
+    save_pass = save_probability(target_profile.save, attacker_profile.melee_ap)
+    invuln_pass = (
+        save_probability(target_profile.invuln_save)
+        if target_profile.invuln_save <= 6 else 0.0
+    )
+    save_fail = max(0.0, 1.0 - max(save_pass, invuln_pass))
+    dmg = attacker_profile.melee_damage_per_shot or 1.0
+    return dpa * wound_p * save_fail * dmg
+
+
+# #C2 (iter 2) — Charge "won't-crack" penalty constants. A charge whose
+# expected wounds inflicted is below WONT_CRACK_HP_FRAC of the target's
+# remaining health is downweighted by WONT_CRACK_PENALTY. Faction-neutral:
+# applies on the universal DPA-vs-HP ratio so Knights, Wraithlords, Tyrants
+# and Custodian Guard are all gated identically.
+_WONT_CRACK_HP_FRAC = 0.20
+_WONT_CRACK_PENALTY = 0.3
+
+
 def pick_charge_target(attacker, enemy):
     """
     Pick the best enemy to charge from those within 12" range.
@@ -619,6 +656,15 @@ def pick_charge_target(attacker, enemy):
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus)
+        # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
+        # this round is below 20% of target's current HP, heavily downweight
+        # the charge. Stops light melee attacking T8+ bricks they can't dent
+        # before counter-fight reverses on them. Faction-neutral: uses only
+        # universal stats (S/T wound table, AP-vs-save, DPA). 27.8% of
+        # charges in the iter-1 audit landed on un-crackable targets.
+        expected_wounds = _kill_potential_wounds(p, tp)
+        if expected_wounds < _WONT_CRACK_HP_FRAC * max(1.0, e.current_health):
+            score *= _WONT_CRACK_PENALTY
         candidates.append((score, d, e))
 
     if not candidates:
@@ -1632,6 +1678,16 @@ def _predict_pivotal_turn(strat) -> int:
     if name in (
         "Disgustingly Resilient", "Glamour of Tzeentch",
         "Lightning-Fast Reactions", "Implacable Onslaught",
+        # Warhost defensive proxies (#197): Skyborne Sanctuary and Webway
+        # Tunnel both route their canonical "pull unit out of harm's way"
+        # effect through transient_plus_one_save; they fire on the same
+        # mid-game survival window as Lightning-Fast Reactions.
+        "Skyborne Sanctuary", "Webway Tunnel",
+        # Virulent Vectorium defensive/heal stratagems also belong to the
+        # mid-game survival window: Putrid Detonation auto-detonates a
+        # half-dead vehicle, Leechspore Eruption heals + chips an adjacent
+        # foe, Plaguesurge widens the contagion bubble when CP is abundant.
+        "Putrid Detonation", "Leechspore Eruption", "Plaguesurge",
     ):
         return 3
     # Offensive alpha-strike window (T2 by default — the round where shooting
@@ -1652,7 +1708,10 @@ def _get_current_round(army) -> int:
     return int(getattr(battle, "_current_round", 0) or 0)
 
 
-def _should_hold_for_pivotal_turn(army, strat) -> bool:
+_HIGH_VALUE_TARGET_PTS: float = 100.0    # iter5 C5: bypass pivotal-hold on premium targets
+
+
+def _should_hold_for_pivotal_turn(army, strat, ctx: Optional[dict] = None) -> bool:
     """Return True if the army should DEFER firing this stratagem rather than
     spending CP now, based on the predicted pivotal turn.
 
@@ -1662,6 +1721,13 @@ def _should_hold_for_pivotal_turn(army, strat) -> bool:
       * current_round == pivotal_turn or beyond: never hold.
       * current_round == final round (T5): never hold — use it or lose it.
       * remaining CP > 2 * cost: never hold (CP abundant).
+      * High-value trigger override (iter5 C5, faction-neutral): if ctx
+        carries a `target` whose `points_cost >= _HIGH_VALUE_TARGET_PTS` AND
+        the army can afford a second spend (cp >= 2 * cost), bypass the
+        pivotal hold. This stops CP leaking to R4/R5 when a premium target
+        (Knight / Wraithlord / Custodian-tier brick) is on the table now.
+        Applies uniformly across all factions — the threshold keys on the
+        target's BSData points_cost, no faction lookup.
       * current_round < pivotal_turn AND cost > 0 AND CP not abundant: HOLD.
     """
     cost = int(getattr(strat, "cp_cost", 0) or 0)
@@ -1682,6 +1748,20 @@ def _should_hold_for_pivotal_turn(army, strat) -> bool:
     cp = int(getattr(army, "command_points", 0) or 0)
     if cp > 2 * cost:
         return False
+    # iter5 C5: high-value target override — burn-on-trigger for premium
+    # rolls when we can afford the spend twice over (cp >= 2 * cost). This
+    # is faction-neutral: the threshold is a universal points-cost bar, not
+    # a faction- or keyword-specific bypass. Without this, CP held through
+    # R1 for "pivotal R2" leaks to R4/R5 when R2 didn't produce a trigger.
+    if ctx is not None and cp >= 2 * cost:
+        target = ctx.get("target") or ctx.get("charge_target")
+        if target is not None:
+            try:
+                tcost = float(target.profile.points_cost)
+            except Exception:
+                tcost = 0.0
+            if tcost >= _HIGH_VALUE_TARGET_PTS:
+                return False
     return True
 
 
@@ -1707,7 +1787,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # for known-pivotal rounds rather than burning it on the first eligible
     # trigger. Reactive stratagems (Counter-Offensive, Heroic Intervention,
     # Tank Shock, Spirit Stones) and zero-cost stratagems are exempt.
-    if _should_hold_for_pivotal_turn(army, strat):
+    # iter5 C5: ctx is now consulted so a high-value trigger can bypass the
+    # hold gate uniformly across factions (faction-neutral CP-leak cleanup).
+    if _should_hold_for_pivotal_turn(army, strat, ctx):
         return False
 
     name = strat.name
@@ -1735,7 +1817,16 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             value = target_cost * hp_frac * 0.15   # ~15% of full value per wound
         except Exception:
             value = target_cost * 0.15
-        return value >= _MIN_EXPECTED_SWING_PTS
+        # iter5 C5: tighten the post-pivotal value bar so leaked CP doesn't
+        # burn on R3-R4 marginal triggers. After the alpha-strike window
+        # (R > pivotal_turn = R3+), require ~50% higher expected swing.
+        # Faction-neutral: keys on round number + universal points-cost.
+        bar = _MIN_EXPECTED_SWING_PTS
+        cur = _get_current_round(army)
+        pivot = _predict_pivotal_turn(strat)
+        if cur > 0 and pivot > 0 and cur > pivot and cur < _FINAL_ROUND:
+            bar = _MIN_EXPECTED_SWING_PTS * 1.5
+        return value >= bar
 
     if name == "Counter-Offensive":
         # ctx expects {"friendly_in_engagement": bool, "enemy_killed_model": bool}.
@@ -1818,6 +1909,84 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # ~8 pts of vulnerability swing required (matches _MIN_EXPECTED_SWING_PTS).
         return hp_frac > 0.0 and cost * hp_frac >= _MIN_EXPECTED_SWING_PTS
 
+    # ----- Virulent Vectorium (Death Guard) -------------------------------
+
+    if name == "Putrid Detonation":
+        # ctx expects {"target": Unit}. The target is the DG VEHICLE/MONSTER
+        # donor with deadly_demise > 0. Fire prophylactically: as long as a
+        # donor exists, the auto-success buff for the round is cheap (1 CP)
+        # and the EV is ~2 mortals to nearby enemies if the donor dies.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            demise = int(getattr(target.profile, "deadly_demise", 0) or 0)
+        except Exception:
+            demise = 0
+        # Only fire if the donor is meaningfully threatened — at full HP the
+        # demise auto-success is a 5-round bet that may never pay off; at
+        # below half HP the donor is likely to die this round and the spend
+        # is justified.
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            hp_frac = 0.0
+        return demise >= 2 and hp_frac > 0.3
+
+    if name == "Plaguesurge":
+        # ctx expects {"target": Unit} (DG WARLORD). 2 CP for +3" Contagion
+        # Range is informational in the simulator today (no consumer yet),
+        # so the heuristic skips it unless CP is abundant — the AI shouldn't
+        # waste CP on a stratagem with no live effect.
+        cp = int(getattr(army, "command_points", 0) or 0)
+        return cp >= 5
+
+    if name == "Leechspore Eruption":
+        # ctx expects {"target": Unit, "enemy": Unit}. Fire when the DG
+        # model has lost a meaningful share of HP (>= 50%) AND a target
+        # enemy exists within 3". The mortals payload + self-heal make this
+        # worth 1 CP whenever the donor is at half-HP+.
+        target = ctx.get("target")
+        enemy = ctx.get("enemy")
+        if target is None or enemy is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            return False
+        return hp_frac >= 0.5
+
+    if name == "Overwhelming Generosity":
+        # ctx expects {"attacker": Unit, "target": Unit}. Same gates as Plague
+        # Weapons / Fire and Fade for offensive shoot uplifts: real DG
+        # CHARACTER shooter (ranged DPA >= 2) AND a HEAVY target.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Creeping Blight":
+        # ctx expects {"attacker": Unit, "target": Unit}. Same gate as
+        # Overwhelming Generosity but for DG INFANTRY. The Afflicted gate is
+        # APPROXIMATED away so the heuristic just requires the DG INFANTRY
+        # unit have a real shooting profile and the target be HEAVY-class.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0 and _is_heavy_target(target)
+
     # ----- Plague Company (Death Guard) ----------------------------------
 
     if name == "Disgustingly Resilient":
@@ -1869,7 +2038,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             melee_dpa = 0.0
         return melee_dpa >= 3.0 and _is_heavy_target(target)
 
-    # ----- Battle Host (Aeldari) -----------------------------------------
+    # ----- Warhost (Aeldari) ---------------------------------------------
+    # (Was "Battle Host" before #197 — codex renamed the launch-index name.
+    # Heuristics here cover all six real codex stratagems.)
 
     if name == "Lightning-Fast Reactions":
         # ctx expects {"target": Unit}. Defensive — fire only on a
@@ -1916,6 +2087,74 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             and tgt_hp_frac > 0.15
         )
 
+    if name == "Skyborne Sanctuary":
+        # ctx expects {"target": Unit}. Defensive +1 save proxy for the
+        # end-of-fight re-embark. Same gate as Lightning-Fast Reactions
+        # (substantially-wounded high-value Aeldari unit) — both spend
+        # 1 CP to shelter a survivor.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.4 and cost >= 100.0
+
+    if name == "Feigned Retreat":
+        # ctx expects {"attacker": Unit}. Transient Assault on a real
+        # AELDARI shooter — fire for a high-cost shooter (the codex use
+        # case is "pull a key shooter out of melee and still let it
+        # shoot"). 150+ pts so we're not paying 1 CP on a Guardian squad.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 150.0
+
+    if name == "Blitzing Firepower":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 to hit
+        # shooting proxy for Sustained Hits 1. Same gate as Fire and
+        # Fade (real shooter, heavy target, target already softened).
+        # Aeldari already overperforms vs the meta, so the gate is
+        # intentionally tight.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+            tgt_hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+        except Exception:
+            return False
+        return (
+            ranged_dpa >= 2.0
+            and atk_cost >= 150.0
+            and _is_heavy_target(target)
+            and tgt_hp_frac > 0.15
+        )
+
+    if name == "Webway Tunnel":
+        # ctx expects {"target": Unit}. Defensive +1 save proxy for the
+        # end-of-enemy-fight Strategic Reserves pull. Same gate as
+        # Lightning-Fast Reactions and Skyborne Sanctuary — defensive
+        # spend on a wounded high-value Aeldari brick.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.4 and cost >= 100.0
+
     if name == "Matchless Agility":
         # ctx expects {"attacker": Unit}. Advance + still shoot — only fire
         # for non-ASURYANI Aeldari (ASURYANI already get free [ASSAULT] via
@@ -1960,8 +2199,78 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return hp_frac > 0.5 and cost >= 150.0
 
-    # ----- Awakened Dynasty (Necrons) -----------------------------------
+    # ----- Awakened Dynasty (Necrons) — six real Protocols (#194) -------
+    # Two Protocols (Eternal Revenant, Vengeful Stars) have no clean
+    # simulator hook and are catalogued-but-no-op. The four below match the
+    # four `_try_protocol_*` dispatchers in simulator.py.
 
+    if name == "Protocol of the Undying Legions":
+        # ctx expects {"target": Unit}. 1 CP defensive — fire when a real
+        # NECRONS unit has taken meaningful HP loss so the extra D3 (+1
+        # if led) reanimation pulse actually has dead peers to revive.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        # Wounded multi-model squad worth at least 80 pts — leans on the
+        # canonical "Warrior brick blown apart by alpha strike" scenario.
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Protocol of the Hungry Void":
+        # ctx expects {"attacker": Unit, "target": Unit}. +1 S melee (+1
+        # AP if led) — fire when the attacker has real melee DPA AND the
+        # target is a heavy threat (a +1 S that closes T4→T8 wound bracket
+        # is wasted on Cultists). Worth 1 CP on multi-attack melee Necrons.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Protocol of the Sudden Storm":
+        # ctx expects {"attacker": Unit}. [ASSAULT] for the round — fire
+        # for a real ranged shooter that benefits from advancing-and-shooting
+        # (move pressure into half range / clear a screen). Threshold 80 pts
+        # so we don't burn CP for Warriors with gauss flayers.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 80.0
+
+    if name == "Protocol of the Conquering Tyrant":
+        # ctx expects {"attacker": Unit, "target": Unit}. Re-roll hits of 1
+        # within half range (full re-roll if led) — fire when the attacker
+        # has serious DPA AND the target is heavy. Direction-correct
+        # ~25% damage uplift; cheap 1 CP gate matches Methodical Destruction's
+        # old shape (which it replaces).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 2.0 and _is_heavy_target(target)
+
+    # Legacy Awakened Dynasty heuristics (kept for backwards compatibility
+    # with any external caller; the stratagem constants themselves were
+    # deleted in the fabrication audit so these branches are unreachable
+    # via the simulator's dispatcher).
     if name == "Implacable Onslaught":
         # ctx expects {"target": Unit}. 1 CP for a transient FNP 5+ on a
         # Necron unit. Cheap defensive — fire whenever a meaningful Necron
@@ -2027,6 +2336,187 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         except Exception:
             cost = 0.0
         return cost >= 150.0
+
+    # ----- Mont'ka (T'au Empire) — six real detachment stratagems (#196)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+    # Same `cost >= 150` brick filter as Strike Swiftly / Matchless Agility —
+    # T'au already over-rates so CP only ever fires on real shooters (Crisis
+    # Battlesuits / Broadsides / Riptide), not Fire Warrior squads.
+
+    if name in (
+        "Pinpoint Counter-Offensive", "Aggressive Mobility", "Focused Fire",
+        "Combat Debarkation", "Pulse Onslaught",
+    ):
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            cost = 0.0
+        return cost >= 150.0
+
+    if name == "Counterfire Defence Systems":
+        # Defensive 2 CP — fire on a wounded high-value T'au unit. Same
+        # gate shape as Disgustingly Resilient / Lightning-Fast Reactions:
+        # require visible HP loss AND points cost >= 150, so we don't
+        # waste 2 CP keeping a Fire Warrior squad alive.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.25 and cost >= 150.0
+
+    # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) -----
+
+    if name == "Psychic Dominion":
+        # ctx: {"target": Unit}. Defensive FNP. Fire when the most vulnerable
+        # TSons unit has taken any HP loss AND is a substantial threat
+        # (>=100 pts — Scarab Occult Terminator brick, Magnus, etc.).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 100.0 and hp_frac >= 0.0
+
+    if name == "Destined by Fate":
+        # ctx: {"target": Unit}. -1 damage taken (APPROXIMATION; real
+        # rule sets one failed save's Damage to 0). Fire on a wounded
+        # PSYKER — single-instance defensive spend.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Desecration of Worlds":
+        # ctx: empty. Objective-control persistence. Fire from round 2
+        # onwards once the army has had time to actually plant a flag.
+        # Cheap to spend; the simulator currently treats this as a CP
+        # tax with no mechanical follow-through (APPROXIMATION).
+        battle = getattr(army, "_battle_ref", None)
+        round_num = getattr(battle, "_current_round", 0) if battle else 0
+        return round_num >= 2
+
+    if name == "Devastating Sorcery":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP for a re-roll
+        # hits buff on a PSYKER shooter. Higher gate than the 1-CP
+        # variants: require real DPA AND a heavy target.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+        except Exception:
+            return False
+        return ranged_dpa >= 2.0 and atk_cost >= 80.0 and _is_heavy_target(target)
+
+    # Egotistical Power and Arcane Focus are intentionally not dispatched
+    # via the round-start path (APPROXIMATION — see simulator dispatchers).
+
+    # ----- War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+    # Orks under-performed by -6.6pt at iter-0 baseline (docs/AUTO_LOOP
+    # _ITER1_CLUSTER_B.md). Gates here are deliberately permissive —
+    # Orks have plentiful CP and no other detachment to spend on, so
+    # the army should be firing stratagems aggressively when its
+    # melee-DPA bricks engage. Insane Bravery is intentionally not
+    # listed (no-op dispatcher, never fires; no AI gate needed).
+
+    if name == "Power Of The WAAAGH!":
+        # ctx: {"attacker": Unit, "target": Unit}. +1-to-wound melee
+        # approximation. Fire when the Orks attacker has real melee
+        # DPA AND the target is HEAVY-class — matches the Outbreak of
+        # Pestilence / Protocol of the Hungry Void heuristic shape.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Mob Up":
+        # ctx: {"target": Unit}. Reanimation-pulse approximation on a
+        # wounded Orks unit. Fire when the target has lost meaningful HP
+        # (>= 30%) AND the unit has a multi-model footprint (max HP >=
+        # 4.0, i.e. Boyz squad / Lootas / Nobz — not single-wound
+        # single-model squads like a Warboss).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            max_hp = float(target.profile.health)
+        except Exception:
+            return False
+        return hp_frac >= 0.3 and max_hp >= 4.0
+
+    if name == "Big Krumpin'":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP gate — tighter
+        # than Power Of The WAAAGH!. Require real melee DPA AND a
+        # HEAVY-class target AND a meaningfully large Orks attacker
+        # (cost >= 80, i.e. a real brick — not a Grot squad).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = p.melee_attacks * p.melee_hit_probability * (p.melee_damage_per_shot or 0.0)
+            cost = float(p.points_cost)
+        except Exception:
+            return False
+        return melee_dpa >= 3.0 and cost >= 80.0 and _is_heavy_target(target)
+
+    if name == "Tellyporta":
+        # ctx: {"target": Unit}. Defensive +1 save approximation. Fire
+        # on a wounded high-value Orks INFANTRY unit — same shape as
+        # Lightning-Fast Reactions but with a lower point gate because
+        # Orks bricks are cheaper per-point than Aeldari.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.3 and cost >= 80.0
+
+    if name == "Da Biggest Boss":
+        # ctx: {"attacker": Unit}. Warlord-only mobility approximation.
+        # Fire whenever a real Orks CHARACTER exists — the [ASSAULT]-
+        # for-the-round transient routes a single free shoot-after-move,
+        # cheap at 1 CP. Gate the spend on the character being a real
+        # contender (cost >= 60 covers Warboss, Ghazghkull, Beastboss
+        # and shuts out the 35-pt Mek).
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 60.0
 
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False

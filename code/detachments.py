@@ -26,11 +26,13 @@ from typing import Dict, Iterable, Optional, Tuple
 from .enhancements import Enhancement, enhancements_for_detachment
 from .stratagems import (
     Stratagem,
-    BATTLE_HOST_STRATAGEMS_EXTENDED,
-    CULT_OF_MAGIC_STRATAGEMS_EXTENDED,
-    PLAGUE_COMPANY_STRATAGEMS,
+    WARHOST_STRATAGEMS,
     AWAKENED_DYNASTY_STRATAGEMS,
+    DISGUSTINGLY_RESILIENT,
     MONTKA_STRATAGEMS,
+    VIRULENT_VECTORIUM_STRATAGEMS,
+    GRAND_COVEN_STRATAGEMS,
+    WAR_HORDE_STRATAGEMS,
 )
 
 
@@ -99,6 +101,64 @@ class Detachment:
     aspect_warrior_or_bike_plus_one_move: bool = False
     plague_marines_plus_one_to_wound: bool = False
 
+    # Martial Grace — Warhost (Aeldari) detachment rule (#197). Real text:
+    # "At the start of the battle round, you receive 1 additional Battle Focus
+    # token. Each time a unit from your army performs the Swift as the Wind
+    # Agile Manoeuvre, until the end of the phase, add an additional 1\" to
+    # the Move characteristic of models in that unit. Each time a unit from
+    # your army performs an Agile Manoeuvre that involves rolling a D6, add
+    # 1 to the result." Modelled in the simulator as a +1 to the round-start
+    # Battle Focus token refresh (so the Aeldari Agile Manoeuvre / Star
+    # Engine spend is more readily available). The Swift-as-the-Wind +1"
+    # move and the D6 +1 Agile-Manoeuvre boon are APPROXIMATED away — the
+    # simulator's grid-free movement model can't usefully consume per-phase
+    # +1" / +1-to-d6 buffs.
+    martial_grace: bool = False
+
+    # Mont'ka (T'au Empire) Killing Blow detachment rule (#196). Two flags,
+    # both round-gated to battle rounds 1-3 by the simulator:
+    #   * army_wide_assault_rounds_1_3 — grants the [ASSAULT] keyword to
+    #     every T'AU EMPIRE ranged weapon during rounds 1-3. Read by
+    #     `_do_shoot` to exempt T'au attackers from the Advance-then-
+    #     no-shoot lockout (mirrors the Aeldari Battle Focus / Matchless
+    #     Agility pathway, but army-wide and free during the window).
+    #   * lethal_hits_on_guided — grants [LETHAL HITS] to Guided units'
+    #     ranged weapons. Read by Unit.attack via the attacker's
+    #     `Army.guided_enemy_uids` set (populated each round by
+    #     Battle._run_markerlight_phase from alive MARKERLIGHT-keyword
+    #     units in the T'au army). APPROXIMATION: the Mont'ka detachment
+    #     text repeats the rounds-1-3 window for the LETHAL HITS half, but
+    #     the underlying Markerlight army rule grants Guided-target
+    #     LETHAL HITS in every Shooting phase, so SwegHammer applies the
+    #     buff army-wide regardless of round when the flag is True.
+    army_wide_assault_rounds_1_3: bool = False
+    lethal_hits_on_guided: bool = False
+
+    # Orks War Horde detachment rule (Get Stuck In). Real text (BSData
+    # verbatim, v10.6.0): "Melee weapons equipped by ORKS models from your
+    # army have the [SUSTAINED HITS 1] ability." Simulator gate: when this
+    # flag is True AND the attacker is faction=="Orks" AND mode=="melee",
+    # `Unit.attack` adds +1 to the sustained-hits multiplier on a crit-to-hit
+    # (matches how per-weapon sustained_hits already composes). Army-wide
+    # passive — no proximity / keyword filter beyond the Orks faction tag.
+    melee_sustained_hits_army_wide: bool = False
+
+    # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
+    # (Wahapedia): "If you control an objective marker at the end of your
+    # Command phase and a DEATH GUARD unit from your army (excluding Battle-
+    # shocked units) is within range of that objective marker, that objective
+    # marker remains under your control until your opponent's Level of Control
+    # over that objective marker is greater than yours at the end of a phase.
+    # In addition, until you lose control of that objective marker, it has
+    # the Nurgle's Gift ability as if it were a DEATH GUARD model from your
+    # army." Modelled as army-wide sticky-objective behaviour on DG units —
+    # the Nurgle's-Gift-on-the-objective half is APPROXIMATED (not modelled).
+    # Gate: at the end of each Command phase the simulator promotes any DG-
+    # held objective into the sticky-owner set so it persists until an enemy
+    # outscores the DG army on it (matches the real lock-until-flipped
+    # mechanic; loses the contagion-on-objective half).
+    worldblight_sticky_dg_objectives: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -151,11 +211,14 @@ AWAKENED_DYNASTY = Detachment(
         "a NECRONS CHARACTER model is leading this unit, each time a model "
         "in this unit makes an attack, add 1 to the Hit roll.\"' The whole "
         "detachment's offensive teeth are gated on being character-led; "
-        "lone Warrior squads get nothing. Detachment stratagems implemented: "
-        "Implacable Onslaught (1 CP, transient FNP 5+ on a Necron unit for "
-        "the round; composes with Reanimation Protocols) and Methodical "
-        "Destruction (1 CP, +1 to hit on a Necron shooter's ranged attacks "
-        "for the round, lowering the modifier into the 10e +1 cap)."
+        "lone Warrior squads get nothing. Detachment stratagems (#194 "
+        "rebuild) are the six real 'Protocol of the …' entries from the "
+        "Necrons codex: Eternal Revenant, Undying Legions, Hungry Void, "
+        "Sudden Storm, Conquering Tyrant, Vengeful Stars. Two of those "
+        "(Eternal Revenant, Vengeful Stars) have no clean simulator hook "
+        "and are catalogued-but-no-op APPROXIMATIONs; the other four map "
+        "onto existing transient_* flags (plus a new "
+        "transient_undying_legions_pulse for the extra reanimation pulse)."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
@@ -170,24 +233,20 @@ INVASION_FLEET = Detachment(
         "Shadow in the Warp: enemies have -1 Ld for Battleshock. Real rule "
         "is range-gated; we apply army-wide."
     ),
+    # APPROXIMATION: always-on -1 Ld passive substitutes for a once-per-battle Battleshock test.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Invasion-Fleet
+    # Real rule: Shadow in the Warp — once-per-battle army-wide Battleshock test, not a passive Ld debuff.
     enemy_ld_penalty=1,
     preferred_composition="balanced",
 )
 
-WAAAGH_DETACHMENT = Detachment(
-    name="WAAAGH! Tribe",
-    faction="Orks",
-    notes=(
-        "Placeholder detachment carrying no always-on passive. The real Ork "
-        "offensive teeth come from the once-per-game WAAAGH! army rule, which "
-        "now lives in `simulator.waaagh` (declared at Command-phase start, "
-        "Ork attackers gain +1 to wound in melee while active). The earlier "
-        "always-on +1 Attack approximation was removed because it stacked on "
-        "top of the round-gated buff, doubling Ork output. Detachment "
-        "stratagems are deferred to #104."
-    ),
-    preferred_composition="infantry",
-)
+# WAAAGH_DETACHMENT (the "WAAAGH! Tribe" placeholder) was deleted per the
+# 2026-05-15 fabrication audit (commit fa9a957). The detachment name was not
+# in the 10e Orks codex — real Ork detachments are War Horde, Da Big Hunt,
+# Kult of Speed, Dread Mob, Green Tide, Bully Boyz, Taktikal Brigade, More
+# Dakka!, Freebooter Krew, Speedwaaagh!, Blitz Brigade. The army rule
+# (WAAAGH! once-per-game declaration) is unaffected and stays in
+# `simulator.waaagh`; a real detachment replacement lands in a follow-up.
 
 NOBLE_LANCE = Detachment(
     name="Noble Lance",
@@ -218,6 +277,9 @@ SHIELD_HOST = Detachment(
         "Custodes durability: +1 to armour saves army-wide (cap at 2+). "
         "Approximates the multiple bespoke save-stacking rules in 10e."
     ),
+    # APPROXIMATION: +1 save (defensive) substitutes for an offensive Crit Hit / AP buff.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+    # Real rule: Martial Mastery — Critical Hit / AP buff (offensive), not +1 save (defensive).
     plus_one_save=True,
     preferred_composition="infantry",
 )
@@ -266,22 +328,35 @@ TELEPORT_STRIKE_FORCE = Detachment(
     preferred_composition="infantry",
 )
 
-BATTLE_HOST = Detachment(
-    name="Battle Host",
+WARHOST = Detachment(
+    # #197: renamed from BATTLE_HOST (launch-index name) to WARHOST (codex
+    # name). The detachment rule is now the real "Martial Grace" Battle
+    # Focus token buff rather than the previous reroll_hit_ones approximation.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
+    name="Warhost",
     faction="Aeldari",
     notes=(
-        "Aspect of the Path: lossy as army-wide re-roll hit 1s. Real rule "
-        "rotates +1 to hit / +1 to wound per Aspect Path. Detachment "
-        "stratagems implemented: Lightning-Fast Reactions (+1 save), "
-        "Fire and Fade (re-roll hits on a friendly Aeldari unit's shoot), "
-        "Matchless Agility (transient ASSAULT granting advance-and-shoot), "
-        "and Spirit Stones (1 CP, halve incoming damage on a damaged "
-        "Aeldari unit for the round). Spirit Stones is canonically a "
-        "Saim-Hann Craftworld stratagem but the simulator carries one "
-        "Aeldari detachment, so the entry is attached here."
+        "Martial Grace (Wahapedia): \"At the start of the battle round, you "
+        "receive 1 additional Battle Focus token. Each time a unit from your "
+        "army performs the Swift as the Wind Agile Manoeuvre, until the end "
+        "of the phase, add an additional 1\" to the Move characteristic of "
+        "models in that unit. Each time a unit from your army performs an "
+        "Agile Manoeuvre that involves rolling a D6, add 1 to the result.\" "
+        "Simulator implementation: the round-start Battle Focus token refresh "
+        "for any Aeldari army is incremented by 1 when this detachment is "
+        "active (gates on Detachment.martial_grace). The Swift-as-the-Wind "
+        "+1\" move and the D6 +1 Agile-Manoeuvre boon are APPROXIMATED away "
+        "— the grid-free movement model can't usefully consume per-phase "
+        "+1\" / +1-to-d6 buffs. Detachment stratagems (six real entries, all "
+        "from Wahapedia, #197): Lightning-Fast Reactions (+1 save), Fire and "
+        "Fade (re-roll hits on a friendly Aeldari unit's shoot), Skyborne "
+        "Sanctuary (+1 save proxy for end-of-fight re-embark), Feigned "
+        "Retreat (transient Assault proxy for shoot-after-Fall-Back), "
+        "Blitzing Firepower (+1 to hit shooting proxy for Sustained Hits 1), "
+        "Webway Tunnel (+1 save proxy for end-of-enemy-fight reserve pull)."
     ),
-    reroll_hit_ones=True,
-    stratagems=BATTLE_HOST_STRATAGEMS_EXTENDED,
+    martial_grace=True,
+    stratagems=WARHOST_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -300,15 +375,22 @@ MONTKA = Detachment(
     name="Mont'ka",
     faction="T'au Empire",
     notes=(
-        "Killing Blow doctrine: lossy as army-wide +1 to hit. Real rule "
-        "alternates between Mont'ka (offensive) and Kauyon (defensive). "
-        "Detachment stratagem implemented: Strike Swiftly (1 CP, transient "
-        "ASSAULT on a T'au shooter for the round so it can shoot after "
-        "Advancing). Re-uses the same transient_assault_this_round flag "
-        "as the Aeldari Matchless Agility stratagem since both share the "
-        "Advance-and-shoot pattern."
+        "Killing Blow (real 10e rule, #196). Two parts, both gated on "
+        "battle rounds 1-3: every T'AU EMPIRE ranged weapon gains [ASSAULT] "
+        "(simulator: army_wide_assault_rounds_1_3 — read by _do_shoot to "
+        "exempt T'au attackers from the Advance-then-no-shoot lockout in "
+        "rounds 1-3), AND Guided units' ranged weapons gain [LETHAL HITS] "
+        "(simulator: lethal_hits_on_guided — read by Unit.attack via the "
+        "attacker army's `guided_enemy_uids` set, populated each round by "
+        "Battle._run_markerlight_phase from alive MARKERLIGHT-keyword units). "
+        "Six real stratagems wired below from "
+        "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka."
     ),
-    plus_one_to_hit=True,
+    # Real rule: Killing Blow grants [ASSAULT] army-wide rounds 1-3 +
+    # [LETHAL HITS] on Guided units during rounds 1-3.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+    army_wide_assault_rounds_1_3=True,
+    lethal_hits_on_guided=True,
     stratagems=MONTKA_STRATAGEMS,
     preferred_composition="balanced",
 )
@@ -324,40 +406,124 @@ PACTBOUND_ZEALOTS = Detachment(
     preferred_composition="balanced",
 )
 
-PLAGUE_COMPANY = Detachment(
-    name="Plague Company",
+# PLAGUE_COMPANY (Death Guard) and CULT_OF_MAGIC (Thousand Sons) were deleted
+# per the 2026-05-15 fabrication audit (commit fa9a957). Neither detachment
+# exists in the 10e codex. Real DG detachments: Virulent Vectorium,
+# Mortarion's Hammer, Champions of Contagion, Tallyband Summoners,
+# Shamblerot Vectorium, Death Lord's Chosen, Flyblown Host. Real TSons
+# detachments: Grand Coven, Changehost of Deceit, Warpmeld Pact, Rubricae
+# Phalanx, Warpforged Cabal, Hexwarp Thrallband. Disgustingly Resilient
+# (the real DG stratagem) has been re-anchored to Virulent Vectorium at
+# 2CP in code/stratagems.py.
+
+VIRULENT_VECTORIUM = Detachment(
+    name="Virulent Vectorium",
     faction="Death Guard",
     notes=(
-        "No army-wide passive (still no citable always-on rule for the "
-        "10e detachment), but the detachment stratagems carry the codex's "
-        "actual identity: Disgustingly Resilient (-1 damage taken on a DG "
-        "unit for a round), Plague Weapons (+1 to wound shooting), and "
-        "Outbreak of Pestilence (+1 to wound melee, approximating the real "
-        "Anti-INFANTRY 4+ payload)."
+        "Worldblight: at the end of each Command phase, any objective the DG "
+        "army controls with a non-Battle-shocked DG unit in range stays "
+        "locked to the DG army until the opponent's Level of Control on it "
+        "exceeds the DG army's at the end of a phase. In addition, the "
+        "objective gains Nurgle's Gift while locked (the contagion-on-"
+        "objective half is APPROXIMATED — not modelled; only the sticky-"
+        "control half is implemented). Six detachment stratagems wired: "
+        "Putrid Detonation, Disgustingly Resilient, Plaguesurge, Leechspore "
+        "Eruption, Overwhelming Generosity, Creeping Blight. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium"
     ),
-    stratagems=PLAGUE_COMPANY_STRATAGEMS,
+    # APPROXIMATION: only the sticky-control half is modelled — the
+    # "objective also has Nurgle's Gift" contagion-on-objective half is
+    # dropped (we don't model objective markers as aura sources).
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+    # Real rule: Worldblight — sticky control PLUS Nurgle's Gift on each
+    # locked objective until the DG army loses control of it.
+    worldblight_sticky_dg_objectives=True,
+    stratagems=VIRULENT_VECTORIUM_STRATAGEMS,
     preferred_composition="infantry",
 )
 
-CULT_OF_MAGIC = Detachment(
-    name="Cult of Magic",
+
+# ---------------------------------------------------------------------------
+# Grand Coven (Thousand Sons) — psychic-pressure detachment (#193)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+#
+# Detachment Rule (Kindred Sorcery, verbatim from BSData v10.6.0): once per
+# battle each, the Thousand Sons player picks ONE of three abilities during
+# their Command phase, active until the start of their next Command phase:
+#   * Imbued Manifestation — +6" range to Psychic weapons
+#   * Psychic Maelstrom — +1 to wound rolls with Psychic weapons
+#   * Wrath of the Immaterium — Psychic weapons gain [DEVASTATING WOUNDS]
+#
+# The selectable, once-per-battle-each, Psychic-weapon-gated structure does
+# not map cleanly onto any existing always-on transient_* flag, so we model
+# the army's psychic teeth via the simulator-level Cabal of Sorcerers ritual
+# pass (real 2D6 + optional D6 Psychic test) PLUS the legacy
+# `psychic_mortal_wounds_per_round = 2` baseline (covering median-D3 Doombolt
+# when the Ritual fails its test or no Ritual was selected). The Kindred
+# Sorcery toggle itself remains UNIMPLEMENTED at the detachment-flag layer;
+# see APPROXIMATION note below.
+
+GRAND_COVEN = Detachment(
+    name="Grand Coven",
     faction="Thousand Sons",
     notes=(
-        "Cult of Magic is one of nine 10e Thousand Sons Great Cults; we "
-        "use the name as a convenient handle. No army-wide passive (still "
-        "no citable always-on rule), but the detachment's identity lands "
-        "via stratagems: Doombolt (1 CP, D3 mortal wounds in shooting), "
-        "Twist of Fate (1 CP, +1 damage on attacks vs target enemy for the "
-        "round), Glamour of Tzeentch (2 CP, transient 4++ invuln on a "
-        "friendly TSons unit), and Cabbalistic Empowerment (1 CP, boosts "
-        "the per-round Doombolt payload from 2 MW to 3 MW). Doombolt is "
-        "the per-Shooting-Phase ritual cast that previously sat as a "
-        "made-up `psychic_mortal_wounds_per_round` field — now it's a "
-        "proper CP-gated stratagem."
+        "Kindred Sorcery (Wahapedia): once-per-battle-each selection of "
+        "Imbued Manifestation (+6\" Psychic weapon range) / Psychic "
+        "Maelstrom (+1 to wound with Psychic weapons) / Wrath of the "
+        "Immaterium (Psychic weapons gain [DEVASTATING WOUNDS]). The army's "
+        "core teeth is the Cabal of Sorcerers Rituals pass (handled in the "
+        "simulator at start of Shooting phase, real 2D6+optional D6 Psychic "
+        "test); the baseline `psychic_mortal_wounds_per_round=2` covers "
+        "median-D3 Doombolt damage when the ritual pass produces no MW "
+        "payload. Six real stratagems wired (Psychic Dominion, Destined by "
+        "Fate, Egotistical Power, Desecration of Worlds, Arcane Focus, "
+        "Devastating Sorcery)."
     ),
-    stratagems=CULT_OF_MAGIC_STRATAGEMS_EXTENDED,
+    # APPROXIMATION: Kindred Sorcery's selectable, once-per-battle Psychic-
+    # weapon-keyword buff cannot reduce to a single static Detachment flag.
+    # The Cabal of Sorcerers Rituals pass (real Psychic test, real WC values,
+    # real D3 / D3+3 Doombolt math) is the actual implementation surface; the
+    # `psychic_mortal_wounds_per_round=2` baseline is a fallback for rounds
+    # where no Ritual fires successfully. Wahapedia URL above.
+    # Real rule: per-Command-phase choose-one (range / wound / DevWounds) on
+    # Psychic weapons, once-per-battle each; SwegHammer collapses to a flat
+    # 2-MW-per-round payload + the Cabal Rituals pass.
+    psychic_mortal_wounds_per_round=2,
+    stratagems=GRAND_COVEN_STRATAGEMS,
     preferred_composition="infantry",
 )
+
+
+WAR_HORDE = Detachment(
+    name="War Horde",
+    faction="Orks",
+    notes=(
+        "Get Stuck In (BSData v10.6.0 verbatim): \"Melee weapons equipped "
+        "by ORKS models from your army have the [SUSTAINED HITS 1] "
+        "ability.\" Army-wide passive — every Ork melee weapon picks up "
+        "[SUSTAINED HITS 1] regardless of leader / aura / character-led "
+        "state. Simulator implementation: a new flag "
+        "`melee_sustained_hits_army_wide` read by `Unit.attack` when "
+        "`mode == 'melee'` AND attacker is Orks; the per-weapon "
+        "`sustained_hits` is incremented by 1 for the duration of the "
+        "attack resolution, so a crit-to-hit generates one extra normal "
+        "hit. Stacks additively with any weapon that already carries the "
+        "ability (e.g. Flash Gitz Snazzguns) — matching the codex "
+        "compounding (a SUSTAINED HITS 1 weapon with this detachment "
+        "would become SUSTAINED HITS 2). Six real stratagems wired below "
+        "from https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde "
+        "per the iter-1 Cluster B diagnostic — Insane Bravery, Power Of "
+        "The WAAAGH!, Mob Up, Big Krumpin', Tellyporta, Da Biggest Boss. "
+        "Each is flagged APPROXIMATION where the simulator's transient_* "
+        "plumbing can't capture the literal codex effect (see per-entry "
+        "citations in data/rule_citations.d/stratagems.json)."
+    ),
+    melee_sustained_hits_army_wide=True,
+    stratagems=WAR_HORDE_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
 
 BERZERKER_WARBAND = Detachment(
     name="Berzerker Warband",
@@ -392,6 +558,10 @@ FINAL_DAY = Detachment(
     preferred_composition="infantry",
 )
 
+# APPROXIMATION: "Oathband" is a generic stub; closest codex match is Hearthband.
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+# Real rule: codex Votann detachments are Needgaard Oathband, Persecution Prospect,
+# Delve Assault Shift, Brandfast Oathband, Hearthfyre Arsenal, Hearthband, Mercenary Oathband.
 OATHBAND = Detachment(
     name="Oathband",
     faction="Leagues of Votann",
@@ -423,6 +593,9 @@ IRONSTORM_SPEARHEAD = Detachment(
         "the codex replacement carries a similar VEHICLE-keyword reroll "
         "spine. Gate: attacker has the VEHICLE keyword."
     ),
+    # APPROXIMATION: offensive vehicle hit-reroll stands in for a defensive AP debuff.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Ironstorm-Spearhead
+    # Real rule: Armour of Contempt — -1 AP on Marine models (defensive), not vehicle hit rerolls (offensive).
     vehicles_reroll_hit_ones=True,
     preferred_composition="vehicle",
 )
@@ -437,42 +610,21 @@ CANOPTEK_COURT = Detachment(
         "into a flat +1 to wound on the Canoptek chassis. Gate: attacker "
         "profile name starts with 'Canoptek'."
     ),
+    # APPROXIMATION: always-on +1 to wound stands in for a once-per-battle full wound reroll.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Court
+    # Real rule: Hyper-Logical Strategy — once-per-battle full reroll, not always-on +1 to wound.
     canoptek_plus_one_to_wound=True,
     preferred_composition="balanced",
 )
 
-SAIM_HANN_WILD_HOST = Detachment(
-    name="Saim-Hann Wild Host",
-    faction="Aeldari",
-    notes=(
-        "Wild Riders of Saim-Hann: friendly Aspect Warriors and Bike-mounted "
-        "units gain +1\" Movement. Lossy approximation of the Wild Host's "
-        "advance-and-charge spine, which in 10e grants ASSAULT and an "
-        "advance reroll to Aeldari Bikes; we collapse the mobility bundle "
-        "into a flat +1\" to the Move characteristic for the relevant "
-        "datasheets. Gate: attacker profile name matches one of the seven "
-        "Aspect Warrior datasheets (Howling Banshees, Striking Scorpions, "
-        "Fire Dragons, Dark Reapers, Swooping Hawks, Warp Spiders, Shining "
-        "Spears) or a Bike chassis (Windriders, Shining Spears, Shroud "
-        "Runners). Applied through `effective_move`."
-    ),
-    aspect_warrior_or_bike_plus_one_move=True,
-    preferred_composition="infantry",
-)
-
-PLAGUE_MARINES_ONSLAUGHT = Detachment(
-    name="Plague Marines Onslaught",
-    faction="Death Guard",
-    notes=(
-        "Plague Marines spearhead: PLAGUE MARINES units gain +1 to Wound "
-        "rolls. Lossy approximation of the codex's Plague Marines-themed "
-        "detachment spine (heavy on Plague Weapons buffs); we collapse the "
-        "bundle into a flat +1 to wound on the Plague Marines datasheet. "
-        "Gate: attacker profile name == 'Plague Marines'."
-    ),
-    plague_marines_plus_one_to_wound=True,
-    preferred_composition="infantry",
-)
+# SAIM_HANN_WILD_HOST (Aeldari) and PLAGUE_MARINES_ONSLAUGHT (Death Guard)
+# were deleted per the 2026-05-15 fabrication audit (commit fa9a957).
+# Neither detachment exists in the 10e codices. Real Aeldari detachments
+# include Warhost, Windrider Host, Spirit Conclave, Guardian Battlehost,
+# Ghosts of the Webway, Devoted of Ynnead, Seer Council, Aspect Host,
+# Armoured Warhost, Serpent's Brood, Eldritch Raiders, Corsair Coterie.
+# Real DG detachments are listed at PLAGUE_COMPANY's removal note above.
+# Real detachment replacements land per-faction.
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +635,6 @@ DETACHMENTS: Dict[str, Detachment] = {
     "gladius_task_force":      GLADIUS_TASK_FORCE,
     "awakened_dynasty":        AWAKENED_DYNASTY,
     "invasion_fleet":          INVASION_FLEET,
-    "waaagh_tribe":            WAAAGH_DETACHMENT,
     "noble_lance":             NOBLE_LANCE,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
@@ -491,12 +642,10 @@ DETACHMENTS: Dict[str, Detachment] = {
     "inquisition_task_force":  INQUISITION_TASK_FORCE,
     "combined_regiment":       COMBINED_REGIMENT,
     "teleport_strike_force":   TELEPORT_STRIKE_FORCE,
-    "battle_host":             BATTLE_HOST,
+    "warhost":                 WARHOST,
     "skysplinter_assault":     SKYSPLINTER_ASSAULT,
     "montka":                  MONTKA,
     "pactbound_zealots":       PACTBOUND_ZEALOTS,
-    "plague_company":          PLAGUE_COMPANY,
-    "cult_of_magic":           CULT_OF_MAGIC,
     "berzerker_warband":       BERZERKER_WARBAND,
     "daemonic_incursion":      DAEMONIC_INCURSION,
     "final_day":               FINAL_DAY,
@@ -504,8 +653,18 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Second detachments per major faction (#126).
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
-    "saim_hann_wild_host":     SAIM_HANN_WILD_HOST,
-    "plague_marines_onslaught": PLAGUE_MARINES_ONSLAUGHT,
+    # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
+    # set and Worldblight rule (sticky-control APPROXIMATION).
+    "virulent_vectorium":      VIRULENT_VECTORIUM,
+    # Thousand Sons real detachment (#193).
+    "grand_coven":             GRAND_COVEN,
+    # Orks real-codex detachment (War Horde, iter-1 Cluster B B1 fix). Wired
+    # with full 6-stratagem set and the Get Stuck In army-wide [SUSTAINED
+    # HITS 1] melee passive.
+    "war_horde":               WAR_HORDE,
+    # Deleted per fabrication audit fa9a957: waaagh_tribe, plague_company,
+    # cult_of_magic, saim_hann_wild_host, plague_marines_onslaught. Real
+    # codex detachment replacements land in per-faction follow-up commits.
 }
 
 
@@ -530,9 +689,12 @@ del _key, _det, _enh, _dc
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
-CULT_OF_MAGIC      = DETACHMENTS["cult_of_magic"]
-PLAGUE_COMPANY     = DETACHMENTS["plague_company"]
 MONTKA             = DETACHMENTS["montka"]
+VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
+GRAND_COVEN        = DETACHMENTS["grand_coven"]
+WAR_HORDE          = DETACHMENTS["war_horde"]
+# CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
+# audit (commit fa9a957); the detachments themselves are gone.
 
 # Default detachment per faction (used when Army.detachment is None and a
 # faction is known). Picks a sensible competitive default; user can override.
@@ -551,7 +713,8 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Deathwatch":               "gladius_task_force",
     "Necrons":                  "awakened_dynasty",
     "Tyranids":                 "invasion_fleet",
-    "Orks":                     "waaagh_tribe",
+    # Orks: real codex detachment "War Horde" wired in iter-1 Cluster B B1.
+    "Orks":                     "war_horde",
     "Imperial Knights":         "noble_lance",
     "Chaos Knights":            "noble_lance",
     "Adepta Sororitas":         "hallowed_martyrs",
@@ -561,16 +724,19 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Imperial Agents":          "inquisition_task_force",
     "Astra Militarum":          "combined_regiment",
     "Grey Knights":             "teleport_strike_force",
-    "Aeldari":                  "battle_host",
-    "Aeldari (Craftworlds)":    "battle_host",
-    "Ynnari":                   "battle_host",
+    "Aeldari":                  "warhost",
+    "Aeldari (Craftworlds)":    "warhost",
+    "Ynnari":                   "warhost",
     "Drukhari":                 "skysplinter_assault",
     "T'au Empire":              "montka",
     "Tau Empire":               "montka",
     "Chaos Space Marines":      "pactbound_zealots",
     "Heretic Astartes":         "pactbound_zealots",
-    "Death Guard":              "plague_company",
-    "Thousand Sons":            "cult_of_magic",
+    # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
+    # Thousand Sons: Grand Coven landed in #193 — real Wahapedia detachment
+    # with Kindred Sorcery + 6 stratagems + Cabal of Sorcerers Rituals.
+    "Death Guard":              "virulent_vectorium",
+    "Thousand Sons":            "grand_coven",
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
     "Genestealer Cults":        "final_day",
@@ -612,7 +778,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # army leans on its Canoptek units.
     "Necrons":                  ("awakened_dynasty", "canoptek_court"),
     "Tyranids":                 ("invasion_fleet",),
-    "Orks":                     ("waaagh_tribe",),
+    # Orks: War Horde wired in iter-1 Cluster B B1 (real codex detachment).
+    # Other 10e Ork detachments (Green Tide, Bully Boyz, Kult of Speed,
+    # Dread Mob, Da Big Hunt, Taktikal Brigade, More Dakka!, Freebooter
+    # Krew, Speedwaaagh!, Blitz Brigade) remain UNIMPLEMENTED — they land
+    # in per-detachment follow-up tasks.
+    "Orks":                     ("war_horde",),
     "Imperial Knights":         ("noble_lance",),
     "Chaos Knights":            ("noble_lance",),
     "Adepta Sororitas":         ("hallowed_martyrs",),
@@ -622,20 +793,22 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Imperial Agents":          ("inquisition_task_force",),
     "Astra Militarum":          ("combined_regiment",),
     "Grey Knights":             ("teleport_strike_force",),
-    # Aeldari: Battle Host (balanced) vs Saim-Hann Wild Host (mobility-
-    # themed; tilts on Aspect-Warrior / Bike-heavy rosters).
-    "Aeldari":                  ("battle_host", "saim_hann_wild_host"),
-    "Aeldari (Craftworlds)":    ("battle_host", "saim_hann_wild_host"),
-    "Ynnari":                   ("battle_host", "saim_hann_wild_host"),
+    # Aeldari: Warhost only (renamed from "battle_host" in #197 to match
+    # the codex name). saim_hann_wild_host was deleted per fabrication
+    # audit fa9a957 (closest real: Windrider Host).
+    "Aeldari":                  ("warhost",),
+    "Aeldari (Craftworlds)":    ("warhost",),
+    "Ynnari":                   ("warhost",),
     "Drukhari":                 ("skysplinter_assault",),
     "T'au Empire":              ("montka",),
     "Tau Empire":               ("montka",),
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
-    # Death Guard: Plague Company (balanced) vs Plague Marines Onslaught
-    # (Plague Marines-heavy rosters).
-    "Death Guard":              ("plague_company", "plague_marines_onslaught"),
-    "Thousand Sons":            ("cult_of_magic",),
+    # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
+    # Thousand Sons: Grand Coven landed in #193 — the real Wahapedia
+    # psychic-pressure detachment with Cabal of Sorcerers + 6 stratagems.
+    "Death Guard":              ("virulent_vectorium",),
+    "Thousand Sons":            ("grand_coven",),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
     "Genestealer Cults":        ("final_day",),

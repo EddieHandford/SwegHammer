@@ -14,6 +14,12 @@ layer adds a deferral check on top of the existing trigger heuristic in
 Reactive stratagems (Counter-Offensive, Heroic Intervention, Tank Shock,
 Spirit Stones) are exempt — they have no predictable pivotal turn and must
 fire whenever the trigger event happens.
+
+Note: the original suite covered METHODICAL_DESTRUCTION and PLAGUE_WEAPONS
+as offensive-deferral exemplars. Both stratagems were removed per the
+2026-05-15 fabrication audit (commit fa9a957). The deferral plumbing is
+unchanged; the tests below substitute COMMAND_RE_ROLL — also a T2 pivotal
+stratagem under `_predict_pivotal_turn` — to keep the same coverage.
 """
 
 from __future__ import annotations
@@ -23,7 +29,6 @@ import unittest
 from code.army import Army
 from code.stratagems import (
     COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION,
-    METHODICAL_DESTRUCTION, PLAGUE_WEAPONS,
 )
 from code.strategy import (
     _predict_pivotal_turn, should_fire_stratagem,
@@ -75,18 +80,6 @@ def _character_profile() -> UnitProfile:
     )
 
 
-def _shooter_profile() -> UnitProfile:
-    """A real shooter: ranged_dpa >= 2.0 so Methodical Destruction qualifies."""
-    return UnitProfile(
-        name="Big Gun",
-        health=8, damage=3, hit_probability=2 / 3,
-        ap=-2, save=3, strength=8, toughness=8,
-        attacks=6, weapon_damage_per_shot=2.0,
-        range_inches=48,
-        unit_keywords=("VEHICLE",),
-    )
-
-
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -104,10 +97,6 @@ class PredictPivotalTurnTests(unittest.TestCase):
     def test_command_reroll_pivots_at_T2(self):
         # Universal — pivots at the alpha-strike window.
         self.assertEqual(_predict_pivotal_turn(COMMAND_RE_ROLL), 2)
-
-    def test_offensive_stratagems_pivot_at_T2(self):
-        self.assertEqual(_predict_pivotal_turn(METHODICAL_DESTRUCTION), 2)
-        self.assertEqual(_predict_pivotal_turn(PLAGUE_WEAPONS), 2)
 
 
 class CounterOffensiveReactivityTests(unittest.TestCase):
@@ -157,32 +146,34 @@ class CounterOffensiveReactivityTests(unittest.TestCase):
 
 class OffensiveStratagemDeferralTests(unittest.TestCase):
     """Offensive stratagems (T2 pivotal) defer at T1 when CP is scarce,
-    then fire once we reach the pivotal turn."""
+    then fire once we reach the pivotal turn.
 
-    def _make_md_ctx(self):
-        """ctx for Methodical Destruction: a real shooter + HEAVY target."""
-        attacker = Unit(_shooter_profile())
-        attacker.uid = "A0"
+    Exemplar swapped from METHODICAL_DESTRUCTION (deleted, fabricated) to
+    COMMAND_RE_ROLL — also T2 pivotal under `_predict_pivotal_turn`.
+    """
+
+    def _make_cr_ctx(self):
+        """ctx for Command Re-Roll: HEAVY target so the heuristic green-lights."""
         target = Unit(_heavy_profile())
         target.uid = "T0"
-        return {"attacker": attacker, "target": target}
+        return {"target": target, "roll_kind": "wound"}
 
-    def test_methodical_destruction_holds_at_T1_with_scarce_cp(self):
+    def test_command_reroll_holds_at_T1_with_scarce_cp(self):
         army = Army("Test")
         # Just enough CP to afford — but not abundant (cp <= 2 * cost = 2).
         army.command_points = 1
         _attach_round(army, 1)
         self.assertFalse(
-            should_fire_stratagem(army, METHODICAL_DESTRUCTION, self._make_md_ctx()),
+            should_fire_stratagem(army, COMMAND_RE_ROLL, self._make_cr_ctx()),
             "Should HOLD CP at T1 with only 1 CP — pivotal is T2",
         )
 
-    def test_methodical_destruction_fires_at_T2(self):
+    def test_command_reroll_fires_at_T2(self):
         army = Army("Test")
         army.command_points = 1
         _attach_round(army, 2)
         self.assertTrue(
-            should_fire_stratagem(army, METHODICAL_DESTRUCTION, self._make_md_ctx()),
+            should_fire_stratagem(army, COMMAND_RE_ROLL, self._make_cr_ctx()),
             "Should FIRE at the pivotal turn (T2)",
         )
 
@@ -192,7 +183,7 @@ class OffensiveStratagemDeferralTests(unittest.TestCase):
         army.command_points = 5
         _attach_round(army, 1)
         self.assertTrue(
-            should_fire_stratagem(army, METHODICAL_DESTRUCTION, self._make_md_ctx()),
+            should_fire_stratagem(army, COMMAND_RE_ROLL, self._make_cr_ctx()),
             "Abundant CP (5 > 2*1) should override the T1 deferral",
         )
 
@@ -225,20 +216,18 @@ class LowCpHoldsForPivotalTests(unittest.TestCase):
         army = Army("Test")
         army.command_points = 1
         _attach_round(army, 1)
-        attacker = Unit(_shooter_profile())
-        attacker.uid = "A0"
         target = Unit(_heavy_profile())
         target.uid = "T0"
-        md_ctx = {"attacker": attacker, "target": target}
+        cr_ctx = {"target": target, "roll_kind": "wound"}
         # T1 with scarce CP — hold.
         self.assertFalse(
-            should_fire_stratagem(army, METHODICAL_DESTRUCTION, md_ctx),
+            should_fire_stratagem(army, COMMAND_RE_ROLL, cr_ctx),
             "Should hold the only CP at T1 for the pivotal turn",
         )
         # Advance to T2 (pivotal) — same CP, now we fire.
         _attach_round(army, 2)
         self.assertTrue(
-            should_fire_stratagem(army, METHODICAL_DESTRUCTION, md_ctx),
+            should_fire_stratagem(army, COMMAND_RE_ROLL, cr_ctx),
             "Should release the held CP at the pivotal turn",
         )
 

@@ -508,7 +508,7 @@ we will end up rewriting \texttt{units.py} twice.
 
 \paragraph{Phase 2 follow-ups (see \texttt{ROADMAP.md}).}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \todo \eddie\ \textbf{Points-per-model cost is imported wrong.}
+  \item \wip \eddie\ \textbf{Points-per-model cost is imported wrong.}
     The per-model points value coming through the BSData $\to$
     \texttt{UnitProfile} pipeline does not match the printed datasheet
     cost (likely a squad-total vs per-model confusion, or wrong cost
@@ -518,6 +518,32 @@ we will end up rewriting \texttt{units.py} twice.
     $=$ 185 pts / 5 models) and fix before any further calibration
     work \textemdash{} the Lanchester-derived fair cost has no signal
     until the printed-cost baseline is correct.
+    \emph{2026-05-16 partial fix:} \texttt{\_squad\_group\_size} was
+    reading the outer unit \texttt{selectionEntry}'s own
+    \texttt{field="selections"} constraints as squad size. For squads
+    with no inner \texttt{selectionEntryGroup} (Pink Horrors,
+    Plaguebearers, Bloodletters, Sagittarum Custodians, Chaos Spawn,
+    Obliterators, Kastelan Robots, etc.) the only such constraint is
+    \texttt{scope="force"}/\texttt{"roster"}/\texttt{"parent"} \textemdash{}
+    an army-list cap, not the model count \textemdash{} so
+    \texttt{min\_models} collapsed to 1 and per-model cost became the
+    full squad cost (Pink Horrors: 140 pts/model instead of 14). Fix
+    skips entry-self constraints on unit entries and uses shape (c)
+    (sum per-model \texttt{scope="parent"} constraints). 73 of 156
+    suspicious multi-model squads now report sane per-model costs;
+    83 elite/Legends entries remain to audit.
+  \item \todo \either\ \textbf{Thorough audit of the points-per-model
+    fix above.} Cross-check every multi-model squad's
+    \texttt{min\_models}/\texttt{points\_listed} against Wahapedia
+    (or printed codex). Particular suspects still to triage: Victrix
+    Honour Guard (BSData says min=1 max=6, real is 4-model fixed),
+    Corsair Voidscarred (Felarch group not summed with the 4--9
+    Voidscarred group), Boyz (min=9 max=19 likely missing the +1
+    Nob), Ork Mob/Tomb Blade-shape units whose models live across
+    multiple groups. Build a parametric test in
+    \texttt{tests/test\_mapper.py} that asserts a known-good sample
+    of $\sim$20 squads against printed-codex per-model costs, so this
+    bug class can't regress silently.
   \item \todo \jake\ Extract \texttt{S} (weapon Strength) and \texttt{T}
     (unit Toughness) from BSData into \texttt{UnitProfile} \textemdash{}
     currently defaulted to S$=$T$=4$ via \texttt{BASELINE\_*}.

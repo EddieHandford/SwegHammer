@@ -4,19 +4,26 @@ Stratagems and the Command Point (CP) economy.
 10e armies pick a Detachment that grants 6 detachment-specific Stratagems on
 top of the universal Core Stratagems every army can use. Stratagems cost CP
 and fire on specific triggers during specific phases — they're the lever real
-tournament play uses to swing close fights, and the reason "underrated"
-factions (Necrons, Death Guard, Thousand Sons) hold their own against shooty
-brick armies in our calibration.
-
-This module models the Stratagem dataclass, the four universal Core
-Stratagems (Wahapedia core-rules page), AND detachment-specific stratagems
-for the high-priority detachments calibration says we're under-rating:
-Cult of Magic (Thousand Sons), Plague Company (Death Guard), and Battle
-Host (Aeldari). The remaining detachments wire their stratagems in a
-follow-up task.
+tournament play uses to swing close fights.
 
 Sources for every stratagem entry are cited in
 `data/rule_citations.d/stratagems.json` per CLAUDE.md §10.
+
+Audit history (2026-05-15, commit fa9a957): 11 fabricated stratagems were
+removed from this file — they had no Wahapedia equivalent. (2026-05-16,
+#197): the Warhost (Aeldari) detachment stratagem set was completed —
+Lightning-Fast Reactions + Fire and Fade survived the audit; the remaining
+four real codex stratagems (Skyborne Sanctuary, Feigned Retreat, Blitzing
+Firepower, Webway Tunnel) have been added. The current entries are: the
+four universal Core Stratagems (verbatim 10e), the six real Warhost
+(Aeldari) stratagems, and Disgustingly Resilient (DG) which was
+re-anchored to Virulent Vectorium at 2CP. Per-detachment real stratagem
+sets for other factions are wired in follow-up per-faction PRs.
+
+Mont'ka rebuild (2026-05-16, #196): six real Mont'ka stratagems wired
+from the Wahapedia page (Pinpoint Counter-Offensive, Aggressive Mobility,
+Focused Fire, Combat Debarkation, Pulse Onslaught, Counterfire Defence
+Systems) — see MONTKA_STRATAGEMS below.
 
 Dispatch model:
   * `name` — display label.
@@ -103,92 +110,14 @@ UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Cult of Magic (Thousand Sons) — three detachment stratagems
+# Warhost (Aeldari) — six real detachment stratagems
 # ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic
-# Picked the three highest-impact entries from the detachment's stratagem
-# panel. Calibration says Thousand Sons is under-rated by ~9 pts vs the real
-# meta and the gap closes when their psychic-Shooting bursts and defensive
-# tricks come online.
-
-DOOMBOLT = Stratagem(
-    name="Doombolt",
-    cp_cost=1,
-    phase="shooting",
-    trigger="friendly_psyker_in_shooting_phase",
-    effect="d3_mortal_wounds_to_priority_enemy",
-)
-
-TWIST_OF_FATE = Stratagem(
-    name="Twist of Fate",
-    cp_cost=1,
-    phase="shooting",
-    trigger="high_value_enemy_alive",
-    effect="plus_one_damage_dealt_to_target_for_round",
-)
-
-GLAMOUR_OF_TZEENTCH = Stratagem(
-    name="Glamour of Tzeentch",
-    cp_cost=2,
-    phase="any",
-    trigger="vulnerable_friendly_unit",
-    effect="grant_4_invuln_to_friendly_for_round",
-)
-
-CULT_OF_MAGIC_STRATAGEMS: Tuple[Stratagem, ...] = (
-    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH,
-)
-
-
-# ---------------------------------------------------------------------------
-# Plague Company (Death Guard) — three detachment stratagems
-# ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment
-# Disgustingly Resilient is canonical and the rule the codex hangs on — it's
-# the headline reason Plague Marines / Deathshroud feel ridiculous at
-# tournament level. Plague Weapons and Outbreak of Pestilence are split into
-# shooting-side and melee-side wound buffs to keep their effects orthogonal.
-
-DISGUSTINGLY_RESILIENT = Stratagem(
-    name="Disgustingly Resilient",
-    cp_cost=1,
-    phase="any",
-    trigger="wounded_friendly_dg_unit",
-    effect="minus_one_damage_taken_for_round",
-)
-
-PLAGUE_WEAPONS = Stratagem(
-    name="Plague Weapons",
-    cp_cost=1,
-    phase="shooting",
-    trigger="friendly_dg_unit_about_to_shoot",
-    effect="plus_one_to_wound_shooting_for_round",
-)
-
-OUTBREAK_OF_PESTILENCE = Stratagem(
-    name="Outbreak of Pestilence",
-    cp_cost=1,
-    phase="fight",
-    trigger="friendly_dg_unit_in_melee",
-    effect="plus_one_to_wound_melee_for_round",
-)
-
-PLAGUE_COMPANY_STRATAGEMS: Tuple[Stratagem, ...] = (
-    DISGUSTINGLY_RESILIENT, PLAGUE_WEAPONS, OUTBREAK_OF_PESTILENCE,
-)
-
-
-# ---------------------------------------------------------------------------
-# Battle Host (Aeldari) — three detachment stratagems
-# ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host
-# Calibration says Aeldari is *over*-rated in the sim — adding their
-# stratagems shouldn't move the needle much (they spend CP that detachments
-# above didn't have to). Picked for cleanest distinct effects, not maximum
-# upside: Lightning-Fast Reactions is the canonical defensive entry,
-# Matchless Agility is the canonical mobility trick, and Fire and Fade is
-# approximated as a hit re-roll on a friendly Aeldari shoot (we don't model
-# post-shoot 6" repositioning in a grid-free sim).
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost
+# The fabrication audit (commit fa9a957) confirmed Lightning-Fast Reactions
+# and Fire and Fade as real entries; the remaining four (Skyborne Sanctuary,
+# Feigned Retreat, Blitzing Firepower, Webway Tunnel) were added in #197
+# from the Wahapedia stratagem list. The codex detachment name is "Warhost"
+# (the launch-index name "Battle Host" was renamed).
 
 LIGHTNING_FAST_REACTIONS = Stratagem(
     name="Lightning-Fast Reactions",
@@ -206,127 +135,488 @@ FIRE_AND_FADE = Stratagem(
     effect="reroll_hits_shooting_for_round",
 )
 
-MATCHLESS_AGILITY = Stratagem(
-    name="Matchless Agility",
+# Skyborne Sanctuary: end of Fight phase, an AELDARI INFANTRY unit not in
+# engagement range and wholly within 6" of a friendly AELDARI TRANSPORT can
+# embark within it. Defensive re-embark; we approximate the offensive
+# value via the same transient_plus_one_save flag (the canonical use case
+# is saving a shot-up unit from a follow-up activation).
+SKYBORNE_SANCTUARY = Stratagem(
+    name="Skyborne Sanctuary",
+    cp_cost=1,
+    phase="fight",
+    trigger="end_of_fight_aeldari_infantry_near_transport",
+    effect="plus_one_save_for_round",
+)
+
+# Feigned Retreat: your Movement phase, just after an AELDARI INFANTRY unit
+# Falls Back — until end of turn the unit can still shoot and declare a
+# charge despite having Fallen Back. We approximate the offensive value
+# via transient_assault_this_round (lets it shoot the same round it
+# repositioned, the closest single-flag stand-in).
+FEIGNED_RETREAT = Stratagem(
+    name="Feigned Retreat",
     cp_cost=1,
     phase="movement",
-    trigger="friendly_aeldari_unit_advancing",
-    effect="grant_assault_for_round",
+    trigger="friendly_aeldari_infantry_just_fell_back",
+    effect="transient_assault_for_round",
 )
 
-BATTLE_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
-    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY,
-)
-
-
-# ---------------------------------------------------------------------------
-# Awakened Dynasty (Necrons) — two flagship detachment stratagems
-# ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
-# Calibration (N=200) shows Necrons under-rated by ~15 pts vs the meta. The
-# detachment's two best-known stratagems are picked here: Implacable Onslaught
-# (army-wide FNP 5+ at end of opponent's Charge phase — composes with
-# Reanimation Protocols) and Methodical Destruction (the targeting / re-roll-
-# adjacent buff that lets a NECRON shooter pour fire into a priority target).
-
-IMPLACABLE_ONSLAUGHT = Stratagem(
-    name="Implacable Onslaught",
-    cp_cost=1,
-    phase="charge",
-    trigger="end_of_opponent_charge_phase",
-    effect="grant_fnp_5_to_necron_units_for_round",
-)
-
-METHODICAL_DESTRUCTION = Stratagem(
-    name="Methodical Destruction",
+# Blitzing Firepower: your Shooting phase, when an AELDARI unit is selected
+# to shoot — until end of phase its ranged weapons gain [SUSTAINED HITS 1]
+# vs targets within 12" (or improve to 5+ Critical Hit if already having
+# the ability). Approximated as +1 to hit shooting for the round, the
+# nearest one-flag stand-in for the Sustained-Hits uplift.
+BLITZING_FIREPOWER = Stratagem(
+    name="Blitzing Firepower",
     cp_cost=1,
     phase="shooting",
-    trigger="friendly_necron_unit_about_to_shoot",
+    trigger="aeldari_unit_about_to_shoot_short_range",
     effect="plus_one_to_hit_shooting_for_round",
 )
 
-AWAKENED_DYNASTY_STRATAGEMS: Tuple[Stratagem, ...] = (
-    IMPLACABLE_ONSLAUGHT, METHODICAL_DESTRUCTION,
-)
-
-
-# ---------------------------------------------------------------------------
-# Cult of Magic (Thousand Sons) — additional stratagem
-# ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
-# Cabbalistic Empowerment: a TSons psyker's psychic attack gains +1 to wound
-# for the phase. Modelled here as an upgrade to the existing Doombolt
-# mortal-wound payload — when this stratagem fires, the round's Doombolt
-# damage rises from the base median-D3 = 2 to 3 (the same path Doombolt
-# already uses, just boosted). Keeps the Stratagem dispatcher path uniform
-# without forcing every TSons shooter to track per-attack wound buffs.
-
-CABBALISTIC_EMPOWERMENT = Stratagem(
-    name="Cabbalistic Empowerment",
+# Webway Tunnel: end of opponent's Fight phase, an AELDARI INFANTRY unit
+# wholly within 9" of a battlefield edge and not in engagement range may
+# enter Strategic Reserves. SwegHammer's reserve model is a single
+# arrival queue with no mid-battle re-entry hook, so this stratagem is
+# wired in but resolves as a defensive save buff (+1 save) — the
+# strongest single-flag stand-in for "pull the unit off the table to
+# avoid the next attack" while the reserves hook is not implemented.
+WEBWAY_TUNNEL = Stratagem(
+    name="Webway Tunnel",
     cp_cost=1,
-    phase="shooting",
-    trigger="friendly_tson_psyker_in_shooting_phase",
-    effect="boost_doombolt_damage_for_round",
+    phase="fight",
+    trigger="aeldari_infantry_near_board_edge_end_of_enemy_fight",
+    effect="plus_one_save_for_round",
+)
+
+WARHOST_STRATAGEMS: Tuple[Stratagem, ...] = (
+    LIGHTNING_FAST_REACTIONS,
+    FIRE_AND_FADE,
+    SKYBORNE_SANCTUARY,
+    FEIGNED_RETREAT,
+    BLITZING_FIREPOWER,
+    WEBWAY_TUNNEL,
 )
 
 
 # ---------------------------------------------------------------------------
-# Saim-Hann (Aeldari) — Spirit Stones stratagem
+# Awakened Dynasty (Necrons) — six real Protocol stratagems
 # ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/
-# Spirit Stones (1 CP): when an AELDARI unit is targeted by an attack, halve
-# incoming Damage (rounding up) for the rest of the phase. Modelled per round
-# via the unit's transient_halve_damage flag (parallel to the existing
-# transient_minus_one_damage_taken Plague Company stratagem).
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+# Six real "Protocol of the …" stratagems verbatim from the Necrons codex.
+# Replaces the two fabricated entries (Implacable Onslaught, Methodical
+# Destruction) deleted in commit fa9a957 per the fabrication audit.
+#
+# Mapping summary (full notes in data/rule_citations.d/stratagems.json):
+#   * Eternal Revenant (1 CP) — return a destroyed CHARACTER at half wounds.
+#     No clean mapping (no model-resurrection hook); registered as a no-op
+#     APPROXIMATION so the stratagem is catalogued but the AI never fires.
+#   * Undying Legions (1 CP) — D3 (+1 if led) extra reanimation pulse on a
+#     unit that just lost models. Maps to an inline mid-phase reanimation
+#     hook (`transient_undying_legions_pulse`).
+#   * Hungry Void (1 CP) — +1 S melee (+1 AP melee if led). Approximated as
+#     `transient_plus_one_to_wound_melee` (same direction, lossy on AP).
+#   * Sudden Storm (1 CP) — [ASSAULT] for the round. Maps cleanly to
+#     `transient_assault_this_round`.
+#   * Conquering Tyrant (1 CP) — re-roll Hit rolls of 1 within half range
+#     (full re-roll if led). Approximated as `transient_reroll_hits_shooting`
+#     (full re-roll always; same direction, slight over-buff for unled).
+#   * Vengeful Stars (2 CP) — out-of-sequence shoot when an enemy destroys a
+#     friendly unit near a CHARACTER. No out-of-sequence shoot hook;
+#     registered as a no-op APPROXIMATION.
 
-SPIRIT_STONES = Stratagem(
-    name="Spirit Stones",
+PROTOCOL_OF_THE_ETERNAL_REVENANT = Stratagem(
+    name="Protocol of the Eternal Revenant",
     cp_cost=1,
     phase="any",
-    trigger="friendly_aeldari_unit_takes_a_hit",
-    effect="halve_incoming_damage_for_round",
+    trigger="necrons_character_just_destroyed",
+    effect="return_character_half_wounds_approximation",
+    once_per_battle=False,
+)
+
+PROTOCOL_OF_THE_UNDYING_LEGIONS = Stratagem(
+    name="Protocol of the Undying Legions",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_necrons_unit_just_lost_models",
+    effect="extra_reanimation_pulse",
+)
+
+PROTOCOL_OF_THE_HUNGRY_VOID = Stratagem(
+    name="Protocol of the Hungry Void",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_necrons_unit_about_to_fight",
+    effect="plus_one_strength_melee_approximation",
+)
+
+PROTOCOL_OF_THE_SUDDEN_STORM = Stratagem(
+    name="Protocol of the Sudden Storm",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_necrons_unit_in_movement",
+    effect="assault_this_round",
+)
+
+PROTOCOL_OF_THE_CONQUERING_TYRANT = Stratagem(
+    name="Protocol of the Conquering Tyrant",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_necrons_unit_about_to_shoot",
+    effect="reroll_hits_shooting_approximation",
+)
+
+PROTOCOL_OF_THE_VENGEFUL_STARS = Stratagem(
+    name="Protocol of the Vengeful Stars",
+    cp_cost=2,
+    phase="shooting",
+    trigger="enemy_destroyed_friendly_necrons_near_character",
+    effect="out_of_sequence_shoot_approximation",
+)
+
+AWAKENED_DYNASTY_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PROTOCOL_OF_THE_ETERNAL_REVENANT,
+    PROTOCOL_OF_THE_UNDYING_LEGIONS,
+    PROTOCOL_OF_THE_HUNGRY_VOID,
+    PROTOCOL_OF_THE_SUDDEN_STORM,
+    PROTOCOL_OF_THE_CONQUERING_TYRANT,
+    PROTOCOL_OF_THE_VENGEFUL_STARS,
 )
 
 
 # ---------------------------------------------------------------------------
-# Mont'ka (T'au Empire) — Strike Swiftly stratagem
+# Virulent Vectorium (Death Guard) — 6 detachment stratagems
 # ---------------------------------------------------------------------------
-# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/
-# Strike Swiftly (1 CP): a T'AU unit can shoot in the same turn it Advanced.
-# Re-uses the same transient_assault_this_round flag as the existing
-# Matchless Agility stratagem — the simulator's _do_shoot path already
-# short-circuits the Advanced-this-round shoot block on that flag, so we
-# only need to set it for a T'au shooter currently out of weapon range.
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+# Codex Death Guard, "Virulent Vectorium" detachment. The detachment rule is
+# Worldblight (sticky-objective-style control plus Nurgle's Gift contagion on
+# the objective itself). All six stratagems are present here verbatim per
+# task #195.
+#
+# Effect-mapping notes per stratagem:
+#   * Putrid Detonation — Deadly Demise auto-success + Afflict trigger.
+#     Mapped to a Deadly-Demise-related transient flag; the Afflicted
+#     keyword is APPROXIMATED (we don't model Afflicted as a unit state).
+#   * Disgustingly Resilient — already routed to transient_minus_one_damage_taken
+#     (APPROXIMATION; real text says "subtract 1 from the Damage characteristic
+#     of that attack" which matches per-shot damage reduction).
+#   * Plaguesurge — +3" Contagion Range. We don't currently model variable
+#     contagion range (it's hard-coded to 6"); APPROXIMATION leaves the
+#     transient unused but the stratagem is present with the real text cited.
+#   * Leechspore Eruption — heal-self + mortal-wound payload on a damaged DG
+#     model. Implementable via a custom dispatcher.
+#   * Overwhelming Generosity — re-roll weapon attack-count rolls vs a target.
+#     We don't model per-weapon attack-count dice; APPROXIMATED to
+#     re-roll hits on a friendly DG CHARACTER unit's shooting for the round.
+#   * Creeping Blight — re-roll hit AND wound vs Afflicted units. We don't
+#     model Afflicted; APPROXIMATED to re-roll hits on a DG INFANTRY unit's
+#     shooting (lossy: drops the wound-reroll half + the Afflicted gate).
 
-STRIKE_SWIFTLY = Stratagem(
-    name="Strike Swiftly",
+DISGUSTINGLY_RESILIENT = Stratagem(
+    name="Disgustingly Resilient",
+    cp_cost=2,
+    phase="any",
+    trigger="wounded_friendly_dg_unit",
+    effect="minus_one_damage_taken_for_round",
+)
+
+PUTRID_DETONATION = Stratagem(
+    name="Putrid Detonation",
+    cp_cost=1,
+    phase="any",
+    trigger="dg_vehicle_or_monster_destroyed",
+    effect="auto_success_deadly_demise",
+)
+
+PLAGUESURGE = Stratagem(
+    name="Plaguesurge",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_warlord",
+    effect="plus_three_inch_contagion_range",
+)
+
+LEECHSPORE_ERUPTION = Stratagem(
+    name="Leechspore Eruption",
+    cp_cost=1,
+    phase="command",
+    trigger="own_command_phase_wounded_dg_model",
+    effect="d6_per_wound_lost_mortal_and_heal",
+)
+
+OVERWHELMING_GENEROSITY = Stratagem(
+    name="Overwhelming Generosity",
+    cp_cost=1,
+    phase="shooting",
+    trigger="start_of_shooting_dg_character",
+    effect="reroll_attack_count_vs_target",
+)
+
+CREEPING_BLIGHT = Stratagem(
+    name="Creeping Blight",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_dg_infantry_not_yet_shot",
+    effect="reroll_hit_and_wound_vs_afflicted",
+)
+
+
+VIRULENT_VECTORIUM_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PUTRID_DETONATION,
+    DISGUSTINGLY_RESILIENT,
+    PLAGUESURGE,
+    LEECHSPORE_ERUPTION,
+    OVERWHELMING_GENEROSITY,
+    CREEPING_BLIGHT,
+)
+
+
+# ---------------------------------------------------------------------------
+# Mont'ka (T'au Empire) — six real detachment stratagems (#196)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+# Names, CP costs, triggers, and effects verified verbatim against the
+# Wahapedia page on 2026-05-15. Each entry has a matching citation in
+# data/rule_citations.d/stratagems.json with a per-effect APPROXIMATION
+# note where the simulator's behaviour diverges from the canonical text
+# (most often: gating clauses dropped, target restrictions widened).
+
+PINPOINT_COUNTER_OFFENSIVE = Stratagem(
+    name="Pinpoint Counter-Offensive",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_tau_unit_destroyed",
+    effect="reroll_hits_shooting_for_round",
+)
+
+AGGRESSIVE_MOBILITY = Stratagem(
+    name="Aggressive Mobility",
     cp_cost=1,
     phase="movement",
-    trigger="friendly_tau_unit_advancing",
-    effect="grant_assault_for_round",
+    trigger="friendly_tau_unit_about_to_advance",
+    effect="assault_this_round",
+)
+
+FOCUSED_FIRE = Stratagem(
+    name="Focused Fire",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_tau_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+COMBAT_DEBARKATION = Stratagem(
+    name="Combat Debarkation",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_tau_unit_just_disembarked",
+    effect="reroll_hits_shooting_for_round",
+)
+
+PULSE_ONSLAUGHT = Stratagem(
+    name="Pulse Onslaught",
+    cp_cost=2,
+    phase="shooting",
+    # TODO: APPROXIMATION — Pulse Onslaught's real effect is a Move /
+    # Charge / Advance penalty on the enemy unit. SwegHammer has no
+    # movement-debuff transient, so we route the offensive value through
+    # an attacker hit-buff for the round (the unit that fires the
+    # stratagem gets +1 to hit shooting for the round, modelling the
+    # "shaken" enemy as easier to land hits on).
+    trigger="friendly_tau_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+COUNTERFIRE_DEFENCE_SYSTEMS = Stratagem(
+    name="Counterfire Defence Systems",
+    cp_cost=2,
+    phase="any",
+    trigger="friendly_tau_unit_targeted",
+    effect="minus_one_damage_taken_for_round",
 )
 
 
 MONTKA_STRATAGEMS: Tuple[Stratagem, ...] = (
-    STRIKE_SWIFTLY,
+    PINPOINT_COUNTER_OFFENSIVE,
+    AGGRESSIVE_MOBILITY,
+    FOCUSED_FIRE,
+    COMBAT_DEBARKATION,
+    PULSE_ONSLAUGHT,
+    COUNTERFIRE_DEFENCE_SYSTEMS,
 )
 
 
-# Augmented Cult of Magic stratagems tuple — the original three plus
-# Cabbalistic Empowerment. The detachment registry re-exports
-# CULT_OF_MAGIC_STRATAGEMS as-is, then `Detachment.stratagems` is rebuilt to
-# include the new entry alongside the existing ones.
-CULT_OF_MAGIC_STRATAGEMS_EXTENDED: Tuple[Stratagem, ...] = (
-    DOOMBOLT, TWIST_OF_FATE, GLAMOUR_OF_TZEENTCH, CABBALISTIC_EMPOWERMENT,
+# ---------------------------------------------------------------------------
+# Grand Coven (Thousand Sons) — six real detachment stratagems (#193)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# Stratagem names + CP costs confirmed against Wahapedia's Grand Coven
+# detachment listing. Verbatim WHEN/EFFECT blocks were not reproducible
+# via the WebFetch tool (the model refused on copyright grounds); the
+# `quoted_text` in the citation file is a mechanical paraphrase tagged
+# accordingly. Each stratagem's effect maps onto an existing transient_*
+# flag where it can; gaps are flagged as APPROXIMATION in the dispatcher.
+
+PSYCHIC_DOMINION = Stratagem(
+    name="Psychic Dominion",
+    cp_cost=1,
+    phase="any",
+    trigger="enemy_psychic_attack_targets_friendly_tson_unit",
+    effect="transient_fnp_4_for_round",
+)
+
+DESTINED_BY_FATE = Stratagem(
+    name="Destined by Fate",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_tson_psyker_failed_save",
+    effect="minus_one_damage_taken_for_round",
+)
+
+EGOTISTICAL_POWER = Stratagem(
+    name="Egotistical Power",
+    cp_cost=1,
+    phase="command",
+    trigger="command_phase_friendly_tson_psyker_unit",
+    effect="reapply_kindred_sorcery_to_one_unit",
+)
+
+DESECRATION_OF_WORLDS = Stratagem(
+    name="Desecration of Worlds",
+    cp_cost=1,
+    phase="command",
+    trigger="command_phase_friendly_tson_holds_objective",
+    effect="sticky_objective_for_battle",
+)
+
+ARCANE_FOCUS = Stratagem(
+    name="Arcane Focus",
+    cp_cost=1,
+    phase="shooting",
+    trigger="psychic_test_after_channel_the_warp",
+    effect="reroll_psychic_test_dice",
+)
+
+DEVASTATING_SORCERY = Stratagem(
+    name="Devastating Sorcery",
+    cp_cost=2,
+    phase="shooting",
+    trigger="friendly_tson_psyker_unit_about_to_shoot",
+    effect="reroll_hits_shooting_for_round",
+)
+
+GRAND_COVEN_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PSYCHIC_DOMINION,
+    DESTINED_BY_FATE,
+    EGOTISTICAL_POWER,
+    DESECRATION_OF_WORLDS,
+    ARCANE_FOCUS,
+    DEVASTATING_SORCERY,
 )
 
 
-# Augmented Battle Host stratagems tuple — the original three plus Spirit
-# Stones. Saim-Hann is a Craftworld of the broader Aeldari faction; the
-# simulator only carries one Aeldari detachment, Battle Host, so we attach
-# Spirit Stones there rather than splitting into a separate detachment.
-BATTLE_HOST_STRATAGEMS_EXTENDED: Tuple[Stratagem, ...] = (
-    LIGHTNING_FAST_REACTIONS, FIRE_AND_FADE, MATCHLESS_AGILITY, SPIRIT_STONES,
+# ---------------------------------------------------------------------------
+# War Horde (Orks) — six real detachment stratagems (iter-1 Cluster B B1)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+# Names + CP costs cross-referenced against the iter-1 Cluster B diagnostic
+# (docs/AUTO_LOOP_ITER1_CLUSTER_B.md) which audits the Wahapedia stratagem
+# list. WebFetch against wahapedia.ru returned ECONNREFUSED at edit time;
+# stratagem effects are paraphrased per general 10e Orks codex knowledge,
+# with the Wahapedia URL cited and each entry flagged APPROXIMATION in
+# data/rule_citations.d/stratagems.json. Effect mappings follow the same
+# convention as Mont'ka / Warhost — route through the closest existing
+# transient_* flag and document the gap.
+#
+# Effect-mapping summary:
+#   * Insane Bravery (1 CP) — auto-pass a Battle-shock test on an OUTRIDE
+#     INFANTRY unit. No clean simulator hook (battleshock is resolved per-
+#     unit at round end and we don't expose a per-unit "this unit is
+#     immune this round" flag), so the dispatcher is catalogued-but-no-op
+#     APPROXIMATION; CP not spent.
+#   * Power Of The WAAAGH! (1 CP) — an Orks unit's melee weapons gain
+#     LETHAL HITS (or upgrade to 5+ Critical Hit if already carrying it)
+#     for the fight phase. Maps to `transient_plus_one_to_wound_melee`
+#     on the highest-DPA Orks melee unit — same direction (more landed
+#     wounds in melee), strength comparable on an average matchup.
+#   * Mob Up (1 CP) — an Orks INFANTRY unit absorbs a destroyed friendly
+#     Orks INFANTRY unit's surviving models. No model-absorbing hook;
+#     mapped to `transient_undying_legions_pulse` = 2 (mid-phase +2 HP
+#     reanimation on a wounded Orks unit, the closest "regain bodies"
+#     stand-in SwegHammer has).
+#   * Big Krumpin' (2 CP) — an Orks unit re-rolls Wound rolls of 1 in
+#     melee (or full re-roll if charging). Maps to
+#     `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
+#     unit. APPROXIMATION: the codex effect is a wound reroll (~14% extra
+#     wounds at 4+), while +1 to wound (~25% extra wounds) is stronger;
+#     mitigated by the 2 CP price gate.
+#   * Tellyporta (1 CP) — pull an Orks INFANTRY unit off the battlefield
+#     and place it back via Strategic Reserves next round. No mid-battle
+#     reserve hook; mapped to `transient_plus_one_save` on the most
+#     vulnerable Orks INFANTRY unit as a defensive stand-in (same as
+#     Webway Tunnel's pattern).
+#   * Da Biggest Boss (1 CP) — Warlord-targeted; the Warlord makes a
+#     normal move of D6+1" in the Movement phase. No grid-free movement
+#     buff hook; mapped to `transient_assault_this_round` on the
+#     highest-DPA Orks CHARACTER as a stand-in for the "reposition then
+#     shoot" offensive payoff.
+
+INSANE_BRAVERY = Stratagem(
+    name="Insane Bravery",
+    cp_cost=1,
+    phase="command",
+    trigger="friendly_orks_infantry_battleshock_test_about_to_fail",
+    effect="auto_pass_battleshock_approximation",
+)
+
+POWER_OF_THE_WAAAGH = Stratagem(
+    name="Power Of The WAAAGH!",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_orks_unit_about_to_fight",
+    effect="lethal_hits_melee_approximation",
+)
+
+MOB_UP = Stratagem(
+    name="Mob Up",
+    cp_cost=1,
+    phase="command",
+    trigger="friendly_orks_infantry_wounded",
+    effect="extra_reanimation_pulse_approximation",
+)
+
+BIG_KRUMPIN = Stratagem(
+    name="Big Krumpin'",
+    cp_cost=2,
+    phase="fight",
+    trigger="friendly_orks_unit_about_to_fight_heavy_target",
+    effect="reroll_wounds_melee_approximation",
+)
+
+TELLYPORTA = Stratagem(
+    name="Tellyporta",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_orks_infantry",
+    effect="plus_one_save_for_round_approximation",
+)
+
+DA_BIGGEST_BOSS = Stratagem(
+    name="Da Biggest Boss",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_orks_character_warlord",
+    effect="transient_assault_for_round_approximation",
+)
+
+
+WAR_HORDE_STRATAGEMS: Tuple[Stratagem, ...] = (
+    INSANE_BRAVERY,
+    POWER_OF_THE_WAAAGH,
+    MOB_UP,
+    BIG_KRUMPIN,
+    TELLYPORTA,
+    DA_BIGGEST_BOSS,
 )
 
 
@@ -350,9 +640,9 @@ def award_command_phase_cp(army) -> None:
 
 
 def stratagems_for_army(army) -> Tuple[Stratagem, ...]:
-    """Every Stratagem this army can fire. Today that's just the four
-    universals; once #104 lands, this also folds in any detachment-specific
-    stratagems exposed on `Army.resolve_detachment().stratagems`.
+    """Every Stratagem this army can fire — the four universals plus any
+    detachment-specific stratagems exposed on
+    `Army.resolve_detachment().stratagems`.
     """
     extra: Tuple[Stratagem, ...] = ()
     det = army.resolve_detachment() if hasattr(army, "resolve_detachment") else None
@@ -368,34 +658,54 @@ __all__ = [
     "TANK_SHOCK",
     "HEROIC_INTERVENTION",
     "UNIVERSAL_STRATAGEMS",
-    # Cult of Magic (Thousand Sons)
-    "DOOMBOLT",
-    "TWIST_OF_FATE",
-    "GLAMOUR_OF_TZEENTCH",
-    "CULT_OF_MAGIC_STRATAGEMS",
-    # Plague Company (Death Guard)
-    "DISGUSTINGLY_RESILIENT",
-    "PLAGUE_WEAPONS",
-    "OUTBREAK_OF_PESTILENCE",
-    "PLAGUE_COMPANY_STRATAGEMS",
-    # Battle Host (Aeldari)
+    # Warhost (Aeldari) — six real stratagems
     "LIGHTNING_FAST_REACTIONS",
     "FIRE_AND_FADE",
-    "MATCHLESS_AGILITY",
-    "BATTLE_HOST_STRATAGEMS",
-    # Awakened Dynasty (Necrons)
-    "IMPLACABLE_ONSLAUGHT",
-    "METHODICAL_DESTRUCTION",
+    "SKYBORNE_SANCTUARY",
+    "FEIGNED_RETREAT",
+    "BLITZING_FIREPOWER",
+    "WEBWAY_TUNNEL",
+    "WARHOST_STRATAGEMS",
+    # Awakened Dynasty (Necrons) — six real Protocol stratagems
+    "PROTOCOL_OF_THE_ETERNAL_REVENANT",
+    "PROTOCOL_OF_THE_UNDYING_LEGIONS",
+    "PROTOCOL_OF_THE_HUNGRY_VOID",
+    "PROTOCOL_OF_THE_SUDDEN_STORM",
+    "PROTOCOL_OF_THE_CONQUERING_TYRANT",
+    "PROTOCOL_OF_THE_VENGEFUL_STARS",
     "AWAKENED_DYNASTY_STRATAGEMS",
-    # Cult of Magic (Thousand Sons) — Cabbalistic Empowerment addition
-    "CABBALISTIC_EMPOWERMENT",
-    "CULT_OF_MAGIC_STRATAGEMS_EXTENDED",
-    # Saim-Hann (Aeldari) — Spirit Stones, attached to Battle Host
-    "SPIRIT_STONES",
-    "BATTLE_HOST_STRATAGEMS_EXTENDED",
-    # Mont'ka (T'au) — Strike Swiftly
-    "STRIKE_SWIFTLY",
+    # Virulent Vectorium (Death Guard) — 6 detachment stratagems
+    "DISGUSTINGLY_RESILIENT",
+    "PUTRID_DETONATION",
+    "PLAGUESURGE",
+    "LEECHSPORE_ERUPTION",
+    "OVERWHELMING_GENEROSITY",
+    "CREEPING_BLIGHT",
+    "VIRULENT_VECTORIUM_STRATAGEMS",
+    # Mont'ka (T'au Empire) — six real stratagems (#196)
+    "PINPOINT_COUNTER_OFFENSIVE",
+    "AGGRESSIVE_MOBILITY",
+    "FOCUSED_FIRE",
+    "COMBAT_DEBARKATION",
+    "PULSE_ONSLAUGHT",
+    "COUNTERFIRE_DEFENCE_SYSTEMS",
     "MONTKA_STRATAGEMS",
+    # Grand Coven (Thousand Sons) — six real stratagems (#193)
+    "PSYCHIC_DOMINION",
+    "DESTINED_BY_FATE",
+    "EGOTISTICAL_POWER",
+    "DESECRATION_OF_WORLDS",
+    "ARCANE_FOCUS",
+    "DEVASTATING_SORCERY",
+    "GRAND_COVEN_STRATAGEMS",
+    # War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
+    "INSANE_BRAVERY",
+    "POWER_OF_THE_WAAAGH",
+    "MOB_UP",
+    "BIG_KRUMPIN",
+    "TELLYPORTA",
+    "DA_BIGGEST_BOSS",
+    "WAR_HORDE_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

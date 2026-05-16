@@ -53,15 +53,21 @@ def _prob_to_target(prob: float) -> int:
     return max(2, min(7, target))
 
 
+# APPROXIMATION: 3-round escalating model is the older index/launch-day Contagions shape.
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
+# Real rule (current 10e): Nurgle's Gift / Afflicted — Skullsquirm Blight, Rattlejoint Ague,
+# Scabrous Soulrot variants applied per unit, not a fixed -1T R1 / -1Ld R2 / -1 to hit R3+
+# sequence. Direction-correct (still debuffs enemies near DG models) but mechanics differ.
 def _contagion_round_for(unit: "Unit") -> int:
     """Return the active Death Guard Contagion round for the army that opposes
     `unit`'s army, or 0 when no DG army is on the opposing side / no battle is
-    active. Used by `Unit.attack` to gate the 6" Nurgle's Gift aura.
+    active. Used by `Unit.attack` to gate the 3" Nurgle's Gift aura.
 
-    Contagions of Nurgle (Death Guard army rule, 10e — escalating order):
-      Round 1 — Virulent Rot:       -1 T on enemy units within 6" of a DG model
-      Round 2 — Maladictive Pall:   -1 Ld on enemy units within 6" (battleshock)
-      Round 3+ — Fulminating Plague: -1 to hit on enemy units within 6"
+    Contagions of Nurgle (Death Guard army rule, 10e — post iter-4 shape):
+      Round 1 — (no debuff; the legacy Virulent Rot -1 T branch was dropped
+                in iter-4 — it had no anchor in the modern codex)
+      Round 2 — Maladictive Pall:   -1 Ld on enemy units within 3" (battleshock)
+      Round 3+ — Fulminating Plague: -1 to hit on enemy units within 3"
     """
     own_army = getattr(unit, "army_ref", None)
     if own_army is None:
@@ -385,20 +391,30 @@ class Unit:
         #       buff: each per-shot damage reduced by 1 (floor 1) for the round.
         #   transient_plus_one_to_wound_melee — Outbreak of Pestilence. Attacker
         #       buff: +1 to wound on melee attacks for the round.
-        # Battle Host (Aeldari):
-        #   transient_plus_one_save — Lightning-Fast Reactions. Defender buff:
-        #       +1 to armour save (cap 2+) for the round.
+        # Warhost (Aeldari, was "Battle Host" pre-#197):
+        #   transient_plus_one_save — Lightning-Fast Reactions (also reused by
+        #       Skyborne Sanctuary and Webway Tunnel as defensive proxies).
+        #       Defender buff: +1 to armour save (cap 2+) for the round.
         #   transient_reroll_hits_shooting — Fire and Fade. Attacker buff: failed
         #       hit rolls in shooting are re-rolled (once) for the round.
-        #   transient_assault_this_round — Matchless Agility OR Strike Swiftly
-        #       (T'au Mont'ka). Movement buff: unit may shoot in the same round
-        #       it advanced.
+        #   transient_plus_one_to_hit_shooting — Blitzing Firepower (Warhost
+        #       proxy for Sustained Hits 1). Attacker buff: +1 to hit on ranged
+        #       attacks for the round. Reused by Methodical Destruction too.
+        #   transient_assault_this_round — Feigned Retreat (Warhost), Strike
+        #       Swiftly (T'au Mont'ka). Movement buff: unit may shoot in the
+        #       same round it advanced.
         # Awakened Dynasty (Necrons):
-        #   transient_fnp_5 — Implacable Onslaught. Defender buff: target gets a
-        #       transient FNP 5+ for the round (composes with existing FNP by
-        #       taking the lower / better value in receive_damage).
-        #   transient_plus_one_to_hit_shooting — Methodical Destruction.
-        #       Attacker buff: +1 to hit on ranged attacks for the round.
+        #   transient_fnp_5 — (legacy slot, retained for stable layout) was
+        #       Implacable Onslaught, deleted in the fabrication audit. Now
+        #       reused if a future Necron stratagem grants FNP 5+.
+        #   transient_plus_one_to_hit_shooting — (legacy slot, retained) was
+        #       Methodical Destruction, deleted in the fabrication audit. Now
+        #       a generic +1-to-hit-shooting slot any stratagem can set.
+        #   transient_undying_legions_pulse — Protocol of the Undying Legions
+        #       (Awakened Dynasty, 1 CP). When set, the affected NECRONS unit
+        #       gets one extra mid-round reanimation pulse equal to this
+        #       integer wound count. Consumed + reset by
+        #       Battle._apply_undying_legions_pulse and the round-clear hook.
         # Saim-Hann (Aeldari):
         #   transient_halve_damage — Spirit Stones. Defender buff: each per-shot
         #       damage is halved (rounded up) for the round.
@@ -412,6 +428,7 @@ class Unit:
         "transient_fnp_5",
         "transient_plus_one_to_hit_shooting",
         "transient_halve_damage",
+        "transient_undying_legions_pulse",
         # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
         # each Command phase to any Drukhari unit below Starting Strength;
         # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
@@ -486,6 +503,9 @@ class Unit:
         self.transient_plus_one_to_hit_shooting: bool = False
         # Saim-Hann (Aeldari) per-round stratagem flag.
         self.transient_halve_damage: bool = False
+        # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
+        # number of wounds to reanimate in a follow-up pulse. 0 = no pulse.
+        self.transient_undying_legions_pulse: int = 0
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is
@@ -721,21 +741,21 @@ class Unit:
             _hit_target_after_buffs = hit_target
 
         # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
-        # Virulent Rot: enemy units within 6" of any DG model have -1 T (only
-        # for the purpose of wound rolls against them). We don't mutate
-        # target.profile.toughness; instead we apply the equivalent +1 to wound
-        # (lower wound_target by 1, min 2) when the DEFENDER is within 6" of
-        # any DG model on the army OPPOSING the defender's army. The aura is
-        # projected by every DG model (Nurgle's Gift), not just characters.
-        # Cited as `simulator.contagions_of_nurgle`. Round 2 and 3+ effects
-        # are handled elsewhere (battleshock Ld penalty in _run_round;
-        # round-3+ -1 to hit lower in this function).
-        if (
-            _contagion_round_for(target) == 1
-            and target.profile.faction != "Death Guard"
-            and _is_near_enemy_dg_model(target, radius=6.0)
-        ):
-            wound_target = max(2, wound_target - 1)
+        # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
+        # launch-index wording. The current 10e codex replaces it with
+        # randomly-assigned Afflictions (Skullsquirm Blight / Rattlejoint
+        # Ague / Scabrous Soulrot). The strongest of those — Scabrous
+        # Soulrot's -1 to hit — is already modelled by the R3+ branch
+        # below, and Rattlejoint Ague's direction (debuff to enemy unit's
+        # action economy) maps onto the R2 -1 Ld battleshock penalty in
+        # Battle._run_round. So the R1 -1 T effect has no modern-rule
+        # anchor and is removed entirely. R2 -1 Ld and R3+ -1 to hit are
+        # preserved (see comment further down in this function for R3+,
+        # and code/simulator.py:_run_round for R2 battleshock).
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
+        # Cited as `simulator.contagions_of_nurgle` (approximation flag
+        # remains true; effect text in the citation reflects the 2-round
+        # shape post-removal).
 
         # ---- Orks WAAAGH! once-per-battle window: +1 to wound in melee for
         # Ork attackers on the turn WAAAGH! was declared. Cited as
@@ -743,6 +763,13 @@ class Unit:
         # stores the round in which the AI declared; we compare against the
         # live battle round via the army's _battle_ref so the buff applies
         # ONLY on that turn (not the rest of the battle).
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH
+        # Real rule: +1 to wound (melee) AND +1 to Charge rolls AND
+        # army-wide 5+ invuln vs melee AND Advance-counts-as-Charge.
+        # Modelled: +1-to-wound-melee (here) and +1-to-charge-roll
+        # (simulator._do_charge).
+        # APPROXIMATION: army-wide 5++ vs melee + Advance-counts-as-Charge
+        # legs are NOT yet modelled — deferred to future iterations.
         if mode == "melee" and p.faction == "Orks":
             own_army = getattr(self, "army_ref", None)
             if own_army is not None:
@@ -830,19 +857,20 @@ class Unit:
             hit_target = min(7, hit_target + 1)
 
         # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
-        # an enemy unit (the ATTACKER here) within 6" of any DG model takes
+        # an enemy unit (the ATTACKER here) within 3" of any DG model takes
         # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
         # DG model on the opposing side, and on the attacker NOT being a DG
         # model itself (the aura debuffs *enemy* units). 10e cap: "modifiers
         # to hit rolls cannot exceed -1" — if another effect (Big Guns,
         # Indirect, Heavy cover, Stealth) has ALREADY raised hit_target above
         # its post-buff value, we skip the contagion penalty rather than
-        # compound it. Cited as `simulator.contagions_of_nurgle`.
+        # compound it. Radius gated to 3" per the modern Nurgle's Gift /
+        # Afflicted rule (Wahapedia). Cited as `simulator.contagions_of_nurgle`.
         if (
             _contagion_round_for(self) >= 3
             and p.faction != "Death Guard"
             and hit_target == _hit_target_after_buffs
-            and _is_near_enemy_dg_model(self, radius=6.0)
+            and _is_near_enemy_dg_model(self, radius=3.0)
         ):
             hit_target = min(7, hit_target + 1)
 
@@ -868,7 +896,7 @@ class Unit:
         # ---- Target's buffs: +1 to armour save (cap 2+) ----
         if tgt_buffs["plus_one_save"]:
             save_after_ap = max(2, save_after_ap - 1)
-        # Lightning-Fast Reactions (Battle Host) — transient +1 save on the
+        # Lightning-Fast Reactions (Warhost) — transient +1 save on the
         # target unit for the round. Stacks with the army-wide flag above;
         # capped at 2+ either way.
         if target.transient_plus_one_save:
@@ -925,7 +953,7 @@ class Unit:
             att_reroll_all_hits = True
             att_reroll_all_wounds = True
 
-        # Fire and Fade (Aeldari Battle Host stratagem) — transient
+        # Fire and Fade (Aeldari Warhost stratagem) — transient
         # re-roll hit rolls of 1 on shooting attacks for the round.
         att_reroll_hits_shooting_ones = (
             mode != "melee" and getattr(self, "transient_reroll_hits_shooting", False)
@@ -957,6 +985,50 @@ class Unit:
                 if bt_round is not None and bt_round == cur_round:
                     effective_lethal_hits = True
 
+        # ---- T'au Empire Markerlights → Guided (10e army-wide army rule).
+        # While a unit is a Guided unit, its ranged weapons have the
+        # [LETHAL HITS] ability. The detachment flag `lethal_hits_on_guided`
+        # gates the simulator wiring (Mont'ka sets it True). The mark is
+        # populated at the start of the marker-spotting army's Shooting
+        # phase by Battle._run_markerlight_phase. Shooting branch only —
+        # melee Guided does not exist in 10e. Composes with profile.lethal_hits
+        # via OR (one re-roll branch in the loop, no double-fire).
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
+        if (
+            mode != "melee"
+            and not effective_lethal_hits
+            and own_army is not None
+            and target.uid in getattr(own_army, "guided_enemy_uids", set())
+            and (p.faction or "").lower() in ("t'au empire", "tau empire")
+        ):
+            det = own_army.resolve_detachment()
+            if det is not None and getattr(det, "lethal_hits_on_guided", False):
+                effective_lethal_hits = True
+
+        # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
+        # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
+        # by ORKS models from your army have the [SUSTAINED HITS 1] ability."
+        # Gate: mode == "melee" AND attacker faction == "Orks" AND the
+        # attacker's army's detachment carries the `melee_sustained_hits
+        # _army_wide` flag (set by WAR_HORDE). The effective sustained-hits
+        # multiplier is incremented by 1 for the duration of this attack
+        # resolution; stacks additively with any per-weapon `sustained_hits`
+        # already on the profile (a SUSTAINED HITS 1 weapon would compound
+        # to SUSTAINED HITS 2, matching codex behaviour). Cited as
+        # `WAR_HORDE.melee_sustained_hits_army_wide`.
+        effective_sustained_hits = int(p.sustained_hits or 0)
+        if mode == "melee" and p.faction == "Orks":
+            _own_army = getattr(self, "army_ref", None)
+            if _own_army is not None:
+                try:
+                    _det = _own_army.resolve_detachment()
+                except Exception:
+                    _det = None
+                if _det is not None and getattr(
+                    _det, "melee_sustained_hits_army_wide", False,
+                ):
+                    effective_sustained_hits += 1
+
         total_damage = 0.0
         for _ in range(n_attacks):
             # ---- Torrent: skip the to-hit roll, attack auto-hits ----
@@ -976,7 +1048,7 @@ class Unit:
                     roll = random.randint(1, 6)
                 elif att_reroll_hit_ones and roll == 1:
                     roll = random.randint(1, 6)
-                # Fire and Fade (Battle Host) — transient re-roll natural 1s
+                # Fire and Fade (Warhost) — transient re-roll natural 1s
                 # to hit on shooting attacks. Compose with reroll_hit_ones
                 # above but never re-roll the same die twice — both flags
                 # target the natural-1 case so the first that triggered the
@@ -987,10 +1059,28 @@ class Unit:
                     and not att_reroll_hit_ones
                 ):
                     roll = random.randint(1, 6)
+                # Strands of Fate (Aeldari army rule, 10e) — Fate dice
+                # substitution on a failed Hit roll. If the attacker is an
+                # AELDARI model from an army with at least one Fate die
+                # in pool, and the natural roll is a miss, we pop the
+                # lowest die in the pool that still hits and substitute.
+                # No die is spent if substitution wouldn't convert the
+                # miss to a hit (greedy floor at hit_target). Cited as
+                # `simulator.strands_of_fate`. Wahapedia:
+                # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+                if (
+                    roll < hit_target
+                    and p.faction == "Aeldari"
+                ):
+                    own_army = getattr(self, "army_ref", None)
+                    if own_army is not None and own_army.has_fate_dice():
+                        sub = own_army.pop_fate_die_meeting(hit_target)
+                        if sub is not None:
+                            roll = sub
                 if roll < hit_target:
                     continue   # missed
                 crit_hit = (roll == 6)
-            n_hits = 1 + (p.sustained_hits if crit_hit else 0)
+            n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
             for hit_i in range(n_hits):
                 if effective_lethal_hits and crit_hit and hit_i == 0:
@@ -1047,6 +1137,22 @@ class Unit:
 
                 if save_target <= 6:
                     sroll = random.randint(1, 6)
+                    # Strands of Fate (Aeldari army rule, 10e) — defensive
+                    # substitution on a failed save. If the DEFENDER is an
+                    # AELDARI model from an army with at least one Fate
+                    # die in pool, and the natural save fails, pop the
+                    # lowest die that still passes the save and use it.
+                    # Cited as `simulator.strands_of_fate`. Wahapedia:
+                    # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+                    if (
+                        sroll < save_target
+                        and target.profile.faction == "Aeldari"
+                    ):
+                        tgt_army = getattr(target, "army_ref", None)
+                        if tgt_army is not None and tgt_army.has_fate_dice():
+                            sub = tgt_army.pop_fate_die_meeting(save_target)
+                            if sub is not None:
+                                sroll = sub
                     if sroll >= save_target:
                         continue   # saved
                 target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)

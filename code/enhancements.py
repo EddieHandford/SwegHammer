@@ -101,30 +101,12 @@ HYPERPHASIC_FULCRUM = Enhancement(
     plus_one_to_hit_aura=True,
 )
 
-ARCANE_VORTEX = Enhancement(
-    name="Arcane Vortex",
-    detachment="cult_of_magic",
-    points_cost=25,
-    # Real rule grants a once-per-battle D3+3 mortal wound bomb. SwegHammer
-    # doesn't currently model bespoke once-per-battle character attacks, so
-    # we simplify to a re-roll wound 1s aura — the bearer's psychic
-    # output's wound rolls become more reliable, matching the rule's
-    # intent of "this character makes the unit's offence more lethal."
-    reroll_wound_ones_aura=True,
-)
-
-LIVING_PLAGUE = Enhancement(
-    name="Living Plague",
-    detachment="plague_company",
-    points_cost=15,
-    # Real rule extends the bearer's Contagions of Nurgle aura to 9" instead
-    # of 6". SwegHammer's contagion aura is hard-coded at 6" inside
-    # _is_near_enemy_dg_model, and plumbing a per-unit aura range through
-    # that helper is out of scope for the MVP. We map to +1 to wound melee
-    # as a stand-in for the Death Guard close-combat menace the contagion
-    # extension delivers in practice.
-    plus_one_to_wound_aura=True,
-)
+# ARCANE_VORTEX (cult_of_magic) and LIVING_PLAGUE (plague_company) were
+# removed per the 2026-05-15 fabrication audit (commit fa9a957). Both
+# enhancements pointed at fabricated detachment keys that have been
+# deleted from `code.detachments`. The enhancements themselves were
+# wired against detachments that don't exist in the 10e codices;
+# replacement enhancements land alongside real-codex detachment rebuilds.
 
 PURETIDE_ENGRAM_NEUROCHIP = Enhancement(
     name="Puretide Engram Neurochip",
@@ -145,8 +127,6 @@ ENHANCEMENTS: Dict[str, Enhancement] = {
     e.name: e for e in (
         CHAMPION_OF_HUMANITY,
         HYPERPHASIC_FULCRUM,
-        ARCANE_VORTEX,
-        LIVING_PLAGUE,
         PURETIDE_ENGRAM_NEUROCHIP,
     )
 }

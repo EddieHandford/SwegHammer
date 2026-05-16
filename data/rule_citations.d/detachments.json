@@ -1,13 +1,14 @@
 {
-  "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged '(approximation)' where the simulator's behaviour diverges from the canonical rule.",
+  "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged 'approximation: true' where the simulator's behaviour diverges from the canonical rule. 5 fabricated detachments (CULT_OF_MAGIC, PLAGUE_COMPANY, PLAGUE_MARINES_ONSLAUGHT, SAIM_HANN_WILD_HOST, WAAAGH_DETACHMENT) and their citations were deleted in commit e4b057f per the fabrication audit.",
 
   "AWAKENED_DYNASTY.reanimate_per_round": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/factions/necrons/#Reanimation-Protocols",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
-    "quoted_text": "If your Army Faction is NECRONS, at the end of your Command phase, each unit from your army with this ability that is on the battlefield activates its Reanimation Protocols and reanimates D3 wounds. Each time such a unit reanimates a wound: If that unit contains one or more models with fewer than their starting number of wounds remaining, select one of those models; that model regains one lost wound. If all models in that unit have their starting number of wounds, but that unit is not at its Starting Strength, one destroyed model is returned to that unit with one wound remaining.",
-    "trigger": "end of each round, for every friendly Necrons unit with the Reanimation Protocols ability",
-    "effect": "regain 1 wound per unit per round end (approximation of the canonical D3-wound reanimation; median of D3 is 2 so this under-reanimates slightly, but the flat-1 model keeps the round-end pass cheap)",
-    "scope": "army-wide"
+    "quoted_text": "If your Warlord is a NECRONS model, then at the end of each of your Command phases, each unit from your army with this ability that has had one or more destroyed bodyguard models can use this ability. If it does, restore one destroyed bodyguard model in that unit to your army (with its full wounds remaining).",
+    "trigger": "end of each round, for every friendly Necrons unit that lost at least one model THIS round (gated by a round-start alive-count snapshot — Fix F-NEC-1, iter 2)",
+    "effect": "restore 1 destroyed model per profile per round at full wounds, anchored on a living peer. APPROXIMATION: real rule is verbatim 'one destroyed bodyguard model' per unit; we group identical profiles together as a unit. See simulator.reanimation_protocols citation for full implementation notes.",
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "INVASION_FLEET.enemy_ld_penalty": {
@@ -16,7 +17,8 @@
     "quoted_text": "Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
     "trigger": "any enemy Leadership/Battle-shock check",
     "effect": "-1 to enemy Leadership (approximation of Shadow in the Warp, which actually subtracts 1 from Battle-shock tests within 6\" of a Synapse unit rather than modifying Ld army-wide)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "NOBLE_LANCE.plus_one_to_wound": {
@@ -25,7 +27,8 @@
     "quoted_text": "Each time an IMPERIAL KNIGHTS unit from your army Advances, until the end of the turn, ranged weapons equipped by IMPERIAL KNIGHTS models from your army have the [ASSAULT] ability.",
     "trigger": "any friendly Imperial Knights attack",
     "effect": "+1 to wound rolls (approximation of the Valourstrike Lance / Noble Lance lineage; the launch-day index 'Noble Lance' granted +1 to wound on a charged turn, and the codex replacement 'Valourstrike Lance' instead grants Assault on advance — our model collapses both into always-on +1 to wound)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "HALLOWED_MARTYRS.plus_one_to_wound": {
@@ -34,7 +37,8 @@
     "quoted_text": "Each time an ADEPTA SORORITAS model from your army makes an attack, add 1 to the Hit roll if that model's unit is below its Starting Strength, and add 1 to the Wound roll as well if that model's unit is Below Half-strength.",
     "trigger": "any friendly Adepta Sororitas attack",
     "effect": "+1 to wound rolls (approximation; the canonical rule gates +1 Hit on 'below Starting Strength' and +1 Wound on 'Below Half-strength', whereas we apply +1 Wound army-wide always-on)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "SHIELD_HOST.plus_one_save": {
@@ -43,7 +47,8 @@
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
     "trigger": "any friendly Adeptus Custodes save",
     "effect": "+1 to armour saves (approximation of overall Custodes durability; canonical Martial Mastery is an offensive Crit/AP buff, not a save buff, so this flag is a stand-in for the multiple defensive stacking rules Custodes pile up across Bodyguard, native 2+/4++ profiles, and the Sentinel-Blades enhancement)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "SKITARII_HUNTER_COHORT.reroll_hit_ones": {
@@ -52,7 +57,8 @@
     "quoted_text": "SKITARII INFANTRY, SKITARII MOUNTED and IRONSTRIDER BALLISTARII units from your army have the Stealth ability, and each time a ranged attack targets a SICARIAN unit from your army, unless the attacking model is within 12\", the target has the Benefit of Cover against that attack.",
     "trigger": "any friendly Adeptus Mechanicus hit roll",
     "effect": "re-roll hit rolls of 1 (approximation; the canonical detachment rule grants Stealth + cover for Sicarians defensively rather than any offensive reroll, so this flag stands in for the launch-index Conqueror Doctrina Imperatives offensive/defensive rotation)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "INQUISITION_TASK_FORCE.reroll_hit_ones": {
@@ -61,7 +67,8 @@
     "quoted_text": "Each time an INQUISITOR, INQUISITORIAL AGENTS or ORDO MALLEUS model from your army makes an attack, re-roll a Hit roll of 1 and, if the target of that attack is a DAEMON unit, re-roll a Wound roll of 1 as well.",
     "trigger": "any friendly Imperial Agents hit roll",
     "effect": "re-roll hit rolls of 1 (approximation of the Ordo Malleus 'Destroy the Daemonic' rule, applied army-wide rather than gated to Inquisitor/Inquisitorial Agents/Ordo Malleus keywords; codex has no umbrella 'Inquisition Task Force' detachment, so we cite the closest-themed Ordo detachment)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "COMBINED_REGIMENT.plus_one_to_hit": {
@@ -70,7 +77,8 @@
     "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
     "trigger": "any friendly Astra Militarum hit roll",
     "effect": "+1 to hit rolls (approximation of the Combined Arms detachment 'Born Soldiers' rule, which actually grants Lethal Hits to Regiment vs non-vehicle and Squadron vs vehicle; codex renames the launch-day 'Combined Regiment' index detachment to 'Combined Arms')",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "TELEPORT_STRIKE_FORCE.reroll_wound_ones": {
@@ -79,16 +87,18 @@
     "quoted_text": "Each time a unit from your army is set up using the Deep Strike ability, until the end of the turn, each time a model in that unit makes an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
     "trigger": "any friendly Grey Knights wound roll",
     "effect": "re-roll wound rolls of 1 (approximation of the Brotherhood Strike detachment's deep-strike-gated reroll buff, applied army-wide always-on; codex has no 'Teleport Strike Force' detachment, but Brotherhood Strike is the closest deep-strike-themed replacement)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
-  "BATTLE_HOST.reroll_hit_ones": {
+  "WARHOST.martial_grace": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Martial Grace",
     "quoted_text": "At the start of the battle round, you receive 1 additional Battle Focus token. Each time a unit from your army performs the Swift as the Wind Agile Manoeuvre, until the end of the phase, add an additional 1\" to the Move characteristic of models in that unit. Each time a unit from your army performs an Agile Manoeuvre that involves rolling a D6, add 1 to the result.",
-    "trigger": "any friendly Aeldari hit roll",
-    "effect": "re-roll hit rolls of 1 (approximation; the canonical Warhost 'Martial Grace' rule is a mobility/Battle-Focus buff with no offensive reroll, so this flag stands in for the launch-index 'Battle Host' Aspect-of-the-Path rotation — codex renamed the index detachment to 'Warhost')",
-    "scope": "army-wide"
+    "trigger": "start of each battle round, while the Warhost detachment is active and the army contains at least one ASURYANI unit",
+    "effect": "Battle Focus token starting pool is bumped from 4 to 5 when the Warhost detachment is active (approximation: SwegHammer's Battle Focus model is a flat once-at-start pool rather than a per-round +1 refresh, so we collapse the round-by-round bump into a single +1 to the starting pool). The Swift-as-the-Wind +1\" Move and the +1-to-D6 Agile-Manoeuvre boon are APPROXIMATED away — the grid-free movement model can't usefully consume per-phase +1\" / +1-to-d6 buffs. Renamed from BATTLE_HOST.reroll_hit_ones in #197 to use the real Martial Grace rule",
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "SKYSPLINTER_ASSAULT.reroll_wound_ones": {
@@ -97,16 +107,26 @@
     "quoted_text": "Each time a DRUKHARI unit from your army disembarks from a TRANSPORT, until the end of the turn: Ranged weapons equipped by models in that disembarking unit have the [ignores cover] ability. Melee weapons equipped by models in that disembarking unit have the [lance] ability.",
     "trigger": "any friendly Drukhari wound roll",
     "effect": "re-roll wound rolls of 1 (approximation of Rain of Cruelty, which actually grants Ignores Cover and Lance keywords on the turn a unit disembarks; we collapse the disembark-then-charge buff into an always-on wound reroll)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
-  "MONTKA.plus_one_to_hit": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Mont-ka",
-    "rule_name": "Killing Blow",
-    "quoted_text": "During the first, second and third battle rounds, ranged weapons equipped by T'AU EMPIRE models from your army have the [ASSAULT] ability. During the first, second and third battle rounds, while a unit is a Guided unit, its ranged weapons have the [LETHAL HITS] ability.",
-    "trigger": "any friendly T'au Empire hit roll",
-    "effect": "+1 to hit rolls (approximation of Killing Blow's Assault keyword + Guided-unit Lethal Hits during rounds 1-3; we collapse both into always-on +1 to hit)",
-    "scope": "army-wide"
+  "MONTKA.army_wide_assault_rounds_1_3": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Killing Blow (Mont'ka, [ASSAULT] half)",
+    "quoted_text": "During the first, second and third battle rounds, ranged weapons equipped by T'AU EMPIRE models from your army have the [ASSAULT] ability.",
+    "trigger": "any friendly T'AU EMPIRE unit attempting to shoot in battle rounds 1-3 after Advancing",
+    "effect": "ranged weapons gain the [ASSAULT] keyword for battle rounds 1-3 — simulator reads the flag in _do_shoot to exempt T'au attackers from the Advance-then-no-shoot lockout during the window (free, no Battle Focus token spend). Cited as MONTKA.army_wide_assault_rounds_1_3",
+    "scope": "phase-gated"
+  },
+
+  "MONTKA.lethal_hits_on_guided": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Killing Blow (Mont'ka, [LETHAL HITS] on Guided half)",
+    "quoted_text": "During the first, second and third battle rounds, while a unit is a Guided unit, its ranged weapons have the [LETHAL HITS] ability.",
+    "trigger": "any friendly T'AU EMPIRE Guided unit's ranged attack",
+    "effect": "ranged weapons gain [LETHAL HITS] (Crit Hit auto-wounds). Read by Unit.attack via Army.guided_enemy_uids (populated each round by Battle._run_markerlight_phase from alive MARKERLIGHT-keyword units in the T'au army). APPROXIMATION: SwegHammer applies the Guided LETHAL HITS in every round, not gated to rounds 1-3, because the underlying Markerlight army rule grants Guided-target LETHAL HITS in every Shooting phase — the Mont'ka detachment text repeats the rounds-1-3 wording but the LETHAL HITS half is upstream of the [ASSAULT] half (the Markerlight base rule, separate from the Killing Blow rounds gate). See `simulator.markerlights`.",
+    "scope": "phase-gated"
   },
 
   "PACTBOUND_ZEALOTS.reroll_wound_ones": {
@@ -115,7 +135,8 @@
     "quoted_text": "When mustering your army, when you select a HERETIC ASTARTES unit to include in your army, if that unit is not an EPIC HERO and does not already have one of the following keywords, you must select one for that unit and note it on your Army Roster: KHORNE, TZEENTCH, NURGLE, SLAANESH, CHAOS UNDIVIDED. Each time a unit with one of these keywords gains a weapon ability as the result of a Dark Pact and does not fail the resulting Leadership test, until the end of the phase, that unit gains the associated ability below.",
     "trigger": "any friendly Heretic Astartes wound roll",
     "effect": "re-roll wound rolls of 1 (approximation of the Marks of Chaos / Dark Pacts loop, which grants Lethal Hits or Sustained Hits at the cost of a Battle-shock check; we model the average Lethal/Sustained payoff as a flat wound-1s reroll)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "BERZERKER_WARBAND.plus_one_to_hit": {
@@ -124,7 +145,8 @@
     "quoted_text": "Each time a WORLD EATERS unit from your army makes a Charge move, until the end of the turn, add 1 to the Attacks characteristic and add 2 to the Strength characteristic of melee weapons equipped by models in that unit.",
     "trigger": "any friendly World Eaters hit roll",
     "effect": "+1 to hit rolls (approximation of Relentless Rage, which actually grants +1 Attack and +2 Strength to melee weapons on a charging unit; we collapse the charge-gated melee buff plus the Blood Tithe spending mechanic into an always-on +1 to hit)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "DAEMONIC_INCURSION.plus_one_to_hit": {
@@ -133,7 +155,8 @@
     "quoted_text": "Each time a LEGIONES DAEMONICA unit from your army is set up on the battlefield using the Deep Strike ability, if it is set up wholly within your army's Shadow of Chaos, and/or if it is set up wholly within 6\" of one or more friendly [BLOODTHIRSTER], [GREAT UNCLEAN ONE], [KAIROS FATEWEAVER], [KEEPER OF SECRETS], [LORD OF CHANGE], [ROTIGUS], [SHALAXI HELBANE] or [SKARBRAND] units with which it shares the KHORNE, TZEENTCH, NURGLE or SLAANESH keyword, it can be set up anywhere that is more than 6\" horizontally away from all enemy models, instead of more than 9\".",
     "trigger": "any friendly Chaos Daemons hit roll",
     "effect": "+1 to hit rolls (approximation; canonical Warp Rifts is a deep-strike-range buff with no offensive reroll, so this flag stands in for the launch-index Shadow-of-Chaos battle-shock-immunity + god-specific buffs the simulator can't model)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "FINAL_DAY.reroll_hit_ones": {
@@ -142,7 +165,8 @@
     "quoted_text": "At the end of your Movement phase, for each TYRANIDS SYNAPSE unit from your army, you can select one friendly GENESTEALER CULTS unit (excluding PURESTRAIN GENESTEALER and PATRIARCH units) and one friendly TYRANIDS unit each within 9\" of and visible to that SYNAPSE unit. If you do, that GENESTEALER CULTS unit suffers D3+1 mortal wounds and one model in the selected TYRANIDS unit regains up to that many lost wounds and until the start of your next Movement phase, each time a model in the selected TYRANIDS unit makes an attack, add 1 to the Hit roll.",
     "trigger": "any friendly Genestealer Cults hit roll",
     "effect": "re-roll hit rolls of 1 (approximation of Psionic Parasitism, which actually grants +1 to Hit to one Tyranids unit per Synapse unit at the cost of mortal wounds on a Genestealer Cults unit; we collapse the per-unit gated +1 hit into army-wide reroll-1s)",
-    "scope": "army-wide"
+    "scope": "army-wide",
+    "approximation": true
   },
 
   "IRONSTORM_SPEARHEAD.vehicles_reroll_hit_ones": {
@@ -151,7 +175,8 @@
     "quoted_text": "Each time an attack is allocated to an ADEPTUS ASTARTES model from your army, worsen the Armour Penetration characteristic of that attack by 1.",
     "trigger": "attacker's unit has the VEHICLE keyword",
     "effect": "re-roll Hit rolls of 1 (approximation of the launch-day Ironstorm Spearhead spine, whose canonical rule worsens incoming AP by 1 on Marine models; we collapse the vehicle-centric detachment identity into a flat reroll-hit-1s gated to VEHICLE attackers so the buff fires on the units the codex empowers)",
-    "scope": "keyword-gated"
+    "scope": "keyword-gated",
+    "approximation": true
   },
 
   "CANOPTEK_COURT.canoptek_plus_one_to_wound": {
@@ -160,24 +185,7 @@
     "quoted_text": "Once per battle, at the start of any phase, you can use this ability. If you do, until the end of that phase, each time a CANOPTEK model from your army makes an attack, re-roll the Wound roll.",
     "trigger": "attacker's profile name starts with 'Canoptek'",
     "effect": "+1 to wound rolls (approximation of the Canoptek Court detachment's Cryptek-led Canoptek-buff spine, which canonically grants a once-per-battle full wound re-roll to all CANOPTEK models for a phase; we collapse the per-phase reroll plus the rest of the Cryptek toolkit into an always-on +1 to wound on CANOPTEK datasheets, gated on profile-name prefix because BSData doesn't carry a CANOPTEK keyword)",
-    "scope": "keyword-gated"
-  },
-
-  "SAIM_HANN_WILD_HOST.aspect_warrior_or_bike_plus_one_move": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wind-Riders-of-Saim-Hann",
-    "rule_name": "Wild Rider Charge",
-    "quoted_text": "Each time an AELDARI MOUNTED unit from your army makes a Charge move, until the end of the turn, each time a model in that unit makes an attack, add 1 to the Wound roll.",
-    "trigger": "attacker's profile name matches an Aspect Warrior datasheet (Howling Banshees, Striking Scorpions, Fire Dragons, Dark Reapers, Swooping Hawks, Warp Spiders, Shining Spears) or a Bike chassis (Windriders, Shining Spears, Shroud Runners)",
-    "effect": "+1\" Movement (approximation of the Saim-Hann Wild Host's hit-and-run identity, which canonically grants a charge-gated +1 to wound on Aeldari Bikes; we collapse the mobility/charge spine into a flat +1\" to the Move characteristic for the Aspect Warrior + Bike datasheets so the wildhost-themed list plays faster across the table)",
-    "scope": "keyword-gated"
-  },
-
-  "PLAGUE_MARINES_ONSLAUGHT.plague_marines_plus_one_to_wound": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company",
-    "rule_name": "Sacred Plagues",
-    "quoted_text": "Each time a PLAGUE MARINE model from your army makes an attack with a Plague weapon, you can re-roll the Wound roll.",
-    "trigger": "attacker's profile name == 'Plague Marines'",
-    "effect": "+1 to wound rolls (approximation of the Plague Marines-themed detachment spine, which canonically grants a re-roll wound rolls on Plague Weapons fired by Plague Marines; we collapse the per-weapon reroll into a flat +1 to wound on the Plague Marines datasheet so the on-foot 'Plague Marines Onslaught' list benefits when it actually fields the eponymous unit)",
-    "scope": "keyword-gated"
+    "scope": "keyword-gated",
+    "approximation": true
   }
 }

@@ -2,20 +2,21 @@
 
 Nurgle's Gift (10e Death Guard army rule, Wahapedia):
     "Each model in your army has the following aura ability: 'Aura: While
-     an enemy unit is within 6\" of this model, that enemy unit is subject
-     to your active Contagion'."
+     an enemy unit is within 3\" of this model, that enemy unit is
+     Afflicted'."
 
-Active Contagion escalates by round:
-    Round 1 — Virulent Rot:      -1 T on enemy units within 6"
-    Round 2 — Maladictive Pall:  -1 Ld on enemy units within 6"
-    Round 3+ — Fulminating Plague: -1 to Hit on attacks by enemy units within 6"
+SwegHammer approximation (iter-4 reduced shape): the launch-index Round-1
+-1 T (Virulent Rot) was dropped because it has no modern-codex anchor.
+What remains is a 2-round shape gated to 3":
+    Round 1 — (no debuff; the legacy Virulent Rot branch was removed)
+    Round 2 — Maladictive Pall:    -1 Ld on enemy units within 3"
+    Round 3+ — Fulminating Plague: -1 to Hit on attacks by enemy units within 3"
 
 Implementation:
-    * `Unit.attack` lowers wound_target by 1 when the DEFENDER is within 6"
-      of any DG model on the opposing side AND `_current_round == 1`.
+    * Round 1: no special handling — wound_target is the base S-vs-T roll.
     * `Battle._run_round` adds +1 to the battleshock test target for enemy
-      units within 6" of a DG model AND `round_num == 2`.
-    * `Unit.attack` raises hit_target by 1 when the ATTACKER is within 6"
+      units within 3" of a DG model AND `round_num == 2`.
+    * `Unit.attack` raises hit_target by 1 when the ATTACKER is within 3"
       of any DG model on the opposing side AND `_current_round >= 3`, but
       ONLY if no other -1-to-hit modifier already shifted hit_target (10e
       cap: modifiers to a single hit roll can't compound past -1 / +1).
@@ -83,19 +84,13 @@ def _marine_profile(name: str = "Marine") -> UnitProfile:
 
 def _effective_wound_target_round_1(attacker: Unit, defender: Unit) -> int:
     """Replay the wound_target derivation for an attacker shooting `defender`
-    in round 1, applying only the Contagion round-1 -1 T effect. Mirrors
-    Unit.attack so we can assert the shift without running the stochastic
-    attack loop."""
+    in round 1. Post iter-4 the legacy Virulent Rot -1 T branch is gone, so
+    this should always return the base S-vs-T wound target regardless of
+    proximity to DG models — that's exactly what we assert in the round-1
+    tests below."""
     from code.units import wound_probability
     wound_p = wound_probability(attacker.profile.strength, defender.profile.toughness)
-    wound_target = _prob_to_target(wound_p)
-    if (
-        _contagion_round_for(defender) == 1
-        and defender.profile.faction != "Death Guard"
-        and _is_near_enemy_dg_model(defender, radius=6.0)
-    ):
-        wound_target = max(2, wound_target - 1)
-    return wound_target
+    return _prob_to_target(wound_p)
 
 
 def _effective_hit_target_round_3(attacker: Unit) -> int:
@@ -109,7 +104,7 @@ def _effective_hit_target_round_3(attacker: Unit) -> int:
     if (
         _contagion_round_for(attacker) >= 3
         and attacker.profile.faction != "Death Guard"
-        and _is_near_enemy_dg_model(attacker, radius=6.0)
+        and _is_near_enemy_dg_model(attacker, radius=3.0)
     ):
         hit_target = min(7, hit_target + 1)
     return hit_target
@@ -135,18 +130,20 @@ class ContagionsOfNurgleTests(unittest.TestCase):
         battle._assign_uids()
         return battle
 
-    # ----- Round 1 — Virulent Rot (-1 T as +1 to wound) ---------------------
+    # ----- Round 1 — legacy Virulent Rot removed (iter-4) -------------------
 
-    def test_round_1_minus_one_toughness(self):
-        """An Astartes unit (T4) within 6" of a DG model takes its wound roll
-        at -1 T → wound_target drops by 1. With Marine S4 vs Marine T4, base
-        wound_target is 4+ (S==T); contagion drops it to 3+."""
+    def test_round_1_no_toughness_debuff(self):
+        """Post iter-4, the launch-index Virulent Rot (-1 T) branch is gone.
+        A non-DG unit within 3" of a DG model in round 1 must take its wound
+        rolls at the BASE S-vs-T target — no debuff. With Marine S4 vs Marine
+        T4, base wound_target is 4+; we assert it stays 4+ even adjacent to
+        a DG model."""
         battle = self._build_battle()
         dg = battle.a.units[0]
         ast = battle.b.units[0]
-        # Place models 4" apart — well inside the 6" aura.
+        # Place models 2" apart — well inside the (former) 3" aura.
         dg.position = (0.0, 0.0)
-        ast.position = (4.0, 0.0)
+        ast.position = (2.0, 0.0)
         battle._current_round = 1
 
         # Sanity: S4 vs T4 base wound target is 4+.
@@ -154,76 +151,76 @@ class ContagionsOfNurgleTests(unittest.TestCase):
         base_wt = _prob_to_target(wound_probability(4, 4))
         self.assertEqual(base_wt, 4, "S4 vs T4 should be 4+ to wound by default")
 
-        # An Astartes attacker wounding the DG-adjacent defender should see
-        # the wound target lowered by 1 (the defender is debuffed by -1 T).
-        # The attacker here is the DG model attacking … no, that's wrong:
-        # the rule says "enemy unit within 6\" of a DG model" — the defender
-        # is the unit at -1 T. So we pick a hypothetical Astartes attacker
-        # firing into an Astartes defender that's standing next to a DG
-        # model. We model this with a second non-DG unit; reuse the same
-        # army's existing Marine but check the wound_target as if it were
-        # the defender being shot by a third party.
-        # Simpler: assert the gate directly on the existing setup. The
-        # defender for round 1 is the Astartes Marine standing 4" from the
-        # DG aura source. A separate attacker (faction doesn't matter)
-        # firing into this Marine should see wound_target reduced by 1.
-        attacker = dg                    # any S4 attacker is fine for the math
-        defender = ast
-        shifted_wt = _effective_wound_target_round_1(attacker, defender)
+        shifted_wt = _effective_wound_target_round_1(dg, ast)
         self.assertEqual(
-            shifted_wt, base_wt - 1,
-            f"Contagion round 1 should lower wound_target from {base_wt} to {base_wt-1}",
+            shifted_wt, base_wt,
+            f"Iter-4 dropped the R1 -1 T branch — wound_target must stay "
+            f"at base {base_wt}, got {shifted_wt}",
         )
 
-    def test_round_1_dg_attacker_into_marine_uses_contagion(self):
-        """End-to-end via Unit.attack — DG attacker firing into a Marine
-        standing within 6" of itself (the DG model IS the aura source).
-        Across many shots, the contagion -1 T should produce strictly more
-        wounds than the no-contagion baseline."""
+        # Also assert the helper still correctly reports the Marine as near a
+        # DG model — i.e. the proximity gate hasn't broken; it's the *effect*
+        # that's gone.
+        self.assertTrue(
+            _is_near_enemy_dg_model(ast, radius=3.0),
+            "Proximity helper should still detect the DG model at 2\" — "
+            "the iter-4 fix removes the effect, not the gate",
+        )
+        self.assertEqual(
+            _contagion_round_for(ast), 1,
+            "Round helper should still resolve round 1 from the battle ref",
+        )
+
+    def test_round_1_dg_attacker_into_marine_no_uplift(self):
+        """End-to-end via Unit.attack — DG attacker firing into a Marine in
+        round 1 within the aura must produce the SAME expected damage as the
+        same shooter into a Marine 12" away. Post iter-4 the R1 -1 T branch
+        is gone, so there's no in-aura uplift. We allow a small statistical
+        tolerance and assert the two means are close."""
         battle_with = self._build_battle()
         dg_a = battle_with.a.units[0]
         ast_a = battle_with.b.units[0]
         dg_a.position = (0.0, 0.0)
-        ast_a.position = (4.0, 0.0)
+        ast_a.position = (2.0, 0.0)
         battle_with._current_round = 1
-        # Keep target alive throughout — give a huge health pool.
         ast_a.current_health = 10_000.0
 
         random.seed(2026)
-        dmg_with_contagion = 0.0
+        dmg_in_aura = 0.0
         for _ in range(2000):
-            dmg_with_contagion += dg_a.attack(
-                ast_a, distance=4.0, mode="ranged", has_los=True,
+            dmg_in_aura += dg_a.attack(
+                ast_a, distance=2.0, mode="ranged", has_los=True,
             )
 
-        # Control: same scenario in round 4? No — the round-3+ effect also
-        # applies, polluting the comparison. Place the defender out of range
-        # of the aura instead (12" away — still 24" range so the shots land).
         battle_no = self._build_battle()
         dg_b = battle_no.a.units[0]
         ast_b = battle_no.b.units[0]
         dg_b.position = (0.0, 0.0)
-        ast_b.position = (12.0, 0.0)   # > 6" from any DG model
+        ast_b.position = (12.0, 0.0)   # > 3" from any DG model
         battle_no._current_round = 1
         ast_b.current_health = 10_000.0
 
         random.seed(2026)
-        dmg_no_contagion = 0.0
+        dmg_out_of_aura = 0.0
         for _ in range(2000):
-            dmg_no_contagion += dg_b.attack(
+            dmg_out_of_aura += dg_b.attack(
                 ast_b, distance=12.0, mode="ranged", has_los=True,
             )
 
-        self.assertGreater(
-            dmg_with_contagion, dmg_no_contagion,
-            f"Round-1 contagion (-1 T) should produce more total damage; "
-            f"got {dmg_with_contagion:.1f} vs {dmg_no_contagion:.1f}",
+        # No-uplift assertion: the in-aura damage must NOT be meaningfully
+        # higher than the out-of-aura damage. Allow a 15% band for stochastic
+        # noise. (Before the iter-4 fix, in-aura damage was ~50% higher
+        # because -1 T turned T4 into T3 — wound on 3+ vs 4+.)
+        self.assertLessEqual(
+            dmg_in_aura, dmg_out_of_aura * 1.15,
+            f"Iter-4 dropped R1 -1 T; in-aura damage should NOT be uplifted "
+            f"vs out-of-aura. got in={dmg_in_aura:.1f} out={dmg_out_of_aura:.1f}",
         )
 
     # ----- Round 2 — Maladictive Pall (-1 Ld on battleshock) -----------------
 
     def test_round_2_minus_one_leadership(self):
-        """A non-DG unit within 6" of a DG model in round 2 must take its
+        """A non-DG unit within 3" of a DG model in round 2 must take its
         battle-shock test at -1 Ld (target raised by 1). Drive the
         Battle._run_round path with a damaged Marine adjacent to a DG model
         and assert the Marine fails battleshock more often than a Marine 12"
@@ -259,7 +256,7 @@ class ContagionsOfNurgleTests(unittest.TestCase):
             return fails
 
         # Marine adjacent to DG model should fail MORE often than one far away.
-        fails_near = run_battleshock(distance=4.0)
+        fails_near = run_battleshock(distance=2.0)
         fails_far = run_battleshock(distance=20.0)
         self.assertGreater(
             fails_near, fails_far,
@@ -270,14 +267,14 @@ class ContagionsOfNurgleTests(unittest.TestCase):
     # ----- Round 3+ — Fulminating Plague (-1 to hit on enemy attackers) -----
 
     def test_round_3_minus_one_to_hit(self):
-        """An Astartes attacker firing within 6" of a DG model in round 3
+        """An Astartes attacker firing within 3" of a DG model in round 3
         must take its Hit roll at -1 (hit_target raised by 1). We replay the
         hit_target math (no other modifiers in fixture) and check the shift."""
         battle = self._build_battle()
         dg = battle.a.units[0]
         ast = battle.b.units[0]
         dg.position = (0.0, 0.0)
-        ast.position = (4.0, 0.0)
+        ast.position = (2.0, 0.0)
         battle._current_round = 3
 
         base_hit = _prob_to_target(ast.profile.hit_probability)   # 3+
@@ -290,14 +287,14 @@ class ContagionsOfNurgleTests(unittest.TestCase):
 
     # ----- Out-of-range and non-DG armies don't project the aura -----------
 
-    def test_outside_6_inch_no_effect(self):
-        """A Marine standing > 6" from every DG model gets no -1 T contagion
+    def test_outside_3_inch_no_effect(self):
+        """A Marine standing > 3" from every DG model gets no -1 T contagion
         debuff even in round 1."""
         battle = self._build_battle()
         dg = battle.a.units[0]
         ast = battle.b.units[0]
         dg.position = (0.0, 0.0)
-        ast.position = (10.0, 0.0)   # 10" — outside the 6" aura
+        ast.position = (10.0, 0.0)   # 10" — outside the 3" aura
         battle._current_round = 1
 
         from code.units import wound_probability
@@ -305,7 +302,7 @@ class ContagionsOfNurgleTests(unittest.TestCase):
         shifted_wt = _effective_wound_target_round_1(dg, ast)
         self.assertEqual(
             shifted_wt, base_wt,
-            "Marine outside 6\" of every DG model must not take the -1 T penalty",
+            "Marine outside 3\" of every DG model must not take the -1 T penalty",
         )
         # Also check the round-3 -1-to-hit gate at the same range.
         battle._current_round = 3
@@ -313,7 +310,7 @@ class ContagionsOfNurgleTests(unittest.TestCase):
         shifted_hit = _effective_hit_target_round_3(ast)
         self.assertEqual(
             shifted_hit, base_hit,
-            "Marine outside 6\" of every DG model must not take the -1 to hit",
+            "Marine outside 3\" of every DG model must not take the -1 to hit",
         )
 
     def test_non_dg_army_doesnt_have_contagion(self):
@@ -361,7 +358,7 @@ class ContagionsOfNurgleTests(unittest.TestCase):
         # so the helper must return False.
         dg_model.position = (0.0, 0.0)
         self.assertFalse(
-            _is_near_enemy_dg_model(dg_model, radius=6.0),
+            _is_near_enemy_dg_model(dg_model, radius=3.0),
             "DG units must never see themselves as 'near an enemy DG model'",
         )
 
@@ -403,7 +400,7 @@ def _run_battleshock_only(battle: Battle, round_num: int) -> int:
             contagion_sources
             and u.profile.faction != "Death Guard"
             and any(
-                _distance(u.position, s.position) <= 6.0
+                _distance(u.position, s.position) <= 3.0
                 for s in contagion_sources
             )
         ):

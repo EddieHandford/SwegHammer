@@ -88,12 +88,12 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     },
     "Tyranids": {
         "Invasion Fleet": {
-            "tyranids_termagants": 2,
+            "tyranids_termagants": 1,
             "tyranids_hormagaunts": 1,
             "tyranids_hive_tyrant": 1,
             "tyranids_zoanthropes": 1,
             "tyranids_exocrine": 1,
-            "tyranids_carnifexes": 1,
+            "tyranids_carnifexes": 2,
             "tyranids_gargoyles": 1,
         },
     },
@@ -260,18 +260,46 @@ def _random_fill(
     faction: str,
     remaining_budget: float,
     rng: random.Random,
+    template: Optional[Dict[str, int]] = None,
 ) -> None:
     """
     Top up `army` with random faction picks until `remaining_budget` is
     exhausted. Mirrors the legacy `build_faction_random_army` per-pick logic
     (size=max_models, cap=remaining/2 per type) so the filler portion is
     statistically equivalent to the pre-archetype baseline.
+
+    BATTLELINE squad cap (task #179):
+      For any BATTLELINE-keyword profile P, random_fill is capped at
+      `max(1, template_count(P))` additional squad picks, so the total
+      squads-of-P in the army (template + random_fill) is bounded at
+      `2 * template_count(P)` when P is in the template, else 1.
+
+      Rationale: BATTLELINE profiles are the OC-on-objectives spine of
+      the army; the F5 / F5b Marines audit traced a +17pt over-perform to
+      `random_fill` stacking Intercessor squads on top of the templated
+      seed (deterministic 20+ OC floor). The cap is faction-neutral —
+      Necron Warriors (template=2) and Tyranid Termagants (template=1)
+      still seed at their archetype's intended density; only profiles
+      that aggregate beyond 2x the template intent are throttled. Non-
+      BATTLELINE roles (HQ / ELITE / FAST_ATTACK / HEAVY / DEDICATED
+      TRANSPORT) use the unchanged per-type point cap.
     """
     pool = [UNIT_CATALOG[k] for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
     if not pool:
         return
 
+    # Map profile.name -> template count of its catalogue key. We index by
+    # display name so the per-pick check (which has the profile in hand)
+    # doesn't need to round-trip back to the catalogue key.
+    template = template or {}
+    template_count_by_name: Dict[str, int] = {}
+    for key, count in template.items():
+        prof = UNIT_CATALOG.get(key)
+        if prof is not None:
+            template_count_by_name[prof.name] = count
+
     spent_by_name: Dict[str, float] = {}
+    fill_squads_by_name: Dict[str, int] = {}
     cap = remaining_budget * 0.5
 
     while remaining_budget > 0:
@@ -279,14 +307,26 @@ def _random_fill(
         for p in pool:
             size = max(1, p.max_models)
             cost = p.points_cost * size
-            if cost <= remaining_budget and spent_by_name.get(p.name, 0.0) + cost <= cap:
-                affordable.append((p, size, cost))
+            if cost > remaining_budget:
+                continue
+            if spent_by_name.get(p.name, 0.0) + cost > cap:
+                continue
+            # BATTLELINE cap: bound random_fill picks per BATTLELINE profile
+            # at max(1, template_count). Profiles outside the template are
+            # allowed 1 fill pick (so the random topup can still introduce
+            # variety without stacking OC).
+            if "BATTLELINE" in (p.unit_keywords or ()):
+                bl_cap = max(1, template_count_by_name.get(p.name, 0))
+                if fill_squads_by_name.get(p.name, 0) >= bl_cap:
+                    continue
+            affordable.append((p, size, cost))
         if not affordable:
             break
         chosen, size, cost = rng.choice(affordable)
         for _ in range(size):
             army.add_unit(chosen)
         spent_by_name[chosen.name] = spent_by_name.get(chosen.name, 0.0) + cost
+        fill_squads_by_name[chosen.name] = fill_squads_by_name.get(chosen.name, 0) + 1
         remaining_budget -= cost
 
 
@@ -335,10 +375,13 @@ def build_archetype_army(
 
     # Fill the remaining budget with random same-faction picks. Keeps the
     # archetype's flavour seed but lets the total cost converge to the
-    # pre-archetype calibration baseline.
+    # pre-archetype calibration baseline. Passes `template` so the fill
+    # path can apply the BATTLELINE squad cap (task #179) — random_fill
+    # may add at most `max(1, template_count(P))` extra squads for any
+    # BATTLELINE profile P.
     remaining = points_budget - army.total_points
     if remaining > 0:
-        _random_fill(army, faction, remaining, rng)
+        _random_fill(army, faction, remaining, rng, template=template)
 
     if army.units:
         army.detachment = pick_detachment_for_army(faction, army.units, rng)

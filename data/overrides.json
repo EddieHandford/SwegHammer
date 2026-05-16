@@ -3,7 +3,7 @@
   "units": {
     "necrons_necron_warriors": {
       "sticky_objective": true,
-      "notes": "10e Necron Warriors carry the Their Number Is Legion rule \u2014 they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet."
+      "notes": "10e Necron Warriors carry the Their Number Is Legion rule \u2014 they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) \u2014 Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
     },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
@@ -15,7 +15,7 @@
     },
     "death_guard_plague_marines": {
       "fnp": 5,
-      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | sweg_balance_mc up 22.5 -> 24.75 pts/model",
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u2014 override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | sweg_balance_mc up 22.5 -> 24.75 pts/model | Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines",
       "points_override": 24.75
     },
     "chaos_space_marines_plague_marines": {
@@ -44,6 +44,18 @@
       "base_diameter_mm": 80,
       "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 — was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
+    "t_au_empire_pathfinder_team": {
+      "unit_keywords": ["INFANTRY", "MARKERLIGHT"],
+      "notes": "Pathfinder Team carries Markerlights (Pulse Carbine + Markerlight wargear). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase can spot Guided enemies. BSData does not encode the Markerlight keyword as a unit-level tag — it lives on the weapon entry — so we surface it here. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Pathfinder-Team and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+    },
+    "t_au_empire_stealth_battlesuits": {
+      "unit_keywords": ["INFANTRY", "FLY", "MARKERLIGHT"],
+      "notes": "Stealth Battlesuits — the squad shas'ui can take a Homing Beacon, and one model in the unit can take a Markerlight (Burst Cannon swap). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase counts the squad as a marker carrier. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Stealth-Battlesuits and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+    },
+    "t_au_empire_tetras_legends": {
+      "unit_keywords": ["VEHICLE", "FLY", "MARKERLIGHT"],
+      "notes": "Tetra Scout Speeders — twin Markerlight platform. Legends datasheet retains the MARKERLIGHT keyword. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Tetras and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+    },
     "aeldari_craftworlds_falcon": {
       "points_override": 644.45,
       "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"
@@ -63,7 +75,8 @@
     "thousand_sons_rubric_marines": {
       "points_override": 59.94,
       "invuln_save": 5,
-      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model | Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
+      "range_inches": 24,
+      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model | Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
     },
     "thousand_sons_scarab_occult_terminators": {
       "points_override": 98.98,
@@ -113,7 +126,8 @@
     "space_marines_intercessor_squad": {
       "base_shape": "circle",
       "base_diameter_mm": 32,
-      "notes": "Standard Primaris Marine 32mm round. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad (Base size)."
+      "range_inches": 24,
+      "notes": "Standard Primaris Marine 32mm round. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad (Base size). | Bolt rifle range corrected to 24\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Intercessor-Squad"
     },
     "adeptus_custodes_custodian_guard": {
       "base_shape": "circle",
@@ -145,7 +159,12 @@
     },
     "space_marines_hellblaster_squad": {
       "points_override": 25.3,
-      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model"
+      "range_inches": 24,
+      "notes": "sweg_balance_mc up 23.0 -> 25.3 pts/model | Plasma incinerator range corrected to 24\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Hellblaster-Squad"
+    },
+    "space_marines_eradicator_squad": {
+      "range_inches": 18,
+      "notes": "Melta rifle range corrected to 18\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Eradicator-Squad"
     },
     "space_marines_repulsor": {
       "points_override": 198.0,
@@ -173,7 +192,8 @@
     },
     "leagues_of_votann_hearthkyn_warriors": {
       "points_override": 90.0,
-      "notes": "sweg_balance_mc down 100.0 -> 90.0 pts/model"
+      "range_inches": 18,
+      "notes": "sweg_balance_mc down 100.0 -> 90.0 pts/model | Ion Blaster (mapper-selected primary, x9 on loadout) range corrected to 18\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Autoch-pattern Bolt Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthkyn-Warriors"
     },
     "leagues_of_votann_sagitaur": {
       "points_override": 103.5,
@@ -182,6 +202,14 @@
     "leagues_of_votann_hekaton_land_fortress": {
       "points_override": 101.25,
       "notes": "sweg_balance_mc down 112.5 -> 101.25 pts/model"
+    },
+    "t_au_empire_strike_team": {
+      "range_inches": 30,
+      "notes": "Pulse Rifle (primary wargear) range corrected to 30\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Pulse Carbine 18\" / Pulse Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Strike-Team"
+    },
+    "chaos_space_marines_rubric_marines": {
+      "range_inches": 24,
+      "notes": "Cross-codex BSData entry for Rubric Marines; canonical datasheet lives in the Thousand Sons codex. Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
     }
   }
 }

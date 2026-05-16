@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
@@ -112,6 +112,14 @@ class Army:
         # an ASURYANI unit's activation to grant [ASSAULT] for that turn
         # (i.e. shoot after Advance).
         self.battle_focus_tokens: int = 0
+        # Strands of Fate (Aeldari army rule, 10e) — 6D6 Fate dice pool
+        # rolled at start of battle and spent thereafter as substitute
+        # rolls (hit/wound/save/charge/advance). Stored sorted descending
+        # so the spend heuristic can `pop_high(threshold)` / `pop_low()`
+        # in O(1) on a tiny list. Populated by Battle.run for AELDARI
+        # armies; empty on non-Aeldari armies and once exhausted.
+        # Cited as `simulator.strands_of_fate`.
+        self.fate_dice: List[int] = []
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
@@ -170,6 +178,23 @@ class Army:
         # target. Reset to False each round by Battle._clear_transient_stratagem_flags.
         # Cited as `Stratagem.Cabbalistic Empowerment`.
         self.cabbalistic_doombolt_boost: bool = False
+        # Virulent Vectorium Putrid Detonation (Death Guard stratagem, 1 CP).
+        # When True for the round, any DG VEHICLE / DG MONSTER that dies on
+        # this army's side and has the Deadly Demise ability auto-succeeds
+        # the d6 roll (mortals always trigger). APPROXIMATION: real text
+        # targets one specific destruction; the simulator arms the flag at
+        # round start and any qualifying death this round auto-detonates.
+        # Reset by Battle._clear_transient_stratagem_flags. Cited as
+        # `Stratagem.Putrid Detonation`.
+        self.putrid_detonation_armed: bool = False
+        # Virulent Vectorium Plaguesurge (Death Guard stratagem, 2 CP).
+        # When True for the round, the army's Contagion Range is conceptually
+        # +3" — the simulator currently hard-codes contagion radius at 6"
+        # so this flag is APPROXIMATED as informational only (the buff isn't
+        # consumed by any active code path yet). Reset by
+        # Battle._clear_transient_stratagem_flags. Cited as
+        # `Stratagem.Plaguesurge`.
+        self.plaguesurge_active: bool = False
         # CP discount / refund mechanics tied to specific Warlord characters
         # (Belisarius Cawl, Roboute Guilliman, Trazyn the Infinite, Lord of
         # Contagion). The Battle initialiser scans this army's CHARACTER
@@ -178,6 +203,23 @@ class Army:
         self.cp_refund_remaining: int = 0
         self.first_stratagem_free_this_round: bool = False
         self._warlord_first_strat_free_enabled: bool = False
+        # Universal per-Command-phase detachment-stratagem cap (faction-neutral
+        # AI heuristic). 10e core rules don't impose a hard cap on stratagems
+        # fired per Command phase, but real-player CP economy averages ~1
+        # stratagem per Command phase per army; the simulator's round-start
+        # dispatcher in Battle._apply_detachment_stratagems used to fire every
+        # green-lit detachment stratagem on offer, stacking 3-5+ in a single
+        # Command phase on CP-rich detachments (DG Virulent Vectorium, Necron
+        # Awakened Dynasty). This counter is reset to 0 at the top of each
+        # army's _apply_detachment_stratagems call and incremented inside
+        # _fire_stratagem when called from a detachment dispatcher; the
+        # dispatcher early-exits once the counter hits STRATAGEM_CAP (1).
+        # Faction-neutral: every detachment's dispatch path runs through the
+        # same cap. Core Stratagems (Tank Shock, Heroic Intervention, Counter-
+        # Offensive, Command Re-Roll) are triggered out-of-band and don't
+        # increment this counter — they fire on their own per-phase triggers.
+        # Cited as `simulator.stratagem_per_command_phase_cap` (APPROXIMATION).
+        self.stratagems_fired_this_command_phase: int = 0
         # Adeptus Astartes Oath of Moment (army rule, 10e). At the start of
         # each Command phase the Marine player picks one enemy unit; until
         # the start of their next Command phase, every Marine attack against
@@ -188,6 +230,29 @@ class Army:
         # means "no oath this round" (e.g. round 0, or no Marine units alive).
         # Cited as `simulator.oath_of_moment`.
         self.oath_target_uid: Optional[str] = None
+        # Previous round's Oath target uid, snapshotted at the top of the
+        # Command phase before `oath_target_uid` is reset. _pick_oath_target
+        # reads this to bias picks AWAY from a still-alive prior target when
+        # a comparably-valuable runner-up exists — modelling the real-player
+        # behaviour of spreading damage across multiple anchors rather than
+        # spamming the same anchor 5 rounds in a row. Cited as part of
+        # `simulator.oath_of_moment` (heuristic, not a codex constraint).
+        self.prev_oath_target_uid: Optional[str] = None
+        # T'au Empire Markerlights → Guided mechanic (10e army-wide). At the
+        # start of this army's Shooting phase, every alive MARKERLIGHT-keyword
+        # unit in this army "spots" one enemy unit in LoS within 36"; that
+        # enemy's uid is added to this set, and any friendly T'au attacker
+        # firing at a target in the set gains [LETHAL HITS] (crit hits
+        # auto-wound) when the detachment carries `lethal_hits_on_guided=True`
+        # (Mont'ka, all rounds — codex Markerlight base rule, not gated to
+        # rounds 1-3 even though the Mont'ka detachment text repeats the
+        # window for `army_wide_assault_rounds_1_3`; the Guided LETHAL HITS
+        # is the army-wide Markerlight rule). Tokens persist for the
+        # marker-spotting army's Shooting phase only — cleared at the end
+        # of that army's turn so the buff doesn't leak across rounds.
+        # Cited as `simulator.markerlights`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
+        self.guided_enemy_uids: Set[str] = set()
         # Coordinated army-level activation plan (#161 / S3). Picked once per
         # round by the simulator's `_pick_army_plan` and consulted by both
         # `activation_queue` (to order units that align with the plan first)
@@ -206,6 +271,76 @@ class Army:
     # ------------------------------------------------------------------
     # Faction detection
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Strands of Fate helpers (Aeldari army rule, 10e). See Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+    # Real rule: 6D6 rolled at battle start; each die can later be
+    # substituted for ONE roll of any d6 the army would make (hit, wound,
+    # save, charge, advance, Battle-shock) or that an opponent makes
+    # against an AELDARI unit. The simulator uses a greedy heuristic:
+    # for "needs N+ to succeed" rolls, pop the lowest die in the pool
+    # that still meets N+. Cited as `simulator.strands_of_fate`.
+    # ------------------------------------------------------------------
+
+    def has_fate_dice(self) -> bool:
+        """True iff at least one Fate die remains in the pool."""
+        return bool(self.fate_dice)
+
+    def pop_fate_die_meeting(self, threshold: int) -> Optional[int]:
+        """Greedy spend: remove and return the LOWEST die in the pool
+        that is >= `threshold` (so we don't waste a 6 to pass a 3+ save
+        when a 3 in the pool would do). Returns None if no die qualifies.
+
+        The heuristic intentionally avoids ever spending a die that
+        would fail the roll — substitution is only worth doing when it
+        flips fail -> success.
+        """
+        if not self.fate_dice:
+            return None
+        # fate_dice is kept sorted descending. Scan from the back (lowest)
+        # for the first die that meets the threshold.
+        best_idx = None
+        best_val = None
+        for i in range(len(self.fate_dice) - 1, -1, -1):
+            v = self.fate_dice[i]
+            if v >= threshold:
+                if best_val is None or v < best_val:
+                    best_idx = i
+                    best_val = v
+                    # Since the list is sorted descending, the FIRST hit
+                    # from the right (lowest) is already the optimum.
+                    break
+        if best_idx is None:
+            return None
+        return self.fate_dice.pop(best_idx)
+
+    def pop_fate_die_for_opponent(self, max_value: int = 1) -> Optional[int]:
+        """Defensive substitution: when an OPPONENT is rolling against an
+        AELDARI unit (their hit / wound roll), we can substitute one of
+        OUR Fate dice for the opponent's roll. We want the substitution
+        to FAIL — so pop a die with value <= `max_value` (default 1).
+        Returns None if no qualifying die remains.
+
+        This implements the rule's text: "...or a unit from your army is
+        the target of an attack...". The simulator currently only uses
+        this in the most clear-cut cases (forcing an enemy hit roll to a
+        natural 1 to whiff the attack outright) to keep the heuristic
+        conservative.
+        """
+        if not self.fate_dice:
+            return None
+        # Scan from the back (lowest) for the first die <= max_value.
+        # Sorted-descending invariant means the smallest are at the end.
+        for i in range(len(self.fate_dice) - 1, -1, -1):
+            v = self.fate_dice[i]
+            if v <= max_value:
+                return self.fate_dice.pop(i)
+            else:
+                # Once we cross above max_value, no further candidates
+                # exist (list is sorted descending).
+                break
+        return None
 
     @property
     def is_votann_army(self) -> bool:
@@ -287,14 +422,65 @@ class Army:
         AI heuristic (no GW rule citation — it's an activation-order
         scheduler, not a 10e mechanic).
 
+        Within each (plan_priority, score) group, CHARACTER units that are
+        currently leading a friendly squad get a priority bump so they
+        resolve BEFORE that squad's activation. Aura buffs applied at
+        activation time (+1 to hit, +1 to wound, re-rolls, etc.) need the
+        leader's slot to fire first; without this bump 37.4% of leader
+        activations land AFTER their led teammate, wasting the buff. The
+        rule is faction-neutral: it fires on any CHARACTER with a
+        registered `LeaderAbility` whose aura currently covers (army-wide,
+        or within `aura_range` of) at least one friendly non-CHARACTER
+        unit. Internal AI heuristic — no 10e citation required (the rule
+        is an activation-order scheduler, not a game mechanic).
+
         `map_` is required to compute the flank assignment (left half vs
         right half of the board); when omitted the spatial sort short-
-        circuits and the queue collapses to the legacy score-only order.
+        circuits and the queue collapses to the legacy score-only order
+        (still with the leader-before-led priority bump applied).
         """
         available = [u for u in self.alive_units if id(u) not in excluded_ids]
+
+        def _is_leading_unit(u: Unit) -> bool:
+            """True iff `u` is a CHARACTER with a registered LeaderAbility
+            whose aura currently reaches at least one friendly non-CHARACTER
+            alive unit. Pragmatic stand-in for "currently leading a squad"
+            in lieu of an explicit led-pair registry on `Army`.
+            """
+            kw = u.profile.unit_keywords or ()
+            if "CHARACTER" not in kw:
+                return False
+            # Local import to avoid the army <-> leaders circular import at
+            # module load time.
+            from .leaders import lookup_ability
+            ability = lookup_ability(u.profile.name)
+            if ability is None:
+                return False
+            aura = ability.aura_range
+            for ally in self.alive_units:
+                if ally is u:
+                    continue
+                if "CHARACTER" in (ally.profile.unit_keywords or ()):
+                    continue
+                if aura <= 0:
+                    return True  # army-wide aura
+                dx = ally.position[0] - u.position[0]
+                dy = ally.position[1] - u.position[1]
+                if (dx * dx + dy * dy) ** 0.5 <= aura:
+                    return True
+            return False
+
         plan = self.army_plan
         if plan is None or map_ is None:
-            return sorted(available, key=lambda u: u.profile.score, reverse=True)
+            # Score-only path: 0 = leader-bumped, 1 = everyone else; ties
+            # break by Lanchester score descending.
+            return sorted(
+                available,
+                key=lambda u: (
+                    0 if _is_leading_unit(u) else 1,
+                    -u.profile.score,
+                ),
+            )
 
         half_x = map_.width / 2.0
         half_y = map_.height / 2.0
@@ -327,7 +513,11 @@ class Army:
 
         return sorted(
             available,
-            key=lambda u: (_plan_priority(u), -u.profile.score),
+            key=lambda u: (
+                _plan_priority(u),
+                0 if _is_leading_unit(u) else 1,
+                -u.profile.score,
+            ),
         )
 
     # ------------------------------------------------------------------

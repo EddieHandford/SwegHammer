@@ -229,10 +229,11 @@
   "simulator.reanimation_protocols": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
-    "quoted_text": "At the end of your Command phase, each unit from your army with this ability that is on the battlefield activates its Reanimation Protocols and reanimates D3 wounds. Each time a unit's Reanimation Protocols are activated and reanimate one or more wounds, select one model in that unit that has lost one or more wounds and reanimate one wound on that model. If there are no such models in that unit, instead select one destroyed model whose unit is still on the battlefield, and that model is returned to its unit with 1 wound remaining.",
-    "trigger": "end of round for a Necron army with Reanimation Protocols on a unit that still has at least one model on the battlefield",
-    "effect": "(approximation) D3 wounds restored per profile per round. SwegHammer uses median D3 = 2 deterministically (no dice), revives full models rather than single wounds because squads are single Unit instances, and runs end-of-round instead of start-of-Command-phase. Once a profile is completely wiped, reanimation stops (matches canonical 'unit still on battlefield' constraint).",
-    "scope": "keyword-gated"
+    "quoted_text": "If your Warlord is a NECRONS model, then at the end of each of your Command phases, each unit from your army with this ability that has had one or more destroyed bodyguard models can use this ability. If it does, restore one destroyed bodyguard model in that unit to your army (with its full wounds remaining).",
+    "trigger": "end of round for a Necron army with Reanimation Protocols on a unit that (a) still has at least one alive model and (b) had at least one model destroyed THIS round",
+    "effect": "(approximation) per profile per round: if the squad lost at least one model this round, revive 1 destroyed model at full wounds anchored on a living peer. Round-start snapshot vs alive-now gates the 'lost a model this round' clause (Fix F-NEC-1, iter 2 — without this, squads kept reviving every round just because they were below STARTING strength, granting infinite endurance). Cap of 1 per profile per round matches the verbatim 'restore one destroyed bodyguard model' singular wording; previous behaviour was median D3 = 2 which over-fired (RP firing 5-6 revives/battle in iter-1 stable-line matchups). End-of-round timing rather than start-of-Command-phase. Once a profile is completely wiped, reanimation stops (matches canonical 'still on battlefield' constraint).",
+    "scope": "keyword-gated",
+    "approximation": true
   },
 
   "simulator.sticky_objective": {
@@ -242,6 +243,15 @@
     "trigger": "a sticky_objective unit currently controls an objective (more OC than the enemy within control range)",
     "effect": "(approximation) once the unit claims the objective, ownership persists across rounds in self._sticky_owner until the opposing side outscores us on it. SwegHammer applies this as a profile-level flag rather than a per-Stratagem opt-in - the 'sticky' status is permanent for any unit with the flag, not single-use.",
     "scope": "keyword-gated"
+  },
+
+  "simulator.objective_control_strictly_greater": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Mission-Objectives",
+    "rule_name": "Objective Markers — Level of Control",
+    "quoted_text": "A player's Level of Control over an objective marker is equal to the sum of the Objective Control characteristics of all of that player's models within range of that objective marker. The player with the greater Level of Control over the objective marker controls it.",
+    "trigger": "any phase-end objective control check (scoring or sticky-claim promotion)",
+    "effect": "control of an objective requires strictly greater OC than the opponent; ties yield no controller and therefore cannot trigger sticky-objective promotion (e.g. VIRULENT_VECTORIUM.worldblight_sticky_dg_objectives or any other sticky_objective profile flag). Previously SwegHammer accepted OC ties for sticky promotion (>=), which let Worldblight DG claim sticky on contested markers — corrected to strict > to match Wahapedia's 'greater Level of Control' wording.",
+    "scope": "phase-gated"
   },
 
   "simulator.battle_focus": {
@@ -274,9 +284,28 @@
   "simulator.waaagh": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!",
     "rule_name": "WAAAGH!",
-    "quoted_text": "Once per battle, at the start of your Command phase, you can declare a WAAAGH!. Until the end of the turn: add 1 to Advance and Charge rolls made for ORKS units from your army; ORKS units from your army that Advance are eligible to declare a charge in the turn in which they did so; and each time an ORKS model from your army makes a melee attack, add 1 to the Wound roll.",
+    "quoted_text": "Once per battle, in your Command phase, you can declare a WAAAGH! is in effect for that turn. While a WAAAGH! is in effect for your turn: In your Movement phase, each unit in your army that has the WAAAGH! ability is eligible to declare a charge in that phase even if it Advanced in your Movement phase. Add 1 to Charge rolls made for units in your army. Add 1 to the Wound rolls for melee attacks made by models in your army. Each model in your army has a 5+ invulnerable save against melee attacks.",
     "trigger": "Command phase of an Orks army; WAAAGH! has not yet been declared this battle; AI decides this is the round (first-charge trigger: ≥1 Ork unit wants_to_charge AND has a chargeable target within 12\" AND Boyz at ≥40% of starting count; emergency Round 2+ if below 70% starting points; Round 4 fallback if first-charge trigger never fired; Round 5 force-fire)",
-    "effect": "(approximation) the army marks `waaagh_round_unlocked = current_round`; Ork attackers add +1 to the melee Wound roll for that turn only. SwegHammer implements ONLY the +1-to-wound-melee leg of the rule as a hard gate — the +1 to Advance/Charge rolls and the 'Advance counts as charge' leg are descriptive (the AI fires WAAAGH! to overlap with a melee push, but the simulator does not separately add to the 2D6 charge roll or unlock charges from an Advance).",
+    "effect": "(approximation) the army marks `waaagh_round_unlocked = current_round`; on that turn only, Ork attackers (a) add +1 to the melee Wound roll and (b) add +1 to the 2D6 Charge roll. APPROXIMATION: the army-wide 5+ invulnerable save vs melee attacks and the 'Advance counts as Charge' leg are still NOT modelled — deferred to future iterations.",
     "scope": "phase-gated"
+  },
+
+  "simulator.markerlights": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights",
+    "rule_name": "Markerlights / Guided",
+    "quoted_text": "If, when an enemy unit is selected as the target of an attack made by a model in your army, one or more friendly units with the MARKERLIGHT keyword have line of sight to that enemy unit, that enemy unit is a Guided unit until the end of the phase. While a unit is a Guided unit, ranged attacks made against it by T'AU EMPIRE models from your army can be made as if that target had been Marked (see Marked units below) and that target is treated as being Guided. Note: where the rule's army-wide Guided LETHAL HITS keyword interaction is granted is via the army rule, which says ranged weapons gain [LETHAL HITS] when shooting Guided units in the controlling player's Shooting phase.",
+    "trigger": "start of T'au Shooting phase; one or more friendly MARKERLIGHT-keyword units alive in the army, with LoS to at least one enemy unit",
+    "effect": "(approximation) each alive MARKERLIGHT unit in a T'au army marks one enemy unit (highest-points threat within 36\" LoS) per round; uids stored in `Army.guided_enemy_uids`. While the detachment carries `lethal_hits_on_guided=True` (Mont'ka), any T'au attacker firing ranged weapons at a uid in the set gains [LETHAL HITS] for that resolution (read by Unit.attack at the `effective_lethal_hits` gate). APPROXIMATION: SwegHammer collapses the canonical Markerlight-token stacking (which requires N tokens to upgrade a Marked target into a Guided target in some editions / cadre rulings) to a single 'one MARKERLIGHT carrier = Guided' check. Tokens persist for the round and are cleared at end-of-round.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.stratagem_per_command_phase_cap": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Command-Points",
+    "rule_name": "Command Point economy (per-Command-phase stratagem cap, AI heuristic)",
+    "quoted_text": "Players gain 1CP at the start of their Command phase (a maximum of 15CP can be gained this way over the course of the battle), to a maximum of 6CP. Stratagems cost between 1CP and 3CP to use. The same Stratagem cannot be used to affect the same unit more than once per phase.",
+    "trigger": "start of own Command phase; `Battle._apply_detachment_stratagems` invoked for the army; one or more detachment stratagems in the army's detachment.stratagems tuple pass `should_fire_stratagem`",
+    "effect": "(approximation) the AI is permitted to fire AT MOST `Battle.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` (default 1) detachment-specific stratagems per army per Command phase. 10e core rules impose NO hard cap on stratagems used in a Command phase, but real-player CP economy at Strike Force CP budgets (3 start + 1/round drip, cap 6) averages ~1 stratagem per Command phase; without this cap, CP-rich detachments (DG Virulent Vectorium, Necron Awakened Dynasty, Tau Mont'ka, Grand Coven, War Horde) would stack 3-5+ buffs at round start because every dispatcher's gate is independently green-lit when CP allows. The cap is enforced inside `_apply_detachment_stratagems`: a counter on Army (stratagems_fired_this_command_phase) resets at the top of that method, increments inside `_fire_stratagem` while the dispatch flag is set, and short-circuits subsequent dispatcher entries via `_strat_cap_reached`. Faction-neutral: every detachment's dispatch path is gated by the same cap. Core Stratagems (Tank Shock, Heroic Intervention, Counter-Offensive, Command Re-Roll) fire on per-trigger hooks elsewhere in the round and are NOT counted toward the cap.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

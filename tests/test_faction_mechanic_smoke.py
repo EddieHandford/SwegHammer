@@ -41,7 +41,10 @@ import unittest
 from unittest import mock
 
 from code.army import Army, VOTANN_FACTION_TAG, can_target_for_ranged
-from code.detachments import AWAKENED_DYNASTY, WAAAGH_DETACHMENT
+from code.detachments import AWAKENED_DYNASTY
+# WAAAGH_DETACHMENT removed per the 2026-05-15 fabrication audit (commit
+# fa9a957). The WAAAGH! army rule lives in `simulator.waaagh` and fires
+# without a detachment — Ork armies can run the rule with detachment=None.
 from code.events import (
     DeadlyDemiseExploded, EventLog, JudgementTokenAwarded,
     UnitDeepStrike, UnitReanimated, WaaaghDeclared,
@@ -229,7 +232,9 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         Round 3 with an Ork side still alive (default AI fires Round 3).
         Cites: simulator.waaagh."""
         random.seed(0)
-        orks = Army("Orks", detachment=WAAAGH_DETACHMENT)
+        # WAAAGH! army rule fires from the simulator gate (simulator.waaagh)
+        # regardless of detachment — detachment=None is fine.
+        orks = Army("Orks")
         for _ in range(8):
             orks.add_unit(_ork_boy())
         marines = Army("Marines")
@@ -442,10 +447,12 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             f"DG FNP did not reduce damage: dg={dg_taken:.1f} ctrl={ctrl_taken:.1f}",
         )
 
-    def test_death_guard_contagions_minus_t_in_round_1(self):
-        """A DG attacker firing into a Marine within 6" in round 1 must
-        land more wounds than the same shooter into a Marine 12" away
-        (out of aura range). Cites: simulator.contagions_of_nurgle."""
+    def test_death_guard_contagions_no_r1_toughness_debuff(self):
+        """Iter-4 dropped the legacy R1 Virulent Rot (-1 T) branch — the
+        modern 10e codex replaces it with randomly-assigned Afflictions and
+        none of those are a toughness debuff. A DG attacker firing into a
+        Marine within 3" in round 1 must NOT land more wounds than the same
+        shooter into a Marine 12" away. Cites: simulator.contagions_of_nurgle."""
         # In-aura run.
         random.seed(2026)
         dg_in = Army("Death Guard")
@@ -455,13 +462,13 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         battle_in = Battle(dg_in, ast_in)
         battle_in._assign_uids()
         dg_in.units[0].position = (0.0, 0.0)
-        ast_in.units[0].position = (4.0, 0.0)
+        ast_in.units[0].position = (2.0, 0.0)
         ast_in.units[0].current_health = 10000.0
         battle_in._current_round = 1
         in_dmg = 0.0
         for _ in range(1500):
             in_dmg += dg_in.units[0].attack(
-                ast_in.units[0], distance=4.0, mode="ranged", has_los=True,
+                ast_in.units[0], distance=2.0, mode="ranged", has_los=True,
             )
 
         # Out-of-aura run.
@@ -473,7 +480,7 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         battle_out = Battle(dg_out, ast_out)
         battle_out._assign_uids()
         dg_out.units[0].position = (0.0, 0.0)
-        ast_out.units[0].position = (12.0, 0.0)   # > 6"
+        ast_out.units[0].position = (12.0, 0.0)   # > 3"
         ast_out.units[0].current_health = 10000.0
         battle_out._current_round = 1
         out_dmg = 0.0
@@ -482,10 +489,12 @@ class FactionMechanicSmokeTests(unittest.TestCase):
                 ast_out.units[0], distance=12.0, mode="ranged", has_los=True,
             )
 
-        self.assertGreater(
-            in_dmg, out_dmg,
-            f"Round-1 Contagion (-1 T) didn't increase wound rate: "
-            f"in={in_dmg:.1f} out={out_dmg:.1f}",
+        # Allow 15% stochastic band for noise. Before the iter-4 fix the
+        # in-aura run was ~50% higher than out (-1 T turned T4 into T3).
+        self.assertLessEqual(
+            in_dmg, out_dmg * 1.15,
+            f"Iter-4 dropped R1 -1 T; in-aura damage should NOT be uplifted "
+            f"vs out-of-aura. got in={in_dmg:.1f} out={out_dmg:.1f}",
         )
 
     # ----- Thousand Sons -----------------------------------------------
@@ -593,6 +602,11 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         battle._initial_unit_counts = {
             necrons.name: {"Necron Warrior": 5},
             marines.name: {"Marine": 1},
+        }
+        # Fix F-NEC-1: snapshot round-start alive counts BEFORE the kills,
+        # so the gate sees deaths-this-round > 0.
+        battle._round_start_alive_counts = {
+            necrons.name: {"Necron Warrior": 5},
         }
         # Kill 3 of 5, leaving 2 alive to anchor the squad.
         for u in necrons.units[:3]:

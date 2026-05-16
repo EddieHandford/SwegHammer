@@ -281,7 +281,12 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
         "ignores_cover": any(x.ignores_cover for _, x in basket),
         "heavy": any(x.heavy for _, x in basket),
         "assault": any(x.assault for _, x in basket),
-        "torrent": any(x.torrent for _, x in basket),
+        # Torrent requires ALL variants to be Torrent — otherwise a mixed
+        # basket (e.g. Aggressor Auto Boltstorm Gauntlets + Flamestorm Gauntlets)
+        # would falsely inherit auto-hit from the Torrent variant while keeping
+        # the numeric BS averaged in. See Wahapedia Aggressor Squad:
+        # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Aggressor-Squad
+        "torrent": bool(basket) and all(x.torrent for _, x in basket),
         "hazardous": any(x.hazardous for _, x in basket),
         "blast": any(x.blast for _, x in basket),
         "lance": any(x.lance for _, x in basket),
@@ -600,22 +605,39 @@ def _squad_group_size(grp: ET.Element) -> Optional[tuple[int, int]]:
 
     ``value="-1"`` is the BSData "unlimited" sentinel; ignore it so a
     real finite cap can win the min().
+
+    When called on the outer unit ``selectionEntry`` (implicit-group
+    shape, no wrapping ``selectionEntryGroup``), the entry's OWN
+    constraints are army-list limits — ``scope="force"`` / ``"roster"``
+    cap units per army, and ``scope="parent"`` on a unit entry refers
+    to the unit's parent (the codex/category), not the squad. None of
+    them encode squad model count. Pre-2026-05-16, reading those as
+    squad size made Pink Horrors / Plaguebearers / Bloodletters /
+    Sagittarum Custodians / Chaos Spawn / etc. report min_models=1, so
+    per-model points cost collapsed to the full squad cost (Pink
+    Horrors: 140 pts/model instead of 14). For unit entries we skip
+    shape (a/b) entirely and use shape (c), where the inner model's
+    own ``scope="parent"`` constraints encode the real squad size.
     """
+    is_unit_entry = grp.tag == "selectionEntry" and grp.get("type") == "unit"
     mn: Optional[int] = None
     mx: Optional[int] = None
-    for cons in grp.findall("./constraints/constraint"):
-        if cons.get("field") != "selections":
-            continue
-        try:
-            value = int(cons.get("value") or 0)
-        except ValueError:
-            continue
-        if cons.get("type") == "min":
-            mn = value
-        elif cons.get("type") == "max":
-            if value < 0:
+    if not is_unit_entry:
+        for cons in grp.findall("./constraints/constraint"):
+            if cons.get("field") != "selections":
                 continue
-            mx = value if mx is None else min(mx, value)
+            if cons.get("scope") in ("force", "roster"):
+                continue
+            try:
+                value = int(cons.get("value") or 0)
+            except ValueError:
+                continue
+            if cons.get("type") == "min":
+                mn = value
+            elif cons.get("type") == "max":
+                if value < 0:
+                    continue
+                mx = value if mx is None else min(mx, value)
     if mn is None and mx is not None and mx >= 1:
         mn = 1
     if mn is not None and mx is not None and mx >= mn >= 1:

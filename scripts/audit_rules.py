@@ -64,6 +64,21 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("canoptek_plus_one_to_wound", False),
     ("aspect_warrior_or_bike_plus_one_move", False),
     ("plague_marines_plus_one_to_wound", False),
+    # Warhost (Aeldari) detachment rule (#197 — replaces the previous
+    # reroll_hit_ones approximation with the real Martial Grace Battle
+    # Focus token buff).
+    ("martial_grace", False),
+    # Mont'ka (T'au Empire) Killing Blow detachment rule (#196). Two flags,
+    # both round-gated to battle rounds 1-3 in the simulator. The Lethal
+    # Hits on Guided half is flagged for citation completeness but not yet
+    # read by Unit.attack — SwegHammer has no Markerlight / Guided mechanic.
+    ("army_wide_assault_rounds_1_3", False),
+    ("lethal_hits_on_guided", False),
+    # Death Guard Virulent Vectorium detachment rule (#195).
+    ("worldblight_sticky_dg_objectives", False),
+    # Orks War Horde detachment rule (iter-1 Cluster B B1 fix). Army-wide
+    # [SUSTAINED HITS 1] on Ork melee weapons via Get Stuck In.
+    ("melee_sustained_hits_army_wide", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -101,7 +116,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.infiltrators",
     "simulator.reanimation_protocols",
     "simulator.sticky_objective",
+    # 10e core "greater Level of Control" rule — applies to objective scoring
+    # and sticky-claim promotion (`_score_objectives`, `_sticky_owner`).
+    "simulator.objective_control_strictly_greater",
     "simulator.battle_focus",
+    # Aeldari army rule (10e). Strands of Fate — 6D6 rolled at start of
+    # battle into Army.fate_dice; each die later substituted for one d6
+    # roll made by/against an AELDARI unit (hit, wound, save, charge,
+    # advance, Battle-shock). Pool depletes per spend. Greedy AI fires
+    # the substitution only when it flips a fail -> success.
+    "simulator.strands_of_fate",
     "simulator.battleshock",
     "simulator.judgement_tokens",
     # Orks faction army rules (10e). mob_rule auto-passes Battle-shock for
@@ -125,9 +149,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # and with leader/profile FNP by taking the lower value.
     "simulator.disgustingly_resilient",
     # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
-    # every DG model projects a 6" aura that subjects enemy units within
-    # it to the active Contagion. Escalates by round: round 1 -1 T (via
-    # +1 to wound in Unit.attack), round 2 -1 Ld (battleshock in
+    # every DG model projects a 3" aura that subjects enemy units within
+    # it to the active Contagion (radius gated to 3" per modern Nurgle's
+    # Gift / Afflicted rule; older index rule was 6"). APPROXIMATION:
+    # SwegHammer retains the older 3-round escalating shape: round 1 -1 T
+    # (via +1 to wound in Unit.attack), round 2 -1 Ld (battleshock in
     # _run_round), round 3+ -1 to hit on enemy attackers near a DG model
     # (Unit.attack). Faction-gated on the DG aura source; never debuffs
     # DG units themselves; the round-3+ -1 to hit doesn't compound with
@@ -137,6 +163,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # attack allocated to a non-daemon TSons model (Rubric Marines,
     # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
     "simulator.all_is_dust",
+    # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
+    # Shooting phase, each PSYKER attempts one of four Rituals via a
+    # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData
+    # verbatim quoted in thousand_sons.json. Each Ritual is a separate
+    # citation (Doombolt WC7, Temporal Surge WC6, Destiny's Ruin WC5,
+    # Twist of Fate WC9) so the auditor can track which are wired vs
+    # which are no-op approximations.
+    "simulator.cabal_of_sorcerers",
+    "simulator.ritual_doombolt",
+    "simulator.ritual_temporal_surge",
+    "simulator.ritual_destinys_ruin",
+    "simulator.ritual_twist_of_fate",
     # Genestealer Cults army rule (10e). Cult Ambush — at the start of the
     # first battle round, any number of GSC units can be set up anywhere on
     # the battlefield > 9" from enemy models. Modelled as an army-wide
@@ -192,6 +230,20 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.disembark",
     "simulator.firing_deck",
     "simulator.destroyed_transport",
+    # T'au Empire Markerlights → Guided (10e army-wide army rule). At the
+    # start of each Shooting phase, MARKERLIGHT-keyword units mark enemies
+    # as Guided; while the active detachment carries lethal_hits_on_guided
+    # (Mont'ka), T'au ranged attackers gain [LETHAL HITS] against Guided
+    # targets. Plumbed via Army.guided_enemy_uids, Battle._run_markerlight_phase,
+    # and the effective_lethal_hits gate in Unit.attack.
+    "simulator.markerlights",
+    # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
+    # stratagems any one army may fire per Command phase. 10e core has no
+    # hard cap, but real-player CP economy averages ~1 stratagem per
+    # Command phase; without the cap, CP-rich detachments stack 3-5+ buffs
+    # at round start. Enforced inside `Battle._apply_detachment_stratagems`
+    # via Army.stratagems_fired_this_command_phase + `_strat_cap_reached`.
+    "simulator.stratagem_per_command_phase_cap",
 )
 
 

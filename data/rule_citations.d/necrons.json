@@ -1,0 +1,63 @@
+{
+  "_comment": "Awakened Dynasty (Necrons) — six real 'Protocol of the …' stratagems verbatim from Wahapedia. Replaces the two fabricated stratagems (Implacable Onslaught, Methodical Destruction) deleted per the 2026-05-15 fabrication audit (commit fa9a957). Task #194. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+
+  "Stratagem.Protocol of the Eternal Revenant": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Protocol of the Eternal Revenant (Awakened Dynasty, Epic Deed Stratagem)",
+    "quoted_text": "WHEN: Any phase. TARGET: One NECRONS INFANTRY CHARACTER model from your army that was just destroyed. You can use this Stratagem on that model even though it was just destroyed. EFFECT: At the end of the phase, set your model back up on the battlefield as close as possible to where it was destroyed and not within Engagement Range of any enemy units, with half of its starting number of wounds remaining. RESTRICTIONS: Each model can only be targeted with this Stratagem once per battle.",
+    "trigger": "any phase, when a friendly NECRONS INFANTRY CHARACTER model is just destroyed",
+    "effect": "APPROXIMATION (catalogued but no-op): the simulator has no model-resurrection hook for destroyed CHARACTER units — Reanimation Protocols revives squad members of the same profile, but resurrecting a one-of-a-kind CHARACTER mid-phase isn't wired. The Stratagem is registered on the Awakened Dynasty detachment so it shows up in stratagems_for_army() listings and CP economy, but the dispatcher in `_apply_detachment_stratagems` skips it. A future PR could add a `transient_character_revive_pending` slot if the gap matters for calibration",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Protocol of the Undying Legions": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Protocol of the Undying Legions (Awakened Dynasty, Strategic Ploy Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Shooting phase or the Fight phase, just after an enemy unit has resolved its attacks. TARGET: One NECRONS unit from your army that had one or more of its models destroyed as a result of the attacking unit's attacks. EFFECT: Your unit activates its Reanimation Protocols and reanimates D3 wounds (or D3+1 wounds if a NECRONS CHARACTER is leading your unit).",
+    "trigger": "opponent's Shooting phase or Fight phase, just after an enemy unit's attacks have killed one or more models in a friendly NECRONS unit",
+    "effect": "the target NECRONS unit's `transient_undying_legions_pulse` slot is set to 2 (median D3, unled) or 3 (D3+1, led — gated by `_is_led_unit`, a 6\" friendly CHARACTER aura check). At end of round, `_apply_undying_legions_pulse` runs BEFORE `_apply_reanimation` and revives that many destroyed models of the same profile to the squad's anchor position. APPROXIMATION: trigger collapses 'just after the enemy resolved attacks' into 'round start' to match the simulator's pulse cadence — the AI fires it on the most-vulnerable NECRONS unit when the heuristic thinks the unit has already taken or is about to take significant damage",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Protocol of the Hungry Void": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Protocol of the Hungry Void (Awakened Dynasty, Battle Tactic Stratagem)",
+    "quoted_text": "WHEN: Fight phase. TARGET: One NECRONS unit from your army that has not been selected to fight this phase. EFFECT: Until the end of the phase, add 1 to the Strength characteristic of melee weapons equipped by models in your unit. In addition, If a NECRONS CHARACTER is leading your unit, until the end of the phase, improve the Armour Penetration characteristic of melee weapons equipped by models in your unit by 1. (this is not cumulative with any other modifiers that improve Armour Penetration].",
+    "trigger": "fight phase, on a friendly NECRONS unit that has not yet fought",
+    "effect": "the target NECRONS unit's `transient_plus_one_to_wound_melee` flag is set; Unit.attack lowers the melee wound_target by 1 (capped at 2+) for the round. APPROXIMATION: the simulator doesn't expose a clean per-round melee S/AP boost slot, so the +1 S is routed through +1 to wound (same direction, slightly more generous because +1 to wound always closes a bracket whereas +1 S only sometimes does). The +1 AP if-led leg is dropped; the buff folds into the same wound flag in both led and unled cases. Effect duration widened to the round rather than the phase so it composes with the round-start stratagem dispatcher",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Protocol of the Sudden Storm": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Protocol of the Sudden Storm (Awakened Dynasty, Strategic Ploy Stratagem)",
+    "quoted_text": "WHEN: Your Movement phase. TARGET: One NECRONS unit from your army. EFFECT: Until the end of the turn, ranged weapons equipped by models in your unit have the [ASSAULT] ability. In addition, if a NECRONS CHARACTER is leading your unit, until the end of the phase, you can re-roll Advance rolls made for your unit.",
+    "trigger": "your Movement phase, on any friendly NECRONS unit",
+    "effect": "the target NECRONS unit's `transient_assault_this_round` flag is set; the simulator's shoot path lets the unit shoot in the same round it advanced. APPROXIMATION: the if-led Advance re-roll leg is dropped — the simulator doesn't expose an Advance-roll hook and the Assault grant is the headline value. The AI fires this for a NECRONS shooter worth ≥80 pts so we don't burn CP for Warriors with gauss flayers",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Protocol of the Conquering Tyrant": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Protocol of the Conquering Tyrant (Awakened Dynasty, Battle Tactic Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase. TARGET: One NECRONS unit from your army that has not been selected to shoot this phase. EFFECT: Until the end of the phase, each time a model in your unit makes an attack that targets a unit within half range, re-roll a Hit roll of 1. If a NECRONS CHARACTER is leading your unit, until the end of the phase, you can re-roll the Hit roll for that attack instead.",
+    "trigger": "your Shooting phase, on a friendly NECRONS unit that has not yet shot",
+    "effect": "the target NECRONS unit's `transient_reroll_hits_shooting` flag is set; Unit.attack re-rolls failed hit rolls in shooting for the round. APPROXIMATION: the simulator's reroll flag is a full hit re-roll (matching the if-led leg), not a 1s-only re-roll (the unled leg) and not gated on half range. Direction-correct ~25% damage uplift, slightly more generous than the unled stratagem on its own. The AI fires this for a real NECRONS ranged shooter (ranged_dpa ≥ 2.0) against a HEAVY/SHOOTY/DUAL target",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Protocol of the Vengeful Stars": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Protocol of the Vengeful Stars (Awakened Dynasty, Strategic Ploy Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Shooting phase, just after an enemy unit destroys a NECRONS unit from your army. TARGET: One NECRONS CHARACTER unit from your army that was within 6\" of that NECRONS unit when it was destroyed. EFFECT: After the attacking unit has resolved its attacks, your unit can shoot as if it were your Shooting phase, but it must target only that enemy unit when doing so, and can only do so if that enemy unit is an eligible target.",
+    "trigger": "opponent's Shooting phase, just after an enemy unit destroys a friendly NECRONS unit within 6\" of a friendly NECRONS CHARACTER",
+    "effect": "APPROXIMATION (catalogued but no-op): the simulator has no out-of-sequence shoot hook in the opponent's shooting phase. The Stratagem is registered on the Awakened Dynasty detachment so it shows up in stratagems_for_army() listings and CP economy, but the dispatcher in `_apply_detachment_stratagems` skips it. A future PR could add a `transient_revenge_shoot_pending` slot keyed on the killer's uid if the gap matters for calibration",
+    "scope": "phase-gated",
+    "approximation": true
+  }
+}

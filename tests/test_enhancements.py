@@ -63,9 +63,13 @@ def _target_character_profile() -> UnitProfile:
 
 class EnhancementRegistryTests(unittest.TestCase):
 
-    def test_five_enhancements_registered(self):
-        # Five enhancements, one per implemented detachment in the starter set.
-        self.assertEqual(len(ENHANCEMENTS), 5)
+    def test_three_enhancements_registered(self):
+        # Three enhancements, one per surviving implemented detachment in
+        # the starter set. Two enhancements (Arcane Vortex, Living Plague)
+        # were removed per the 2026-05-15 fabrication audit (commit fa9a957)
+        # because they pointed at fabricated detachment keys (cult_of_magic,
+        # plague_company) that have been deleted.
+        self.assertEqual(len(ENHANCEMENTS), 3)
 
     def test_each_enhancement_has_detachment_and_cost(self):
         for name, enh in ENHANCEMENTS.items():
@@ -75,9 +79,11 @@ class EnhancementRegistryTests(unittest.TestCase):
             self.assertEqual(name, enh.name)
 
     def test_enhancements_grouped_by_detachment(self):
-        # Each starter Detachment has exactly one Enhancement wired.
-        for det_key in ("gladius_task_force", "awakened_dynasty",
-                         "cult_of_magic", "plague_company", "montka"):
+        # Each surviving starter Detachment has exactly one Enhancement
+        # wired. cult_of_magic and plague_company were deleted per the
+        # 2026-05-15 fabrication audit (commit fa9a957), so their
+        # enhancements (Arcane Vortex, Living Plague) are gone too.
+        for det_key in ("gladius_task_force", "awakened_dynasty", "montka"):
             with self.subTest(det=det_key):
                 wired = enhancements_for_detachment(det_key)
                 self.assertEqual(len(wired), 1)
@@ -107,8 +113,11 @@ class EnhancementPickerTests(unittest.TestCase):
         self.assertIsNone(pick_enhancement("invasion_fleet", rng=rng))
 
     def test_pick_seeded_deterministic(self):
-        a = pick_enhancement("cult_of_magic", rng=random.Random(0))
-        b = pick_enhancement("cult_of_magic", rng=random.Random(0))
+        # cult_of_magic was the original exemplar; that detachment was
+        # deleted per fa9a957. Use montka — also has exactly one wired
+        # enhancement (Puretide Engram Neurochip).
+        a = pick_enhancement("montka", rng=random.Random(0))
+        b = pick_enhancement("montka", rng=random.Random(0))
         self.assertEqual(a, b)
 
 

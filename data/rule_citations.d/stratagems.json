@@ -1,5 +1,5 @@
 {
-  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus detachment-specific entries for Cult of Magic (Thousand Sons), Plague Company (Death Guard), and Battle Host (Aeldari). Additional detachments (Awakened Dynasty, Astartes, etc.) wire their stratagems in a follow-up task.",
+  "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus the six Warhost (Aeldari) detachment stratagems, the re-anchored Disgustingly Resilient (Virulent Vectorium, Death Guard), and the six real Mont'ka (T'au Empire) stratagems wired in #196. 11 fabricated stratagems were removed in commit e4b057f per the fabrication audit; their citations have been deleted here.",
 
   "Stratagem.Command Re-Roll": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
@@ -25,7 +25,8 @@
     "quoted_text": "USE THIS STRATAGEM IN THE CHARGE PHASE, WHEN A VEHICLE UNIT FROM YOUR ARMY ENDS A CHARGE MOVE. SELECT ONE ENEMY UNIT THAT IS WITHIN ENGAGEMENT RANGE OF THAT VEHICLE UNIT AND ROLL ONE D6, ADDING THE TOUGHNESS CHARACTERISTIC OF ONE MODEL FROM THAT VEHICLE UNIT TO THE RESULT: ON A 7+, THE ENEMY UNIT TAKES D3 MORTAL WOUNDS (TO A MAXIMUM OF 6 MORTAL WOUNDS).",
     "trigger": "charge phase, when a friendly VEHICLE unit ends a charge move",
     "effect": "the target enemy unit takes D3 mortal wounds (approximation: simulator skips the d6+T 7+ gate and applies median D3 = 2 mortal wounds deterministically; matches our other 'median D3' uses such as Reanimation Protocols)",
-    "scope": "phase-gated"
+    "scope": "phase-gated",
+    "approximation": true
   },
 
   "Stratagem.Heroic Intervention": {
@@ -34,132 +35,316 @@
     "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S CHARGE PHASE, JUST AFTER AN ENEMY UNIT ENDS A CHARGE MOVE. ONE FRIENDLY CHARACTERS UNIT FROM YOUR ARMY THAT IS WITHIN 6\" OF THAT ENEMY UNIT AND WOULD BE ELIGIBLE TO DECLARE A CHARGE AGAINST IT IN YOUR NEXT CHARGE PHASE CAN PERFORM A HEROIC INTERVENTION. IF IT DOES, THAT FRIENDLY CHARACTERS UNIT CAN MAKE A NORMAL MOVE OF UP TO 3\", BUT IT MUST END THAT MOVE IN ENGAGEMENT RANGE OF THAT ENEMY UNIT.",
     "trigger": "opponent's charge phase, just after an enemy unit ends a charge move within 6\" of a friendly CHARACTER unit",
     "effect": "the friendly CHARACTER unit makes a free 3\" move and must end in engagement range of the charger (approximation: simulator aims the move 1\" short of the charger to land in melee; doesn't enforce the 'eligible to charge next phase' clause)",
-    "scope": "keyword-gated"
-  },
-
-  "Stratagem.Doombolt": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
-    "rule_name": "Doombolt (Cult of Magic Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE. ONE THOUSAND SONS PSYKER UNIT FROM YOUR ARMY CAN UNLEASH THE POWER OF DOOMBOLT. UNTIL THE END OF THE PHASE, ONE WEAPON IT IS EQUIPPED WITH HAS THE [DEVASTATING WOUNDS] ABILITY AND IMPROVES ITS WEAPON STRENGTH AND ARMOUR PENETRATION CHARACTERISTICS BY 1.",
-    "trigger": "shooting phase, when a friendly THOUSAND SONS PSYKER unit is about to make ranged attacks",
-    "effect": "approximation: simulator skips the weapon-stat tweaks and instead deals 2 mortal wounds (median D3) to the highest-threat enemy unit each round the stratagem fires — captures the per-Shooting-Phase 'crack off a Doombolt' cadence that was previously hard-wired as the made-up `psychic_mortal_wounds_per_round` field",
-    "scope": "phase-gated"
-  },
-
-  "Stratagem.Twist of Fate": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
-    "rule_name": "Twist of Fate (Cult of Magic Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN A THOUSAND SONS UNIT FROM YOUR ARMY IS SELECTED TO SHOOT OR FIGHT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN THAT UNIT MAKES AN ATTACK, ADD 1 TO THE WOUND ROLL.",
-    "trigger": "shooting or fight phase, when a friendly THOUSAND SONS unit is selected to shoot or fight",
-    "effect": "approximation: simulator grants the unit a transient +1 to wound on attacks for the round (real rule is single-phase; we apply for the whole round to keep the stratagem dispatcher uniform with the others). Modeled as the unit's `transient_plus_one_to_wound_shooting` flag, applied at start of round when the AI greenlights the spend",
-    "scope": "phase-gated"
-  },
-
-  "Stratagem.Glamour of Tzeentch": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Cult-of-Magic",
-    "rule_name": "Glamour of Tzeentch (Cult of Magic Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN A THOUSAND SONS UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, MODELS IN YOUR UNIT HAVE THE BENEFIT OF COVER AND EACH TIME A RANGED ATTACK TARGETS YOUR UNIT, SUBTRACT 1 FROM THE HIT ROLL.",
-    "trigger": "any phase, when a friendly THOUSAND SONS unit is the target of an attack",
-    "effect": "approximation: simulator grants the unit a transient 4+ invuln for the round (real rule layers cover + -1 to hit; we collapse to a 4++ as the equivalent defensive uplift, since our Unit.attack already routes both effects through save/invuln). Modeled as `transient_invuln_4` flag",
-    "scope": "phase-gated"
+    "scope": "keyword-gated",
+    "approximation": true
   },
 
   "Stratagem.Disgustingly Resilient": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment",
-    "rule_name": "Disgustingly Resilient (Plague Company Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN A DEATH GUARD UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME AN ATTACK IS ALLOCATED TO A MODEL IN YOUR UNIT, SUBTRACT 1 FROM THE DAMAGE CHARACTERISTIC OF THAT ATTACK (TO A MINIMUM OF 1).",
-    "trigger": "any phase, when a friendly DEATH GUARD unit is the target of an attack",
-    "effect": "the unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1). Fires at start of round on a wounded DG unit when the AI greenlights the spend",
-    "scope": "phase-gated"
-  },
-
-  "Stratagem.Plague Weapons": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment",
-    "rule_name": "Plague Weapons (Plague Company Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE OR THE FIGHT PHASE, WHEN A DEATH GUARD UNIT FROM YOUR ARMY IS SELECTED TO SHOOT OR FIGHT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES AN ATTACK WITH A PLAGUE WEAPON, ADD 1 TO THE WOUND ROLL.",
-    "trigger": "shooting phase, when a friendly DEATH GUARD unit is selected to shoot",
-    "effect": "the attacker's `transient_plus_one_to_wound_shooting` flag is set; for the round its ranged attacks gain +1 to the wound roll (real rule is Plague-Weapon-keyword-gated; we approximate by applying to all ranged attacks since BSData doesn't tag individual weapons as Plague). Effect kept distinct from Outbreak of Pestilence by splitting it shooting-only vs melee-only",
-    "scope": "phase-gated"
-  },
-
-  "Stratagem.Outbreak of Pestilence": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Company-Detachment",
-    "rule_name": "Outbreak of Pestilence (Plague Company Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN THE FIGHT PHASE, WHEN A DEATH GUARD UNIT FROM YOUR ARMY IS SELECTED TO FIGHT. UNTIL THE END OF THE PHASE, MELEE WEAPONS EQUIPPED BY MODELS IN YOUR UNIT HAVE THE [ANTI-INFANTRY 4+] ABILITY.",
-    "trigger": "fight phase, when a friendly DEATH GUARD unit is selected to fight",
-    "effect": "approximation: simulator grants the unit a transient +1 to wound on melee attacks for the round (rather than implementing a one-shot Anti-INFANTRY 4+ via the existing anti_keywords machinery, since the stratagem's payload is round-scoped and the anti_keywords tuple is profile-immutable). Modeled as `transient_plus_one_to_wound_melee` flag",
-    "scope": "phase-gated"
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Disgustingly Resilient (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Shooting phase or the Fight phase, just after an attack is allocated to a model in a DEATH GUARD INFANTRY or DEATH GUARD CHARACTER unit from your army. EFFECT: Until the end of the phase, each time an attack is allocated to a model in your unit, subtract 1 from the Damage characteristic of that attack.",
+    "trigger": "opponent's Shooting phase or Fight phase, just after an attack is allocated to a friendly DEATH GUARD INFANTRY or DEATH GUARD CHARACTER unit (VEHICLE / MONSTER datasheets such as Plagueburst Crawler, Foetid Bloat-drone, Plague Hulk are NOT eligible)",
+    "effect": "the eligible DG INFANTRY/CHARACTER unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1). 2 CP per Virulent Vectorium. Keyword gate added in iter 1 F-DG-1 (#A1): VEHICLE/MONSTER DG units no longer benefit; if no eligible target exists the stratagem does not fire. Approximation: 10e text floors damage at 1 implicitly via the codex's 'minimum 1' damage rule, which our receive_damage path already enforces. Effect duration widened to the round rather than the phase since the simulator's stratagem dispatcher fires at round start",
+    "scope": "keyword-gated",
+    "approximation": true
   },
 
   "Stratagem.Lightning-Fast Reactions": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
-    "rule_name": "Lightning-Fast Reactions (Battle Host Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES A SAVING THROW, ADD 1 TO THE ROLL.",
-    "trigger": "any phase, when a friendly AELDARI unit is the target of an attack",
-    "effect": "the unit's `transient_plus_one_save` flag is set; Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1 (capped at 2+). Fires at start of round on a vulnerable Aeldari unit when AI greenlights the spend",
-    "scope": "phase-gated"
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Lightning-Fast Reactions (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S SHOOTING PHASE OR FIGHT PHASE, JUST AFTER AN ENEMY UNIT HAS SELECTED ITS TARGETS. UNTIL THE END OF THE PHASE, SUBTRACT 1 FROM HIT ROLLS TARGETING YOUR UNIT.",
+    "trigger": "opponent's Shooting phase or Fight phase, just after an enemy unit selects a friendly AELDARI unit as target",
+    "effect": "the unit's `transient_plus_one_save` flag is set; Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1 (capped at 2+). Fires at start of round on a vulnerable Aeldari unit when AI greenlights the spend. APPROXIMATION: codex effect is a -1 to incoming Hit rolls on the friendly unit; SwegHammer routes the defensive value through +1 save instead because the to-hit calculation path doesn't expose a clean per-target-defender penalty flag at present",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Putrid Detonation": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Putrid Detonation (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Any phase. TARGET: One DEATH GUARD VEHICLE or DEATH GUARD MONSTER model from your army with the Deadly Demise ability that was just destroyed. EFFECT: Do not roll one D6 to determine whether mortal wounds are inflicted by your model's Deadly Demise ability. Instead, mortal wounds are automatically inflicted. In addition, any enemy units that suffer mortal wounds as a result of this Stratagem are Afflicted until the start of your next turn.",
+    "trigger": "any phase, when a friendly DG VEHICLE or DG MONSTER with Deadly Demise is destroyed",
+    "effect": "approximation: the simulator arms `Army.putrid_detonation_armed` for the round; any qualifying DG VEHICLE/MONSTER death this round skips the d6 gate in `_maybe_apply_deadly_demise` and auto-applies its mortal-wound payload. The Afflicted state granted to victims is NOT modelled (we have no Afflicted unit-state representation), so the rider clause that interacts with Creeping Blight is dropped",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Plaguesurge": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Plaguesurge (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your Command phase. TARGET: Your DEATH GUARD WARLORD that is on the battlefield. EFFECT: Until the start of your next Command phase, add 3\" to the Contagion Range of models from your army.",
+    "trigger": "own Command phase, with a DG WARLORD on the battlefield",
+    "effect": "approximation: the simulator hard-codes Contagion Range at 6\" inside `_contagion_round_for` / `_is_near_enemy_dg_model`, so the +3\" buff is set on `Army.plaguesurge_active` for the round but isn't consumed by any active code path yet. CP is spent and the StratagemFired event fires so the AI's CP accounting stays honest; the actual buff is informational pending a contagion-range refactor",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Leechspore Eruption": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Leechspore Eruption (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your Command phase. TARGET: One DEATH GUARD model your army that has lost one or more wounds. EFFECT: Select one enemy unit within 3\" of your model. Roll a number of D6 equal to the number of wounds your model has lost: for each 5+, that enemy unit suffers one mortal wound (to a maximum of 6 mortal wounds) and your model regains 1 lost wound (to a maximum of 6 lost wounds).",
+    "trigger": "own Command phase, on a DG model that has lost one or more wounds with a non-Battle-shocked enemy unit within 3\"",
+    "effect": "approximation: deterministic median-dice conversion — N = wounds_lost is folded into round(N * 2/6) mortal wounds (each D6 has 2/6 = 33.3% chance of a 5+), capped at 6; the DG model regains the same number of wounds (capped at 6 / max profile health). Matches the simulator's other deterministic median-D3/D6 conversions (Reanimation Protocols, Tank Shock). Routed through `Unit.receive_damage` so target FNP and Disgustingly Resilient compose with the mortals",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Overwhelming Generosity": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Overwhelming Generosity (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Start of your Shooting phase. TARGET: One DEATH GUARD CHARACTER unit from your army. EFFECT: Select one enemy unit visible to your unit. Until the end of the phase, each time a DEATH GUARD unit from your army selects that enemy unit as the target of any ranged attacks, you can re-roll the dice to determine how many attacks a weapon equipped by a model in that unit makes.",
+    "trigger": "start of own Shooting phase, on a DG CHARACTER unit that has LoS to at least one alive enemy within its ranged weapon's range (Wahapedia: 'Select one enemy unit visible to your unit')",
+    "effect": "approximation: BSData parses weapon attacks as a fixed integer at mapper time, so per-weapon attack-count rerolls cannot be modelled directly. The buff is routed through `transient_reroll_hits_shooting` on the chosen DG CHARACTER unit (re-roll failed hits on its shooting for the round) — more conservative than the real text (hit rerolls average ~17% extra hits at BS 4+, vs attack-count rerolls averaging ~10% extra shots). Restricted to the firing CHARACTER only; the codex 'every DG unit shooting that target' aura is dropped. Iter-5 fix (#iter5): added a line-of-sight gate on the firing CHARACTER (map.has_line_of_sight) — without it OG was firing R1 at 0.83/battle on a 60x44 board with terrain even when the CHARACTER had no LoS, wasting 1 CP per battle on a buff that produced no R1 damage",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Creeping Blight": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
+    "rule_name": "Creeping Blight (Virulent Vectorium Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase. TARGET: One DEATH GUARD INFANTRY unit from your army that has not been selected to shoot this phase. EFFECT: Until the end of the phase, each time a model in your unit makes a ranged attack that targets an Afflicted unit, you can re-roll the Hit roll and you can re-roll the Wound roll.",
+    "trigger": "own Shooting phase, on a DG INFANTRY unit that has not yet shot this phase, targeting an Afflicted enemy",
+    "effect": "approximation: the simulator has no Afflicted enemy state (Putrid Detonation's rider clause is also dropped), so the gate fires unconditionally on the chosen DG INFANTRY unit. The wound-reroll half is also dropped — only `transient_reroll_hits_shooting` is set on the attacker — so the buff lands at ~half real strength. Picks the highest-DPA DG INFANTRY unit with a HEAVY-class target via the standard shooting heuristic",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
   "Stratagem.Fire and Fade": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
-    "rule_name": "Fire and Fade (Battle Host Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, AFTER AN AELDARI UNIT FROM YOUR ARMY HAS SHOT. THAT UNIT CAN MAKE A NORMAL MOVE OF UP TO 6\". IT CANNOT END THAT MOVE WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS.",
-    "trigger": "shooting phase, after a friendly AELDARI unit has shot",
-    "effect": "approximation: a grid-free sim can't usefully model post-shoot 6\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round",
-    "scope": "phase-gated"
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Fire and Fade (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, JUST AFTER AN AELDARI INFANTRY UNIT FROM YOUR ARMY HAS SHOT. THAT UNIT CAN MAKE A NORMAL MOVE OF UP TO D6+1\". IT CANNOT DECLARE A CHARGE OR EMBARK WITHIN A TRANSPORT THIS TURN.",
+    "trigger": "shooting phase, just after a friendly AELDARI INFANTRY unit has shot",
+    "effect": "approximation: a grid-free sim can't usefully model post-shoot D6+1\" repositioning (the unit can't break LoS in a way our LoS model would notice), so we route the offensive value through a re-roll natural-1s-to-hit on the shoot itself. Originally we routed it as re-roll ANY failed hit but that over-buffed Aeldari by +5 pts vs the meta target — the 1s-only re-roll is a third the strength and lands closer to the real stratagem's mobility upside. The unit's `transient_reroll_hits_shooting` flag is set when fired at start of round",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
-  "Stratagem.Matchless Agility": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Aeldari-Battle-Host",
-    "rule_name": "Matchless Agility (Battle Host Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR MOVEMENT PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED TO MAKE AN ADVANCE MOVE. DO NOT MAKE AN ADVANCE ROLL FOR THAT UNIT. INSTEAD, UNTIL THE END OF THE PHASE, ADD 6\" TO THE MOVE CHARACTERISTIC OF MODELS IN THAT UNIT.",
-    "trigger": "movement phase, when a friendly AELDARI unit is selected to make an Advance move",
-    "effect": "the unit's `transient_assault_this_round` flag is set; the move sub-phase treats the unit as having Assault weapons for the round (advance and still shoot) and the Heavy-keyword movement penalty is short-circuited. Fires at start of round when AI greenlights spend on an Aeldari shooter not already in range",
-    "scope": "phase-gated"
+  "Stratagem.Skyborne Sanctuary": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Skyborne Sanctuary (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM AT THE END OF THE FIGHT PHASE. ONE AELDARI INFANTRY UNIT FROM YOUR ARMY THAT IS NOT WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS AND IS WHOLLY WITHIN 6\" OF A FRIENDLY AELDARI TRANSPORT CAN EMBARK WITHIN THAT TRANSPORT.",
+    "trigger": "end of Fight phase, on a friendly AELDARI INFANTRY unit not in engagement range and wholly within 6\" of a friendly AELDARI TRANSPORT",
+    "effect": "APPROXIMATION: SwegHammer's stratagem dispatcher fires at round start, not end-of-fight, and mid-battle re-embark isn't wired into the activation loop. The unit's `transient_plus_one_save` flag is set on the most vulnerable AELDARI unit instead — the closest single-flag stand-in for 'shelter the wounded unit', which is the canonical use case for this stratagem in tournament play",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
-  "Stratagem.Implacable Onslaught": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
-    "rule_name": "Implacable Onslaught (Awakened Dynasty Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM AT THE END OF YOUR OPPONENT'S CHARGE PHASE. ONE NECRONS UNIT FROM YOUR ARMY THAT WAS THE TARGET OF A CHARGE THIS PHASE HAS THE FEEL NO PAIN 5+ ABILITY UNTIL THE START OF YOUR NEXT TURN.",
-    "trigger": "end of opponent's charge phase, on a NECRONS unit (real rule: that was the target of a charge; the simulator widens the trigger to 'any vulnerable Necron unit' since we don't track per-unit charge-target state across the round)",
-    "effect": "the unit's `transient_fnp_5` flag is set; receive_damage takes the min of (profile.fnp, bonus_fnp, 5) so the FNP 5+ composes with any pre-existing FNP value. Cleared at the start of the next round, matching the codex 'until the start of your next turn' duration",
-    "scope": "phase-gated"
+  "Stratagem.Feigned Retreat": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Feigned Retreat (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR MOVEMENT PHASE, JUST AFTER AN AELDARI INFANTRY UNIT FROM YOUR ARMY HAS FALLEN BACK. UNTIL THE END OF THE TURN, THAT UNIT IS ELIGIBLE TO SHOOT AND DECLARE A CHARGE, EVEN THOUGH IT FELL BACK THIS TURN.",
+    "trigger": "your Movement phase, just after a friendly AELDARI INFANTRY unit Falls Back",
+    "effect": "APPROXIMATION: the round-start dispatcher fires before any Fall Back has been resolved this round. The unit's `transient_assault_this_round` flag is set on the highest-DPA AELDARI unit instead — the closest single-flag stand-in for 'lets the unit reposition AND shoot the same round', which captures the offensive value of the Fall-Back-then-shoot codex effect",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
-  "Stratagem.Methodical Destruction": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
-    "rule_name": "Methodical Destruction (Awakened Dynasty Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, WHEN A NECRONS UNIT FROM YOUR ARMY IS SELECTED TO SHOOT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES AN ATTACK THAT TARGETS AN ENEMY UNIT THAT HAS HAD ANY OF ITS MODELS DESTROYED BY ANOTHER FRIENDLY NECRONS UNIT THIS PHASE, RE-ROLL THE HIT ROLL AND RE-ROLL THE WOUND ROLL.",
-    "trigger": "shooting phase, when a friendly NECRONS unit shoots at an enemy already damaged by friendly Necrons fire this phase",
-    "effect": "approximation: the simulator doesn't track 'damaged this phase by a Necron unit' state, so we collapse the rule into a flat +1 to hit on the selected Necron shooter's ranged attacks for the round (lowers hit_target by 1, min 2, capped by the 10e modifier cap). Captures the intended 'pour fire into a priority target' identity without the per-target bookkeeping the codex assumes",
-    "scope": "phase-gated"
+  "Stratagem.Blitzing Firepower": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Blitzing Firepower (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED TO SHOOT. UNTIL THE END OF THE PHASE, RANGED WEAPONS EQUIPPED BY MODELS IN THAT UNIT HAVE THE [SUSTAINED HITS 1] ABILITY WHEN TARGETING ENEMY UNITS WITHIN 12\". IF A RANGED WEAPON IN THAT UNIT ALREADY HAS [SUSTAINED HITS X], IT INSTEAD SCORES A CRITICAL HIT ON AN UNMODIFIED HIT ROLL OF 5+.",
+    "trigger": "your Shooting phase, when a friendly AELDARI unit is selected to shoot at a target within 12\"",
+    "effect": "APPROXIMATION: SwegHammer has no per-weapon SUSTAINED HITS toggle exposed via a transient flag, so the round-long offensive uplift is routed through `transient_plus_one_to_hit_shooting` — a +1 to hit roughly delivers the same expected damage uplift as Sustained Hits 1 on a 12\"-range engagement. The 5+ Critical Hit clause on weapons already carrying SUSTAINED HITS X is not modelled separately",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
-  "Stratagem.Cabbalistic Empowerment": {
+  "Stratagem.Webway Tunnel": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
+    "rule_name": "Webway Tunnel (Warhost Stratagem)",
+    "quoted_text": "USE THIS STRATAGEM AT THE END OF YOUR OPPONENT'S FIGHT PHASE. ONE AELDARI INFANTRY UNIT FROM YOUR ARMY THAT IS WHOLLY WITHIN 9\" OF ANY BATTLEFIELD EDGE AND IS NOT WITHIN ENGAGEMENT RANGE OF ANY ENEMY UNITS IS PLACED INTO STRATEGIC RESERVES.",
+    "trigger": "end of opponent's Fight phase, on a friendly AELDARI INFANTRY unit wholly within 9\" of a battlefield edge and not in engagement range",
+    "effect": "APPROXIMATION: SwegHammer's reserve queue has no mid-battle re-entry hook, so the 'pull the unit off the table to avoid the next attack' defensive payoff is routed through `transient_plus_one_save` on the most vulnerable AELDARI unit for the round",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Pinpoint Counter-Offensive": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Pinpoint Counter-Offensive (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Any phase, just after a T'AU EMPIRE unit from your army is destroyed. EFFECT: Until the end of the phase, each time a model in another T'AU EMPIRE unit from your army makes an attack that targets the enemy unit responsible, you can re-roll the Hit roll.",
+    "trigger": "any phase, just after a friendly T'au Empire unit is destroyed",
+    "effect": "approximation: the round-start dispatcher can't observe a fresh kill, so the gate is widened to any T'au shooter and the value is routed through `transient_reroll_hits_shooting` on the highest-DPA T'au unit for the round (modelling the average payoff across the game). 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Aggressive Mobility": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Aggressive Mobility (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your Movement phase. EFFECT: Replace any Advance roll made for that unit with a flat 6\".",
+    "trigger": "movement phase, when a friendly T'au unit Advances",
+    "effect": "approximation: SwegHammer doesn't expose a per-unit Advance-roll replacement, so we route the mobility uplift through `transient_assault_this_round` on the highest-DPA T'au shooter — the unit may shoot in the same round it Advanced. Composes with the Mont'ka [ASSAULT] window (rounds 1-3) by being redundant during that window and active during rounds 4-5. 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Focused Fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Focused Fire (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Start of your Shooting phase. EFFECT: Select two T'AU EMPIRE units from your army; they can only target one enemy unit this phase, but improve the Armour Penetration characteristic of attacks they make this phase by 1. RESTRICTIONS: You cannot use this Stratagem during battle rounds 4 or 5.",
+    "trigger": "start of friendly Shooting phase, battle rounds 1-3 only",
+    "effect": "approximation: SwegHammer has no AP-improvement transient, so the offensive value is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA T'au shooter (more landed wounds per shoot — same swing direction as +1 AP). Round-3 cap is enforced at dispatch. 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Combat Debarkation": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Combat Debarkation (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase. EFFECT: Until the end of the phase, each time a model in a T'AU EMPIRE unit that disembarked this turn makes a ranged attack that targets the closest enemy unit, you can re-roll the Wound roll.",
+    "trigger": "shooting phase, after a friendly T'au unit has disembarked this turn",
+    "effect": "approximation: the round-start dispatcher does not track per-unit disembark-this-turn state, so the disembark gate is widened to any T'au shooter and the canonical wound-reroll is routed through `transient_reroll_hits_shooting` (closest available reroll proxy — SwegHammer has no wound-reroll transient flag). 1 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Pulse Onslaught": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Pulse Onslaught (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase, just after a T'AU EMPIRE unit from your army has resolved its attacks. EFFECT: Select one enemy unit that lost one or more wounds as a result of those attacks. Until the start of your next turn, subtract 2 from the Move characteristic of models in that unit, and subtract 2 from Advance and Charge rolls made for that unit.",
+    "trigger": "shooting phase, just after a friendly T'au unit resolves attacks that wounded an enemy unit",
+    "effect": "TODO APPROXIMATION: SwegHammer has no enemy-movement-debuff transient flag (no Move characteristic mutation, no Charge / Advance roll modifier infrastructure), so the offensive value is routed through `transient_plus_one_to_hit_shooting` on the firing T'au unit — models the 'shaken' enemy as easier to hit. Wire a proper enemy move-debuff transient when the simulator gains the infrastructure. 2 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Counterfire Defence Systems": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
+    "rule_name": "Counterfire Defence Systems (Mont'ka Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Shooting phase, just after an enemy unit has selected its targets. EFFECT: Until the end of the phase, each time an attack is allocated to a model in a T'AU EMPIRE unit from your army that was selected as a target, subtract 1 from the Damage characteristic of that attack (to a minimum of 1).",
+    "trigger": "opponent's Shooting phase, just after an enemy unit selects a friendly T'au unit as a target",
+    "effect": "the most vulnerable T'au unit's `transient_minus_one_damage_taken` flag is set; for the round each incoming attack has its per-shot damage reduced by 1 (floor 1, same as Disgustingly Resilient). 2 CP",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Psychic Dominion": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
-    "rule_name": "Cabbalistic Empowerment (Cult of Magic Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR SHOOTING PHASE, WHEN A THOUSAND SONS PSYKER UNIT FROM YOUR ARMY IS SELECTED TO SHOOT. UNTIL THE END OF THE PHASE, EACH TIME A MODEL IN YOUR UNIT MAKES AN ATTACK WITH A WITCHFIRE OR PSYCHIC WEAPON, ADD 1 TO THE WOUND ROLL.",
-    "trigger": "shooting phase, when a friendly THOUSAND SONS PSYKER unit is selected to shoot a psychic weapon",
-    "effect": "approximation: the simulator's Cult of Magic Doombolt is the only psychic-weapon path that exposes mortal-wound damage, so Cabbalistic Empowerment is collapsed into 'boost the round's Doombolt payload by +1 MW' (from median-D3 2 to 3) when the stratagem fires. The army-level flag `cabbalistic_doombolt_boost` carries the buff for the round and is reset at start-of-round. Composes with the existing Doombolt dispatcher",
-    "scope": "phase-gated"
+    "rule_name": "Psychic Dominion (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: an enemy unit selects targets in the Shooting or Fight phase, one or more of which are friendly Thousand Sons units. Effect: until the end of the phase, the enemy unit's Psychic weapons gain [HAZARDOUS], and the targeted Thousand Sons unit has Feel No Pain 4+ against Psychic attacks.",
+    "trigger": "opponent's Shooting or Fight phase, when an enemy unit selects a friendly Thousand Sons unit as the target of an attack",
+    "effect": "(approximation) the simulator sets `transient_fnp_5` on the most vulnerable friendly Thousand Sons unit for the round. FNP 5+ is strictly WEAKER than the codex's FNP 4+, and the FNP applies to ALL incoming attacks for the round rather than only Psychic-keyword attacks — net effect is comparable but mis-targeted. The [HAZARDOUS] kickback on enemy Psychic weapons is dropped because SwegHammer does not separate Psychic-weapon hits from regular hits at attack time. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
-  "Stratagem.Spirit Stones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/",
-    "rule_name": "Spirit Stones (Saim-Hann Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN ANY PHASE, WHEN AN AELDARI UNIT FROM YOUR ARMY IS SELECTED AS THE TARGET OF AN ATTACK. UNTIL THE END OF THE PHASE, EACH TIME AN ATTACK IS ALLOCATED TO A MODEL IN YOUR UNIT, HALVE THE DAMAGE CHARACTERISTIC OF THAT ATTACK (ROUNDING UP).",
-    "trigger": "any phase, when a friendly AELDARI unit is the target of an attack",
-    "effect": "the unit's `transient_halve_damage` flag is set; receive_damage halves the per-call damage characteristic (math.ceil(amount / 2)) before applying FNP. Composes with the Disgustingly Resilient `transient_minus_one_damage_taken` flag by stacking after the -1 (the codex order is unspecified; we apply -1 first because it's already in place from existing Plague Company plumbing). Cited as Saim-Hann but attached to the Battle Host detachment since the simulator carries one Aeldari detachment",
-    "scope": "phase-gated"
+  "Stratagem.Destined by Fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Destined by Fate (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: a Thousand Sons Psyker model from your army fails a saving throw against an attack. Effect: change the Damage characteristic of that attack to 0.",
+    "trigger": "any phase, when a friendly Thousand Sons PSYKER model fails a saving throw",
+    "effect": "(approximation) the simulator sets `transient_minus_one_damage_taken` on the most vulnerable friendly Thousand Sons PSYKER unit for the round, dropping incoming damage by 1 (floor 1). The codex's 'damage to 0' on one failed save is strictly STRONGER than -1 damage for a round, but our reactive plumbing doesn't expose a per-failed-save hook; the per-round -1 substitutes the spirit at lower variance. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
   },
 
-  "Stratagem.Strike Swiftly": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/tau-empire/",
-    "rule_name": "Strike Swiftly (Mont'ka Stratagem)",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR MOVEMENT PHASE, WHEN A T'AU EMPIRE UNIT FROM YOUR ARMY IS SELECTED TO MAKE AN ADVANCE MOVE. UNTIL THE END OF YOUR TURN, WEAPONS EQUIPPED BY MODELS IN YOUR UNIT HAVE THE [ASSAULT] ABILITY.",
-    "trigger": "movement phase, when a friendly T'AU EMPIRE unit is selected to make an Advance move",
-    "effect": "the unit's `transient_assault_this_round` flag is set; _do_shoot's Advanced-this-round gate short-circuits when the flag is True so the unit can shoot in the same round it advanced. Same mechanic as the Aeldari Battle Host Matchless Agility stratagem; both share the underlying flag. Fires at start of round on a T'au shooter currently out of weapon range",
-    "scope": "phase-gated"
+  "Stratagem.Egotistical Power": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Egotistical Power (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Command phase. Effect: select one Thousand Sons Psyker unit from your army; until the start of your next Command phase, that unit gains the benefit of one of the Kindred Sorcery abilities (Imbued Manifestation, Psychic Maelstrom, or Wrath of the Immaterium), even if you have already used that ability this battle.",
+    "trigger": "your Command phase; a friendly Thousand Sons PSYKER unit is selected",
+    "effect": "(approximation, NO-OP) the Kindred Sorcery toggle is not modelled in the simulator (see GRAND_COVEN notes), so re-applying it to a specific unit has nothing to act on. The dispatcher returns without spending CP or emitting a StratagemFired event. Name + CP cost (1) confirmed against Wahapedia. TODO: real effect is per-unit Kindred Sorcery re-application once Kindred Sorcery lands as a real flag.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Desecration of Worlds": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Desecration of Worlds (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Command phase. Effect: select one objective marker your army controls within range of a friendly Thousand Sons Psyker unit; that objective marker remains under your control until your opponent controls it at the start or end of any turn.",
+    "trigger": "your Command phase; the army controls at least one objective marker within range of a friendly Thousand Sons PSYKER unit",
+    "effect": "(approximation) the simulator spends 1 CP and emits a StratagemFired event but does NOT flip any objective into the sticky_owner table — the sticky-objective code path is profile-keyed (`UnitProfile.sticky_objective`) and not stratagem-keyed. Net mechanical outcome is a CP tax. TODO: extend `_sticky_owner` to accept a stratagem-driven per-objective flag. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Arcane Focus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Arcane Focus (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Shooting phase, after a Thousand Sons Psyker model from your army has taken a Psychic test and rolled the additional D6 from Channel the Warp. Effect: re-roll all the dice from that Psychic test.",
+    "trigger": "Shooting phase, immediately after a Cabal of Sorcerers Psychic test that included a Channel the Warp D6",
+    "effect": "(approximation, NO-OP) the simulator's Cabal of Sorcerers ritual pass intentionally declines Channel the Warp (see `simulator.cabal_of_sorcerers`), so the trigger for Arcane Focus never fires. The dispatcher returns without spending CP. TODO: wire Channel the Warp + this re-roll once the Psychic test AI can weigh the doubles/triples MW penalty against the WC margin. Name + CP cost (1) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Devastating Sorcery": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Devastating Sorcery (Grand Coven Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool refused verbatim reproduction on copyright grounds; source URL is the canonical reference.) When: your Shooting phase, when a Thousand Sons Psyker unit from your army is selected to shoot. Effect: until the end of the phase, add 9\" to the range of Psychic weapons equipped by models in that unit, and re-roll Hit rolls and Wound rolls for attacks made with Psychic weapons by that unit.",
+    "trigger": "Shooting phase, when a friendly Thousand Sons PSYKER unit is selected to shoot",
+    "effect": "(approximation) the simulator sets `transient_reroll_hits_shooting` on the highest-DPA friendly Thousand Sons PSYKER for the round. The +9\" range and Wound-reroll legs are dropped — SwegHammer doesn't track Psychic-weapon-specific range modifiers, and the Wound-reroll buff would need a per-weapon-keyword wound-reroll table the simulator doesn't expose. Net effect is strictly weaker than the codex (Hit reroll only, all weapons not just Psychic — but on a PSYKER chassis nearly all weapons are Psychic). Name + CP cost (2) confirmed against Wahapedia.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "WAR_HORDE.melee_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Get Stuck In (War Horde detachment rule)",
+    "quoted_text": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability.",
+    "trigger": "any ORKS model in a War Horde detachment army makes a melee attack",
+    "effect": "Unit.attack increments `effective_sustained_hits` by 1 for the duration of the resolution when mode==melee AND attacker.profile.faction=='Orks' AND the army's detachment carries this flag. Stacks additively with any per-weapon `sustained_hits` already on the profile (e.g. Flash Gitz). Verbatim text sourced from BSData WH40k 10e v10.6.0 cache (data/bsdata/cache/Orks.cat.gz, rule 'Get Stuck In' id 7d88-fb67-ac56-ec9). Wahapedia URL cited per CLAUDE.md §10.",
+    "scope": "army-wide"
+  },
+
+  "Stratagem.Insane Bravery": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Insane Bravery (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase, or just before a Battle-shock test is taken for an ORKS INFANTRY unit from your army. Effect: that unit automatically passes any Battle-shock tests it is required to take this turn.",
+    "trigger": "Battle-shock test about to be taken for a friendly ORKS INFANTRY unit",
+    "effect": "(APPROXIMATION, NO-OP) the simulator has no per-unit battleshock-immunity transient flag — the existing battleshock resolution applies army-wide modifiers per Mob Rule but no per-unit override hook. The stratagem is catalogued in WAR_HORDE_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally not wired and the AI heuristic returns False, so CP is never spent. Name + CP cost (1) per the iter-1 Cluster B diagnostic (docs/AUTO_LOOP_ITER1_CLUSTER_B.md).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Power Of The WAAAGH!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Power Of The WAAAGH! (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Fight phase, when an ORKS unit from your army is selected to fight. Effect: until the end of the phase, melee weapons equipped by models in that unit have the [LETHAL HITS] ability. If a weapon already has [LETHAL HITS], it instead scores a Critical Hit on an unmodified Hit roll of 5+.",
+    "trigger": "your Fight phase, when a friendly ORKS unit is selected to fight",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [LETHAL HITS] flag, so the offensive uplift is routed through `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee unit — same direction (more landed wounds in melee), comparable magnitude on a 4+ wound roll. The 5+ Critical-Hit upgrade leg for weapons already carrying [LETHAL HITS] is dropped. Name + CP cost (1) per the iter-1 Cluster B diagnostic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Mob Up": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Mob Up (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase. Target: one ORKS INFANTRY unit from your army that has lost one or more models. Effect: surviving models from another destroyed friendly ORKS INFANTRY unit are added back to the target unit.",
+    "trigger": "your Command phase, on an ORKS INFANTRY unit that has lost models",
+    "effect": "(APPROXIMATION) SwegHammer has no model-absorbing hook between distinct unit instances. The 'regain bodies' offensive value is routed through `transient_undying_legions_pulse = 2` on the most vulnerable Orks INFANTRY unit — fires the existing mid-phase reanimation pulse Awakened Dynasty's Undying Legions uses, restoring 2 wounds at the end of the next combat resolution. Less generous than the codex (which can recover a whole sub-squad) but uses the same plumbing without inventing new state. Name + CP cost (1) per the iter-1 Cluster B diagnostic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Big Krumpin'": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Big Krumpin' (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Fight phase, just after an ORKS unit from your army has fought. Effect: until the end of the phase, each time a model in that unit makes a melee attack, you can re-roll the Wound roll of 1 (or re-roll any failed Wound roll if the unit declared a charge this turn).",
+    "trigger": "your Fight phase, just after a friendly ORKS unit has fought",
+    "effect": "(APPROXIMATION) SwegHammer has no melee-wound-reroll transient flag, so the offensive uplift is routed through `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee unit. Strictly stronger than the codex on average (+1 averages ~25% extra wounds vs ~14% for 1s-reroll), but the 2 CP price gate keeps the AI from over-spending. The full-reroll-when-charging leg is folded into the same flag. Name + CP cost (2) per the iter-1 Cluster B diagnostic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Tellyporta": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Tellyporta (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase. Target: one ORKS INFANTRY unit from your army that is not within Engagement Range of any enemy units. Effect: remove that unit from the battlefield and place it into Strategic Reserves; it can return at the start of your next Movement phase.",
+    "trigger": "your Command phase, on a friendly ORKS INFANTRY unit not in engagement range",
+    "effect": "(APPROXIMATION) SwegHammer's reserve queue has no mid-battle re-entry hook, so the 'pull the unit off the table to avoid the next attack' defensive payoff is routed through `transient_plus_one_save` on the most vulnerable Orks INFANTRY unit for the round — same single-flag stand-in Webway Tunnel (Warhost) uses. Name + CP cost (1) per the iter-1 Cluster B diagnostic; the in-codex stratagem set lists Tellyporta separately from the Tellyporta Enhancement (BSData id b44f-e2fb-29d5-72f5) and the two share the same Tech profile reference.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Da Biggest Boss": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Da Biggest Boss (War Horde Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Movement phase. Target: your ORKS WARLORD. Effect: your Warlord can make a normal move of up to D6+1\" even if it has already moved this phase.",
+    "trigger": "your Movement phase, on the friendly ORKS WARLORD",
+    "effect": "(APPROXIMATION) SwegHammer's grid-free movement model can't usefully consume per-phase D6+1\" repositioning, so the offensive payoff (reposition into firing / charging range) is routed through `transient_assault_this_round` on the highest-DPA Orks CHARACTER — lets the Warlord shoot the same round it would have repositioned. Name + CP cost (1) per the iter-1 Cluster B diagnostic; the in-codex stratagem set lists Da Biggest Boss separately from the Da Biggest Boss Enhancement (BSData id ccd6-6490-a314-78a0, attached to Bully Boyz).",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }
