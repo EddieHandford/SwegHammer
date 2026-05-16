@@ -32,6 +32,7 @@ from typing import Optional, Tuple
 
 from .detachments import effective_move
 from .roles import classify
+from .units import save_probability, wound_probability
 
 
 _HOLD_INTENT = "HOLD"
@@ -528,6 +529,42 @@ def _melee_target_score(attacker, defender) -> float:
             * _synapse_target_bonus(attacker, defender))
 
 
+def _kill_potential_wounds(attacker_profile, target_profile) -> float:
+    """Expected wounds inflicted by one round of melee from `attacker_profile`
+    against `target_profile`. Pure stats — no faction conditionals.
+
+    Composes universal 10e math:
+        DPA          = melee_attacks * melee_hit_probability
+        wound_prob   = standard S-vs-T table (`wound_probability`)
+        save_fail    = 1 - best(armour_after_AP, invuln)
+        damage/shot  = melee_damage_per_shot (defaults to 1)
+
+    Used by `pick_charge_target` to detect "won't-crack" charges (#C2,
+    iter 2). See `docs/AUTO_LOOP_ITER1_CLUSTER_C.md` fix #2.
+    """
+    dpa = attacker_profile.melee_attacks * attacker_profile.melee_hit_probability
+    wound_p = wound_probability(
+        attacker_profile.melee_strength, target_profile.toughness
+    )
+    save_pass = save_probability(target_profile.save, attacker_profile.melee_ap)
+    invuln_pass = (
+        save_probability(target_profile.invuln_save)
+        if target_profile.invuln_save <= 6 else 0.0
+    )
+    save_fail = max(0.0, 1.0 - max(save_pass, invuln_pass))
+    dmg = attacker_profile.melee_damage_per_shot or 1.0
+    return dpa * wound_p * save_fail * dmg
+
+
+# #C2 (iter 2) — Charge "won't-crack" penalty constants. A charge whose
+# expected wounds inflicted is below WONT_CRACK_HP_FRAC of the target's
+# remaining health is downweighted by WONT_CRACK_PENALTY. Faction-neutral:
+# applies on the universal DPA-vs-HP ratio so Knights, Wraithlords, Tyrants
+# and Custodian Guard are all gated identically.
+_WONT_CRACK_HP_FRAC = 0.20
+_WONT_CRACK_PENALTY = 0.3
+
+
 def pick_charge_target(attacker, enemy):
     """
     Pick the best enemy to charge from those within 12" range.
@@ -619,6 +656,15 @@ def pick_charge_target(attacker, enemy):
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus)
+        # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
+        # this round is below 20% of target's current HP, heavily downweight
+        # the charge. Stops light melee attacking T8+ bricks they can't dent
+        # before counter-fight reverses on them. Faction-neutral: uses only
+        # universal stats (S/T wound table, AP-vs-save, DPA). 27.8% of
+        # charges in the iter-1 audit landed on un-crackable targets.
+        expected_wounds = _kill_potential_wounds(p, tp)
+        if expected_wounds < _WONT_CRACK_HP_FRAC * max(1.0, e.current_health):
+            score *= _WONT_CRACK_PENALTY
         candidates.append((score, d, e))
 
     if not candidates:
