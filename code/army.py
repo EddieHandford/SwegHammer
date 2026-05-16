@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
@@ -205,6 +205,21 @@ class Army:
         # means "no oath this round" (e.g. round 0, or no Marine units alive).
         # Cited as `simulator.oath_of_moment`.
         self.oath_target_uid: Optional[str] = None
+        # T'au Empire Markerlights → Guided mechanic (10e army-wide). At the
+        # start of this army's Shooting phase, every alive MARKERLIGHT-keyword
+        # unit in this army "spots" one enemy unit in LoS within 36"; that
+        # enemy's uid is added to this set, and any friendly T'au attacker
+        # firing at a target in the set gains [LETHAL HITS] (crit hits
+        # auto-wound) when the detachment carries `lethal_hits_on_guided=True`
+        # (Mont'ka, all rounds — codex Markerlight base rule, not gated to
+        # rounds 1-3 even though the Mont'ka detachment text repeats the
+        # window for `army_wide_assault_rounds_1_3`; the Guided LETHAL HITS
+        # is the army-wide Markerlight rule). Tokens persist for the
+        # marker-spotting army's Shooting phase only — cleared at the end
+        # of that army's turn so the buff doesn't leak across rounds.
+        # Cited as `simulator.markerlights`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
+        self.guided_enemy_uids: Set[str] = set()
         # Coordinated army-level activation plan (#161 / S3). Picked once per
         # round by the simulator's `_pick_army_plan` and consulted by both
         # `activation_queue` (to order units that align with the plan first)

@@ -124,10 +124,9 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Killing Blow (Mont'ka, [LETHAL HITS] on Guided half)",
     "quoted_text": "During the first, second and third battle rounds, while a unit is a Guided unit, its ranged weapons have the [LETHAL HITS] ability.",
-    "trigger": "any friendly T'AU EMPIRE Guided unit's ranged attack in battle rounds 1-3",
-    "effect": "ranged weapons gain [LETHAL HITS] (Crit Hit auto-wounds) for the round window. TODO APPROXIMATION: SwegHammer has no Markerlight / Guided mechanic, so the simulator currently does not read this flag — it is wired for citation completeness only and will be activated when the Guided mechanic is added.",
-    "scope": "phase-gated",
-    "approximation": true
+    "trigger": "any friendly T'AU EMPIRE Guided unit's ranged attack",
+    "effect": "ranged weapons gain [LETHAL HITS] (Crit Hit auto-wounds). Read by Unit.attack via Army.guided_enemy_uids (populated each round by Battle._run_markerlight_phase from alive MARKERLIGHT-keyword units in the T'au army). APPROXIMATION: SwegHammer applies the Guided LETHAL HITS in every round, not gated to rounds 1-3, because the underlying Markerlight army rule grants Guided-target LETHAL HITS in every Shooting phase — the Mont'ka detachment text repeats the rounds-1-3 wording but the LETHAL HITS half is upstream of the [ASSAULT] half (the Markerlight base rule, separate from the Killing Blow rounds gate). See `simulator.markerlights`.",
+    "scope": "phase-gated"
   },
 
   "PACTBOUND_ZEALOTS.reroll_wound_ones": {

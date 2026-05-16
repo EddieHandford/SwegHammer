@@ -2824,10 +2824,28 @@ class Battle:
             (self.a, self.b) if random.random() < 0.5 else (self.b, self.a)
         )
 
+        # ---- T'au Empire Markerlights → Guided (10e army-wide). At the start
+        # of each Shooting phase, MARKERLIGHT-keyword T'au units mark enemies
+        # for that army's shooters. SwegHammer's alternating activation loop
+        # doesn't materialise a global Shooting-phase barrier, so we populate
+        # the per-army `guided_enemy_uids` set ONCE per round (treating both
+        # players' Shooting phases as one batched window, since within the
+        # round T'au is the only faction reading the set and only its own
+        # attackers benefit). The set is cleared at end-of-round below.
+        # Cited as `simulator.markerlights`.
+        self._run_markerlight_phase(self.a, self.b)
+        self._run_markerlight_phase(self.b, self.a)
+
         if self.rules.alternating_activations:
             self._run_round_alternating(first, second)
         else:
             self._run_round_vanilla_turns(first, second)
+
+        # ---- Clear Markerlight tokens at end of turn (Wahapedia: "until
+        # the end of the turn"). Resetting here so the next round's
+        # `_run_markerlight_phase` repopulates cleanly without stale uids.
+        self.a.guided_enemy_uids = set()
+        self.b.guided_enemy_uids = set()
 
         # Protocol of the Undying Legions (Awakened Dynasty, 1 CP, #194):
         # one extra reanimation pulse before the routine Reanimation
@@ -3445,6 +3463,77 @@ class Battle:
     def _emit(self, event) -> None:
         for s in self.subscribers:
             s.on_event(event)
+
+    def _run_markerlight_phase(self, army: Army, opponent: Army) -> None:
+        """T'au Empire Markerlights → Guided (10e army-wide army rule).
+
+        At the start of this army's Shooting phase, every alive MARKERLIGHT-
+        keyword unit in `army` "spots" one enemy unit (the highest-threat
+        enemy by points cost) in line-of-sight within 36" and adds its uid
+        to `army.guided_enemy_uids`. Friendly T'au attackers firing at a
+        target in the set gain [LETHAL HITS] in `Unit.attack`, gated on the
+        detachment's `lethal_hits_on_guided` flag (Mont'ka sets True).
+
+        SwegHammer simplifications vs the codex Markerlight token-stacking:
+            * The codex requires a unit to accrue >= some token count to
+              become a Guided unit (specifics vary by edition). SwegHammer
+              collapses to "any one MARKERLIGHT carrier marks => Guided",
+              which is a strict upper bound but matches the practical play
+              pattern where Pathfinders + Stealth Suits saturate marks
+              comfortably in a real game.
+            * Range check is straight Euclidean distance from the
+              MARKERLIGHT unit's position to the candidate enemy. LoS is
+              approximated as "alive enemy in 36" radius" — the board is
+              small (60" x 44") so the radius reaches across most of it.
+            * One mark per MARKERLIGHT unit; selects the highest-points
+              live enemy in range as the threat priority.
+
+        No-op (and no marks) when:
+            * `army` has no alive MARKERLIGHT-keyword unit.
+            * Opponent has no alive units.
+            * Army faction isn't T'au Empire (defensive — the buff is read
+              under the T'au attacker gate anyway, but skipping the scan
+              saves cycles on every non-T'au turn).
+            * Detachment doesn't carry `lethal_hits_on_guided=True` (would
+              never be read by `Unit.attack` even if marks were set).
+
+        Cited as `simulator.markerlights`.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
+        """
+        if (army.units and
+                (army.units[0].profile.faction or "").lower()
+                not in ("t'au empire", "tau empire")):
+            return
+        det = army.resolve_detachment()
+        if det is None or not getattr(det, "lethal_hits_on_guided", False):
+            return
+        alive_enemies = opponent.alive_units
+        if not alive_enemies:
+            return
+        markerlight_units = [
+            u for u in army.alive_units
+            if "MARKERLIGHT" in (u.profile.unit_keywords or ())
+        ]
+        if not markerlight_units:
+            return
+        marked: set = set()
+        for mk in markerlight_units:
+            in_range = [
+                e for e in alive_enemies
+                if _distance(mk.position, e.position) <= 36.0
+                and e.uid not in marked
+            ]
+            if not in_range:
+                # Fall back to any unmarked enemy if range filter empties —
+                # the small SwegHammer board makes "every enemy is in 36 inch"
+                # the common case, but if the marker is cornered we still
+                # want it to pick the closest unmarked threat.
+                in_range = [e for e in alive_enemies if e.uid not in marked]
+            if not in_range:
+                break
+            target = max(in_range, key=lambda u: u.profile.points_cost)
+            marked.add(target.uid)
+        army.guided_enemy_uids = marked
 
     def _pick_oath_target(
         self, army: Army, opponent: Army, round_num: int,

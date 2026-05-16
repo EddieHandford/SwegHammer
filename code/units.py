@@ -991,6 +991,26 @@ class Unit:
                 if bt_round is not None and bt_round == cur_round:
                     effective_lethal_hits = True
 
+        # ---- T'au Empire Markerlights → Guided (10e army-wide army rule).
+        # While a unit is a Guided unit, its ranged weapons have the
+        # [LETHAL HITS] ability. The detachment flag `lethal_hits_on_guided`
+        # gates the simulator wiring (Mont'ka sets it True). The mark is
+        # populated at the start of the marker-spotting army's Shooting
+        # phase by Battle._run_markerlight_phase. Shooting branch only —
+        # melee Guided does not exist in 10e. Composes with profile.lethal_hits
+        # via OR (one re-roll branch in the loop, no double-fire).
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
+        if (
+            mode != "melee"
+            and not effective_lethal_hits
+            and own_army is not None
+            and target.uid in getattr(own_army, "guided_enemy_uids", set())
+            and (p.faction or "").lower() in ("t'au empire", "tau empire")
+        ):
+            det = own_army.resolve_detachment()
+            if det is not None and getattr(det, "lethal_hits_on_guided", False):
+                effective_lethal_hits = True
+
         # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
         # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
         # by ORKS models from your army have the [SUSTAINED HITS 1] ability."

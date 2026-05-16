@@ -44,6 +44,18 @@
       "base_diameter_mm": 80,
       "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 — was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
+    "t_au_empire_pathfinder_team": {
+      "unit_keywords": ["INFANTRY", "MARKERLIGHT"],
+      "notes": "Pathfinder Team carries Markerlights (Pulse Carbine + Markerlight wargear). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase can spot Guided enemies. BSData does not encode the Markerlight keyword as a unit-level tag — it lives on the weapon entry — so we surface it here. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Pathfinder-Team and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+    },
+    "t_au_empire_stealth_battlesuits": {
+      "unit_keywords": ["INFANTRY", "FLY", "MARKERLIGHT"],
+      "notes": "Stealth Battlesuits — the squad shas'ui can take a Homing Beacon, and one model in the unit can take a Markerlight (Burst Cannon swap). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase counts the squad as a marker carrier. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Stealth-Battlesuits and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+    },
+    "t_au_empire_tetras_legends": {
+      "unit_keywords": ["VEHICLE", "FLY", "MARKERLIGHT"],
+      "notes": "Tetra Scout Speeders — twin Markerlight platform. Legends datasheet retains the MARKERLIGHT keyword. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Tetras and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+    },
     "aeldari_craftworlds_falcon": {
       "points_override": 644.45,
       "notes": "sweg_balance_mc up 585.86 -> 644.45 pts/model"

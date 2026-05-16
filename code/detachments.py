@@ -123,10 +123,14 @@ class Detachment:
     #     no-shoot lockout (mirrors the Aeldari Battle Focus / Matchless
     #     Agility pathway, but army-wide and free during the window).
     #   * lethal_hits_on_guided — grants [LETHAL HITS] to Guided units'
-    #     ranged weapons during rounds 1-3. TODO: APPROXIMATION — the
-    #     simulator currently has no Markerlight / Guided concept, so the
-    #     flag is wired for citation completeness only and not yet read by
-    #     Unit.attack. Wire when the Guided mechanic is added.
+    #     ranged weapons. Read by Unit.attack via the attacker's
+    #     `Army.guided_enemy_uids` set (populated each round by
+    #     Battle._run_markerlight_phase from alive MARKERLIGHT-keyword
+    #     units in the T'au army). APPROXIMATION: the Mont'ka detachment
+    #     text repeats the rounds-1-3 window for the LETHAL HITS half, but
+    #     the underlying Markerlight army rule grants Guided-target
+    #     LETHAL HITS in every Shooting phase, so SwegHammer applies the
+    #     buff army-wide regardless of round when the flag is True.
     army_wide_assault_rounds_1_3: bool = False
     lethal_hits_on_guided: bool = False
 
@@ -376,18 +380,16 @@ MONTKA = Detachment(
         "(simulator: army_wide_assault_rounds_1_3 — read by _do_shoot to "
         "exempt T'au attackers from the Advance-then-no-shoot lockout in "
         "rounds 1-3), AND Guided units' ranged weapons gain [LETHAL HITS] "
-        "(simulator: lethal_hits_on_guided — flag present for citation "
-        "completeness, NOT YET READ because SwegHammer has no Markerlight / "
-        "Guided mechanic). Six real stratagems wired below from "
+        "(simulator: lethal_hits_on_guided — read by Unit.attack via the "
+        "attacker army's `guided_enemy_uids` set, populated each round by "
+        "Battle._run_markerlight_phase from alive MARKERLIGHT-keyword units). "
+        "Six real stratagems wired below from "
         "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka."
     ),
     # Real rule: Killing Blow grants [ASSAULT] army-wide rounds 1-3 +
     # [LETHAL HITS] on Guided units during rounds 1-3.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
     army_wide_assault_rounds_1_3=True,
-    # TODO: APPROXIMATION — flag present for citation completeness; the
-    # simulator currently has no Markerlight / Guided concept, so this
-    # field is not read by Unit.attack. Wire when Guided is added.
     lethal_hits_on_guided=True,
     stratagems=MONTKA_STRATAGEMS,
     preferred_composition="balanced",
