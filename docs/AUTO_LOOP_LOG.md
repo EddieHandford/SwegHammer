@@ -159,3 +159,32 @@ Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'a
 
 **Loop exit status**: Cumulative ΔMAE 6.72 → 5.28 = −1.44pt across 3 iters. Latest Δ 0.38pt > 0.1pt threshold; MAE 5.28 >> 1.0pt threshold. Continue.
 
+### Iter 4 (2026-05-16)
+
+**Diagnostics**: DG deeper, Votann (first-look). Docs: `AUTO_LOOP_ITER4_DG.md`, `AUTO_LOOP_ITER4_VOTANN.md`.
+
+**Fix batch dispatched**: 4 (A5 strat cap, Marines mapper Option A, DG R1 Contagion drop, Votann token gate).
+
+**Results (solo)**:
+- A5 universal stratagem cap (1/Command phase/army): −0.27pt ✓ shipped
+- DG R1 −1T Contagion drop (older-index rule removal): 0.0pt — correctness-positive, no measurable signal at N=20 (R1 rarely fires at 3" radius)
+- Marines mapper Option A (mutex weapon-option groups present all variants weighted): **+1.52pt regression** — PARKED. The fix is universal but creates "compromise" stat-lines that don't match any real loadout (Crisis Battlesuits Legends S 9→6, AP −4→−1, A 1→3). Agent's recommendation: per-group meta priors needed.
+- Votann probabilistic token gate (1/min_models): **+0.68pt regression** — PARKED. Correct mechanism but extra `random.random()` consumer shifted global RNG stream propagating noise. Needs separate Random instance to avoid stream shift.
+
+**Cumulative (2-fix bundle, 2 parked)**: MAE 5.28 → **5.01pt** (Δ **−0.27pt**). MAE-vs-Sweg 6.33 → 5.50pt.
+
+**Parked**:
+- Marines mapper Option A (weighted basket for mutex weapon-option groups). Real-meta lists pick ONE variant per group, not the weighted average. A future fix needs per-group meta priors or per-list-build variant resolution. Re-evaluate when MC bisection comes online — bisection could probe each variant separately.
+- Votann probabilistic token gate. Mechanism correct (1/min_models) but global RNG-stream collision. Future fix uses dedicated Random instance keyed off battle seed + token-context.
+
+**Iter 4 commits on origin**:
+- `ef0cd2d` #iter4 A5 stratagem cap
+- `7ef471b` #iter4 DG R1 Contagion drop
+
+**Iter 5 priorities**:
+- DG +15.3 persists. Per iter 4 DG diag, the slice WR on Marines/Necrons/Tyranids is 47.8% vs real 48% — the residual lives in UNSAMPLED matchups. Need diag of DG vs Aeldari/T'au/Orks/TSON/Custodes/Votann.
+- Marines +12.6 needs a different lever (mapper fix parked).
+- Cluster C remaining items: C3 vanilla mode uses activation_queue (unlocks C4 leader-before-led that's currently dormant), C5 stratagem CP-leak cleanup.
+
+**Loop exit status**: Cumulative ΔMAE 6.72 → 5.01 = −1.71pt across 4 iters. Latest Δ 0.27pt > 0.1pt; MAE 5.01 >> 1.0pt. Continue.
+
