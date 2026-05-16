@@ -23,6 +23,7 @@ from code.army import Army
 from code.detachments import (
     DEFAULT_BY_FACTION, DETACHMENTS, FACTION_DETACHMENTS, VIRULENT_VECTORIUM,
 )
+from code.map import Map, Terrain, TerrainType
 from code.simulator import Battle
 from code.stratagems import (
     CREEPING_BLIGHT, DISGUSTINGLY_RESILIENT, LEECHSPORE_ERUPTION,
@@ -428,6 +429,97 @@ class DisgustinglyResilientKeywordGateTests(unittest.TestCase):
         self.assertTrue(
             typhus.transient_minus_one_damage_taken,
             "Typhus (CHARACTER+INFANTRY) should be the picked target",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Overwhelming Generosity — line-of-sight visibility gate (iter-5 fix)
+# Wahapedia: "Select one enemy unit visible to your unit."
+# https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium
+# ---------------------------------------------------------------------------
+
+
+class OverwhelmingGenerosityLosGateTests(unittest.TestCase):
+    """Iter-5 fix: OG must only fire when the chosen DG CHARACTER has line
+    of sight to at least one alive enemy within its ranged weapon's range.
+    Without the gate, OG fired R1 at 0.83/battle on a 60x44 board with
+    terrain, wasting 1 CP per battle on a buff that produced no R1 damage
+    (the firing CHARACTER had no viable target). See
+    `docs/AUTO_LOOP_ITER5_DG_UNSAMPLED.md`."""
+
+    def _open_map(self) -> Map:
+        # 60x44 board, no terrain — OG should fire freely.
+        return Map(name="open", width=60.0, height=44.0)
+
+    def _blocked_map(self) -> Map:
+        # 60x44 board with a wide obscuring wall between the two positions
+        # used in the blocked test. The wall sits in the middle of the
+        # board and is wide/tall enough that any segment from (10, 22) to
+        # (50, 22) crosses it without containing either endpoint.
+        wall = Terrain(
+            name="wall", x=20.0, y=10.0, width=20.0, height=24.0,
+            type=TerrainType.OBSCURING,
+        )
+        return Map(name="blocked", width=60.0, height=44.0, terrain=(wall,))
+
+    def _build_battle(self, map_: Map) -> Battle:
+        dg = Army("Death Guard")
+        dg.add_unit(_typhus_profile())   # DG CHARACTER, range 24"
+        ast = Army("Astartes")
+        ast.add_unit(_marine_profile())
+        battle = Battle(dg, ast, map_=map_)
+        battle._assign_uids()
+        dg._battle_ref = battle
+        ast._battle_ref = battle
+        dg.command_points = 5
+        battle._current_round = 3   # past the pivotal-turn deferral
+        return battle, dg, ast
+
+    def test_og_fires_with_los(self):
+        """DG CHARACTER with clear LoS to an enemy in range — OG fires
+        (CP spent, transient_reroll_hits_shooting set on the CHARACTER)."""
+        random.seed(0)
+        battle, dg, ast = self._build_battle(self._open_map())
+        typhus = battle.a.units[0]
+        marine = battle.b.units[0]
+        typhus.position = (10.0, 22.0)
+        marine.position = (20.0, 22.0)   # 10" away, well within 24" range
+        cp_before = dg.command_points
+        battle._try_overwhelming_generosity(dg, ast)
+        self.assertLess(
+            dg.command_points, cp_before,
+            "DG CHARACTER has LoS — OG should fire and spend CP",
+        )
+        self.assertTrue(
+            getattr(typhus, "transient_reroll_hits_shooting", False),
+            "DG CHARACTER should receive the reroll-hits buff",
+        )
+
+    def test_og_does_not_fire_without_los(self):
+        """DG CHARACTER with NO LoS (obscuring wall between Typhus and the
+        only enemy) — OG must NOT fire, no CP spent, no transient flag set."""
+        random.seed(0)
+        battle, dg, ast = self._build_battle(self._blocked_map())
+        typhus = battle.a.units[0]
+        marine = battle.b.units[0]
+        # Place Typhus on one side of the wall (x<20) and the marine on the
+        # far side (x>40), both at y=22 so the segment crosses the wall.
+        typhus.position = (10.0, 22.0)
+        marine.position = (50.0, 22.0)
+        # Sanity: confirm the map blocks LoS before exercising OG.
+        self.assertFalse(
+            battle.map.has_line_of_sight(typhus.position, marine.position),
+            "Test setup error: obscuring wall must block LoS for this test",
+        )
+        cp_before = dg.command_points
+        battle._try_overwhelming_generosity(dg, ast)
+        self.assertEqual(
+            dg.command_points, cp_before,
+            "No LoS — OG must not fire and no CP must be spent",
+        )
+        self.assertFalse(
+            getattr(typhus, "transient_reroll_hits_shooting", False),
+            "No LoS — DG CHARACTER must not receive the reroll-hits buff",
         )
 
 

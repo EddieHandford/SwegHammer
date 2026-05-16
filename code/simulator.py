@@ -1095,10 +1095,20 @@ class Battle:
         on the DG CHARACTER unit (re-roll failed hits on its shoot for the
         round) — a more conservative buff than the real text's full-reroll-
         attack-count, since attack-count rerolls average ~10% extra shots
-        while hit rerolls average ~17% extra hits on 4+ BS."""
-        # Pick highest-DPA friendly DG CHARACTER.
-        candidate = None
-        best_dpa = 0.0
+        while hit rerolls average ~17% extra hits on 4+ BS.
+
+        VISIBILITY GATE (iter-5 fix per Wahapedia "Select one enemy unit
+        VISIBLE to your unit"): the chosen DG CHARACTER must have line of
+        sight to at least one alive enemy within its ranged weapon's range.
+        Without this gate, OG was firing R1 at 0.83/battle even though the
+        firing CHARACTER had no viable target on a 60×44 board with
+        terrain — wasting 1 CP on a buff that produced no R1 damage.
+        See `docs/AUTO_LOOP_ITER5_DG_UNSAMPLED.md` for the diagnostic."""
+        # Rank friendly DG CHARACTER candidates by ranged DPA (highest first).
+        # We need to iterate (not just pick the best) so that if the top-DPA
+        # CHARACTER has no LoS, we can fall through to the next candidate
+        # rather than wasting the strat fire on a blind shooter.
+        candidates: list = []
         for u in army.alive_units:
             kw = set(u.profile.unit_keywords or ())
             if "CHARACTER" not in kw:
@@ -1107,9 +1117,34 @@ class Battle:
                 continue
             p = u.profile
             ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
-            if ranged > best_dpa:
-                best_dpa = ranged
-                candidate = u
+            if ranged <= 0.0:
+                continue
+            candidates.append((ranged, u))
+        if not candidates:
+            return
+        candidates.sort(key=lambda pair: pair[0], reverse=True)
+
+        # Wahapedia: "Select one enemy unit visible to your unit." Walk the
+        # candidates and pick the first DG CHARACTER that actually has at
+        # least one alive enemy in shoot range AND with LoS. Without LoS,
+        # the stratagem has no legal target — skip firing entirely (no CP
+        # spent), matching the real-meta behaviour where DG players cannot
+        # fire OG R1 when their CHARACTER is deep in their deployment zone
+        # with no enemies visible across the board.
+        candidate = None
+        for _, cand in candidates:
+            rng = float(cand.profile.range_inches or 0.0)
+            if rng <= 0.0:
+                continue
+            for enemy in opponent.alive_units:
+                if _distance(cand.position, enemy.position) > rng:
+                    continue
+                if not self.map.has_line_of_sight(cand.position, enemy.position):
+                    continue
+                candidate = cand
+                break
+            if candidate is not None:
+                break
         if candidate is None:
             return
         target = self._highest_threat_enemy(opponent)
