@@ -253,6 +253,33 @@ def _instantiate_template(
         # else: skip — too expensive at this budget. Cheaper subsequent
         # entries may still fit, so keep walking rather than break.
 
+    # iter #11 — CHARACTER-anchor guarantee. The (-count, -cost) walk above
+    # can exhaust the seed budget on a multi-copy BATTLELINE entry at low
+    # budgets (e.g. TSON Rubric Marines @ count=2 takes 240pt of a 300pt
+    # seed at 1000pt), leaving no headroom for the army's CHARACTER /
+    # PSYKER anchor. Real tournament archetypes are built around their
+    # character spine; if none seeded, force the cheapest template
+    # CHARACTER in even if it overflows `seed_budget` slightly. The
+    # overflow is bounded by `1.5 * seed_budget` so we don't blow past the
+    # random_fill headroom at small budgets. Faction-neutral — any
+    # template entry with the CHARACTER keyword qualifies.
+    def _has_character(key: str) -> bool:
+        profile = UNIT_CATALOG.get(key)
+        if profile is None:
+            return False
+        return "CHARACTER" in (profile.unit_keywords or ())
+
+    any_char_seeded = any(_has_character(k) for k in scaled)
+    if not any_char_seeded:
+        char_keys = [k for k in template if _has_character(k)]
+        if char_keys:
+            # Cheapest CHARACTER first so the overflow is minimal.
+            cheapest_char = min(char_keys, key=_squad_cost)
+            cost = _squad_cost(cheapest_char)
+            if running + cost <= seed_budget * 1.5:
+                scaled[cheapest_char] = 1
+                running += cost
+
     return scaled
 
 
