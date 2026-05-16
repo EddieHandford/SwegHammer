@@ -111,11 +111,51 @@ or 3 consecutive iterations with Δ < 0.1pt.
 
 **Loop exit status**: ΔMAE 0.33 (iter 1) + 0.73 (iter 2) → cumulative −1.06pt. Neither exit condition hit yet (MAE 5.66 > 1.0; Δ 0.73 > 0.1).
 
-### Iter 3 — PAUSED (API rate limit)
+### Iter 3 — PAUSED (API rate limit) then resumed
 
-Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'au). All 5 died early with Anthropic API rate-limit error ("You've hit your limit · resets 4:50am Europe/London"). No commits landed.
+Dispatched 5 per-faction deep-diagnostic agents (DG, Marines, Aeldari, Orks, T'au). First attempt died on API rate limit (4:50am London reset). Re-dispatched successfully after reset.
 
-**Resume**: re-dispatch the same 5 per-faction diagnostics. Prompts were faction-specific deep audits with mechanism trace + Wahapedia gap + AI gap + single top-ranked fix proposal. Worktree IDs are dead — fresh dispatch needed.
+### Iter 3 (2026-05-16)
 
-**Pre-pause state**: MAE-vs-real 5.66pt, MAE-vs-Sweg 5.94pt, HEAD `08b841e`, 644 tests green.
+**Diagnostics**: per-faction deep audits at `docs/AUTO_LOOP_ITER3_{DG,MARINES,AELDARI,ORKS,TAU}.md`.
+
+**Fix batch dispatched**: 5 fixes.
+
+**Results (solo MAE deltas vs 5.66 baseline)**:
+- DG sticky `>=` → `>` (10e strict-greater): −0.16pt ✓
+- T'au Markerlights / Guided / [LETHAL HITS]: −0.16pt ✓
+- Aeldari Strands of Fate (6D6 Fate dice pool): ~+0.05pt (Aeldari moved +0.3pt; MAE noise)
+- Marines mapper Torrent `any` → `all` (faction-neutral bug fix): +0.12pt (correctness-positive but ineffective; deeper bug in `_collect_weapons_for_model:918` not addressed)
+- Orks WAAAGH! 5++ vs melee + verify B4 +1-charge (discovered B4 was never wired): +0.10pt solo, but **−4.5pt regression on Orks (−4.3 → −8.8)** — likely interaction: Orks now stay alive longer in unwinnable melee. PARKED.
+
+**Cumulative (4-fix bundle, Orks parked)**: MAE 5.66 → **5.28pt** (Δ **−0.38pt**). MAE-vs-Sweg 5.94 → 6.33pt.
+
+**Parked**:
+- Orks WAAAGH 5++ vs melee + +1 charge roll (was b969dfa). Rules are real and Wahapedia-cited, but combined effect tilts Ork matchups DOWN. Hypothesis: +1 charge → more committed Ork charges into T8+ bricks; 5++ → Orks survive longer in unwinnable melee instead of dying and freeing OC. Re-evaluate when Orks gets a "disengage from melee" tool or when archetype seeds shift toward higher-S options.
+
+**Per-faction shifts (iter 2 → iter 3)**:
+- Marines: +13.1 → +12.6 (slight improvement)
+- Necrons: +4.6 → +2.9 (better)
+- Aeldari: −3.8 → −3.3 (Strands of Fate working)
+- Tyranids: +3.7 → +2.6 (better)
+- Orks: −4.3 → −4.3 (parked fix; unchanged)
+- T'au: −3.9 → −2.3 (Markerlights working)
+- DG: +17.0 → +15.3 (sticky fix helped)
+- Custodes: +0.3 → −0.2 (similar)
+- TSON: −1.8 → +0.4 (drifted positive)
+- Votann: +4.0 → +5.7 (worse — noise)
+
+**Iter 3 commits on origin** (final post-rebase SHAs):
+- DG sticky `>=` → `>`
+- T'au Markerlights
+- Aeldari Strands of Fate
+- Marines mapper `any` → `all`
+
+**Iter 4 priorities**:
+- DG +15.3 still biggest outlier (sticky fix delivered −1.7pt; remaining lever unknown).
+- Marines +12.6 — mapper deeper bug (`_collect_weapons_for_model:918` mutex weapon-option groups pick single-best, never present Auto Boltstorm in basket). Worth fixing properly.
+- Orks −4.3 needs a different lever (the WAAAGH 5++ approach backfired).
+- Votann +5.7 — has drifted up; no investigation yet.
+
+**Loop exit status**: Cumulative ΔMAE 6.72 → 5.28 = −1.44pt across 3 iters. Latest Δ 0.38pt > 0.1pt threshold; MAE 5.28 >> 1.0pt threshold. Continue.
 
