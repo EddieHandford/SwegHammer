@@ -281,7 +281,12 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
         "ignores_cover": any(x.ignores_cover for _, x in basket),
         "heavy": any(x.heavy for _, x in basket),
         "assault": any(x.assault for _, x in basket),
-        "torrent": any(x.torrent for _, x in basket),
+        # Torrent requires ALL variants to be Torrent — otherwise a mixed
+        # basket (e.g. Aggressor Auto Boltstorm Gauntlets + Flamestorm Gauntlets)
+        # would falsely inherit auto-hit from the Torrent variant while keeping
+        # the numeric BS averaged in. See Wahapedia Aggressor Squad:
+        # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Aggressor-Squad
+        "torrent": bool(basket) and all(x.torrent for _, x in basket),
         "hazardous": any(x.hazardous for _, x in basket),
         "blast": any(x.blast for _, x in basket),
         "lance": any(x.lance for _, x in basket),
