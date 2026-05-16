@@ -283,6 +283,13 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
+        # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
+        # so `_fire_stratagem` knows whether to increment the per-army
+        # per-Command-phase counter. Always False outside that scope —
+        # Tank Shock, Heroic Intervention, Counter-Offensive, Command
+        # Re-Roll fire on their own per-trigger hooks and don't count
+        # toward the detachment-stratagem cap.
+        self._dispatching_detachment_stratagems: bool = False
 
     # ------------------------------------------------------------------
     # Public interface
@@ -658,6 +665,16 @@ class Battle:
         army.putrid_detonation_armed = False
         army.plaguesurge_active = False
 
+    # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
+    # stratagems any one army may fire per Command phase. 10e core has no
+    # hard cap, but real-player CP economy averages ~1 stratagem per
+    # Command phase; without this cap, CP-rich detachments (DG Virulent
+    # Vectorium, Necron Awakened Dynasty, Tau Mont'ka) stack 3-5+ buffs
+    # at round start. Setting to 1 matches the modal real-player play
+    # rate; 2 is the next tier up if 1 over-regresses any matchup.
+    # Cited as `simulator.stratagem_per_command_phase_cap`.
+    DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE: int = 1
+
     def _apply_detachment_stratagems(self, army: Army, opponent: Army) -> None:
         """Round-start dispatcher for detachment-specific stratagems.
 
@@ -665,6 +682,15 @@ class Battle:
         per-stratagem `_try_*` helpers consult the AI heuristic in
         `strategy.should_fire_stratagem` and, if green-lit, spend CP and
         apply the transient effect for the round.
+
+        Iter-4 A5 cap: detachment stratagems fired through this dispatcher
+        are limited to `DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` (1) per
+        army per Command phase. The counter is reset to 0 at the top of
+        this method and incremented inside `_fire_stratagem` while the
+        `_dispatching_detachment_stratagems` flag is set. Once the cap is
+        reached, subsequent dispatcher entries short-circuit via
+        `_strat_cap_reached`. Faction-neutral: every detachment's dispatch
+        path runs through the same cap.
 
         Post 2026-05-15 fabrication audit (commit fa9a957): 11 stratagems
         previously dispatched here had no Wahapedia equivalent. The only
@@ -678,108 +704,132 @@ class Battle:
             return
         strat_names = {s.name for s in det.stratagems}
 
-        # ----- Virulent Vectorium (Death Guard) -------------------------
-        if "Disgustingly Resilient" in strat_names:
-            self._try_disgustingly_resilient(army, opponent)
-        if "Putrid Detonation" in strat_names:
-            self._try_putrid_detonation(army, opponent)
-        if "Plaguesurge" in strat_names:
-            self._try_plaguesurge(army, opponent)
-        if "Leechspore Eruption" in strat_names:
-            self._try_leechspore_eruption(army, opponent)
-        if "Overwhelming Generosity" in strat_names:
-            self._try_overwhelming_generosity(army, opponent)
-        if "Creeping Blight" in strat_names:
-            self._try_creeping_blight(army, opponent)
+        # Reset the per-Command-phase counter and arm the dispatch flag so
+        # _fire_stratagem knows to increment the army's stratagem counter
+        # for any firing during this call.
+        army.stratagems_fired_this_command_phase = 0
+        self._dispatching_detachment_stratagems = True
+        try:
+            # ----- Virulent Vectorium (Death Guard) -------------------------
+            if not self._strat_cap_reached(army) and "Disgustingly Resilient" in strat_names:
+                self._try_disgustingly_resilient(army, opponent)
+            if not self._strat_cap_reached(army) and "Putrid Detonation" in strat_names:
+                self._try_putrid_detonation(army, opponent)
+            if not self._strat_cap_reached(army) and "Plaguesurge" in strat_names:
+                self._try_plaguesurge(army, opponent)
+            if not self._strat_cap_reached(army) and "Leechspore Eruption" in strat_names:
+                self._try_leechspore_eruption(army, opponent)
+            if not self._strat_cap_reached(army) and "Overwhelming Generosity" in strat_names:
+                self._try_overwhelming_generosity(army, opponent)
+            if not self._strat_cap_reached(army) and "Creeping Blight" in strat_names:
+                self._try_creeping_blight(army, opponent)
 
-        # ----- Warhost (Aeldari) ----------------------------------------
-        if "Lightning-Fast Reactions" in strat_names:
-            self._try_lightning_fast_reactions(army, opponent)
-        if "Fire and Fade" in strat_names:
-            self._try_fire_and_fade(army, opponent)
-        if "Skyborne Sanctuary" in strat_names:
-            self._try_skyborne_sanctuary(army, opponent)
-        if "Feigned Retreat" in strat_names:
-            self._try_feigned_retreat(army, opponent)
-        if "Blitzing Firepower" in strat_names:
-            self._try_blitzing_firepower(army, opponent)
-        if "Webway Tunnel" in strat_names:
-            self._try_webway_tunnel(army, opponent)
+            # ----- Warhost (Aeldari) ----------------------------------------
+            if not self._strat_cap_reached(army) and "Lightning-Fast Reactions" in strat_names:
+                self._try_lightning_fast_reactions(army, opponent)
+            if not self._strat_cap_reached(army) and "Fire and Fade" in strat_names:
+                self._try_fire_and_fade(army, opponent)
+            if not self._strat_cap_reached(army) and "Skyborne Sanctuary" in strat_names:
+                self._try_skyborne_sanctuary(army, opponent)
+            if not self._strat_cap_reached(army) and "Feigned Retreat" in strat_names:
+                self._try_feigned_retreat(army, opponent)
+            if not self._strat_cap_reached(army) and "Blitzing Firepower" in strat_names:
+                self._try_blitzing_firepower(army, opponent)
+            if not self._strat_cap_reached(army) and "Webway Tunnel" in strat_names:
+                self._try_webway_tunnel(army, opponent)
 
-        # ----- Mont'ka (T'au Empire) — six real stratagems (#196) -------
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka.
-        # Each dispatcher consults `should_fire_stratagem` for the AI gate,
-        # spends CP via `_fire_stratagem`, then applies the transient effect
-        # via the existing `transient_*` flag set on the chosen unit. Where
-        # the canonical effect doesn't map to a flag (e.g. Pulse Onslaught's
-        # enemy Move debuff), the dispatcher routes the value through the
-        # nearest existing transient — see per-dispatcher APPROXIMATION notes.
-        if "Pinpoint Counter-Offensive" in strat_names:
-            self._try_pinpoint_counter_offensive(army, opponent)
-        if "Aggressive Mobility" in strat_names:
-            self._try_aggressive_mobility(army, opponent)
-        if "Focused Fire" in strat_names:
-            self._try_focused_fire(army, opponent)
-        if "Combat Debarkation" in strat_names:
-            self._try_combat_debarkation(army, opponent)
-        if "Pulse Onslaught" in strat_names:
-            self._try_pulse_onslaught(army, opponent)
-        if "Counterfire Defence Systems" in strat_names:
-            self._try_counterfire_defence_systems(army, opponent)
+            # ----- Mont'ka (T'au Empire) — six real stratagems (#196) -------
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka.
+            # Each dispatcher consults `should_fire_stratagem` for the AI gate,
+            # spends CP via `_fire_stratagem`, then applies the transient effect
+            # via the existing `transient_*` flag set on the chosen unit. Where
+            # the canonical effect doesn't map to a flag (e.g. Pulse Onslaught's
+            # enemy Move debuff), the dispatcher routes the value through the
+            # nearest existing transient — see per-dispatcher APPROXIMATION notes.
+            if not self._strat_cap_reached(army) and "Pinpoint Counter-Offensive" in strat_names:
+                self._try_pinpoint_counter_offensive(army, opponent)
+            if not self._strat_cap_reached(army) and "Aggressive Mobility" in strat_names:
+                self._try_aggressive_mobility(army, opponent)
+            if not self._strat_cap_reached(army) and "Focused Fire" in strat_names:
+                self._try_focused_fire(army, opponent)
+            if not self._strat_cap_reached(army) and "Combat Debarkation" in strat_names:
+                self._try_combat_debarkation(army, opponent)
+            if not self._strat_cap_reached(army) and "Pulse Onslaught" in strat_names:
+                self._try_pulse_onslaught(army, opponent)
+            if not self._strat_cap_reached(army) and "Counterfire Defence Systems" in strat_names:
+                self._try_counterfire_defence_systems(army, opponent)
 
-        # ----- Awakened Dynasty (Necrons) -------------------------------
-        # Six real Protocol stratagems (#194). Two are catalogued-but-no-op
-        # APPROXIMATIONs (Eternal Revenant, Vengeful Stars) — the simulator
-        # has no model-resurrection or out-of-sequence shoot hook, so the
-        # dispatchers below skip them entirely. The other four wire onto
-        # existing or new transient_* flags.
-        if "Protocol of the Undying Legions" in strat_names:
-            self._try_protocol_undying_legions(army, opponent)
-        if "Protocol of the Hungry Void" in strat_names:
-            self._try_protocol_hungry_void(army, opponent)
-        if "Protocol of the Sudden Storm" in strat_names:
-            self._try_protocol_sudden_storm(army, opponent)
-        if "Protocol of the Conquering Tyrant" in strat_names:
-            self._try_protocol_conquering_tyrant(army, opponent)
-        # Protocol of the Eternal Revenant + Protocol of the Vengeful Stars:
-        # catalogued in the detachment so they show up in stratagems_for_army,
-        # but the simulator has no clean hook to fire them. See
-        # data/rule_citations.d/stratagems.json for the APPROXIMATION note.
+            # ----- Awakened Dynasty (Necrons) -------------------------------
+            # Six real Protocol stratagems (#194). Two are catalogued-but-no-op
+            # APPROXIMATIONs (Eternal Revenant, Vengeful Stars) — the simulator
+            # has no model-resurrection or out-of-sequence shoot hook, so the
+            # dispatchers below skip them entirely. The other four wire onto
+            # existing or new transient_* flags.
+            if not self._strat_cap_reached(army) and "Protocol of the Undying Legions" in strat_names:
+                self._try_protocol_undying_legions(army, opponent)
+            if not self._strat_cap_reached(army) and "Protocol of the Hungry Void" in strat_names:
+                self._try_protocol_hungry_void(army, opponent)
+            if not self._strat_cap_reached(army) and "Protocol of the Sudden Storm" in strat_names:
+                self._try_protocol_sudden_storm(army, opponent)
+            if not self._strat_cap_reached(army) and "Protocol of the Conquering Tyrant" in strat_names:
+                self._try_protocol_conquering_tyrant(army, opponent)
+            # Protocol of the Eternal Revenant + Protocol of the Vengeful Stars:
+            # catalogued in the detachment so they show up in stratagems_for_army,
+            # but the simulator has no clean hook to fire them. See
+            # data/rule_citations.d/stratagems.json for the APPROXIMATION note.
 
-        # ----- Grand Coven (Thousand Sons) ------------------------------
-        # Six real Wahapedia stratagems (#193). Four are wired through the
-        # transient-flag plumbing; two (Egotistical Power, Arcane Focus)
-        # are flagged APPROXIMATION because their mechanics don't reduce
-        # to an existing transient_*.
-        if "Psychic Dominion" in strat_names:
-            self._try_psychic_dominion(army, opponent)
-        if "Destined by Fate" in strat_names:
-            self._try_destined_by_fate(army, opponent)
-        if "Desecration of Worlds" in strat_names:
-            self._try_desecration_of_worlds(army, opponent)
-        if "Devastating Sorcery" in strat_names:
-            self._try_devastating_sorcery(army, opponent)
-        # Egotistical Power and Arcane Focus are intentionally NOT dispatched
-        # here — see _try_egotistical_power / _try_arcane_focus docstrings.
+            # ----- Grand Coven (Thousand Sons) ------------------------------
+            # Six real Wahapedia stratagems (#193). Four are wired through the
+            # transient-flag plumbing; two (Egotistical Power, Arcane Focus)
+            # are flagged APPROXIMATION because their mechanics don't reduce
+            # to an existing transient_*.
+            if not self._strat_cap_reached(army) and "Psychic Dominion" in strat_names:
+                self._try_psychic_dominion(army, opponent)
+            if not self._strat_cap_reached(army) and "Destined by Fate" in strat_names:
+                self._try_destined_by_fate(army, opponent)
+            if not self._strat_cap_reached(army) and "Desecration of Worlds" in strat_names:
+                self._try_desecration_of_worlds(army, opponent)
+            if not self._strat_cap_reached(army) and "Devastating Sorcery" in strat_names:
+                self._try_devastating_sorcery(army, opponent)
+            # Egotistical Power and Arcane Focus are intentionally NOT dispatched
+            # here — see _try_egotistical_power / _try_arcane_focus docstrings.
 
-        # ----- War Horde (Orks) — six real stratagems (iter-1 B1) ------
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
-        # Insane Bravery is catalogued-but-no-op APPROXIMATION (no per-unit
-        # battleshock-immunity hook). The other five wire onto existing
-        # transient_* flags via the standard pattern.
-        if "Power Of The WAAAGH!" in strat_names:
-            self._try_power_of_the_waaagh(army, opponent)
-        if "Mob Up" in strat_names:
-            self._try_mob_up(army, opponent)
-        if "Big Krumpin'" in strat_names:
-            self._try_big_krumpin(army, opponent)
-        if "Tellyporta" in strat_names:
-            self._try_tellyporta(army, opponent)
-        if "Da Biggest Boss" in strat_names:
-            self._try_da_biggest_boss(army, opponent)
-        # Insane Bravery — catalogued in WAR_HORDE_STRATAGEMS for the
-        # auditor + stratagems_for_army listing, but the dispatcher is a
-        # no-op (no per-unit battleshock-immunity transient flag exists).
+            # ----- War Horde (Orks) — six real stratagems (iter-1 B1) ------
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
+            # Insane Bravery is catalogued-but-no-op APPROXIMATION (no per-unit
+            # battleshock-immunity hook). The other five wire onto existing
+            # transient_* flags via the standard pattern.
+            if not self._strat_cap_reached(army) and "Power Of The WAAAGH!" in strat_names:
+                self._try_power_of_the_waaagh(army, opponent)
+            if not self._strat_cap_reached(army) and "Mob Up" in strat_names:
+                self._try_mob_up(army, opponent)
+            if not self._strat_cap_reached(army) and "Big Krumpin'" in strat_names:
+                self._try_big_krumpin(army, opponent)
+            if not self._strat_cap_reached(army) and "Tellyporta" in strat_names:
+                self._try_tellyporta(army, opponent)
+            if not self._strat_cap_reached(army) and "Da Biggest Boss" in strat_names:
+                self._try_da_biggest_boss(army, opponent)
+            # Insane Bravery — catalogued in WAR_HORDE_STRATAGEMS for the
+            # auditor + stratagems_for_army listing, but the dispatcher is a
+            # no-op (no per-unit battleshock-immunity transient flag exists).
+        finally:
+            # Always drop the dispatch flag — Tank Shock / Heroic Intervention /
+            # Counter-Offensive / Command Re-Roll fire out-of-band via
+            # _fire_stratagem and MUST NOT increment the per-Command-phase
+            # counter (those are Core Stratagems on per-trigger hooks, not
+            # detachment-stratagem round-start spends).
+            self._dispatching_detachment_stratagems = False
+
+    def _strat_cap_reached(self, army: Army) -> bool:
+        """Returns True iff `army` has already fired its per-Command-phase
+        quota of detachment stratagems. Faction-neutral guard used by
+        `_apply_detachment_stratagems` to short-circuit subsequent
+        dispatcher entries once the army hits the cap.
+        """
+        return (
+            army.stratagems_fired_this_command_phase
+            >= self.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE
+        )
 
     # ----- target-selection helpers used by the dispatchers --------------
 
@@ -4047,6 +4097,16 @@ class Battle:
             army.cp_refund_remaining -= 1
         already.add(strat.name)
         self._stratagems_fired_this_battle[army.name] = already
+        # Iter-4 A5: increment the per-Command-phase counter only when this
+        # spend originated from `_apply_detachment_stratagems` (faction-neutral
+        # detachment-stratagem dispatcher). Core Stratagems (Tank Shock,
+        # Heroic Intervention, Counter-Offensive, Command Re-Roll) fire on
+        # their own per-trigger hooks at other points in the round and
+        # intentionally do NOT count toward the cap. The dispatch flag is
+        # set + cleared in `_apply_detachment_stratagems`'s try/finally.
+        # Cited as `simulator.stratagem_per_command_phase_cap`.
+        if getattr(self, "_dispatching_detachment_stratagems", False):
+            army.stratagems_fired_this_command_phase += 1
         self._emit(StratagemFired(
             army_name=army.name,
             stratagem_name=strat.name,

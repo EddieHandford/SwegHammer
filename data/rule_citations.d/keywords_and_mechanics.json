@@ -297,5 +297,15 @@
     "trigger": "start of T'au Shooting phase; one or more friendly MARKERLIGHT-keyword units alive in the army, with LoS to at least one enemy unit",
     "effect": "(approximation) each alive MARKERLIGHT unit in a T'au army marks one enemy unit (highest-points threat within 36\" LoS) per round; uids stored in `Army.guided_enemy_uids`. While the detachment carries `lethal_hits_on_guided=True` (Mont'ka), any T'au attacker firing ranged weapons at a uid in the set gains [LETHAL HITS] for that resolution (read by Unit.attack at the `effective_lethal_hits` gate). APPROXIMATION: SwegHammer collapses the canonical Markerlight-token stacking (which requires N tokens to upgrade a Marked target into a Guided target in some editions / cadre rulings) to a single 'one MARKERLIGHT carrier = Guided' check. Tokens persist for the round and are cleared at end-of-round.",
     "scope": "phase-gated"
+  },
+
+  "simulator.stratagem_per_command_phase_cap": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Command-Points",
+    "rule_name": "Command Point economy (per-Command-phase stratagem cap, AI heuristic)",
+    "quoted_text": "Players gain 1CP at the start of their Command phase (a maximum of 15CP can be gained this way over the course of the battle), to a maximum of 6CP. Stratagems cost between 1CP and 3CP to use. The same Stratagem cannot be used to affect the same unit more than once per phase.",
+    "trigger": "start of own Command phase; `Battle._apply_detachment_stratagems` invoked for the army; one or more detachment stratagems in the army's detachment.stratagems tuple pass `should_fire_stratagem`",
+    "effect": "(approximation) the AI is permitted to fire AT MOST `Battle.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` (default 1) detachment-specific stratagems per army per Command phase. 10e core rules impose NO hard cap on stratagems used in a Command phase, but real-player CP economy at Strike Force CP budgets (3 start + 1/round drip, cap 6) averages ~1 stratagem per Command phase; without this cap, CP-rich detachments (DG Virulent Vectorium, Necron Awakened Dynasty, Tau Mont'ka, Grand Coven, War Horde) would stack 3-5+ buffs at round start because every dispatcher's gate is independently green-lit when CP allows. The cap is enforced inside `_apply_detachment_stratagems`: a counter on Army (stratagems_fired_this_command_phase) resets at the top of that method, increments inside `_fire_stratagem` while the dispatch flag is set, and short-circuits subsequent dispatcher entries via `_strat_cap_reached`. Faction-neutral: every detachment's dispatch path is gated by the same cap. Core Stratagems (Tank Shock, Heroic Intervention, Counter-Offensive, Command Re-Roll) fire on per-trigger hooks elsewhere in the round and are NOT counted toward the cap.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

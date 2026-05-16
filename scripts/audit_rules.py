@@ -237,6 +237,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # targets. Plumbed via Army.guided_enemy_uids, Battle._run_markerlight_phase,
     # and the effective_lethal_hits gate in Unit.attack.
     "simulator.markerlights",
+    # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
+    # stratagems any one army may fire per Command phase. 10e core has no
+    # hard cap, but real-player CP economy averages ~1 stratagem per
+    # Command phase; without the cap, CP-rich detachments stack 3-5+ buffs
+    # at round start. Enforced inside `Battle._apply_detachment_stratagems`
+    # via Army.stratagems_fired_this_command_phase + `_strat_cap_reached`.
+    "simulator.stratagem_per_command_phase_cap",
 )
 
 

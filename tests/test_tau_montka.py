@@ -219,7 +219,15 @@ class MontkaAllStratagemsFireSmokeTests(unittest.TestCase):
     """Round-start dispatcher smoke test: with abundant CP and a wounded
     high-value T'au unit, the offensive Mont'ka stratagems (1-CP block)
     fire and set their respective transient flags. Confirms the dispatcher
-    wires every entry — a missing _try_* would leave one flag clear."""
+    wires every entry — a missing _try_* would leave one flag clear.
+
+    Iter-4 A5 note: `_apply_detachment_stratagems` is capped at
+    `Battle.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` (default 1)
+    stratagems per army per Command phase (faction-neutral AI heuristic).
+    This smoke test temporarily raises the cap so the dispatcher fires
+    every wired Mont'ka stratagem in one pass — the original intent here
+    is to verify each `_try_*` is wired in, not to characterise the cap.
+    """
 
     def test_offensive_stratagems_fire(self):
         a = Army("T'au")
@@ -234,6 +242,11 @@ class MontkaAllStratagemsFireSmokeTests(unittest.TestCase):
         a.command_points = 6
         a.units[0].current_health = 1.0
         battle._current_round = 3
+        # Iter-4 A5: lift the per-Command-phase cap for this smoke test
+        # only — we want every wired dispatcher to fire so a missing one
+        # is visible. The cap is exercised separately by the simulator's
+        # MAE evaluation against the meta dataset.
+        battle.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE = 999
         battle._apply_detachment_stratagems(a, b)
         # The 1-CP offensive stratagems all target the same T'au shooter
         # via transient flags. With 6 CP available, we expect at least the
@@ -244,6 +257,88 @@ class MontkaAllStratagemsFireSmokeTests(unittest.TestCase):
         self.assertTrue(unit.transient_reroll_hits_shooting)
         self.assertTrue(unit.transient_assault_this_round)
         self.assertTrue(unit.transient_plus_one_to_hit_shooting)
+
+
+class StratagemPerCommandPhaseCapTests(unittest.TestCase):
+    """Iter-4 A5 (faction-neutral AI heuristic): cap the number of
+    detachment stratagems any one army may fire per Command phase.
+    `_apply_detachment_stratagems` short-circuits after
+    `Battle.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` (default 1)
+    stratagems have fired for that army. Cited as
+    `simulator.stratagem_per_command_phase_cap`.
+    """
+
+    def test_cap_limits_to_one_stratagem_per_command_phase(self):
+        a = Army("T'au")
+        a.add_unit(_tau_crisis_profile())
+        b = Army("Enemy")
+        b.add_unit(_target_profile())
+        random.seed(2026)
+        battle = Battle(a, b)
+        battle._assign_uids()
+        # Plenty of CP — without the cap, three or more Mont'ka stratagems
+        # would all fire (proven by MontkaAllStratagemsFireSmokeTests when
+        # the cap is lifted).
+        a.command_points = 6
+        a.units[0].current_health = 1.0
+        battle._current_round = 3
+        # Default cap = 1.
+        self.assertEqual(battle.DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE, 1)
+        battle._apply_detachment_stratagems(a, b)
+        # Exactly one stratagem fired through the dispatcher.
+        self.assertEqual(a.stratagems_fired_this_command_phase, 1)
+
+    def test_cap_resets_between_command_phases(self):
+        """Resetting `_apply_detachment_stratagems` once per army per
+        Command phase reinitialises the counter to 0; the cap therefore
+        permits one fresh fire per subsequent Command phase.
+        """
+        a = Army("T'au")
+        a.add_unit(_tau_crisis_profile())
+        b = Army("Enemy")
+        b.add_unit(_target_profile())
+        random.seed(2026)
+        battle = Battle(a, b)
+        battle._assign_uids()
+        a.command_points = 6
+        a.units[0].current_health = 1.0
+        battle._current_round = 3
+        battle._apply_detachment_stratagems(a, b)
+        self.assertEqual(a.stratagems_fired_this_command_phase, 1)
+        # New Command phase — refill CP, the counter is reset at the top
+        # of `_apply_detachment_stratagems` so the next call gets a fresh
+        # quota.
+        a.command_points = 6
+        battle._apply_detachment_stratagems(a, b)
+        self.assertEqual(a.stratagems_fired_this_command_phase, 1)
+
+    def test_core_stratagems_do_not_count_toward_cap(self):
+        """Core Stratagems (Tank Shock, Heroic Intervention, Counter-
+        Offensive, Command Re-Roll) fire on per-trigger hooks outside
+        `_apply_detachment_stratagems` and must NOT increment the
+        per-Command-phase counter. We exercise the in-band path through
+        `_fire_stratagem` with the dispatch flag explicitly OFF (the
+        post-condition that all Core-Stratagem call sites rely on).
+        """
+        from code.stratagems import COMMAND_RE_ROLL
+
+        a = Army("T'au")
+        a.add_unit(_tau_crisis_profile())
+        b = Army("Enemy")
+        b.add_unit(_target_profile())
+        random.seed(2026)
+        battle = Battle(a, b)
+        battle._assign_uids()
+        a.command_points = 6
+        # Dispatcher flag is False by default (set True only inside
+        # `_apply_detachment_stratagems`'s try/finally block).
+        self.assertFalse(battle._dispatching_detachment_stratagems)
+        ok = battle._fire_stratagem(a, COMMAND_RE_ROLL)
+        self.assertTrue(ok)
+        # CP spent, but the per-Command-phase detachment counter did NOT
+        # increment because the dispatch flag was clear.
+        self.assertEqual(a.command_points, 5)
+        self.assertEqual(a.stratagems_fired_this_command_phase, 0)
 
 
 if __name__ == "__main__":

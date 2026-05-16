@@ -203,6 +203,23 @@ class Army:
         self.cp_refund_remaining: int = 0
         self.first_stratagem_free_this_round: bool = False
         self._warlord_first_strat_free_enabled: bool = False
+        # Universal per-Command-phase detachment-stratagem cap (faction-neutral
+        # AI heuristic). 10e core rules don't impose a hard cap on stratagems
+        # fired per Command phase, but real-player CP economy averages ~1
+        # stratagem per Command phase per army; the simulator's round-start
+        # dispatcher in Battle._apply_detachment_stratagems used to fire every
+        # green-lit detachment stratagem on offer, stacking 3-5+ in a single
+        # Command phase on CP-rich detachments (DG Virulent Vectorium, Necron
+        # Awakened Dynasty). This counter is reset to 0 at the top of each
+        # army's _apply_detachment_stratagems call and incremented inside
+        # _fire_stratagem when called from a detachment dispatcher; the
+        # dispatcher early-exits once the counter hits STRATAGEM_CAP (1).
+        # Faction-neutral: every detachment's dispatch path runs through the
+        # same cap. Core Stratagems (Tank Shock, Heroic Intervention, Counter-
+        # Offensive, Command Re-Roll) are triggered out-of-band and don't
+        # increment this counter — they fire on their own per-phase triggers.
+        # Cited as `simulator.stratagem_per_command_phase_cap` (APPROXIMATION).
+        self.stratagems_fired_this_command_phase: int = 0
         # Adeptus Astartes Oath of Moment (army rule, 10e). At the start of
         # each Command phase the Marine player picks one enemy unit; until
         # the start of their next Command phase, every Marine attack against
