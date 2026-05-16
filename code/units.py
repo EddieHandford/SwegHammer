@@ -643,6 +643,29 @@ class Unit:
             ap = p.ap
             ignore_cover = p.ignores_cover
 
+        # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
+        # melee AP+1 portion. Wahapedia verbatim: "Improve the Armour
+        # Penetration characteristic of melee weapons equipped by ADEPTUS
+        # CUSTODES models from your army with the Martial Ka'tah ability
+        # by 1." Gate: mode == "melee" AND attacker faction ==
+        # "Adeptus Custodes" AND detachment carries `melee_ap_plus_one`
+        # (set by SHIELD_HOST). AP is encoded as 0/-1/-2/-3 — improving
+        # AP by 1 makes the value MORE negative (AP-1 becomes AP-2 etc).
+        # APPROXIMATION: codex picks ONE Martial Mastery bullet per round;
+        # SwegHammer applies BOTH always-on (this AP+1 plus the
+        # Crit-on-5+ block below). Cited as `SHIELD_HOST.melee_ap_plus_one`.
+        if mode == "melee" and p.faction == "Adeptus Custodes":
+            _own_army_mk = getattr(self, "army_ref", None)
+            if _own_army_mk is not None:
+                try:
+                    _det_mk = _own_army_mk.resolve_detachment()
+                except Exception:
+                    _det_mk = None
+                if _det_mk is not None and getattr(
+                    _det_mk, "melee_ap_plus_one", False,
+                ):
+                    ap = ap - 1
+
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
             half_range = (p.range_inches or 24) / 2.0
@@ -1029,6 +1052,27 @@ class Unit:
                 ):
                     effective_sustained_hits += 1
 
+        # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
+        # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
+        # `save_after_ap` is computed) — see the block tagged
+        # `SHIELD_HOST.melee_ap_plus_one` above. This block only sets the
+        # crit threshold that gates `crit_hit = (roll == 6)` later in the
+        # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
+        # adeptus-custodes/#Shield-Host.
+        # Cited as `SHIELD_HOST.melee_crit_on_5_plus_hits`.
+        melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
+        if mode == "melee" and p.faction == "Adeptus Custodes":
+            _own_army = getattr(self, "army_ref", None)
+            if _own_army is not None:
+                try:
+                    _det = _own_army.resolve_detachment()
+                except Exception:
+                    _det = None
+                if _det is not None and getattr(
+                    _det, "melee_crit_on_5_plus_hits", False,
+                ):
+                    melee_crit_threshold = 5
+
         total_damage = 0.0
         for _ in range(n_attacks):
             # ---- Torrent: skip the to-hit roll, attack auto-hits ----
@@ -1079,7 +1123,11 @@ class Unit:
                             roll = sub
                 if roll < hit_target:
                     continue   # missed
-                crit_hit = (roll == 6)
+                # Crit-to-hit threshold defaults to 6 (canonical 10e); the
+                # Shield Host Martial Ka'tah Crit-on-5+ branch lowers it to
+                # 5 for Adeptus Custodes melee attackers (see
+                # `melee_crit_threshold` setup above).
+                crit_hit = (roll >= melee_crit_threshold) if mode == "melee" else (roll == 6)
             n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
             for hit_i in range(n_hits):

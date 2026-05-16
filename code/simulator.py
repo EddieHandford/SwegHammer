@@ -51,6 +51,9 @@ from .stratagems import (
     # War Horde (Orks) — six real detachment stratagems (iter-1 B1)
     INSANE_BRAVERY, POWER_OF_THE_WAAAGH, MOB_UP, BIG_KRUMPIN,
     TELLYPORTA, DA_BIGGEST_BOSS,
+    # Shield Host (Adeptus Custodes) — six real detachment stratagems (iter-8)
+    ARCANE_GENETIC_ALCHEMY, UNWAVERING_SENTINELS, MULTIPOTENTIALITY,
+    VIGILANCE_ETERNAL, ARCHAEOTECH_MUNITIONS, AVENGE_THE_FALLEN,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -812,6 +815,27 @@ class Battle:
             # Insane Bravery — catalogued in WAR_HORDE_STRATAGEMS for the
             # auditor + stratagems_for_army listing, but the dispatcher is a
             # no-op (no per-unit battleshock-immunity transient flag exists).
+
+            # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+            # Five wire onto existing transient_* flags; Vigilance Eternal is
+            # a no-op APPROXIMATION (sticky-objective hook is per-detachment,
+            # not per-stratagem-fire). Replaces the iter-0 zero-stratagem
+            # state where Custodes burned 5/7 strat fires on Command Re-Roll.
+            if not self._strat_cap_reached(army) and "Arcane Genetic Alchemy" in strat_names:
+                self._try_arcane_genetic_alchemy(army, opponent)
+            if not self._strat_cap_reached(army) and "Unwavering Sentinels" in strat_names:
+                self._try_unwavering_sentinels(army, opponent)
+            if not self._strat_cap_reached(army) and "Multipotentiality" in strat_names:
+                self._try_multipotentiality(army, opponent)
+            if not self._strat_cap_reached(army) and "Archaeotech Munitions" in strat_names:
+                self._try_archaeotech_munitions(army, opponent)
+            if not self._strat_cap_reached(army) and "Avenge the Fallen" in strat_names:
+                self._try_avenge_the_fallen(army, opponent)
+            # Vigilance Eternal — catalogued in SHIELD_HOST_STRATAGEMS for the
+            # auditor + stratagems_for_army listing, but the dispatcher is a
+            # no-op APPROXIMATION (sticky-objective mechanism is per-detachment-
+            # flag-gated, not per-stratagem-fire).
         finally:
             # Always drop the dispatch flag — Tank Shock / Heroic Intervention /
             # Counter-Offensive / Command Re-Roll fire out-of-band via
@@ -1765,6 +1789,138 @@ class Battle:
         if not self._fire_stratagem(army, DA_BIGGEST_BOSS):
             return
         warlord.transient_assault_this_round = True
+
+    # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8 fix)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+    # CP costs + WHEN/EFFECT confirmed against Goonhammer 10e codex review +
+    # Wahapedia listing. WebFetch against wahapedia.ru returned ECONNREFUSED
+    # at edit time; effect descriptions are paraphrased per the canonical
+    # Goonhammer source, with each entry flagged APPROXIMATION in
+    # data/rule_citations.d/stratagems.json. Effect mappings follow the
+    # War Horde / Mont'ka pattern — route through the nearest existing
+    # transient_* flag and document the gap.
+
+    def _try_arcane_genetic_alchemy(self, army: Army, opponent: Army) -> None:
+        """Arcane Genetic Alchemy (Shield Host, 1 CP, Battle Tactic). Real
+        rule: after a Mortal wound is allocated to a friendly Adeptus
+        Custodes unit, until end of phase that unit has Feel No Pain 4+
+        against Mortal wounds. APPROXIMATION: SwegHammer doesn't model
+        mortal-wound-only FNP buckets; we use `transient_fnp_5` (FNP 5+ for
+        the round against all damage) on the most vulnerable Custodes unit.
+        Direction-correct (defensive damage reduction) but lossy on both
+        magnitude (5+ vs 4+) and gate (all damage vs mortal-only). Catalogued
+        per iter-8 Shield Host rebuild; Wahapedia URL above.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, ARCANE_GENETIC_ALCHEMY, ctx):
+            return
+        if not self._fire_stratagem(army, ARCANE_GENETIC_ALCHEMY):
+            return
+        target.transient_fnp_5 = True
+
+    def _try_unwavering_sentinels(self, army: Army, opponent: Army) -> None:
+        """Unwavering Sentinels (Shield Host, 1 CP, Strategic Ploy). Real
+        rule: Fight phase, after an enemy targets a friendly Custodes
+        INFANTRY unit on an objective you control — that enemy unit takes
+        -1 to Hit for the rest of the phase. APPROXIMATION: no per-target
+        -1-to-hit transient flag in SwegHammer, so we route the defensive
+        payoff through `transient_plus_one_save` on the most vulnerable
+        Custodes INFANTRY unit. Both buffs reduce incoming damage; lossy
+        on the gate (objective control + per-attacker scope).
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, UNWAVERING_SENTINELS, ctx):
+            return
+        if not self._fire_stratagem(army, UNWAVERING_SENTINELS):
+            return
+        target.transient_plus_one_save = True
+
+    def _try_multipotentiality(self, army: Army, opponent: Army) -> None:
+        """Multipotentiality (Shield Host, 1 CP, Strategic Ploy). Real rule:
+        your Movement phase, on a Custodes unit that just Fell Back — that
+        unit can shoot and declare a charge this turn. APPROXIMATION: maps
+        cleanly to `transient_assault_this_round` on the highest-DPA
+        Custodes unit (same flag Feigned Retreat uses). Round-start
+        dispatcher collapses the 'just Fell Back' precondition.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, MULTIPOTENTIALITY, ctx):
+            return
+        if not self._fire_stratagem(army, MULTIPOTENTIALITY):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_archaeotech_munitions(self, army: Army, opponent: Army) -> None:
+        """Archaeotech Munitions (Shield Host, 1 CP, Wargear). Real rule:
+        your Shooting phase, on a Custodes unit — ranged weapons gain
+        [LETHAL HITS] OR [SUSTAINED HITS 1] (player's choice) for the
+        phase. APPROXIMATION: no per-round transient [LETHAL HITS] /
+        [SUSTAINED HITS] flag in SwegHammer; offensive uplift is routed
+        through `transient_plus_one_to_hit_shooting` on the highest-DPA
+        Custodes shooter. Same direction (more landed hits/damage),
+        comparable magnitude on a 4+ hit roll.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, ARCHAEOTECH_MUNITIONS, ctx):
+            return
+        if not self._fire_stratagem(army, ARCHAEOTECH_MUNITIONS):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_avenge_the_fallen(self, army: Army, opponent: Army) -> None:
+        """Avenge the Fallen (Shield Host, 1 CP, Strategic Ploy). Real rule:
+        start of Fight phase, on a Custodes unit below Starting Strength —
+        +1 Attack (or +2 if below half Starting Strength) for the phase.
+        APPROXIMATION: SwegHammer doesn't expose a transient per-attack-
+        count buff; offensive uplift is routed through
+        `transient_plus_one_to_wound_melee` on the most vulnerable Custodes
+        melee unit. Direction-correct (more landed melee damage),
+        comparable magnitude on a 4+ wound roll.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, AVENGE_THE_FALLEN, ctx):
+            return
+        if not self._fire_stratagem(army, AVENGE_THE_FALLEN):
+            return
+        target.transient_plus_one_to_wound_melee = True
 
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/

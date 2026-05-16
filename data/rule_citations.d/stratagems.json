@@ -346,5 +346,65 @@
     "effect": "(APPROXIMATION) SwegHammer's grid-free movement model can't usefully consume per-phase D6+1\" repositioning, so the offensive payoff (reposition into firing / charging range) is routed through `transient_assault_this_round` on the highest-DPA Orks CHARACTER — lets the Warlord shoot the same round it would have repositioned. Name + CP cost (1) per the iter-1 Cluster B diagnostic; the in-codex stratagem set lists Da Biggest Boss separately from the Da Biggest Boss Enhancement (BSData id ccd6-6490-a314-78a0, attached to Bully Boyz).",
     "scope": "phase-gated",
     "approximation": true
+  },
+
+  "Stratagem.Arcane Genetic Alchemy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Arcane Genetic Alchemy (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, after a Mortal wound is allocated to one of your ADEPTUS CUSTODES units. Effect: until the end of the phase, models in that unit have a Feel No Pain 4+ against mortal wounds.",
+    "trigger": "any phase, after a Mortal wound is allocated to a friendly Adeptus Custodes unit",
+    "effect": "(APPROXIMATION) SwegHammer doesn't model mortal-wound-only FNP buckets, so the closest stand-in is `transient_fnp_5` (FNP 5+ for the round against all damage) on the most vulnerable Custodes unit — direction-correct (defensive damage reduction) but lossy on both the magnitude (5+ vs codex 4+) and the gate (all damage vs mortal-only). Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Unwavering Sentinels": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Unwavering Sentinels (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the Fight phase, after an enemy unit targets one of your ADEPTUS CUSTODES INFANTRY units that is within range of an objective marker you control. Effect: until the end of the phase, that enemy unit suffers -1 to its Hit rolls when targeting your unit.",
+    "trigger": "Fight phase, after an enemy targets a friendly Adeptus Custodes INFANTRY unit on an objective you control",
+    "effect": "(APPROXIMATION) SwegHammer has no per-target -1-to-hit transient flag, so the defensive payoff is routed through `transient_plus_one_save` on the most vulnerable Custodes INFANTRY unit — both buffs reduce incoming melee damage, direction-correct but lossy on the gate (objective control + per-attacker scope). Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Multipotentiality": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Multipotentiality (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your Movement phase, on an ADEPTUS CUSTODES unit that just Fell Back. Effect: that unit can shoot and declare a charge this turn even though it Fell Back.",
+    "trigger": "your Movement phase, on a friendly Adeptus Custodes unit that just Fell Back",
+    "effect": "(APPROXIMATION) Maps cleanly to `transient_assault_this_round` on the highest-DPA Adeptus Custodes unit — same flag Feigned Retreat (Warhost) uses. The simulator collapses the 'just Fell Back' precondition to round-start dispatch; the unit gets the Assault-style shoot-after-move buff for the round. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Vigilance Eternal": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Vigilance Eternal (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your Movement phase, on a friendly ADEPTUS CUSTODES BATTLELINE unit within range of an objective marker you control. Effect: that objective marker remains under your control until your opponent controls it at the start or end of any phase (sticky-objective).",
+    "trigger": "your Movement phase, on a friendly Adeptus Custodes BATTLELINE unit on an objective",
+    "effect": "(APPROXIMATION) SwegHammer's sticky-objective hook is faction-detachment-gated (Worldblight / Desecration of Worlds) rather than per-stratagem-fire. This dispatcher is catalogued-but-no-op — no CP spent, no transient effect applied. Catalogued so the auditor sees the citation and the AI heuristic can be tightened in a follow-up. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Archaeotech Munitions": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Archaeotech Munitions (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Wargear, 1 CP. When: your Shooting phase, on an ADEPTUS CUSTODES unit. Effect: until the end of the phase, that unit's ranged weapons gain either the [LETHAL HITS] or [SUSTAINED HITS 1] ability (player's choice).",
+    "trigger": "your Shooting phase, on a friendly Adeptus Custodes unit selected to shoot",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [LETHAL HITS] / [SUSTAINED HITS] flag, so the offensive uplift is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA Custodes shooter — same direction (more landed hits / damage), comparable magnitude on a 4+ hit roll. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Avenge the Fallen": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Avenge the Fallen (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the start of the Fight phase, on an ADEPTUS CUSTODES unit below Starting Strength. Effect: that unit's melee weapons gain +1 Attack (or +2 Attacks if the unit is below half Starting Strength) until the end of the phase.",
+    "trigger": "start of the Fight phase, on a friendly Adeptus Custodes unit below Starting Strength",
+    "effect": "(APPROXIMATION) SwegHammer doesn't expose a transient per-attack-count buff; the offensive uplift is routed through `transient_plus_one_to_wound_melee` on the most vulnerable Custodes melee unit — same direction (more landed melee damage), comparable magnitude on a 4+ wound roll. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

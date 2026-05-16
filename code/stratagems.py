@@ -621,6 +621,111 @@ WAR_HORDE_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Shield Host (Adeptus Custodes) — six real detachment stratagems (iter-8 fix)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+# Replaces the iter-0 zero-stratagem state where Custodes burned 5/7 strat
+# fires per battle on Command Re-Roll (universal Core) because no detachment
+# stratagems were registered. iter-7 diagnostic
+# (docs/AUTO_LOOP_ITER7_DG_VS_CUSTODES.md) identified this as the top fix
+# for DG-vs-Custodes (+19.5pt over real meta).
+#
+# Effect-mapping summary (full notes in data/rule_citations.d/stratagems.json
+# and data/rule_citations.d/adeptus_custodes.json):
+#   * Arcane Genetic Alchemy (1 CP, Battle Tactic) — 4+ FNP vs mortal wounds
+#     for the phase. SwegHammer doesn't model mortal-wound-only FNP buckets,
+#     so the closest stand-in is `transient_fnp_5` (5+ FNP all-damage for the
+#     round) on the most vulnerable Custodes unit. APPROXIMATION: 5+ FNP all-
+#     damage is broader than 4+ FNP mortal-only — direction-correct but lossy.
+#   * Unwavering Sentinels (1 CP, Strategic Ploy) — -1 to hit on an enemy
+#     targeting a Custodes INFANTRY unit within range of a friendly objective.
+#     SwegHammer has no per-target -1-to-hit transient flag, so the offensive
+#     payoff is routed through `transient_plus_one_save` on the most
+#     vulnerable Custodes INFANTRY unit (defensive proxy — both buffs reduce
+#     incoming damage). APPROXIMATION: defensive +1 save instead of -1 to hit.
+#   * Multipotentiality (1 CP, Strategic Ploy) — a Custodes unit that Fell
+#     Back may still shoot and declare a charge this turn. Maps cleanly to
+#     `transient_assault_this_round` on the highest-DPA Custodes unit (same
+#     flag used by Feigned Retreat).
+#   * Vigilance Eternal (1 CP, Strategic Ploy) — sticky objective control
+#     for a Custodes BATTLELINE unit in range of an objective. SwegHammer's
+#     sticky-objective hook is gated on per-faction detachment flags rather
+#     than per-stratagem fire, so this dispatches as a no-op APPROXIMATION
+#     (CP not spent if no other effect lands). Catalogued for auditor + AI.
+#   * Archaeotech Munitions (1 CP, Wargear) — [LETHAL HITS] or [SUSTAINED
+#     HITS 1] on a Custodes unit's ranged weapons for the phase. SwegHammer
+#     has no per-round transient lethal-hits flag, so the offensive uplift
+#     is routed through `transient_plus_one_to_hit_shooting` on the highest-
+#     DPA Custodes shooter — same direction (more landed hits), comparable
+#     magnitude on a 4+ hit roll. APPROXIMATION: +1 to hit instead of
+#     Lethal/Sustained Hits.
+#   * Avenge the Fallen (1 CP, Strategic Ploy) — +1 attack (or +2 if below
+#     half strength) on a Custodes unit below Starting Strength. Maps to
+#     `transient_plus_one_to_wound_melee` on the most vulnerable Custodes
+#     melee unit (the +1 attack increases melee damage output similarly to
+#     +1 to wound on a 4+ wound roll). APPROXIMATION: +1 to wound instead
+#     of +1 attack count.
+
+ARCANE_GENETIC_ALCHEMY = Stratagem(
+    name="Arcane Genetic Alchemy",
+    cp_cost=1,
+    phase="any",
+    trigger="mortal_wound_allocated_to_custodes",
+    effect="fnp_5_for_round_approximation",
+)
+
+UNWAVERING_SENTINELS = Stratagem(
+    name="Unwavering Sentinels",
+    cp_cost=1,
+    phase="fight",
+    trigger="enemy_targets_custodes_infantry_on_objective",
+    effect="plus_one_save_for_round_approximation",
+)
+
+MULTIPOTENTIALITY = Stratagem(
+    name="Multipotentiality",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_custodes_unit_just_fell_back",
+    effect="transient_assault_for_round",
+)
+
+VIGILANCE_ETERNAL = Stratagem(
+    name="Vigilance Eternal",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_custodes_battleline_on_objective",
+    effect="sticky_objective_approximation",
+)
+
+ARCHAEOTECH_MUNITIONS = Stratagem(
+    name="Archaeotech Munitions",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_custodes_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round_approximation",
+)
+
+AVENGE_THE_FALLEN = Stratagem(
+    name="Avenge the Fallen",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_custodes_unit_below_starting_strength_about_to_fight",
+    effect="plus_one_to_wound_melee_approximation",
+)
+
+
+SHIELD_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
+    ARCANE_GENETIC_ALCHEMY,
+    UNWAVERING_SENTINELS,
+    MULTIPOTENTIALITY,
+    VIGILANCE_ETERNAL,
+    ARCHAEOTECH_MUNITIONS,
+    AVENGE_THE_FALLEN,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -706,6 +811,14 @@ __all__ = [
     "TELLYPORTA",
     "DA_BIGGEST_BOSS",
     "WAR_HORDE_STRATAGEMS",
+    # Shield Host (Adeptus Custodes) — six real stratagems (iter-8 fix)
+    "ARCANE_GENETIC_ALCHEMY",
+    "UNWAVERING_SENTINELS",
+    "MULTIPOTENTIALITY",
+    "VIGILANCE_ETERNAL",
+    "ARCHAEOTECH_MUNITIONS",
+    "AVENGE_THE_FALLEN",
+    "SHIELD_HOST_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

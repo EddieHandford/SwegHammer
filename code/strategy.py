@@ -2518,6 +2518,96 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return cost >= 60.0
 
+    # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8) -
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+    # Custodes burns 5+ strat fires/battle on Command Re-Roll at iter-7
+    # baseline (no detachment stratagems registered). Gates here are
+    # permissive — Custodes has 6+ CP/battle and few units, so the AI
+    # should fire stratagems aggressively when its bricks engage. Point
+    # thresholds are LOW (cost >= 80 — Custodes profiles average 40+ pts
+    # per model so a 5-model brick clears easily) since the army has no
+    # cheap chaff to leak CP onto. Vigilance Eternal has no AI gate (no-op
+    # dispatcher).
+
+    if name == "Arcane Genetic Alchemy":
+        # ctx: {"target": Unit}. Defensive FNP-5 approximation. Fire on a
+        # wounded high-value Custodes unit. Same shape as Lightning-Fast
+        # Reactions / Psychic Dominion: HP loss + meaningful cost.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Unwavering Sentinels":
+        # ctx: {"target": Unit}. Defensive +1-save approximation. Fire on
+        # a wounded high-value Custodes INFANTRY brick — same gate shape
+        # as Lightning-Fast Reactions / Tellyporta.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Multipotentiality":
+        # ctx: {"attacker": Unit}. Assault-this-round approximation. Fire
+        # for a high-cost Custodes attacker — Custodes profiles are elite
+        # so even a small brick is worth the [ASSAULT] proxy. Gate at 80
+        # pts (covers Wardens / Custodian Guard / Sagittarum) but not the
+        # 35-pt Vexilus Praetor character alone.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0
+
+    if name == "Archaeotech Munitions":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting approximation for [LETHAL HITS] / [SUSTAINED HITS 1].
+        # Fire when the Custodes attacker has real ranged DPA AND target
+        # is HEAVY-class (same gate shape as Focused Fire / Methodical
+        # Destruction).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Avenge the Fallen":
+        # ctx: {"target": Unit}. +1-to-wound-melee approximation for the
+        # +1 Attack codex effect. Fire on a wounded Custodes melee unit —
+        # the codex gate "below Starting Strength" maps to "HP loss > 0".
+        # Cost gate prevents firing on cheap units; Custodes elite unit
+        # profile costs vary but 80+ pts covers everything that matters.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.0 and cost >= 80.0
+
+    # Vigilance Eternal — no-op dispatcher (sticky-objective is per-
+    # detachment-flag-gated, not per-stratagem-fire). No AI gate needed.
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

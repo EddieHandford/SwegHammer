@@ -79,6 +79,13 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # Orks War Horde detachment rule (iter-1 Cluster B B1 fix). Army-wide
     # [SUSTAINED HITS 1] on Ork melee weapons via Get Stuck In.
     ("melee_sustained_hits_army_wide", False),
+    # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
+    # Martial Mastery, iter-8 fix). Replaces the iter-0 `plus_one_save`
+    # defensive approximation with the canonical offensive Crit-on-5+
+    # melee + melee AP+1 dual buff. APPROXIMATION: codex picks ONE bullet
+    # per round; SwegHammer applies BOTH always-on.
+    ("melee_crit_on_5_plus_hits", False),
+    ("melee_ap_plus_one", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

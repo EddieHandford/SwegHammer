@@ -23,7 +23,10 @@ from code.units import UnitProfile
 _NEW_DETACHMENTS = (
     # (key, faction, attribute, expected value)
     ("hallowed_martyrs",       "Adepta Sororitas",       "plus_one_to_wound", True),
-    ("shield_host",            "Adeptus Custodes",       "plus_one_save",     True),
+    # iter-8 fix: Shield Host swapped the defensive `plus_one_save`
+    # approximation for the real offensive Martial Ka'tah / Martial Mastery
+    # buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
+    ("shield_host",            "Adeptus Custodes",       "melee_crit_on_5_plus_hits", True),
     ("skitarii_hunter_cohort", "Adeptus Mechanicus",     "reroll_hit_ones",   True),
     ("inquisition_task_force", "Agents of the Imperium", "reroll_hit_ones",   True),
     ("combined_regiment",      "Astra Militarum",        "plus_one_to_hit",   True),
@@ -112,11 +115,16 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
     # Hammer / etc.).
 
     def test_custodes_army_resolves(self):
+        # iter-8 fix: Shield Host's defensive `plus_one_save` approximation
+        # was replaced with the real offensive Martial Ka'tah / Martial
+        # Mastery dual buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
         army = Army("Custodes")
         army.add_unit(self._profile("Adeptus Custodes"))
         det = army.resolve_detachment()
         self.assertIsNotNone(det)
-        self.assertTrue(det.plus_one_save)
+        self.assertTrue(det.melee_crit_on_5_plus_hits)
+        self.assertTrue(det.melee_ap_plus_one)
+        self.assertFalse(det.plus_one_save)
 
     def test_explicit_detachment_overrides_default(self):
         explicit = Detachment(name="Override", faction="X", plus_one_to_wound=True)

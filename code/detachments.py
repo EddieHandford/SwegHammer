@@ -33,6 +33,7 @@ from .stratagems import (
     VIRULENT_VECTORIUM_STRATAGEMS,
     GRAND_COVEN_STRATAGEMS,
     WAR_HORDE_STRATAGEMS,
+    SHIELD_HOST_STRATAGEMS,
 )
 
 
@@ -142,6 +143,34 @@ class Detachment:
     # (matches how per-weapon sustained_hits already composes). Army-wide
     # passive — no proximity / keyword filter beyond the Orks faction tag.
     melee_sustained_hits_army_wide: bool = False
+
+    # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
+    # Martial Mastery). Wahapedia verbatim: "At the start of the battle
+    # round, you can select one of the bullet points below. If you do,
+    # until the start of the next battle round, that bullet point's
+    # effects apply: Each time an ADEPTUS CUSTODES model from your army
+    # with the Martial Ka'tah ability makes a melee attack, a successful
+    # unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour
+    # Penetration characteristic of melee weapons equipped by ADEPTUS
+    # CUSTODES models from your army with the Martial Ka'tah ability
+    # by 1." The detachment rule picks ONE bullet per round; SwegHammer's
+    # simulator has no per-round selection hook so we apply BOTH bullets
+    # army-wide for Adeptus Custodes melee attackers (offensive uplift
+    # for the whole battle). APPROXIMATION: in real play the player
+    # alternates per round between the Crit-on-5 stance and the AP+1
+    # stance; modelling both as always-on is strictly stronger than the
+    # codex but captures the dual offensive nature the iter-7 diagnostic
+    # called out as missing.
+    #
+    # Simulator gates (both read in Unit.attack):
+    #   * melee_crit_on_5_plus_hits — when True AND mode=="melee" AND
+    #     attacker.faction == "Adeptus Custodes", a to-hit roll of 5+
+    #     scores a Critical Hit (in addition to the canonical 6+).
+    #   * melee_ap_plus_one — when True AND mode=="melee" AND
+    #     attacker.faction == "Adeptus Custodes", the melee AP is
+    #     improved by 1 (e.g. AP-1 -> AP-2).
+    melee_crit_on_5_plus_hits: bool = False
+    melee_ap_plus_one: bool = False
 
     # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
     # (Wahapedia): "If you control an objective marker at the end of your
@@ -274,13 +303,35 @@ SHIELD_HOST = Detachment(
     name="Shield Host",
     faction="Adeptus Custodes",
     notes=(
-        "Custodes durability: +1 to armour saves army-wide (cap at 2+). "
-        "Approximates the multiple bespoke save-stacking rules in 10e."
+        "Martial Ka'tah / Martial Mastery (Wahapedia verbatim): \"At the "
+        "start of the battle round, you can select one of the bullet "
+        "points below. If you do, until the start of the next battle "
+        "round, that bullet point's effects apply: Each time an ADEPTUS "
+        "CUSTODES model from your army with the Martial Ka'tah ability "
+        "makes a melee attack, a successful unmodified Hit roll of 5+ "
+        "scores a Critical Hit. Improve the Armour Penetration "
+        "characteristic of melee weapons equipped by ADEPTUS CUSTODES "
+        "models from your army with the Martial Ka'tah ability by 1.\" "
+        "Simulator implementation: both bullets are applied always-on for "
+        "Adeptus Custodes melee attackers via `melee_crit_on_5_plus_hits` "
+        "and `melee_ap_plus_one` (real codex picks ONE bullet per battle "
+        "round). APPROXIMATION: dual offensive uplift instead of per-round "
+        "alternation. Six real detachment stratagems wired (iter-8 fix, "
+        "Wahapedia: Arcane Genetic Alchemy, Unwavering Sentinels, "
+        "Multipotentiality, Vigilance Eternal, Archaeotech Munitions, "
+        "Avenge the Fallen). Replaces the iter-0 `plus_one_save` "
+        "approximation which inflated Custodes durability (defensive) "
+        "rather than melee output (offensive). iter-7 diagnostic in "
+        "docs/AUTO_LOOP_ITER7_DG_VS_CUSTODES.md identified this swap as "
+        "the top fix for DG-vs-Custodes (+19.5pt residual over real meta)."
     ),
-    # APPROXIMATION: +1 save (defensive) substitutes for an offensive Crit Hit / AP buff.
+    # Real rule: Martial Ka'tah / Martial Mastery — Crit-on-5+ OR AP+1 on
+    # melee attacks (offensive). One bullet per round in real play;
+    # SwegHammer applies BOTH always-on as an APPROXIMATION.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
-    # Real rule: Martial Mastery — Critical Hit / AP buff (offensive), not +1 save (defensive).
-    plus_one_save=True,
+    melee_crit_on_5_plus_hits=True,
+    melee_ap_plus_one=True,
+    stratagems=SHIELD_HOST_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -693,6 +744,7 @@ MONTKA             = DETACHMENTS["montka"]
 VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 GRAND_COVEN        = DETACHMENTS["grand_coven"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
+SHIELD_HOST        = DETACHMENTS["shield_host"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 

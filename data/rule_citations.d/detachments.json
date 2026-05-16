@@ -41,12 +41,22 @@
     "approximation": true
   },
 
-  "SHIELD_HOST.plus_one_save": {
+  "SHIELD_HOST.melee_crit_on_5_plus_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
-    "rule_name": "Martial Mastery",
+    "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
-    "trigger": "any friendly Adeptus Custodes save",
-    "effect": "+1 to armour saves (approximation of overall Custodes durability; canonical Martial Mastery is an offensive Crit/AP buff, not a save buff, so this flag is a stand-in for the multiple defensive stacking rules Custodes pile up across Bodyguard, native 2+/4++ profiles, and the Sentinel-Blades enhancement)",
+    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
+    "effect": "successful unmodified Hit roll of 5+ scores a Critical Hit on melee attacks (replaces the canonical 6+ crit-to-hit threshold). APPROXIMATION: codex picks ONE Martial Mastery bullet per battle round; SwegHammer applies BOTH the Crit-on-5+ bullet (this flag) and the AP+1 bullet (SHIELD_HOST.melee_ap_plus_one) always-on, which is strictly stronger than the codex but captures the dual offensive nature iter-7 diagnostic identified as missing.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "SHIELD_HOST.melee_ap_plus_one": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Martial Ka'tah / Martial Mastery (AP+1 bullet)",
+    "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
+    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
+    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). APPROXIMATION: codex picks ONE Martial Mastery bullet per battle round; SwegHammer applies BOTH the Crit-on-5+ bullet (SHIELD_HOST.melee_crit_on_5_plus_hits) and the AP+1 bullet (this flag) always-on. Replaces the iter-0 `plus_one_save` defensive approximation which inflated Custodes durability rather than melee output (the direction iter-7 diagnostic identified as the residual error).",
     "scope": "army-wide",
     "approximation": true
   },
