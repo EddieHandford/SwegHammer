@@ -700,31 +700,24 @@ class Unit:
         if att_buffs["plus_one_to_wound"]:
             wound_target = max(2, wound_target - 1)
 
-        # ---- Adeptus Astartes Combat Doctrines (Gladius Task Force
-        # detachment rule, 10e). At the start of each Command phase the
-        # Marine player picks an active Doctrine. SwegHammer's AI rotates
-        # deterministically: round 1 Devastator (+1 to wound, ranged only),
-        # round 2 Tactical (+1 to wound, both modes), round 3+ Assault
-        # (+1 to wound, melee only). Faction-gated to Marines AND
-        # detachment-gated to "Gladius Task Force" — Ironstorm Spearhead
-        # Marines get nothing here. Applied alongside the +1-to-wound
-        # buff above so later compounding effects (All Is Dust, Lance,
-        # etc.) see the boosted target. Cited as `simulator.combat_doctrines`.
-        own_army = getattr(self, "army_ref", None)
-        if own_army is not None and is_marine_faction(p.faction):
-            det = own_army.resolve_detachment()
-            if det is not None and det.name == "Gladius Task Force":
-                battle = getattr(own_army, "_battle_ref", None)
-                cur_round = getattr(battle, "_current_round", 0) if battle else 0
-                doctrine_applies = False
-                if cur_round == 1 and mode != "melee":
-                    doctrine_applies = True   # Devastator
-                elif cur_round == 2:
-                    doctrine_applies = True   # Tactical
-                elif cur_round >= 3 and mode == "melee":
-                    doctrine_applies = True   # Assault
-                if doctrine_applies:
-                    wound_target = max(2, wound_target - 1)
+        # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
+        # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
+        # audit (May 2026) found that the previous +1-to-wound-per-round
+        # implementation was fabricated — the real Doctrines (Wahapedia
+        # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force,
+        # cross-confirmed via newrecruit.eu Gladius entry) grant only
+        # movement utility:
+        #   Devastator (R1): "This unit is eligible to shoot in a turn
+        #     in which it Advanced." — bypasses the Advance shoot-lockout.
+        #   Tactical (R2):   "This unit is eligible to shoot and declare
+        #     a charge in a turn in which it Fell Back." — bypasses both
+        #     the Fall Back shoot-lockout AND the Fall Back charge-lockout.
+        #   Assault (R3+):   "This unit is eligible to declare a charge
+        #     in a turn in which it Advanced." — bypasses the Advance
+        #     charge-lockout.
+        # No wound buff. The gates are implemented in simulator._do_shoot
+        # and simulator._do_charge as Advance/Fall-Back lockout exemptions.
+        # Cited as `simulator.combat_doctrines`.
 
         # Capture the hit target AFTER positive buffs but BEFORE any negative
         # modifiers (Heavy in engagement / Indirect / cover / Stealth / DG

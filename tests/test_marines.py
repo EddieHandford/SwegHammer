@@ -4,10 +4,12 @@ Covered:
   - Oath of Moment (#115): every Command phase the Marine army picks one
     enemy unit; Marine attacks against that unit re-roll BOTH the hit roll
     AND the wound roll. Cited as `simulator.oath_of_moment`.
-  - Combat Doctrines (#116, Gladius Task Force detachment): round-rotating
-    +1 to wound. Round 1 Devastator (ranged only), Round 2 Tactical (both
-    modes), Round 3+ Assault (melee only). Faction-gated to Marines AND
-    detachment-gated to Gladius. Cited as `simulator.combat_doctrines`.
+  - Combat Doctrines (#116, Gladius Task Force detachment), as corrected in
+    iter-9 audit (May 2026): round-rotating MOVEMENT UTILITY (no damage
+    buff). R1 Devastator: shoot after Advance. R2 Tactical: shoot AND
+    charge after Fall Back. R3+ Assault: charge after Advance. Faction-gated
+    to Marines AND detachment-gated to Gladius. Cited as
+    `simulator.combat_doctrines`.
 """
 
 from __future__ import annotations
@@ -156,9 +158,22 @@ class OathTargetPickerTests(unittest.TestCase):
 
     def test_oath_target_repicked_each_round(self):
         """The oath_target_uid resets at the start of every Command phase —
-        a stale uid never leaks across rounds."""
+        a stale uid never leaks across rounds. Enemy is a Custodes-grade
+        bricks (health=20) so it survives round 1 and remains the natural
+        re-pick in round 2 — without the survivability buffer the now-real
+        Devastator Doctrine lets the Marine actually shoot after Advancing
+        and one-shot the test target."""
         random.seed(0)
-        battle = _two_unit_battle()
+        a = Army("Marines", detachment=GLADIUS_TASK_FORCE)
+        a.add_unit(_marine_profile())
+        b = Army("Enemy")
+        # Beefy enemy that absorbs R1 fire so oath target persists into R2.
+        enemy = _enemy_profile(points=200)
+        ed = enemy.__dict__.copy()
+        ed["health"] = 20
+        b.add_unit(UnitProfile(**ed))
+        battle = Battle(a, b)
+        battle._assign_uids()
         battle._run_round(1)
         first = battle.a.oath_target_uid
         # Inject a sentinel value to simulate a stale uid, then run round 2.
@@ -314,131 +329,105 @@ class OathRerollTests(unittest.TestCase):
 
 
 class CombatDoctrinesTests(unittest.TestCase):
-    """Round 1 Devastator (ranged), Round 2 Tactical (both), Round 3+ Assault
-    (melee). We exercise the gate by comparing wound damage with the
-    detachment set vs unset, varying round and mode."""
+    """R1 Devastator (shoot after Advance), R2 Tactical (shoot + charge
+    after Fall Back), R3+ Assault (charge after Advance). The real rules
+    are MOVEMENT-UTILITY EXEMPTIONS to the 10e core lockouts — there is no
+    damage buff. We exercise the helper Battle._gladius_active_doctrine
+    directly and check the matching lockout bypass in _do_shoot / _do_charge.
+    """
 
-    def _battle(self, detachment=GLADIUS_TASK_FORCE):
+    def _make(self, detachment=GLADIUS_TASK_FORCE, faction="Adeptus Astartes"):
         a = Army("Marines", detachment=detachment)
-        prof = _marine_profile()
-        d = prof.__dict__.copy()
-        d["hit_probability"] = 1.0          # always hit so we measure wound only
-        d["melee_hit_probability"] = 1.0
-        d["strength"] = 4
-        d["melee_strength"] = 4
-        a.add_unit(UnitProfile(**d))
+        a.add_unit(_marine_profile(faction=faction))
         b = Army("Enemy")
-        b.add_unit(_enemy_profile())
+        b.add_unit(_enemy_profile(points=200))
         battle = Battle(a, b)
         battle._assign_uids()
-        # Suppress Oath so it doesn't muddy the Doctrine signal.
         a.oath_target_uid = None
         return battle, a, b
 
-    def _avg_damage(self, attacker, defender, mode: str, n: int = 4000) -> float:
-        random.seed(0)
-        total = 0.0
-        for _ in range(n):
-            defender.current_health = defender.profile.health
-            total += attacker.attack(defender, distance=12.0, mode=mode)
-        return total / n
-
-    def test_combat_doctrines_devastator_t1_ranged(self):
-        """Round 1 — Devastator: +1 to wound on RANGED attacks only."""
-        battle, a, b = self._battle()
-        attacker, defender = a.units[0], b.units[0]
-        battle._current_round = 1
-
-        # vs no detachment baseline
-        battle_no_det, a_no, b_no = self._battle(detachment=IRONSTORM_SPEARHEAD)
-        battle_no_det._current_round = 1
-        base_attacker, base_defender = a_no.units[0], b_no.units[0]
-
-        gladius_ranged = self._avg_damage(attacker, defender, "ranged")
-        baseline_ranged = self._avg_damage(base_attacker, base_defender, "ranged")
-        self.assertGreater(
-            gladius_ranged, baseline_ranged,
-            f"Devastator R1 should boost ranged damage; "
-            f"gladius={gladius_ranged:.3f} baseline={baseline_ranged:.3f}",
-        )
-
-        # Melee in round 1 must NOT receive the boost.
-        gladius_melee = self._avg_damage(attacker, defender, "melee")
-        baseline_melee = self._avg_damage(base_attacker, base_defender, "melee")
-        # Identical RNG and no buff: damage curves should match.
-        self.assertAlmostEqual(gladius_melee, baseline_melee, delta=0.02)
-
-    def test_combat_doctrines_tactical_t2_both(self):
-        """Round 2 — Tactical: +1 to wound on BOTH ranged and melee."""
-        battle, a, b = self._battle()
-        attacker, defender = a.units[0], b.units[0]
-        battle._current_round = 2
-
-        battle_no_det, a_no, b_no = self._battle(detachment=IRONSTORM_SPEARHEAD)
-        battle_no_det._current_round = 2
-        base_attacker, base_defender = a_no.units[0], b_no.units[0]
-
-        for mode in ("ranged", "melee"):
-            with self.subTest(mode=mode):
-                gladius = self._avg_damage(attacker, defender, mode)
-                baseline = self._avg_damage(base_attacker, base_defender, mode)
-                self.assertGreater(
-                    gladius, baseline,
-                    f"Tactical R2 should boost {mode}; "
-                    f"gladius={gladius:.3f} baseline={baseline:.3f}",
+    def test_doctrine_rotation_by_round(self):
+        """Devastator R1, Tactical R2, Assault R3+ for Gladius Marines."""
+        battle, a, _b = self._make()
+        attacker = a.units[0]
+        for rnd, expected in ((1, "Devastator"), (2, "Tactical"),
+                              (3, "Assault"), (4, "Assault"), (5, "Assault")):
+            battle._current_round = rnd
+            with self.subTest(round=rnd):
+                self.assertEqual(
+                    battle._gladius_active_doctrine(attacker, a), expected,
                 )
 
-    def test_combat_doctrines_assault_t3_melee(self):
-        """Round 3 — Assault: +1 to wound on MELEE attacks only."""
-        battle, a, b = self._battle()
-        attacker, defender = a.units[0], b.units[0]
-        battle._current_round = 3
+    def test_doctrine_off_for_non_marine_faction(self):
+        """Doctrine helper returns '' for non-Marine factions even in a
+        Gladius detachment army."""
+        battle, a, _b = self._make(faction="Chaos Space Marines")
+        attacker = a.units[0]
+        battle._current_round = 1
+        self.assertEqual(battle._gladius_active_doctrine(attacker, a), "")
 
-        battle_no_det, a_no, b_no = self._battle(detachment=IRONSTORM_SPEARHEAD)
-        battle_no_det._current_round = 3
-        base_attacker, base_defender = a_no.units[0], b_no.units[0]
-
-        gladius_melee = self._avg_damage(attacker, defender, "melee")
-        baseline_melee = self._avg_damage(base_attacker, base_defender, "melee")
-        self.assertGreater(
-            gladius_melee, baseline_melee,
-            f"Assault R3 should boost melee; "
-            f"gladius={gladius_melee:.3f} baseline={baseline_melee:.3f}",
-        )
-
-        # Ranged in round 3 must NOT receive the boost.
-        gladius_ranged = self._avg_damage(attacker, defender, "ranged")
-        baseline_ranged = self._avg_damage(base_attacker, base_defender, "ranged")
-        self.assertAlmostEqual(gladius_ranged, baseline_ranged, delta=0.02)
-
-    def test_non_gladius_detachment_no_doctrines(self):
-        """Ironstorm Spearhead Marines get NO Doctrines buff in any round."""
-        battle, a, b = self._battle(detachment=IRONSTORM_SPEARHEAD)
-        attacker, defender = a.units[0], b.units[0]
-
-        # Construct a parallel "no detachment at all" baseline.
-        no_a = Army("NoDet")
-        prof = _marine_profile()
-        d = prof.__dict__.copy()
-        d["hit_probability"] = 1.0
-        d["melee_hit_probability"] = 1.0
-        no_a.add_unit(UnitProfile(**d))
-        no_b = Army("Enemy")
-        no_b.add_unit(_enemy_profile())
-        no_battle = Battle(no_a, no_b)
-        no_battle._assign_uids()
-        no_a.oath_target_uid = None
-        # Force no detachment so Doctrines can't fire.
-        no_a.detachment = IRONSTORM_SPEARHEAD
-
+    def test_doctrine_off_for_non_gladius_detachment(self):
+        """Ironstorm Spearhead Marines get no Doctrines."""
+        battle, a, _b = self._make(detachment=IRONSTORM_SPEARHEAD)
+        attacker = a.units[0]
         for rnd in (1, 2, 3, 4):
             battle._current_round = rnd
-            no_battle._current_round = rnd
-            for mode in ("ranged", "melee"):
-                with self.subTest(round=rnd, mode=mode):
-                    iron = self._avg_damage(attacker, defender, mode)
-                    none = self._avg_damage(no_a.units[0], no_b.units[0], mode)
-                    self.assertAlmostEqual(iron, none, delta=0.02)
+            with self.subTest(round=rnd):
+                self.assertEqual(
+                    battle._gladius_active_doctrine(attacker, a), "",
+                )
+
+    def test_devastator_r1_shoot_after_advance(self):
+        """R1 Devastator: Marine unit that Advanced may still shoot.
+        Without the doctrine, the Advance lockout in _do_shoot would
+        prevent the activation. We assert the shoot path NOT-returns
+        by checking that UnitShot fires."""
+        from code.events import UnitShot
+        battle, a, b = self._make()
+        battle._current_round = 1
+        attacker = a.units[0]
+        defender = b.units[0]
+        # Place units in range; mark Marine as Advanced.
+        attacker.position = (0.0, 0.0)
+        defender.position = (10.0, 0.0)
+        battle._advanced_this_round.add(attacker.uid)
+        log = EventLog()
+        battle.subscribers.append(log)
+        battle._do_shoot(attacker, a, b)
+        shots = [e for e in log.events if isinstance(e, UnitShot)]
+        self.assertGreater(len(shots), 0, "Devastator should permit shoot-after-Advance")
+
+    def test_no_devastator_no_shoot_after_advance(self):
+        """Without Gladius (Ironstorm), Advance lockout still blocks shooting."""
+        from code.events import UnitShot
+        battle, a, b = self._make(detachment=IRONSTORM_SPEARHEAD)
+        battle._current_round = 1
+        attacker = a.units[0]
+        defender = b.units[0]
+        attacker.position = (0.0, 0.0)
+        defender.position = (10.0, 0.0)
+        battle._advanced_this_round.add(attacker.uid)
+        log = EventLog()
+        battle.subscribers.append(log)
+        battle._do_shoot(attacker, a, b)
+        shots = [e for e in log.events if isinstance(e, UnitShot)]
+        self.assertEqual(len(shots), 0, "Ironstorm Marines must not shoot after Advance")
+
+    def test_tactical_r2_shoot_after_fall_back(self):
+        """R2 Tactical: Marine unit that Fell Back may still shoot."""
+        from code.events import UnitShot
+        battle, a, b = self._make()
+        battle._current_round = 2
+        attacker = a.units[0]
+        defender = b.units[0]
+        attacker.position = (0.0, 0.0)
+        defender.position = (10.0, 0.0)
+        attacker.fell_back_this_round = True
+        log = EventLog()
+        battle.subscribers.append(log)
+        battle._do_shoot(attacker, a, b)
+        shots = [e for e in log.events if isinstance(e, UnitShot)]
+        self.assertGreater(len(shots), 0, "Tactical should permit shoot-after-Fall-Back")
 
 
 class MarineUmbrellaIntegrationTests(unittest.TestCase):

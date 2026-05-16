@@ -3400,6 +3400,31 @@ class Battle:
                 total_movement=float(move_distance),
             ))
 
+    def _gladius_active_doctrine(self, attacker, attacker_army: Army) -> str:
+        """Return the active Gladius Task Force Combat Doctrine name for
+        the given Marine attacker on this round, or '' if none applies.
+
+        The Marine player picks one Doctrine per Command phase; SwegHammer
+        rotates deterministically Devastator R1 / Tactical R2 / Assault R3+.
+        Faction-gated to ADEPTUS ASTARTES, detachment-gated to Gladius Task
+        Force. Real-rule wording is movement-utility only (no damage buff).
+        Cited as `simulator.combat_doctrines`. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+        """
+        if not is_marine_faction(attacker.profile.faction):
+            return ""
+        det = attacker_army.resolve_detachment()
+        if det is None or det.name != "Gladius Task Force":
+            return ""
+        r = self._current_round
+        if r == 1:
+            return "Devastator"
+        if r == 2:
+            return "Tactical"
+        if r >= 3:
+            return "Assault"
+        return ""
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Embarked passengers cannot shoot on their own activation (10e core).
         # Their fire is folded into the transport's via Firing Deck X. Cited
@@ -3408,9 +3433,14 @@ class Battle:
             return
         # Fall Back lockout (10e core): a unit that Fell Back this turn can
         # only shoot if it has the FLY keyword. Cited as
-        # `simulator.fall_back`.
+        # `simulator.fall_back`. Tactical Doctrine (Gladius Task Force, R2)
+        # explicitly lifts this lockout for ADEPTUS ASTARTES units in a
+        # Gladius army: "This unit is eligible to shoot and declare a
+        # charge in a turn in which it Fell Back." Cited as
+        # `simulator.combat_doctrines`.
         if attacker.fell_back_this_round and not attacker.profile.fly:
-            return
+            if self._gladius_active_doctrine(attacker, attacker_army) != "Tactical":
+                return
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
         # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
@@ -3418,8 +3448,11 @@ class Battle:
         # Mobility (Battle Host / Mont'ka stratagems) has been fired this round
         # to grant transient Assault on the unit — or Mont'ka's Killing Blow
         # detachment rule is active and we are in rounds 1-3 (army-wide
-        # [ASSAULT] grant to T'au Empire ranged weapons). Cited as
-        # `MONTKA.army_wide_assault_rounds_1_3`.
+        # [ASSAULT] grant to T'au Empire ranged weapons) — or the unit is
+        # ADEPTUS ASTARTES in a Gladius army under the active Devastator
+        # Doctrine (R1): "This unit is eligible to shoot in a turn in
+        # which it Advanced." Cited as `MONTKA.army_wide_assault_rounds_1_3`
+        # and `simulator.combat_doctrines`.
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             kw = attacker.profile.unit_keywords or ()
             det = attacker_army.resolve_detachment()
@@ -3433,6 +3466,8 @@ class Battle:
                 pass   # stratagem already paid for; no token spend
             elif montka_assault_window:
                 pass   # detachment rule grants [ASSAULT] free this round
+            elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
+                pass   # Devastator Doctrine grants shoot-after-Advance, free
             elif ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
                 attacker_army.battle_focus_tokens -= 1
             else:
@@ -3636,13 +3671,22 @@ class Battle:
             return
         if not self._wants_to_charge(attacker):
             return
+        # Advance lockout (10e core): a unit that Advanced this turn cannot
+        # charge. Assault Doctrine (Gladius Task Force, R3+) explicitly lifts
+        # this lockout for ADEPTUS ASTARTES units in a Gladius army: "This
+        # unit is eligible to declare a charge in a turn in which it
+        # Advanced." Cited as `simulator.combat_doctrines`.
         if attacker.uid in self._advanced_this_round:
-            return   # advanced units cannot charge
+            if self._gladius_active_doctrine(attacker, attacker_army) != "Assault":
+                return
         # Fall Back lockout (10e core): a unit that Fell Back this turn can
-        # only charge if it has the FLY keyword. Cited as
-        # `simulator.fall_back`.
+        # only charge if it has the FLY keyword. Tactical Doctrine (Gladius,
+        # R2) also lifts this lockout: "This unit is eligible to shoot and
+        # declare a charge in a turn in which it Fell Back." Cited as
+        # `simulator.fall_back` and `simulator.combat_doctrines`.
         if attacker.fell_back_this_round and not attacker.profile.fly:
-            return
+            if self._gladius_active_doctrine(attacker, attacker_army) != "Tactical":
+                return
 
         from .strategy import pick_charge_target
         target, dist = pick_charge_target(attacker, defender_army)
