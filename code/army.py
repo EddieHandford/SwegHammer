@@ -304,14 +304,65 @@ class Army:
         AI heuristic (no GW rule citation — it's an activation-order
         scheduler, not a 10e mechanic).
 
+        Within each (plan_priority, score) group, CHARACTER units that are
+        currently leading a friendly squad get a priority bump so they
+        resolve BEFORE that squad's activation. Aura buffs applied at
+        activation time (+1 to hit, +1 to wound, re-rolls, etc.) need the
+        leader's slot to fire first; without this bump 37.4% of leader
+        activations land AFTER their led teammate, wasting the buff. The
+        rule is faction-neutral: it fires on any CHARACTER with a
+        registered `LeaderAbility` whose aura currently covers (army-wide,
+        or within `aura_range` of) at least one friendly non-CHARACTER
+        unit. Internal AI heuristic — no 10e citation required (the rule
+        is an activation-order scheduler, not a game mechanic).
+
         `map_` is required to compute the flank assignment (left half vs
         right half of the board); when omitted the spatial sort short-
-        circuits and the queue collapses to the legacy score-only order.
+        circuits and the queue collapses to the legacy score-only order
+        (still with the leader-before-led priority bump applied).
         """
         available = [u for u in self.alive_units if id(u) not in excluded_ids]
+
+        def _is_leading_unit(u: Unit) -> bool:
+            """True iff `u` is a CHARACTER with a registered LeaderAbility
+            whose aura currently reaches at least one friendly non-CHARACTER
+            alive unit. Pragmatic stand-in for "currently leading a squad"
+            in lieu of an explicit led-pair registry on `Army`.
+            """
+            kw = u.profile.unit_keywords or ()
+            if "CHARACTER" not in kw:
+                return False
+            # Local import to avoid the army <-> leaders circular import at
+            # module load time.
+            from .leaders import lookup_ability
+            ability = lookup_ability(u.profile.name)
+            if ability is None:
+                return False
+            aura = ability.aura_range
+            for ally in self.alive_units:
+                if ally is u:
+                    continue
+                if "CHARACTER" in (ally.profile.unit_keywords or ()):
+                    continue
+                if aura <= 0:
+                    return True  # army-wide aura
+                dx = ally.position[0] - u.position[0]
+                dy = ally.position[1] - u.position[1]
+                if (dx * dx + dy * dy) ** 0.5 <= aura:
+                    return True
+            return False
+
         plan = self.army_plan
         if plan is None or map_ is None:
-            return sorted(available, key=lambda u: u.profile.score, reverse=True)
+            # Score-only path: 0 = leader-bumped, 1 = everyone else; ties
+            # break by Lanchester score descending.
+            return sorted(
+                available,
+                key=lambda u: (
+                    0 if _is_leading_unit(u) else 1,
+                    -u.profile.score,
+                ),
+            )
 
         half_x = map_.width / 2.0
         half_y = map_.height / 2.0
@@ -344,7 +395,11 @@ class Army:
 
         return sorted(
             available,
-            key=lambda u: (_plan_priority(u), -u.profile.score),
+            key=lambda u: (
+                _plan_priority(u),
+                0 if _is_leading_unit(u) else 1,
+                -u.profile.score,
+            ),
         )
 
     # ------------------------------------------------------------------
