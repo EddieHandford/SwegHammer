@@ -29,7 +29,10 @@ _NEW_DETACHMENTS = (
     ("shield_host",            "Adeptus Custodes",       "melee_crit_on_5_plus_hits", True),
     ("skitarii_hunter_cohort", "Adeptus Mechanicus",     "reroll_hit_ones",   True),
     ("inquisition_task_force", "Agents of the Imperium", "reroll_hit_ones",   True),
-    ("combined_regiment",      "Astra Militarum",        "plus_one_to_hit",   True),
+    # iter-14: Combined Arms (renamed from Combined Regiment) — replaced the
+    # plus_one_to_hit approximation with the real Born Soldiers LETHAL HITS
+    # rule per Wahapedia. Flag is now am_born_soldiers_lethal_hits.
+    ("combined_regiment",      "Astra Militarum",        "am_born_soldiers_lethal_hits",   True),
     ("teleport_strike_force",  "Grey Knights",           "reroll_wound_ones", True),
     # #197: renamed Battle Host → Warhost (codex name) and replaced the
     # approximated reroll_hit_ones flag with the real Martial Grace

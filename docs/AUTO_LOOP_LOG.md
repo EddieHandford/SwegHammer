@@ -364,3 +364,43 @@ User directive on 2026-05-16: "ignore the bar, carry on with the loop … Keep l
 - Custodes defensive layer (Bodyguard + ablative wounds) — unblocks the parked mapper FNP fix.
 - AM Officer/Order parity (still 0/6 stratagems).
 
+### Iter 14 (2026-05-17)
+
+**Batch dispatched**: 6 parallel agents.
+
+**Agents reported**:
+- TSON durability (`791a8ad`) — rule-correct All Is Dust rewrite (was modelling deleted launch-index rule). Real 10e rule is Rubricae Phalanx detachment rule "+1 to save vs D1 attacks against RUBRICAE". Added Scarab Occult Rites of Coalescence (-1 to wound). 6 Daemon datasheets missing invulns added (Pink/Blue Horrors, Flamers, Screamers, Sorcerer x2). Solo -0.15.
+- AM Combined Arms (`78a2a2d`) — salvaged from worktree (agent terminated mid-flight on rate limit). Real Born Soldiers LETHAL HITS replaces approximation. Voice of Command Order economy with 4 wired Orders (Take Aim, Fix Bayonets, FRFSRF, Take Cover) via new `code/orders.py`. 6 Combined Arms stratagems.
+- Necrons RP (`a3798e3`) — salvaged from worktree. Revived models come back at 1HP (not full), wound-by-wound pulse allocation per Wahapedia army-rule wording. Multi-wound Necron units (Wraiths W3, Lychguard W2/W3, Skorpekh W3, Praetorians W2, Lokhust HD W3) were over-firing by W. Solo -0.03 (Necrons +10.3 → +9.4).
+- Marines counter-tool diag (`9d5e227`) — agent ABSTAINED per brief. 3 faction-neutral hypotheses identified (H-A leader kill rate, H-B target-spread tiebreaker, H-C charge-target leader bypass). Tested `_support_target_bonus` extension to shoot picker → regressed MAE 5.38 → 5.62. Reverted. Key finding for iter 15: Marines net VP dominance is from OBJECTIVE CONTROL (M_OC 1.04 vs 0.84), not Oath damage — investigate Marines auto-fielding too many cheap 2-OC squads.
+- Custodes Bodyguard layer (agent worktree empty) — LOST to API rate limit. Re-dispatch in iter 15.
+- DG DR FNP + CP util (agent worktree empty in committed form, partial diag in main worktree pollution stash) — LOST to API rate limit. Re-dispatch in iter 15.
+
+**Test fix in cherry-pick**: Updated `tests/test_detachments.py` fixture for AM rename `plus_one_to_hit` → `am_born_soldiers_lethal_hits`.
+
+**Cumulative (4-fix bundle, Custodes+DG re-dispatch pending)**: MAE **5.38 → 5.20pt** (Δ **−0.18pt** vs real meta). MAE-vs-Sweg 6.69 → 6.58pt. Rule citations 187 → 200.
+
+**Per-faction shifts (post-iter-13 → post-iter-14)**:
+- Marines +12.0 → +10.9 (−1.1, AM lethal-hits gives opponent counter-fire)
+- Necrons +7.1 → +6.8 (−0.3, RP wound-by-wound bite)
+- Aeldari −1.6 → −1.9 (held)
+- Tyranids +0.3 → −0.2 (held)
+- Orks −4.3 → −4.9 (slight regress, variance)
+- T'au +0.5 → +0.8 (held)
+- DG +6.7 → +6.7 (unchanged — DG audit slot lost)
+- Custodes +3.9 → +4.5 (slight regress — audit slot lost; phantom FNP still in)
+- TSON **−12.7 → −11.0** (+1.7 — TSON durability fix bit hard)
+- Votann −4.6 → −4.3 (held)
+
+**Stashed (cross-worktree pollution from terminated agents)**:
+- `stash@{0}`: iter14-cross-worktree-pollution-round2-2026-05-17 (DG + Custodes partial work, leaked into main worktree)
+- `stash@{1}`: iter14-main-worktree-pollution-2026-05-17 (earlier round)
+Both worth re-salvaging in iter 15 — contains DG `iter14_dg_cp_util.py` diag + Custodes `mapper_fnp_qualifier_filter.json` + `_dbg_fnp.py`.
+
+**Iter 15 priorities**:
+- Re-dispatch Custodes Bodyguard + ablative wounds (still needed; unblocks parked mapper FNP fix).
+- Re-dispatch DG DR FNP scope + CP utilisation audit.
+- Marines OC squad sizing investigation per iter-14 Marines diag finding (squad count in `data/overrides.json` / `code/archetypes.py`).
+- TSON Rubricae Phalanx detachment — currently approximated army-wide; build full detachment registry entry for proper gate.
+- Aeldari Warhost unpark candidate: implement Strength From Death (Soulburst, Word of the Phoenix) — would unlock the iter-13 parked Yvraine+Yncarne template.
+
