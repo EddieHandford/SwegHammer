@@ -65,12 +65,65 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Necrons": {
+        # iter16 — archetype trim. The previous template intent was right
+        # (Overlord + 2 Warriors + 2 Immortals + 1 Lychguard + 2 Doomstalker
+        # + 1 Scarab), but the post-template `_random_fill` was stacking
+        # multiple MONSTER wreckers (e.g. C'tan Nightbringer 340pt +
+        # Transcendent C'tan 325pt + Silent King 400pt, or Seraptek 540pt +
+        # Tesseract Vault 425pt) into the same army, driving Necron archetype
+        # WR to 91% vs real 53.2% (+37.8pt apex outlier in the tourney-
+        # archetype eval baseline). Real-meta May 2026 Awakened Dynasty
+        # tournament lists (Goonhammer "Necrons Detachment Focus — Awakened
+        # Dynasty"; Frontline Gaming GT lists) seat the army on a SINGLE
+        # C'tan wrecker (Nightbringer most often, occasionally Deceiver) +
+        # 1x Doomstalker + 2-3x Warriors / Immortals BATTLELINE + Lychguard
+        # bodyguard brick + 1x Lokhust Heavy Destroyers — never two MONSTERS
+        # in the same list at 2000pt.
+        #
+        # Fix shape:
+        #   * Add C'tan Nightbringer at count=1 to the template so the real-
+        #     meta wrecker is seeded by design (340pt, single EPIC HERO).
+        #     The (-template_count, -squad_cost) walk puts it after the
+        #     count=2 BATTLELINE pair but before single-copy support, so it
+        #     reliably lands in the seed at 1500pt+ budgets.
+        #   * Drop Doomstalker count from 2 -> 1. Real tournament lists run
+        #     one Doomstalker as a fire-support sniper; multiple is rare.
+        #     A single template count lets random_fill add at most 1 more
+        #     (per the iter2 BATTLELINE / iter16 MONSTER cap) for an upper
+        #     bound of 2 Doomstalkers when the budget allows.
+        #   * Add Lokhust Heavy Destroyers at count=1. Anti-tank fire option
+        #     that featured in May 2026 GT top tables; without it the army
+        #     leans on Doomstalker / Doomsday Ark for ranged AT, which the
+        #     simulator under-models (BS3+ S20 D6 vs S14 D6 + sticky).
+        #   * Reanimation Protocols wound-by-wound fix (commit a3798e3,
+        #     iter14) is verified upstream — the +37.8pt outlier survives
+        #     RP fix because the list COMPOSITION (multi-wrecker stack via
+        #     random_fill, not RP over-firing) is the dominant driver.
+        #
+        # The MONSTER-keyword cap on `_random_fill` (added in iter16) ALSO
+        # bounds across-name MONSTER stacking — Transcendent C'tan / Silent
+        # King / Tesseract Vault / Seraptek can each be picked at most once
+        # by random_fill, and only if the template doesn't already seed a
+        # MONSTER with that exact profile name. Combined with the EPIC HERO
+        # 1-per-army cap (iter10), this guarantees at most:
+        #     1 template-seeded C'tan Nightbringer (EPIC HERO MONSTER) +
+        #     N random_fill MONSTERs where N is bounded by the per-profile
+        #     `template_count = 0` -> 0 fill rule for unseeded profiles.
+        #
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
+        #     (May 2026 Necron WR aggregate 53.2% across 4 events)
+        #   - https://frontlinegaming.org/2026/05/ (Necron Awakened Dynasty
+        #     RTT lists, Apr-May 2026, all 1-C'tan compositions)
         "Awakened Dynasty": {
             "necrons_necron_warriors": 2,
             "necrons_immortals": 2,
             "necrons_lychguard": 1,
             "necrons_overlord": 1,
-            "necrons_canoptek_doomstalker": 2,
+            "necrons_c_tan_shard_of_the_nightbringer": 1,
+            "necrons_canoptek_doomstalker": 1,
+            "necrons_lokhust_heavy_destroyers": 1,
             "necrons_canoptek_scarab_swarms": 1,
         },
     },
@@ -407,8 +460,56 @@ def _random_fill(
       that aggregate beyond 2x the template intent are throttled. Non-
       BATTLELINE roles (HQ / ELITE / FAST_ATTACK / HEAVY / DEDICATED
       TRANSPORT) use the unchanged per-type point cap.
+
+    MONSTER / TITANIC / EPIC HERO cap (iter16):
+      Mirror of the BATTLELINE cap, applied to any profile with the
+      MONSTER, TITANIC, or EPIC HERO keyword. For an unseeded wrecker
+      profile (not in the template), random_fill picks 0 squads — pre-
+      venting multi-wrecker stacking like the iter15 Necron Awakened
+      Dynasty list which regularly drafted Transcendent C'tan + Tesseract
+      Vault + Seraptek Heavy Construct alongside the template-seeded
+      C'tan Nightbringer via fill, driving sim WR to 91% vs real 53.2%.
+      The Silent King (VEHICLE + EPIC HERO + CHARACTER, 400pt) is caught
+      by the EPIC HERO leg — without it, random_fill would still stack
+      Silent King alongside a template-seeded Nightbringer.
+
+      Profiles that ARE in the template (Tyranid Carnifex count=2, Hive
+      Tyrant count=1, Exocrine count=1, DG Mortarion count=1, Drukhari
+      Lelith count=1) still get `template_count` extra fill picks, so a
+      Tyranid Invasion Fleet list can field up to 2*template_count of
+      each MONSTER — matching the real-meta "MONSTER spam Tyranids"
+      profile that the Invasion Fleet detachment is built around. The
+      EPIC HERO leg composes with the existing per-name is_epic_hero
+      check (10e core, 1 copy per EH datasheet per army): templated EHs
+      can't be re-picked, AND unseeded EHs can't be introduced.
+
+      Faction-neutral by keyword: applies to every codex's MONSTERs and
+      EHs (Aeldari Wraithlord/Wraithknight + Yvraine/Yncarne, T'au
+      Stormsurge/Riptide + Shadowsun, DG Mortarion/Plagueburst + Typhus,
+      Custodes Telemon + Trajann, Marines Redemptor + Calgar) and gates
+      by template intent rather than faction-specific allowlists.
+
+    [Legends] / [Crucible] exclusion (iter16):
+      Profiles whose display name contains "[Legends]" or "[Crucible]"
+      are filtered out of the random_fill pool entirely. These are non-
+      tournament profiles per GW's 10e ruleset and shouldn't appear in
+      the calibration target (the eval-vs-meta WR data is derived from
+      tournament events that exclude Legends datasheets). Template-
+      seeded units are unaffected — if a future archetype explicitly
+      wants a Legends entry, the template still seeds it, but the random
+      fill won't pad with random Legends profiles like the iter15 trace
+      that drafted Nemesor Zahndrekh, Anrakyr the Traveller, Tesseract
+      Ark, Night Shroud, and Vargard Obyron into the Necron fill pass.
+
+      Faction-neutral by display-name suffix — applies to all 445
+      Legends/Crucible profiles across the catalogue.
     """
-    pool = [UNIT_CATALOG[k] for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    pool = [
+        UNIT_CATALOG[k] for k in UNIT_CATALOG
+        if UNIT_CATALOG[k].faction == faction
+        and "[Legends]" not in UNIT_CATALOG[k].name
+        and "[Crucible]" not in UNIT_CATALOG[k].name
+    ]
     if not pool:
         return
 
@@ -451,6 +552,33 @@ def _random_fill(
             if "BATTLELINE" in (p.unit_keywords or ()):
                 bl_cap = max(1, template_count_by_name.get(p.name, 0))
                 if fill_squads_by_name.get(p.name, 0) >= bl_cap:
+                    continue
+            # MONSTER / TITANIC / EPIC HERO cap (iter16): bound random_fill
+            # picks per wrecker profile at template_count (no implicit +1 —
+            # an unseeded wrecker gets 0 fill picks). This stops the multi-
+            # wrecker stacking that drove Necron Awakened Dynasty to sim
+            # 91% (Transcendent C'tan + Tesseract Vault + Seraptek + Silent
+            # King all picked into the same army's random_fill pass).
+            #
+            # Including EPIC HERO is intentional: it stops unseeded centre-
+            # piece characters from being introduced by random_fill (e.g.
+            # The Silent King wasn't in the Necron template but kept landing
+            # in fills as a 400pt Vehicle EH wrecker alongside the templated
+            # Nightbringer). Profiles that ARE in the template (DG Mortarion
+            # count=1, Drukhari Lelith count=1) are still seeded; the
+            # existing per-name is_epic_hero check prevents duplicate fills
+            # of an already-seeded EH datasheet (10e core rule). The MONSTER
+            # cap composes with that: a templated EH won't be re-picked, and
+            # an unseeded EH won't be introduced at all.
+            #
+            # Profiles that ARE in the template (e.g. Tyranid Carnifex
+            # count=2 with MONSTER keyword) still get up to `template_count`
+            # extra fill picks, so MONSTER-spam Tyranids still build their
+            # real-meta shape.
+            kw = p.unit_keywords or ()
+            if "MONSTER" in kw or "TITANIC" in kw or "EPIC HERO" in kw:
+                wrecker_cap = template_count_by_name.get(p.name, 0)
+                if fill_squads_by_name.get(p.name, 0) >= wrecker_cap:
                     continue
             affordable.append((p, size, cost))
         if not affordable:
