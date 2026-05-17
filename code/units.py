@@ -565,15 +565,23 @@ class Unit:
         # `Stratagem.Implacable Onslaught`.
         if self.transient_fnp_5:
             effective_fnp = min(effective_fnp, 5)
-        # Death Guard Disgustingly Resilient (army rule, 10e): every DEATH
-        # GUARD model has Feel No Pain 5+. The rule is codex-level and not
-        # encoded on individual BSData datasheets, so we faction-gate it
-        # here. Composes with any pre-existing FNP profile / leader aura
-        # by taking the lower (better) value — Plague Marines already have
-        # profile.fnp=5 (via overrides) so the min keeps them at 5, not 4.
-        # Cited as `simulator.disgustingly_resilient`.
-        if self.profile.faction == "Death Guard":
-            effective_fnp = min(effective_fnp, 5)
+        # Death Guard 10e: there is NO army-wide Feel No Pain 5+ rule.
+        # Per the May 2026 Death Guard codex on Wahapedia (and confirmed by
+        # Goonhammer "Hammer of Math: New Disgustingly Resilient" + the
+        # 10e codex review): the army rule is Nurgle's Gift / Contagions
+        # of Nurgle (a -1 T / -1 Ld / -1 to hit aura, per round), NOT a
+        # codex-level FNP. Disgustingly Resilient in 10e is ONLY the 2 CP
+        # Virulent Vectorium stratagem (-1 damage per allocated attack for
+        # the phase), wired via `transient_minus_one_damage_taken` above.
+        # The previous unconditional `min(effective_fnp, 5)` block was a
+        # fabrication that overpriced every DG VEHICLE / Terminator / non-
+        # PM datasheet with phantom FNP 5+. Per-datasheet innate FNP (e.g.
+        # Plague Marines fnp=5, Deathshroud fnp=4, Mortarion fnp=5) is
+        # carried on profile.fnp via overrides.json / parsed.json and is
+        # already honoured by the `min(self.profile.fnp, bonus_fnp)` line
+        # above. Removed in iter 15.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
+        # Goonhammer: https://www.goonhammer.com/hammer-of-math-new-disgustingly-resilient/
         # Drukhari Power From Pain: while the defender holds a Pain Token,
         # treat the unit as having FNP 6+ (lowest "active" target = best
         # roll). Composes with any pre-existing FNP profile / leader aura

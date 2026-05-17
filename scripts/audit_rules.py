@@ -155,11 +155,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
-    # Death Guard army rule (10e). Every DEATH GUARD model has Feel No
-    # Pain 5+. Faction-gated in Unit.receive_damage; composes with the
-    # existing transient_minus_one_damage_taken (Plague Company strat)
-    # and with leader/profile FNP by taking the lower value.
-    "simulator.disgustingly_resilient",
+    # Death Guard army-wide FNP 5+ was a fabrication (no such rule exists
+    # in the 10e codex per Wahapedia + Goonhammer review). Removed in
+    # iter 15. Per-datasheet innate FNP (Plague Marines fnp=5, Deathshroud
+    # fnp=4, Mortarion fnp=5) lives on profile.fnp via overrides.json /
+    # parsed.json and is honoured by Unit.receive_damage already. The
+    # Virulent Vectorium 2 CP "Disgustingly Resilient" stratagem is cited
+    # separately under `Stratagem.Disgustingly Resilient`.
     # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
     # every DG model projects a 3" aura that subjects enemy units within
     # it to the active Contagion (radius gated to 3" per modern Nurgle's

@@ -20,7 +20,7 @@ Citations covered (one mechanic per test):
   Adeptus Mechanicus  — simulator.doctrina_imperatives
   Genestealer Cults   — simulator.cult_ambush
   World Eaters        — simulator.blood_tithe
-  Death Guard         — simulator.disgustingly_resilient, simulator.contagions_of_nurgle
+  Death Guard         — simulator.contagions_of_nurgle (no army-wide FNP — iter 15)
   Thousand Sons       — simulator.all_is_dust
   Aeldari             — simulator.battle_focus
   Necrons             — simulator.reanimation_protocols (via the AWAKENED_DYNASTY hook)
@@ -421,11 +421,16 @@ class FactionMechanicSmokeTests(unittest.TestCase):
 
     # ----- Death Guard -------------------------------------------------
 
-    def test_death_guard_disgustingly_resilient_fnp(self):
-        """A DG model takes ~2/6 fewer wounds than a non-DG with otherwise
-        identical stats — the always-on FNP 5+ army rule. We compare
-        damage totals after many trials. Cites: simulator.disgustingly_resilient."""
+    def test_death_guard_no_phantom_army_wide_fnp(self):
+        """iter 15: there is NO army-wide FNP 5+ in the 10e DG codex (per
+        Wahapedia + Goonhammer 'Hammer of Math: New Disgustingly Resilient').
+        A DG unit with profile.fnp=7 must take every wound — identical to a
+        non-DG control. Per-datasheet FNP (e.g. Plague Marines fnp=5) still
+        lives on profile.fnp via overrides.json. This test pins the
+        absence of the deleted fabrication."""
         N = 3000
+        # Use the bare _plague_marine helper which has profile.fnp default
+        # (7) — pre-iter-15 the faction tag alone granted phantom FNP 5+.
         random.seed(2026)
         dg = Unit(_plague_marine())
         dg.current_health = N + 100.0
@@ -434,7 +439,6 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         dg_taken = (N + 100.0) - dg.current_health
 
         random.seed(2026)
-        # Same profile, swap faction tag — control with no FNP.
         ctrl_profile = UnitProfile(
             **{**_plague_marine().__dict__, "faction": "Adeptus Astartes"}
         )
@@ -444,9 +448,15 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             ctrl.receive_damage(1.0)
         ctrl_taken = (N + 100.0) - ctrl.current_health
 
-        self.assertLess(
-            dg_taken, ctrl_taken,
-            f"DG FNP did not reduce damage: dg={dg_taken:.1f} ctrl={ctrl_taken:.1f}",
+        self.assertEqual(
+            int(dg_taken), int(ctrl_taken),
+            f"Phantom DG FNP would survive: dg_taken={dg_taken:.1f} vs "
+            f"ctrl_taken={ctrl_taken:.1f}. Faction tag alone must NOT grant FNP.",
+        )
+        # Sanity: both should be ~N (no FNP roll at all).
+        self.assertAlmostEqual(
+            dg_taken, float(N), delta=0.5,
+            msg=f"DG unit with profile.fnp=7 must take every wound; got {dg_taken}.",
         )
 
     def test_death_guard_contagions_no_r1_toughness_debuff(self):

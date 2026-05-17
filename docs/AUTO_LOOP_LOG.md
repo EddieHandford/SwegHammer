@@ -404,3 +404,26 @@ Both worth re-salvaging in iter 15 — contains DG `iter14_dg_cp_util.py` diag +
 - TSON Rubricae Phalanx detachment — currently approximated army-wide; build full detachment registry entry for proper gate.
 - Aeldari Warhost unpark candidate: implement Strength From Death (Soulburst, Word of the Phoenix) — would unlock the iter-13 parked Yvraine+Yncarne template.
 
+### Iter 15 (2026-05-17) — DG DR audit re-dispatch
+
+**Agent reported** (DG DR FNP scope + CP utilisation):
+
+**Fabrication finding**: The `simulator.disgustingly_resilient` army-wide FNP 5+ block in `code/units.py:575-576` was a fabrication. Per Wahapedia (https://wahapedia.ru/wh40k10ed/factions/death-guard/) + Goonhammer "Hammer of Math: New Disgustingly Resilient" (https://www.goonhammer.com/hammer-of-math-new-disgustingly-resilient/) — "Disgustingly Resilient is gone as an army ability in 10th edition. ... No omnipresent -1D, no FNP." The DG army rule is Nurgle's Gift / Contagions of Nurgle (the aura). DR in 10e is ONLY the 2 CP Virulent Vectorium stratagem (-1 damage per allocated attack, INFANTRY/CHARACTER scope) — already correctly wired via `transient_minus_one_damage_taken`.
+
+**Fix**: Removed the blanket `if profile.faction == "Death Guard": effective_fnp = min(effective_fnp, 5)` block from Unit.receive_damage. The fabricated gate was granting phantom FNP 5+ to every DG VEHICLE / Bloat-drone / Helbrute / Plagueburst Crawler / Land Raider / Blightlord Terminator / Plaguebearer / Nurgling regardless of datasheet. Per-datasheet FNP (Plague Marines fnp=5, Mortarion fnp=5, Deathshroud fnp=4 via overrides.json) still fires through the unchanged `min(self.profile.fnp, bonus_fnp)` path. Citation + audit_rules SIMULATOR_RULE_KEYS entry removed; FABRICATION_AUDIT.md updated.
+
+**CP utilisation diag** (`scripts/iter15_dg_cp_util.py`, N=30 vs each of 9 opponents): DG burns 7.86 CP/battle on average (median 8, max 13), well within the 12 CP budget. Round 2 is the firing peak (37.3% of all fires). Top stratagems: Command Re-Roll 2.49/battle, Overwhelming Generosity 1.64/battle, Creeping Blight 1.60/battle, Putrid Detonation 0.63/battle, Disgustingly Resilient 0.30/battle (rare — the iter-13 hypothesis that DR was over-firing is NOT borne out; it's the army-wide FNP fabrication that drove the over-strength).
+
+**Worldblight audit**: Verified `_score_objectives` Worldblight implementation matches Wahapedia text (sticky-only approximation, Nurgle's-Gift-on-objective half dropped as documented). No change.
+
+**Results (cumulative, post-fix)**: MAE **5.20 → 5.04pt** (Δ **−0.16pt** vs real meta). DG WR shift: **+6.7 → +6.4pt** (−0.3pt). Modest — confirms that the iter-13 unit-level over-strength hypothesis is partially borne out (the fabrication WAS over-strengthening DG vehicles), but a residual +6.4pt over remains that is consistent with points (un-recalibrated MC bisection) and/or other unmodelled DG counter-tools. Audit clean (199/199 cited, 4 DG test assertions rewritten to pin the absence of phantom FNP).
+
+**Iter 15 commit on origin** (pending user "go"):
+- `(SHA tbd)` #iter15 fix — DG Disgustingly Resilient: remove fabricated army-wide FNP 5+
+
+**Iter 16 priorities**:
+- Residual DG +6.4pt is now small enough to attribute to points-space (flag for MC bisection per Plan Step 4).
+- Custodes Bodyguard ablative wounds still owed (iter 15 didn't dispatch).
+- TSON −11.0pt is now the dominant outlier — TSON durability fix surfaced All-Is-Dust under-model but the detachment-rule approximation is still army-wide, not Rubricae-gated.
+- Marines +11.7pt held — F4 #179 random_fill safeguard active but Oath + Doctrines still bites; investigate counter-tools.
+
