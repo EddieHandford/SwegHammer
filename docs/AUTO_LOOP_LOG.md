@@ -315,3 +315,52 @@ Dispatched 3 agents (DG vs Custodes deep diag, shoot picker won't-crack penalty,
 - C2b shoot-picker won't-crack
 - Orks WAAAGH! 5++ vs melee + Advance-and-charge
 
+## Loop resumed — iter 8–13 (post-termination)
+
+User directive on 2026-05-16: "ignore the bar, carry on with the loop … Keep looping till MAE is <2". Iter 7's 5.14pt floor was the rule-correct-but-uncalibrated baseline; re-opening under the rule that correctness-positive changes are kept even if they expose underpricing.
+
+### Iter 8–12 summary (commits on `claude/auto-loop-carryover`)
+
+- Iter 8 — DG opponent-side fixes + Custodes Shield Host real rebuild (`db8d1a6`, `f203c6c`, `983d2a3`). MAE 5.14 → 5.92 (rule-correct regression — Custodes had a fabricated detachment that was over-tuned; replaced with real Auric Champions wording).
+- Iter 9 — ANTI-INFANTRY mapper, Votann Oathband 6 real stratagems, Marines Combat Doctrines audit (`1ed3571`, `1f3605e`, `8009d7d`). Combat Doctrines fabrication finding: previous +1-wound rotating buff was invented; real rule is utility-only. Kept the correction (MAE +0.08).
+- Iter 10 — EPIC HERO 1-per-army (user-surfaced rule) + 2 audit docs (`b4b2bd1`, `20ce014`, `58e4d5a`). 210 EH datasheets newly constrained. MAE +0.98 — EH stacking was masking underpricing; kept per correctness directive.
+- Iter 11 — TSON walk-bug + AM catalogue mapper depth 3→5 + ±1 modifier cap + Ruins INFANTRY-through-walls LoS (`52a5c8c`, `7a5ff80`, `9d2606b`, `f1e2337`). MAE 6.45 → **6.00** (−0.45 — mapper depth fix surfaced 22 missing units).
+- Iter 12 — Pile-In/Consolidate, TSON Ahriman seed, Drukhari template, Heroic Intervention as core, Marines Gladius 6 stratagems (`ca76b4d`, `af33ff9`, `cca5246`, `a386f81`, `611f304`). MAE 6.00 (held).
+
+### Iter 13 (2026-05-17)
+
+**Batch dispatched**: 6 parallel agents covering core rules + list realism + parity + mapper hunt.
+
+**Agents reported**:
+- Primary VP cap 15/round/army (`1afb043` was `6c0928d`) — core rule, faction-neutral. Solo +0.05.
+- Battleshock from R1 (`0476eb7` was `7d11662`) — core rule, faction-neutral. Solo 0.00.
+- DG Mortarion + Foetid Bloat-Drone auto-include (`8b0ef45` was `b86f657`) — real-meta list realism. Solo +0.11 (DG WR +0.3pt; over-strength is unit-balance, not list shape).
+- TSON Rubric/Scarab Occult cap fix (`e24fb8b`) — squad-fit walk, faction-neutral. Solo −0.20.
+- Aeldari Warhost Yvraine+Yncarne template (`879daf6`) — real-meta detachment composition. Solo +0.92 — **PARKED** (Strength From Death mechanic unmodelled; Ynnari delivers no power until that lands).
+- BSData mapper deep audit (`6bd3922` was `61e3fc1`) — diagnostic doc only; prose-FNP filter tested but reverted (MAE +0.92 — phantom FNP was masking unmodelled Custodes Bodyguard/ablative-wounds).
+
+**Cumulative (5-fix bundle, Aeldari parked)**: MAE **6.00 → 5.38pt** (Δ **−0.62pt** vs real meta). MAE-vs-Sweg 5.67 → 6.69pt.
+
+**Per-faction shifts (post-iter-12 → post-iter-13)**:
+- Marines +10.0 (held)
+- Necrons +10.3 (held)
+- Aeldari **−4.4 → −1.6** (improved — cumulative effect, Aeldari template parked)
+- Tyranids −1.7 (held within variance)
+- Orks −9.4 (held)
+- T'au +5.0 (held)
+- DG **+10.6 → +4.7** (improved — Mortarion + VP cap landed)
+- Custodes +1.9 (held)
+- TSON **−4.3 → −12.7** (regressed — Rubric cap surfaced All-Is-Dust + 5++ durability under-model)
+- Votann −8.6 (held)
+
+**Parked** (per loop rule — would regress cumulative without dependency):
+- Aeldari Warhost Yvraine+Yncarne template (`879daf6`). Real-meta correct (May 2026 Warhost mandates Ynnari triumvirate). Park reason: Strength From Death mechanic (Soulburst, Word of the Phoenix) not in simulator — Yvraine/Yncarne in the list deliver no power, just consume budget. **Unpark when**: Strength From Death is implemented (Aeldari/Ynnari psychic/rez chain). Worktree branch `worktree-agent-af8ec43db0bb49cc4` retains the commit.
+- BSData mapper prose-FNP qualifier filter (described in `docs/AUDIT_MAPPER_DEEP.md` §6/7). Logically correct but calibration-regressive — phantom FNP currently compensates for unmodelled Custodes Bodyguard + ablative wounds. **Unpark when**: Custodes defensive layer (Bodyguard rule, ablative wounds) is modelled.
+
+**Iter 14 priorities**:
+- TSON +5.6pt → +12.7pt: All-Is-Dust 5+ saves vs AP0/AP1 + 5++ Rubric invuln likely under-applied in damage calc. Investigate `code/units.py` save resolution under AP-modifiers and re-verify TSON unit invuln overrides.
+- Marines +10.0 / Necrons +10.3: standing high-error band — Oath of Moment + Reanimation Protocols. Both are real rules already implemented; outliers suggest implementation gap or AI under-use of counter-tools.
+- DG +4.7 down from +10.6 but still over: investigate stratagem cost utilisation + Disgustingly Resilient FNP 5+ scope (army-wide vs INFANTRY-only).
+- Custodes defensive layer (Bodyguard + ablative wounds) — unblocks the parked mapper FNP fix.
+- AM Officer/Order parity (still 0/6 stratagems).
+
