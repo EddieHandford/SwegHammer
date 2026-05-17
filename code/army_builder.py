@@ -311,6 +311,37 @@ def build_faction_random_army(
         if "CHARACTER" in (p.unit_keywords or ())
     ]
 
+    # iter12 fix — Thousand Sons centerpiece-anchor seed. Real-meta TSON
+    # lists are universally built around Magnus the Red OR Ahriman as the
+    # psychic centerpiece (Wahapedia datasheets:
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman) — the
+    # army has no other PSYKER aura source to drive Cabal Rituals at the
+    # pace the meta WR figure (54.6%) reflects. Uniform random_fill picks
+    # one of ~30 affordable profiles per slot, so Magnus appears in only
+    # ~17% of generated TSON armies and Ahriman in ~17% — the remaining
+    # ~70% are PSYKER-light daemon/vehicle lists that under-fire Cabal
+    # Rituals and lose the late-game tempo. Faction-specific seed: at
+    # 1000pt budget, pre-add Ahriman (100pt EPIC HERO PSYKER, fits any
+    # budget) so every TSON list starts with a real centerpiece. Magnus
+    # remains an organic pick when budget allows; this seed only adds a
+    # floor.
+    if faction == "Thousand Sons":
+        # Ahriman is the affordable PSYKER anchor that fits any budget;
+        # he adds a guaranteed Cabal-Ritual caster + leader-aura source.
+        # Magnus is intentionally NOT preferred at 1000pt: at 435pt he
+        # absorbs ~44% of the budget, leaving ~565pt for the rest of the
+        # army — a centerpiece-without-support list that loses model-trade
+        # arithmetic (verified by an iter12 eval pass that produced TSON
+        # WR -13.5pt vs the real meta).
+        ahriman = next((p for p in pool if p.name == "Ahriman"), None)
+        if ahriman is not None and ahriman.points_cost <= remaining:
+            army.add_unit(ahriman)
+            spent_by_name[ahriman.name] += ahriman.points_cost
+            remaining -= ahriman.points_cost
+            if is_epic_hero(ahriman):
+                epic_heroes_taken.add(ahriman.name)
+
     while True:
         affordable = []
         for p in pool:
