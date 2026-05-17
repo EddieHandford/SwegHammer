@@ -2425,6 +2425,78 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Egotistical Power and Arcane Focus are intentionally not dispatched
     # via the round-start path (APPROXIMATION — see simulator dispatchers).
 
+    # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15) -----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    # Gates here mirror the Grand Coven shape — TSON has plentiful CP and a
+    # single Stratagem-cap-per-Command-phase, so the gates should be
+    # permissive enough that the army actually spends rather than hoarding.
+    # Ardent Automata + Revenge of the Rubricae have no dispatcher (no-op
+    # APPROXIMATIONs), so they're omitted from the AI list — the simulator's
+    # dispatcher short-circuits before should_fire_stratagem is consulted.
+
+    if name == "Inexorable Advance":
+        # ctx: {"attacker": Unit}. Transient [ASSAULT] on a RUBRICAE
+        # shooter. Fire when the attacker has real ranged DPA (>= 1.0)
+        # AND a meaningful cost (>= 80 — Rubric Marines squad floor).
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+        except Exception:
+            return False
+        return ranged_dpa >= 1.0 and atk_cost >= 80.0
+
+    if name == "Infernal Fusillade":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP for a +1 to wound
+        # shooting buff on a RUBRICAE PSYKER. Higher gate than 1-CP
+        # variants: require real DPA AND a heavy target (so the wound
+        # uplift translates to meaningful damage).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+        except Exception:
+            return False
+        return ranged_dpa >= 1.5 and atk_cost >= 80.0 and _is_heavy_target(target)
+
+    if name == "Implacable Guardians":
+        # ctx: {"target": Unit}. 2 CP for -1 damage taken on a RUBRIC
+        # MARINES / Scarab Occult unit. Defensive spend — fire when the
+        # target has taken meaningful damage (HP loss >= 25%) AND is a
+        # substantial threat (>= 100 pts, the Scarab Occult / Magnus
+        # bracket where the durability uplift matters).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac >= 0.25 and cost >= 100.0
+
+    if name == "Unwavering Phalanx":
+        # ctx: {"target": Unit}. 1 CP for a +1 save defensive proxy on
+        # a RUBRICAE unit. Cheaper than Implacable Guardians, so a
+        # lower gate: any wounded RUBRICAE unit with >= 70 pts cost
+        # (Rubric Marines squad floor).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac >= 0.2 and cost >= 70.0
+
     # ----- War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
     # Orks under-performed by -6.6pt at iter-0 baseline (docs/AUTO_LOOP

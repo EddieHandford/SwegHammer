@@ -32,6 +32,7 @@ from .stratagems import (
     MONTKA_STRATAGEMS,
     VIRULENT_VECTORIUM_STRATAGEMS,
     GRAND_COVEN_STRATAGEMS,
+    RUBRICAE_PHALANX_STRATAGEMS,
     WAR_HORDE_STRATAGEMS,
     SHIELD_HOST_STRATAGEMS,
     OATHBAND_STRATAGEMS,
@@ -194,6 +195,19 @@ class Detachment:
     # the Leman Russ / Sentinel / Rogal Dorn vehicle squadrons).
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
     am_born_soldiers_lethal_hits: bool = False
+
+    # Thousand Sons Rubricae Phalanx detachment rule (All Is Dust). Wahapedia
+    # verbatim: "Each time an attack with an unmodified Damage characteristic
+    # of 1 is allocated to a RUBRICAE model from your army, add 1 to any
+    # armour saving throw made against that attack." When this flag is True
+    # AND the defender carries the RUBRICAE unit-keyword AND the incoming
+    # attack's per_shot_dmg == 1.0, `Unit.attack` applies +1 to the defender's
+    # armour save at the save-modifier layer (capped at 2+). Gated on this
+    # detachment flag instead of always-firing for any TSON RUBRICAE defender;
+    # this fixes the iter-14 APPROXIMATION where All Is Dust fired regardless
+    # of which TSON detachment the army actually picked.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    all_is_dust: bool = False
 
     # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
     # (Wahapedia): "If you control an objective marker at the end of your
@@ -601,6 +615,82 @@ GRAND_COVEN = Detachment(
 )
 
 
+# ---------------------------------------------------------------------------
+# Rubricae Phalanx (Thousand Sons) — All-Is-Dust durability detachment (iter15)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# 40k.app entry: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+#
+# Detachment Rule (All Is Dust, verbatim from Wahapedia / 40k.app):
+#   "Each time an attack with an unmodified Damage characteristic of 1 is
+#    allocated to a RUBRICAE model from your army, add 1 to any armour
+#    saving throw made against that attack."
+#
+# Modelled via the `all_is_dust` flag — gated in `Unit.attack` on the
+# defender carrying the RUBRICAE keyword AND the incoming attack having
+# per_shot_dmg == 1.0. Replaces the iter-14 always-firing behaviour, which
+# applied the buff to RUBRICAE defenders regardless of which TSON
+# detachment was selected. Real-meta TSON (May 2026) tournament lists are
+# Rubricae Phalanx, not Grand Coven, so this detachment is the new
+# DEFAULT_BY_FACTION["Thousand Sons"] target.
+#
+# Six detachment stratagems (verbatim names + CP costs from 40k.app /
+# Goonhammer / Frontline Gaming Rubricae Phalanx breakdowns; WebFetch
+# against wahapedia.ru returned ECONNREFUSED at edit time so verbatim
+# WHEN/EFFECT blocks are paraphrased, with each citation flagged as such):
+#   * Ardent Automata (1 CP) — RUBRICAE unit shoots/charges after Fall Back.
+#   * Inexorable Advance (1 CP) — RUBRICAE unit ignores Move modifiers,
+#     ranged weapons gain [ASSAULT] until end of turn.
+#   * Infernal Fusillade (2 CP) — inferno bolt-pattern weapons on RUBRIC
+#     MARINES gain [PSYCHIC] and S5 for the Shooting phase.
+#   * Revenge of the Rubricae (1 CP) — opponent's Shooting phase, after a
+#     friendly THOUSAND SONS PSYKER model is destroyed, a RUBRICAE unit
+#     shoots the destroyer out of sequence.
+#   * Implacable Guardians (2 CP) — opponent's Shooting phase, until end
+#     of phase a RUBRIC MARINES PSYKER unit gets -1 to incoming Damage
+#     for non-PSYKER models.
+#   * Unwavering Phalanx (1 CP) — opponent's Charge phase, -1 to Wound
+#     rolls against the RUBRICAE unit just charged for the Fight phase.
+
+RUBRICAE_PHALANX = Detachment(
+    name="Rubricae Phalanx",
+    faction="Thousand Sons",
+    notes=(
+        "All Is Dust (Wahapedia verbatim): \"Each time an attack with an "
+        "unmodified Damage characteristic of 1 is allocated to a RUBRICAE "
+        "model from your army, add 1 to any armour saving throw made "
+        "against that attack.\" Modelled via the `all_is_dust` flag, gated "
+        "in `Unit.attack` on the defender carrying the RUBRICAE unit-keyword "
+        "AND the incoming attack having per_shot_dmg == 1.0. iter15 adds "
+        "this detachment as the real-meta TSON default (Rubricae Phalanx is "
+        "the dominant May 2026 tournament list, displacing Grand Coven which "
+        "remains opt-in for psyker-heavy lists). The Cabal of Sorcerers "
+        "Ritual pass + the `psychic_mortal_wounds_per_round=0` baseline "
+        "(NOT 2 — that lives on Grand Coven only) means TSON's psychic teeth "
+        "is reduced when in Rubricae Phalanx; the durability uplift from "
+        "All Is Dust + Rites of Coalescence + Daemon invulns offsets the "
+        "loss. Six stratagems wired below — names + CP costs cross-checked "
+        "against 40k.app + Goonhammer + Frontline Gaming; effect text "
+        "paraphrased per CLAUDE.md §10 (WebFetch against wahapedia.ru "
+        "returned ECONNREFUSED at edit time)."
+    ),
+    # Real rule: +1 to armour save vs unmodified D1 attacks on RUBRICAE models.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    all_is_dust=True,
+    # Cabal of Sorcerers Ritual fallback baseline — matches Grand Coven's
+    # `psychic_mortal_wounds_per_round=2` (median-D3 Doombolt). Cabal of
+    # Sorcerers is the TSON army rule (faction-gated, not detachment-
+    # gated), so it fires under EITHER detachment; the baseline is a
+    # round-end MW payload that compensates when the stochastic 2D6
+    # Psychic test in `_run_cabal_rituals` produces no manifested
+    # Ritual. Same APPROXIMATION shape as GRAND_COVEN — see citation
+    # `RUBRICAE_PHALANX.psychic_mortal_wounds_per_round` for full notes.
+    psychic_mortal_wounds_per_round=2,
+    stratagems=RUBRICAE_PHALANX_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+
 WAR_HORDE = Detachment(
     name="War Horde",
     faction="Orks",
@@ -770,6 +860,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     "virulent_vectorium":      VIRULENT_VECTORIUM,
     # Thousand Sons real detachment (#193).
     "grand_coven":             GRAND_COVEN,
+    # Thousand Sons Rubricae Phalanx detachment (iter15). Real-meta default
+    # for May 2026 — Grand Coven retained as opt-in for psyker-heavy lists.
+    "rubricae_phalanx":        RUBRICAE_PHALANX,
     # Orks real-codex detachment (War Horde, iter-1 Cluster B B1 fix). Wired
     # with full 6-stratagem set and the Get Stuck In army-wide [SUSTAINED
     # HITS 1] melee passive.
@@ -804,6 +897,7 @@ AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
 MONTKA             = DETACHMENTS["montka"]
 VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 GRAND_COVEN        = DETACHMENTS["grand_coven"]
+RUBRICAE_PHALANX   = DETACHMENTS["rubricae_phalanx"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
 SHIELD_HOST        = DETACHMENTS["shield_host"]
 OATHBAND           = DETACHMENTS["oathband"]
@@ -853,10 +947,12 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Chaos Space Marines":      "pactbound_zealots",
     "Heretic Astartes":         "pactbound_zealots",
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: Grand Coven landed in #193 — real Wahapedia detachment
-    # with Kindred Sorcery + 6 stratagems + Cabal of Sorcerers Rituals.
+    # Thousand Sons: iter15 promotes Rubricae Phalanx (All Is Dust durability
+    # spine, real-meta May 2026 default) over Grand Coven (psyker-heavy
+    # opt-in, still in the registry + FACTION_DETACHMENTS for variety picks).
+    # See `RUBRICAE_PHALANX` notes for the All-Is-Dust rule + 6 stratagems.
     "Death Guard":              "virulent_vectorium",
-    "Thousand Sons":            "grand_coven",
+    "Thousand Sons":            "rubricae_phalanx",
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
     "Genestealer Cults":        "final_day",
@@ -925,10 +1021,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: Grand Coven landed in #193 — the real Wahapedia
-    # psychic-pressure detachment with Cabal of Sorcerers + 6 stratagems.
+    # Thousand Sons: Rubricae Phalanx (real-meta May 2026 default, durability
+    # spine) PLUS Grand Coven (psyker-heavy opt-in). The picker scores both
+    # against the army composition; INFANTRY-dominant lists with RUBRICAE
+    # squads naturally tilt toward Rubricae Phalanx.
     "Death Guard":              ("virulent_vectorium",),
-    "Thousand Sons":            ("grand_coven",),
+    "Thousand Sons":            ("rubricae_phalanx", "grand_coven"),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
     "Genestealer Cults":        ("final_day",),

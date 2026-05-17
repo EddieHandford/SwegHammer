@@ -91,6 +91,12 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # SQUADRON-vs-V/M ranged attacks. Replaces the iter-0
     # `plus_one_to_hit` over-broad approximation.
     ("am_born_soldiers_lethal_hits", False),
+    # Thousand Sons Rubricae Phalanx detachment rule (iter15). Real-rule
+    # +1 to armour save vs unmodified D1 attacks on RUBRICAE models.
+    # Replaces the iter-14 always-firing APPROXIMATION (All Is Dust now
+    # gates on this detachment flag) — see RUBRICAE_PHALANX.all_is_dust
+    # in data/rule_citations.d/detachments.json.
+    ("all_is_dust", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

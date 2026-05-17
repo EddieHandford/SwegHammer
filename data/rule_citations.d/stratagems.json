@@ -279,6 +279,66 @@
     "approximation": true
   },
 
+  "Stratagem.Ardent Automata": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Ardent Automata (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your Movement phase, just after a RUBRICAE unit from your army Falls Back. Effect: until the end of the turn, that unit is eligible to shoot and declare a charge despite having Fallen Back this turn.",
+    "trigger": "your Movement phase; a friendly RUBRICAE unit has just Fallen Back",
+    "effect": "(APPROXIMATION, NO-OP) SwegHammer has no Fell-Back-this-turn transient flag, and the Fall Back lockout exemption would need a dedicated transient_assault_after_fall_back hook. Catalogued in RUBRICAE_PHALANX_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally a no-op so CP is never spent on this effect. Name + CP cost (1) confirmed via 40k.app. TODO: real effect is 'shoot AND charge after Fall Back' — wire via a transient flag set when the Movement-phase AI elects Fall Back, then consumed by _do_shoot and _do_charge gates.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Inexorable Advance": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Inexorable Advance (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your Movement phase. Effect: select one RUBRICAE unit from your army; until the end of the turn, ignore modifiers to that unit's Move characteristic and to Advance rolls made for it, and ranged weapons equipped by models in that unit have the [ASSAULT] ability.",
+    "trigger": "your Movement phase; one RUBRICAE unit selected",
+    "effect": "(APPROXIMATION) the simulator sets `transient_assault_this_round` on the highest-DPA RUBRICAE unit for the round. The [ASSAULT] half maps cleanly (same proxy as Mont'ka Killing Blow's [ASSAULT] flag and Warhost Feigned Retreat); the 'ignore Move modifiers' half is dropped because the grid-free movement model has no Move debuff to suppress. Name + CP cost (1) confirmed via 40k.app.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Infernal Fusillade": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Infernal Fusillade (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your Shooting phase. Effect: select one RUBRIC MARINES unit from your army; until the end of the phase, inferno bolt pistols, inferno boltguns, inferno combi-bolters and inferno combi-weapons equipped by models in that unit have the [PSYCHIC] ability and a Strength characteristic of 5.",
+    "trigger": "your Shooting phase; one RUBRIC MARINES unit selected",
+    "effect": "(APPROXIMATION) the simulator sets `transient_plus_one_to_wound_shooting` on the highest-DPA RUBRICAE-keyword unit for the round. The S5 uplift on baseline S4 inferno bolters improves wound rolls vs T4-T5 by one bracket — comparable to +1 to wound. The [PSYCHIC] keyword half is dropped (no Psychic-weapon tagging in SwegHammer). Net effect is strictly weaker than the codex (no weapon-keyword AP / DevWounds payload). Name + CP cost (2) confirmed via 40k.app.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Revenge of the Rubricae": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Revenge of the Rubricae (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your opponent's Shooting phase, just after an enemy unit has resolved its attacks that destroyed one or more THOUSAND SONS PSYKER models from your army. Effect: select one RUBRICAE unit from your army; that unit shoots that enemy unit out of sequence.",
+    "trigger": "opponent's Shooting phase; a friendly THOUSAND SONS PSYKER model was just destroyed",
+    "effect": "(APPROXIMATION, NO-OP) SwegHammer has no out-of-sequence shoot hook tied to a Psyker death event. Catalogued in RUBRICAE_PHALANX_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally a no-op so CP is never spent on this effect. Same gap pattern as Awakened Dynasty's 'Protocol of the Vengeful Stars'. Name + CP cost (1) confirmed via 40k.app. TODO: real effect is out-of-sequence shooting triggered by PSYKER death — wire via a new event + a Battle._on_psyker_death dispatcher.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Implacable Guardians": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Implacable Guardians (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your opponent's Shooting phase, just after an enemy unit has selected its targets. Effect: select one RUBRIC MARINES PSYKER unit from your army that was selected as the target of one or more of the attacking unit's attacks; until the end of the phase, each time an attack is allocated to a model in your unit (excluding PSYKER models), subtract 1 from the Damage characteristic of that attack.",
+    "trigger": "opponent's Shooting phase; an enemy unit has selected a friendly RUBRIC MARINES PSYKER unit as a target",
+    "effect": "(APPROXIMATION) the simulator sets `transient_minus_one_damage_taken` on the most vulnerable RUBRICAE unit for the round (same flag Disgustingly Resilient + Destined by Fate use). Codex restricts the buff to non-PSYKER models within the unit; SwegHammer treats a unit as a single damage pool so the buff applies uniformly — strictly weaker on multi-PSYKER squads, broadly equivalent on Rubric Marines where the Aspiring Sorcerer is the lone PSYKER. Name + CP cost (2) confirmed via 40k.app.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Unwavering Phalanx": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Unwavering Phalanx (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your opponent's Charge phase, just after an enemy unit ends a Charge move into a RUBRICAE unit from your army. Effect: until the end of the turn, each time an attack is allocated to a model in your unit, subtract 1 from the Wound roll.",
+    "trigger": "opponent's Charge phase; an enemy unit just ended a Charge move into a friendly RUBRICAE unit",
+    "effect": "(APPROXIMATION) the simulator sets `transient_plus_one_save` on the chosen RUBRICAE defender as a defensive proxy (a +1 save shrinks the attacker's failed-save bucket in roughly the same direction as a -1 to wound, though the math differs at the wound-vs-save layer). Same proxy pattern as Lightning-Fast Reactions / Skyborne Sanctuary. Name + CP cost (1) confirmed via 40k.app. TODO: a per-target -1-to-wound transient would be the precise model.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
   "WAR_HORDE.melee_sustained_hits_army_wide": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Get Stuck In (War Horde detachment rule)",

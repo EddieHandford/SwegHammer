@@ -518,6 +518,120 @@ GRAND_COVEN_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Rubricae Phalanx (Thousand Sons) — six detachment stratagems (iter15)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# 40k.app entry: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+# Goonhammer breakdown: https://www.goonhammer.com/detachment-focus-rubricae-phalanx/
+# Frontline Gaming: https://frontlinegaming.org/2025/05/15/codex-focus-thousand-sons-rubricae-phalanx-warpforged-cabal-breakdown/
+#
+# Names + CP costs verbatim from 40k.app; verbatim "WHEN" / "EFFECT" blocks
+# were not retrievable via WebFetch (wahapedia.ru returned ECONNREFUSED).
+# Each stratagem's `quoted_text` in data/rule_citations.d/stratagems.json is
+# a mechanical paraphrase tagged accordingly, with the source URL cited.
+# Effect-mapping summary (each routes through an existing transient_* flag
+# or is catalogued-but-no-op APPROXIMATION; the dispatcher logic lives in
+# `code/simulator.py::_apply_detachment_stratagems`):
+#
+#   * Ardent Automata (1 CP) — your Movement phase, a RUBRICAE unit that
+#     just Fell Back can shoot and charge this turn. SwegHammer has no
+#     Fell-Back-this-turn transient flag, so dispatched as catalogued-but-
+#     no-op APPROXIMATION. The RUBRICAE Fall Back lockout exemption would
+#     need a transient_assault_after_fall_back hook to fully model.
+#   * Inexorable Advance (1 CP) — your Movement phase, a RUBRICAE unit
+#     ignores Move modifiers AND its ranged weapons gain [ASSAULT] until
+#     end of turn. The [ASSAULT] half maps cleanly onto
+#     `transient_assault_this_round` (matches Mont'ka Killing Blow's
+#     [ASSAULT] proxy). The "ignore Move modifiers" half is dropped — the
+#     grid-free movement model has no Move debuff to suppress.
+#   * Infernal Fusillade (2 CP) — your Shooting phase, RUBRIC MARINES
+#     unit's inferno bolt-pattern weapons gain [PSYCHIC] and S5. The
+#     S5 uplift on a baseline S4 inferno bolter improves wound rolls
+#     vs T4-T5; we route through `transient_plus_one_to_wound_shooting`
+#     on the highest-DPA RUBRICAE PSYKER unit. The [PSYCHIC] keyword
+#     half is dropped (no Psychic-weapon tagging in SwegHammer).
+#   * Revenge of the Rubricae (1 CP) — opponent's Shooting phase, after
+#     a THOUSAND SONS PSYKER model is destroyed, a RUBRICAE unit shoots
+#     the destroyer out of sequence. SwegHammer has no out-of-sequence
+#     shoot hook tied to a Psyker death event; catalogued-but-no-op
+#     APPROXIMATION. The CP would land via the StratagemFired event but
+#     the mechanical follow-through is absent — same gap pattern as
+#     Awakened Dynasty's "Protocol of the Vengeful Stars".
+#   * Implacable Guardians (2 CP) — opponent's Shooting phase, until
+#     end of phase a RUBRIC MARINES PSYKER unit gets -1 to incoming
+#     Damage (on non-PSYKER models). Maps to
+#     `transient_minus_one_damage_taken` on the most vulnerable
+#     RUBRICAE unit. APPROXIMATION: codex restricts the buff to non-
+#     PSYKER models within the unit; SwegHammer treats a unit as a
+#     single damage pool so the buff applies uniformly — strictly
+#     weaker on multi-PSYKER squads (Aspiring Sorcerer is the PSYKER).
+#   * Unwavering Phalanx (1 CP) — opponent's Charge phase, after an
+#     enemy unit ends a Charge move into a RUBRICAE unit, -1 to Wound
+#     rolls against that RUBRICAE unit for the Fight phase. SwegHammer
+#     has no per-target wound-debuff transient — we route through
+#     `transient_plus_one_save` on the chosen RUBRICAE defender as a
+#     defensive proxy (a +1 save approximates a -1 to wound on the
+#     attacker's failed-save bucket; not equivalent, but same direction).
+
+ARDENT_AUTOMATA = Stratagem(
+    name="Ardent Automata",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_rubricae_unit_just_fell_back",
+    effect="shoot_and_charge_after_fall_back_approximation",
+)
+
+INEXORABLE_ADVANCE = Stratagem(
+    name="Inexorable Advance",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_rubricae_unit_moving",
+    effect="transient_assault_this_round",
+)
+
+INFERNAL_FUSILLADE = Stratagem(
+    name="Infernal Fusillade",
+    cp_cost=2,
+    phase="shooting",
+    trigger="friendly_rubric_marines_about_to_shoot",
+    effect="transient_plus_one_to_wound_shooting",
+)
+
+REVENGE_OF_THE_RUBRICAE = Stratagem(
+    name="Revenge of the Rubricae",
+    cp_cost=1,
+    phase="shooting",
+    trigger="enemy_destroyed_friendly_tson_psyker_model",
+    effect="out_of_sequence_shoot_approximation",
+)
+
+IMPLACABLE_GUARDIANS = Stratagem(
+    name="Implacable Guardians",
+    cp_cost=2,
+    phase="shooting",
+    trigger="enemy_targets_friendly_rubric_marines_psyker_unit",
+    effect="transient_minus_one_damage_taken",
+)
+
+UNWAVERING_PHALANX = Stratagem(
+    name="Unwavering Phalanx",
+    cp_cost=1,
+    phase="charge",
+    trigger="enemy_charges_friendly_rubricae_unit",
+    effect="transient_plus_one_save_proxy_for_minus_one_to_wound",
+)
+
+RUBRICAE_PHALANX_STRATAGEMS: Tuple[Stratagem, ...] = (
+    ARDENT_AUTOMATA,
+    INEXORABLE_ADVANCE,
+    INFERNAL_FUSILLADE,
+    REVENGE_OF_THE_RUBRICAE,
+    IMPLACABLE_GUARDIANS,
+    UNWAVERING_PHALANX,
+)
+
+
+# ---------------------------------------------------------------------------
 # War Horde (Orks) — six real detachment stratagems (iter-1 Cluster B B1)
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
@@ -1112,6 +1226,14 @@ __all__ = [
     "ARCANE_FOCUS",
     "DEVASTATING_SORCERY",
     "GRAND_COVEN_STRATAGEMS",
+    # Rubricae Phalanx (Thousand Sons) — six stratagems (iter15)
+    "ARDENT_AUTOMATA",
+    "INEXORABLE_ADVANCE",
+    "INFERNAL_FUSILLADE",
+    "REVENGE_OF_THE_RUBRICAE",
+    "IMPLACABLE_GUARDIANS",
+    "UNWAVERING_PHALANX",
+    "RUBRICAE_PHALANX_STRATAGEMS",
     # War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
     "INSANE_BRAVERY",
     "POWER_OF_THE_WAAAGH",

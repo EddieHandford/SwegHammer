@@ -186,13 +186,52 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Thousand Sons": {
-        "Cult of Magic": {
+        # iter15 — Renamed from "Cult of Magic" (deleted-per-audit detachment
+        # name) to "Rubricae Phalanx" (real-meta May 2026 default). Real
+        # tournament lists pivot on EITHER Magnus the Red OR Ahriman as the
+        # EPIC HERO centerpiece (rarely both — Magnus at 435pt + Ahriman at
+        # 100pt would eat too much of a 2000pt budget). Ahriman is the
+        # default choice here because (a) his 100pt cost lets the rest of
+        # the list breathe with multiple Rubric / Scarab Occult squads, and
+        # (b) at 2000pt with the SEED_FRACTION=0.3 (600pt seed slice), Magnus
+        # alone (435pt) would consume 72% of the seed and crowd out the
+        # Scarab Occult / Rubric anchor squads — the durability spine the
+        # detachment is built around. Magnus-centric lists ARE real meta but
+        # require a different points-budget shape than this template can
+        # express. Keeping Ahriman as the single EPIC HERO matches the
+        # "Ahrimanic Cabal" variant that dominates Rubricae Phalanx lists
+        # in the 2026 Warp Friends / Goonhammer tournament aggregate.
+        #
+        # Multi-copy entries (rubric_marines=3, scarab_occult_terminators=2)
+        # are deliberate: the (-template_count, -squad_cost) sort means
+        # these seed before single-copy entries. At the 600pt seed slice,
+        # rubric_marines (240pt for min squad of 4) seeds first, then
+        # scarab_occult_terminators (396pt for min squad of 4), then Ahriman
+        # (100pt), then the Cabal psykers — leaving room for the random_fill
+        # pass to top up with same-faction picks (Tzaangors / Cultists /
+        # Daemons / vehicles).
+        #
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+        #   - https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+        #   - https://www.goonhammer.com/detachment-focus-rubricae-phalanx/
+        "Rubricae Phalanx": {
+            "thousand_sons_ahriman": 1,
+            # Rubric Marines @ count=2 (not 3) — at 240pt per squad and a
+            # 600pt seed budget, count=3 would push Scarab Occult (396pt
+            # per squad) past the seed cap. count=2 seeds 2 Rubric squads
+            # AND 1 Scarab Occult, leaving the random_fill pass to top up
+            # with extra Rubric (BATTLELINE cap allows fill_count = template
+            # count = 2 more rubric squads, for a max of 4 total — matches
+            # real-meta MSU spread). Scarab @ count=2 still tilts toward
+            # 2 Scarab squads via the BATTLELINE cap analog (no cap for
+            # ELITE/TERMINATOR — random_fill fills up to the per-name
+            # remaining-budget/2 cap).
             "thousand_sons_rubric_marines": 2,
-            "thousand_sons_scarab_occult_terminators": 1,
-            "thousand_sons_tzaangors": 1,
+            "thousand_sons_scarab_occult_terminators": 2,
             "thousand_sons_exalted_sorcerer": 1,
             "thousand_sons_infernal_master": 1,
-            "thousand_sons_helbrute": 1,
+            "thousand_sons_tzaangors": 1,
         },
     },
     "Leagues of Votann": {

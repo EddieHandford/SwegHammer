@@ -48,6 +48,9 @@ from .stratagems import (
     # Grand Coven (Thousand Sons) — six real detachment stratagems (#193)
     PSYCHIC_DOMINION, DESTINED_BY_FATE, EGOTISTICAL_POWER,
     DESECRATION_OF_WORLDS, ARCANE_FOCUS, DEVASTATING_SORCERY,
+    # Rubricae Phalanx (Thousand Sons) — six detachment stratagems (iter15)
+    ARDENT_AUTOMATA, INEXORABLE_ADVANCE, INFERNAL_FUSILLADE,
+    REVENGE_OF_THE_RUBRICAE, IMPLACABLE_GUARDIANS, UNWAVERING_PHALANX,
     # War Horde (Orks) — six real detachment stratagems (iter-1 B1)
     INSANE_BRAVERY, POWER_OF_THE_WAAAGH, MOB_UP, BIG_KRUMPIN,
     TELLYPORTA, DA_BIGGEST_BOSS,
@@ -836,6 +839,25 @@ class Battle:
                 self._try_devastating_sorcery(army, opponent)
             # Egotistical Power and Arcane Focus are intentionally NOT dispatched
             # here — see _try_egotistical_power / _try_arcane_focus docstrings.
+
+            # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+            # Four wire onto existing transient_* flags (Inexorable Advance,
+            # Infernal Fusillade, Implacable Guardians, Unwavering Phalanx);
+            # two are catalogued-but-no-op APPROXIMATIONs (Ardent Automata —
+            # no Fall-Back-this-turn transient; Revenge of the Rubricae — no
+            # out-of-sequence-shoot-on-PSYKER-death hook).
+            if not self._strat_cap_reached(army) and "Inexorable Advance" in strat_names:
+                self._try_inexorable_advance(army, opponent)
+            if not self._strat_cap_reached(army) and "Infernal Fusillade" in strat_names:
+                self._try_infernal_fusillade(army, opponent)
+            if not self._strat_cap_reached(army) and "Implacable Guardians" in strat_names:
+                self._try_implacable_guardians(army, opponent)
+            if not self._strat_cap_reached(army) and "Unwavering Phalanx" in strat_names:
+                self._try_unwavering_phalanx(army, opponent)
+            # Ardent Automata + Revenge of the Rubricae catalogued in
+            # RUBRICAE_PHALANX_STRATAGEMS for the auditor + stratagems_for_army
+            # listing; dispatchers intentionally no-op (see docstrings).
 
             # ----- War Horde (Orks) — six real stratagems (iter-1 B1) ------
             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
@@ -2812,6 +2834,149 @@ class Battle:
         if not self._fire_stratagem(army, DEVASTATING_SORCERY):
             return
         attacker.transient_reroll_hits_shooting = True
+
+    # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15) -----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    # 40k.app source: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+    # Effect-mapping table lives in `code/stratagems.py` next to the
+    # Stratagem definitions. Four dispatchers are wired below; Ardent
+    # Automata and Revenge of the Rubricae are catalogued-but-no-op
+    # APPROXIMATIONs (the simulator has no Fell-Back-this-turn transient
+    # nor an out-of-sequence-shoot-on-PSYKER-death hook).
+
+    def _try_ardent_automata(self, army: Army, opponent: Army) -> None:
+        """Ardent Automata (Rubricae Phalanx, 1 CP). Real rule: a RUBRICAE
+        unit that just Fell Back can still shoot and charge this turn.
+        NOT DISPATCHED — SwegHammer has no Fell-Back-this-turn transient
+        and the Fall Back lockout exemption would need a dedicated
+        transient_assault_after_fall_back hook. The stratagem is
+        catalogued in RUBRICAE_PHALANX_STRATAGEMS for auditor +
+        stratagems_for_army completeness; the dispatcher is intentionally
+        a no-op so CP is never spent on this effect.
+
+        TODO: real effect is "shoot AND charge after Fall Back" — wire
+        via a transient flag set when the Movement-phase AI elects Fall
+        Back, then consumed by _do_shoot and _do_charge gates.
+        """
+        return  # APPROXIMATION: no-op (Fall Back lockout exemption not modelled)
+
+    def _try_inexorable_advance(self, army: Army, opponent: Army) -> None:
+        """Inexorable Advance (Rubricae Phalanx, 1 CP). Real rule: a
+        RUBRICAE unit ignores Move modifiers AND its ranged weapons gain
+        [ASSAULT] until end of turn. APPROXIMATION: the [ASSAULT] half
+        maps cleanly onto `transient_assault_this_round` (same proxy as
+        Mont'ka Killing Blow's army-wide [ASSAULT] flag and Warhost
+        Feigned Retreat). The "ignore Move modifiers" half is dropped —
+        the grid-free movement model has no Move debuff to suppress.
+        Fires on the highest-DPA RUBRICAE-keyword unit.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, INEXORABLE_ADVANCE, ctx):
+            return
+        if not self._fire_stratagem(army, INEXORABLE_ADVANCE):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_infernal_fusillade(self, army: Army, opponent: Army) -> None:
+        """Infernal Fusillade (Rubricae Phalanx, 2 CP). Real rule: a
+        RUBRIC MARINES unit's inferno bolt-pattern weapons (inferno bolt
+        pistols, inferno boltguns, inferno combi-bolters, inferno combi-
+        weapons) gain [PSYCHIC] and S5 for the Shooting phase.
+        APPROXIMATION: the S5 uplift on baseline S4 inferno bolters
+        improves wound rolls vs T4-T5 by one bracket; we route through
+        `transient_plus_one_to_wound_shooting` on the highest-DPA RUBRICAE
+        PSYKER unit. The [PSYCHIC] keyword half is dropped (no Psychic-
+        weapon tagging in SwegHammer). Strictly weaker than the codex
+        (no weapon-keyword AP / DevWounds payload — the simulator has
+        no [PSYCHIC] weapon-mod table).
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, INFERNAL_FUSILLADE, ctx):
+            return
+        if not self._fire_stratagem(army, INFERNAL_FUSILLADE):
+            return
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_revenge_of_the_rubricae(self, army: Army, opponent: Army) -> None:
+        """Revenge of the Rubricae (Rubricae Phalanx, 1 CP). Real rule:
+        after a THOUSAND SONS PSYKER model is destroyed, a RUBRICAE unit
+        shoots the destroyer out of sequence. NOT DISPATCHED — SwegHammer
+        has no out-of-sequence shoot hook tied to a Psyker death event.
+        Catalogued in RUBRICAE_PHALANX_STRATAGEMS so the auditor +
+        stratagems_for_army completeness check passes; the dispatcher is
+        intentionally a no-op. Same gap pattern as Awakened Dynasty's
+        Protocol of the Vengeful Stars.
+
+        TODO: real effect is out-of-sequence shooting triggered by a
+        PSYKER death event — wire via a new event in events.py + a
+        Battle._on_psyker_death dispatcher.
+        """
+        return  # APPROXIMATION: no-op (out-of-sequence shoot hook not modelled)
+
+    def _try_implacable_guardians(self, army: Army, opponent: Army) -> None:
+        """Implacable Guardians (Rubricae Phalanx, 2 CP). Real rule: until
+        end of opponent's Shooting phase, a RUBRIC MARINES PSYKER unit
+        gets -1 to incoming Damage on attacks allocated to non-PSYKER
+        models in the unit. Maps to `transient_minus_one_damage_taken`
+        (same flag Disgustingly Resilient + Destined by Fate use) on the
+        most vulnerable RUBRICAE unit. APPROXIMATION: codex restricts the
+        buff to non-PSYKER models within the unit; SwegHammer treats a
+        unit as a single damage pool so the buff applies uniformly —
+        strictly weaker on multi-PSYKER squads, broadly equivalent on
+        Rubric Marines where the Aspiring Sorcerer is the lone PSYKER.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, IMPLACABLE_GUARDIANS, ctx):
+            return
+        if not self._fire_stratagem(army, IMPLACABLE_GUARDIANS):
+            return
+        target.transient_minus_one_damage_taken = True
+
+    def _try_unwavering_phalanx(self, army: Army, opponent: Army) -> None:
+        """Unwavering Phalanx (Rubricae Phalanx, 1 CP). Real rule: after
+        an enemy unit ends a Charge move into a RUBRICAE unit, -1 to
+        Wound rolls against that RUBRICAE unit for the Fight phase.
+        APPROXIMATION: SwegHammer has no per-target wound-debuff
+        transient — we route through `transient_plus_one_save` on the
+        chosen RUBRICAE defender as a defensive proxy (a +1 save shrinks
+        the attacker's failed-save bucket in roughly the same direction
+        as a -1 to wound, though the math differs at the wound-vs-save
+        layer). Same proxy pattern as Lightning-Fast Reactions /
+        Skyborne Sanctuary use.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, UNWAVERING_PHALANX, ctx):
+            return
+        if not self._fire_stratagem(army, UNWAVERING_PHALANX):
+            return
+        target.transient_plus_one_save = True
 
     def _apply_undying_legions_pulse(self) -> None:
         """Mid-round reanimation pulse for Protocol of the Undying Legions.

@@ -822,21 +822,23 @@ class Unit:
         # carries the RUBRICAE unit-keyword (Rubric Marines, Scarab Occult
         # Terminators — both have RUBRICAE set via data/overrides.json since
         # BSData's mapper does not extract sub-faction keywords).
-        # APPROXIMATIONs vs the codex text, both documented in
-        # `simulator.all_is_dust`:
-        #   1. The save buff applies regardless of which TSON detachment the
-        #      army actually picked. SwegHammer only models the Grand Coven
-        #      detachment for Thousand Sons today; full Rubricae Phalanx
-        #      detachment selection is deferred. Always-firing the buff
-        #      keeps competitive Rubric/Scarab Occult lists durable enough
-        #      to match the real-meta TSON win-rate.
-        #   2. The codex says "unmodified Damage 1". SwegHammer reads the
-        #      per-shot weapon damage AFTER Melta range bonuses have been
-        #      composed (Melta is a +damage range modifier; the only
-        #      "modifier to damage" in 10e). The two reconverge in the
-        #      common case — a D1 bolter never picks up Melta — but a
-        #      D1 Melta weapon (very rare in 10e) would lose the save buff
-        #      under our reading even if the codex would keep it.
+        #
+        # iter15: the buff is now gated on the defender's army carrying the
+        # Rubricae Phalanx detachment (Detachment.all_is_dust). Real-meta
+        # TSON tournament lists in May 2026 are Rubricae Phalanx, so
+        # `DEFAULT_BY_FACTION["Thousand Sons"] = "rubricae_phalanx"` keeps
+        # the unconditional path working for the common case; armies that
+        # explicitly pick Grand Coven (psyker-heavy lists) lose the save buff
+        # — same outcome the codex enforces.
+        #
+        # APPROXIMATION vs the codex text (only one remaining after iter15):
+        #   The codex says "unmodified Damage 1". SwegHammer reads the
+        #   per-shot weapon damage AFTER Melta range bonuses have been
+        #   composed (Melta is a +damage range modifier; the only
+        #   "modifier to damage" in 10e). The two reconverge in the common
+        #   case — a D1 bolter never picks up Melta — but a D1 Melta weapon
+        #   (very rare in 10e) would lose the save buff under our reading
+        #   even if the codex would keep it.
         # The save buff stacks at the save-modifier layer rather than the
         # wound-modifier layer used by the prior implementation (which
         # incorrectly modelled All Is Dust as a -1 to wound; that was the
@@ -845,11 +847,22 @@ class Unit:
         # The new behaviour is applied below at the `save_after_ap` reduction
         # step — see `_all_is_dust_save_buff` boolean computed here, consumed
         # ~25 lines down where save_after_ap is finalised.
-        _all_is_dust_save_buff = (
+        _all_is_dust_save_buff = False
+        if (
             target.profile.faction == "Thousand Sons"
             and per_shot_dmg == 1.0
             and "RUBRICAE" in (target.profile.unit_keywords or ())
-        )
+        ):
+            _tgt_army = getattr(target, "army_ref", None)
+            if _tgt_army is not None:
+                try:
+                    _tgt_det = _tgt_army.resolve_detachment()
+                except Exception:
+                    _tgt_det = None
+                if _tgt_det is not None and getattr(
+                    _tgt_det, "all_is_dust", False,
+                ):
+                    _all_is_dust_save_buff = True
 
         # ---- Thousand Sons "Rites of Coalescence" (Scarab Occult Terminators
         # datasheet ability, 10e current codex). Wahapedia verbatim: "While
