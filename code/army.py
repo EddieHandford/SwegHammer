@@ -220,6 +220,22 @@ class Army:
         # this counter — they fire on their own per-phase triggers.
         # Cited as `simulator.stratagem_per_command_phase_cap` (APPROXIMATION).
         self.stratagems_fired_this_command_phase: int = 0
+        # Astra Militarum Voice of Command — Flexible Command stratagem
+        # (Combined Arms, 2 CP) widens the Order-eligible target set from
+        # BATTLELINE INFANTRY only to ALSO include BATTLELINE VEHICLE
+        # (SQUADRON) for the round it fires. The simulator's
+        # `_try_flexible_command` dispatcher sets this True at round start;
+        # the round-start `_clear_transient_stratagem_flags` flips it back
+        # to False before the next round's Order dispatch runs.
+        # Cited as `Stratagem.Flexible Command`.
+        self.orders_eligible_squadron_this_round: bool = False
+        # Astra Militarum Voice of Command — Inspired Command stratagem
+        # (Combined Arms, 1 CP) grants ONE additional Order this round
+        # (codex text: "Your OFFICER can issue one Order as if it were
+        # your Command phase"). Decrements as the Order dispatch consumes
+        # the extra cap. Cleared each round.
+        # Cited as `Stratagem.Inspired Command`.
+        self.orders_extra_this_round: int = 0
         # Adeptus Astartes Oath of Moment (army rule, 10e). At the start of
         # each Command phase the Marine player picks one enemy unit; until
         # the start of their next Command phase, every Marine attack against

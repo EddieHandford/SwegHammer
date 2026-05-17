@@ -81,16 +81,6 @@
     "approximation": true
   },
 
-  "COMBINED_REGIMENT.plus_one_to_hit": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Born-Soldiers",
-    "rule_name": "Born Soldiers",
-    "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
-    "trigger": "any friendly Astra Militarum hit roll",
-    "effect": "+1 to hit rolls (approximation of the Combined Arms detachment 'Born Soldiers' rule, which actually grants Lethal Hits to Regiment vs non-vehicle and Squadron vs vehicle; codex renames the launch-day 'Combined Regiment' index detachment to 'Combined Arms')",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
   "TELEPORT_STRIKE_FORCE.reroll_wound_ones": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Fury-of-Titan",
     "rule_name": "Fury of Titan",

@@ -962,6 +962,80 @@ GLADIUS_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Combined Arms (Astra Militarum) — six real detachment stratagems (iter-14)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+# Replaces the iter-0 zero-stratagem state where AM burned every strat fire
+# on Command Re-Roll (universal Core). The Combined Arms detachment is AM's
+# competitive default per Goonhammer May 2026 meta reports. Its detachment
+# rule is Born Soldiers ([LETHAL HITS] on REGIMENT ranged attacks vs non-
+# VEHICLE/MONSTER, and on SQUADRON ranged attacks vs VEHICLE/MONSTER). The
+# stratagem set scales the Voice of Command Order economy (Coordinated
+# Action / Flexible Command / Inspired Command all extend Order eligibility)
+# plus three combat tactics (Fields of Fire / Stalwart Protector /
+# Reinforcements!). Each dispatcher follows the Gladius / Mont'ka pattern.
+
+COORDINATED_ACTION = Stratagem(
+    name="Coordinated Action",
+    cp_cost=1,
+    phase="any",
+    trigger="own_command_phase_am_regiment_and_squadron_close",
+    effect="extend_order_to_squadron_approximation",
+)
+
+REINFORCEMENTS = Stratagem(
+    name="Reinforcements!",
+    cp_cost=2,
+    phase="any",
+    trigger="friendly_am_infantry_regiment_just_destroyed",
+    effect="readd_destroyed_unit_to_reserves_approximation",
+    once_per_battle=True,
+)
+
+FLEXIBLE_COMMAND = Stratagem(
+    name="Flexible Command",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_am_officer",
+    effect="officers_can_order_squadron_for_round",
+)
+
+FIELDS_OF_FIRE = Stratagem(
+    name="Fields of Fire",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_am_regiment_and_squadron_pair",
+    effect="plus_one_ap_vs_target_approximation",
+)
+
+INSPIRED_COMMAND = Stratagem(
+    name="Inspired Command",
+    cp_cost=1,
+    phase="command",
+    trigger="enemy_command_phase_am_officer",
+    effect="extra_order_this_round_approximation",
+)
+
+STALWART_PROTECTOR = Stratagem(
+    name="Stalwart Protector",
+    cp_cost=1,
+    phase="any",
+    trigger="enemy_shooting_targets_am_infantry_near_vehicle",
+    effect="plus_one_save_for_round_approximation",
+)
+
+
+COMBINED_ARMS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    COORDINATED_ACTION,
+    REINFORCEMENTS,
+    FLEXIBLE_COMMAND,
+    FIELDS_OF_FIRE,
+    INSPIRED_COMMAND,
+    STALWART_PROTECTOR,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -1070,6 +1144,14 @@ __all__ = [
     "HONOUR_THE_CHAPTER",
     "ADAPTIVE_STRATEGY",
     "GLADIUS_STRATAGEMS",
+    # Combined Arms (Astra Militarum) — six real stratagems (iter-14 fix)
+    "COORDINATED_ACTION",
+    "REINFORCEMENTS",
+    "FLEXIBLE_COMMAND",
+    "FIELDS_OF_FIRE",
+    "INSPIRED_COMMAND",
+    "STALWART_PROTECTOR",
+    "COMBINED_ARMS_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

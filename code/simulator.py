@@ -60,6 +60,9 @@ from .stratagems import (
     # Gladius Task Force (Adeptus Astartes) — six real detachment stratagems (iter-12)
     STORM_OF_FIRE, ARMOUR_OF_CONTEMPT, SQUAD_TACTICS,
     ONLY_IN_DEATH_DOES_DUTY_END, HONOUR_THE_CHAPTER, ADAPTIVE_STRATEGY,
+    # Combined Arms (Astra Militarum) — six real detachment stratagems (iter-14)
+    COORDINATED_ACTION, REINFORCEMENTS, FLEXIBLE_COMMAND,
+    FIELDS_OF_FIRE, INSPIRED_COMMAND, STALWART_PROTECTOR,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -697,6 +700,13 @@ class Battle:
         army.cabbalistic_doombolt_boost = False
         army.putrid_detonation_armed = False
         army.plaguesurge_active = False
+        # AM Voice of Command — per-round stratagem widening flags. Flexible
+        # Command (Combined Arms, 2 CP) extends Orders to SQUADRON units;
+        # Inspired Command (Combined Arms, 1 CP) grants one bonus Order
+        # this round. Both reset every round so the widening only applies
+        # the round the stratagem fires.
+        army.orders_eligible_squadron_this_round = False
+        army.orders_extra_this_round = 0
 
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
@@ -909,6 +919,24 @@ class Battle:
                 self._try_honour_the_chapter(army, opponent)
             if not self._strat_cap_reached(army) and "Adaptive Strategy" in strat_names:
                 self._try_adaptive_strategy(army, opponent)
+
+            # ----- Combined Arms (Astra Militarum) — six real strats (iter-14)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+            # Closes the AM 0/6 detachment-stratagem gap (docs/AUDIT_PARITY.md).
+            # Three wire onto Voice of Command Order economy (Coordinated
+            # Action, Flexible Command, Inspired Command), three onto
+            # existing transient_* flags (Fields of Fire, Stalwart Protector),
+            # and Reinforcements! is a no-op APPROXIMATION (no respawn hook).
+            if not self._strat_cap_reached(army) and "Coordinated Action" in strat_names:
+                self._try_coordinated_action(army, opponent)
+            if not self._strat_cap_reached(army) and "Flexible Command" in strat_names:
+                self._try_flexible_command(army, opponent)
+            if not self._strat_cap_reached(army) and "Fields of Fire" in strat_names:
+                self._try_fields_of_fire(army, opponent)
+            if not self._strat_cap_reached(army) and "Inspired Command" in strat_names:
+                self._try_inspired_command(army, opponent)
+            if not self._strat_cap_reached(army) and "Stalwart Protector" in strat_names:
+                self._try_stalwart_protector(army, opponent)
         finally:
             # Always drop the dispatch flag — Tank Shock / Counter-Offensive /
             # Command Re-Roll fire out-of-band via _fire_stratagem and MUST
@@ -2422,6 +2450,222 @@ class Battle:
             return
         attacker.transient_plus_one_to_wound_melee = True
 
+    # ----- Combined Arms (Astra Militarum) — six real strats (iter-14) ------
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    # Closes the AM 0/6 detachment-stratagem gap. The detachment's spine is
+    # the Voice of Command Order economy (army-wide passive — see
+    # `code/orders.py`), so three of the six stratagems wire onto Order
+    # mechanics (Coordinated Action, Flexible Command, Inspired Command)
+    # and the other three onto existing transient_* flags (Fields of
+    # Fire, Stalwart Protector) or no-op approximations (Reinforcements!).
+
+    def _am_units(self, army: Army):
+        """Return alive friendly Astra Militarum units (non-battleshocked)."""
+        return [
+            u for u in army.alive_units
+            if (u.profile.faction or "") == "Astra Militarum"
+            and u.uid not in self._battleshocked_this_round
+        ]
+
+    def _highest_dpa_am_squadron(self, army: Army):
+        """Pick the highest-DPA AM SQUADRON (VEHICLE) unit; None if absent."""
+        candidates = [
+            u for u in self._am_units(army)
+            if "VEHICLE" in (u.profile.unit_keywords or ())
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=self._unit_dpa)
+
+    def _most_vulnerable_am_infantry(self, army: Army):
+        """Pick the most-vulnerable AM INFANTRY unit; None if absent."""
+        candidates = [
+            u for u in self._am_units(army)
+            if "INFANTRY" in (u.profile.unit_keywords or ())
+            and "VEHICLE" not in (u.profile.unit_keywords or ())
+        ]
+        if not candidates:
+            return None
+
+        def _score(u):
+            try:
+                cost = float(u.profile.points_cost)
+                hp_frac = max(0.0, 1.0 - u.current_health / max(1.0, u.profile.health))
+            except Exception:
+                return 0.0
+            return cost * hp_frac
+        best = max(candidates, key=_score)
+        if _score(best) > 0.0:
+            return best
+        return max(candidates, key=lambda u: float(u.profile.points_cost or 0.0))
+
+    def _try_coordinated_action(self, army: Army, opponent: Army) -> None:
+        """Coordinated Action (Combined Arms, 1 CP, Battle Tactic). Real
+        rule: start of any phase, on one REGIMENT + one SQUADRON within
+        6" and visible — Orders affecting one also affect the other.
+        APPROXIMATION: routes the offensive payoff through
+        `transient_plus_one_to_hit_shooting` on the highest-DPA AM
+        SQUADRON (VEHICLE) — the canonical use case is extending
+        Take Aim! / FRFSRF from an Infantry Squad to a Leman Russ pair.
+        """
+        attacker = self._highest_dpa_am_squadron(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, COORDINATED_ACTION, ctx):
+            return
+        if not self._fire_stratagem(army, COORDINATED_ACTION):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_flexible_command(self, army: Army, opponent: Army) -> None:
+        """Flexible Command (Combined Arms, 2 CP, Strategic Ploy). Real
+        rule: your Command phase, any number of AM OFFICER units — until
+        end of phase, Officers can issue Orders to REGIMENT and SQUADRON
+        units. CLEAN MAPPING: sets `Army.orders_eligible_squadron_this_round
+        = True` for the round; `code.orders._is_order_target_eligible`
+        reads the flag and widens the target pool to BATTLELINE VEHICLE.
+        """
+        officers = [
+            u for u in self._am_units(army)
+            if "CHARACTER" in (u.profile.unit_keywords or ())
+        ]
+        if not officers:
+            return
+        squadron_candidates = [
+            u for u in self._am_units(army)
+            if "BATTLELINE" in (u.profile.unit_keywords or ())
+            and "VEHICLE" in (u.profile.unit_keywords or ())
+        ]
+        if not squadron_candidates:
+            return
+        ctx = {"officers": officers, "squadron_candidates": squadron_candidates}
+        if not should_fire_stratagem(army, FLEXIBLE_COMMAND, ctx):
+            return
+        if not self._fire_stratagem(army, FLEXIBLE_COMMAND):
+            return
+        army.orders_eligible_squadron_this_round = True
+
+    def _try_fields_of_fire(self, army: Army, opponent: Army) -> None:
+        """Fields of Fire (Combined Arms, 1 CP, Battle Tactic). Real
+        rule: your Shooting phase, one REGIMENT + one SQUADRON not yet
+        shot — attacks targeting a chosen enemy improve AP by 1.
+        APPROXIMATION: routes the offensive payoff through
+        `transient_plus_one_to_hit_shooting` on the highest-ranged-DPA
+        AM unit; AP+1 → +1 to hit is the closest single-flag proxy.
+        """
+        candidates = self._am_units(army)
+        if not candidates:
+            return
+
+        def _ranged_dpa(u):
+            p = u.profile
+            return (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        ranged_candidates = [u for u in candidates if _ranged_dpa(u) > 0.0]
+        if not ranged_candidates:
+            return
+        attacker = max(ranged_candidates, key=_ranged_dpa)
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, FIELDS_OF_FIRE, ctx):
+            return
+        if not self._fire_stratagem(army, FIELDS_OF_FIRE):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_inspired_command(self, army: Army, opponent: Army) -> None:
+        """Inspired Command (Combined Arms, 1 CP, Epic Deed). Real rule:
+        opponent's Command phase, one AM OFFICER — that Officer can
+        issue one Order as if it were your Command phase. APPROXIMATION:
+        maps onto 'issue one extra Order this round' — the dispatcher
+        picks an un-buffed REGIMENT in aura of any AM Officer and
+        applies the AI's chosen Order to it.
+        """
+        from .orders import (
+            _is_am_officer, _is_order_target_eligible, _pick_order_for_target,
+            _apply_order, OFFICER_AURA_RANGE, _distance,
+        )
+        officers = [
+            u for u in self._am_units(army)
+            if _is_am_officer(u) and u.uid not in self._battleshocked_this_round
+        ]
+        if not officers:
+            return
+        targets = [
+            u for u in army.alive_units
+            if _is_order_target_eligible(u, squadron_allowed=False)
+            and u.uid not in self._battleshocked_this_round
+        ]
+        if not targets:
+            return
+        un_ordered = [
+            t for t in targets
+            if not (
+                t.transient_plus_one_to_hit_shooting
+                or t.transient_plus_one_to_wound_melee
+                or t.transient_plus_one_save
+            )
+        ]
+        if not un_ordered:
+            return
+        chosen_pair = None
+        for officer in officers:
+            in_aura = [
+                t for t in un_ordered
+                if _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+            ]
+            if in_aura:
+                chosen_pair = (officer, max(in_aura, key=lambda u: float(u.profile.points_cost or 0.0)))
+                break
+        if chosen_pair is None:
+            return
+        officer, target = chosen_pair
+        ctx = {"officer": officer, "target": target}
+        if not should_fire_stratagem(army, INSPIRED_COMMAND, ctx):
+            return
+        if not self._fire_stratagem(army, INSPIRED_COMMAND):
+            return
+        order = _pick_order_for_target(target)
+        _apply_order(target, order)
+
+    def _try_stalwart_protector(self, army: Army, opponent: Army) -> None:
+        """Stalwart Protector (Combined Arms, 1 CP, Battle Tactic). Real
+        rule: opponent's Shooting phase, one AM VEHICLE — INFANTRY models
+        from your army not fully visible because of your VEHICLE have
+        Benefit of Cover. CLEAN MAPPING (with approximate eligibility):
+        routes the defensive payoff through `transient_plus_one_save`
+        on the most-vulnerable AM INFANTRY unit. Gates on at least one
+        alive AM VEHICLE to match the codex pre-requisite.
+        """
+        vehicles = [
+            u for u in self._am_units(army)
+            if "VEHICLE" in (u.profile.unit_keywords or ())
+        ]
+        if not vehicles:
+            return
+        target = self._most_vulnerable_am_infantry(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, STALWART_PROTECTOR, ctx):
+            return
+        if not self._fire_stratagem(army, STALWART_PROTECTOR):
+            return
+        target.transient_plus_one_save = True
+
+    # Reinforcements! — catalogued in COMBINED_ARMS_STRATAGEMS for the
+    # auditor + stratagems_for_army listing, but no `_try_reinforcements`
+    # dispatcher exists (catalogued-but-no-op APPROXIMATION). The codex
+    # effect (re-add a destroyed INFANTRY REGIMENT to Strategic Reserves
+    # at full strength) has no clean simulator hook (no mid-battle unit-
+    # respawn / reserve-injection primitive). The dispatch loop simply
+    # skips the entry, no CP spent.
+
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
     # Stratagem names + CP costs confirmed against Wahapedia. Verbatim
@@ -3538,6 +3782,19 @@ class Battle:
         # is the cleanest hook for a deterministic "once per round" spend.
         self._apply_detachment_stratagems(self.a, self.b)
         self._apply_detachment_stratagems(self.b, self.a)
+        # ---- Astra Militarum Voice of Command Orders (10e army rule).
+        # Each AM OFFICER issues one Order to an eligible BATTLELINE
+        # INFANTRY (or VEHICLE if Flexible Command was fired this round)
+        # within 6", at the start of the Command phase. Stratagem dispatch
+        # MUST run first so Flexible Command / Inspired Command flags are
+        # set before Order eligibility is computed. Cited as
+        # `simulator.voice_of_command_orders`.
+        from .orders import dispatch_orders as _dispatch_orders
+        for army in (self.a, self.b):
+            _issued = _dispatch_orders(army, self._battleshocked_this_round)
+            if self.verbose and _issued:
+                for officer_name, target_name, order_name in _issued:
+                    print(f"  ORDER: {officer_name} -> {target_name}: {order_name}")
         # Thousand Sons Cabal of Sorcerers — Rituals fire at the start of
         # each Shooting phase. We hook them here (same round-start barrier
         # as detachment stratagems) because the simulator's per-unit shoot

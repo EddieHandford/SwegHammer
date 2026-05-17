@@ -36,6 +36,7 @@ from .stratagems import (
     SHIELD_HOST_STRATAGEMS,
     OATHBAND_STRATAGEMS,
     GLADIUS_STRATAGEMS,
+    COMBINED_ARMS_STRATAGEMS,
 )
 
 
@@ -173,6 +174,26 @@ class Detachment:
     #     improved by 1 (e.g. AP-1 -> AP-2).
     melee_crit_on_5_plus_hits: bool = False
     melee_ap_plus_one: bool = False
+
+    # Astra Militarum Combined Arms detachment rule (Born Soldiers). Real text
+    # (Wahapedia): "Each time a model in a REGIMENT unit from your army makes
+    # a ranged attack that targets a visible unit (excluding MONSTERS and
+    # VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model
+    # in a SQUADRON unit from your army makes a ranged attack that targets
+    # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS]
+    # ability." Simulator implementation (iter-14): a new flag
+    # `am_born_soldiers_lethal_hits` read by `Unit.attack` when the attacker
+    # faction is Astra Militarum, mode is ranged, and the keyword/role gate
+    # matches (REGIMENT = INFANTRY-keyword non-VEHICLE/MONSTER; SQUADRON =
+    # VEHICLE-keyword). The matrix gate (REGIMENT vs non-VEHICLE/MONSTER /
+    # SQUADRON vs VEHICLE/MONSTER) is enforced inline at the LH branch.
+    # APPROXIMATION: the codex uses bespoke keywords REGIMENT / SQUADRON
+    # that don't appear as datasheet keywords in BSData v10.6.0; we map
+    # REGIMENT → "INFANTRY" and SQUADRON → "VEHICLE" (matches the codex
+    # split where REGIMENT covers the infantry rosters and SQUADRON covers
+    # the Leman Russ / Sentinel / Rogal Dorn vehicle squadrons).
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    am_born_soldiers_lethal_hits: bool = False
 
     # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
     # (Wahapedia): "If you control an objective marker at the end of your
@@ -366,13 +387,39 @@ INQUISITION_TASK_FORCE = Detachment(
 )
 
 COMBINED_REGIMENT = Detachment(
-    name="Combined Regiment",
+    # iter-14: renamed to "Combined Arms" (Wahapedia codex name). The previous
+    # "Combined Regiment" label was a SwegHammer mis-naming legacy. The
+    # detachment rule is now the real "Born Soldiers" Lethal-Hits-on-Guided-
+    # split-by-keyword rule rather than the previous +1-to-hit approximation,
+    # plus the six real Combined Arms detachment stratagems and Voice of
+    # Command Order economy (implemented in `code.orders`).
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    name="Combined Arms",
     faction="Astra Militarum",
     notes=(
-        "Fire Orders: lossy as army-wide +1 to hit. Real rule is officer-gated "
-        "single-target buffs (FRFSRF, Take Aim, etc.)."
+        "Born Soldiers (Wahapedia, verbatim): \"Each time a model in a "
+        "REGIMENT unit from your army makes a ranged attack that targets a "
+        "visible unit (excluding MONSTERS and VEHICLES), that attack has the "
+        "[LETHAL HITS] ability. Each time a model in a SQUADRON unit from "
+        "your army makes a ranged attack that targets a visible MONSTER or "
+        "VEHICLE unit, that attack has the [LETHAL HITS] ability.\" Simulator "
+        "implementation: a new flag `am_born_soldiers_lethal_hits` read by "
+        "`Unit.attack` when the attacker faction is Astra Militarum and the "
+        "REGIMENT/SQUADRON vs target-type matrix matches; the LH branch fires "
+        "via the existing `effective_lethal_hits` plumbing. APPROXIMATION: "
+        "the codex REGIMENT / SQUADRON keywords don't appear in BSData "
+        "v10.6.0; we map REGIMENT → INFANTRY-keyword (non-VEHICLE/MONSTER) "
+        "and SQUADRON → VEHICLE-keyword (matches the codex split). "
+        "Voice of Command Order economy (iter-14): officers issue Orders to "
+        "BATTLELINE INFANTRY units at the start of each Command phase via "
+        "`code.orders.dispatch_orders` — see that module for the four wired "
+        "Orders (Take Aim! / Fix Bayonets! / First Rank Fire Second Rank "
+        "Fire! / Take Cover!). Six real detachment stratagems wired below "
+        "(Coordinated Action, Reinforcements!, Flexible Command, Fields of "
+        "Fire, Inspired Command, Stalwart Protector)."
     ),
-    plus_one_to_hit=True,
+    am_born_soldiers_lethal_hits=True,
+    stratagems=COMBINED_ARMS_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -760,6 +807,12 @@ GRAND_COVEN        = DETACHMENTS["grand_coven"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
 SHIELD_HOST        = DETACHMENTS["shield_host"]
 OATHBAND           = DETACHMENTS["oathband"]
+COMBINED_REGIMENT  = DETACHMENTS["combined_regiment"]
+# Codex-correct alias — the detachment was renamed from "Combined Regiment"
+# (SwegHammer launch label) to "Combined Arms" (Wahapedia codex name) in
+# iter-14. The legacy COMBINED_REGIMENT module symbol + "combined_regiment"
+# registry key are preserved so downstream test/import paths don't break.
+COMBINED_ARMS      = DETACHMENTS["combined_regiment"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 

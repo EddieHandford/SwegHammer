@@ -1078,6 +1078,51 @@ class Unit:
             if det is not None and getattr(det, "lethal_hits_on_guided", False):
                 effective_lethal_hits = True
 
+        # ---- Astra Militarum Combined Arms detachment — Born Soldiers
+        # (army-wide ranged [LETHAL HITS] gated on REGIMENT-vs-non-V/M and
+        # SQUADRON-vs-V/M matchups). Wahapedia verbatim: "Each time a model
+        # in a REGIMENT unit from your army makes a ranged attack that
+        # targets a visible unit (excluding MONSTERS and VEHICLES), that
+        # attack has the [LETHAL HITS] ability. Each time a model in a
+        # SQUADRON unit from your army makes a ranged attack that targets
+        # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL
+        # HITS] ability."
+        # APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the
+        # codex's REGIMENT / SQUADRON keywords, so we map REGIMENT →
+        # attacker has INFANTRY (and not VEHICLE/MONSTER), SQUADRON →
+        # attacker has VEHICLE. This captures the codex split: AM infantry
+        # squads (Cadians, Krieg, Scions, Ogryns) trigger the anti-troop
+        # leg; AM vehicle squadrons (Leman Russ, Rogal Dorn, Sentinels)
+        # trigger the anti-armour leg. Composes with profile.lethal_hits
+        # via OR (one re-roll branch in the loop, no double-fire).
+        # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
+        if (
+            mode != "melee"
+            and not effective_lethal_hits
+            and own_army is not None
+            and (p.faction or "") == "Astra Militarum"
+        ):
+            det = own_army.resolve_detachment()
+            if det is not None and getattr(det, "am_born_soldiers_lethal_hits", False):
+                attacker_kws = set(p.unit_keywords or ())
+                target_kws = set((target.profile.unit_keywords or ()) if target else ())
+                target_is_vm = (
+                    "VEHICLE" in target_kws or "MONSTER" in target_kws
+                )
+                # REGIMENT leg: INFANTRY-keyword attacker (and not VEHICLE/
+                # MONSTER) vs non-VEHICLE/MONSTER target.
+                if (
+                    "INFANTRY" in attacker_kws
+                    and "VEHICLE" not in attacker_kws
+                    and "MONSTER" not in attacker_kws
+                    and not target_is_vm
+                ):
+                    effective_lethal_hits = True
+                # SQUADRON leg: VEHICLE-keyword attacker vs VEHICLE/MONSTER
+                # target.
+                elif "VEHICLE" in attacker_kws and target_is_vm:
+                    effective_lethal_hits = True
+
         # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
         # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
         # by ORKS models from your army have the [SUSTAINED HITS 1] ability."

@@ -2817,6 +2817,88 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return cost >= 80.0
 
+    # ----- Combined Arms (Astra Militarum) — six real strats (iter-14)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    # AM bricks are typically 65-pt squads (Cadians / Krieg / Catachan) or
+    # 145-235-pt vehicles (Leman Russ / Rogal Dorn / Sentinel Squadron).
+
+    if name == "Coordinated Action":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting on the highest-DPA AM SQUADRON. Fire when SQUADRON
+        # has real ranged DPA AND target is HEAVY/SHOOTY (Leman Russ vs
+        # Repulsor canonical). Same shape as Mont'ka Focused Fire.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Flexible Command":
+        # ctx: {"officers": list, "squadron_candidates": list}. 2 CP for
+        # widening Order eligibility to SQUADRON for the round. Worth it
+        # when at least one meaningfully-costed Officer + SQUADRON exist.
+        officers = ctx.get("officers") or []
+        squadron_candidates = ctx.get("squadron_candidates") or []
+        if not officers or not squadron_candidates:
+            return False
+        def _max_cost(units):
+            try:
+                return max(float(u.profile.points_cost or 0.0) for u in units)
+            except (ValueError, TypeError):
+                return 0.0
+        return _max_cost(officers) >= 50.0 and _max_cost(squadron_candidates) >= 100.0
+
+    if name == "Fields of Fire":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting proxy for AP+1 on the highest-ranged-DPA AM unit vs
+        # HEAVY/SHOOTY target. Same shape as Storm of Fire.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Inspired Command":
+        # ctx: {"officer": Unit, "target": Unit}. 1 CP for an extra
+        # Order this round. Worth it when target is a meaningfully-
+        # costed BATTLELINE INFANTRY (60+ pts covers Cadians/Krieg/
+        # Catachan at 65pts).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 60.0
+
+    if name == "Stalwart Protector":
+        # ctx: {"target": Unit}. Defensive +1-save on the most
+        # vulnerable AM INFANTRY unit. Fire on wounded high-value
+        # (hp_frac > 0.2, cost >= 60).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 60.0
+
+    # Reinforcements! — no AI gate; dispatcher has no implementation
+    # hook so should_fire return value never matters. Cataloguer-only.
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

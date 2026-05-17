@@ -86,6 +86,11 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # per round; SwegHammer applies BOTH always-on.
     ("melee_crit_on_5_plus_hits", False),
     ("melee_ap_plus_one", False),
+    # Astra Militarum Combined Arms detachment rule (Born Soldiers,
+    # iter-14 fix). Real-rule LETHAL HITS on REGIMENT-vs-non-V/M and
+    # SQUADRON-vs-V/M ranged attacks. Replaces the iter-0
+    # `plus_one_to_hit` over-broad approximation.
+    ("am_born_soldiers_lethal_hits", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -297,6 +302,26 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 3 controlled objectives at 5 VP each). Applied in
     # `Battle._score_objectives` after per-objective awards are tallied.
     "simulator.primary_vp_cap_15",
+    # Astra Militarum Voice of Command (army rule, 10e). At the start of
+    # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
+    # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four
+    # Orders are wired: Take Aim! (+1 to hit shooting), Fix Bayonets!
+    # (+1 to wound melee, codex WS+1 approximation), First Rank Fire /
+    # Second Rank Fire (+1 to hit shooting, codex +1 Attack on Rapid Fire
+    # approximation), Take Cover! (+1 to save). Implemented in
+    # `code.orders.dispatch_orders`; called from `Battle._run_round` at
+    # the start of each Command phase. The Flexible Command stratagem
+    # (Combined Arms, 2 CP) widens the eligible target set to include
+    # BATTLELINE VEHICLE (SQUADRON) for the round it fires.
+    "simulator.voice_of_command_orders",
+    # The four wired Orders, each cited individually so the auditor can
+    # track per-Order APPROXIMATION notes (Fix Bayonets! and FRFSRF are
+    # approximations through different transient flags than the codex
+    # text indicates).
+    "Order.Take Aim!",
+    "Order.Fix Bayonets!",
+    "Order.First Rank, Fire! Second Rank, Fire!",
+    "Order.Take Cover!",
 )
 
 
