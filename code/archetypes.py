@@ -116,9 +116,19 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #     (May 2026 Necron WR aggregate 53.2% across 4 events)
         #   - https://frontlinegaming.org/2026/05/ (Necron Awakened Dynasty
         #     RTT lists, Apr-May 2026, all 1-C'tan compositions)
+        # iter16 tighter trim — Warriors and Immortals dropped to count=1
+        # each (was 2). Real-meta May 2026 Awakened Dynasty tournament
+        # lists (Goonhammer; Frontline; Stat Check) typically field ONE
+        # 20-model Warriors brick plus 1-2 5-model Immortals squads, not
+        # multiple Warriors squads of each. The BATTLELINE cap in
+        # _random_fill binds at `max(1, template_count)` extra fill
+        # picks, so count=1 caps Warriors and Immortals at 2 squads each
+        # (template seed + 1 random_fill squad) instead of the previous
+        # 4-squad ceiling that drove sim WR to 95% via Warrior OC spam
+        # plus additional Immortal anti-infantry shooting.
         "Awakened Dynasty": {
-            "necrons_necron_warriors": 2,
-            "necrons_immortals": 2,
+            "necrons_necron_warriors": 1,
+            "necrons_immortals": 1,
             "necrons_lychguard": 1,
             "necrons_overlord": 1,
             "necrons_c_tan_shard_of_the_nightbringer": 1,
