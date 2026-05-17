@@ -7,6 +7,52 @@ touching code.
 > ownership tags, see [`PROJECT.tex`](PROJECT.tex)** (rendered as `PROJECT.pdf`).
 > This file is the Claude-specific operating layer on top.
 
+## Project plan: a two-stage pipeline
+
+SwegHammer runs as two sequenced feedback loops, not one. Future sessions:
+read this before reasoning about what the project is doing, because the two
+stages are easy to conflate and the user has caught this mistake before. The
+authoritative non-technical picture lives in
+[`OVERVIEW.tex`](OVERVIEW.tex) (rendered as `OVERVIEW.pdf`).
+
+**Stage 1 — Make the simulator play like reality.** Run the sim, compare
+per-faction win rates to the May 2026 Warp Friends ~10k-game tournament
+aggregate (`scripts/evaluate_vs_meta.py`), tweak the simulator's *rules and
+mechanics* until per-faction mean absolute error closes. Headline metric:
+mean absolute error vs the Warp Friends per-faction win rates, target
+≤ 2.0 pts. This is Goal A in `PROJECT.tex` §3.
+
+**Stage 2 — Balance the points costs.** Once Stage 1 has converged, *freeze
+the sim's rules* and tune only unit points costs. Run the now-faithful sim
+with new prices, check the spread of per-unit win rates across the
+catalogue (every unit should hover near 50% in equal-points fights), adjust
+prices, repeat until the distribution flattens. Two solvers:
+`code/balancer.py` (Monte Carlo bisection) and `code/equilibrium.py`
+(closed-form log-least-squares). This is Goal C in `PROJECT.tex` §3.
+
+**The feedback signals are different and must not be confused.** Stage 1
+is gated by the tournament mean absolute error. Stage 2 is gated by the
+win-rate spread across all units. A diagram that has pricing output
+feeding back into the simulator gated by tournament data is wrong — that
+conflates the two loops.
+
+**Stage discipline.** When you pick up a task, work out which stage it
+belongs to and say so in the pull request description. Rule of thumb: if
+the change tunes simulator behaviour (a new ability, a fixed movement
+bug, a faction rule), it is Stage 1. If the change tunes the points cost
+of an existing unit or the pricing solver itself, it is Stage 2. Mixing
+both in the same pull request is allowed only when the mix is
+unavoidable, and in that case the description must say which parts are
+which.
+
+**Current state (2026-05-17).** Stage 1 mean absolute error is 7.01 pts
+at N = 200 vs a 2.0 pt target — Stage 1 is not converged. Stage 2 work is
+running in parallel anyway, which means current
+`data/calibrated_points.json` and `data/equilibrium_points*.json` outputs
+are calibrated against a sim that does not yet match reality, and will
+need redoing once Stage 1 lands. Treat Stage 2 outputs as provisional
+until the user signals Stage 1 convergence.
+
 ## 1. Test before pushing
 
 Before `git push`, run `python run.py` and confirm it exits cleanly. If the demo

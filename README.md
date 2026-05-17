@@ -21,6 +21,26 @@ This project seeks to:
 3. Keep the ruleset light: players should experience switching from standard Warhammer 40K to
    Swaghammer as "one or two elegant tweaks," not a house-rules overhaul.
 
+## Two-Stage Pipeline
+
+SwegHammer is built as two sequenced feedback loops, not one:
+
+1. **Stage 1 — Make the simulator play like reality.** Compare per-faction
+   simulated win rates against the May 2026 Warp Friends ~10k-game
+   tournament aggregate, and tune the simulator's rules and mechanics
+   until the mean absolute error closes (target ≤ 2.0 pts; current
+   reading is 7.01 pts at N=200).
+2. **Stage 2 — Balance the points costs.** Once Stage 1 has converged,
+   freeze the simulator's rules and tune only unit points costs. Run the
+   now-faithful simulator with new prices and keep adjusting until the
+   win-rate spread across the catalogue flattens.
+
+The feedback signals are deliberately different — Stage 1 is gated by
+tournament mean absolute error, Stage 2 by win-rate spread across all
+units — and conflating them produces wrong answers. See
+[`OVERVIEW.tex`](OVERVIEW.tex) for the picture, and [`CLAUDE.md`](CLAUDE.md)
+"Project plan" for the rules-of-thumb.
+
 ## Core Rules Changes
 
 ### Unit-by-Unit Activation (Turn Structure)
@@ -70,15 +90,20 @@ Combined metric: **Unit Score = (Health × Damage × Hit Probability)²**
 
 ### Points Calibration
 
-For Phase One, unit costs are set proportional to the unit's raw combat effectiveness:
+The points calibration described here is **Stage 2** work — it only
+becomes reliable once Stage 1 has converged. As a Stage 2 baseline, unit
+costs are set proportional to the unit's raw combat effectiveness:
 
 ```
 points = BASELINE_POINTS × (health × damage × hit_probability) / BASELINE_EFFECTIVENESS
 ```
 
-This linear-in-raw-stats pricing is the starting point. Phases Two and Three replace it with a
-surface fit from simulation data, converging toward the Lanchester-optimal pricing where equal
-points implies equal expected battlefield score.
+This linear-in-raw-stats pricing is Layer 1 of Stage 2. Two empirical
+solvers — `code/balancer.py` (Monte Carlo bisection) and
+`code/equilibrium.py` (closed-form log-least-squares on the time-to-kill
+matrix) — refine it, converging toward Lanchester-optimal pricing where
+equal points implies equal expected battlefield score. See
+[`BASELINE.md`](BASELINE.md) for the layer/track structure.
 
 ## Project Structure
 

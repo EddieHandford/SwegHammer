@@ -11,6 +11,26 @@ This file is the high-level status board. For the human-facing checklist
 with ownership tags and math, see [`PROJECT.tex`](PROJECT.tex). For Claude
 operating rules, see [`CLAUDE.md`](CLAUDE.md).
 
+## Pipeline structure
+
+SwegHammer runs as two sequenced feedback loops, not one. See
+[`OVERVIEW.tex`](OVERVIEW.tex) for the non-technical picture and
+[`CLAUDE.md`](CLAUDE.md) "Project plan" for the rules-of-thumb.
+
+- **Stage 1 — Make the simulator play like reality.** Goal A below.
+  The feedback signal is mean absolute error vs the May 2026 Warp Friends
+  per-faction win rates, currently 7.01 pts at N=200 against a 2.0 pt
+  target. Stage 1 is the current focus.
+- **Stage 2 — Balance the points costs.** Goals C and D below. Runs the
+  now-faithful simulator with new prices and looks at the spread of
+  per-unit win rates. While Stage 1 is unconverged, Stage 2 outputs
+  (`data/calibrated_points.json`, `data/equilibrium_points*.json`) are
+  provisional and will need redoing once Stage 1 lands.
+
+Goal B (equal-quality faction representation) sits underneath both
+stages — it is the groundwork that makes Stage 1's measurements honest
+and Stage 2's solvers possible.
+
 ## Status Overview
 
 | Goal | Status | Description |
