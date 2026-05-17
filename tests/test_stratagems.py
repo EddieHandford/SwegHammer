@@ -17,7 +17,7 @@ from code.army import Army
 from code.events import StratagemFired
 from code.simulator import Battle
 from code.stratagems import (
-    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK,
     CP_CAP, CP_PER_COMMAND_PHASE, STARTING_CP, Stratagem,
     UNIVERSAL_STRATAGEMS, award_command_phase_cp, stratagems_for_army,
 )
@@ -95,12 +95,18 @@ class StratagemDataclassTests(unittest.TestCase):
         self.assertTrue(s.once_per_battle)
 
     def test_universal_stratagem_count_and_costs(self):
-        self.assertEqual(len(UNIVERSAL_STRATAGEMS), 4)
+        # #iter12: Heroic Intervention removed from the universal core
+        # stratagems tuple — it is a free core CHARACTER ability per
+        # Wahapedia 10e core rules, not a 1 CP stratagem. The three
+        # remaining universals are Command Re-Roll, Counter-Offensive,
+        # and Tank Shock.
+        self.assertEqual(len(UNIVERSAL_STRATAGEMS), 3)
+        names = {s.name for s in UNIVERSAL_STRATAGEMS}
+        self.assertNotIn("Heroic Intervention", names)
         # Spot-check the canonical CP costs.
         self.assertEqual(COMMAND_RE_ROLL.cp_cost, 1)
         self.assertEqual(COUNTER_OFFENSIVE.cp_cost, 2)
         self.assertEqual(TANK_SHOCK.cp_cost, 1)
-        self.assertEqual(HEROIC_INTERVENTION.cp_cost, 1)
 
     def test_stratagem_is_frozen_and_hashable(self):
         # Frozen dataclass — instances belong in sets / tuple fields.
@@ -154,7 +160,9 @@ class CpEconomyTests(unittest.TestCase):
 
 class StratagemsForArmyTests(unittest.TestCase):
 
-    def test_every_army_gets_the_four_universals(self):
+    def test_every_army_gets_the_three_universals(self):
+        # #iter12: Heroic Intervention removed from the universal core
+        # stratagems — it is a free core CHARACTER ability now.
         army = Army("Test")
         army.add_unit(_marine_profile())
         strats = stratagems_for_army(army)
@@ -162,7 +170,7 @@ class StratagemsForArmyTests(unittest.TestCase):
         self.assertIn("Command Re-Roll", names)
         self.assertIn("Counter-Offensive", names)
         self.assertIn("Tank Shock", names)
-        self.assertIn("Heroic Intervention", names)
+        self.assertNotIn("Heroic Intervention", names)
 
 
 class CommandRerollTests(unittest.TestCase):
@@ -347,42 +355,9 @@ class TankShockTests(unittest.TestCase):
         self.assertFalse(should_fire_stratagem(army, TANK_SHOCK, ctx))
 
 
-class HeroicInterventionTests(unittest.TestCase):
-
-    def test_heroic_intervention_heuristic_requires_character(self):
-        army = Army("Test")
-        army.command_points = 2
-        # Non-CHARACTER unit — should not fire.
-        u = Unit(_marine_profile())
-        ctx = {"character": u, "charge_target": u, "distance": 4.0}
-        self.assertFalse(should_fire_stratagem(army, HEROIC_INTERVENTION, ctx))
-        # Same unit but flagged CHARACTER — fires within 6".
-        char_profile = UnitProfile(
-            name="Captain",
-            health=4, damage=1, hit_probability=2 / 3,
-            ap=-1, save=3, strength=4, toughness=4,
-            attacks=2, weapon_damage_per_shot=1.0,
-            melee_attacks=4, melee_damage_per_shot=1.0,
-            melee_hit_probability=5 / 6, melee_strength=5,
-            range_inches=24,
-            unit_keywords=("CHARACTER", "INFANTRY"),
-        )
-        c = Unit(char_profile)
-        ctx = {"character": c, "charge_target": c, "distance": 4.0}
-        self.assertTrue(should_fire_stratagem(army, HEROIC_INTERVENTION, ctx))
-
-    def test_heroic_intervention_heuristic_skips_far_character(self):
-        army = Army("Test")
-        army.command_points = 2
-        char_profile = UnitProfile(
-            name="Captain",
-            health=4, damage=1, hit_probability=2 / 3,
-            ap=-1, save=3, strength=4, toughness=4,
-            unit_keywords=("CHARACTER",),
-        )
-        c = Unit(char_profile)
-        ctx = {"character": c, "charge_target": c, "distance": 9.0}
-        self.assertFalse(should_fire_stratagem(army, HEROIC_INTERVENTION, ctx))
+# Heroic Intervention is no longer a stratagem (#iter12) — it is a free
+# core CHARACTER ability implemented in code.simulator._do_heroic_intervention.
+# Coverage for the new core mechanic lives in tests/test_heroic_intervention.py.
 
 
 if __name__ == "__main__":

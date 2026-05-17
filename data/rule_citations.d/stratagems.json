@@ -29,12 +29,12 @@
     "approximation": true
   },
 
-  "Stratagem.Heroic Intervention": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
-    "rule_name": "Heroic Intervention",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S CHARGE PHASE, JUST AFTER AN ENEMY UNIT ENDS A CHARGE MOVE. ONE FRIENDLY CHARACTERS UNIT FROM YOUR ARMY THAT IS WITHIN 6\" OF THAT ENEMY UNIT AND WOULD BE ELIGIBLE TO DECLARE A CHARGE AGAINST IT IN YOUR NEXT CHARGE PHASE CAN PERFORM A HEROIC INTERVENTION. IF IT DOES, THAT FRIENDLY CHARACTERS UNIT CAN MAKE A NORMAL MOVE OF UP TO 3\", BUT IT MUST END THAT MOVE IN ENGAGEMENT RANGE OF THAT ENEMY UNIT.",
-    "trigger": "opponent's charge phase, just after an enemy unit ends a charge move within 6\" of a friendly CHARACTER unit",
-    "effect": "the friendly CHARACTER unit makes a free 3\" move and must end in engagement range of the charger (approximation: simulator aims the move 1\" short of the charger to land in melee; doesn't enforce the 'eligible to charge next phase' clause)",
+  "simulator.heroic_intervention_core": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE",
+    "rule_name": "Heroic Intervention (core CHARACTER ability, 10e)",
+    "quoted_text": "Heroic Intervention: After the opposing player has resolved their charges, you can select any of your CHARACTER models that are within 6\" of any enemy units. Each of those models can move up to 6\" (3\" if WALKER) — they must end the move within Engagement Range of one of those enemy units.",
+    "trigger": "opponent's charge phase, after an enemy unit has resolved its charge move within 6\" of any friendly CHARACTER",
+    "effect": "each eligible friendly CHARACTER may make a free 6\" move (3\" if WALKER) toward the charger and must end the move within engagement range of that charger; no CP is spent (approximation: SwegHammer aims the move directly at the charger and lands inside 1\" engagement when reachable; the 'WALKER' gate is keyed off the WALKER unit keyword)",
     "scope": "keyword-gated",
     "approximation": true
   },

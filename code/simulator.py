@@ -26,7 +26,7 @@ from .strategy import (
     should_fire_stratagem,
 )
 from .stratagems import (
-    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK,
     # Virulent Vectorium (Death Guard) — full 6-stratagem set, per #195.
     # Disgustingly Resilient was re-anchored to the real detachment at 2 CP
     # per the 2026-05-15 fabrication audit.
@@ -295,9 +295,10 @@ class Battle:
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
-        # Tank Shock, Heroic Intervention, Counter-Offensive, Command
-        # Re-Roll fire on their own per-trigger hooks and don't count
-        # toward the detachment-stratagem cap.
+        # Tank Shock, Counter-Offensive, Command Re-Roll fire on their
+        # own per-trigger hooks and don't count toward the detachment-
+        # stratagem cap. (Heroic Intervention is a free core CHARACTER
+        # ability, not a stratagem at all — see _do_heroic_intervention.)
         self._dispatching_detachment_stratagems: bool = False
 
     # ------------------------------------------------------------------
@@ -886,11 +887,12 @@ class Battle:
             if not self._strat_cap_reached(army) and "Adaptive Strategy" in strat_names:
                 self._try_adaptive_strategy(army, opponent)
         finally:
-            # Always drop the dispatch flag — Tank Shock / Heroic Intervention /
-            # Counter-Offensive / Command Re-Roll fire out-of-band via
-            # _fire_stratagem and MUST NOT increment the per-Command-phase
-            # counter (those are Core Stratagems on per-trigger hooks, not
-            # detachment-stratagem round-start spends).
+            # Always drop the dispatch flag — Tank Shock / Counter-Offensive /
+            # Command Re-Roll fire out-of-band via _fire_stratagem and MUST
+            # NOT increment the per-Command-phase counter (those are Core
+            # Stratagems on per-trigger hooks, not detachment-stratagem
+            # round-start spends). Heroic Intervention is a free core
+            # CHARACTER ability — see _do_heroic_intervention.
             self._dispatching_detachment_stratagems = False
 
     def _strat_cap_reached(self, army: Army) -> bool:
@@ -4223,16 +4225,18 @@ class Battle:
             distance=dist, roll=roll, succeeded=True,
         ))
 
-        # Universal Core Stratagems on a successful charge:
+        # Universal Core Stratagem on a successful charge:
         # * Tank Shock (1 CP, attacker) — VEHICLE chargers deal D3 mortal
         #   wounds.
-        # * Heroic Intervention (1 CP, defender) — friendly CHARACTER
-        #   within 6" of the charge target moves 3" into engagement range
-        #   with the charger. Fire AFTER Tank Shock so the character
-        #   intervenes against whatever's still standing.
         self._try_tank_shock(attacker, target, attacker_army)
-        if target.is_alive:
-            self._try_heroic_intervention(attacker, target, defender_army)
+        # Heroic Intervention (10e core, FREE — NOT a stratagem). After the
+        # charger has ended its move, every friendly defender CHARACTER
+        # within 6" of the charger may make a normal move of up to 6"
+        # (3" if WALKER) ending in engagement range with that charger.
+        # Cited as `simulator.heroic_intervention_core`. Fires after Tank
+        # Shock so the character intervenes against whatever's still
+        # standing.
+        self._do_heroic_intervention(attacker, defender_army)
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1")."""
@@ -4878,10 +4882,10 @@ class Battle:
         # Iter-4 A5: increment the per-Command-phase counter only when this
         # spend originated from `_apply_detachment_stratagems` (faction-neutral
         # detachment-stratagem dispatcher). Core Stratagems (Tank Shock,
-        # Heroic Intervention, Counter-Offensive, Command Re-Roll) fire on
-        # their own per-trigger hooks at other points in the round and
-        # intentionally do NOT count toward the cap. The dispatch flag is
-        # set + cleared in `_apply_detachment_stratagems`'s try/finally.
+        # Counter-Offensive, Command Re-Roll) fire on their own per-trigger
+        # hooks at other points in the round and intentionally do NOT count
+        # toward the cap. The dispatch flag is set + cleared in
+        # `_apply_detachment_stratagems`'s try/finally.
         # Cited as `simulator.stratagem_per_command_phase_cap`.
         if getattr(self, "_dispatching_detachment_stratagems", False):
             army.stratagems_fired_this_command_phase += 1
@@ -4940,49 +4944,41 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(target)
 
-    def _try_heroic_intervention(
-        self, charger: "Unit", charge_target: "Unit",
-        defender_army: Army,
+    def _do_heroic_intervention(
+        self, charger: "Unit", defender_army: Army,
     ) -> None:
-        """When an enemy charges a unit, look for a friendly CHARACTER
-        within 6" of the charge target — and if present, optionally spend
-        1 CP to pull them into engagement range with the charger.
+        """Free core CHARACTER ability — 10e Charge phase.
 
-        Modelled as a free 3" move that places the CHARACTER 1" from the
-        charger (inside engagement range), so the next fight sub-phase
-        resolves their melee profile.
+        Per Wahapedia (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
+        #CHARGE-PHASE): "After the opposing player has resolved their
+        charges, you can select any of your CHARACTER models that are
+        within 6\" of any enemy units. Each of those models can move up
+        to 6\" (3\" if WALKER) — they must end the move within Engagement
+        Range of one of those enemy units."
+
+        This is NOT a stratagem and costs no CP. It fires automatically
+        for every eligible defender CHARACTER after a successful charge
+        by `charger` against `charger`'s target. Each such CHARACTER
+        within 6" of the charger is moved up to 6" (3" if WALKER) toward
+        the charger, landing inside 1" engagement range when reachable.
+
+        Cited as `simulator.heroic_intervention_core`.
         """
-        # Find the closest friendly CHARACTER to the charge target.
-        best = None
-        best_d = 999.0
-        for u in defender_army.alive_units:
-            if "CHARACTER" not in (u.profile.unit_keywords or ()):
+        for u in list(defender_army.alive_units):
+            kw = u.profile.unit_keywords or ()
+            if "CHARACTER" not in kw:
                 continue
-            d = _distance(u.position, charge_target.position)
-            if d < best_d:
-                best_d = d
-                best = u
-        if best is None:
-            return
-        ctx = {
-            "character": best,
-            "charge_target": charge_target,
-            "distance": best_d,
-        }
-        if not should_fire_stratagem(defender_army, HEROIC_INTERVENTION, ctx):
-            return
-        if not self._fire_stratagem(defender_army, HEROIC_INTERVENTION):
-            return
-        # Move the character toward the charger up to 3", landing inside
-        # 1.0" engagement range if reachable.
-        old_pos = best.position
-        # Aim 1" short of the charger so we land in engagement, not on top.
-        new_pos = _move_toward(old_pos, charger.position, 3.0, self.map)
-        if new_pos != old_pos:
-            best.position = new_pos
-            self._emit(UnitMoved(
-                unit_uid=best.uid, from_pos=old_pos, to_pos=new_pos,
-            ))
+            d = _distance(u.position, charger.position)
+            if d > 6.0:
+                continue
+            max_move = 3.0 if "WALKER" in kw else 6.0
+            old_pos = u.position
+            new_pos = _move_toward(old_pos, charger.position, max_move, self.map)
+            if new_pos != old_pos:
+                u.position = new_pos
+                self._emit(UnitMoved(
+                    unit_uid=u.uid, from_pos=old_pos, to_pos=new_pos,
+                ))
 
     def _try_counter_offensive(
         self,

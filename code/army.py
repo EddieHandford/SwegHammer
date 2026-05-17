@@ -215,9 +215,9 @@ class Army:
         # _fire_stratagem when called from a detachment dispatcher; the
         # dispatcher early-exits once the counter hits STRATAGEM_CAP (1).
         # Faction-neutral: every detachment's dispatch path runs through the
-        # same cap. Core Stratagems (Tank Shock, Heroic Intervention, Counter-
-        # Offensive, Command Re-Roll) are triggered out-of-band and don't
-        # increment this counter — they fire on their own per-phase triggers.
+        # same cap. Core Stratagems (Tank Shock, Counter-Offensive,
+        # Command Re-Roll) are triggered out-of-band and don't increment
+        # this counter — they fire on their own per-phase triggers.
         # Cited as `simulator.stratagem_per_command_phase_cap` (APPROXIMATION).
         self.stratagems_fired_this_command_phase: int = 0
         # Adeptus Astartes Oath of Moment (army rule, 10e). At the start of

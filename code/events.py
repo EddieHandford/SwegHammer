@@ -179,8 +179,8 @@ class StratagemFired:
     """An army spent CP to activate a Stratagem.
 
     The simulator emits this whenever Battle resolves an effect dispatch
-    (Command Re-Roll, Counter-Offensive, Tank Shock, Heroic Intervention,
-    or any detachment-specific stratagem added in #104). Renderers can
+    (Command Re-Roll, Counter-Offensive, Tank Shock, or any detachment-
+    specific stratagem added in #104). Renderers can
     ignore it freely — it's primarily for the event-log replay and for
     test assertions ("did our CP get spent?").
     """

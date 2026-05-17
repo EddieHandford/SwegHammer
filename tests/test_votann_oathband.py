@@ -293,18 +293,20 @@ class OathbandStratagemsForArmyTests(unittest.TestCase):
         a = Army("Leagues of Votann")
         a.add_unit(_hearthkyn_profile())
         names = {s.name for s in stratagems_for_army(a)}
-        # All six Oathband stratagems plus the four universal Core stratagems.
+        # All six Oathband stratagems plus the three universal Core stratagems
+        # (Heroic Intervention is a free core CHARACTER ability per #iter12 —
+        # no longer one of the universals).
         for n in (
             "Warrior Pride", "Wrath of the Ancestors", "Glory of the Hearth",
             "Ironkin Sequence", "Ancestral Sentence", "Void-Armoured Resilience",
         ):
             self.assertIn(n, names, f"{n} missing from stratagems_for_army")
-        # And the four Core universals.
+        # And the three Core universals.
         for n in (
             "Command Re-Roll", "Counter-Offensive", "Tank Shock",
-            "Heroic Intervention",
         ):
             self.assertIn(n, names)
+        self.assertNotIn("Heroic Intervention", names)
 
 
 if __name__ == "__main__":

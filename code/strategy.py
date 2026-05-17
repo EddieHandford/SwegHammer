@@ -1652,9 +1652,11 @@ def _predict_pivotal_turn(strat) -> int:
 
     Pivotal-turn assignments by stratagem class (per task #160):
       * Counter-Offensive: reactive (opponent fight-phase kill triggers it).
-      * Heroic Intervention: reactive (enemy charge near friendly CHARACTER).
       * Tank Shock: reactive (vehicle charge succeeds).
       * Spirit Stones: reactive (damage taken).
+      (Heroic Intervention is no longer a stratagem — #iter12 removed the
+      1 CP entry and re-implemented it as a free core CHARACTER ability
+      in code.simulator._do_heroic_intervention per Wahapedia 10e.)
       * Command Re-Roll: T2 (highest-stakes early swing); T5 also escapes.
       * Implacable Onslaught (Necron, defensive FNP): T3 — alpha-strike
         recovery, mid-game wounded brick.
@@ -1671,7 +1673,7 @@ def _predict_pivotal_turn(strat) -> int:
     name = strat.name
     # Reactive — no deferral; trigger-driven only.
     if name in (
-        "Counter-Offensive", "Heroic Intervention", "Tank Shock",
+        "Counter-Offensive", "Tank Shock",
         "Spirit Stones",
     ):
         return 0
@@ -1786,8 +1788,8 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
 
     # CP reservation by predicted-pivotal-turn (#160). Top players hold CP
     # for known-pivotal rounds rather than burning it on the first eligible
-    # trigger. Reactive stratagems (Counter-Offensive, Heroic Intervention,
-    # Tank Shock, Spirit Stones) and zero-cost stratagems are exempt.
+    # trigger. Reactive stratagems (Counter-Offensive, Tank Shock,
+    # Spirit Stones) and zero-cost stratagems are exempt.
     # iter5 C5: ctx is now consulted so a high-value trigger can bypass the
     # hold gate uniformly across factions (faction-neutral CP-leak cleanup).
     if _should_hold_for_pivotal_turn(army, strat, ctx):
@@ -1849,18 +1851,11 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         kw = (charger.profile.unit_keywords or ()) if hasattr(charger, "profile") else ()
         return "VEHICLE" in kw
 
-    if name == "Heroic Intervention":
-        # ctx expects {"character": Unit, "charge_target": Unit, "distance": float}.
-        # Fire when a friendly CHARACTER is within 6" of an enemy's charge
-        # target — pulls the character into the fight to soak / counter.
-        character = ctx.get("character")
-        if character is None:
-            return False
-        kw = (character.profile.unit_keywords or ()) if hasattr(character, "profile") else ()
-        if "CHARACTER" not in kw:
-            return False
-        dist = ctx.get("distance", 999.0)
-        return dist <= 6.0
+    # Heroic Intervention was removed from the stratagem list in #iter12 —
+    # it is a free core CHARACTER ability (no CP cost) implemented in
+    # code.simulator._do_heroic_intervention. No should_fire_stratagem
+    # branch is needed because the simulator never asks the strategy
+    # layer about Heroic Intervention any more.
 
     # ----- Cult of Magic (Thousand Sons) ---------------------------------
 

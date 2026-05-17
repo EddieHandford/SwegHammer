@@ -92,20 +92,22 @@ TANK_SHOCK = Stratagem(
     effect="d3_mortal_wounds_to_charge_target",
 )
 
-HEROIC_INTERVENTION = Stratagem(
-    name="Heroic Intervention",
-    cp_cost=1,
-    phase="charge",
-    trigger="enemy_charges_near_friendly_character",
-    effect="3_inch_move_into_engagement",
-)
+# NOTE: Heroic Intervention is NOT a stratagem. Per Wahapedia 10e core
+# rules (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE)
+# it is a free core ability for CHARACTER models — after the opposing
+# player has resolved their charges, you may select any of your CHARACTER
+# models within 6" of any enemy units; each of those models can move up
+# to 6" (3" if WALKER) and must end the move within Engagement Range of
+# one of those enemy units. No CP is spent. Implemented as a core
+# mechanic in code.simulator._do_heroic_intervention; cited as
+# `simulator.heroic_intervention_core`. The previous 1 CP stratagem
+# entry was deleted in #iter12 (was always wrong per the 10e rulebook).
 
 
 UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
     COMMAND_RE_ROLL,
     COUNTER_OFFENSIVE,
     TANK_SHOCK,
-    HEROIC_INTERVENTION,
 )
 
 
@@ -995,7 +997,6 @@ __all__ = [
     "COMMAND_RE_ROLL",
     "COUNTER_OFFENSIVE",
     "TANK_SHOCK",
-    "HEROIC_INTERVENTION",
     "UNIVERSAL_STRATAGEMS",
     # Warhost (Aeldari) — six real stratagems
     "LIGHTNING_FAST_REACTIONS",

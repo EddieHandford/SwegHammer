@@ -274,6 +274,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # accumulating +/-1 contributions into hit_mod_delta / wound_mod_delta
     # then clamping to [-1, +1] before applying to the d6 target.
     "simulator.modifier_cap_plus_minus_one",
+    # 10e core Charge phase: Heroic Intervention is a FREE core ability
+    # for CHARACTER models (not a stratagem). After an opposing charge
+    # resolves, every friendly CHARACTER within 6" of the charger may
+    # make a normal move of up to 6" (3" if WALKER) ending in engagement
+    # range. Implemented in `Battle._do_heroic_intervention` and fired
+    # unconditionally after each successful charge in `_do_charge`.
+    # Replaces the iter-0 1 CP `HEROIC_INTERVENTION` stratagem entry
+    # which was deleted in #iter12 per the 10e rulebook.
+    "simulator.heroic_intervention_core",
 )
 
 
