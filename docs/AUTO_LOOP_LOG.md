@@ -614,3 +614,27 @@ All 5 KEEPers landed on carryover. DG dispatch DEFERRED (MC bisection territory)
 - DG — MC bisection on Plague Marines + Bloat-Drones + Plagueburst Crawler points.
 - Cross-faction variance regressions on Marines/Necrons/Orks/T'au/DG (small drifts ~3-5pt each).
 - Marines damage-per-pt finding from iter 15 still pending MC bisection.
+
+## Loop pivot — eval budget 1000pt -> 2000pt (2026-05-17)
+
+User directive: raise eval budget to match real tournament play. Result: archetype templates calibrated for 1000pt no longer fit the budget properly — random_fill topup at 2000pt adds high-impact bricks the templates didn't constrain.
+
+**2000pt baseline (N=40 archetype, post-iter-17 carryover at 526c148)**:
+
+```
+Adeptus Astartes  72.8 / 48.0 / +24.8  ← apex outlier (was +4.8 at 1000pt)
+Necrons           66.1 / 53.2 / +12.9
+Aeldari           41.7 / 44.4 / -2.7  ✅
+Tyranids          32.5 / 48.0 / -15.5  (FLIPPED from +5.6 at 1000pt)
+Orks              48.1 / 44.9 / +3.2  ✅
+T'au Empire       68.6 / 54.5 / +14.1
+Death Guard       72.5 / 48.0 / +24.5  (MC bisection confirmed)
+Adeptus Custodes  46.1 / 48.0 / -1.9  ✅
+Thousand Sons     31.7 / 54.6 / -22.9  (structural — Magnus still bottlenecked even at 2000pt)
+Leagues of Votann 53.1 / 46.0 / +7.1
+MAE vs real meta: 12.96 pts (was 8.25 at 1000pt)
+```
+
+Most templates encode unit counts for 1000pt eval. At 2000pt, the seed slice doubles (e.g. Custodes 0.55 * 2000 = 1100pt seeded) but the count-multipliers don't scale up automatically — `_random_fill` then loads cheap high-WR units on top, inflating the strong factions (Marines, DG, T'au, Necrons) and crushing the weak ones (Tyranids, TSON).
+
+**Iter 18 measures against 2000pt archetype baseline (MAE 12.96).**

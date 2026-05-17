@@ -86,8 +86,8 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False) -
                 ai, bi = fac_idx[a_fac], fac_idx[b_fac]
                 pair_seed = (ai * 1000 + bi) * 100 + s
                 random.seed(pair_seed)
-                a = build_faction_random_army("A", a_fac, 1000, rng=random.Random(s), use_archetype=use_archetype)
-                b = build_faction_random_army("B", b_fac, 1000, rng=random.Random(s + 10000), use_archetype=use_archetype)
+                a = build_faction_random_army("A", a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype)
+                b = build_faction_random_army("B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype)
                 if not a.units or not b.units:
                     continue
                 r = Battle(a, b, map_=DEFAULT_MAP, rules=rules).run()
