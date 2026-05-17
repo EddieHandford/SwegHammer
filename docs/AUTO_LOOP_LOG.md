@@ -427,3 +427,45 @@ Both worth re-salvaging in iter 15 — contains DG `iter14_dg_cp_util.py` diag +
 - TSON −11.0pt is now the dominant outlier — TSON durability fix surfaced All-Is-Dust under-model but the detachment-rule approximation is still army-wide, not Rubricae-gated.
 - Marines +11.7pt held — F4 #179 random_fill safeguard active but Oath + Doctrines still bites; investigate counter-tools.
 
+### Iter 15 closure (2026-05-17)
+
+Remaining 4 agents reported. Full iter 15 batch summary:
+
+**Agents reported**:
+- DG fabricated FNP removal (`3e8d450`) — covered above. Solo −0.16. KEPT.
+- Marines OC squad-sizing diag (`1a8a700`) — ABSTAINED per brief. Hypothesis (a) FALSIFIED: Marines field the LOWEST total OC (28.8/army) of any major faction. Real cause: damage-per-pt = 0.0768 vs other-faction avg 0.0635 (+20.8%). Flagged for MC bisection. KEPT as diag.
+- Aeldari Warhost archetype unpark (`c4ced18` cherry-pick of `879daf6`) + Yvraine/Yncarne abilities (`c35790e`) — agent corrected my brief's outdated 9th-ed Soulburst wording. 10e Strength From Death is the Devoted of Ynnead DETACHMENT rule, not the army rule. Implemented Yvraine "Word of the Phoenix" (revive_destroyed_per_round=2) + Yncarne "Ethereal Form" (heal_per_round=2 + plus_one_to_hit). MAE unchanged because `evaluate_vs_meta` only picks faction="Aeldari", not "Ynnari" subfaction. KEPT (correctness).
+- TSON Rubricae Phalanx detachment (`8c0f2fa`) — new detachment with proper 10e All Is Dust gate, 6 stratagems (4 wired). Default detachment swap `grand_coven` → `rubricae_phalanx`. Solo −0.05. KEPT.
+- Custodes FNP filter (`4b355e2`) — **PARKED**. Agent confirmed LOS+ablative already in `code/army.py::can_target_for_ranged`. FNP filter alone REGRESSED MAE 5.20 → 5.91 (+0.71). **Unpark when**: MC bisection recalibrates points.
+
+**Cumulative iter 15 (5-fix bundle, Custodes parked)**: MAE **5.20 → 5.13pt** (Δ **−0.07pt**). MAE-vs-Sweg 6.58 → 6.44pt. Rule citations 200 → 208. Tests 767/771 → **771/771** (pre-existing `test_archetype_fallback_when_no_curated` failure resolved as side-effect of TSON archetype rebuild).
+
+**Per-faction shifts (post-iter-14 → post-iter-15)**:
+- Marines +10.9 → +11.7 (variance)
+- Necrons +6.8 → +6.2 (held)
+- Aeldari **−1.9 → −1.1** (+0.8 mostly variance; Yvraine/Yncarne fire only in archetype builds)
+- Tyranids −0.2 → +0.3 (held)
+- Orks **−4.9 → −3.5** (+1.4 — DG fabrication removal eased Orks' phantom-FNP punishment)
+- T'au +0.8 → +2.2 (slight regress)
+- DG +6.7 → +7.0 (slight regress, cross-faction)
+- Custodes +4.5 → +3.7 (variance)
+- TSON −11.0 → −11.5 (held within noise)
+- Votann −4.3 → −4.1 (held)
+
+**Loop progress since resume**:
+- iter 7 floor: 5.14pt
+- iter 8-11 (rule corrections surfaced fabrications): 6.45pt transient peak
+- iter 12: 6.00pt
+- iter 13: 5.38pt
+- iter 14: 5.20pt
+- iter 15: **5.13pt**
+- Target: <2.0pt
+- Remaining gap: ~3.1pt — mostly points-calibration territory. MC bisection (Plan Step 4) is the next major lever.
+
+**Iter 16+ priorities**:
+- **MC bisection (Plan Step 4)** — long overdue. Remaining ~3pt is almost entirely points-calibration. Marines profile slice first per iter-15 diag recommendation.
+- Magnus-centric TSON template variant.
+- Aeldari Ynnari subfaction inclusion in `build_faction_random_army` so Yvraine/Yncarne register in eval.
+- Re-evaluate parked Custodes FNP filter post-MC-bisection.
+- Standing parity gaps: CSM Pactbound 6 stratagems, Sororitas Miracle Dice, GK Brotherhood Psychic, IK Code Chivalric+LANCE, Chaos Daemons Shadow of Chaos, WE Blood Tithe spend menu.
+
