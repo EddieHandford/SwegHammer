@@ -438,13 +438,46 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Leagues of Votann": {
+        # Oathband — generic codex stub; closest real detachment is Hearthband
+        # / Brandfast Oathband. May 2026 Goonhammer "Leagues of Votann
+        # Oathband Detachment Focus" (https://www.goonhammer.com/) + Frontline
+        # / Stat Check meta lists converge on:
+        #   - 1 Kâhl (warlord CHARACTER, Warrior-Forged Leadership wired in
+        #     code/leaders.py: +1-to-hit aura attaches to Hearthkyn).
+        #   - 1 Einhyr Champion (joins Einhyr Hearthguard for melee bomb).
+        #   - 2-3 Hearthkyn Warriors squads (BATTLELINE spine, count=2 here
+        #     even though squad cost = 9 × 90pt = 810pt overflows the seed
+        #     budget — the (-count,-cost) walk sees it first and skips, but
+        #     `_random_fill` then picks Hearthkyn back up as same-faction
+        #     fill so the spine still lands in the final army).
+        #   - 1 Einhyr Hearthguard (elite melee, T5 sv2+ — fits seed).
+        #   - 1 Hekaton Land Fortress (flagship VEHICLE: T12 sv2+ 16HP,
+        #     S18 AP-4 7.5 dam/shot, devastating wounds — single biggest
+        #     anti-tank pillar of the list, mandatory inclusion for iter17
+        #     fix to recover Votann sim from -11.6pt iter16 regression).
+        #   - 1 Sagitaur (light transport, supports Hearthkyn deployment).
+        #   - 1 Hernkyn Pioneers (objective scout, scout 9").
+        #   - 1 Brôkhyr Iron Master (cheap CHARACTER + Thunderkyn buddy).
+        #   - 1 Cthonian Berzerks (melee secondary — count=1 keeps the
+        #     template real-meta-shaped without crowding the seed).
+        #
+        # SEED_FRACTION_BY_FACTION["Leagues of Votann"] = 0.4 (below) lifts
+        # the seed budget from 300pt → 400pt at 1000pt eval so the Hekaton
+        # (101.25pt squad) lands in the seed alongside Hearthguard + Sagitaur
+        # rather than being deferred to random_fill (which historically picked
+        # cheaper Brôkhyr Thunderkyn / Yaegirs over the flagship vehicle).
+        #
+        # Reference: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         "Oathband": {
             "leagues_of_votann_hearthkyn_warriors": 2,
             "leagues_of_votann_einhyr_hearthguard": 1,
+            "leagues_of_votann_hekaton_land_fortress": 1,
+            "leagues_of_votann_sagitaur": 1,
+            "leagues_of_votann_k_hl": 1,
+            "leagues_of_votann_einhyr_champion": 1,
             "leagues_of_votann_hernkyn_pioneers": 1,
             "leagues_of_votann_cthonian_beserks": 1,
             "leagues_of_votann_br_khyr_iron_master": 1,
-            "leagues_of_votann_sagitaur": 1,
         },
     },
     "Drukhari": {
@@ -501,13 +534,29 @@ SEED_FRACTION: float = 0.3
 # budget) cannot fit even ONE flagship squad, leaving the army to be filled
 # by off-flavour random_fill picks. Raise the slice for those factions only.
 #
-# Currently empty: iter16 experimented with a 0.5 / 0.75 slice for Thousand
-# Sons (to seed Ahriman + Scarab Occult Terminators) but both regressed sim
-# WR vs iter15's 0.3 default (35.5% → 28.6% at 0.75). The Scarab Occult
-# chassis costs more pts than it contributes in damage-per-round under the
-# current combat model at 1000pt eval. iter16's actual TSON win is the
-# RUBRICAE-keyword detachment picker affinity (code/detachments.py).
-SEED_FRACTION_BY_FACTION: Dict[str, float] = {}
+# iter16 experimented with a 0.5 / 0.75 slice for Thousand Sons (to seed
+# Ahriman + Scarab Occult Terminators) but both regressed sim WR vs iter15's
+# 0.3 default (35.5% → 28.6% at 0.75). The Scarab Occult chassis costs more
+# pts than it contributes in damage-per-round under the current combat model
+# at 1000pt eval. iter16's actual TSON win is the RUBRICAE-keyword detachment
+# picker affinity (code/detachments.py).
+#
+# iter17: Leagues of Votann bumped to 0.4 so the Hekaton Land Fortress
+# (101.25pt squad) lands in the seed alongside Hearthguard (135pt) +
+# Sagitaur (103.5pt). At default 0.3 (300pt seed) the (-count,-cost) walk
+# fits Hearthguard + Sagitaur (238.5pt) then has 61.5pt headroom and skips
+# every count=1 entry priced 65pt+ except via the CHARACTER fallback (which
+# pulls Kâhl at 65pt). Hekaton never lands in seed and `_random_fill` rarely
+# picks it (random_fill is uniform over the same-faction pool; Hekaton's
+# 101pt squad cost competes with cheap Thunderkyn @ 33pt or Yaegirs @ 60pt).
+# Bumping to 0.4 (400pt seed) gives 401.5pt headroom — Hearthguard + Sagitaur
+# + Hekaton (339.75pt) fit cleanly, then CHARACTER fallback pulls Kâhl (65pt
+# CHARACTER) on top of that → 404.75pt seeded, well inside the 1.5x
+# overflow cap. Goal: lift iter16 Votann sim 34.4% → 44-50% (-11.6pt → ≤±5pt
+# vs real 46.0%).
+SEED_FRACTION_BY_FACTION: Dict[str, float] = {
+    "Leagues of Votann": 0.4,
+}
 
 
 def _instantiate_template(
