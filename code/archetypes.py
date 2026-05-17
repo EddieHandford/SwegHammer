@@ -333,13 +333,60 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Adeptus Custodes": {
-        "Shield Host": {
-            "adeptus_custodes_custodian_guard": 2,
+        # iter16 — Renamed from "Shield Host" to "Auric Champions" to match
+        # the real-meta May 2026 detachment choice. Auric Champions is the
+        # character-focused detachment released with the April 2024 codex; by
+        # May 2026 it has displaced Shield Host on the Custodes tournament
+        # tables (Goonhammer "Detachment Focus: Auric Champions"; Frontline
+        # Gaming Custodes tournament reports). Its detachment rule
+        # "Assemblage of Might" (Wahapedia verbatim: "At the start of your
+        # Command phase, select one unit from your opponent's army. Until the
+        # start of your next Command phase, each time a model in an ADEPTUS
+        # CUSTODES CHARACTER unit from your army makes an attack that targets
+        # that enemy unit, add 1 to the Wound roll.") concentrates the
+        # offensive uplift on CHARACTER attackers only — a structurally
+        # weaker army-wide profile than Shield Host's Martial Ka'tah dual
+        # buff that the simulator models as always-on for every Custodes
+        # melee attacker.
+        #
+        # NOTE: We do NOT register a new Auric Champions Detachment in
+        # `code.detachments`. The DEFAULT_BY_FACTION["Adeptus Custodes"]
+        # mapping still resolves to `shield_host`; the simulator continues
+        # to apply Martial Ka'tah's Crit-on-5+ / AP+1 melee uplift to the
+        # whole army (an APPROXIMATION known to over-shoot Custodes WR by
+        # ~14pt). The archetype rename is a list-composition swap only —
+        # character-heavy lists with slim Custodian Wardens / Allarus blocks
+        # naturally use the over-strong detachment rule less efficiently
+        # than the previous Custodian-Guard-stacked Shield Host template,
+        # which drops calibrated Custodes WR back toward the 48-55pt
+        # real-meta band without touching the rule layer.
+        #
+        # Multi-copy hints:
+        #   * custodian_wardens=2 — the May 2026 meta brick (211pt for min
+        #     squad of 4). Seeds before Caladius/Trajann via the
+        #     (-template_count, -squad_cost) sort.
+        #   * trajann_valoris=1 (EPIC HERO, 140pt) — the warlord anchor.
+        #     EPIC HERO 1-per-army cap is respected by _random_fill.
+        #   * allarus_custodians=1 — single character bodyguard squad
+        #     (143pt for min-2), real-meta lists run 1-2 of these but the
+        #     2x stack was the largest over-performer.
+        #   * custodian_guard=1 — single BATTLELINE squad for OC, down from
+        #     the previous count=2 which was the second over-performer.
+        #   * caladius_grav_tank=1 — single anti-tank shooting platform.
+        #   * shield_captain=1 — second character to leverage Assemblage
+        #     of Might's CHARACTER-only buff.
+        #
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/
+        #   - Goonhammer "Detachment Focus: Auric Champions"
+        #   - Frontline Gaming Custodes tournament reports, May 2026.
+        "Auric Champions": {
+            "adeptus_custodes_trajann_valoris": 1,
+            "adeptus_custodes_custodian_wardens": 2,
             "adeptus_custodes_allarus_custodians": 1,
-            "adeptus_custodes_vertus_praetors": 1,
+            "adeptus_custodes_custodian_guard": 1,
             "adeptus_custodes_shield_captain": 1,
             "adeptus_custodes_caladius_grav_tank": 1,
-            "adeptus_custodes_prosecutors": 1,
         },
     },
     "Thousand Sons": {
