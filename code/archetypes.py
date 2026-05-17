@@ -192,29 +192,64 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "T'au Empire": {
-        # Kauyon-style battlesuit-heavy list. The May 2026 real meta T'au lists
-        # (Warp Friends weekly, Goonhammer top tables) revolve around Crisis
-        # suits + Riptide + Broadsides + occasional Stormsurge — markerlight
-        # infantry and Pathfinders are support, not the spine. The previous
-        # template seeded only Strike/Breacher/Pathfinder + one Crisis, which
-        # made calibrated T'au lists shoot like a Fire Warrior army (~ -4.9pt
-        # under-perform). Task #174.
+        # iter16 — Renamed from "Kauyon" to "Mont'ka" to match the real-meta
+        # detachment name (T'au's `DEFAULT_BY_FACTION['T'au Empire'] = 'montka'`
+        # in code/detachments.py); the previous label was a misnomer (Kauyon
+        # and Mont'ka are the two halves of the canonical "patient ambush /
+        # killing blow" T'au doctrine pair — Mont'ka is the rounds-1-3
+        # aggressive-firepower detachment SwegHammer actually fields).
         #
-        # Multi-copy entries here are deliberate: with the post-G5 anchor-first
-        # sort (-template_count, -squad_cost), Crisis Fireknife (c=3) and
-        # Sunforge (c=2) seed before single-copy entries, ensuring the army
-        # spine is battlesuit-dominated even at the 30%-of-budget seed slice.
-        "Kauyon": {
-            "t_au_empire_crisis_fireknife_battlesuits": 3,
+        # The May 2026 real meta T'au Mont'ka lists revolve around Riptide /
+        # Triptide + Hammerhead Gunships + Broadsides + Crisis suits +
+        # Strike-Team / Pathfinder Markerlight infantry. Sources:
+        #   - Goonhammer "Competitive Innovations in 10th: Mont'ka Mash"
+        #     parts 1-3 (https://www.goonhammer.com/competitive-innovations-
+        #     in-10th-montka-mash-pt-1/): "the Mont'ka list brings back the
+        #     Ion Hammerhead. These, coupled with Riptides, give you a lot of
+        #     anti-marine body shooting"; Chase Campbell 3rd with Hammerhead+
+        #     Riptide; Max Persson with Triptide; Jan-Hagen Rath Breacherfish/
+        #     Triptide; Maksim Kravchenko Commander Farsight + Enforcer +
+        #     Twin Lance + Broadsides.
+        #   - Goonhammer "Competitive Innovations: T'au Take Over pt.2".
+        #   - Frontline Gaming T'au tournament reports (Mont'ka archetype).
+        #
+        # iter16 brief diagnosed: sim 33.4% vs real 54.5% (-21.1pt). The
+        # previous "Kauyon" template seeded Crisis-heavy + Riptide(c=1) but
+        # MISSED THREE THINGS:
+        #   (a) Riptide should be the headline anchor. Real Mont'ka builds
+        #       run 2-3 Riptides ("Triptide"). Bumped to count=3 so the
+        #       (-count,-cost) sort puts it at the very top of the seed walk
+        #       and a Riptide always seeds at the 600pt slice (200pt fits).
+        #   (b) Hammerhead Gunship was absent. Real meta May 2026 universally
+        #       pairs Riptides with Ion / Railhead Hammerheads. count=2 so
+        #       Hammerhead seeds at 145pt before lower-priority c=1 anchors.
+        #   (c) Markerlight infantry seeding was rare. Pathfinder + Strike
+        #       Team only seeded sometimes because they were c=1 at the tail
+        #       of the walk; with the iter3 wiring of MONTKA.lethal_hits_on_
+        #       guided, the chain DOES NOT FIRE without an alive MARKERLIGHT
+        #       carrier in the army. Empirical N=10 seed sampling showed 5/10
+        #       seeds with ZERO MARKERLIGHT units. Bumped Pathfinder Team and
+        #       Strike Team to count=2 so both seed reliably (Strike Team is
+        #       also the army's primary BATTLELINE chassis for OC).
+        #
+        # Companion overrides (data/overrides.json) for iter16 add the
+        # MARKERLIGHT unit keyword to Strike Team, Breacher Team, and Sky Ray
+        # Gunship — real 10e datasheets carry MARKERLIGHT on the unit keyword
+        # line, but BSData encodes Markerlight on the weapon row only. Without
+        # those overrides Strike-Team-anchored markerlight saturation would
+        # still fail. Source: Wahapedia datasheet keyword lines.
+        "Mont'ka": {
+            "t_au_empire_riptide_battlesuit": 3,
+            "t_au_empire_hammerhead_gunship": 2,
+            "t_au_empire_crisis_fireknife_battlesuits": 2,
             "t_au_empire_crisis_sunforge_battlesuits": 2,
             "t_au_empire_broadside_battlesuits": 2,
-            "t_au_empire_riptide_battlesuit": 1,
+            "t_au_empire_pathfinder_team": 2,
+            "t_au_empire_strike_team": 2,
+            "t_au_empire_commander_in_enforcer_battlesuit": 1,
             "t_au_empire_stormsurge": 1,
             "t_au_empire_ghostkeel_battlesuit": 1,
             "t_au_empire_stealth_battlesuits": 1,
-            "t_au_empire_commander_in_enforcer_battlesuit": 1,
-            "t_au_empire_pathfinder_team": 1,
-            "t_au_empire_strike_team": 1,
             "t_au_empire_devilfish": 1,
         },
     },
