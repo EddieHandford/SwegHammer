@@ -26,12 +26,16 @@ Headline calibration metric:
 - **MAE 7.01 pts at N=200** — the true number; N=30 readings have ~3pt noise.
 - Persistent residual outliers at N=200: Necrons -15.2, Aeldari +13.9, TSON
   -11.6, T'au +10.3.
-- **Blocker**: `UnitProfile.points_cost` currently returns a Lanchester-
+- ~~**Blocker**: `UnitProfile.points_cost` currently returns a Lanchester-
   derived score rather than the GW per-model cost from `points_per_squad /
-  min_models`. Until this is fixed (Eddie's TODO, see PROJECT.tex), every
-  sim-side army budget runs in wrong-currency. Equilibrium pipeline + Compare
-  view already use GW costs correctly; calibration work below the fix is
-  signal-correct but anchored to bad baselines.
+  min_models`.~~ Resolved across commits `a0d7702` (property now prefers
+  GW canonical), `c084ba0` (squad-size extraction for shape-c units), and
+  the 2026-05-17 branch `claude/fixinfequivexplorer` (leader-plus-body and
+  cost-tier-implicit squad-size shapes; stale `points_override` entries
+  removed). Equilibrium pipeline, Compare view, and the army builder all
+  now run in GW per-model currency. Sweg-balancer overrides that were
+  anchored to the old (wrong) per-model basis were dropped — re-running
+  the balancer will repopulate them.
 - Measured by `python -m scripts.evaluate_vs_meta` (or
   `--battles 200` for the honest reading).
 
@@ -193,17 +197,18 @@ methodology is the long-term calibration loop.
 - `code/compare_view.py` + Compare tab in `app.py` — drill into per-unit
   mispricing across phases.
 
-**Blocker.** `UnitProfile.points_cost` returns a Lanchester-derived score,
-not GW per-model cost. Every sim-side army budget is wrong-currency until
-Ed lands the points-per-model import fix flagged in PROJECT.tex `\eddie`
-TODO. Sweg-balancer outputs (and the 10-unit overrides shipped in `5d28049`)
-will need re-anchoring once the cost basis is correct.
+**Blocker** ~~`UnitProfile.points_cost` returns a Lanchester-derived score,
+not GW per-model cost.~~ Resolved — see the Status header above. Stale
+Sweg-balancer `points_override` entries (Crisis Fireknife / Sunforge,
+Deathshroud, Plague Marines, Rubric Marines, Scarab Occult Terminators,
+Hearthkyn Warriors) calibrated against the pre-fix model counts were
+dropped from `overrides.json` on 2026-05-17 and need re-running.
 
 **What's next.**
 
-- Wait for Ed's points-per-model import fix.
-- After fix: re-run Sweg-balancer MC + cross-validate vs Phase 5 — should
-  converge to many fewer disagreements when the baseline is right.
+- Re-run Sweg-balancer MC against the corrected GW per-model baseline and
+  cross-validate vs Phase 5 — should converge to many fewer disagreements
+  now that the cost basis is right.
 - Iterative MC passes per-faction to converge MAE; each pass capped at
   25% per unit, full catalogue sweep target.
 
@@ -232,9 +237,9 @@ Weights calibrated by 5-level grid search on 9 anchors.
 - `code/strategy.py` — exercises speed / scout / objective value in
   the balancer.
 
-**What's next.** Widen the anchor set; re-enable `w_deep_strike` after Ed
-fixes the points-per-model import (the anchor's GW cost matters for grid
-search target).
+**What's next.** Widen the anchor set; re-enable `w_deep_strike` — the
+points-per-model import is now resolved (see Status), so the anchor's GW
+cost can be trusted for the grid-search target.
 
 ---
 
@@ -273,13 +278,17 @@ run on top of. Retained as a historical record.
 
 ## Future Considerations
 
-### Points-per-model import fix (Eddie)
+### ~~Points-per-model import fix (Eddie)~~ — closed 2026-05-17
 
 Per Ed's TODO in PROJECT.tex (commit `a0d7702`): the BSData → UnitProfile
-pipeline reads `points_per_squad` correctly but `points_cost` returns a
-Lanchester-derived score, so all sim-side army budgets are wrong-currency.
-This is the bottleneck blocking the next calibration iteration. Ed has
-claimed this task; Claude work pauses cost-anchored changes until it lands.
+pipeline read `points_per_squad` correctly but `points_cost` returned a
+Lanchester-derived score, so all sim-side army budgets were wrong-currency.
+Resolved in three passes — `a0d7702` made the property prefer GW canonical;
+`c084ba0` and the 2026-05-17 mapper-shape fixes (branch
+`claude/fixinfequivexplorer`) corrected `min_models` extraction for the
+shape-c, leader-plus-body, and cost-tier-implicit squad encodings; stale
+balancer overrides anchored to the old basis were dropped. See PROJECT.tex
+"Points-per-model cost is imported wrong" item for the per-pass history.
 
 ### Faction-level balance
 

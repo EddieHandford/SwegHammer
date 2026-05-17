@@ -54,6 +54,13 @@ The catalogue is derived from BSData's WH40k 10th-edition data files. There are
   right weapon for the right target in-game, but the scaled-down attack count
   prevents this from recovering the all-best cheese. Single-model units fall
   back to the legacy "best legal weapon in the tree" path.
+  Squad **size** itself is extracted by `extract_squad_size`, which covers
+  four BSData encoding shapes — outer `selectionEntryGroup` with explicit
+  `selections` constraints, direct `selectionEntry type="model"` children on
+  the unit (Aeldari shape), per-model `scope="parent"` constraints summed
+  (Tomb Blades shape), and implicit-via-cost-tier (Jakhals, Neurogaunts).
+  See `tests/test_mapper.py::SquadSizeShapeRegressionTests` for one pinned
+  victim per shape.
 - `data/overrides.json` — per-unit hand tuning. Any field listed here overrides
   the BSData base. Entries without a corresponding BSData entry become
   fully hand-rolled units.
