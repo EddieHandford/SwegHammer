@@ -76,12 +76,38 @@
       "points_override": 59.94,
       "invuln_save": 5,
       "range_inches": 24,
-      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model | Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
+      "unit_keywords": ["PSYKER", "INFANTRY", "BATTLELINE", "RUBRICAE"],
+      "notes": "sweg_balance_mc down 66.6 -> 59.94 pts/model | Rubric Marines: 5++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). | iter14: added RUBRICAE unit keyword so the simulator.all_is_dust gate (Rubricae Phalanx detachment rule, '+1 to armour save vs unmodified Damage 1 attacks on RUBRICAE models') can fire only on the canonically-correct subset. BSData parser does not extract sub-faction unit keywords. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Rubric-Marines.html (Keywords: INFANTRY, BATTLELINE, CHAOS, TZEENTCH, RUBRICAE, RUBRIC MARINES)."
     },
     "thousand_sons_scarab_occult_terminators": {
       "points_override": 98.98,
       "invuln_save": 4,
-      "notes": "sweg_balance_mc down 109.98 -> 98.98 pts/model | Scarab Occult Terminators: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Scarab-Occult-Terminators"
+      "unit_keywords": ["PSYKER", "INFANTRY", "TERMINATOR", "RUBRICAE"],
+      "notes": "sweg_balance_mc down 109.98 -> 98.98 pts/model | Scarab Occult Terminators: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Scarab-Occult-Terminators | iter14: added RUBRICAE + TERMINATOR unit keywords; RUBRICAE feeds simulator.all_is_dust (Rubricae Phalanx +1 save vs D1) and the unit's datasheet Rites of Coalescence (-1 to wound while a PSYKER is present) is read via the PSYKER keyword in simulator.rites_of_coalescence. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Scarab-Occult-Terminators.html (Keywords: INFANTRY, TERMINATOR, CHAOS, TZEENTCH, RUBRICAE, SCARAB OCCULT)."
+    },
+    "thousand_sons_sorcerer": {
+      "invuln_save": 5,
+      "notes": "Sorcerer: 5++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer.html (Save 3+ / Invulnerable Save 5+ / T4 / W4)."
+    },
+    "thousand_sons_sorcerer_in_terminator_armour": {
+      "invuln_save": 4,
+      "notes": "Sorcerer in Terminator Armour: 4++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour.html (Save 2+ / Invulnerable Save 4+ / T5 / W5)."
+    },
+    "thousand_sons_pink_horrors": {
+      "invuln_save": 4,
+      "notes": "Pink Horrors: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink for Daemon datasheets. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Pink-Horrors.html (Save 7+ / Invulnerable Save 4+ / T3 / W1)."
+    },
+    "thousand_sons_blue_horrors": {
+      "invuln_save": 4,
+      "notes": "Blue Horrors: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Blue-Horrors.html (Save 7+ / Invulnerable Save 4+ / T3 / W1)."
+    },
+    "thousand_sons_flamers": {
+      "invuln_save": 4,
+      "notes": "Flamers: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Flamers.html (Save 7+ / Invulnerable Save 4+ / T4 / W3)."
+    },
+    "thousand_sons_screamers": {
+      "invuln_save": 4,
+      "notes": "Screamers: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Screamers.html (Save 6+ / Invulnerable Save 4+ / T4 / W3)."
     },
     "thousand_sons_magnus_the_red": {
       "invuln_save": 4,

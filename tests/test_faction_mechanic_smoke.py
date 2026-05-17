@@ -169,13 +169,15 @@ def _plague_marine() -> UnitProfile:
 
 
 def _rubric_marine() -> UnitProfile:
-    """Thousand Sons defender — All Is Dust target."""
+    """Thousand Sons defender — All Is Dust target. iter14: RUBRICAE
+    keyword required to trigger the Rubricae Phalanx +1-save-vs-D1 rule."""
     return UnitProfile(
-        name="Rubric Marine", faction="Thousand Sons",
+        name="Rubric Marines", faction="Thousand Sons",
         health=2, damage=1, hit_probability=2 / 3,
-        ap=0, save=3, strength=4, toughness=4,
+        ap=0, save=3, invuln_save=5, strength=4, toughness=4,
         attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
-        leadership=7, unit_keywords=("PSYKER", "INFANTRY"),
+        leadership=7,
+        unit_keywords=("PSYKER", "INFANTRY", "BATTLELINE", "RUBRICAE"),
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
     )
@@ -500,9 +502,15 @@ class FactionMechanicSmokeTests(unittest.TestCase):
     # ----- Thousand Sons -----------------------------------------------
 
     def test_thousand_sons_all_is_dust_minus_1_to_wound(self):
-        """A D1 attacker into a TSons defender lands fewer wounds than the
-        same shot into a vanilla Marine — All Is Dust subtracts 1 from the
-        wound roll on D1 attacks. Cites: simulator.all_is_dust."""
+        """A D1 attacker into a TSons RUBRICAE defender lands fewer wounds
+        than the same shot into a vanilla Marine — iter14 updated the
+        simulator's All Is Dust gate to the current 10e Rubricae Phalanx
+        detachment rule ('+1 to armour save vs unmodified Damage 1
+        attacks on RUBRICAE models'), so the effect now reads at the
+        save layer instead of the wound layer. The test name is preserved
+        for git-history continuity; the asserted behaviour (less damage
+        taken vs the non-TSON control) is unchanged. Cites:
+        simulator.all_is_dust."""
         def _wound_rate(defender_profile, seed):
             random.seed(seed)
             atk_army = Army("Atk")

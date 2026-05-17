@@ -805,18 +805,58 @@ class Unit:
                 if waaagh_round is not None and waaagh_round == cur_round:
                     wound_mod_delta += 1
 
-        # ---- Thousand Sons "All Is Dust" (army rule, 10e). Subtract 1 from
-        # the wound roll when a Damage-1 attack is allocated to a non-daemon
-        # TSons unit (Rubric Marines, Scarab Occult Terminators, etc.). The
-        # DAEMON exclusion keeps Tzaangors / Pink Horrors / Spawn from
-        # benefiting. This contributes -1 to wound_mod_delta; it composes
-        # with attacker +1 to wound under the ±1 cap (a single-damage attack
-        # with a single +1 attacker buff plus All Is Dust nets to 0).
-        # Cited as `simulator.all_is_dust`.
-        if (
+        # ---- Thousand Sons "All Is Dust" (Rubricae Phalanx detachment rule,
+        # 10e current codex). Wahapedia verbatim: "Each time an attack with
+        # an unmodified Damage characteristic of 1 is allocated to a RUBRICAE
+        # model from your army, add 1 to any armour saving throw made against
+        # that attack." Applied as a +1 to the target's armour save when the
+        # incoming attack has weapon_damage_per_shot == 1 AND the defender
+        # carries the RUBRICAE unit-keyword (Rubric Marines, Scarab Occult
+        # Terminators — both have RUBRICAE set via data/overrides.json since
+        # BSData's mapper does not extract sub-faction keywords).
+        # APPROXIMATIONs vs the codex text, both documented in
+        # `simulator.all_is_dust`:
+        #   1. The save buff applies regardless of which TSON detachment the
+        #      army actually picked. SwegHammer only models the Grand Coven
+        #      detachment for Thousand Sons today; full Rubricae Phalanx
+        #      detachment selection is deferred. Always-firing the buff
+        #      keeps competitive Rubric/Scarab Occult lists durable enough
+        #      to match the real-meta TSON win-rate.
+        #   2. The codex says "unmodified Damage 1". SwegHammer reads the
+        #      per-shot weapon damage AFTER Melta range bonuses have been
+        #      composed (Melta is a +damage range modifier; the only
+        #      "modifier to damage" in 10e). The two reconverge in the
+        #      common case — a D1 bolter never picks up Melta — but a
+        #      D1 Melta weapon (very rare in 10e) would lose the save buff
+        #      under our reading even if the codex would keep it.
+        # The save buff stacks at the save-modifier layer rather than the
+        # wound-modifier layer used by the prior implementation (which
+        # incorrectly modelled All Is Dust as a -1 to wound; that was the
+        # 10e launch-index datasheet ability, removed when the codex landed
+        # and replaced with the Rubricae Phalanx detachment +1 save rule).
+        # The new behaviour is applied below at the `save_after_ap` reduction
+        # step — see `_all_is_dust_save_buff` boolean computed here, consumed
+        # ~25 lines down where save_after_ap is finalised.
+        _all_is_dust_save_buff = (
             target.profile.faction == "Thousand Sons"
-            and per_shot_dmg <= 1.0
-            and "DAEMON" not in (target.profile.unit_keywords or ())
+            and per_shot_dmg == 1.0
+            and "RUBRICAE" in (target.profile.unit_keywords or ())
+        )
+
+        # ---- Thousand Sons "Rites of Coalescence" (Scarab Occult Terminators
+        # datasheet ability, 10e current codex). Wahapedia verbatim: "While
+        # this unit contains one or more PSYKER models, each time an attack
+        # targets this unit, subtract 1 from the Wound roll." The Aspiring
+        # Sorcerer is mandatory in a Scarab Occult squad and is the PSYKER
+        # carrier, so the buff is effectively always-on as long as the squad
+        # has at least one model left. We gate on profile name to be precise
+        # (the rule is unique to Scarab Occult Terminators — no other TSON
+        # datasheet carries it) plus the PSYKER unit-keyword as a sanity
+        # check that the squad still contains its Sorcerer. Cited as
+        # `simulator.rites_of_coalescence`.
+        if (
+            target.profile.name == "Scarab Occult Terminators"
+            and "PSYKER" in (target.profile.unit_keywords or ())
         ):
             wound_mod_delta -= 1
 
@@ -926,6 +966,13 @@ class Unit:
         # target unit for the round. Stacks with the army-wide flag above;
         # capped at 2+ either way.
         if target.transient_plus_one_save:
+            save_after_ap = max(2, save_after_ap - 1)
+        # All Is Dust (Rubricae Phalanx, see boolean computed in the
+        # wound-modifier block above). +1 to the armour save when the
+        # incoming attack is Damage 1 AND the defender carries the RUBRICAE
+        # keyword. Capped at 2+ same as every other save buff in this stack.
+        # Cited as `simulator.all_is_dust`.
+        if _all_is_dust_save_buff:
             save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
         # ---- Target's buffs: army-wide invuln. Only overrides if better

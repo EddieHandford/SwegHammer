@@ -3,10 +3,19 @@
 
   "simulator.all_is_dust": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
-    "rule_name": "All Is Dust",
-    "quoted_text": "Each time an attack with a Damage characteristic of 1 is allocated to a model in this unit, subtract 1 from the Wound roll.",
-    "trigger": "the unit being attacked has profile.faction == 'Thousand Sons' AND does NOT carry the DAEMON unit-keyword, AND the incoming attack's weapon_damage_per_shot <= 1.0",
-    "effect": "Increase the attacker's wound_target by 1 (capped at 7 — wound roll auto-fails). Stacks consistently with attacker-side +1 to wound buffs (e.g. detachment Outbreak of Pestilence) — a single-damage attack with a +1 to wound and a -1 from All Is Dust nets to the base wound target.",
+    "rule_name": "All Is Dust (Rubricae Phalanx detachment rule)",
+    "quoted_text": "Each time an attack with an unmodified Damage characteristic of 1 is allocated to a RUBRICAE model from your army, add 1 to any armour saving throw made against that attack.",
+    "trigger": "incoming attack has weapon_damage_per_shot == 1.0 AND the defender carries the RUBRICAE unit-keyword (Rubric Marines, Scarab Occult Terminators — both seeded via data/overrides.json since BSData's mapper does not extract sub-faction keywords)",
+    "effect": "Improve the defender's armour save by 1 at the save-modifier layer (capped at 2+). Replaces the iter-pre-14 implementation which read All Is Dust as a -1 to wound on D1 attacks for any non-DAEMON TSON unit; that was the 10e launch-index datasheet ability, removed when the codex landed and replaced with the Rubricae Phalanx detachment +1 save rule documented here. APPROXIMATION (1): the codex restricts All Is Dust to armies whose chosen detachment is Rubricae Phalanx; SwegHammer's TSON default detachment is grand_coven and Rubricae Phalanx is not in the registry, so we apply the +1 save buff unconditionally to RUBRICAE defenders regardless of detachment. APPROXIMATION (2): codex says 'unmodified Damage 1'; SwegHammer's per_shot_dmg has already absorbed Melta range bonuses (the only +damage modifier in 10e), so a D1 Melta weapon (very rare) would lose the buff under our reading.",
+    "scope": "keyword-gated"
+  },
+
+  "simulator.rites_of_coalescence": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Scarab-Occult-Terminators.html",
+    "rule_name": "Rites of Coalescence (Scarab Occult Terminators datasheet ability)",
+    "quoted_text": "While this unit contains one or more PSYKER models, each time an attack targets this unit, subtract 1 from the Wound roll.",
+    "trigger": "defender's profile.name == 'Scarab Occult Terminators' AND the defender carries the PSYKER unit-keyword (the Aspiring Sorcerer in the squad is mandatory and is the PSYKER carrier; the keyword check is a sanity gate that the squad still contains a PSYKER model — which is effectively always-on while the squad has at least one model left, since the Sorcerer dies last by default)",
+    "effect": "Apply -1 to the wound_mod_delta when this unit is the defender. Composes with the ±1 wound-modifier cap; if an attacker already enjoys +1 to wound (e.g. detachment buff or stratagem), Rites cancels it down to the base wound target. The buff fires on ANY damage characteristic (D1, D2, D3+) — distinct from All Is Dust which is D1-only — making Scarab Occult Terminators meaningfully more durable against heavy weapons than a vanilla 2+/4++ Terminator.",
     "scope": "keyword-gated"
   },
 

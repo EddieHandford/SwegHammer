@@ -166,10 +166,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # DG units themselves; the round-3+ -1 to hit doesn't compound with
     # other -1-to-hit modifiers (10e cap).
     "simulator.contagions_of_nurgle",
-    # Thousand Sons army rule (10e). -1 to wound on any single-damage
-    # attack allocated to a non-daemon TSons model (Rubric Marines,
-    # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
+    # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
+    # +1 to the armour save when an unmodified Damage-1 attack is allocated
+    # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer
+    # applies the buff regardless of which TSON detachment is active, since
+    # only Grand Coven is in the registry today. See
+    # data/rule_citations.d/thousand_sons.json#simulator.all_is_dust.
     "simulator.all_is_dust",
+    # Thousand Sons Scarab Occult Terminators datasheet ability (10e). -1
+    # to the wound roll on any attack targeting the unit while it contains
+    # a PSYKER model. The mandatory Aspiring Sorcerer is the PSYKER carrier
+    # so the buff is effectively always-on. See
+    # data/rule_citations.d/thousand_sons.json#simulator.rites_of_coalescence.
+    "simulator.rites_of_coalescence",
     # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
     # Shooting phase, each PSYKER attempts one of four Rituals via a
     # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData
