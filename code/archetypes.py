@@ -176,6 +176,34 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "leagues_of_votann_sagitaur": 1,
         },
     },
+    "Drukhari": {
+        # Skysplinter Assault — the flagship Drukhari detachment in 10e May
+        # 2026 meta. Doctrine is mounted-everything: every infantry block
+        # embarks in a Raider or Venom, deep-strike support from Mandrakes
+        # and Scourges, anti-tank from Ravager triples, melee killtile from
+        # Incubi + Lelith. Archon is the standard CHARACTER anchor; Lelith
+        # joins as the EPIC HERO option that leads a Wyches/Incubi bomb.
+        # Multi-copy entries (Raider=4, Kabalites=2, Wyches=2, Incubi=2,
+        # Venom=2) are deliberate — these are the spine of the archetype
+        # and the (-template_count, -squad_cost) sort guarantees they seed
+        # before single-copy support like the Cronos / Ravager.
+        #
+        # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
+        "Skysplinter Assault": {
+            "aeldari_drukhari_archon": 1,
+            "aeldari_drukhari_lelith_hesperax": 1,
+            "aeldari_drukhari_kabalite_warriors": 2,
+            "aeldari_drukhari_wyches": 2,
+            "aeldari_drukhari_incubi": 2,
+            "aeldari_drukhari_mandrakes": 1,
+            "aeldari_drukhari_reavers": 1,
+            "aeldari_drukhari_scourges_with_shardcarbines": 1,
+            "aeldari_drukhari_raider": 4,
+            "aeldari_drukhari_venom": 2,
+            "aeldari_drukhari_ravager": 1,
+            "aeldari_drukhari_cronos": 1,
+        },
+    },
 }
 
 
