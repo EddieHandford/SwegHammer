@@ -35,6 +35,7 @@ from .stratagems import (
     WAR_HORDE_STRATAGEMS,
     SHIELD_HOST_STRATAGEMS,
     OATHBAND_STRATAGEMS,
+    GLADIUS_STRATAGEMS,
 )
 
 
@@ -226,8 +227,14 @@ GLADIUS_TASK_FORCE = Detachment(
         "gated on this detachment's name + faction. Cited as "
         "`simulator.combat_doctrines`. The detachment dataclass intentionally "
         "carries no offensive flags — Doctrines is round-and-mode-gated, "
-        "not a static buff, so it can't be reduced to a single boolean field."
+        "not a static buff, so it can't be reduced to a single boolean field. "
+        "iter-12 fix: the six real Gladius detachment stratagems (Storm of "
+        "Fire, Armour of Contempt, Squad Tactics, Only In Death Does Duty "
+        "End, Honour the Chapter, Adaptive Strategy) are now attached via "
+        "`stratagems=GLADIUS_STRATAGEMS`, closing docs/AUDIT_PARITY.md fix "
+        "#1 (largest 0/6 gap)."
     ),
+    stratagems=GLADIUS_STRATAGEMS,
     preferred_composition="balanced",
 )
 

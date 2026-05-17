@@ -2706,6 +2706,122 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         return hp_frac > 0.2 and cost >= 80.0
 
+    # ----- Gladius Task Force (Adeptus Astartes) — six real strats (iter-12)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+    # Closes docs/AUDIT_PARITY.md fix #1 (largest 0/6 gap). Gates are
+    # tuned to typical Marine unit costs: a 95-pt Tactical Marine squad
+    # / 100-pt Intercessor sits at the bottom of the offensive bar; a
+    # 200-pt Land Raider / Repulsor sits at the top of the defensive bar.
+
+    if name == "Storm of Fire":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting approximation for [SUSTAINED HITS 1]. Fire when the
+        # Marine attacker has real ranged DPA AND target is HEAVY-class.
+        # Bar is 1.0 ranged-DPA (a 5-man Intercessor at 2A * 2/3 * 1D =
+        # 1.33 just clears; 5-man Tactical at 1A * 2/3 * 1 = 0.67 misses,
+        # which is intended — Tacticals shouldn't burn the 1 CP).
+        # Slightly looser than Mont'ka's Focused Fire (1.5) because
+        # Marine ranged profiles average lower per-model output.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0 and _is_heavy_target(target)
+
+    if name == "Armour of Contempt":
+        # ctx: {"target": Unit}. Defensive +1-save approximation. Fire on
+        # a wounded high-value Marine unit — same gate shape as
+        # Lightning-Fast Reactions / Unwavering Sentinels. Marine bricks
+        # (Terminators / Aggressors / Centurions) typically cost 80+ pts
+        # so the threshold passes for the units worth protecting.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Squad Tactics":
+        # ctx: {"attacker": Unit}. Repositioning approximation routed via
+        # [ASSAULT] proxy. Fire for any meaningfully-costed Marine
+        # INFANTRY attacker — extra move + shoot is broadly valuable at
+        # 1 CP. Gate at 80 pts (covers Intercessors / Hellblasters /
+        # Bladeguard) but not a stray 60-pt Scout squad.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0
+
+    if name == "Only In Death Does Duty End":
+        # ctx: {"target": Unit}. +1-to-wound-melee approximation for the
+        # "destroyed-model attacks first" effect. Fire on a wounded
+        # Marine unit — the codex gate is "model destroyed before
+        # attacking", which we proxy as "unit is taking damage". Cost
+        # gate prevents firing on Cultist-class chip targets.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.0 and cost >= 80.0
+
+    if name == "Honour the Chapter":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP for hit+wound
+        # reroll (we drop the wound-reroll leg). The premium spend; gate
+        # tighter than the 1-CP strats. Require real attacker DPA AND a
+        # HEAVY target so the CP cashes in. Same gate shape as
+        # Devastating Sorcery (Grand Coven) / Glory of the Hearth.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            dpa = (
+                (attacker.profile.attacks or 0)
+                * (attacker.profile.hit_probability or 0)
+                * (attacker.profile.per_shot_damage or 0.0)
+            ) + (
+                (attacker.profile.melee_attacks or 0)
+                * (attacker.profile.melee_hit_probability or 0)
+                * (attacker.profile.melee_damage_per_shot or 0.0)
+            )
+        except Exception:
+            dpa = 0.0
+        return dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Adaptive Strategy":
+        # ctx: {"attacker": Unit}. +1-to-wound-melee approximation for
+        # an off-doctrine per-unit override. Fire whenever the army has
+        # a meaningfully-costed Marine attacker — 1 CP, broadly useful
+        # (the per-unit Assault Doctrine flip is value in R1/R2 when
+        # the army is in Devastator/Tactical and a unit wants to swing).
+        # Same shape as Avenge the Fallen but no hp_frac gate (the codex
+        # effect fires at the START of the Command phase, no prior
+        # damage required).
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 

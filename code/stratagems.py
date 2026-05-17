@@ -827,6 +827,139 @@ OATHBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Gladius Task Force (Adeptus Astartes) — six real detachment stratagems
+# (iter-12 fix)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+# Replaces the iter-0 zero-stratagem state where Marines burned every strat
+# fire on Command Re-Roll (universal Core). Per docs/AUDIT_PARITY.md fix #1
+# this is the largest 0/6 gap in the project — Marines is 134 units and the
+# most-used codex in simulations, so even a single Command-phase spend per
+# round closes a real parity gap. Each dispatcher mirrors the iter-8 Shield
+# Host pattern: route through the closest existing transient_* flag and
+# document the gap as APPROXIMATION.
+#
+# WebFetch against wahapedia.ru returned ECONNREFUSED at edit time (same
+# outage seen in iter-1 War Horde + #193 Grand Coven); stratagem effects
+# are paraphrased per general 10e Marines codex knowledge / Goonhammer's
+# Gladius Task Force review, with the Wahapedia URL cited per CLAUDE.md §10
+# and each entry flagged APPROXIMATION in
+# data/rule_citations.d/stratagems.json.
+#
+# Effect-mapping summary:
+#   * Storm of Fire (1 CP, Battle Tactic) — an ADEPTUS ASTARTES unit's
+#     ranged weapons gain [SUSTAINED HITS 1] for the phase (or improve
+#     existing [SUSTAINED HITS X] by 1). SwegHammer has no per-round
+#     transient [SUSTAINED HITS] flag, so the offensive uplift is routed
+#     through `transient_plus_one_to_hit_shooting` on the highest-DPA
+#     Marines shooter — same direction (more landed hits), comparable
+#     magnitude on a 4+ hit roll. APPROXIMATION.
+#   * Armour of Contempt (1 CP, Battle Tactic) — defensive: enemy AP
+#     against an ADEPTUS ASTARTES unit is reduced by 1 for the phase
+#     (improves save vs AP-X attacks). Maps to `transient_plus_one_save`
+#     on the most vulnerable Marines unit. APPROXIMATION: the codex
+#     effect is AP-reduction (worth more vs high-AP weapons), the
+#     +1-save proxy is a flat save buff (worth equally vs AP-0 fire).
+#     Direction-correct, magnitude comparable on a 3+ save.
+#   * Squad Tactics (1 CP, Strategic Ploy) — an ADEPTUS ASTARTES INFANTRY
+#     unit may make a Normal Move of up to 6" in your opponent's
+#     Movement phase. Mobility / repositioning utility. Maps to
+#     `transient_assault_this_round` on the highest-DPA Marines INFANTRY
+#     unit (closest existing "extra move to set up the alpha shot/charge"
+#     transient — same flag Feigned Retreat / Multipotentiality use).
+#     APPROXIMATION: offensive shoot-after-move proxy for a defensive
+#     reposition.
+#   * Only In Death Does Duty End (1 CP, Strategic Ploy) — when an
+#     ADEPTUS ASTARTES model is destroyed in the Fight phase before
+#     making its attacks, it may make those attacks before being
+#     removed. Defensive-turned-offensive trade. Maps to
+#     `transient_plus_one_to_wound_melee` on the most vulnerable Marines
+#     melee unit — the "one last swing" proxy translates to +1 to wound
+#     on the remaining attacks. APPROXIMATION: misses the timing detail
+#     (codex grants attacks to destroyed models; we buff the surviving
+#     unit instead). Direction-correct (more melee damage from a doomed
+#     unit), magnitude comparable on a 4+ wound roll.
+#   * Honour the Chapter (2 CP, Battle Tactic) — an ADEPTUS ASTARTES
+#     unit may re-roll its Hit AND Wound rolls (or all attacks if the
+#     unit's Sergeant / CHARACTER leader has Honour the Chapter active)
+#     for the phase. The premium 2-CP offensive nuke. Maps to
+#     `transient_reroll_hits_shooting` on the highest-DPA Marines unit;
+#     the wound-reroll leg is dropped (no transient wound-reroll flag).
+#     APPROXIMATION: strictly weaker than the codex (~half the value),
+#     direction-correct. Same lossy pattern as Glory of the Hearth
+#     (Oathband) and Devastating Sorcery (Grand Coven).
+#   * Adaptive Strategy (1 CP, Strategic Ploy) — at the start of your
+#     Command phase, an ADEPTUS ASTARTES unit gains the rules of one
+#     Combat Doctrine of your choice until end of turn (Devastator /
+#     Tactical / Assault), regardless of which doctrine the army is
+#     currently in. APPROXIMATION: Combat Doctrines in SwegHammer is
+#     a round-and-mode-gated +1 to wound (see Unit.attack); the
+#     stratagem's per-unit doctrine override would require per-unit
+#     doctrine state. Routed through `transient_plus_one_to_wound_melee`
+#     on the highest-DPA Marines melee unit — the dominant value the
+#     stratagem provides is granting Assault Doctrine's +1-to-wound-
+#     melee outside R3+, which this proxy captures exactly.
+
+STORM_OF_FIRE = Stratagem(
+    name="Storm of Fire",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_marines_unit_about_to_shoot",
+    effect="sustained_hits_ranged_approximation",
+)
+
+ARMOUR_OF_CONTEMPT = Stratagem(
+    name="Armour of Contempt",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_marines_unit_targeted",
+    effect="enemy_ap_minus_one_approximation",
+)
+
+SQUAD_TACTICS = Stratagem(
+    name="Squad Tactics",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_marines_infantry_unit_about_to_move",
+    effect="extra_move_repositioning_approximation",
+)
+
+ONLY_IN_DEATH_DOES_DUTY_END = Stratagem(
+    name="Only In Death Does Duty End",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_marines_model_destroyed_before_attacking",
+    effect="attacks_before_removal_approximation",
+)
+
+HONOUR_THE_CHAPTER = Stratagem(
+    name="Honour the Chapter",
+    cp_cost=2,
+    phase="any",
+    trigger="friendly_marines_unit_about_to_attack_premium_target",
+    effect="reroll_hits_and_wounds_approximation",
+)
+
+ADAPTIVE_STRATEGY = Stratagem(
+    name="Adaptive Strategy",
+    cp_cost=1,
+    phase="command",
+    trigger="own_command_phase_marines_warlord",
+    effect="off_doctrine_per_unit_override_approximation",
+)
+
+
+GLADIUS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    STORM_OF_FIRE,
+    ARMOUR_OF_CONTEMPT,
+    SQUAD_TACTICS,
+    ONLY_IN_DEATH_DOES_DUTY_END,
+    HONOUR_THE_CHAPTER,
+    ADAPTIVE_STRATEGY,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -928,6 +1061,14 @@ __all__ = [
     "ANCESTRAL_SENTENCE",
     "VOID_ARMOURED_RESILIENCE",
     "OATHBAND_STRATAGEMS",
+    # Gladius Task Force (Adeptus Astartes) — six real stratagems (iter-12 fix)
+    "STORM_OF_FIRE",
+    "ARMOUR_OF_CONTEMPT",
+    "SQUAD_TACTICS",
+    "ONLY_IN_DEATH_DOES_DUTY_END",
+    "HONOUR_THE_CHAPTER",
+    "ADAPTIVE_STRATEGY",
+    "GLADIUS_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

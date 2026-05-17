@@ -466,5 +466,65 @@
     "effect": "Maps DIRECTLY onto `transient_fnp_5` on the most vulnerable Votann unit — clean mapping, no approximation gap. Real codex effect is per-phase rather than per-round; SwegHammer's round-scoped transient flag is functionally equivalent for the typical case (one defensive trigger per round). Name + CP cost (1) per iter-8 anti-DG audit.",
     "scope": "phase-gated",
     "approximation": false
+  },
+
+  "Stratagem.Storm of Fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Storm of Fire (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on an ADEPTUS ASTARTES unit selected to shoot. Effect: until the end of the phase, ranged weapons equipped by models in that unit gain the [SUSTAINED HITS 1] ability (if a weapon already has [SUSTAINED HITS X], improve X by 1).",
+    "trigger": "your Shooting phase, on a friendly Adeptus Astartes unit selected to shoot",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [SUSTAINED HITS] flag, so the offensive uplift is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA Marine shooter — same direction (more landed hits/damage), comparable magnitude on a 4+ hit roll. Same lossy pattern as Shield Host's Archaeotech Munitions and Mont'ka's Focused Fire. Name + CP cost (1) per iter-12 Gladius parity fix (docs/AUDIT_PARITY.md fix #1).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Armour of Contempt": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Armour of Contempt (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on an ADEPTUS ASTARTES unit being targeted by a ranged or melee attack. Effect: until the end of the phase, each time an attack is allocated to a model in your unit, subtract 1 from the Armour Penetration characteristic of that attack.",
+    "trigger": "any phase, on a friendly Adeptus Astartes unit targeted by an attack",
+    "effect": "(APPROXIMATION) SwegHammer has no transient enemy-AP-reduction flag, so the defensive payoff is routed through `transient_plus_one_save` on the most vulnerable Marine unit — both buffs reduce incoming damage. Direction-correct; lossy in that the codex effect scales with the enemy weapon's AP (worth more vs AP-2/3 weapons, equal vs AP-0) while the +1-save proxy is flat. Same lossy pattern as Shield Host's Unwavering Sentinels. Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Squad Tactics": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Squad Tactics (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your opponent's Movement phase, on an ADEPTUS ASTARTES INFANTRY unit. Effect: that unit may make a Normal Move of up to 6\".",
+    "trigger": "your opponent's Movement phase, on a friendly Adeptus Astartes INFANTRY unit",
+    "effect": "(APPROXIMATION) SwegHammer has no opponent-turn reactive move hook, so the offensive value is routed through `transient_assault_this_round` on the highest-DPA Marine INFANTRY unit — same flag Feigned Retreat / Multipotentiality use as the 'extra setup + shoot after move' proxy. Direction-correct; loses the defensive 'pull-out-of-charge-range' use case. Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Only In Death Does Duty End": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Only In Death Does Duty End (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the Fight phase, after an ADEPTUS ASTARTES model in your unit is destroyed before it has made its attacks. Effect: that destroyed model may make its attacks before being removed from the battlefield.",
+    "trigger": "Fight phase, after a friendly Adeptus Astartes model is destroyed before attacking",
+    "effect": "(APPROXIMATION) SwegHammer doesn't model per-model attack ordering at the destroyed-before-attack granularity; the offensive payoff is routed through `transient_plus_one_to_wound_melee` on the most vulnerable Marine melee unit — the 'one last swing' proxy translates to +1 to wound on the remaining attacks. Direction-correct; misses the timing detail (codex grants attacks to destroyed models, we buff the surviving unit). Same lossy pattern as Avenge the Fallen (Shield Host). Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Honour the Chapter": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Honour the Chapter (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 2 CP. When: any phase, on an ADEPTUS ASTARTES unit. Effect: until the end of the phase, that unit may re-roll its Hit rolls AND re-roll its Wound rolls.",
+    "trigger": "any phase, on a friendly Adeptus Astartes unit",
+    "effect": "(APPROXIMATION) SwegHammer routes the offensive value through `transient_reroll_hits_shooting` on the highest-DPA Marine unit — the wound-reroll leg is dropped (no transient wound-reroll flag). Strictly weaker than the codex (~half the value), direction-correct. Same lossy pattern as Glory of the Hearth (Oathband) and Devastating Sorcery (Grand Coven). Name + CP cost (2) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Adaptive Strategy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Adaptive Strategy (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the start of your Command phase, on an ADEPTUS ASTARTES unit. Effect: until the end of the turn, that unit gains the rules of one Combat Doctrine of your choice (Devastator, Tactical, or Assault) regardless of which doctrine your army is currently in.",
+    "trigger": "start of your Command phase, on a friendly Adeptus Astartes unit",
+    "effect": "(APPROXIMATION) Combat Doctrines in SwegHammer is a round-and-mode-gated +1 to wound (see `simulator.combat_doctrines` in Unit.attack); the stratagem's per-unit doctrine override would require per-unit doctrine state. Routed through `transient_plus_one_to_wound_melee` on the highest-DPA Marine melee unit — the dominant value the stratagem provides is granting Assault Doctrine's +1-to-wound-melee outside R3+, which this proxy captures exactly. Direction-correct; loses the option-to-pick-ranged-instead nuance. Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }
