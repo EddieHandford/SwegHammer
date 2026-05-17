@@ -158,12 +158,31 @@ class ArchetypeFallbackTests(unittest.TestCase):
     def test_archetype_fallback_when_no_curated(self):
         """A faction not present in ARCHETYPES still builds an army via the
         legacy random-pool path."""
-        # Pick a faction we know we have units for but no archetype.
-        # 'Astra Militarum' is present in the catalogue but not in ARCHETYPES.
+        # Pick a faction we know we have units for but no archetype, AND
+        # at least one affordable non-Legends profile at 1000pt. Set order
+        # is non-deterministic across runs and under PYTHONHASHSEED=0 used
+        # to pick "Chaos Titans" whose cheapest unit is the 1100pt Warhound
+        # — no army can be built at the 1000pt eval budget. Filtering for
+        # an affordable pool guarantees the test isolates the
+        # use_archetype=True-fallback wiring rather than catalogue
+        # coverage at the test budget.
         catalogue_factions = {u.faction for u in UNIT_CATALOG.values()}
+
+        def has_affordable_unit(faction: str, budget: float = 1000.0) -> bool:
+            for u in UNIT_CATALOG.values():
+                if u.faction != faction:
+                    continue
+                if "[Legends]" in u.name or "[Crucible]" in u.name:
+                    continue
+                size = max(1, u.max_models)
+                if u.points_cost * size <= budget:
+                    return True
+            return False
+
         obscure = next(
-            (f for f in catalogue_factions
-             if f and not has_archetype(f) and f != ""),
+            (f for f in sorted(catalogue_factions)
+             if f and not has_archetype(f) and f != ""
+             and has_affordable_unit(f)),
             None,
         )
         self.assertIsNotNone(obscure, "Expected at least one non-archetype faction in catalogue")

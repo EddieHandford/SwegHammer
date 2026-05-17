@@ -418,20 +418,81 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #     1000pt eval (real-meta TSON runs at 2000pt where Scarab
         #     Occult fits naturally; the 1000pt eval is hostile).
         #
+        # iter17 — added Mutalith Vortex Beast (170pt MONSTER) for an
+        # Aux wrecker anchor. iter16 left TSON at sim 25.8% cumulative vs
+        # real 54.6% (-28.8pt). Seed audit (scripts/iter17_tson_diag.py)
+        # showed the template never seated a wrecker — Scarab Occult
+        # Terminators at 396pt do not fit the 300pt SEED_FRACTION slice,
+        # and Magnus at 435pt is barred from random_fill by the EPIC HERO
+        # cap (iter16). The army ran as all-INFANTRY shooty with no anti-
+        # tank threat.
+        #
+        # Mutalith Vortex Beast fits the seed slice at 170pt and gives
+        # the list a T10 13W MONSTER with S18/D9.5 ranged + S10 melee
+        # devastating-wounds, restoring the centerpiece-threat profile
+        # that real Rubricae Phalanx lists carry via Magnus / Lord of
+        # Change / Mutalith depending on budget. Mutalith also has
+        # deadly_demise=3, FNP 5+, OC 4 — a credible aux wrecker.
+        #
+        # iter17 template_variant probe (N=30):
+        #   vs random_fill opponents:
+        #     baseline (iter16, no Mutalith)  : 32.2% solo TSON
+        #     + Mutalith                       : 48.9% (+16.7pt)
+        #   vs archetype opponents (production matrix):
+        #     baseline                         : 30.0%
+        #     + Mutalith                       : 30.0% (no arch-vs-arch
+        #                                                signal; the lift
+        #                                                is matchup-shape
+        #                                                specific)
+        # The Mutalith addition holds in vs-random_fill but doesn't shift
+        # the archetype-vs-archetype matrix at this calibration budget.
+        # Additional variants tested in iter17 diag (Lord of Change,
+        # Daemon Prince, Pink Horrors, Heldrake, Forgefiend, Helbrute,
+        # Chaos Predator Annihilator with and without SOT) either
+        # neutral or regressed the archetype-vs-archetype probe; the
+        # Mutalith-only addition is the safe minimum incremental change.
+        #
+        # MONSTER cap (iter16) bounds Mutalith fills at template_count=1,
+        # so the army holds at most 2 Mutaliths in extreme tails (rare
+        # at 1000pt where the budget is tight).
+        #
+        # Scarab Occult Terminators KEPT at count=2 in template. SOT's
+        # 396pt min-squad cost means they don't seat at 1000pt eval
+        # budgets, but the count=2 entry is the highest-priority sort
+        # hint AND it keeps the RUBRICAE-keyword affinity signal strong
+        # for the detachment picker (iter16 RUBRICAE-keyword affinity in
+        # `_keyword_affinity_score`). At 2000pt eval SOT does fit and
+        # seats naturally. Dropping SOT and replacing with another
+        # MONSTER (iter17 V4 probe) regresses the detachment picker to
+        # ~50/50 Grand Coven vs Rubricae Phalanx.
+        #
         # Magnus the Red intentionally NOT in the template: 435pt would
         # crowd out the rest of the army at 1000pt. Real-meta Magnus
         # lists need 1500pt+ budget shape. Random_fill picks him up
         # organically at 2000pt evals.
         #
-        # References (May 2026):
+        # STRUCTURAL NOTE for iter 18+: At 1000pt the TSON archetype is
+        # structurally under-resourced — neither Magnus (435pt) nor a
+        # second Scarab Occult squad (792pt) can fit. Real meta May 2026
+        # win-rate (54.6%) reflects 2000pt+ play. The archetype eval
+        # budget should be considered for a TSON-specific raise to
+        # 1500pt+ via SEED_FRACTION_BY_FACTION override OR a global
+        # eval budget bump, but that change is out of iter17 scope
+        # (cross-faction implications). See iter17 diag for evidence.
+        #
+        # Sources:
         #   - Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+        #     (Mutalith Vortex Beast datasheet)
         #   - 40k.app: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+        #   - Goonhammer "Codex Focus: Thousand Sons" (Mutalith as
+        #     affordable Magnus alternative for sub-2000pt builds)
         #   - Goonhammer "Detachment Focus: Rubricae Phalanx"
         #   - Frontline Gaming "Codex Focus: Thousand Sons"
         "Rubricae Phalanx": {
             "thousand_sons_ahriman": 1,
             "thousand_sons_rubric_marines": 2,
             "thousand_sons_scarab_occult_terminators": 2,
+            "thousand_sons_mutalith_vortex_beast": 1,
             "thousand_sons_exalted_sorcerer": 1,
             "thousand_sons_infernal_master": 1,
             "thousand_sons_tzaangors": 1,
