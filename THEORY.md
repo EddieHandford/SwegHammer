@@ -62,7 +62,15 @@ The unit's Lanchester score is `e² = (H × D × P)²`.
 
 ## 3. Points Calibration Strategy
 
-### Phase One: Linear Proportional Pricing
+The pricing work described below is **Stage 2** in the project's
+two-stage pipeline (see `CLAUDE.md` "Project plan" and `ROADMAP.md`
+"Pipeline structure"). Stage 2 assumes Stage 1 has converged — i.e. the
+simulator plays like the real game — and freezes the simulator's rules
+while iterating on prices. The naming "Stage 2, Layer 1" below avoids
+collision with the equilibrium solver's internal Phase 1–6 ladder, which
+is a separate concept living inside Stage 2.
+
+### Stage 2, Layer 1: Linear Proportional Pricing
 
 For initial calibration, unit costs are set proportional to raw effectiveness `e`:
 
@@ -85,11 +93,12 @@ scores, which is optimal for balance under the strict mathematical model. Howeve
 units extremely expensive (a unit 3× as effective in raw stats costs 9× as many points), leading
 to implausibly large point totals and very small army sizes for powerful units.
 
-Linear pricing is the practical starting point. Phase Three replaces it with a calibrated surface
-fit. The simulation reveals the actual relationship between cost and win rate, and the pricing
-formula is adjusted to achieve 50% win rates across unit type pairings.
+Linear pricing is the practical starting point. The nonlinear surface fit
+below replaces it. The simulation reveals the actual relationship between
+cost and win rate, and the pricing formula is adjusted to achieve 50% win
+rates across unit type pairings.
 
-### Phase Three: Nonlinear Surface Fit
+### Stage 2, beyond Layer 1: Nonlinear Surface Fit
 
 The full cost model will incorporate:
 

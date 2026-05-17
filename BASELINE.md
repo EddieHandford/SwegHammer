@@ -76,16 +76,27 @@ See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 
 ## Calibration Methodology
 
-SwegHammer runs **three layers** of points calibration. The analytic
-formula above produces a fast, well-understood baseline; two empirical
-solvers refine it. See `ROADMAP.md` Goal C and `PROJECT.tex` §"Two-track
-points calibration" for the full picture.
+All of the points calibration below is **Stage 2** work in the project's
+two-stage pipeline — see `CLAUDE.md` "Project plan" and `ROADMAP.md`
+"Pipeline structure" for the framing. Stage 2 only becomes reliable once
+Stage 1 (the simulator matching reality, mean absolute error against the
+Warp Friends tournament aggregate ≤ 2.0 pts) has converged. As of
+2026-05-17 Stage 1 is at 7.01 pts at N=200, so every calibrated price in
+this section is **provisional** and will need re-running once Stage 1
+lands.
+
+SwegHammer runs **three layers** of Stage 2 points calibration. The
+analytic formula above produces a fast, well-understood baseline; two
+empirical solvers refine it. See `ROADMAP.md` Goal C and `PROJECT.tex`
+§"Two-track points calibration" for the full picture.
 
 > **Naming note.** This section used to be titled "Phase One / Phase Two /
 > Phase Three". The numbering was renamed to "Layer / Track" in the
 > 2026-05 docs reorganisation to avoid colliding with the equilibrium
 > solver's own Phase 1 / Phase 2 / Phase 3 ladder (which has different
-> semantics — see `code/equilibrium.py`).
+> semantics — see `code/equilibrium.py`). The outer Stage 1 / Stage 2
+> framing is the project-wide pipeline; "Layer 1" and "Track 1 / Track 2"
+> below are all subdivisions of Stage 2.
 
 ### Layer 1 — Analytic baseline (current default)
 
@@ -178,7 +189,11 @@ A unit is considered "reasonably costed" when:
 3. The cost is within the ±tolerance band of its synergy-adjusted value.
 4. The Sweg-balancer and Equilibrium prices agree within ±30% (significant
    divergence signals either a context-dependent unit or a non-damaging
-   ability the equilibrium doesn't see yet).
+   ability the equilibrium doesn't see yet). Note that this tolerance
+   band is itself a Stage-1-dependent artefact: an un-converged simulator
+   will exaggerate the divergence because the balancer (which exercises
+   every rule) reflects sim drift while the equilibrium (analytic) does
+   not. Tighten the tolerance only after Stage 1 lands.
 
 ## Notes on Hit Probability
 

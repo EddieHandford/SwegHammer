@@ -2,9 +2,23 @@
 
 ## Overview
 
-The Phase One simulator is a deterministic, average-case combat engine. It models two armies
-fighting under Swaghammer's unit-by-unit activation rules and outputs win/loss/draw results that
-can be aggregated over thousands of battles to measure balance.
+The simulator is a stochastic 10th-edition Warhammer 40K combat engine
+with movement, shooting, charge, fight, and morale phases over a 5-round
+window on a 2D map. It models two armies fighting under SwegHammer's
+unit-by-unit activation rules and emits a battle event stream that can
+either be aggregated over thousands of battles for calibration sweeps or
+rendered as a watchable replay for a single battle.
+
+## Role in the two-stage pipeline
+
+This document describes the **Stage 1** apparatus: the simulator whose
+rules are being tuned until per-faction win rates match the May 2026
+Warp Friends tournament aggregate (Goal A in `ROADMAP.md`). Stage 2's
+points calibration (Goals C and D) runs on top of this engine once
+Stage 1 has converged. The points-calibration solvers live in
+`code/balancer.py` and `code/equilibrium.py`; see `BASELINE.md` for the
+solver layering. See `CLAUDE.md` "Project plan" for the full pipeline
+framing.
 
 ## Architecture
 
@@ -20,16 +34,16 @@ code/
 
 ## Combat Model
 
-### Deterministic Damage
+### Stochastic Damage
 
-Each unit's attack deals deterministic (average-case) damage:
+Each attack is resolved against the full 10e hit / wound / save / Feel No
+Pain chain with real dice rolls. The simulator is seedable so a single
+matchup is reproducible; calibration sweeps re-seed per battle for an
+honest distribution.
 
-```
-damage_dealt = unit.damage × unit.hit_probability
-```
-
-No dice are rolled. This eliminates variance and isolates the structural balance question: given
-equal expected performance, which army composition wins?
+Deterministic average-case damage was used in the foundational 2025
+prototype; the current engine has been stochastic since the Phase 1.5
+foundation work (see `ROADMAP.md` "Foundation work").
 
 ### Activation Sequence
 
@@ -101,37 +115,46 @@ Matchup: Marines vs Orks (1000 pts each, 1000 battles)
   Avg Ork survivors:    1.9
 ```
 
-## Simulation Phases
+## Engine status (shipped)
 
-### Phase One (Implemented)
+The phase-based naming below ("Phase One / Two / Three") was retired in
+the 2026-05 docs sweep — both because the original "planned" phases have
+all shipped, and because reusing the word "Phase" inside this document
+collided with the equilibrium solver's own Phase 1–6 ladder
+(`code/equilibrium.py`). The current state of the engine:
 
-- Deterministic damage only.
-- Homogeneous army compositions (one unit type per army) for clean comparison.
-- Mixed armies with random composition from the unit catalogue.
-- Target: identify systematic over/underperformers at ±5% win rate.
+- **Stochastic damage** — full 10e hit / wound / Armour Penetration / Feel
+  No Pain chain with real dice rolls.
+- **All five combat phases** — Command, Movement, Shooting, Charge, Fight,
+  with Battleshock at round end.
+- **2D map and terrain** — continuous-coordinate map with Light /
+  Heavy / Obscuring / Impassable terrain; Liang-Barsky parametric clipping
+  for line of sight; objective markers with primary victory point scoring.
+- **Strategy layer** — units pick a per-activation intent (HOLD, CAPTURE,
+  STEAL, ENGAGE, REPOSITION, FALL_BACK) based on objective state and role.
+- **Catalogue** — ~1294 units from BSData WH40k 10e (`v10.6.0`), refined
+  by `data/overrides.json`.
+- **Sweep coverage** — `scripts/evaluate_vs_meta.py` runs the per-faction
+  matchup matrix and reports mean absolute error vs the May 2026 Warp
+  Friends tournament aggregate. This is the Stage 1 success metric.
+- **Two-track points calibration** (`code/balancer.py`, `code/equilibrium.py`)
+  — Stage 2 work, runs on top of this engine once Stage 1 converges. See
+  `BASELINE.md`.
 
-### Phase Two (Planned)
-
-- Introduce stochastic damage (dice rolls) alongside the deterministic baseline.
-- Compare variance profiles: do some unit types produce more volatile outcomes?
-- Identify cliff-edge combinations (e.g., one hit kills) vs. attrition-stable matchups.
-
-### Phase Three (Planned)
-
-- Sweep all unit-vs-unit pairings and mixed compositions.
-- Fit cost surface to simulation data.
-- Validate: all pairings within 45–55% win rate at equal points.
+For per-feature status and ownership, see `PROJECT.tex`.
 
 ## Design Decisions and Trade-offs
 
-### Why Deterministic Damage?
+### Why Stochastic Damage?
 
-Stochastic simulation requires many more runs to achieve statistical confidence. A deterministic
-model reveals structural imbalances cleanly in ~100 battles per matchup rather than requiring
-10,000+ for dice-variance to wash out.
-
-The cost is realism: real games have variance that can let weaker lists win through luck. Phase Two
-adds this layer once the structural balance is established.
+The 2025 prototype used deterministic average-case damage to surface
+structural imbalances in ~100 battles per matchup. As soon as the
+calibration target moved from "is this army composition balanced?" to
+"do per-faction win rates match the real tournament aggregate?", real
+dice rolls became necessary — tournament data is the sum of variance-
+inclusive games, so the simulator has to match that distribution.
+Calibration sample sizes are correspondingly larger (N=200 per pairing
+for the honest reading).
 
 ### Why Focus-Fire Target Selection?
 
