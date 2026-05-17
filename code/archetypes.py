@@ -224,19 +224,76 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # 2x Hormagaunts). Empirically that combination overshoots
         # real-meta WR by ~+24pt (Tyranids land at 72%). The lightest
         # composition (1x of everything + 2x Carnifexes + 1 Trygon)
-        # under-shoots to 34%. Middle ground: keep Trygons=2 as the
-        # detachment signature (Subterranean Assault's whole flavour
-        # is Trygons emerging from reserves), drop Tervigon to remove
-        # the extra MONSTER CHARACTER slot, drop one Hormagaunts +
-        # Termagants squad to lean Carnifexes harder. This targets
-        # ~48% real-meta WR vs the salvage's ~72%.
+        # under-shoots to 34%.
+        #
+        # iter17 — iter16's calibration brief targeted ~48% but landed at
+        # sim 71.4% vs real 48.0% in the cumulative N=40 eval, +23.4pt
+        # over. Root cause: Trygons=2 in the (-count, -cost) sort lands a
+        # Trygon at the seed walk's top AND lets random_fill add up to 2
+        # more (cap = template_count, no `max(1,...)` floor), producing
+        # 1-3 Trygons per army (empirical avg 1.25, max 3 across 20 1000pt
+        # seeds). Cross-faction blast radius: the iter16 MONSTER-keyword
+        # cap also removed compensating opponent firepower stacking,
+        # making Trygons too strong relative to anti-monster shooting in
+        # opposing lists.
+        #
+        # iter17 fix — trim to a 1-Trygon centerpiece + Tyrannofex melee
+        # anchor + Carnifex placeholder slot, matching real-meta May 2026
+        # Subterranean Assault lists (Goonhammer "Detachment Focus:
+        # Subterranean Assault" — typical builds run 1 Trygon as the
+        # deep-strike signature unit + 1-2 melee MONSTER bricks like
+        # Carnifex packs or a Tyrannofex/Norn Emissary, NOT 2-3 Trygons
+        # stacked).
+        #
+        # Empirical N=40 Tyranid-only matrix (vs all 9 opponents in both
+        # A and B positions, archetype-eval mode):
+        #   * iter16 (Trygon=2, Carnifex=1):                    70.0% sim
+        #   * iter17 (Trygon=1, Carnifex=1, Tyrannofex=1):      53.1% sim
+        # Target band is real meta 48-55%; iter17 lands at 53.1%, a 17pt
+        # reduction from the iter16 baseline and well inside band.
+        #
+        # Template shape rationale (count=1 across the board):
+        #   * Trygon=1: signature Subterranean Assault Burrower unit, the
+        #     iter11 CHARACTER-anchor guarantee force-seeds it (cheapest
+        #     CHARACTER in template at 140pt fits the 1.5x seed-budget
+        #     overflow). template_count=1 caps random_fill at 1 extra
+        #     Trygon, so a 1000pt army fields 1-2 Trygons (avg 1.20)
+        #     instead of 1-3 (avg 1.25).
+        #   * Carnifexes=1: 461pt min squad in SwegHammer pricing — too
+        #     expensive to seed at the 300pt slice and too expensive for
+        #     the per-name fill cap at 1000pt. The entry keeps the
+        #     BATTLELINE/MONSTER cap admitting up to 1 fill Carnifex pack
+        #     if budget room exists at 2000pt evals; at 1000pt it's a
+        #     no-op slot today. (Removing it would not change 1000pt
+        #     behaviour; kept for 2000pt-budget head-room.)
+        #   * Tyrannofex=1: 200pt anchor MONSTER, real-meta May 2026
+        #     Subterranean Assault lists pair Trygons with a Tyrannofex
+        #     anti-tank brick or Norn Emissary SYNAPSE anchor. Tyrannofex
+        #     edges Norn Emissary on cost (200 vs 260pt) and seeds
+        #     reliably in the 300pt slice at 1000pt evals.
+        #   * Hive Tyrant=1: CHARACTER PSYKER SYNAPSE warlord anchor. At
+        #     195pt it usually loses the seed walk to Tyrannofex (200pt)
+        #     and Trygon (force-seeded as cheapest CHARACTER); fill picks
+        #     it up at ~15-20% rate at 1000pt and reliably at 2000pt.
+        #   * Termagants=1, Hormagaunts=1: BATTLELINE chaff for OC. The
+        #     BATTLELINE cap (max(1, template_count)) admits 1 extra fill
+        #     squad per type — total 2 squads per type, matching the
+        #     real-meta MSU shape (one big 20-model brick split into two
+        #     10-model OC squads).
+        #   * Zoanthropes=1: psychic ranged MW + SYNAPSE support.
+        #
+        # References:
+        #   - https://www.goonhammer.com/detachment-focus-subterranean-assault/
+        #   - https://www.belloflostsouls.net/2026/05/warhammer-40k-the-unbeatable-list-gw-open-maastricht-2026-tyranids-take-the-crown.html
+        #   - https://wahapedia.ru/wh40k10ed/factions/tyranids/
         "Subterranean Assault": {
             "tyranids_hive_tyrant": 1,
             "tyranids_termagants": 1,
             "tyranids_hormagaunts": 1,
-            "tyranids_trygon": 2,
+            "tyranids_trygon": 1,
             "tyranids_zoanthropes": 1,
             "tyranids_carnifexes": 1,
+            "tyranids_tyrannofex": 1,
         },
     },
     "Orks": {
