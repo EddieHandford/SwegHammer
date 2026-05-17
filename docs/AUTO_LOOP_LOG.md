@@ -660,3 +660,38 @@ Most templates encode unit counts for 1000pt eval. At 2000pt, the seed slice dou
 4. TSON Magnus PSYKER abilities + deadly_demise + Cabal of Sorcerers Rituals firing audit
 5. Marines MC bisection on key units (Repulsor, Hellblaster, Aggressor, Eradicator) per iter 15 diag finding
 6. Aeldari Warhost may auto-recover once other factions stabilize — re-eval after structural changes
+
+### Iter 19 — PARKED (cumulative regression) (2026-05-17)
+
+6 agents on simulator-side work past template ceiling. 2 lost to rate limit (DG damage agent eventually reported; T'au cleanup minor). Cumulative N=40 result:
+
+**Full bundle (5 commits)**: MAE **12.96 → 13.43 (+0.47 regression)**. Marines drops 24.8→12.3 (-12.5pt) — but cross-faction regressors (Aeldari, Tyranids, Custodes, TSON) more than offset.
+
+**Marines+DG+T'au-only subset**: MAE **12.96 → 13.01 (+0.05, flat)**. Marines bumps alone yield -4.2pt vs -12.5pt in full bundle — the _random_fill cap was the synergy multiplier, but it was itself MAE-negative in cumulative.
+
+**Agent findings preserved on worktree branches**:
+- `a878dde` `_random_fill` cap 0.5→0.33 + VEHICLE/WALKER. Cap was too aggressive; over-compressed fill.
+- `ff72bc8` Necrons aura gates (78 lines). Cross-faction MAE-negative.
+- `6732722` TSON Magnus PSYKER/deadly_demise wiring (96 lines). TSON further regressed -22.9→-29.3.
+- `44681be` Marines price bumps +15-20%. **Real win (-12.5pt) but only with full bundle synergy.**
+- `8f49bd2` DG/CSM Plague Marines lethal_hits=false (mapper weighted_basket bug fix). Correctness-positive, MAE-neutral.
+- `503329d` T'au Crisis Suit override cleanup. Lanchester hygiene, MAE-neutral.
+
+**Deferred (DG damage agent finding)**: Plague Marine lethal_hits leakage is a real mapper bug — `weighted_basket_average` unions keyword flags across heterogeneous loadout baskets with `any(...)`. Proper fix is rewriting weighted_basket to weight keyword flags by basket proportion. Structural mapper change for iter 20+.
+
+**Loop status**: Templates calibrated for 1000pt regressed at 2000pt (iter 18). Simulator-side dials regressed cross-faction (iter 19). The MAE floor at archetype 2000pt is structural — further progress likely requires:
+1. **Rewrite `_random_fill` topup model** — current `0.5 * remaining_budget` cap is the dominant lever; need a faction-neutral redesign that doesn't favour one matchup.
+2. **Magnus / Cabal / All-Is-Dust simulator wiring** — iter 19 agent confirmed Magnus is sim under-performer; PSYKER MW output and detachment-rule gates need attention.
+3. **MC bisection on a broader unit set** — Marines bumps showed pricing works but needs cross-faction balance.
+
+**Iter 20 priorities** (per agent recommendations):
+- Mapper `weighted_basket_average` keyword-flag-by-proportion rewrite
+- Necrons Awakened Dynasty aura: real-rule gating audit (currently always-on)
+- TSON Magnus + Cabal of Sorcerers Rituals + All Is Dust full simulator-side audit
+- Marines bumps may land if `_random_fill` cap is tuned more carefully (0.4 instead of 0.33)
+
+Loop trajectory under `--use-archetype` 2000pt:
+- Baseline (post-pivot): 12.96
+- iter 18: parked at 14.04
+- iter 19: parked at 13.43
+- Target: <2.0
