@@ -507,3 +507,39 @@ Biggest archetype outliers:
 
 Per-archetype trims must cite competitive-list-realism sources (Goonhammer, Frontline, Stat Check, Wahapedia FAQ).
 
+### Iter 16 (2026-05-17)
+
+**Batch dispatched**: 6 parallel agents targeting archetype outliers. First attempt rate-limited mid-flight (5 of 6 hit Anthropic limit at 12:30pm London). Second attempt landed all 6 reports.
+
+**Agents reported**:
+- **Necrons Awakened Dynasty trim** (`d8f4d37` salvage + `7296226` tune) — **massive win**. Solo Necrons WR 95.0% → 63.1% (−31.9pt). Critical AI improvement: **MONSTER/TITANIC/EPIC HERO cap in `_random_fill`** (faction-neutral; prevents over-seeding apex anchors). [Legends]/[Crucible] filter. Warriors and Immortals 2→1 each. KEPT.
+- **T'au Mont'ka anchor restore** (`62c7881` salvage + `afb1257` tune) — solo T'au 33.4% → 52.5% (+19.1pt). Riptide×3 + Hammerhead×2 + Crisis×2 + Pathfinder×2. MARKERLIGHT keyword added to Strike Team / Breacher / Sky Ray (was on weapon row only in BSData). KEPT.
+- **TSON Rubricae detachment-picker fix** (`4837592`) — solo TSON 35.5% → 38.6% (+3.1pt). Root cause: detachment picker was 50/50 between Rubricae Phalanx and Grand Coven; half the time TSON lost All Is Dust. Added RUBRICAE-keyword affinity branch in `_keyword_affinity_score`. KEPT.
+- **Tyranids Subterranean Assault detachment** (`cfc6e17` salvage + `1c30b8b` tune) — solo Tyranids 38.6% → 55.8% (|err| 9.4 → 7.8). Added Subterranean Assault detachment + 4 stratagems + Trygon-heavy template per Goonhammer + Maastricht 2026 GT. KEPT.
+- **Custodes Auric Champions rename** (`d58c854`) — solo Custodes 62.1% → 43.1% (−19.0pt, overshoots; Custodes now −4.9 instead of +14.1). Archetype rename Shield Host → Auric Champions, character-heavy template. No new detachment registered. KEPT.
+- **DG Virulent Vectorium trim** — **PARKED**. Agent tried 3 variants, all regressed to 76-89% sim WR. Root cause finding: `_random_fill` is the over-anchor force, not the template. Template trim frees budget for higher-impact picks. The MONSTER/EPIC HERO cap (from Necrons agent) is the cross-cutting fix.
+
+**Cumulative iter 16 (5-agent bundle, DG parked)**: MAE **12.81 → 11.48pt** (Δ **−1.33pt**). MAE-vs-Sweg 13.29 → 10.89pt. Tests 771/771. Rule citations 208 → 214.
+
+**Per-faction shifts**:
+- Marines **+6.4 → +1.2** (−5.2 ✅)
+- Necrons **+37.8 → +4.3** (−33.5 ✅✅)
+- Aeldari 0.0 → +11.2 (cross-faction regress)
+- Tyranids −9.4 → +23.4 (FLIPPED; MONSTER cap removed Trygon spam compensator)
+- Orks −1.4 → +7.6 (cross-faction; rivals weakened)
+- T'au **−21.1 → +1.9** (−23.0 ✅✅)
+- DG +17.9 → +13.4 (−4.5 ✅)
+- Custodes +14.1 → −11.6 (overshoots; template rename too aggressive)
+- TSON −19.1 → −28.8 (regress; cross-faction effect from MONSTER cap weakening TSON's Magnus pickup)
+- Votann −0.9 → −11.6 (regress)
+
+**Iter 17 priorities**:
+- Custodes template re-tune: add 1-2 mid-elite units back (Vertus Praetors, Aquilon Custodians) to lift from −11.6 toward 48-55%.
+- Tyranids template re-tune: lower Trygon×2 to ×1 or restore Carnifex×2 to absorb overshoot from +23.4.
+- TSON: revisit Magnus support at 1500pt budget archetype variant; consider raising SEED_FRACTION specifically for TSON.
+- Aeldari: Warhost archetype Yvraine+Yncarne now over-firing in N=40 archetype; tune size of supporting Eldar squads.
+- Votann/Orks: cross-faction regressors; minor template adjustments.
+- DG: revisit with `_random_fill` MONSTER cap now in place (the cap should make trim attempts work).
+- Marines: at +1.2 — essentially solved. Hold.
+- Necrons: at +4.3 — near-target.
+
