@@ -170,14 +170,61 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Tyranids": {
-        "Invasion Fleet": {
-            "tyranids_termagants": 1,
-            "tyranids_hormagaunts": 1,
+        # iter16 — Renamed from "Invasion Fleet" (-1 enemy Ld approximation,
+        # redundant with simulator.shadow_in_the_warp) to "Subterranean
+        # Assault", the May-2026 real-meta default after Ron Eilyahoo's GW
+        # Open Maastricht 2026 win (Bell of Lost Souls "The Unbeatable List
+        # - GW Open Maastricht 2026 - Tyranids Take the Crown!" + Goonhammer
+        # Detachment Focus: Subterranean Assault). Real-meta tournament
+        # template typically includes:
+        #   * 1 anchor MONSTER CHARACTER PSYKER SYNAPSE (Hive Tyrant or Norn
+        #     Emissary). Hive Tyrant @ 195pt is the standard pick at 2000pt.
+        #   * 3-4 BATTLELINE chaff squads (Termagants + Hormagaunts) for OC.
+        #     Termagants (60pt/squad) + Hormagaunts (65pt/squad) at count=2
+        #     each so the BATTLELINE random_fill cap admits 2x more.
+        #   * 1-2 Trygons (140pt) — the detachment's signature Burrower
+        #     unit. Real-meta lists pair Trygons with Mawlocs but SwegHammer
+        #     has no Burrower / Tunnel Marker hook, so the Trygon is here
+        #     for its 140pt MONSTER CHARACTER profile (deep strike + tough
+        #     melee). Counted=2 to outrank single-copy support entries on
+        #     the (-template_count, -squad_cost) sort.
+        #   * 1 Zoanthropes (100pt) — psychic ranged MW spine, plus SYNAPSE.
+        #   * 1 Tervigon (160pt) — spawn token + SYNAPSE for the back-field
+        #     Termagant brood. Tervigon's spawn ability is not modelled in
+        #     SwegHammer but the SYNAPSE keyword + MONSTER CHARACTER profile
+        #     fires Synapse Imperative for the chaff that hangs behind.
+        #   * 1 Carnifex squad (461pt for min=1 model) — anchor monster.
+        #     Single-copy at count=1 (count=2 in the old template put it
+        #     ahead of everything on the cost sort and ate the whole seed).
+        #
+        # Multi-copy entries (Trygons=2, Termagants=2, Hormagaunts=2) win
+        # the (-template_count, -squad_cost) anchor sort and seed first.
+        # At the 2000pt SEED_FRACTION=0.3 (600pt seed slice) walk:
+        #   Trygon(140) -> 140  | Trygon takes 1 of 2 (only 1 squad seeded
+        #                                              per entry by design)
+        #   Termagants(60) -> 200  | seeds 1 squad
+        #   Hormagaunts(65) -> 265  | seeds 1 squad
+        #   Hive Tyrant(195) -> 460  | CHARACTER anchor lands
+        #   Zoanthropes(100) -> 560
+        #   Tervigon(160) -> over budget, skipped
+        #   Carnifex(461) -> over budget, skipped
+        # The random_fill pass then tops up the remaining ~1440pt with
+        # same-faction picks (extra Termagants/Hormagaunts up to the
+        # BATTLELINE 2x cap, more support monsters / chaff). This
+        # matches real-meta MSU-Termagant Tyranid shape.
+        #
+        # References:
+        #   - https://www.belloflostsouls.net/2026/05/warhammer-40k-the-unbeatable-list-gw-open-maastricht-2026-tyranids-take-the-crown.html
+        #   - https://www.goonhammer.com/detachment-focus-subterranean-assault/
+        #   - https://wahapedia.ru/wh40k10ed/factions/tyranids/
+        "Subterranean Assault": {
             "tyranids_hive_tyrant": 1,
+            "tyranids_termagants": 2,
+            "tyranids_hormagaunts": 2,
+            "tyranids_trygon": 2,
             "tyranids_zoanthropes": 1,
-            "tyranids_exocrine": 1,
-            "tyranids_carnifexes": 2,
-            "tyranids_gargoyles": 1,
+            "tyranids_tervigon": 1,
+            "tyranids_carnifexes": 1,
         },
     },
     "Orks": {

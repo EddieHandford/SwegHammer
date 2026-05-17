@@ -632,6 +632,103 @@ RUBRICAE_PHALANX_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Subterranean Assault (Tyranids) — four real detachment stratagems (iter16 fix)
+# ---------------------------------------------------------------------------
+# Goonhammer Detachment Focus: https://www.goonhammer.com/detachment-focus-subterranean-assault/
+# Warhammer Community PDF: https://assets.warhammer-community.com/eng_04-06_warhammer_40000_tyranids_subterranean_assault-zw9osgnwhg-rqvyrabibv.pdf
+#
+# Background: Subterranean Assault is the May-2026-meta Tyranids detachment —
+# Ron Eilyahoo won GW Open Maastricht 2026 with a Subterranean Assault
+# Ravener/Trygon list, and Frontline/Stat-Check tournament reports rank it
+# alongside Invasion Fleet and Vanguard Onslaught as a top-tier choice. The
+# detachment rule itself (army-wide reroll-1s-to-hit, plus the Burrower tunnel
+# marker mechanic for Trygons / Mawlocs) is the lever the calibration loop
+# needs — replacing the Invasion Fleet "-1 enemy Ld" approximation with a real
+# offensive uplift.
+#
+# These four stratagems are paraphrased per the Goonhammer detachment focus
+# (WebFetch against assets.warhammer-community.com returned 403 at edit time;
+# Wahapedia entry not yet indexed for this detachment). Each entry has a
+# Goonhammer citation in data/rule_citations.d/stratagems.json with the
+# approximation note. Pattern matches Awakened Dynasty / Rubricae Phalanx:
+# stratagems are catalogued so the auditor + AI know about them, but the
+# AI dispatcher (each stratagem needs its own `_try_fire_<name>` method in
+# code/simulator.py) is NOT wired in this iteration — the army-wide
+# reroll_hit_ones detachment passive is the offensive lever this iteration
+# delivers; the per-stratagem fires are catalogued-but-no-op APPROXIMATIONs
+# to be wired in a follow-up.
+#
+# Effect-mapping summary:
+#   * Tunnel Network (1 CP, movement) — remove a Tyranids unit from within
+#     9" of one Tunnel Marker and set it up within 9" of another, >=6" from
+#     enemy models. Mid-phase teleport reposition. SwegHammer has no Tunnel
+#     Marker / Burrower mid-phase teleport hook; catalogued as a no-op
+#     APPROXIMATION (effect string mirrors the codex text so a future
+#     dispatcher can hook on the existing id).
+#   * Replenishing Swarms (1 CP, movement) — heal D3+1 wounds or revive
+#     D3+1 1-W models within 9" of a Tunnel Marker. Mapped to
+#     `transient_undying_legions_pulse` = 2 (mid-phase reanimation pulse,
+#     median D3+1 = 3 → using the 2-HP `extra_reanimation_pulse` flag the
+#     simulator already understands; same flag is used by Necrons
+#     Protocol of the Undying Legions and Orks Mob Up). APPROXIMATION:
+#     restores HP rather than reviving destroyed 1-W models; the
+#     swarm-resurrection-on-Tunnel-Marker half is dropped.
+#   * Swarming Assault (1 CP, charge) — a Tyranids MONSTER unit grants
+#     reroll-charge-roll to friendly Tyranids units within 6". Charge-roll
+#     reroll is not a one-shot transient flag; the closest stand-in is
+#     `transient_assault_this_round` on the highest-DPA Tyranids unit
+#     (same flag Mont'ka uses for Sudden Storm — boosts the realised
+#     charge-then-fight payoff if not the literal reroll). APPROXIMATION:
+#     +Assault stand-in for reroll-charge.
+#   * Enfilading Emergence (1 CP, movement) — a Tyranids unit that emerged
+#     from reserves this turn gains [SUSTAINED HITS 1] and [IGNORES COVER]
+#     until end of phase. Mapped to `transient_plus_one_to_hit_shooting`
+#     on the highest-DPA Tyranids unit (same flag Mont'ka / Pulse
+#     Onslaught uses) — direction-correct uplift in shooting output, lossy
+#     on the SH1 / ignores-cover keyword specificity.
+
+TUNNEL_NETWORK = Stratagem(
+    name="Tunnel Network",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tyranids_unit_near_tunnel_marker",
+    effect="redeploy_via_tunnel_marker_approximation",
+)
+
+REPLENISHING_SWARMS = Stratagem(
+    name="Replenishing Swarms",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tyranids_unit_wounded_near_tunnel_marker",
+    effect="extra_reanimation_pulse_approximation",
+)
+
+SWARMING_ASSAULT = Stratagem(
+    name="Swarming Assault",
+    cp_cost=1,
+    phase="charge",
+    trigger="friendly_tyranids_monster_about_to_charge",
+    effect="transient_assault_for_round_approximation",
+)
+
+ENFILADING_EMERGENCE = Stratagem(
+    name="Enfilading Emergence",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tyranids_unit_emerged_from_reserves",
+    effect="transient_plus_one_to_hit_shooting_approximation",
+)
+
+
+SUBTERRANEAN_ASSAULT_STRATAGEMS: Tuple[Stratagem, ...] = (
+    TUNNEL_NETWORK,
+    REPLENISHING_SWARMS,
+    SWARMING_ASSAULT,
+    ENFILADING_EMERGENCE,
+)
+
+
+# ---------------------------------------------------------------------------
 # War Horde (Orks) — six real detachment stratagems (iter-1 Cluster B B1)
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
@@ -1234,6 +1331,12 @@ __all__ = [
     "IMPLACABLE_GUARDIANS",
     "UNWAVERING_PHALANX",
     "RUBRICAE_PHALANX_STRATAGEMS",
+    # Subterranean Assault (Tyranids) — four stratagems (iter16)
+    "TUNNEL_NETWORK",
+    "REPLENISHING_SWARMS",
+    "SWARMING_ASSAULT",
+    "ENFILADING_EMERGENCE",
+    "SUBTERRANEAN_ASSAULT_STRATAGEMS",
     # War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
     "INSANE_BRAVERY",
     "POWER_OF_THE_WAAAGH",

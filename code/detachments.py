@@ -33,6 +33,7 @@ from .stratagems import (
     VIRULENT_VECTORIUM_STRATAGEMS,
     GRAND_COVEN_STRATAGEMS,
     RUBRICAE_PHALANX_STRATAGEMS,
+    SUBTERRANEAN_ASSAULT_STRATAGEMS,
     WAR_HORDE_STRATAGEMS,
     SHIELD_HOST_STRATAGEMS,
     OATHBAND_STRATAGEMS,
@@ -310,6 +311,49 @@ INVASION_FLEET = Detachment(
     # Real rule: Shadow in the Warp — once-per-battle army-wide Battleshock test, not a passive Ld debuff.
     enemy_ld_penalty=1,
     preferred_composition="balanced",
+)
+
+SUBTERRANEAN_ASSAULT = Detachment(
+    name="Subterranean Assault",
+    faction="Tyranids",
+    notes=(
+        "iter16 fix — May-2026 real-meta Tyranids default detachment, after "
+        "Ron Eilyahoo won GW Open Maastricht 2026 with a Subterranean Assault "
+        "list and Frontline / Stat-Check / Goonhammer all promoted it to "
+        "tier-1 alongside Invasion Fleet and Vanguard Onslaught. "
+        "Detachment rule (Goonhammer: "
+        "https://www.goonhammer.com/detachment-focus-subterranean-assault/): "
+        "'Tyranids units gain reroll Hit rolls of 1 in both shooting and "
+        "combat. Trygons and Mawlocs gain the Burrower keyword, letting them "
+        "place Tunnel Markers on arrival from reserves which subsequent "
+        "friendly Tyranids units can deploy from.' Modelled as army-wide "
+        "`reroll_hit_ones=True` — fires for every Tyranid attacker, ranged "
+        "or melee. The Burrower / Tunnel Marker mechanic is NOT modelled "
+        "(SwegHammer has no in-battle reserve teleport hook); it lives in "
+        "the four catalogued-but-no-op stratagems (Tunnel Network, "
+        "Replenishing Swarms, Swarming Assault, Enfilading Emergence) as a "
+        "placeholder for follow-up wiring. Replaces the previous Tyranids "
+        "default Invasion Fleet (-1 enemy Ld approximation of Shadow in the "
+        "Warp, which is already handled in simulator.shadow_in_the_warp); "
+        "Invasion Fleet stays in the registry as a variant pick."
+    ),
+    # APPROXIMATION: army-wide reroll Hit rolls of 1 fires both ranged and melee.
+    # The Burrower keyword + Tunnel Marker reserve-teleport half is NOT modelled.
+    # Source: https://www.goonhammer.com/detachment-focus-subterranean-assault/
+    reroll_hit_ones=True,
+    stratagems=SUBTERRANEAN_ASSAULT_STRATAGEMS,
+    # iter16: preferred_composition="monster" tilts the detachment picker
+    # toward Subterranean Assault. Empirically the Subterranean Assault
+    # archetype produces monster-dominant armies in ~70% of seeds (Hive
+    # Tyrant 195pt + Trygon 140pt + Tervigon 160pt + Carnifex 461pt seed +
+    # random_fill MONSTER picks like Exocrine / Tyrannofex / Norn dominate
+    # the cost share). Invasion Fleet stays at "balanced" so it surfaces
+    # for the residual ~30% infantry-leaning Tyranid builds (chaff-swarm
+    # MSU). Real-meta justification: Subterranean Assault is the May-2026
+    # tournament default (Maastricht 2026 GT win, Goonhammer focus)
+    # specifically *because* it pairs with Trygons / Mawlocs / Carnifexes
+    # — it IS the monster-anchor detachment.
+    preferred_composition="monster",
 )
 
 # WAAAGH_DETACHMENT (the "WAAAGH! Tribe" placeholder) was deleted per the
@@ -837,6 +881,7 @@ DETACHMENTS: Dict[str, Detachment] = {
     "gladius_task_force":      GLADIUS_TASK_FORCE,
     "awakened_dynasty":        AWAKENED_DYNASTY,
     "invasion_fleet":          INVASION_FLEET,
+    "subterranean_assault":    SUBTERRANEAN_ASSAULT,
     "noble_lance":             NOBLE_LANCE,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
@@ -894,6 +939,8 @@ del _key, _det, _enh, _dc
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
+INVASION_FLEET     = DETACHMENTS["invasion_fleet"]
+SUBTERRANEAN_ASSAULT = DETACHMENTS["subterranean_assault"]
 MONTKA             = DETACHMENTS["montka"]
 VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 GRAND_COVEN        = DETACHMENTS["grand_coven"]
@@ -926,7 +973,15 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "White Scars":              "gladius_task_force",
     "Deathwatch":               "gladius_task_force",
     "Necrons":                  "awakened_dynasty",
-    "Tyranids":                 "invasion_fleet",
+    # iter16: Tyranids default flipped from "invasion_fleet" (which is
+    # a -1 enemy Ld approximation of Shadow in the Warp, redundant with
+    # simulator.shadow_in_the_warp) to "subterranean_assault" — the
+    # May-2026 real-meta default after Ron Eilyahoo's GW Open Maastricht
+    # 2026 win with a Subterranean Assault Trygon/Ravener list (Bell of
+    # Lost Souls, Goonhammer detachment focus). Army-wide reroll-hit-1s
+    # is the offensive uplift the calibration loop's archetype mode
+    # (-9.4pt vs real WR) needs.
+    "Tyranids":                 "subterranean_assault",
     # Orks: real codex detachment "War Horde" wired in iter-1 Cluster B B1.
     "Orks":                     "war_horde",
     "Imperial Knights":         "noble_lance",
@@ -993,7 +1048,13 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
     # army leans on its Canoptek units.
     "Necrons":                  ("awakened_dynasty", "canoptek_court"),
-    "Tyranids":                 ("invasion_fleet",),
+    # iter16: Tyranids gains Subterranean Assault as the real-meta default
+    # (May 2026 Maastricht GT winner — see DEFAULT_BY_FACTION comment).
+    # Invasion Fleet is retained as a variant for the picker; both real
+    # Tyranid detachments (also Synaptic Nexus, Vanguard Onslaught,
+    # Crusher Stampede, Warrior Bioform Onslaught) remain UNIMPLEMENTED
+    # — they land in per-detachment follow-ups.
+    "Tyranids":                 ("subterranean_assault", "invasion_fleet"),
     # Orks: War Horde wired in iter-1 Cluster B B1 (real codex detachment).
     # Other 10e Ork detachments (Green Tide, Bully Boyz, Kult of Speed,
     # Dread Mob, Da Big Hunt, Taktikal Brigade, More Dakka!, Freebooter
