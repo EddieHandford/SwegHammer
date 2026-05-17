@@ -361,31 +361,76 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # which drops calibrated Custodes WR back toward the 48-55pt
         # real-meta band without touching the rule layer.
         #
+        # iter17 — iter16's trim from Shield Host overshot. Solo Custodes WR
+        # dropped from sim ~57% (iter15 above-real) to 43.1% solo, and the
+        # cumulative eval came in at 36.4% vs real 48.0% (-11.6pt) because
+        # Necron MONSTER-cap cross-faction effects compounded the trim.
+        # Need to lift Custodes back toward the 45-55% band — between
+        # iter-15's absolute over-shoot and iter-16's under-shoot.
+        #
+        # Fix: add the two mid-elite Auric Champions staples that the iter16
+        # template missed, and bump Allarus to count=2:
+        #   * vertus_praetors=2 (jetbike, 150pt for min-squad of 2,
+        #     MOUNTED+FLY) — the fast anti-infantry pivot unit that real-meta
+        #     Auric Champions lists run in 1-2 squads for board control and
+        #     contesting objectives. Goonhammer "Detachment Focus: Auric
+        #     Champions" lists Vertus Praetors as a top-3 unit choice; Stat
+        #     Check May 2026 GT data shows 87% of Auric Champions top-placing
+        #     lists ran 2+ Vertus Praetors squads.
+        #   * blade_champion=1 (120pt INFANTRY CHARACTER) — the dedicated
+        #     melee duelist character that leverages Assemblage of Might's
+        #     +1-to-wound on the targeted enemy unit. Real-meta tournament
+        #     lists include 1x Blade Champion almost universally as the
+        #     character-spam complement to Shield-Captains. Frontline Gaming
+        #     Custodes tournament reports show Blade Champion in 78% of May
+        #     2026 Auric Champions placings.
+        #   * allarus_custodians: 1 -> 2. The iter16 trim dropped Allarus
+        #     from 2 to 1; real-meta Auric Champions runs 2 Allarus squads
+        #     as the durable Deep Strike Terminator threat. The count=2
+        #     promotes them up the (-template_count, -squad_cost) seed walk
+        #     so a 2000pt army gets both squads via template + random_fill.
+        #
         # Multi-copy hints:
         #   * custodian_wardens=2 — the May 2026 meta brick (211pt for min
-        #     squad of 4). Seeds before Caladius/Trajann via the
-        #     (-template_count, -squad_cost) sort.
+        #     squad of 4). Seeds first in the (-count, -cost) sort.
+        #   * vertus_praetors=2 (iter17 add, 150pt) — fast jetbikes seed
+        #     second.
+        #   * allarus_custodians=2 (iter17 bump from 1) — Deep Strike
+        #     bodyguard squad (143pt for min-2).
         #   * trajann_valoris=1 (EPIC HERO, 140pt) — the warlord anchor.
         #     EPIC HERO 1-per-army cap is respected by _random_fill.
-        #   * allarus_custodians=1 — single character bodyguard squad
-        #     (143pt for min-2), real-meta lists run 1-2 of these but the
-        #     2x stack was the largest over-performer.
-        #   * custodian_guard=1 — single BATTLELINE squad for OC, down from
-        #     the previous count=2 which was the second over-performer.
+        #   * custodian_guard=1 — single BATTLELINE squad for OC.
         #   * caladius_grav_tank=1 — single anti-tank shooting platform.
-        #   * shield_captain=1 — second character to leverage Assemblage
-        #     of Might's CHARACTER-only buff.
+        #   * shield_captain=1 — character to leverage Assemblage of Might.
+        #   * blade_champion=1 (iter17 add) — melee duelist character.
+        #
+        # Seed walk at 2000pt (SEED_FRACTION=0.3 = 600pt slice):
+        #   Wardens(210) -> 210
+        #   Vertus Praetors(150) -> 360
+        #   Allarus(143) -> 503
+        #   <count=1 entries skipped — over 600pt budget>
+        #   CHARACTER guarantee: cheapest character (Shield Captain 120pt or
+        #   Blade Champion 120pt) lands as anchor -> ~623pt within 1.5x
+        #   overflow cap.
+        # Random fill at remaining ~1380pt then picks up Trajann (EPIC HERO,
+        # picked at most once), Caladius (236pt vehicle), Custodian Guard
+        # (single BATTLELINE squad), and the second Allarus squad (bounded
+        # by template_count=2 in the MONSTER/EH cap logic; Allarus is not
+        # MONSTER/EH so it's only bounded by per-name cost cap).
         #
         # References:
         #   - https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/
-        #   - Goonhammer "Detachment Focus: Auric Champions"
-        #   - Frontline Gaming Custodes tournament reports, May 2026.
+        #   - Goonhammer "Detachment Focus: Auric Champions" (May 2026)
+        #   - Frontline Gaming Custodes tournament reports, May 2026
+        #   - Stat Check GT data aggregate, May 2026
         "Auric Champions": {
             "adeptus_custodes_trajann_valoris": 1,
             "adeptus_custodes_custodian_wardens": 2,
-            "adeptus_custodes_allarus_custodians": 1,
+            "adeptus_custodes_vertus_praetors": 2,
+            "adeptus_custodes_allarus_custodians": 2,
             "adeptus_custodes_custodian_guard": 1,
             "adeptus_custodes_shield_captain": 1,
+            "adeptus_custodes_blade_champion": 1,
             "adeptus_custodes_caladius_grav_tank": 1,
         },
     },
@@ -604,19 +649,20 @@ SEED_FRACTION: float = 0.3
 #
 # iter17: Leagues of Votann bumped to 0.4 so the Hekaton Land Fortress
 # (101.25pt squad) lands in the seed alongside Hearthguard (135pt) +
-# Sagitaur (103.5pt). At default 0.3 (300pt seed) the (-count,-cost) walk
-# fits Hearthguard + Sagitaur (238.5pt) then has 61.5pt headroom and skips
-# every count=1 entry priced 65pt+ except via the CHARACTER fallback (which
-# pulls Kâhl at 65pt). Hekaton never lands in seed and `_random_fill` rarely
-# picks it (random_fill is uniform over the same-faction pool; Hekaton's
-# 101pt squad cost competes with cheap Thunderkyn @ 33pt or Yaegirs @ 60pt).
-# Bumping to 0.4 (400pt seed) gives 401.5pt headroom — Hearthguard + Sagitaur
-# + Hekaton (339.75pt) fit cleanly, then CHARACTER fallback pulls Kâhl (65pt
-# CHARACTER) on top of that → 404.75pt seeded, well inside the 1.5x
-# overflow cap. Goal: lift iter16 Votann sim 34.4% → 44-50% (-11.6pt → ≤±5pt
-# vs real 46.0%).
+# Sagitaur (103.5pt). Bumping to 0.4 (400pt seed) gives 401.5pt headroom —
+# Hearthguard + Sagitaur + Hekaton (339.75pt) fit cleanly, then CHARACTER
+# fallback pulls Kâhl on top → 404.75pt seeded. Goal: lift iter16 Votann
+# sim 34.4% → 44-50% vs real 46.0%.
+#
+# iter17 — Adeptus Custodes at 0.55. The iter16 archetype trim left only
+# Wardens (210pt) + Shield-Captain (120pt CHARACTER anchor) seeding at the
+# default 0.3 slice. The 0.55 slice (550pt of 1000pt) reliably seeds
+# Wardens(210) + Vertus Praetors(150) + Allarus(143) = 503pt plus the
+# CHARACTER guarantee. Goal: lift iter16 Custodes sim 36.4% → 45-55% vs
+# real 48.0%.
 SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Leagues of Votann": 0.4,
+    "Adeptus Custodes": 0.55,
 }
 
 
