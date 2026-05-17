@@ -159,7 +159,20 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Ynnari Aeldari battleline; we list Guardian Defenders as the closest
     # in-catalogue host. EPIC HERO so the 1-per-army cap applies. Cited as
     # LeaderAbility."Word of the Phoenix" in data/rule_citations.d/leaders.json.
-    ("Yvraine",            LeaderAbility(name="Word of the Phoenix",        aura_range=6.0, reroll_wound_ones=True, revive_destroyed_per_round=2,
+    # iter17 — revive_destroyed_per_round dropped from 2 -> 1 after the
+    # archetype eval showed Aeldari at sim 55.6% vs real 44.4% (+11.2pt
+    # over). The codex Word of the Phoenix returns D3+1 (median 3) on a
+    # 2+ — effective ~2.5 models/round in the codex; iter15 modelled this
+    # as 2 to stay conservative. The simulator's apply_round_end_revival
+    # fires unconditionally each round whether or not a Bodyguard model
+    # actually died — the codex would no-op on a round where Yvraine's
+    # unit took zero casualties. Scaling to 1/round better matches an
+    # "average 1 model dies per round on the Yvraine-led unit * D3+1
+    # median heal * 2+ success rate" expectation. Yvraine remains in the
+    # leader registry but is NOT in the Aeldari archetype template — she
+    # gets picked up if an explicit caller seeds her, or if she lands via
+    # build_faction_random_army when faction == "Ynnari".
+    ("Yvraine",            LeaderAbility(name="Word of the Phoenix",        aura_range=6.0, reroll_wound_ones=True, revive_destroyed_per_round=1,
                                           host_keys=_AELDARI_GUARDIAN_HOSTS)),
     # The Yncarne (Ynnari EPIC HERO, MONSTER) — Ethereal Form regains D3
     # wounds each time it destroys an enemy unit; we proxy as
@@ -173,6 +186,17 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # so substring lookup on "The Yncarne" doesn't collide with any
     # generic match. Yncarne is a Monster — no formal leader attachment
     # (host_keys empty). Cited as LeaderAbility."Ethereal Form".
+    #
+    # iter17 note: dropped Yvraine from the Aeldari archetype template
+    # (the Word-of-the-Phoenix revive_destroyed_per_round=2 was compounding
+    # with Yncarne's heal under the round-end pipeline, pushing Aeldari sim
+    # to 55.6% vs real 44.4%). With Yvraine gone, Yncarne's heal_per_round
+    # is left at the iter15 value (D3 median = 2). The standalone Yncarne
+    # archetype lands at sim 40.0% — the Yvraine drop alone removed enough
+    # power to slightly under-shoot the meta. Tuning is left here rather
+    # than scaling Yncarne further; the cross-faction overshoots from
+    # Tyranids / DG / Necrons / T'au all pull Aeldari WR down indirectly,
+    # so the direct Aeldari lever is intentionally kept light.
     ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, plus_one_to_hit=True,   heal_per_round=2)),
     ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
     ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True,   host_keys=_AELDARI_GUARDIAN_HOSTS)),

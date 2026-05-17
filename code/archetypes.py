@@ -138,35 +138,102 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Aeldari": {
-        # Ynnari triumvirate Battle Host — May 2026 real-meta Aeldari lists
-        # mandate the Yvraine + Yncarne EPIC HERO pairing as the Warlord
-        # spine. The previous template seeded Farseer + Autarch only, which
-        # under-evaluated the army by ~4pt vs real WR. Wraithguard is the
-        # durable shooting brick that the Ynnari list builds around; Spirit-
-        # seer is the cheap CHARACTER that escorts them.
+        # iter17 — Aeldari Battle Host overshoot trim. iter15 (c35790e)
+        # wired Yvraine + Yncarne datasheet abilities (revive_destroyed=2,
+        # heal_per_round=2, +1-to-hit aura), and at N=40 archetype eval
+        # Aeldari shot from 42.5% to 55.6% sim vs 44.4% real (+11.2pt
+        # over). Two-pronged fix here:
         #
-        # Template-count rationale: Yvraine + Yncarne are set to count=3 so
-        # the (-template_count, -squad_cost) anchor sort puts them at the
-        # very top of the seed walk, ahead of the count=2 Wraithguard tier.
-        # _instantiate_template only seeds 1 copy per entry regardless of
-        # count, so the inflated count is purely a sorting hint — it
-        # guarantees the EPIC HERO pair lands before the 240pt Wraithguard
-        # squad eats the 450pt seed slice at 1500pt budgets. (Yvraine/
-        # Yncarne are also EPIC HERO so the 1-per-army cap is naturally
-        # respected.)
+        # 1. Drop Yvraine from the template. Real-meta May 2026 Aeldari
+        #    Warhost (NOT Ynnari Devoted-of-Ynnead) lists are anchored on
+        #    Avatar of Khaine + Farseer + Aspect Warriors. Yvraine is an
+        #    Ynnari-detachment centerpiece; her Word-of-the-Phoenix revival
+        #    (D3+1 Bodyguard models / round on a 2+) compounds with
+        #    Yncarne's Ethereal-Form heal under our round-end pipeline,
+        #    and the simulator can't model the Ynnari-detachment gate that
+        #    bounds her in real play. The brief explicitly suggested
+        #    "dropping one" of the EPIC HERO pair — Yvraine is the cheaper
+        #    drop (100pt vs Yncarne's 260pt) and the less iconic Aeldari
+        #    Warhost anchor (Yncarne stays as the flagship MONSTER + the
+        #    +1-to-hit aura proxy for Inevitable Death threat-mobility).
+        #
+        # 2. Add Avatar of Khaine to the template. The Avatar is the
+        #    canonical Warhost MONSTER CHARACTER centerpiece — Wahapedia
+        #    datasheet (https://wahapedia.ru/wh40k10ed/factions/aeldari/
+        #    Avatar-of-Khaine) shows it as a 280pt EPIC HERO MONSTER with
+        #    Daemonic, Deep Strike, and Khaine-blessed melee. Real-meta
+        #    Warhost lists almost universally field 1 Avatar (Goonhammer
+        #    "Aeldari Warhost detachment focus" May 2026; Stat Check
+        #    Aeldari aggregate). With Yncarne ALSO on the roster, the EPIC
+        #    HERO 1-per-army cap is naturally respected (each EH datasheet
+        #    is unique). At 280pt + Yncarne 260pt = 540pt of EH MONSTERs
+        #    the seed walk fits comfortably inside the 600pt slice (0.3
+        #    SEED_FRACTION at 2000pt) AND the 450pt slice at 1500pt thanks
+        #    to the (-template_count, -squad_cost) sort placing both EH
+        #    MONSTERs ahead of cheaper chaff. At smaller budgets only one
+        #    of the pair will fit and the cheaper Yncarne (260pt) wins the
+        #    cost tiebreak vs Avatar (280pt) at the same count=2 sort tier
+        #    — meaning if only one EH-MONSTER fits, it's Yncarne (which
+        #    still carries the Ethereal Form heal + +1-to-hit aura).
+        #
+        # 3. Replace Dire Avengers with Guardian Defenders (BATTLELINE).
+        #    Dire Avengers are an ELITE Aspect Warrior squad at 19pt/model;
+        #    Guardian Defenders are the BATTLELINE chaff that real-meta
+        #    Warhost lists use to claim objectives (100pt/squad of 10,
+        #    Asuryani BATTLELINE INFANTRY). The BATTLELINE cap in
+        #    _random_fill admits 2 squads total when count=1 in template.
+        #
+        # 4. Keep Wraithguard at count=2 plus add Wraithblades at count=1.
+        #    Real-meta Warhost lists run a bodyguard brick of Wraithguard
+        #    AND occasionally Wraithblades for melee. count=2 sort-hint on
+        #    Wraithguard ensures it lands ahead of count=1 entries in the
+        #    seed walk; the iter17 first cut dropped it to count=1 and the
+        #    archetype eval pulled Aeldari to 40% (-4.4pt under real),
+        #    overshooting. Restoring Wraithguard count=2 keeps it as the
+        #    archetype's durable shooting spine. The non-BATTLELINE
+        #    Wraithguard isn't governed by the BATTLELINE cap so multi-
+        #    squad stacks are possible at high budgets; this is intended
+        #    given the real-meta Wraithguard density.
+        #
+        # 5. Drop Falcon. The Falcon is a 644pt squad (1 model min) — the
+        #    most expensive single-squad entry in the Aeldari catalogue.
+        #    It crowds out the seed at low budgets and inflates the army's
+        #    durability score under the simulator's vehicle wound model.
+        #    Real-meta Warhost lists rarely run Falcons in addition to
+        #    Wave Serpents; Wave Serpent remains as the TRANSPORT chassis.
+        #
+        # Sort-hint count rationale (iter17 final):
+        #   * Yncarne count=4 (highest) — at 1000pt eval budget (300pt
+        #     seed slice) only ONE EH MONSTER fits, so the sort tiebreak
+        #     matters. Yncarne (260pt, +1-to-hit aura + heal_per_round=2)
+        #     is a stronger anchor than Avatar (280pt, reroll_hit_ones)
+        #     because the +1-to-hit aura compounds with both melee and
+        #     ranged attacks while reroll-1s only rescues a fraction of
+        #     misses. With count=4 Yncarne wins the seed tiebreak even
+        #     when Avatar is more expensive, and Yncarne seeds first.
+        #   * Avatar count=3 — at 2000pt budget (600pt seed) BOTH EH
+        #     MONSTERS fit (Yncarne 260 + Avatar 280 = 540). count=3
+        #     keeps Avatar ahead of count=2 Wraithguard in the sort.
+        #   * Wraithguard count=2 — the durable shooting brick of real-
+        #     meta Warhost. At 2000pt seed walk after Yncarne+Avatar
+        #     (540pt) only 60pt remain — Wraithguard (241pt) overflows,
+        #     so it doesn't seed at 2000pt either. random_fill picks it
+        #     up when budget allows; count=2 retained for the sort
+        #     consistency at intermediate (1500pt) budgets where only
+        #     ONE EH MONSTER fits.
         #
         # Reference: https://wahapedia.ru/wh40k10ed/factions/aeldari/
         "Battle Host": {
-            "aeldari_ynnari_yvraine": 3,
-            "aeldari_ynnari_the_yncarne": 3,
-            "aeldari_craftworlds_spiritseer": 1,
-            "aeldari_craftworlds_farseer": 1,
+            "aeldari_ynnari_the_yncarne": 4,
+            "aeldari_craftworlds_avatar_of_khaine": 3,
             "aeldari_craftworlds_wraithguard": 2,
-            "aeldari_craftworlds_dire_avengers": 1,
+            "aeldari_craftworlds_farseer": 1,
+            "aeldari_craftworlds_spiritseer": 1,
+            "aeldari_craftworlds_wraithblades": 1,
+            "aeldari_craftworlds_guardian_defenders": 1,
             "aeldari_craftworlds_fire_dragons": 1,
             "aeldari_craftworlds_rangers": 1,
             "aeldari_craftworlds_wave_serpent": 1,
-            "aeldari_craftworlds_falcon": 1,
         },
     },
     "Tyranids": {

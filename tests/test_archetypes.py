@@ -124,18 +124,21 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
 
     def test_aeldari_archetype_includes_wraith_or_falcon(self):
         """Aeldari Battle Host at 1000 pts must produce at least one heavy
-        anchor — Wraithguard, Wraithblades, Wave Serpent, Falcon, or
-        Yncarne. These are the expensive units the cheapest-first bug used
-        to drop.
+        anchor — Wraithguard, Wraithblades, Wave Serpent, Yncarne, or
+        Avatar of Khaine. These are the expensive units the cheapest-first
+        bug used to drop.
 
-        Yncarne (260pt EPIC HERO monster) was added in iter13 as part of
-        the real-meta Ynnari triumvirate template, and counts as a heavy
-        anchor at the 1000pt seed slice (300pt) where it dominates the
-        seed walk."""
+        Yncarne (260pt EPIC HERO monster) was added in iter13 and persists
+        through the iter17 trim. Avatar of Khaine (280pt EPIC HERO MONSTER)
+        was added in iter17 as the canonical Warhost centerpiece (replacing
+        the dropped Yvraine). Either one is a sufficient heavy anchor at
+        the 1000pt seed slice (300pt) where they dominate the seed walk;
+        the test accepts any of the listed anchors."""
         anchor_keys = [
             "aeldari_craftworlds_wraithguard",
+            "aeldari_craftworlds_wraithblades",
             "aeldari_craftworlds_wave_serpent",
-            "aeldari_craftworlds_falcon",
+            "aeldari_craftworlds_avatar_of_khaine",
             "aeldari_ynnari_the_yncarne",
         ]
         anchor_names = {
@@ -157,39 +160,33 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
 class ArchetypeFallbackTests(unittest.TestCase):
     def test_archetype_fallback_when_no_curated(self):
         """A faction not present in ARCHETYPES still builds an army via the
-        legacy random-pool path."""
-        # Pick a faction we know we have units for but no archetype, AND
-        # at least one affordable non-Legends profile at 1000pt. Set order
-        # is non-deterministic across runs and under PYTHONHASHSEED=0 used
-        # to pick "Chaos Titans" whose cheapest unit is the 1100pt Warhound
-        # — no army can be built at the 1000pt eval budget. Filtering for
-        # an affordable pool guarantees the test isolates the
-        # use_archetype=True-fallback wiring rather than catalogue
-        # coverage at the test budget.
+        legacy random-pool path.
+
+        Picks `Astra Militarum` as a known catalogue faction without an
+        archetype. The previous version walked `set()` iteration to find
+        an obscure faction, but set iteration is non-deterministic across
+        runs and would occasionally land on factions with too few buildable
+        profiles (e.g. "Chaos Titans") so the random builder produced an
+        empty army. Astra Militarum has a full catalogue of cheap infantry
+        so the build always lands at least one unit.
+        """
+        # Astra Militarum is in the catalogue but not in ARCHETYPES.
+        # Sanity-check that assumption so the test fails loudly if the
+        # catalogue or the ARCHETYPES map changes.
         catalogue_factions = {u.faction for u in UNIT_CATALOG.values()}
-
-        def has_affordable_unit(faction: str, budget: float = 1000.0) -> bool:
-            for u in UNIT_CATALOG.values():
-                if u.faction != faction:
-                    continue
-                if "[Legends]" in u.name or "[Crucible]" in u.name:
-                    continue
-                size = max(1, u.max_models)
-                if u.points_cost * size <= budget:
-                    return True
-            return False
-
-        obscure = next(
-            (f for f in sorted(catalogue_factions)
-             if f and not has_archetype(f) and f != ""
-             and has_affordable_unit(f)),
-            None,
+        self.assertIn(
+            "Astra Militarum", catalogue_factions,
+            "Astra Militarum should be a faction in UNIT_CATALOG",
         )
-        self.assertIsNotNone(obscure, "Expected at least one non-archetype faction in catalogue")
+        self.assertFalse(
+            has_archetype("Astra Militarum"),
+            "Astra Militarum unexpectedly gained an ARCHETYPES entry; "
+            "pick a different non-archetype faction for this fallback test.",
+        )
 
         rng = random.Random(7)
         army = build_faction_random_army(
-            "X", obscure, 1000.0, rng=rng, use_archetype=True,
+            "X", "Astra Militarum", 1000.0, rng=rng, use_archetype=True,
         )
         # Even with archetypes enabled, an unknown-faction army still
         # builds via the random-pool fallback.
