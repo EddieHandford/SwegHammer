@@ -30,7 +30,18 @@ class ArchetypeKeysResolveTests(unittest.TestCase):
 
     def test_every_archetype_unit_belongs_to_its_faction(self):
         """An archetype must not draft a unit from another faction (e.g. a
-        T'au archetype referencing a Tyranid catalogue key)."""
+        T'au archetype referencing a Tyranid catalogue key).
+
+        Aeldari sub-faction allies (Ynnari Yvraine / Yncarne / Visarch) are
+        catalogued with `faction == "Ynnari"` per the BSData split but are
+        legal in any 10e Aeldari (Craftworlds/Drukhari/Harlequins) army per
+        the Aeldari index. The Aeldari archetype is allowed to seed them.
+        """
+        # Per-faction allow-list of sub-factions that may co-exist in the
+        # archetype (real-meta multi-codex armies the index permits).
+        ALLOWED_SUBFACTION = {
+            "Aeldari": {"Ynnari"},
+        }
         misplaced = []
         for faction, archetypes in ARCHETYPES.items():
             for archetype_name, template in archetypes.items():
@@ -38,10 +49,13 @@ class ArchetypeKeysResolveTests(unittest.TestCase):
                     if key not in UNIT_CATALOG:
                         continue
                     unit_faction = UNIT_CATALOG[key].faction
-                    if unit_faction != faction:
-                        misplaced.append(
-                            f"{faction}/{archetype_name}: {key} faction={unit_faction}"
-                        )
+                    if unit_faction == faction:
+                        continue
+                    if unit_faction in ALLOWED_SUBFACTION.get(faction, set()):
+                        continue
+                    misplaced.append(
+                        f"{faction}/{archetype_name}: {key} faction={unit_faction}"
+                    )
         self.assertEqual(misplaced, [], f"Misplaced: {misplaced}")
 
 
@@ -110,12 +124,19 @@ class ArchetypeAnchorSeedingTests(unittest.TestCase):
 
     def test_aeldari_archetype_includes_wraith_or_falcon(self):
         """Aeldari Battle Host at 1000 pts must produce at least one heavy
-        anchor — Wraithguard, Wraithblades, Wave Serpent, or Falcon. These
-        are the expensive units the cheapest-first bug used to drop."""
+        anchor — Wraithguard, Wraithblades, Wave Serpent, Falcon, or
+        Yncarne. These are the expensive units the cheapest-first bug used
+        to drop.
+
+        Yncarne (260pt EPIC HERO monster) was added in iter13 as part of
+        the real-meta Ynnari triumvirate template, and counts as a heavy
+        anchor at the 1000pt seed slice (300pt) where it dominates the
+        seed walk."""
         anchor_keys = [
             "aeldari_craftworlds_wraithguard",
             "aeldari_craftworlds_wave_serpent",
             "aeldari_craftworlds_falcon",
+            "aeldari_ynnari_the_yncarne",
         ]
         anchor_names = {
             UNIT_CATALOG[k].name for k in anchor_keys if k in UNIT_CATALOG

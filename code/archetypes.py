@@ -75,14 +75,33 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Aeldari": {
+        # Ynnari triumvirate Battle Host — May 2026 real-meta Aeldari lists
+        # mandate the Yvraine + Yncarne EPIC HERO pairing as the Warlord
+        # spine. The previous template seeded Farseer + Autarch only, which
+        # under-evaluated the army by ~4pt vs real WR. Wraithguard is the
+        # durable shooting brick that the Ynnari list builds around; Spirit-
+        # seer is the cheap CHARACTER that escorts them.
+        #
+        # Template-count rationale: Yvraine + Yncarne are set to count=3 so
+        # the (-template_count, -squad_cost) anchor sort puts them at the
+        # very top of the seed walk, ahead of the count=2 Wraithguard tier.
+        # _instantiate_template only seeds 1 copy per entry regardless of
+        # count, so the inflated count is purely a sorting hint — it
+        # guarantees the EPIC HERO pair lands before the 240pt Wraithguard
+        # squad eats the 450pt seed slice at 1500pt budgets. (Yvraine/
+        # Yncarne are also EPIC HERO so the 1-per-army cap is naturally
+        # respected.)
+        #
+        # Reference: https://wahapedia.ru/wh40k10ed/factions/aeldari/
         "Battle Host": {
-            "aeldari_craftworlds_dire_avengers": 1,
-            "aeldari_craftworlds_guardian_defenders": 1,
-            "aeldari_craftworlds_rangers": 1,
-            "aeldari_craftworlds_fire_dragons": 1,
-            "aeldari_craftworlds_wraithguard": 1,
+            "aeldari_ynnari_yvraine": 3,
+            "aeldari_ynnari_the_yncarne": 3,
+            "aeldari_craftworlds_spiritseer": 1,
             "aeldari_craftworlds_farseer": 1,
-            "aeldari_craftworlds_autarch": 1,
+            "aeldari_craftworlds_wraithguard": 2,
+            "aeldari_craftworlds_dire_avengers": 1,
+            "aeldari_craftworlds_fire_dragons": 1,
+            "aeldari_craftworlds_rangers": 1,
             "aeldari_craftworlds_wave_serpent": 1,
             "aeldari_craftworlds_falcon": 1,
         },
