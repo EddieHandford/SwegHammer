@@ -3266,8 +3266,10 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _run_battleshock_phase(self, round_num: int) -> None:
-        """10e Battle-shock step (after Round 1). For each unit Below
-        Half-Strength, roll 2D6 vs Ld; fail (< Ld) sets the unit as
+        """10e Battle-shock step (every Command phase, from Round 1
+        onward — Wahapedia /the-rules/core-rules/#Command-Phase). For
+        each unit Below Half-Strength, roll 2D6 vs Ld; fail (< Ld) sets
+        the unit as
         Battle-shocked for the round — OC drops to 0 AND it cannot be the
         subject of Stratagems. We populate `_battleshocked_this_round`
         BEFORE the stratagem dispatcher runs so target-pickers
@@ -3290,9 +3292,13 @@ class Battle:
             enemy units within 3" of any DG model take -1 Ld. Cited as
             `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
             modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
+
+        iter-13 fix: previously gated on `round_num <= 1` (skipped R1
+        entirely). 10e core fires the test at the start of every Command
+        phase, R1 included. The R1 path is now live; the
+        contagion-source escalation gate below remains R2-only because
+        Maladictive Pall itself is R2 in the contagion schedule.
         """
-        if round_num <= 1:
-            return
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             opponent_det = opponent.resolve_detachment()
             own_det = army.resolve_detachment()
