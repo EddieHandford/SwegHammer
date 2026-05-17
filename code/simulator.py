@@ -2862,18 +2862,49 @@ class Battle:
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
-                to_revive = min(len(dead_pool), wounds)
-                for revived in dead_pool[:to_revive]:
-                    revived.current_health = revived.profile.health
+                # Fix F-NEC-2 (iter 14, #iter14): spend the D3/D3+1 pulse
+                # WOUND-BY-WOUND per the Wahapedia army-rule allocation
+                # ("If that unit contains one or more models with fewer
+                # than their starting number of wounds remaining … that
+                # model regains one lost wound. … If all models in that
+                # unit have their starting number of wounds, but that
+                # unit is not at its Starting Strength, one destroyed
+                # model is returned … with one wound remaining."). The
+                # previous behaviour treated each wound as one revived
+                # model at full HP, which for multi-wound Necron units
+                # (Wraiths W3, Lychguard W2/W3, Praetorians W2, Skorpekh
+                # W3, Lokhust Heavy Destroyers W3) over-fired by a factor
+                # of W. Same `simulator.reanimation_protocols` citation
+                # update covers this path.
+                budget = int(wounds)
+                # First pass: heal damaged-but-alive models 1W at a time.
+                for peer in alive_peers:
+                    while (
+                        budget > 0
+                        and peer.current_health < peer.profile.health
+                    ):
+                        peer.current_health += 1.0
+                        budget -= 1
+                    if budget <= 0:
+                        break
+                # Second pass: revive destroyed models 1W each, in order,
+                # until budget exhausted or pool empty.
+                revived_count = 0
+                for revived in dead_pool:
+                    if budget <= 0:
+                        break
+                    revived.current_health = 1.0
                     revived.position = anchor_pos
                     self._emit(UnitReanimated(
                         unit_uid=revived.uid, position=anchor_pos,
                     ))
+                    budget -= 1
+                    revived_count += 1
                 # Move just-revived models out of the dead pool for any
                 # subsequent pulse iteration in this loop.
-                dead_by_profile[profile_name] = dead_pool[to_revive:]
+                dead_by_profile[profile_name] = dead_pool[revived_count:]
                 alive_by_profile.setdefault(profile_name, []).extend(
-                    dead_pool[:to_revive]
+                    dead_pool[:revived_count]
                 )
 
     # ----- Cabal of Sorcerers Rituals (Thousand Sons army rule, #193) ---
@@ -3151,8 +3182,18 @@ class Battle:
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
+                # Fix F-NEC-2 (iter 14, #iter14): per Wahapedia army-rule
+                # wording, a revived destroyed model "is returned to that
+                # unit with one wound remaining" — NOT at full HP. For W1
+                # Warriors this is identical; for multi-wound Necron units
+                # (Wraiths W3, Lychguard W2/W3, Skorpekh W3, Praetorians W2,
+                # Lokhust Heavy Destroyers W3) the previous full-HP revival
+                # was strictly over-generous. Necrons sit +10.3pt over real
+                # meta (iter-13 baseline); this is the most defensible
+                # correctness-positive trim. Cited as
+                # `simulator.reanimation_protocols` (effect text updated).
                 for revived in dead_pool[:to_revive]:
-                    revived.current_health = revived.profile.health
+                    revived.current_health = 1.0
                     revived.position = anchor_pos
                     self._emit(UnitReanimated(
                         unit_uid=revived.uid, position=anchor_pos,
