@@ -251,6 +251,71 @@ def _squad_points(profile: UnitProfile, size: int) -> float:
     return profile.points_cost * size
 
 
+def _fit_squad_size(
+    profile: UnitProfile,
+    policy: str,
+    rng: random.Random,
+    remaining: float,
+    cap_headroom: float,
+) -> int:
+    """
+    Pick a squad size that honours BSData min/max, the requested policy, AND
+    fits inside both `remaining` (remaining budget) and `cap_headroom`
+    (per-unit-type cap minus already-spent on this profile).
+
+    iter13 fix — previously `_squad_size` returned the policy choice blindly,
+    and the caller filtered out the squad if its cost exceeded the cap. That
+    meant high-min-cost BATTLELINE units (TSON Rubric Marines min 4 = 240pt,
+    max 9 = 540pt) were rejected entirely at the 1000pt / 50%-cap default
+    (cap=500pt < 540pt squad-max). Scarab Occult Terminators (min 4 = 396pt,
+    max 9 = 891pt) were similarly absent from random-fill TSON lists despite
+    being the codex's BATTLELINE / TERMINATOR core. Faction-neutral effect:
+    any codex whose BATTLELINE squad-max exceeds 50% of the budget got the
+    same silent exclusion.
+
+    The fit-with-fallback rule:
+      1. Compute the policy-preferred size (the previous behaviour).
+      2. If preferred size fits both `remaining` and `cap_headroom`, use it.
+      3. Otherwise, walk size down toward `min_models`, returning the largest
+         size that fits both constraints.
+      4. If even `min_models` doesn't fit `remaining`, return 0 (caller
+         filters out — true affordability failure).
+      5. If `min_models` fits `remaining` but exceeds `cap_headroom`, return
+         `min_models` anyway — the cap is a soft preference to avoid
+         degenerate spam, and a faction's legal minimum squad must always be
+         seedable. The next pick of the same profile will be capped naturally
+         once `spent_by_name` overshoots.
+    """
+    lo, hi = max(1, profile.min_models), max(1, profile.max_models)
+    if hi < lo:
+        hi = lo
+    pts = profile.points_cost
+
+    # Step 1-2: try the policy-preferred size first.
+    if policy == "max":
+        preferred = hi
+    elif policy == "half_or_max":
+        half = (lo + hi + 1) // 2
+        preferred = rng.choice((half, hi))
+    else:
+        preferred = rng.randint(lo, hi)
+
+    if preferred * pts <= remaining and preferred * pts <= cap_headroom:
+        return preferred
+
+    # Step 3: walk down from preferred to lo, find the largest fitting size.
+    for size in range(min(preferred, hi), lo - 1, -1):
+        cost = size * pts
+        if cost <= remaining and cost <= cap_headroom:
+            return size
+
+    # Step 4-5: even min squad doesn't fit the cap. If it fits remaining,
+    # return min anyway (cap is a soft preference); otherwise signal failure.
+    if lo * pts <= remaining:
+        return lo
+    return 0
+
+
 def build_faction_random_army(
     name: str,
     faction: str,
@@ -347,10 +412,17 @@ def build_faction_random_army(
         for p in pool:
             if is_epic_hero(p) and p.name in epic_heroes_taken:
                 continue
-            size = _squad_size(p, size_policy, rng)
+            # iter13 fix — use cap-aware sizing so high-min-cost battleline
+            # squads (TSON Rubric Marines, Scarab Occult Terminators) can
+            # still seed at a smaller-than-max size that fits the cap, and
+            # crucially can seed at min-size even when that overshoots the
+            # cap (otherwise these profiles are silently excluded entirely).
+            cap_headroom = max(0.0, cap - spent_by_name[p.name])
+            size = _fit_squad_size(p, size_policy, rng, remaining, cap_headroom)
+            if size <= 0:
+                continue
             cost = _squad_points(p, size)
-            if cost <= remaining and spent_by_name[p.name] + cost <= cap:
-                affordable.append((p, size, cost))
+            affordable.append((p, size, cost))
         if not affordable:
             break
         chosen, size, cost = rng.choice(affordable)
