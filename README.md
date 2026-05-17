@@ -1,5 +1,16 @@
 # Sweghammer: Data-Driven Unit Costing for Warhammer 40K
 
+
+<img width="939" height="961" alt="image" src="https://github.com/user-attachments/assets/5f350602-b775-449b-a1de-a26387f56333" />
+
+
+
+
+
+
+
+
+
 A project to derive fair, mathematically-grounded unit points costs for Warhammer 40K based on
 Lanchester's Square Law and empirical simulation, whilst introducing minimal rule adjustments to
 eliminate key feel-bad moments and restore balance.
