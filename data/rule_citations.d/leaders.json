@@ -100,6 +100,24 @@
     "scope": "unit-led"
   },
 
+  "LeaderAbility.Word of the Phoenix": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Yvraine",
+    "rule_name": "Word of the Phoenix (Psychic) + Herald of Ynnead",
+    "quoted_text": "Word of the Phoenix (Psychic): While this model is leading a unit, in your Command phase, roll one D6: on a 2+, D3+1 destroyed Bodyguard models (excluding Support Weapon models) are returned to that unit with their full wounds remaining. Herald of Ynnead: At the start of the Fight phase, select one enemy unit within Engagement Range of this model. Until the end of the phase, each time a friendly Aeldari model makes an attack that targets that unit, you can re-roll a Wound roll of 1.",
+    "trigger": "Yvraine is alive and leading an Aeldari Bodyguard unit (Word of the Phoenix fires at end of each round via apply_round_end_revival; Herald is an always-on reroll-wound-1s proxy)",
+    "effect": "(approximation) revive 2 destroyed friendly INFANTRY models per round end at full HP, preferring profiles whose live peers are in the 6\" aura (encoded as revive_destroyed_per_round=2). Re-roll Wound rolls of 1 in aura. The codex's Word of the Phoenix returns D3+1 (median 3) on a 2+ (success rate 5/6) — effective ~2.5 models/round — rounded down to 2 to stay conservative. The Herald of Ynnead Fight-phase target-marker is approximated as an always-on aura since the simulator's leader-aura layer doesn't expose per-target marker-buffs; this overshoots slightly versus the codex's target-restricted spec.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Ethereal Form": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne",
+    "rule_name": "Ethereal Form + Inevitable Death",
+    "quoted_text": "Ethereal Form: Each time this model destroys an enemy unit it regains up to D3 lost wounds. Inevitable Death: Once in each of your opponent's turns, if this model is on the battlefield when another friendly Aeldari unit is destroyed, just after removing the last model in that unit, you can remove this model from the battlefield and set it up as close as possible to where that destroyed model was destroyed and not within Engagement Range of one or more enemy units.",
+    "trigger": "Yncarne is alive (round-end heal fires via apply_round_end_healing every round; +1-to-hit aura applies to nearby Aeldari friendlies via the standard in_range_leaders proximity check)",
+    "effect": "(approximation) +1 to Hit in aura range AND heal 2 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). Approximates Ethereal Form's on-kill D3 heal as a steady 2/round end (D3 median = 2). Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths; the +1-to-hit aura is a loose threat-mobility proxy for the teleport's tactical upside (Yncarne being everywhere it needs to be).",
+    "scope": "unit-led"
+  },
+
   "LeaderAbility.Runes of Fate": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Farseer",
     "rule_name": "Branching Fates",

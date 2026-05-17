@@ -149,6 +149,31 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("tyranids_tyranid_warriors_with_ranged_bio_weapons",
                                                      "tyranids_termagants"))),
     # Aeldari
+    # Yvraine (Ynnari EPIC HERO) — Herald of Ynnead grants Aeldari-friendly
+    # re-roll of Wound rolls of 1 vs a fight-phase-marked target (we proxy
+    # as an always-on reroll-wound-1s aura); Word of the Phoenix (Psychic)
+    # revives D3+1 destroyed Bodyguard models in the led unit each Command
+    # phase on a 2+ — wired via revive_destroyed_per_round=2 (median D3+1=3
+    # models per fire, ~83% fire rate on 2+ → effective ~2.5/round; we
+    # round down to 2 to stay conservative). Leader-attaches to Asuryani or
+    # Ynnari Aeldari battleline; we list Guardian Defenders as the closest
+    # in-catalogue host. EPIC HERO so the 1-per-army cap applies. Cited as
+    # LeaderAbility."Word of the Phoenix" in data/rule_citations.d/leaders.json.
+    ("Yvraine",            LeaderAbility(name="Word of the Phoenix",        aura_range=6.0, reroll_wound_ones=True, revive_destroyed_per_round=2,
+                                          host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    # The Yncarne (Ynnari EPIC HERO, MONSTER) — Ethereal Form regains D3
+    # wounds each time it destroys an enemy unit; we proxy as
+    # heal_per_round=2 (D3 median = 2) channelled at round end through
+    # apply_round_end_healing, which prefers the most-wounded friendly in
+    # aura but falls back to the leader itself — the latter case maps to
+    # the codex's self-heal behaviour. Inevitable Death (reactive teleport
+    # on Aeldari unit death) is NOT modelled — the simulator has no
+    # reactive-relocation hook; the +1-to-hit aura is a loose proxy for
+    # the threat-mobility upside of the teleport. Listed AFTER Yvraine
+    # so substring lookup on "The Yncarne" doesn't collide with any
+    # generic match. Yncarne is a Monster — no formal leader attachment
+    # (host_keys empty). Cited as LeaderAbility."Ethereal Form".
+    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, plus_one_to_hit=True,   heal_per_round=2)),
     ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
     ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True,   host_keys=_AELDARI_GUARDIAN_HOSTS)),
     ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),  # Monster, no formal host
