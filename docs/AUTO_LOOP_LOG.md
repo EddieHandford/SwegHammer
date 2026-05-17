@@ -575,3 +575,42 @@ At 1000pt eval budget, TSON archetype is structurally under-resourced. Neither M
 
 Cumulative MAE: **11.48 → 11.48pt** (Δ 0.00). Iter 17 holds the line on TSON archetype but flags the budget structural ceiling.
 
+
+### Iter 17 closure (2026-05-17)
+
+All 5 KEEPers landed on carryover. DG dispatch DEFERRED (MC bisection territory).
+
+**Agents reported**:
+- Votann recovery (`0325555`) — sim 34.4% → 42.2% (+7.8pt). Hekaton + Kâhl + Einhyr Champion. SEED_FRACTION_BY_FACTION["Leagues of Votann"] = 0.4.
+- TSON Mutalith (`810ca80`) — sim 25.8% → 26.9% (+1.1pt). Structural 1000pt budget ceiling flagged. Bonus: 2 pre-existing test fixes.
+- Custodes re-tune (`308cb72`) — sim 36.4% → 47.2% (+10.8pt, |err| 0.8 — bullseye). Vertus Praetors + Blade Champion + Allarus 1→2. SEED_FRACTION 0.55.
+- Tyranids re-tune (`dbc4569`) — sim 71.4% → 50.3% (−21.1pt). Trygon×2→×1, added Tyrannofex.
+- Aeldari trim (`1ce1b6d`) — sim 55.6% → 43.3% (−12.3pt). Avatar of Khaine anchor, drop Yvraine, Yncarne ×4. Yvraine revive 2→1 cited update.
+- DG retry — **DEFERRED**. Even with iter 16 MONSTER cap, drone-heavy variant regressed to 89.7%. Plague Marines (BATTLELINE) + Bloat-Drones (VEHICLE) are not caught by the MONSTER cap. DG points are under-costed → MC bisection (Plan Step 4).
+
+**Cumulative iter 17 (5-fix bundle, DG parked)**: MAE **11.48 → 8.25pt** (Δ **−3.23pt**). MAE-vs-Sweg 10.89 → 7.75pt. Tests 771/771. Rule citations 214 → 214.
+
+**Per-faction shifts (post-iter-16 → post-iter-17)**:
+- Marines +1.2 → +4.8 (variance)
+- Necrons +4.3 → +9.9 (variance — cross-faction)
+- Aeldari **+11.2 → +3.1** (−8.1 ✅)
+- Tyranids **+23.4 → +5.6** (−17.8 ✅✅)
+- Orks +7.6 → +10.9 (variance)
+- T'au +1.9 → +5.5 (variance)
+- DG +13.4 → +15.9 (variance; awaits MC bisection)
+- Custodes **−11.6 → −0.8** (+10.8 ✅ bullseye)
+- TSON −28.8 → −24.9 (+3.9, structural ceiling)
+- Votann **−11.6 → +1.2** (+12.8 ✅✅ bullseye)
+
+**Loop trajectory under `--use-archetype`**:
+- N=500 baseline: 12.81
+- iter 16: 11.48 (−1.33)
+- iter 17: **8.25** (−3.23)
+- Target: <2.0
+- Gap: ~6.25pt remaining
+
+**Iter 18 priorities**:
+- TSON structural budget — raise eval to 2000pt globally OR split archetypes by budget. Most impactful single move (would unlock Magnus + SOT for TSON; gives all factions richer lists).
+- DG — MC bisection on Plague Marines + Bloat-Drones + Plagueburst Crawler points.
+- Cross-faction variance regressions on Marines/Necrons/Orks/T'au/DG (small drifts ~3-5pt each).
+- Marines damage-per-pt finding from iter 15 still pending MC bisection.
