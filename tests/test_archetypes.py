@@ -180,11 +180,11 @@ class ArchetypeFallbackTests(unittest.TestCase):
         """Passing use_archetype=True for a faction with a defined archetype
         routes through `build_archetype_army`.
 
-        After task #174, the T'au Kauyon archetype is battlesuit-heavy
-        (Crisis Fireknife / Sunforge / Broadside as the multi-copy spine),
-        not Fire Warriors. We assert at least one Crisis variant is seeded,
-        which is the count=3+count=2 anchor pair that always wins the
-        anchor-first sort.
+        After iter16, the T'au Mont'ka archetype is anchored on the
+        Riptide Battlesuit (count=3, the count=3 entry sorts first) plus
+        Hammerhead Gunships and Crisis/Broadside support. We assert at
+        least one battlesuit anchor seeded — Riptide is the highest-priority
+        template anchor and (-count,-cost) sort guarantees it lands first.
         """
         rng = random.Random(8)
         army = build_faction_random_army(
@@ -192,13 +192,22 @@ class ArchetypeFallbackTests(unittest.TestCase):
         )
         self.assertGreater(len(army.units), 0)
         names = {u.profile.name for u in army.units}
-        # At least one Crisis variant must appear — these are the count=3
-        # (Fireknife) and count=2 (Sunforge) template anchors that the
-        # anchor-first sort guarantees fit in any reasonable seed budget.
-        crisis_present = any("Crisis" in n for n in names)
+        # The Riptide is the count=3 template anchor — the (-count,-cost)
+        # walk seeds it first, and at 200pt it always fits a 300pt seed
+        # slice. (Crisis variants are count=2 and may or may not land
+        # depending on cheaper count=2 entries consuming the seed budget;
+        # the headline anchor is what we assert on.)
+        battlesuit_anchors = {
+            "Riptide Battlesuit",
+            "Stormsurge",
+            "Crisis Fireknife Battlesuits",
+            "Crisis Sunforge Battlesuits",
+            "Broadside Battlesuits",
+        }
+        anchor_present = bool(names & battlesuit_anchors)
         self.assertTrue(
-            crisis_present,
-            f"T'au archetype produced no Crisis battlesuit. Names: {sorted(names)}",
+            anchor_present,
+            f"T'au archetype produced no battlesuit anchor. Names: {sorted(names)}",
         )
 
 
