@@ -469,3 +469,41 @@ Remaining 4 agents reported. Full iter 15 batch summary:
 - Re-evaluate parked Custodes FNP filter post-MC-bisection.
 - Standing parity gaps: CSM Pactbound 6 stratagems, Sororitas Miracle Dice, GK Brotherhood Psychic, IK Code Chivalric+LANCE, Chaos Daemons Shadow of Chaos, WE Blood Tithe spend menu.
 
+## Loop pivot — tourney-archetype eval (2026-05-17)
+
+User directive: switch loop calibration target from `random_fill` to `--use-archetype` lists.
+
+**N=500 tourney-archetype baseline** (45,000 battles):
+
+```
+Faction                   Sim%   Real%    Diff
+Adeptus Astartes          54.4    48.0    +6.4
+Necrons                   91.0    53.2   +37.8  ← apex outlier
+Aeldari                   44.4    44.4     0.0  ← bullseye
+Tyranids                  38.6    48.0    -9.4
+Orks                      43.5    44.9    -1.4
+T'au Empire               33.4    54.5   -21.1
+Death Guard               65.9    48.0   +17.9
+Adeptus Custodes          62.1    48.0   +14.1
+Thousand Sons             35.5    54.6   -19.1
+Leagues of Votann         45.1    46.0    -0.9
+MAE vs real meta:     12.81 pts
+```
+
+Rationale: tournament-shaped lists are how the simulator will actually be used IRL. Random_fill (MAE 5.13) obscures list-shape biases that archetype templates encode. `scripts/evaluate_vs_meta.py` now supports `--use-archetype`.
+
+**Iter 16+ measures against archetype baseline (MAE 12.81).** Random_fill remains a parallel sanity check but not the primary metric.
+
+Biggest archetype outliers:
+1. **Necrons Awakened Dynasty +37.8** (sim 91% — apex; archetype seeds an unbeatable list)
+2. **T'au Mont'ka −21.1** (sim 33.4% — battlesuit anchor under-seeded or AI under-uses Markerlights at MSU scale)
+3. **TSON Rubricae Phalanx −19.1** (sim 35.5% — Magnus + Rubrics anchor underweighted)
+4. **DG Virulent Vectorium +17.9** (sim 65.9% — Mortarion + Bloat-Drones over-seeded post iter-13)
+5. **Custodes Shield Host +14.1** (phantom FNP + tight elite list)
+6. **Tyranids −9.4** (template misses synapse-anchor balance)
+7. **Marines Gladius +6.4** (less acute now after Combat Doctrines rebuild)
+8. **Aeldari Warhost 0.0** (Yvraine/Yncarne firing as intended — keep as reference)
+9. **Orks War Horde −1.4 / Votann Oathband −0.9** (well-calibrated)
+
+Per-archetype trims must cite competitive-list-realism sources (Goonhammer, Frontline, Stat Check, Wahapedia FAQ).
+
