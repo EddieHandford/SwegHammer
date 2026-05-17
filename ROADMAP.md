@@ -41,6 +41,56 @@ Headline calibration metric:
 
 ---
 
+## Sprint plan: May 2026 (Ed/Jake handover)
+
+Captured from the Ed/Jake conversation on 2026-05-15. See
+[`PROJECT.tex` §"Sprint plan: May 2026 handover"](PROJECT.tex) for the
+full ownership-tagged checklist.
+
+**Architecture clarification.** SwegHammer is two systems:
+
+- **Equilibrium model** (`code/equilibrium.py`) — Lancaster-derived,
+  multi-dimensional, non-linear closed-form solver. **This is what
+  ships in the final product.**
+- **Simulator** (`code/simulator.py`) — exists to tune the utility
+  factors (deep strike, sticky objectives, scout, re-deploy, etc.)
+  that feed back into the equilibrium model. Slow and iterative; only
+  needed for calibration and for pricing newly-released models whose
+  utility weights are not yet known.
+
+**Calibration constraint.** Tournament data is sparse — even the Las
+Vegas Open produces only a few thousand games across roughly twenty
+factions, which is too thin for faction-vs-faction matchup matrices on
+its own. The simulator covers the gap by generating synthetic matchup
+volume.
+
+**Near-term sequence (priority order).**
+
+1. **Speed up the user interface for faster iteration** (Eddie). The
+   convergence tab is the right shape; extend the same live-streaming
+   pattern to the calibration sweep so a tuning loop does not block on
+   a multi-minute wait.
+2. **Get the simulator's mean absolute error down to 2–4 %** (Jake,
+   in progress). Headline metric for this sprint; everything
+   downstream blocks on it.
+3. **Generate a trial balanced points dataset.** Once the mean
+   absolute error is in the 2–4 % band, run the two-track points
+   solvers (`code/balancer.py` and `code/equilibrium.py`, see Goal C
+   below) and cache the output as a candidate full-catalogue
+   re-pricing.
+4. **Sanity-check the trial dataset, then play-test in person.** After
+   `scripts/cross_validate_pricing.py` clears the obvious outliers,
+   approach local game groups for a structured blind play-test round
+   — unit costs swapped in without telling players which units have
+   been re-priced, then a post-game survey on perceived fairness.
+
+**Final product vision.** When this sprint lands, the shipped product
+is the front end running the equilibrium equation on the
+trial-balanced points dataset, with the simulator preserved as a
+calibration utility for future Games Workshop releases.
+
+---
+
 ## Goal A — Sim matches real tournament data 🟡
 
 **Intent.** Drive the per-faction MAE down by implementing the
