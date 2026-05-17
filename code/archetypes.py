@@ -137,7 +137,17 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Death Guard": {
-        "Plague Company": {
+        # iter13 — Renamed from "Plague Company" to match the real-meta
+        # Virulent Vectorium detachment used by ~80% of competitive DG lists
+        # in May 2026 events. Real meta lists almost universally pivot on
+        # Mortarion as the EPIC HERO centerpiece + 1-2 Foetid Bloat-Drones
+        # for fast cleave (Goonhammer DG meta writeups; Warp Friends weekly
+        # aggregate). Adding them here shifts the archetype away from a
+        # sticky-camping Plague-Marines-only list toward the real
+        # centerpiece-stomping profile that the published WR (48%) reflects.
+        "Virulent Vectorium": {
+            "death_guard_mortarion": 1,
+            "death_guard_foetid_bloat_drone": 2,
             "death_guard_plague_marines": 2,
             "death_guard_poxwalkers": 1,
             "death_guard_deathshroud_terminators": 1,

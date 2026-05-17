@@ -407,6 +407,39 @@ def build_faction_random_army(
             if is_epic_hero(ahriman):
                 epic_heroes_taken.add(ahriman.name)
 
+    # iter13 fix — Death Guard centerpiece-anchor seed. Real-meta DG lists
+    # are universally built around Mortarion + 1-2 Foetid Bloat-Drones
+    # (Wahapedia datasheets:
+    # https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion
+    # https://wahapedia.ru/wh40k10ed/factions/death-guard/#Foetid-Bloat-drone
+    # Goonhammer DG meta writeups, May 2026). Uniform random_fill picks one
+    # of ~25 affordable profiles per slot, so Mortarion appears in only a
+    # small fraction of generated DG armies despite being the dominant
+    # centerpiece in real play. Our sim's DG slice currently runs +10pt
+    # over real meta because random_fill builds sticky-camping Plague-
+    # Marines/Plagueburst lists that exploit Worldblight + FNP 5+ without
+    # the centerpiece cost. Seeding Mortarion (380pt SwegHammer, fits 1000pt
+    # budget) plus one Foetid Bloat-Drone (100pt) realigns the random_fill
+    # distribution with the real meta list shape — bringing the WR back
+    # toward the published 48%. Following the TSON iter12 precedent: a
+    # floor-level seed, not a forced template; the remaining ~520pt fills
+    # organically with the usual DG mix.
+    if faction == "Death Guard":
+        mortarion = next((p for p in pool if p.name == "Mortarion"), None)
+        if mortarion is not None and mortarion.points_cost <= remaining:
+            army.add_unit(mortarion)
+            spent_by_name[mortarion.name] += mortarion.points_cost
+            remaining -= mortarion.points_cost
+            if is_epic_hero(mortarion):
+                epic_heroes_taken.add(mortarion.name)
+        drone = next(
+            (p for p in pool if p.name == "Foetid Bloat-drone"), None,
+        )
+        if drone is not None and drone.points_cost <= remaining:
+            army.add_unit(drone)
+            spent_by_name[drone.name] += drone.points_cost
+            remaining -= drone.points_cost
+
     while True:
         affordable = []
         for p in pool:
