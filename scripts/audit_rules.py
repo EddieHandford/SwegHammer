@@ -283,6 +283,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # closest enemy / staying in engagement) AFTER it fights.
     "simulator.pile_in",
     "simulator.consolidate",
+    # 10e Leviathan Tournament Companion primary scoring cap: each army
+    # scores at most 15 Primary VP per battle round (i.e. counts at most
+    # 3 controlled objectives at 5 VP each). Applied in
+    # `Battle._score_objectives` after per-objective awards are tallied.
+    "simulator.primary_vp_cap_15",
 )
 
 

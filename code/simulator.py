@@ -533,7 +533,15 @@ class Battle:
         nobody currently controls, the sticky owner still scores. If the
         opposing army takes control, the sticky owner is cleared (and the
         new owner replaces it if THEY are sticky).
+
+        Primary VP cap (10e Leviathan Tournament Companion): an army may
+        score a maximum of 15 Primary VP per battle round (i.e. count at
+        most 3 controlled objectives at 5 VP each). Enforced after the
+        per-objective awards are tallied. Cited as
+        `simulator.primary_vp_cap_15`.
         """
+        a_vp_before = self._a_vp
+        b_vp_before = self._b_vp
         # Virulent Vectorium Worldblight (Death Guard): every DG unit on a
         # controlled objective acts as if it had the sticky_objective flag,
         # per the detachment passive. Resolved once per call. Cited as
@@ -638,6 +646,21 @@ class Battle:
                     objective_name=obj.name, army_name=None,
                     vp_awarded=0, a_oc=a_oc, b_oc=b_oc,
                 ))
+
+        # Primary VP per-round cap (10e Leviathan Tournament Companion):
+        # an army scores at most 15 Primary VP per battle round, regardless
+        # of how many objectives they control. Excess held objectives still
+        # emit ObjectiveScored events above (informative), but the running
+        # VP totals are clamped here. Faction-neutral; corrects inflation
+        # for objective-flooding archetypes (DG sticky, Necrons RP).
+        # https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/
+        # Cited as `simulator.primary_vp_cap_15`.
+        a_round_vp = self._a_vp - a_vp_before
+        b_round_vp = self._b_vp - b_vp_before
+        if a_round_vp > 15:
+            self._a_vp = a_vp_before + 15
+        if b_round_vp > 15:
+            self._b_vp = b_vp_before + 15
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
