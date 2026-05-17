@@ -4239,7 +4239,14 @@ class Battle:
         self._do_heroic_intervention(attacker, defender_army)
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
-        """Resolve a melee strike if the attacker is in engagement range (1")."""
+        """Resolve a melee strike if the attacker is in engagement range (1").
+
+        10e Fight phase per-unit sequence is Pile-In -> Fight -> Consolidate.
+        Both pile-in and consolidate are mandatory free 3" moves toward the
+        closest enemy (Wahapedia core rules). SwegHammer's one-Unit-per-
+        model representation means "each model" collapses to "the Unit".
+        Cited as `simulator.pile_in` / `simulator.consolidate`.
+        """
         # Embarked passengers cannot fight (10e core). Cited as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return
@@ -4248,6 +4255,31 @@ class Battle:
         alive_enemies = defender_army.alive_units
         if not alive_enemies:
             return
+
+        # --- Pile-In (10e core): free 3" move toward the closest enemy,
+        # taken BEFORE the fight resolves. Gated on the attacker being in
+        # actual fight eligibility — within Engagement Range of an enemy
+        # OR having charged this turn (per 10e core: "A unit can fight in
+        # your Fight phase if either it is within Engagement Range of one
+        # or more enemy units, or it made a Charge move this turn").
+        # Pile-in often closes the residual gap so the attacks land at
+        # the full melee profile.
+        nearest_pre = min(
+            alive_enemies,
+            key=lambda e: _distance(attacker.position, e.position),
+        )
+        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.5
+        is_charging_this_turn = attacker.uid in self._charging_this_round
+        if (
+            (pre_engaged or is_charging_this_turn)
+            and not self.map.is_blocked(attacker.position)
+        ):
+            new_pos = _move_toward(
+                attacker.position, nearest_pre.position, 3.0, self.map,
+            )
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+
         # #C1 (auto-loop iter1): pick the engagement-range candidate with
         # the highest `_melee_target_score` rather than the geometrically
         # nearest. The score is faction-neutral — it's a pure DPA-vs-
@@ -4298,6 +4330,25 @@ class Battle:
                 winner_army=attacker_army, winner_unit=attacker,
                 target_killed=not alive_after,
             )
+
+        # --- Consolidate (10e core): free 3" move taken AFTER the fight.
+        # Moves toward the closest enemy OR keeps the unit in engagement
+        # with units it was engaged with at the start of the move. We
+        # collapse to "move 3" toward closest enemy" — if the previous
+        # target survived this still sticks to it; if it died, the next
+        # closest enemy is chased. Cited as `simulator.consolidate`.
+        if attacker.is_alive and not self.map.is_blocked(attacker.position):
+            remaining = defender_army.alive_units
+            if remaining:
+                nearest_post = min(
+                    remaining,
+                    key=lambda e: _distance(attacker.position, e.position),
+                )
+                new_pos = _move_toward(
+                    attacker.position, nearest_post.position, 3.0, self.map,
+                )
+                if not self.map.is_blocked(new_pos):
+                    attacker.position = new_pos
 
     # ------------------------------------------------------------------
     # Helpers
