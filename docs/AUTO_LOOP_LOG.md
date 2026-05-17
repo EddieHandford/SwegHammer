@@ -638,3 +638,25 @@ MAE vs real meta: 12.96 pts (was 8.25 at 1000pt)
 Most templates encode unit counts for 1000pt eval. At 2000pt, the seed slice doubles (e.g. Custodes 0.55 * 2000 = 1100pt seeded) but the count-multipliers don't scale up automatically — `_random_fill` then loads cheap high-WR units on top, inflating the strong factions (Marines, DG, T'au, Necrons) and crushing the weak ones (Tyranids, TSON).
 
 **Iter 18 measures against 2000pt archetype baseline (MAE 12.96).**
+
+### Iter 18 — PARKED (cumulative regression) (2026-05-17)
+
+6 agents dispatched against 2000pt archetype outliers. Cumulative N=40 cherry-pick result: MAE **12.96 → 14.04 (+1.08 regression)**. Per loop rules, bundle parked; reset carryover to `d253b90` (2000pt pivot baseline).
+
+**Agent findings (each commit lives on its worktree branch for iter 19 mining)**:
+- TSON Magnus unlock — Magnus is a sim under-performer. Forcing him in regressed TSON 31.7% → 21.9%. Agent confirmed with V_A probe (no Magnus, just bigger seed) — also regressed. Real fix: Magnus PSYKER abilities / deadly_demise / aura wiring in simulator. NOT a template issue.
+- Marines doc-only — both template attempts regressed (vehicles +3.3pt, BATTLELINE chaff +6.1pt). BATTLELINE cap admits `max(1, template_count)` fills → multi-count INCREASES stacking. Fix needs MC bisection on Marines points OR tighter `_random_fill` cap (0.5 → 0.33).
+- Necrons template variants — iter17 baseline IS local minimum. Every variant tested regressed (+12 to +26pt). The brief's "multi-wrecker stack" hypothesis is empirically FALSIFIED — iter16 MONSTER cap blocks it. Necron over-shoot is in simulator (RP, +1-to-hit aura, Lokhust HD stats).
+- DG MC bisection (partial) — +25-33% across DG core only shifted DG 72.5% → 73.6% (no improvement). DG over-strength is in COMBAT MODEL not points (Typhus dmg=18, LoC dmg=15 — suspected per-squad aggregation rather than per-model).
+- T'au template trim — modest improvement (66.7%, -1.9pt). Structural finding: VEHICLE/WALKER not in `_random_fill` wrecker cap; Riptide/Crisis stacking goes uncapped.
+- Tyranids template restore — succeeded solo (32.5% → 57.8%, +25.3pt) but cumulative overshoot to +6.2 vs target +/-5pt band.
+
+**Aggregate diagnosis**: Iter 18 confirms the **archetype-template ceiling**. Per-faction template changes have natural limits at 2000pt because `_random_fill` topup compounds template choices via the BATTLELINE-cap `max(1, template_count)`. Further reduction requires SIMULATOR-side work, not template work.
+
+**Iter 19 priorities (simulator-side)**:
+1. `_random_fill` cost cap tighten (0.5 → 0.33) + extend wrecker cap keywords (VEHICLE / WALKER) — faction-neutral global improvement
+2. Necrons Awakened Dynasty +1-to-hit aura: verify real-rule gates (currently always-on per simulator?)
+3. DG per-CHARACTER damage aggregation audit (Typhus, LoC, Foul Blightspawn — verify dmg is per-model not per-squad)
+4. TSON Magnus PSYKER abilities + deadly_demise + Cabal of Sorcerers Rituals firing audit
+5. Marines MC bisection on key units (Repulsor, Hellblaster, Aggressor, Eradicator) per iter 15 diag finding
+6. Aeldari Warhost may auto-recover once other factions stabilize — re-eval after structural changes
