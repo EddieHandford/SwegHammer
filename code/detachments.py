@@ -1158,6 +1158,15 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
         # the army is genuinely tank-heavy rather than relying on the
         # chassis-dominant heuristic alone.
         matched = sum(_pts(u) for u in units if "VEHICLE" in _kw(u))
+    elif det.all_is_dust:
+        # Rubricae Phalanx (iter16): the All Is Dust buff fires on the
+        # RUBRICAE unit-keyword (Rubric Marines, Scarab Occult Terminators).
+        # Without this affinity, Grand Coven (Rubricae Phalanx's only
+        # competitor in FACTION_DETACHMENTS["Thousand Sons"]) wins the
+        # coin-flip ~50% even though the army is RUBRICAE-heavy. Push
+        # Rubricae Phalanx to the front when the army's RUBRICAE points
+        # share is non-trivial.
+        matched = sum(_pts(u) for u in units if "RUBRICAE" in _kw(u))
     else:
         return 0.0
 

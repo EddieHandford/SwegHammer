@@ -284,47 +284,46 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Thousand Sons": {
-        # iter15 — Renamed from "Cult of Magic" (deleted-per-audit detachment
-        # name) to "Rubricae Phalanx" (real-meta May 2026 default). Real
-        # tournament lists pivot on EITHER Magnus the Red OR Ahriman as the
-        # EPIC HERO centerpiece (rarely both — Magnus at 435pt + Ahriman at
-        # 100pt would eat too much of a 2000pt budget). Ahriman is the
-        # default choice here because (a) his 100pt cost lets the rest of
-        # the list breathe with multiple Rubric / Scarab Occult squads, and
-        # (b) at 2000pt with the SEED_FRACTION=0.3 (600pt seed slice), Magnus
-        # alone (435pt) would consume 72% of the seed and crowd out the
-        # Scarab Occult / Rubric anchor squads — the durability spine the
-        # detachment is built around. Magnus-centric lists ARE real meta but
-        # require a different points-budget shape than this template can
-        # express. Keeping Ahriman as the single EPIC HERO matches the
-        # "Ahrimanic Cabal" variant that dominates Rubricae Phalanx lists
-        # in the 2026 Warp Friends / Goonhammer tournament aggregate.
+        # iter16 — TSON archetype at iter15 was 35.5% sim vs 54.6% real
+        # (-19.1pt). Investigation showed the template shape (Ahriman c=1
+        # + Rubric c=2 + Scarab c=2 + Exalted Sorcerer + Infernal Master +
+        # Tzaangors) is fine; the bug was upstream in detachment selection:
+        # FACTION_DETACHMENTS["Thousand Sons"] holds both Rubricae Phalanx
+        # AND Grand Coven, both `preferred_composition="infantry"`, so the
+        # picker was a coin-flip and TSON armies got the wrong detachment
+        # half the time, losing the All Is Dust durability buff.
         #
-        # Multi-copy entries (rubric_marines=3, scarab_occult_terminators=2)
-        # are deliberate: the (-template_count, -squad_cost) sort means
-        # these seed before single-copy entries. At the 600pt seed slice,
-        # rubric_marines (240pt for min squad of 4) seeds first, then
-        # scarab_occult_terminators (396pt for min squad of 4), then Ahriman
-        # (100pt), then the Cabal psykers — leaving room for the random_fill
-        # pass to top up with same-faction picks (Tzaangors / Cultists /
-        # Daemons / vehicles).
+        # Fix lives in `code/detachments.py::_keyword_affinity_score` — a
+        # new RUBRICAE-keyword affinity tilts the picker ~70/30 toward
+        # Rubricae Phalanx when the army carries RUBRICAE-keyword units
+        # (Rubric Marines, Scarab Occult Terminators). The template here
+        # is unchanged from iter15 modulo this comment block.
         #
-        # References:
-        #   - https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
-        #   - https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
-        #   - https://www.goonhammer.com/detachment-focus-rubricae-phalanx/
+        # Experiments tried and rejected:
+        #   - Seeding Ahriman explicitly (count=4 sort hint + SEED_FRACTION
+        #     override 0.5): TSON 35.5% → 29.4%, regression of -6pt.
+        #     Ahriman is a single-model EPIC HERO that gets focus-fired
+        #     and contributes less per-pt than Exalted Sorcerer at this
+        #     budget.
+        #   - Seeding Scarab Occult Terminators (SEED_FRACTION=0.75 so
+        #     396pt squad fits): TSON 35.5% → 28.6%, regression of -6.9pt.
+        #     Scarab Occult chassis costs more pts than it contributes
+        #     in damage-per-round under the current combat model at
+        #     1000pt eval (real-meta TSON runs at 2000pt where Scarab
+        #     Occult fits naturally; the 1000pt eval is hostile).
+        #
+        # Magnus the Red intentionally NOT in the template: 435pt would
+        # crowd out the rest of the army at 1000pt. Real-meta Magnus
+        # lists need 1500pt+ budget shape. Random_fill picks him up
+        # organically at 2000pt evals.
+        #
+        # References (May 2026):
+        #   - Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+        #   - 40k.app: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+        #   - Goonhammer "Detachment Focus: Rubricae Phalanx"
+        #   - Frontline Gaming "Codex Focus: Thousand Sons"
         "Rubricae Phalanx": {
             "thousand_sons_ahriman": 1,
-            # Rubric Marines @ count=2 (not 3) — at 240pt per squad and a
-            # 600pt seed budget, count=3 would push Scarab Occult (396pt
-            # per squad) past the seed cap. count=2 seeds 2 Rubric squads
-            # AND 1 Scarab Occult, leaving the random_fill pass to top up
-            # with extra Rubric (BATTLELINE cap allows fill_count = template
-            # count = 2 more rubric squads, for a max of 4 total — matches
-            # real-meta MSU spread). Scarab @ count=2 still tilts toward
-            # 2 Scarab squads via the BATTLELINE cap analog (no cap for
-            # ELITE/TERMINATOR — random_fill fills up to the per-name
-            # remaining-budget/2 cap).
             "thousand_sons_rubric_marines": 2,
             "thousand_sons_scarab_occult_terminators": 2,
             "thousand_sons_exalted_sorcerer": 1,
@@ -391,16 +390,36 @@ def _squad_cost(key: str) -> float:
 # patch — the bias was in pool composition, not total point spend).
 SEED_FRACTION: float = 0.3
 
+# Per-faction SEED_FRACTION override. Some factions' archetype anchor units
+# are expensive enough that the default 0.3 slice (300pt of 1000pt eval
+# budget) cannot fit even ONE flagship squad, leaving the army to be filled
+# by off-flavour random_fill picks. Raise the slice for those factions only.
+#
+# Currently empty: iter16 experimented with a 0.5 / 0.75 slice for Thousand
+# Sons (to seed Ahriman + Scarab Occult Terminators) but both regressed sim
+# WR vs iter15's 0.3 default (35.5% → 28.6% at 0.75). The Scarab Occult
+# chassis costs more pts than it contributes in damage-per-round under the
+# current combat model at 1000pt eval. iter16's actual TSON win is the
+# RUBRICAE-keyword detachment picker affinity (code/detachments.py).
+SEED_FRACTION_BY_FACTION: Dict[str, float] = {}
+
 
 def _instantiate_template(
     template: Dict[str, int],
     points_budget: float,
     rng: random.Random,
+    faction: Optional[str] = None,
 ) -> Dict[str, int]:
     """
     Scale template counts so the resulting army's template-seeded portion
     fits inside `SEED_FRACTION * points_budget`. The remaining headroom is
     filled by `_random_fill` with same-faction picks at army-build time.
+
+    `faction` (optional) selects a per-faction SEED_FRACTION override from
+    `SEED_FRACTION_BY_FACTION` — used for factions whose anchor units are
+    too expensive for the default 0.3 slice. Currently empty (no overrides
+    in production) — see SEED_FRACTION_BY_FACTION for iter16 experiment
+    notes.
 
     Why a partial seed:
       A 100% template-seeded army produced ~24-pt MAE in eval-vs-meta
@@ -415,7 +434,8 @@ def _instantiate_template(
     if not template or points_budget <= 0:
         return {}
 
-    seed_budget = points_budget * SEED_FRACTION
+    seed_fraction = SEED_FRACTION_BY_FACTION.get(faction or "", SEED_FRACTION)
+    seed_budget = points_budget * seed_fraction
 
     # Walk the template in (-template_count, -squad_cost) order so that
     # archetype-defining units land first:
@@ -671,7 +691,7 @@ def build_archetype_army(
         archetype_name = rng.choice(list(available.keys()))
     template = available[archetype_name]
 
-    counts = _instantiate_template(template, points_budget, rng)
+    counts = _instantiate_template(template, points_budget, rng, faction=faction)
 
     army = Army(name, in_cover=in_cover)
     for key, count in counts.items():
