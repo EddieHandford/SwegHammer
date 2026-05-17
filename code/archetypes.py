@@ -217,13 +217,25 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #   - https://www.belloflostsouls.net/2026/05/warhammer-40k-the-unbeatable-list-gw-open-maastricht-2026-tyranids-take-the-crown.html
         #   - https://www.goonhammer.com/detachment-focus-subterranean-assault/
         #   - https://wahapedia.ru/wh40k10ed/factions/tyranids/
+        # iter16 calibration note — the salvage commit (60aaa6a) shipped
+        # both the new detachment (army-wide reroll-hit-1s) AND a much
+        # heavier monster-spam template (Trygons=2, Tervigon, Carnifex
+        # singleton with Hive Tyrant + Zoanthropes + 2x Termagants +
+        # 2x Hormagaunts). Empirically that combination overshoots
+        # real-meta WR by ~+24pt (Tyranids land at 72%). The lightest
+        # composition (1x of everything + 2x Carnifexes + 1 Trygon)
+        # under-shoots to 34%. Middle ground: keep Trygons=2 as the
+        # detachment signature (Subterranean Assault's whole flavour
+        # is Trygons emerging from reserves), drop Tervigon to remove
+        # the extra MONSTER CHARACTER slot, drop one Hormagaunts +
+        # Termagants squad to lean Carnifexes harder. This targets
+        # ~48% real-meta WR vs the salvage's ~72%.
         "Subterranean Assault": {
             "tyranids_hive_tyrant": 1,
-            "tyranids_termagants": 2,
-            "tyranids_hormagaunts": 2,
+            "tyranids_termagants": 1,
+            "tyranids_hormagaunts": 1,
             "tyranids_trygon": 2,
             "tyranids_zoanthropes": 1,
-            "tyranids_tervigon": 1,
             "tyranids_carnifexes": 1,
         },
     },

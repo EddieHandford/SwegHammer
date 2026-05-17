@@ -180,14 +180,15 @@ class PickerSingleDetachmentTests(unittest.TestCase):
     """Factions with one registered detachment always resolve to it."""
 
     def test_picker_returns_unique_when_only_one(self):
-        # Tyranids still has only invasion_fleet in FACTION_DETACHMENTS
-        # (Necrons gained canoptek_court in #126, so use Tyranids as the
-        # 1-detachment canary).
-        self.assertEqual(FACTION_DETACHMENTS["Tyranids"], ("invasion_fleet",))
+        # iter16: Tyranids gained subterranean_assault as the May-2026
+        # real-meta default (Maastricht 2026 GT winner), so it now has
+        # two registered detachments. Orks still has only war_horde in
+        # FACTION_DETACHMENTS, so use it as the new 1-detachment canary.
+        self.assertEqual(FACTION_DETACHMENTS["Orks"], ("war_horde",))
         rng = random.Random(42)
-        det = pick_detachment_for_army("Tyranids", [], rng)
+        det = pick_detachment_for_army("Orks", [], rng)
         self.assertIsNotNone(det)
-        self.assertEqual(det.name, "Invasion Fleet")
+        self.assertEqual(det.name, "War Horde")
 
     def test_picker_unmapped_faction_falls_back(self):
         det = pick_detachment_for_army("Made-Up Faction", [], random.Random(0))
