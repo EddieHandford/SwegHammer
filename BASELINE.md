@@ -180,6 +180,22 @@ tactical-utility term for non-damaging abilities, meta-weighting,
 mixed-strategy zero-sum solve) are tracked under Goal C/D in
 `ROADMAP.md`.
 
+### Track 2b — Sim-driven equilibrium (closed-form, real win rates)
+
+`code/equilibrium_simdriven.py` reuses the same row-mean log-LSQ solve,
+but replaces the closed-form pairwise damage matrix with one MEASURED
+from the simulator: for every ordered pair in a curated diagnostic set,
+run `n_battles` full `Battle()` runs at equal points budget and feed
+`R[i,j] = logit(observed_win_rate)` into the solver. This is the first
+equilibrium phase that picks up faction army rules, detachment
+passives, leader auras, movement, charges, and OC contests on
+objectives — all the simulator work that closed-form Phases 1–6 cannot
+see. Snapshot at `data/equilibrium_points_simdriven.json`; regenerate
+with `python -m code.equilibrium_simdriven` (default: ~28-unit
+diagnostic set, overnight-tractable). The Streamlit equilibrium tab
+offers it as an alternative source via a radio toggle; units outside
+the measured set inherit their Phase 1 value (`source="phase1_fallback"`).
+
 ### Validation Criteria
 
 A unit is considered "reasonably costed" when:

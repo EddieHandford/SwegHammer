@@ -880,6 +880,22 @@ fix the overall scale.
     \texttt{scipy.optimize.linprog}. Pearson $r=0.968$ vs Phase 5 (Nash
     correctly collapses on Warlord Titan as universal dominant unit;
     pricing-wise extreme but mathematically right).
+  \item \done\ \textbf{Phase sim-driven} --- replaces the closed-form
+    pairwise damage matrix with one MEASURED from the simulator. Per
+    ordered pair $(i, j)$ of a curated diagnostic set, run $n$ full
+    \texttt{Battle()} runs at equal points, take the observed win rate
+    $r[i,j]$, and feed $R[i,j] = \operatorname{logit}(r[i,j])$ into the
+    same row-mean closed form. This is the first equilibrium phase that
+    actually sees faction army rules, detachment passives, leader auras,
+    movement, charges, and OC contests --- everything Jake's simulator
+    work added since the closed-form phases were written. Snapshot at
+    \texttt{data/equilibrium\_points\_simdriven.json}; regenerate with
+    \texttt{python -m code.equilibrium\_simdriven}. The default
+    diagnostic set is ${\sim}28$ anchors spanning the role $\times$
+    faction grid (overnight-tractable); \texttt{--full} measures every
+    shooting-fittable unit (multi-day cron territory). Units outside the
+    measured set inherit their Phase 1 closed-form value verbatim and
+    are tagged \texttt{phase1\_fallback} in the snapshot.
 \end{itemize}
 
 \emph{Strengths.} Fast (analytic, no simulation). Exposes the pairwise
