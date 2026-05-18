@@ -1,5 +1,5 @@
 {
-  "_comment": "Citations for the Tyranids army rules implemented in code/simulator.py (#117). Both effects key off the SYNAPSE keyword extracted from BSData categoryLinks. Source: Wahapedia core Tyranids faction page.",
+  "_comment": "Citations for the Tyranids army rules implemented in code/simulator.py (#117) and the Tyranid-specific Detachments registered in code/detachments.py. Both Synapse Imperative and Shadow in the Warp key off the SYNAPSE keyword extracted from BSData categoryLinks. Source: Wahapedia core Tyranids faction page. iter16 — Subterranean Assault detachment registered with its real-meta reroll-hit-1s passive.",
 
   "simulator.synapse_imperative": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
@@ -17,5 +17,15 @@
     "trigger": "Battle-shock test for an enemy unit; any Tyranids SYNAPSE model from the opposing army is within 12\" of the testing unit",
     "effect": "(approximation) subtract 1 from the 2D6 result, modelled equivalently by raising the test target Leadership by 1. Composes additively with detachment ld_bonus / enemy_ld_penalty.",
     "scope": "keyword-gated"
+  },
+
+  "SUBTERRANEAN_ASSAULT.reroll_hit_ones": {
+    "source": "https://www.goonhammer.com/detachment-focus-subterranean-assault/",
+    "rule_name": "Subterranean Assault detachment rule (army-wide reroll-hit-1s + Burrower)",
+    "quoted_text": "The entire army gains rerolls of one to hit, in both shooting and combat. Trygon and Mawlocs in your army gain the Burrower keyword. Burrowers allow you to place Tunnel Markers on their arrival from reserves, within 1 inch of them and 3 away from enemy units. Subsequent Tyranid units arriving from reserves can come in within 9 of the Tunnel Marker, and 6 inches away from enemy units.",
+    "trigger": "any Tyranids attack roll, ranged or melee, with the Subterranean Assault detachment chosen",
+    "effect": "army-wide re-roll Hit rolls of 1 on every Tyranid attack (ranged or melee). APPROXIMATION: the Burrower / Tunnel Marker reserve-teleport half is NOT modelled — SwegHammer has no mid-battle reserve hook. The four catalogued detachment stratagems (Tunnel Network, Replenishing Swarms, Swarming Assault, Enfilading Emergence) carry the Tunnel-Marker mechanic placeholder for follow-up wiring.",
+    "scope": "army-wide",
+    "approximation": true
   }
 }

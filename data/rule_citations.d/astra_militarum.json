@@ -1,0 +1,133 @@
+{
+  "_comment": "Astra Militarum citations (iter-14). Covers the Combined Arms detachment rule (Born Soldiers), the Voice of Command army-wide Order economy, the four wired Officer Orders (Take Aim!, Fix Bayonets!, FRFSRF, Take Cover!), and the six Combined Arms detachment stratagems (Coordinated Action, Reinforcements!, Flexible Command, Fields of Fire, Inspired Command, Stalwart Protector). All entries cite the Wahapedia AM faction page; per-stratagem quoted_text fields are codex-verbatim quotes captured from the Wahapedia detachment block.",
+
+  "COMBINED_REGIMENT.am_born_soldiers_lethal_hits": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Born Soldiers (Combined Arms Detachment Rule)",
+    "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+    "trigger": "any ranged attack made by a friendly AM REGIMENT (vs non-VEHICLE/MONSTER target) OR SQUADRON (vs VEHICLE/MONSTER target)",
+    "effect": "the attack gains [LETHAL HITS] (Critical Hits auto-wound). Simulator gate: Unit.attack's `effective_lethal_hits` branch ORs in True when faction is Astra Militarum, mode is ranged, and the REGIMENT-vs-non-V/M or SQUADRON-vs-V/M matrix matches. APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the codex's REGIMENT / SQUADRON keywords, so we map REGIMENT → attacker has INFANTRY (and not VEHICLE/MONSTER), SQUADRON → attacker has VEHICLE. Direction-correct; the BATTLELINE-only restriction (Cadians/Krieg/Catachan only carry the codex REGIMENT keyword among infantry) is widened to all AM INFANTRY (Kasrkin / Scions / Ogryns also fire the leg). This over-shoots slightly but covers the codex use case cleanly",
+    "scope": "keyword-gated",
+    "approximation": true
+  },
+
+  "COMBINED_ARMS.am_born_soldiers_lethal_hits": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Born Soldiers (Combined Arms Detachment Rule) — alias",
+    "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+    "trigger": "any ranged attack made by a friendly AM REGIMENT (vs non-VEHICLE/MONSTER target) OR SQUADRON (vs VEHICLE/MONSTER target)",
+    "effect": "alias of COMBINED_REGIMENT.am_born_soldiers_lethal_hits — both module-level symbols (COMBINED_REGIMENT, COMBINED_ARMS) point to the same Detachment instance after the iter-14 codex-name rename. See the COMBINED_REGIMENT.* entry above for the full effect notes; this duplicate citation exists because the rule auditor scans dir(det_module) and finds both symbol names",
+    "scope": "keyword-gated",
+    "approximation": true
+  },
+
+  "simulator.voice_of_command_orders": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Voice of Command (Astra Militarum Army Rule)",
+    "quoted_text": "If your Army Faction is ASTRA MILITARUM, OFFICER models with this ability can issue Orders. Each OFFICER's datasheet will specify how many Orders it can issue in a battle round and which units are eligible to receive those Orders.",
+    "trigger": "start of each Command phase, on each alive AM OFFICER (CHARACTER) within 6\" of an eligible BATTLELINE INFANTRY target",
+    "effect": "each Officer issues one Order to a BATTLELINE INFANTRY (REGIMENT) target within 6\". The Order applies a single transient buff for the round (Take Aim! / Fix Bayonets! / FRFSRF / Take Cover!). Battle-shocked Officers and Battle-shocked targets are excluded; no Order stacking (a unit can hold at most one Order per round). Wired in `code/orders.py`; called from `Battle._run_round` after the per-round CP drip and stratagem dispatch. APPROXIMATION: codex caps each Officer at a per-datasheet 1-3 Orders per round (Lord Solar Leontus issues 2-3 Orders/round; Cadian Castellan issues 1); SwegHammer caps every Officer at 1 Order/round as the baseline. The Flexible Command (Combined Arms, 2 CP) stratagem widens the eligible-target set to include AM BATTLELINE VEHICLE (SQUADRON) for the round it fires",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "Order.Take Aim!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Take Aim! (Astra Militarum Order)",
+    "quoted_text": "Improve the Ballistic Skill characteristic of ranged weapons equipped by models in this unit by 1.",
+    "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible BATTLELINE INFANTRY target within 6\"",
+    "effect": "sets `Unit.transient_plus_one_to_hit_shooting` on the target for the round (Unit.attack reads the flag and applies +1 to the ranged Hit roll). CLEAN MAPPING — codex 'improve BS by 1' is arithmetically identical to '+1 to hit roll' at every BS bracket. The AI picks this Order when the target has no other Order yet and has lower ranged DPA than the FRFSRF threshold (fallback)",
+    "scope": "phase-gated",
+    "approximation": false
+  },
+
+  "Order.Fix Bayonets!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Fix Bayonets! (Astra Militarum Order)",
+    "quoted_text": "Improve the Weapon Skill characteristic of melee weapons equipped by models in this unit by 1.",
+    "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible BATTLELINE INFANTRY target within 6\"",
+    "effect": "(APPROXIMATION) routes the offensive payoff through `Unit.transient_plus_one_to_wound_melee` on the target for the round — codex effect is 'improve WS by 1' (a melee hit-roll buff) but SwegHammer's existing transient layer has no per-unit +1-to-hit-melee flag, so we proxy through +1 to wound to capture the offensive payoff via a single existing transient. Same direction (more landed melee damage), comparable magnitude on a 4+ wound roll. The AI picks Fix Bayonets! when the target has meaningful melee DPA AND low ranged DPA (Ogryns / Bullgryns canonical) — Lasgun-block Cadians take FRFSRF instead",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Order.First Rank, Fire! Second Rank, Fire!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "First Rank, Fire! Second Rank, Fire! (Astra Militarum Order)",
+    "quoted_text": "Improve the Attacks characteristic of Rapid Fire weapons equipped by models in this unit by 1.",
+    "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible BATTLELINE INFANTRY target within 6\"",
+    "effect": "(APPROXIMATION) routes the offensive payoff through `Unit.transient_plus_one_to_hit_shooting` on the target for the round — codex effect is +1 Attack on Rapid Fire weapons (a per-weapon attack-count uplift), but SwegHammer has no transient attack-count flag and the BSData parser locks weapon attacks at mapper time. Same direction (more landed ranged hits); magnitude comparable on a Lasgun (Rapid Fire 1, BS 4+) target where the +1 attack roughly doubles shots and our +1 to hit closes the 4+ to 3+. The AI picks FRFSRF as the canonical Lasgun-block Order — any BATTLELINE INFANTRY with real ranged DPA (>= 0.5) qualifies",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Order.Take Cover!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Take Cover! (Astra Militarum Order)",
+    "quoted_text": "Improve the Save characteristic of models in this unit by 1 (this cannot improve a model's Save to better than 3+).",
+    "trigger": "Order issued by an AM OFFICER during the Command phase to an eligible BATTLELINE INFANTRY target within 6\"",
+    "effect": "sets `Unit.transient_plus_one_save` on the target for the round (Unit.attack reads the flag when computing save_after_ap and lowers the save target by 1, capped at 2+ via the existing transient_plus_one_save plumbing). APPROXIMATION: the codex caps at 3+, SwegHammer's flag caps at 2+ — the wider cap rarely binds for AM BATTLELINE INFANTRY (saves are 5+/4+ across Cadians/Krieg/Catachan/Kasrkin/Scions). The AI picks Take Cover! when the target has lost more than 20% of starting HP (defensive priority)",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Coordinated Action": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Coordinated Action (Combined Arms Stratagem)",
+    "quoted_text": "WHEN: Start of any phase. TARGET: One REGIMENT unit from your army and one SQUADRON unit from your army within 6\" of and visible to that REGIMENT unit. EFFECT: Until the end of the phase, Orders affecting one of your units affect the other, and vice versa.",
+    "trigger": "start of any phase, on a REGIMENT + SQUADRON pair within 6\" of and visible to each other",
+    "effect": "(APPROXIMATION) the simulator routes the offensive payoff through `transient_plus_one_to_hit_shooting` on the highest-DPA AM SQUADRON (VEHICLE) for the round — the canonical use case is extending Take Aim! from an Infantry Squad to a Leman Russ pair, which the +1-to-hit-shooting proxy captures exactly. The two-unit-pair gate is collapsed to 'apply the buff directly to the SQUADRON' since the simulator's Order economy doesn't expose a 'mirror Order to another unit' hook. Direction-correct; same lossy pattern as Mont'ka Focused Fire. 1 CP per Combined Arms",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Reinforcements!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Reinforcements! (Combined Arms Stratagem)",
+    "quoted_text": "WHEN: Any phase. TARGET: One INFANTRY REGIMENT unit from your army that was just destroyed. EFFECT: Add a new unit to your army identical to your destroyed unit, in Strategic Reserves, at its Starting Strength.",
+    "trigger": "any phase, when an INFANTRY REGIMENT unit is just destroyed (once per battle)",
+    "effect": "(APPROXIMATION — catalogued-but-no-op) SwegHammer has no mid-battle unit-respawn / Strategic-Reserve injection primitive, so the dispatcher exits without spending CP or returning a unit to play. The stratagem entry is retained in COMBINED_ARMS_STRATAGEMS so the rule auditor lists the full six-stratagem set and the AI never accidentally substitutes a Core Stratagem for it. 2 CP per Combined Arms, once per battle. Wahapedia confirms the once-per-battle gate via the cumbersome respawn — implementation deferred behind the simulator's reserve-injection refactor",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Flexible Command": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Flexible Command (Combined Arms Stratagem)",
+    "quoted_text": "WHEN: Your Command phase. TARGET: Any number of ASTRA MILITARUM OFFICER units from your army. EFFECT: Until the end of the phase, your Officers can issue Orders to REGIMENT units and SQUADRON units.",
+    "trigger": "your Command phase, on any number of AM OFFICER units",
+    "effect": "CLEAN MAPPING: sets `Army.orders_eligible_squadron_this_round = True` for the round, which `code.orders._is_order_target_eligible` reads when filtering the target pool for Order issuance. Stratagem dispatch runs BEFORE Order dispatch in `Battle._run_round`, so the flag is honoured by the same-round Order issuance — AM SQUADRON (BATTLELINE VEHICLE) units like Leman Russ Battle Tank become eligible to receive Orders (typically Take Aim! / FRFSRF). 2 CP per Combined Arms",
+    "scope": "phase-gated",
+    "approximation": false
+  },
+
+  "Stratagem.Fields of Fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Fields of Fire (Combined Arms Stratagem)",
+    "quoted_text": "WHEN: Your Shooting phase. TARGET: One REGIMENT unit and one SQUADRON unit from your army that have not been selected to shoot. EFFECT: Each time your selected units make an attack targeting that enemy unit, improve the Armour Penetration characteristic by 1.",
+    "trigger": "your Shooting phase, on a REGIMENT + SQUADRON pair vs a chosen enemy unit",
+    "effect": "(APPROXIMATION) routes the offensive payoff through `transient_plus_one_to_hit_shooting` on the highest-ranged-DPA AM unit (any keyword) for the round — the AP+1 codex effect translates as 'more landed wounds get through saves'; +1 to hit is the closest single-flag proxy that produces the same direction of damage swing. The two-unit-pair gate is collapsed to 'apply the buff to the highest-DPA AM unit'. Same lossy pattern as Mont'ka Focused Fire / Custodes Archaeotech Munitions. 1 CP per Combined Arms",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Inspired Command": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Inspired Command (Combined Arms Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Command phase. TARGET: One ASTRA MILITARUM OFFICER unit from your army. EFFECT: Your OFFICER can issue one Order as if it were your Command phase.",
+    "trigger": "your opponent's Command phase, on one AM OFFICER unit",
+    "effect": "(APPROXIMATION) the simulator's Order dispatch is a single-pass round-start hook (not tied to opponent's Command phase specifically), so 'opponent's Command phase Order' maps onto 'issue one extra Order this round'. The dispatcher picks an un-buffed REGIMENT in aura of any AM Officer and applies the AI's chosen Order (Take Aim! / Fix Bayonets! / FRFSRF / Take Cover!) to it. Direction-correct (extra Order economy); the timing detail (codex fires in opponent's turn, allowing reactive Take Cover!) is dropped since SwegHammer applies the Order in the same-round dispatch. 1 CP per Combined Arms",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Stalwart Protector": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/",
+    "rule_name": "Stalwart Protector (Combined Arms Stratagem)",
+    "quoted_text": "WHEN: Your opponent's Shooting phase, just after an enemy unit has selected its targets. TARGET: One ASTRA MILITARUM VEHICLE unit from your army. EFFECT: Each time a ranged attack is allocated to an INFANTRY model from your army, if that model is not fully visible because of your VEHICLE, that model has the Benefit of Cover.",
+    "trigger": "opponent's Shooting phase after target selection, on one AM VEHICLE unit",
+    "effect": "CLEAN MAPPING (with approximate eligibility): routes the defensive payoff through `transient_plus_one_save` on the most-vulnerable AM INFANTRY unit for the round (Benefit of Cover = +1 to save). APPROXIMATION: the 'not fully visible because of your VEHICLE' visibility check is dropped — the simulator's LoS-by-blocker plumbing doesn't expose per-friendly-blocker visibility data at attack time. The dispatcher gates on 'AM army has at least one alive VEHICLE' to match the codex pre-requisite, then applies the +1-save flag to the chosen INFANTRY target. 1 CP per Combined Arms",
+    "scope": "phase-gated",
+    "approximation": true
+  }
+}

@@ -182,6 +182,7 @@ _COVER_PRIORITY = {
     "light_cover": 1,
     "obscuring": 2,
     "heavy_cover": 3,
+    "ruin": 3,          # 10e Ruin: Heavy Cover save bonus + LoS shield vs non-INFANTRY shooters
     "impassable": -1,   # never stand in impassable
 }
 
@@ -1651,9 +1652,11 @@ def _predict_pivotal_turn(strat) -> int:
 
     Pivotal-turn assignments by stratagem class (per task #160):
       * Counter-Offensive: reactive (opponent fight-phase kill triggers it).
-      * Heroic Intervention: reactive (enemy charge near friendly CHARACTER).
       * Tank Shock: reactive (vehicle charge succeeds).
       * Spirit Stones: reactive (damage taken).
+      (Heroic Intervention is no longer a stratagem — #iter12 removed the
+      1 CP entry and re-implemented it as a free core CHARACTER ability
+      in code.simulator._do_heroic_intervention per Wahapedia 10e.)
       * Command Re-Roll: T2 (highest-stakes early swing); T5 also escapes.
       * Implacable Onslaught (Necron, defensive FNP): T3 — alpha-strike
         recovery, mid-game wounded brick.
@@ -1670,7 +1673,7 @@ def _predict_pivotal_turn(strat) -> int:
     name = strat.name
     # Reactive — no deferral; trigger-driven only.
     if name in (
-        "Counter-Offensive", "Heroic Intervention", "Tank Shock",
+        "Counter-Offensive", "Tank Shock",
         "Spirit Stones",
     ):
         return 0
@@ -1785,8 +1788,8 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
 
     # CP reservation by predicted-pivotal-turn (#160). Top players hold CP
     # for known-pivotal rounds rather than burning it on the first eligible
-    # trigger. Reactive stratagems (Counter-Offensive, Heroic Intervention,
-    # Tank Shock, Spirit Stones) and zero-cost stratagems are exempt.
+    # trigger. Reactive stratagems (Counter-Offensive, Tank Shock,
+    # Spirit Stones) and zero-cost stratagems are exempt.
     # iter5 C5: ctx is now consulted so a high-value trigger can bypass the
     # hold gate uniformly across factions (faction-neutral CP-leak cleanup).
     if _should_hold_for_pivotal_turn(army, strat, ctx):
@@ -1848,18 +1851,11 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         kw = (charger.profile.unit_keywords or ()) if hasattr(charger, "profile") else ()
         return "VEHICLE" in kw
 
-    if name == "Heroic Intervention":
-        # ctx expects {"character": Unit, "charge_target": Unit, "distance": float}.
-        # Fire when a friendly CHARACTER is within 6" of an enemy's charge
-        # target — pulls the character into the fight to soak / counter.
-        character = ctx.get("character")
-        if character is None:
-            return False
-        kw = (character.profile.unit_keywords or ()) if hasattr(character, "profile") else ()
-        if "CHARACTER" not in kw:
-            return False
-        dist = ctx.get("distance", 999.0)
-        return dist <= 6.0
+    # Heroic Intervention was removed from the stratagem list in #iter12 —
+    # it is a free core CHARACTER ability (no CP cost) implemented in
+    # code.simulator._do_heroic_intervention. No should_fire_stratagem
+    # branch is needed because the simulator never asks the strategy
+    # layer about Heroic Intervention any more.
 
     # ----- Cult of Magic (Thousand Sons) ---------------------------------
 
@@ -2429,6 +2425,78 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Egotistical Power and Arcane Focus are intentionally not dispatched
     # via the round-start path (APPROXIMATION — see simulator dispatchers).
 
+    # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15) -----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    # Gates here mirror the Grand Coven shape — TSON has plentiful CP and a
+    # single Stratagem-cap-per-Command-phase, so the gates should be
+    # permissive enough that the army actually spends rather than hoarding.
+    # Ardent Automata + Revenge of the Rubricae have no dispatcher (no-op
+    # APPROXIMATIONs), so they're omitted from the AI list — the simulator's
+    # dispatcher short-circuits before should_fire_stratagem is consulted.
+
+    if name == "Inexorable Advance":
+        # ctx: {"attacker": Unit}. Transient [ASSAULT] on a RUBRICAE
+        # shooter. Fire when the attacker has real ranged DPA (>= 1.0)
+        # AND a meaningful cost (>= 80 — Rubric Marines squad floor).
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+        except Exception:
+            return False
+        return ranged_dpa >= 1.0 and atk_cost >= 80.0
+
+    if name == "Infernal Fusillade":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP for a +1 to wound
+        # shooting buff on a RUBRICAE PSYKER. Higher gate than 1-CP
+        # variants: require real DPA AND a heavy target (so the wound
+        # uplift translates to meaningful damage).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            atk_cost = float(p.points_cost)
+        except Exception:
+            return False
+        return ranged_dpa >= 1.5 and atk_cost >= 80.0 and _is_heavy_target(target)
+
+    if name == "Implacable Guardians":
+        # ctx: {"target": Unit}. 2 CP for -1 damage taken on a RUBRIC
+        # MARINES / Scarab Occult unit. Defensive spend — fire when the
+        # target has taken meaningful damage (HP loss >= 25%) AND is a
+        # substantial threat (>= 100 pts, the Scarab Occult / Magnus
+        # bracket where the durability uplift matters).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac >= 0.25 and cost >= 100.0
+
+    if name == "Unwavering Phalanx":
+        # ctx: {"target": Unit}. 1 CP for a +1 save defensive proxy on
+        # a RUBRICAE unit. Cheaper than Implacable Guardians, so a
+        # lower gate: any wounded RUBRICAE unit with >= 70 pts cost
+        # (Rubric Marines squad floor).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac >= 0.2 and cost >= 70.0
+
     # ----- War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
     # Orks under-performed by -6.6pt at iter-0 baseline (docs/AUTO_LOOP
@@ -2517,6 +2585,391 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         except Exception:
             return False
         return cost >= 60.0
+
+    # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8) -
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+    # Custodes burns 5+ strat fires/battle on Command Re-Roll at iter-7
+    # baseline (no detachment stratagems registered). Gates here are
+    # permissive — Custodes has 6+ CP/battle and few units, so the AI
+    # should fire stratagems aggressively when its bricks engage. Point
+    # thresholds are LOW (cost >= 80 — Custodes profiles average 40+ pts
+    # per model so a 5-model brick clears easily) since the army has no
+    # cheap chaff to leak CP onto. Vigilance Eternal has no AI gate (no-op
+    # dispatcher).
+
+    if name == "Arcane Genetic Alchemy":
+        # ctx: {"target": Unit}. Defensive FNP-5 approximation. Fire on a
+        # wounded high-value Custodes unit. Same shape as Lightning-Fast
+        # Reactions / Psychic Dominion: HP loss + meaningful cost.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Unwavering Sentinels":
+        # ctx: {"target": Unit}. Defensive +1-save approximation. Fire on
+        # a wounded high-value Custodes INFANTRY brick — same gate shape
+        # as Lightning-Fast Reactions / Tellyporta.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Multipotentiality":
+        # ctx: {"attacker": Unit}. Assault-this-round approximation. Fire
+        # for a high-cost Custodes attacker — Custodes profiles are elite
+        # so even a small brick is worth the [ASSAULT] proxy. Gate at 80
+        # pts (covers Wardens / Custodian Guard / Sagittarum) but not the
+        # 35-pt Vexilus Praetor character alone.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0
+
+    if name == "Archaeotech Munitions":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting approximation for [LETHAL HITS] / [SUSTAINED HITS 1].
+        # Fire when the Custodes attacker has real ranged DPA AND target
+        # is HEAVY-class (same gate shape as Focused Fire / Methodical
+        # Destruction).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Avenge the Fallen":
+        # ctx: {"target": Unit}. +1-to-wound-melee approximation for the
+        # +1 Attack codex effect. Fire on a wounded Custodes melee unit —
+        # the codex gate "below Starting Strength" maps to "HP loss > 0".
+        # Cost gate prevents firing on cheap units; Custodes elite unit
+        # profile costs vary but 80+ pts covers everything that matters.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.0 and cost >= 80.0
+
+    # Vigilance Eternal — no-op dispatcher (sticky-objective is per-
+    # detachment-flag-gated, not per-stratagem-fire). No AI gate needed.
+
+    # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9) ----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+    # Replaces the iter-0 zero-stratagem state where Votann only fired
+    # Command Re-Roll (universal Core). Gates are permissive — Votann lists
+    # are typically 8-10 units with Hearthkyn / Hekaton anchors that easily
+    # clear the 80-pt threshold. The Judgement-Token-bearing gate is
+    # collapsed onto "target is heavy/shooty" since the AI doesn't track
+    # per-unit token state at gate time.
+
+    if name == "Warrior Pride":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-wound
+        # both modes. Fire when the Votann attacker has meaningful melee+
+        # ranged DPA AND target is heavy/expensive — same gate shape as
+        # Avenge the Fallen / Big Krumpin' on the wound-reroll axis.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0 and _is_heavy_target(target)
+
+    if name == "Wrath of the Ancestors":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting approximation for [LETHAL HITS]. Fire when the Votann
+        # attacker has real ranged DPA AND target is HEAVY-class (same gate
+        # shape as Archaeotech Munitions / Focused Fire).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Glory of the Hearth":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive hit-reroll on
+        # a Votann VEHICLE — only Hekaton / Sagitaur / Brokhyr Thunderkyn
+        # clear this. Fire on a heavy target to maximise value (vehicles
+        # are typically anti-tank shooters).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 100.0 and _is_heavy_target(target)
+
+    if name == "Ironkin Sequence":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit on
+        # an IRONKIN unit (Hearthkyn etc.). Fire when the unit has real
+        # ranged DPA — cheap at 1 CP, no need for heavy-target gate.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0
+
+    if name == "Ancestral Sentence":
+        # ctx: {"target": Unit}. Issue a Judgement Token at 2 CP — gate on
+        # target being heavy/expensive so the subsequent re-roll buffs land
+        # on a worthwhile victim. 2 CP is the most expensive Oathband
+        # stratagem; require a real heavy target.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 100.0 and _is_heavy_target(target)
+
+    if name == "Void-Armoured Resilience":
+        # ctx: {"target": Unit}. Defensive FNP-5. Fire on a wounded high-
+        # value Votann unit — same gate shape as Lightning-Fast Reactions /
+        # Arcane Genetic Alchemy.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    # ----- Gladius Task Force (Adeptus Astartes) — six real strats (iter-12)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+    # Closes docs/AUDIT_PARITY.md fix #1 (largest 0/6 gap). Gates are
+    # tuned to typical Marine unit costs: a 95-pt Tactical Marine squad
+    # / 100-pt Intercessor sits at the bottom of the offensive bar; a
+    # 200-pt Land Raider / Repulsor sits at the top of the defensive bar.
+
+    if name == "Storm of Fire":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting approximation for [SUSTAINED HITS 1]. Fire when the
+        # Marine attacker has real ranged DPA AND target is HEAVY-class.
+        # Bar is 1.0 ranged-DPA (a 5-man Intercessor at 2A * 2/3 * 1D =
+        # 1.33 just clears; 5-man Tactical at 1A * 2/3 * 1 = 0.67 misses,
+        # which is intended — Tacticals shouldn't burn the 1 CP).
+        # Slightly looser than Mont'ka's Focused Fire (1.5) because
+        # Marine ranged profiles average lower per-model output.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0 and _is_heavy_target(target)
+
+    if name == "Armour of Contempt":
+        # ctx: {"target": Unit}. Defensive +1-save approximation. Fire on
+        # a wounded high-value Marine unit — same gate shape as
+        # Lightning-Fast Reactions / Unwavering Sentinels. Marine bricks
+        # (Terminators / Aggressors / Centurions) typically cost 80+ pts
+        # so the threshold passes for the units worth protecting.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 80.0
+
+    if name == "Squad Tactics":
+        # ctx: {"attacker": Unit}. Repositioning approximation routed via
+        # [ASSAULT] proxy. Fire for any meaningfully-costed Marine
+        # INFANTRY attacker — extra move + shoot is broadly valuable at
+        # 1 CP. Gate at 80 pts (covers Intercessors / Hellblasters /
+        # Bladeguard) but not a stray 60-pt Scout squad.
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0
+
+    if name == "Only In Death Does Duty End":
+        # ctx: {"target": Unit}. +1-to-wound-melee approximation for the
+        # "destroyed-model attacks first" effect. Fire on a wounded
+        # Marine unit — the codex gate is "model destroyed before
+        # attacking", which we proxy as "unit is taking damage". Cost
+        # gate prevents firing on Cultist-class chip targets.
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.0 and cost >= 80.0
+
+    if name == "Honour the Chapter":
+        # ctx: {"attacker": Unit, "target": Unit}. 2 CP for hit+wound
+        # reroll (we drop the wound-reroll leg). The premium spend; gate
+        # tighter than the 1-CP strats. Require real attacker DPA AND a
+        # HEAVY target so the CP cashes in. Same gate shape as
+        # Devastating Sorcery (Grand Coven) / Glory of the Hearth.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            dpa = (
+                (attacker.profile.attacks or 0)
+                * (attacker.profile.hit_probability or 0)
+                * (attacker.profile.per_shot_damage or 0.0)
+            ) + (
+                (attacker.profile.melee_attacks or 0)
+                * (attacker.profile.melee_hit_probability or 0)
+                * (attacker.profile.melee_damage_per_shot or 0.0)
+            )
+        except Exception:
+            dpa = 0.0
+        return dpa >= 2.0 and _is_heavy_target(target)
+
+    if name == "Adaptive Strategy":
+        # ctx: {"attacker": Unit}. +1-to-wound-melee approximation for
+        # an off-doctrine per-unit override. Fire whenever the army has
+        # a meaningfully-costed Marine attacker — 1 CP, broadly useful
+        # (the per-unit Assault Doctrine flip is value in R1/R2 when
+        # the army is in Devastator/Tactical and a unit wants to swing).
+        # Same shape as Avenge the Fallen but no hp_frac gate (the codex
+        # effect fires at the START of the Command phase, no prior
+        # damage required).
+        attacker = ctx.get("attacker")
+        if attacker is None:
+            return False
+        try:
+            cost = float(attacker.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 80.0
+
+    # ----- Combined Arms (Astra Militarum) — six real strats (iter-14)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    # AM bricks are typically 65-pt squads (Cadians / Krieg / Catachan) or
+    # 145-235-pt vehicles (Leman Russ / Rogal Dorn / Sentinel Squadron).
+
+    if name == "Coordinated Action":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting on the highest-DPA AM SQUADRON. Fire when SQUADRON
+        # has real ranged DPA AND target is HEAVY/SHOOTY (Leman Russ vs
+        # Repulsor canonical). Same shape as Mont'ka Focused Fire.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Flexible Command":
+        # ctx: {"officers": list, "squadron_candidates": list}. 2 CP for
+        # widening Order eligibility to SQUADRON for the round. Worth it
+        # when at least one meaningfully-costed Officer + SQUADRON exist.
+        officers = ctx.get("officers") or []
+        squadron_candidates = ctx.get("squadron_candidates") or []
+        if not officers or not squadron_candidates:
+            return False
+        def _max_cost(units):
+            try:
+                return max(float(u.profile.points_cost or 0.0) for u in units)
+            except (ValueError, TypeError):
+                return 0.0
+        return _max_cost(officers) >= 50.0 and _max_cost(squadron_candidates) >= 100.0
+
+    if name == "Fields of Fire":
+        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
+        # shooting proxy for AP+1 on the highest-ranged-DPA AM unit vs
+        # HEAVY/SHOOTY target. Same shape as Storm of Fire.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Inspired Command":
+        # ctx: {"officer": Unit, "target": Unit}. 1 CP for an extra
+        # Order this round. Worth it when target is a meaningfully-
+        # costed BATTLELINE INFANTRY (60+ pts covers Cadians/Krieg/
+        # Catachan at 65pts).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return cost >= 60.0
+
+    if name == "Stalwart Protector":
+        # ctx: {"target": Unit}. Defensive +1-save on the most
+        # vulnerable AM INFANTRY unit. Fire on wounded high-value
+        # (hp_frac > 0.2, cost >= 60).
+        target = ctx.get("target")
+        if target is None:
+            return False
+        try:
+            hp_frac = max(0.0, 1.0 - target.current_health / max(1.0, target.profile.health))
+            cost = float(target.profile.points_cost)
+        except Exception:
+            return False
+        return hp_frac > 0.2 and cost >= 60.0
+
+    # Reinforcements! — no AI gate; dispatcher has no implementation
+    # hook so should_fire return value never matters. Cataloguer-only.
 
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False

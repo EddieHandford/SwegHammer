@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e core ±1 modifier cap on Hit and Wound rolls. Faction-neutral; affects every unit in every game.",
+
+  "simulator.modifier_cap_plus_minus_one": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Hit-Roll",
+    "rule_name": "Hit Roll / Wound Roll modifier cap",
+    "quoted_text": "Hit roll modifiers are cumulative, but the Hit roll for an attack can never be modified by more than -1 or +1. Wound roll modifiers are cumulative, but the Wound roll for an attack can never be modified by more than -1 or +1.",
+    "trigger": "any attack resolution where two or more sources contribute Hit-roll or Wound-roll modifiers (e.g. detachment +1 to wound + stratagem +1 to wound, or Heavy + Devastator Doctrine + cover stacking)",
+    "effect": "the net Hit-roll modifier and the net Wound-roll modifier are each independently clamped to the range [-1, +1] before the d6 target is computed. Re-roll effects (Oath of Moment, twin-linked, judgement tokens) are NOT modifiers and are unaffected. Save rolls have a separate cap that is not implemented here.",
+    "scope": "army-wide"
+  }
+}

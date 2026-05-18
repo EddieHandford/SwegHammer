@@ -1,19 +1,22 @@
 """Tests for CP reservation by predicted-pivotal-turn (#160).
 
 Top players RESERVE CP for known-pivotal rounds — Counter-Offensive on T2-T3
-opponent alpha strike, +1-to-wound stratagems on offensive burst rounds,
-Heroic Intervention reactively whenever a heavy enemy charges. The strategy
-layer adds a deferral check on top of the existing trigger heuristic in
-`should_fire_stratagem`:
+opponent alpha strike, +1-to-wound stratagems on offensive burst rounds.
+The strategy layer adds a deferral check on top of the existing trigger
+heuristic in `should_fire_stratagem`:
 
   * If `current_round < pivotal_turn` AND `cost > 0` AND CP not abundant:
     hold (return False).
   * If `current_round >= pivotal_turn`, `cost == 0`, abundant CP, or T5:
     fire (subject to the existing trigger logic).
 
-Reactive stratagems (Counter-Offensive, Heroic Intervention, Tank Shock,
-Spirit Stones) are exempt — they have no predictable pivotal turn and must
-fire whenever the trigger event happens.
+Reactive stratagems (Counter-Offensive, Tank Shock, Spirit Stones) are
+exempt — they have no predictable pivotal turn and must fire whenever
+the trigger event happens.
+
+#iter12: Heroic Intervention was removed from the stratagem list and
+re-implemented as a free core CHARACTER ability per Wahapedia 10e core
+rules — its tests have been removed from this file.
 
 Note: the original suite covered METHODICAL_DESTRUCTION and PLAGUE_WEAPONS
 as offensive-deferral exemplars. Both stratagems were removed per the
@@ -28,7 +31,7 @@ import unittest
 
 from code.army import Army
 from code.stratagems import (
-    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION,
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE,
 )
 from code.strategy import (
     _predict_pivotal_turn, should_fire_stratagem,
@@ -91,9 +94,6 @@ class PredictPivotalTurnTests(unittest.TestCase):
         # Reactive stratagems return 0 — no preferred turn.
         self.assertEqual(_predict_pivotal_turn(COUNTER_OFFENSIVE), 0)
 
-    def test_heroic_intervention_is_reactive(self):
-        self.assertEqual(_predict_pivotal_turn(HEROIC_INTERVENTION), 0)
-
     def test_command_reroll_pivots_at_T2(self):
         # Universal — pivots at the alpha-strike window.
         self.assertEqual(_predict_pivotal_turn(COMMAND_RE_ROLL), 2)
@@ -128,20 +128,8 @@ class CounterOffensiveReactivityTests(unittest.TestCase):
                 f"Counter-Offensive should fire at T{rnd}",
             )
 
-    def test_heroic_intervention_always_reactive(self):
-        # T1 charge incoming — Heroic Intervention must fire regardless.
-        army = Army("Test")
-        army.command_points = 3
-        _attach_round(army, 1)
-        character = Unit(_character_profile())
-        character.uid = "C0"
-        charger = Unit(_heavy_profile())
-        charger.uid = "X0"
-        ctx = {"character": character, "charge_target": charger, "distance": 4.0}
-        self.assertTrue(
-            should_fire_stratagem(army, HEROIC_INTERVENTION, ctx),
-            "Heroic Intervention must fire reactively at T1 regardless of turn",
-        )
+    # NOTE: the Heroic Intervention reactivity test was removed in
+    # #iter12 because Heroic Intervention is no longer a stratagem.
 
 
 class OffensiveStratagemDeferralTests(unittest.TestCase):

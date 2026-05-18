@@ -103,10 +103,13 @@ class ReanimationProtocolsTests(unittest.TestCase):
 
         reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
         self.assertEqual(len(reanim_events), 1, "Expected 1 UnitReanimated event.")
-        # Revived units should be at full HP.
+        # Fix F-NEC-2 (iter 14): revived models return with ONE wound
+        # remaining (Wahapedia army-rule wording), not at full HP. For
+        # W1 Warriors current_health=1.0 matches profile.health=1; the
+        # behaviour only differs for multi-wound profiles.
         for ev in reanim_events:
             revived = next(u for u in necrons.units if u.uid == ev.unit_uid)
-            self.assertEqual(revived.current_health, revived.profile.health)
+            self.assertEqual(revived.current_health, 1.0)
 
     def test_no_revival_without_reanimate_detachment(self):
         """A non-Necron army with no `reanimate_per_round` flag must NOT see
@@ -254,6 +257,173 @@ class ReanimationProtocolsTests(unittest.TestCase):
 
         reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
         self.assertEqual(reanim_events, [])
+
+    def test_revived_multiwound_model_returns_at_one_wound(self):
+        """Fix F-NEC-2 (iter 14): a destroyed multi-wound NECRONS model
+        (Wraith W3 stand-in) reanimates with current_health=1.0, NOT
+        profile.health=3.0. Verbatim Wahapedia: 'one destroyed model is
+        returned to that unit with one wound remaining'."""
+        random.seed(0)
+
+        def _wraith_profile() -> UnitProfile:
+            return UnitProfile(
+                name="Canoptek Wraith",
+                health=3, damage=1, hit_probability=0.5,
+                ap=0, save=3, strength=6, toughness=6,
+                attacks=4, weapon_damage_per_shot=1.0, range_inches=12,
+                faction="Necrons",
+                unit_keywords=("CANOPTEK", "INFANTRY"),
+            )
+
+        necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
+        for _ in range(3):
+            necrons.add_unit(_wraith_profile())
+        marines = Army("Marines")
+        marines.add_unit(_vanilla_profile("Marine"))
+
+        log = EventLog()
+        battle = Battle(necrons, marines, subscribers=[log])
+        battle._assign_uids()
+        battle._deploy_armies()
+        battle._initial_unit_counts = {
+            necrons.name: {"Canoptek Wraith": 3},
+            marines.name: {"Marine": 1},
+        }
+        battle._round_start_alive_counts = {
+            necrons.name: {"Canoptek Wraith": 3},
+        }
+        # Kill the first Wraith this round (deaths_this_round = 1).
+        necrons.units[0].current_health = 0
+
+        battle._apply_reanimation()
+
+        reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
+        self.assertEqual(len(reanim_events), 1)
+        revived = necrons.units[0]
+        self.assertEqual(
+            revived.current_health, 1.0,
+            "Revived multi-wound model must come back at 1 wound, not full HP.",
+        )
+        self.assertTrue(revived.is_alive)
+
+
+class UndyingLegionsPulseAllocationTests(unittest.TestCase):
+    """Fix F-NEC-2 (iter 14): the Undying Legions pulse spends its D3/D3+1
+    wound budget per the army-rule allocation (heal damaged models first,
+    then revive destroyed models with 1 wound each), NOT '1 model per
+    wound at full HP' as the previous implementation did. Critical for
+    multi-wound NECRONS units (Wraiths, Lychguard, Skorpekh)."""
+
+    def _wraith_profile(self) -> UnitProfile:
+        return UnitProfile(
+            name="Canoptek Wraith",
+            health=3, damage=1, hit_probability=0.5,
+            ap=0, save=3, strength=6, toughness=6,
+            attacks=4, weapon_damage_per_shot=1.0, range_inches=12,
+            faction="Necrons",
+            unit_keywords=("CANOPTEK", "INFANTRY"),
+        )
+
+    def test_pulse_heals_damaged_alive_before_reviving_dead(self):
+        random.seed(0)
+        necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
+        for _ in range(3):
+            necrons.add_unit(self._wraith_profile())
+        marines = Army("Marines")
+        marines.add_unit(_vanilla_profile("Marine"))
+
+        log = EventLog()
+        battle = Battle(necrons, marines, subscribers=[log])
+        battle._assign_uids()
+        battle._deploy_armies()
+        battle._initial_unit_counts = {
+            necrons.name: {"Canoptek Wraith": 3},
+            marines.name: {"Marine": 1},
+        }
+        # Damage Wraith #0 to 1 HP (lost 2W); leave #1 and #2 full.
+        necrons.units[0].current_health = 1.0
+        # Pulse of 2 wounds on the (still-alive) #0 — should top it up
+        # rather than revive any dead peer (none dead yet anyway).
+        necrons.units[0].transient_undying_legions_pulse = 2
+
+        battle._apply_undying_legions_pulse()
+
+        self.assertEqual(
+            necrons.units[0].current_health, 3.0,
+            "Pulse must heal the damaged alive Wraith back to full HP first.",
+        )
+        # No revivals (nobody dead).
+        reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
+        self.assertEqual(reanim_events, [])
+
+    def test_pulse_overflow_revives_dead_at_one_wound(self):
+        random.seed(0)
+        necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
+        for _ in range(3):
+            necrons.add_unit(self._wraith_profile())
+        marines = Army("Marines")
+        marines.add_unit(_vanilla_profile("Marine"))
+
+        log = EventLog()
+        battle = Battle(necrons, marines, subscribers=[log])
+        battle._assign_uids()
+        battle._deploy_armies()
+        battle._initial_unit_counts = {
+            necrons.name: {"Canoptek Wraith": 3},
+            marines.name: {"Marine": 1},
+        }
+        # Dead Wraith + a damaged living peer (1 HP missing).
+        necrons.units[0].current_health = 0.0   # destroyed
+        necrons.units[1].current_health = 2.0   # 1 wound missing
+        # Pulse of 3 wounds → 1W heals the live peer to full, 2W remain to
+        # spend on revival; 1 dead model returns at 1W (no further dead
+        # to revive with the extra wound, surplus wasted).
+        necrons.units[2].transient_undying_legions_pulse = 3
+
+        battle._apply_undying_legions_pulse()
+
+        self.assertEqual(
+            necrons.units[1].current_health, 3.0,
+            "Damaged peer must be healed to full first.",
+        )
+        self.assertEqual(
+            necrons.units[0].current_health, 1.0,
+            "Revived dead model must come back at 1 wound (not full HP).",
+        )
+        reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
+        self.assertEqual(len(reanim_events), 1)
+
+    def test_pulse_wipeout_short_circuit(self):
+        """If the squad is fully wiped, the pulse does nothing — matches
+        the wipeout short-circuit in the regular RP pass."""
+        random.seed(0)
+        necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
+        for _ in range(2):
+            necrons.add_unit(self._wraith_profile())
+        marines = Army("Marines")
+        marines.add_unit(_vanilla_profile("Marine"))
+
+        log = EventLog()
+        battle = Battle(necrons, marines, subscribers=[log])
+        battle._assign_uids()
+        battle._deploy_armies()
+        battle._initial_unit_counts = {
+            necrons.name: {"Canoptek Wraith": 2},
+            marines.name: {"Marine": 1},
+        }
+        # Wipe everyone. The pulse-carrier (units[0]) is dead too — the
+        # pulse flag was set before the wipe; the pulse loop should skip
+        # because no alive peer exists.
+        necrons.units[0].current_health = 0.0
+        necrons.units[1].current_health = 0.0
+        necrons.units[0].transient_undying_legions_pulse = 3
+
+        battle._apply_undying_legions_pulse()
+
+        reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
+        self.assertEqual(reanim_events, [])
+        self.assertEqual(necrons.units[0].current_health, 0.0)
+        self.assertEqual(necrons.units[1].current_health, 0.0)
 
 
 if __name__ == "__main__":

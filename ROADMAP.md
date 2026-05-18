@@ -132,7 +132,7 @@ in real play.
   - Genestealer Cults: Cult Ambush (army-wide turn-1 redeploy)
   - World Eaters: Blood Tithe (escalating BT spends, Lethal Hits at 4 BT)
   - Death Guard: Disgustingly Resilient (FNP 5+ army-wide) + Contagions of Nurgle (escalating -1 T / -1 Ld / -1 hit aura)
-  - Thousand Sons: All Is Dust (-1 to wound on D=1 attacks)
+  - Thousand Sons: All Is Dust (Rubricae Phalanx detachment, +1 save vs unmodified D1 on RUBRICAE units) + Rites of Coalescence (Scarab Occult Terminators datasheet ability, -1 to wound on any-D attacks while a PSYKER is present)
   - Necrons: Reanimation Protocols + Awakened Dynasty buffs
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon

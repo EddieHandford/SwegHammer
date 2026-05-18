@@ -92,20 +92,22 @@ TANK_SHOCK = Stratagem(
     effect="d3_mortal_wounds_to_charge_target",
 )
 
-HEROIC_INTERVENTION = Stratagem(
-    name="Heroic Intervention",
-    cp_cost=1,
-    phase="charge",
-    trigger="enemy_charges_near_friendly_character",
-    effect="3_inch_move_into_engagement",
-)
+# NOTE: Heroic Intervention is NOT a stratagem. Per Wahapedia 10e core
+# rules (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE)
+# it is a free core ability for CHARACTER models — after the opposing
+# player has resolved their charges, you may select any of your CHARACTER
+# models within 6" of any enemy units; each of those models can move up
+# to 6" (3" if WALKER) and must end the move within Engagement Range of
+# one of those enemy units. No CP is spent. Implemented as a core
+# mechanic in code.simulator._do_heroic_intervention; cited as
+# `simulator.heroic_intervention_core`. The previous 1 CP stratagem
+# entry was deleted in #iter12 (was always wrong per the 10e rulebook).
 
 
 UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
     COMMAND_RE_ROLL,
     COUNTER_OFFENSIVE,
     TANK_SHOCK,
-    HEROIC_INTERVENTION,
 )
 
 
@@ -516,6 +518,217 @@ GRAND_COVEN_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Rubricae Phalanx (Thousand Sons) — six detachment stratagems (iter15)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# 40k.app entry: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+# Goonhammer breakdown: https://www.goonhammer.com/detachment-focus-rubricae-phalanx/
+# Frontline Gaming: https://frontlinegaming.org/2025/05/15/codex-focus-thousand-sons-rubricae-phalanx-warpforged-cabal-breakdown/
+#
+# Names + CP costs verbatim from 40k.app; verbatim "WHEN" / "EFFECT" blocks
+# were not retrievable via WebFetch (wahapedia.ru returned ECONNREFUSED).
+# Each stratagem's `quoted_text` in data/rule_citations.d/stratagems.json is
+# a mechanical paraphrase tagged accordingly, with the source URL cited.
+# Effect-mapping summary (each routes through an existing transient_* flag
+# or is catalogued-but-no-op APPROXIMATION; the dispatcher logic lives in
+# `code/simulator.py::_apply_detachment_stratagems`):
+#
+#   * Ardent Automata (1 CP) — your Movement phase, a RUBRICAE unit that
+#     just Fell Back can shoot and charge this turn. SwegHammer has no
+#     Fell-Back-this-turn transient flag, so dispatched as catalogued-but-
+#     no-op APPROXIMATION. The RUBRICAE Fall Back lockout exemption would
+#     need a transient_assault_after_fall_back hook to fully model.
+#   * Inexorable Advance (1 CP) — your Movement phase, a RUBRICAE unit
+#     ignores Move modifiers AND its ranged weapons gain [ASSAULT] until
+#     end of turn. The [ASSAULT] half maps cleanly onto
+#     `transient_assault_this_round` (matches Mont'ka Killing Blow's
+#     [ASSAULT] proxy). The "ignore Move modifiers" half is dropped — the
+#     grid-free movement model has no Move debuff to suppress.
+#   * Infernal Fusillade (2 CP) — your Shooting phase, RUBRIC MARINES
+#     unit's inferno bolt-pattern weapons gain [PSYCHIC] and S5. The
+#     S5 uplift on a baseline S4 inferno bolter improves wound rolls
+#     vs T4-T5; we route through `transient_plus_one_to_wound_shooting`
+#     on the highest-DPA RUBRICAE PSYKER unit. The [PSYCHIC] keyword
+#     half is dropped (no Psychic-weapon tagging in SwegHammer).
+#   * Revenge of the Rubricae (1 CP) — opponent's Shooting phase, after
+#     a THOUSAND SONS PSYKER model is destroyed, a RUBRICAE unit shoots
+#     the destroyer out of sequence. SwegHammer has no out-of-sequence
+#     shoot hook tied to a Psyker death event; catalogued-but-no-op
+#     APPROXIMATION. The CP would land via the StratagemFired event but
+#     the mechanical follow-through is absent — same gap pattern as
+#     Awakened Dynasty's "Protocol of the Vengeful Stars".
+#   * Implacable Guardians (2 CP) — opponent's Shooting phase, until
+#     end of phase a RUBRIC MARINES PSYKER unit gets -1 to incoming
+#     Damage (on non-PSYKER models). Maps to
+#     `transient_minus_one_damage_taken` on the most vulnerable
+#     RUBRICAE unit. APPROXIMATION: codex restricts the buff to non-
+#     PSYKER models within the unit; SwegHammer treats a unit as a
+#     single damage pool so the buff applies uniformly — strictly
+#     weaker on multi-PSYKER squads (Aspiring Sorcerer is the PSYKER).
+#   * Unwavering Phalanx (1 CP) — opponent's Charge phase, after an
+#     enemy unit ends a Charge move into a RUBRICAE unit, -1 to Wound
+#     rolls against that RUBRICAE unit for the Fight phase. SwegHammer
+#     has no per-target wound-debuff transient — we route through
+#     `transient_plus_one_save` on the chosen RUBRICAE defender as a
+#     defensive proxy (a +1 save approximates a -1 to wound on the
+#     attacker's failed-save bucket; not equivalent, but same direction).
+
+ARDENT_AUTOMATA = Stratagem(
+    name="Ardent Automata",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_rubricae_unit_just_fell_back",
+    effect="shoot_and_charge_after_fall_back_approximation",
+)
+
+INEXORABLE_ADVANCE = Stratagem(
+    name="Inexorable Advance",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_rubricae_unit_moving",
+    effect="transient_assault_this_round",
+)
+
+INFERNAL_FUSILLADE = Stratagem(
+    name="Infernal Fusillade",
+    cp_cost=2,
+    phase="shooting",
+    trigger="friendly_rubric_marines_about_to_shoot",
+    effect="transient_plus_one_to_wound_shooting",
+)
+
+REVENGE_OF_THE_RUBRICAE = Stratagem(
+    name="Revenge of the Rubricae",
+    cp_cost=1,
+    phase="shooting",
+    trigger="enemy_destroyed_friendly_tson_psyker_model",
+    effect="out_of_sequence_shoot_approximation",
+)
+
+IMPLACABLE_GUARDIANS = Stratagem(
+    name="Implacable Guardians",
+    cp_cost=2,
+    phase="shooting",
+    trigger="enemy_targets_friendly_rubric_marines_psyker_unit",
+    effect="transient_minus_one_damage_taken",
+)
+
+UNWAVERING_PHALANX = Stratagem(
+    name="Unwavering Phalanx",
+    cp_cost=1,
+    phase="charge",
+    trigger="enemy_charges_friendly_rubricae_unit",
+    effect="transient_plus_one_save_proxy_for_minus_one_to_wound",
+)
+
+RUBRICAE_PHALANX_STRATAGEMS: Tuple[Stratagem, ...] = (
+    ARDENT_AUTOMATA,
+    INEXORABLE_ADVANCE,
+    INFERNAL_FUSILLADE,
+    REVENGE_OF_THE_RUBRICAE,
+    IMPLACABLE_GUARDIANS,
+    UNWAVERING_PHALANX,
+)
+
+
+# ---------------------------------------------------------------------------
+# Subterranean Assault (Tyranids) — four real detachment stratagems (iter16 fix)
+# ---------------------------------------------------------------------------
+# Goonhammer Detachment Focus: https://www.goonhammer.com/detachment-focus-subterranean-assault/
+# Warhammer Community PDF: https://assets.warhammer-community.com/eng_04-06_warhammer_40000_tyranids_subterranean_assault-zw9osgnwhg-rqvyrabibv.pdf
+#
+# Background: Subterranean Assault is the May-2026-meta Tyranids detachment —
+# Ron Eilyahoo won GW Open Maastricht 2026 with a Subterranean Assault
+# Ravener/Trygon list, and Frontline/Stat-Check tournament reports rank it
+# alongside Invasion Fleet and Vanguard Onslaught as a top-tier choice. The
+# detachment rule itself (army-wide reroll-1s-to-hit, plus the Burrower tunnel
+# marker mechanic for Trygons / Mawlocs) is the lever the calibration loop
+# needs — replacing the Invasion Fleet "-1 enemy Ld" approximation with a real
+# offensive uplift.
+#
+# These four stratagems are paraphrased per the Goonhammer detachment focus
+# (WebFetch against assets.warhammer-community.com returned 403 at edit time;
+# Wahapedia entry not yet indexed for this detachment). Each entry has a
+# Goonhammer citation in data/rule_citations.d/stratagems.json with the
+# approximation note. Pattern matches Awakened Dynasty / Rubricae Phalanx:
+# stratagems are catalogued so the auditor + AI know about them, but the
+# AI dispatcher (each stratagem needs its own `_try_fire_<name>` method in
+# code/simulator.py) is NOT wired in this iteration — the army-wide
+# reroll_hit_ones detachment passive is the offensive lever this iteration
+# delivers; the per-stratagem fires are catalogued-but-no-op APPROXIMATIONs
+# to be wired in a follow-up.
+#
+# Effect-mapping summary:
+#   * Tunnel Network (1 CP, movement) — remove a Tyranids unit from within
+#     9" of one Tunnel Marker and set it up within 9" of another, >=6" from
+#     enemy models. Mid-phase teleport reposition. SwegHammer has no Tunnel
+#     Marker / Burrower mid-phase teleport hook; catalogued as a no-op
+#     APPROXIMATION (effect string mirrors the codex text so a future
+#     dispatcher can hook on the existing id).
+#   * Replenishing Swarms (1 CP, movement) — heal D3+1 wounds or revive
+#     D3+1 1-W models within 9" of a Tunnel Marker. Mapped to
+#     `transient_undying_legions_pulse` = 2 (mid-phase reanimation pulse,
+#     median D3+1 = 3 → using the 2-HP `extra_reanimation_pulse` flag the
+#     simulator already understands; same flag is used by Necrons
+#     Protocol of the Undying Legions and Orks Mob Up). APPROXIMATION:
+#     restores HP rather than reviving destroyed 1-W models; the
+#     swarm-resurrection-on-Tunnel-Marker half is dropped.
+#   * Swarming Assault (1 CP, charge) — a Tyranids MONSTER unit grants
+#     reroll-charge-roll to friendly Tyranids units within 6". Charge-roll
+#     reroll is not a one-shot transient flag; the closest stand-in is
+#     `transient_assault_this_round` on the highest-DPA Tyranids unit
+#     (same flag Mont'ka uses for Sudden Storm — boosts the realised
+#     charge-then-fight payoff if not the literal reroll). APPROXIMATION:
+#     +Assault stand-in for reroll-charge.
+#   * Enfilading Emergence (1 CP, movement) — a Tyranids unit that emerged
+#     from reserves this turn gains [SUSTAINED HITS 1] and [IGNORES COVER]
+#     until end of phase. Mapped to `transient_plus_one_to_hit_shooting`
+#     on the highest-DPA Tyranids unit (same flag Mont'ka / Pulse
+#     Onslaught uses) — direction-correct uplift in shooting output, lossy
+#     on the SH1 / ignores-cover keyword specificity.
+
+TUNNEL_NETWORK = Stratagem(
+    name="Tunnel Network",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tyranids_unit_near_tunnel_marker",
+    effect="redeploy_via_tunnel_marker_approximation",
+)
+
+REPLENISHING_SWARMS = Stratagem(
+    name="Replenishing Swarms",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tyranids_unit_wounded_near_tunnel_marker",
+    effect="extra_reanimation_pulse_approximation",
+)
+
+SWARMING_ASSAULT = Stratagem(
+    name="Swarming Assault",
+    cp_cost=1,
+    phase="charge",
+    trigger="friendly_tyranids_monster_about_to_charge",
+    effect="transient_assault_for_round_approximation",
+)
+
+ENFILADING_EMERGENCE = Stratagem(
+    name="Enfilading Emergence",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_tyranids_unit_emerged_from_reserves",
+    effect="transient_plus_one_to_hit_shooting_approximation",
+)
+
+
+SUBTERRANEAN_ASSAULT_STRATAGEMS: Tuple[Stratagem, ...] = (
+    TUNNEL_NETWORK,
+    REPLENISHING_SWARMS,
+    SWARMING_ASSAULT,
+    ENFILADING_EMERGENCE,
+)
+
+
+# ---------------------------------------------------------------------------
 # War Horde (Orks) — six real detachment stratagems (iter-1 Cluster B B1)
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
@@ -621,6 +834,419 @@ WAR_HORDE_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# Shield Host (Adeptus Custodes) — six real detachment stratagems (iter-8 fix)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+# Replaces the iter-0 zero-stratagem state where Custodes burned 5/7 strat
+# fires per battle on Command Re-Roll (universal Core) because no detachment
+# stratagems were registered. iter-7 diagnostic
+# (docs/AUTO_LOOP_ITER7_DG_VS_CUSTODES.md) identified this as the top fix
+# for DG-vs-Custodes (+19.5pt over real meta).
+#
+# Effect-mapping summary (full notes in data/rule_citations.d/stratagems.json
+# and data/rule_citations.d/adeptus_custodes.json):
+#   * Arcane Genetic Alchemy (1 CP, Battle Tactic) — 4+ FNP vs mortal wounds
+#     for the phase. SwegHammer doesn't model mortal-wound-only FNP buckets,
+#     so the closest stand-in is `transient_fnp_5` (5+ FNP all-damage for the
+#     round) on the most vulnerable Custodes unit. APPROXIMATION: 5+ FNP all-
+#     damage is broader than 4+ FNP mortal-only — direction-correct but lossy.
+#   * Unwavering Sentinels (1 CP, Strategic Ploy) — -1 to hit on an enemy
+#     targeting a Custodes INFANTRY unit within range of a friendly objective.
+#     SwegHammer has no per-target -1-to-hit transient flag, so the offensive
+#     payoff is routed through `transient_plus_one_save` on the most
+#     vulnerable Custodes INFANTRY unit (defensive proxy — both buffs reduce
+#     incoming damage). APPROXIMATION: defensive +1 save instead of -1 to hit.
+#   * Multipotentiality (1 CP, Strategic Ploy) — a Custodes unit that Fell
+#     Back may still shoot and declare a charge this turn. Maps cleanly to
+#     `transient_assault_this_round` on the highest-DPA Custodes unit (same
+#     flag used by Feigned Retreat).
+#   * Vigilance Eternal (1 CP, Strategic Ploy) — sticky objective control
+#     for a Custodes BATTLELINE unit in range of an objective. SwegHammer's
+#     sticky-objective hook is gated on per-faction detachment flags rather
+#     than per-stratagem fire, so this dispatches as a no-op APPROXIMATION
+#     (CP not spent if no other effect lands). Catalogued for auditor + AI.
+#   * Archaeotech Munitions (1 CP, Wargear) — [LETHAL HITS] or [SUSTAINED
+#     HITS 1] on a Custodes unit's ranged weapons for the phase. SwegHammer
+#     has no per-round transient lethal-hits flag, so the offensive uplift
+#     is routed through `transient_plus_one_to_hit_shooting` on the highest-
+#     DPA Custodes shooter — same direction (more landed hits), comparable
+#     magnitude on a 4+ hit roll. APPROXIMATION: +1 to hit instead of
+#     Lethal/Sustained Hits.
+#   * Avenge the Fallen (1 CP, Strategic Ploy) — +1 attack (or +2 if below
+#     half strength) on a Custodes unit below Starting Strength. Maps to
+#     `transient_plus_one_to_wound_melee` on the most vulnerable Custodes
+#     melee unit (the +1 attack increases melee damage output similarly to
+#     +1 to wound on a 4+ wound roll). APPROXIMATION: +1 to wound instead
+#     of +1 attack count.
+
+ARCANE_GENETIC_ALCHEMY = Stratagem(
+    name="Arcane Genetic Alchemy",
+    cp_cost=1,
+    phase="any",
+    trigger="mortal_wound_allocated_to_custodes",
+    effect="fnp_5_for_round_approximation",
+)
+
+UNWAVERING_SENTINELS = Stratagem(
+    name="Unwavering Sentinels",
+    cp_cost=1,
+    phase="fight",
+    trigger="enemy_targets_custodes_infantry_on_objective",
+    effect="plus_one_save_for_round_approximation",
+)
+
+MULTIPOTENTIALITY = Stratagem(
+    name="Multipotentiality",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_custodes_unit_just_fell_back",
+    effect="transient_assault_for_round",
+)
+
+VIGILANCE_ETERNAL = Stratagem(
+    name="Vigilance Eternal",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_custodes_battleline_on_objective",
+    effect="sticky_objective_approximation",
+)
+
+ARCHAEOTECH_MUNITIONS = Stratagem(
+    name="Archaeotech Munitions",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_custodes_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round_approximation",
+)
+
+AVENGE_THE_FALLEN = Stratagem(
+    name="Avenge the Fallen",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_custodes_unit_below_starting_strength_about_to_fight",
+    effect="plus_one_to_wound_melee_approximation",
+)
+
+
+SHIELD_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
+    ARCANE_GENETIC_ALCHEMY,
+    UNWAVERING_SENTINELS,
+    MULTIPOTENTIALITY,
+    VIGILANCE_ETERNAL,
+    ARCHAEOTECH_MUNITIONS,
+    AVENGE_THE_FALLEN,
+)
+
+
+# ---------------------------------------------------------------------------
+# Oathband (Leagues of Votann) — six real detachment stratagems (iter-9 fix)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+# Replaces the iter-0 zero-stratagem state where Votann fired Core only.
+# iter-8 anti-DG audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) flagged
+# Oathband as one of the top-priority missing stratagem sets — Votann is one
+# of the 7 unsampled-but-positive DG matchups (~+8pt over real per iter-5).
+#
+# Six stratagems per the iter-8 audit table, drawn from the codex Oathband
+# detachment listing. SwegHammer's OATHBAND is a generic stub for the
+# Votann codex detachments (Hearthband, Needgaard Oathband, etc.); the
+# six stratagems chosen here are the canonical "Oathband-style" set that
+# share the Judgement-Token-leveraging trigger spine.
+#
+# Effect-mapping summary (full notes in data/rule_citations.d/stratagems.json):
+#   * Warrior Pride (1 CP) — Re-roll Wound rolls vs a Judgement-Token-bearing
+#     enemy. Maps to `transient_plus_one_to_wound_melee` +
+#     `transient_plus_one_to_wound_shooting` on the highest-DPA Votann unit
+#     (full wound-reroll APPROXIMATED as +1 to wound on a 4+ wound roll,
+#     same direction). Stacks naturally with `simulator.judgement_tokens`
+#     plumbing that already grants per-attack re-roll buffs at 1+/3+ token
+#     thresholds.
+#   * Wrath of the Ancestors (1 CP) — [LETHAL HITS] on ranged vs token-bearing.
+#     Maps to `transient_plus_one_to_hit_shooting` on highest-DPA Votann
+#     shooter (LETHAL HITS APPROXIMATED as +1 to hit — same direction,
+#     comparable magnitude on a 4+ hit roll).
+#   * Glory of the Hearth (1 CP) — Re-roll Hit AND Wound for a Votann VEHICLE
+#     shooting. Maps to `transient_reroll_hits_shooting` on the highest-DPA
+#     Votann VEHICLE (the wound-reroll leg is dropped — APPROXIMATION).
+#   * Ironkin Sequence (1 CP) — IRONKIN unit gets +1 to hit. Maps directly to
+#     `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN unit
+#     (clean mapping, no approximation gap).
+#   * Ancestral Sentence (2 CP) — Issue a Judgement Token to an enemy unit at
+#     the start of the phase. Maps DIRECTLY onto the existing
+#     `Army.judgement_tokens[uid]` dict — increments the token count on
+#     the highest-threat enemy unit so subsequent Votann attacks fire the
+#     1+/3+ re-roll thresholds. No approximation: this is a clean wiring.
+#   * Void-Armoured Resilience (1 CP) — 5+ Feel No Pain for the phase. Maps
+#     directly to `transient_fnp_5` on the most vulnerable Votann unit
+#     (clean mapping).
+
+WARRIOR_PRIDE = Stratagem(
+    name="Warrior Pride",
+    cp_cost=1,
+    phase="any",
+    trigger="friendly_votann_unit_attacks_token_bearer",
+    effect="reroll_wounds_vs_token_bearer_approximation",
+)
+
+WRATH_OF_THE_ANCESTORS = Stratagem(
+    name="Wrath of the Ancestors",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_unit_shoots_token_bearer",
+    effect="lethal_hits_ranged_approximation",
+)
+
+GLORY_OF_THE_HEARTH = Stratagem(
+    name="Glory of the Hearth",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_vehicle_about_to_shoot",
+    effect="reroll_hits_and_wounds_shooting_approximation",
+)
+
+IRONKIN_SEQUENCE = Stratagem(
+    name="Ironkin Sequence",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_votann_ironkin_unit_about_to_shoot",
+    effect="plus_one_to_hit_shooting_for_round",
+)
+
+ANCESTRAL_SENTENCE = Stratagem(
+    name="Ancestral Sentence",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_votann_warlord",
+    effect="issue_judgement_token_to_enemy",
+)
+
+VOID_ARMOURED_RESILIENCE = Stratagem(
+    name="Void-Armoured Resilience",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_votann_unit",
+    effect="fnp_5_for_round",
+)
+
+
+OATHBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
+    WARRIOR_PRIDE,
+    WRATH_OF_THE_ANCESTORS,
+    GLORY_OF_THE_HEARTH,
+    IRONKIN_SEQUENCE,
+    ANCESTRAL_SENTENCE,
+    VOID_ARMOURED_RESILIENCE,
+)
+
+
+# ---------------------------------------------------------------------------
+# Gladius Task Force (Adeptus Astartes) — six real detachment stratagems
+# (iter-12 fix)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+# Replaces the iter-0 zero-stratagem state where Marines burned every strat
+# fire on Command Re-Roll (universal Core). Per docs/AUDIT_PARITY.md fix #1
+# this is the largest 0/6 gap in the project — Marines is 134 units and the
+# most-used codex in simulations, so even a single Command-phase spend per
+# round closes a real parity gap. Each dispatcher mirrors the iter-8 Shield
+# Host pattern: route through the closest existing transient_* flag and
+# document the gap as APPROXIMATION.
+#
+# WebFetch against wahapedia.ru returned ECONNREFUSED at edit time (same
+# outage seen in iter-1 War Horde + #193 Grand Coven); stratagem effects
+# are paraphrased per general 10e Marines codex knowledge / Goonhammer's
+# Gladius Task Force review, with the Wahapedia URL cited per CLAUDE.md §10
+# and each entry flagged APPROXIMATION in
+# data/rule_citations.d/stratagems.json.
+#
+# Effect-mapping summary:
+#   * Storm of Fire (1 CP, Battle Tactic) — an ADEPTUS ASTARTES unit's
+#     ranged weapons gain [SUSTAINED HITS 1] for the phase (or improve
+#     existing [SUSTAINED HITS X] by 1). SwegHammer has no per-round
+#     transient [SUSTAINED HITS] flag, so the offensive uplift is routed
+#     through `transient_plus_one_to_hit_shooting` on the highest-DPA
+#     Marines shooter — same direction (more landed hits), comparable
+#     magnitude on a 4+ hit roll. APPROXIMATION.
+#   * Armour of Contempt (1 CP, Battle Tactic) — defensive: enemy AP
+#     against an ADEPTUS ASTARTES unit is reduced by 1 for the phase
+#     (improves save vs AP-X attacks). Maps to `transient_plus_one_save`
+#     on the most vulnerable Marines unit. APPROXIMATION: the codex
+#     effect is AP-reduction (worth more vs high-AP weapons), the
+#     +1-save proxy is a flat save buff (worth equally vs AP-0 fire).
+#     Direction-correct, magnitude comparable on a 3+ save.
+#   * Squad Tactics (1 CP, Strategic Ploy) — an ADEPTUS ASTARTES INFANTRY
+#     unit may make a Normal Move of up to 6" in your opponent's
+#     Movement phase. Mobility / repositioning utility. Maps to
+#     `transient_assault_this_round` on the highest-DPA Marines INFANTRY
+#     unit (closest existing "extra move to set up the alpha shot/charge"
+#     transient — same flag Feigned Retreat / Multipotentiality use).
+#     APPROXIMATION: offensive shoot-after-move proxy for a defensive
+#     reposition.
+#   * Only In Death Does Duty End (1 CP, Strategic Ploy) — when an
+#     ADEPTUS ASTARTES model is destroyed in the Fight phase before
+#     making its attacks, it may make those attacks before being
+#     removed. Defensive-turned-offensive trade. Maps to
+#     `transient_plus_one_to_wound_melee` on the most vulnerable Marines
+#     melee unit — the "one last swing" proxy translates to +1 to wound
+#     on the remaining attacks. APPROXIMATION: misses the timing detail
+#     (codex grants attacks to destroyed models; we buff the surviving
+#     unit instead). Direction-correct (more melee damage from a doomed
+#     unit), magnitude comparable on a 4+ wound roll.
+#   * Honour the Chapter (2 CP, Battle Tactic) — an ADEPTUS ASTARTES
+#     unit may re-roll its Hit AND Wound rolls (or all attacks if the
+#     unit's Sergeant / CHARACTER leader has Honour the Chapter active)
+#     for the phase. The premium 2-CP offensive nuke. Maps to
+#     `transient_reroll_hits_shooting` on the highest-DPA Marines unit;
+#     the wound-reroll leg is dropped (no transient wound-reroll flag).
+#     APPROXIMATION: strictly weaker than the codex (~half the value),
+#     direction-correct. Same lossy pattern as Glory of the Hearth
+#     (Oathband) and Devastating Sorcery (Grand Coven).
+#   * Adaptive Strategy (1 CP, Strategic Ploy) — at the start of your
+#     Command phase, an ADEPTUS ASTARTES unit gains the rules of one
+#     Combat Doctrine of your choice until end of turn (Devastator /
+#     Tactical / Assault), regardless of which doctrine the army is
+#     currently in. APPROXIMATION: Combat Doctrines in SwegHammer is
+#     a round-and-mode-gated +1 to wound (see Unit.attack); the
+#     stratagem's per-unit doctrine override would require per-unit
+#     doctrine state. Routed through `transient_plus_one_to_wound_melee`
+#     on the highest-DPA Marines melee unit — the dominant value the
+#     stratagem provides is granting Assault Doctrine's +1-to-wound-
+#     melee outside R3+, which this proxy captures exactly.
+
+STORM_OF_FIRE = Stratagem(
+    name="Storm of Fire",
+    cp_cost=1,
+    phase="shooting",
+    trigger="friendly_marines_unit_about_to_shoot",
+    effect="sustained_hits_ranged_approximation",
+)
+
+ARMOUR_OF_CONTEMPT = Stratagem(
+    name="Armour of Contempt",
+    cp_cost=1,
+    phase="any",
+    trigger="vulnerable_friendly_marines_unit_targeted",
+    effect="enemy_ap_minus_one_approximation",
+)
+
+SQUAD_TACTICS = Stratagem(
+    name="Squad Tactics",
+    cp_cost=1,
+    phase="movement",
+    trigger="friendly_marines_infantry_unit_about_to_move",
+    effect="extra_move_repositioning_approximation",
+)
+
+ONLY_IN_DEATH_DOES_DUTY_END = Stratagem(
+    name="Only In Death Does Duty End",
+    cp_cost=1,
+    phase="fight",
+    trigger="friendly_marines_model_destroyed_before_attacking",
+    effect="attacks_before_removal_approximation",
+)
+
+HONOUR_THE_CHAPTER = Stratagem(
+    name="Honour the Chapter",
+    cp_cost=2,
+    phase="any",
+    trigger="friendly_marines_unit_about_to_attack_premium_target",
+    effect="reroll_hits_and_wounds_approximation",
+)
+
+ADAPTIVE_STRATEGY = Stratagem(
+    name="Adaptive Strategy",
+    cp_cost=1,
+    phase="command",
+    trigger="own_command_phase_marines_warlord",
+    effect="off_doctrine_per_unit_override_approximation",
+)
+
+
+GLADIUS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    STORM_OF_FIRE,
+    ARMOUR_OF_CONTEMPT,
+    SQUAD_TACTICS,
+    ONLY_IN_DEATH_DOES_DUTY_END,
+    HONOUR_THE_CHAPTER,
+    ADAPTIVE_STRATEGY,
+)
+
+
+# ---------------------------------------------------------------------------
+# Combined Arms (Astra Militarum) — six real detachment stratagems (iter-14)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+# Replaces the iter-0 zero-stratagem state where AM burned every strat fire
+# on Command Re-Roll (universal Core). The Combined Arms detachment is AM's
+# competitive default per Goonhammer May 2026 meta reports. Its detachment
+# rule is Born Soldiers ([LETHAL HITS] on REGIMENT ranged attacks vs non-
+# VEHICLE/MONSTER, and on SQUADRON ranged attacks vs VEHICLE/MONSTER). The
+# stratagem set scales the Voice of Command Order economy (Coordinated
+# Action / Flexible Command / Inspired Command all extend Order eligibility)
+# plus three combat tactics (Fields of Fire / Stalwart Protector /
+# Reinforcements!). Each dispatcher follows the Gladius / Mont'ka pattern.
+
+COORDINATED_ACTION = Stratagem(
+    name="Coordinated Action",
+    cp_cost=1,
+    phase="any",
+    trigger="own_command_phase_am_regiment_and_squadron_close",
+    effect="extend_order_to_squadron_approximation",
+)
+
+REINFORCEMENTS = Stratagem(
+    name="Reinforcements!",
+    cp_cost=2,
+    phase="any",
+    trigger="friendly_am_infantry_regiment_just_destroyed",
+    effect="readd_destroyed_unit_to_reserves_approximation",
+    once_per_battle=True,
+)
+
+FLEXIBLE_COMMAND = Stratagem(
+    name="Flexible Command",
+    cp_cost=2,
+    phase="command",
+    trigger="own_command_phase_am_officer",
+    effect="officers_can_order_squadron_for_round",
+)
+
+FIELDS_OF_FIRE = Stratagem(
+    name="Fields of Fire",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_am_regiment_and_squadron_pair",
+    effect="plus_one_ap_vs_target_approximation",
+)
+
+INSPIRED_COMMAND = Stratagem(
+    name="Inspired Command",
+    cp_cost=1,
+    phase="command",
+    trigger="enemy_command_phase_am_officer",
+    effect="extra_order_this_round_approximation",
+)
+
+STALWART_PROTECTOR = Stratagem(
+    name="Stalwart Protector",
+    cp_cost=1,
+    phase="any",
+    trigger="enemy_shooting_targets_am_infantry_near_vehicle",
+    effect="plus_one_save_for_round_approximation",
+)
+
+
+COMBINED_ARMS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    COORDINATED_ACTION,
+    REINFORCEMENTS,
+    FLEXIBLE_COMMAND,
+    FIELDS_OF_FIRE,
+    INSPIRED_COMMAND,
+    STALWART_PROTECTOR,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -656,7 +1282,6 @@ __all__ = [
     "COMMAND_RE_ROLL",
     "COUNTER_OFFENSIVE",
     "TANK_SHOCK",
-    "HEROIC_INTERVENTION",
     "UNIVERSAL_STRATAGEMS",
     # Warhost (Aeldari) — six real stratagems
     "LIGHTNING_FAST_REACTIONS",
@@ -698,6 +1323,20 @@ __all__ = [
     "ARCANE_FOCUS",
     "DEVASTATING_SORCERY",
     "GRAND_COVEN_STRATAGEMS",
+    # Rubricae Phalanx (Thousand Sons) — six stratagems (iter15)
+    "ARDENT_AUTOMATA",
+    "INEXORABLE_ADVANCE",
+    "INFERNAL_FUSILLADE",
+    "REVENGE_OF_THE_RUBRICAE",
+    "IMPLACABLE_GUARDIANS",
+    "UNWAVERING_PHALANX",
+    "RUBRICAE_PHALANX_STRATAGEMS",
+    # Subterranean Assault (Tyranids) — four stratagems (iter16)
+    "TUNNEL_NETWORK",
+    "REPLENISHING_SWARMS",
+    "SWARMING_ASSAULT",
+    "ENFILADING_EMERGENCE",
+    "SUBTERRANEAN_ASSAULT_STRATAGEMS",
     # War Horde (Orks) — six real stratagems (iter-1 Cluster B B1)
     "INSANE_BRAVERY",
     "POWER_OF_THE_WAAAGH",
@@ -706,6 +1345,38 @@ __all__ = [
     "TELLYPORTA",
     "DA_BIGGEST_BOSS",
     "WAR_HORDE_STRATAGEMS",
+    # Shield Host (Adeptus Custodes) — six real stratagems (iter-8 fix)
+    "ARCANE_GENETIC_ALCHEMY",
+    "UNWAVERING_SENTINELS",
+    "MULTIPOTENTIALITY",
+    "VIGILANCE_ETERNAL",
+    "ARCHAEOTECH_MUNITIONS",
+    "AVENGE_THE_FALLEN",
+    "SHIELD_HOST_STRATAGEMS",
+    # Oathband (Leagues of Votann) — six real stratagems (iter-9 fix)
+    "WARRIOR_PRIDE",
+    "WRATH_OF_THE_ANCESTORS",
+    "GLORY_OF_THE_HEARTH",
+    "IRONKIN_SEQUENCE",
+    "ANCESTRAL_SENTENCE",
+    "VOID_ARMOURED_RESILIENCE",
+    "OATHBAND_STRATAGEMS",
+    # Gladius Task Force (Adeptus Astartes) — six real stratagems (iter-12 fix)
+    "STORM_OF_FIRE",
+    "ARMOUR_OF_CONTEMPT",
+    "SQUAD_TACTICS",
+    "ONLY_IN_DEATH_DOES_DUTY_END",
+    "HONOUR_THE_CHAPTER",
+    "ADAPTIVE_STRATEGY",
+    "GLADIUS_STRATAGEMS",
+    # Combined Arms (Astra Militarum) — six real stratagems (iter-14 fix)
+    "COORDINATED_ACTION",
+    "REINFORCEMENTS",
+    "FLEXIBLE_COMMAND",
+    "FIELDS_OF_FIRE",
+    "INSPIRED_COMMAND",
+    "STALWART_PROTECTOR",
+    "COMBINED_ARMS_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

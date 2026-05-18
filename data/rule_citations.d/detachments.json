@@ -41,12 +41,22 @@
     "approximation": true
   },
 
-  "SHIELD_HOST.plus_one_save": {
+  "SHIELD_HOST.melee_crit_on_5_plus_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
-    "rule_name": "Martial Mastery",
+    "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
-    "trigger": "any friendly Adeptus Custodes save",
-    "effect": "+1 to armour saves (approximation of overall Custodes durability; canonical Martial Mastery is an offensive Crit/AP buff, not a save buff, so this flag is a stand-in for the multiple defensive stacking rules Custodes pile up across Bodyguard, native 2+/4++ profiles, and the Sentinel-Blades enhancement)",
+    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
+    "effect": "successful unmodified Hit roll of 5+ scores a Critical Hit on melee attacks (replaces the canonical 6+ crit-to-hit threshold). APPROXIMATION: codex picks ONE Martial Mastery bullet per battle round; SwegHammer applies BOTH the Crit-on-5+ bullet (this flag) and the AP+1 bullet (SHIELD_HOST.melee_ap_plus_one) always-on, which is strictly stronger than the codex but captures the dual offensive nature iter-7 diagnostic identified as missing.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "SHIELD_HOST.melee_ap_plus_one": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Martial Ka'tah / Martial Mastery (AP+1 bullet)",
+    "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
+    "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
+    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). APPROXIMATION: codex picks ONE Martial Mastery bullet per battle round; SwegHammer applies BOTH the Crit-on-5+ bullet (SHIELD_HOST.melee_crit_on_5_plus_hits) and the AP+1 bullet (this flag) always-on. Replaces the iter-0 `plus_one_save` defensive approximation which inflated Custodes durability rather than melee output (the direction iter-7 diagnostic identified as the residual error).",
     "scope": "army-wide",
     "approximation": true
   },
@@ -67,16 +77,6 @@
     "quoted_text": "Each time an INQUISITOR, INQUISITORIAL AGENTS or ORDO MALLEUS model from your army makes an attack, re-roll a Hit roll of 1 and, if the target of that attack is a DAEMON unit, re-roll a Wound roll of 1 as well.",
     "trigger": "any friendly Imperial Agents hit roll",
     "effect": "re-roll hit rolls of 1 (approximation of the Ordo Malleus 'Destroy the Daemonic' rule, applied army-wide rather than gated to Inquisitor/Inquisitorial Agents/Ordo Malleus keywords; codex has no umbrella 'Inquisition Task Force' detachment, so we cite the closest-themed Ordo detachment)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "COMBINED_REGIMENT.plus_one_to_hit": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Born-Soldiers",
-    "rule_name": "Born Soldiers",
-    "quoted_text": "Each time a model in a REGIMENT unit from your army makes a ranged attack that targets a visible unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model in a SQUADRON unit from your army makes a ranged attack that targets a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
-    "trigger": "any friendly Astra Militarum hit roll",
-    "effect": "+1 to hit rolls (approximation of the Combined Arms detachment 'Born Soldiers' rule, which actually grants Lethal Hits to Regiment vs non-vehicle and Squadron vs vehicle; codex renames the launch-day 'Combined Regiment' index detachment to 'Combined Arms')",
     "scope": "army-wide",
     "approximation": true
   },
@@ -186,6 +186,25 @@
     "trigger": "attacker's profile name starts with 'Canoptek'",
     "effect": "+1 to wound rolls (approximation of the Canoptek Court detachment's Cryptek-led Canoptek-buff spine, which canonically grants a once-per-battle full wound re-roll to all CANOPTEK models for a phase; we collapse the per-phase reroll plus the rest of the Cryptek toolkit into an always-on +1 to wound on CANOPTEK datasheets, gated on profile-name prefix because BSData doesn't carry a CANOPTEK keyword)",
     "scope": "keyword-gated",
+    "approximation": true
+  },
+
+  "RUBRICAE_PHALANX.all_is_dust": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "All Is Dust (Rubricae Phalanx Detachment Rule)",
+    "quoted_text": "Each time an attack with an unmodified Damage characteristic of 1 is allocated to a RUBRICAE model from your army, add 1 to any armour saving throw made against that attack.",
+    "trigger": "the defender carries the RUBRICAE unit-keyword AND the incoming attack's per_shot_dmg == 1.0 AND the defender's army resolves to a detachment with `all_is_dust=True` (Rubricae Phalanx)",
+    "effect": "+1 to the defender's armour saving throw at the save-modifier layer, capped at 2+. iter15 makes this the canonical detachment for TSON (DEFAULT_BY_FACTION['Thousand Sons'] = 'rubricae_phalanx'); Grand Coven retained as opt-in for psyker-heavy lists. The simulator-side gate lives in `Unit.attack` and reads `target.army_ref.resolve_detachment().all_is_dust`. Companion citation `simulator.all_is_dust` covers the Unit.attack call-site. Verbatim 'unmodified Damage characteristic of 1' wording cross-checked against 40k.app + Goonhammer + Frontline Gaming Rubricae Phalanx breakdowns (WebFetch against wahapedia.ru returned ECONNREFUSED at edit time).",
+    "scope": "keyword-gated"
+  },
+
+  "RUBRICAE_PHALANX.psychic_mortal_wounds_per_round": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
+    "rule_name": "Cabal of Sorcerers (Thousand Sons Army Rule) — round-end MW fallback baseline",
+    "quoted_text": "If your army Faction is Thousand Sons, at the start of your Shooting phase, one or more models from your army with this ability can attempt Rituals. To do so, select one model from your army with this ability that has not yet attempted a Ritual this turn and select one Ritual no model from your army has attempted to manifest this turn, then take a Psychic test by following the sequence below: 1. Roll 2D6 2. Optionally, roll one additional D6 (Channel the Warp). Then, if one or more doubles or triples were rolled during this test, that model's unit suffers D3 mortal wounds. 3. If that model is not destroyed, the combined total of all the dice rolled during this test is the Psychic test result. If this equals or exceeds the Warp Charge value of the Ritual being attempted, that model manifests that Ritual and you resolve its effects.",
+    "trigger": "Thousand Sons army with the Rubricae Phalanx detachment selected; baseline fires at end of round regardless of Cabal Ritual outcome",
+    "effect": "(APPROXIMATION) flat 2 MW/round payload on the opposing army's highest-threat unit, the same baseline GRAND_COVEN.psychic_mortal_wounds_per_round=2 sets for Grand Coven. The Cabal of Sorcerers Rituals pass (simulator-side, `_run_cabal_rituals`) is the actual implementation surface — real 2D6 Psychic test, real D3 / D3+3 Doombolt mortals; the per-round=2 baseline compensates when the stochastic test fails or no Ritual was picked. Cabal of Sorcerers is the TSON army rule (faction-gated), so it fires under EITHER detachment, justifying the same baseline value on both. Without this baseline, switching the TSON default from Grand Coven to Rubricae Phalanx removed ~10 MW of guaranteed damage over a 5-round game (iter-15 N=40 eval confirmed TSON regressed -11.0 → -14.9 without the baseline; adding it back restores the Cabal damage floor while preserving the new All-Is-Dust detachment gate).",
+    "scope": "army-wide",
     "approximation": true
   }
 }

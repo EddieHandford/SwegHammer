@@ -32,7 +32,13 @@ from .stratagems import (
     MONTKA_STRATAGEMS,
     VIRULENT_VECTORIUM_STRATAGEMS,
     GRAND_COVEN_STRATAGEMS,
+    RUBRICAE_PHALANX_STRATAGEMS,
+    SUBTERRANEAN_ASSAULT_STRATAGEMS,
     WAR_HORDE_STRATAGEMS,
+    SHIELD_HOST_STRATAGEMS,
+    OATHBAND_STRATAGEMS,
+    GLADIUS_STRATAGEMS,
+    COMBINED_ARMS_STRATAGEMS,
 )
 
 
@@ -143,6 +149,67 @@ class Detachment:
     # passive — no proximity / keyword filter beyond the Orks faction tag.
     melee_sustained_hits_army_wide: bool = False
 
+    # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
+    # Martial Mastery). Wahapedia verbatim: "At the start of the battle
+    # round, you can select one of the bullet points below. If you do,
+    # until the start of the next battle round, that bullet point's
+    # effects apply: Each time an ADEPTUS CUSTODES model from your army
+    # with the Martial Ka'tah ability makes a melee attack, a successful
+    # unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour
+    # Penetration characteristic of melee weapons equipped by ADEPTUS
+    # CUSTODES models from your army with the Martial Ka'tah ability
+    # by 1." The detachment rule picks ONE bullet per round; SwegHammer's
+    # simulator has no per-round selection hook so we apply BOTH bullets
+    # army-wide for Adeptus Custodes melee attackers (offensive uplift
+    # for the whole battle). APPROXIMATION: in real play the player
+    # alternates per round between the Crit-on-5 stance and the AP+1
+    # stance; modelling both as always-on is strictly stronger than the
+    # codex but captures the dual offensive nature the iter-7 diagnostic
+    # called out as missing.
+    #
+    # Simulator gates (both read in Unit.attack):
+    #   * melee_crit_on_5_plus_hits — when True AND mode=="melee" AND
+    #     attacker.faction == "Adeptus Custodes", a to-hit roll of 5+
+    #     scores a Critical Hit (in addition to the canonical 6+).
+    #   * melee_ap_plus_one — when True AND mode=="melee" AND
+    #     attacker.faction == "Adeptus Custodes", the melee AP is
+    #     improved by 1 (e.g. AP-1 -> AP-2).
+    melee_crit_on_5_plus_hits: bool = False
+    melee_ap_plus_one: bool = False
+
+    # Astra Militarum Combined Arms detachment rule (Born Soldiers). Real text
+    # (Wahapedia): "Each time a model in a REGIMENT unit from your army makes
+    # a ranged attack that targets a visible unit (excluding MONSTERS and
+    # VEHICLES), that attack has the [LETHAL HITS] ability. Each time a model
+    # in a SQUADRON unit from your army makes a ranged attack that targets
+    # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL HITS]
+    # ability." Simulator implementation (iter-14): a new flag
+    # `am_born_soldiers_lethal_hits` read by `Unit.attack` when the attacker
+    # faction is Astra Militarum, mode is ranged, and the keyword/role gate
+    # matches (REGIMENT = INFANTRY-keyword non-VEHICLE/MONSTER; SQUADRON =
+    # VEHICLE-keyword). The matrix gate (REGIMENT vs non-VEHICLE/MONSTER /
+    # SQUADRON vs VEHICLE/MONSTER) is enforced inline at the LH branch.
+    # APPROXIMATION: the codex uses bespoke keywords REGIMENT / SQUADRON
+    # that don't appear as datasheet keywords in BSData v10.6.0; we map
+    # REGIMENT → "INFANTRY" and SQUADRON → "VEHICLE" (matches the codex
+    # split where REGIMENT covers the infantry rosters and SQUADRON covers
+    # the Leman Russ / Sentinel / Rogal Dorn vehicle squadrons).
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    am_born_soldiers_lethal_hits: bool = False
+
+    # Thousand Sons Rubricae Phalanx detachment rule (All Is Dust). Wahapedia
+    # verbatim: "Each time an attack with an unmodified Damage characteristic
+    # of 1 is allocated to a RUBRICAE model from your army, add 1 to any
+    # armour saving throw made against that attack." When this flag is True
+    # AND the defender carries the RUBRICAE unit-keyword AND the incoming
+    # attack's per_shot_dmg == 1.0, `Unit.attack` applies +1 to the defender's
+    # armour save at the save-modifier layer (capped at 2+). Gated on this
+    # detachment flag instead of always-firing for any TSON RUBRICAE defender;
+    # this fixes the iter-14 APPROXIMATION where All Is Dust fired regardless
+    # of which TSON detachment the army actually picked.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    all_is_dust: bool = False
+
     # Death Guard Virulent Vectorium detachment rule (Worldblight). Real text
     # (Wahapedia): "If you control an objective marker at the end of your
     # Command phase and a DEATH GUARD unit from your army (excluding Battle-
@@ -196,8 +263,14 @@ GLADIUS_TASK_FORCE = Detachment(
         "gated on this detachment's name + faction. Cited as "
         "`simulator.combat_doctrines`. The detachment dataclass intentionally "
         "carries no offensive flags — Doctrines is round-and-mode-gated, "
-        "not a static buff, so it can't be reduced to a single boolean field."
+        "not a static buff, so it can't be reduced to a single boolean field. "
+        "iter-12 fix: the six real Gladius detachment stratagems (Storm of "
+        "Fire, Armour of Contempt, Squad Tactics, Only In Death Does Duty "
+        "End, Honour the Chapter, Adaptive Strategy) are now attached via "
+        "`stratagems=GLADIUS_STRATAGEMS`, closing docs/AUDIT_PARITY.md fix "
+        "#1 (largest 0/6 gap)."
     ),
+    stratagems=GLADIUS_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -240,6 +313,49 @@ INVASION_FLEET = Detachment(
     preferred_composition="balanced",
 )
 
+SUBTERRANEAN_ASSAULT = Detachment(
+    name="Subterranean Assault",
+    faction="Tyranids",
+    notes=(
+        "iter16 fix — May-2026 real-meta Tyranids default detachment, after "
+        "Ron Eilyahoo won GW Open Maastricht 2026 with a Subterranean Assault "
+        "list and Frontline / Stat-Check / Goonhammer all promoted it to "
+        "tier-1 alongside Invasion Fleet and Vanguard Onslaught. "
+        "Detachment rule (Goonhammer: "
+        "https://www.goonhammer.com/detachment-focus-subterranean-assault/): "
+        "'Tyranids units gain reroll Hit rolls of 1 in both shooting and "
+        "combat. Trygons and Mawlocs gain the Burrower keyword, letting them "
+        "place Tunnel Markers on arrival from reserves which subsequent "
+        "friendly Tyranids units can deploy from.' Modelled as army-wide "
+        "`reroll_hit_ones=True` — fires for every Tyranid attacker, ranged "
+        "or melee. The Burrower / Tunnel Marker mechanic is NOT modelled "
+        "(SwegHammer has no in-battle reserve teleport hook); it lives in "
+        "the four catalogued-but-no-op stratagems (Tunnel Network, "
+        "Replenishing Swarms, Swarming Assault, Enfilading Emergence) as a "
+        "placeholder for follow-up wiring. Replaces the previous Tyranids "
+        "default Invasion Fleet (-1 enemy Ld approximation of Shadow in the "
+        "Warp, which is already handled in simulator.shadow_in_the_warp); "
+        "Invasion Fleet stays in the registry as a variant pick."
+    ),
+    # APPROXIMATION: army-wide reroll Hit rolls of 1 fires both ranged and melee.
+    # The Burrower keyword + Tunnel Marker reserve-teleport half is NOT modelled.
+    # Source: https://www.goonhammer.com/detachment-focus-subterranean-assault/
+    reroll_hit_ones=True,
+    stratagems=SUBTERRANEAN_ASSAULT_STRATAGEMS,
+    # iter16: preferred_composition="monster" tilts the detachment picker
+    # toward Subterranean Assault. Empirically the Subterranean Assault
+    # archetype produces monster-dominant armies in ~70% of seeds (Hive
+    # Tyrant 195pt + Trygon 140pt + Tervigon 160pt + Carnifex 461pt seed +
+    # random_fill MONSTER picks like Exocrine / Tyrannofex / Norn dominate
+    # the cost share). Invasion Fleet stays at "balanced" so it surfaces
+    # for the residual ~30% infantry-leaning Tyranid builds (chaff-swarm
+    # MSU). Real-meta justification: Subterranean Assault is the May-2026
+    # tournament default (Maastricht 2026 GT win, Goonhammer focus)
+    # specifically *because* it pairs with Trygons / Mawlocs / Carnifexes
+    # — it IS the monster-anchor detachment.
+    preferred_composition="monster",
+)
+
 # WAAAGH_DETACHMENT (the "WAAAGH! Tribe" placeholder) was deleted per the
 # 2026-05-15 fabrication audit (commit fa9a957). The detachment name was not
 # in the 10e Orks codex — real Ork detachments are War Horde, Da Big Hunt,
@@ -274,13 +390,35 @@ SHIELD_HOST = Detachment(
     name="Shield Host",
     faction="Adeptus Custodes",
     notes=(
-        "Custodes durability: +1 to armour saves army-wide (cap at 2+). "
-        "Approximates the multiple bespoke save-stacking rules in 10e."
+        "Martial Ka'tah / Martial Mastery (Wahapedia verbatim): \"At the "
+        "start of the battle round, you can select one of the bullet "
+        "points below. If you do, until the start of the next battle "
+        "round, that bullet point's effects apply: Each time an ADEPTUS "
+        "CUSTODES model from your army with the Martial Ka'tah ability "
+        "makes a melee attack, a successful unmodified Hit roll of 5+ "
+        "scores a Critical Hit. Improve the Armour Penetration "
+        "characteristic of melee weapons equipped by ADEPTUS CUSTODES "
+        "models from your army with the Martial Ka'tah ability by 1.\" "
+        "Simulator implementation: both bullets are applied always-on for "
+        "Adeptus Custodes melee attackers via `melee_crit_on_5_plus_hits` "
+        "and `melee_ap_plus_one` (real codex picks ONE bullet per battle "
+        "round). APPROXIMATION: dual offensive uplift instead of per-round "
+        "alternation. Six real detachment stratagems wired (iter-8 fix, "
+        "Wahapedia: Arcane Genetic Alchemy, Unwavering Sentinels, "
+        "Multipotentiality, Vigilance Eternal, Archaeotech Munitions, "
+        "Avenge the Fallen). Replaces the iter-0 `plus_one_save` "
+        "approximation which inflated Custodes durability (defensive) "
+        "rather than melee output (offensive). iter-7 diagnostic in "
+        "docs/AUTO_LOOP_ITER7_DG_VS_CUSTODES.md identified this swap as "
+        "the top fix for DG-vs-Custodes (+19.5pt residual over real meta)."
     ),
-    # APPROXIMATION: +1 save (defensive) substitutes for an offensive Crit Hit / AP buff.
+    # Real rule: Martial Ka'tah / Martial Mastery — Crit-on-5+ OR AP+1 on
+    # melee attacks (offensive). One bullet per round in real play;
+    # SwegHammer applies BOTH always-on as an APPROXIMATION.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
-    # Real rule: Martial Mastery — Critical Hit / AP buff (offensive), not +1 save (defensive).
-    plus_one_save=True,
+    melee_crit_on_5_plus_hits=True,
+    melee_ap_plus_one=True,
+    stratagems=SHIELD_HOST_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -307,13 +445,39 @@ INQUISITION_TASK_FORCE = Detachment(
 )
 
 COMBINED_REGIMENT = Detachment(
-    name="Combined Regiment",
+    # iter-14: renamed to "Combined Arms" (Wahapedia codex name). The previous
+    # "Combined Regiment" label was a SwegHammer mis-naming legacy. The
+    # detachment rule is now the real "Born Soldiers" Lethal-Hits-on-Guided-
+    # split-by-keyword rule rather than the previous +1-to-hit approximation,
+    # plus the six real Combined Arms detachment stratagems and Voice of
+    # Command Order economy (implemented in `code.orders`).
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    name="Combined Arms",
     faction="Astra Militarum",
     notes=(
-        "Fire Orders: lossy as army-wide +1 to hit. Real rule is officer-gated "
-        "single-target buffs (FRFSRF, Take Aim, etc.)."
+        "Born Soldiers (Wahapedia, verbatim): \"Each time a model in a "
+        "REGIMENT unit from your army makes a ranged attack that targets a "
+        "visible unit (excluding MONSTERS and VEHICLES), that attack has the "
+        "[LETHAL HITS] ability. Each time a model in a SQUADRON unit from "
+        "your army makes a ranged attack that targets a visible MONSTER or "
+        "VEHICLE unit, that attack has the [LETHAL HITS] ability.\" Simulator "
+        "implementation: a new flag `am_born_soldiers_lethal_hits` read by "
+        "`Unit.attack` when the attacker faction is Astra Militarum and the "
+        "REGIMENT/SQUADRON vs target-type matrix matches; the LH branch fires "
+        "via the existing `effective_lethal_hits` plumbing. APPROXIMATION: "
+        "the codex REGIMENT / SQUADRON keywords don't appear in BSData "
+        "v10.6.0; we map REGIMENT → INFANTRY-keyword (non-VEHICLE/MONSTER) "
+        "and SQUADRON → VEHICLE-keyword (matches the codex split). "
+        "Voice of Command Order economy (iter-14): officers issue Orders to "
+        "BATTLELINE INFANTRY units at the start of each Command phase via "
+        "`code.orders.dispatch_orders` — see that module for the four wired "
+        "Orders (Take Aim! / Fix Bayonets! / First Rank Fire Second Rank "
+        "Fire! / Take Cover!). Six real detachment stratagems wired below "
+        "(Coordinated Action, Reinforcements!, Flexible Command, Fields of "
+        "Fire, Inspired Command, Stalwart Protector)."
     ),
-    plus_one_to_hit=True,
+    am_born_soldiers_lethal_hits=True,
+    stratagems=COMBINED_ARMS_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -495,6 +659,82 @@ GRAND_COVEN = Detachment(
 )
 
 
+# ---------------------------------------------------------------------------
+# Rubricae Phalanx (Thousand Sons) — All-Is-Dust durability detachment (iter15)
+# ---------------------------------------------------------------------------
+# Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+# 40k.app entry: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+#
+# Detachment Rule (All Is Dust, verbatim from Wahapedia / 40k.app):
+#   "Each time an attack with an unmodified Damage characteristic of 1 is
+#    allocated to a RUBRICAE model from your army, add 1 to any armour
+#    saving throw made against that attack."
+#
+# Modelled via the `all_is_dust` flag — gated in `Unit.attack` on the
+# defender carrying the RUBRICAE keyword AND the incoming attack having
+# per_shot_dmg == 1.0. Replaces the iter-14 always-firing behaviour, which
+# applied the buff to RUBRICAE defenders regardless of which TSON
+# detachment was selected. Real-meta TSON (May 2026) tournament lists are
+# Rubricae Phalanx, not Grand Coven, so this detachment is the new
+# DEFAULT_BY_FACTION["Thousand Sons"] target.
+#
+# Six detachment stratagems (verbatim names + CP costs from 40k.app /
+# Goonhammer / Frontline Gaming Rubricae Phalanx breakdowns; WebFetch
+# against wahapedia.ru returned ECONNREFUSED at edit time so verbatim
+# WHEN/EFFECT blocks are paraphrased, with each citation flagged as such):
+#   * Ardent Automata (1 CP) — RUBRICAE unit shoots/charges after Fall Back.
+#   * Inexorable Advance (1 CP) — RUBRICAE unit ignores Move modifiers,
+#     ranged weapons gain [ASSAULT] until end of turn.
+#   * Infernal Fusillade (2 CP) — inferno bolt-pattern weapons on RUBRIC
+#     MARINES gain [PSYCHIC] and S5 for the Shooting phase.
+#   * Revenge of the Rubricae (1 CP) — opponent's Shooting phase, after a
+#     friendly THOUSAND SONS PSYKER model is destroyed, a RUBRICAE unit
+#     shoots the destroyer out of sequence.
+#   * Implacable Guardians (2 CP) — opponent's Shooting phase, until end
+#     of phase a RUBRIC MARINES PSYKER unit gets -1 to incoming Damage
+#     for non-PSYKER models.
+#   * Unwavering Phalanx (1 CP) — opponent's Charge phase, -1 to Wound
+#     rolls against the RUBRICAE unit just charged for the Fight phase.
+
+RUBRICAE_PHALANX = Detachment(
+    name="Rubricae Phalanx",
+    faction="Thousand Sons",
+    notes=(
+        "All Is Dust (Wahapedia verbatim): \"Each time an attack with an "
+        "unmodified Damage characteristic of 1 is allocated to a RUBRICAE "
+        "model from your army, add 1 to any armour saving throw made "
+        "against that attack.\" Modelled via the `all_is_dust` flag, gated "
+        "in `Unit.attack` on the defender carrying the RUBRICAE unit-keyword "
+        "AND the incoming attack having per_shot_dmg == 1.0. iter15 adds "
+        "this detachment as the real-meta TSON default (Rubricae Phalanx is "
+        "the dominant May 2026 tournament list, displacing Grand Coven which "
+        "remains opt-in for psyker-heavy lists). The Cabal of Sorcerers "
+        "Ritual pass + the `psychic_mortal_wounds_per_round=0` baseline "
+        "(NOT 2 — that lives on Grand Coven only) means TSON's psychic teeth "
+        "is reduced when in Rubricae Phalanx; the durability uplift from "
+        "All Is Dust + Rites of Coalescence + Daemon invulns offsets the "
+        "loss. Six stratagems wired below — names + CP costs cross-checked "
+        "against 40k.app + Goonhammer + Frontline Gaming; effect text "
+        "paraphrased per CLAUDE.md §10 (WebFetch against wahapedia.ru "
+        "returned ECONNREFUSED at edit time)."
+    ),
+    # Real rule: +1 to armour save vs unmodified D1 attacks on RUBRICAE models.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    all_is_dust=True,
+    # Cabal of Sorcerers Ritual fallback baseline — matches Grand Coven's
+    # `psychic_mortal_wounds_per_round=2` (median-D3 Doombolt). Cabal of
+    # Sorcerers is the TSON army rule (faction-gated, not detachment-
+    # gated), so it fires under EITHER detachment; the baseline is a
+    # round-end MW payload that compensates when the stochastic 2D6
+    # Psychic test in `_run_cabal_rituals` produces no manifested
+    # Ritual. Same APPROXIMATION shape as GRAND_COVEN — see citation
+    # `RUBRICAE_PHALANX.psychic_mortal_wounds_per_round` for full notes.
+    psychic_mortal_wounds_per_round=2,
+    stratagems=RUBRICAE_PHALANX_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+
 WAR_HORDE = Detachment(
     name="War Horde",
     faction="Orks",
@@ -571,9 +811,15 @@ OATHBAND = Detachment(
         "not modelled. Removed once `simulator.judgement_tokens` (Battle's "
         "per-army token store + Unit.attack re-roll buffs at 1+ / 3+ "
         "thresholds) landed — keeping the blanket re-roll on top of the real "
-        "mechanic would double-stack the buff. Real Oathband detachment "
-        "stratagems are deferred to #104."
+        "mechanic would double-stack the buff. Six real Oathband detachment "
+        "stratagems wired (iter-9 fix, Wahapedia: Warrior Pride, Wrath of "
+        "the Ancestors, Glory of the Hearth, Ironkin Sequence, Ancestral "
+        "Sentence, Void-Armoured Resilience). Replaces the iter-0 zero-"
+        "stratagem state where Votann fired Core only. iter-8 anti-DG "
+        "audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) identified "
+        "this set as the top fix for Votann-vs-DG (~+8pt over real meta)."
     ),
+    stratagems=OATHBAND_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -635,6 +881,7 @@ DETACHMENTS: Dict[str, Detachment] = {
     "gladius_task_force":      GLADIUS_TASK_FORCE,
     "awakened_dynasty":        AWAKENED_DYNASTY,
     "invasion_fleet":          INVASION_FLEET,
+    "subterranean_assault":    SUBTERRANEAN_ASSAULT,
     "noble_lance":             NOBLE_LANCE,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
@@ -658,6 +905,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     "virulent_vectorium":      VIRULENT_VECTORIUM,
     # Thousand Sons real detachment (#193).
     "grand_coven":             GRAND_COVEN,
+    # Thousand Sons Rubricae Phalanx detachment (iter15). Real-meta default
+    # for May 2026 — Grand Coven retained as opt-in for psyker-heavy lists.
+    "rubricae_phalanx":        RUBRICAE_PHALANX,
     # Orks real-codex detachment (War Horde, iter-1 Cluster B B1 fix). Wired
     # with full 6-stratagem set and the Get Stuck In army-wide [SUSTAINED
     # HITS 1] melee passive.
@@ -689,10 +939,21 @@ del _key, _det, _enh, _dc
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
+INVASION_FLEET     = DETACHMENTS["invasion_fleet"]
+SUBTERRANEAN_ASSAULT = DETACHMENTS["subterranean_assault"]
 MONTKA             = DETACHMENTS["montka"]
 VIRULENT_VECTORIUM = DETACHMENTS["virulent_vectorium"]
 GRAND_COVEN        = DETACHMENTS["grand_coven"]
+RUBRICAE_PHALANX   = DETACHMENTS["rubricae_phalanx"]
 WAR_HORDE          = DETACHMENTS["war_horde"]
+SHIELD_HOST        = DETACHMENTS["shield_host"]
+OATHBAND           = DETACHMENTS["oathband"]
+COMBINED_REGIMENT  = DETACHMENTS["combined_regiment"]
+# Codex-correct alias — the detachment was renamed from "Combined Regiment"
+# (SwegHammer launch label) to "Combined Arms" (Wahapedia codex name) in
+# iter-14. The legacy COMBINED_REGIMENT module symbol + "combined_regiment"
+# registry key are preserved so downstream test/import paths don't break.
+COMBINED_ARMS      = DETACHMENTS["combined_regiment"]
 # CULT_OF_MAGIC and PLAGUE_COMPANY re-bindings removed per fabrication
 # audit (commit fa9a957); the detachments themselves are gone.
 
@@ -712,7 +973,15 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "White Scars":              "gladius_task_force",
     "Deathwatch":               "gladius_task_force",
     "Necrons":                  "awakened_dynasty",
-    "Tyranids":                 "invasion_fleet",
+    # iter16: Tyranids default flipped from "invasion_fleet" (which is
+    # a -1 enemy Ld approximation of Shadow in the Warp, redundant with
+    # simulator.shadow_in_the_warp) to "subterranean_assault" — the
+    # May-2026 real-meta default after Ron Eilyahoo's GW Open Maastricht
+    # 2026 win with a Subterranean Assault Trygon/Ravener list (Bell of
+    # Lost Souls, Goonhammer detachment focus). Army-wide reroll-hit-1s
+    # is the offensive uplift the calibration loop's archetype mode
+    # (-9.4pt vs real WR) needs.
+    "Tyranids":                 "subterranean_assault",
     # Orks: real codex detachment "War Horde" wired in iter-1 Cluster B B1.
     "Orks":                     "war_horde",
     "Imperial Knights":         "noble_lance",
@@ -733,10 +1002,12 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Chaos Space Marines":      "pactbound_zealots",
     "Heretic Astartes":         "pactbound_zealots",
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: Grand Coven landed in #193 — real Wahapedia detachment
-    # with Kindred Sorcery + 6 stratagems + Cabal of Sorcerers Rituals.
+    # Thousand Sons: iter15 promotes Rubricae Phalanx (All Is Dust durability
+    # spine, real-meta May 2026 default) over Grand Coven (psyker-heavy
+    # opt-in, still in the registry + FACTION_DETACHMENTS for variety picks).
+    # See `RUBRICAE_PHALANX` notes for the All-Is-Dust rule + 6 stratagems.
     "Death Guard":              "virulent_vectorium",
-    "Thousand Sons":            "grand_coven",
+    "Thousand Sons":            "rubricae_phalanx",
     "World Eaters":             "berzerker_warband",
     "Chaos Daemons":            "daemonic_incursion",
     "Genestealer Cults":        "final_day",
@@ -777,7 +1048,13 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
     # army leans on its Canoptek units.
     "Necrons":                  ("awakened_dynasty", "canoptek_court"),
-    "Tyranids":                 ("invasion_fleet",),
+    # iter16: Tyranids gains Subterranean Assault as the real-meta default
+    # (May 2026 Maastricht GT winner — see DEFAULT_BY_FACTION comment).
+    # Invasion Fleet is retained as a variant for the picker; both real
+    # Tyranid detachments (also Synaptic Nexus, Vanguard Onslaught,
+    # Crusher Stampede, Warrior Bioform Onslaught) remain UNIMPLEMENTED
+    # — they land in per-detachment follow-ups.
+    "Tyranids":                 ("subterranean_assault", "invasion_fleet"),
     # Orks: War Horde wired in iter-1 Cluster B B1 (real codex detachment).
     # Other 10e Ork detachments (Green Tide, Bully Boyz, Kult of Speed,
     # Dread Mob, Da Big Hunt, Taktikal Brigade, More Dakka!, Freebooter
@@ -805,10 +1082,12 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: Grand Coven landed in #193 — the real Wahapedia
-    # psychic-pressure detachment with Cabal of Sorcerers + 6 stratagems.
+    # Thousand Sons: Rubricae Phalanx (real-meta May 2026 default, durability
+    # spine) PLUS Grand Coven (psyker-heavy opt-in). The picker scores both
+    # against the army composition; INFANTRY-dominant lists with RUBRICAE
+    # squads naturally tilt toward Rubricae Phalanx.
     "Death Guard":              ("virulent_vectorium",),
-    "Thousand Sons":            ("grand_coven",),
+    "Thousand Sons":            ("rubricae_phalanx", "grand_coven"),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
     "Genestealer Cults":        ("final_day",),
@@ -940,6 +1219,15 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
         # the army is genuinely tank-heavy rather than relying on the
         # chassis-dominant heuristic alone.
         matched = sum(_pts(u) for u in units if "VEHICLE" in _kw(u))
+    elif det.all_is_dust:
+        # Rubricae Phalanx (iter16): the All Is Dust buff fires on the
+        # RUBRICAE unit-keyword (Rubric Marines, Scarab Occult Terminators).
+        # Without this affinity, Grand Coven (Rubricae Phalanx's only
+        # competitor in FACTION_DETACHMENTS["Thousand Sons"]) wins the
+        # coin-flip ~50% even though the army is RUBRICAE-heavy. Push
+        # Rubricae Phalanx to the front when the army's RUBRICAE points
+        # share is non-trivial.
+        matched = sum(_pts(u) for u in units if "RUBRICAE" in _kw(u))
     else:
         return 0.0
 

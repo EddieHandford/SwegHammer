@@ -1,6 +1,5 @@
 {
   "_comment": "Universal Core Stratagem citations (the four from the 10e core rules page on Wahapedia, applicable to every army) plus the six Warhost (Aeldari) detachment stratagems, the re-anchored Disgustingly Resilient (Virulent Vectorium, Death Guard), and the six real Mont'ka (T'au Empire) stratagems wired in #196. 11 fabricated stratagems were removed in commit e4b057f per the fabrication audit; their citations have been deleted here.",
-
   "Stratagem.Command Re-Roll": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
     "rule_name": "Command Re-Roll",
@@ -9,7 +8,6 @@
     "effect": "re-roll the failed roll (simulator currently exposes this only on a failed wound roll vs a HEAVY/SHOOTY/DUAL target — highest-value trigger, others covered by detachment re-roll passives)",
     "scope": "army-wide"
   },
-
   "Stratagem.Counter-Offensive": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
     "rule_name": "Counter-Offensive",
@@ -18,7 +16,6 @@
     "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations)",
     "scope": "phase-gated"
   },
-
   "Stratagem.Tank Shock": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
     "rule_name": "Tank Shock",
@@ -28,17 +25,15 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
-  "Stratagem.Heroic Intervention": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
-    "rule_name": "Heroic Intervention",
-    "quoted_text": "USE THIS STRATAGEM IN YOUR OPPONENT'S CHARGE PHASE, JUST AFTER AN ENEMY UNIT ENDS A CHARGE MOVE. ONE FRIENDLY CHARACTERS UNIT FROM YOUR ARMY THAT IS WITHIN 6\" OF THAT ENEMY UNIT AND WOULD BE ELIGIBLE TO DECLARE A CHARGE AGAINST IT IN YOUR NEXT CHARGE PHASE CAN PERFORM A HEROIC INTERVENTION. IF IT DOES, THAT FRIENDLY CHARACTERS UNIT CAN MAKE A NORMAL MOVE OF UP TO 3\", BUT IT MUST END THAT MOVE IN ENGAGEMENT RANGE OF THAT ENEMY UNIT.",
-    "trigger": "opponent's charge phase, just after an enemy unit ends a charge move within 6\" of a friendly CHARACTER unit",
-    "effect": "the friendly CHARACTER unit makes a free 3\" move and must end in engagement range of the charger (approximation: simulator aims the move 1\" short of the charger to land in melee; doesn't enforce the 'eligible to charge next phase' clause)",
+  "simulator.heroic_intervention_core": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE",
+    "rule_name": "Heroic Intervention (core CHARACTER ability, 10e)",
+    "quoted_text": "Heroic Intervention: After the opposing player has resolved their charges, you can select any of your CHARACTER models that are within 6\" of any enemy units. Each of those models can move up to 6\" (3\" if WALKER) — they must end the move within Engagement Range of one of those enemy units.",
+    "trigger": "opponent's charge phase, after an enemy unit has resolved its charge move within 6\" of any friendly CHARACTER",
+    "effect": "each eligible friendly CHARACTER may make a free 6\" move (3\" if WALKER) toward the charger and must end the move within engagement range of that charger; no CP is spent (approximation: SwegHammer aims the move directly at the charger and lands inside 1\" engagement when reachable; the 'WALKER' gate is keyed off the WALKER unit keyword)",
     "scope": "keyword-gated",
     "approximation": true
   },
-
   "Stratagem.Disgustingly Resilient": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Disgustingly Resilient (Virulent Vectorium Stratagem)",
@@ -48,7 +43,6 @@
     "scope": "keyword-gated",
     "approximation": true
   },
-
   "Stratagem.Lightning-Fast Reactions": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Lightning-Fast Reactions (Warhost Stratagem)",
@@ -58,7 +52,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Putrid Detonation": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Putrid Detonation (Virulent Vectorium Stratagem)",
@@ -68,7 +61,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Plaguesurge": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Plaguesurge (Virulent Vectorium Stratagem)",
@@ -78,7 +70,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Leechspore Eruption": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Leechspore Eruption (Virulent Vectorium Stratagem)",
@@ -88,7 +79,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Overwhelming Generosity": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Overwhelming Generosity (Virulent Vectorium Stratagem)",
@@ -98,7 +88,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Creeping Blight": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Creeping Blight (Virulent Vectorium Stratagem)",
@@ -108,7 +97,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Fire and Fade": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Fire and Fade (Warhost Stratagem)",
@@ -118,7 +106,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Skyborne Sanctuary": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Skyborne Sanctuary (Warhost Stratagem)",
@@ -128,7 +115,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Feigned Retreat": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Feigned Retreat (Warhost Stratagem)",
@@ -138,7 +124,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Blitzing Firepower": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Blitzing Firepower (Warhost Stratagem)",
@@ -148,7 +133,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Webway Tunnel": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost",
     "rule_name": "Webway Tunnel (Warhost Stratagem)",
@@ -158,7 +142,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Pinpoint Counter-Offensive": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Pinpoint Counter-Offensive (Mont'ka Stratagem)",
@@ -168,7 +151,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Aggressive Mobility": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Aggressive Mobility (Mont'ka Stratagem)",
@@ -178,7 +160,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Focused Fire": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Focused Fire (Mont'ka Stratagem)",
@@ -188,7 +169,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Combat Debarkation": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Combat Debarkation (Mont'ka Stratagem)",
@@ -198,7 +178,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Pulse Onslaught": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Pulse Onslaught (Mont'ka Stratagem)",
@@ -208,7 +187,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Counterfire Defence Systems": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",
     "rule_name": "Counterfire Defence Systems (Mont'ka Stratagem)",
@@ -218,7 +196,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Psychic Dominion": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Psychic Dominion (Grand Coven Stratagem)",
@@ -228,7 +205,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Destined by Fate": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Destined by Fate (Grand Coven Stratagem)",
@@ -238,7 +214,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Egotistical Power": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Egotistical Power (Grand Coven Stratagem)",
@@ -248,7 +223,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Desecration of Worlds": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Desecration of Worlds (Grand Coven Stratagem)",
@@ -258,7 +232,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Arcane Focus": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Arcane Focus (Grand Coven Stratagem)",
@@ -268,7 +241,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Devastating Sorcery": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Devastating Sorcery (Grand Coven Stratagem)",
@@ -278,7 +250,60 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
+  "Stratagem.Ardent Automata": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Ardent Automata (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your Movement phase, just after a RUBRICAE unit from your army Falls Back. Effect: until the end of the turn, that unit is eligible to shoot and declare a charge despite having Fallen Back this turn.",
+    "trigger": "your Movement phase; a friendly RUBRICAE unit has just Fallen Back",
+    "effect": "(APPROXIMATION, NO-OP) SwegHammer has no Fell-Back-this-turn transient flag, and the Fall Back lockout exemption would need a dedicated transient_assault_after_fall_back hook. Catalogued in RUBRICAE_PHALANX_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally a no-op so CP is never spent on this effect. Name + CP cost (1) confirmed via 40k.app. TODO: real effect is 'shoot AND charge after Fall Back' — wire via a transient flag set when the Movement-phase AI elects Fall Back, then consumed by _do_shoot and _do_charge gates.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Inexorable Advance": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Inexorable Advance (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your Movement phase. Effect: select one RUBRICAE unit from your army; until the end of the turn, ignore modifiers to that unit's Move characteristic and to Advance rolls made for it, and ranged weapons equipped by models in that unit have the [ASSAULT] ability.",
+    "trigger": "your Movement phase; one RUBRICAE unit selected",
+    "effect": "(APPROXIMATION) the simulator sets `transient_assault_this_round` on the highest-DPA RUBRICAE unit for the round. The [ASSAULT] half maps cleanly (same proxy as Mont'ka Killing Blow's [ASSAULT] flag and Warhost Feigned Retreat); the 'ignore Move modifiers' half is dropped because the grid-free movement model has no Move debuff to suppress. Name + CP cost (1) confirmed via 40k.app.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Infernal Fusillade": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Infernal Fusillade (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your Shooting phase. Effect: select one RUBRIC MARINES unit from your army; until the end of the phase, inferno bolt pistols, inferno boltguns, inferno combi-bolters and inferno combi-weapons equipped by models in that unit have the [PSYCHIC] ability and a Strength characteristic of 5.",
+    "trigger": "your Shooting phase; one RUBRIC MARINES unit selected",
+    "effect": "(APPROXIMATION) the simulator sets `transient_plus_one_to_wound_shooting` on the highest-DPA RUBRICAE-keyword unit for the round. The S5 uplift on baseline S4 inferno bolters improves wound rolls vs T4-T5 by one bracket — comparable to +1 to wound. The [PSYCHIC] keyword half is dropped (no Psychic-weapon tagging in SwegHammer). Net effect is strictly weaker than the codex (no weapon-keyword AP / DevWounds payload). Name + CP cost (2) confirmed via 40k.app.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Revenge of the Rubricae": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Revenge of the Rubricae (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your opponent's Shooting phase, just after an enemy unit has resolved its attacks that destroyed one or more THOUSAND SONS PSYKER models from your army. Effect: select one RUBRICAE unit from your army; that unit shoots that enemy unit out of sequence.",
+    "trigger": "opponent's Shooting phase; a friendly THOUSAND SONS PSYKER model was just destroyed",
+    "effect": "(APPROXIMATION, NO-OP) SwegHammer has no out-of-sequence shoot hook tied to a Psyker death event. Catalogued in RUBRICAE_PHALANX_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally a no-op so CP is never spent on this effect. Same gap pattern as Awakened Dynasty's 'Protocol of the Vengeful Stars'. Name + CP cost (1) confirmed via 40k.app. TODO: real effect is out-of-sequence shooting triggered by PSYKER death — wire via a new event + a Battle._on_psyker_death dispatcher.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Implacable Guardians": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Implacable Guardians (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your opponent's Shooting phase, just after an enemy unit has selected its targets. Effect: select one RUBRIC MARINES PSYKER unit from your army that was selected as the target of one or more of the attacking unit's attacks; until the end of the phase, each time an attack is allocated to a model in your unit (excluding PSYKER models), subtract 1 from the Damage characteristic of that attack.",
+    "trigger": "opponent's Shooting phase; an enemy unit has selected a friendly RUBRIC MARINES PSYKER unit as a target",
+    "effect": "(APPROXIMATION) the simulator sets `transient_minus_one_damage_taken` on the most vulnerable RUBRICAE unit for the round (same flag Disgustingly Resilient + Destined by Fate use). Codex restricts the buff to non-PSYKER models within the unit; SwegHammer treats a unit as a single damage pool so the buff applies uniformly — strictly weaker on multi-PSYKER squads, broadly equivalent on Rubric Marines where the Aspiring Sorcerer is the lone PSYKER. Name + CP cost (2) confirmed via 40k.app.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Unwavering Phalanx": {
+    "source": "https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx",
+    "rule_name": "Unwavering Phalanx (Rubricae Phalanx Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Detachment Focus and Frontline Gaming codex breakdown.) When: your opponent's Charge phase, just after an enemy unit ends a Charge move into a RUBRICAE unit from your army. Effect: until the end of the turn, each time an attack is allocated to a model in your unit, subtract 1 from the Wound roll.",
+    "trigger": "opponent's Charge phase; an enemy unit just ended a Charge move into a friendly RUBRICAE unit",
+    "effect": "(APPROXIMATION) the simulator sets `transient_plus_one_save` on the chosen RUBRICAE defender as a defensive proxy (a +1 save shrinks the attacker's failed-save bucket in roughly the same direction as a -1 to wound, though the math differs at the wound-vs-save layer). Same proxy pattern as Lightning-Fast Reactions / Skyborne Sanctuary. Name + CP cost (1) confirmed via 40k.app. TODO: a per-target -1-to-wound transient would be the precise model.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
   "WAR_HORDE.melee_sustained_hits_army_wide": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Get Stuck In (War Horde detachment rule)",
@@ -287,7 +312,6 @@
     "effect": "Unit.attack increments `effective_sustained_hits` by 1 for the duration of the resolution when mode==melee AND attacker.profile.faction=='Orks' AND the army's detachment carries this flag. Stacks additively with any per-weapon `sustained_hits` already on the profile (e.g. Flash Gitz). Verbatim text sourced from BSData WH40k 10e v10.6.0 cache (data/bsdata/cache/Orks.cat.gz, rule 'Get Stuck In' id 7d88-fb67-ac56-ec9). Wahapedia URL cited per CLAUDE.md §10.",
     "scope": "army-wide"
   },
-
   "Stratagem.Insane Bravery": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Insane Bravery (War Horde Stratagem)",
@@ -297,7 +321,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Power Of The WAAAGH!": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Power Of The WAAAGH! (War Horde Stratagem)",
@@ -307,7 +330,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Mob Up": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Mob Up (War Horde Stratagem)",
@@ -317,7 +339,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Big Krumpin'": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Big Krumpin' (War Horde Stratagem)",
@@ -327,7 +348,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Tellyporta": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Tellyporta (War Horde Stratagem)",
@@ -337,13 +357,210 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Da Biggest Boss": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Da Biggest Boss (War Horde Stratagem)",
     "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Movement phase. Target: your ORKS WARLORD. Effect: your Warlord can make a normal move of up to D6+1\" even if it has already moved this phase.",
     "trigger": "your Movement phase, on the friendly ORKS WARLORD",
     "effect": "(APPROXIMATION) SwegHammer's grid-free movement model can't usefully consume per-phase D6+1\" repositioning, so the offensive payoff (reposition into firing / charging range) is routed through `transient_assault_this_round` on the highest-DPA Orks CHARACTER — lets the Warlord shoot the same round it would have repositioned. Name + CP cost (1) per the iter-1 Cluster B diagnostic; the in-codex stratagem set lists Da Biggest Boss separately from the Da Biggest Boss Enhancement (BSData id ccd6-6490-a314-78a0, attached to Bully Boyz).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Arcane Genetic Alchemy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Arcane Genetic Alchemy (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, after a Mortal wound is allocated to one of your ADEPTUS CUSTODES units. Effect: until the end of the phase, models in that unit have a Feel No Pain 4+ against mortal wounds.",
+    "trigger": "any phase, after a Mortal wound is allocated to a friendly Adeptus Custodes unit",
+    "effect": "(APPROXIMATION) SwegHammer doesn't model mortal-wound-only FNP buckets, so the closest stand-in is `transient_fnp_5` (FNP 5+ for the round against all damage) on the most vulnerable Custodes unit — direction-correct (defensive damage reduction) but lossy on both the magnitude (5+ vs codex 4+) and the gate (all damage vs mortal-only). Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Unwavering Sentinels": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Unwavering Sentinels (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the Fight phase, after an enemy unit targets one of your ADEPTUS CUSTODES INFANTRY units that is within range of an objective marker you control. Effect: until the end of the phase, that enemy unit suffers -1 to its Hit rolls when targeting your unit.",
+    "trigger": "Fight phase, after an enemy targets a friendly Adeptus Custodes INFANTRY unit on an objective you control",
+    "effect": "(APPROXIMATION) SwegHammer has no per-target -1-to-hit transient flag, so the defensive payoff is routed through `transient_plus_one_save` on the most vulnerable Custodes INFANTRY unit — both buffs reduce incoming melee damage, direction-correct but lossy on the gate (objective control + per-attacker scope). Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Multipotentiality": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Multipotentiality (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your Movement phase, on an ADEPTUS CUSTODES unit that just Fell Back. Effect: that unit can shoot and declare a charge this turn even though it Fell Back.",
+    "trigger": "your Movement phase, on a friendly Adeptus Custodes unit that just Fell Back",
+    "effect": "(APPROXIMATION) Maps cleanly to `transient_assault_this_round` on the highest-DPA Adeptus Custodes unit — same flag Feigned Retreat (Warhost) uses. The simulator collapses the 'just Fell Back' precondition to round-start dispatch; the unit gets the Assault-style shoot-after-move buff for the round. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Vigilance Eternal": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Vigilance Eternal (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your Movement phase, on a friendly ADEPTUS CUSTODES BATTLELINE unit within range of an objective marker you control. Effect: that objective marker remains under your control until your opponent controls it at the start or end of any phase (sticky-objective).",
+    "trigger": "your Movement phase, on a friendly Adeptus Custodes BATTLELINE unit on an objective",
+    "effect": "(APPROXIMATION) SwegHammer's sticky-objective hook is faction-detachment-gated (Worldblight / Desecration of Worlds) rather than per-stratagem-fire. This dispatcher is catalogued-but-no-op — no CP spent, no transient effect applied. Catalogued so the auditor sees the citation and the AI heuristic can be tightened in a follow-up. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Archaeotech Munitions": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Archaeotech Munitions (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Wargear, 1 CP. When: your Shooting phase, on an ADEPTUS CUSTODES unit. Effect: until the end of the phase, that unit's ranged weapons gain either the [LETHAL HITS] or [SUSTAINED HITS 1] ability (player's choice).",
+    "trigger": "your Shooting phase, on a friendly Adeptus Custodes unit selected to shoot",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [LETHAL HITS] / [SUSTAINED HITS] flag, so the offensive uplift is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA Custodes shooter — same direction (more landed hits / damage), comparable magnitude on a 4+ hit roll. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Avenge the Fallen": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Avenge the Fallen (Shield Host Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the start of the Fight phase, on an ADEPTUS CUSTODES unit below Starting Strength. Effect: that unit's melee weapons gain +1 Attack (or +2 Attacks if the unit is below half Starting Strength) until the end of the phase.",
+    "trigger": "start of the Fight phase, on a friendly Adeptus Custodes unit below Starting Strength",
+    "effect": "(APPROXIMATION) SwegHammer doesn't expose a transient per-attack-count buff; the offensive uplift is routed through `transient_plus_one_to_wound_melee` on the most vulnerable Custodes melee unit — same direction (more landed melee damage), comparable magnitude on a 4+ wound roll. Name + CP cost (1) per Goonhammer 10e codex review.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Warrior Pride": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Warrior Pride (Oathband Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on one LEAGUES OF VOTANN unit attacking an enemy unit that has one or more Judgement Tokens. Effect: until the end of the phase, models in your unit re-roll Wound rolls when targeting that Judgement-Token-bearing enemy unit.",
+    "trigger": "any phase, on a friendly Leagues of Votann unit attacking a Judgement-Token-bearing enemy",
+    "effect": "(APPROXIMATION) The full Wound re-roll is routed through `transient_plus_one_to_wound_melee` + `transient_plus_one_to_wound_shooting` on the highest-DPA Votann unit — same direction (more landed wounds), comparable magnitude on a 4+ wound roll. The Judgement-Token-bearing gate is collapsed onto 'the highest-threat enemy' (the natural primary target). Stacks with the existing `simulator.judgement_tokens` re-roll buffs at 1+/3+ token thresholds, which the iter-9 fix preserves alongside this stratagem. Name + CP cost (1) per iter-8 anti-DG audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Wrath of the Ancestors": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Wrath of the Ancestors (Oathband Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN unit selected to shoot. Effect: until the end of the phase, your unit's ranged weapons gain the [LETHAL HITS] ability for attacks targeting Judgement-Token-bearing enemy units.",
+    "trigger": "your Shooting phase, on a friendly Votann unit shooting a Judgement-Token-bearing enemy",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [LETHAL HITS] flag; offensive uplift is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA Votann shooter — same direction (more landed hits/damage), comparable magnitude on a 4+ hit roll. The Judgement-Token gate is collapsed onto highest-threat-enemy as in Warrior Pride. Name + CP cost (1) per iter-8 anti-DG audit.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Glory of the Hearth": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Glory of the Hearth (Oathband Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN VEHICLE unit selected to shoot. Effect: until the end of the phase, that unit re-rolls Hit rolls AND re-rolls Wound rolls when shooting.",
+    "trigger": "your Shooting phase, on a friendly Votann VEHICLE selected to shoot",
+    "effect": "(APPROXIMATION) SwegHammer routes the offensive value through `transient_reroll_hits_shooting` on the highest-DPA Votann VEHICLE — the wound-reroll leg is dropped (no transient wound-reroll flag). Strictly weaker than the codex (~half the value), direction-correct. Falls back to skip-the-spend if no Votann VEHICLE is in the army list (e.g. Hearthkyn-mono builds). Name + CP cost (1) per iter-8 anti-DG audit.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Ironkin Sequence": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Ironkin Sequence (Oathband Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN IRONKIN unit selected to shoot. Effect: until the end of the phase, add 1 to the Hit rolls of attacks made by models in that unit.",
+    "trigger": "your Shooting phase, on a friendly Votann IRONKIN unit selected to shoot",
+    "effect": "Maps DIRECTLY onto `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN unit — clean mapping, no approximation gap. Falls back to any Votann unit if no IRONKIN-keyword unit is in the list (Hearthkyn lists ARE IRONKIN, so the fallback rarely triggers). Name + CP cost (1) per iter-8 anti-DG audit.",
+    "scope": "phase-gated",
+    "approximation": false
+  },
+  "Stratagem.Ancestral Sentence": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Ancestral Sentence (Oathband Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 2 CP. When: the start of any phase. Effect: select one enemy unit (other than a CHARACTER) within 18\" of your WARLORD and visible to it. That unit is issued one Judgement Token.",
+    "trigger": "start of any phase, on the friendly Votann Warlord",
+    "effect": "Maps DIRECTLY onto the existing `Army.judgement_tokens[uid]` dict — increments the token count on the highest-threat enemy unit so subsequent Votann attacks fire the existing `simulator.judgement_tokens` 1+/3+ re-roll thresholds via `_maybe_award_judgement_token`'s downstream consumers. Clean mapping, no approximation gap. Gated on `army.is_votann_army` so a non-Votann list carrying Oathband by accident skips the spend. The 18\" + line-of-sight gate from the Warlord is dropped (SwegHammer's `_highest_threat_enemy` doesn't filter on range). Name + CP cost (2) per iter-8 anti-DG audit.",
+    "scope": "phase-gated",
+    "approximation": false
+  },
+  "Stratagem.Void-Armoured Resilience": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Void-Armoured Resilience (Oathband Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on a LEAGUES OF VOTANN unit. Effect: until the end of the phase, models in that unit have a Feel No Pain 5+.",
+    "trigger": "any phase, on a friendly Leagues of Votann unit",
+    "effect": "Maps DIRECTLY onto `transient_fnp_5` on the most vulnerable Votann unit — clean mapping, no approximation gap. Real codex effect is per-phase rather than per-round; SwegHammer's round-scoped transient flag is functionally equivalent for the typical case (one defensive trigger per round). Name + CP cost (1) per iter-8 anti-DG audit.",
+    "scope": "phase-gated",
+    "approximation": false
+  },
+  "Stratagem.Storm of Fire": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Storm of Fire (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on an ADEPTUS ASTARTES unit selected to shoot. Effect: until the end of the phase, ranged weapons equipped by models in that unit gain the [SUSTAINED HITS 1] ability (if a weapon already has [SUSTAINED HITS X], improve X by 1).",
+    "trigger": "your Shooting phase, on a friendly Adeptus Astartes unit selected to shoot",
+    "effect": "(APPROXIMATION) SwegHammer has no per-round transient [SUSTAINED HITS] flag, so the offensive uplift is routed through `transient_plus_one_to_hit_shooting` on the highest-DPA Marine shooter — same direction (more landed hits/damage), comparable magnitude on a 4+ hit roll. Same lossy pattern as Shield Host's Archaeotech Munitions and Mont'ka's Focused Fire. Name + CP cost (1) per iter-12 Gladius parity fix (docs/AUDIT_PARITY.md fix #1).",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Armour of Contempt": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Armour of Contempt (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on an ADEPTUS ASTARTES unit being targeted by a ranged or melee attack. Effect: until the end of the phase, each time an attack is allocated to a model in your unit, subtract 1 from the Armour Penetration characteristic of that attack.",
+    "trigger": "any phase, on a friendly Adeptus Astartes unit targeted by an attack",
+    "effect": "(APPROXIMATION) SwegHammer has no transient enemy-AP-reduction flag, so the defensive payoff is routed through `transient_plus_one_save` on the most vulnerable Marine unit — both buffs reduce incoming damage. Direction-correct; lossy in that the codex effect scales with the enemy weapon's AP (worth more vs AP-2/3 weapons, equal vs AP-0) while the +1-save proxy is flat. Same lossy pattern as Shield Host's Unwavering Sentinels. Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Squad Tactics": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Squad Tactics (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: your opponent's Movement phase, on an ADEPTUS ASTARTES INFANTRY unit. Effect: that unit may make a Normal Move of up to 6\".",
+    "trigger": "your opponent's Movement phase, on a friendly Adeptus Astartes INFANTRY unit",
+    "effect": "(APPROXIMATION) SwegHammer has no opponent-turn reactive move hook, so the offensive value is routed through `transient_assault_this_round` on the highest-DPA Marine INFANTRY unit — same flag Feigned Retreat / Multipotentiality use as the 'extra setup + shoot after move' proxy. Direction-correct; loses the defensive 'pull-out-of-charge-range' use case. Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Only In Death Does Duty End": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Only In Death Does Duty End (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the Fight phase, after an ADEPTUS ASTARTES model in your unit is destroyed before it has made its attacks. Effect: that destroyed model may make its attacks before being removed from the battlefield.",
+    "trigger": "Fight phase, after a friendly Adeptus Astartes model is destroyed before attacking",
+    "effect": "(APPROXIMATION) SwegHammer doesn't model per-model attack ordering at the destroyed-before-attack granularity; the offensive payoff is routed through `transient_plus_one_to_wound_melee` on the most vulnerable Marine melee unit — the 'one last swing' proxy translates to +1 to wound on the remaining attacks. Direction-correct; misses the timing detail (codex grants attacks to destroyed models, we buff the surviving unit). Same lossy pattern as Avenge the Fallen (Shield Host). Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Honour the Chapter": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Honour the Chapter (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 2 CP. When: any phase, on an ADEPTUS ASTARTES unit. Effect: until the end of the phase, that unit may re-roll its Hit rolls AND re-roll its Wound rolls.",
+    "trigger": "any phase, on a friendly Adeptus Astartes unit",
+    "effect": "(APPROXIMATION) SwegHammer routes the offensive value through `transient_reroll_hits_shooting` on the highest-DPA Marine unit — the wound-reroll leg is dropped (no transient wound-reroll flag). Strictly weaker than the codex (~half the value), direction-correct. Same lossy pattern as Glory of the Hearth (Oathband) and Devastating Sorcery (Grand Coven). Name + CP cost (2) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Adaptive Strategy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
+    "rule_name": "Adaptive Strategy (Gladius Task Force Stratagem)",
+    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer Gladius Task Force review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 1 CP. When: the start of your Command phase, on an ADEPTUS ASTARTES unit. Effect: until the end of the turn, that unit gains the rules of one Combat Doctrine of your choice (Devastator, Tactical, or Assault) regardless of which doctrine your army is currently in.",
+    "trigger": "start of your Command phase, on a friendly Adeptus Astartes unit",
+    "effect": "(APPROXIMATION) Combat Doctrines in SwegHammer is a round-and-mode-gated +1 to wound (see `simulator.combat_doctrines` in Unit.attack); the stratagem's per-unit doctrine override would require per-unit doctrine state. Routed through `transient_plus_one_to_wound_melee` on the highest-DPA Marine melee unit — the dominant value the stratagem provides is granting Assault Doctrine's +1-to-wound-melee outside R3+, which this proxy captures exactly. Direction-correct; loses the option-to-pick-ranged-instead nuance. Name + CP cost (1) per iter-12 Gladius parity fix.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Tunnel Network": {
+    "source": "https://www.goonhammer.com/detachment-focus-subterranean-assault/",
+    "rule_name": "Tunnel Network (Subterranean Assault Stratagem)",
+    "quoted_text": "(Paraphrase from Goonhammer Detachment Focus: Subterranean Assault — WebFetch against assets.warhammer-community.com returned 403 at edit time; cross-checked vs Bell of Lost Souls Maastricht 2026 list coverage.) When: end of your Movement phase. Effect: remove a Tyranids unit from within 9\" of one Tunnel Marker and set it up within 9\" of another Tunnel Marker, 6\" away from enemy models.",
+    "trigger": "own Movement phase end, with a friendly Tyranids unit within 9\" of a Tunnel Marker",
+    "effect": "(APPROXIMATION, NO-OP) SwegHammer has no Tunnel Marker / mid-phase teleport hook. Catalogued in SUBTERRANEAN_ASSAULT_STRATAGEMS for auditor + stratagems_for_army completeness; the dispatcher is intentionally a no-op so CP is never spent on this effect. Same gap pattern as Awakened Dynasty Protocol of the Eternal Revenant. Name + CP cost (1) confirmed via Goonhammer. TODO: real effect is mid-phase teleport reposition — wire via Tunnel Marker registry on Army + Battle.dispatch_movement_strats.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Replenishing Swarms": {
+    "source": "https://www.goonhammer.com/detachment-focus-subterranean-assault/",
+    "rule_name": "Replenishing Swarms (Subterranean Assault Stratagem)",
+    "quoted_text": "(Paraphrase from Goonhammer.) When: your Movement phase. Effect: pick a Tyranids unit within 9\" of a Tunnel Marker and either heal it for D3+1 wounds OR revive D3+1 1-W models.",
+    "trigger": "own Movement phase, with a wounded friendly Tyranids unit within 9\" of a Tunnel Marker",
+    "effect": "(APPROXIMATION, NO-OP for now) Mapped in code/stratagems.py to the existing transient_undying_legions_pulse flag the simulator already understands (Necrons Protocol of the Undying Legions, Orks Mob Up). Catalogued only — no dispatcher this iteration; CP is never spent. The model-revive-from-destroyed half is dropped (SwegHammer has no per-unit destroyed-model bank). Name + CP cost (1) confirmed via Goonhammer.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Swarming Assault": {
+    "source": "https://www.goonhammer.com/detachment-focus-subterranean-assault/",
+    "rule_name": "Swarming Assault (Subterranean Assault Stratagem)",
+    "quoted_text": "(Paraphrase from Goonhammer.) When: your Charge phase. Effect: a Tyranids MONSTER unit grants re-roll Charge rolls to friendly Tyranids units within 6\" until the end of the phase.",
+    "trigger": "own Charge phase, with a friendly Tyranids MONSTER unit on the table",
+    "effect": "(APPROXIMATION, NO-OP for now) Mapped in code/stratagems.py to the existing transient_assault_this_round flag the simulator already understands (Mont’ka Sudden Storm, Multipotentiality). Catalogued only — no dispatcher this iteration. Real text grants a charge-roll re-roll within 6\" of a Tyranids Monster; the Assault transient is a direction-correct uplift on the realised charge-then-fight payoff but does not literally reroll the charge dice. Name + CP cost (1) confirmed via Goonhammer.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Enfilading Emergence": {
+    "source": "https://www.goonhammer.com/detachment-focus-subterranean-assault/",
+    "rule_name": "Enfilading Emergence (Subterranean Assault Stratagem)",
+    "quoted_text": "(Paraphrase from Goonhammer.) When: end of your Movement phase, after a Tyranids unit emerged from reserves. Effect: that unit’s ranged weapons gain [SUSTAINED HITS 1] and [IGNORES COVER] until the end of the phase.",
+    "trigger": "own Movement phase end, with a friendly Tyranids unit that emerged from reserves this turn",
+    "effect": "(APPROXIMATION, NO-OP for now) Mapped in code/stratagems.py to the existing transient_plus_one_to_hit_shooting flag (used by Mont’ka Pulse Onslaught, Custodes Archaeotech Munitions, several others). Catalogued only — no dispatcher this iteration. Real keywords [SUSTAINED HITS 1] + [IGNORES COVER] are lossy on the +1-to-hit substitution (less impact on crit-payload, more impact on saturated cover targets). Name + CP cost (1) confirmed via Goonhammer.",
     "scope": "phase-gated",
     "approximation": true
   }

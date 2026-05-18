@@ -62,13 +62,18 @@ APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
                    "Adeptus Custodes", "Leagues of Votann"}
 
 
-def run_matrix(n: int, rules: RulesConfig = None) -> Dict[str, float]:
+def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
     the same matrix across re-runs — otherwise the simulator's dice noise
     swamps small calibration changes. The seed schedule is deterministic
     (faction-name hash + battle index) and stable across runs.
+
+    If `use_archetype=True`, lists are built via the curated tournament-
+    realistic archetype templates (Marines Gladius, Necrons Awakened
+    Dynasty, etc.) instead of the random_fill pool. Useful for measuring
+    how tournament-shaped lists fare under the current rule set.
     """
     sim_wr: Dict[tuple, float] = {}
     fac_idx = {f: i for i, f in enumerate(FACTIONS)}
@@ -78,14 +83,11 @@ def run_matrix(n: int, rules: RulesConfig = None) -> Dict[str, float]:
                 continue
             winners: Counter = Counter()
             for s in range(n):
-                # Deterministic seed using FACTIONS-list indices — Python
-                # randomises `hash(str)` per process, which would otherwise
-                # make this eval irreproducible across runs.
                 ai, bi = fac_idx[a_fac], fac_idx[b_fac]
                 pair_seed = (ai * 1000 + bi) * 100 + s
                 random.seed(pair_seed)
-                a = build_faction_random_army("A", a_fac, 1000, rng=random.Random(s))
-                b = build_faction_random_army("B", b_fac, 1000, rng=random.Random(s + 10000))
+                a = build_faction_random_army("A", a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype)
+                b = build_faction_random_army("B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype)
                 if not a.units or not b.units:
                     continue
                 r = Battle(a, b, map_=DEFAULT_MAP, rules=rules).run()
@@ -148,10 +150,18 @@ def main() -> None:
              "simultaneous-movement sub-phase, CP catch-up bonus, "
              "coordinated army-plan). Default is vanilla WH40k 10e.",
     )
+    p.add_argument(
+        "--use-archetype",
+        action="store_true",
+        help="Build tournament-realistic curated lists (Gladius, Awakened "
+             "Dynasty, etc.) instead of random_fill. Useful for measuring "
+             "how tourney-shaped lists fare under the current rule set.",
+    )
     args = p.parse_args()
     rules = RulesConfig.sweghammer() if args.sweghammer else None
-    print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'}\n")
-    sim = run_matrix(args.battles, rules=rules)
+    list_mode = "tourney-archetype" if args.use_archetype else "random_fill"
+    print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'} | Lists: {list_mode} | N={args.battles}\n")
+    sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype)
     mae_real, mae_sweg = report(sim)
     sys.exit(0)   # informational only — never error-exit
 

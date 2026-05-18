@@ -77,11 +77,47 @@
     "thousand_sons_rubric_marines": {
       "invuln_save": 5,
       "range_inches": 24,
-      "notes": "Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
+      "unit_keywords": [
+        "PSYKER",
+        "INFANTRY",
+        "BATTLELINE",
+        "RUBRICAE"
+      ],
+      "notes": "Rubric Marines: 5++ invulnerable save (All Is Dust datasheet). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | iter14: added RUBRICAE unit keyword so the simulator.all_is_dust gate (Rubricae Phalanx detachment rule, '+1 to armour save vs unmodified Damage 1 attacks on RUBRICAE models') can fire only on the canonically-correct subset. BSData parser does not extract sub-faction unit keywords. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Rubric-Marines.html (Keywords: INFANTRY, BATTLELINE, CHAOS, TZEENTCH, RUBRICAE, RUBRIC MARINES)."
     },
     "thousand_sons_scarab_occult_terminators": {
       "invuln_save": 4,
-      "notes": "Scarab Occult Terminators: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Scarab-Occult-Terminators"
+      "unit_keywords": [
+        "PSYKER",
+        "INFANTRY",
+        "TERMINATOR",
+        "RUBRICAE"
+      ],
+      "notes": "Scarab Occult Terminators: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Scarab-Occult-Terminators | iter14: added RUBRICAE + TERMINATOR unit keywords; RUBRICAE feeds simulator.all_is_dust (Rubricae Phalanx +1 save vs D1) and the unit's datasheet Rites of Coalescence (-1 to wound while a PSYKER is present) is read via the PSYKER keyword in simulator.rites_of_coalescence. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Scarab-Occult-Terminators.html (Keywords: INFANTRY, TERMINATOR, CHAOS, TZEENTCH, RUBRICAE, SCARAB OCCULT)."
+    },
+    "thousand_sons_sorcerer": {
+      "invuln_save": 5,
+      "notes": "Sorcerer: 5++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer.html (Save 3+ / Invulnerable Save 5+ / T4 / W4)."
+    },
+    "thousand_sons_sorcerer_in_terminator_armour": {
+      "invuln_save": 4,
+      "notes": "Sorcerer in Terminator Armour: 4++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour.html (Save 2+ / Invulnerable Save 4+ / T5 / W5)."
+    },
+    "thousand_sons_pink_horrors": {
+      "invuln_save": 4,
+      "notes": "Pink Horrors: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink for Daemon datasheets. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Pink-Horrors.html (Save 7+ / Invulnerable Save 4+ / T3 / W1)."
+    },
+    "thousand_sons_blue_horrors": {
+      "invuln_save": 4,
+      "notes": "Blue Horrors: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Blue-Horrors.html (Save 7+ / Invulnerable Save 4+ / T3 / W1)."
+    },
+    "thousand_sons_flamers": {
+      "invuln_save": 4,
+      "notes": "Flamers: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Flamers.html (Save 7+ / Invulnerable Save 4+ / T4 / W3)."
+    },
+    "thousand_sons_screamers": {
+      "invuln_save": 4,
+      "notes": "Screamers: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Screamers.html (Save 6+ / Invulnerable Save 4+ / T4 / W3)."
     },
     "thousand_sons_magnus_the_red": {
       "invuln_save": 4,
@@ -210,11 +246,32 @@
     },
     "t_au_empire_strike_team": {
       "range_inches": 30,
-      "notes": "Pulse Rifle (primary wargear) range corrected to 30\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Pulse Carbine 18\" / Pulse Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Strike-Team"
+      "notes": "Pulse Rifle (primary wargear) range corrected to 30\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Pulse Carbine 18\" / Pulse Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Strike-Team | iter16: add MARKERLIGHT keyword. 10e Strike Team datasheet keyword line is INFANTRY, BATTLELINE, MARKERLIGHT, FIRE WARRIOR, STRIKE TEAM (every Strike Team has Markerlight; Shas'ui can take one as standard wargear). BSData encodes Markerlight on the weapon row only. Restores Mont'ka Markerlight->Guided->[LETHAL HITS] chain at MSU scale. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Strike-Team.html (keyword line).",
+      "unit_keywords": [
+        "INFANTRY",
+        "BATTLELINE",
+        "MARKERLIGHT"
+      ]
     },
     "chaos_space_marines_rubric_marines": {
       "range_inches": 24,
       "notes": "Cross-codex BSData entry for Rubric Marines; canonical datasheet lives in the Thousand Sons codex. Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
+    },
+    "t_au_empire_breacher_team": {
+      "unit_keywords": [
+        "INFANTRY",
+        "BATTLELINE",
+        "MARKERLIGHT"
+      ],
+      "notes": "iter16: add MARKERLIGHT keyword. 10e Breacher Team datasheet keyword line is INFANTRY, BATTLELINE, GRENADES, MARKERLIGHT, FIRE WARRIOR, BREACHER TEAM (Shas'ui can take a Markerlight). BSData encodes Markerlight on the weapon row only. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Breacher-Team.html (keyword line)."
+    },
+    "t_au_empire_sky_ray_gunship": {
+      "unit_keywords": [
+        "VEHICLE",
+        "FLY",
+        "MARKERLIGHT"
+      ],
+      "notes": "iter16: add MARKERLIGHT keyword. 10e Sky Ray Gunship datasheet keyword line is VEHICLE, FLY, MARKERLIGHT, SKY RAY GUNSHIP. The gunship is the army flying-Markerlight platform (carries Networked Markerlights). BSData encodes Markerlight on the weapon row only. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Sky-Ray-Gunship.html (keyword line)."
     }
   }
 }

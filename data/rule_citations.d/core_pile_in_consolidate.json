@@ -1,0 +1,21 @@
+{
+  "_comment": "Citations for the Fight-phase Pile-In and Consolidate core moves (10e). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FIGHT-PHASE",
+
+  "simulator.pile_in": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FIGHT-PHASE",
+    "rule_name": "Pile-In",
+    "quoted_text": "Before a unit fights, each model in that unit can make a Pile-In move of up to 3\", but each model must end that move closer to the closest enemy model than it was at the start of the move.",
+    "trigger": "owner's Fight phase, immediately before a unit resolves its melee attacks",
+    "effect": "each model in the unit makes a free move of up to 3\" toward the closest enemy model. SwegHammer collapses this to a single Unit move of up to 3\" toward the closest alive enemy unit before _do_fight resolves attacks, using the _move_toward helper.",
+    "scope": "army-wide"
+  },
+
+  "simulator.consolidate": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FIGHT-PHASE",
+    "rule_name": "Consolidate",
+    "quoted_text": "After a unit fights, each model in that unit can make a Consolidation move of up to 3\", but each model must end that move either closer to the closest enemy model than it was at the start of the move, or within Engagement Range of one or more enemy units that it was in Engagement Range of at the start of the move.",
+    "trigger": "owner's Fight phase, immediately after a unit resolves its melee attacks",
+    "effect": "each model in the unit makes a free move of up to 3\" toward the closest enemy model (or to stay in engagement with the unit it was just engaged with). SwegHammer collapses this to a single Unit move of up to 3\" toward the closest alive enemy unit after _do_fight resolves attacks (including Counter-Offensive).",
+    "scope": "army-wide"
+  }
+}

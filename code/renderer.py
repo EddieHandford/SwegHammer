@@ -42,6 +42,7 @@ COL_GRID = "#5a5550"
 TERRAIN_COLORS = {
     TerrainType.LIGHT_COVER: "#8b6f47",   # brown barricades
     TerrainType.HEAVY_COVER: "#6e6e6e",   # grey ruins
+    TerrainType.RUIN:        "#7a5a3a",   # rust-brown ruined building (INFANTRY-traversable LoS)
     TerrainType.OBSCURING:   "#3f5c3a",   # dark green woods
     TerrainType.IMPASSABLE:  "#1a1a1a",   # black wall
 }

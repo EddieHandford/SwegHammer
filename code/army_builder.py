@@ -11,6 +11,16 @@ from .enhancements import Enhancement, pick_enhancement
 from .units import UnitProfile, UNIT_CATALOG
 
 
+def is_epic_hero(profile: UnitProfile) -> bool:
+    """True if a UnitProfile carries the EPIC HERO keyword (10e core rule).
+
+    10e core: "EPIC HERO units can only be taken once per army." This rule is
+    universal across every codex; the cap is faction-neutral. Source:
+    https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Datasheets
+    """
+    return "EPIC HERO" in (profile.unit_keywords or ())
+
+
 def _assign_enhancement_to_warlord(army: Army, rng: random.Random) -> None:
     """Pick a single Enhancement from the army's Detachment list (if any)
     and attach it to one alive CHARACTER. No-op if:
@@ -94,6 +104,9 @@ def build_random_army(
     army = Army(name, in_cover=in_cover)
     remaining = points_budget
     unit_type_spend: Dict[str, float] = {p.name: 0.0 for p in profiles}
+    # 10e core: EPIC HERO units can only be taken once per army. Track which
+    # epic-hero names have already been added so subsequent picks skip them.
+    epic_heroes_taken: set = set()
 
     while True:
         affordable = [
@@ -101,6 +114,7 @@ def build_random_army(
             if p.points_cost <= remaining
             and unit_type_spend[p.name] + p.points_cost
                <= points_budget * max_unit_fraction
+            and not (is_epic_hero(p) and p.name in epic_heroes_taken)
         ]
         if not affordable:
             break
@@ -108,6 +122,8 @@ def build_random_army(
         army.add_unit(chosen)
         remaining -= chosen.points_cost
         unit_type_spend[chosen.name] += chosen.points_cost
+        if is_epic_hero(chosen):
+            epic_heroes_taken.add(chosen.name)
 
     # Detachment + Enhancement: assign once units are picked so we can
     # see which CHARACTERS the army actually contains. Detachment derives
@@ -235,6 +251,71 @@ def _squad_points(profile: UnitProfile, size: int) -> float:
     return profile.points_cost * size
 
 
+def _fit_squad_size(
+    profile: UnitProfile,
+    policy: str,
+    rng: random.Random,
+    remaining: float,
+    cap_headroom: float,
+) -> int:
+    """
+    Pick a squad size that honours BSData min/max, the requested policy, AND
+    fits inside both `remaining` (remaining budget) and `cap_headroom`
+    (per-unit-type cap minus already-spent on this profile).
+
+    iter13 fix — previously `_squad_size` returned the policy choice blindly,
+    and the caller filtered out the squad if its cost exceeded the cap. That
+    meant high-min-cost BATTLELINE units (TSON Rubric Marines min 4 = 240pt,
+    max 9 = 540pt) were rejected entirely at the 1000pt / 50%-cap default
+    (cap=500pt < 540pt squad-max). Scarab Occult Terminators (min 4 = 396pt,
+    max 9 = 891pt) were similarly absent from random-fill TSON lists despite
+    being the codex's BATTLELINE / TERMINATOR core. Faction-neutral effect:
+    any codex whose BATTLELINE squad-max exceeds 50% of the budget got the
+    same silent exclusion.
+
+    The fit-with-fallback rule:
+      1. Compute the policy-preferred size (the previous behaviour).
+      2. If preferred size fits both `remaining` and `cap_headroom`, use it.
+      3. Otherwise, walk size down toward `min_models`, returning the largest
+         size that fits both constraints.
+      4. If even `min_models` doesn't fit `remaining`, return 0 (caller
+         filters out — true affordability failure).
+      5. If `min_models` fits `remaining` but exceeds `cap_headroom`, return
+         `min_models` anyway — the cap is a soft preference to avoid
+         degenerate spam, and a faction's legal minimum squad must always be
+         seedable. The next pick of the same profile will be capped naturally
+         once `spent_by_name` overshoots.
+    """
+    lo, hi = max(1, profile.min_models), max(1, profile.max_models)
+    if hi < lo:
+        hi = lo
+    pts = profile.points_cost
+
+    # Step 1-2: try the policy-preferred size first.
+    if policy == "max":
+        preferred = hi
+    elif policy == "half_or_max":
+        half = (lo + hi + 1) // 2
+        preferred = rng.choice((half, hi))
+    else:
+        preferred = rng.randint(lo, hi)
+
+    if preferred * pts <= remaining and preferred * pts <= cap_headroom:
+        return preferred
+
+    # Step 3: walk down from preferred to lo, find the largest fitting size.
+    for size in range(min(preferred, hi), lo - 1, -1):
+        cost = size * pts
+        if cost <= remaining and cost <= cap_headroom:
+            return size
+
+    # Step 4-5: even min squad doesn't fit the cap. If it fits remaining,
+    # return min anyway (cap is a soft preference); otherwise signal failure.
+    if lo * pts <= remaining:
+        return lo
+    return 0
+
+
 def build_faction_random_army(
     name: str,
     faction: str,
@@ -283,6 +364,10 @@ def build_faction_random_army(
     remaining = float(points_budget)
     spent_by_name: Dict[str, float] = {p.name: 0.0 for p in pool}
     cap = points_budget * max_unit_fraction
+    # 10e core: EPIC HERO units can only be taken once per army. Track which
+    # epic-hero profiles have been drafted so duplicate squads are refused.
+    # Faction-neutral — applies universally to every codex.
+    epic_heroes_taken: set = set()
 
     # CHARACTER-tagged profiles are eligible to be drafted as attached leaders.
     # 10e: a leader sits inside an infantry / battleline unit and grants auras.
@@ -291,13 +376,86 @@ def build_faction_random_army(
         if "CHARACTER" in (p.unit_keywords or ())
     ]
 
+    # iter12 fix — Thousand Sons centerpiece-anchor seed. Real-meta TSON
+    # lists are universally built around Magnus the Red OR Ahriman as the
+    # psychic centerpiece (Wahapedia datasheets:
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman) — the
+    # army has no other PSYKER aura source to drive Cabal Rituals at the
+    # pace the meta WR figure (54.6%) reflects. Uniform random_fill picks
+    # one of ~30 affordable profiles per slot, so Magnus appears in only
+    # ~17% of generated TSON armies and Ahriman in ~17% — the remaining
+    # ~70% are PSYKER-light daemon/vehicle lists that under-fire Cabal
+    # Rituals and lose the late-game tempo. Faction-specific seed: at
+    # 1000pt budget, pre-add Ahriman (100pt EPIC HERO PSYKER, fits any
+    # budget) so every TSON list starts with a real centerpiece. Magnus
+    # remains an organic pick when budget allows; this seed only adds a
+    # floor.
+    if faction == "Thousand Sons":
+        # Ahriman is the affordable PSYKER anchor that fits any budget;
+        # he adds a guaranteed Cabal-Ritual caster + leader-aura source.
+        # Magnus is intentionally NOT preferred at 1000pt: at 435pt he
+        # absorbs ~44% of the budget, leaving ~565pt for the rest of the
+        # army — a centerpiece-without-support list that loses model-trade
+        # arithmetic (verified by an iter12 eval pass that produced TSON
+        # WR -13.5pt vs the real meta).
+        ahriman = next((p for p in pool if p.name == "Ahriman"), None)
+        if ahriman is not None and ahriman.points_cost <= remaining:
+            army.add_unit(ahriman)
+            spent_by_name[ahriman.name] += ahriman.points_cost
+            remaining -= ahriman.points_cost
+            if is_epic_hero(ahriman):
+                epic_heroes_taken.add(ahriman.name)
+
+    # iter13 fix — Death Guard centerpiece-anchor seed. Real-meta DG lists
+    # are universally built around Mortarion + 1-2 Foetid Bloat-Drones
+    # (Wahapedia datasheets:
+    # https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion
+    # https://wahapedia.ru/wh40k10ed/factions/death-guard/#Foetid-Bloat-drone
+    # Goonhammer DG meta writeups, May 2026). Uniform random_fill picks one
+    # of ~25 affordable profiles per slot, so Mortarion appears in only a
+    # small fraction of generated DG armies despite being the dominant
+    # centerpiece in real play. Our sim's DG slice currently runs +10pt
+    # over real meta because random_fill builds sticky-camping Plague-
+    # Marines/Plagueburst lists that exploit Worldblight + FNP 5+ without
+    # the centerpiece cost. Seeding Mortarion (380pt SwegHammer, fits 1000pt
+    # budget) plus one Foetid Bloat-Drone (100pt) realigns the random_fill
+    # distribution with the real meta list shape — bringing the WR back
+    # toward the published 48%. Following the TSON iter12 precedent: a
+    # floor-level seed, not a forced template; the remaining ~520pt fills
+    # organically with the usual DG mix.
+    if faction == "Death Guard":
+        mortarion = next((p for p in pool if p.name == "Mortarion"), None)
+        if mortarion is not None and mortarion.points_cost <= remaining:
+            army.add_unit(mortarion)
+            spent_by_name[mortarion.name] += mortarion.points_cost
+            remaining -= mortarion.points_cost
+            if is_epic_hero(mortarion):
+                epic_heroes_taken.add(mortarion.name)
+        drone = next(
+            (p for p in pool if p.name == "Foetid Bloat-drone"), None,
+        )
+        if drone is not None and drone.points_cost <= remaining:
+            army.add_unit(drone)
+            spent_by_name[drone.name] += drone.points_cost
+            remaining -= drone.points_cost
+
     while True:
         affordable = []
         for p in pool:
-            size = _squad_size(p, size_policy, rng)
+            if is_epic_hero(p) and p.name in epic_heroes_taken:
+                continue
+            # iter13 fix — use cap-aware sizing so high-min-cost battleline
+            # squads (TSON Rubric Marines, Scarab Occult Terminators) can
+            # still seed at a smaller-than-max size that fits the cap, and
+            # crucially can seed at min-size even when that overshoots the
+            # cap (otherwise these profiles are silently excluded entirely).
+            cap_headroom = max(0.0, cap - spent_by_name[p.name])
+            size = _fit_squad_size(p, size_policy, rng, remaining, cap_headroom)
+            if size <= 0:
+                continue
             cost = _squad_points(p, size)
-            if cost <= remaining and spent_by_name[p.name] + cost <= cap:
-                affordable.append((p, size, cost))
+            affordable.append((p, size, cost))
         if not affordable:
             break
         chosen, size, cost = rng.choice(affordable)
@@ -305,6 +463,8 @@ def build_faction_random_army(
             army.add_unit(chosen)
         spent_by_name[chosen.name] += cost
         remaining -= cost
+        if is_epic_hero(chosen):
+            epic_heroes_taken.add(chosen.name)
 
         # 50% preference: when we just added a non-character squad, try to
         # attach a same-faction character leader. Skip if the chosen profile
@@ -315,12 +475,15 @@ def build_faction_random_army(
                 c for c in character_pool
                 if c.points_cost <= remaining
                 and spent_by_name[c.name] + c.points_cost <= cap
+                and not (is_epic_hero(c) and c.name in epic_heroes_taken)
             ]
             if leaders_affordable:
                 leader = rng.choice(leaders_affordable)
                 army.add_unit(leader)
                 spent_by_name[leader.name] += leader.points_cost
                 remaining -= leader.points_cost
+                if is_epic_hero(leader):
+                    epic_heroes_taken.add(leader.name)
 
     # Pick a detachment that suits the actual composition. Done AFTER unit
     # selection so the picker can read the real vehicle / infantry mix

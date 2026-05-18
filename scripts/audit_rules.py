@@ -79,6 +79,24 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # Orks War Horde detachment rule (iter-1 Cluster B B1 fix). Army-wide
     # [SUSTAINED HITS 1] on Ork melee weapons via Get Stuck In.
     ("melee_sustained_hits_army_wide", False),
+    # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
+    # Martial Mastery, iter-8 fix). Replaces the iter-0 `plus_one_save`
+    # defensive approximation with the canonical offensive Crit-on-5+
+    # melee + melee AP+1 dual buff. APPROXIMATION: codex picks ONE bullet
+    # per round; SwegHammer applies BOTH always-on.
+    ("melee_crit_on_5_plus_hits", False),
+    ("melee_ap_plus_one", False),
+    # Astra Militarum Combined Arms detachment rule (Born Soldiers,
+    # iter-14 fix). Real-rule LETHAL HITS on REGIMENT-vs-non-V/M and
+    # SQUADRON-vs-V/M ranged attacks. Replaces the iter-0
+    # `plus_one_to_hit` over-broad approximation.
+    ("am_born_soldiers_lethal_hits", False),
+    # Thousand Sons Rubricae Phalanx detachment rule (iter15). Real-rule
+    # +1 to armour save vs unmodified D1 attacks on RUBRICAE models.
+    # Replaces the iter-14 always-firing APPROXIMATION (All Is Dust now
+    # gates on this detachment flag) — see RUBRICAE_PHALANX.all_is_dust
+    # in data/rule_citations.d/detachments.json.
+    ("all_is_dust", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -143,11 +161,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Drukhari army rule (10e). Command-phase token award + while-held
     # buffs (Lethal Hits, FNP 6+). Faction-gated on attacker/defender.
     "simulator.power_from_pain",
-    # Death Guard army rule (10e). Every DEATH GUARD model has Feel No
-    # Pain 5+. Faction-gated in Unit.receive_damage; composes with the
-    # existing transient_minus_one_damage_taken (Plague Company strat)
-    # and with leader/profile FNP by taking the lower value.
-    "simulator.disgustingly_resilient",
+    # Death Guard army-wide FNP 5+ was a fabrication (no such rule exists
+    # in the 10e codex per Wahapedia + Goonhammer review). Removed in
+    # iter 15. Per-datasheet innate FNP (Plague Marines fnp=5, Deathshroud
+    # fnp=4, Mortarion fnp=5) lives on profile.fnp via overrides.json /
+    # parsed.json and is honoured by Unit.receive_damage already. The
+    # Virulent Vectorium 2 CP "Disgustingly Resilient" stratagem is cited
+    # separately under `Stratagem.Disgustingly Resilient`.
     # Death Guard army rule (10e). Nurgle's Gift / Contagions of Nurgle —
     # every DG model projects a 3" aura that subjects enemy units within
     # it to the active Contagion (radius gated to 3" per modern Nurgle's
@@ -159,10 +179,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # DG units themselves; the round-3+ -1 to hit doesn't compound with
     # other -1-to-hit modifiers (10e cap).
     "simulator.contagions_of_nurgle",
-    # Thousand Sons army rule (10e). -1 to wound on any single-damage
-    # attack allocated to a non-daemon TSons model (Rubric Marines,
-    # Scarab Occult Terminators, etc.). Stacks with attacker +1 to wound.
+    # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
+    # +1 to the armour save when an unmodified Damage-1 attack is allocated
+    # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer
+    # applies the buff regardless of which TSON detachment is active, since
+    # only Grand Coven is in the registry today. See
+    # data/rule_citations.d/thousand_sons.json#simulator.all_is_dust.
     "simulator.all_is_dust",
+    # Thousand Sons Scarab Occult Terminators datasheet ability (10e). -1
+    # to the wound roll on any attack targeting the unit while it contains
+    # a PSYKER model. The mandatory Aspiring Sorcerer is the PSYKER carrier
+    # so the buff is effectively always-on. See
+    # data/rule_citations.d/thousand_sons.json#simulator.rites_of_coalescence.
+    "simulator.rites_of_coalescence",
     # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
     # Shooting phase, each PSYKER attempts one of four Rituals via a
     # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData
@@ -244,6 +273,63 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # at round start. Enforced inside `Battle._apply_detachment_stratagems`
     # via Army.stratagems_fired_this_command_phase + `_strat_cap_reached`.
     "simulator.stratagem_per_command_phase_cap",
+    # 10e core EPIC HERO rule. "EPIC HERO units can only be taken once per
+    # army." Universal across every codex; the cap is faction-neutral.
+    # Enforced at army-composition time by code.army_builder.is_epic_hero
+    # gates in build_random_army, build_faction_random_army, and
+    # code.archetypes._random_fill (which also seeds the tracker from
+    # template-instantiated units so the random topup can't duplicate a
+    # hero the archetype already drafted).
+    "simulator.epic_hero_one_per_army",
+    # 10e Ruins terrain core rule. A Ruin acts as Heavy Cover (+1 save,
+    # -1 to hit) and its walls block line of sight EXCEPT when both the
+    # firing model and the target model have the INFANTRY, BEAST or SWARM
+    # keyword. Wired through code.map.Map.has_line_of_sight via
+    # attacker_keywords / target_keywords arguments threaded from the
+    # simulator's _do_shoot / _apply_firing_deck call sites. Cover
+    # promotion handled alongside TerrainType.HEAVY_COVER in
+    # Battle._do_shoot.
+    "terrain.ruin_infantry_los",
+    # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
+    # roll for an attack can never be modified by more than -1 or +1." Same
+    # text for the Wound roll. Enforced in code/units.py Unit.attack by
+    # accumulating +/-1 contributions into hit_mod_delta / wound_mod_delta
+    # then clamping to [-1, +1] before applying to the d6 target.
+    "simulator.modifier_cap_plus_minus_one",
+    # 10e core Charge phase: Heroic Intervention is a FREE core ability
+    # for CHARACTER models (not a stratagem). Implemented in
+    # `Battle._do_heroic_intervention`.
+    "simulator.heroic_intervention_core",
+    # 10e core Fight phase: each unit makes a free Pile-In (3" toward
+    # closest enemy) BEFORE it fights and a free Consolidate (3" toward
+    # closest enemy / staying in engagement) AFTER it fights.
+    "simulator.pile_in",
+    "simulator.consolidate",
+    # 10e Leviathan Tournament Companion primary scoring cap: each army
+    # scores at most 15 Primary VP per battle round (i.e. counts at most
+    # 3 controlled objectives at 5 VP each). Applied in
+    # `Battle._score_objectives` after per-objective awards are tallied.
+    "simulator.primary_vp_cap_15",
+    # Astra Militarum Voice of Command (army rule, 10e). At the start of
+    # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
+    # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four
+    # Orders are wired: Take Aim! (+1 to hit shooting), Fix Bayonets!
+    # (+1 to wound melee, codex WS+1 approximation), First Rank Fire /
+    # Second Rank Fire (+1 to hit shooting, codex +1 Attack on Rapid Fire
+    # approximation), Take Cover! (+1 to save). Implemented in
+    # `code.orders.dispatch_orders`; called from `Battle._run_round` at
+    # the start of each Command phase. The Flexible Command stratagem
+    # (Combined Arms, 2 CP) widens the eligible target set to include
+    # BATTLELINE VEHICLE (SQUADRON) for the round it fires.
+    "simulator.voice_of_command_orders",
+    # The four wired Orders, each cited individually so the auditor can
+    # track per-Order APPROXIMATION notes (Fix Bayonets! and FRFSRF are
+    # approximations through different transient flags than the codex
+    # text indicates).
+    "Order.Take Aim!",
+    "Order.Fix Bayonets!",
+    "Order.First Rank, Fire! Second Rank, Fire!",
+    "Order.Take Cover!",
 )
 
 

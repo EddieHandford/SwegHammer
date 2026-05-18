@@ -1,15 +1,27 @@
-"""Tests for the Thousand Sons army rule All Is Dust (task #145).
+"""Tests for the Thousand Sons defensive rules.
 
-All Is Dust (10e Thousand Sons army rule, Wahapedia):
-    "Each time an attack with a Damage characteristic of 1 is allocated to
-     a model in this unit, subtract 1 from the Wound roll."
+iter14 update: the simulator now models the CURRENT 10e versions of the
+TSON defensive stack rather than the pre-codex launch-index "All Is Dust
+== -1 to wound on D1 attacks for any TSON non-DAEMON unit". Specifically:
 
-Implementation:
-    * `Unit.attack` adds `wound_target = min(7, wound_target + 1)` when the
-      target is faction Thousand Sons, the incoming attack has
-      `per_shot_dmg <= 1.0`, and the target does NOT carry the DAEMON
-      unit-keyword.
-    * Cited as `simulator.all_is_dust`.
+* `simulator.all_is_dust` (Rubricae Phalanx detachment rule, Wahapedia):
+  "Each time an attack with an unmodified Damage characteristic of 1 is
+   allocated to a RUBRICAE model from your army, add 1 to any armour
+   saving throw made against that attack."
+  Gates on:
+    * defender carries the RUBRICAE unit-keyword (Rubric Marines and
+      Scarab Occult Terminators — both seeded via overrides.json)
+    * incoming attack has weapon_damage_per_shot == 1.0
+  Effect: +1 to the defender's armour save (capped at 2+).
+
+* `simulator.rites_of_coalescence` (Scarab Occult Terminators datasheet
+  ability, Wahapedia): "While this unit contains one or more PSYKER
+  models, each time an attack targets this unit, subtract 1 from the
+  Wound roll."
+  Gates on:
+    * defender's profile.name == "Scarab Occult Terminators"
+    * defender carries the PSYKER unit-keyword
+  Effect: -1 to the attacker's wound roll on any-damage attacks.
 
 These tests use deterministic seeds and large attack volumes so the
 empirical wound rate matches the analytical d6 distribution within a
@@ -27,17 +39,19 @@ from code.units import UnitProfile
 
 
 # ---------------------------------------------------------------------------
-# Helpers — minimal profiles wired with the canonical faction strings
+# Helpers — minimal profiles wired with the canonical faction strings and
+# keywords required by the iter14 gates.
 # ---------------------------------------------------------------------------
 
-def _rubric_marine(faction: str = "Thousand Sons",
-                   keywords=("PSYKER", "INFANTRY")) -> UnitProfile:
-    """A bulky T4 / 3+ save Rubric stand-in. Health is large so a single
-    test trial cannot kill the unit and wash out the wound-rate signal."""
+def _rubric_marine(
+    faction: str = "Thousand Sons",
+    keywords=("PSYKER", "INFANTRY", "BATTLELINE", "RUBRICAE"),
+) -> UnitProfile:
+    """A bulky T4 / 3+ save / 5++ Rubric stand-in carrying RUBRICAE keyword."""
     return UnitProfile(
-        name="Rubric Marine",
+        name="Rubric Marines",
         health=10_000.0, damage=1, hit_probability=2 / 3,
-        ap=0, save=3, strength=4, toughness=4,
+        ap=0, save=3, invuln_save=5, strength=4, toughness=4,
         attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
         leadership=7,
         faction=faction,
@@ -47,25 +61,40 @@ def _rubric_marine(faction: str = "Thousand Sons",
     )
 
 
+def _scarab_occult_terminator() -> UnitProfile:
+    """Scarab Occult stand-in carrying RUBRICAE + PSYKER (Rites of Coalescence)."""
+    return UnitProfile(
+        name="Scarab Occult Terminators",
+        health=10_000.0, damage=1, hit_probability=2 / 3,
+        ap=0, save=2, invuln_save=4, strength=4, toughness=5,
+        attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=7,
+        faction="Thousand Sons",
+        unit_keywords=("PSYKER", "INFANTRY", "TERMINATOR", "RUBRICAE"),
+        melee_attacks=1, melee_damage_per_shot=1.0,
+        melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
+    )
+
+
 def _single_damage_attacker() -> UnitProfile:
-    """An S4 / D1 attacker. Hits auto (we patch by counting wounds at the
-    attack level), wounds T4 on 4+ baseline; All Is Dust pushes that to 5+."""
+    """An S4 / D1 attacker. Auto-hits via torrent so the only stochastic
+    inputs are the wound and save rolls — wound on 4+ baseline vs T4."""
     return UnitProfile(
         name="D1 Bolter",
-        health=2.0, damage=1, hit_probability=1.0,    # auto-hit via torrent
+        health=2.0, damage=1, hit_probability=1.0,
         ap=0, save=4, strength=4, toughness=4,
         attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
         leadership=7,
         faction="Adeptus Astartes",
         unit_keywords=("INFANTRY",),
-        torrent=True,                                   # skip hit roll
+        torrent=True,
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
     )
 
 
 def _multi_damage_attacker() -> UnitProfile:
-    """Same chassis but D2 — All Is Dust must NOT fire."""
+    """Same chassis but D2 — All Is Dust must NOT fire (D2 != 1)."""
     return dataclasses.replace(
         _single_damage_attacker(),
         weapon_damage_per_shot=2.0,
@@ -76,17 +105,15 @@ def _multi_damage_attacker() -> UnitProfile:
 
 # ---------------------------------------------------------------------------
 # Empirical wound-rate harness. We assemble armies, hand off via Unit.attack,
-# and count "wound landed and got past save" trials. The relative ratio
-# between with-rule and without-rule is what we assert on.
+# and count damage applied. The relative ratio between with-rule and
+# without-rule is what we assert on.
 # ---------------------------------------------------------------------------
 
 def _wound_rate(attacker_profile: UnitProfile,
                 defender_profile: UnitProfile,
                 n_attacks: int = 8000,
                 seed: int = 0) -> float:
-    """Mean damage per attack (proxy for landed-and-failed-save rate). We
-    don't decompose into hit/wound/save because Unit.attack already does
-    that internally — we just need a stable empirical rate."""
+    """Mean damage per attack (proxy for landed-and-failed-save rate)."""
     random.seed(seed)
     atk_army = Army("Atk")
     atk_army.add_unit(attacker_profile)
@@ -112,138 +139,203 @@ def _wound_rate(attacker_profile: UnitProfile,
 
 
 class AllIsDustTests(unittest.TestCase):
-    """Cover the four canonical behaviours: rule fires on D1 vs TSons,
-    rule doesn't fire for D2 attackers, rule doesn't fire for non-TSons,
-    and the buff stacks with attacker-side +1 to wound."""
+    """Cover the iter14 All Is Dust + Rites of Coalescence semantics."""
 
-    def test_single_damage_attack_subtracts_1_to_wound(self):
-        """D1 S4 attacker into T4 TSons defender. Baseline wounds on 4+
-        (50%); All Is Dust pushes it to 5+ (~33%). Save 3+ passes 4/6, so
-        damage past save: baseline ~3/6 * 2/6 = 1/6 ≈ 0.167; with rule
-        ~2/6 * 2/6 = 4/36 ≈ 0.111. Net rate must drop ~30-40%."""
+    def test_d1_attack_into_rubricae_improves_save(self):
+        """D1 S4 attacker into a RUBRICAE T4 3+/5++ defender. Baseline wounds
+        on 4+ (50%), save 3+ passes 4/6 → 1/6 ≈ 0.167 W/shot. With All Is Dust
+        the save improves to 2+ (5/6 passes) → 1/12 ≈ 0.083 W/shot. With-rule
+        rate should be ~50% of without-rule."""
         atk = _single_damage_attacker()
-        tson = _rubric_marine(faction="Thousand Sons")
-        marine = _rubric_marine(faction="Adeptus Astartes")
-        with_rule = _wound_rate(atk, tson, seed=0)
+        rubric = _rubric_marine(faction="Thousand Sons")
+        # Vanilla Marine control: same save 3+, same T4, no RUBRICAE keyword.
+        # We strip the invuln to keep the comparison clean — the buff being
+        # measured is the save-improvement, not the invuln backstop.
+        marine = dataclasses.replace(
+            _rubric_marine(faction="Adeptus Astartes",
+                           keywords=("INFANTRY",)),
+            invuln_save=7,
+            name="Tactical Marine",
+        )
+        with_rule = _wound_rate(atk, rubric, seed=0)
         without_rule = _wound_rate(atk, marine, seed=0)
-        # Sanity: the no-rule rate should be ~0.167 (50% wound * 33% fail save).
-        self.assertGreater(without_rule, with_rule,
-                           f"All Is Dust must reduce damage taken: "
-                           f"with={with_rule:.4f} without={without_rule:.4f}")
-        # Ratio sanity: with-rule should be ~2/3 of without-rule (33%/50%
-        # wound conversion). Loose tolerance to absorb seed noise.
-        self.assertLess(with_rule / without_rule, 0.85,
-                        f"All Is Dust drop too small: ratio={with_rule/without_rule:.3f}")
+        self.assertGreater(
+            without_rule, with_rule,
+            f"All Is Dust must reduce damage taken: "
+            f"with={with_rule:.4f} without={without_rule:.4f}",
+        )
+        # With save improving 3+→2+ vs the D1 attack the ratio should be
+        # roughly 0.5 — generous tolerance for seed noise and the wound roll
+        # being separate from the save roll.
+        ratio = with_rule / without_rule
+        self.assertLess(
+            ratio, 0.70,
+            f"All Is Dust effect too small: ratio={ratio:.3f}",
+        )
 
-    def test_multi_damage_attack_unaffected(self):
-        """D2 S4 attacker into T4 TSons defender. Wound roll baseline 4+;
-        All Is Dust does NOT fire (damage > 1). Damage rate must match the
-        non-TSons control (same wound math, same save, same damage)."""
+    def test_d2_attack_does_not_improve_save(self):
+        """D2 S4 attacker into a RUBRICAE T4 defender. All Is Dust gates on
+        weapon_damage_per_shot == 1.0, so a D2 attack must hit at the base
+        save (3+, 4/6 passes → 1/3 fail-save). The wound rate vs RUBRICAE
+        and vs a non-RUBRICAE control should match within seed noise."""
         atk = _multi_damage_attacker()
-        tson = _rubric_marine(faction="Thousand Sons")
-        marine = _rubric_marine(faction="Adeptus Astartes")
-        rate_tson = _wound_rate(atk, tson, seed=1)
+        rubric = _rubric_marine(faction="Thousand Sons")
+        # Match the rubric's save / toughness / damage but strip the keyword
+        marine = dataclasses.replace(
+            _rubric_marine(faction="Adeptus Astartes",
+                           keywords=("INFANTRY",)),
+            invuln_save=5,    # match the rubric's 5++ so invuln backstop is fair
+            name="Tactical Marine",
+        )
+        rate_rubric = _wound_rate(atk, rubric, seed=1)
         rate_marine = _wound_rate(atk, marine, seed=1)
-        # Same seed + same math => rates must be very close. 5% tolerance.
-        ratio = rate_tson / rate_marine if rate_marine else 0.0
-        self.assertGreater(ratio, 0.92,
-                           f"D2 attacker should be unaffected by All Is Dust: "
-                           f"tson={rate_tson:.4f} marine={rate_marine:.4f}")
-        self.assertLess(ratio, 1.08,
-                        f"D2 attacker should be unaffected by All Is Dust: "
-                        f"tson={rate_tson:.4f} marine={rate_marine:.4f}")
-
-    def test_non_tson_target_unaffected(self):
-        """D1 attacker vs vanilla Marine (faction != TSons). Wound rate
-        must equal the no-rule baseline — verifies the faction gate.
-
-        We swap the attacker's faction to "Chaos Space Marines" so the
-        Adeptus Astartes Combat Doctrines +1-to-wound (Round 1 Devastator
-        on ranged attacks) doesn't perturb the wound rate. The D1 attacker
-        in this codepath ALWAYS rolls vs a 4+ wound target (S4 vs T4)."""
-        atk = dataclasses.replace(
-            _single_damage_attacker(),
-            faction="Chaos Space Marines",
-            name="D1 Bolter (CSM)",
+        ratio = rate_rubric / rate_marine if rate_marine else 0.0
+        self.assertGreater(
+            ratio, 0.90,
+            f"D2 attacker should be unaffected by All Is Dust: "
+            f"rubric={rate_rubric:.4f} marine={rate_marine:.4f}",
         )
-        marine = _rubric_marine(faction="Adeptus Astartes")
-        rate = _wound_rate(atk, marine, seed=2)
-        # Baseline ~0.167 (50% wound * 33% fail save). Wide bounds for noise.
-        self.assertGreater(rate, 0.13,
-                           f"Non-TSons baseline rate too low: {rate:.4f}")
-        self.assertLess(rate, 0.21,
-                        f"Non-TSons baseline rate too high: {rate:.4f}")
+        self.assertLess(
+            ratio, 1.10,
+            f"D2 attacker should be unaffected by All Is Dust: "
+            f"rubric={rate_rubric:.4f} marine={rate_marine:.4f}",
+        )
 
-    def test_all_is_dust_stacks_with_detachment_plus_one(self):
-        """A D1 attacker with `plus_one_to_wound` (a detachment buff like
-        Outbreak of Pestilence) vs a TSons defender: the +1 and -1 cancel,
-        so the net wound target equals the BASE wound target (no buffs, no
-        rule, vs a non-TSons defender). We compare those two rates and they
-        must match within seed-noise tolerance."""
-        import code.leaders as leaders_mod
-
+    def test_non_rubricae_tson_target_unaffected_by_all_is_dust(self):
+        """A TSON defender WITHOUT the RUBRICAE keyword (e.g. Tzaangors, a
+        Sorcerer on foot, a Daemon Prince) must NOT get +1 save vs D1 — the
+        rule is RUBRICAE-keyword-gated, not faction-gated."""
         atk = _single_damage_attacker()
-        tson = _rubric_marine(faction="Thousand Sons")
-        marine = _rubric_marine(faction="Adeptus Astartes")
-
-        original = leaders_mod.effective_buffs
-
-        def _buffs_with_plus_one(unit):
-            base = dict(original(unit))
-            base["plus_one_to_wound"] = True
-            return base
-
-        # Branch A: attacker has +1 to wound buff, target is TSons → buffs cancel.
-        leaders_mod.effective_buffs = _buffs_with_plus_one
-        try:
-            rate_buffed_vs_tson = _wound_rate(atk, tson, seed=3)
-        finally:
-            leaders_mod.effective_buffs = original
-
-        # Branch B: no buffs, target is a vanilla Marine → base wound target.
-        rate_baseline_vs_marine = _wound_rate(atk, marine, seed=3)
-
-        # Both branches resolve at the same wound_target (4+); same seed +
-        # same RNG draws => rates should be very close. 12% tolerance for
-        # any divergence in random.randint() ordering between branches.
-        ratio = rate_buffed_vs_tson / rate_baseline_vs_marine
-        self.assertGreater(ratio, 0.85,
-                           f"All Is Dust + +1 to wound should net out: "
-                           f"buffed_tson={rate_buffed_vs_tson:.4f} "
-                           f"baseline={rate_baseline_vs_marine:.4f}")
-        self.assertLess(ratio, 1.15,
-                        f"All Is Dust + +1 to wound should net out: "
-                        f"buffed_tson={rate_buffed_vs_tson:.4f} "
-                        f"baseline={rate_baseline_vs_marine:.4f}")
-
-    def test_wound_target_floor_at_2(self):
-        """A +1 to wound that pushes wound_target down to 2 still clamps at
-        2+ (10e core rules cap wound rolls). Then -1 from All Is Dust pushes
-        it back to 3+, NOT below 2+. We verify this by setting a high-S
-        attacker (S8 vs T4 = 2+ to wound baseline) and confirming the rate
-        with All Is Dust corresponds to a 3+ wound target, not 1+."""
-        # S8 vs T4 = wound on 2+ baseline (S >= 2T). With All Is Dust the
-        # wound target becomes 3+. Save 3+, no AP, so save passes on 3+
-        # (4/6 success). Landed damage per attack:
-        #   baseline 5/6 wound * 2/6 fail save = 10/36 ≈ 0.278
-        #   with rule 4/6 wound * 2/6 fail save = 8/36 ≈ 0.222
-        atk = dataclasses.replace(
-            _single_damage_attacker(), strength=8, name="High-S D1",
+        # Strip RUBRICAE but keep faction TSON — should now match the marine
+        # baseline (same save, same T, no rule fires).
+        tzaangor = _rubric_marine(
+            faction="Thousand Sons",
+            keywords=("INFANTRY",),  # no RUBRICAE, no PSYKER → no AID / no Rites
         )
-        tson = _rubric_marine(faction="Thousand Sons")
-        marine = _rubric_marine(faction="Adeptus Astartes")
-        rate_tson = _wound_rate(atk, tson, seed=4)
-        rate_marine = _wound_rate(atk, marine, seed=4)
-        # 2+ vs 3+ wound is a 5/6 -> 4/6 step; ratio should be ~0.8.
-        # Confirm the rule actually fires (rate dropped) AND the result is
-        # consistent with a 3+ wound (not a 1+ no-op nor a 4+ over-clamp).
-        ratio = rate_tson / rate_marine
-        self.assertGreater(ratio, 0.65,
-                           f"All Is Dust floor: too much damage lost — "
-                           f"tson={rate_tson:.4f} marine={rate_marine:.4f}")
-        self.assertLess(ratio, 0.95,
-                        f"All Is Dust floor: rule didn't fire — "
-                        f"tson={rate_tson:.4f} marine={rate_marine:.4f}")
+        # Vanilla control (same body but Adeptus Astartes faction)
+        marine = dataclasses.replace(
+            _rubric_marine(faction="Adeptus Astartes",
+                           keywords=("INFANTRY",)),
+            invuln_save=5,
+            name="Tactical Marine (control)",
+        )
+        rate_tzaangor = _wound_rate(atk, tzaangor, seed=2)
+        rate_marine = _wound_rate(atk, marine, seed=2)
+        ratio = rate_tzaangor / rate_marine if rate_marine else 0.0
+        self.assertGreater(
+            ratio, 0.90,
+            f"Non-RUBRICAE TSON should not get All Is Dust: "
+            f"tzaangor={rate_tzaangor:.4f} marine={rate_marine:.4f}",
+        )
+        self.assertLess(
+            ratio, 1.10,
+            f"Non-RUBRICAE TSON should not get All Is Dust: "
+            f"tzaangor={rate_tzaangor:.4f} marine={rate_marine:.4f}",
+        )
+
+    def test_save_floor_at_2_plus(self):
+        """The +1 to save from All Is Dust must respect the 2+ floor — a
+        rubric already on a 2+ save (e.g. with an additional plus_one_save
+        buff already applied) does not improve to 1+. We approximate this
+        by ensuring the with-rule rate never drops below the ideal 2+ save
+        wound rate (vs T4: wound 50%, save 5/6 → 1/12 ≈ 0.083 W/shot)."""
+        atk = _single_damage_attacker()
+        rubric = _rubric_marine(faction="Thousand Sons")
+        rate = _wound_rate(atk, rubric, seed=4)
+        # 2+ save floor → ~0.083 W/shot. Loose tolerance for seed noise and
+        # the wound roll being independent from the save roll.
+        self.assertGreater(rate, 0.05,
+                           f"All Is Dust floored too low: {rate:.4f}")
+        self.assertLess(rate, 0.13,
+                        f"All Is Dust did not fire: {rate:.4f} "
+                        f"(should be ~0.083 with rule, ~0.167 without)")
+
+
+class RitesOfCoalescenceTests(unittest.TestCase):
+    """Scarab Occult Terminators datasheet ability — -1 to wound on any-D
+    attack while the squad contains a PSYKER. The Aspiring Sorcerer is
+    mandatory so the rule is effectively always-on."""
+
+    def test_d1_attack_into_scarab_occult_is_doubly_buffed(self):
+        """A D1 attack into Scarab Occult fires BOTH Rites of Coalescence
+        (-1 to wound) AND All Is Dust (+1 save vs D1, RUBRICAE-gated). The
+        combined effect should drop damage taken significantly below the
+        non-Scarab baseline."""
+        atk = _single_damage_attacker()
+        scarab = _scarab_occult_terminator()
+        # Stripped control — same body, same save/inv, but no rules fire
+        control = dataclasses.replace(
+            scarab,
+            name="Inert Terminators",
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY", "TERMINATOR"),
+        )
+        rate_scarab = _wound_rate(atk, scarab, seed=10)
+        rate_control = _wound_rate(atk, control, seed=10)
+        self.assertGreater(
+            rate_control, rate_scarab,
+            f"Scarab Occult should take less damage than the control: "
+            f"scarab={rate_scarab:.4f} control={rate_control:.4f}",
+        )
+        # Expect at least a 40% drop (combined Rites + AID effect on a 2+
+        # save vs S4 D1: wound 4+ → 5+, save 2+ → 2+ floored). Loose bounds
+        # because the modifier cap (±1 wound only) clamps Rites + any
+        # attacker +1 to net zero.
+        ratio = rate_scarab / rate_control
+        self.assertLess(
+            ratio, 0.75,
+            f"Combined Rites + AID effect too small: ratio={ratio:.3f}",
+        )
+
+    def test_d2_attack_into_scarab_occult_fires_rites_not_aid(self):
+        """A D2 attack still triggers Rites of Coalescence (-1 to wound)
+        even though All Is Dust does NOT fire (D2 attack). Scarab Occult
+        should still be more durable than a Rites-stripped control."""
+        atk = _multi_damage_attacker()
+        scarab = _scarab_occult_terminator()
+        control = dataclasses.replace(
+            scarab,
+            name="Inert Terminators",
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY", "TERMINATOR"),
+        )
+        rate_scarab = _wound_rate(atk, scarab, seed=11)
+        rate_control = _wound_rate(atk, control, seed=11)
+        # Rites of Coalescence alone (no AID, D2 attack) — S4 vs T5 already
+        # wounds on 5+, Rites pushes it to 6+. Damage drop should be ~50%
+        # (1/6 → 1/6 of base; against 2+/4++ the save half is unchanged).
+        self.assertGreater(
+            rate_control, rate_scarab,
+            f"Rites of Coalescence must reduce D2 damage taken: "
+            f"scarab={rate_scarab:.4f} control={rate_control:.4f}",
+        )
+
+    def test_non_scarab_psyker_squad_does_not_get_rites(self):
+        """A non-Scarab-Occult PSYKER squad (e.g. Rubric Marines) does NOT
+        get Rites of Coalescence — the rule is name-gated to Scarab Occult."""
+        atk = _multi_damage_attacker()  # D2 to bypass All Is Dust
+        rubric = _rubric_marine(faction="Thousand Sons")  # PSYKER + RUBRICAE
+        marine = dataclasses.replace(
+            _rubric_marine(faction="Adeptus Astartes",
+                           keywords=("INFANTRY",)),
+            invuln_save=5,
+            name="Tactical Marine",
+        )
+        rate_rubric = _wound_rate(atk, rubric, seed=12)
+        rate_marine = _wound_rate(atk, marine, seed=12)
+        # Rubric should match the non-TSON control on D2 — Rites must not
+        # fire on a non-Scarab unit even if PSYKER is set.
+        ratio = rate_rubric / rate_marine if rate_marine else 0.0
+        self.assertGreater(
+            ratio, 0.85,
+            f"Rubric must not get Rites: "
+            f"rubric={rate_rubric:.4f} marine={rate_marine:.4f}",
+        )
+        self.assertLess(
+            ratio, 1.15,
+            f"Rubric must not get Rites: "
+            f"rubric={rate_rubric:.4f} marine={rate_marine:.4f}",
+        )
 
 
 if __name__ == "__main__":
