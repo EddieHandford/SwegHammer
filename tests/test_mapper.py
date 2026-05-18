@@ -252,11 +252,16 @@ class SyntheticSquadLoadoutTests(unittest.TestCase):
         # sit strictly between 1.0 and 3.5.
         self.assertGreater(avg.damage, 1.0)
         self.assertLess(avg.damage, 3.5)
-        # Melta keyword union: at least one model carries Melta 2.
-        self.assertEqual(avg.melta, 2)
+        # Melta keyword proportion-weighted: 4 multi-melta (Melta 2) of 10
+        # ranged carriers = 0.4 * 2 = 0.8 → rounds to 1. Pre-#iter20 this
+        # used max(...) = 2, which let a minority weapon set the squad keyword.
+        self.assertEqual(avg.melta, 1)
         # AP is averaged from 0 (boltgun, 6 models) and -4 (multi-melta, 4
         # models). Weighted avg = (6*0 + 4*-4)/10 = -1.6 → rounds to -2.
         self.assertEqual(avg.ap, -2)
+        # Heavy keyword (#iter20): 4/10 weapons have Heavy → 40% < 50%
+        # majority threshold, so squad does NOT inherit the Heavy keyword.
+        self.assertFalse(avg.heavy)
 
     def test_full_map_unit_damage_between_base_and_best(self):
         """The unit-level damage stat sits BETWEEN bolter-only and multi-melta-only."""
@@ -309,8 +314,14 @@ class RealBSDataSquadRegressionTests(unittest.TestCase):
         # (damage ~2.0) and pure-multi-melta cheese (damage ~7).
         self.assertGreater(u["damage"], 2.0)
         self.assertLess(u["damage"], 6.0)
-        # Melta keyword union must pick up the multi-melta carriers.
-        self.assertEqual(u["melta"], 2)
+        # Melta keyword proportion-weighted (#iter20): the real Devastator
+        # squad basket includes boltguns (5), bolt pistols (5+4=9), and
+        # multi-meltas (4) — 4-of-18 weapons carry Melta 2 = 22%, weighted
+        # to round(0.22 * 2) = 0. Pre-#iter20 this was 2 (legacy max(...) —
+        # a minority of weapon carriers set the squad-wide keyword).
+        # AP/strength/loadout assertions below still hold via the per-shot
+        # averaging path; only the boolean-union semantic changed.
+        self.assertEqual(u["melta"], 0)
         # AP averages the bolter (0) with the multi-melta (-4) — should
         # land negative but well above -4.
         self.assertLess(u["ap"], 0)
