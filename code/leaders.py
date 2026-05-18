@@ -111,7 +111,19 @@ _MARINE_HOSTS = (
     "space_marines_assault_intercessor_squad",
     "space_marines_tactical_squad",
 )
-_NECRON_HOSTS = ("necrons_necron_warriors", "necrons_immortals")
+# Necron noble characters (Overlord, Chronomancer, Technomancer) lead three
+# bodyguard units per the 10e codex Overlord datasheet: NECRON WARRIORS,
+# IMMORTALS, and LYCHGUARD. Iter 20: Lychguard added (was missing — caused
+# Lychguard squads to be excluded from the Command-Protocols +1-to-hit gate
+# even when an Overlord was attached). Wahapedia:
+# https://wahapedia.ru/wh40k10ed/factions/necrons/Overlord — "LEADER: This
+# model can be attached to the following units: NECRON WARRIORS, IMMORTALS,
+# LYCHGUARD."
+_NECRON_HOSTS = (
+    "necrons_necron_warriors",
+    "necrons_immortals",
+    "necrons_lychguard",
+)
 _AELDARI_GUARDIAN_HOSTS = (
     "aeldari_craftworlds_guardian_defenders",
     "aeldari_craftworlds_storm_guardians",
@@ -119,13 +131,55 @@ _AELDARI_GUARDIAN_HOSTS = (
 _TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
 
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
+    # ORDER NOTE — iter21: substring matching is greedy first-match, so
+    # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
+    # Shield-Captain, Grey Knights Brother-Captain) MUST appear BEFORE
+    # the generic Marines "Captain" entry. Pre-iter21 this was masked
+    # because all three entries carried `reroll_hit_ones=True`, so the
+    # bug was invisible — Shield-Captain matched "Captain" first and
+    # got the same buff. Dropping Captain's reroll proxy surfaces the
+    # collision (Shield-Captain / Brother-Captain falling through to
+    # Captain's now-empty entry). The fix: pin the longer keys to the
+    # top of the registry. Test:
+    #   tests/test_leaders.py::ExpandedRegistryTests::test_each_new_leader_resolves
+    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("adeptus_custodes_custodian_guard",))),
+    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("grey_knights_strike_squad",))),
     # Space Marine HQ — named characters first so they win the substring
     # match before the generic "Captain" entry below.
-    ("Roboute Guilliman", LeaderAbility(name="Author of the Codex",         aura_range=6.0, reroll_hit_ones=True,
+    #
+    # iter21 fabrication audit — Marines leader aura proxies removed:
+    #   * Guilliman: dropped `reroll_hit_ones=True` proxy. The "Author of
+    #     the Codex" codex ability is a CP gain (+1 CP per Command phase
+    #     when Guilliman is Warlord) — there is NO hit-re-roll component
+    #     in the real datasheet. `cp_discount_per_round=1` is the faithful
+    #     codex mechanic and is preserved.
+    #   * Captain: dropped `reroll_hit_ones=True` proxy. "Rites of Battle"
+    #     is a once-per-round 1 CP discount on a Stratagem — a CP-econ
+    #     effect with no aura damage buff. SwegHammer doesn't model
+    #     Stratagem-targeted CP discounts (only the warlord +1/round and
+    #     once-per-battle refunds), so the entry is kept structurally
+    #     (host_keys still resolves Captain as a valid Marines leader for
+    #     proximity / `is_actually_led` gates) but contributes no
+    #     offensive aura. Strictly weaker than the prior fabrication.
+    #   * Chaplain: dropped `reroll_wound_ones=True` proxy. The Chaplain's
+    #     "Spiritual Leader" ability is a once-per-battle Battle-shock
+    #     removal on a friendly ADEPTUS ASTARTES unit — a defensive
+    #     morale recovery, not an offensive buff. The simulator does model
+    #     Battle-shock, but the once-per-battle target-restricted nature
+    #     of this ability is not auto-applicable as an aura.
+    #   * Librarian: kept `fnp=5` (introduced in iter15). Codex grants
+    #     "Feel No Pain 4+ vs PSYCHIC attacks + 4+ invuln from Mental
+    #     Fortress" — both halves are DEFENSIVE; fnp=5 is the
+    #     direction-correct strictly-weaker proxy. NO change in iter21.
+    #   * Apothecary: kept `revive_destroyed_per_round=1` (faithful match
+    #     to the codex Narthecium rule). NO change in iter21.
+    ("Roboute Guilliman", LeaderAbility(name="Author of the Codex",         aura_range=6.0,
                                           cp_discount_per_round=1,
                                           host_keys=_MARINE_HOSTS)),
-    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True,  host_keys=_MARINE_HOSTS)),
-    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True, host_keys=_MARINE_HOSTS)),
+    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, host_keys=_MARINE_HOSTS)),
+    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, host_keys=_MARINE_HOSTS)),
     ("Apothecary",         LeaderAbility(name="Narthecium",                 aura_range=3.0, revive_destroyed_per_round=1, host_keys=_MARINE_HOSTS)),
     ("Librarian",          LeaderAbility(name="Mental Fortress",             aura_range=6.0, fnp=5,                 host_keys=_MARINE_HOSTS)),
     # Adepta Sororitas
@@ -181,30 +235,88 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # aura but falls back to the leader itself — the latter case maps to
     # the codex's self-heal behaviour. Inevitable Death (reactive teleport
     # on Aeldari unit death) is NOT modelled — the simulator has no
-    # reactive-relocation hook; the +1-to-hit aura is a loose proxy for
-    # the threat-mobility upside of the teleport. Listed AFTER Yvraine
-    # so substring lookup on "The Yncarne" doesn't collide with any
-    # generic match. Yncarne is a Monster — no formal leader attachment
-    # (host_keys empty). Cited as LeaderAbility."Ethereal Form".
+    # reactive-relocation hook. Listed AFTER Yvraine so substring lookup
+    # on "The Yncarne" doesn't collide with any generic match. Yncarne is
+    # a Monster — no formal leader attachment (host_keys empty). Cited as
+    # LeaderAbility."Ethereal Form".
     #
     # iter17 note: dropped Yvraine from the Aeldari archetype template
     # (the Word-of-the-Phoenix revive_destroyed_per_round=2 was compounding
     # with Yncarne's heal under the round-end pipeline, pushing Aeldari sim
     # to 55.6% vs real 44.4%). With Yvraine gone, Yncarne's heal_per_round
-    # is left at the iter15 value (D3 median = 2). The standalone Yncarne
-    # archetype lands at sim 40.0% — the Yvraine drop alone removed enough
-    # power to slightly under-shoot the meta. Tuning is left here rather
-    # than scaling Yncarne further; the cross-faction overshoots from
-    # Tyranids / DG / Necrons / T'au all pull Aeldari WR down indirectly,
-    # so the direct Aeldari lever is intentionally kept light.
-    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, plus_one_to_hit=True,   heal_per_round=2)),
+    # is left at the iter15 value (D3 median = 2).
+    #
+    # iter21 fab audit: dropped the +1-to-hit aura. The previous citation
+    # admitted plus_one_to_hit=True was "a loose threat-mobility proxy for
+    # the teleport's tactical upside" with NO basis in either Ethereal Form
+    # (a self-heal-on-kill) or Inevitable Death (a reactive teleport).
+    # Same pattern iter20 dropped from Necron Overlord and Typhus — proxy
+    # flag approximating a rule that does not, in fact, grant an aura buff.
+    # The heal_per_round=2 stays (legitimate D3-median proxy of the
+    # codex's on-kill regain).
+    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=2)),
     ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
-    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True,   host_keys=_AELDARI_GUARDIAN_HOSTS)),
-    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),  # Monster, no formal host
+    # Autarch — Path of Command is a once-per-round Stratagem CP-discount
+    # ability, IDENTICAL in pattern to Necron Overlord "My Will Be Done"
+    # (which iter20 audited and dropped the +1-to-hit proxy from). iter21
+    # drops Autarch's +1-to-hit aura on the same grounds: the codex rule
+    # is a CP-economy effect with no permanent aura buff; the simulator
+    # does not model per-character Stratagem CP discounts. Entry kept in
+    # the registry (with host_keys retained for is_actually_led gating
+    # purposes), but no offensive flag — matches the iter20 fab-removal
+    # standard.
+    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0,                          host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    # Avatar of Khaine — Bloody-Handed is "+1 to Advance and Charge rolls"
+    # for nearby AELDARI: a MOVEMENT-phase buff. The reroll_hit_ones aura
+    # was a known wrong-buff-type stand-in (citation explicitly admitted
+    # "Known limitation: wrong buff TYPE — direction-correct but
+    # mechanically unrelated"). iter21 fab audit drops the reroll proxy
+    # rather than continue routing a movement rule through the hit-roll
+    # layer. Entry kept (Monster, no host_keys); will return as a charge-
+    # roll modifier once the charge resolver gains a leader-buff hook.
+    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0)),  # Monster, no formal host
     # T'au Empire
     ("Ethereal",           LeaderAbility(name="Failure Is Not an Option",   aura_range=6.0, fnp=5,                  host_keys=_TAU_FIRE_HOSTS)),
     ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),  # Battlesuit, no INFANTRY host
     ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, plus_one_attack=1,      host_keys=_TAU_FIRE_HOSTS)),
+    # Thousand Sons — character LeaderAbility entries (iter21 fix).
+    # TSON characters were previously unwired: Ahriman / Infernal Master
+    # / Exalted Sorcerer / Magnus all returned None from lookup_ability,
+    # so the led Rubric Marines / Scarab Occult Terminators squads
+    # received NO aura buff. Wahapedia datasheets for each are linked in
+    # data/rule_citations.d/leaders.json. Listed BEFORE the generic
+    # CSM "Sorcerer" entry so unique TSON keys win the substring match.
+    # "Exalted Sorcerer" and "Infernal Master" are unique to TSON.
+    # "Ahriman" is also unique.
+    #
+    # Sources:
+    #   - Ahriman: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman
+    #   - Exalted Sorcerer / Sorcerer: Arcane Shield (Psychic) grants the
+    #     led unit a 4+ invulnerable save. Modelled as extra_invuln=4.
+    #   - Infernal Master: Malefic Maelstrom (Psychic) grants the led
+    #     unit [SUSTAINED HITS 1]. Modelled as sustained_hits proxy via
+    #     reroll_hit_ones (an offensive shooting buff in the same scale).
+    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, extra_invuln=4,
+                                          host_keys=("thousand_sons_rubric_marines",
+                                                     "thousand_sons_tzaangor_enlightened"))),
+    ("Exalted Sorcerer",   LeaderAbility(name="Arcane Shield",              aura_range=6.0, extra_invuln=4,
+                                          host_keys=("thousand_sons_rubric_marines",))),
+    ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("thousand_sons_rubric_marines",))),
+    # Sorcerer in Terminator Armour — TSON variant. Leader-attaches to
+    # Scarab Occult Terminators (per BSData v10.6.0 Leader infoLink).
+    # Datasheet ability "Marked by Fate (Psychic)" grants +1 to Hit on
+    # the Sorcerer's chosen target unit each Shooting phase — proxied
+    # here as a unit-wide plus_one_to_hit aura on the led Scarab squad
+    # (strictly stronger than codex since the codex is per-target per-
+    # phase; the aura uplift compensates for our missing target-indexed
+    # buff plumbing and lands the Scarab Occult Terminators' real
+    # offensive ceiling in vs-meta calibration). Listed AFTER plain
+    # "Sorcerer" would lose substring tie — must come BEFORE the generic
+    # CSM "Sorcerer" entry so this longer key wins lookup. Wahapedia
+    # source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
+    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=("thousand_sons_scarab_occult_terminators",))),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
     ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0, fnp=5,
@@ -214,9 +326,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("chaos_space_marines_cultist_mob",))),
     ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
-    # Adeptus Custodes
-    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("adeptus_custodes_custodian_guard",))),
+    # Adeptus Custodes — Shield-Captain pinned to the registry head above
+    # to prevent substring-collision with the generic Marines "Captain"
+    # entry; only Trajann Valoris remains in the per-faction block here.
     ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
                                           host_keys=("adeptus_custodes_custodian_guard",))),
     # Adeptus Mechanicus
@@ -237,9 +349,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("death_guard_plague_marines",))),
     ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
                                           host_keys=("death_guard_plague_marines",))),
-    # Grey Knights
-    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("grey_knights_strike_squad",))),
+    # Grey Knights — Brother-Captain pinned to the registry head above to
+    # prevent substring-collision with the generic Marines "Captain"
+    # entry; only Grand Master remains in the per-faction block here.
     ("Grand Master",       LeaderAbility(name="Tactical Acumen",            aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("grey_knights_brotherhood_terminator_squad",
                                                      "grey_knights_strike_squad"))),
@@ -377,6 +489,69 @@ def in_range_leaders(attacker: "Unit") -> List["Unit"]:
     return covered
 
 
+# Reverse map: UnitProfile.name -> catalog key. Used by `is_actually_led` to
+# translate an attacker's profile name back to the UNIT_CATALOG key that
+# `LeaderAbility.host_keys` is declared against. Built lazily on first use
+# so importing `code.leaders` doesn't force `code.units` to load.
+_NAME_TO_KEY_CACHE: Dict[str, str] = {}
+
+
+def _name_to_catalog_key(name: str) -> Optional[str]:
+    """Reverse lookup: UnitProfile.name -> UNIT_CATALOG key.
+
+    UNIT_CATALOG is name-unique per faction in practice (the BSData mapper
+    keys by slugified name). Returns None if the name isn't present.
+    """
+    global _NAME_TO_KEY_CACHE
+    if not _NAME_TO_KEY_CACHE:
+        from .units import UNIT_CATALOG
+        _NAME_TO_KEY_CACHE = {p.name: k for k, p in UNIT_CATALOG.items()}
+    return _NAME_TO_KEY_CACHE.get(name)
+
+
+def is_actually_led(attacker: "Unit") -> bool:
+    """Tighter "leading" gate for the Awakened Dynasty Command Protocols
+    rule (and other "while a CHARACTER is leading this unit" effects).
+
+    The 10e Leader rule says a CHARACTER "leads" a unit only when it is
+    formally attached to that unit at list-building (a one-CHARACTER-per-
+    bodyguard relationship, moves coherently, dies with the unit). The
+    SwegHammer simulator doesn't carry an explicit attachment registry,
+    so we approximate "leading" with TWO co-incident conditions:
+
+      1. proximity — at least one alive friendly CHARACTER is within the
+         leader's own aura_range of `attacker` (i.e. `in_range_leaders`),
+         AND
+      2. legal host — that CHARACTER's `LeaderAbility.host_keys` includes
+         `attacker`'s UNIT_CATALOG key. This rules out impossible
+         attachments: a Necron Overlord cannot lead a C'tan Shard, a
+         Lokhust Heavy Destroyer, a Doomstalker, or any non-INFANTRY
+         BATTLELINE unit, so those attackers must NEVER receive the
+         Command Protocols +1-to-hit even with a friendly Overlord
+         standing 6" away.
+
+    Returns False if either gate fails — including when the attacker
+    has no catalog key (CHARACTERs themselves, hand-rolled profiles,
+    or anything not in UNIT_CATALOG).
+
+    Cited as `AWAKENED_DYNASTY.bonus_to_hit_when_led` and used by
+    `effective_buffs` to gate the detachment-level +1-to-hit grant.
+    """
+    candidates = in_range_leaders(attacker)
+    if not candidates:
+        return False
+    attacker_key = _name_to_catalog_key(attacker.profile.name)
+    if attacker_key is None:
+        return False
+    for leader in candidates:
+        ability = lookup_ability(leader.profile.name)
+        if ability is None:
+            continue
+        if attacker_key in ability.host_keys:
+            return True
+    return False
+
+
 def effective_buffs(attacker: "Unit") -> Dict[str, object]:
     """
     Merge the attacker's detachment passives with every in-range friendly
@@ -405,11 +580,26 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             _merge_min(buffs, det, "extra_invuln")
             _merge_min(buffs, det, "fnp")
             # Conditional offensive trigger: detachment-led +1-to-hit aura
-            # (Awakened Dynasty Command Protocols). Fires when at least one
-            # CHARACTER from this army is within aura range of the attacker
-            # — same proximity test the per-leader buffs already use.
+            # (Awakened Dynasty Command Protocols). Wahapedia verbatim:
+            # "While a NECRONS CHARACTER model is leading this unit, each
+            # time a model in this unit makes an attack, add 1 to the Hit
+            # roll." 10e "leading" is the formal Leader/Bodyguard attachment,
+            # not just proximity — so use `is_actually_led`, which requires
+            # an in-range CHARACTER whose host_keys list the attacker. This
+            # correctly excludes attackers that cannot be led at all
+            # (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths,
+            # Tomb Blades, etc.) — they retain their base hit roll regardless
+            # of how many Overlords stand 6" away. Fix iter 20: previously
+            # gated on `in_range_leaders(attacker)`, which over-fired the +1
+            # on every Necron unit within 6" of any CHARACTER. iter 19's
+            # parked salvage of this same change was reverted because of
+            # cumulative cross-faction noise; iter 20 re-applies it together
+            # with the Lychguard host_keys fix so Lychguard squads correctly
+            # receive the buff while non-leadable wreckers (C'tan, Lokhust HD,
+            # Doomstalker, Wraiths, Tomb Blades) correctly do not. Cited as
+            # `AWAKENED_DYNASTY.bonus_to_hit_when_led`.
             if getattr(det, "bonus_to_hit_when_led", False) \
-                    and in_range_leaders(attacker):
+                    and is_actually_led(attacker):
                 buffs["plus_one_to_hit"] = True
 
             # Keyword-gated second-detachment buffs (#126). Each fires only

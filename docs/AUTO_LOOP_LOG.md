@@ -695,3 +695,68 @@ Loop trajectory under `--use-archetype` 2000pt:
 - iter 18: parked at 14.04
 - iter 19: parked at 13.43
 - Target: <2.0
+
+## Branch pivot — claude/sim-calibration (2026-05-18)
+
+PR #20 opened from `claude/auto-loop-carryover` to main. Started new branch `claude/sim-calibration` for simulator-correctness work past the archetype-template ceiling. User directive saved as memory feedback (`feedback-mae-floor-before-mc`): MUST drive MAE low via sim-correctness + faction-neutral AI improvements BEFORE pivoting to MC bisection.
+
+### Iter 20 (2026-05-18) — correctness sweep
+
+5 agents on real-bug correctness fixes. 3 commits cherry-picked, 1 still pending (DG audit), 1 already known to be empty (Crisis 4++ — covered by `7e3e8e2`).
+
+**Cherry-picks on `claude/sim-calibration`**:
+- `7e3e8e2` — Crisis Fireknife/Starscythe + 6 other variant 4++ overrides (BSData v10.6.0 omits Invulnerable-Save infoLinks on variant CHARACTER/TERMINATOR entries; long-tail mapper gap)
+- `5cbf7e2` — Necrons Awakened Dynasty leading-gate tightening (`bonus_to_hit_when_led` now requires formal Bodyguard attachment via host_keys + added Lychguard to Overlord's bodyguard list)
+- `1c0c1ce` — Mapper `weighted_basket_average` keyword-by-proportion rewrite (majority-threshold >50% basket weight for booleans + Anti-X proportion-thresholded; parsed.json 1155-line regen) + Magnus PSYKER deadly_demise wiring (eval-neutral since Magnus seeded into 0/40 archetype lists at 2000pt)
+
+**Cumulative iter 20**: MAE **12.96 → 13.73pt** (Δ **+0.77 regression**). Per user iter 20 directive (correctness > MAE), KEPT.
+
+**Per-faction shifts**:
+- Marines **+24.8 → +20.3** (−4.5 ✅ — mapper fix removed phantom Heavy/Melta/Lethal Hits on Marines weapons)
+- Necrons +12.9 → +17.6 (+4.7 ❌ — Overlord per-leader `My Will Be Done` plus_one_to_hit fab still firing; iter 21 target)
+- Aeldari −2.7 → −6.9 (cross-faction regress)
+- Tyranids −15.5 → −17.7
+- Orks +3.2 → +4.8
+- T'au **+14.1 → +11.1** (−3.0 ✅ — Crisis 4++ didn't push them further over)
+- DG +24.5 → +23.7 (−0.8)
+- Custodes −1.9 → −3.8
+- TSON −22.9 → −24.6 (slight; Magnus wiring no-op until template change lands)
+- Votann +7.1 → +6.8
+
+**Iter 21 priorities (locked in)**:
+1. Remove `plus_one_to_hit=True` fab from Necron Overlord/Chronomancer/Technomancer LeaderAbilities (already flagged as approximation in `data/rule_citations.d/leaders.json` per iter 11 fabrication audit, but never removed). Should close most of Necrons +4.7 regression.
+2. DG combat model audit re-dispatch (iter 20 agent terminated empty).
+3. Magnus simulator under-performance investigation — why does 16W T11 4++ MONSTER PSYKER under-deliver his 435pt sticker?
+4. Faction-neutral AI improvements (per standing user directive after correctness): leader-aura utilisation, smarter charge target picker, etc.
+
+### Iter 21 (2026-05-18) — LeaderAbility fabrication audit
+
+6 agents cross-faction sweep. 5 commits landed via cherry-pick + cross-worktree merge; Orks was clean (no fabs).
+
+**Fabrications dropped (all citation-grounded per Wahapedia)**:
+- **Necrons**: Overlord/Trazyn `plus_one_to_hit`, Plasmancer `fnp=5`. Real rules are CP discounts (Strat-econ) and offensive Crit-on-5+ (not modelled). Plus Lychguard added to Overlord bodyguard list (host_keys).
+- **Marines**: Guilliman/Captain `reroll_hit_ones`, Chaplain `reroll_wound_ones`. Real rules are CP-discount/once-per-battle Battleshock-removal. Plus Shield-Captain/Brother-Captain name-collision fix.
+- **Aeldari**: Yncarne `plus_one_to_hit` (proxy for reactive-teleport), Autarch `plus_one_to_hit` (CP-discount, same as Overlord pattern), Avatar `reroll_hit_ones` (real rule is +1 Advance/Charge — movement phase).
+- **TSON**: ADDED 4 NEW LeaderAbilities (Ahriman, Exalted Sorcerer, Infernal Master, Sorcerer in TA) — TSON was UNDER-modelling (LeaderAbility lookup returned None). Plus Magnus "Impossible Form" (−1 to incoming Damage), Ahriman +1 Cabal Psychic test. TSON 30% → 36.1% (+6.1pt).
+- **DG**: Lord of Contagion `plus_one_to_wound` (iter 20 missed), Typhus `fnp=5` (iter 20 partial). host_keys corrected per codex (Blightlord/Deathshroud, not Plague Marines).
+- **Orks**: clean — no fabs.
+
+**Cumulative iter 21 (5 commits + cross-worktree merges)**: MAE **13.73 → 13.43pt** (Δ **−0.30**). Tests 776/776, Rule citations 221/221.
+
+**Per-faction shifts (post-iter-20 → post-iter-21)**:
+- Marines +20.3 → +19.5
+- Necrons **+17.6 → +14.3** (−3.3 ✅ — Overlord fab removed)
+- Aeldari −6.9 → −6.6
+- Tyranids −17.7 → −18.6
+- Orks +4.8 → +5.1
+- T'au +11.1 → +11.3
+- DG +23.7 → +23.9
+- Custodes −3.8 → −3.8
+- TSON −24.6 → −24.3
+- Votann +6.8 → +6.8
+
+## Loop pause — PR + Ed's main rebase (2026-05-18)
+
+User directive: wrap up after iter 21, merge progress, pick up Ed's point-cost reference fixes from main before continuing iter 22+ (aura host_keys gating, variant invuln sweep, Magnus diag, AI improvements).
+
+Iter 22-26 plan documented above remains valid for the next loop session.

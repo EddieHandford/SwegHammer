@@ -204,6 +204,25 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.ritual_temporal_surge",
     "simulator.ritual_destinys_ruin",
     "simulator.ritual_twist_of_fate",
+    # Thousand Sons EPIC HERO Magnus the Red datasheet ability (10e).
+    # "Lord of the Planet of the Sorcerers (Psychic)" — Magnus attempts
+    # up to 2 Rituals per turn (vs 1 for every other PSYKER) and adds +2
+    # to each of his 2D6 Psychic test results. Wired in
+    # `_run_cabal_rituals` + `_cabal_attempt_ritual`. Cited in
+    # data/rule_citations.d/thousand_sons.json. iter20 fix to close the
+    # iter18/19 Magnus-under-performer gap.
+    "simulator.magnus_lord_of_the_planet",
+    # Thousand Sons EPIC HERO Magnus the Red datasheet ability (10e).
+    # "Unearthly Power" — picks one of three Crimson King abilities per
+    # round. Default-pick Impossible Form (-1 to incoming Damage,
+    # excluding Psychic Attacks). Wired in `_run_round` after
+    # `_run_cabal_rituals`. iter21 fix.
+    "simulator.magnus_unearthly_power_impossible_form",
+    # Thousand Sons EPIC HERO Ahriman datasheet ability (10e).
+    # "Arch-Sorcerer of Tzeentch (Psychic)" — +1 to each Cabal of
+    # Sorcerers Ritual Psychic test result. Wired in `_run_cabal_rituals`
+    # alongside Magnus's +2/2-attempt logic. iter21 fix.
+    "simulator.ahriman_arch_sorcerer",
     # Genestealer Cults army rule (10e). Cult Ambush — at the start of the
     # first battle round, any number of GSC units can be set up anywhere on
     # the battlefield > 9" from enemy models. Modelled as an army-wide

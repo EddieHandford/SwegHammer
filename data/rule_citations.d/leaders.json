@@ -5,8 +5,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",
     "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by a Space Marines Captain in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Rites of Battle is a once-per-round CP discount on a Stratagem, which the simulator does not model — the always-on reroll-1s is a loose offensive-aura proxy)",
+    "trigger": "Space Marines Captain is alive and a friendly unit is targeted with a Stratagem (once per battle round)",
+    "effect": "NO IMPLEMENTATION. iter21 fabrication audit dropped the prior `reroll_hit_ones=True` offensive proxy — the real Rites of Battle is a Stratagem CP discount, not a damage-side aura. SwegHammer does not currently model per-Stratagem-spend CP discounts (only the Warlord-trait `cp_discount_per_round` army-wide drip and the once-per-battle `cp_refund_per_battle` pool). The LeaderAbility entry remains in the registry so `host_keys` still resolves Captain as a valid Marines leader for proximity / `is_actually_led` gates, but contributes no buff flags. Strictly weaker than the prior fabrication (no damage uplift on Captain-led units).",
     "scope": "unit-led"
   },
 
@@ -14,8 +14,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Chaplain",
     "rule_name": "Spiritual Leader",
     "quoted_text": "Once per battle, at the start of any phase, you can select one friendly ADEPTUS ASTARTES unit that is Battle-shocked and within 12\" of this model. That unit is no longer Battle-shocked.",
-    "trigger": "attacker's unit is led by a Chaplain in aura range",
-    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Spiritual Leader removes Battle-shocked once per battle, which the simulator does not model — the always-on reroll-1s-to-wound is a flavour proxy for the Chaplain's litany-style offensive buff)",
+    "trigger": "Chaplain is alive and a friendly ADEPTUS ASTARTES unit within 12\" is Battle-shocked (once per battle)",
+    "effect": "NO IMPLEMENTATION. iter21 fabrication audit dropped the prior `reroll_wound_ones=True` offensive proxy — the real Spiritual Leader is a once-per-battle Battle-shock removal on a friendly ADEPTUS ASTARTES unit, NOT a damage-side aura. The simulator does model Battle-shock (Battle._run_battleshock_phase), but the once-per-battle target-restricted nature of this ability is not currently wired as an auto-applicable leader effect. The LeaderAbility entry remains in the registry so `host_keys` still resolves Chaplain as a valid Marines leader for proximity / `is_actually_led` gates, but contributes no buff flags. Strictly weaker than the prior fabrication (no damage uplift on Chaplain-led units).",
     "scope": "unit-led"
   },
 
@@ -113,8 +113,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne",
     "rule_name": "Ethereal Form + Inevitable Death",
     "quoted_text": "Ethereal Form: Each time this model destroys an enemy unit it regains up to D3 lost wounds. Inevitable Death: Once in each of your opponent's turns, if this model is on the battlefield when another friendly Aeldari unit is destroyed, just after removing the last model in that unit, you can remove this model from the battlefield and set it up as close as possible to where that destroyed model was destroyed and not within Engagement Range of one or more enemy units.",
-    "trigger": "Yncarne is alive (round-end heal fires via apply_round_end_healing every round; +1-to-hit aura applies to nearby Aeldari friendlies via the standard in_range_leaders proximity check)",
-    "effect": "(approximation) +1 to Hit in aura range AND heal 2 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). Approximates Ethereal Form's on-kill D3 heal as a steady 2/round end (D3 median = 2). Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths; the +1-to-hit aura is a loose threat-mobility proxy for the teleport's tactical upside (Yncarne being everywhere it needs to be).",
+    "trigger": "Yncarne is alive (round-end heal fires via apply_round_end_healing every round)",
+    "effect": "(approximation) heal 2 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). Approximates Ethereal Form's on-kill D3 heal as a steady 2/round end (D3 median = 2). Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths. iter21 fab audit dropped the prior plus_one_to_hit=True flag, which was admitted in the iter15-17 citation as 'a loose threat-mobility proxy for the teleport's tactical upside' with no basis in either Ethereal Form or Inevitable Death — same pattern iter20 dropped from Necron Overlord 'My Will Be Done' and Typhus 'Destroyer Hive'.",
     "scope": "unit-led"
   },
 
@@ -131,8 +131,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Autarch",
     "rule_name": "Path of Command",
     "quoted_text": "Once per battle round, one model from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that usage of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by an Autarch in aura range",
-    "effect": "+1 to Hit in aura range (approximation; the real Path of Command is a once-per-round Stratagem CP discount, which the simulator does not model — the +1-to-hit aura is a flavour proxy for the Autarch as offensive battlefield commander)",
+    "trigger": "Autarch is alive and the army uses a Stratagem targeting its unit (NOT modelled — the simulator has no per-character Stratagem CP-discount hook)",
+    "effect": "No buff. iter21 fab audit: Path of Command is IDENTICAL in pattern to Necron Overlord 'My Will Be Done' (which iter20 audited and dropped the +1-to-hit proxy from). Both rules are once-per-round Stratagem CP discounts — neither carries an offensive aura. The previous citation's '+1 to Hit in aura range' was an invented proxy with no codex support. Registry entry retained (with host_keys for is_actually_led gating purposes) but with no offensive flag. Will return as a CP-discount Warlord ability once per-character one-Stratagem-per-round discounts are added (parallel to the cp_discount_per_round / cp_refund_per_battle Warlord mechanics).",
     "scope": "unit-led"
   },
 
@@ -140,8 +140,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Avatar-of-Khaine",
     "rule_name": "The Bloody-Handed",
     "quoted_text": "While a friendly AELDARI unit is within 6\" of this model, add 1 to Advance and Charge rolls made for that unit.",
-    "trigger": "any friendly Aeldari unit is within 6\" of the Avatar of Khaine (Monster, no formal leader attachment)",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the codex grants +1 to Advance and Charge rolls — a movement-phase buff. SwegHammer's Charge resolution is 2D6 vs distance with no leader-modifier hook, and Advance is not modelled. Adding a +1-to-charge mechanic is deferred until charge resolution is rewritten to consume leader buffs; until then, reroll-1s-to-hit stands in as a loose offensive proxy for the Avatar's aggressive aura. Known limitation: wrong buff TYPE — direction-correct but mechanically unrelated.)",
+    "trigger": "any friendly Aeldari unit is within 6\" of the Avatar of Khaine (Monster, no formal leader attachment) — NOT modelled (movement-phase buff with no leader-modifier hook in charge / advance resolution)",
+    "effect": "No buff. iter21 fab audit: the previous reroll_hit_ones=True aura was a known wrong-buff-type proxy — the codex grants +1 to Advance and Charge rolls (a movement-phase buff), not a Hit-roll modifier. The previous citation explicitly admitted 'Known limitation: wrong buff TYPE — direction-correct but mechanically unrelated.' iter21 drops the proxy on the same standard iter20 applied to Typhus's wrong-direction FNP and Necron Overlord's invented +1-to-hit. Registry entry kept (Monster, no host_keys); will return as a charge / advance roll modifier once the charge resolver gains a leader-buff hook.",
     "scope": "unit-led"
   },
 
@@ -169,6 +169,42 @@
     "quoted_text": "While this model is leading a unit, add 1 to the Attacks characteristic of ranged weapons equipped by models in that unit.",
     "trigger": "attacker's unit is led by a Cadre Fireblade in aura range",
     "effect": "+1 to the Attacks characteristic in aura range, implemented via the leader-aura plus_one_attack field (additively merged with detachment plus_one_attack in Unit.attack's n_attacks computation). The codex limits this to ranged weapons; SwegHammer's leader buff layer does not yet distinguish melee from ranged attacks, so the implementation grants +1 attack to all weapons of in-aura units. Strictly stronger than the codex's ranged-only effect by the melee-attack share — known overshoot but direction-correct.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Arch-Sorcerer of Tzeentch": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman",
+    "rule_name": "Master of the Rubricae (Psychic) / Arcane Shield-equivalent led-unit buff",
+    "quoted_text": "While a friendly Rubric Marines or Scarab Occult Terminators unit contains this model, each time a Psychic Attack made by a model in that unit targets an enemy unit, you can re-roll the Hit roll.",
+    "trigger": "defender's unit is led by Ahriman in aura range (proximity-gated)",
+    "effect": "4+ invulnerable save aura on Ahriman's led unit (approximation). The real Master of the Rubricae grants a Psychic-attack hit re-roll on the led unit's attacks. SwegHammer does not tag attacks as Psychic vs non-Psychic, so the offensive half is not faithfully wirable; the LeaderAbility instead proxies Ahriman as a durability aura (extra_invuln=4) — direction-correct for a 100pt EPIC HERO PSYKER who in real play makes his Rubric squad more survivable through a mix of his presence and the wider TSON psychic toolkit. iter21 adds this entry to fix TSON sim 30% vs real 54.6% (-24.6pt); previously Ahriman had no leader ability (lookup_ability returned None) and his led Rubric/Tzaangor unit received zero aura.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Arcane Shield": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer",
+    "rule_name": "Arcane Shield (Psychic)",
+    "quoted_text": "While this model is leading a unit, models in that unit have a 4+ invulnerable save.",
+    "trigger": "defender's unit is led by a Thousand Sons Exalted Sorcerer (or substring match on 'Exalted Sorcerer') in aura range (proximity-gated)",
+    "effect": "Grant the led unit a 4+ invulnerable save in aura range, wired via the LeaderAbility.extra_invuln=4 layer in effective_buffs. Faithful match to the codex effect — the only approximation is the proximity gate substitution for the formal 10e Leader/Bodyguard attachment (SwegHammer has no attachment registry, so 'leading' is approximated as 'in aura range AND host_keys list the attacker's UNIT_CATALOG key'). host_keys = (thousand_sons_rubric_marines,) covers the codex-legal attachment for the Exalted Sorcerer datasheet. Note: the BSData Sorcerer datasheet also carries Arcane Shield, but the generic 'Sorcerer' substring matches CSM/EmperorChildren/Daemon Sorcerers too — we only wire Exalted Sorcerer (unique TSON name) and Ahriman (also unique) cleanly. Foot 'Sorcerer' continues to resolve to the generic CSM 'Prescience' entry (FNP 5 defensive proxy) — TSON's foot Sorcerer is therefore slightly undermodelled but the bigger Arcane Shield 4+ invuln win is captured on Ahriman + Exalted Sorcerer. iter21 — TSON-leaders fab audit fix.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Malefic Maelstrom": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Infernal-Master",
+    "rule_name": "Malefic Maelstrom (Psychic)",
+    "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "attacker's unit is led by an Infernal Master in aura range",
+    "effect": "(approximation) re-roll Hit rolls of 1 on the led unit's weapons. The real Malefic Maelstrom grants [SUSTAINED HITS 1] — each unmodified Hit roll of 6 generates one additional automatic Hit. SwegHammer's leader-aura layer does not expose a per-aura sustained-hits flag at the time of writing (the sustained_hits field lives on UnitProfile, not LeaderAbility), so we proxy with reroll_hit_ones — a similar small offensive uplift. Direction-correct (offensive shooting buff on the led unit). host_keys = (thousand_sons_rubric_marines,) per the codex legal attachment. iter21 — adds the Infernal Master to the leader registry; previously lookup_ability('Infernal Master') returned None and his led Rubric squad received zero aura.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Marked by Fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour",
+    "rule_name": "Marked by Fate (Psychic)",
+    "quoted_text": "At the start of your Shooting phase, select one enemy unit that is visible to this Psyker model. Until the end of the phase, each time a model in this unit makes an attack that targets that enemy unit, add 1 to the Hit roll.",
+    "trigger": "attacker's unit is led by a Sorcerer in Terminator Armour in aura range; codex applies +1 to Hit only against the marked enemy unit, simulator applies +1 to Hit unit-wide as a target-indexed-flag approximation",
+    "effect": "(approximation) unit-wide +1 to Hit on the Sorcerer-in-Terminator-Armour's led squad (Scarab Occult Terminators per BSData host infoLink). APPROXIMATION: the codex Mark-by-Fate effect is target-indexed and per-Shooting-phase; SwegHammer's leader-aura layer does not expose per-target hit-modifier plumbing, so the buff goes unit-wide each round. Direction-correct (offensive shooting buff scaling with the led-unit's volume of fire). host_keys = (thousand_sons_scarab_occult_terminators,) per the BSData Leader infoLink — Scarab Occult Terminators is the codex-legal attachment. iter21 — adds the Sorcerer in Terminator Armour to the leader registry as a TSON-specific entry. Without this, the substring 'Sorcerer' would match the generic CSM Prescience entry (FNP 5 defensive proxy) which is direction-wrong for the TSON datasheet's offensive Marked by Fate.",
     "scope": "unit-led"
   },
 

@@ -272,6 +272,34 @@
         "MARKERLIGHT"
       ],
       "notes": "iter16: add MARKERLIGHT keyword. 10e Sky Ray Gunship datasheet keyword line is VEHICLE, FLY, MARKERLIGHT, SKY RAY GUNSHIP. The gunship is the army flying-Markerlight platform (carries Networked Markerlights). BSData encodes Markerlight on the weapon row only. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Sky-Ray-Gunship.html (keyword line)."
+    },
+    "t_au_empire_crisis_fireknife_battlesuits": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. BSData v10.6.0 only encodes the Invulnerable-Save infoLink on the Sunforge entry; Fireknife/Starscythe sibling entries miss the infoLink. Per Wahapedia all three Crisis variants share the gear. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
+    },
+    "t_au_empire_crisis_starscythe_battlesuits": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. Companion fix to Fireknife. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
+    },
+    "t_au_empire_commander_in_enforcer_battlesuit": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. Tau Commanders all carry the Battlesuit Shield Generator; BSData v10.6.0 does not encode the Invulnerable-Save infoLink on the Commander selectionEntry. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Commander-in-Enforcer-Battlesuit"
+    },
+    "t_au_empire_commander_in_coldstar_battlesuit": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Battlesuit Shield Generator. Same gear as Enforcer Commander. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Commander-in-Coldstar-Battlesuit"
+    },
+    "death_guard_deathshroud_terminators": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Cataphractii-pattern Terminator armour. BSData v10.6.0 omits the Invulnerable-Save infoLink on this entry. Broader pattern affects every Chaos Terminator squad. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Deathshroud-Terminators"
+    },
+    "death_guard_blightlord_terminators": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Cataphractii-pattern Terminator armour. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators"
+    },
+    "necrons_lychguard": {
+      "invuln_save": 4,
+      "notes": "iter20 variant-invuln mapper-gap: 4++ Dispersion Shield. BSData v10.6.0 omits the Invulnerable-Save infoLink on the Lychguard entry. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Lychguard"
     }
   }
 }

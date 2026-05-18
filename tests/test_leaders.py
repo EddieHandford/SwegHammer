@@ -29,12 +29,31 @@ def _grunt_profile(name: str = "Grunt") -> UnitProfile:
 
 
 def _captain_profile() -> UnitProfile:
-    """Carries the 'Captain' substring → matches the Captain registry entry."""
+    """Carries the 'Captain' substring → matches the Captain registry entry.
+
+    iter21 note: Captain's LeaderAbility no longer carries an offensive
+    aura proxy — Rites of Battle is a Strat-CP discount, not a re-roll.
+    Tests that historically relied on Captain to trigger an aura now use
+    the Warboss profile (real +1-to-hit codex aura) instead.
+    """
     return UnitProfile(
         name="Captain",
         health=4, damage=2, hit_probability=2 / 3,
         ap=-1, save=3, strength=4, toughness=4,
         attacks=2, weapon_damage_per_shot=1.0,
+        unit_keywords=("INFANTRY", "CHARACTER"),
+    )
+
+
+def _warboss_profile() -> UnitProfile:
+    """Carries the 'Warboss' substring → +1-to-hit aura (Might is Right).
+    Used by tests that need an actually-buffing leader after the iter21
+    Marines fab audit pruned Captain/Chaplain's proxy aura flags.
+    """
+    return UnitProfile(
+        name="Warboss",
+        health=6, damage=2, hit_probability=2 / 3,
+        ap=-1, save=4, strength=7, toughness=6,
         unit_keywords=("INFANTRY", "CHARACTER"),
     )
 
@@ -76,21 +95,32 @@ class RegistryLookupTests(unittest.TestCase):
     """Substring matching against the leader registry."""
 
     def test_captain_exact(self):
+        # iter21 fabrication audit — Captain's "Rites of Battle" is a
+        # once-per-round 1 CP discount on a Stratagem, NOT a hit-re-roll
+        # aura. The entry remains in the registry (so host_keys still
+        # resolves Captain for proximity / `is_actually_led` gates), but
+        # the offensive `reroll_hit_ones=True` proxy was dropped. The
+        # entry now contributes no buff flags.
         ab = lookup_ability("Captain")
         self.assertIsNotNone(ab)
-        self.assertTrue(ab.reroll_hit_ones)
+        self.assertFalse(ab.reroll_hit_ones)
         self.assertEqual(ab.aura_range, 6.0)
 
     def test_captain_in_terminator_armour_substring(self):
         # Real BSData name — substring match must hit "Captain".
+        # The variant inherits the iter21 fab-dropped flags.
         ab = lookup_ability("Captain in Terminator Armour")
         self.assertIsNotNone(ab)
-        self.assertTrue(ab.reroll_hit_ones)
+        self.assertFalse(ab.reroll_hit_ones)
 
     def test_chaplain(self):
+        # iter21 fabrication audit — Chaplain's "Spiritual Leader" is a
+        # once-per-battle Battle-shock removal, NOT a re-roll-wound-1s
+        # aura. The entry remains for host_keys / proximity gates but
+        # no longer carries the offensive proxy.
         ab = lookup_ability("Chaplain")
         self.assertIsNotNone(ab)
-        self.assertTrue(ab.reroll_wound_ones)
+        self.assertFalse(ab.reroll_wound_ones)
 
     def test_apothecary(self):
         # 10e Narthecium: revives a destroyed model in the led unit each
@@ -113,11 +143,13 @@ class ExpandedRegistryTests(unittest.TestCase):
     # Each tuple is (profile-name to look up, expected flag attribute).
     # Some entries were flipped to defensive flags as part of the
     # direction-wrong aura sweep — see citations file for codex-real text.
+    # iter21 fab audit removed Autarch (Path of Command is a CP-discount,
+    # not an aura) and Avatar of Khaine (Bloody-Handed is +1 Advance/Charge,
+    # a movement-phase buff). Both registry entries are kept but with no
+    # offensive flags; see AeldariFabricationLockInTests below.
     NEW_LEADERS = (
         # Aeldari
         ("Farseer",                 "reroll_wound_ones"),
-        ("Autarch",                 "plus_one_to_hit"),
-        ("Avatar of Khaine",        "reroll_hit_ones"),
         # T'au — Ethereal Failure Is Not an Option grants FNP 5+ (defensive)
         ("Ethereal",                "fnp"),
         ("Commander in XV85 Enforcer Battlesuit", "plus_one_to_hit"),
@@ -207,48 +239,50 @@ class EffectiveBuffsTests(unittest.TestCase):
         self.assertEqual(buffs["fnp"], 7)
 
     def test_leader_aura_in_range(self):
-        # Captain 5" away from grunt (within 6") -> reroll_hit_ones True.
+        # Warboss 5" away from grunt (within 6") -> +1-to-hit True.
+        # iter21: Captain's proxy aura was dropped, so this test now uses
+        # the Warboss (Might is Right: real +1-to-hit codex aura).
         army = _make_army(
             "Side",
-            [_grunt_profile(), _captain_profile()],
+            [_grunt_profile(), _warboss_profile()],
             [(0.0, 0.0), (5.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
-        self.assertTrue(buffs["reroll_hit_ones"])
+        self.assertTrue(buffs["plus_one_to_hit"])
 
     def test_leader_aura_out_of_range(self):
-        # Captain 12" away from grunt (outside 6") -> NO reroll.
+        # Warboss 12" away from grunt (outside 6") -> NO aura.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _captain_profile()],
+            [_grunt_profile(), _warboss_profile()],
             [(0.0, 0.0), (12.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
-        self.assertFalse(buffs["reroll_hit_ones"])
+        self.assertFalse(buffs["plus_one_to_hit"])
 
     def test_dead_leader_does_not_buff(self):
-        # Captain in range but dead -> no aura.
+        # Warboss in range but dead -> no aura.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _captain_profile()],
+            [_grunt_profile(), _warboss_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         army.units[1].current_health = 0.0
         buffs = effective_buffs(army.units[0])
-        self.assertFalse(buffs["reroll_hit_ones"])
+        self.assertFalse(buffs["plus_one_to_hit"])
 
     def test_merge_detachment_and_leader(self):
-        # Detachment gives reroll_wound_ones; leader gives reroll_hit_ones.
+        # Detachment gives reroll_wound_ones; Warboss leader gives +1-to-hit.
         # The merged dict should carry BOTH flags.
         det = Detachment(name="Test", faction="X", reroll_wound_ones=True)
         army = _make_army(
             "Side",
-            [_grunt_profile(), _captain_profile()],
+            [_grunt_profile(), _warboss_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         army.detachment = det
         buffs = effective_buffs(army.units[0])
-        self.assertTrue(buffs["reroll_hit_ones"])
+        self.assertTrue(buffs["plus_one_to_hit"])
         self.assertTrue(buffs["reroll_wound_ones"])
 
     def test_in_range_leaders_excludes_self(self):
@@ -317,10 +351,14 @@ class HealTests(unittest.TestCase):
 
 class AuraAttackEffectTests(unittest.TestCase):
 
-    def test_captain_aura_lifts_hits(self):
-        # An attacker on a 4+ hit with reroll-1s averages MORE damage than the
-        # same attacker without the aura. Use enough trials for the gap to
-        # exceed dice noise.
+    def test_warboss_aura_lifts_hits(self):
+        # iter21 fab audit: the legacy Captain-aura damage-lift test was
+        # invalidated by dropping Captain's `reroll_hit_ones=True` proxy
+        # (Rites of Battle is a Strat-CP discount, not an offensive aura).
+        # Use the Ork Warboss, whose +1-to-hit aura IS the codex's "Might
+        # is Right" (verbatim "add 1 to the Hit roll" on melee — direction-
+        # correct offensive buff), to assert the aura wiring still lifts
+        # damage when a real offensive aura is in range.
         random.seed(0)
         n = 600
 
@@ -337,6 +375,13 @@ class AuraAttackEffectTests(unittest.TestCase):
             unit_keywords=("INFANTRY",),
         )
 
+        warboss_p = UnitProfile(
+            name="Warboss",
+            health=6, damage=2, hit_probability=2 / 3,
+            ap=-1, save=4, strength=7, toughness=6,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
         # Without leader
         no_leader_army = _make_army("NoLeader", [atk_p], [(0.0, 0.0)])
         total_no = 0.0
@@ -344,9 +389,9 @@ class AuraAttackEffectTests(unittest.TestCase):
             tgt = Unit(target_p)
             total_no += no_leader_army.units[0].attack(tgt, distance=6.0)
 
-        # With Captain leader 3" away
+        # With Warboss leader 3" away
         leader_army = _make_army(
-            "WithLeader", [atk_p, _captain_profile()],
+            "WithLeader", [atk_p, warboss_p],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         total_with = 0.0
@@ -354,7 +399,7 @@ class AuraAttackEffectTests(unittest.TestCase):
             tgt = Unit(target_p)
             total_with += leader_army.units[0].attack(tgt, distance=6.0)
 
-        # reroll-1s on a 4+ hit lifts hit chance from 3/6 -> ~3.5/6.
+        # +1-to-hit on a 4+ hit lifts hit chance from 3/6 -> 4/6.
         # Margin should be visible at n=600 trials.
         self.assertGreater(total_with, total_no)
 
@@ -479,6 +524,215 @@ class CadreFirebladeAttackTests(unittest.TestCase):
         )
         buffs = effective_buffs(army.units[0])
         self.assertEqual(buffs["plus_one_attack"], 1)
+
+
+class AeldariFabricationLockInTests(unittest.TestCase):
+    """iter21 fab audit lock-ins.
+
+    Three Aeldari registry entries had proxy flags with NO basis in their
+    codex datasheets. Each proxy was dropped:
+
+      * Autarch — Path of Command is a once-per-round Stratagem CP discount
+        (same pattern as Necron Overlord's My Will Be Done, which iter20
+        audited). The previous plus_one_to_hit aura was invented flavour;
+        not a codex effect.
+
+      * Avatar of Khaine — Bloody-Handed grants +1 to Advance and Charge
+        rolls (a movement-phase buff). The previous reroll_hit_ones aura
+        was an admitted wrong-buff-TYPE stand-in; nothing in the codex
+        modifies hit rolls.
+
+      * The Yncarne — Ethereal Form is on-kill D3 wound regain;
+        Inevitable Death is a reactive teleport. The previous
+        plus_one_to_hit aura was an admitted 'loose threat-mobility
+        proxy' with no codex support. heal_per_round=2 is retained as
+        a legitimate D3-median proxy of Ethereal Form.
+
+    These tests lock the absence of those proxies so a regression that
+    re-introduces them fails CI immediately.
+    """
+
+    def _aeldari_profile(self, name: str) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=4, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=3,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
+    def test_autarch_has_no_offensive_aura(self):
+        ab = lookup_ability("Autarch")
+        self.assertIsNotNone(ab, "Autarch entry must remain in the registry")
+        # All offensive flags must be off — Path of Command is a CP-discount.
+        self.assertFalse(ab.plus_one_to_hit, "Autarch plus_one_to_hit is a fab — see iter21 citation")
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertFalse(ab.reroll_wound_ones)
+        self.assertEqual(ab.plus_one_attack, 0)
+        # Defensive flags must also be off
+        self.assertEqual(ab.fnp, 7)
+        self.assertEqual(ab.extra_invuln, 7)
+
+    def test_avatar_of_khaine_has_no_offensive_aura(self):
+        ab = lookup_ability("Avatar of Khaine")
+        self.assertIsNotNone(ab, "Avatar of Khaine entry must remain in the registry")
+        # Bloody-Handed is +1 Advance/Charge — a movement buff, not a hit buff.
+        self.assertFalse(ab.reroll_hit_ones, "Avatar reroll_hit_ones is a wrong-buff-type fab — see iter21 citation")
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_wound_ones)
+        self.assertEqual(ab.plus_one_attack, 0)
+        self.assertEqual(ab.fnp, 7)
+
+    def test_yncarne_has_no_to_hit_aura(self):
+        ab = lookup_ability("The Yncarne")
+        self.assertIsNotNone(ab, "Yncarne entry must remain in the registry")
+        # Ethereal Form is a self-heal; Inevitable Death is a teleport.
+        # Neither grants a hit-roll buff.
+        self.assertFalse(ab.plus_one_to_hit, "Yncarne plus_one_to_hit is a fab — see iter21 citation")
+        # heal_per_round MUST stay (legitimate D3-median proxy of Ethereal Form).
+        self.assertEqual(ab.heal_per_round, 2)
+
+    def test_autarch_aura_grants_nothing_in_range(self):
+        # Build an Aeldari unit + Autarch in range; the merged buff dict
+        # must have ALL flags neutral (the registry entry is now a no-op).
+        autarch_p = self._aeldari_profile("Autarch")
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), autarch_p],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertFalse(buffs["plus_one_to_hit"])
+        self.assertFalse(buffs["reroll_hit_ones"])
+        self.assertFalse(buffs["plus_one_to_wound"])
+        self.assertEqual(buffs["fnp"], 7)
+
+    def test_avatar_aura_grants_nothing_in_range(self):
+        avatar_p = UnitProfile(
+            name="Avatar of Khaine", health=12, damage=4, hit_probability=2 / 3,
+            ap=-3, save=3, strength=10, toughness=10,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), avatar_p],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertFalse(buffs["reroll_hit_ones"])
+        self.assertFalse(buffs["plus_one_to_hit"])
+
+    def test_yncarne_aura_grants_nothing_in_range(self):
+        # Aura should NOT grant plus_one_to_hit. heal_per_round is exercised
+        # by HealTests via Dominus; we just confirm the merged offensive
+        # dict is empty here.
+        yncarne_p = UnitProfile(
+            name="The Yncarne", health=10, damage=4, hit_probability=2 / 3,
+            ap=-3, save=3, strength=8, toughness=8,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), yncarne_p],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertFalse(buffs["plus_one_to_hit"])
+        self.assertFalse(buffs["reroll_hit_ones"])
+# ---------------------------------------------------------------------------
+# iter21 fabrication-audit lock-ins — Marines leader aura proxies
+# ---------------------------------------------------------------------------
+
+class MarinesFabricationLockInTests(unittest.TestCase):
+    """Lock-ins for the iter21 Marines leader fabrication audit. Each test
+    asserts that a previously-fabricated offensive aura proxy is NOT
+    present on the LeaderAbility. The real codex effect for each character
+    is a CP-economy / battle-shock-removal mechanic that the simulator
+    does NOT model as a damage-side aura — so the entries are deliberately
+    flag-free below.
+
+    These tests are tripwires: if someone re-adds a proxy aura flag
+    without first wiring the real codex mechanic, the test fails and
+    points at this audit comment.
+    """
+
+    def test_captain_no_offensive_aura_proxy(self):
+        # Rites of Battle (Wahapedia /space-marines/Captain): "Once per
+        # battle round, one unit from your army with this ability can use
+        # it when its unit is targeted with a Stratagem. If it does,
+        # reduce the CP cost of that use of that Stratagem by 1CP."
+        # CP-discount on a Stratagem — NOT a +1-to-hit / reroll-1s aura.
+        ab = lookup_ability("Captain")
+        self.assertIsNotNone(ab)
+        self.assertFalse(ab.reroll_hit_ones,
+            "Captain Rites of Battle is a Strat CP discount, not a "
+            "reroll-1s aura — see iter21 fabrication audit.")
+        self.assertFalse(ab.reroll_wound_ones)
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertEqual(ab.plus_one_attack, 0)
+        self.assertEqual(ab.fnp, 7)
+        self.assertEqual(ab.extra_invuln, 7)
+
+    def test_chaplain_no_offensive_aura_proxy(self):
+        # Spiritual Leader (Wahapedia /space-marines/Chaplain): "Once per
+        # battle, at the start of any phase, you can select one friendly
+        # ADEPTUS ASTARTES unit that is Battle-shocked and within 12\" of
+        # this model. That unit is no longer Battle-shocked."
+        # Battle-shock removal — NOT a reroll-wound-1s aura.
+        ab = lookup_ability("Chaplain")
+        self.assertIsNotNone(ab)
+        self.assertFalse(ab.reroll_wound_ones,
+            "Chaplain Spiritual Leader is a once-per-battle Battle-shock "
+            "removal, not a reroll-wound-1s aura — see iter21 audit.")
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertEqual(ab.plus_one_attack, 0)
+
+    def test_guilliman_author_of_codex_cp_only(self):
+        # Author of the Codex (Wahapedia /space-marines/Roboute-Guilliman):
+        # "While this model is on the battlefield, at the start of each of
+        # your Command phases, you gain 1CP." Pure CP gain — no aura buff.
+        # The faithful `cp_discount_per_round=1` mechanic is preserved;
+        # the proxy `reroll_hit_ones=True` was dropped in iter21.
+        ab = lookup_ability("Roboute Guilliman")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.cp_discount_per_round, 1,
+            "Guilliman's Author of the Codex grants +1 CP per Command phase")
+        self.assertFalse(ab.reroll_hit_ones,
+            "Guilliman has NO reroll-1s aura in 10e — Author of the Codex "
+            "is a pure CP gain. The proxy was dropped in iter21.")
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+
+    def test_librarian_defensive_proxy_preserved(self):
+        # Librarian's fnp=5 stays — it is the direction-correct DEFENSIVE
+        # proxy for the codex's "FNP 4+ vs PSYCHIC attacks + 4+ invuln
+        # from Mental Fortress (Psychic)". Both halves are defensive; the
+        # proxy is strictly weaker and aligned-direction. iter21 audit
+        # explicitly preserves this entry.
+        ab = lookup_ability("Librarian")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.fnp, 5,
+            "Librarian Mental Fortress is defensive — keep fnp=5 as the "
+            "direction-correct proxy.")
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertFalse(ab.reroll_wound_ones)
+
+    def test_apothecary_narthecium_preserved(self):
+        # Apothecary's revive_destroyed_per_round=1 is the faithful match
+        # to the codex Narthecium rule and remains untouched.
+        ab = lookup_ability("Apothecary")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.revive_destroyed_per_round, 1)
+        self.assertEqual(ab.heal_per_round, 0)
+        # No spurious offensive aura on the Apothecary.
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertFalse(ab.reroll_wound_ones)
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
     "rule_name": "Command Protocols",
     "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
-    "trigger": "attacker's unit is led by a friendly CHARACTER in aura range",
+    "trigger": "attacker's unit is being led by a friendly CHARACTER — approximated as: (a) at least one alive friendly CHARACTER is within its own aura_range of the attacker, AND (b) that CHARACTER's LeaderAbility.host_keys lists the attacker's UNIT_CATALOG key (i.e. the attachment is legal in 10e per the leader datasheet's Bodyguard list). The host-key gate prevents the +1 from firing on units that cannot be led (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths, Tomb Blades, Scarab Swarms, etc.).",
     "effect": "+1 to the Hit roll",
     "scope": "unit-led"
   },

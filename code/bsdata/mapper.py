@@ -242,17 +242,42 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
     """
     Collapse a `[(weight, WeaponStats)] ` basket into a single synthetic
     WeaponStats by taking the WEIGHTED average of (attacks, damage, ap,
-    hit_prob, strength) and the UNION / MAX of keyword effects.
+    hit_prob, strength) and proportion-thresholded keyword effects.
 
-    Rationale (matches the task brief):
+    Rationale:
       - Per-model stats (attacks/damage/AP/hit_prob/strength) are averaged so
         a 10-model Devastator Squad with 4 multi-meltas and 5 boltguns + 1
         sergeant ends up between bolter-only and multi-melta-only damage.
-      - Keyword effects (rapid_fire, melta, anti_*, lethal_hits, etc.) take
-        the maximum / union, on the assumption that in real combat the squad
-        allocates the right weapon to the right target. We scale BACK the
-        attack count via the weighting, so the union of keywords does NOT
-        recover the cheese we removed.
+
+      - **Boolean weapon keywords** (lethal_hits, devastating_wounds,
+        twin_linked, ignores_cover, heavy, assault, blast, hazardous, lance,
+        precision, pistol, indirect_fire, one_shot, stealth) are gated by
+        whether they fire on a MAJORITY of attacks in the basket. The
+        previous `any(...)` union granted Plague Marines squad-wide Lethal
+        Hits from a single heavy plague weapon on 1-of-5 models, inflating
+        BATTLELINE damage across many factions (issue: #iter20).
+
+        Threshold = 50% (strict majority). Chosen because the simulator's
+        per-attack loop applies these flags as boolean predicates
+        (`effective_lethal_hits OR ...`), so the closest single-bit
+        approximation to "fraction f of attacks have the keyword" is True
+        iff f > 0.5. The remaining model error vs. true per-attack
+        stochastic application is bounded by the basket's weight skew.
+
+      - **Integer-magnitude keywords** (sustained_hits, rapid_fire, melta)
+        take the proportion-weighted ROUNDED value, NOT the max. A 5-bolter
+        + 1-melta squad gets melta = round(1*1/6) = 0 — the dominant weapon
+        wins. Previously `max(...)` granted the squad-wide melta keyword
+        from a single model, double-counting at the simulator level.
+
+      - **Anti-X** is still proportion-thresholded (a single model carrying
+        Anti-Vehicle 2+ should not let a 10-model squad treat every attack
+        as Anti-Vehicle). Threshold = 50% on the fraction of basket weight
+        that carries the keyword.
+
+      - **Torrent** keeps the ALL-variants rule (mixed Aggressor gauntlets
+        must not inherit auto-hit from the Flamestorm leg while averaging
+        BS in from the Boltstorm leg).
 
     Returns None for an empty basket.
     """
@@ -269,39 +294,78 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
     avg_strength = sum(w * x.strength for w, x in basket) / total
     # Pick a representative name + range. Name = highest-weighted weapon.
     representative = max(basket, key=lambda b: b[0])[1]
-    # Union/MAX keyword effects across the basket. The "max" idea lets a
-    # squad with 1 melta inherit the Melta keyword at scaled-down attacks.
-    union: Dict[str, object] = {
-        "lethal_hits": any(x.lethal_hits for _, x in basket),
-        "sustained_hits": max((x.sustained_hits for _, x in basket), default=0),
-        "twin_linked": any(x.twin_linked for _, x in basket),
-        "devastating_wounds": any(x.devastating_wounds for _, x in basket),
-        "rapid_fire": max((x.rapid_fire for _, x in basket), default=0),
-        "melta": max((x.melta for _, x in basket), default=0),
-        "ignores_cover": any(x.ignores_cover for _, x in basket),
-        "heavy": any(x.heavy for _, x in basket),
-        "assault": any(x.assault for _, x in basket),
-        # Torrent requires ALL variants to be Torrent — otherwise a mixed
-        # basket (e.g. Aggressor Auto Boltstorm Gauntlets + Flamestorm Gauntlets)
-        # would falsely inherit auto-hit from the Torrent variant while keeping
-        # the numeric BS averaged in. See Wahapedia Aggressor Squad:
-        # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Aggressor-Squad
-        "torrent": bool(basket) and all(x.torrent for _, x in basket),
-        "hazardous": any(x.hazardous for _, x in basket),
-        "blast": any(x.blast for _, x in basket),
-        "lance": any(x.lance for _, x in basket),
-        "precision": any(x.precision for _, x in basket),
-        "pistol": any(x.pistol for _, x in basket),
-        "indirect_fire": any(x.indirect_fire for _, x in basket),
-        "one_shot": any(x.one_shot for _, x in basket),
-        "stealth": any(x.stealth for _, x in basket),
+
+    def _frac_true(predicate) -> float:
+        """Fraction of basket weight where `predicate(weapon)` is truthy."""
+        num = sum(w for w, x in basket if predicate(x))
+        return num / total
+
+    # MAJORITY-THRESHOLD boolean keywords (>50%). See module docstring above
+    # for rationale: the simulator applies each as a boolean predicate per
+    # attack, so we lose less expected-damage error by setting True iff the
+    # keyword fires on >50% of basket-weight, vs the legacy any(...) which
+    # let a single elite weapon set the squad flag.
+    majority = 0.5
+    bool_keywords = {
+        "lethal_hits": _frac_true(lambda x: x.lethal_hits) > majority,
+        "twin_linked": _frac_true(lambda x: x.twin_linked) > majority,
+        "devastating_wounds": _frac_true(lambda x: x.devastating_wounds) > majority,
+        "ignores_cover": _frac_true(lambda x: x.ignores_cover) > majority,
+        "heavy": _frac_true(lambda x: x.heavy) > majority,
+        "assault": _frac_true(lambda x: x.assault) > majority,
+        "hazardous": _frac_true(lambda x: x.hazardous) > majority,
+        "blast": _frac_true(lambda x: x.blast) > majority,
+        "lance": _frac_true(lambda x: x.lance) > majority,
+        "precision": _frac_true(lambda x: x.precision) > majority,
+        "pistol": _frac_true(lambda x: x.pistol) > majority,
+        "indirect_fire": _frac_true(lambda x: x.indirect_fire) > majority,
+        "one_shot": _frac_true(lambda x: x.one_shot) > majority,
+        "stealth": _frac_true(lambda x: x.stealth) > majority,
     }
-    # Anti-X — take the best (lowest threshold) across the basket per keyword
+
+    # PROPORTION-WEIGHTED integer keywords. A single melta in a 6-model squad
+    # contributes weight 1/6 * melta_N to the rounded average; usually rounds
+    # to 0, preventing the squad-wide melta cheese.
+    def _weighted_int(attr: str) -> int:
+        total_weighted = sum(w * int(getattr(x, attr) or 0) for w, x in basket)
+        return int(round(total_weighted / total))
+
+    int_keywords = {
+        "sustained_hits": _weighted_int("sustained_hits"),
+        "rapid_fire": _weighted_int("rapid_fire"),
+        "melta": _weighted_int("melta"),
+    }
+
+    # Torrent — preserve the legacy ALL-variants rule. Mixed weapon profiles
+    # (e.g. Aggressor Auto Boltstorm Gauntlets + Flamestorm Gauntlets) must
+    # not inherit auto-hit from the Torrent leg while keeping numeric BS
+    # averaged in. See Wahapedia Aggressor Squad:
+    # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Aggressor-Squad
+    torrent = bool(basket) and all(x.torrent for _, x in basket)
+
+    union: Dict[str, object] = {**bool_keywords, **int_keywords, "torrent": torrent}
+
+    # Anti-X — proportion-thresholded per keyword. A single Krak-grenade
+    # bolter model carrying Anti-Vehicle 4+ on 1 of 10 attacks should not
+    # let the whole squad treat all of its attacks as Anti-Vehicle. Apply
+    # the 50% majority rule per keyword. If the keyword passes, take the
+    # best (lowest) threshold among carrying weapons.
     anti: Dict[str, int] = {}
+    all_anti_kws = set()
     for _, x in basket:
-        for kw, n in (x.anti_keywords or {}).items():
-            if kw not in anti or n < anti[kw]:
-                anti[kw] = n
+        all_anti_kws.update((x.anti_keywords or {}).keys())
+    for kw in all_anti_kws:
+        frac = sum(
+            w for w, x in basket
+            if kw in (x.anti_keywords or {})
+        ) / total
+        if frac > majority:
+            best_thresh = min(
+                x.anti_keywords[kw] for _, x in basket
+                if kw in (x.anti_keywords or {})
+            )
+            anti[kw] = best_thresh
+
     return WeaponStats(
         name=representative.name,
         attacks=avg_attacks,

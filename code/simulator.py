@@ -3101,6 +3101,14 @@ class Battle:
         because the simulator's per-unit shoot loop doesn't break out a
         phase-start barrier separately.
 
+        iter20: Magnus the Red's "Lord of the Planet of the Sorcerers"
+        datasheet ability lets him attempt up to 2 Rituals per turn instead
+        of one, and adds +2 to each Psychic test result. BSData verbatim:
+        "This model can attempt up to 2 Rituals per turn instead of one,
+        and each time this model attempts a Ritual, add 2 to the Psychic
+        test result." Cited as `simulator.magnus_lord_of_the_planet` in
+        `data/rule_citations.d/thousand_sons.json`.
+
         Cited as `simulator.cabal_of_sorcerers` + per-Ritual citations
         in `data/rule_citations.d/thousand_sons.json`.
         """
@@ -3117,16 +3125,41 @@ class Battle:
             for psyker in army.alive_units:
                 if "PSYKER" not in (psyker.profile.unit_keywords or ()):
                     continue
-                # Each Psyker gets ONE Ritual attempt per turn.
-                ritual_name = self._cabal_attempt_ritual(
-                    psyker, army, opponent, manifested_this_turn,
-                )
-                if ritual_name is not None:
-                    manifested_this_turn.add(ritual_name)
+                # Each Psyker gets ONE Ritual attempt per turn — EXCEPT
+                # Magnus the Red, whose Lord of the Planet of the Sorcerers
+                # ability grants TWO attempts (with +2 to each test). The
+                # second attempt only fires if a Ritual is still available
+                # (army-wide one-per-turn cap on each Ritual stands).
+                #
+                # iter21: Ahriman's "Arch-Sorcerer of Tzeentch (Psychic)"
+                # datasheet ability adds +1 to each Psychic test result
+                # (one attempt per turn, same as a generic Psyker — only
+                # Magnus has the doubled attempts). Wahapedia:
+                # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman
+                # Cited as `simulator.ahriman_arch_sorcerer` in
+                # data/rule_citations.d/thousand_sons.json.
+                pname = psyker.profile.name
+                is_magnus = pname == "Magnus the Red"
+                is_ahriman = pname == "Ahriman"
+                attempts = 2 if is_magnus else 1
+                if is_magnus:
+                    test_bonus = 2
+                elif is_ahriman:
+                    test_bonus = 1
+                else:
+                    test_bonus = 0
+                for _ in range(attempts):
+                    ritual_name = self._cabal_attempt_ritual(
+                        psyker, army, opponent, manifested_this_turn,
+                        test_bonus=test_bonus,
+                    )
+                    if ritual_name is not None:
+                        manifested_this_turn.add(ritual_name)
 
     def _cabal_attempt_ritual(
         self, psyker, army: Army, opponent: Army,
         manifested_this_turn: set,
+        test_bonus: int = 0,
     ) -> Optional[str]:
         """One Psyker's Ritual attempt.
 
@@ -3135,12 +3168,17 @@ class Battle:
         turn. Resolve its effect. Returns the manifested ritual name, or
         None if no ritual cleared. Channel the Warp is intentionally
         declined (see `_run_cabal_rituals` docstring).
+
+        `test_bonus` (default 0) is a flat add to the 2D6 result — used by
+        Magnus's Lord of the Planet of the Sorcerers (+2). Composes with
+        the existing WC threshold check and with the test_total >= 11
+        (Doombolt) and >= 10 (Temporal Surge) crit thresholds.
         """
         # Test roll: real rule is 2D6 + optional D6. We decline the optional
         # D6 (Channel the Warp) for determinism + conservative play. The
         # `Arcane Focus` stratagem's post-test re-roll is the reactive hook
         # that would tweak this; currently a documented APPROXIMATION.
-        test_total = random.randint(1, 6) + random.randint(1, 6)
+        test_total = random.randint(1, 6) + random.randint(1, 6) + test_bonus
         # Pick the highest-WC unmanifested Ritual we can clear, descending.
         # Skip Rituals already manifested by another Psyker this turn.
         for ritual_name, wc in (
@@ -4008,6 +4046,24 @@ class Battle:
         # 2D6 Psychic test, real Doombolt D3/D3+3 math, real WC thresholds.
         # Cited as `simulator.cabal_of_sorcerers`.
         self._run_cabal_rituals()
+        # Magnus the Red — Unearthly Power (Crimson King default selection).
+        # Wahapedia: "At the start of the battle round, select one of the
+        # abilities in the Crimson King section. Until the start of the
+        # next battle round, this model has that ability." We default to
+        # Impossible Form ("Each time an attack is made against this Psyker
+        # (excluding Psychic Attacks), subtract 1 from the Damage
+        # characteristic of that attack."), the most-damage-sponging of
+        # the three Crimson King options and the simulator's only one
+        # cleanly representable. Time Flux (+2" Move aura on TSON) and
+        # Treason of Tzeentch (HAZARDOUS on an enemy unit's ranged
+        # weapons) are not wired — they require movement-aura and
+        # opponent-weapon-mod plumbing the simulator does not expose.
+        # Cited as `simulator.magnus_unearthly_power_impossible_form` in
+        # data/rule_citations.d/thousand_sons.json.
+        for army in (self.a, self.b):
+            for u in army.alive_units:
+                if u.profile.name == "Magnus the Red":
+                    u.transient_minus_one_damage_taken = True
         # Phase I — fresh arrivals from the scout phase carry over INTO
         # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
         # the set first, THEN call _arrive_from_reserves so units arriving
