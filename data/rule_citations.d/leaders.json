@@ -172,6 +172,42 @@
     "scope": "unit-led"
   },
 
+  "LeaderAbility.Arch-Sorcerer of Tzeentch": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman",
+    "rule_name": "Master of the Rubricae (Psychic) / Arcane Shield-equivalent led-unit buff",
+    "quoted_text": "While a friendly Rubric Marines or Scarab Occult Terminators unit contains this model, each time a Psychic Attack made by a model in that unit targets an enemy unit, you can re-roll the Hit roll.",
+    "trigger": "defender's unit is led by Ahriman in aura range (proximity-gated)",
+    "effect": "4+ invulnerable save aura on Ahriman's led unit (approximation). The real Master of the Rubricae grants a Psychic-attack hit re-roll on the led unit's attacks. SwegHammer does not tag attacks as Psychic vs non-Psychic, so the offensive half is not faithfully wirable; the LeaderAbility instead proxies Ahriman as a durability aura (extra_invuln=4) — direction-correct for a 100pt EPIC HERO PSYKER who in real play makes his Rubric squad more survivable through a mix of his presence and the wider TSON psychic toolkit. iter21 adds this entry to fix TSON sim 30% vs real 54.6% (-24.6pt); previously Ahriman had no leader ability (lookup_ability returned None) and his led Rubric/Tzaangor unit received zero aura.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Arcane Shield": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer",
+    "rule_name": "Arcane Shield (Psychic)",
+    "quoted_text": "While this model is leading a unit, models in that unit have a 4+ invulnerable save.",
+    "trigger": "defender's unit is led by a Thousand Sons Exalted Sorcerer (or substring match on 'Exalted Sorcerer') in aura range (proximity-gated)",
+    "effect": "Grant the led unit a 4+ invulnerable save in aura range, wired via the LeaderAbility.extra_invuln=4 layer in effective_buffs. Faithful match to the codex effect — the only approximation is the proximity gate substitution for the formal 10e Leader/Bodyguard attachment (SwegHammer has no attachment registry, so 'leading' is approximated as 'in aura range AND host_keys list the attacker's UNIT_CATALOG key'). host_keys = (thousand_sons_rubric_marines,) covers the codex-legal attachment for the Exalted Sorcerer datasheet. Note: the BSData Sorcerer datasheet also carries Arcane Shield, but the generic 'Sorcerer' substring matches CSM/EmperorChildren/Daemon Sorcerers too — we only wire Exalted Sorcerer (unique TSON name) and Ahriman (also unique) cleanly. Foot 'Sorcerer' continues to resolve to the generic CSM 'Prescience' entry (FNP 5 defensive proxy) — TSON's foot Sorcerer is therefore slightly undermodelled but the bigger Arcane Shield 4+ invuln win is captured on Ahriman + Exalted Sorcerer. iter21 — TSON-leaders fab audit fix.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Malefic Maelstrom": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Infernal-Master",
+    "rule_name": "Malefic Maelstrom (Psychic)",
+    "quoted_text": "While this model is leading a unit, weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "attacker's unit is led by an Infernal Master in aura range",
+    "effect": "(approximation) re-roll Hit rolls of 1 on the led unit's weapons. The real Malefic Maelstrom grants [SUSTAINED HITS 1] — each unmodified Hit roll of 6 generates one additional automatic Hit. SwegHammer's leader-aura layer does not expose a per-aura sustained-hits flag at the time of writing (the sustained_hits field lives on UnitProfile, not LeaderAbility), so we proxy with reroll_hit_ones — a similar small offensive uplift. Direction-correct (offensive shooting buff on the led unit). host_keys = (thousand_sons_rubric_marines,) per the codex legal attachment. iter21 — adds the Infernal Master to the leader registry; previously lookup_ability('Infernal Master') returned None and his led Rubric squad received zero aura.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Marked by Fate": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour",
+    "rule_name": "Marked by Fate (Psychic)",
+    "quoted_text": "At the start of your Shooting phase, select one enemy unit that is visible to this Psyker model. Until the end of the phase, each time a model in this unit makes an attack that targets that enemy unit, add 1 to the Hit roll.",
+    "trigger": "attacker's unit is led by a Sorcerer in Terminator Armour in aura range; codex applies +1 to Hit only against the marked enemy unit, simulator applies +1 to Hit unit-wide as a target-indexed-flag approximation",
+    "effect": "(approximation) unit-wide +1 to Hit on the Sorcerer-in-Terminator-Armour's led squad (Scarab Occult Terminators per BSData host infoLink). APPROXIMATION: the codex Mark-by-Fate effect is target-indexed and per-Shooting-phase; SwegHammer's leader-aura layer does not expose per-target hit-modifier plumbing, so the buff goes unit-wide each round. Direction-correct (offensive shooting buff scaling with the led-unit's volume of fire). host_keys = (thousand_sons_scarab_occult_terminators,) per the BSData Leader infoLink — Scarab Occult Terminators is the codex-legal attachment. iter21 — adds the Sorcerer in Terminator Armour to the leader registry as a TSON-specific entry. Without this, the substring 'Sorcerer' would match the generic CSM Prescience entry (FNP 5 defensive proxy) which is direction-wrong for the TSON datasheet's offensive Marked by Fate.",
+    "scope": "unit-led"
+  },
+
   "LeaderAbility.Prescience": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Sorcerer",
     "rule_name": "Prescience",

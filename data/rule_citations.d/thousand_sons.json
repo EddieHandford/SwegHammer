@@ -64,6 +64,24 @@
     "scope": "phase-gated"
   },
 
+  "simulator.ahriman_arch_sorcerer": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman",
+    "rule_name": "Arch-Sorcerer of Tzeentch (Psychic)",
+    "quoted_text": "Each time this model attempts a Ritual, add 1 to the Psychic test result.",
+    "trigger": "Ahriman attempts a Cabal of Sorcerers Ritual",
+    "effect": "Add +1 flat to the 2D6 Psychic test total when the manifesting psyker is Ahriman. Composes with the WC threshold check and with the 11+/10+/12+ crit thresholds for Doombolt/Temporal Surge/Twist of Fate (a 2D6=10 Doombolt becomes effective 11 and triggers the D3+3 crit). Ahriman attempts 1 Ritual per turn (not 2 — that's Magnus). iter21 wiring: Ahriman was previously bonus-less in the Cabal pass, leaving his 100pt EPIC HERO PSYKER datasheet ability unmodelled. Quoted text from BSData v10.6.0 (Chaos - Thousand Sons.cat.gz, Ahriman datasheet, Abilities > Arch-Sorcerer of Tzeentch (Psychic)).",
+    "scope": "character-only"
+  },
+
+  "simulator.magnus_unearthly_power_impossible_form": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red",
+    "rule_name": "Unearthly Power / Impossible Form (Crimson King, Psychic)",
+    "quoted_text": "Unearthly Power: At the start of the battle round, select one of the abilities in the Crimson King section. Until the start of the next battle round, this model has that ability. Impossible Form (Psychic): Each time an attack is made against this Psyker (excluding Psychic Attacks), subtract 1 from the Damage characteristic of that attack.",
+    "trigger": "Magnus the Red is alive at round start; default-pick Impossible Form (the most-damage-sponging of the three Crimson King options)",
+    "effect": "(approximation) the simulator sets `transient_minus_one_damage_taken=True` on Magnus at round start, which reduces incoming damage by 1 (floor of 1) in `Unit.receive_damage`. APPROXIMATION 1: the codex excludes Psychic Attacks from the -1 damage reduction (those go in at full damage); the simulator does not tag attacks as Psychic vs non-Psychic at the receive-damage layer, so all incoming damage including Psychic gets -1. Net effect: Magnus is a hair more durable than the codex says, by the small fraction of attacks against him that are Psychic. APPROXIMATION 2: the player picks one of three Crimson King abilities each round (Impossible Form / Treason of Tzeentch / Time Flux); we always pick Impossible Form. The other two (Time Flux +2\" Move aura on TSON, Treason of Tzeentch HAZARDOUS on a target enemy's ranged weapons) require movement-aura and opponent-weapon-mod plumbing the simulator does not expose. Wired in `_run_round` after `_run_cabal_rituals` so the flag is set every round Magnus remains alive. Quoted text from BSData v10.6.0 (Chaos - Thousand Sons.cat.gz, Magnus the Red datasheet, Abilities > Unearthly Power and Crimson King > Impossible Form (Psychic)).",
+    "scope": "character-only"
+  },
+
   "simulator.magnus_lord_of_the_planet": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red",
     "rule_name": "Lord of the Planet of the Sorcerers (Psychic)",

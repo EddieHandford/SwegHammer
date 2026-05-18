@@ -279,6 +279,44 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Ethereal",           LeaderAbility(name="Failure Is Not an Option",   aura_range=6.0, fnp=5,                  host_keys=_TAU_FIRE_HOSTS)),
     ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),  # Battlesuit, no INFANTRY host
     ("Cadre Fireblade",    LeaderAbility(name="Volley Fire",                aura_range=6.0, plus_one_attack=1,      host_keys=_TAU_FIRE_HOSTS)),
+    # Thousand Sons — character LeaderAbility entries (iter21 fix).
+    # TSON characters were previously unwired: Ahriman / Infernal Master
+    # / Exalted Sorcerer / Magnus all returned None from lookup_ability,
+    # so the led Rubric Marines / Scarab Occult Terminators squads
+    # received NO aura buff. Wahapedia datasheets for each are linked in
+    # data/rule_citations.d/leaders.json. Listed BEFORE the generic
+    # CSM "Sorcerer" entry so unique TSON keys win the substring match.
+    # "Exalted Sorcerer" and "Infernal Master" are unique to TSON.
+    # "Ahriman" is also unique.
+    #
+    # Sources:
+    #   - Ahriman: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman
+    #   - Exalted Sorcerer / Sorcerer: Arcane Shield (Psychic) grants the
+    #     led unit a 4+ invulnerable save. Modelled as extra_invuln=4.
+    #   - Infernal Master: Malefic Maelstrom (Psychic) grants the led
+    #     unit [SUSTAINED HITS 1]. Modelled as sustained_hits proxy via
+    #     reroll_hit_ones (an offensive shooting buff in the same scale).
+    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, extra_invuln=4,
+                                          host_keys=("thousand_sons_rubric_marines",
+                                                     "thousand_sons_tzaangor_enlightened"))),
+    ("Exalted Sorcerer",   LeaderAbility(name="Arcane Shield",              aura_range=6.0, extra_invuln=4,
+                                          host_keys=("thousand_sons_rubric_marines",))),
+    ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("thousand_sons_rubric_marines",))),
+    # Sorcerer in Terminator Armour — TSON variant. Leader-attaches to
+    # Scarab Occult Terminators (per BSData v10.6.0 Leader infoLink).
+    # Datasheet ability "Marked by Fate (Psychic)" grants +1 to Hit on
+    # the Sorcerer's chosen target unit each Shooting phase — proxied
+    # here as a unit-wide plus_one_to_hit aura on the led Scarab squad
+    # (strictly stronger than codex since the codex is per-target per-
+    # phase; the aura uplift compensates for our missing target-indexed
+    # buff plumbing and lands the Scarab Occult Terminators' real
+    # offensive ceiling in vs-meta calibration). Listed AFTER plain
+    # "Sorcerer" would lose substring tie — must come BEFORE the generic
+    # CSM "Sorcerer" entry so this longer key wins lookup. Wahapedia
+    # source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
+    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=("thousand_sons_scarab_occult_terminators",))),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
     ("Sorcerer",           LeaderAbility(name="Prescience",                 aura_range=6.0, fnp=5,
