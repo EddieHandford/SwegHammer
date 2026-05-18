@@ -38,8 +38,8 @@
     },
     goalbox/.style={
       rectangle, rounded corners=5pt, draw=greentick, very thick,
-      fill=greentick!15, text width=90mm, align=center,
-      minimum height=20mm, inner sep=5pt
+      fill=greentick!15, text width=110mm, align=center,
+      minimum height=24mm, inner sep=5pt
     },
     arrow/.style={->, very thick, draw=greytext},
     loopblue/.style={->, very thick, draw=simblue, dashed},
@@ -53,8 +53,8 @@
   \node[title] (heading) {SwegHammer: how it works};
   \node[oneliner, below=3mm of heading] (oneliner) {%
     A fairer Warhammer 40K. Step one: build a simulator that plays
-    the game the way real tournaments do. Step two: use it to find
-    points costs where no unit dominates and no unit is a trap.%
+    the game the way real tournaments do. Step two: use it to fit
+    one points equation that prices every unit fairly from its stats.%
   };
 
   % ===== Stage 1 — middle box centered under header =====
@@ -89,17 +89,17 @@
 
   % ===== Stage 2 — same shape, orange =====
   \node[stageheader, text=realorange, below=4mm of s2top, anchor=north] (h2)
-    {Stage 2 \,--\, Balance the points costs};
+    {Stage 2 \,--\, Fit the points equation};
 
   \node[orangebox, below=6mm of h2] (spread)
     {\textbf{Check the win spread}\\\textbf{across every unit}\\[3pt]
      \footnotesize is any unit far above\\or below a 50\% win rate?};
   \node[orangebox, left=of spread] (sim2)
     {\textbf{Sim plays battles}\\[3pt]
-     \footnotesize same realistic sim,\\new points costs};
+     \footnotesize same realistic sim,\\units priced by the equation};
   \node[orangebox, right=of spread] (tweakpts)
-    {\textbf{Adjust unit prices}\\[3pt]
-     \footnotesize cheaper for the weak,\\pricier for the dominant};
+    {\textbf{Tune the equation}\\[3pt]
+     \footnotesize re-weight stat coefficients\\(and small per-unit residuals)};
 
   \draw[arrow] (sim2) -- (spread);
   \draw[arrow] (spread) -- (tweakpts);
@@ -111,8 +111,8 @@
   % ===== final output =====
   \coordinate (s2bottom) at ($(sim2.south)!0.5!(tweakpts.south)+(0,-22mm)$);
   \node[goalbox, below=10mm of s2bottom, anchor=north] (out)
-    {\textbf{Output: a fairer 40K}\\[3pt]
-     \footnotesize new points costs where every unit pulls its weight};
+    {\textbf{Output: one master equation that prices every unit from its stats}\\[3pt]
+     \footnotesize (plus small per-unit residuals for the rough edges)\\a fairer 40K --- every unit pulls its weight; games won by skill and balanced lists};
   \draw[bridge] (s2bottom) -- (out.north);
 
 \end{tikzpicture}

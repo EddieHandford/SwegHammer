@@ -41,10 +41,14 @@ SwegHammer is built as two sequenced feedback loops, not one:
    tournament aggregate, and tune the simulator's rules and mechanics
    until the mean absolute error closes (target ≤ 2.0 pts; current
    reading is 7.01 pts at N=200).
-2. **Stage 2 — Balance the points costs.** Once Stage 1 has converged,
-   freeze the simulator's rules and tune only unit points costs. Run the
-   now-faithful simulator with new prices and keep adjusting until the
-   win-rate spread across the catalogue flattens.
+2. **Stage 2 — Fit the points equation.** Once Stage 1 has converged,
+   freeze the simulator's rules and fit one master equation that prices
+   every unit from its stats (plus small per-unit residuals for the
+   rough edges). Run the now-faithful simulator with equation-priced
+   units, re-weight the stat coefficients and adjust the residuals, and
+   repeat until the win-rate spread across the catalogue flattens. The
+   final output is the equation, not a hand-tuned price list — per-unit
+   costs fall out deterministically from the fitted formula.
 
 The feedback signals are deliberately different — Stage 1 is gated by
 tournament mean absolute error, Stage 2 by win-rate spread across all

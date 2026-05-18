@@ -42,6 +42,10 @@ from code.equilibrium import (
     DEFAULT_ANCHOR_KEY as EQ_DEFAULT_ANCHOR,
     DEFAULT_ANCHOR_PER_MODEL as EQ_DEFAULT_ANCHOR_PTS,
 )
+from code.equilibrium_simdriven import (
+    SIMDRIVEN_PATH as EQ_SIMDRIVEN_PATH,
+    load_snapshot as load_eq_simdriven_snapshot,
+)
 from code.compare_view import render_compare_tab
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
@@ -418,28 +422,16 @@ def chart_win_rate_vs_points(
 # we cache on those and replays are instant.
 
 
-@st.cache_data(show_spinner="Building equilibrium chart…", max_entries=8)
-def _equilibrium_plotly_figure(
-    anchor_key: str,
-    anchor_pts: float,
-    factions_tuple: Tuple[str, ...],
-    roles_tuple: Tuple[str, ...],
-    balanced: bool,
-) -> go.Figure:
-    catalog = balanced_catalog() if balanced else _RAW_CATALOG
-    result = compute_equilibrium_phase1(
-        catalog=catalog, anchor_key=anchor_key, anchor_per_model=anchor_pts,
-    )
-    faction_set = set(factions_tuple) if factions_tuple else None
-    role_set = set(roles_tuple)
-    entries = [
-        e for e in result.entries
-        if (faction_set is None or e.faction in faction_set)
-        and e.role in role_set
-        and e.gw_points_per_model > 0
-        and e.equilibrium_points_per_model > 0
-    ]
+def _build_equilibrium_figure(entries, y_axis_title: str) -> go.Figure:
+    """Render the equilibrium scatter from a flat list of entry objects.
 
+    Used by both the cached closed-form path (`_equilibrium_plotly_figure`)
+    and the sim-driven snapshot path. Entries must expose
+    `faction`, `gw_points_per_model`, `equilibrium_points_per_model`,
+    `key`, `name`, `role`, `mispricing_pct`, `valid_matchups` — both the
+    `EquilibriumEntry` dataclass and the SimpleNamespace-wrapped snapshot
+    rows satisfy this.
+    """
     fig = go.Figure()
     by_faction: dict[str, list] = {}
     for e in entries:
@@ -499,7 +491,7 @@ def _equilibrium_plotly_figure(
             zerolinecolor="#3a3d45",
         ),
         yaxis=dict(
-            title="Equilibrium points per model (log)",
+            title=y_axis_title,
             type="log",
             gridcolor="#3a3d45",
             zerolinecolor="#3a3d45",
@@ -520,9 +512,63 @@ def _equilibrium_plotly_figure(
         height=560,
         margin=dict(l=60, r=20, t=60, b=50),
         hovermode="closest",
-        uirevision="eq_scatter_static",  # preserves zoom across reruns
+        uirevision="eq_scatter_static",
     )
     return fig
+
+
+@st.cache_data(show_spinner="Building equilibrium chart…", max_entries=8)
+def _equilibrium_plotly_figure(
+    anchor_key: str,
+    anchor_pts: float,
+    factions_tuple: Tuple[str, ...],
+    roles_tuple: Tuple[str, ...],
+    balanced: bool,
+) -> go.Figure:
+    catalog = balanced_catalog() if balanced else _RAW_CATALOG
+    result = compute_equilibrium_phase1(
+        catalog=catalog, anchor_key=anchor_key, anchor_per_model=anchor_pts,
+    )
+    faction_set = set(factions_tuple) if factions_tuple else None
+    role_set = set(roles_tuple)
+    entries = [
+        e for e in result.entries
+        if (faction_set is None or e.faction in faction_set)
+        and e.role in role_set
+        and e.gw_points_per_model > 0
+        and e.equilibrium_points_per_model > 0
+    ]
+    return _build_equilibrium_figure(
+        entries,
+        y_axis_title="Equilibrium points per model (log)",
+    )
+
+
+@st.cache_data(show_spinner="Building equilibrium chart…", max_entries=4)
+def _equilibrium_plotly_figure_simdriven(
+    factions_tuple: Tuple[str, ...],
+    roles_tuple: Tuple[str, ...],
+    only_measured: bool,
+) -> go.Figure:
+    snapshot = load_eq_simdriven_snapshot()
+    if snapshot is None:
+        return go.Figure()
+    from types import SimpleNamespace
+    rows = [SimpleNamespace(**row) for row in snapshot.get("units", {}).values()]
+    faction_set = set(factions_tuple) if factions_tuple else None
+    role_set = set(roles_tuple)
+    entries = [
+        e for e in rows
+        if (faction_set is None or e.faction in faction_set)
+        and e.role in role_set
+        and e.gw_points_per_model > 0
+        and e.equilibrium_points_per_model > 0
+        and (not only_measured or getattr(e, "source", "") == "sim")
+    ]
+    return _build_equilibrium_figure(
+        entries,
+        y_axis_title="Sim-driven equilibrium points per model (log)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1387,6 +1433,41 @@ with tab_equilibrium:
             "the model can't see what they're actually good at yet."
         )
 
+    # ---- Source toggle: closed-form vs sim-driven snapshot ----
+    # Closed-form Phase 1 is fast and recomputes on every interaction — it
+    # only sees the datasheet. Sim-driven loads a pre-built JSON of pairwise
+    # win-rates measured by the actual simulator, so faction army rules /
+    # detachment passives / leader auras / movement / charges all feed
+    # through to the points. The snapshot is built by
+    # `python -m code.equilibrium_simdriven` and lives at
+    # `data/equilibrium_points_simdriven.json`.
+    _simdriven_snapshot = load_eq_simdriven_snapshot()
+    _has_simdriven = _simdriven_snapshot is not None
+    _source_options = ["Closed-form Phase 1 (live)"]
+    if _has_simdriven:
+        _source_options.append("Sim-driven (snapshot)")
+    _eq_source = st.radio(
+        "Solver source",
+        _source_options,
+        horizontal=True,
+        key="eq_source",
+        help=(
+            "Closed-form Phase 1 derives points from datasheet stats only — "
+            "fast, but blind to faction rules and tactics. "
+            "Sim-driven measures win rates from real Battle() runs at equal "
+            "points; the snapshot is built offline by "
+            "`python -m code.equilibrium_simdriven`."
+        ),
+    )
+    _use_simdriven = (_eq_source == "Sim-driven (snapshot)")
+    if not _has_simdriven:
+        st.caption(
+            "No sim-driven snapshot found. Build one with "
+            "`python -m code.equilibrium_simdriven` to enable the "
+            "sim-driven view (the diagnostic subset takes ~5–10 minutes; "
+            "`--full` is overnight)."
+        )
+
     # ---- Controls ----
     st.divider()
     _col_anchor, _col_anchor_pts, _col_role = st.columns([3, 1, 2])
@@ -1403,6 +1484,12 @@ with tab_equilibrium:
             index=_shooty_keys.index(_default_anchor),
             format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
             key="eq_anchor_key",
+            disabled=_use_simdriven,
+            help=(
+                "Anchor is fixed by the snapshot when using sim-driven; "
+                "rebuild the snapshot with a different `--anchor` to change it."
+                if _use_simdriven else None
+            ),
         )
     with _col_anchor_pts:
         _default_anchor_pts = float(
@@ -1417,6 +1504,7 @@ with tab_equilibrium:
             value=_default_anchor_pts,
             step=1.0,
             key="eq_anchor_pts",
+            disabled=_use_simdriven,
         )
     with _col_role:
         _role_filter = st.multiselect(
@@ -1427,7 +1515,7 @@ with tab_equilibrium:
             help="`shooty` = no melee profile, `dual` = also has melee. Pure-melee units are excluded from Phase 1.",
         )
 
-    # ---- Cached compute ----
+    # ---- Cached compute (closed-form) ----
     @st.cache_data(show_spinner="Solving equilibrium points…")
     def _equilibrium_result(anchor_key: str, anchor_pts: float):
         # Catalog identity matters (raw vs balanced) but it's not hashable, so
@@ -1439,14 +1527,50 @@ with tab_equilibrium:
             anchor_per_model=anchor_pts,
         )
 
-    try:
-        _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
-    except ValueError as _exc:
-        st.error(f"Couldn't compute equilibrium: {_exc}")
-        st.stop()
+    # ---- Snapshot loader (sim-driven) ----
+    # The snapshot is a dict of entry-dicts; the chart and table code path
+    # below uses attribute access on entries (e.g. `e.gw_points_per_model`),
+    # so we wrap each row in SimpleNamespace to keep that code unchanged.
+    # The drill-down section needs a full `EquilibriumResult` with D/T/R
+    # matrices and is skipped when sim-driven is active (the snapshot does
+    # not carry the matrices — we'd have to re-measure to populate them).
+    @st.cache_data(show_spinner="Loading sim-driven snapshot…")
+    def _equilibrium_simdriven_entries():
+        from types import SimpleNamespace
+        if _simdriven_snapshot is None:
+            return [], {}
+        units = _simdriven_snapshot.get("units", {})
+        entries = [SimpleNamespace(**row) for row in units.values()]
+        meta = {k: v for k, v in _simdriven_snapshot.items() if k != "units"}
+        return entries, meta
+
+    if _use_simdriven:
+        _simdriven_entries, _simdriven_meta = _equilibrium_simdriven_entries()
+        _anchor_key = _simdriven_meta.get("anchor_key", _anchor_key)
+        _anchor_pts = float(_simdriven_meta.get("anchor_per_model", _anchor_pts))
+        # Surface snapshot provenance so the user sees what they're looking at.
+        _measured = _simdriven_meta.get("measured_keys", [])
+        st.caption(
+            f"Snapshot: **{_simdriven_meta.get('battles_run', 0):,} battles** "
+            f"({_simdriven_meta.get('n_battles_per_pair', 0)}× per pair) "
+            f"at {_simdriven_meta.get('points_budget', 0):.0f}-pt budget, "
+            f"{len(_measured)} units measured, "
+            f"wall-clock {_simdriven_meta.get('wall_clock_sec', 0):.0f}s. "
+            f"Units outside the measured set inherit their closed-form "
+            f"Phase 1 value (marked `phase1_fallback`)."
+        )
+        _result = None  # No D/T/R matrices in sim-driven; drill-down disabled.
+        _result_entries = _simdriven_entries
+    else:
+        try:
+            _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
+        except ValueError as _exc:
+            st.error(f"Couldn't compute equilibrium: {_exc}")
+            st.stop()
+        _result_entries = _result.entries
 
     # ---- Faction filter (operates on cached entries — re-renders only) ----
-    _all_factions = sorted({e.faction for e in _result.entries if e.faction})
+    _all_factions = sorted({e.faction for e in _result_entries if e.faction})
     _selected_factions = st.multiselect(
         "Show factions",
         options=_all_factions,
@@ -1455,7 +1579,7 @@ with tab_equilibrium:
     )
 
     _filtered = [
-        e for e in _result.entries
+        e for e in _result_entries
         if (e.faction in _selected_factions if _selected_factions else True)
         and e.role in _role_filter
     ]
@@ -1477,16 +1601,35 @@ with tab_equilibrium:
 
         # ---- Interactive Plotly scatter ----
         # The heavy lifting (computing equilibrium + assembling 30 faction
-        # traces with customdata blobs) is cached on the filter inputs by
-        # `_equilibrium_plotly_figure`, so clicks and faction-filter toggles
-        # only pay the rerun cost, not the rebuild cost.
-        _fig = _equilibrium_plotly_figure(
-            anchor_key=_anchor_key,
-            anchor_pts=float(_anchor_pts),
-            factions_tuple=tuple(sorted(_selected_factions)),
-            roles_tuple=tuple(sorted(_role_filter)),
-            balanced=bool(use_balanced),
-        )
+        # traces with customdata blobs) is cached on the filter inputs, so
+        # clicks and faction-filter toggles only pay the rerun cost. The
+        # cached builder differs by source: Phase 1 recomputes from the
+        # catalogue, sim-driven loads the JSON snapshot.
+        if _use_simdriven:
+            # Sim-driven defaults to showing ONLY the measured units —
+            # otherwise the bulk of dots in the chart are Phase 1 fallbacks
+            # that look identical to the Phase 1 view, hiding the
+            # sim-driven signal. A small expander offers the full overlay
+            # for callers who want to compare both at once.
+            with st.expander("Sim-driven view options", expanded=False):
+                _only_measured = st.checkbox(
+                    "Only show measured units (hide Phase 1 fallback)",
+                    value=True,
+                    key="eq_simdriven_only_measured",
+                )
+            _fig = _equilibrium_plotly_figure_simdriven(
+                factions_tuple=tuple(sorted(_selected_factions)),
+                roles_tuple=tuple(sorted(_role_filter)),
+                only_measured=bool(_only_measured),
+            )
+        else:
+            _fig = _equilibrium_plotly_figure(
+                anchor_key=_anchor_key,
+                anchor_pts=float(_anchor_pts),
+                factions_tuple=tuple(sorted(_selected_factions)),
+                roles_tuple=tuple(sorted(_role_filter)),
+                balanced=bool(use_balanced),
+            )
 
         _event = st.plotly_chart(
             _fig,
@@ -1551,6 +1694,21 @@ with tab_equilibrium:
         )
 
         # ---- Per-unit matchup drilldown ----
+        # The drill-down reads from the Phase 1 D/T/R matrices. The
+        # sim-driven snapshot only stores aggregate log-p values per unit,
+        # not the underlying pairwise win rates, so the drill-down is
+        # hidden in that mode. Add it to the snapshot if/when the
+        # per-pair detail is wanted in the UI.
+        if _use_simdriven:
+            st.divider()
+            st.info(
+                "Per-unit matchup drill-down is not yet available for the "
+                "sim-driven view. Switch the **Solver source** above to "
+                "*Closed-form Phase 1* to inspect pairwise time-to-kill "
+                "and log-advantage matrices."
+            )
+            st.stop()
+
         st.divider()
         st.markdown("### Drill into a unit's matchups")
         # Defensive: filter out keys no longer in UNIT_CATALOG (the
