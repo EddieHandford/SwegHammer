@@ -66,9 +66,14 @@ The pricing work described below is **Stage 2** in the project's
 two-stage pipeline (see `CLAUDE.md` "Project plan" and `ROADMAP.md`
 "Pipeline structure"). Stage 2 assumes Stage 1 has converged — i.e. the
 simulator plays like the real game — and freezes the simulator's rules
-while iterating on prices. The naming "Stage 2, Layer 1" below avoids
-collision with the equilibrium solver's internal Phase 1–6 ladder, which
-is a separate concept living inside Stage 2.
+while fitting one master points equation: a closed-form formula that
+maps a unit's stats to its points cost, plus small per-unit residuals
+for outliers the formula cannot explain. The layers below are the
+components of that equation — Layer 1 is the linear baseline term, and
+the nonlinear surface fit (Stage 2, beyond Layer 1) is the rest of the
+formula plus the residual table. The naming "Stage 2, Layer 1" avoids
+collision with the equilibrium solver's internal Phase 1–6 ladder,
+which is a separate concept living inside Stage 2.
 
 ### Stage 2, Layer 1: Linear Proportional Pricing
 

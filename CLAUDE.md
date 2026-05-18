@@ -22,13 +22,19 @@ mechanics* until per-faction mean absolute error closes. Headline metric:
 mean absolute error vs the Warp Friends per-faction win rates, target
 ≤ 2.0 pts. This is Goal A in `PROJECT.tex` §3.
 
-**Stage 2 — Balance the points costs.** Once Stage 1 has converged, *freeze
-the sim's rules* and tune only unit points costs. Run the now-faithful sim
-with new prices, check the spread of per-unit win rates across the
-catalogue (every unit should hover near 50% in equal-points fights), adjust
-prices, repeat until the distribution flattens. Two solvers:
-`code/balancer.py` (Monte Carlo bisection) and `code/equilibrium.py`
-(closed-form log-least-squares). This is Goal C in `PROJECT.tex` §3.
+**Stage 2 — Fit the points equation.** Once Stage 1 has converged, *freeze
+the sim's rules* and fit one master equation that prices every unit from
+its stats (plus small per-unit residuals for the rough edges). Run the
+now-faithful sim with equation-priced units, check the spread of per-unit
+win rates across the catalogue (every unit should hover near 50% in
+equal-points fights), re-weight the equation's stat coefficients and
+adjust the residuals, repeat until the distribution flattens. The loop
+tunes the equation, not individual prices; per-unit costs fall out
+deterministically from the fitted formula. Two solvers contribute:
+`code/balancer.py` (Monte Carlo bisection, supplies per-unit anchor
+prices) and `code/equilibrium.py` (closed-form log-least-squares on the
+pairwise time-to-kill matrix, supplies the coefficient structure). This
+is Goal C in `PROJECT.tex` §3.
 
 **The feedback signals are different and must not be confused.** Stage 1
 is gated by the tournament mean absolute error. Stage 2 is gated by the
@@ -39,11 +45,11 @@ conflates the two loops.
 **Stage discipline.** When you pick up a task, work out which stage it
 belongs to and say so in the pull request description. Rule of thumb: if
 the change tunes simulator behaviour (a new ability, a fixed movement
-bug, a faction rule), it is Stage 1. If the change tunes the points cost
-of an existing unit or the pricing solver itself, it is Stage 2. Mixing
-both in the same pull request is allowed only when the mix is
-unavoidable, and in that case the description must say which parts are
-which.
+bug, a faction rule), it is Stage 1. If the change tunes the points
+equation, its stat coefficients, a per-unit residual, or the solver that
+produces those coefficients, it is Stage 2. Mixing both in the same pull
+request is allowed only when the mix is unavoidable, and in that case
+the description must say which parts are which.
 
 **Current state (2026-05-17).** Stage 1 mean absolute error is 7.01 pts
 at N = 200 vs a 2.0 pt target — Stage 1 is not converged. Stage 2 work is

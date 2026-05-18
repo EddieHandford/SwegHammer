@@ -75,9 +75,12 @@ change alongside the code change so the doc never drifts from reality.
 
 \subsection*{Build}
 \begin{verbatim}
+pdflatex OVERVIEW.tex
 pdflatex PROJECT.tex && pdflatex PROJECT.tex
 \end{verbatim}
-Two passes so the table of contents resolves. No external assets needed.
+Build \texttt{OVERVIEW.pdf} first because PROJECT.tex embeds it as the
+pipeline figure. Then two passes on PROJECT.tex so the table of
+contents resolves.
 
 % =========================================================================
 \section{Project vision}
@@ -100,62 +103,25 @@ for sanity-checking the model.
 \paragraph{Pipeline structure.} The project runs as two sequenced
 feedback loops, not one. Stage 1 (Goal A below) tunes the simulator's
 rules until per-faction win rates match the tournament aggregate;
-Stage 2 (Goal C below) freezes the rules and tunes unit points costs
-until win rates across the catalogue flatten. The figure below shows
-the relationship; \texttt{OVERVIEW.tex} is the standalone shareable
-version with non-technical wording.
+Stage 2 (Goal C below) freezes the rules and fits a single master
+points equation that prices every unit from its stats (plus small
+per-unit residuals for outliers), tuning the equation's stat
+coefficients and residuals until win rates across the catalogue
+flatten. The loop's output is the equation, not a hand-tuned price
+list. The figure below shows the relationship; \texttt{OVERVIEW.tex}
+is the standalone shareable version with non-technical wording.
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[
-    node distance=14mm and 16mm,
-    every node/.style={font=\sffamily\small},
-    box/.style={
-      rectangle, rounded corners=3pt, draw=eddieblue, thick,
-      fill=eddieblue!8, text width=30mm, align=center,
-      minimum height=14mm, inner sep=3pt
-    },
-    data/.style={
-      rectangle, rounded corners=3pt, draw=jakeorange, thick,
-      fill=jakeorange!10, text width=30mm, align=center,
-      minimum height=14mm, inner sep=3pt
-    },
-    arrow/.style={-{Stealth[length=2.5mm]}, thick, draw=eithergrey},
-    feedback/.style={-{Stealth[length=2.5mm]}, thick, draw=eddieblue, dashed},
-  ]
-
-  \node[align=center, text width=125mm, font=\sffamily\itshape] (oneliner)
-    {Derive fair, transparent Warhammer 40K points costs by simulating
-     thousands of battles, comparing the win rates to real tournament
-     data, and solving for the pricing equation that closes the gap.};
-
-  \node[box, below=10mm of oneliner] (sim)
-    {\textbf{Simulator}\\\footnotesize headless, seedable, phase-based};
-
-  \node[box, right=of sim] (winrates)
-    {\textbf{Predicted}\\\textbf{win rates}\\\footnotesize per-faction matchup matrix};
-
-  \node[data, right=of winrates] (real)
-    {\textbf{Real tournament data}\\\footnotesize Warp Friends $\sim$10k games};
-
-  \node[box, below=of winrates] (compare)
-    {\textbf{Compare}\\\footnotesize mean absolute error vs reality};
-
-  \node[box, below=of sim] (pricing)
-    {\textbf{Two-track pricing}\\\footnotesize Lanchester bisection $+$ equilibrium log-LSQ};
-
-  \draw[arrow] (sim) -- (winrates);
-  \draw[arrow] (winrates) -- (compare);
-  \draw[arrow] (real) -- (compare);
-  \draw[arrow] (compare) -- (pricing);
-  \draw[feedback] (pricing) -- node[left, font=\sffamily\footnotesize\itshape]
-    {re-price units} (sim);
-
-\end{tikzpicture}
-\caption{SwegHammer's calibration loop. The simulator produces predicted
-win rates; the gap between those and real tournament data drives the
-two-track pricing solvers, whose output is fed back into the simulator
-until the gap closes.}
+\includegraphics[width=\textwidth]{OVERVIEW.pdf}
+\caption{SwegHammer's two-stage pipeline. Stage 1 (blue) tunes the
+simulator's rules against per-faction tournament win rates. Once Stage
+1 has converged, Stage 2 (orange) fits one master points equation
+(plus small per-unit residuals) using the same simulator to measure
+per-unit win rates. The two loops have different feedback signals and
+must not be conflated. Diagram source: \texttt{OVERVIEW.tex}, also
+distributed as a standalone single-page \texttt{OVERVIEW.pdf} for
+sharing outside the project.}
 \label{fig:loop}
 \end{figure}
 
@@ -193,10 +159,12 @@ mechanic-fire validator (\texttt{tests/test\_faction\_mechanic\_smoke.py})
 confirms 19 implemented faction mechanics actually trigger in seeded
 battles.
 
-\subsection*{Goal C --- Generate balanced SwegHammer points (two-track)}
-Replace GW's commercially-driven points with empirically-derived costs.
-Two independent solvers run in parallel; the divergence between them is
-itself a calibration signal:
+\subsection*{Goal C --- Fit the SwegHammer points equation (two-track)}
+Replace GW's commercially-driven, hand-tuned price list with one master
+points equation: a closed-form formula mapping a unit's stats to its
+cost, plus small per-unit residuals for outliers the formula cannot
+explain. Two independent solvers feed the fit in parallel; the
+divergence between them is itself a calibration signal:
 
 \begin{itemize}[itemsep=2pt]
   \item \textbf{Sweg-balancer} (\texttt{code/balancer.py}) ---

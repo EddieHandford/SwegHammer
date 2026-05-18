@@ -14,10 +14,13 @@ rendered as a watchable replay for a single battle.
 This document describes the **Stage 1** apparatus: the simulator whose
 rules are being tuned until per-faction win rates match the May 2026
 Warp Friends tournament aggregate (Goal A in `ROADMAP.md`). Stage 2's
-points calibration (Goals C and D) runs on top of this engine once
-Stage 1 has converged. The points-calibration solvers live in
-`code/balancer.py` and `code/equilibrium.py`; see `BASELINE.md` for the
-solver layering. See `CLAUDE.md` "Project plan" for the full pipeline
+points-equation fit (Goals C and D) runs on top of this engine once
+Stage 1 has converged; the loop fits one master equation that prices
+every unit from its stats plus small residuals, with the simulator
+supplying the per-unit win rates that gate convergence. The
+equation-fitting solvers live in `code/balancer.py` and
+`code/equilibrium.py`; see `BASELINE.md` for the layer / track
+breakdown. See `CLAUDE.md` "Project plan" for the full pipeline
 framing.
 
 ## Architecture
@@ -137,9 +140,10 @@ collided with the equilibrium solver's own Phase 1–6 ladder
 - **Sweep coverage** — `scripts/evaluate_vs_meta.py` runs the per-faction
   matchup matrix and reports mean absolute error vs the May 2026 Warp
   Friends tournament aggregate. This is the Stage 1 success metric.
-- **Two-track points calibration** (`code/balancer.py`, `code/equilibrium.py`)
-  — Stage 2 work, runs on top of this engine once Stage 1 converges. See
-  `BASELINE.md`.
+- **Two-track points-equation fit** (`code/balancer.py`, `code/equilibrium.py`)
+  — Stage 2 work, runs on top of this engine once Stage 1 converges. The
+  two tracks supply the equation's coefficients and per-unit residuals.
+  See `BASELINE.md`.
 
 For per-feature status and ownership, see `PROJECT.tex`.
 

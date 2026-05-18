@@ -78,17 +78,21 @@ See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 
 All of the points calibration below is **Stage 2** work in the project's
 two-stage pipeline — see `CLAUDE.md` "Project plan" and `ROADMAP.md`
-"Pipeline structure" for the framing. Stage 2 only becomes reliable once
-Stage 1 (the simulator matching reality, mean absolute error against the
-Warp Friends tournament aggregate ≤ 2.0 pts) has converged. As of
-2026-05-17 Stage 1 is at 7.01 pts at N=200, so every calibrated price in
-this section is **provisional** and will need re-running once Stage 1
-lands.
+"Pipeline structure" for the framing. Stage 2 fits one master points
+equation that prices every unit from its stats (plus small per-unit
+residuals for the rough edges); the layers and tracks below are the
+pieces of that equation and the solvers that produce its coefficients.
+Stage 2 only becomes reliable once Stage 1 (the simulator matching
+reality, mean absolute error against the Warp Friends tournament
+aggregate ≤ 2.0 pts) has converged. As of 2026-05-17 Stage 1 is at 7.01
+pts at N=200, so every calibrated price in this section is
+**provisional** and will need re-running once Stage 1 lands.
 
-SwegHammer runs **three layers** of Stage 2 points calibration. The
-analytic formula above produces a fast, well-understood baseline; two
-empirical solvers refine it. See `ROADMAP.md` Goal C and `PROJECT.tex`
-§"Two-track points calibration" for the full picture.
+SwegHammer runs **three layers** of Stage 2 points calibration — each
+layer is a component of the equation. The analytic formula above
+produces a fast, well-understood baseline; two empirical solvers refine
+its coefficients and supply residuals. See `ROADMAP.md` Goal C and
+`PROJECT.tex` §"Two-track points calibration" for the full picture.
 
 > **Naming note.** This section used to be titled "Phase One / Phase Two /
 > Phase Three". The numbering was renamed to "Layer / Track" in the
