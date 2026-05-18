@@ -54,6 +54,13 @@ The catalogue is derived from BSData's WH40k 10th-edition data files. There are
   right weapon for the right target in-game, but the scaled-down attack count
   prevents this from recovering the all-best cheese. Single-model units fall
   back to the legacy "best legal weapon in the tree" path.
+  Squad **size** itself is extracted by `extract_squad_size`, which covers
+  four BSData encoding shapes — outer `selectionEntryGroup` with explicit
+  `selections` constraints, direct `selectionEntry type="model"` children on
+  the unit (Aeldari shape), per-model `scope="parent"` constraints summed
+  (Tomb Blades shape), and implicit-via-cost-tier (Jakhals, Neurogaunts).
+  See `tests/test_mapper.py::SquadSizeShapeRegressionTests` for one pinned
+  victim per shape.
 - `data/overrides.json` — per-unit hand tuning. Any field listed here overrides
   the BSData base. Entries without a corresponding BSData entry become
   fully hand-rolled units.
@@ -69,16 +76,31 @@ See `CLAUDE.md` for the rules around tuning vs editing the mapper output.
 
 ## Calibration Methodology
 
-SwegHammer runs **three layers** of points calibration. The analytic
-formula above produces a fast, well-understood baseline; two empirical
-solvers refine it. See `ROADMAP.md` Goal C and `PROJECT.tex` §"Two-track
-points calibration" for the full picture.
+All of the points calibration below is **Stage 2** work in the project's
+two-stage pipeline — see `CLAUDE.md` "Project plan" and `ROADMAP.md`
+"Pipeline structure" for the framing. Stage 2 fits one master points
+equation that prices every unit from its stats (plus small per-unit
+residuals for the rough edges); the layers and tracks below are the
+pieces of that equation and the solvers that produce its coefficients.
+Stage 2 only becomes reliable once Stage 1 (the simulator matching
+reality, mean absolute error against the Warp Friends tournament
+aggregate ≤ 2.0 pts) has converged. As of 2026-05-17 Stage 1 is at 7.01
+pts at N=200, so every calibrated price in this section is
+**provisional** and will need re-running once Stage 1 lands.
+
+SwegHammer runs **three layers** of Stage 2 points calibration — each
+layer is a component of the equation. The analytic formula above
+produces a fast, well-understood baseline; two empirical solvers refine
+its coefficients and supply residuals. See `ROADMAP.md` Goal C and
+`PROJECT.tex` §"Two-track points calibration" for the full picture.
 
 > **Naming note.** This section used to be titled "Phase One / Phase Two /
 > Phase Three". The numbering was renamed to "Layer / Track" in the
 > 2026-05 docs reorganisation to avoid colliding with the equilibrium
 > solver's own Phase 1 / Phase 2 / Phase 3 ladder (which has different
-> semantics — see `code/equilibrium.py`).
+> semantics — see `code/equilibrium.py`). The outer Stage 1 / Stage 2
+> framing is the project-wide pipeline; "Layer 1" and "Track 1 / Track 2"
+> below are all subdivisions of Stage 2.
 
 ### Layer 1 — Analytic baseline (current default)
 
@@ -162,6 +184,22 @@ tactical-utility term for non-damaging abilities, meta-weighting,
 mixed-strategy zero-sum solve) are tracked under Goal C/D in
 `ROADMAP.md`.
 
+### Track 2b — Sim-driven equilibrium (closed-form, real win rates)
+
+`code/equilibrium_simdriven.py` reuses the same row-mean log-LSQ solve,
+but replaces the closed-form pairwise damage matrix with one MEASURED
+from the simulator: for every ordered pair in a curated diagnostic set,
+run `n_battles` full `Battle()` runs at equal points budget and feed
+`R[i,j] = logit(observed_win_rate)` into the solver. This is the first
+equilibrium phase that picks up faction army rules, detachment
+passives, leader auras, movement, charges, and OC contests on
+objectives — all the simulator work that closed-form Phases 1–6 cannot
+see. Snapshot at `data/equilibrium_points_simdriven.json`; regenerate
+with `python -m code.equilibrium_simdriven` (default: ~28-unit
+diagnostic set, overnight-tractable). The Streamlit equilibrium tab
+offers it as an alternative source via a radio toggle; units outside
+the measured set inherit their Phase 1 value (`source="phase1_fallback"`).
+
 ### Validation Criteria
 
 A unit is considered "reasonably costed" when:
@@ -171,7 +209,11 @@ A unit is considered "reasonably costed" when:
 3. The cost is within the ±tolerance band of its synergy-adjusted value.
 4. The Sweg-balancer and Equilibrium prices agree within ±30% (significant
    divergence signals either a context-dependent unit or a non-damaging
-   ability the equilibrium doesn't see yet).
+   ability the equilibrium doesn't see yet). Note that this tolerance
+   band is itself a Stage-1-dependent artefact: an un-converged simulator
+   will exaggerate the divergence because the balancer (which exercises
+   every rule) reflects sim drift while the equilibrium (analytic) does
+   not. Tighten the tolerance only after Stage 1 lands.
 
 ## Notes on Hit Probability
 
