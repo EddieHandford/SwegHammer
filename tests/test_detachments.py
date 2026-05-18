@@ -23,10 +23,16 @@ from code.units import UnitProfile
 _NEW_DETACHMENTS = (
     # (key, faction, attribute, expected value)
     ("hallowed_martyrs",       "Adepta Sororitas",       "plus_one_to_wound", True),
-    ("shield_host",            "Adeptus Custodes",       "plus_one_save",     True),
+    # iter-8 fix: Shield Host swapped the defensive `plus_one_save`
+    # approximation for the real offensive Martial Ka'tah / Martial Mastery
+    # buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
+    ("shield_host",            "Adeptus Custodes",       "melee_crit_on_5_plus_hits", True),
     ("skitarii_hunter_cohort", "Adeptus Mechanicus",     "reroll_hit_ones",   True),
     ("inquisition_task_force", "Agents of the Imperium", "reroll_hit_ones",   True),
-    ("combined_regiment",      "Astra Militarum",        "plus_one_to_hit",   True),
+    # iter-14: Combined Arms (renamed from Combined Regiment) — replaced the
+    # plus_one_to_hit approximation with the real Born Soldiers LETHAL HITS
+    # rule per Wahapedia. Flag is now am_born_soldiers_lethal_hits.
+    ("combined_regiment",      "Astra Militarum",        "am_born_soldiers_lethal_hits",   True),
     ("teleport_strike_force",  "Grey Knights",           "reroll_wound_ones", True),
     # #197: renamed Battle Host → Warhost (codex name) and replaced the
     # approximated reroll_hit_ones flag with the real Martial Grace
@@ -112,11 +118,16 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
     # Hammer / etc.).
 
     def test_custodes_army_resolves(self):
+        # iter-8 fix: Shield Host's defensive `plus_one_save` approximation
+        # was replaced with the real offensive Martial Ka'tah / Martial
+        # Mastery dual buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
         army = Army("Custodes")
         army.add_unit(self._profile("Adeptus Custodes"))
         det = army.resolve_detachment()
         self.assertIsNotNone(det)
-        self.assertTrue(det.plus_one_save)
+        self.assertTrue(det.melee_crit_on_5_plus_hits)
+        self.assertTrue(det.melee_ap_plus_one)
+        self.assertFalse(det.plus_one_save)
 
     def test_explicit_detachment_overrides_default(self):
         explicit = Detachment(name="Override", faction="X", plus_one_to_wound=True)
@@ -169,14 +180,15 @@ class PickerSingleDetachmentTests(unittest.TestCase):
     """Factions with one registered detachment always resolve to it."""
 
     def test_picker_returns_unique_when_only_one(self):
-        # Tyranids still has only invasion_fleet in FACTION_DETACHMENTS
-        # (Necrons gained canoptek_court in #126, so use Tyranids as the
-        # 1-detachment canary).
-        self.assertEqual(FACTION_DETACHMENTS["Tyranids"], ("invasion_fleet",))
+        # iter16: Tyranids gained subterranean_assault as the May-2026
+        # real-meta default (Maastricht 2026 GT winner), so it now has
+        # two registered detachments. Orks still has only war_horde in
+        # FACTION_DETACHMENTS, so use it as the new 1-detachment canary.
+        self.assertEqual(FACTION_DETACHMENTS["Orks"], ("war_horde",))
         rng = random.Random(42)
-        det = pick_detachment_for_army("Tyranids", [], rng)
+        det = pick_detachment_for_army("Orks", [], rng)
         self.assertIsNotNone(det)
-        self.assertEqual(det.name, "Invasion Fleet")
+        self.assertEqual(det.name, "War Horde")
 
     def test_picker_unmapped_faction_falls_back(self):
         det = pick_detachment_for_army("Made-Up Faction", [], random.Random(0))

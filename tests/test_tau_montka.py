@@ -313,12 +313,14 @@ class StratagemPerCommandPhaseCapTests(unittest.TestCase):
         self.assertEqual(a.stratagems_fired_this_command_phase, 1)
 
     def test_core_stratagems_do_not_count_toward_cap(self):
-        """Core Stratagems (Tank Shock, Heroic Intervention, Counter-
-        Offensive, Command Re-Roll) fire on per-trigger hooks outside
+        """Core Stratagems (Tank Shock, Counter-Offensive, Command
+        Re-Roll) fire on per-trigger hooks outside
         `_apply_detachment_stratagems` and must NOT increment the
         per-Command-phase counter. We exercise the in-band path through
         `_fire_stratagem` with the dispatch flag explicitly OFF (the
         post-condition that all Core-Stratagem call sites rely on).
+        (Heroic Intervention is a free core CHARACTER ability per
+        #iter12 — no longer a stratagem.)
         """
         from code.stratagems import COMMAND_RE_ROLL
 

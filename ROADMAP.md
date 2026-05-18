@@ -11,6 +11,29 @@ This file is the high-level status board. For the human-facing checklist
 with ownership tags and math, see [`PROJECT.tex`](PROJECT.tex). For Claude
 operating rules, see [`CLAUDE.md`](CLAUDE.md).
 
+## Pipeline structure
+
+SwegHammer runs as two sequenced feedback loops, not one. See
+[`OVERVIEW.tex`](OVERVIEW.tex) for the non-technical picture and
+[`CLAUDE.md`](CLAUDE.md) "Project plan" for the rules-of-thumb.
+
+- **Stage 1 — Make the simulator play like reality.** Goal A below.
+  The feedback signal is mean absolute error vs the May 2026 Warp Friends
+  per-faction win rates, currently 7.01 pts at N=200 against a 2.0 pt
+  target. Stage 1 is the current focus.
+- **Stage 2 — Fit the points equation.** Goals C and D below. Fits one
+  master equation that prices every unit from its stats (plus small
+  per-unit residuals), tuning the stat coefficients and residuals until
+  the spread of per-unit win rates across the catalogue flattens. The
+  loop adjusts the equation, not individual prices; per-unit costs are
+  derived from the fitted formula. While Stage 1 is unconverged, Stage 2
+  outputs (`data/calibrated_points.json`, `data/equilibrium_points*.json`)
+  are provisional and will need redoing once Stage 1 lands.
+
+Goal B (equal-quality faction representation) sits underneath both
+stages — it is the groundwork that makes Stage 1's measurements honest
+and Stage 2's solvers possible.
+
 ## Status Overview
 
 | Goal | Status | Description |
@@ -26,14 +49,68 @@ Headline calibration metric:
 - **MAE 7.01 pts at N=200** — the true number; N=30 readings have ~3pt noise.
 - Persistent residual outliers at N=200: Necrons -15.2, Aeldari +13.9, TSON
   -11.6, T'au +10.3.
-- **Blocker**: `UnitProfile.points_cost` currently returns a Lanchester-
+- ~~**Blocker**: `UnitProfile.points_cost` currently returns a Lanchester-
   derived score rather than the GW per-model cost from `points_per_squad /
-  min_models`. Until this is fixed (Eddie's TODO, see PROJECT.tex), every
-  sim-side army budget runs in wrong-currency. Equilibrium pipeline + Compare
-  view already use GW costs correctly; calibration work below the fix is
-  signal-correct but anchored to bad baselines.
+  min_models`.~~ Resolved across commits `a0d7702` (property now prefers
+  GW canonical), `c084ba0` (squad-size extraction for shape-c units), and
+  the 2026-05-17 branch `claude/fixinfequivexplorer` (leader-plus-body and
+  cost-tier-implicit squad-size shapes; stale `points_override` entries
+  removed). Equilibrium pipeline, Compare view, and the army builder all
+  now run in GW per-model currency. Sweg-balancer overrides that were
+  anchored to the old (wrong) per-model basis were dropped — re-running
+  the balancer will repopulate them.
 - Measured by `python -m scripts.evaluate_vs_meta` (or
   `--battles 200` for the honest reading).
+
+---
+
+## Sprint plan: May 2026 (Ed/Jake handover)
+
+Captured from the Ed/Jake conversation on 2026-05-15. See
+[`PROJECT.tex` §"Sprint plan: May 2026 handover"](PROJECT.tex) for the
+full ownership-tagged checklist.
+
+**Architecture clarification.** SwegHammer is two systems:
+
+- **Equilibrium model** (`code/equilibrium.py`) — Lancaster-derived,
+  multi-dimensional, non-linear closed-form solver. **This is what
+  ships in the final product.**
+- **Simulator** (`code/simulator.py`) — exists to tune the utility
+  factors (deep strike, sticky objectives, scout, re-deploy, etc.)
+  that feed back into the equilibrium model. Slow and iterative; only
+  needed for calibration and for pricing newly-released models whose
+  utility weights are not yet known.
+
+**Calibration constraint.** Tournament data is sparse — even the Las
+Vegas Open produces only a few thousand games across roughly twenty
+factions, which is too thin for faction-vs-faction matchup matrices on
+its own. The simulator covers the gap by generating synthetic matchup
+volume.
+
+**Near-term sequence (priority order).**
+
+1. **Speed up the user interface for faster iteration** (Eddie). The
+   convergence tab is the right shape; extend the same live-streaming
+   pattern to the calibration sweep so a tuning loop does not block on
+   a multi-minute wait.
+2. **Get the simulator's mean absolute error down to 2–4 %** (Jake,
+   in progress). Headline metric for this sprint; everything
+   downstream blocks on it.
+3. **Generate a trial balanced points dataset.** Once the mean
+   absolute error is in the 2–4 % band, run the two-track points
+   solvers (`code/balancer.py` and `code/equilibrium.py`, see Goal C
+   below) and cache the output as a candidate full-catalogue
+   re-pricing.
+4. **Sanity-check the trial dataset, then play-test in person.** After
+   `scripts/cross_validate_pricing.py` clears the obvious outliers,
+   approach local game groups for a structured blind play-test round
+   — unit costs swapped in without telling players which units have
+   been re-priced, then a post-game survey on perceived fairness.
+
+**Final product vision.** When this sprint lands, the shipped product
+is the front end running the equilibrium equation on the
+trial-balanced points dataset, with the simulator preserved as a
+calibration utility for future Games Workshop releases.
 
 ---
 
@@ -55,7 +132,7 @@ in real play.
   - Genestealer Cults: Cult Ambush (army-wide turn-1 redeploy)
   - World Eaters: Blood Tithe (escalating BT spends, Lethal Hits at 4 BT)
   - Death Guard: Disgustingly Resilient (FNP 5+ army-wide) + Contagions of Nurgle (escalating -1 T / -1 Ld / -1 hit aura)
-  - Thousand Sons: All Is Dust (-1 to wound on D=1 attacks)
+  - Thousand Sons: All Is Dust (Rubricae Phalanx detachment, +1 save vs unmodified D1 on RUBRICAE units) + Rites of Coalescence (Scarab Occult Terminators datasheet ability, -1 to wound on any-D attacks while a PSYKER is present)
   - Necrons: Reanimation Protocols + Awakened Dynasty buffs
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon
@@ -193,17 +270,18 @@ methodology is the long-term calibration loop.
 - `code/compare_view.py` + Compare tab in `app.py` — drill into per-unit
   mispricing across phases.
 
-**Blocker.** `UnitProfile.points_cost` returns a Lanchester-derived score,
-not GW per-model cost. Every sim-side army budget is wrong-currency until
-Ed lands the points-per-model import fix flagged in PROJECT.tex `\eddie`
-TODO. Sweg-balancer outputs (and the 10-unit overrides shipped in `5d28049`)
-will need re-anchoring once the cost basis is correct.
+**Blocker** ~~`UnitProfile.points_cost` returns a Lanchester-derived score,
+not GW per-model cost.~~ Resolved — see the Status header above. Stale
+Sweg-balancer `points_override` entries (Crisis Fireknife / Sunforge,
+Deathshroud, Plague Marines, Rubric Marines, Scarab Occult Terminators,
+Hearthkyn Warriors) calibrated against the pre-fix model counts were
+dropped from `overrides.json` on 2026-05-17 and need re-running.
 
 **What's next.**
 
-- Wait for Ed's points-per-model import fix.
-- After fix: re-run Sweg-balancer MC + cross-validate vs Phase 5 — should
-  converge to many fewer disagreements when the baseline is right.
+- Re-run Sweg-balancer MC against the corrected GW per-model baseline and
+  cross-validate vs Phase 5 — should converge to many fewer disagreements
+  now that the cost basis is right.
 - Iterative MC passes per-faction to converge MAE; each pass capped at
   25% per unit, full catalogue sweep target.
 
@@ -232,9 +310,9 @@ Weights calibrated by 5-level grid search on 9 anchors.
 - `code/strategy.py` — exercises speed / scout / objective value in
   the balancer.
 
-**What's next.** Widen the anchor set; re-enable `w_deep_strike` after Ed
-fixes the points-per-model import (the anchor's GW cost matters for grid
-search target).
+**What's next.** Widen the anchor set; re-enable `w_deep_strike` — the
+points-per-model import is now resolved (see Status), so the anchor's GW
+cost can be trusted for the grid-search target.
 
 ---
 
@@ -273,13 +351,17 @@ run on top of. Retained as a historical record.
 
 ## Future Considerations
 
-### Points-per-model import fix (Eddie)
+### ~~Points-per-model import fix (Eddie)~~ — closed 2026-05-17
 
 Per Ed's TODO in PROJECT.tex (commit `a0d7702`): the BSData → UnitProfile
-pipeline reads `points_per_squad` correctly but `points_cost` returns a
-Lanchester-derived score, so all sim-side army budgets are wrong-currency.
-This is the bottleneck blocking the next calibration iteration. Ed has
-claimed this task; Claude work pauses cost-anchored changes until it lands.
+pipeline read `points_per_squad` correctly but `points_cost` returned a
+Lanchester-derived score, so all sim-side army budgets were wrong-currency.
+Resolved in three passes — `a0d7702` made the property prefer GW canonical;
+`c084ba0` and the 2026-05-17 mapper-shape fixes (branch
+`claude/fixinfequivexplorer`) corrected `min_models` extraction for the
+shape-c, leader-plus-body, and cost-tier-implicit squad encodings; stale
+balancer overrides anchored to the old basis were dropped. See PROJECT.tex
+"Points-per-model cost is imported wrong" item for the per-pass history.
 
 ### Faction-level balance
 

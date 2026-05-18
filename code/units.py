@@ -565,15 +565,23 @@ class Unit:
         # `Stratagem.Implacable Onslaught`.
         if self.transient_fnp_5:
             effective_fnp = min(effective_fnp, 5)
-        # Death Guard Disgustingly Resilient (army rule, 10e): every DEATH
-        # GUARD model has Feel No Pain 5+. The rule is codex-level and not
-        # encoded on individual BSData datasheets, so we faction-gate it
-        # here. Composes with any pre-existing FNP profile / leader aura
-        # by taking the lower (better) value — Plague Marines already have
-        # profile.fnp=5 (via overrides) so the min keeps them at 5, not 4.
-        # Cited as `simulator.disgustingly_resilient`.
-        if self.profile.faction == "Death Guard":
-            effective_fnp = min(effective_fnp, 5)
+        # Death Guard 10e: there is NO army-wide Feel No Pain 5+ rule.
+        # Per the May 2026 Death Guard codex on Wahapedia (and confirmed by
+        # Goonhammer "Hammer of Math: New Disgustingly Resilient" + the
+        # 10e codex review): the army rule is Nurgle's Gift / Contagions
+        # of Nurgle (a -1 T / -1 Ld / -1 to hit aura, per round), NOT a
+        # codex-level FNP. Disgustingly Resilient in 10e is ONLY the 2 CP
+        # Virulent Vectorium stratagem (-1 damage per allocated attack for
+        # the phase), wired via `transient_minus_one_damage_taken` above.
+        # The previous unconditional `min(effective_fnp, 5)` block was a
+        # fabrication that overpriced every DG VEHICLE / Terminator / non-
+        # PM datasheet with phantom FNP 5+. Per-datasheet innate FNP (e.g.
+        # Plague Marines fnp=5, Deathshroud fnp=4, Mortarion fnp=5) is
+        # carried on profile.fnp via overrides.json / parsed.json and is
+        # already honoured by the `min(self.profile.fnp, bonus_fnp)` line
+        # above. Removed in iter 15.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
+        # Goonhammer: https://www.goonhammer.com/hammer-of-math-new-disgustingly-resilient/
         # Drukhari Power From Pain: while the defender holds a Pain Token,
         # treat the unit as having FNP 6+ (lowest "active" target = best
         # roll). Composes with any pre-existing FNP profile / leader aura
@@ -643,6 +651,29 @@ class Unit:
             ap = p.ap
             ignore_cover = p.ignores_cover
 
+        # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
+        # melee AP+1 portion. Wahapedia verbatim: "Improve the Armour
+        # Penetration characteristic of melee weapons equipped by ADEPTUS
+        # CUSTODES models from your army with the Martial Ka'tah ability
+        # by 1." Gate: mode == "melee" AND attacker faction ==
+        # "Adeptus Custodes" AND detachment carries `melee_ap_plus_one`
+        # (set by SHIELD_HOST). AP is encoded as 0/-1/-2/-3 — improving
+        # AP by 1 makes the value MORE negative (AP-1 becomes AP-2 etc).
+        # APPROXIMATION: codex picks ONE Martial Mastery bullet per round;
+        # SwegHammer applies BOTH always-on (this AP+1 plus the
+        # Crit-on-5+ block below). Cited as `SHIELD_HOST.melee_ap_plus_one`.
+        if mode == "melee" and p.faction == "Adeptus Custodes":
+            _own_army_mk = getattr(self, "army_ref", None)
+            if _own_army_mk is not None:
+                try:
+                    _det_mk = _own_army_mk.resolve_detachment()
+                except Exception:
+                    _det_mk = None
+                if _det_mk is not None and getattr(
+                    _det_mk, "melee_ap_plus_one", False,
+                ):
+                    ap = ap - 1
+
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
             half_range = (p.range_inches or 24) / 2.0
@@ -671,45 +702,48 @@ class Unit:
         wound_p = wound_probability(strength, target.profile.toughness)
         wound_target = _prob_to_target(wound_p)
 
-        # ---- Buffs: +1 to hit / +1 to wound (lower the d6 target, min 2) ----
+        # ---- 10e core-rules modifier cap (Wahapedia core rules / Hit Roll &
+        # Wound Roll): "Hit roll modifiers are cumulative, but the Hit roll
+        # for an attack can never be modified by more than -1 or +1." Same
+        # wording for the Wound roll. Cited as
+        # `simulator.modifier_cap_plus_minus_one`.
+        #
+        # Each per-source +1 / -1 modifier is added to `hit_mod_delta` /
+        # `wound_mod_delta` instead of being applied directly to
+        # hit_target / wound_target. After all sources have contributed,
+        # we clamp the delta to [-1, +1] (see `_apply_modifier_cap` block
+        # at the end of this section) and apply the clamped delta to the
+        # base targets. This keeps multiple +1-to-hit sources (Oath of
+        # Moment is a re-roll, but e.g. detachment-aura +1 to hit +
+        # stratagem +1 to hit) from netting to +2.
+        hit_mod_delta: int = 0
+        wound_mod_delta: int = 0
+
+        # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
+        # enhancement — all merged to a single bool by leaders.effective_buffs).
         if att_buffs["plus_one_to_hit"]:
-            hit_target = max(2, hit_target - 1)
+            hit_mod_delta += 1
         if att_buffs["plus_one_to_wound"]:
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
 
-        # ---- Adeptus Astartes Combat Doctrines (Gladius Task Force
-        # detachment rule, 10e). At the start of each Command phase the
-        # Marine player picks an active Doctrine. SwegHammer's AI rotates
-        # deterministically: round 1 Devastator (+1 to wound, ranged only),
-        # round 2 Tactical (+1 to wound, both modes), round 3+ Assault
-        # (+1 to wound, melee only). Faction-gated to Marines AND
-        # detachment-gated to "Gladius Task Force" — Ironstorm Spearhead
-        # Marines get nothing here. Applied alongside the +1-to-wound
-        # buff above so later compounding effects (All Is Dust, Lance,
-        # etc.) see the boosted target. Cited as `simulator.combat_doctrines`.
-        own_army = getattr(self, "army_ref", None)
-        if own_army is not None and is_marine_faction(p.faction):
-            det = own_army.resolve_detachment()
-            if det is not None and det.name == "Gladius Task Force":
-                battle = getattr(own_army, "_battle_ref", None)
-                cur_round = getattr(battle, "_current_round", 0) if battle else 0
-                doctrine_applies = False
-                if cur_round == 1 and mode != "melee":
-                    doctrine_applies = True   # Devastator
-                elif cur_round == 2:
-                    doctrine_applies = True   # Tactical
-                elif cur_round >= 3 and mode == "melee":
-                    doctrine_applies = True   # Assault
-                if doctrine_applies:
-                    wound_target = max(2, wound_target - 1)
-
-        # Capture the hit target AFTER positive buffs but BEFORE any negative
-        # modifiers (Heavy in engagement / Indirect / cover / Stealth / DG
-        # Contagions round 3+). Used to enforce 10e's "modifiers to hit
-        # cannot exceed -1 or +1" cap — if hit_target was already RAISED by
-        # another -1-to-hit source, the DG Contagion -1 to hit must not
-        # compound it. Same value drives the stack-cap logic below.
-        _hit_target_after_buffs = hit_target
+        # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
+        # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
+        # audit (May 2026) found that the previous +1-to-wound-per-round
+        # implementation was fabricated — the real Doctrines (Wahapedia
+        # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force,
+        # cross-confirmed via newrecruit.eu Gladius entry) grant only
+        # movement utility:
+        #   Devastator (R1): "This unit is eligible to shoot in a turn
+        #     in which it Advanced." — bypasses the Advance shoot-lockout.
+        #   Tactical (R2):   "This unit is eligible to shoot and declare
+        #     a charge in a turn in which it Fell Back." — bypasses both
+        #     the Fall Back shoot-lockout AND the Fall Back charge-lockout.
+        #   Assault (R3+):   "This unit is eligible to declare a charge
+        #     in a turn in which it Advanced." — bypasses the Advance
+        #     charge-lockout.
+        # No wound buff. The gates are implemented in simulator._do_shoot
+        # and simulator._do_charge as Advance/Fall-Back lockout exemptions.
+        # Cited as `simulator.combat_doctrines`.
 
         # ---- Transient stratagem buffs (attacker side) ------------------
         # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
@@ -722,23 +756,23 @@ class Unit:
             mode != "melee"
             and self.transient_plus_one_to_wound_shooting
         ):
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
         if (
             mode == "melee"
             and self.transient_plus_one_to_wound_melee
         ):
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
         # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
-        # selected NECRON unit's ranged attacks for the round. Re-uses the same
-        # "lower hit_target by 1, min 2" idiom as att_buffs.plus_one_to_hit so
-        # the 10e modifier-cap (max +1) is enforced uniformly. Cited as
+        # selected NECRON unit's ranged attacks for the round. Stacks at the
+        # delta level so the post-clamp behaviour matches 10e (e.g. layered
+        # with Awakened Dynasty's bonus_to_hit_when_led both wanting +1 to
+        # hit, the clamp keeps the net at +1). Cited as
         # `Stratagem.Methodical Destruction`.
         if (
             mode != "melee"
             and self.transient_plus_one_to_hit_shooting
         ):
-            hit_target = max(2, hit_target - 1)
-            _hit_target_after_buffs = hit_target
+            hit_mod_delta += 1
 
         # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
         # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
@@ -777,31 +811,80 @@ class Unit:
                 battle = getattr(own_army, "_battle_ref", None)
                 cur_round = getattr(battle, "_current_round", 0) if battle else 0
                 if waaagh_round is not None and waaagh_round == cur_round:
-                    wound_target = max(2, wound_target - 1)
+                    wound_mod_delta += 1
 
-        # ---- Thousand Sons "All Is Dust" (army rule, 10e). Subtract 1 from
-        # the wound roll when a Damage-1 attack is allocated to a non-daemon
-        # TSons unit (Rubric Marines, Scarab Occult Terminators, etc.). This
-        # mirrors the +1-to-wound idioms above but in reverse (raise the d6
-        # target, capped at 7 — wound roll auto-fails). Stacks with attacker
-        # +1 to wound (e.g. Outbreak of Pestilence) — a single-damage attack
-        # with both buffs nets back to the base wound target. The DAEMON
-        # exclusion keeps Tzaangors / Pink Horrors / Spawn from benefiting.
-        # Cited as `simulator.all_is_dust`.
+        # ---- Thousand Sons "All Is Dust" (Rubricae Phalanx detachment rule,
+        # 10e current codex). Wahapedia verbatim: "Each time an attack with
+        # an unmodified Damage characteristic of 1 is allocated to a RUBRICAE
+        # model from your army, add 1 to any armour saving throw made against
+        # that attack." Applied as a +1 to the target's armour save when the
+        # incoming attack has weapon_damage_per_shot == 1 AND the defender
+        # carries the RUBRICAE unit-keyword (Rubric Marines, Scarab Occult
+        # Terminators — both have RUBRICAE set via data/overrides.json since
+        # BSData's mapper does not extract sub-faction keywords).
+        #
+        # iter15: the buff is now gated on the defender's army carrying the
+        # Rubricae Phalanx detachment (Detachment.all_is_dust). Real-meta
+        # TSON tournament lists in May 2026 are Rubricae Phalanx, so
+        # `DEFAULT_BY_FACTION["Thousand Sons"] = "rubricae_phalanx"` keeps
+        # the unconditional path working for the common case; armies that
+        # explicitly pick Grand Coven (psyker-heavy lists) lose the save buff
+        # — same outcome the codex enforces.
+        #
+        # APPROXIMATION vs the codex text (only one remaining after iter15):
+        #   The codex says "unmodified Damage 1". SwegHammer reads the
+        #   per-shot weapon damage AFTER Melta range bonuses have been
+        #   composed (Melta is a +damage range modifier; the only
+        #   "modifier to damage" in 10e). The two reconverge in the common
+        #   case — a D1 bolter never picks up Melta — but a D1 Melta weapon
+        #   (very rare in 10e) would lose the save buff under our reading
+        #   even if the codex would keep it.
+        # The save buff stacks at the save-modifier layer rather than the
+        # wound-modifier layer used by the prior implementation (which
+        # incorrectly modelled All Is Dust as a -1 to wound; that was the
+        # 10e launch-index datasheet ability, removed when the codex landed
+        # and replaced with the Rubricae Phalanx detachment +1 save rule).
+        # The new behaviour is applied below at the `save_after_ap` reduction
+        # step — see `_all_is_dust_save_buff` boolean computed here, consumed
+        # ~25 lines down where save_after_ap is finalised.
+        _all_is_dust_save_buff = False
         if (
             target.profile.faction == "Thousand Sons"
-            and per_shot_dmg <= 1.0
-            and "DAEMON" not in (target.profile.unit_keywords or ())
+            and per_shot_dmg == 1.0
+            and "RUBRICAE" in (target.profile.unit_keywords or ())
         ):
-            wound_target = min(7, wound_target + 1)
+            _tgt_army = getattr(target, "army_ref", None)
+            if _tgt_army is not None:
+                try:
+                    _tgt_det = _tgt_army.resolve_detachment()
+                except Exception:
+                    _tgt_det = None
+                if _tgt_det is not None and getattr(
+                    _tgt_det, "all_is_dust", False,
+                ):
+                    _all_is_dust_save_buff = True
+
+        # ---- Thousand Sons "Rites of Coalescence" (Scarab Occult Terminators
+        # datasheet ability, 10e current codex). Wahapedia verbatim: "While
+        # this unit contains one or more PSYKER models, each time an attack
+        # targets this unit, subtract 1 from the Wound roll." The Aspiring
+        # Sorcerer is mandatory in a Scarab Occult squad and is the PSYKER
+        # carrier, so the buff is effectively always-on as long as the squad
+        # has at least one model left. We gate on profile name to be precise
+        # (the rule is unique to Scarab Occult Terminators — no other TSON
+        # datasheet carries it) plus the PSYKER unit-keyword as a sanity
+        # check that the squad still contains its Sorcerer. Cited as
+        # `simulator.rites_of_coalescence`.
+        if (
+            target.profile.name == "Scarab Occult Terminators"
+            and "PSYKER" in (target.profile.unit_keywords or ())
+        ):
+            wound_mod_delta -= 1
 
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # The army picks an imperative each Command phase; the attacker's
-        # hit_target is shifted up or down depending on attack mode. Cited
-        # as `simulator.doctrina_imperatives`. Faction-gated on the
-        # attacker — a non-AdMech unit in the same battle is unaffected
-        # even if the OPPOSING army happens to be AdMech with an active
-        # imperative (the gate reads attacker.profile.faction).
+        # The army picks an imperative each Command phase; one mode gets
+        # +1 to hit, the opposite mode gets -1 to hit. Cited as
+        # `simulator.doctrina_imperatives`. Faction-gated on the attacker.
         if p.faction == "Adeptus Mechanicus":
             own_army = getattr(self, "army_ref", None)
             imperative = (
@@ -809,36 +892,28 @@ class Unit:
                 if own_army is not None else None
             )
             if imperative == "protector":
-                if mode != "melee":
-                    hit_target = max(2, hit_target - 1)   # +1 to hit ranged
-                else:
-                    hit_target = min(6, hit_target + 1)   # -1 to hit melee
+                hit_mod_delta += 1 if mode != "melee" else -1
             elif imperative == "conqueror":
-                if mode == "melee":
-                    hit_target = max(2, hit_target - 1)   # +1 to hit melee
-                else:
-                    hit_target = min(6, hit_target + 1)   # -1 to hit ranged
+                hit_mod_delta += 1 if mode == "melee" else -1
 
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
-        # NOT move this round. Melee never benefits. Same math as +1-to-hit.
+        # NOT move this round. Melee never benefits.
         if p.heavy and mode != "melee" and not self.moved_this_round:
-            hit_target = max(2, hit_target - 1)
+            hit_mod_delta += 1
 
         # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
-        # while in engagement range pay -1 to hit (raises the d6 target).
-        # Mode is ranged because we already blocked melee above.
+        # while in engagement range pay -1 to hit. Ranged only.
         if mode != "melee" and self.shooting_in_engagement:
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
-        # ---- Indirect Fire: -1 to hit when target is not visible (raises target).
-        # Only meaningful in ranged mode.
+        # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.
         if p.indirect_fire and mode != "melee" and not has_los:
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
-        # ---- Lance: +1 to wound (lower wound_target by 1, min 2) when this
-        # melee attack happens on a turn the attacker declared a charge.
+        # ---- Lance: +1 to wound when this melee attack happens on a turn
+        # the attacker declared a charge.
         if p.lance and mode == "melee" and is_charging:
-            wound_target = max(2, wound_target - 1)
+            wound_mod_delta += 1
 
         # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
         # the plain in_cover flag already grants below). Ranged shots only;
@@ -848,31 +923,43 @@ class Unit:
             and target.in_heavy_cover
             and not ignore_cover
         ):
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
         # ---- Stealth keyword: shooters take -1 to hit against the target.
-        # Same math as a worsened hit roll. Capped at 7 (no possible hit).
         # Melee is unaffected (Stealth is a ranged defence).
         if mode != "melee" and target.profile.stealth:
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
 
         # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
         # an enemy unit (the ATTACKER here) within 3" of any DG model takes
         # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
         # DG model on the opposing side, and on the attacker NOT being a DG
-        # model itself (the aura debuffs *enemy* units). 10e cap: "modifiers
-        # to hit rolls cannot exceed -1" — if another effect (Big Guns,
-        # Indirect, Heavy cover, Stealth) has ALREADY raised hit_target above
-        # its post-buff value, we skip the contagion penalty rather than
-        # compound it. Radius gated to 3" per the modern Nurgle's Gift /
-        # Afflicted rule (Wahapedia). Cited as `simulator.contagions_of_nurgle`.
+        # model itself (the aura debuffs *enemy* units). The ±1 cap below
+        # subsumes the old "skip if already capped" gate — adding -1 here
+        # when the delta is already -1 is harmless because the clamp
+        # collapses the net to -1 anyway. Radius gated to 3" per the modern
+        # Nurgle's Gift / Afflicted rule (Wahapedia). Cited as
+        # `simulator.contagions_of_nurgle`.
         if (
             _contagion_round_for(self) >= 3
             and p.faction != "Death Guard"
-            and hit_target == _hit_target_after_buffs
             and _is_near_enemy_dg_model(self, radius=3.0)
         ):
-            hit_target = min(7, hit_target + 1)
+            hit_mod_delta -= 1
+
+        # ---- Apply the ±1 modifier cap (Wahapedia core rules: "Hit roll
+        # modifiers are cumulative, but the Hit roll for an attack can
+        # never be modified by more than -1 or +1." Same for Wound rolls).
+        # `hit_target` was already set to its base value; positive delta =
+        # +1 to hit = LOWER target (easier roll); negative delta = -1 to
+        # hit = HIGHER target (harder roll). Symmetric for wound. The
+        # arithmetic clamps to [2, 7] which preserves existing semantics
+        # (target 7 = auto-miss, target 2 = always succeeds bar nat-1).
+        # Cited as `simulator.modifier_cap_plus_minus_one`.
+        hit_mod_clamped = max(-1, min(1, hit_mod_delta))
+        wound_mod_clamped = max(-1, min(1, wound_mod_delta))
+        hit_target = max(2, min(7, hit_target - hit_mod_clamped))
+        wound_target = max(2, min(7, wound_target - wound_mod_clamped))
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
         anti_crit_threshold = 6
@@ -900,6 +987,13 @@ class Unit:
         # target unit for the round. Stacks with the army-wide flag above;
         # capped at 2+ either way.
         if target.transient_plus_one_save:
+            save_after_ap = max(2, save_after_ap - 1)
+        # All Is Dust (Rubricae Phalanx, see boolean computed in the
+        # wound-modifier block above). +1 to the armour save when the
+        # incoming attack is Damage 1 AND the defender carries the RUBRICAE
+        # keyword. Capped at 2+ same as every other save buff in this stack.
+        # Cited as `simulator.all_is_dust`.
+        if _all_is_dust_save_buff:
             save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
         # ---- Target's buffs: army-wide invuln. Only overrides if better
@@ -1005,6 +1099,51 @@ class Unit:
             if det is not None and getattr(det, "lethal_hits_on_guided", False):
                 effective_lethal_hits = True
 
+        # ---- Astra Militarum Combined Arms detachment — Born Soldiers
+        # (army-wide ranged [LETHAL HITS] gated on REGIMENT-vs-non-V/M and
+        # SQUADRON-vs-V/M matchups). Wahapedia verbatim: "Each time a model
+        # in a REGIMENT unit from your army makes a ranged attack that
+        # targets a visible unit (excluding MONSTERS and VEHICLES), that
+        # attack has the [LETHAL HITS] ability. Each time a model in a
+        # SQUADRON unit from your army makes a ranged attack that targets
+        # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL
+        # HITS] ability."
+        # APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the
+        # codex's REGIMENT / SQUADRON keywords, so we map REGIMENT →
+        # attacker has INFANTRY (and not VEHICLE/MONSTER), SQUADRON →
+        # attacker has VEHICLE. This captures the codex split: AM infantry
+        # squads (Cadians, Krieg, Scions, Ogryns) trigger the anti-troop
+        # leg; AM vehicle squadrons (Leman Russ, Rogal Dorn, Sentinels)
+        # trigger the anti-armour leg. Composes with profile.lethal_hits
+        # via OR (one re-roll branch in the loop, no double-fire).
+        # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
+        if (
+            mode != "melee"
+            and not effective_lethal_hits
+            and own_army is not None
+            and (p.faction or "") == "Astra Militarum"
+        ):
+            det = own_army.resolve_detachment()
+            if det is not None and getattr(det, "am_born_soldiers_lethal_hits", False):
+                attacker_kws = set(p.unit_keywords or ())
+                target_kws = set((target.profile.unit_keywords or ()) if target else ())
+                target_is_vm = (
+                    "VEHICLE" in target_kws or "MONSTER" in target_kws
+                )
+                # REGIMENT leg: INFANTRY-keyword attacker (and not VEHICLE/
+                # MONSTER) vs non-VEHICLE/MONSTER target.
+                if (
+                    "INFANTRY" in attacker_kws
+                    and "VEHICLE" not in attacker_kws
+                    and "MONSTER" not in attacker_kws
+                    and not target_is_vm
+                ):
+                    effective_lethal_hits = True
+                # SQUADRON leg: VEHICLE-keyword attacker vs VEHICLE/MONSTER
+                # target.
+                elif "VEHICLE" in attacker_kws and target_is_vm:
+                    effective_lethal_hits = True
+
         # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
         # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
         # by ORKS models from your army have the [SUSTAINED HITS 1] ability."
@@ -1028,6 +1167,27 @@ class Unit:
                     _det, "melee_sustained_hits_army_wide", False,
                 ):
                     effective_sustained_hits += 1
+
+        # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
+        # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
+        # `save_after_ap` is computed) — see the block tagged
+        # `SHIELD_HOST.melee_ap_plus_one` above. This block only sets the
+        # crit threshold that gates `crit_hit = (roll == 6)` later in the
+        # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
+        # adeptus-custodes/#Shield-Host.
+        # Cited as `SHIELD_HOST.melee_crit_on_5_plus_hits`.
+        melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
+        if mode == "melee" and p.faction == "Adeptus Custodes":
+            _own_army = getattr(self, "army_ref", None)
+            if _own_army is not None:
+                try:
+                    _det = _own_army.resolve_detachment()
+                except Exception:
+                    _det = None
+                if _det is not None and getattr(
+                    _det, "melee_crit_on_5_plus_hits", False,
+                ):
+                    melee_crit_threshold = 5
 
         total_damage = 0.0
         for _ in range(n_attacks):
@@ -1079,7 +1239,11 @@ class Unit:
                             roll = sub
                 if roll < hit_target:
                     continue   # missed
-                crit_hit = (roll == 6)
+                # Crit-to-hit threshold defaults to 6 (canonical 10e); the
+                # Shield Host Martial Ka'tah Crit-on-5+ branch lowers it to
+                # 5 for Adeptus Custodes melee attackers (see
+                # `melee_crit_threshold` setup above).
+                crit_hit = (roll >= melee_crit_threshold) if mode == "melee" else (roll == 6)
             n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
             for hit_i in range(n_hits):
@@ -1124,8 +1288,24 @@ class Unit:
                             wroll = random.randint(1, 6)
                             wound_succeeded = (wroll >= wound_target)
                             rerolled = True
-                    # Anti-X lowers the crit-wound threshold against that keyword
-                    crit_wound = wound_succeeded and wroll >= anti_crit_threshold
+                    # Anti-X (10e core): "Each time an attack is made with such
+                    # a weapon against a target that has the keyword after the
+                    # word 'Anti-', an unmodified Wound roll of 'x+' scores a
+                    # Critical Wound." A Critical Wound is by definition a
+                    # successful Wound roll (10e core: "An unmodified Wound
+                    # roll of 6 is always considered to be a successful Wound
+                    # roll, irrespective of the attack's Strength and the
+                    # target's Toughness characteristic. This is known as a
+                    # Critical Wound."). So a roll of >= anti_crit_threshold
+                    # auto-succeeds AND is a Critical Wound — even if the
+                    # roll would otherwise fail the normal S-vs-T target.
+                    # Cited as `weapon.anti_x`.
+                    # Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#ANTI-X
+                    if wroll >= anti_crit_threshold:
+                        wound_succeeded = True
+                        crit_wound = True
+                    else:
+                        crit_wound = False
                 if not wound_succeeded:
                     continue
 

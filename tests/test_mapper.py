@@ -354,5 +354,97 @@ class RealBSDataSquadRegressionTests(unittest.TestCase):
         self.assertGreater(het, 50, msg="expected dozens of heterogeneous squads")
 
 
+class SquadSizeShapeRegressionTests(unittest.TestCase):
+    """One assertion per BSData squad-size encoding shape the mapper supports.
+
+    Each shape has a real catalogue victim from a past regression — if
+    `extract_squad_size` ever silently flips back to (1, 1), the per-model
+    points it feeds into `compute_phase1` collapse to the full squad cost
+    and the equilibrium graph shows wildly mispriced units. We pin one
+    unit per shape against its known correct (min, max) so a regression
+    surfaces immediately in CI rather than three weeks later in the UI.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.units = _parsed_units()
+
+    def _expect_size(self, key: str, min_m: int, max_m: int) -> None:
+        u = self.units.get(key)
+        if u is None:
+            self.skipTest(f"unit '{key}' missing from parsed.json")
+        self.assertEqual(
+            (u["min_models"], u["max_models"]),
+            (min_m, max_m),
+            msg=(
+                f"{key} shape regressed: "
+                f"got min={u['min_models']} max={u['max_models']}, "
+                f"want min={min_m} max={max_m}. "
+                f"Per-model points would be {u['points_listed'] / max(1, u['min_models']):.1f}, "
+                f"want {u['points_listed'] / max(1, min_m):.1f}."
+            ),
+        )
+
+    def test_shape_a_outer_group_with_constraints(self):
+        """Single ``selectionEntryGroup`` with direct min/max — Intercessors."""
+        self._expect_size("space_marines_intercessor_squad", 5, 10)
+
+    def test_shape_a_sum_leader_plus_body_groups(self):
+        """Two groups (leader + main) must SUM, not first-match — Devastators.
+
+        Pre-2026-05-17 the mapper returned the first non-None group, which
+        for Devastator Squad is "Devastators" (4, 9) — dropping the
+        sergeant and reporting 30 pts/model instead of the correct 24.
+        """
+        self._expect_size("space_marines_devastator_squad", 5, 10)
+
+    def test_shape_b_direct_model_entries_on_unit(self):
+        """No outer groups — model entries are direct children (Plaguebearers).
+
+        This is the shape the c084ba0 fix specifically introduced. If the
+        mapper accidentally reads the unit entry's OWN ``selections``
+        constraint (a force/roster army-list cap) the squad collapses to 1.
+        """
+        self._expect_size("death_guard_plaguebearers", 10, 10)
+
+    def test_shape_b_mixed_leader_group_plus_direct_body(self):
+        """Mixed shape — outer group(s) + direct model entries on the unit.
+
+        T'au Breacher Team encodes the Shas'ui leader as a (1, 1) outer
+        group and the 9-trooper body as a direct ``selectionEntry`` on the
+        unit itself. The pre-2026-05-17 logic only checked direct entries
+        when no outer group matched, so the body was silently dropped.
+        Servitor Battleclade (6 combat servitors + 3 specialist direct
+        entries = 9 models) was the other canonical victim.
+        """
+        self._expect_size("t_au_empire_breacher_team", 10, 10)
+        self._expect_size("adeptus_mechanicus_servitor_battleclade", 9, 9)
+
+    def test_shape_c_per_model_constraint_sum(self):
+        """Tomb Blades / Kabalite Warriors — sum each model's own min/max."""
+        # Pink Horrors are the simplest catalogue example: 10 direct model
+        # entries, each with parent-scope min/max=1, summing to (10, 10).
+        self._expect_size("chaos_daemons_library_pink_horrors", 10, 10)
+
+    def test_shape_d_cost_tier_modifier_only(self):
+        """Squad size implicit in a points-tier cost modifier.
+
+        Neurogaunts and Jakhals have no constraint encoding the squad
+        count — only a `<modifier type='set' value=<higher>>` with a
+        `<condition type='greaterThan' field='selections' childId='model'
+        value='N'>`. N is the upper bound of the base cost tier and
+        therefore the size of the base squad at base cost.
+        """
+        # Neurogaunts: base 45 pts, tier-up at >11 → 11 model base squad.
+        # max=21 (not 22) because BSData's two outer groups (the
+        # Nodebeasts upgrade slot + the main body) sum to (11, 21); the
+        # cost-tier value only supplies the min FLOOR, not the max ceiling.
+        self._expect_size("tyranids_neurogaunts", 11, 21)
+        # Jakhals: only loadout-choice groups statically (each summing to
+        # (1, 1)); the cost-tier value 10 supplies BOTH min and max via
+        # the max-of-static-vs-tier rule.
+        self._expect_size("world_eaters_jakhals", 10, 10)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,7 +26,7 @@ from .strategy import (
     should_fire_stratagem,
 )
 from .stratagems import (
-    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, HEROIC_INTERVENTION, TANK_SHOCK,
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK,
     # Virulent Vectorium (Death Guard) — full 6-stratagem set, per #195.
     # Disgustingly Resilient was re-anchored to the real detachment at 2 CP
     # per the 2026-05-15 fabrication audit.
@@ -48,9 +48,24 @@ from .stratagems import (
     # Grand Coven (Thousand Sons) — six real detachment stratagems (#193)
     PSYCHIC_DOMINION, DESTINED_BY_FATE, EGOTISTICAL_POWER,
     DESECRATION_OF_WORLDS, ARCANE_FOCUS, DEVASTATING_SORCERY,
+    # Rubricae Phalanx (Thousand Sons) — six detachment stratagems (iter15)
+    ARDENT_AUTOMATA, INEXORABLE_ADVANCE, INFERNAL_FUSILLADE,
+    REVENGE_OF_THE_RUBRICAE, IMPLACABLE_GUARDIANS, UNWAVERING_PHALANX,
     # War Horde (Orks) — six real detachment stratagems (iter-1 B1)
     INSANE_BRAVERY, POWER_OF_THE_WAAAGH, MOB_UP, BIG_KRUMPIN,
     TELLYPORTA, DA_BIGGEST_BOSS,
+    # Shield Host (Adeptus Custodes) — six real detachment stratagems (iter-8)
+    ARCANE_GENETIC_ALCHEMY, UNWAVERING_SENTINELS, MULTIPOTENTIALITY,
+    VIGILANCE_ETERNAL, ARCHAEOTECH_MUNITIONS, AVENGE_THE_FALLEN,
+    # Oathband (Leagues of Votann) — six real detachment stratagems (iter-9)
+    WARRIOR_PRIDE, WRATH_OF_THE_ANCESTORS, GLORY_OF_THE_HEARTH,
+    IRONKIN_SEQUENCE, ANCESTRAL_SENTENCE, VOID_ARMOURED_RESILIENCE,
+    # Gladius Task Force (Adeptus Astartes) — six real detachment stratagems (iter-12)
+    STORM_OF_FIRE, ARMOUR_OF_CONTEMPT, SQUAD_TACTICS,
+    ONLY_IN_DEATH_DOES_DUTY_END, HONOUR_THE_CHAPTER, ADAPTIVE_STRATEGY,
+    # Combined Arms (Astra Militarum) — six real detachment stratagems (iter-14)
+    COORDINATED_ACTION, REINFORCEMENTS, FLEXIBLE_COMMAND,
+    FIELDS_OF_FIRE, INSPIRED_COMMAND, STALWART_PROTECTOR,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -286,9 +301,10 @@ class Battle:
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
-        # Tank Shock, Heroic Intervention, Counter-Offensive, Command
-        # Re-Roll fire on their own per-trigger hooks and don't count
-        # toward the detachment-stratagem cap.
+        # Tank Shock, Counter-Offensive, Command Re-Roll fire on their
+        # own per-trigger hooks and don't count toward the detachment-
+        # stratagem cap. (Heroic Intervention is a free core CHARACTER
+        # ability, not a stratagem at all — see _do_heroic_intervention.)
         self._dispatching_detachment_stratagems: bool = False
 
     # ------------------------------------------------------------------
@@ -523,7 +539,15 @@ class Battle:
         nobody currently controls, the sticky owner still scores. If the
         opposing army takes control, the sticky owner is cleared (and the
         new owner replaces it if THEY are sticky).
+
+        Primary VP cap (10e Leviathan Tournament Companion): an army may
+        score a maximum of 15 Primary VP per battle round (i.e. count at
+        most 3 controlled objectives at 5 VP each). Enforced after the
+        per-objective awards are tallied. Cited as
+        `simulator.primary_vp_cap_15`.
         """
+        a_vp_before = self._a_vp
+        b_vp_before = self._b_vp
         # Virulent Vectorium Worldblight (Death Guard): every DG unit on a
         # controlled objective acts as if it had the sticky_objective flag,
         # per the detachment passive. Resolved once per call. Cited as
@@ -629,6 +653,21 @@ class Battle:
                     vp_awarded=0, a_oc=a_oc, b_oc=b_oc,
                 ))
 
+        # Primary VP per-round cap (10e Leviathan Tournament Companion):
+        # an army scores at most 15 Primary VP per battle round, regardless
+        # of how many objectives they control. Excess held objectives still
+        # emit ObjectiveScored events above (informative), but the running
+        # VP totals are clamped here. Faction-neutral; corrects inflation
+        # for objective-flooding archetypes (DG sticky, Necrons RP).
+        # https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/
+        # Cited as `simulator.primary_vp_cap_15`.
+        a_round_vp = self._a_vp - a_vp_before
+        b_round_vp = self._b_vp - b_vp_before
+        if a_round_vp > 15:
+            self._a_vp = a_vp_before + 15
+        if b_round_vp > 15:
+            self._b_vp = b_vp_before + 15
+
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
     # ------------------------------------------------------------------
@@ -664,6 +703,13 @@ class Battle:
         army.cabbalistic_doombolt_boost = False
         army.putrid_detonation_armed = False
         army.plaguesurge_active = False
+        # AM Voice of Command — per-round stratagem widening flags. Flexible
+        # Command (Combined Arms, 2 CP) extends Orders to SQUADRON units;
+        # Inspired Command (Combined Arms, 1 CP) grants one bonus Order
+        # this round. Both reset every round so the widening only applies
+        # the round the stratagem fires.
+        army.orders_eligible_squadron_this_round = False
+        army.orders_extra_this_round = 0
 
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
@@ -794,6 +840,25 @@ class Battle:
             # Egotistical Power and Arcane Focus are intentionally NOT dispatched
             # here — see _try_egotistical_power / _try_arcane_focus docstrings.
 
+            # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+            # Four wire onto existing transient_* flags (Inexorable Advance,
+            # Infernal Fusillade, Implacable Guardians, Unwavering Phalanx);
+            # two are catalogued-but-no-op APPROXIMATIONs (Ardent Automata —
+            # no Fall-Back-this-turn transient; Revenge of the Rubricae — no
+            # out-of-sequence-shoot-on-PSYKER-death hook).
+            if not self._strat_cap_reached(army) and "Inexorable Advance" in strat_names:
+                self._try_inexorable_advance(army, opponent)
+            if not self._strat_cap_reached(army) and "Infernal Fusillade" in strat_names:
+                self._try_infernal_fusillade(army, opponent)
+            if not self._strat_cap_reached(army) and "Implacable Guardians" in strat_names:
+                self._try_implacable_guardians(army, opponent)
+            if not self._strat_cap_reached(army) and "Unwavering Phalanx" in strat_names:
+                self._try_unwavering_phalanx(army, opponent)
+            # Ardent Automata + Revenge of the Rubricae catalogued in
+            # RUBRICAE_PHALANX_STRATAGEMS for the auditor + stratagems_for_army
+            # listing; dispatchers intentionally no-op (see docstrings).
+
             # ----- War Horde (Orks) — six real stratagems (iter-1 B1) ------
             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
             # Insane Bravery is catalogued-but-no-op APPROXIMATION (no per-unit
@@ -812,12 +877,95 @@ class Battle:
             # Insane Bravery — catalogued in WAR_HORDE_STRATAGEMS for the
             # auditor + stratagems_for_army listing, but the dispatcher is a
             # no-op (no per-unit battleshock-immunity transient flag exists).
+
+            # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+            # Five wire onto existing transient_* flags; Vigilance Eternal is
+            # a no-op APPROXIMATION (sticky-objective hook is per-detachment,
+            # not per-stratagem-fire). Replaces the iter-0 zero-stratagem
+            # state where Custodes burned 5/7 strat fires on Command Re-Roll.
+            if not self._strat_cap_reached(army) and "Arcane Genetic Alchemy" in strat_names:
+                self._try_arcane_genetic_alchemy(army, opponent)
+            if not self._strat_cap_reached(army) and "Unwavering Sentinels" in strat_names:
+                self._try_unwavering_sentinels(army, opponent)
+            if not self._strat_cap_reached(army) and "Multipotentiality" in strat_names:
+                self._try_multipotentiality(army, opponent)
+            if not self._strat_cap_reached(army) and "Archaeotech Munitions" in strat_names:
+                self._try_archaeotech_munitions(army, opponent)
+            if not self._strat_cap_reached(army) and "Avenge the Fallen" in strat_names:
+                self._try_avenge_the_fallen(army, opponent)
+            # Vigilance Eternal — catalogued in SHIELD_HOST_STRATAGEMS for the
+            # auditor + stratagems_for_army listing, but the dispatcher is a
+            # no-op APPROXIMATION (sticky-objective mechanism is per-detachment-
+            # flag-gated, not per-stratagem-fire).
+
+            # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+            # All six wire onto existing transient_* flags / judgement_tokens
+            # plumbing; the Judgement-Token-bearing gate is APPROXIMATED to
+            # "the highest-threat enemy" because the AI heuristic doesn't
+            # track per-unit token presence yet. Stacks with the existing
+            # `simulator.judgement_tokens` re-roll buffs at 1+/3+ thresholds
+            # — Warrior Pride / Wrath / Ancestral Sentence compound the token
+            # economy rather than replacing it.
+            if not self._strat_cap_reached(army) and "Warrior Pride" in strat_names:
+                self._try_warrior_pride(army, opponent)
+            if not self._strat_cap_reached(army) and "Wrath of the Ancestors" in strat_names:
+                self._try_wrath_of_the_ancestors(army, opponent)
+            if not self._strat_cap_reached(army) and "Glory of the Hearth" in strat_names:
+                self._try_glory_of_the_hearth(army, opponent)
+            if not self._strat_cap_reached(army) and "Ironkin Sequence" in strat_names:
+                self._try_ironkin_sequence(army, opponent)
+            if not self._strat_cap_reached(army) and "Ancestral Sentence" in strat_names:
+                self._try_ancestral_sentence(army, opponent)
+            if not self._strat_cap_reached(army) and "Void-Armoured Resilience" in strat_names:
+                self._try_void_armoured_resilience(army, opponent)
+
+            # ----- Gladius Task Force (Adeptus Astartes) — six real strats (iter-12)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+            # Replaces the iter-0 zero-stratagem state where Marines burned every
+            # strat fire on Command Re-Roll (universal Core). Closes
+            # docs/AUDIT_PARITY.md fix #1 (largest 0/6 gap — Marines is 134
+            # units / the most-used codex). All six dispatchers follow the
+            # Shield Host / Oathband pattern: route through the closest
+            # existing transient_* flag and document the gap.
+            if not self._strat_cap_reached(army) and "Storm of Fire" in strat_names:
+                self._try_storm_of_fire(army, opponent)
+            if not self._strat_cap_reached(army) and "Armour of Contempt" in strat_names:
+                self._try_armour_of_contempt(army, opponent)
+            if not self._strat_cap_reached(army) and "Squad Tactics" in strat_names:
+                self._try_squad_tactics(army, opponent)
+            if not self._strat_cap_reached(army) and "Only In Death Does Duty End" in strat_names:
+                self._try_only_in_death_does_duty_end(army, opponent)
+            if not self._strat_cap_reached(army) and "Honour the Chapter" in strat_names:
+                self._try_honour_the_chapter(army, opponent)
+            if not self._strat_cap_reached(army) and "Adaptive Strategy" in strat_names:
+                self._try_adaptive_strategy(army, opponent)
+
+            # ----- Combined Arms (Astra Militarum) — six real strats (iter-14)
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+            # Closes the AM 0/6 detachment-stratagem gap (docs/AUDIT_PARITY.md).
+            # Three wire onto Voice of Command Order economy (Coordinated
+            # Action, Flexible Command, Inspired Command), three onto
+            # existing transient_* flags (Fields of Fire, Stalwart Protector),
+            # and Reinforcements! is a no-op APPROXIMATION (no respawn hook).
+            if not self._strat_cap_reached(army) and "Coordinated Action" in strat_names:
+                self._try_coordinated_action(army, opponent)
+            if not self._strat_cap_reached(army) and "Flexible Command" in strat_names:
+                self._try_flexible_command(army, opponent)
+            if not self._strat_cap_reached(army) and "Fields of Fire" in strat_names:
+                self._try_fields_of_fire(army, opponent)
+            if not self._strat_cap_reached(army) and "Inspired Command" in strat_names:
+                self._try_inspired_command(army, opponent)
+            if not self._strat_cap_reached(army) and "Stalwart Protector" in strat_names:
+                self._try_stalwart_protector(army, opponent)
         finally:
-            # Always drop the dispatch flag — Tank Shock / Heroic Intervention /
-            # Counter-Offensive / Command Re-Roll fire out-of-band via
-            # _fire_stratagem and MUST NOT increment the per-Command-phase
-            # counter (those are Core Stratagems on per-trigger hooks, not
-            # detachment-stratagem round-start spends).
+            # Always drop the dispatch flag — Tank Shock / Counter-Offensive /
+            # Command Re-Roll fire out-of-band via _fire_stratagem and MUST
+            # NOT increment the per-Command-phase counter (those are Core
+            # Stratagems on per-trigger hooks, not detachment-stratagem
+            # round-start spends). Heroic Intervention is a free core
+            # CHARACTER ability — see _do_heroic_intervention.
             self._dispatching_detachment_stratagems = False
 
     def _strat_cap_reached(self, army: Army) -> bool:
@@ -1139,7 +1287,11 @@ class Battle:
             for enemy in opponent.alive_units:
                 if _distance(cand.position, enemy.position) > rng:
                     continue
-                if not self.map.has_line_of_sight(cand.position, enemy.position):
+                if not self.map.has_line_of_sight(
+                    cand.position, enemy.position,
+                    attacker_keywords=cand.profile.unit_keywords or (),
+                    target_keywords=enemy.profile.unit_keywords or (),
+                ):
                     continue
                 candidate = cand
                 break
@@ -1766,6 +1918,776 @@ class Battle:
             return
         warlord.transient_assault_this_round = True
 
+    # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8 fix)
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
+    # CP costs + WHEN/EFFECT confirmed against Goonhammer 10e codex review +
+    # Wahapedia listing. WebFetch against wahapedia.ru returned ECONNREFUSED
+    # at edit time; effect descriptions are paraphrased per the canonical
+    # Goonhammer source, with each entry flagged APPROXIMATION in
+    # data/rule_citations.d/stratagems.json. Effect mappings follow the
+    # War Horde / Mont'ka pattern — route through the nearest existing
+    # transient_* flag and document the gap.
+
+    def _try_arcane_genetic_alchemy(self, army: Army, opponent: Army) -> None:
+        """Arcane Genetic Alchemy (Shield Host, 1 CP, Battle Tactic). Real
+        rule: after a Mortal wound is allocated to a friendly Adeptus
+        Custodes unit, until end of phase that unit has Feel No Pain 4+
+        against Mortal wounds. APPROXIMATION: SwegHammer doesn't model
+        mortal-wound-only FNP buckets; we use `transient_fnp_5` (FNP 5+ for
+        the round against all damage) on the most vulnerable Custodes unit.
+        Direction-correct (defensive damage reduction) but lossy on both
+        magnitude (5+ vs 4+) and gate (all damage vs mortal-only). Catalogued
+        per iter-8 Shield Host rebuild; Wahapedia URL above.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, ARCANE_GENETIC_ALCHEMY, ctx):
+            return
+        if not self._fire_stratagem(army, ARCANE_GENETIC_ALCHEMY):
+            return
+        target.transient_fnp_5 = True
+
+    def _try_unwavering_sentinels(self, army: Army, opponent: Army) -> None:
+        """Unwavering Sentinels (Shield Host, 1 CP, Strategic Ploy). Real
+        rule: Fight phase, after an enemy targets a friendly Custodes
+        INFANTRY unit on an objective you control — that enemy unit takes
+        -1 to Hit for the rest of the phase. APPROXIMATION: no per-target
+        -1-to-hit transient flag in SwegHammer, so we route the defensive
+        payoff through `transient_plus_one_save` on the most vulnerable
+        Custodes INFANTRY unit. Both buffs reduce incoming damage; lossy
+        on the gate (objective control + per-attacker scope).
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, UNWAVERING_SENTINELS, ctx):
+            return
+        if not self._fire_stratagem(army, UNWAVERING_SENTINELS):
+            return
+        target.transient_plus_one_save = True
+
+    def _try_multipotentiality(self, army: Army, opponent: Army) -> None:
+        """Multipotentiality (Shield Host, 1 CP, Strategic Ploy). Real rule:
+        your Movement phase, on a Custodes unit that just Fell Back — that
+        unit can shoot and declare a charge this turn. APPROXIMATION: maps
+        cleanly to `transient_assault_this_round` on the highest-DPA
+        Custodes unit (same flag Feigned Retreat uses). Round-start
+        dispatcher collapses the 'just Fell Back' precondition.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, MULTIPOTENTIALITY, ctx):
+            return
+        if not self._fire_stratagem(army, MULTIPOTENTIALITY):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_archaeotech_munitions(self, army: Army, opponent: Army) -> None:
+        """Archaeotech Munitions (Shield Host, 1 CP, Wargear). Real rule:
+        your Shooting phase, on a Custodes unit — ranged weapons gain
+        [LETHAL HITS] OR [SUSTAINED HITS 1] (player's choice) for the
+        phase. APPROXIMATION: no per-round transient [LETHAL HITS] /
+        [SUSTAINED HITS] flag in SwegHammer; offensive uplift is routed
+        through `transient_plus_one_to_hit_shooting` on the highest-DPA
+        Custodes shooter. Same direction (more landed hits/damage),
+        comparable magnitude on a 4+ hit roll.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, ARCHAEOTECH_MUNITIONS, ctx):
+            return
+        if not self._fire_stratagem(army, ARCHAEOTECH_MUNITIONS):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_avenge_the_fallen(self, army: Army, opponent: Army) -> None:
+        """Avenge the Fallen (Shield Host, 1 CP, Strategic Ploy). Real rule:
+        start of Fight phase, on a Custodes unit below Starting Strength —
+        +1 Attack (or +2 if below half Starting Strength) for the phase.
+        APPROXIMATION: SwegHammer doesn't expose a transient per-attack-
+        count buff; offensive uplift is routed through
+        `transient_plus_one_to_wound_melee` on the most vulnerable Custodes
+        melee unit. Direction-correct (more landed melee damage),
+        comparable magnitude on a 4+ wound roll.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, AVENGE_THE_FALLEN, ctx):
+            return
+        if not self._fire_stratagem(army, AVENGE_THE_FALLEN):
+            return
+        target.transient_plus_one_to_wound_melee = True
+
+    # ----- Oathband (Leagues of Votann) — six real stratagems (iter-9) ----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+    # Replaces the iter-0 zero-stratagem state where Votann burned every
+    # strat fire on Command Re-Roll (universal Core). iter-8 anti-DG audit
+    # (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) flagged this set as the
+    # top fix for Votann-vs-DG (one of the 7 unsampled-but-positive DG
+    # matchups, +8pt over real per iter-5). All six dispatchers follow the
+    # Shield Host / Mont'ka / War Horde pattern — route through the nearest
+    # existing transient_* flag (or directly into the `judgement_tokens`
+    # dict, which already has full plumbing) and document any gap.
+
+    def _try_warrior_pride(self, army: Army, opponent: Army) -> None:
+        """Warrior Pride (Oathband, 1 CP). Real rule: re-roll Wound rolls
+        for a Votann unit's attacks against a Judgement-Token-bearing enemy.
+        APPROXIMATION: routed through `transient_plus_one_to_wound_melee` +
+        `transient_plus_one_to_wound_shooting` on the highest-DPA Votann
+        unit — same direction (more landed wounds), comparable magnitude on
+        a 4+ wound roll. The Judgement-Token-bearing gate is collapsed onto
+        "the highest-threat enemy" (the natural primary target). Stacks
+        with the existing `simulator.judgement_tokens` re-roll buffs at
+        1+/3+ thresholds — the codex effect compounds rather than replaces.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, WARRIOR_PRIDE, ctx):
+            return
+        if not self._fire_stratagem(army, WARRIOR_PRIDE):
+            return
+        # APPROXIMATION: +1 to wound on melee AND shooting routes the wound-
+        # reroll value through the closest existing transient flag pair.
+        attacker.transient_plus_one_to_wound_melee = True
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_wrath_of_the_ancestors(self, army: Army, opponent: Army) -> None:
+        """Wrath of the Ancestors (Oathband, 1 CP). Real rule: a Votann unit's
+        ranged attacks gain [LETHAL HITS] vs a Judgement-Token-bearing
+        target. APPROXIMATION: SwegHammer has no per-round transient
+        [LETHAL HITS] flag, so the offensive uplift is routed through
+        `transient_plus_one_to_hit_shooting` on the highest-DPA Votann
+        shooter — same direction (more landed hits/damage), comparable
+        magnitude on a 4+ hit roll. The Judgement-Token gate is collapsed
+        onto highest-threat-enemy as in Warrior Pride.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, WRATH_OF_THE_ANCESTORS, ctx):
+            return
+        if not self._fire_stratagem(army, WRATH_OF_THE_ANCESTORS):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_glory_of_the_hearth(self, army: Army, opponent: Army) -> None:
+        """Glory of the Hearth (Oathband, 1 CP). Real rule: a Votann VEHICLE
+        unit re-rolls Hit AND Wound rolls when shooting. APPROXIMATION:
+        SwegHammer routes the offensive value through
+        `transient_reroll_hits_shooting` on the highest-DPA Votann VEHICLE
+        — the wound-reroll leg is dropped (no transient wound-reroll flag).
+        Strictly weaker than the codex (~half the value), direction-correct.
+
+        Strictly AND-gated on (faction=Votann AND keyword=VEHICLE): the
+        helper `_unit_matches_filter` is OR-gated, so the unfiltered result
+        would leak the buff onto non-VEHICLE Votann (Hearthkyn). We post-
+        filter here so the spend is skipped on a Hearthkyn-mono list.
+        """
+        candidates = [
+            u for u in army.alive_units
+            if (u.profile.faction or "").lower() == "leagues of votann"
+            and "VEHICLE" in (u.profile.unit_keywords or ())
+            and u.uid not in self._battleshocked_this_round
+        ]
+        if not candidates:
+            return
+        # Pick the highest-DPA among the strict-filter candidates.
+        def _dpa(u):
+            p = u.profile
+            ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+            return ranged + melee
+        attacker = max(candidates, key=_dpa)
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, GLORY_OF_THE_HEARTH, ctx):
+            return
+        if not self._fire_stratagem(army, GLORY_OF_THE_HEARTH):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_ironkin_sequence(self, army: Army, opponent: Army) -> None:
+        """Ironkin Sequence (Oathband, 1 CP). Real rule: a Votann IRONKIN
+        unit gains +1 to Hit for the phase. Maps DIRECTLY onto
+        `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN
+        unit — clean mapping, no approximation gap. Falls back to any
+        Votann unit if no IRONKIN unit is in the list (Hearthkyn lists
+        ARE IRONKIN, so this normally finds a target).
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="IRONKIN", faction="Leagues of Votann",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, IRONKIN_SEQUENCE, ctx):
+            return
+        if not self._fire_stratagem(army, IRONKIN_SEQUENCE):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_ancestral_sentence(self, army: Army, opponent: Army) -> None:
+        """Ancestral Sentence (Oathband, 2 CP). Real rule: at the start of
+        the phase, issue a Judgement Token to an enemy unit. Maps DIRECTLY
+        onto the existing `Army.judgement_tokens[uid]` dict — increments
+        the token count on the highest-threat enemy unit so subsequent
+        Votann attacks fire the 1+/3+ re-roll thresholds via the existing
+        `_maybe_award_judgement_token` plumbing. Clean mapping, no
+        approximation gap.
+
+        Gated on `army.is_votann_army` (since the token dict lives on the
+        Votann army's `judgement_tokens`) so a non-Votann list carrying
+        the Oathband detachment by accident skips the spend.
+        """
+        if not army.is_votann_army:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, ANCESTRAL_SENTENCE, ctx):
+            return
+        if not self._fire_stratagem(army, ANCESTRAL_SENTENCE):
+            return
+        # Direct mapping: increment the Judgement Token count on the target's
+        # uid. The token store lives on the VOTANN army (the victim of
+        # opponent kills awards tokens; Ancestral Sentence is a "free" token
+        # the Votann player issues without needing a kill).
+        tokens = army.judgement_tokens
+        tokens[target.uid] = tokens.get(target.uid, 0) + 1
+        self._emit(JudgementTokenAwarded(
+            target_uid=target.uid,
+            total_tokens=tokens[target.uid],
+        ))
+
+    def _try_void_armoured_resilience(self, army: Army, opponent: Army) -> None:
+        """Void-Armoured Resilience (Oathband, 1 CP). Real rule: a Votann
+        unit gains 5+ Feel No Pain for the phase. Maps DIRECTLY onto
+        `transient_fnp_5` on the most vulnerable Votann unit — clean
+        mapping, no approximation gap. Real codex effect is per-phase
+        rather than per-round; the simulator's round/phase boundary is
+        the same flag scope.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army, faction="Leagues of Votann")
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, VOID_ARMOURED_RESILIENCE, ctx):
+            return
+        if not self._fire_stratagem(army, VOID_ARMOURED_RESILIENCE):
+            return
+        target.transient_fnp_5 = True
+
+    # ----- Gladius Task Force (Adeptus Astartes) — six real strats (iter-12) -
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+    # Marines is the most-used codex (134 units catalogued) and was on 0/6
+    # detachment stratagems before this iter. Per docs/AUDIT_PARITY.md fix #1
+    # this is the highest-leverage parity fix — every Marines matchup
+    # understated offence by ~2-3 CP/round of detachment value. The six
+    # dispatchers mirror the iter-8 Shield Host pattern: AI gate via
+    # should_fire_stratagem, spend CP via _fire_stratagem, then apply the
+    # transient effect on the chosen unit. Each dispatcher uses an inline
+    # `is_marine_faction` filter rather than the `_unit_matches_filter` helper
+    # because Marines spans 12 faction strings (Adeptus Astartes + Ultramarines
+    # + chapter codices) — see code.factions.MARINE_FACTIONS.
+
+    def _marine_units(self, army: Army):
+        """Return alive friendly units belonging to any Marine chapter.
+
+        Faction-gated via `is_marine_faction` (12 faction strings) AND
+        excludes Battle-shocked units per 10e core rule
+        `simulator.battleshock`. Used by every Gladius dispatcher as the
+        target-selection pool.
+        """
+        from .factions import is_marine_faction
+        return [
+            u for u in army.alive_units
+            if is_marine_faction(u.profile.faction or "")
+            and u.uid not in self._battleshocked_this_round
+        ]
+
+    @staticmethod
+    def _unit_dpa(u) -> float:
+        """Combined melee + ranged damage-per-activation. Same scoring as
+        `_highest_dpa_unit` but exposed as a free function so the inline
+        Marine filters can use it without re-implementing."""
+        p = u.profile
+        ranged = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        melee = ((p.melee_attacks or 0) * (p.melee_hit_probability or 0)
+                 * (p.melee_damage_per_shot or 0.0))
+        return ranged + melee
+
+    def _highest_dpa_marine(self, army: Army, keyword: str = ""):
+        """Pick the highest-DPA Marine unit; optional keyword filter (e.g.
+        'INFANTRY'). Returns None if no eligible candidate exists."""
+        candidates = self._marine_units(army)
+        if keyword:
+            candidates = [
+                u for u in candidates
+                if keyword in (u.profile.unit_keywords or ())
+            ]
+        if not candidates:
+            return None
+        return max(candidates, key=self._unit_dpa)
+
+    def _most_vulnerable_marine(self, army: Army, keyword: str = ""):
+        """Pick the most-vulnerable Marine unit (points × HP-loss); optional
+        keyword filter. Returns None if no eligible candidate exists."""
+        candidates = self._marine_units(army)
+        if keyword:
+            candidates = [
+                u for u in candidates
+                if keyword in (u.profile.unit_keywords or ())
+            ]
+        if not candidates:
+            return None
+
+        def _score(u):
+            try:
+                cost = float(u.profile.points_cost)
+                hp_frac = max(0.0, 1.0 - u.current_health / max(1.0, u.profile.health))
+            except Exception:
+                return 0.0
+            return cost * hp_frac
+        # If every candidate is at full HP the score is 0 — fall back to
+        # highest-points (the defensive buff still preempts an incoming kill).
+        best = max(candidates, key=_score)
+        if _score(best) > 0.0:
+            return best
+        return max(candidates, key=lambda u: float(u.profile.points_cost or 0.0))
+
+    def _try_storm_of_fire(self, army: Army, opponent: Army) -> None:
+        """Storm of Fire (Gladius, 1 CP, Battle Tactic). Real rule: your
+        Shooting phase, on an ADEPTUS ASTARTES unit — ranged weapons gain
+        [SUSTAINED HITS 1] for the phase (or improve existing
+        [SUSTAINED HITS X] by 1). APPROXIMATION: SwegHammer has no per-
+        round transient [SUSTAINED HITS] flag, so the offensive uplift is
+        routed through `transient_plus_one_to_hit_shooting` on the
+        highest-RANGED-DPA Marine shooter (combined DPA picks melee
+        bricks like Bladeguard, which can't benefit from a +1-to-hit-
+        shooting flag; we pre-filter to units with actual ranged DPA).
+        Same direction (more landed hits / damage), comparable magnitude
+        on a 4+ hit roll — same lossy pattern as Shield Host's
+        Archaeotech Munitions.
+        """
+        candidates = self._marine_units(army)
+        # Pre-filter to units with real ranged DPA — Storm of Fire only
+        # buffs ranged weapons, so a melee-only Marine brick like
+        # Bladeguard would never benefit from the +1-to-hit-shooting flag.
+        candidates = [u for u in candidates
+                      if (u.profile.attacks or 0) > 0
+                      and (u.profile.per_shot_damage or 0.0) > 0.0]
+        if not candidates:
+            return
+
+        def _ranged_dpa(u):
+            p = u.profile
+            return (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        attacker = max(candidates, key=_ranged_dpa)
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, STORM_OF_FIRE, ctx):
+            return
+        if not self._fire_stratagem(army, STORM_OF_FIRE):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_armour_of_contempt(self, army: Army, opponent: Army) -> None:
+        """Armour of Contempt (Gladius, 1 CP, Battle Tactic). Real rule:
+        any phase, on an ADEPTUS ASTARTES unit being targeted — enemy AP
+        against your unit is reduced by 1 for the phase. APPROXIMATION:
+        SwegHammer has no transient enemy-AP-reduction flag, so the
+        defensive payoff is routed through `transient_plus_one_save` on
+        the most vulnerable Marine unit. Direction-correct (both reduce
+        incoming damage); same lossy pattern as Unwavering Sentinels
+        (Shield Host). +1 save is comparable on a 3+ save profile but
+        loses the high-AP-weapon scaling that the real AP-minus-one
+        provides.
+        """
+        target = self._most_vulnerable_marine(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, ARMOUR_OF_CONTEMPT, ctx):
+            return
+        if not self._fire_stratagem(army, ARMOUR_OF_CONTEMPT):
+            return
+        target.transient_plus_one_save = True
+
+    def _try_squad_tactics(self, army: Army, opponent: Army) -> None:
+        """Squad Tactics (Gladius, 1 CP, Strategic Ploy). Real rule: your
+        opponent's Movement phase, on an ADEPTUS ASTARTES INFANTRY unit —
+        that unit may make a Normal Move of up to 6". Mobility /
+        repositioning utility (counter to enemy reserves / charges).
+        APPROXIMATION: SwegHammer has no opponent-turn reactive move
+        hook, so the offensive value is routed through
+        `transient_assault_this_round` on the highest-DPA Marine INFANTRY
+        unit — same flag Feigned Retreat / Multipotentiality use as the
+        "extra setup + shoot after move" proxy.
+        """
+        attacker = self._highest_dpa_marine(army, keyword="INFANTRY")
+        if attacker is None:
+            attacker = self._highest_dpa_marine(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, SQUAD_TACTICS, ctx):
+            return
+        if not self._fire_stratagem(army, SQUAD_TACTICS):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_only_in_death_does_duty_end(self, army: Army, opponent: Army) -> None:
+        """Only In Death Does Duty End (Gladius, 1 CP, Strategic Ploy).
+        Real rule: the Fight phase, after an ADEPTUS ASTARTES model is
+        destroyed before making its attacks — that model may make its
+        attacks before being removed. APPROXIMATION: SwegHammer doesn't
+        model per-model attack ordering at the destroyed-before-attack
+        granularity; the offensive payoff is routed through
+        `transient_plus_one_to_wound_melee` on the most vulnerable Marine
+        melee unit (the "one last swing" proxy translates to +1 to wound
+        on the remaining attacks). Direction-correct; misses the timing
+        detail (codex grants attacks to destroyed models, we buff the
+        surviving unit). Same lossy pattern as Avenge the Fallen
+        (Shield Host).
+        """
+        target = self._most_vulnerable_marine(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, ONLY_IN_DEATH_DOES_DUTY_END, ctx):
+            return
+        if not self._fire_stratagem(army, ONLY_IN_DEATH_DOES_DUTY_END):
+            return
+        target.transient_plus_one_to_wound_melee = True
+
+    def _try_honour_the_chapter(self, army: Army, opponent: Army) -> None:
+        """Honour the Chapter (Gladius, 2 CP, Battle Tactic). Real rule:
+        any phase, on an ADEPTUS ASTARTES unit — that unit may re-roll
+        Hit AND Wound rolls for the phase. The premium 2-CP offensive
+        nuke. APPROXIMATION: SwegHammer routes the offensive value
+        through `transient_reroll_hits_shooting` on the highest-DPA
+        Marine unit — the wound-reroll leg is dropped (no transient
+        wound-reroll flag). Strictly weaker than the codex (~half the
+        value), direction-correct. Same lossy pattern as Glory of the
+        Hearth (Oathband) and Devastating Sorcery (Grand Coven).
+        """
+        attacker = self._highest_dpa_marine(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, HONOUR_THE_CHAPTER, ctx):
+            return
+        if not self._fire_stratagem(army, HONOUR_THE_CHAPTER):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_adaptive_strategy(self, army: Army, opponent: Army) -> None:
+        """Adaptive Strategy (Gladius, 1 CP, Strategic Ploy). Real rule:
+        start of your Command phase, on an ADEPTUS ASTARTES unit — that
+        unit gains the rules of one Combat Doctrine of your choice
+        (Devastator / Tactical / Assault) until end of turn, regardless
+        of which doctrine the army is currently in. APPROXIMATION:
+        Combat Doctrines in SwegHammer is a round-and-mode-gated +1 to
+        wound (see `simulator.combat_doctrines` in Unit.attack); the
+        stratagem's per-unit doctrine override would require per-unit
+        doctrine state. Routed through `transient_plus_one_to_wound_melee`
+        on the highest-DPA Marine melee unit — the dominant value the
+        stratagem provides is granting Assault Doctrine's +1-to-wound-
+        melee outside R3+, which this proxy captures exactly. Direction-
+        correct; loses the option-to-pick-ranged-instead nuance.
+        """
+        attacker = self._highest_dpa_marine(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, ADAPTIVE_STRATEGY, ctx):
+            return
+        if not self._fire_stratagem(army, ADAPTIVE_STRATEGY):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    # ----- Combined Arms (Astra Militarum) — six real strats (iter-14) ------
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+    # Closes the AM 0/6 detachment-stratagem gap. The detachment's spine is
+    # the Voice of Command Order economy (army-wide passive — see
+    # `code/orders.py`), so three of the six stratagems wire onto Order
+    # mechanics (Coordinated Action, Flexible Command, Inspired Command)
+    # and the other three onto existing transient_* flags (Fields of
+    # Fire, Stalwart Protector) or no-op approximations (Reinforcements!).
+
+    def _am_units(self, army: Army):
+        """Return alive friendly Astra Militarum units (non-battleshocked)."""
+        return [
+            u for u in army.alive_units
+            if (u.profile.faction or "") == "Astra Militarum"
+            and u.uid not in self._battleshocked_this_round
+        ]
+
+    def _highest_dpa_am_squadron(self, army: Army):
+        """Pick the highest-DPA AM SQUADRON (VEHICLE) unit; None if absent."""
+        candidates = [
+            u for u in self._am_units(army)
+            if "VEHICLE" in (u.profile.unit_keywords or ())
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=self._unit_dpa)
+
+    def _most_vulnerable_am_infantry(self, army: Army):
+        """Pick the most-vulnerable AM INFANTRY unit; None if absent."""
+        candidates = [
+            u for u in self._am_units(army)
+            if "INFANTRY" in (u.profile.unit_keywords or ())
+            and "VEHICLE" not in (u.profile.unit_keywords or ())
+        ]
+        if not candidates:
+            return None
+
+        def _score(u):
+            try:
+                cost = float(u.profile.points_cost)
+                hp_frac = max(0.0, 1.0 - u.current_health / max(1.0, u.profile.health))
+            except Exception:
+                return 0.0
+            return cost * hp_frac
+        best = max(candidates, key=_score)
+        if _score(best) > 0.0:
+            return best
+        return max(candidates, key=lambda u: float(u.profile.points_cost or 0.0))
+
+    def _try_coordinated_action(self, army: Army, opponent: Army) -> None:
+        """Coordinated Action (Combined Arms, 1 CP, Battle Tactic). Real
+        rule: start of any phase, on one REGIMENT + one SQUADRON within
+        6" and visible — Orders affecting one also affect the other.
+        APPROXIMATION: routes the offensive payoff through
+        `transient_plus_one_to_hit_shooting` on the highest-DPA AM
+        SQUADRON (VEHICLE) — the canonical use case is extending
+        Take Aim! / FRFSRF from an Infantry Squad to a Leman Russ pair.
+        """
+        attacker = self._highest_dpa_am_squadron(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, COORDINATED_ACTION, ctx):
+            return
+        if not self._fire_stratagem(army, COORDINATED_ACTION):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_flexible_command(self, army: Army, opponent: Army) -> None:
+        """Flexible Command (Combined Arms, 2 CP, Strategic Ploy). Real
+        rule: your Command phase, any number of AM OFFICER units — until
+        end of phase, Officers can issue Orders to REGIMENT and SQUADRON
+        units. CLEAN MAPPING: sets `Army.orders_eligible_squadron_this_round
+        = True` for the round; `code.orders._is_order_target_eligible`
+        reads the flag and widens the target pool to BATTLELINE VEHICLE.
+        """
+        officers = [
+            u for u in self._am_units(army)
+            if "CHARACTER" in (u.profile.unit_keywords or ())
+        ]
+        if not officers:
+            return
+        squadron_candidates = [
+            u for u in self._am_units(army)
+            if "BATTLELINE" in (u.profile.unit_keywords or ())
+            and "VEHICLE" in (u.profile.unit_keywords or ())
+        ]
+        if not squadron_candidates:
+            return
+        ctx = {"officers": officers, "squadron_candidates": squadron_candidates}
+        if not should_fire_stratagem(army, FLEXIBLE_COMMAND, ctx):
+            return
+        if not self._fire_stratagem(army, FLEXIBLE_COMMAND):
+            return
+        army.orders_eligible_squadron_this_round = True
+
+    def _try_fields_of_fire(self, army: Army, opponent: Army) -> None:
+        """Fields of Fire (Combined Arms, 1 CP, Battle Tactic). Real
+        rule: your Shooting phase, one REGIMENT + one SQUADRON not yet
+        shot — attacks targeting a chosen enemy improve AP by 1.
+        APPROXIMATION: routes the offensive payoff through
+        `transient_plus_one_to_hit_shooting` on the highest-ranged-DPA
+        AM unit; AP+1 → +1 to hit is the closest single-flag proxy.
+        """
+        candidates = self._am_units(army)
+        if not candidates:
+            return
+
+        def _ranged_dpa(u):
+            p = u.profile
+            return (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        ranged_candidates = [u for u in candidates if _ranged_dpa(u) > 0.0]
+        if not ranged_candidates:
+            return
+        attacker = max(ranged_candidates, key=_ranged_dpa)
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, FIELDS_OF_FIRE, ctx):
+            return
+        if not self._fire_stratagem(army, FIELDS_OF_FIRE):
+            return
+        attacker.transient_plus_one_to_hit_shooting = True
+
+    def _try_inspired_command(self, army: Army, opponent: Army) -> None:
+        """Inspired Command (Combined Arms, 1 CP, Epic Deed). Real rule:
+        opponent's Command phase, one AM OFFICER — that Officer can
+        issue one Order as if it were your Command phase. APPROXIMATION:
+        maps onto 'issue one extra Order this round' — the dispatcher
+        picks an un-buffed REGIMENT in aura of any AM Officer and
+        applies the AI's chosen Order to it.
+        """
+        from .orders import (
+            _is_am_officer, _is_order_target_eligible, _pick_order_for_target,
+            _apply_order, OFFICER_AURA_RANGE, _distance,
+        )
+        officers = [
+            u for u in self._am_units(army)
+            if _is_am_officer(u) and u.uid not in self._battleshocked_this_round
+        ]
+        if not officers:
+            return
+        targets = [
+            u for u in army.alive_units
+            if _is_order_target_eligible(u, squadron_allowed=False)
+            and u.uid not in self._battleshocked_this_round
+        ]
+        if not targets:
+            return
+        un_ordered = [
+            t for t in targets
+            if not (
+                t.transient_plus_one_to_hit_shooting
+                or t.transient_plus_one_to_wound_melee
+                or t.transient_plus_one_save
+            )
+        ]
+        if not un_ordered:
+            return
+        chosen_pair = None
+        for officer in officers:
+            in_aura = [
+                t for t in un_ordered
+                if _distance(officer.position, t.position) <= OFFICER_AURA_RANGE
+            ]
+            if in_aura:
+                chosen_pair = (officer, max(in_aura, key=lambda u: float(u.profile.points_cost or 0.0)))
+                break
+        if chosen_pair is None:
+            return
+        officer, target = chosen_pair
+        ctx = {"officer": officer, "target": target}
+        if not should_fire_stratagem(army, INSPIRED_COMMAND, ctx):
+            return
+        if not self._fire_stratagem(army, INSPIRED_COMMAND):
+            return
+        order = _pick_order_for_target(target)
+        _apply_order(target, order)
+
+    def _try_stalwart_protector(self, army: Army, opponent: Army) -> None:
+        """Stalwart Protector (Combined Arms, 1 CP, Battle Tactic). Real
+        rule: opponent's Shooting phase, one AM VEHICLE — INFANTRY models
+        from your army not fully visible because of your VEHICLE have
+        Benefit of Cover. CLEAN MAPPING (with approximate eligibility):
+        routes the defensive payoff through `transient_plus_one_save`
+        on the most-vulnerable AM INFANTRY unit. Gates on at least one
+        alive AM VEHICLE to match the codex pre-requisite.
+        """
+        vehicles = [
+            u for u in self._am_units(army)
+            if "VEHICLE" in (u.profile.unit_keywords or ())
+        ]
+        if not vehicles:
+            return
+        target = self._most_vulnerable_am_infantry(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, STALWART_PROTECTOR, ctx):
+            return
+        if not self._fire_stratagem(army, STALWART_PROTECTOR):
+            return
+        target.transient_plus_one_save = True
+
+    # Reinforcements! — catalogued in COMBINED_ARMS_STRATAGEMS for the
+    # auditor + stratagems_for_army listing, but no `_try_reinforcements`
+    # dispatcher exists (catalogued-but-no-op APPROXIMATION). The codex
+    # effect (re-add a destroyed INFANTRY REGIMENT to Strategic Reserves
+    # at full strength) has no clean simulator hook (no mid-battle unit-
+    # respawn / reserve-injection primitive). The dispatch loop simply
+    # skips the entry, no CP spent.
+
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
     # Stratagem names + CP costs confirmed against Wahapedia. Verbatim
@@ -1913,6 +2835,149 @@ class Battle:
             return
         attacker.transient_reroll_hits_shooting = True
 
+    # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15) -----
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
+    # 40k.app source: https://www.40k.app/factions/thousand-sons/rules/detachment/rubricae-phalanx
+    # Effect-mapping table lives in `code/stratagems.py` next to the
+    # Stratagem definitions. Four dispatchers are wired below; Ardent
+    # Automata and Revenge of the Rubricae are catalogued-but-no-op
+    # APPROXIMATIONs (the simulator has no Fell-Back-this-turn transient
+    # nor an out-of-sequence-shoot-on-PSYKER-death hook).
+
+    def _try_ardent_automata(self, army: Army, opponent: Army) -> None:
+        """Ardent Automata (Rubricae Phalanx, 1 CP). Real rule: a RUBRICAE
+        unit that just Fell Back can still shoot and charge this turn.
+        NOT DISPATCHED — SwegHammer has no Fell-Back-this-turn transient
+        and the Fall Back lockout exemption would need a dedicated
+        transient_assault_after_fall_back hook. The stratagem is
+        catalogued in RUBRICAE_PHALANX_STRATAGEMS for auditor +
+        stratagems_for_army completeness; the dispatcher is intentionally
+        a no-op so CP is never spent on this effect.
+
+        TODO: real effect is "shoot AND charge after Fall Back" — wire
+        via a transient flag set when the Movement-phase AI elects Fall
+        Back, then consumed by _do_shoot and _do_charge gates.
+        """
+        return  # APPROXIMATION: no-op (Fall Back lockout exemption not modelled)
+
+    def _try_inexorable_advance(self, army: Army, opponent: Army) -> None:
+        """Inexorable Advance (Rubricae Phalanx, 1 CP). Real rule: a
+        RUBRICAE unit ignores Move modifiers AND its ranged weapons gain
+        [ASSAULT] until end of turn. APPROXIMATION: the [ASSAULT] half
+        maps cleanly onto `transient_assault_this_round` (same proxy as
+        Mont'ka Killing Blow's army-wide [ASSAULT] flag and Warhost
+        Feigned Retreat). The "ignore Move modifiers" half is dropped —
+        the grid-free movement model has no Move debuff to suppress.
+        Fires on the highest-DPA RUBRICAE-keyword unit.
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, INEXORABLE_ADVANCE, ctx):
+            return
+        if not self._fire_stratagem(army, INEXORABLE_ADVANCE):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_infernal_fusillade(self, army: Army, opponent: Army) -> None:
+        """Infernal Fusillade (Rubricae Phalanx, 2 CP). Real rule: a
+        RUBRIC MARINES unit's inferno bolt-pattern weapons (inferno bolt
+        pistols, inferno boltguns, inferno combi-bolters, inferno combi-
+        weapons) gain [PSYCHIC] and S5 for the Shooting phase.
+        APPROXIMATION: the S5 uplift on baseline S4 inferno bolters
+        improves wound rolls vs T4-T5 by one bracket; we route through
+        `transient_plus_one_to_wound_shooting` on the highest-DPA RUBRICAE
+        PSYKER unit. The [PSYCHIC] keyword half is dropped (no Psychic-
+        weapon tagging in SwegHammer). Strictly weaker than the codex
+        (no weapon-keyword AP / DevWounds payload — the simulator has
+        no [PSYCHIC] weapon-mod table).
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, INFERNAL_FUSILLADE, ctx):
+            return
+        if not self._fire_stratagem(army, INFERNAL_FUSILLADE):
+            return
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_revenge_of_the_rubricae(self, army: Army, opponent: Army) -> None:
+        """Revenge of the Rubricae (Rubricae Phalanx, 1 CP). Real rule:
+        after a THOUSAND SONS PSYKER model is destroyed, a RUBRICAE unit
+        shoots the destroyer out of sequence. NOT DISPATCHED — SwegHammer
+        has no out-of-sequence shoot hook tied to a Psyker death event.
+        Catalogued in RUBRICAE_PHALANX_STRATAGEMS so the auditor +
+        stratagems_for_army completeness check passes; the dispatcher is
+        intentionally a no-op. Same gap pattern as Awakened Dynasty's
+        Protocol of the Vengeful Stars.
+
+        TODO: real effect is out-of-sequence shooting triggered by a
+        PSYKER death event — wire via a new event in events.py + a
+        Battle._on_psyker_death dispatcher.
+        """
+        return  # APPROXIMATION: no-op (out-of-sequence shoot hook not modelled)
+
+    def _try_implacable_guardians(self, army: Army, opponent: Army) -> None:
+        """Implacable Guardians (Rubricae Phalanx, 2 CP). Real rule: until
+        end of opponent's Shooting phase, a RUBRIC MARINES PSYKER unit
+        gets -1 to incoming Damage on attacks allocated to non-PSYKER
+        models in the unit. Maps to `transient_minus_one_damage_taken`
+        (same flag Disgustingly Resilient + Destined by Fate use) on the
+        most vulnerable RUBRICAE unit. APPROXIMATION: codex restricts the
+        buff to non-PSYKER models within the unit; SwegHammer treats a
+        unit as a single damage pool so the buff applies uniformly —
+        strictly weaker on multi-PSYKER squads, broadly equivalent on
+        Rubric Marines where the Aspiring Sorcerer is the lone PSYKER.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, IMPLACABLE_GUARDIANS, ctx):
+            return
+        if not self._fire_stratagem(army, IMPLACABLE_GUARDIANS):
+            return
+        target.transient_minus_one_damage_taken = True
+
+    def _try_unwavering_phalanx(self, army: Army, opponent: Army) -> None:
+        """Unwavering Phalanx (Rubricae Phalanx, 1 CP). Real rule: after
+        an enemy unit ends a Charge move into a RUBRICAE unit, -1 to
+        Wound rolls against that RUBRICAE unit for the Fight phase.
+        APPROXIMATION: SwegHammer has no per-target wound-debuff
+        transient — we route through `transient_plus_one_save` on the
+        chosen RUBRICAE defender as a defensive proxy (a +1 save shrinks
+        the attacker's failed-save bucket in roughly the same direction
+        as a -1 to wound, though the math differs at the wound-vs-save
+        layer). Same proxy pattern as Lightning-Fast Reactions /
+        Skyborne Sanctuary use.
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="RUBRICAE", faction="Thousand Sons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, UNWAVERING_PHALANX, ctx):
+            return
+        if not self._fire_stratagem(army, UNWAVERING_PHALANX):
+            return
+        target.transient_plus_one_save = True
+
     def _apply_undying_legions_pulse(self) -> None:
         """Mid-round reanimation pulse for Protocol of the Undying Legions.
         Each NECRONS unit with `transient_undying_legions_pulse > 0` gets
@@ -1962,18 +3027,49 @@ class Battle:
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
-                to_revive = min(len(dead_pool), wounds)
-                for revived in dead_pool[:to_revive]:
-                    revived.current_health = revived.profile.health
+                # Fix F-NEC-2 (iter 14, #iter14): spend the D3/D3+1 pulse
+                # WOUND-BY-WOUND per the Wahapedia army-rule allocation
+                # ("If that unit contains one or more models with fewer
+                # than their starting number of wounds remaining … that
+                # model regains one lost wound. … If all models in that
+                # unit have their starting number of wounds, but that
+                # unit is not at its Starting Strength, one destroyed
+                # model is returned … with one wound remaining."). The
+                # previous behaviour treated each wound as one revived
+                # model at full HP, which for multi-wound Necron units
+                # (Wraiths W3, Lychguard W2/W3, Praetorians W2, Skorpekh
+                # W3, Lokhust Heavy Destroyers W3) over-fired by a factor
+                # of W. Same `simulator.reanimation_protocols` citation
+                # update covers this path.
+                budget = int(wounds)
+                # First pass: heal damaged-but-alive models 1W at a time.
+                for peer in alive_peers:
+                    while (
+                        budget > 0
+                        and peer.current_health < peer.profile.health
+                    ):
+                        peer.current_health += 1.0
+                        budget -= 1
+                    if budget <= 0:
+                        break
+                # Second pass: revive destroyed models 1W each, in order,
+                # until budget exhausted or pool empty.
+                revived_count = 0
+                for revived in dead_pool:
+                    if budget <= 0:
+                        break
+                    revived.current_health = 1.0
                     revived.position = anchor_pos
                     self._emit(UnitReanimated(
                         unit_uid=revived.uid, position=anchor_pos,
                     ))
+                    budget -= 1
+                    revived_count += 1
                 # Move just-revived models out of the dead pool for any
                 # subsequent pulse iteration in this loop.
-                dead_by_profile[profile_name] = dead_pool[to_revive:]
+                dead_by_profile[profile_name] = dead_pool[revived_count:]
                 alive_by_profile.setdefault(profile_name, []).extend(
-                    dead_pool[:to_revive]
+                    dead_pool[:revived_count]
                 )
 
     # ----- Cabal of Sorcerers Rituals (Thousand Sons army rule, #193) ---
@@ -2251,8 +3347,18 @@ class Battle:
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
+                # Fix F-NEC-2 (iter 14, #iter14): per Wahapedia army-rule
+                # wording, a revived destroyed model "is returned to that
+                # unit with one wound remaining" — NOT at full HP. For W1
+                # Warriors this is identical; for multi-wound Necron units
+                # (Wraiths W3, Lychguard W2/W3, Skorpekh W3, Praetorians W2,
+                # Lokhust Heavy Destroyers W3) the previous full-HP revival
+                # was strictly over-generous. Necrons sit +10.3pt over real
+                # meta (iter-13 baseline); this is the most defensible
+                # correctness-positive trim. Cited as
+                # `simulator.reanimation_protocols` (effect text updated).
                 for revived in dead_pool[:to_revive]:
-                    revived.current_health = revived.profile.health
+                    revived.current_health = 1.0
                     revived.position = anchor_pos
                     self._emit(UnitReanimated(
                         unit_uid=revived.uid, position=anchor_pos,
@@ -2610,8 +3716,10 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _run_battleshock_phase(self, round_num: int) -> None:
-        """10e Battle-shock step (after Round 1). For each unit Below
-        Half-Strength, roll 2D6 vs Ld; fail (< Ld) sets the unit as
+        """10e Battle-shock step (every Command phase, from Round 1
+        onward — Wahapedia /the-rules/core-rules/#Command-Phase). For
+        each unit Below Half-Strength, roll 2D6 vs Ld; fail (< Ld) sets
+        the unit as
         Battle-shocked for the round — OC drops to 0 AND it cannot be the
         subject of Stratagems. We populate `_battleshocked_this_round`
         BEFORE the stratagem dispatcher runs so target-pickers
@@ -2634,9 +3742,13 @@ class Battle:
             enemy units within 3" of any DG model take -1 Ld. Cited as
             `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
             modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
+
+        iter-13 fix: previously gated on `round_num <= 1` (skipped R1
+        entirely). 10e core fires the test at the start of every Command
+        phase, R1 included. The R1 path is now live; the
+        contagion-source escalation gate below remains R2-only because
+        Maladictive Pall itself is R2 in the contagion schedule.
         """
-        if round_num <= 1:
-            return
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             opponent_det = opponent.resolve_detachment()
             own_det = army.resolve_detachment()
@@ -2876,6 +3988,19 @@ class Battle:
         # is the cleanest hook for a deterministic "once per round" spend.
         self._apply_detachment_stratagems(self.a, self.b)
         self._apply_detachment_stratagems(self.b, self.a)
+        # ---- Astra Militarum Voice of Command Orders (10e army rule).
+        # Each AM OFFICER issues one Order to an eligible BATTLELINE
+        # INFANTRY (or VEHICLE if Flexible Command was fired this round)
+        # within 6", at the start of the Command phase. Stratagem dispatch
+        # MUST run first so Flexible Command / Inspired Command flags are
+        # set before Order eligibility is computed. Cited as
+        # `simulator.voice_of_command_orders`.
+        from .orders import dispatch_orders as _dispatch_orders
+        for army in (self.a, self.b):
+            _issued = _dispatch_orders(army, self._battleshocked_this_round)
+            if self.verbose and _issued:
+                for officer_name, target_name, order_name in _issued:
+                    print(f"  ORDER: {officer_name} -> {target_name}: {order_name}")
         # Thousand Sons Cabal of Sorcerers — Rituals fire at the start of
         # each Shooting phase. We hook them here (same round-start barrier
         # as detachment stratagems) because the simulator's per-unit shoot
@@ -3244,6 +4369,31 @@ class Battle:
                 total_movement=float(move_distance),
             ))
 
+    def _gladius_active_doctrine(self, attacker, attacker_army: Army) -> str:
+        """Return the active Gladius Task Force Combat Doctrine name for
+        the given Marine attacker on this round, or '' if none applies.
+
+        The Marine player picks one Doctrine per Command phase; SwegHammer
+        rotates deterministically Devastator R1 / Tactical R2 / Assault R3+.
+        Faction-gated to ADEPTUS ASTARTES, detachment-gated to Gladius Task
+        Force. Real-rule wording is movement-utility only (no damage buff).
+        Cited as `simulator.combat_doctrines`. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force
+        """
+        if not is_marine_faction(attacker.profile.faction):
+            return ""
+        det = attacker_army.resolve_detachment()
+        if det is None or det.name != "Gladius Task Force":
+            return ""
+        r = self._current_round
+        if r == 1:
+            return "Devastator"
+        if r == 2:
+            return "Tactical"
+        if r >= 3:
+            return "Assault"
+        return ""
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Embarked passengers cannot shoot on their own activation (10e core).
         # Their fire is folded into the transport's via Firing Deck X. Cited
@@ -3252,9 +4402,14 @@ class Battle:
             return
         # Fall Back lockout (10e core): a unit that Fell Back this turn can
         # only shoot if it has the FLY keyword. Cited as
-        # `simulator.fall_back`.
+        # `simulator.fall_back`. Tactical Doctrine (Gladius Task Force, R2)
+        # explicitly lifts this lockout for ADEPTUS ASTARTES units in a
+        # Gladius army: "This unit is eligible to shoot and declare a
+        # charge in a turn in which it Fell Back." Cited as
+        # `simulator.combat_doctrines`.
         if attacker.fell_back_this_round and not attacker.profile.fly:
-            return
+            if self._gladius_active_doctrine(attacker, attacker_army) != "Tactical":
+                return
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
         # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
@@ -3262,8 +4417,11 @@ class Battle:
         # Mobility (Battle Host / Mont'ka stratagems) has been fired this round
         # to grant transient Assault on the unit — or Mont'ka's Killing Blow
         # detachment rule is active and we are in rounds 1-3 (army-wide
-        # [ASSAULT] grant to T'au Empire ranged weapons). Cited as
-        # `MONTKA.army_wide_assault_rounds_1_3`.
+        # [ASSAULT] grant to T'au Empire ranged weapons) — or the unit is
+        # ADEPTUS ASTARTES in a Gladius army under the active Devastator
+        # Doctrine (R1): "This unit is eligible to shoot in a turn in
+        # which it Advanced." Cited as `MONTKA.army_wide_assault_rounds_1_3`
+        # and `simulator.combat_doctrines`.
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             kw = attacker.profile.unit_keywords or ()
             det = attacker_army.resolve_detachment()
@@ -3277,6 +4435,8 @@ class Battle:
                 pass   # stratagem already paid for; no token spend
             elif montka_assault_window:
                 pass   # detachment rule grants [ASSAULT] free this round
+            elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
+                pass   # Devastator Doctrine grants shoot-after-Advance, free
             elif ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
                 attacker_army.battle_focus_tokens -= 1
             else:
@@ -3326,10 +4486,15 @@ class Battle:
                 if _distance(attacker.position, u.position) <= rng
             ]
         else:
+            attacker_kw = attacker.profile.unit_keywords or ()
             candidates = [
                 u for u in targetable
                 if _distance(attacker.position, u.position) <= rng
-                and self.map.has_line_of_sight(attacker.position, u.position)
+                and self.map.has_line_of_sight(
+                    attacker.position, u.position,
+                    attacker_keywords=attacker_kw,
+                    target_keywords=u.profile.unit_keywords or (),
+                )
             ]
         # 10e core targeting restrictions: Look Out Sir + Lone Operative. The
         # helper composes both rules — `friendly_units` to a candidate target
@@ -3388,13 +4553,19 @@ class Battle:
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
         cover_type = self.map.cover_at(shoot_target.position)
-        if cover_type in (TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER):
+        if cover_type in (
+            TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
+        ):
             shoot_target.in_cover = True
-        if cover_type is TerrainType.HEAVY_COVER:
+        if cover_type in (TerrainType.HEAVY_COVER, TerrainType.RUIN):
             shoot_target.in_heavy_cover = True
 
         distance = _distance(attacker.position, shoot_target.position)
-        has_los = self.map.has_line_of_sight(attacker.position, shoot_target.position)
+        has_los = self.map.has_line_of_sight(
+            attacker.position, shoot_target.position,
+            attacker_keywords=attacker.profile.unit_keywords or (),
+            target_keywords=shoot_target.profile.unit_keywords or (),
+        )
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
         # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
         # TRANSPORT with embarked passengers and firing_deck > 0, up to X
@@ -3480,13 +4651,22 @@ class Battle:
             return
         if not self._wants_to_charge(attacker):
             return
+        # Advance lockout (10e core): a unit that Advanced this turn cannot
+        # charge. Assault Doctrine (Gladius Task Force, R3+) explicitly lifts
+        # this lockout for ADEPTUS ASTARTES units in a Gladius army: "This
+        # unit is eligible to declare a charge in a turn in which it
+        # Advanced." Cited as `simulator.combat_doctrines`.
         if attacker.uid in self._advanced_this_round:
-            return   # advanced units cannot charge
+            if self._gladius_active_doctrine(attacker, attacker_army) != "Assault":
+                return
         # Fall Back lockout (10e core): a unit that Fell Back this turn can
-        # only charge if it has the FLY keyword. Cited as
-        # `simulator.fall_back`.
+        # only charge if it has the FLY keyword. Tactical Doctrine (Gladius,
+        # R2) also lifts this lockout: "This unit is eligible to shoot and
+        # declare a charge in a turn in which it Fell Back." Cited as
+        # `simulator.fall_back` and `simulator.combat_doctrines`.
         if attacker.fell_back_this_round and not attacker.profile.fly:
-            return
+            if self._gladius_active_doctrine(attacker, attacker_army) != "Tactical":
+                return
 
         from .strategy import pick_charge_target
         target, dist = pick_charge_target(attacker, defender_army)
@@ -3537,19 +4717,28 @@ class Battle:
             distance=dist, roll=roll, succeeded=True,
         ))
 
-        # Universal Core Stratagems on a successful charge:
+        # Universal Core Stratagem on a successful charge:
         # * Tank Shock (1 CP, attacker) — VEHICLE chargers deal D3 mortal
         #   wounds.
-        # * Heroic Intervention (1 CP, defender) — friendly CHARACTER
-        #   within 6" of the charge target moves 3" into engagement range
-        #   with the charger. Fire AFTER Tank Shock so the character
-        #   intervenes against whatever's still standing.
         self._try_tank_shock(attacker, target, attacker_army)
-        if target.is_alive:
-            self._try_heroic_intervention(attacker, target, defender_army)
+        # Heroic Intervention (10e core, FREE — NOT a stratagem). After the
+        # charger has ended its move, every friendly defender CHARACTER
+        # within 6" of the charger may make a normal move of up to 6"
+        # (3" if WALKER) ending in engagement range with that charger.
+        # Cited as `simulator.heroic_intervention_core`. Fires after Tank
+        # Shock so the character intervenes against whatever's still
+        # standing.
+        self._do_heroic_intervention(attacker, defender_army)
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
-        """Resolve a melee strike if the attacker is in engagement range (1")."""
+        """Resolve a melee strike if the attacker is in engagement range (1").
+
+        10e Fight phase per-unit sequence is Pile-In -> Fight -> Consolidate.
+        Both pile-in and consolidate are mandatory free 3" moves toward the
+        closest enemy (Wahapedia core rules). SwegHammer's one-Unit-per-
+        model representation means "each model" collapses to "the Unit".
+        Cited as `simulator.pile_in` / `simulator.consolidate`.
+        """
         # Embarked passengers cannot fight (10e core). Cited as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return
@@ -3558,6 +4747,31 @@ class Battle:
         alive_enemies = defender_army.alive_units
         if not alive_enemies:
             return
+
+        # --- Pile-In (10e core): free 3" move toward the closest enemy,
+        # taken BEFORE the fight resolves. Gated on the attacker being in
+        # actual fight eligibility — within Engagement Range of an enemy
+        # OR having charged this turn (per 10e core: "A unit can fight in
+        # your Fight phase if either it is within Engagement Range of one
+        # or more enemy units, or it made a Charge move this turn").
+        # Pile-in often closes the residual gap so the attacks land at
+        # the full melee profile.
+        nearest_pre = min(
+            alive_enemies,
+            key=lambda e: _distance(attacker.position, e.position),
+        )
+        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.5
+        is_charging_this_turn = attacker.uid in self._charging_this_round
+        if (
+            (pre_engaged or is_charging_this_turn)
+            and not self.map.is_blocked(attacker.position)
+        ):
+            new_pos = _move_toward(
+                attacker.position, nearest_pre.position, 3.0, self.map,
+            )
+            if not self.map.is_blocked(new_pos):
+                attacker.position = new_pos
+
         # #C1 (auto-loop iter1): pick the engagement-range candidate with
         # the highest `_melee_target_score` rather than the geometrically
         # nearest. The score is faction-neutral — it's a pure DPA-vs-
@@ -3608,6 +4822,25 @@ class Battle:
                 winner_army=attacker_army, winner_unit=attacker,
                 target_killed=not alive_after,
             )
+
+        # --- Consolidate (10e core): free 3" move taken AFTER the fight.
+        # Moves toward the closest enemy OR keeps the unit in engagement
+        # with units it was engaged with at the start of the move. We
+        # collapse to "move 3" toward closest enemy" — if the previous
+        # target survived this still sticks to it; if it died, the next
+        # closest enemy is chased. Cited as `simulator.consolidate`.
+        if attacker.is_alive and not self.map.is_blocked(attacker.position):
+            remaining = defender_army.alive_units
+            if remaining:
+                nearest_post = min(
+                    remaining,
+                    key=lambda e: _distance(attacker.position, e.position),
+                )
+                new_pos = _move_toward(
+                    attacker.position, nearest_post.position, 3.0, self.map,
+                )
+                if not self.map.is_blocked(new_pos):
+                    attacker.position = new_pos
 
     # ------------------------------------------------------------------
     # Helpers
@@ -4125,13 +5358,22 @@ class Battle:
         firing = transport.passengers[:x]
         total = 0.0
         distance = _distance(transport.position, target.position)
-        has_los = self.map.has_line_of_sight(transport.position, target.position)
+        target_kw = target.profile.unit_keywords or ()
         for passenger in firing:
             if not passenger.is_alive:
                 continue
             # Out of range from the transport's position — skip silently.
             if distance > passenger.profile.range_inches:
                 continue
+            # 10e Ruins: the FIRING model's keywords decide whether LoS
+            # passes through a Ruin wall, not the transport's. Each
+            # passenger gets its own LoS check from the transport's
+            # firing-deck position.
+            has_los = self.map.has_line_of_sight(
+                transport.position, target.position,
+                attacker_keywords=passenger.profile.unit_keywords or (),
+                target_keywords=target_kw,
+            )
             total += passenger.attack(
                 target, distance=distance, has_los=has_los,
             )
@@ -4183,10 +5425,10 @@ class Battle:
         # Iter-4 A5: increment the per-Command-phase counter only when this
         # spend originated from `_apply_detachment_stratagems` (faction-neutral
         # detachment-stratagem dispatcher). Core Stratagems (Tank Shock,
-        # Heroic Intervention, Counter-Offensive, Command Re-Roll) fire on
-        # their own per-trigger hooks at other points in the round and
-        # intentionally do NOT count toward the cap. The dispatch flag is
-        # set + cleared in `_apply_detachment_stratagems`'s try/finally.
+        # Counter-Offensive, Command Re-Roll) fire on their own per-trigger
+        # hooks at other points in the round and intentionally do NOT count
+        # toward the cap. The dispatch flag is set + cleared in
+        # `_apply_detachment_stratagems`'s try/finally.
         # Cited as `simulator.stratagem_per_command_phase_cap`.
         if getattr(self, "_dispatching_detachment_stratagems", False):
             army.stratagems_fired_this_command_phase += 1
@@ -4245,49 +5487,41 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(target)
 
-    def _try_heroic_intervention(
-        self, charger: "Unit", charge_target: "Unit",
-        defender_army: Army,
+    def _do_heroic_intervention(
+        self, charger: "Unit", defender_army: Army,
     ) -> None:
-        """When an enemy charges a unit, look for a friendly CHARACTER
-        within 6" of the charge target — and if present, optionally spend
-        1 CP to pull them into engagement range with the charger.
+        """Free core CHARACTER ability — 10e Charge phase.
 
-        Modelled as a free 3" move that places the CHARACTER 1" from the
-        charger (inside engagement range), so the next fight sub-phase
-        resolves their melee profile.
+        Per Wahapedia (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
+        #CHARGE-PHASE): "After the opposing player has resolved their
+        charges, you can select any of your CHARACTER models that are
+        within 6\" of any enemy units. Each of those models can move up
+        to 6\" (3\" if WALKER) — they must end the move within Engagement
+        Range of one of those enemy units."
+
+        This is NOT a stratagem and costs no CP. It fires automatically
+        for every eligible defender CHARACTER after a successful charge
+        by `charger` against `charger`'s target. Each such CHARACTER
+        within 6" of the charger is moved up to 6" (3" if WALKER) toward
+        the charger, landing inside 1" engagement range when reachable.
+
+        Cited as `simulator.heroic_intervention_core`.
         """
-        # Find the closest friendly CHARACTER to the charge target.
-        best = None
-        best_d = 999.0
-        for u in defender_army.alive_units:
-            if "CHARACTER" not in (u.profile.unit_keywords or ()):
+        for u in list(defender_army.alive_units):
+            kw = u.profile.unit_keywords or ()
+            if "CHARACTER" not in kw:
                 continue
-            d = _distance(u.position, charge_target.position)
-            if d < best_d:
-                best_d = d
-                best = u
-        if best is None:
-            return
-        ctx = {
-            "character": best,
-            "charge_target": charge_target,
-            "distance": best_d,
-        }
-        if not should_fire_stratagem(defender_army, HEROIC_INTERVENTION, ctx):
-            return
-        if not self._fire_stratagem(defender_army, HEROIC_INTERVENTION):
-            return
-        # Move the character toward the charger up to 3", landing inside
-        # 1.0" engagement range if reachable.
-        old_pos = best.position
-        # Aim 1" short of the charger so we land in engagement, not on top.
-        new_pos = _move_toward(old_pos, charger.position, 3.0, self.map)
-        if new_pos != old_pos:
-            best.position = new_pos
-            self._emit(UnitMoved(
-                unit_uid=best.uid, from_pos=old_pos, to_pos=new_pos,
-            ))
+            d = _distance(u.position, charger.position)
+            if d > 6.0:
+                continue
+            max_move = 3.0 if "WALKER" in kw else 6.0
+            old_pos = u.position
+            new_pos = _move_toward(old_pos, charger.position, max_move, self.map)
+            if new_pos != old_pos:
+                u.position = new_pos
+                self._emit(UnitMoved(
+                    unit_uid=u.uid, from_pos=old_pos, to_pos=new_pos,
+                ))
 
     def _try_counter_offensive(
         self,

@@ -12,6 +12,8 @@
 \usepackage{array}
 \usepackage{pifont}
 \usepackage{parskip}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
 \usepackage{hyperref}
 
 % ------------------------------------------------------------ ownership tags
@@ -73,9 +75,12 @@ change alongside the code change so the doc never drifts from reality.
 
 \subsection*{Build}
 \begin{verbatim}
+pdflatex OVERVIEW.tex
 pdflatex PROJECT.tex && pdflatex PROJECT.tex
 \end{verbatim}
-Two passes so the table of contents resolves. No external assets needed.
+Build \texttt{OVERVIEW.pdf} first because PROJECT.tex embeds it as the
+pipeline figure. Then two passes on PROJECT.tex so the table of
+contents resolves.
 
 % =========================================================================
 \section{Project vision}
@@ -94,6 +99,31 @@ The simulator is the experimental apparatus. It must be \emph{fast}
 enough to run thousands of battles in a calibration sweep, and
 \emph{detailed} enough to render a single battle as a watchable replay
 for sanity-checking the model.
+
+\paragraph{Pipeline structure.} The project runs as two sequenced
+feedback loops, not one. Stage 1 (Goal A below) tunes the simulator's
+rules until per-faction win rates match the tournament aggregate;
+Stage 2 (Goal C below) freezes the rules and fits a single master
+points equation that prices every unit from its stats (plus small
+per-unit residuals for outliers), tuning the equation's stat
+coefficients and residuals until win rates across the catalogue
+flatten. The loop's output is the equation, not a hand-tuned price
+list. The figure below shows the relationship; \texttt{OVERVIEW.tex}
+is the standalone shareable version with non-technical wording.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{OVERVIEW.pdf}
+\caption{SwegHammer's two-stage pipeline. Stage 1 (blue) tunes the
+simulator's rules against per-faction tournament win rates. Once Stage
+1 has converged, Stage 2 (orange) fits one master points equation
+(plus small per-unit residuals) using the same simulator to measure
+per-unit win rates. The two loops have different feedback signals and
+must not be conflated. Diagram source: \texttt{OVERVIEW.tex}, also
+distributed as a standalone single-page \texttt{OVERVIEW.pdf} for
+sharing outside the project.}
+\label{fig:loop}
+\end{figure}
 
 % =========================================================================
 \section{The four goals}
@@ -129,10 +159,12 @@ mechanic-fire validator (\texttt{tests/test\_faction\_mechanic\_smoke.py})
 confirms 19 implemented faction mechanics actually trigger in seeded
 battles.
 
-\subsection*{Goal C --- Generate balanced SwegHammer points (two-track)}
-Replace GW's commercially-driven points with empirically-derived costs.
-Two independent solvers run in parallel; the divergence between them is
-itself a calibration signal:
+\subsection*{Goal C --- Fit the SwegHammer points equation (two-track)}
+Replace GW's commercially-driven, hand-tuned price list with one master
+points equation: a closed-form formula mapping a unit's stats to its
+cost, plus small per-unit residuals for outliers the formula cannot
+explain. Two independent solvers feed the fit in parallel; the
+divergence between them is itself a calibration signal:
 
 \begin{itemize}[itemsep=2pt]
   \item \textbf{Sweg-balancer} (\texttt{code/balancer.py}) ---
@@ -189,6 +221,83 @@ The current ``combat'' is a single abstract attack action. There are no
 \emph{phases} (movement / shooting / charge / melee / morale), no map,
 no positions, and no terrain beyond a binary cover flag. The rest of
 this document is the plan to fill that in.
+
+% =========================================================================
+\section{Sprint plan: May 2026 handover (Ed/Jake)}
+\label{sec:sprint-may-2026}
+
+This section captures the architecture clarification and near-term work
+sequence agreed between Ed and Jake on 2026-05-15. It supersedes any
+ad-hoc next-steps notes scattered through the older sections.
+
+\subsection*{Architecture clarification}
+
+SwegHammer is two interlocking systems, not one:
+
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{Equilibrium model} (\texttt{code/equilibrium.py}) ---
+    the core mathematics-hammer engine. Lancaster-derived,
+    multi-dimensional, non-linear. Computes pairwise unit matchup
+    outcomes in closed form. \emph{This is what ships in the final
+    product.}
+  \item \textbf{Simulator} (\texttt{code/simulator.py}) --- exists to
+    tune the utility factors (deep strike, sticky objectives, scout,
+    re-deploy and so on) that feed back into the equilibrium model.
+    Slow and iterative; only needed for calibration.
+\end{itemize}
+
+\paragraph{Why the split matters.} The end-user-facing front end
+(``Fire Prism vs Wraithknight --- what are the odds?'') runs the
+equilibrium equation only. The simulator stays in the toolbox for the
+specific case where Games Workshop releases a weird new model and we
+need to derive its tactical utility weights before plugging it into
+the equation.
+
+\paragraph{Calibration constraint.} Real tournament data is scarce.
+Even a major event like the Las Vegas Open produces only a few
+thousand games across roughly twenty factions \textemdash{} too thin
+for faction-vs-faction matchup matrices on its own. The simulator
+covers the gap by generating the synthetic matchup volume the
+analytic solver needs.
+
+\subsection*{Current focus (Jake)}
+
+Drive the simulator's mean absolute error down to 2--4\,\% against
+real tournament results, using the Games Workshop printed point costs
+as the baseline for army budgets. The current honest reading is
+$7.01$ points at $N{=}200$ (see \S\ref{sec:goals} Goal A); 2--4\,\%
+is the threshold at which the simulator's outputs are trustworthy
+enough to drive points re-derivation in production.
+
+\subsection*{Near-term sequence (priority order)}
+
+\begin{enumerate}[itemsep=2pt]
+  \item \todo \eddie\ Speed up the user interface for faster
+    iteration. The convergence tab is the right shape; extend the
+    same live-streaming pattern to the calibration sweep so a tuning
+    loop does not block on a multi-minute wait. See also the
+    longer-term front-end items in \S\ref{sec:front-end}.
+  \item \wip \jake\ Get the simulator's mean absolute error down to
+    2--4\,\% against the May 2026 Warp Friends aggregate. Headline
+    metric for this sprint; everything downstream blocks on it.
+  \item \todo \either\ Generate a trial balanced points dataset.
+    Once the mean absolute error is in the 2--4\,\% band, run the
+    two-track points solvers (\texttt{code/balancer.py} and
+    \texttt{code/equilibrium.py}, see \S\ref{sec:goals} Goal C) and
+    cache the output as a candidate full-catalogue re-pricing.
+  \item \todo \either\ Sanity-check the trial dataset, then play-test
+    in person. After the cross-validation script
+    (\texttt{scripts/cross\_validate\_pricing.py}) clears the
+    obvious outliers, approach local game groups for a structured
+    blind play-test round \textemdash{} unit costs swapped in
+    without telling players which units have been re-priced, then a
+    post-game survey on perceived fairness.
+\end{enumerate}
+
+\paragraph{Final product vision.} When this sprint lands, the
+shipped product is the front end running the equilibrium equation on
+the trial-balanced points dataset, with the simulator preserved as a
+calibration utility for future Games Workshop releases.
 
 % =========================================================================
 \section{Game phases}
@@ -453,6 +562,7 @@ the visualisation therefore cannot affect calibration numbers.
 
 % =========================================================================
 \section{Front end}
+\label{sec:front-end}
 
 The current Streamlit app (\texttt{app.py}) is a good v1 dashboard. We
 will extend it rather than replace it.
@@ -508,42 +618,68 @@ we will end up rewriting \texttt{units.py} twice.
 
 \paragraph{Phase 2 follow-ups (see \texttt{ROADMAP.md}).}
 \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
-  \item \wip \eddie\ \textbf{Points-per-model cost is imported wrong.}
+  \item \done \eddie\ \textbf{Points-per-model cost is imported wrong.}
     The per-model points value coming through the BSData $\to$
-    \texttt{UnitProfile} pipeline does not match the printed datasheet
-    cost (likely a squad-total vs per-model confusion, or wrong cost
-    entry chosen when a datasheet has multiple costed variants). Audit
-    \texttt{code/bsdata/mapper.py} + \texttt{loader.py} against a known-
-    good sample (e.g.\ Intercessors $=$ 80 pts / 5 models, Terminators
-    $=$ 185 pts / 5 models) and fix before any further calibration
-    work \textemdash{} the Lanchester-derived fair cost has no signal
-    until the printed-cost baseline is correct.
-    \emph{2026-05-16 partial fix:} \texttt{\_squad\_group\_size} was
-    reading the outer unit \texttt{selectionEntry}'s own
-    \texttt{field="selections"} constraints as squad size. For squads
-    with no inner \texttt{selectionEntryGroup} (Pink Horrors,
-    Plaguebearers, Bloodletters, Sagittarum Custodians, Chaos Spawn,
-    Obliterators, Kastelan Robots, etc.) the only such constraint is
-    \texttt{scope="force"}/\texttt{"roster"}/\texttt{"parent"} \textemdash{}
-    an army-list cap, not the model count \textemdash{} so
-    \texttt{min\_models} collapsed to 1 and per-model cost became the
-    full squad cost (Pink Horrors: 140 pts/model instead of 14). Fix
-    skips entry-self constraints on unit entries and uses shape (c)
-    (sum per-model \texttt{scope="parent"} constraints). 73 of 156
-    suspicious multi-model squads now report sane per-model costs;
-    83 elite/Legends entries remain to audit.
-  \item \todo \either\ \textbf{Thorough audit of the points-per-model
-    fix above.} Cross-check every multi-model squad's
-    \texttt{min\_models}/\texttt{points\_listed} against Wahapedia
-    (or printed codex). Particular suspects still to triage: Victrix
-    Honour Guard (BSData says min=1 max=6, real is 4-model fixed),
-    Corsair Voidscarred (Felarch group not summed with the 4--9
-    Voidscarred group), Boyz (min=9 max=19 likely missing the +1
-    Nob), Ork Mob/Tomb Blade-shape units whose models live across
-    multiple groups. Build a parametric test in
-    \texttt{tests/test\_mapper.py} that asserts a known-good sample
-    of $\sim$20 squads against printed-codex per-model costs, so this
-    bug class can't regress silently.
+    \texttt{UnitProfile} pipeline did not match the printed datasheet
+    cost. The fix landed in three passes; the third closes the bug
+    class.
+    \begin{itemize}[label={},leftmargin=*,itemsep=2pt]
+      \item \emph{2026-05-16 (commit \texttt{c084ba0}):}
+        \texttt{\_squad\_group\_size} was reading the outer unit
+        \texttt{selectionEntry}'s own \texttt{field="selections"}
+        constraints as squad size. For squads with no inner
+        \texttt{selectionEntryGroup} (Pink Horrors, Plaguebearers,
+        Bloodletters, Sagittarum Custodians, Chaos Spawn, Obliterators,
+        Kastelan Robots, \&c.) the only such constraint is
+        \texttt{scope="force"}/\texttt{"roster"}/\texttt{"parent"}
+        \textemdash{} an army-list cap, not the model count \textemdash{}
+        so \texttt{min\_models} collapsed to 1 and per-model cost became
+        the full squad cost (Pink Horrors: 140 pts/model instead of 14).
+        Fix skipped entry-self constraints on unit entries and used
+        shape (c) (sum per-model \texttt{scope="parent"} constraints).
+        73 of 156 suspicious multi-model squads were corrected.
+      \item \emph{2026-05-17 (branch \texttt{claude/fixinfequivexplorer}),
+        leader-plus-body shapes:} \texttt{extract\_squad\_size} stopped
+        returning the first non-\texttt{None} group, which silently
+        truncated leader-plus-body squads by one model (Devastator
+        Squad read 30 pts/model instead of 24 — sergeant dropped). It
+        now sums sizes across all outer groups and adds the unit
+        entry's own direct \texttt{selectionEntry type="model"} children,
+        so the leader-plus-direct-body shape (T'au Breacher Team:
+        1-model Shas'ui group $+$ 9-model direct body $=$ 10;
+        Servitor Battleclade: 1 group $+$ 3 direct $=$ 9 models)
+        reads correctly.
+      \item \emph{2026-05-17, implicit-via-cost-tier shapes:} units
+        whose squad size is encoded only in a points-tier modifier
+        (\texttt{<modifier type="set" field=pts><condition
+        type="greaterThan" field="selections" childId="model"
+        value="N">}) now read $N$ as the upper bound of the base cost
+        tier. Jakhals (65 pts $\to$ 6.5 pts/model at $N{=}10$) and
+        Neurogaunts (45 pts $\to$ 4.1 pts/model at $N{=}11$) were the
+        canonical victims; cost-tier inference fires whenever the
+        static signal under-reports.
+      \item \emph{2026-05-17, stale balancer overrides:} the
+        \texttt{points\_override} entries written by
+        \texttt{sweg\_balance\_mc} for Crisis Fireknife, Crisis
+        Sunforge, Deathshroud Terminators, Plague Marines, Rubric
+        Marines, Scarab Occult Terminators, and Hearthkyn Warriors
+        had been calibrated against the pre-fix
+        \texttt{min\_models} (so the per-model value was implicitly
+        the per-\emph{squad} cost). With the model counts corrected,
+        these inflated squad costs to 2.5--3$\times$ GW MFM and
+        priced Crisis suits out of the T'au Kauyon archetype seed
+        budget. Stale entries removed from \texttt{overrides.json};
+        future balancer runs will repopulate them against the now-
+        correct model counts.
+    \end{itemize}
+  \item \done \either\ \textbf{Regression test for the
+    \texttt{extract\_squad\_size} bug class.}
+    \texttt{tests/test\_mapper.py::SquadSizeShapeRegressionTests}
+    pins one canonical victim per encoding shape (Intercessor Squad,
+    Devastator Squad, Plaguebearers, Breacher Team, Servitor
+    Battleclade, Pink Horrors, Neurogaunts, Jakhals) against its
+    known correct \texttt{(min, max)}, so silent regressions surface
+    in CI rather than in the equilibrium graph weeks later.
   \item \todo \jake\ Extract \texttt{S} (weapon Strength) and \texttt{T}
     (unit Toughness) from BSData into \texttt{UnitProfile} \textemdash{}
     currently defaulted to S$=$T$=4$ via \texttt{BASELINE\_*}.

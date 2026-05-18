@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e core EPIC HERO 1-per-army rule. Faction-neutral, universal across every codex.",
+
+  "simulator.epic_hero_one_per_army": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Datasheets",
+    "rule_name": "Epic Hero",
+    "quoted_text": "EPIC HERO units can only be taken once per army.",
+    "trigger": "army composition / list-building; a UnitProfile carrying the EPIC HERO unit keyword has already been drafted into the army",
+    "effect": "duplicate inclusion of the same EPIC HERO datasheet is refused. Enforced by code.army_builder.is_epic_hero gates in build_random_army, build_faction_random_army, and code.archetypes._random_fill — each tracks the set of EPIC HERO profile names already added and filters candidates that match. Faction-neutral.",
+    "scope": "army-wide"
+  }
+}

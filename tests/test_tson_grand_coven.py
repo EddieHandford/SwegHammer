@@ -61,10 +61,21 @@ class GrandCovenWiringTests(unittest.TestCase):
     faction default resolves correctly."""
 
     def test_default_detachment_for_thousand_sons(self):
-        self.assertEqual(DEFAULT_BY_FACTION["Thousand Sons"], "grand_coven")
+        # iter15 promoted Rubricae Phalanx to the TSON default — Grand Coven
+        # remains opt-in for psyker-heavy lists. The detachment-picker AND
+        # Army.resolve_detachment() now both route to rubricae_phalanx when
+        # no explicit detachment is set on the Army.
+        self.assertEqual(DEFAULT_BY_FACTION["Thousand Sons"], "rubricae_phalanx")
 
     def test_grand_coven_in_faction_detachments(self):
-        self.assertEqual(FACTION_DETACHMENTS["Thousand Sons"], ("grand_coven",))
+        # iter15 added Rubricae Phalanx to FACTION_DETACHMENTS["Thousand Sons"]
+        # alongside Grand Coven — both remain available picks (composition-
+        # driven via pick_detachment_for_army). The ordering reflects the
+        # default precedence (rubricae_phalanx is first, grand_coven second).
+        self.assertEqual(
+            FACTION_DETACHMENTS["Thousand Sons"],
+            ("rubricae_phalanx", "grand_coven"),
+        )
 
     def test_grand_coven_registry(self):
         self.assertIn("grand_coven", DETACHMENTS)

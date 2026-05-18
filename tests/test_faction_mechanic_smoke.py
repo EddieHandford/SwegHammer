@@ -20,7 +20,7 @@ Citations covered (one mechanic per test):
   Adeptus Mechanicus  — simulator.doctrina_imperatives
   Genestealer Cults   — simulator.cult_ambush
   World Eaters        — simulator.blood_tithe
-  Death Guard         — simulator.disgustingly_resilient, simulator.contagions_of_nurgle
+  Death Guard         — simulator.contagions_of_nurgle (no army-wide FNP — iter 15)
   Thousand Sons       — simulator.all_is_dust
   Aeldari             — simulator.battle_focus
   Necrons             — simulator.reanimation_protocols (via the AWAKENED_DYNASTY hook)
@@ -169,13 +169,15 @@ def _plague_marine() -> UnitProfile:
 
 
 def _rubric_marine() -> UnitProfile:
-    """Thousand Sons defender — All Is Dust target."""
+    """Thousand Sons defender — All Is Dust target. iter14: RUBRICAE
+    keyword required to trigger the Rubricae Phalanx +1-save-vs-D1 rule."""
     return UnitProfile(
-        name="Rubric Marine", faction="Thousand Sons",
+        name="Rubric Marines", faction="Thousand Sons",
         health=2, damage=1, hit_probability=2 / 3,
-        ap=0, save=3, strength=4, toughness=4,
+        ap=0, save=3, invuln_save=5, strength=4, toughness=4,
         attacks=1, weapon_damage_per_shot=1.0, range_inches=24,
-        leadership=7, unit_keywords=("PSYKER", "INFANTRY"),
+        leadership=7,
+        unit_keywords=("PSYKER", "INFANTRY", "BATTLELINE", "RUBRICAE"),
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
     )
@@ -419,11 +421,16 @@ class FactionMechanicSmokeTests(unittest.TestCase):
 
     # ----- Death Guard -------------------------------------------------
 
-    def test_death_guard_disgustingly_resilient_fnp(self):
-        """A DG model takes ~2/6 fewer wounds than a non-DG with otherwise
-        identical stats — the always-on FNP 5+ army rule. We compare
-        damage totals after many trials. Cites: simulator.disgustingly_resilient."""
+    def test_death_guard_no_phantom_army_wide_fnp(self):
+        """iter 15: there is NO army-wide FNP 5+ in the 10e DG codex (per
+        Wahapedia + Goonhammer 'Hammer of Math: New Disgustingly Resilient').
+        A DG unit with profile.fnp=7 must take every wound — identical to a
+        non-DG control. Per-datasheet FNP (e.g. Plague Marines fnp=5) still
+        lives on profile.fnp via overrides.json. This test pins the
+        absence of the deleted fabrication."""
         N = 3000
+        # Use the bare _plague_marine helper which has profile.fnp default
+        # (7) — pre-iter-15 the faction tag alone granted phantom FNP 5+.
         random.seed(2026)
         dg = Unit(_plague_marine())
         dg.current_health = N + 100.0
@@ -432,7 +439,6 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         dg_taken = (N + 100.0) - dg.current_health
 
         random.seed(2026)
-        # Same profile, swap faction tag — control with no FNP.
         ctrl_profile = UnitProfile(
             **{**_plague_marine().__dict__, "faction": "Adeptus Astartes"}
         )
@@ -442,9 +448,15 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             ctrl.receive_damage(1.0)
         ctrl_taken = (N + 100.0) - ctrl.current_health
 
-        self.assertLess(
-            dg_taken, ctrl_taken,
-            f"DG FNP did not reduce damage: dg={dg_taken:.1f} ctrl={ctrl_taken:.1f}",
+        self.assertEqual(
+            int(dg_taken), int(ctrl_taken),
+            f"Phantom DG FNP would survive: dg_taken={dg_taken:.1f} vs "
+            f"ctrl_taken={ctrl_taken:.1f}. Faction tag alone must NOT grant FNP.",
+        )
+        # Sanity: both should be ~N (no FNP roll at all).
+        self.assertAlmostEqual(
+            dg_taken, float(N), delta=0.5,
+            msg=f"DG unit with profile.fnp=7 must take every wound; got {dg_taken}.",
         )
 
     def test_death_guard_contagions_no_r1_toughness_debuff(self):
@@ -500,9 +512,15 @@ class FactionMechanicSmokeTests(unittest.TestCase):
     # ----- Thousand Sons -----------------------------------------------
 
     def test_thousand_sons_all_is_dust_minus_1_to_wound(self):
-        """A D1 attacker into a TSons defender lands fewer wounds than the
-        same shot into a vanilla Marine — All Is Dust subtracts 1 from the
-        wound roll on D1 attacks. Cites: simulator.all_is_dust."""
+        """A D1 attacker into a TSons RUBRICAE defender lands fewer wounds
+        than the same shot into a vanilla Marine — iter14 updated the
+        simulator's All Is Dust gate to the current 10e Rubricae Phalanx
+        detachment rule ('+1 to armour save vs unmodified Damage 1
+        attacks on RUBRICAE models'), so the effect now reads at the
+        save layer instead of the wound layer. The test name is preserved
+        for git-history continuity; the asserted behaviour (less damage
+        taken vs the non-TSON control) is unchanged. Cites:
+        simulator.all_is_dust."""
         def _wound_rate(defender_profile, seed):
             random.seed(seed)
             atk_army = Army("Atk")

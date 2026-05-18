@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e Leviathan Tournament Companion primary scoring cap: each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
+
+  "simulator.primary_vp_cap_15": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
+    "rule_name": "Primary Mission scoring cap",
+    "quoted_text": "At the end of each battle round, if you control one or more objective markers, you score 5 victory points for each objective marker you control, to a maximum of 15 victory points.",
+    "trigger": "end of each battle round, when totalling Primary VP for an army",
+    "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each)",
+    "scope": "phase-gated"
+  }
+}
