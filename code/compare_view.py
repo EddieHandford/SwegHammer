@@ -37,6 +37,11 @@ PHASE_FILES: "OrderedDict[str, str]" = OrderedDict(
         ("phase4", "equilibrium_points_phase4.json"),
         ("phase5", "equilibrium_points_phase5.json"),
         ("phase6", "equilibrium_points_phase6.json"),
+        # Sim-driven (see code/equilibrium_simdriven.py). The snapshot's
+        # ``units`` dict is shape-compatible with the closed-form phase
+        # snapshots — same per-unit fields plus a `source` flag that the
+        # Compare tab currently ignores.
+        ("simdriven", "equilibrium_points_simdriven.json"),
     ]
 )
 

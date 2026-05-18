@@ -625,22 +625,39 @@ def _squad_group_size(grp: ET.Element) -> Optional[tuple[int, int]]:
 
     ``value="-1"`` is the BSData "unlimited" sentinel; ignore it so a
     real finite cap can win the min().
+
+    When called on the outer unit ``selectionEntry`` (implicit-group
+    shape, no wrapping ``selectionEntryGroup``), the entry's OWN
+    constraints are army-list limits — ``scope="force"`` / ``"roster"``
+    cap units per army, and ``scope="parent"`` on a unit entry refers
+    to the unit's parent (the codex/category), not the squad. None of
+    them encode squad model count. Pre-2026-05-16, reading those as
+    squad size made Pink Horrors / Plaguebearers / Bloodletters /
+    Sagittarum Custodians / Chaos Spawn / etc. report min_models=1, so
+    per-model points cost collapsed to the full squad cost (Pink
+    Horrors: 140 pts/model instead of 14). For unit entries we skip
+    shape (a/b) entirely and use shape (c), where the inner model's
+    own ``scope="parent"`` constraints encode the real squad size.
     """
+    is_unit_entry = grp.tag == "selectionEntry" and grp.get("type") == "unit"
     mn: Optional[int] = None
     mx: Optional[int] = None
-    for cons in grp.findall("./constraints/constraint"):
-        if cons.get("field") != "selections":
-            continue
-        try:
-            value = int(cons.get("value") or 0)
-        except ValueError:
-            continue
-        if cons.get("type") == "min":
-            mn = value
-        elif cons.get("type") == "max":
-            if value < 0:
+    if not is_unit_entry:
+        for cons in grp.findall("./constraints/constraint"):
+            if cons.get("field") != "selections":
                 continue
-            mx = value if mx is None else min(mx, value)
+            if cons.get("scope") in ("force", "roster"):
+                continue
+            try:
+                value = int(cons.get("value") or 0)
+            except ValueError:
+                continue
+            if cons.get("type") == "min":
+                mn = value
+            elif cons.get("type") == "max":
+                if value < 0:
+                    continue
+                mx = value if mx is None else min(mx, value)
     if mn is None and mx is not None and mx >= 1:
         mn = 1
     if mn is not None and mx is not None and mx >= mn >= 1:
@@ -676,28 +693,132 @@ def _squad_group_size(grp: ET.Element) -> Optional[tuple[int, int]]:
     return None
 
 
+def _implicit_squad_size_from_cost_tier(entry: ET.Element) -> Optional[int]:
+    """Recover squad size from a points-tier modifier on the unit entry.
+
+    Some 10e squads (Neurogaunts, Jakhals, and others where the unit can only
+    be fielded at a fixed model count) carry NO `selectionEntryGroup` with a
+    `selections` constraint AND no `selectionEntry type='model'` children. The
+    squad size is implicit; BSData expresses it indirectly through a cost-tier
+    modifier of the shape:
+
+        <modifier type="set" field="<pts-typeId>" value="<higher cost>">
+          <conditions>
+            <condition type="greaterThan" field="selections"
+                       childId="model" value="N"/>
+          </conditions>
+        </modifier>
+
+    "When the unit has more than N models, the cost jumps." The threshold N is
+    therefore the upper bound of the base cost tier — i.e. the squad size at
+    base cost. For Neurogaunts that's 11 (so 45 pts / 11 models = 4.09 / model
+    rather than the 45 / model the (1, 1) fallback produced). For Jakhals
+    N=10 (65 / 10 = 6.5 / model).
+
+    Returns the threshold N, or None when no qualifying modifier is present.
+    """
+    candidates: List[int] = []
+    for mod in entry.findall("./modifiers/modifier"):
+        if mod.get("type") != "set":
+            continue
+        # The modifier's `field` is the points typeId; we don't pin a literal
+        # value because BSData has occasionally renumbered typeIds. Instead we
+        # cross-check that this entry actually has a <cost name="pts"> with
+        # the same typeId.
+        mod_field = mod.get("field")
+        if not mod_field:
+            continue
+        if not any(
+            c.get("typeId") == mod_field and (c.get("name") or "").lower() == "pts"
+            for c in entry.findall("./costs/cost")
+        ):
+            continue
+        for cond in mod.findall("./conditions/condition"):
+            if cond.get("type") != "greaterThan":
+                continue
+            if cond.get("field") != "selections":
+                continue
+            if cond.get("childId") != "model":
+                continue
+            try:
+                n = int(cond.get("value") or 0)
+            except ValueError:
+                continue
+            if n >= 1:
+                candidates.append(n)
+    if not candidates:
+        return None
+    # Pick the smallest threshold — for multi-tier costs (rare but possible),
+    # the lowest tier-up threshold is the base squad's upper bound.
+    return min(candidates)
+
+
 def extract_squad_size(entry: ET.Element) -> tuple[int, int]:
     """
     Return (min_models, max_models) for a unit selectionEntry.
 
-    10e squads encode size in three shapes (see `_squad_group_size`):
-      - inner ``selectionEntryGroup`` with selection constraints
-      - direct ``selectionEntry type='model'`` children with constraints on
-        the entry itself (Aeldari-shape)
-      - the per-model constraints sum to the squad size (Tomb Blades etc.)
+    10e squads encode size in four shapes that the mapper now reads in a
+    single pass and combines:
+
+      (a) inner ``selectionEntryGroup``s with `selections` constraints,
+          one group per kind-of-model. Devastator Squad has two: the main
+          "Devastators" group (4, 9) and the "Devastator Sergeant" group
+          (1, 1); the squad size is the SUM of those (5, 10). The previous
+          implementation returned the first non-None group, silently
+          truncating leader-plus-body squads by one model — Devastators
+          read as 30 pts/model instead of 24, etc. The fix is to sum.
+      (b) direct ``selectionEntry type='model'`` children on the entry
+          itself when no outer groups carry the size (Aeldari-shape).
+      (c) the inner per-model constraints summed (Tomb Blades etc.),
+          handled inside `_squad_group_size`.
+      (d) implicit-only: no constraint encodes the squad count, but a
+          points-tier modifier of the shape "when selections > N, set
+          cost = higher" reveals N as the upper bound of the base cost
+          tier. Jakhals (N=10) and Neurogaunts (N=11) are the canonical
+          cases. See `_implicit_squad_size_from_cost_tier`. When the
+          static signal sums to less than N (Jakhals: two loadout-choice
+          groups summing to (2, 2)), the cost-tier value wins.
 
     Single-model units (characters, vehicles, monsters) have none of those
     shapes and default to (1, 1).
     """
+    sum_min, sum_max, found = 0, 0, False
     for grp in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
         size = _squad_group_size(grp)
         if size is not None:
-            return size
-    # Fall back to the entry-as-implicit-group case.
+            sum_min += size[0]
+            sum_max += size[1]
+            found = True
+    # Shape (b): direct ``selectionEntry type='model'`` children on the unit
+    # entry itself. Two patterns hit this branch:
+    #   - Aeldari Guardian Defenders / Plaguebearers shape: no outer groups,
+    #     all models are direct children.
+    #   - Mixed shape (T'au Breacher Team, Servitor Battleclade): one or
+    #     more outer groups carry the sergeant / officer with (1, 1), AND
+    #     direct model entries carry the body of the squad. The previous
+    #     ``if not found`` gate skipped this whole branch the moment any
+    #     outer group fired, dropping the body count and collapsing the
+    #     unit to its 1-model leader. Summing both branches together
+    #     captures the full squad.
     if entry.find("./selectionEntries/selectionEntry[@type='model']") is not None:
         size = _squad_group_size(entry)
         if size is not None:
-            return size
+            sum_min += size[0]
+            sum_max += size[1]
+            found = True
+    # Shape (d): cost-tier modifier reveals the implicit squad size. When
+    # the static signal under-reports (loadout-choice groups misread as
+    # model counts), the tier value supplies the floor for both min and
+    # max — `max(sum, n)` prefers the larger of the two on each side, so
+    # squads where the static signal is correct (Devastators: (5, 10))
+    # are unaffected.
+    n = _implicit_squad_size_from_cost_tier(entry)
+    if n is not None:
+        sum_min = max(sum_min, n)
+        sum_max = max(sum_max, n)
+        found = True
+    if found and sum_max >= max(1, sum_min):
+        return max(1, sum_min), sum_max
     return 1, 1
 
 

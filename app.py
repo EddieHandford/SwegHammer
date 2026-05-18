@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import math
 import random
+import time
 from io import BytesIO
 from typing import Callable, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 from code.army import Army
@@ -36,6 +41,10 @@ from code.equilibrium import (
     compute_phase1 as compute_equilibrium_phase1,
     DEFAULT_ANCHOR_KEY as EQ_DEFAULT_ANCHOR,
     DEFAULT_ANCHOR_PER_MODEL as EQ_DEFAULT_ANCHOR_PTS,
+)
+from code.equilibrium_simdriven import (
+    SIMDRIVEN_PATH as EQ_SIMDRIVEN_PATH,
+    load_snapshot as load_eq_simdriven_snapshot,
 )
 from code.compare_view import render_compare_tab
 
@@ -402,6 +411,165 @@ def chart_win_rate_vs_points(
 
     fig.tight_layout()
     return fig
+
+# ---------------------------------------------------------------------------
+# Equilibrium figure — cached so clicks / filter toggles don't rebuild it
+# ---------------------------------------------------------------------------
+# Without this cache, every click on the scatter triggers a full Streamlit
+# rerun that rebuilds the whole Plotly figure (1,400+ points across ~30
+# faction traces with customdata blobs). That made the chart feel sluggish
+# under any interaction. The figure depends only on (anchor, filters), so
+# we cache on those and replays are instant.
+
+
+def _build_equilibrium_figure(entries, y_axis_title: str) -> go.Figure:
+    """Render the equilibrium scatter from a flat list of entry objects.
+
+    Used by both the cached closed-form path (`_equilibrium_plotly_figure`)
+    and the sim-driven snapshot path. Entries must expose
+    `faction`, `gw_points_per_model`, `equilibrium_points_per_model`,
+    `key`, `name`, `role`, `mispricing_pct`, `valid_matchups` — both the
+    `EquilibriumEntry` dataclass and the SimpleNamespace-wrapped snapshot
+    rows satisfy this.
+    """
+    fig = go.Figure()
+    by_faction: dict[str, list] = {}
+    for e in entries:
+        by_faction.setdefault(e.faction or "Unknown", []).append(e)
+
+    for faction, faction_entries in sorted(by_faction.items()):
+        fig.add_trace(go.Scatter(
+            x=[e.gw_points_per_model for e in faction_entries],
+            y=[e.equilibrium_points_per_model for e in faction_entries],
+            mode="markers",
+            name=faction,
+            marker=dict(
+                size=9,
+                color=colour_for(faction),
+                line=dict(width=0.5, color="white"),
+                opacity=0.85,
+            ),
+            customdata=[
+                [e.key, e.name, e.role, e.mispricing_pct, e.valid_matchups]
+                for e in faction_entries
+            ],
+            hovertemplate=(
+                "<b>%{customdata[1]}</b><br>"
+                f"Faction: {faction}<br>"
+                "Role: %{customdata[2]}<br>"
+                "GW pts/model: %{x:.1f}<br>"
+                "Equilibrium pts/model: %{y:.1f}<br>"
+                "Mispricing: %{customdata[3]:+.1f}%<br>"
+                "Valid matchups: %{customdata[4]}<br>"
+                "<i>click to drill into this unit</i>"
+                "<extra></extra>"
+            ),
+        ))
+
+    if entries:
+        xs_all = [e.gw_points_per_model for e in entries]
+        ys_all = [e.equilibrium_points_per_model for e in entries]
+        lo = max(0.5, min(min(xs_all), min(ys_all)) * 0.8)
+        hi = max(max(xs_all), max(ys_all)) * 1.2
+        fig.add_trace(go.Scatter(
+            x=[lo, hi], y=[lo, hi],
+            mode="lines",
+            name="y = x (fair)",
+            line=dict(color="#FFD700", dash="dash", width=1.2),
+            hoverinfo="skip",
+            showlegend=True,
+        ))
+
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#0e1117",
+        plot_bgcolor="#1a1d23",
+        xaxis=dict(
+            title="GW points per model (log)",
+            type="log",
+            gridcolor="#3a3d45",
+            zerolinecolor="#3a3d45",
+        ),
+        yaxis=dict(
+            title=y_axis_title,
+            type="log",
+            gridcolor="#3a3d45",
+            zerolinecolor="#3a3d45",
+        ),
+        title=dict(
+            text=(
+                "Above diagonal → GW undercosted  ·  "
+                "Below diagonal → GW overcosted"
+            ),
+            font=dict(color="#c9a84c", size=13),
+        ),
+        legend=dict(
+            bgcolor="rgba(26, 29, 35, 0.85)",
+            bordercolor="#3a3d45",
+            borderwidth=1,
+            font=dict(size=10),
+        ),
+        height=560,
+        margin=dict(l=60, r=20, t=60, b=50),
+        hovermode="closest",
+        uirevision="eq_scatter_static",
+    )
+    return fig
+
+
+@st.cache_data(show_spinner="Building equilibrium chart…", max_entries=8)
+def _equilibrium_plotly_figure(
+    anchor_key: str,
+    anchor_pts: float,
+    factions_tuple: Tuple[str, ...],
+    roles_tuple: Tuple[str, ...],
+    balanced: bool,
+) -> go.Figure:
+    catalog = balanced_catalog() if balanced else _RAW_CATALOG
+    result = compute_equilibrium_phase1(
+        catalog=catalog, anchor_key=anchor_key, anchor_per_model=anchor_pts,
+    )
+    faction_set = set(factions_tuple) if factions_tuple else None
+    role_set = set(roles_tuple)
+    entries = [
+        e for e in result.entries
+        if (faction_set is None or e.faction in faction_set)
+        and e.role in role_set
+        and e.gw_points_per_model > 0
+        and e.equilibrium_points_per_model > 0
+    ]
+    return _build_equilibrium_figure(
+        entries,
+        y_axis_title="Equilibrium points per model (log)",
+    )
+
+
+@st.cache_data(show_spinner="Building equilibrium chart…", max_entries=4)
+def _equilibrium_plotly_figure_simdriven(
+    factions_tuple: Tuple[str, ...],
+    roles_tuple: Tuple[str, ...],
+    only_measured: bool,
+) -> go.Figure:
+    snapshot = load_eq_simdriven_snapshot()
+    if snapshot is None:
+        return go.Figure()
+    from types import SimpleNamespace
+    rows = [SimpleNamespace(**row) for row in snapshot.get("units", {}).values()]
+    faction_set = set(factions_tuple) if factions_tuple else None
+    role_set = set(roles_tuple)
+    entries = [
+        e for e in rows
+        if (faction_set is None or e.faction in faction_set)
+        and e.role in role_set
+        and e.gw_points_per_model > 0
+        and e.equilibrium_points_per_model > 0
+        and (not only_measured or getattr(e, "source", "") == "sim")
+    ]
+    return _build_equilibrium_figure(
+        entries,
+        y_axis_title="Sim-driven equilibrium points per model (log)",
+    )
+
 
 # ---------------------------------------------------------------------------
 # Formatting helpers
@@ -919,8 +1087,10 @@ if run:
 # Tabs: Statistics + Watch a battle
 # ---------------------------------------------------------------------------
 
-tab_stats, tab_replay, tab_efficiency, tab_equilibrium, tab_compare = st.tabs(
-    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium", "Compare"]
+(tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
+ tab_compare, tab_convergence) = st.tabs(
+    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium",
+     "Compare", "Convergence"]
 )
 
 # --- Statistics tab ---
@@ -1263,6 +1433,41 @@ with tab_equilibrium:
             "the model can't see what they're actually good at yet."
         )
 
+    # ---- Source toggle: closed-form vs sim-driven snapshot ----
+    # Closed-form Phase 1 is fast and recomputes on every interaction — it
+    # only sees the datasheet. Sim-driven loads a pre-built JSON of pairwise
+    # win-rates measured by the actual simulator, so faction army rules /
+    # detachment passives / leader auras / movement / charges all feed
+    # through to the points. The snapshot is built by
+    # `python -m code.equilibrium_simdriven` and lives at
+    # `data/equilibrium_points_simdriven.json`.
+    _simdriven_snapshot = load_eq_simdriven_snapshot()
+    _has_simdriven = _simdriven_snapshot is not None
+    _source_options = ["Closed-form Phase 1 (live)"]
+    if _has_simdriven:
+        _source_options.append("Sim-driven (snapshot)")
+    _eq_source = st.radio(
+        "Solver source",
+        _source_options,
+        horizontal=True,
+        key="eq_source",
+        help=(
+            "Closed-form Phase 1 derives points from datasheet stats only — "
+            "fast, but blind to faction rules and tactics. "
+            "Sim-driven measures win rates from real Battle() runs at equal "
+            "points; the snapshot is built offline by "
+            "`python -m code.equilibrium_simdriven`."
+        ),
+    )
+    _use_simdriven = (_eq_source == "Sim-driven (snapshot)")
+    if not _has_simdriven:
+        st.caption(
+            "No sim-driven snapshot found. Build one with "
+            "`python -m code.equilibrium_simdriven` to enable the "
+            "sim-driven view (the diagnostic subset takes ~5–10 minutes; "
+            "`--full` is overnight)."
+        )
+
     # ---- Controls ----
     st.divider()
     _col_anchor, _col_anchor_pts, _col_role = st.columns([3, 1, 2])
@@ -1279,6 +1484,12 @@ with tab_equilibrium:
             index=_shooty_keys.index(_default_anchor),
             format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
             key="eq_anchor_key",
+            disabled=_use_simdriven,
+            help=(
+                "Anchor is fixed by the snapshot when using sim-driven; "
+                "rebuild the snapshot with a different `--anchor` to change it."
+                if _use_simdriven else None
+            ),
         )
     with _col_anchor_pts:
         _default_anchor_pts = float(
@@ -1293,6 +1504,7 @@ with tab_equilibrium:
             value=_default_anchor_pts,
             step=1.0,
             key="eq_anchor_pts",
+            disabled=_use_simdriven,
         )
     with _col_role:
         _role_filter = st.multiselect(
@@ -1303,7 +1515,7 @@ with tab_equilibrium:
             help="`shooty` = no melee profile, `dual` = also has melee. Pure-melee units are excluded from Phase 1.",
         )
 
-    # ---- Cached compute ----
+    # ---- Cached compute (closed-form) ----
     @st.cache_data(show_spinner="Solving equilibrium points…")
     def _equilibrium_result(anchor_key: str, anchor_pts: float):
         # Catalog identity matters (raw vs balanced) but it's not hashable, so
@@ -1315,14 +1527,50 @@ with tab_equilibrium:
             anchor_per_model=anchor_pts,
         )
 
-    try:
-        _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
-    except ValueError as _exc:
-        st.error(f"Couldn't compute equilibrium: {_exc}")
-        st.stop()
+    # ---- Snapshot loader (sim-driven) ----
+    # The snapshot is a dict of entry-dicts; the chart and table code path
+    # below uses attribute access on entries (e.g. `e.gw_points_per_model`),
+    # so we wrap each row in SimpleNamespace to keep that code unchanged.
+    # The drill-down section needs a full `EquilibriumResult` with D/T/R
+    # matrices and is skipped when sim-driven is active (the snapshot does
+    # not carry the matrices — we'd have to re-measure to populate them).
+    @st.cache_data(show_spinner="Loading sim-driven snapshot…")
+    def _equilibrium_simdriven_entries():
+        from types import SimpleNamespace
+        if _simdriven_snapshot is None:
+            return [], {}
+        units = _simdriven_snapshot.get("units", {})
+        entries = [SimpleNamespace(**row) for row in units.values()]
+        meta = {k: v for k, v in _simdriven_snapshot.items() if k != "units"}
+        return entries, meta
+
+    if _use_simdriven:
+        _simdriven_entries, _simdriven_meta = _equilibrium_simdriven_entries()
+        _anchor_key = _simdriven_meta.get("anchor_key", _anchor_key)
+        _anchor_pts = float(_simdriven_meta.get("anchor_per_model", _anchor_pts))
+        # Surface snapshot provenance so the user sees what they're looking at.
+        _measured = _simdriven_meta.get("measured_keys", [])
+        st.caption(
+            f"Snapshot: **{_simdriven_meta.get('battles_run', 0):,} battles** "
+            f"({_simdriven_meta.get('n_battles_per_pair', 0)}× per pair) "
+            f"at {_simdriven_meta.get('points_budget', 0):.0f}-pt budget, "
+            f"{len(_measured)} units measured, "
+            f"wall-clock {_simdriven_meta.get('wall_clock_sec', 0):.0f}s. "
+            f"Units outside the measured set inherit their closed-form "
+            f"Phase 1 value (marked `phase1_fallback`)."
+        )
+        _result = None  # No D/T/R matrices in sim-driven; drill-down disabled.
+        _result_entries = _simdriven_entries
+    else:
+        try:
+            _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
+        except ValueError as _exc:
+            st.error(f"Couldn't compute equilibrium: {_exc}")
+            st.stop()
+        _result_entries = _result.entries
 
     # ---- Faction filter (operates on cached entries — re-renders only) ----
-    _all_factions = sorted({e.faction for e in _result.entries if e.faction})
+    _all_factions = sorted({e.faction for e in _result_entries if e.faction})
     _selected_factions = st.multiselect(
         "Show factions",
         options=_all_factions,
@@ -1331,7 +1579,7 @@ with tab_equilibrium:
     )
 
     _filtered = [
-        e for e in _result.entries
+        e for e in _result_entries
         if (e.faction in _selected_factions if _selected_factions else True)
         and e.role in _role_filter
     ]
@@ -1351,70 +1599,62 @@ with tab_equilibrium:
         _m4.metric("Anchor", f"{UNIT_CATALOG[_anchor_key].name[:18]}",
                    f"{_anchor_pts:.0f} pts/model")
 
-        # ---- Scatter plot ----
-        _xs = np.array([e.gw_points_per_model for e in _filtered])
-        _ys = np.array([e.equilibrium_points_per_model for e in _filtered])
-        _factions = [e.faction for e in _filtered]
-        _names = [e.name for e in _filtered]
-        _cols = [colour_for(f) for f in _factions]
-
-        # Filter out degenerate points (GW = 0 means no listed points)
-        _valid = (_xs > 0) & (_ys > 0)
-        _xs_p, _ys_p = _xs[_valid], _ys[_valid]
-        _cols_p = [c for c, v in zip(_cols, _valid) if v]
-        _names_p = [n for n, v in zip(_names, _valid) if v]
-
-        _fig, _ax = plt.subplots(figsize=(12, 7))
-        _fig.patch.set_facecolor("#0e1117")
-        _ax.set_facecolor("#1a1d23")
-
-        _ax.scatter(_xs_p, _ys_p, c=_cols_p, s=28, alpha=0.78,
-                    linewidths=0.3, edgecolors="white")
-
-        _lo = float(min(_xs_p.min(), _ys_p.min())) if len(_xs_p) else 1.0
-        _hi = float(max(_xs_p.max(), _ys_p.max())) if len(_xs_p) else 1000.0
-        _ax.plot([_lo, _hi], [_lo, _hi], color="#FFD700", linestyle="--",
-                 linewidth=1.0, label="y = x (fair)")
-
-        # Label most-mispriced outliers
-        if len(_xs_p) >= 4:
-            _log_ratio = np.log(_ys_p / _xs_p)
-            _n_labels = min(6, len(_xs_p) // 5)
-            _worst_under = np.argsort(_log_ratio)[-_n_labels:]
-            _worst_over = np.argsort(_log_ratio)[:_n_labels]
-            for _i in list(_worst_under) + list(_worst_over):
-                _ax.annotate(
-                    _names_p[_i],
-                    (_xs_p[_i], _ys_p[_i]),
-                    fontsize=6.5, color="white", alpha=0.9,
-                    xytext=(4, 3), textcoords="offset points",
+        # ---- Interactive Plotly scatter ----
+        # The heavy lifting (computing equilibrium + assembling 30 faction
+        # traces with customdata blobs) is cached on the filter inputs, so
+        # clicks and faction-filter toggles only pay the rerun cost. The
+        # cached builder differs by source: Phase 1 recomputes from the
+        # catalogue, sim-driven loads the JSON snapshot.
+        if _use_simdriven:
+            # Sim-driven defaults to showing ONLY the measured units —
+            # otherwise the bulk of dots in the chart are Phase 1 fallbacks
+            # that look identical to the Phase 1 view, hiding the
+            # sim-driven signal. A small expander offers the full overlay
+            # for callers who want to compare both at once.
+            with st.expander("Sim-driven view options", expanded=False):
+                _only_measured = st.checkbox(
+                    "Only show measured units (hide Phase 1 fallback)",
+                    value=True,
+                    key="eq_simdriven_only_measured",
                 )
+            _fig = _equilibrium_plotly_figure_simdriven(
+                factions_tuple=tuple(sorted(_selected_factions)),
+                roles_tuple=tuple(sorted(_role_filter)),
+                only_measured=bool(_only_measured),
+            )
+        else:
+            _fig = _equilibrium_plotly_figure(
+                anchor_key=_anchor_key,
+                anchor_pts=float(_anchor_pts),
+                factions_tuple=tuple(sorted(_selected_factions)),
+                roles_tuple=tuple(sorted(_role_filter)),
+                balanced=bool(use_balanced),
+            )
 
-        # Faction legend (sample of visible factions only)
-        _seen = set()
-        for _f, _c in zip(_factions, _cols):
-            if _f not in _seen and len(_seen) < 22:
-                _seen.add(_f)
-                _ax.scatter([], [], color=_c, s=30, label=_f)
-        _ax.legend(loc="upper left", fontsize=6.5,
-                   facecolor="#1a1d23", edgecolor="#444", labelcolor="white",
-                   ncol=max(1, len(_seen) // 18))
-
-        _ax.set_xscale("log")
-        _ax.set_yscale("log")
-        _ax.set_xlabel("GW points per model  (log)", color="white", fontsize=11)
-        _ax.set_ylabel("Equilibrium points per model  (log)", color="white", fontsize=11)
-        _ax.set_title(
-            "Above diagonal → GW undercosted  ·  Below diagonal → GW overcosted",
-            color="white", fontsize=11, pad=8,
+        _event = st.plotly_chart(
+            _fig,
+            use_container_width=True,
+            key="eq_scatter",
+            on_select="rerun",
+            selection_mode="points",
         )
-        _ax.tick_params(colors="white", which="both")
-        for _s in _ax.spines.values():
-            _s.set_edgecolor("#444")
-        _ax.grid(True, alpha=0.15, color="#888", linestyle=":")
 
-        _fig.tight_layout()
-        st.pyplot(_fig)
+        # If the user clicked a point, write its key into the drill-down
+        # selectbox's session state BEFORE the selectbox renders below.
+        _selected_points = []
+        if _event and getattr(_event, "selection", None):
+            _selected_points = _event.selection.get("points", []) or []
+        if _selected_points:
+            _pt = _selected_points[0]
+            _cd = _pt.get("customdata")
+            if _cd and len(_cd) >= 1:
+                st.session_state["eq_drill_key"] = _cd[0]
+
+        st.caption(
+            "Hover to inspect a unit. Click any point to drill into its "
+            "matchups below. Click a faction in the legend to toggle it; "
+            "double-click to isolate it. Drag to zoom, double-click to reset."
+        )
 
         # ---- Sortable explorer table ----
         st.divider()
@@ -1454,6 +1694,21 @@ with tab_equilibrium:
         )
 
         # ---- Per-unit matchup drilldown ----
+        # The drill-down reads from the Phase 1 D/T/R matrices. The
+        # sim-driven snapshot only stores aggregate log-p values per unit,
+        # not the underlying pairwise win rates, so the drill-down is
+        # hidden in that mode. Add it to the snapshot if/when the
+        # per-pair detail is wanted in the UI.
+        if _use_simdriven:
+            st.divider()
+            st.info(
+                "Per-unit matchup drill-down is not yet available for the "
+                "sim-driven view. Switch the **Solver source** above to "
+                "*Closed-form Phase 1* to inspect pairwise time-to-kill "
+                "and log-advantage matrices."
+            )
+            st.stop()
+
         st.divider()
         st.markdown("### Drill into a unit's matchups")
         # Defensive: filter out keys no longer in UNIT_CATALOG (the
@@ -1530,3 +1785,395 @@ with tab_equilibrium:
 # --- Compare tab ---
 with tab_compare:
     render_compare_tab(st)
+
+
+# ---------------------------------------------------------------------------
+# Convergence tab — live 1-v-1 simulation with shrinking confidence band
+# ---------------------------------------------------------------------------
+# The premise: most users want to know "has this Monte-Carlo settled?" rather
+# than "what does the underlying win rate look like in the limit". This tab
+# answers both. We pick two squads, run battles in small batches, and after
+# every batch we update a Plotly figure with:
+#   * the running win-rate trajectory for A / B / draws, and
+#   * the Wilson 95% confidence half-width — the "convergence" signal that
+#     drops toward zero as 1 / sqrt(N).
+# A green indicator fires when the half-width falls under the user-set
+# tolerance. The loop drives itself via st.rerun() between batches so the
+# Stop button stays responsive (Streamlit cannot interrupt a running loop;
+# each rerun gives it a chance to read the button).
+
+A_OUTCOME, B_OUTCOME, DRAW_OUTCOME = "A", "B", "D"
+
+
+def _wilson_half_width(p: float, n: int, z: float = 1.96) -> float:
+    """Half-width of the Wilson score 95% interval for a binomial proportion.
+
+    Returns 1.0 when n is zero so the convergence trace starts at the top of
+    the axis rather than being undefined.
+    """
+    if n <= 0:
+        return 1.0
+    return (z / (1.0 + z * z / n)) * math.sqrt(
+        max(0.0, p * (1.0 - p) / n + z * z / (4 * n * n))
+    )
+
+
+def _running_rates(outcomes: List[str]) -> Tuple[List[float], List[float], List[float]]:
+    """Running win-rate trajectories for A, B, draws after each battle."""
+    a_rate, b_rate, d_rate = [], [], []
+    a = b = d = 0
+    for i, outcome in enumerate(outcomes, start=1):
+        if outcome == A_OUTCOME:
+            a += 1
+        elif outcome == B_OUTCOME:
+            b += 1
+        else:
+            d += 1
+        a_rate.append(a / i)
+        b_rate.append(b / i)
+        d_rate.append(d / i)
+    return a_rate, b_rate, d_rate
+
+
+def _outcomes_to_dataframes(
+    outcomes_iter: List[str], state: dict,
+    a_label: str, b_label: str, tolerance_pct: float,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Turn a batch (or full history) of outcomes into (rate_df, hw_df).
+
+    `state` is a dict {a, b, d, n} that is mutated to maintain running
+    counts across batches — so calling this on a batch produces only the
+    DataFrame rows for those new battles, indexed by their absolute
+    battle number. Both DataFrames carry percent-scale values (0-100).
+    """
+    if a_label == b_label:
+        raise ValueError(
+            f"a_label and b_label must be distinct (got {a_label!r} for both); "
+            "side-prefixed labels at the call site are how that is enforced."
+        )
+    rate_rows, hw_rows, indices = [], [], []
+    for outcome in outcomes_iter:
+        if outcome == A_OUTCOME:
+            state["a"] += 1
+        elif outcome == B_OUTCOME:
+            state["b"] += 1
+        else:
+            state["d"] += 1
+        state["n"] += 1
+        n = state["n"]
+        ar, br, dr = state["a"] / n, state["b"] / n, state["d"] / n
+        rate_rows.append({
+            a_label: ar * 100,
+            b_label: br * 100,
+            "Draws": dr * 100,
+            "50/50": 50.0,
+        })
+        hw_rows.append({
+            f"{a_label} half-width": _wilson_half_width(ar, n) * 100,
+            f"{b_label} half-width": _wilson_half_width(br, n) * 100,
+            "Tolerance": tolerance_pct,
+        })
+        indices.append(n)
+
+    if not rate_rows:
+        rate_df = pd.DataFrame(
+            columns=[a_label, b_label, "Draws", "50/50"], dtype="float64",
+        )
+        hw_df = pd.DataFrame(
+            columns=[f"{a_label} half-width", f"{b_label} half-width", "Tolerance"],
+            dtype="float64",
+        )
+        return rate_df, hw_df
+
+    rate_df = pd.DataFrame(rate_rows, index=indices)
+    hw_df = pd.DataFrame(hw_rows, index=indices)
+    return rate_df, hw_df
+
+
+def _render_convergence_metrics(
+    slot, state: dict, a_label: str, b_label: str,
+    max_battles: int, tolerance_pct: float,
+) -> None:
+    """Refresh the four-metric header row from running state."""
+    n = state["n"]
+    if n == 0:
+        with slot.container():
+            st.info(
+                "Configure both sides and press **Run** to begin. "
+                "Charts populate live as battles run."
+            )
+        return
+    ar = state["a"] / n
+    br = state["b"] / n
+    hwa = _wilson_half_width(ar, n) * 100
+    hwb = _wilson_half_width(br, n) * 100
+    converged = (hwa <= tolerance_pct) and (hwb <= tolerance_pct)
+    with slot.container():
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric(a_label, f"{ar:.1%}", f"±{hwa:.2f}% (95%)")
+        m2.metric(b_label, f"{br:.1%}", f"±{hwb:.2f}% (95%)")
+        m3.metric("Draws", f"{state['d'] / n:.1%}", f"{state['d']} / {n}")
+        if converged:
+            m4.metric("Status", "✓ Converged", f"after {n} battles")
+        elif st.session_state["conv_running"]:
+            m4.metric("Status", "Running…", f"{n} / {max_battles}")
+        else:
+            m4.metric("Status", "Stopped",
+                      f"{n} / {max_battles} not yet converged")
+
+
+@st.fragment
+def _convergence_fragment(
+    a_key: str, b_key: str, a_squads: int, b_squads: int,
+    a_label: str, b_label: str, a_colour: str, b_colour: str,
+    a_side_name: str, b_side_name: str,
+    batch_size: int, max_battles: int, tolerance_pct: float,
+) -> None:
+    """Live chart + batch driver for the Convergence tab.
+
+    Uses `st.line_chart` + `add_rows()` — Streamlit's native streaming
+    pipeline. Unlike `st.plotly_chart`, `add_rows` ships only the new
+    points over the websocket and the existing chart updates in place
+    rather than re-rendering, so there is no flicker between batches.
+
+    Streamlit cancels this fragment cleanly when any widget outside it
+    (Run, Stop, Reset, the unit pickers) is interacted with — the new
+    script run pre-empts this one — so the Stop button stays responsive
+    without us polling for it.
+    """
+    metrics_slot = st.empty()
+    st.markdown("**Running win rate (percent)**")
+    rate_chart_slot = st.empty()
+    st.markdown("**95% confidence half-width — the convergence signal**")
+    hw_chart_slot = st.empty()
+
+    state = {"a": 0, "b": 0, "d": 0, "n": 0}
+    outcomes: List[str] = st.session_state["conv_outcomes"]
+
+    rate_chart = None
+    hw_chart = None
+    rate_colors = [a_colour, b_colour, "#aaaaaa", "#FFD700"]
+    hw_colors = [a_colour, b_colour, "#27c97d"]
+
+    # Seed chart from any existing history. `st.line_chart` needs at
+    # least one row to draw — if outcomes is empty we just wait for the
+    # first batch to populate the slot.
+    if outcomes:
+        initial_rate_df, initial_hw_df = _outcomes_to_dataframes(
+            outcomes, state, a_label, b_label, tolerance_pct,
+        )
+        rate_chart = rate_chart_slot.line_chart(
+            initial_rate_df, height=320, use_container_width=True,
+            color=rate_colors,
+        )
+        hw_chart = hw_chart_slot.line_chart(
+            initial_hw_df, height=220, use_container_width=True,
+            color=hw_colors,
+        )
+
+    _render_convergence_metrics(
+        metrics_slot, state, a_label, b_label, max_battles, tolerance_pct,
+    )
+
+    if not st.session_state["conv_running"]:
+        return
+
+    a_keys = [a_key] * a_squads
+    b_keys = [b_key] * b_squads
+
+    while st.session_state["conv_running"] and state["n"] < max_battles:
+        n_to_run = min(batch_size, max_battles - state["n"])
+        batch: List[str] = []
+        for _ in range(n_to_run):
+            army_a = build_army_from_list(a_side_name, a_keys)
+            army_b = build_army_from_list(b_side_name, b_keys)
+            result = Battle(army_a, army_b, map_=DEFAULT_MAP).run()
+            if result.winner == a_side_name:
+                outcome = A_OUTCOME
+            elif result.winner == b_side_name:
+                outcome = B_OUTCOME
+            else:
+                outcome = DRAW_OUTCOME
+            outcomes.append(outcome)
+            batch.append(outcome)
+
+        batch_rate_df, batch_hw_df = _outcomes_to_dataframes(
+            batch, state, a_label, b_label, tolerance_pct,
+        )
+
+        if rate_chart is None:
+            # First batch — create the charts now that we have data.
+            rate_chart = rate_chart_slot.line_chart(
+                batch_rate_df, height=320, use_container_width=True,
+                color=rate_colors,
+            )
+            hw_chart = hw_chart_slot.line_chart(
+                batch_hw_df, height=220, use_container_width=True,
+                color=hw_colors,
+            )
+        else:
+            rate_chart.add_rows(batch_rate_df)
+            hw_chart.add_rows(batch_hw_df)
+
+        n = state["n"]
+        ar = state["a"] / n
+        br = state["b"] / n
+        if (_wilson_half_width(ar, n) * 100 <= tolerance_pct
+                and _wilson_half_width(br, n) * 100 <= tolerance_pct):
+            st.session_state["conv_running"] = False
+
+        _render_convergence_metrics(
+            metrics_slot, state, a_label, b_label, max_battles, tolerance_pct,
+        )
+
+        time.sleep(0.01)
+
+    if state["n"] >= max_battles:
+        st.session_state["conv_running"] = False
+        _render_convergence_metrics(
+            metrics_slot, state, a_label, b_label, max_battles, tolerance_pct,
+        )
+
+
+with tab_convergence:
+    st.markdown("## Convergence  —  basic 1-v-1 simulation")
+    st.caption(
+        "Pick two squads. Battles run in small batches and the chart "
+        "updates after every batch. The bottom panel is the convergence "
+        "signal: the 95% confidence half-width drops toward zero as more "
+        "battles run. Stop when the band is tight enough for the question "
+        "you are asking."
+    )
+
+    # ----- Squad pickers -----
+    _conv_factions = FACTIONS_AVAILABLE
+    _c_left, _c_right = st.columns(2)
+    with _c_left:
+        st.markdown("**Side A**")
+        _a_default_faction = (
+            "Space Marines" if "Space Marines" in _conv_factions else _conv_factions[0]
+        )
+        _conv_a_faction = st.selectbox(
+            "Faction A", _conv_factions,
+            index=_conv_factions.index(_a_default_faction),
+            key="conv_a_faction",
+        )
+        _conv_a_units = _units_in_faction(_conv_a_faction)
+        _a_default_unit = next(
+            (k for k in _conv_a_units if "intercessor" in k.lower()),
+            _conv_a_units[0] if _conv_a_units else None,
+        )
+        _conv_a_key = st.selectbox(
+            "Unit A", _conv_a_units,
+            index=_conv_a_units.index(_a_default_unit) if _a_default_unit else 0,
+            format_func=lambda k: UNIT_CATALOG[k].name,
+            key="conv_a_key",
+        )
+        _conv_a_squads = st.number_input(
+            "Squads of A", min_value=1, max_value=20, value=1, step=1,
+            key="conv_a_squads",
+        )
+    with _c_right:
+        st.markdown("**Side B**")
+        _b_default_faction = (
+            "Space Marines" if "Space Marines" in _conv_factions else _conv_factions[0]
+        )
+        _conv_b_faction = st.selectbox(
+            "Faction B", _conv_factions,
+            index=_conv_factions.index(_b_default_faction),
+            key="conv_b_faction",
+        )
+        _conv_b_units = _units_in_faction(_conv_b_faction)
+        _b_default_unit = next(
+            (k for k in _conv_b_units if "tactical" in k.lower()
+             or "intercessor" in k.lower()),
+            _conv_b_units[0] if _conv_b_units else None,
+        )
+        _conv_b_key = st.selectbox(
+            "Unit B", _conv_b_units,
+            index=_conv_b_units.index(_b_default_unit) if _b_default_unit else 0,
+            format_func=lambda k: UNIT_CATALOG[k].name,
+            key="conv_b_key",
+        )
+        _conv_b_squads = st.number_input(
+            "Squads of B", min_value=1, max_value=20, value=1, step=1,
+            key="conv_b_squads",
+        )
+
+    # ----- Run parameters -----
+    _ctl1, _ctl2, _ctl3 = st.columns(3)
+    _conv_batch = _ctl1.number_input(
+        "Batch size", min_value=1, max_value=200, value=10, step=1,
+        key="conv_batch_size",
+        help="Battles per chart refresh. Smaller batches = smoother live update, bigger batches = faster total run.",
+    )
+    _conv_max = _ctl2.number_input(
+        "Max battles", min_value=20, max_value=20000, value=1000, step=20,
+        key="conv_max_battles",
+        help="Hard cap so an un-converging matchup does not run forever.",
+    )
+    _conv_tol = _ctl3.number_input(
+        "Convergence tolerance (± %)",
+        min_value=0.5, max_value=10.0, value=2.0, step=0.5,
+        key="conv_tolerance",
+        help="Stop when both A's and B's Wilson 95% half-width drop below this.",
+    )
+
+    # ----- Session state -----
+    if "conv_outcomes" not in st.session_state:
+        st.session_state["conv_outcomes"] = []
+    if "conv_running" not in st.session_state:
+        st.session_state["conv_running"] = False
+
+    # Detect a config change — if the user re-picks units while a run is
+    # in flight or completed, the prior history is meaningless against the
+    # new matchup. Reset the history (but only if there is one) so the
+    # chart does not mix outcomes from two different fights.
+    _conv_signature = (
+        _conv_a_key, int(_conv_a_squads), _conv_b_key, int(_conv_b_squads),
+    )
+    if st.session_state.get("conv_signature") != _conv_signature:
+        if st.session_state["conv_outcomes"]:
+            st.session_state["conv_outcomes"] = []
+        st.session_state["conv_running"] = False
+        st.session_state["conv_signature"] = _conv_signature
+
+    _btn_run, _btn_stop, _btn_reset, _ = st.columns([1, 1, 1, 4])
+    if _btn_run.button("▶ Run", type="primary", key="conv_run_btn",
+                       disabled=st.session_state["conv_running"]):
+        st.session_state["conv_outcomes"] = []
+        st.session_state["conv_running"] = True
+        st.rerun()
+    if _btn_stop.button("■ Stop", key="conv_stop_btn",
+                        disabled=not st.session_state["conv_running"]):
+        st.session_state["conv_running"] = False
+        st.rerun()
+    if _btn_reset.button("Reset", key="conv_reset_btn",
+                         disabled=st.session_state["conv_running"]):
+        st.session_state["conv_outcomes"] = []
+        st.rerun()
+
+    # ----- Display + live loop (inside a fragment so reruns don't flash) -----
+    _a_profile = UNIT_CATALOG[_conv_a_key]
+    _b_profile = UNIT_CATALOG[_conv_b_key]
+    # Always prefix with the side so mirror matches (same unit + count on
+    # both sides) cannot collide into a single DataFrame column.
+    _a_label = f"A — {_a_profile.name} x{int(_conv_a_squads)}"
+    _b_label = f"B — {_b_profile.name} x{int(_conv_b_squads)}"
+    _a_colour = colour_for(_a_profile.faction) if _a_profile.faction else DEFAULT_COL_A
+    _b_colour = colour_for(_b_profile.faction) if _b_profile.faction else DEFAULT_COL_B
+    # If the two sides share a faction colour (e.g. Space Marines mirror match),
+    # fall back to the default blue/red palette so the two traces are readable.
+    if _a_colour == _b_colour:
+        _a_colour, _b_colour = DEFAULT_COL_A, DEFAULT_COL_B
+
+    _convergence_fragment(
+        a_key=_conv_a_key, b_key=_conv_b_key,
+        a_squads=int(_conv_a_squads), b_squads=int(_conv_b_squads),
+        a_label=_a_label, b_label=_b_label,
+        a_colour=_a_colour, b_colour=_b_colour,
+        a_side_name="Side A", b_side_name="Side B",
+        batch_size=int(_conv_batch),
+        max_battles=int(_conv_max),
+        tolerance_pct=float(_conv_tol),
+    )

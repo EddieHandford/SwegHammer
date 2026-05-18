@@ -1,5 +1,16 @@
 # Sweghammer: Data-Driven Unit Costing for Warhammer 40K
 
+
+<img width="939" height="961" alt="image" src="https://github.com/user-attachments/assets/5f350602-b775-449b-a1de-a26387f56333" />
+
+
+
+
+
+
+
+
+
 A project to derive fair, mathematically-grounded unit points costs for Warhammer 40K based on
 Lanchester's Square Law and empirical simulation, whilst introducing minimal rule adjustments to
 eliminate key feel-bad moments and restore balance.
@@ -20,6 +31,30 @@ This project seeks to:
    advantage.
 3. Keep the ruleset light: players should experience switching from standard Warhammer 40K to
    Swaghammer as "one or two elegant tweaks," not a house-rules overhaul.
+
+## Two-Stage Pipeline
+
+SwegHammer is built as two sequenced feedback loops, not one:
+
+1. **Stage 1 — Make the simulator play like reality.** Compare per-faction
+   simulated win rates against the May 2026 Warp Friends ~10k-game
+   tournament aggregate, and tune the simulator's rules and mechanics
+   until the mean absolute error closes (target ≤ 2.0 pts; current
+   reading is 7.01 pts at N=200).
+2. **Stage 2 — Fit the points equation.** Once Stage 1 has converged,
+   freeze the simulator's rules and fit one master equation that prices
+   every unit from its stats (plus small per-unit residuals for the
+   rough edges). Run the now-faithful simulator with equation-priced
+   units, re-weight the stat coefficients and adjust the residuals, and
+   repeat until the win-rate spread across the catalogue flattens. The
+   final output is the equation, not a hand-tuned price list — per-unit
+   costs fall out deterministically from the fitted formula.
+
+The feedback signals are deliberately different — Stage 1 is gated by
+tournament mean absolute error, Stage 2 by win-rate spread across all
+units — and conflating them produces wrong answers. See
+[`OVERVIEW.tex`](OVERVIEW.tex) for the picture, and [`CLAUDE.md`](CLAUDE.md)
+"Project plan" for the rules-of-thumb.
 
 ## Core Rules Changes
 
@@ -70,15 +105,20 @@ Combined metric: **Unit Score = (Health × Damage × Hit Probability)²**
 
 ### Points Calibration
 
-For Phase One, unit costs are set proportional to the unit's raw combat effectiveness:
+The points calibration described here is **Stage 2** work — it only
+becomes reliable once Stage 1 has converged. As a Stage 2 baseline, unit
+costs are set proportional to the unit's raw combat effectiveness:
 
 ```
 points = BASELINE_POINTS × (health × damage × hit_probability) / BASELINE_EFFECTIVENESS
 ```
 
-This linear-in-raw-stats pricing is the starting point. Phases Two and Three replace it with a
-surface fit from simulation data, converging toward the Lanchester-optimal pricing where equal
-points implies equal expected battlefield score.
+This linear-in-raw-stats pricing is Layer 1 of Stage 2. Two empirical
+solvers — `code/balancer.py` (Monte Carlo bisection) and
+`code/equilibrium.py` (closed-form log-least-squares on the time-to-kill
+matrix) — refine it, converging toward Lanchester-optimal pricing where
+equal points implies equal expected battlefield score. See
+[`BASELINE.md`](BASELINE.md) for the layer/track structure.
 
 ## Project Structure
 
@@ -94,7 +134,7 @@ points implies equal expected battlefield score.
 | `ROADMAP.md` | Development milestones organised around Goals A–D |
 | `docs/CORE_RULES_AUDIT.md` | 10e core rules vs implementation coverage map |
 | `code/` | Python simulation engine |
-| `app.py` | Streamlit dashboard — 5 tabs (Statistics, Watch a battle, Efficiency, Equilibrium, Compare to SwegHammer) |
+| `app.py` | Streamlit dashboard — 6 tabs (Statistics, Watch a battle, Efficiency, Equilibrium, Compare to SwegHammer, Convergence) |
 | `run.py` | Cross-platform launcher (`python run.py` for the GUI menu, `python run.py --cli` to skip it) |
 | `code/factions.py` | Codex → faction mapping + per-faction display colours; Marine umbrella detection |
 | `code/archetypes.py` | Curated per-faction tournament list templates (opt-in via `use_archetype=True`) |
@@ -134,8 +174,8 @@ python run.py --cli
 python -m streamlit run app.py
 ```
 
-Requires Python 3.9+. Dashboard needs Streamlit and matplotlib; the
-core simulator has no external dependencies.
+Requires Python 3.9+. Dashboard needs Streamlit, matplotlib, Plotly, and
+pandas; the core simulator has no external dependencies.
 # Run a demo battle + quick calibration
 python run.py
 
@@ -150,8 +190,8 @@ python -m code.bsdata.fetch --tag v10.6.0
 python -m code.bsdata.mapper
 ```
 
-Requires Python 3.9+. Streamlit + matplotlib for the UI; the core simulator
-is stdlib-only.
+Requires Python 3.9+. Streamlit, matplotlib, Plotly, and pandas for the
+dashboard; the core simulator is standard-library only.
 
 On Windows: prepend `PYTHONIOENCODING=utf-8` so the console doesn't crash on
 the simulator's arrow character.
