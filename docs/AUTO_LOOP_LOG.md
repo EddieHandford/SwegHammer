@@ -728,3 +728,35 @@ PR #20 opened from `claude/auto-loop-carryover` to main. Started new branch `cla
 2. DG combat model audit re-dispatch (iter 20 agent terminated empty).
 3. Magnus simulator under-performance investigation — why does 16W T11 4++ MONSTER PSYKER under-deliver his 435pt sticker?
 4. Faction-neutral AI improvements (per standing user directive after correctness): leader-aura utilisation, smarter charge target picker, etc.
+
+### Iter 21 (2026-05-18) — LeaderAbility fabrication audit
+
+6 agents cross-faction sweep. 5 commits landed via cherry-pick + cross-worktree merge; Orks was clean (no fabs).
+
+**Fabrications dropped (all citation-grounded per Wahapedia)**:
+- **Necrons**: Overlord/Trazyn `plus_one_to_hit`, Plasmancer `fnp=5`. Real rules are CP discounts (Strat-econ) and offensive Crit-on-5+ (not modelled). Plus Lychguard added to Overlord bodyguard list (host_keys).
+- **Marines**: Guilliman/Captain `reroll_hit_ones`, Chaplain `reroll_wound_ones`. Real rules are CP-discount/once-per-battle Battleshock-removal. Plus Shield-Captain/Brother-Captain name-collision fix.
+- **Aeldari**: Yncarne `plus_one_to_hit` (proxy for reactive-teleport), Autarch `plus_one_to_hit` (CP-discount, same as Overlord pattern), Avatar `reroll_hit_ones` (real rule is +1 Advance/Charge — movement phase).
+- **TSON**: ADDED 4 NEW LeaderAbilities (Ahriman, Exalted Sorcerer, Infernal Master, Sorcerer in TA) — TSON was UNDER-modelling (LeaderAbility lookup returned None). Plus Magnus "Impossible Form" (−1 to incoming Damage), Ahriman +1 Cabal Psychic test. TSON 30% → 36.1% (+6.1pt).
+- **DG**: Lord of Contagion `plus_one_to_wound` (iter 20 missed), Typhus `fnp=5` (iter 20 partial). host_keys corrected per codex (Blightlord/Deathshroud, not Plague Marines).
+- **Orks**: clean — no fabs.
+
+**Cumulative iter 21 (5 commits + cross-worktree merges)**: MAE **13.73 → 13.43pt** (Δ **−0.30**). Tests 776/776, Rule citations 221/221.
+
+**Per-faction shifts (post-iter-20 → post-iter-21)**:
+- Marines +20.3 → +19.5
+- Necrons **+17.6 → +14.3** (−3.3 ✅ — Overlord fab removed)
+- Aeldari −6.9 → −6.6
+- Tyranids −17.7 → −18.6
+- Orks +4.8 → +5.1
+- T'au +11.1 → +11.3
+- DG +23.7 → +23.9
+- Custodes −3.8 → −3.8
+- TSON −24.6 → −24.3
+- Votann +6.8 → +6.8
+
+## Loop pause — PR + Ed's main rebase (2026-05-18)
+
+User directive: wrap up after iter 21, merge progress, pick up Ed's point-cost reference fixes from main before continuing iter 22+ (aura host_keys gating, variant invuln sweep, Magnus diag, AI improvements).
+
+Iter 22-26 plan documented above remains valid for the next loop session.
