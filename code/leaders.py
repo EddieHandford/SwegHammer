@@ -111,7 +111,19 @@ _MARINE_HOSTS = (
     "space_marines_assault_intercessor_squad",
     "space_marines_tactical_squad",
 )
-_NECRON_HOSTS = ("necrons_necron_warriors", "necrons_immortals")
+# Necron noble characters (Overlord, Chronomancer, Technomancer) lead three
+# bodyguard units per the 10e codex Overlord datasheet: NECRON WARRIORS,
+# IMMORTALS, and LYCHGUARD. Iter 20: Lychguard added (was missing — caused
+# Lychguard squads to be excluded from the Command-Protocols +1-to-hit gate
+# even when an Overlord was attached). Wahapedia:
+# https://wahapedia.ru/wh40k10ed/factions/necrons/Overlord — "LEADER: This
+# model can be attached to the following units: NECRON WARRIORS, IMMORTALS,
+# LYCHGUARD."
+_NECRON_HOSTS = (
+    "necrons_necron_warriors",
+    "necrons_immortals",
+    "necrons_lychguard",
+)
 _AELDARI_GUARDIAN_HOSTS = (
     "aeldari_craftworlds_guardian_defenders",
     "aeldari_craftworlds_storm_guardians",
@@ -377,6 +389,69 @@ def in_range_leaders(attacker: "Unit") -> List["Unit"]:
     return covered
 
 
+# Reverse map: UnitProfile.name -> catalog key. Used by `is_actually_led` to
+# translate an attacker's profile name back to the UNIT_CATALOG key that
+# `LeaderAbility.host_keys` is declared against. Built lazily on first use
+# so importing `code.leaders` doesn't force `code.units` to load.
+_NAME_TO_KEY_CACHE: Dict[str, str] = {}
+
+
+def _name_to_catalog_key(name: str) -> Optional[str]:
+    """Reverse lookup: UnitProfile.name -> UNIT_CATALOG key.
+
+    UNIT_CATALOG is name-unique per faction in practice (the BSData mapper
+    keys by slugified name). Returns None if the name isn't present.
+    """
+    global _NAME_TO_KEY_CACHE
+    if not _NAME_TO_KEY_CACHE:
+        from .units import UNIT_CATALOG
+        _NAME_TO_KEY_CACHE = {p.name: k for k, p in UNIT_CATALOG.items()}
+    return _NAME_TO_KEY_CACHE.get(name)
+
+
+def is_actually_led(attacker: "Unit") -> bool:
+    """Tighter "leading" gate for the Awakened Dynasty Command Protocols
+    rule (and other "while a CHARACTER is leading this unit" effects).
+
+    The 10e Leader rule says a CHARACTER "leads" a unit only when it is
+    formally attached to that unit at list-building (a one-CHARACTER-per-
+    bodyguard relationship, moves coherently, dies with the unit). The
+    SwegHammer simulator doesn't carry an explicit attachment registry,
+    so we approximate "leading" with TWO co-incident conditions:
+
+      1. proximity — at least one alive friendly CHARACTER is within the
+         leader's own aura_range of `attacker` (i.e. `in_range_leaders`),
+         AND
+      2. legal host — that CHARACTER's `LeaderAbility.host_keys` includes
+         `attacker`'s UNIT_CATALOG key. This rules out impossible
+         attachments: a Necron Overlord cannot lead a C'tan Shard, a
+         Lokhust Heavy Destroyer, a Doomstalker, or any non-INFANTRY
+         BATTLELINE unit, so those attackers must NEVER receive the
+         Command Protocols +1-to-hit even with a friendly Overlord
+         standing 6" away.
+
+    Returns False if either gate fails — including when the attacker
+    has no catalog key (CHARACTERs themselves, hand-rolled profiles,
+    or anything not in UNIT_CATALOG).
+
+    Cited as `AWAKENED_DYNASTY.bonus_to_hit_when_led` and used by
+    `effective_buffs` to gate the detachment-level +1-to-hit grant.
+    """
+    candidates = in_range_leaders(attacker)
+    if not candidates:
+        return False
+    attacker_key = _name_to_catalog_key(attacker.profile.name)
+    if attacker_key is None:
+        return False
+    for leader in candidates:
+        ability = lookup_ability(leader.profile.name)
+        if ability is None:
+            continue
+        if attacker_key in ability.host_keys:
+            return True
+    return False
+
+
 def effective_buffs(attacker: "Unit") -> Dict[str, object]:
     """
     Merge the attacker's detachment passives with every in-range friendly
@@ -405,11 +480,26 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             _merge_min(buffs, det, "extra_invuln")
             _merge_min(buffs, det, "fnp")
             # Conditional offensive trigger: detachment-led +1-to-hit aura
-            # (Awakened Dynasty Command Protocols). Fires when at least one
-            # CHARACTER from this army is within aura range of the attacker
-            # — same proximity test the per-leader buffs already use.
+            # (Awakened Dynasty Command Protocols). Wahapedia verbatim:
+            # "While a NECRONS CHARACTER model is leading this unit, each
+            # time a model in this unit makes an attack, add 1 to the Hit
+            # roll." 10e "leading" is the formal Leader/Bodyguard attachment,
+            # not just proximity — so use `is_actually_led`, which requires
+            # an in-range CHARACTER whose host_keys list the attacker. This
+            # correctly excludes attackers that cannot be led at all
+            # (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths,
+            # Tomb Blades, etc.) — they retain their base hit roll regardless
+            # of how many Overlords stand 6" away. Fix iter 20: previously
+            # gated on `in_range_leaders(attacker)`, which over-fired the +1
+            # on every Necron unit within 6" of any CHARACTER. iter 19's
+            # parked salvage of this same change was reverted because of
+            # cumulative cross-faction noise; iter 20 re-applies it together
+            # with the Lychguard host_keys fix so Lychguard squads correctly
+            # receive the buff while non-leadable wreckers (C'tan, Lokhust HD,
+            # Doomstalker, Wraiths, Tomb Blades) correctly do not. Cited as
+            # `AWAKENED_DYNASTY.bonus_to_hit_when_led`.
             if getattr(det, "bonus_to_hit_when_led", False) \
-                    and in_range_leaders(attacker):
+                    and is_actually_led(attacker):
                 buffs["plus_one_to_hit"] = True
 
             # Keyword-gated second-detachment buffs (#126). Each fires only
