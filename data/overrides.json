@@ -33,11 +33,24 @@
     },
     "t_au_empire_crisis_sunforge_battlesuits": {
       "points_override": 141.97,
-      "notes": "sweg_balance_mc down 157.74 -> 141.97 pts/model"
+      "notes": "sweg_balance_mc down 157.74 -> 141.97 pts/model | Invuln 4+ already picked up from BSData mapper (Sunforge is the only Crisis variant whose entry encodes the Invulnerable-Save infoLink — see Fireknife/Starscythe overrides for the missing-sibling story). Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
     },
     "t_au_empire_crisis_fireknife_battlesuits": {
       "points_override": 114.15,
-      "notes": "sweg_balance_mc down 126.83 -> 114.15 pts/model"
+      "invuln_save": 4,
+      "notes": "sweg_balance_mc down 126.83 -> 114.15 pts/model | iter20: 4++ Battlesuit Shield Generator. Every Crisis Battlesuit datasheet variant (Fireknife / Starscythe / Sunforge) carries the same Battlesuit Shield Generator equipment granting a 4+ invulnerable save. BSData v10.6.0 only encodes the Invulnerable-Save infoLink on the Sunforge entry (verified by walking sharedSelectionEntries — Fireknife and Starscythe sibling entries are missing the infoLink that Sunforge has). This is a BSData per-variant encoding gap, not a mapper logic bug — the mapper correctly walks the tree but the data isn't there to find. Override here. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits (datasheet lists Invulnerable Save 4+ for every Crisis variant)."
+    },
+    "t_au_empire_crisis_starscythe_battlesuits": {
+      "invuln_save": 4,
+      "notes": "iter20: 4++ Battlesuit Shield Generator. Companion fix to Fireknife — same BSData per-variant encoding gap; Sunforge has the Invulnerable-Save infoLink, Starscythe doesn't, but per Wahapedia all three Crisis variants share the Battlesuit Shield Generator (4++) equipment. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Crisis-Battlesuits"
+    },
+    "t_au_empire_commander_in_enforcer_battlesuit": {
+      "invuln_save": 4,
+      "notes": "iter20: 4++ Battlesuit Shield Generator. Tau Commanders all carry the Battlesuit Shield Generator (4+ invulnerable save) per their datasheet wargear; BSData v10.6.0 does not encode the Invulnerable-Save infoLink on the Commander selectionEntry. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Commander-in-Enforcer-Battlesuit"
+    },
+    "t_au_empire_commander_in_coldstar_battlesuit": {
+      "invuln_save": 4,
+      "notes": "iter20: 4++ Battlesuit Shield Generator. Same gear as the Enforcer Commander — Coldstar Battlesuit datasheet lists Invulnerable Save 4+ from the Battlesuit Shield Generator. BSData entry omits the infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Commander-in-Coldstar-Battlesuit"
     },
     "t_au_empire_riptide_battlesuit": {
       "base_shape": "circle",
@@ -227,7 +240,16 @@
     },
     "death_guard_deathshroud_terminators": {
       "points_override": 60.5,
-      "notes": "sweg_balance_mc up 55.0 -> 60.5 pts/model"
+      "invuln_save": 4,
+      "notes": "sweg_balance_mc up 55.0 -> 60.5 pts/model | iter20: 4++ Cataphractii-pattern Terminator armour. Deathshroud carry the standard 4+ invulnerable save common to all 10e Terminator chassis. BSData v10.6.0 omits the Invulnerable-Save infoLink on this entry (verified — entry has type=unit, no Invulnerable Save infoLink in tree); broader pattern affects every Chaos Terminator squad (Blightlord, Scarab Occult, Deathshroud, generic Chaos Terminators). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Deathshroud-Terminators (datasheet lists Invulnerable Save 4+)."
+    },
+    "death_guard_blightlord_terminators": {
+      "invuln_save": 4,
+      "notes": "iter20: 4++ Cataphractii-pattern Terminator armour, same as Deathshroud. BSData v10.6.0 omits the Invulnerable-Save infoLink on the Blightlord entry. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators (datasheet lists Invulnerable Save 4+)."
+    },
+    "necrons_lychguard": {
+      "invuln_save": 4,
+      "notes": "iter20: 4++ Dispersion Shield. Necron Lychguard carry a Dispersion Shield (or Hyperphase Sword) and the datasheet grants every model in the unit a 4+ invulnerable save regardless of loadout. BSData v10.6.0 omits the Invulnerable-Save infoLink on the Lychguard entry (verified — both unit-type and model-type entries have no Invulnerable Save infoLink anywhere in their walks). Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Lychguard (datasheet lists Invulnerable Save 4+)."
     },
     "adeptus_custodes_caladius_grav_tank": {
       "points_override": 236.5,

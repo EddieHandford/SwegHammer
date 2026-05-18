@@ -174,5 +174,47 @@ class WraithguardInvulnTests(unittest.TestCase):
         self.assertEqual(u.invuln_save, 4)
 
 
+# iter20: BSData per-variant infoLink encoding gaps. The Sunforge variant of
+# the Crisis Battlesuit datasheet carries the Invulnerable-Save infoLink in
+# BSData v10.6.0, but its Fireknife / Starscythe siblings do not — even
+# though all three share the Battlesuit Shield Generator (4++) per Wahapedia.
+# Same shape: Commander variants, Death Guard / Necron melee elites.
+# Pinned via overrides until BSData encodes the infoLinks (or we extend the
+# mapper with a keyword-based fallback table). See data/overrides.json
+# `iter20` notes for the per-unit citation.
+ITER20_VARIANT_INVULN_EXPECTATIONS = [
+    ("t_au_empire_crisis_fireknife_battlesuits", 4),
+    ("t_au_empire_crisis_starscythe_battlesuits", 4),
+    ("t_au_empire_crisis_sunforge_battlesuits", 4),    # via mapper (BSData has it)
+    ("t_au_empire_commander_in_enforcer_battlesuit", 4),
+    ("t_au_empire_commander_in_coldstar_battlesuit", 4),
+    ("death_guard_deathshroud_terminators", 4),
+    ("death_guard_blightlord_terminators", 4),
+    ("necrons_lychguard", 4),
+]
+
+
+class Iter20VariantInvulnTests(unittest.TestCase):
+    """Pin invulns added in iter20 against the BSData per-variant gap.
+
+    See `data/overrides.json` `iter20:` notes for full citation chain.
+    """
+
+    def test_iter20_variant_invulns(self):
+        for key, expected in ITER20_VARIANT_INVULN_EXPECTATIONS:
+            with self.subTest(unit=key):
+                self.assertIn(
+                    key,
+                    UNIT_CATALOG,
+                    f"{key} missing from catalogue — override target gone",
+                )
+                got = UNIT_CATALOG[key].invuln_save
+                self.assertEqual(
+                    got,
+                    expected,
+                    f"{key} invuln_save={got}, expected {expected}++ per Wahapedia",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
