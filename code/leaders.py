@@ -131,13 +131,55 @@ _AELDARI_GUARDIAN_HOSTS = (
 _TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
 
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
+    # ORDER NOTE — iter21: substring matching is greedy first-match, so
+    # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
+    # Shield-Captain, Grey Knights Brother-Captain) MUST appear BEFORE
+    # the generic Marines "Captain" entry. Pre-iter21 this was masked
+    # because all three entries carried `reroll_hit_ones=True`, so the
+    # bug was invisible — Shield-Captain matched "Captain" first and
+    # got the same buff. Dropping Captain's reroll proxy surfaces the
+    # collision (Shield-Captain / Brother-Captain falling through to
+    # Captain's now-empty entry). The fix: pin the longer keys to the
+    # top of the registry. Test:
+    #   tests/test_leaders.py::ExpandedRegistryTests::test_each_new_leader_resolves
+    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("adeptus_custodes_custodian_guard",))),
+    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("grey_knights_strike_squad",))),
     # Space Marine HQ — named characters first so they win the substring
     # match before the generic "Captain" entry below.
-    ("Roboute Guilliman", LeaderAbility(name="Author of the Codex",         aura_range=6.0, reroll_hit_ones=True,
+    #
+    # iter21 fabrication audit — Marines leader aura proxies removed:
+    #   * Guilliman: dropped `reroll_hit_ones=True` proxy. The "Author of
+    #     the Codex" codex ability is a CP gain (+1 CP per Command phase
+    #     when Guilliman is Warlord) — there is NO hit-re-roll component
+    #     in the real datasheet. `cp_discount_per_round=1` is the faithful
+    #     codex mechanic and is preserved.
+    #   * Captain: dropped `reroll_hit_ones=True` proxy. "Rites of Battle"
+    #     is a once-per-round 1 CP discount on a Stratagem — a CP-econ
+    #     effect with no aura damage buff. SwegHammer doesn't model
+    #     Stratagem-targeted CP discounts (only the warlord +1/round and
+    #     once-per-battle refunds), so the entry is kept structurally
+    #     (host_keys still resolves Captain as a valid Marines leader for
+    #     proximity / `is_actually_led` gates) but contributes no
+    #     offensive aura. Strictly weaker than the prior fabrication.
+    #   * Chaplain: dropped `reroll_wound_ones=True` proxy. The Chaplain's
+    #     "Spiritual Leader" ability is a once-per-battle Battle-shock
+    #     removal on a friendly ADEPTUS ASTARTES unit — a defensive
+    #     morale recovery, not an offensive buff. The simulator does model
+    #     Battle-shock, but the once-per-battle target-restricted nature
+    #     of this ability is not auto-applicable as an aura.
+    #   * Librarian: kept `fnp=5` (introduced in iter15). Codex grants
+    #     "Feel No Pain 4+ vs PSYCHIC attacks + 4+ invuln from Mental
+    #     Fortress" — both halves are DEFENSIVE; fnp=5 is the
+    #     direction-correct strictly-weaker proxy. NO change in iter21.
+    #   * Apothecary: kept `revive_destroyed_per_round=1` (faithful match
+    #     to the codex Narthecium rule). NO change in iter21.
+    ("Roboute Guilliman", LeaderAbility(name="Author of the Codex",         aura_range=6.0,
                                           cp_discount_per_round=1,
                                           host_keys=_MARINE_HOSTS)),
-    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, reroll_hit_ones=True,  host_keys=_MARINE_HOSTS)),
-    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, reroll_wound_ones=True, host_keys=_MARINE_HOSTS)),
+    ("Captain",            LeaderAbility(name="Rites of Battle",            aura_range=6.0, host_keys=_MARINE_HOSTS)),
+    ("Chaplain",           LeaderAbility(name="Spiritual Leader",           aura_range=6.0, host_keys=_MARINE_HOSTS)),
     ("Apothecary",         LeaderAbility(name="Narthecium",                 aura_range=3.0, revive_destroyed_per_round=1, host_keys=_MARINE_HOSTS)),
     ("Librarian",          LeaderAbility(name="Mental Fortress",             aura_range=6.0, fnp=5,                 host_keys=_MARINE_HOSTS)),
     # Adepta Sororitas
@@ -246,9 +288,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("chaos_space_marines_cultist_mob",))),
     ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
-    # Adeptus Custodes
-    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("adeptus_custodes_custodian_guard",))),
+    # Adeptus Custodes — Shield-Captain pinned to the registry head above
+    # to prevent substring-collision with the generic Marines "Captain"
+    # entry; only Trajann Valoris remains in the per-faction block here.
     ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
                                           host_keys=("adeptus_custodes_custodian_guard",))),
     # Adeptus Mechanicus
@@ -269,9 +311,9 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("death_guard_plague_marines",))),
     ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
                                           host_keys=("death_guard_plague_marines",))),
-    # Grey Knights
-    ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("grey_knights_strike_squad",))),
+    # Grey Knights — Brother-Captain pinned to the registry head above to
+    # prevent substring-collision with the generic Marines "Captain"
+    # entry; only Grand Master remains in the per-faction block here.
     ("Grand Master",       LeaderAbility(name="Tactical Acumen",            aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("grey_knights_brotherhood_terminator_squad",
                                                      "grey_knights_strike_squad"))),

@@ -5,8 +5,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",
     "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by a Space Marines Captain in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Rites of Battle is a once-per-round CP discount on a Stratagem, which the simulator does not model — the always-on reroll-1s is a loose offensive-aura proxy)",
+    "trigger": "Space Marines Captain is alive and a friendly unit is targeted with a Stratagem (once per battle round)",
+    "effect": "NO IMPLEMENTATION. iter21 fabrication audit dropped the prior `reroll_hit_ones=True` offensive proxy — the real Rites of Battle is a Stratagem CP discount, not a damage-side aura. SwegHammer does not currently model per-Stratagem-spend CP discounts (only the Warlord-trait `cp_discount_per_round` army-wide drip and the once-per-battle `cp_refund_per_battle` pool). The LeaderAbility entry remains in the registry so `host_keys` still resolves Captain as a valid Marines leader for proximity / `is_actually_led` gates, but contributes no buff flags. Strictly weaker than the prior fabrication (no damage uplift on Captain-led units).",
     "scope": "unit-led"
   },
 
@@ -14,8 +14,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Chaplain",
     "rule_name": "Spiritual Leader",
     "quoted_text": "Once per battle, at the start of any phase, you can select one friendly ADEPTUS ASTARTES unit that is Battle-shocked and within 12\" of this model. That unit is no longer Battle-shocked.",
-    "trigger": "attacker's unit is led by a Chaplain in aura range",
-    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Spiritual Leader removes Battle-shocked once per battle, which the simulator does not model — the always-on reroll-1s-to-wound is a flavour proxy for the Chaplain's litany-style offensive buff)",
+    "trigger": "Chaplain is alive and a friendly ADEPTUS ASTARTES unit within 12\" is Battle-shocked (once per battle)",
+    "effect": "NO IMPLEMENTATION. iter21 fabrication audit dropped the prior `reroll_wound_ones=True` offensive proxy — the real Spiritual Leader is a once-per-battle Battle-shock removal on a friendly ADEPTUS ASTARTES unit, NOT a damage-side aura. The simulator does model Battle-shock (Battle._run_battleshock_phase), but the once-per-battle target-restricted nature of this ability is not currently wired as an auto-applicable leader effect. The LeaderAbility entry remains in the registry so `host_keys` still resolves Chaplain as a valid Marines leader for proximity / `is_actually_led` gates, but contributes no buff flags. Strictly weaker than the prior fabrication (no damage uplift on Chaplain-led units).",
     "scope": "unit-led"
   },
 

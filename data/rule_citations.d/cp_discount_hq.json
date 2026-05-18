@@ -6,7 +6,7 @@
     "rule_name": "Author of the Codex",
     "quoted_text": "While this model is on the battlefield, at the start of each of your Command phases, you gain 1CP. Note that the rule allowing you to gain no more than 1CP per battle round still applies.",
     "trigger": "Roboute Guilliman is the army's Warlord and alive at the start of a Command phase",
-    "effect": "+1 CP at the start of every Command phase, on top of the universal +1/round drip (capped at CP_CAP=6). Implemented via `LeaderAbility.cp_discount_per_round=1`, consumed by `Battle._run_round` after `award_command_phase_cp` when `warlord_ability(army)` resolves to this LeaderAbility. The codex's 'no more than 1CP per battle round' clause is honoured by the same CP_CAP=6 ceiling that bounds the universal drip — the discount adds to the same accumulator and clamps at the cap.",
+    "effect": "+1 CP at the start of every Command phase, on top of the universal +1/round drip (capped at CP_CAP=6). Implemented via `LeaderAbility.cp_discount_per_round=1`, consumed by `Battle._run_round` after `award_command_phase_cp` when `warlord_ability(army)` resolves to this LeaderAbility. The codex's 'no more than 1CP per battle round' clause is honoured by the same CP_CAP=6 ceiling that bounds the universal drip — the discount adds to the same accumulator and clamps at the cap. iter21 fabrication audit: the prior `reroll_hit_ones=True` offensive proxy was dropped — Author of the Codex is a pure CP gain with NO hit-re-roll component in the real datasheet. Guilliman is an EPIC HERO so the 1-per-army cap applies; the entry contributes only the CP-econ mechanic.",
     "scope": "character-only"
   },
 
