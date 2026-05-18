@@ -193,26 +193,46 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # aura but falls back to the leader itself — the latter case maps to
     # the codex's self-heal behaviour. Inevitable Death (reactive teleport
     # on Aeldari unit death) is NOT modelled — the simulator has no
-    # reactive-relocation hook; the +1-to-hit aura is a loose proxy for
-    # the threat-mobility upside of the teleport. Listed AFTER Yvraine
-    # so substring lookup on "The Yncarne" doesn't collide with any
-    # generic match. Yncarne is a Monster — no formal leader attachment
-    # (host_keys empty). Cited as LeaderAbility."Ethereal Form".
+    # reactive-relocation hook. Listed AFTER Yvraine so substring lookup
+    # on "The Yncarne" doesn't collide with any generic match. Yncarne is
+    # a Monster — no formal leader attachment (host_keys empty). Cited as
+    # LeaderAbility."Ethereal Form".
     #
     # iter17 note: dropped Yvraine from the Aeldari archetype template
     # (the Word-of-the-Phoenix revive_destroyed_per_round=2 was compounding
     # with Yncarne's heal under the round-end pipeline, pushing Aeldari sim
     # to 55.6% vs real 44.4%). With Yvraine gone, Yncarne's heal_per_round
-    # is left at the iter15 value (D3 median = 2). The standalone Yncarne
-    # archetype lands at sim 40.0% — the Yvraine drop alone removed enough
-    # power to slightly under-shoot the meta. Tuning is left here rather
-    # than scaling Yncarne further; the cross-faction overshoots from
-    # Tyranids / DG / Necrons / T'au all pull Aeldari WR down indirectly,
-    # so the direct Aeldari lever is intentionally kept light.
-    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, plus_one_to_hit=True,   heal_per_round=2)),
+    # is left at the iter15 value (D3 median = 2).
+    #
+    # iter21 fab audit: dropped the +1-to-hit aura. The previous citation
+    # admitted plus_one_to_hit=True was "a loose threat-mobility proxy for
+    # the teleport's tactical upside" with NO basis in either Ethereal Form
+    # (a self-heal-on-kill) or Inevitable Death (a reactive teleport).
+    # Same pattern iter20 dropped from Necron Overlord and Typhus — proxy
+    # flag approximating a rule that does not, in fact, grant an aura buff.
+    # The heal_per_round=2 stays (legitimate D3-median proxy of the
+    # codex's on-kill regain).
+    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=2)),
     ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
-    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0, plus_one_to_hit=True,   host_keys=_AELDARI_GUARDIAN_HOSTS)),
-    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0, reroll_hit_ones=True)),  # Monster, no formal host
+    # Autarch — Path of Command is a once-per-round Stratagem CP-discount
+    # ability, IDENTICAL in pattern to Necron Overlord "My Will Be Done"
+    # (which iter20 audited and dropped the +1-to-hit proxy from). iter21
+    # drops Autarch's +1-to-hit aura on the same grounds: the codex rule
+    # is a CP-economy effect with no permanent aura buff; the simulator
+    # does not model per-character Stratagem CP discounts. Entry kept in
+    # the registry (with host_keys retained for is_actually_led gating
+    # purposes), but no offensive flag — matches the iter20 fab-removal
+    # standard.
+    ("Autarch",            LeaderAbility(name="Path of Command",            aura_range=6.0,                          host_keys=_AELDARI_GUARDIAN_HOSTS)),
+    # Avatar of Khaine — Bloody-Handed is "+1 to Advance and Charge rolls"
+    # for nearby AELDARI: a MOVEMENT-phase buff. The reroll_hit_ones aura
+    # was a known wrong-buff-type stand-in (citation explicitly admitted
+    # "Known limitation: wrong buff TYPE — direction-correct but
+    # mechanically unrelated"). iter21 fab audit drops the reroll proxy
+    # rather than continue routing a movement rule through the hit-roll
+    # layer. Entry kept (Monster, no host_keys); will return as a charge-
+    # roll modifier once the charge resolver gains a leader-buff hook.
+    ("Avatar of Khaine",   LeaderAbility(name="Avatar's Fury",              aura_range=6.0)),  # Monster, no formal host
     # T'au Empire
     ("Ethereal",           LeaderAbility(name="Failure Is Not an Option",   aura_range=6.0, fnp=5,                  host_keys=_TAU_FIRE_HOSTS)),
     ("Commander in",       LeaderAbility(name="Coordinated Fire Plan",      aura_range=6.0, plus_one_to_hit=True)),  # Battlesuit, no INFANTRY host

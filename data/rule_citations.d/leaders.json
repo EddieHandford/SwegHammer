@@ -113,8 +113,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne",
     "rule_name": "Ethereal Form + Inevitable Death",
     "quoted_text": "Ethereal Form: Each time this model destroys an enemy unit it regains up to D3 lost wounds. Inevitable Death: Once in each of your opponent's turns, if this model is on the battlefield when another friendly Aeldari unit is destroyed, just after removing the last model in that unit, you can remove this model from the battlefield and set it up as close as possible to where that destroyed model was destroyed and not within Engagement Range of one or more enemy units.",
-    "trigger": "Yncarne is alive (round-end heal fires via apply_round_end_healing every round; +1-to-hit aura applies to nearby Aeldari friendlies via the standard in_range_leaders proximity check)",
-    "effect": "(approximation) +1 to Hit in aura range AND heal 2 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). Approximates Ethereal Form's on-kill D3 heal as a steady 2/round end (D3 median = 2). Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths; the +1-to-hit aura is a loose threat-mobility proxy for the teleport's tactical upside (Yncarne being everywhere it needs to be).",
+    "trigger": "Yncarne is alive (round-end heal fires via apply_round_end_healing every round)",
+    "effect": "(approximation) heal 2 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). Approximates Ethereal Form's on-kill D3 heal as a steady 2/round end (D3 median = 2). Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths. iter21 fab audit dropped the prior plus_one_to_hit=True flag, which was admitted in the iter15-17 citation as 'a loose threat-mobility proxy for the teleport's tactical upside' with no basis in either Ethereal Form or Inevitable Death — same pattern iter20 dropped from Necron Overlord 'My Will Be Done' and Typhus 'Destroyer Hive'.",
     "scope": "unit-led"
   },
 
@@ -131,8 +131,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Autarch",
     "rule_name": "Path of Command",
     "quoted_text": "Once per battle round, one model from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that usage of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by an Autarch in aura range",
-    "effect": "+1 to Hit in aura range (approximation; the real Path of Command is a once-per-round Stratagem CP discount, which the simulator does not model — the +1-to-hit aura is a flavour proxy for the Autarch as offensive battlefield commander)",
+    "trigger": "Autarch is alive and the army uses a Stratagem targeting its unit (NOT modelled — the simulator has no per-character Stratagem CP-discount hook)",
+    "effect": "No buff. iter21 fab audit: Path of Command is IDENTICAL in pattern to Necron Overlord 'My Will Be Done' (which iter20 audited and dropped the +1-to-hit proxy from). Both rules are once-per-round Stratagem CP discounts — neither carries an offensive aura. The previous citation's '+1 to Hit in aura range' was an invented proxy with no codex support. Registry entry retained (with host_keys for is_actually_led gating purposes) but with no offensive flag. Will return as a CP-discount Warlord ability once per-character one-Stratagem-per-round discounts are added (parallel to the cp_discount_per_round / cp_refund_per_battle Warlord mechanics).",
     "scope": "unit-led"
   },
 
@@ -140,8 +140,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Avatar-of-Khaine",
     "rule_name": "The Bloody-Handed",
     "quoted_text": "While a friendly AELDARI unit is within 6\" of this model, add 1 to Advance and Charge rolls made for that unit.",
-    "trigger": "any friendly Aeldari unit is within 6\" of the Avatar of Khaine (Monster, no formal leader attachment)",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the codex grants +1 to Advance and Charge rolls — a movement-phase buff. SwegHammer's Charge resolution is 2D6 vs distance with no leader-modifier hook, and Advance is not modelled. Adding a +1-to-charge mechanic is deferred until charge resolution is rewritten to consume leader buffs; until then, reroll-1s-to-hit stands in as a loose offensive proxy for the Avatar's aggressive aura. Known limitation: wrong buff TYPE — direction-correct but mechanically unrelated.)",
+    "trigger": "any friendly Aeldari unit is within 6\" of the Avatar of Khaine (Monster, no formal leader attachment) — NOT modelled (movement-phase buff with no leader-modifier hook in charge / advance resolution)",
+    "effect": "No buff. iter21 fab audit: the previous reroll_hit_ones=True aura was a known wrong-buff-type proxy — the codex grants +1 to Advance and Charge rolls (a movement-phase buff), not a Hit-roll modifier. The previous citation explicitly admitted 'Known limitation: wrong buff TYPE — direction-correct but mechanically unrelated.' iter21 drops the proxy on the same standard iter20 applied to Typhus's wrong-direction FNP and Necron Overlord's invented +1-to-hit. Registry entry kept (Monster, no host_keys); will return as a charge / advance roll modifier once the charge resolver gains a leader-buff hook.",
     "scope": "unit-led"
   },
 

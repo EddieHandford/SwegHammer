@@ -113,11 +113,13 @@ class ExpandedRegistryTests(unittest.TestCase):
     # Each tuple is (profile-name to look up, expected flag attribute).
     # Some entries were flipped to defensive flags as part of the
     # direction-wrong aura sweep — see citations file for codex-real text.
+    # iter21 fab audit removed Autarch (Path of Command is a CP-discount,
+    # not an aura) and Avatar of Khaine (Bloody-Handed is +1 Advance/Charge,
+    # a movement-phase buff). Both registry entries are kept but with no
+    # offensive flags; see AeldariFabricationLockInTests below.
     NEW_LEADERS = (
         # Aeldari
         ("Farseer",                 "reroll_wound_ones"),
-        ("Autarch",                 "plus_one_to_hit"),
-        ("Avatar of Khaine",        "reroll_hit_ones"),
         # T'au — Ethereal Failure Is Not an Option grants FNP 5+ (defensive)
         ("Ethereal",                "fnp"),
         ("Commander in XV85 Enforcer Battlesuit", "plus_one_to_hit"),
@@ -479,6 +481,121 @@ class CadreFirebladeAttackTests(unittest.TestCase):
         )
         buffs = effective_buffs(army.units[0])
         self.assertEqual(buffs["plus_one_attack"], 1)
+
+
+class AeldariFabricationLockInTests(unittest.TestCase):
+    """iter21 fab audit lock-ins.
+
+    Three Aeldari registry entries had proxy flags with NO basis in their
+    codex datasheets. Each proxy was dropped:
+
+      * Autarch — Path of Command is a once-per-round Stratagem CP discount
+        (same pattern as Necron Overlord's My Will Be Done, which iter20
+        audited). The previous plus_one_to_hit aura was invented flavour;
+        not a codex effect.
+
+      * Avatar of Khaine — Bloody-Handed grants +1 to Advance and Charge
+        rolls (a movement-phase buff). The previous reroll_hit_ones aura
+        was an admitted wrong-buff-TYPE stand-in; nothing in the codex
+        modifies hit rolls.
+
+      * The Yncarne — Ethereal Form is on-kill D3 wound regain;
+        Inevitable Death is a reactive teleport. The previous
+        plus_one_to_hit aura was an admitted 'loose threat-mobility
+        proxy' with no codex support. heal_per_round=2 is retained as
+        a legitimate D3-median proxy of Ethereal Form.
+
+    These tests lock the absence of those proxies so a regression that
+    re-introduces them fails CI immediately.
+    """
+
+    def _aeldari_profile(self, name: str) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=4, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=3,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
+    def test_autarch_has_no_offensive_aura(self):
+        ab = lookup_ability("Autarch")
+        self.assertIsNotNone(ab, "Autarch entry must remain in the registry")
+        # All offensive flags must be off — Path of Command is a CP-discount.
+        self.assertFalse(ab.plus_one_to_hit, "Autarch plus_one_to_hit is a fab — see iter21 citation")
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_hit_ones)
+        self.assertFalse(ab.reroll_wound_ones)
+        self.assertEqual(ab.plus_one_attack, 0)
+        # Defensive flags must also be off
+        self.assertEqual(ab.fnp, 7)
+        self.assertEqual(ab.extra_invuln, 7)
+
+    def test_avatar_of_khaine_has_no_offensive_aura(self):
+        ab = lookup_ability("Avatar of Khaine")
+        self.assertIsNotNone(ab, "Avatar of Khaine entry must remain in the registry")
+        # Bloody-Handed is +1 Advance/Charge — a movement buff, not a hit buff.
+        self.assertFalse(ab.reroll_hit_ones, "Avatar reroll_hit_ones is a wrong-buff-type fab — see iter21 citation")
+        self.assertFalse(ab.plus_one_to_hit)
+        self.assertFalse(ab.plus_one_to_wound)
+        self.assertFalse(ab.reroll_wound_ones)
+        self.assertEqual(ab.plus_one_attack, 0)
+        self.assertEqual(ab.fnp, 7)
+
+    def test_yncarne_has_no_to_hit_aura(self):
+        ab = lookup_ability("The Yncarne")
+        self.assertIsNotNone(ab, "Yncarne entry must remain in the registry")
+        # Ethereal Form is a self-heal; Inevitable Death is a teleport.
+        # Neither grants a hit-roll buff.
+        self.assertFalse(ab.plus_one_to_hit, "Yncarne plus_one_to_hit is a fab — see iter21 citation")
+        # heal_per_round MUST stay (legitimate D3-median proxy of Ethereal Form).
+        self.assertEqual(ab.heal_per_round, 2)
+
+    def test_autarch_aura_grants_nothing_in_range(self):
+        # Build an Aeldari unit + Autarch in range; the merged buff dict
+        # must have ALL flags neutral (the registry entry is now a no-op).
+        autarch_p = self._aeldari_profile("Autarch")
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), autarch_p],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertFalse(buffs["plus_one_to_hit"])
+        self.assertFalse(buffs["reroll_hit_ones"])
+        self.assertFalse(buffs["plus_one_to_wound"])
+        self.assertEqual(buffs["fnp"], 7)
+
+    def test_avatar_aura_grants_nothing_in_range(self):
+        avatar_p = UnitProfile(
+            name="Avatar of Khaine", health=12, damage=4, hit_probability=2 / 3,
+            ap=-3, save=3, strength=10, toughness=10,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), avatar_p],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertFalse(buffs["reroll_hit_ones"])
+        self.assertFalse(buffs["plus_one_to_hit"])
+
+    def test_yncarne_aura_grants_nothing_in_range(self):
+        # Aura should NOT grant plus_one_to_hit. heal_per_round is exercised
+        # by HealTests via Dominus; we just confirm the merged offensive
+        # dict is empty here.
+        yncarne_p = UnitProfile(
+            name="The Yncarne", health=10, damage=4, hit_probability=2 / 3,
+            ap=-3, save=3, strength=8, toughness=8,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+        army = _make_army(
+            "Side",
+            [_grunt_profile(), yncarne_p],
+            [(0.0, 0.0), (3.0, 0.0)],
+        )
+        buffs = effective_buffs(army.units[0])
+        self.assertFalse(buffs["plus_one_to_hit"])
+        self.assertFalse(buffs["reroll_hit_ones"])
 
 
 if __name__ == "__main__":
