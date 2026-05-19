@@ -246,7 +246,10 @@ def expected_melee_damage(attacker: UnitProfile, defender: UnitProfile) -> float
     # ---- Hit phase: split into normal hits and crit hits (always 6+) ----
     p_crit_hit = 1.0 / 6.0
     p_normal_hit = max(0.0, p_hit - p_crit_hit)
-    sustained = int(attacker.sustained_hits)
+    # Melee branch must read the melee-side SUSTAINED HITS field; reading the
+    # ranged `sustained_hits` here was the same plumbing bug fixed in
+    # `code/units.py` for the live simulator (iter28-MS1).
+    sustained = int(attacker.melee_sustained_hits)
 
     # ---- Wound roll per surviving roll-to-wound input ----
     p_wound_base = wound_probability(attacker.melee_strength, defender.toughness)

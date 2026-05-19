@@ -1348,6 +1348,13 @@ class MappedUnit:
     weapon_damage_per_shot: float = 0.0
     lethal_hits: bool = False
     sustained_hits: int = 0
+    # Melee-side SUSTAINED HITS — sourced from the best-legal MELEE weapon's
+    # keywords. Tracked separately from the ranged `sustained_hits` field so
+    # the simulator can route by attack mode (`mode == "melee"` reads this;
+    # `mode == "ranged"` reads `sustained_hits`). Without this split, a ranged
+    # SUSTAINED HITS N would leak into melee resolution — the exact failure
+    # mode that fabricated SUSTAINED HITS on Orks Choppa profiles in iter27.
+    melee_sustained_hits: int = 0
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7    # parsed from "Invulnerable Save (X+*)" infoLinks in the tree
@@ -1598,6 +1605,13 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         weapon_damage_per_shot=round(primary.damage, 2),
         lethal_hits=primary.lethal_hits,
         sustained_hits=primary.sustained_hits,
+        # Source melee SUSTAINED HITS from the chosen melee weapon if one
+        # exists. Melee-only units have primary == best_melee (the mapper
+        # promotes best_melee to primary when no ranged weapon resolves, see
+        # lines above), so the value lines up with primary.sustained_hits in
+        # that case. For mixed units (ranged + melee) the two fields diverge
+        # — exactly the bug iter28-MS1 fixes.
+        melee_sustained_hits=(best_melee.sustained_hits if best_melee is not None else 0),
         twin_linked=primary.twin_linked,
         devastating_wounds=primary.devastating_wounds,
         invuln_save=invuln,

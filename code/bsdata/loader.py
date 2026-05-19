@@ -50,6 +50,11 @@ class CatalogEntry:
     weapon_damage_per_shot: float = 0.0
     lethal_hits: bool = False
     sustained_hits: int = 0
+    # Melee-side SUSTAINED HITS — sourced from the best-legal MELEE weapon by
+    # the mapper. Routed separately from `sustained_hits` (ranged-side) so
+    # the simulator can pick the correct value per attack mode. See
+    # MappedUnit.melee_sustained_hits for the iter28-MS1 rationale.
+    melee_sustained_hits: int = 0
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
@@ -139,6 +144,7 @@ class CatalogEntry:
             weapon_damage_per_shot=float(d.get("weapon_damage_per_shot", 0)),
             lethal_hits=bool(d.get("lethal_hits", False)),
             sustained_hits=int(d.get("sustained_hits", 0)),
+            melee_sustained_hits=int(d.get("melee_sustained_hits", 0)),
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
@@ -252,6 +258,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "weapon_damage_per_shot": override.get("weapon_damage_per_shot", base.weapon_damage_per_shot),
         "lethal_hits": override.get("lethal_hits", base.lethal_hits),
         "sustained_hits": override.get("sustained_hits", base.sustained_hits),
+        "melee_sustained_hits": override.get("melee_sustained_hits", base.melee_sustained_hits),
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),

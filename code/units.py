@@ -238,7 +238,11 @@ class UnitProfile:
     weapon_damage_per_shot: float = 0.0        # 0 = derive damage / attacks at use site
     # Weapon abilities (parsed from BSData Keywords field by the mapper)
     lethal_hits: bool = False                  # critical hit (6 to hit) auto-wounds
-    sustained_hits: int = 0                    # critical hit generates N extra normal hits
+    sustained_hits: int = 0                    # critical hit generates N extra normal hits (RANGED weapon)
+    # Melee-side SUSTAINED HITS — populated by the mapper from the chosen
+    # melee weapon's keywords. Read by Unit.attack when `mode == "melee"` so
+    # a ranged-only SUSTAINED HITS N does not leak into melee resolution.
+    melee_sustained_hits: int = 0
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
@@ -1219,7 +1223,19 @@ class Unit:
         # already on the profile (a SUSTAINED HITS 1 weapon would compound
         # to SUSTAINED HITS 2, matching codex behaviour). Cited as
         # `WAR_HORDE.melee_sustained_hits_army_wide`.
-        effective_sustained_hits = int(p.sustained_hits or 0)
+        #
+        # Route the per-weapon SUSTAINED HITS value by attack mode. Before
+        # iter28-MS1 the simulator read `p.sustained_hits` unconditionally,
+        # but that field is populated from the RANGED primary weapon (see
+        # `code/bsdata/mapper.py`). Reading it in melee mode fabricated
+        # ranged SUSTAINED HITS values onto Orks Choppas and several other
+        # mixed-loadout units. `p.melee_sustained_hits` is sourced from the
+        # melee weapon and defaults to 0 — the correct value for vanilla
+        # Choppas (BSData v10.6.0 Keywords: -).
+        if mode == "melee":
+            effective_sustained_hits = int(p.melee_sustained_hits or 0)
+        else:
+            effective_sustained_hits = int(p.sustained_hits or 0)
         if mode == "melee" and p.faction == "Orks":
             _own_army = getattr(self, "army_ref", None)
             if _own_army is not None:
@@ -1461,6 +1477,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             weapon_damage_per_shot=entry.weapon_damage_per_shot,
             lethal_hits=entry.lethal_hits,
             sustained_hits=entry.sustained_hits,
+            melee_sustained_hits=entry.melee_sustained_hits,
             twin_linked=entry.twin_linked,
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
