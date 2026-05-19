@@ -185,3 +185,22 @@ First iter run under the new `docs/AUTO_LOOP_PROCEDURE.md` rules (A-F). Three pa
 
 Token-efficiency note: iter 25 total agent spend = 156k tokens / 77 tool uses across 3 agents. Compare to iter 24's 4-bundle agent: ~70k for ONE incomplete bundle + manual cleanup. The bundle-of-one + trimmed-prompt protocol is roughly 3x more efficient per fix shipped.
 
+### Iter 26 (2026-05-19) — 3 parks, MAE flat at 4.49
+
+Three bundle-of-one agents dispatched. All three correctly held the new procedure's "STOP rather than invent" line; the loop's easy leverages near the noise floor are depleting and that's reflected in the outcome.
+
+**S1 — faction-neutral FNP in AI threat-score** (agent: 62k tokens, 33 tool uses, 18min). Implementation correct: folded Feel No Pain into `_durability` and the four `_melee_target_score` / `pick_charge_target` callers in `code/strategy.py`. Cited under `simulator.fnp_in_threat_score`. Target factions improved as predicted (DG +10.3 → +9.8, Tyranids +2.6 → -0.2). Cross-faction effect regressed Orks (+5.7 → +10.1) — FNP-bearing defenders now correctly read Orks as soft and push harder, while Orks have no FNP to compensate. **Cumulative MAE 4.49 → 4.99 (+0.50)**. Per the loop rule (regressions get parked), the fix stays on the agent's worktree branch (commit `35d71c2`) and is not cherry-picked. Iter 27 follow-up: symmetric Orks attacker-side AI improvement, then re-land S1.
+
+**V2 — Votann second pass** (agent: 60k tokens, 30 tool uses, 5min). Audited Sagitaur, Hearthkyn, Hearthguard, Eye of the Ancestors (already neutralised by iter25-V1), OATHBAND detachment, Kâhl LeaderAbility, Einhyr Champion override. All match Wahapedia / BSData. No provable lever within the 8-tool diagnostic budget — STOPPED. Residual +11.2 hypothesis: AI CP heuristic over-firing on Votann, baseline drift, or Stage 2 sweg_balance_mc points cuts on Sagitaur / Hekaton (out of Stage 1 scope).
+
+**T1 — T'au +8.3 diag-and-fix** (agent: 73k tokens, 53 tool uses, 28min). Found a real rule-fidelity issue: Mont'ka LETHAL HITS fires every round in `code/units.py:1155-1164`, but Wahapedia restricts it to battle rounds 1-3. Tested fix — T'au win rate unchanged (battles decided rounds 1-3 anyway). Reverted per the brief. Diag file flagged iter 27 follow-ups: (a) Markerlight realism (current `_run_markerlight_phase` auto-marks with no roll / no LOS / 36" range — likely the real T'au lever), (b) Riptide / Stormsurge weapon-profile audit, (c) full audit of six wired `MONTKA_STRATAGEMS` for round/phase gating.
+
+**Cumulative iter 26**: no commits cherry-picked. MAE stays **4.49**.
+
+Token-efficiency: 195k tokens / 116 tool uses across 3 agents for net-zero code shipped — but three high-quality diagnostic deliverables landing in agent-worktree diag files. The procedure's tradeoff is working as designed: shipping zero buggy fixes is the right outcome when no clean lever exists.
+
+**Iter 27 priorities**:
+1. **T'au Markerlight realism** (largest residual outlier where a clear bug is named) — gate auto-Guided behind a roll + LOS check.
+2. **Orks attacker-side AI heuristic** — symmetric counterpart to S1's defender FNP fix. Once Orks correctly identify FNP-bearing defenders as hard targets, S1 can re-land and the cumulative MAE should drop.
+3. **Riptide / Stormsurge weapon profile audit** if T'au isn't closed by Markerlight alone.
+
