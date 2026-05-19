@@ -284,3 +284,22 @@ The structural lift hurts disproportionately on factions with heavy melee multi-
 3. **TY1 follow-ups** — Subterranean Assault, Maleceptor / Norn Emissary FNP audit.
 4. **DG via Stage 2** — D2 confirmed Stage 1 per-unit levers all point wrong; consider accepting DG pricing as a Stage 2 problem.
 
+### Iter 30 (2026-05-19) — MC1 ships save-modifier cap, NE2 parked
+
+**MC1 — Save modifier ±1 cap** (commit `572f8af` → `5cd270c`, agent: 66k tokens, 37 tool uses, 17min). Audited modifier sources in `code/units.py`. Hit/Wound rolls already compliant via existing `[-1, +1]` clamp at lines 1012-1015. Found a save stacking violation: three independent +1-save sources (`plus_one_save` aura, transient Lightning-Fast Reactions, All Is Dust Rubricae) each subtracted 1 from save independently — a 4+ unit benefiting from two reached 2+ (net +2). Fixed to apply at most a single -1. Citation `simulator.save_modifier_cap_plus_minus_one`. Eval flat (the triple-stack is rare at archetype seed distribution) — rule-correct, **cherry-picked per correctness > MAE**.
+
+**NE2 — Necron Warriors Gauss Flayer loadout** (no cherry-pick, agent: 49k tokens, 30 tool uses, 12min). Swapped primary loadout from Gauss Reaper (12" A2 AP-1) to Gauss Flayer (24" Rapid Fire 1 A1 AP0) — both legal wargear; tournament Necron lists overwhelmingly run Flayers. Eval: Necrons -9.0 → -9.0 (flat). Rule-neutral judgment call; **parked** — the Necrons lever isn't in weapon loadout. Need deeper Stage 1 work on Awakened Dynasty rotation / RP rate / C'tan profiles.
+
+**Cumulative iter 30 (1 cherry-pick: MC1)**: MAE **6.20 → 6.20** at N=40 (flat).
+
+**Per-faction shifts vs iter28 N=40 baseline**: essentially unchanged at this measurement resolution. Marines -0.5 → -0.8, Necrons -9.0 → -9.0, Aeldari +2.0 → +1.7, Tyranids +5.3 → +5.3, Orks +5.7 → +5.9, T'au +7.7 → +8.0, DG +16.2 → +16.4, Custodes +2.6 → +2.0, TSON -7.1 → -7.1, Votann +5.9 → +5.7.
+
+**Honest plateau**: iters 26-30 (5 iters) at MAE 6.20 → 6.20 → 6.20. Five real correctness fixes shipped (NE1, MC1, MS1, DDK, M1) with effects cancelling within noise at N=40.
+
+**User-approved iter 31-45 plan (saved to memory as [[project-iter31-45-plan]]):**
+- Phase 1 — AI improvement (iters 31-34): re-land S1 with squad-size compensation, wipe-the-unit bonus, stratagem firing audit, archetype realism.
+- Phase 2 — Structural mapper (iters 35-37): multi-profile weapons, universal keywords, Mortal Wounds / Indirect Fire / Hazardous.
+- Phase 3 — Faction army rules (iters 38-42): Necrons / DG / T'au / TSON / Tyranids.
+- Phase 4 — Verification (iters 43-45): cleanup, N=80 confirmation, Stage 2 trigger decision (threshold deferred per user).
+- User directive: "AI first; start with S1 re-land; hold off on Stage 2 trigger decision."
+
