@@ -242,26 +242,27 @@ class TokenBuffApplicationTests(unittest.TestCase):
             total += shooter.attack(marines.units[0], distance=12.0)
         return total
 
-    def test_one_token_target_improves_hit_rate(self):
-        """At 4+ to hit, re-rolling 1s lifts hit rate ~16% relative. Over
-        many trials the 1-token total should exceed the 0-token total."""
+    def test_one_token_target_does_not_buff_hits(self):
+        """iter25-V1: the launch-day Eye of the Ancestors re-roll buff has
+        been removed (replaced in the current 10e codex by Prioritised
+        Efficiency, which is an objective-token economy with no attack
+        re-rolls). With identical RNG seeds, a 1-token total must match
+        the 0-token baseline exactly — tokens have no offensive effect.
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
+        """
         n_trials = 200
         zero_dmg = self._run(n_trials, tokens=0, seed=11)
         one_dmg = self._run(n_trials, tokens=1, seed=11)
-        # Re-roll 1s at 4+ is +16% relative hit chance. The 1-token total
-        # must be measurably higher than the 0-token baseline.
-        self.assertGreater(one_dmg, zero_dmg * 1.05)
+        self.assertAlmostEqual(zero_dmg, one_dmg, places=5)
 
-    def test_three_tokens_strictly_more_damage_than_one_token(self):
-        """Tier-3 (re-roll all hits + wound 1s) should clearly outdamage
-        tier-1 (re-roll hit 1s)."""
+    def test_three_tokens_no_extra_damage_over_one_token(self):
+        """iter25-V1: tier-3 (formerly re-roll all hits + wound 1s) is
+        gone alongside tier-1. With identical seeds the 3-token total
+        must equal the 1-token total exactly."""
         n_trials = 200
         one_dmg = self._run(n_trials, tokens=1, seed=23)
         three_dmg = self._run(n_trials, tokens=3, seed=23)
-        # Re-roll all hits at 4+ raises hit rate from 50% to ~75% (vs.
-        # re-roll 1s only -> ~58%). Plus reroll wound 1s. Expect ~25%+
-        # damage boost. We assert a conservative 1.15x.
-        self.assertGreater(three_dmg, one_dmg * 1.15)
+        self.assertAlmostEqual(one_dmg, three_dmg, places=5)
 
     def test_no_tokens_no_buff(self):
         """A Votann attacker against a target with zero tokens behaves

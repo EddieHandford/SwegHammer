@@ -1070,15 +1070,30 @@ class Unit:
         # a full failure re-roll, not just nat-1s.
         att_reroll_all_wounds = False
 
-        # ---- Leagues of Votann — Eye of the Ancestors / Judgement Tokens ----
+        # Resolve the attacker's owning Army once; downstream gates
+        # (Oath of Moment, Votann tokens) all read it.
         own_army = getattr(self, "army_ref", None)
-        if own_army is not None and getattr(own_army, "is_votann_army", False):
-            tokens = own_army.judgement_tokens.get(target.uid, 0)
-            if tokens >= 1:
-                att_reroll_hit_ones = True
-            if tokens >= 3:
-                att_reroll_all_hits = True
-                att_reroll_wound_ones = True
+
+        # ---- Leagues of Votann — Eye of the Ancestors (RETIRED) ----
+        # iter25-V1: the launch-day Eye of the Ancestors rule granted
+        # escalating re-roll buffs (hit 1s at 1 token, full hit re-rolls +
+        # wound 1s at 3 tokens) to Votann attacks against marked targets.
+        # That rule has been REPLACED in the current 10e codex by
+        # Prioritised Efficiency, which is purely an objective-token
+        # economy (Yield Points / Hostile Acquisition / Fortify Takeover)
+        # and grants NO re-roll buffs on attacks. Modelling the retired
+        # buffs on top of the simulator's other Votann uplifts was the
+        # largest single contributor to the +16.8 pt Leagues of Votann
+        # over-performance in the iter25 evaluation.
+        #
+        # The token bookkeeping itself (`_maybe_award_judgement_token`,
+        # `Army.judgement_tokens`) is kept in place because the Ancestral
+        # Sentence Oathband stratagem still references it as the place to
+        # record "this enemy unit has been marked", and downstream gates
+        # may use the marker for token-only triggers (no buff effect).
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
+        # The re-roll branch is intentionally removed — do not re-add
+        # without a verbatim Wahapedia citation per CLAUDE.md §10.
 
         # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
         # attacker is a Marine (any chapter) AND its army has declared
