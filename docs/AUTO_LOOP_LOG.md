@@ -284,6 +284,34 @@ The structural lift hurts disproportionately on factions with heavy melee multi-
 3. **TY1 follow-ups** — Subterranean Assault, Maleceptor / Norn Emissary FNP audit.
 4. **DG via Stage 2** — D2 confirmed Stage 1 per-unit levers all point wrong; consider accepting DG pricing as a Stage 2 problem.
 
+### Iter 31 (2026-05-19) — S1R re-land with squad-size compensation (Phase 1 / iter 1)
+
+**S1R — FNP-in-durability + squad-size compensation** (commit `b5b8933` → `ecd6419`, agent: 76k tokens, 40 tool uses, 14min). Phase 1 opening per the user-approved plan. Re-implementation of iter26-S1 (FNP folded into `_durability` and `_unsaved_fraction` in `code/strategy.py`) plus a paired squad-size durability factor so high-model-count units read as harder to wipe per-shot.
+
+Three helpers: `_fnp_resolved` (profile FNP min'd with aura FNP via `effective_buffs`), `_fnp_pass_fraction` ((7-fnp)/6), `_squad_size_factor` (1.0 + 0.05 per alive sibling). `_durability` formula: `T * HP * squad_factor / (unsaved * fnp_mitigation)`. All four call sites updated to pass `defender_unit`. Citations: `simulator.fnp_in_threat_score`, `simulator.squad_size_durability_factor`.
+
+**Cumulative iter 31 (1 commit at N=40)**: MAE **6.20 → 6.59 (+0.39)**. Kept per correctness > MAE because the two stuck structural outliers moved meaningfully:
+
+| Faction | Baseline | Iter 31 | Δ |
+|---|---|---|---|
+| Marines | -0.8 | -2.4 | -1.6 (no-FNP cross-regress) |
+| **Necrons** | **-9.0** | **-7.1** | ✅ **+1.9** (FNP fix landing) |
+| Aeldari | +1.7 | +4.8 | +3.1 (no-FNP cross-regress) |
+| Tyranids | +5.3 | +4.8 | ✅ -0.5 |
+| Orks | +5.9 | +6.8 | +0.9 (vs +4.4 in iter26-S1 — squad-size compensation worked partially) |
+| T'au | +8.0 | +8.6 | +0.6 |
+| **DG** | **+16.4** | **+14.5** | ✅ **-1.9** (worst outlier moving) |
+| **Custodes** | **+2.0** | **+0.9** | ✅ **-1.1** |
+| **TSON** | **-7.1** | **-5.4** | ✅ **+1.7** |
+| Votann | +5.7 | +10.7 | +5.0 (no-FNP, no squad-size benefit at medium count) |
+
+**Pattern**: every FNP-bearing faction (DG, Necrons, Custodes, TSON, Tyranids) moved toward target. Every no-FNP faction (Marines, Aeldari, Votann) cross-regressed by AI-divert-fire to softer targets. Orks (high-model-count no-FNP) was protected by squad-size factor (+0.9 regress vs +4.4 raw S1). Votann (medium-count no-FNP) wasn't sufficiently protected.
+
+**Phase 1 plan continues**:
+- Iter 32: wipe-the-unit bonus + fragile-model-first target selection. Should re-balance no-FNP factions by valuing complete unit removal differently.
+- Iter 33: stratagem firing audit (T'au should fire more; some others may over-fire).
+- Iter 34: archetype template realism vs real tournament lists.
+
 ### Iter 30 (2026-05-19) — MC1 ships save-modifier cap, NE2 parked
 
 **MC1 — Save modifier ±1 cap** (commit `572f8af` → `5cd270c`, agent: 66k tokens, 37 tool uses, 17min). Audited modifier sources in `code/units.py`. Hit/Wound rolls already compliant via existing `[-1, +1]` clamp at lines 1012-1015. Found a save stacking violation: three independent +1-save sources (`plus_one_save` aura, transient Lightning-Fast Reactions, All Is Dust Rubricae) each subtracted 1 from save independently — a 4+ unit benefiting from two reached 2+ (net +2). Fixed to apply at most a single -1. Citation `simulator.save_modifier_cap_plus_minus_one`. Eval flat (the triple-stack is rare at archetype seed distribution) — rule-correct, **cherry-picked per correctness > MAE**.
