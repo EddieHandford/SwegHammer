@@ -3396,18 +3396,23 @@ class Battle:
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
-                # Fix F-NEC-2 (iter 14, #iter14): per Wahapedia army-rule
-                # wording, a revived destroyed model "is returned to that
-                # unit with one wound remaining" — NOT at full HP. For W1
+                # iter29-NE1: revert Fix F-NEC-2 (iter 14) — that trim was
+                # based on a misread of Wahapedia. The verbatim 10e rule (see
+                # docstring above, sourced from
+                # https://wahapedia.ru/wh40k10ed/factions/necrons/
+                # #Reanimation-Protocols) says revived models return "with
+                # its full wounds remaining", NOT "one wound remaining".
+                # Iter 14 was motivated by Necrons sitting +10.3pt over the
+                # real meta (iter-13 baseline); at N=40 iter 28 they now sit
+                # -9.0pt under, so the over-trim is no longer load-bearing
+                # and the strictly-correct reading is restored. For W1
                 # Warriors this is identical; for multi-wound Necron units
-                # (Wraiths W3, Lychguard W2/W3, Skorpekh W3, Praetorians W2,
-                # Lokhust Heavy Destroyers W3) the previous full-HP revival
-                # was strictly over-generous. Necrons sit +10.3pt over real
-                # meta (iter-13 baseline); this is the most defensible
-                # correctness-positive trim. Cited as
-                # `simulator.reanimation_protocols` (effect text updated).
+                # (Wraiths W3, Lychguard W3, Skorpekh W3, Praetorians W2,
+                # Lokhust Heavy Destroyers W3) this restores the revived
+                # model to full HP, matching the printed rule. Cited as
+                # `simulator.reanimation_protocols`.
                 for revived in dead_pool[:to_revive]:
-                    revived.current_health = 1.0
+                    revived.current_health = float(revived.profile.health)
                     revived.position = anchor_pos
                     self._emit(UnitReanimated(
                         unit_uid=revived.uid, position=anchor_pos,
