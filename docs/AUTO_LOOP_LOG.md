@@ -75,3 +75,66 @@ Per the iter 20 user directive (correctness > MAE), KEPT — both fixes are Waha
 2. **Custodes diagnostic** — under-modeling persists from iter 20 (LOS+ablative already implemented in `code/army.py::can_target_for_ranged`); next vector is durability stack, Vexilla auras, Auric Mortalis detachment, or Trajann's per-leader buff.
 3. **Magnus / TSON under-strength** — still −4.9. Magnus stat investigation from iter 21 didn't produce a fix; needs followthrough.
 
+### Iter 23 (2026-05-19) — diagnostic-only, three parallel agents
+
+DG / Custodes / TSON ranked root-cause reports. Outputs `iter23_dg_diag.md`, `iter23_custodes_diag.md`, `iter23_tson_diag.md` on each agent's worktree branch. No code changes.
+
+**DG diag (LARGE/LARGE/MEDIUM)**:
+1. Lord of Contagion `host_keys=("death_guard_plague_marines",)` is a CLAUDE.md §10 fabrication — Wahapedia bodyguard list is Blightlord/Deathshroud only. Iter22's effective_buffs gate then faithfully fires +1-to-wound on the spam unit.
+2. Archetype seats Mortarion 4/20 — (-count, -cost) walk eats cheap units first.
+3. Worldblight stratagem fires army-wide always-sticky instead of "end of Command phase + already controlling".
+
+**Custodes diag (LARGE/LARGE/MEDIUM-LARGE)**:
+1. Custodian Wardens have `fnp=7` in parsed.json + no innate -1 damage; the flagship brick is strictly less durable than Custodian Guard.
+2. Trajann + Shield-Captain host_keys = Custodian Guard ONLY — Wardens / Allarus / Sagittarum / Vertus fight unbuffed. Blade Champion has no LeaderAbility entry (§13 fail-loud violation).
+3. Six Custodes profiles wrongly flagged `deep_strike=True` (Guard / Wardens / Sagittarum / Trajann / Blade Champion / Shield-Captain).
+
+**TSON diag (LARGE/MEDIUM/SMALL-MEDIUM)**:
+1. Detachment lottery: TSON resolves to Grand Coven 11/20 (Kindred Sorcery not implemented; Grand Coven disables All Is Dust = no compensation).
+2. Magnus seats 0/20 in archetype armies — template deliberately omits him; his wired rules (Impossible Form, Lord of the Planet) are dead code.
+3. Magnus has no LeaderAbility entry — §13 fail-loud, like Blade Champion.
+
+### Iter 24 (2026-05-19) — fix bundles, three parallel agents
+
+8 commits cherry-picked on `claude/sim-calibration-2`:
+
+**DG bundle (D1-D4, commits `f4f3864`-`f12ba87`)**:
+- D1: Lord of Contagion `host_keys` → Blightlord/Deathshroud only + test update.
+- D2: Faction-neutral archetype EPIC HERO anchor guarantee — force-seed the most expensive template EPIC HERO with overflow up to `points_budget * 0.6`.
+- D3: Worldblight strict OC-contest gate — sticky promotes only when DG side wins the contest on the marker.
+- D4: Plaguebearers / Blightlord / Typhus FNP=5 overrides (mapper-gap; Disgustingly Resilient is codex-level, not per-unit in BSData).
+
+**TSON bundle (T1-T3, commits `70fa5e7`, `bf1b652`, `0e96a96`)**:
+- T1: Drop `grand_coven` from `FACTION_DETACHMENTS["Thousand Sons"]` until Kindred Sorcery is wired.
+- T2: Add Magnus to Rubricae Phalanx archetype + TSON to `SEED_FRACTION_BY_FACTION` at 0.4 (800pt slice).
+- T3: Add Magnus the Red placeholder LeaderAbility entry (no aura flags — his rules are self-conferred in simulator.py; entry exists for §13 fail-loud).
+
+**Custodes bundle (C single commit `8f96a80`)**:
+- C1: Resolute Will (Custodian Wardens datasheet) — defender-side -1 to Wound roll, gated by `defender.resolute_will` + `leaders.is_actually_led(defender)` + `attack.strength > defender.toughness`. New fields on UnitProfile + CatalogEntry; citation under `simulator.resolute_will`.
+- C2: Trajann (Auric Sage) + Shield-Captain (Stoic Vigil) `host_keys` widened from Guard-only to (Guard + Adrasite-spear variant + Wardens) per the BSData Imperium - Adeptus Custodes Leader text.
+- C3: Blade Champion LeaderAbility added structurally (no aura fields — Martial Inspiration + Swift Onslaught aren't expressible in the schema). Closes §13 silent-default gap.
+- C4: `deep_strike: false` override on Custodian Guard / Wardens / Sagittarum / Trajann / Blade Champion / Shield-Captain. Wahapedia datasheets do not list Deep Strike on any of the six.
+
+**Cumulative iter 24 (8 commits)**: MAE **9.20 → 6.51** (Δ **−2.69 at N=20**; iter22 baseline measured at N=40 so the comparison carries ~±2pt cross-N noise).
+
+**Per-faction shifts** (iter22 N=40 baseline → iter24 N=20):
+- Marines −3.0 → −4.1 (flat)
+- Necrons −6.5 → −7.1 (flat)
+- Aeldari +2.8 → −3.3 (6pt swing — partly noise, partly Magnus-on-TSON pressure)
+- Tyranids +5.1 → −0.2 ✅
+- Orks +11.5 → +7.9 ✅
+- T'au +7.2 → +8.3 (slight regress)
+- **DG +20.9 → +8.7** ✅ (−12.2pt — D1+D2+D3+D4 bundle landed as designed)
+- **Custodes −18.6 → +2.6** ✅ (+21.2pt — Resolute Will + leader host_keys widening were the dominant levers)
+- TSON −3.2 → −7.9 (regress — Magnus anchor eats budget but the unit appears under-priced relative to what it displaces; iter 25 attention)
+- Votann +12.6 → +11.1 (slight ✅)
+
+**Iter 25+ priorities**:
+1. **Magnus / TSON re-tune** — T2's Magnus anchor regressed TSON. Either Magnus's stat profile is wrong (BSData has M=6 W=16; current Wahapedia shows M=12 W=18 — flagged for awareness in iter23 but not actioned) or his archetype anchor displaces too-strong picks. Re-measure after Ed's perf-optim main pivot.
+2. **T'au +8.3 over** — second-largest outlier now. Needs a diag (Mont'ka / Markerlight / Crisis pricing).
+3. **Votann +11.1 over** — third outlier. Likely Oathband stratagems + Sagitaur durability.
+
+## Branch wrap-up — PR open + sim-calibration-3 pivot (2026-05-19)
+
+Loop housekeeping + iter 22-24 complete on `claude/sim-calibration-2`. Pivoting to `claude/sim-calibration-3` (off updated main) to pick up Ed's simulator performance optimisations (Tier 1 pure-function caching, Tier 2 alive_units cache + vectorised deepstrike, Tier 3 LOS/cover/durability caching — perf only, no behaviour change). Iter 25-26 will run on the new branch.
+
