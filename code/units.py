@@ -375,7 +375,7 @@ class Unit:
     """A live unit on the battlefield, tracking current health and position."""
 
     __slots__ = (
-        "profile", "current_health", "in_cover", "in_heavy_cover", "uid", "position",
+        "profile", "_current_health", "in_cover", "in_heavy_cover", "uid", "position",
         "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
         # Set by Battle._do_move when the unit elects the FALL_BACK intent.
         # While True, _do_shoot and _do_charge refuse to fire the unit unless
@@ -465,7 +465,7 @@ class Unit:
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
         self.profile = profile
-        self.current_health: float = profile.health
+        self._current_health: float = profile.health
         self.in_cover: bool = in_cover
         # Set by Battle._do_shoot when the target stands in HEAVY_COVER terrain.
         # Drives the -1-to-hit penalty (in addition to the +1-to-save the
@@ -533,8 +533,22 @@ class Unit:
         self.embarked_in = None  # type: ignore[assignment]
 
     @property
+    def current_health(self) -> float:
+        return self._current_health
+
+    @current_health.setter
+    def current_health(self, value: float) -> None:
+        was_alive = self._current_health > 1e-9
+        self._current_health = value
+        is_alive_now = value > 1e-9
+        if was_alive != is_alive_now:
+            army = getattr(self, "army_ref", None)
+            if army is not None:
+                army._invalidate_alive_cache()
+
+    @property
     def is_alive(self) -> bool:
-        return self.current_health > 1e-9
+        return self._current_health > 1e-9
 
     def receive_damage(self, amount: float, bonus_fnp: int = 7) -> None:
         """
