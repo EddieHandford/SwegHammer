@@ -936,23 +936,27 @@ class HostKeysGatingTests(unittest.TestCase):
         self.assertFalse(bystander_buffs["plus_one_to_hit"],
             "Archon aura must NOT reach a non-host bystander")
 
-    def test_lord_of_contagion_aura_only_to_plague_marines(self):
-        # Lord of Contagion host_keys = ('death_guard_plague_marines',).
-        # Plus_one_to_wound must pass the host gate exactly once — to the
-        # Plague Marines attacker. (The first_stratagem_free_per_round
-        # field is a Warlord-trait CP-econ flag, not consumed here.)
+    def test_lord_of_contagion_aura_only_to_terminator_bodyguards(self):
+        # iter24-D1: Lord of Contagion host_keys was corrected to
+        # ('death_guard_blightlord_terminators',
+        #  'death_guard_deathshroud_terminators') per the Wahapedia
+        # datasheet Bodyguard list — Plague Marines are NOT a legal
+        # bodyguard. Plus_one_to_wound must pass the host gate exactly
+        # once — to the Blightlord Terminators attacker. (The
+        # first_stratagem_free_per_round field is a Warlord-trait
+        # CP-econ flag, not consumed here.)
         leader = self._character("Lord of Contagion")
-        plague = self._non_character("Plague Marines")  # legal host
-        bystander = self._non_character("Grunt")         # no catalog key
+        blightlord = self._non_character("Blightlord Terminators")  # legal host
+        bystander = self._non_character("Grunt")                    # no catalog key
         army = _make_army(
             "DG",
-            [plague, bystander, leader],
+            [blightlord, bystander, leader],
             [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
         )
-        plague_buffs = effective_buffs(army.units[0])
+        blightlord_buffs = effective_buffs(army.units[0])
         bystander_buffs = effective_buffs(army.units[1])
-        self.assertTrue(plague_buffs["plus_one_to_wound"],
-            "Lord of Contagion aura must reach Plague Marines")
+        self.assertTrue(blightlord_buffs["plus_one_to_wound"],
+            "Lord of Contagion aura must reach Blightlord Terminators")
         self.assertFalse(bystander_buffs["plus_one_to_wound"],
             "Lord of Contagion aura must NOT reach a non-host bystander")
 

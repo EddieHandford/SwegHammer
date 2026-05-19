@@ -375,9 +375,14 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
     # Death Guard
+    # Lord of Contagion: per Wahapedia datasheet
+    # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
+    # the Leader Bodyguard list is restricted to Blightlord Terminators and
+    # Deathshroud Terminators only — NOT Plague Marines. Iter24-D1 fix.
     ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
                                           first_stratagem_free_per_round=True,
-                                          host_keys=("death_guard_plague_marines",))),
+                                          host_keys=("death_guard_blightlord_terminators",
+                                                     "death_guard_deathshroud_terminators"))),
     ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
                                           host_keys=("death_guard_plague_marines",))),
     # Grey Knights — Brother-Captain pinned to the registry head above to
