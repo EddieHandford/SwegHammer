@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import math
 import random
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ BASELINE_TOUGHNESS: int = 4             # Marine T4
 BASELINE_POINTS: float = 15.0
 
 
+@functools.lru_cache(maxsize=256)
 def wound_probability(strength: int, toughness: int) -> float:
     """
     Standard 40K wound table:

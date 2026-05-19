@@ -135,6 +135,24 @@ cost-anchored work until landed.
   totalled live.
 - `[?]` **Calibration browser** — view most recent eval sweep, drill
   into outlier matchups.
+- `[?]` **Diagnostics tab — Stage 1 insight graphs.** Add a new
+  Streamlit tab with three charts to make the mean absolute error
+  reduction work visible and actionable:
+  - **Faction deviation bar chart** — each faction's simulated win rate
+    vs tournament target, with a horizontal 50% line and error bars.
+    The primary diagnostic for which factions are pulling the error up.
+  - **Head-to-head heatmap** — 10×10 faction grid coloured by faction A
+    win rate vs faction B. Reveals systemic asymmetries that the
+    per-faction aggregate hides (a faction can look fine on average
+    while consistently beating one faction and losing to all others).
+  - **Mean absolute error history** — a line chart of mean absolute
+    error per evaluation run so mechanic changes can be judged by
+    whether they moved the needle. Currently there is no way to see
+    this trend without re-reading script output.
+  Data for all three charts already exists: `tournament_results.json`
+  supplies the head-to-head numbers and `scripts/evaluate_vs_meta.py`
+  supplies the per-faction deviations. No new simulation work needed,
+  just a new rendering layer.
 
 ### Datasheet ingestion
 - `[J]` **Fall-back to melee weapons for ranged-less units** — ~30
