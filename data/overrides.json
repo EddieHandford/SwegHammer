@@ -21,6 +21,18 @@
       "fnp": 5,
       "notes": "Cross-codex BSData entry for Plague Marines; canonical datasheet lives in the Death Guard codex and carries Disgustingly Resilient (FNP 5+). Pricing and stats are identical to death_guard_plague_marines. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
     },
+    "death_guard_plaguebearers": {
+      "fnp": 5,
+      "notes": "iter24-D4: Plaguebearers (Death Guard ally Daemons unit) carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. BSData does not encode FNP at the unit level so the mapper sees default 7 (none). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Plaguebearers datasheet — Disgustingly Resilient ability)."
+    },
+    "death_guard_blightlord_terminators": {
+      "fnp": 5,
+      "notes": "iter24-D4: Blightlord Terminators carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. The 4++ invulnerable save is already in parsed.json; FNP 5+ is the missing half. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators."
+    },
+    "death_guard_typhus": {
+      "fnp": 5,
+      "notes": "iter24-D4: Typhus carries Disgustingly Resilient (Feel No Pain 5+) per his 10e datasheet. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus."
+    },
     "aeldari_craftworlds_wraithguard": {
       "invuln_save": 4,
       "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 218.68 -> 240.55 pts/model",
