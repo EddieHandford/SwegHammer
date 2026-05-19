@@ -199,6 +199,19 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # leaders.is_actually_led), attack.strength > defender.toughness.
     # See data/rule_citations.json#simulator.resolute_will.
     "simulator.resolute_will",
+    # AI threat-score heuristic in `code/strategy.py._durability` folds the
+    # defender's resolved Feel No Pain value into the durability denominator
+    # so opponent target selection correctly reads FNP-bearing defenders as
+    # harder targets. Iter 26 S1 (re-landed in iter 31 S1R). Cited as
+    # `simulator.fnp_in_threat_score`.
+    "simulator.fnp_in_threat_score",
+    # AI threat-score heuristic in `code/strategy.py._durability` applies a
+    # multiplicative squad-size durability bonus so high-model-count units
+    # (Boyz mobs, Termagant broods, Cultist swarms) look harder to wipe from
+    # a single-attack-decision perspective. Paired compensation for the
+    # iter26-S1 FNP re-land. Iter 31 S1R. Cited as
+    # `simulator.squad_size_durability_factor`.
+    "simulator.squad_size_durability_factor",
     # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
     # Shooting phase, each PSYKER attempts one of four Rituals via a
     # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData
