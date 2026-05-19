@@ -1033,20 +1033,32 @@ class Unit:
         )
         if target.in_cover and not ignore_cover and not precision_pierces_cover:
             save_after_ap = max(2, save_after_ap - 1)
-        # ---- Target's buffs: +1 to armour save (cap 2+) ----
+        # ---- Target's buffs: +1 to armour save ----
+        # 10e core rule (Wahapedia core rules, "Modifiers"): the modified
+        # Save characteristic cannot be more than +1 better or -1 worse
+        # than the unmodified value. AP is NOT a modifier — it acts on
+        # the attack's AP characteristic, not on the defender's Save
+        # characteristic — so AP stacks freely with one +1 save buff.
+        # Multiple ability-sourced +1-save sources (army-wide
+        # plus_one_save + Lightning-Fast Reactions + All Is Dust) must
+        # clamp to a single net +1 per the ±1 cap.
+        # Cited as `simulator.save_modifier_cap_plus_minus_one`.
+        save_buff_sources = 0
         if tgt_buffs["plus_one_save"]:
-            save_after_ap = max(2, save_after_ap - 1)
+            save_buff_sources += 1
         # Lightning-Fast Reactions (Warhost) — transient +1 save on the
-        # target unit for the round. Stacks with the army-wide flag above;
-        # capped at 2+ either way.
+        # target unit for the round.
         if target.transient_plus_one_save:
-            save_after_ap = max(2, save_after_ap - 1)
+            save_buff_sources += 1
         # All Is Dust (Rubricae Phalanx, see boolean computed in the
         # wound-modifier block above). +1 to the armour save when the
         # incoming attack is Damage 1 AND the defender carries the RUBRICAE
-        # keyword. Capped at 2+ same as every other save buff in this stack.
-        # Cited as `simulator.all_is_dust`.
+        # keyword. Cited as `simulator.all_is_dust`.
         if _all_is_dust_save_buff:
+            save_buff_sources += 1
+        if save_buff_sources > 0:
+            # Clamp net save-modifier to +1 (the ±1 cap). The 2+ floor
+            # remains as a hard armour-save floor independent of the cap.
             save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
         # ---- Target's buffs: army-wide invuln. Only overrides if better

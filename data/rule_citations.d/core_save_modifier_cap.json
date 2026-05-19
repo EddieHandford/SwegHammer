@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e core ±1 modifier cap on Save characteristic. Faction-neutral; mirrors the Hit/Wound roll cap. AP is not a modifier under 10e — it acts on the attack's AP characteristic — so AP stacks freely with one +1-save buff. Multiple ability-sourced +1-save sources collapse to a single net +1 per the cap.",
+
+  "simulator.save_modifier_cap_plus_minus_one": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Modifiers",
+    "rule_name": "Modifiers — characteristic and roll cap",
+    "quoted_text": "When all the relevant modifiers have been applied, the modified characteristic or roll cannot be more than +1 better than the unmodified characteristic or roll, and cannot be more than -1 worse.",
+    "trigger": "any attack resolution where two or more ability-sourced Save-characteristic modifiers apply to the same save (e.g. army-wide plus_one_save + Lightning-Fast Reactions stratagem, or plus_one_save + All Is Dust on a Damage-1 attack against RUBRICAE)",
+    "effect": "the net Save-characteristic modifier is clamped to +1 even when multiple +1-save sources stack. AP is not a modifier — it reduces the attack's AP characteristic — and stacks freely with the capped +1 save modifier. The 2+ armour-save floor remains as a separate hard floor below which armour saves cannot go.",
+    "scope": "army-wide"
+  }
+}

@@ -328,6 +328,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # accumulating +/-1 contributions into hit_mod_delta / wound_mod_delta
     # then clamping to [-1, +1] before applying to the d6 target.
     "simulator.modifier_cap_plus_minus_one",
+    # 10e core-rules cap on Save characteristic: "When all the relevant
+    # modifiers have been applied, the modified characteristic or roll
+    # cannot be more than +1 better than the unmodified [...]." Enforced
+    # in code/units.py Unit.attack by counting +1-save sources and
+    # applying at most one -1 to save_after_ap. AP is NOT a modifier and
+    # stacks freely with the capped +1.
+    "simulator.save_modifier_cap_plus_minus_one",
     # 10e core Charge phase: Heroic Intervention is a FREE core ability
     # for CHARACTER models (not a stratagem). Implemented in
     # `Battle._do_heroic_intervention`.
