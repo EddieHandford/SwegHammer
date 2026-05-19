@@ -138,3 +138,50 @@ DG / Custodes / TSON ranked root-cause reports. Outputs `iter23_dg_diag.md`, `it
 
 Loop housekeeping + iter 22-24 complete on `claude/sim-calibration-2`. Pivoting to `claude/sim-calibration-3` (off updated main) to pick up Ed's simulator performance optimisations (Tier 1 pure-function caching, Tier 2 alive_units cache + vectorised deepstrike, Tier 3 LOS/cover/durability caching — perf only, no behaviour change). Iter 25-26 will run on the new branch.
 
+## sim-calibration-3 baseline (2026-05-19)
+
+Branch = `claude/sim-calibration-2` + Ed's main merged in (commits `d48c8c6`, `4ea0519`, `cc38091`, `80c9a78`). Clean merge — no conflict markers. Baseline N=20 archetype eval:
+
+- **MAE 6.62 pts** (vs iter24 sim-cal-2 N=20 = 6.51 — essentially flat, +0.11)
+- **Wall-clock: 257s** for full N=20 matrix. Compared to ~10-15 min on sim-cal-2 (no perf optims) — **roughly 3-4x speedup** at N=20. Bigger expected gains at N=40+ where the per-battle caches amortise more.
+
+Per-faction shape redistributed even though cumulative held flat — Ed's caching has small behaviour deltas on some paths. Notable shifts (iter24 → sim-cal-3 baseline):
+- Marines, Necrons, Aeldari all moved closer to target (under-performers improved by 2-6pt)
+- DG, T'au, Votann, TSON all moved further from target (over-performers grew, TSON under-perf deepened)
+
+Iter 25 priorities locked in based on the new outlier shape:
+1. Votann +16.8 — V1 diag-and-fix
+2. TSON -12.9 — T1 Magnus retune or anchor backout
+3. DG +12.6 regress — D1 diagnostic (verify iter24 commits intact, scan Ed's commits for DG-touching paths)
+
+### Iter 25 (2026-05-19) — bundle-of-one fix-first protocol
+
+First iter run under the new `docs/AUTO_LOOP_PROCEDURE.md` rules (A-F). Three parallel agents, ≤30 tool uses each, ~400-token prompts.
+
+**T1 — TSON Magnus anchor backout** (commit `6af92d8`, agent: 48k tokens, 26 tool uses, 7min). Root cause: BSData mapper folds Magnus's two weapon profiles (Tempestus Sceptre ranged + Blade of Magnus melee) into one — his combat output is half-represented while he eats half the budget. Reverted iter24-T2 (template seed + SEED_FRACTION_BY_FACTION bump). T1 (drop grand_coven) + T3 (Magnus LeaderAbility placeholder) preserved. Eval: TSON -12.9 → +2.1; MAE 6.51 → 5.26.
+
+**V1 — Votann Eye of the Ancestors retired-rule removal** (commit `5ccc301`, agent: 64k tokens, 37 tool uses, 9min). Root cause: `code/units.py` was implementing the RETIRED launch-day Eye of the Ancestors re-roll buffs (re-roll hit 1s at 1 token, re-roll all hits + re-roll wound 1s at 3 tokens). Current 10e codex Prioritised Efficiency has no re-roll buffs — `code/simulator.py:5104-5107` literally documented this as known stale. Removed the buff branch; kept token bookkeeping infrastructure intact. Updated `tests/test_judgement_tokens.py` (two tests pinned to the retired rule). Eval: Votann +16.8 → +14.0; MAE 6.51 → 5.86.
+
+**D1 — Death Guard regression diagnostic** (no commit, agent: 44k tokens, 14 tool uses, 2min). Verified all iter24 D1-D4 fixes are intact. Verified Ed's Tier 1/2/3 caches don't touch FNP-relevant paths. Conclusion: latent AI blindness — `_durability()` in `code/strategy.py` ignores FNP entirely, so opponent AIs see DG only by (save, invuln, AP) and bounce off the FNP wall. iter24-D4 making more DG units carry FNP=5 exacerbated this. Iter 26 recipe: fold `fnp` into `_durability` and `_unsaved_fraction` (faction-neutral AI improvement helping every FNP-carrying army).
+
+**Cumulative iter 25 (T1 + V1, 2 commits)**: MAE **6.62 → 4.49** (Δ **-2.13**). Best result of the entire calibration loop. Six factions within ±2.6pt of target.
+
+**Per-faction shifts** (sim-cal-3 baseline → iter25):
+- Marines -1.9 → -1.3 ✅
+- Necrons -1.0 → -0.4 ✅ (at target)
+- Aeldari -1.1 → -1.6 (flat)
+- Tyranids +1.4 → +2.6 (slight)
+- Orks +7.3 → +5.7 ✅
+- T'au +9.9 → +8.3 ✅
+- DG +12.6 → +10.3 ✅ (cross-N variance settling)
+- Custodes -1.3 → +0.3 (at target)
+- **TSON -12.9 → +3.2** ✅ +16.1pt (T1 backout)
+- **Votann +16.8 → +11.2** ✅ -5.6pt (V1 retired-rule removal)
+
+**Iter 26 priorities**:
+1. **S1 (faction-neutral AI):** fold FNP into `_durability` and `_unsaved_fraction` in `code/strategy.py` (per D1 diag recipe). Helps DG, Necrons, Custodes, Tyranids, Nurgle daemons — every FNP-carrying army. Expected DG / Custodes / Necrons movement toward zero; T'au / Votann / Orks neutral (no FNP).
+2. **V2:** Votann second pass — V1 was partial (-2.8pt). Probable next lever: Sagitaur durability or Hearthkyn Warriors stats.
+3. **T1:** T'au +8.3 diag — Mont'ka, Markerlight, Crisis Suit pricing.
+
+Token-efficiency note: iter 25 total agent spend = 156k tokens / 77 tool uses across 3 agents. Compare to iter 24's 4-bundle agent: ~70k for ONE incomplete bundle + manual cleanup. The bundle-of-one + trimmed-prompt protocol is roughly 3x more efficient per fix shipped.
+
