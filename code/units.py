@@ -298,6 +298,34 @@ class UnitProfile:
     melee_strength: int = 4
     melee_ap: int = 0
     melee_weapon: str = ""
+    # ---- Phase 2 / iter33 — secondary RANGED weapon profile -----------------
+    # Datasheets like the Stormsurge (Pulse Driver Cannon 72" Heavy D6+3 shots
+    # of D3 dmg vs Pulse Blastcannon-focused 18" 2-shot D12) carry two distinct
+    # ranged profiles that real 10e play picks between based on range / target.
+    # The mapper records the runner-up profile here; Unit.attack's ranged
+    # branch picks whichever profile has higher expected damage against the
+    # current target at the current distance. `secondary_attacks == 0` means
+    # no secondary profile is available (most units). Cited as
+    # `simulator.multi_profile_weapon_selection`.
+    secondary_attacks: int = 0
+    secondary_weapon_damage_per_shot: float = 0.0
+    secondary_hit_probability: float = 0.0
+    secondary_ap: int = 0
+    secondary_strength: int = 4
+    secondary_range_inches: int = 0
+    secondary_weapon: str = ""
+    secondary_anti_keywords: Tuple[Tuple[str, int], ...] = ()
+    secondary_lethal_hits: bool = False
+    secondary_sustained_hits: int = 0
+    secondary_twin_linked: bool = False
+    secondary_devastating_wounds: bool = False
+    secondary_rapid_fire: int = 0
+    secondary_melta: int = 0
+    secondary_ignores_cover: bool = False
+    secondary_heavy: bool = False
+    secondary_assault: bool = False
+    secondary_torrent: bool = False
+    secondary_blast: bool = False
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
     # ---- Renderer-only: real-world GW model base footprint ---------------
     # Informational only — the simulator's collision / range logic still
@@ -674,6 +702,105 @@ class Unit:
             ap = p.melee_ap
             ignore_cover = True   # melee always ignores cover
         else:
+            # ---- Phase 2 / iter33 — multi-profile ranged weapon selection.
+            # If the datasheet's mapper recorded a secondary ranged profile
+            # (Stormsurge Pulse Driver vs Pulse Blastcannon, etc.), estimate
+            # expected NET damage under BOTH profiles against the current
+            # target and swap to the secondary's stat block when it wins.
+            # 10e core rules let a unit pick which weapon to shoot at each
+            # target separately, so per-call routing is rules-legal.
+            # Cited as `simulator.multi_profile_weapon_selection`.
+            if p.secondary_attacks > 0:
+                tgt_health = max(1.0, float(target.profile.health))
+                tgt_save = target.profile.save
+                tgt_t = target.profile.toughness
+                # Range gating — a long-range profile is unusable inside its
+                # half-range floor only if the primary out-ranges it (rare);
+                # an under-range secondary (e.g. Pulse Blastcannon 18") is
+                # not usable beyond its range. distance == 0 is permissive
+                # (callers that don't pass a distance get primary by default).
+                primary_in_range = (
+                    distance <= 0 or distance <= float(p.range_inches or 24)
+                )
+                secondary_in_range = (
+                    distance <= 0
+                    or distance <= float(p.secondary_range_inches or 0)
+                )
+                def _profile_expected_damage(
+                    n: int, dpa: float, hit_p: float, ap_: int,
+                    s: int, lh: bool, sh: int, tl: bool, dw: bool,
+                ) -> float:
+                    wp = wound_probability(s, tg=tgt_t) if False else wound_probability(s, tgt_t)
+                    unsaved = 1.0 - save_probability(tgt_save, ap_)
+                    # Bound per-shot damage by target wounds (excess-damage-lost
+                    # is correctly modelled simulator-side; this estimator just
+                    # needs to compare the two profiles consistently).
+                    eff_dpa = min(float(dpa or 1.0), tgt_health)
+                    ed = float(n) * hit_p * wp * unsaved * eff_dpa
+                    if lh:
+                        ed *= 1.15
+                    if sh:
+                        ed *= (1.0 + 0.17 * sh)
+                    if tl:
+                        ed *= 1.30
+                    if dw:
+                        ed *= 1.10
+                    return ed
+                pri_ed = (
+                    _profile_expected_damage(
+                        max(1, int(p.attacks)),
+                        p.per_shot_damage,
+                        p.hit_probability,
+                        p.ap,
+                        p.strength,
+                        p.lethal_hits,
+                        p.sustained_hits,
+                        p.twin_linked,
+                        p.devastating_wounds,
+                    )
+                    if primary_in_range else 0.0
+                )
+                sec_dpa = p.secondary_weapon_damage_per_shot or 1.0
+                sec_ed = (
+                    _profile_expected_damage(
+                        max(1, int(p.secondary_attacks)),
+                        sec_dpa,
+                        p.secondary_hit_probability,
+                        p.secondary_ap,
+                        p.secondary_strength,
+                        p.secondary_lethal_hits,
+                        p.secondary_sustained_hits,
+                        p.secondary_twin_linked,
+                        p.secondary_devastating_wounds,
+                    )
+                    if secondary_in_range else 0.0
+                )
+                if sec_ed > pri_ed:
+                    # Swap to the secondary stat block for the rest of this
+                    # resolution. dataclasses.replace clones the profile so
+                    # self.profile remains untouched (immutable contract).
+                    from dataclasses import replace
+                    p = replace(
+                        p,
+                        attacks=max(1, int(p.secondary_attacks)),
+                        weapon_damage_per_shot=p.secondary_weapon_damage_per_shot,
+                        hit_probability=p.secondary_hit_probability,
+                        ap=p.secondary_ap,
+                        strength=p.secondary_strength,
+                        range_inches=p.secondary_range_inches or p.range_inches,
+                        lethal_hits=p.secondary_lethal_hits,
+                        sustained_hits=p.secondary_sustained_hits,
+                        twin_linked=p.secondary_twin_linked,
+                        devastating_wounds=p.secondary_devastating_wounds,
+                        rapid_fire=p.secondary_rapid_fire,
+                        melta=p.secondary_melta,
+                        ignores_cover=p.secondary_ignores_cover,
+                        heavy=p.secondary_heavy,
+                        assault=p.secondary_assault,
+                        torrent=p.secondary_torrent,
+                        blast=p.secondary_blast,
+                        anti_keywords=tuple(p.secondary_anti_keywords or ()),
+                    )
             per_shot_dmg = p.per_shot_damage
             n_attacks = max(1, int(p.attacks))
             hit_target = None     # set below
@@ -1525,6 +1652,27 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             melee_ap=entry.melee_ap,
             melee_weapon=entry.melee_weapon,
             range_inches=entry.range_inches,
+            secondary_attacks=entry.secondary_attacks,
+            secondary_weapon_damage_per_shot=entry.secondary_weapon_damage_per_shot,
+            secondary_hit_probability=entry.secondary_hit_probability,
+            secondary_ap=entry.secondary_ap,
+            secondary_strength=entry.secondary_strength,
+            secondary_range_inches=entry.secondary_range_inches,
+            secondary_weapon=entry.secondary_weapon,
+            secondary_anti_keywords=tuple(
+                (k, v) for k, v in (entry.secondary_anti_keywords or {}).items()
+            ),
+            secondary_lethal_hits=entry.secondary_lethal_hits,
+            secondary_sustained_hits=entry.secondary_sustained_hits,
+            secondary_twin_linked=entry.secondary_twin_linked,
+            secondary_devastating_wounds=entry.secondary_devastating_wounds,
+            secondary_rapid_fire=entry.secondary_rapid_fire,
+            secondary_melta=entry.secondary_melta,
+            secondary_ignores_cover=entry.secondary_ignores_cover,
+            secondary_heavy=entry.secondary_heavy,
+            secondary_assault=entry.secondary_assault,
+            secondary_torrent=entry.secondary_torrent,
+            secondary_blast=entry.secondary_blast,
             points_override=entry.points_override,
             base_shape=entry.base_shape,
             base_diameter_mm=entry.base_diameter_mm,

@@ -40,6 +40,14 @@
     "effect": "AI threat heuristic multiplies effective durability by 1 / (1 - (7-fnp)/6); fnp=7 (no FNP) is the no-op. Does NOT change combat math (Unit.attack still rolls actual FNP per receive_damage); only fixes opponent target selection.",
     "scope": "phase-gated"
   },
+  "simulator.multi_profile_weapon_selection": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
+    "rule_name": "The Shooting Phase / Select Targets",
+    "quoted_text": "Each time a unit shoots, after selecting targets, the player commanding that unit allocates each weapon in that unit at one of those target units. If a model has more than one ranged weapon, it can split its attacks between different targets, but if it does, all of the attacks from each weapon must be made against the same target.",
+    "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present",
+    "effect": "Unit.attack ranged branch computes expected net damage under BOTH primary and secondary profiles against the current target at the current distance (accounting for range gating and target wounds bounding excess-damage waste) and swaps to the secondary stat block via dataclasses.replace when its expected damage is higher; primary remains the default when no secondary is recorded or when primary's expected damage wins",
+    "scope": "weapon-keyword"
+  },
   "simulator.squad_size_durability_factor": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "rule_name": "Allocate Attack (Make Attacks step)",

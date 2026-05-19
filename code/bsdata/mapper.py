@@ -1404,6 +1404,39 @@ class MappedUnit:
     melee_ap: int = 0
     melee_weapon: str = ""
     range_inches: int = 24       # primary-weapon range; melee-only => 1
+    # ----- Phase 2 / iter33 — secondary RANGED weapon profile -----
+    # Some datasheets carry two distinct ranged weapons whose stat lines and
+    # ranges differ enough that real 10e play picks one over the other based
+    # on target / range (Stormsurge Pulse Driver 72" vs Pulse Blastcannon
+    # 24", Magnus Tempestus Sceptre vs Tzeentch's Firestorm, etc.). The
+    # mapper picks the second-best ranged profile (by
+    # expected-damage-through-baseline) and exposes it via these fields so
+    # Unit.attack can compute expected damage under both and route per shot.
+    # 0 in `secondary_attacks` means "no secondary profile available".
+    # Cited as `simulator.multi_profile_weapon_selection`.
+    secondary_attacks: int = 0
+    secondary_weapon_damage_per_shot: float = 0.0
+    secondary_hit_probability: float = 0.0
+    secondary_ap: int = 0
+    secondary_strength: int = 4
+    secondary_range_inches: int = 0
+    secondary_weapon: str = ""
+    secondary_anti_keywords: dict = field(default_factory=dict)
+    # Carry the most-impactful keywords for the secondary profile too, so the
+    # picker's expected-damage estimate reflects them (Heavy, Rapid Fire,
+    # Melta, Lethal/Sustained/Devastating, etc.). Booleans default False, ints
+    # default 0 (same convention as primary).
+    secondary_lethal_hits: bool = False
+    secondary_sustained_hits: int = 0
+    secondary_twin_linked: bool = False
+    secondary_devastating_wounds: bool = False
+    secondary_rapid_fire: int = 0
+    secondary_melta: int = 0
+    secondary_ignores_cover: bool = False
+    secondary_heavy: bool = False
+    secondary_assault: bool = False
+    secondary_torrent: bool = False
+    secondary_blast: bool = False
     # Renderer-only base footprint. BSData doesn't encode base sizes, so we
     # derive a sensible default from the unit's keywords at map time; the
     # hand-curated override path in data/overrides.json wins for precision
@@ -1540,6 +1573,26 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         best = max(gear.ranged_weapons, key=lambda w: w.expected_damage_through_baseline())
     else:
         best = None
+    # ---- Phase 2 / iter33: pick a SECONDARY ranged weapon, distinct from
+    # `best`, for the multi-profile picker in Unit.attack. We only do this on
+    # the legacy single-best path — the heterogeneous squad path already
+    # collapses every model's weapon into one synthetic average. Heuristic:
+    # take the next-best ranged WeaponStats by expected-damage, excluding
+    # anything that shares both name AND range with `best` (so we don't pick
+    # the same profile twice). The "best" profile picked above is already
+    # one weapon; the secondary is the runner-up of a different name.
+    second_best: Optional[WeaponStats] = None
+    if not used_heterogeneous and gear.ranged_weapons and best is not None:
+        candidates = [
+            w for w in gear.ranged_weapons
+            if w is not best
+            and not (w.name == best.name and (w.range or "") == (best.range or ""))
+        ]
+        if candidates:
+            second_best = max(
+                candidates,
+                key=lambda w: w.expected_damage_through_baseline(),
+            )
     if used_heterogeneous and loadout_basket_melee:
         best_melee = weighted_basket_average(loadout_basket_melee)
     elif gear.melee_weapons:
@@ -1650,6 +1703,47 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         melee_ap=best_melee.ap if best_melee else 0,
         melee_weapon=best_melee.name if best_melee else "",
         range_inches=primary_range,
+        # ---- Phase 2 / iter33 — secondary ranged profile (Stormsurge Pulse
+        # Driver vs Pulse Blastcannon, etc.). `secondary_attacks > 0` is the
+        # sentinel the simulator / picker checks. Unpacked from `second_best`
+        # only if the legacy single-best ranged path saw a distinct runner-up.
+        secondary_attacks=(
+            max(1, int(round(second_best.attacks))) if second_best else 0
+        ),
+        secondary_weapon_damage_per_shot=(
+            round(second_best.damage, 2) if second_best else 0.0
+        ),
+        secondary_hit_probability=(
+            round(second_best.hit_prob, 3) if second_best else 0.0
+        ),
+        secondary_ap=second_best.ap if second_best else 0,
+        secondary_strength=second_best.strength if second_best else 4,
+        secondary_range_inches=(
+            int(re.search(r"(\d+)", second_best.range or "").group(1))
+            if second_best and re.search(r"(\d+)", second_best.range or "")
+            else 0
+        ),
+        secondary_weapon=second_best.name if second_best else "",
+        secondary_anti_keywords=(
+            dict(second_best.anti_keywords) if second_best else {}
+        ),
+        secondary_lethal_hits=second_best.lethal_hits if second_best else False,
+        secondary_sustained_hits=(
+            second_best.sustained_hits if second_best else 0
+        ),
+        secondary_twin_linked=second_best.twin_linked if second_best else False,
+        secondary_devastating_wounds=(
+            second_best.devastating_wounds if second_best else False
+        ),
+        secondary_rapid_fire=second_best.rapid_fire if second_best else 0,
+        secondary_melta=second_best.melta if second_best else 0,
+        secondary_ignores_cover=(
+            second_best.ignores_cover if second_best else False
+        ),
+        secondary_heavy=second_best.heavy if second_best else False,
+        secondary_assault=second_best.assault if second_best else False,
+        secondary_torrent=second_best.torrent if second_best else False,
+        secondary_blast=second_best.blast if second_best else False,
         base_shape=base_shape,
         base_diameter_mm=base_diameter,
         base_width_mm=base_width,
