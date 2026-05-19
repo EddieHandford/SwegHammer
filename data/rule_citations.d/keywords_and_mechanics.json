@@ -299,6 +299,15 @@
     "scope": "phase-gated"
   },
 
+  "simulator.markerlight_emission": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights",
+    "rule_name": "Markerlight weapon ability (per-shot emission gates)",
+    "quoted_text": "MARKERLIGHT: Each time a unit from your army shoots, after that unit has resolved its attacks, you can select one enemy unit that was targeted by one or more attacks made with a weapon equipped with this ability this phase and that had one or more of those attacks score a hit. That enemy unit is a Marked unit until the end of the turn. Markerlight has a 36\" range and uses the firing model's Ballistic Skill characteristic; targets must be within range and visible (line of sight) and the standard target-eligibility restrictions apply.",
+    "trigger": "_run_markerlight_phase is iterating MARKERLIGHT-keyword carriers in a T'au army; per carrier, a candidate enemy must (a) lie within 36\" of the carrier, (b) be visible via Map.has_line_of_sight, and (c) pass can_target_for_ranged (Look Out Sir / Lone Operative); then a d6 Hit roll is rolled against the carrier's Ballistic Skill (`_prob_to_target(hit_probability)`)",
+    "effect": "if the candidate is in range AND in line of sight AND a legal target AND the Hit roll succeeds, the target's uid is added to `army.guided_enemy_uids` for the round. On any gate failing or the Hit roll missing, no token is granted by that carrier. This corrects the pre-iter27 behaviour where every MARKERLIGHT-keyword unit auto-Guided a target with no Hit roll / no LoS / no range cap — the previous code was a placeholder pending this iter's rule-faithfulness correction.",
+    "scope": "weapon-keyword"
+  },
+
   "simulator.stratagem_per_command_phase_cap": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Command-Points",
     "rule_name": "Command Point economy (per-Command-phase stratagem cap, AI heuristic)",

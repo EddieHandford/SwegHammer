@@ -4941,25 +4941,43 @@ class Battle:
         """T'au Empire Markerlights → Guided (10e army-wide army rule).
 
         At the start of this army's Shooting phase, every alive MARKERLIGHT-
-        keyword unit in `army` "spots" one enemy unit (the highest-threat
-        enemy by points cost) in line-of-sight within 36" and adds its uid
-        to `army.guided_enemy_uids`. Friendly T'au attackers firing at a
-        target in the set gain [LETHAL HITS] in `Unit.attack`, gated on the
-        detachment's `lethal_hits_on_guided` flag (Mont'ka sets True).
+        keyword unit in `army` attempts to mark one enemy unit. The marker
+        is a weapon that fires in the Shooting phase like any other ranged
+        weapon (Wahapedia: Markerlight weapon ability under the T'au army
+        rule, see citation `simulator.markerlight_emission`): it requires
+        line of sight from the carrier to the candidate, the candidate
+        must lie within the Markerlight's 36" range, and the carrier must
+        pass a Hit roll against its own Ballistic Skill. On a successful
+        hit, the target's uid is added to `army.guided_enemy_uids`.
+        Friendly T'au attackers firing at a target in the set gain
+        [LETHAL HITS] in `Unit.attack`, gated on the detachment's
+        `lethal_hits_on_guided` flag (Mont'ka sets True).
+
+        Before iter27-M1 the emission was a free auto-Guided pipeline —
+        no Hit roll, no line-of-sight check, no range gate — which
+        inflated Guided uptime far above real play. Adding the three
+        gates brings the simulator into line with how a Markerlight
+        actually resolves on table.
 
         SwegHammer simplifications vs the codex Markerlight token-stacking:
             * The codex requires a unit to accrue >= some token count to
               become a Guided unit (specifics vary by edition). SwegHammer
-              collapses to "any one MARKERLIGHT carrier marks => Guided",
+              collapses to "any one successful Markerlight hit => Guided",
               which is a strict upper bound but matches the practical play
               pattern where Pathfinders + Stealth Suits saturate marks
               comfortably in a real game.
             * Range check is straight Euclidean distance from the
-              MARKERLIGHT unit's position to the candidate enemy. LoS is
-              approximated as "alive enemy in 36" radius" — the board is
-              small (60" x 44") so the radius reaches across most of it.
-            * One mark per MARKERLIGHT unit; selects the highest-points
-              live enemy in range as the threat priority.
+              MARKERLIGHT unit's position to the candidate enemy.
+            * Line of sight uses the same `Map.has_line_of_sight` helper
+              the main Shooting phase uses, plus the `can_target_for_ranged`
+              gate so Look Out Sir / Lone Operative apply to Markerlights
+              just like to any other ranged weapon.
+            * Hit roll uses the carrier's `hit_probability` (its Ballistic
+              Skill, converted via `_prob_to_target`). No modifiers are
+              applied — Markerlight is the simplest possible ranged shot.
+            * One attempt per MARKERLIGHT unit; selects the highest-points
+              live enemy in range+LoS as the threat priority before
+              rolling the hit.
 
         No-op (and no marks) when:
             * `army` has no alive MARKERLIGHT-keyword unit.
@@ -4970,7 +4988,9 @@ class Battle:
             * Detachment doesn't carry `lethal_hits_on_guided=True` (would
               never be read by `Unit.attack` even if marks were set).
 
-        Cited as `simulator.markerlights`.
+        Cited as `simulator.markerlights` (token effect) and
+        `simulator.markerlight_emission` (per-carrier hit roll + LoS +
+        range gate added in iter27-M1).
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
         """
         if (army.units and
@@ -4989,23 +5009,44 @@ class Battle:
         ]
         if not markerlight_units:
             return
+        from .army import can_target_for_ranged
+        from .units import _prob_to_target
+        # 10e core rulebook: Markerlight is a weapon ability with the
+        # standard ranged-weapon profile. The basic Markerlight is 36"
+        # range across every datasheet in the T'au index. We hold this
+        # constant here rather than reading per-weapon range off the
+        # profile because SwegHammer's UnitProfile carries one
+        # `range_inches` for the unit's primary weapon (Pulse Carbine on
+        # Pathfinders, Burst Cannon on Stealth Suits), not for the
+        # Markerlight specifically — the Markerlight is a secondary
+        # weapon riding on the carrier's BS.
+        markerlight_range = 36.0
         marked: set = set()
         for mk in markerlight_units:
-            in_range = [
+            # Range + LoS + Look-Out-Sir / Lone-Op gate the candidate pool
+            # before the to-hit roll. Skip unmarked-only targets so each
+            # carrier marks a distinct unit when multiple are available.
+            candidates = [
                 e for e in alive_enemies
-                if _distance(mk.position, e.position) <= 36.0
-                and e.uid not in marked
+                if e.uid not in marked
+                and _distance(mk.position, e.position) <= markerlight_range
+                and self.map.has_line_of_sight(
+                    mk.position, e.position,
+                    attacker_keywords=mk.profile.unit_keywords or (),
+                    target_keywords=e.profile.unit_keywords or (),
+                )
+                and can_target_for_ranged(mk, e, alive_enemies)
             ]
-            if not in_range:
-                # Fall back to any unmarked enemy if range filter empties —
-                # the small SwegHammer board makes "every enemy is in 36 inch"
-                # the common case, but if the marker is cornered we still
-                # want it to pick the closest unmarked threat.
-                in_range = [e for e in alive_enemies if e.uid not in marked]
-            if not in_range:
-                break
-            target = max(in_range, key=lambda u: u.profile.points_cost)
-            marked.add(target.uid)
+            if not candidates:
+                continue
+            target = max(candidates, key=lambda u: u.profile.points_cost)
+            # Hit roll using the carrier's BS. No modifiers — Markerlight
+            # is resolved as a plain ranged shot. A roll >= the target's
+            # `N+` succeeds; on failure no token is granted.
+            hit_target = _prob_to_target(mk.profile.hit_probability)
+            roll = random.randint(1, 6)
+            if roll >= hit_target:
+                marked.add(target.uid)
         army.guided_enemy_uids = marked
 
     def _pick_oath_target(

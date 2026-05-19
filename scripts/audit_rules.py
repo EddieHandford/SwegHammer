@@ -292,6 +292,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # targets. Plumbed via Army.guided_enemy_uids, Battle._run_markerlight_phase,
     # and the effective_lethal_hits gate in Unit.attack.
     "simulator.markerlights",
+    # T'au Empire Markerlight weapon-ability emission gates (iter27-M1).
+    # Per-carrier Hit roll against the firing model's BS, plus line-of-sight
+    # and 36" range gates and the can_target_for_ranged (Look Out Sir /
+    # Lone Operative) check. Replaces the pre-iter27 auto-Guided pipeline
+    # which gave every MARKERLIGHT-keyword unit a free mark with no roll.
+    "simulator.markerlight_emission",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per

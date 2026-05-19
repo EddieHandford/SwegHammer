@@ -121,9 +121,47 @@ class MarkerlightPhaseTests(unittest.TestCase):
         battle, a, b = _build_battle_with_markerlight()
         # Before the phase runs, set is empty.
         self.assertEqual(a.guided_enemy_uids, set())
-        battle._run_markerlight_phase(a, b)
+        # iter27-M1: Markerlight emission now requires a successful Hit
+        # roll against the carrier's Ballistic Skill. Force the dice to
+        # a 6 so the BS4+ Pathfinder always lands the marker — isolates
+        # the LoS / range / token bookkeeping from the to-hit randomness.
+        rolls = iter([6] * 20)
+        original_randint = random.randint
+        def patched(a_, b_):
+            try:
+                return next(rolls)
+            except StopIteration:
+                return original_randint(a_, b_)
+        random.randint = patched
+        try:
+            battle._run_markerlight_phase(a, b)
+        finally:
+            random.randint = original_randint
         # After running, the enemy unit's uid is in the set.
         self.assertIn(b.units[0].uid, a.guided_enemy_uids)
+
+    def test_markerlight_hit_roll_failure_grants_no_token(self):
+        """iter27-M1 gate: a missed Hit roll produces no Guided token.
+
+        Carrier is Pathfinder BS4+ (hit_probability=0.5 => target 4+).
+        Forcing the d6 to a 1 makes every Markerlight emission miss, so
+        the resulting `guided_enemy_uids` must remain empty even when
+        range + LoS would otherwise have permitted the mark.
+        """
+        battle, a, b = _build_battle_with_markerlight()
+        rolls = iter([1] * 20)
+        original_randint = random.randint
+        def patched(a_, b_):
+            try:
+                return next(rolls)
+            except StopIteration:
+                return original_randint(a_, b_)
+        random.randint = patched
+        try:
+            battle._run_markerlight_phase(a, b)
+        finally:
+            random.randint = original_randint
+        self.assertEqual(a.guided_enemy_uids, set())
 
     def test_no_markerlight_unit_means_no_marks(self):
         a = Army("T'au")
