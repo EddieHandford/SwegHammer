@@ -3600,7 +3600,7 @@ class Battle:
                     continue
                 u.position = pos
                 u.cult_ambush_pending = False
-                army.units.append(u)
+                army._add_live_unit(u)
                 self._fresh_arrivals.add(u.uid)
                 self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
                 if use_anchor is not None:
@@ -3631,40 +3631,17 @@ class Battle:
 
         Falls back to the legacy centre-then-corners pick if no candidates
         are valid (e.g. a tiny board mid-late game).
+
+        Implementation note: scoring is vectorised with numpy. All ~280
+        candidate positions on the 3" grid are evaluated in a single batch
+        of array operations rather than per-candidate Python loops, which
+        eliminated ~1M Python calls per deepstrike-heavy matchup.
         """
+        import numpy as np
         from .roles import classify  # local import to avoid circular at module load
 
         enemies = opponent.alive_units
         min_gap = 9.0
-
-        def _valid(p: Tuple[float, float]) -> bool:
-            if p[0] < 1.0 or p[0] > self.map.width - 1.0:
-                return False
-            if p[1] < 1.0 or p[1] > self.map.height - 1.0:
-                return False
-            if self.map.is_blocked(p):
-                return False
-            for e in enemies:
-                if _distance(p, e.position) <= min_gap:
-                    return False
-            return True
-
-        # Threat weight per enemy: SHOOTY/HEAVY are the prime ambush targets
-        # (sniping our backline / kiting), MELEE less so (already coming to
-        # us), SUPPORT a useful kill but lower priority.
-        def _threat_weight(enemy: Unit) -> float:
-            role = classify(enemy.profile)
-            base = {
-                "HEAVY":   3.0,
-                "SHOOTY":  2.5,
-                "DUAL":    1.5,
-                "MELEE":   1.0,
-                "SUPPORT": 1.2,
-                "HORDE":   0.8,
-            }.get(role, 1.0)
-            # Wounded enemies are more attractive — easier finishers.
-            hp_frac = max(0.1, enemy.current_health / max(1.0, enemy.profile.health))
-            return base * (1.5 - 0.5 * hp_frac)   # full HP -> 1.0×, near-dead -> 1.45×
 
         # Arriving unit preference: melee chases enemies, shooty claims objs.
         if arriving_unit is not None:
@@ -3678,10 +3655,7 @@ class Battle:
         threat_w = 2.0 if is_melee_leaning else 1.0
         objective_w = 0.7 if is_melee_leaning else 1.6
 
-        # T4+ override: late-game DS prioritises objective steals over kills
-        # (the unit's job is end-game VP, not damage). Multiply objective
-        # weight up sharply and dampen threat weight so the score function
-        # picks objective-adjacent landings even when an enemy is nearby.
+        # T4+ override: late-game DS prioritises objective steals over kills.
         if round_num >= 4:
             objective_w *= 3.0
             threat_w *= 0.5
@@ -3697,68 +3671,114 @@ class Battle:
             if not controlled_by_us:
                 targetable_objs.append(obj)
 
-        def _score(p: Tuple[float, float]) -> float:
-            s = 0.0
-            for e in enemies:
-                d = _distance(p, e.position)
-                # Add 5" softener so the score doesn't blow up at the 9" boundary.
-                s += _threat_weight(e) * threat_w / (d - 4.0)
-            for obj in targetable_objs:
-                d = _distance(p, (obj.x, obj.y))
-                s += objective_w / (d + 4.0)
-                # T4+ extra bonus: massive reward for landing within the
-                # 3" control radius of a contested objective.
-                if round_num >= 4 and d <= obj.control_radius:
-                    s += 12.0
-            # Mass-drop clustering: pull candidate near the squad anchor and
-            # near any already-placed siblings from this round's drop.
-            if anchor is not None:
-                d_anchor = _distance(p, anchor)
-                s += 4.0 / (d_anchor + 4.0)
-                # Hard cap: candidates more than 12" from the anchor are
-                # de-ranked so the squad lands as a coherent body.
-                if d_anchor > 12.0:
-                    s -= 5.0
-            if placed_positions:
-                for sib in placed_positions:
-                    d_sib = _distance(p, sib)
-                    s += 2.0 / (d_sib + 4.0)
-            return s
+        # --- Vectorised candidate generation and scoring -------------------
 
-        # Dense candidate grid (~3" spacing). Cheap; runs at most ~5 times
-        # per battle when reserves arrive.
-        best: Optional[Tuple[float, float]] = None
-        best_score = -1e9
+        # Build candidate grid. Boundary constraints (>=2, <=width-2) are
+        # baked into the arange so no per-point boundary check is needed.
         step = 3.0
-        x = 2.0
-        while x < self.map.width - 1.0:
-            y = 2.0
-            while y < self.map.height - 1.0:
-                p = (x, y)
-                if _valid(p):
-                    sc = _score(p)
-                    if sc > best_score:
-                        best_score = sc
-                        best = p
-                y += step
-            x += step
+        xs = np.arange(2.0, self.map.width - 1.0, step)
+        ys = np.arange(2.0, self.map.height - 1.0, step)
+        xx, yy = np.meshgrid(xs, ys)
+        cands = np.column_stack([xx.ravel(), yy.ravel()])  # (C, 2)
 
-        if best is not None:
-            return best
+        # Validity filter 1: impassable terrain (vectorised rectangle test).
+        imp_rects = [
+            (t.x, t.y, t.x + t.width, t.y + t.height)
+            for t in self.map.terrain
+            if t.type is TerrainType.IMPASSABLE
+        ]
+        if imp_rects:
+            imp = np.array(imp_rects, dtype=float)  # (I, 4): x1 y1 x2 y2
+            # Candidate (cx, cy) is inside rectangle i iff
+            # x1[i] <= cx <= x2[i] and y1[i] <= cy <= y2[i].
+            inside = (
+                (cands[:, 0:1] >= imp[:, 0])
+                & (cands[:, 0:1] <= imp[:, 2])
+                & (cands[:, 1:2] >= imp[:, 1])
+                & (cands[:, 1:2] <= imp[:, 3])
+            ).any(axis=1)  # (C,)
+            valid_mask = ~inside
+        else:
+            valid_mask = np.ones(len(cands), dtype=bool)
 
-        # Fall back to the legacy "any legal spot" pick when no candidates
-        # found (very small board or saturated with enemies).
-        cx, cy = self.map.width / 2.0, self.map.height / 2.0
-        for cand in (
-            (cx, cy),
-            (3.0, 3.0),
-            (self.map.width - 3.0, 3.0),
-            (3.0, self.map.height - 3.0),
-            (self.map.width - 3.0, self.map.height - 3.0),
-        ):
-            if _valid(cand):
-                return cand
-        return None
+        # Validity filter 2: minimum 9" gap from every enemy.
+        if enemies:
+            enemy_pos = np.array([e.position for e in enemies], dtype=float)  # (E, 2)
+            diff = cands[:, None, :] - enemy_pos[None, :, :]               # (C, E, 2)
+            dists_to_enemy = np.hypot(diff[:, :, 0], diff[:, :, 1])        # (C, E)
+            valid_mask &= dists_to_enemy.min(axis=1) > min_gap
+        else:
+            enemy_pos = np.empty((0, 2), dtype=float)
+            dists_to_enemy = np.empty((len(cands), 0), dtype=float)
+
+        if not valid_mask.any():
+            # Fall back to the legacy centre-then-corners pick.
+            cx, cy = self.map.width / 2.0, self.map.height / 2.0
+            for cand in (
+                (cx, cy),
+                (3.0, 3.0),
+                (self.map.width - 3.0, 3.0),
+                (3.0, self.map.height - 3.0),
+                (self.map.width - 3.0, self.map.height - 3.0),
+            ):
+                if self.map.is_blocked(cand):
+                    continue
+                if not enemies or min(_distance(cand, e.position) for e in enemies) > min_gap:
+                    return cand
+            return None
+
+        valid_cands = cands[valid_mask]                     # (V, 2)
+        scores = np.zeros(len(valid_cands), dtype=float)
+
+        # Enemy score: sum_e [ threat_weight(e) * threat_w / (d_ce - 4) ]
+        # All valid candidates are >9" from every enemy so (d - 4) >= 5: safe.
+        if enemies:
+            _role_base = {"HEAVY": 3.0, "SHOOTY": 2.5, "DUAL": 1.5,
+                          "MELEE": 1.0, "SUPPORT": 1.2, "HORDE": 0.8}
+            tw_vals = np.array([
+                _role_base.get(classify(e.profile), 1.0)
+                * (1.5 - 0.5 * max(0.1, e.current_health / max(1.0, e.profile.health)))
+                * threat_w
+                for e in enemies
+            ], dtype=float)                                 # (E,)
+            vd = dists_to_enemy[valid_mask]                 # (V, E)
+            scores += (tw_vals / (vd - 4.0)).sum(axis=1)
+
+        # Objective score: sum_o [ objective_w / (d_co + 4) ]
+        # T4+ bonus: +12 for each candidate within any objective's control radius.
+        if targetable_objs:
+            obj_pos = np.array([(o.x, o.y) for o in targetable_objs], dtype=float)  # (O, 2)
+            od = np.hypot(
+                valid_cands[:, 0:1] - obj_pos[:, 0],
+                valid_cands[:, 1:2] - obj_pos[:, 1],
+            )                                               # (V, O)
+            scores += (objective_w / (od + 4.0)).sum(axis=1)
+            if round_num >= 4:
+                for j, obj in enumerate(targetable_objs):
+                    scores += 12.0 * (od[:, j] <= obj.control_radius)
+
+        # Anchor score: 4 / (d_anchor + 4); -5 penalty if >12" away.
+        if anchor is not None:
+            anchor_arr = np.array(anchor, dtype=float)
+            d_anchor = np.hypot(
+                valid_cands[:, 0] - anchor_arr[0],
+                valid_cands[:, 1] - anchor_arr[1],
+            )
+            scores += 4.0 / (d_anchor + 4.0)
+            scores -= 5.0 * (d_anchor > 12.0)
+
+        # Sibling-clustering score: sum_s [ 2 / (d_sib + 4) ]
+        if placed_positions:
+            sib_arr = np.array(placed_positions, dtype=float)  # (S, 2)
+            sd = np.hypot(
+                valid_cands[:, 0:1] - sib_arr[:, 0],
+                valid_cands[:, 1:2] - sib_arr[:, 1],
+            )                                               # (V, S)
+            scores += (2.0 / (sd + 4.0)).sum(axis=1)
+
+        best_idx = int(np.argmax(scores))
+        bx, by = valid_cands[best_idx]
+        return (float(bx), float(by))
 
     # ------------------------------------------------------------------
     # Round logic

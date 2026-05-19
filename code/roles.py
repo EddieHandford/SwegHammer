@@ -19,13 +19,20 @@ Used by:
 
 from __future__ import annotations
 
+import functools
 from typing import Dict, Tuple
 
 from .units import UnitProfile, wound_probability
 
 
+@functools.lru_cache(maxsize=4096)
 def expected_ranged_dpa(p: UnitProfile, target_t: int = 4, target_sv: int = 3) -> float:
-    """Expected ranged damage per activation against a generic Marine-ish target."""
+    """Expected ranged damage per activation against a generic Marine-ish target.
+
+    Cached because `UnitProfile` is a frozen dataclass — the result is a pure
+    function of (profile, target toughness, target save) and is hit on the
+    deepstrike-targeting hot path 1M+ times per benchmark run.
+    """
     if p.attacks <= 0:
         return 0.0
     wound_p = wound_probability(p.strength, target_t)
@@ -34,8 +41,10 @@ def expected_ranged_dpa(p: UnitProfile, target_t: int = 4, target_sv: int = 3) -
     return p.attacks * p.hit_probability * wound_p * unsaved * p.per_shot_damage
 
 
+@functools.lru_cache(maxsize=4096)
 def expected_melee_dpa(p: UnitProfile, target_t: int = 4, target_sv: int = 3) -> float:
-    """Expected melee damage per activation."""
+    """Expected melee damage per activation. See `expected_ranged_dpa` for the
+    caching rationale."""
     if p.melee_attacks <= 0 or p.melee_hit_probability <= 0:
         return 0.0
     wound_p = wound_probability(p.melee_strength, target_t)
@@ -44,6 +53,7 @@ def expected_melee_dpa(p: UnitProfile, target_t: int = 4, target_sv: int = 3) ->
     return p.melee_attacks * p.melee_hit_probability * wound_p * unsaved * (p.melee_damage_per_shot or 1.0)
 
 
+@functools.lru_cache(maxsize=4096)
 def classify(p: UnitProfile) -> str:
     """Return the role label for this UnitProfile."""
     r = expected_ranged_dpa(p)
