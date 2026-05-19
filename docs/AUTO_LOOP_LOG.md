@@ -233,3 +233,36 @@ Three agents on the locked-in priorities. One shipped, two parked with strong di
 2. **Damage spillover modelling** — M2 finding. Fundamental Stage 1 issue: high-damage weapons waste output on low-wound targets, low-damage multi-shot is systematically over-efficient. Affects DG / T'au / Votann pricing simultaneously.
 3. **`melee_sustained_hits` mapper field** — O1 finding. Mapper schema change + unit.attack re-routing. Enables iter28 Orks-side correction without breaking other factions.
 
+### Iter 28 (2026-05-19) — MS1 ships, DS1 disproves M2, D2 reveals N=20 noise
+
+Three agents on the locked-in priorities. One shipped, one structural-finding-no-fix, one diag.
+
+**MS1 — `melee_sustained_hits` mapper field** (commit `57d55a6` → `9ed2658`, agent: 108k tokens, 105 tool uses, 40min). Added field to `MappedUnit` / `CatalogEntry` / `UnitProfile`. Mapper populates from `best_melee.sustained_hits`; `Unit.attack` reads by mode (`p.melee_sustained_hits if mode == "melee" else p.sustained_hits`). Symmetric fix to `code/equilibrium.py:249`. 7 Ork units corrected (Choppa profile → melee SH = 0); 54 units retain legitimate melee SH (Striking Scorpions, Eversor, Repentia, Lelith, etc.). Rule-correct + faction-neutral. Agent's N=20 eval showed +1.29 regression — but cumulative N=40 (below) shows the apparent regression was sample noise; MS1 is essentially flat at honest measurement.
+
+**DS1 — damage spillover hypothesis** (no commit, agent: 64k tokens, 30 tool uses, 4min). Verified `code/units.py:625` uses `max(0.0, current_health - amount)` — excess damage IS dropped per 10e core rules. Each model is a separate `Unit` instance — no sibling spillover. M2's hypothesis was WRONG. But the agent surfaced the opposite bias: per-activation targeting fires all N shots at ONE model, and once the model dies remaining shots waste silently. **Low-D multi-shot weapons are UNDER-modelled**, not over-modelled. Damage-reallocation across sibling Units when the current target dies is a ~40-line refactor; iter 29+ recipe.
+
+**D2 — Death Guard +11.4 deep-dive** (no commit, agent: 115k tokens, 94 tool uses, 13min). N=40 baseline DG = +14.5 (worse than N=20's +11.4). Confirms DG is genuinely structural. Audited every DG unit profile; every gap points the WRONG way (Plagueburst Crawler, Bloat-Drone, Mortarion all UNDER-modelled vs Wahapedia). Real bug surfaced: **duplicate keys in `data/overrides.json`** for `death_guard_blightlord_terminators` and `death_guard_typhus` — iter22 invuln overrides silently clobbered iter24-D4's `fnp:5` per JSON last-key-wins. CLAUDE.md §13 silent-default violation.
+
+**DDK — duplicate-key §13 fix** (commit `86ef91c`). Merged the two pairs of duplicate entries into single units carrying both `fnp:5` AND `invuln_save:4` with combined Wahapedia citation. Restored the iter24-D4 FNP=5 that the dedup bug had silently dropped.
+
+**Cumulative iter 28 (2 commits: MS1 + DDK), measured at N=40**: MAE **6.17 → 6.20** (Δ **+0.03, flat within noise**). The N=20 reading of 4.08 at iter 27 carried ~2pt of cross-N noise — honest measurement at N=40 is the correct floor.
+
+**Per-faction shifts** (sim-cal-3 N=40 baseline → iter28 N=40):
+- Marines -1.9 → -0.5 ✅
+- Necrons -7.6 → -9.0 (slight regress; newly-largest under-performer at N=40)
+- Aeldari +3.7 → +2.0 ✅
+- Tyranids +4.5 → +5.3 (flat)
+- Orks +5.9 → +5.7 ✅ (MS1 did NOT regress at honest N — N=20 reading was noise)
+- T'au +6.9 → +7.7 (flat)
+- **DG +14.5 → +16.2** (DDK restored FNP=5; rule-correct but pushes DG further over)
+- Custodes +2.3 → +2.6 (flat)
+- TSON -6.0 → -7.1 (slight)
+- **Votann +8.4 → +5.9** ✅ (real improvement)
+
+**Methodological correction:** iter close evals should run N=40 going forward. The N=20 budget was concealing ~2pt of cross-faction noise that produced misleadingly low MAE readings. Honest Stage 1 progress from iter22 baseline at N=40 (9.13) → iter28 N=40 (6.20) = **-2.93** across 7 iterations, not the -5 the N=20 numbers had suggested.
+
+**Iter 29 priorities**:
+1. **Necrons -9.0 diag** — newly visible at N=40 (was -1.5 at N=20). Needs full diagnostic since the iter21 fab audit landed but didn't move them.
+2. **Shot-reallocation refactor** — DS1's structural finding. ~40 lines in `Unit.attack`. Could move many factions simultaneously by correctly modeling multi-shot weapons.
+3. **DG structural over-strength** — D2 confirmed every per-unit lever points wrong direction. Either accept Stage 2 (price DG higher in equilibrium) or attack AI FNP-blindness with an Orks-aware compensation.
+
