@@ -150,6 +150,7 @@ equal points implies equal expected battlefield score. See
 | `code/bsdata/` | BSData WH40k 10th-edition fetch / parse / map / load |
 | `code/bsdata/audit.py` | Diff successive `parsed.json` runs, flag unmapped codices and stat drift |
 | `scripts/audit_rules.py` | Citation coverage gate — every cite-able rule has a Wahapedia source |
+| `scripts/bench_simulator.py` | Benchmark harness — reports per-battle wall time across three representative matchups |
 | `scripts/evaluate_vs_meta.py` | MAE matchup matrix vs May 2026 Warp Friends tournament aggregate |
 | `scripts/sweg_balance_mc.py` | MC-driven per-faction balance pass on top win-rate residuals |
 | `scripts/cross_validate_pricing.py` | Compare Phase 5 equilibrium vs MC bisection signals |

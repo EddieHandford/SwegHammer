@@ -147,6 +147,45 @@ collided with the equilibrium solver's own Phase 1–6 ladder
 
 For per-feature status and ownership, see `PROJECT.tex`.
 
+## Performance
+
+The simulator's hot path is `Battle.run()` — movement intent selection,
+shooting, charge, and fight phases repeated for up to five rounds. Three tiers
+of caching were added to reduce per-battle wall time from roughly 117 ms to
+roughly 32 ms (73% reduction, measured by `scripts/bench_simulator.py` on a
+30-battle benchmark across three matchups):
+
+- **Save and wound probability cache** (`functools.lru_cache` on
+  `save_probability` and `wound_probability` in `code/simulator.py`). Both
+  functions are pure; there are only a few dozen distinct input combinations
+  per battle. Tier 1.
+- **Alive-units cache** — `Battle.run()` rebuilds alive-unit lists once per
+  round rather than on every phase call. Tier 2.
+- **Line-of-sight cache** (`_los_cache` in `code/map.py`). Keyed by a
+  terrain-epoch integer (assigned per unique terrain tuple to avoid garbage-
+  collector identifier reuse), the 0.5-inch-grid-discretised endpoint pair,
+  and the ruin-pass boolean. ~46 000 distinct entries per 90 battles, ~40%
+  hit rate, ~1.6× speedup vs uncached. Tier 3.
+- **Cover-priority cache** (`_cover_prio_cache` in `code/strategy.py`). Keyed
+  by terrain epoch and 0.5-inch-grid position; reused by both
+  `_shimmy_target` and `_best_nearby_cover_point`. ~1 300 entries per 90
+  battles — high hit rate because cover zones are large. Tier 3.
+- **Unsaved-fraction cache** (`_unsaved_fraction` with `functools.lru_cache`
+  in `code/strategy.py`). There are only ~200 distinct `(save, invuln_save,
+  attacker_ap)` triples in the catalogue; near-100% hit rate after warm-up.
+  Eliminates the save-probability calls that `_durability` was making on every
+  one of ~56 000 invocations per benchmark run. Tier 3.
+- **Cover-point search** (`_best_nearby_cover_point`). Precomputed
+  trigonometric constants replace per-call `math.cos`/`math.sin`; a
+  running-best comparison replaces the candidate list and `max()` call; the
+  `is_blocked()` check is replaced by the cover-priority cache (impassable
+  terrain is assigned priority −1). Tier 3.
+
+The benchmark harness lives in `scripts/bench_simulator.py` and runs
+`python -m scripts.bench_simulator` (pass `--battles N` or `--profile` for
+cProfile output). Baseline numbers and per-tier deltas are in the commit
+messages on branch `claude/add-visualization-graphs-Um9Eq`.
+
 ## Design Decisions and Trade-offs
 
 ### Why Stochastic Damage?

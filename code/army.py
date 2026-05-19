@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
@@ -99,6 +99,10 @@ class Army:
     ) -> None:
         self.name = name
         self.units: List[Unit] = []
+        # Cached result of [u for u in self.units if u.is_alive]. Invalidated
+        # by Unit.current_health.setter on life-state transitions and by
+        # _add_live_unit(). Rebuilt lazily on next alive_units access.
+        self._alive_cache: Optional[List[Unit]] = None
         # 10e Strike Force standard: each side starts with 3 CP. Battle then
         # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
         self.command_points: int = STARTING_CP
@@ -378,6 +382,20 @@ class Army:
         unit = Unit(profile, in_cover=self.in_cover)
         unit.army_ref = self
         self.units.append(unit)
+        self._invalidate_alive_cache()
+
+    def _add_live_unit(self, unit: "Unit") -> None:
+        """Attach a pre-existing live Unit to this army (used for deepstrike arrivals).
+
+        Sets army_ref and invalidates the alive cache so the unit is immediately
+        visible via alive_units.
+        """
+        unit.army_ref = self
+        self.units.append(unit)
+        self._invalidate_alive_cache()
+
+    def _invalidate_alive_cache(self) -> None:
+        self._alive_cache = None
 
     def resolve_detachment(self) -> Optional[Detachment]:
         """Return the detachment in effect — explicit if set, else faction default."""
@@ -394,7 +412,9 @@ class Army:
 
     @property
     def alive_units(self) -> List[Unit]:
-        return [u for u in self.units if u.is_alive]
+        if self._alive_cache is None:
+            self._alive_cache = [u for u in self.units if u.is_alive]
+        return self._alive_cache
 
     @property
     def unit_count(self) -> int:

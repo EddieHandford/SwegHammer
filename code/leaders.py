@@ -31,6 +31,7 @@ which is enough to demonstrate the mechanic. Bespoke per-character abilities
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
@@ -403,12 +404,17 @@ def warlord_ability(army: "Army") -> Optional[LeaderAbility]:
     return None
 
 
+@functools.lru_cache(maxsize=2048)
 def lookup_ability(profile_name: str) -> Optional[LeaderAbility]:
     """
     Find a LeaderAbility by substring match against the unit's profile name.
 
     "Captain in Terminator Armour" -> matches "Captain" -> Rites of Battle.
     Returns None if no entry matches.
+
+    Cached because the registry is static and the call sits on the per-attack
+    hot path (every `effective_buffs` invocation scans the attacker's army
+    for in-range leaders and asks this function about each one).
     """
     if not profile_name:
         return None

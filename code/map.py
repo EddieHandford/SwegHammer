@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 
 # 10e Ruins core rule (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins):
@@ -128,28 +128,16 @@ class Map:
         > firing model and the target model have the INFANTRY, BEAST or
         > SWARM keyword. In all other cases, a wall blocks line of sight."
         """
-        a_kw = frozenset(attacker_keywords or ())
-        t_kw = frozenset(target_keywords or ())
-        ruin_pass = bool(a_kw & _RUIN_LOS_PASS_KEYWORDS) and bool(
-            t_kw & _RUIN_LOS_PASS_KEYWORDS
+        ruin_pass = (
+            _has_ruin_pass(attacker_keywords)
+            and _has_ruin_pass(target_keywords)
         )
-        for t in self.terrain:
-            if t.type is TerrainType.OBSCURING:
-                if t.contains(attacker) or t.contains(target):
-                    continue
-                if _segment_rect_intersects(attacker, target, t):
-                    return False
-            elif t.type is TerrainType.RUIN:
-                # Both endpoints inside still pass (you can see through
-                # your own ruin's interior).
-                if t.contains(attacker) or t.contains(target):
-                    continue
-                if not _segment_rect_intersects(attacker, target, t):
-                    continue
-                if ruin_pass:
-                    continue
-                return False
-        return True
+        return _los_query(
+            self,
+            round(attacker[0] * 2), round(attacker[1] * 2),
+            round(target[0] * 2), round(target[1] * 2),
+            ruin_pass,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -191,3 +179,76 @@ def _segment_rect_intersects(
             return False
 
     return t_enter < t_exit
+
+
+# ---------------------------------------------------------------------------
+# Line-of-sight cache
+# ---------------------------------------------------------------------------
+# Keyed by (terrain_epoch, ax, ay, tx, ty, ruin_pass).
+# `terrain_epoch` is a cheap stable integer assigned per unique terrain tuple
+# the first time it is seen.  Storing the tuple in `_terrain_live` prevents
+# Python from garbage-collecting it and reusing its id for a different tuple,
+# so id(terrain) is safe to use once the epoch is assigned.  In practice
+# there are only a handful of distinct terrain configurations per session.
+_los_cache: Dict[tuple, bool] = {}
+_terrain_epoch_map: Dict[int, int] = {}   # id(terrain_tuple) → epoch int
+_terrain_live: list = []                   # holds strong refs; prevents GC
+_terrain_epoch_counter: list = [0]         # mutable int in a list for closure
+
+
+def _terrain_epoch(terrain) -> int:
+    """Return a stable cheap int key for this terrain tuple configuration."""
+    tid = id(terrain)
+    try:
+        return _terrain_epoch_map[tid]
+    except KeyError:
+        _terrain_live.append(terrain)   # keep alive so id is not reused
+        epoch = _terrain_epoch_counter[0]
+        _terrain_epoch_counter[0] += 1
+        _terrain_epoch_map[tid] = epoch
+        return epoch
+
+
+def _has_ruin_pass(kw_iter: Optional[Iterable[str]]) -> bool:
+    """True if any keyword in kw_iter is in _RUIN_LOS_PASS_KEYWORDS."""
+    if not kw_iter:
+        return False
+    for k in kw_iter:
+        if k in _RUIN_LOS_PASS_KEYWORDS:
+            return True
+    return False
+
+
+def _los_query(
+    map_: "Map",
+    ax: int, ay: int,
+    tx: int, ty: int,
+    ruin_pass: bool,
+) -> bool:
+    """Line-of-sight check on a 0.5-inch grid, with per-map caching."""
+    key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass)
+    try:
+        return _los_cache[key]
+    except KeyError:
+        pass
+    a = (ax * 0.5, ay * 0.5)
+    t = (tx * 0.5, ty * 0.5)
+    result = True
+    for terrain in map_.terrain:
+        if terrain.type is TerrainType.OBSCURING:
+            if terrain.contains(a) or terrain.contains(t):
+                continue
+            if _segment_rect_intersects(a, t, terrain):
+                result = False
+                break
+        elif terrain.type is TerrainType.RUIN:
+            if terrain.contains(a) or terrain.contains(t):
+                continue
+            if not _segment_rect_intersects(a, t, terrain):
+                continue
+            if ruin_pass:
+                continue
+            result = False
+            break
+    _los_cache[key] = result
+    return result
