@@ -284,6 +284,20 @@ The structural lift hurts disproportionately on factions with heavy melee multi-
 3. **TY1 follow-ups** — Subterranean Assault, Maleceptor / Norn Emissary FNP audit.
 4. **DG via Stage 2** — D2 confirmed Stage 1 per-unit levers all point wrong; consider accepting DG pricing as a Stage 2 problem.
 
+### Iter 32 (2026-05-20) — wipe-the-unit + fragile-first AI — PARKED
+
+**Iter 32 outcome**: regression, fix parked. Single agent burned 1013 tool uses / 91min / 298k tokens (≈20× the 50-tool cap) on an extended tuning loop without finding a clean landing point. Final landed config: wipe 1.3/1.1, fragile parked (over-aggressive at every tested setting). Eval N=40 vs 6.59 baseline: **MAE 6.59 → 6.84 (+0.25, regression)**.
+
+Per-faction 5 improvements / 5 regressions: Aeldari, Orks, T'au, DG, Votann moved toward target; Marines, Necrons, Tyranids, Custodes, TSON moved away. Notable: Necrons -7.1 → -9.9 (the iter 31 gain reversed), Marines -2.4 → -4.1.
+
+Commit `aa32115` lives on `worktree-agent-aea769f5326e14191`, **not cherry-picked**.
+
+**Strategic lesson**: three consecutive cross-faction AI heuristic experiments (iter 26 S1, iter 29 SR1, iter 32 wipe-the-unit) have all produced mixed-net-negative outcomes. The calibration target is a multi-faction equilibrium — single-axis AI changes that work on one faction's matchups break the equilibrium for others.
+
+Per-faction work has been consistently positive: NE1 (Necrons RP), MC1 (save modifier cap), MS1 (melee_sustained_hits separation), M1 (Markerlight realism). Phase 1 plan revised: skip iter 33 (stratagem firing — also cross-faction) and jump to iter 34 (archetype realism — per-faction). Then re-evaluate.
+
+**Agent-cap enforcement gap noted**: the iter 32 brief said ≤50 tool uses with 2 tuning iterations allowed; the agent did 1013. Future agent prompts should harden the cap or explicitly tell the agent to STOP and report the best-of-three rather than continuing to tune indefinitely.
+
 ### Iter 31 (2026-05-19) — S1R re-land with squad-size compensation (Phase 1 / iter 1)
 
 **S1R — FNP-in-durability + squad-size compensation** (commit `b5b8933` → `ecd6419`, agent: 76k tokens, 40 tool uses, 14min). Phase 1 opening per the user-approved plan. Re-implementation of iter26-S1 (FNP folded into `_durability` and `_unsaved_fraction` in `code/strategy.py`) plus a paired squad-size durability factor so high-model-count units read as harder to wipe per-shot.
