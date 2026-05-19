@@ -570,6 +570,8 @@ class Battle:
             b_oc = 0
             a_sticky_present = False
             b_sticky_present = False
+            a_has_dg_unit = False
+            b_has_dg_unit = False
             for u in self.a.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue   # Battleshocked = OC 0
@@ -579,12 +581,8 @@ class Battle:
                     a_oc += getattr(u.profile, "oc", 1) or 1
                     if getattr(u.profile, "sticky_objective", False):
                         a_sticky_present = True
-                    # Worldblight: non-Battle-shocked DG unit grants sticky.
-                    if (
-                        a_worldblight
-                        and (u.profile.faction or "") == "Death Guard"
-                    ):
-                        a_sticky_present = True
+                    if (u.profile.faction or "") == "Death Guard":
+                        a_has_dg_unit = True
             for u in self.b.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue
@@ -594,11 +592,24 @@ class Battle:
                     b_oc += getattr(u.profile, "oc", 1) or 1
                     if getattr(u.profile, "sticky_objective", False):
                         b_sticky_present = True
-                    if (
-                        b_worldblight
-                        and (u.profile.faction or "") == "Death Guard"
-                    ):
-                        b_sticky_present = True
+                    if (u.profile.faction or "") == "Death Guard":
+                        b_has_dg_unit = True
+
+            # iter24-D3 — Worldblight strict gate. Per Wahapedia
+            # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#STRATAGEMS
+            # — Worldblight) the rule fires at end of the DG Command phase
+            # AND requires the DG unit to already be controlling the
+            # objective (strictly greater OC than the opponent). Promote
+            # the DG presence to a sticky flag ONLY when the DG side wins
+            # the OC contest at this objective. _score_objectives() runs
+            # once per round so the once-per-round trigger is implicit.
+            # Without this gate, a DG unit losing the OC contest would
+            # still mark sticky_present, which prevented the opponent's
+            # sticky from being cleared even though they were winning.
+            if a_worldblight and a_has_dg_unit and a_oc > b_oc:
+                a_sticky_present = True
+            if b_worldblight and b_has_dg_unit and b_oc > a_oc:
+                b_sticky_present = True
 
             # Resolve who actually scores this round. The fallback to
             # sticky_owner is only used when NEITHER side has any OC on the
