@@ -27,10 +27,12 @@ Decision principles:
 
 from __future__ import annotations
 
+import functools
 import math
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from .detachments import effective_move
+from .map import _terrain_epoch
 from .roles import classify
 from .units import save_probability, wound_probability
 
@@ -125,7 +127,7 @@ def _shimmy_target(unit, nearest_enemy, map_) -> Optional[Tuple[float, float]]:
     rng = unit.profile.range_inches or 24
     px, py = unit.position
     ex, ey = nearest_enemy.position
-    cur_cover_prio = _COVER_PRIORITY.get(map_.cover_at(unit.position).value, 0)
+    cur_cover_prio = _cover_prio(map_, unit.position[0], unit.position[1])
     min_move = _SHIMMY_DISTANCE * 0.75
 
     # Sample a ring at _SHIMMY_DISTANCE; pick the candidate with the highest
@@ -145,7 +147,7 @@ def _shimmy_target(unit, nearest_enemy, map_) -> Optional[Tuple[float, float]]:
             continue
         if _dist(cand, unit.position) < min_move:
             continue
-        cover_prio = _COVER_PRIORITY.get(map_.cover_at(cand).value, 0)
+        cover_prio = _cover_prio(map_, cand[0], cand[1])
         # Weight cover heavily, then distance moved (so among equal-cover
         # candidates we prefer the one furthest from the previous spot).
         score = cover_prio * 10.0 + _dist(cand, unit.position)
@@ -159,7 +161,7 @@ def _shimmy_target(unit, nearest_enemy, map_) -> Optional[Tuple[float, float]]:
     # the shimmy behaviour conservative: only step out when there's a cover
     # uplift to gain.
     if best is not None:
-        new_prio = _COVER_PRIORITY.get(map_.cover_at(best).value, 0)
+        new_prio = _cover_prio(map_, best[0], best[1])
         if new_prio > cur_cover_prio:
             return best
     return None
@@ -186,6 +188,27 @@ _COVER_PRIORITY = {
     "impassable": -1,   # never stand in impassable
 }
 
+# Per-map cover-priority lookup cache.
+# Key: (terrain_epoch, ix, iy) where ix/iy are position rounded to 0.5" grid.
+# terrain_epoch is a cheap stable int assigned by map._terrain_epoch(); it
+# avoids both the GC id-reuse hazard of id(map_) and the hash cost of using
+# the full terrain tuple as a key.
+_cover_prio_cache: Dict[tuple, int] = {}
+
+
+def _cover_prio(map_, px: float, py: float) -> int:
+    """Return the integer cover priority at (px, py), using a per-map cache."""
+    ix = round(px * 2)
+    iy = round(py * 2)
+    key = (_terrain_epoch(map_.terrain), ix, iy)
+    try:
+        return _cover_prio_cache[key]
+    except KeyError:
+        ct = map_.cover_at((ix * 0.5, iy * 0.5))
+        p = _COVER_PRIORITY.get(ct.value, 0)
+        _cover_prio_cache[key] = p
+        return p
+
 
 def _dist(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     dx = a[0] - b[0]
@@ -193,11 +216,19 @@ def _dist(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     return (dx * dx + dy * dy) ** 0.5
 
 
+# Precomputed unit-circle offsets for n_samples=12 to avoid per-call trig.
+_N_COVER_SAMPLES = 12
+_COVER_SAMPLE_COS = [math.cos(2.0 * math.pi * i / _N_COVER_SAMPLES)
+                     for i in range(_N_COVER_SAMPLES)]
+_COVER_SAMPLE_SIN = [math.sin(2.0 * math.pi * i / _N_COVER_SAMPLES)
+                     for i in range(_N_COVER_SAMPLES)]
+
+
 def _best_nearby_cover_point(
     map_,
     base_pos: Tuple[float, float],
     search_radius: float = 3.0,
-    n_samples: int = 12,
+    n_samples: int = _N_COVER_SAMPLES,
 ) -> Tuple[float, float]:
     """Return a point within search_radius of base_pos sitting in the
     strongest cover terrain available (HEAVY > OBSCURING > LIGHT > OPEN).
@@ -208,23 +239,31 @@ def _best_nearby_cover_point(
     """
     if map_ is None:
         return base_pos
-    candidates = [(base_pos, _COVER_PRIORITY.get(map_.cover_at(base_pos).value, 0), 0.0)]
-    for i in range(n_samples):
-        angle = (2.0 * math.pi * i) / n_samples
-        px = base_pos[0] + search_radius * math.cos(angle)
-        py = base_pos[1] + search_radius * math.sin(angle)
+    bx, by = base_pos
+    best_prio = _cover_prio(map_, bx, by)
+    best_pt = base_pos
+    best_d2 = 0.0
+    mw, mh = map_.width, map_.height
+    for cos_a, sin_a in zip(_COVER_SAMPLE_COS, _COVER_SAMPLE_SIN):
+        px = bx + search_radius * cos_a
+        py = by + search_radius * sin_a
         # Clamp inside the board
-        px = max(0.0, min(map_.width, px))
-        py = max(0.0, min(map_.height, py))
-        p = (px, py)
-        if map_.is_blocked(p):
+        if px < 0.0: px = 0.0
+        elif px > mw: px = mw
+        if py < 0.0: py = 0.0
+        elif py > mh: py = mh
+        prio = _cover_prio(map_, px, py)
+        if prio < 0:   # IMPASSABLE terrain has priority -1
             continue
-        cover = map_.cover_at(p).value
-        prio = _COVER_PRIORITY.get(cover, 0)
-        candidates.append((p, prio, _dist(base_pos, p)))
-    # Highest cover priority wins; tie-break by closest to base_pos.
-    best = max(candidates, key=lambda c: (c[1], -c[2]))
-    return best[0]
+        dx = px - bx
+        dy = py - by
+        d2 = dx * dx + dy * dy
+        # Higher prio wins; tie-break by smaller d2 (closer to base_pos).
+        if prio > best_prio or (prio == best_prio and d2 < best_d2):
+            best_prio = prio
+            best_pt = (px, py)
+            best_d2 = d2
+    return best_pt
 
 
 def _nearest_obscuring_centre(map_, pos: Tuple[float, float]) -> Optional[Tuple[float, float]]:
@@ -252,15 +291,25 @@ def _nearest_obscuring_centre(map_, pos: Tuple[float, float]) -> Optional[Tuple[
 def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     """Sum the OC values of `units` within obj.control_radius (excluding one)."""
     r2 = obj.control_radius * obj.control_radius
+    ox = obj.x
+    oy = obj.y
     total = 0
     for u in units:
         if u.uid == exclude_uid:
             continue
-        dx = u.position[0] - obj.x
-        dy = u.position[1] - obj.y
+        dx = u.position[0] - ox
+        dy = u.position[1] - oy
         if dx * dx + dy * dy <= r2:
-            total += getattr(u.profile, "oc", 1) or 0
+            total += u.profile.oc or 0
     return total
+
+
+@functools.lru_cache(maxsize=4096)
+def _unsaved_fraction(save: int, invuln_save: int, attacker_ap: int) -> float:
+    """Cached save+AP portion of _durability. Only ~200 distinct inputs possible."""
+    save_pass = save_probability(save, attacker_ap)
+    invuln_pass = save_probability(invuln_save) if invuln_save <= 6 else 0.0
+    return max(0.05, 1.0 - max(save_pass, invuln_pass))
 
 
 def _durability(profile, current_health: float, attacker_ap: int) -> float:
@@ -275,17 +324,11 @@ def _durability(profile, current_health: float, attacker_ap: int) -> float:
     HP is low — exactly the T'au Battlesuit / Custodian over-rating we saw
     after the #96 charge AI landed.
     """
-    from .units import save_probability
-
-    # Probability a single unsaved wound gets through (1 - best-save).
-    save_pass = save_probability(profile.save, attacker_ap)
-    invuln_pass = save_probability(profile.invuln_save) if profile.invuln_save <= 6 else 0.0
-    best_pass = max(save_pass, invuln_pass)
-    unsaved_fraction = max(0.05, 1.0 - best_pass)   # floor so divide stays sane
     # Toughness adds the wound-roll difficulty (already in attacker's DPA via
     # hit*wound math). Keep T as a multiplier rather than additive so a T8
     # Knight reads multiplicatively harder than a T4 Marine of equal HP.
-    return profile.toughness * max(1.0, current_health) / unsaved_fraction
+    return (profile.toughness * max(1.0, current_health)
+            / _unsaved_fraction(profile.save, profile.invuln_save, attacker_ap))
 
 
 # Factions whose own melee units should NOT receive the gunline-charge bonus
@@ -934,7 +977,7 @@ def pick_move_intent(
     (callers that don't supply a plan see identical output to pre-#161).
     """
     role = classify(unit.profile)
-    own_oc = getattr(unit.profile, "oc", 1) or 0
+    own_oc = unit.profile.oc or 0
 
     # S1 — faction posture lookup. AI behaviour-shaping per faction, not a
     # 10e rule. `balanced` preserves the pre-S1 behaviour exactly.
@@ -949,6 +992,7 @@ def pick_move_intent(
     if cur_round < 1:
         cur_round = 1
     round_weight = 1.0 + 0.15 * (cur_round - 1)
+    objectives = map_.objectives
 
     # ----- 0. Fall Back (10e core) ------------------------------------------
     # A SHOOTY / HEAVY unit pinned inside enemy Engagement Range (1.5") loses
@@ -970,7 +1014,7 @@ def pick_move_intent(
                 return fall_back_pos, _FALL_BACK_INTENT
 
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
-    for obj in map_.objectives:
+    for obj in objectives:
         if _dist(unit.position, (obj.x, obj.y)) > obj.control_radius:
             continue
         # We're within control radius. Count OC without us, both sides.
@@ -989,7 +1033,7 @@ def pick_move_intent(
     # and STEAL value at T5 (~5.6) easily beats sitting on a friendly-held
     # objective (~1.6). Round defaults to 1 when no Battle is active.
     objs = []
-    for obj in map_.objectives:
+    for obj in objectives:
         a_oc = _oc_on_objective(friendly.alive_units, obj)
         b_oc = _oc_on_objective(enemy.alive_units, obj)
         d = _dist(unit.position, (obj.x, obj.y))

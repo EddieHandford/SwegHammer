@@ -335,6 +335,23 @@ run on top of. Retained as a historical record.
 
 ## Changelog
 
+- **2026-05-19** — Simulator hot-path performance: three tiers of optimisation
+  reduced per-battle wall time from ~117 ms to ~32 ms (73% reduction) on a
+  30-battle benchmark across three representative matchups. Changes shipped
+  across three commits: Tier 1 added `functools.lru_cache` to the save-
+  probability and wound-probability pure functions plus a benchmark harness
+  (`scripts/bench_simulator.py`); Tier 2 added an alive-units cache to avoid
+  per-phase list rebuilding and vectorised the deep-strike objective scoring;
+  Tier 3 added a discretised line-of-sight cache (keyed by 0.5-inch-grid
+  endpoint pair + ruin-pass flag, with a terrain-epoch counter to prevent
+  garbage-collector identifier reuse), a cover-priority cache (keyed by
+  grid-discretised position), a `_unsaved_fraction` cache eliminating
+  ~200-combination recomputation, precomputed trigonometric constants for
+  the cover-candidate search, and replaced the cover-point search candidate
+  list with a running-best comparison that reuses the cover-priority cache
+  rather than calling `is_blocked()` separately. Stage 1 work: faster
+  calibration iteration cycles.
+
 - **2026-05-15** — Goals A/B/C/D goal-driven structure mature. Session
   shipped 25+ integrations: Tyranids/Drukhari/AdMech/GSC/WE army rules,
   DG FNP + Contagions, TSON All Is Dust, Look Out Sir + Lone Op, Deadly
