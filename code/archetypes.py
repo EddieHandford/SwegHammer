@@ -635,16 +635,10 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # MONSTER (iter17 V4 probe) regresses the detachment picker to
         # ~50/50 Grand Coven vs Rubricae Phalanx.
         #
-        # Magnus the Red forced anchor (iter24 fix). Previously the
-        # template comment claimed random_fill picked him up at 2000pt
-        # evals "organically" — empirical iter23 diagnostic showed 0/20
-        # archetype samples actually seated Magnus. Magnus's wired rules
-        # (Impossible Form in code/simulator.py:4063-4066, Lord of the
-        # Planet in code/simulator.py:3142-3148) were dead code under
-        # archetype eval. Forced as anchor following the same pattern
-        # as other EPIC HERO seeds (e.g. Ahriman count=1 above). The
-        # EPIC HERO one-per-army cap is enforced at army-composition
-        # time so the forced anchor cannot duplicate.
+        # Magnus the Red intentionally NOT in the template: 435pt would
+        # crowd out the rest of the army at 1000pt. Real-meta Magnus
+        # lists need 1500pt+ budget shape. Random_fill picks him up
+        # organically at 2000pt evals.
         #
         # STRUCTURAL NOTE for iter 18+: At 1000pt the TSON archetype is
         # structurally under-resourced — neither Magnus (435pt) nor a
@@ -664,7 +658,6 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #   - Goonhammer "Detachment Focus: Rubricae Phalanx"
         #   - Frontline Gaming "Codex Focus: Thousand Sons"
         "Rubricae Phalanx": {
-            "thousand_sons_magnus_the_red": 1,
             "thousand_sons_ahriman": 1,
             "thousand_sons_rubric_marines": 2,
             "thousand_sons_scarab_occult_terminators": 2,
@@ -794,17 +787,6 @@ SEED_FRACTION: float = 0.3
 SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Leagues of Votann": 0.4,
     "Adeptus Custodes": 0.55,
-    # Thousand Sons (iter24): Magnus the Red is a 435pt EPIC HERO MONSTER
-    # forced anchor in the Rubricae Phalanx template. At the default 0.3
-    # seed slice (600pt at 2000pt budget), Magnus overflows after the
-    # count=2 Rubric Marines spine seats first (240pt) — leaving Magnus
-    # to seat only ~1/5 random samples via the cheapest-CHARACTER overflow
-    # fallback (which usually picks Ahriman at 100pt instead). Bumping to
-    # 0.4 (800pt at 2000pt) lets Rubric Marines (240) + Magnus (435) +
-    # Ahriman (100) = 775pt all seat together. Without this Magnus's
-    # wired psychic rules (Lord of the Planet, Impossible Form) remain
-    # dead code under archetype eval, blocking iter21+ Magnus-buff wins.
-    "Thousand Sons": 0.4,
 }
 
 
