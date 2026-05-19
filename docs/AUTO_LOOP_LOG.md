@@ -204,3 +204,32 @@ Token-efficiency: 195k tokens / 116 tool uses across 3 agents for net-zero code 
 2. **Orks attacker-side AI heuristic** — symmetric counterpart to S1's defender FNP fix. Once Orks correctly identify FNP-bearing defenders as hard targets, S1 can re-land and the cumulative MAE should drop.
 3. **Riptide / Stormsurge weapon profile audit** if T'au isn't closed by Markerlight alone.
 
+### Iter 27 (2026-05-19) — Markerlight realism lands, 2 parks
+
+Three agents on the locked-in priorities. One shipped, two parked with strong diag value.
+
+**M1 — Markerlight realism** (commit `43f4826` → `86e3137`, agent: 99k tokens, 95 tool uses, 36min). Gated `_run_markerlight_phase` on 36" range + `Map.has_line_of_sight` + `can_target_for_ranged` (LOS+ablative) + d6 hit roll vs carrier BS via `_prob_to_target`. Token bookkeeping preserved. Cited under `simulator.markerlight_emission`. New test `test_markerlight_hit_roll_failure_grants_no_token`. **T'au +8.3 → +4.9 (-3.4pt). MAE 4.49 → 4.08 (-0.41)**. Note: agent went over the procedure's 30-tool-use cap (95 used) — the cap may be too tight for non-trivial simulator changes; consider relaxing to 50 for code/simulator.py edits.
+
+**M2 — Riptide / Stormsurge audit** (agent: 58k tokens, 35 tool uses, 10min). Riptide / Stormsurge stats verified clean against BSData. Tested switching Stormsurge to Pulse Driver Cannon (the long-range Heavy 6-shot profile vs the focused Pulse Blastcannon). **Regressed** — MAE 4.49 → 4.72; T'au +8.3 → +9.4. Reverted. Mechanism finding: **damage wastage is unmodelled in the sim** — D12 high-damage weapons waste damage on low-wound targets, so multi-shot D3 profiles are systematically more efficient than codex intent. Damage spillover/carry-over is a structural Stage 1 issue larger than a bundle-of-one. Added to iter 28+ recipes.
+
+**O1 — Orks diag-and-fix** (agent: 75k tokens, 39 tool uses, 10min). Found a real bug: `UnitProfile.sustained_hits` populated from the ranged primary weapon but read in melee mode at `code/units.py:1222`. On Orks the War Horde +1 stacks → fabricated SUSTAINED HITS 2 melee on Flash Gitz, Kaptin Badrukk, etc. Tested gate to ranged-only — **regressed** because other factions have legitimate melee SH that the gate killed. Proper fix needs separate `melee_sustained_hits` field on `UnitProfile` with mapper-side `best_melee` routing. Out of bundle-of-one scope; added to iter 28+ recipes.
+
+**Cumulative iter 27 (1 commit)**: MAE **4.49 → 4.08** (Δ **-0.41**). Seven factions within ±2.2pt of target. Eval wall-clock 268s (Ed's perf optims giving consistent ~4-min N=20).
+
+**Per-faction shifts** (iter 25 → iter 27):
+- Marines -1.3 → -0.8 ✅
+- Necrons -0.4 → -1.5 (slight)
+- Aeldari -1.6 → -2.2 (slight)
+- Tyranids +2.6 → +0.9 ✅
+- Orks +5.7 → +7.3 (slight regress — M1 cross-effect; less Guided T'au fire means other T'au shots redistribute)
+- **T'au +8.3 → +4.9** ✅ (-3.4 — M1 target hit)
+- DG +10.3 → +11.4 (slight regress)
+- Custodes +0.3 → +1.4 (flat)
+- TSON +3.2 → -0.7 ✅
+- Votann +11.2 → +9.6 ✅
+
+**Iter 28 priorities**:
+1. **DG +11.4 deep-dive** — iter25-D1 said cross-N variance + AI FNP-blindness; the FNP fix regressed Orks. DG is now the worst outlier. Re-baseline at N=40 or N=80 and decide if it's a real structural lever or noise.
+2. **Damage spillover modelling** — M2 finding. Fundamental Stage 1 issue: high-damage weapons waste output on low-wound targets, low-damage multi-shot is systematically over-efficient. Affects DG / T'au / Votann pricing simultaneously.
+3. **`melee_sustained_hits` mapper field** — O1 finding. Mapper schema change + unit.attack re-routing. Enables iter28 Orks-side correction without breaking other factions.
+
