@@ -334,6 +334,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("thousand_sons_rubric_marines",))),
     ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("thousand_sons_rubric_marines",))),
+    # Magnus the Red — EPIC HERO MONSTER PSYKER, NOT a CHARACTER leader-
+    # attachment. Magnus does not formally lead a unit and does not confer
+    # an aura buff to nearby Thousand Sons units (per Wahapedia datasheet
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red).
+    # His self-conferred rules are already wired elsewhere:
+    #   - Impossible Form (-1 to incoming Damage): code/simulator.py:4063-4066
+    #   - Lord of the Planet of the Sorcerers (2 Rituals/turn +2 to Psychic
+    #     test): code/simulator.py:3142-3148
+    # This registry entry exists ONLY so `lookup_ability("Magnus the Red")`
+    # returns a non-None LeaderAbility per CLAUDE.md §13 (no silent
+    # defaults). No buff flags, no host_keys — empty host_keys=() follows
+    # the iter22 "army-wide / no host gate" convention used for Monster
+    # leaders like Avatar of Khaine (line 308 above) that don't formally
+    # attach. iter21's commit comment had claimed Magnus was added but
+    # he was in fact skipped from the registry tuple; iter24 closes that
+    # silent-default gap. If a future codex revision confers an aura buff
+    # to nearby PSYKERs, encode it here and add the matching
+    # LeaderAbility.Magnus the Red citation.
+    ("Magnus the Red",     LeaderAbility(name="Magnus the Red",              aura_range=0.0,                          host_keys=())),
     # Sorcerer in Terminator Armour — TSON variant. Leader-attaches to
     # Scarab Occult Terminators (per BSData v10.6.0 Leader infoLink).
     # Datasheet ability "Marked by Fate (Psychic)" grants +1 to Hit on

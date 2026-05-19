@@ -208,6 +208,15 @@
     "scope": "unit-led"
   },
 
+  "LeaderAbility.Magnus the Red": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red",
+    "rule_name": "Magnus the Red (EPIC HERO MONSTER PSYKER — placeholder registry entry, no leader-aura)",
+    "quoted_text": "Magnus the Red is a Monster (not a Character) and does not have the Leader ability on his datasheet. His relevant abilities are: Unearthly Power / Impossible Form (Psychic) — 'Each time an attack is made against this Psyker (excluding Psychic Attacks), subtract 1 from the Damage characteristic of that attack.' Lord of the Planet of the Sorcerers (Psychic) — 'This model can attempt up to 2 Rituals per turn instead of one, and each time this model attempts a Ritual, add 2 to the Psychic test result.'",
+    "trigger": "Magnus the Red is alive on the battlefield (his self-conferred rules; he does not formally lead any unit and does not confer a buff to nearby Thousand Sons units per the Wahapedia datasheet)",
+    "effect": "NO LEADER-AURA EFFECT. Magnus's self-conferred rules are wired elsewhere — Impossible Form in code/simulator.py (transient_minus_one_damage_taken set at round start, cited at simulator.magnus_unearthly_power_impossible_form in data/rule_citations.d/thousand_sons.json) and Lord of the Planet of the Sorcerers in code/simulator.py (Magnus attempts 2 Rituals/turn with +2 to Psychic test, cited at simulator.magnus_lord_of_the_planet). This LeaderAbility entry exists ONLY so lookup_ability(\"Magnus the Red\") returns a non-None entity per CLAUDE.md §13 (no silent defaults — a missing leader lookup must not silently return None and let callers assume 'no buff'). The LeaderAbility has aura_range=0.0, host_keys=(), and no buff flags. Same pattern as Avatar of Khaine (LeaderAbility.Avatar's Fury above) which also has no formal leader attachment. iter24 wiring — closes the iter21 gap where Magnus was claimed wired but missing from _REGISTRY.",
+    "scope": "character-only"
+  },
+
   "LeaderAbility.Prescience": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/Sorcerer",
     "rule_name": "Prescience",
