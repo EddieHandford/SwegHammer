@@ -169,8 +169,19 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Captain's now-empty entry). The fix: pin the longer keys to the
     # top of the registry. Test:
     #   tests/test_leaders.py::ExpandedRegistryTests::test_each_new_leader_resolves
+    # Adeptus Custodes Shield-Captain — per the Wahapedia / BSData v10.6.0
+    # Shield-Captain datasheet, the Leader ability lists Custodian Guard
+    # and Custodian Wardens as the only legal hosts. The previous
+    # host_keys tuple omitted Wardens, which silently blocked Stoic Vigil
+    # from firing on a Wardens-led squad — half the Custodes archetype's
+    # leader-target population. iter24 fix expands the tuple to both legal
+    # hosts (also including the Adrasite/Pyrithite spear variant of
+    # Custodian Guard, which BSData groups under the same Leader entry).
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain
     ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("adeptus_custodes_custodian_guard",))),
+                                          host_keys=("adeptus_custodes_custodian_guard",
+                                                     "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
+                                                     "adeptus_custodes_custodian_wardens"))),
     ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("grey_knights_strike_squad",))),
     # Space Marine HQ — named characters first so they win the substring
@@ -378,9 +389,33 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
     # Adeptus Custodes — Shield-Captain pinned to the registry head above
     # to prevent substring-collision with the generic Marines "Captain"
-    # entry; only Trajann Valoris remains in the per-faction block here.
+    # entry. Trajann Valoris and Blade Champion live in this per-faction
+    # block. Per Wahapedia / BSData v10.6.0, Trajann Valoris and Blade
+    # Champion each list Custodian Guard and Custodian Wardens as their
+    # only legal Leader hosts — Allarus / Sagittarum / Vertus Praetors are
+    # NOT in any Custodes CHARACTER's Leader text (verify via BSData cache
+    # `Imperium - Adeptus Custodes.cat.gz`). iter24: Trajann's host_keys
+    # widened from Guard-only to (Guard + Wardens), and Blade Champion
+    # added as a new structural entry (was returning None from
+    # lookup_ability per CLAUDE.md §13 fail-loud rule). The Blade Champion
+    # carries no offensive aura field today — its codex abilities are
+    # Martial Inspiration (once-per-battle advance + charge in same turn)
+    # and Swift Onslaught (re-roll Charge rolls while leading). Neither
+    # is currently expressible through the LeaderAbility aura schema; the
+    # entry exists so lookup_ability resolves cleanly and so the host-key
+    # gate on Resolute Will (Wardens) and similar future buffs can verify
+    # "the led unit has a CHARACTER attached". Same iter21 fab-removal
+    # standard as Captain / Autarch / Avatar of Khaine.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Blade-Champion
     ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
-                                          host_keys=("adeptus_custodes_custodian_guard",))),
+                                          host_keys=("adeptus_custodes_custodian_guard",
+                                                     "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
+                                                     "adeptus_custodes_custodian_wardens"))),
+    ("Blade Champion",     LeaderAbility(name="Swift Onslaught",            aura_range=6.0,
+                                          host_keys=("adeptus_custodes_custodian_guard",
+                                                     "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
+                                                     "adeptus_custodes_custodian_wardens"))),
     # Adeptus Mechanicus
     # Belisarius Cawl — entry must precede the generic Tech-Priest match so
     # the longer name wins the substring lookup. "Master of the Forge" once-

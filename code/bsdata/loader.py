@@ -87,6 +87,12 @@ class CatalogEntry:
     # 10e Sticky Objectives — control persists after the unit leaves until
     # an opposing unit takes the objective back.
     sticky_objective: bool = False
+    # 10e datasheet ability — Resolute Will (Custodian Wardens). Defender-
+    # side -1 to Wound roll while led by a CHARACTER AND attacker S >
+    # defender T. Set per-unit via overrides.json (BSData v10.6.0 mapper
+    # does not yet parse this rule out of the cache; the override is the
+    # authoritative source). Cited as `simulator.resolute_will`.
+    resolute_will: bool = False
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
     melee_damage_per_shot: float = 0.0
@@ -159,6 +165,7 @@ class CatalogEntry:
             firing_deck=int(d.get("firing_deck", 0)),
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
+            resolute_will=bool(d.get("resolute_will", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
             melee_damage_per_shot=float(d.get("melee_damage_per_shot", 0)),
@@ -271,6 +278,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "firing_deck": override.get("firing_deck", base.firing_deck),
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
+        "resolute_will": override.get("resolute_will", base.resolute_will),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),
         "melee_damage_per_shot": override.get("melee_damage_per_shot", base.melee_damage_per_shot),

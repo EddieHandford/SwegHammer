@@ -192,6 +192,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # so the buff is effectively always-on. See
     # data/rule_citations.d/thousand_sons.json#simulator.rites_of_coalescence.
     "simulator.rites_of_coalescence",
+    # Adeptus Custodes Custodian Wardens datasheet ability (10e). -1 to
+    # the wound roll on any attack targeting the led Wardens unit when
+    # attack S > target T. Three-way gate in Unit.attack: defender has
+    # `resolute_will`, defender is actually led (host_keys check via
+    # leaders.is_actually_led), attack.strength > defender.toughness.
+    # See data/rule_citations.json#simulator.resolute_will.
+    "simulator.resolute_will",
     # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
     # Shooting phase, each PSYKER attempts one of four Rituals via a
     # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData

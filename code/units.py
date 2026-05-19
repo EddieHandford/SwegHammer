@@ -274,6 +274,16 @@ class UnitProfile:
     deadly_demise: int = 0                     # Deadly Demise X (10e core): when destroyed, d6; on 6, each unit within 6" suffers X mortal wounds. Integer expected value (D3→2, D6→3, D3+3→5, N→N). Cited as `simulator.deadly_demise`.
     firing_deck: int = 0                       # Firing Deck X (10e core, TRANSPORT keyword): up to X embarked passenger models may also shoot using the transport's BS each Shooting phase. 0 = no Firing Deck. Cited as `simulator.firing_deck`.
     sticky_objective: bool = False             # 10e Objective Secured / "remains controlled when the unit leaves" — once this unit claims an objective, ownership persists until an opposing unit takes it back
+    # 10e datasheet ability — Resolute Will (Custodian Wardens).
+    # Wahapedia: "While a CHARACTER is leading this unit, each time an
+    # attack targets this unit, if the Strength characteristic of that
+    # attack is greater than the Toughness characteristic of this unit,
+    # subtract 1 from the Wound roll." Wired in Unit.attack as a
+    # defender-side wound_mod_delta -1 gated by: (a) defender carries
+    # this flag, (b) defender is actually led (host_keys check via
+    # leaders.is_actually_led), (c) attack.strength > defender.toughness.
+    # Cited as `simulator.resolute_will`.
+    resolute_will: bool = False
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
     melee_attacks: int = 0
@@ -881,6 +891,29 @@ class Unit:
         ):
             wound_mod_delta -= 1
 
+        # ---- Resolute Will (Custodian Wardens datasheet, 10e Adeptus
+        # Custodes codex). Wahapedia / BSData verbatim: "While a CHARACTER
+        # is leading this unit, each time an attack targets this unit, if
+        # the Strength characteristic of that attack is greater than the
+        # Toughness characteristic of this unit, subtract 1 from the
+        # Wound roll." Three-way gate:
+        #   1. defender carries the `resolute_will` flag (set on the
+        #      Custodian Wardens UnitProfile via overrides.json),
+        #   2. defender is actually led — `leaders.is_actually_led` checks
+        #      proximity AND that an in-range CHARACTER's host_keys lists
+        #      the defender (a CHARACTER cannot be 'leading' a unit it
+        #      can't legally attach to per the leader datasheet),
+        #   3. attack Strength > defender Toughness.
+        # Cited as `simulator.resolute_will`. iter24 fix to close part of
+        # the Custodes -22.2pt under-performer gap.
+        if target.profile.resolute_will and strength > target.profile.toughness:
+            try:
+                from . import leaders as _leaders
+                if _leaders.is_actually_led(target):
+                    wound_mod_delta -= 1
+            except Exception:
+                pass
+
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # The army picks an imperative each Command phase; one mode gets
         # +1 to hit, the opposite mode gets -1 to hit. Cited as
@@ -1423,6 +1456,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             deadly_demise=entry.deadly_demise,
             firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
+            resolute_will=entry.resolute_will,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
             melee_damage_per_shot=entry.melee_damage_per_shot,

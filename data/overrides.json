@@ -180,8 +180,30 @@
     "adeptus_custodes_custodian_guard": {
       "base_shape": "circle",
       "base_diameter_mm": 40,
-      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model",
+      "deep_strike": false,
+      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model | iter24 deep_strike audit: BSData v10.6.0 flags Deep Strike on every Custodes datasheet via blanket infoLink, but Wahapedia's published datasheet for Custodian Guard does NOT include Deep Strike (only Allarus / Aquilon / Venatari Custodians have the rule). Override clears the false-positive so the simulator no longer parks Custodian Guard in Strategic Reserves at deploy. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard",
       "points_override": 46.75
+    },
+    "adeptus_custodes_custodian_wardens": {
+      "deep_strike": false,
+      "resolute_will": true,
+      "notes": "iter24 Custodian Wardens fix bundle. (1) deep_strike cleared: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Wardens datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). (2) resolute_will set: the Wardens datasheet ability 'Resolute Will' (verbatim from BSData cache `Imperium - Adeptus Custodes.cat.gz`: 'While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.') wires through simulator.resolute_will in Unit.attack and via leaders.is_actually_led for the host-key 'led' gate. The Wardens Living Fortress once-per-battle FNP 4+ is NOT modelled here — SwegHammer has no once-per-phase phase-scoped FNP buff layer. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
+    },
+    "adeptus_custodes_sagittarum_custodians": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Sagittarum datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Sagittarum-Custodians"
+    },
+    "adeptus_custodes_trajann_valoris": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Trajann Valoris datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). Trajann's own Feel No Pain 5+ and Captain-General ability are unchanged. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris"
+    },
+    "adeptus_custodes_blade_champion": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Blade Champion datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Blade-Champion"
+    },
+    "adeptus_custodes_shield_captain": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Shield-Captain (foot, power-armoured) datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike — the Allarus-Terminator variant of Shield-Captain does have it via its Terminator armour, that variant is unchanged here). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain"
     },
     "space_marines_repulsor_executioner": {
       "base_shape": "rect",

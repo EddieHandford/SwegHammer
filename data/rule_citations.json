@@ -23,5 +23,13 @@
     "trigger": "attacker has VEHICLE or MONSTER keyword AND is within 1\" of an enemy",
     "effect": "permitted to shoot; -1 to all hit rolls this activation",
     "scope": "keyword-gated"
+  },
+  "simulator.resolute_will": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
+    "rule_name": "Resolute Will",
+    "quoted_text": "While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.",
+    "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led — leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic",
+    "effect": "-1 to the Wound roll (subject to the ±1 modifier cap in Unit.attack)",
+    "scope": "unit-led"
   }
 }

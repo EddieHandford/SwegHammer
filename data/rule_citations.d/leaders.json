@@ -247,9 +247,9 @@
   "LeaderAbility.Stoic Vigil": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-captain",
     "rule_name": "Master of the Stances / Strategic Mastery",
-    "quoted_text": "Master of the Stances: Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit, instead of only one. Strategic Mastery: Once per battle round, you can select one model from your army with this ability. That model's unit can be targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by a Shield-Captain in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Shield-Captain offers Ka'tah-stance flexibility and a Stratagem CP discount, neither of which the simulator models. The reroll-1s-to-hit aura is a flavour proxy for Custodes offensive precision)",
+    "quoted_text": "Master of the Stances: Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit, instead of only one. Strategic Mastery: Once per battle round, you can select one model from your army with this ability. That model's unit can be targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP. Leader: This model can be attached to the following units: Custodian Guard, Custodian Wardens.",
+    "trigger": "attacker's unit is led by a Shield-Captain in aura range (BSData Leader text: 'Custodian Guard, Custodian Wardens')",
+    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Shield-Captain offers Ka'tah-stance flexibility and a Stratagem CP discount, neither of which the simulator models. The reroll-1s-to-hit aura is a flavour proxy for Custodes offensive precision). iter24 expanded host_keys from Guard-only to (Guard + Wardens) per the BSData Leader text — Wardens-led squads were previously silently excluded from the aura.",
     "scope": "unit-led"
   },
 
@@ -257,8 +257,17 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris",
     "rule_name": "Captain-General",
     "quoted_text": "While this model is leading a unit, each time a model in this unit makes an attack, you can ignore any or all modifiers to that attack's Ballistic skill or Weapon skill characteristics and/or all modifiers to the Hit roll.",
-    "trigger": "attacker's unit is led by Trajann Valoris in aura range",
-    "effect": "+1 to Hit in aura range (approximation; the real Captain-General ability lets the led unit ignore all to-hit modifiers — typically a -1-to-hit cancellation. The simulator does not model modifier-cancelling, so +1-to-hit is an upper-bound flavour proxy)",
+    "trigger": "attacker's unit is led by Trajann Valoris in aura range (BSData Leader text: 'This model can be attached to the following units: Custodian Guard, Custodian Wardens')",
+    "effect": "+1 to Hit in aura range (approximation; the real Captain-General ability lets the led unit ignore all to-hit modifiers — typically a -1-to-hit cancellation. The simulator does not model modifier-cancelling, so +1-to-hit is an upper-bound flavour proxy). iter24 expanded host_keys from Guard-only to (Guard + Wardens) per the BSData Leader text — Wardens-led squads were previously silently excluded from the aura.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Swift Onslaught": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Blade-Champion",
+    "rule_name": "Martial Inspiration / Swift Onslaught",
+    "quoted_text": "Martial Inspiration: Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn in which it Advanced. Swift Onslaught: While this model is leading a unit, you can re-roll Charge rolls made for that unit. Leader: This model can be attached to the following units: Custodian Guard, Custodian Wardens.",
+    "trigger": "attacker's unit is led by a Blade Champion in aura range (BSData Leader text: 'Custodian Guard, Custodian Wardens'); the offensive aura fields are unset because neither codex ability is currently expressible through the LeaderAbility schema",
+    "effect": "no aura modifier — entry exists structurally so lookup_ability resolves cleanly (per CLAUDE.md §13 fail-loud) and so host_keys-gated buffs (e.g. Resolute Will on a Blade-Champion-led Wardens squad) can verify 'the led unit has a CHARACTER attached'. The real codex abilities are once-per-battle advance + charge (Martial Inspiration) and re-roll Charge rolls (Swift Onslaught) — neither expressible in the current aura schema. Same iter21 fab-removal pattern as Captain / Autarch / Avatar of Khaine: registry entry without offensive flags.",
     "scope": "unit-led"
   },
 
