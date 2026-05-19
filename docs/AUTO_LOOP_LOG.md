@@ -266,3 +266,21 @@ Three agents on the locked-in priorities. One shipped, one structural-finding-no
 2. **Shot-reallocation refactor** — DS1's structural finding. ~40 lines in `Unit.attack`. Could move many factions simultaneously by correctly modeling multi-shot weapons.
 3. **DG structural over-strength** — D2 confirmed every per-unit lever points wrong direction. Either accept Stage 2 (price DG higher in equilibrium) or attack AI FNP-blindness with an Orks-aware compensation.
 
+### Iter 29 (2026-05-19) — NE1 lands, SR1 parked, TY1 STOP
+
+**NE1 — Necrons Reanimation Protocols full-wounds restore** (commit `58181e1` → `a359520`, agent: 51k tokens, 24 tool uses, 13min). Iter 14's Fix F-NEC-2 had clamped revived Necron models to 1 HP citing a Wahapedia misread. Per the verbatim rule text (https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols) revived models return with "its full wounds remaining". Affects multi-wound Necron units (Lychguard W3, Skorpekh W3, Wraiths W3, Triarch Praetorians W2, Lokhust Heavy Destroyers W3). Eval: Necrons -9.0 → -9.0 flat at N=40 — the lever wasn't load-bearing at archetype seed distribution but the fix is rule-correct. **Cherry-picked per correctness > MAE.**
+
+**SR1 — shot reallocation across sibling models** (no cherry-pick, commit `cb1c057` lives on worktree branch only, agent: 114k tokens, 122 tool uses, 17min). Implemented per the iter28-DS1 finding: when the current target model dies mid-resolution, remaining shots route to a sibling alive model in the same defending unit (matched by `profile.name` via `target.army_ref.alive_units`). When the whole defending unit dies, the loop breaks and remaining shots waste per 10e. Citation `simulator.shot_reallocation_across_models` added. 89 tests passed. **N=40 eval regressed MAE 6.20 → 7.19 (+0.99)** with damaging shape shift: DG +16.2 → +28.4, Custodes +2.6 → +12.0, Orks +5.7 → -6.0, Votann +5.9 → -6.3, Necrons -9.0 → -5.4, T'au +7.7 → -0.3.
+
+The structural lift hurts disproportionately on factions with heavy melee multi-attack profiles (DG Plague Marine Choppas, Custodes A4 melee). The previous sim "balance" relied on the bug; landing SR1 rule-correctly needs paired Stage 2 per-unit pricing work to re-balance DG / Custodes upward in cost. **Parked SR1 for iter 30+ coordinated rebalance pass.**
+
+**TY1 — Tyranids Hive Tyrant Onslaught fab audit** (no commit, agent: 97k tokens, 46 tool uses, 26min). Tested clearing `reroll_wound_ones=True` from the Hive Tyrant LeaderAbility (the Onslaught codex rule is ranged LETHAL HITS + ASSAULT, not re-roll wound 1s; flag was mode-agnostic so was firing on Carnifex / Tervigon / Trygon melee in aura). Tyranids +5.3 → +5.9 (wrong direction, within noise). Reverted. Four iter-30 candidates in diag file: Subterranean Assault verbatim audit, Hive Tyrant melee profile, Maleceptor / Norn Emissary FNP, Synapse aura scope.
+
+**Cumulative iter 29 (1 cherry-pick: NE1)**: MAE **6.20 → 6.20** (flat at N=40). Per-faction unchanged at this resolution.
+
+**Iter 30+ priorities**:
+1. **SR1 + per-unit DG/Custodes pricing compensation** — coordinated rebalance pass. Land SR1 alongside Stage 2 cost nudges on DG melee units and Custodian Guard / Wardens so MAE doesn't regress while the structural shot-waste bug is fixed.
+2. **Necrons -9.0 deeper diag** — NE1 was the obvious lever and didn't move. Need shooty profile efficiency, Awakened Dynasty Protocol rotation, or Doomsday Ark / C'tan Shard stats.
+3. **TY1 follow-ups** — Subterranean Assault, Maleceptor / Norn Emissary FNP audit.
+4. **DG via Stage 2** — D2 confirmed Stage 1 per-unit levers all point wrong; consider accepting DG pricing as a Stage 2 problem.
+
