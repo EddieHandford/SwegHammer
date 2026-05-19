@@ -27,11 +27,13 @@
     },
     "death_guard_blightlord_terminators": {
       "fnp": 5,
-      "notes": "iter24-D4: Blightlord Terminators carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. The 4++ invulnerable save is already in parsed.json; FNP 5+ is the missing half. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators."
+      "invuln_save": 4,
+      "notes": "iter24-D4 + iter20 variant-invuln (merged iter28): Blightlord Terminators carry both Disgustingly Resilient (Feel No Pain 5+) per the Death Guard army rule AND a 4++ from Cataphractii-pattern Terminator armour. BSData v10.6.0 omits both the per-unit FNP and the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators."
     },
     "death_guard_typhus": {
       "fnp": 5,
-      "notes": "iter24-D4: Typhus carries Disgustingly Resilient (Feel No Pain 5+) per his 10e datasheet. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus."
+      "invuln_save": 4,
+      "notes": "iter24-D4 + iter22 invuln (merged iter28): Typhus carries Disgustingly Resilient (Feel No Pain 5+) per the Death Guard army rule AND a 4++ Cataphractii Terminator armour invulnerable save. BSData v10.6.0 omits both. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus."
     },
     "aeldari_craftworlds_wraithguard": {
       "invuln_save": 4,
@@ -327,10 +329,6 @@
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Cataphractii-pattern Terminator armour. BSData v10.6.0 omits the Invulnerable-Save infoLink on this entry. Broader pattern affects every Chaos Terminator squad. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Deathshroud-Terminators"
     },
-    "death_guard_blightlord_terminators": {
-      "invuln_save": 4,
-      "notes": "iter20 variant-invuln mapper-gap: 4++ Cataphractii-pattern Terminator armour. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators"
-    },
     "necrons_lychguard": {
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Dispersion Shield. BSData v10.6.0 omits the Invulnerable-Save infoLink on the Lychguard entry. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Lychguard"
@@ -446,10 +444,6 @@
     "death_guard_mortarion": {
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Mortarion (Daemon Primarch of Nurgle) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
-    },
-    "death_guard_typhus": {
-      "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Typhus has 4++ invulnerable save (Cataphractii Terminator armour). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus"
     },
     "death_guard_daemon_prince_of_nurgle": {
       "invuln_save": 4,
