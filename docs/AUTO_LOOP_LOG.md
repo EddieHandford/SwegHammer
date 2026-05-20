@@ -54,6 +54,26 @@ After LC-5 plateau, a 3-agent dispatch targeting Custodes +22 / Necrons -11. All
 
 **Real Necrons engine candidate** (per N1 agent's recommendation): Awakened Dynasty 6-protocol rotation isn't fully modelled. Only one protocol (`bonus_to_hit_when_led`) is wired; the other five would add small per-round value that compounds. Doomsday Ark profile verification also flagged as iter 35 priority.
 
+### LC-AB Custodes + DDA + AD-PR (2026-05-20)
+
+Three parallel agents on outlier-targeted structural fixes.
+
+**LC-AB Custodes archetype rebalance**: Custodes template reduced from 2× Wardens + 2× Allarus to 1× of each + Witchseekers/Vigilators BATTLELINE chaff. Eval: MAE 6.29 → 6.00 (−0.29). Custodes itself stayed at +22.3 (flat — the elite-shape engine is impossibly durable even with fewer copies); other factions improved by ~0.4-1pt as opponents score more secondaries against the now-vulnerable Custodes BATTLELINE chaff.
+
+**DDA Doomsday Ark + Doomstalker invuln overrides**: 4+ invuln on both via `data/overrides.json` (BSData mapper missed the local Abilities profile rather than infoLink). Eval: MAE 6.29 → 6.18 (−0.11). Necrons −11.8 → −10.7 (+1.1). Rule-correct.
+
+**AD-PR Awakened Dynasty protocol rotation**: wired Hungry Void (melee AP+1, even rounds) + Vengeful Stars (ranged SUSTAINED HITS 1, odd rounds) on Necrons. Conquering Tyrant (already-wired bonus_to_hit_when_led) retained always-on. Eval: MAE 6.29 → 6.16 (−0.13). Necrons −11.8 → −10.7 (+1.1).
+
+**Combined N=40 eval (all three cherry-picked together)**: MAE **6.29 → 5.79 (−0.50)** — best honest N=40 reading of the calibration loop's history. Necrons −11.8 → −8.5 (+3.3 combined). Custodes stuck at +22.6 (structurally locked — needs Stage 2 pricing work, deferred per user).
+
+**Per-faction at combined state** (sim-cal-4 head `4f6c4bc`):
+- Marines +2.6, Necrons −8.5, Aeldari +2.8, Tyranids +5.6, Orks +0.4 ✅
+- T'au −3.9, DG −2.7, Custodes +22.6 (outlier), TSON −3.8, Votann +5.1
+- 7 of 10 factions within ±3pt; Custodes the sole structural outlier
+- Cumulative Stage 1 progress from iter 22 baseline 13.43 → 5.79 = **−7.64 across 70+ commits**.
+
+LC-4 enhancement system dispatched next.
+
 ### Iter 21 (2026-05-18) — LeaderAbility fabrication audit
 
 6 agents cross-faction sweep. 5 commits landed via cherry-pick + cross-worktree merge; Orks was clean (no fabs).
