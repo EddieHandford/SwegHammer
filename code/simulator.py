@@ -738,9 +738,14 @@ class Battle:
         # B's round-start snapshot against B's current state. Four
         # secondary categories (SC4-A Bring it Down + No Prisoners,
         # SC4-C Cull the Horde + Assassination).
+        # LC-5: pass each side's Warlord uid for the +1 Assassination
+        # bonus when the opponent kills it.
+        b_warlord = self.b.warlord_uid
+        a_warlord = self.a.warlord_uid
         if self._b_round_snapshot is not None:
             a_bid, a_np, a_cth, a_assn = score_round_delta(
-                self._b_round_snapshot, self.b.units
+                self._b_round_snapshot, self.b.units,
+                enemy_warlord_uid=b_warlord,
             )
             a_kill_vp = a_bid + a_np + a_cth + a_assn
             self._a_vp += a_kill_vp
@@ -748,7 +753,8 @@ class Battle:
         # Side B scores VP for killing side A's units this round.
         if self._a_round_snapshot is not None:
             b_bid, b_np, b_cth, b_assn = score_round_delta(
-                self._a_round_snapshot, self.a.units
+                self._a_round_snapshot, self.a.units,
+                enemy_warlord_uid=a_warlord,
             )
             b_kill_vp = b_bid + b_np + b_cth + b_assn
             self._b_vp += b_kill_vp

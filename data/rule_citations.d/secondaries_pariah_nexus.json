@@ -46,6 +46,16 @@
     "scope": "phase-gated"
   },
 
+  "simulator.warlord_designation": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
+    "rule_name": "Warlord designation + Pariah Nexus Assassination bonus",
+    "quoted_text": "Each player must select one CHARACTER model in their army to be their Warlord. Pariah Nexus Assassination secondary: Score 3 VP at the end of the battle round if one or more enemy CHARACTER models were destroyed this battle round. Score 4 VP instead if the enemy WARLORD was among those models.",
+    "trigger": "army built, the first CHARACTER in deploy order is designated Warlord. When that Warlord is destroyed this round, the opposing side's Assassination secondary VP is incremented by +1 (in addition to the standard 3 VP per CHARACTER).",
+    "effect": "Army.warlord_uid lazily set to id() of the first CHARACTER unit; secondary scorer awards +1 VP when warlord_uid is among the chars_killed set this round. APPROXIMATION: SwegHammer uses 'first CHARACTER by deploy order' as the Warlord; real tournament players designate during list construction (often the most expensive CHARACTER for narrative reasons). The deploy-order heuristic is faction-neutral and deterministic.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
   "simulator.tactical_secondary_deck_draw": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Tactical Secondary Mission deck mechanic",

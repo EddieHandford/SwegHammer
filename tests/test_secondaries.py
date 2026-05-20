@@ -237,6 +237,41 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         _, _, _, ass = score_round_delta(snap, characters)
         self.assertEqual(ass, ASSASSINATION_CAP_PER_ROUND)
 
+    def test_lc5_warlord_kill_grants_bonus_vp(self):
+        # LC-5: killing the enemy Warlord adds +1 VP on top of the
+        # standard 3 VP per CHARACTER. One CHARACTER kill = 3 base VP;
+        # if that CHARACTER was the Warlord, +1 = 4 total.
+        from code.secondaries import (
+            ASSASSINATION_VP_PER_CHAR,
+            ASSASSINATION_WARLORD_BONUS_VP,
+        )
+        warlord = _make_unit("Trajann", alive=True,
+                             keywords=("CHARACTER", "INFANTRY"))
+        snap = take_snapshot([warlord])
+        warlord.current_health = 0.0
+        _, _, _, ass = score_round_delta(
+            snap, [warlord], enemy_warlord_uid=id(warlord)
+        )
+        self.assertEqual(
+            ass,
+            ASSASSINATION_VP_PER_CHAR + ASSASSINATION_WARLORD_BONUS_VP,
+        )
+
+    def test_lc5_non_warlord_kill_no_bonus(self):
+        # CHARACTER killed that isn't the Warlord — no bonus.
+        from code.secondaries import ASSASSINATION_VP_PER_CHAR
+        warlord = _make_unit("Trajann", alive=True,
+                             keywords=("CHARACTER", "INFANTRY"))
+        lieutenant = _make_unit("Lt", alive=True,
+                                keywords=("CHARACTER", "INFANTRY"))
+        snap = take_snapshot([warlord, lieutenant])
+        lieutenant.current_health = 0.0
+        # Warlord survives — only the lieutenant died.
+        _, _, _, ass = score_round_delta(
+            snap, [warlord, lieutenant], enemy_warlord_uid=id(warlord)
+        )
+        self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
+
 
 class ScorePositionDeltaTests(unittest.TestCase):
     """Engage on All Fronts + Behind Enemy Lines position scoring."""

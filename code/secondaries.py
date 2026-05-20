@@ -21,7 +21,7 @@ Citations:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, List, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .units import Unit
@@ -50,6 +50,7 @@ BRING_IT_DOWN_VP_PER_KILL: int = 3    # 3 VP per enemy MONSTER/VEHICLE destroyed
 NO_PRISONERS_VP_PER_UNIT: int = 3     # 3 VP per enemy UNIT destroyed
 CULL_THE_HORDE_VP_PER_UNIT: int = 3   # 3 VP per enemy horde-unit destroyed
 ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP per enemy CHARACTER destroyed
+ASSASSINATION_WARLORD_BONUS_VP: int = 1  # +1 VP if enemy Warlord destroyed (real Pariah Nexus rule)
 
 # SC4-B — position-tracking secondary thresholds.
 ENGAGE_QUADRANTS_REQUIRED: int = 3    # need units in 3+ of 4 quadrants to score
@@ -158,6 +159,7 @@ def _is_character(unit: "Unit") -> bool:
 def score_round_delta(
     snapshot: RoundSnapshot,
     enemy_units_now: Iterable["Unit"],
+    enemy_warlord_uid: Optional[int] = None,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -212,6 +214,19 @@ def score_round_delta(
         ASSASSINATION_CAP_PER_ROUND,
         len(chars_killed) * ASSASSINATION_VP_PER_CHAR,
     )
+    # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
+    # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
+    # VP at the end of the battle round if one or more enemy CHARACTER
+    # models were destroyed this battle round. Score 4 VP instead if
+    # the enemy WARLORD was among those models." Cited as
+    # `simulator.warlord_designation`. The bonus is added on TOP of
+    # the per-round cap (Pariah Nexus rule treats the 4 VP as the
+    # alternative max, not as cap + bonus — but since our flat 3 VP
+    # per CHARACTER already gets close to the 4 VP ceiling on one
+    # kill, the bonus VP is small and we add it post-cap for clarity).
+    if enemy_warlord_uid is not None and enemy_warlord_uid in chars_killed:
+        assassination_vp += ASSASSINATION_WARLORD_BONUS_VP
+
     return (bring_it_down_vp, no_prisoners_vp,
             cull_the_horde_vp, assassination_vp)
 
