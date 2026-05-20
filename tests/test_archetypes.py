@@ -162,31 +162,28 @@ class ArchetypeFallbackTests(unittest.TestCase):
         """A faction not present in ARCHETYPES still builds an army via the
         legacy random-pool path.
 
-        Picks `Astra Militarum` as a known catalogue faction without an
-        archetype. The previous version walked `set()` iteration to find
-        an obscure faction, but set iteration is non-deterministic across
-        runs and would occasionally land on factions with too few buildable
-        profiles (e.g. "Chaos Titans") so the random builder produced an
-        empty army. Astra Militarum has a full catalogue of cheap infantry
-        so the build always lands at least one unit.
+        Picks `Deathwatch` as a known catalogue faction without an
+        archetype (FX-ALL gave Astra Militarum its own archetype; Deathwatch
+        units exist under their own `faction` tag but don't have a
+        dedicated template — they fall through to the random-pool path).
+        Deathwatch has 11 catalogued units so the build always lands at
+        least one unit.
         """
-        # Astra Militarum is in the catalogue but not in ARCHETYPES.
-        # Sanity-check that assumption so the test fails loudly if the
-        # catalogue or the ARCHETYPES map changes.
+        # Deathwatch is in the catalogue but not in ARCHETYPES.
         catalogue_factions = {u.faction for u in UNIT_CATALOG.values()}
         self.assertIn(
-            "Astra Militarum", catalogue_factions,
-            "Astra Militarum should be a faction in UNIT_CATALOG",
+            "Deathwatch", catalogue_factions,
+            "Deathwatch should be a faction in UNIT_CATALOG",
         )
         self.assertFalse(
-            has_archetype("Astra Militarum"),
-            "Astra Militarum unexpectedly gained an ARCHETYPES entry; "
+            has_archetype("Deathwatch"),
+            "Deathwatch unexpectedly gained an ARCHETYPES entry; "
             "pick a different non-archetype faction for this fallback test.",
         )
 
         rng = random.Random(7)
         army = build_faction_random_army(
-            "X", "Astra Militarum", 1000.0, rng=rng, use_archetype=True,
+            "X", "Deathwatch", 1000.0, rng=rng, use_archetype=True,
         )
         # Even with archetypes enabled, an unknown-faction army still
         # builds via the random-pool fallback.

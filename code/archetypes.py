@@ -792,11 +792,18 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     # remaining seed budget is filled by `_random_fill` with same-faction
     # picks. Detachment names match the registry where one exists.
     "Chaos Space Marines": {
+        # FX-ALL CSM catalog limitation: BSData v10.6.0 doesn't expose
+        # Legionaries / Chaos Terminator Squad / Chosen / Chaos Lord in
+        # Terminator Armour as catalog keys. Available CSM catalog leans
+        # on dedicated chassis + named CHARACTERs. Template below uses
+        # what's catalogued — provides COVERAGE per FX-ALL goal even if
+        # not fully tournament-realistic. Follow-up: refresh BSData
+        # mapper or add overrides for the missing 10e generics.
         "Pactbound Zealots": {
-            "chaos_space_marines_chaos_lord_in_terminator_armour": 1,
-            "chaos_space_marines_legionaries": 2,
-            "chaos_space_marines_chaos_terminator_squad": 1,
-            "chaos_space_marines_chosen": 1,
+            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            "chaos_space_marines_chaos_bikers": 1,
+            "chaos_space_marines_obliterators": 1,
+            "chaos_space_marines_mutilators": 1,
             "chaos_space_marines_helbrute": 1,
             "chaos_space_marines_chaos_rhino": 1,
             "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
