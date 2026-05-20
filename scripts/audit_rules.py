@@ -369,6 +369,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 3 controlled objectives at 5 VP each). Applied in
     # `Battle._score_objectives` after per-objective awards are tallied.
     "simulator.primary_vp_cap_15",
+    # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
+    # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
+    # and No Prisoners (5 VP per enemy unit destroyed this round, capped
+    # 15). Wired in `Battle._score_secondaries`, called once per round
+    # after `_score_objectives`. Pairs the per-round delta against a
+    # round-start snapshot captured in `_run_round`.
+    "simulator.secondary_bring_it_down",
+    "simulator.secondary_no_prisoners",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

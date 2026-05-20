@@ -1,0 +1,21 @@
+{
+  "_comment": "10e Pariah Nexus tournament-pack Fixed Secondary Missions. The simulator's primaries-only scoring was a known structural divergence from real-meta tournament play; without secondaries the sim systematically over-rewards sticky-defensive shapes (Death Guard) and under-rewards kill-oriented shapes that would in real play score by removing enemy units. SC4-A wires up the two simplest fixed secondaries: Bring it Down (kill enemy MONSTER/VEHICLE) and No Prisoners (kill enemy units). Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+
+  "simulator.secondary_bring_it_down": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",
+    "quoted_text": "If one or more enemy MONSTER or VEHICLE models have been destroyed this battle round, score 2 VP plus 1 VP for each enemy MONSTER or VEHICLE model destroyed this battle round, to a maximum of 8 VP. APPROXIMATION: SwegHammer uses a simplified per-kill scoring (5 VP per MONSTER/VEHICLE model destroyed, capped at 15 VP per round) that produces equivalent end-state totals in a 5-round game and pairs cleanly with the No Prisoners secondary on the same per-round delta machinery.",
+    "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed MONSTER/VEHICLE units against the opponent's round-start snapshot",
+    "effect": "the opposing army gains 5 VP per destroyed MONSTER/VEHICLE model this round, capped at 15 VP per round",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_no_prisoners": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "No Prisoners (Pariah Nexus Fixed Secondary Mission)",
+    "quoted_text": "Score 2 VP at the end of the battle round if any enemy units were destroyed this battle round, plus 1 VP for each enemy unit destroyed this battle round, to a maximum of 5 VP per battle round. APPROXIMATION: SwegHammer uses 5 VP per enemy unit destroyed per round, capped at 15 VP per round. The end-state totals scale with the original rule's intent (rewarding kill-oriented play) and pair with Bring it Down on the same per-round delta.",
+    "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed units against the opponent's round-start snapshot",
+    "effect": "the opposing army gains 5 VP per destroyed enemy unit this round, capped at 15 VP per round",
+    "scope": "phase-gated"
+  }
+}

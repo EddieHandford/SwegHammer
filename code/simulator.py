@@ -298,6 +298,18 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
+        # SC4-A — 10e Pariah Nexus secondary objectives. Each round we
+        # snapshot each army's alive units at round start (in `_run_round`)
+        # and compute Bring it Down + No Prisoners VP at round end (in
+        # `run` after `_score_objectives`). Per-round caps live in
+        # `code/secondaries.py`. The snapshot is per-army; we score side A
+        # against side B's snapshot (i.e. side A scores VP for killing
+        # side B's units this round).
+        from .secondaries import RoundSnapshot  # noqa: F401  (type only)
+        self._a_round_snapshot = None  # snapshot of A's units at round start
+        self._b_round_snapshot = None  # snapshot of B's units at round start
+        self._a_secondary_vp: int = 0  # cumulative secondary VP for side A
+        self._b_secondary_vp: int = 0  # cumulative secondary VP for side B
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
@@ -456,6 +468,7 @@ class Battle:
             self._emit(RoundStarted(round_num=rnd))
             self._run_round(rnd)
             self._score_objectives()
+            self._score_secondaries(rnd)
             self._emit(RoundEnded(
                 round_num=rnd,
                 a_vp_total=self._a_vp,
@@ -678,6 +691,48 @@ class Battle:
             self._a_vp = a_vp_before + 15
         if b_round_vp > 15:
             self._b_vp = b_vp_before + 15
+
+    # ------------------------------------------------------------------
+    # SC4-A — 10e Pariah Nexus secondary objective scoring
+    # ------------------------------------------------------------------
+
+    def _score_secondaries(self, round_num: int) -> None:
+        """End-of-round secondary VP scoring (Bring it Down + No Prisoners).
+
+        Computes the kill delta between each army's round-start snapshot
+        and its current alive units, awarding per-round capped VP to the
+        opposing side. Implements Pariah Nexus tournament-pack secondary
+        scoring so the sim's win condition isn't primaries-only — without
+        secondaries the sim systematically over-rewards sticky-defensive
+        play (Death Guard +16.4 over) and under-rewards kill-oriented
+        shapes that would in real play score by removing enemy units.
+
+        Bring it Down: 5 VP per enemy MONSTER/VEHICLE model destroyed
+        this round, capped at 15 VP per round.
+        Cited as `simulator.secondary_bring_it_down`.
+
+        No Prisoners: 5 VP per enemy unit destroyed this round, capped
+        at 15 VP per round.
+        Cited as `simulator.secondary_no_prisoners`.
+
+        Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+        """
+        from .secondaries import score_round_delta
+        # Side A scores VP for killing side B's units this round — diff
+        # B's round-start snapshot against B's current state.
+        if self._b_round_snapshot is not None:
+            a_bid, a_np = score_round_delta(
+                self._b_round_snapshot, self.b.units
+            )
+            self._a_vp += a_bid + a_np
+            self._a_secondary_vp += a_bid + a_np
+        # Side B scores VP for killing side A's units this round.
+        if self._a_round_snapshot is not None:
+            b_bid, b_np = score_round_delta(
+                self._a_round_snapshot, self.a.units
+            )
+            self._b_vp += b_bid + b_np
+            self._b_secondary_vp += b_bid + b_np
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
@@ -3908,6 +3963,17 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+
+        # SC4-A — snapshot each army's alive units at round start for the
+        # 10e Pariah Nexus secondary scoring (Bring it Down + No Prisoners).
+        # End-of-round (in `run`) computes the kill delta against the
+        # snapshot to award per-round secondary VP. Snapshot is taken at
+        # round start so kills DURING this round are credited to this
+        # round's scoring (real 10e per-round caps applied in
+        # `secondaries.score_round_delta`).
+        from .secondaries import take_snapshot as _take_snapshot
+        self._a_round_snapshot = _take_snapshot(self.a.units)
+        self._b_round_snapshot = _take_snapshot(self.b.units)
 
         # Fix F-NEC-1: snapshot per-profile alive counts AT ROUND START for
         # any army with Reanimation Protocols. End-of-round `_apply_reanimation`
