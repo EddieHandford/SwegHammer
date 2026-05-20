@@ -15,6 +15,8 @@ at round-end, returning the secondary VP each side scored that round.
 Citations:
     - simulator.secondary_bring_it_down (Wahapedia Pariah Nexus secondary)
     - simulator.secondary_no_prisoners (Wahapedia Pariah Nexus secondary)
+    - simulator.secondary_engage_on_all_fronts (Wahapedia Pariah Nexus tactical)
+    - simulator.secondary_behind_enemy_lines (Wahapedia Pariah Nexus tactical)
 """
 from __future__ import annotations
 
@@ -23,15 +25,22 @@ from typing import TYPE_CHECKING, Iterable, List, Tuple
 
 if TYPE_CHECKING:
     from .units import Unit
+    from .map import Map
 
 
 # Per-round VP caps (Pariah Nexus rule text).
 BRING_IT_DOWN_CAP_PER_ROUND: int = 15
 NO_PRISONERS_CAP_PER_ROUND: int = 15
+ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND: int = 5
+BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 5
 
 # VP per qualifying kill.
 BRING_IT_DOWN_VP_PER_KILL: int = 5    # 5 VP per enemy MONSTER/VEHICLE destroyed
 NO_PRISONERS_VP_PER_UNIT: int = 5     # 5 VP per enemy UNIT destroyed
+
+# SC4-B — position-tracking secondary thresholds.
+ENGAGE_QUADRANTS_REQUIRED: int = 3    # need units in 3+ of 4 quadrants to score
+BEHIND_ENEMY_LINES_VP: int = 5        # flat 5 VP if any alive unit in enemy DZ
 
 
 @dataclass
@@ -108,3 +117,73 @@ def score_round_delta(
         len(units_killed) * NO_PRISONERS_VP_PER_UNIT,
     )
     return bring_it_down_vp, no_prisoners_vp
+
+
+def score_position_delta(
+    own_units: Iterable["Unit"],
+    map_: "Map",
+    own_is_army_a: bool,
+) -> Tuple[int, int]:
+    """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
+    round given the side's currently-alive units, the battlefield map,
+    and whether this side deployed in Army A's zone (low-y).
+
+    Engage on All Fronts (Pariah Nexus tactical secondary, simplified):
+        Score 5 VP if your alive units occupy 3+ of the 4 table
+        quarters at end of round. Quarters are determined by dividing
+        the map at (cx=width/2, cy=height/2). A quarter is "occupied"
+        if at least one alive unit's position is inside it.
+
+    Behind Enemy Lines (Pariah Nexus tactical secondary, simplified):
+        Score 5 VP if any alive unit's position is within the
+        opponent's deployment zone at end of round. Army A's enemy DZ
+        is y >= map.height - map.deployment_width; Army B's enemy DZ
+        is y <= map.deployment_width.
+
+    Real-rule fidelity caveats:
+    * Real Engage scores 2/3/5 VP for 2/3/4 quadrants and requires the
+      occupying unit to be "wholly within" the quarter. Sim simplifies
+      to a single 5 VP threshold at 3+ quadrants (position centroid).
+    * Real BEL requires the unit "wholly within" the enemy DZ. Sim
+      simplifies to position-inside-DZ check.
+    Both simplifications preserve the secondary's directional
+    incentive — projecting units forward / spreading across the map
+    is rewarded, sticky-camping is not.
+    """
+    cx = map_.width / 2.0
+    cy = map_.height / 2.0
+    quadrants_occupied = set()
+    in_enemy_dz = False
+
+    if own_is_army_a:
+        # Army A's enemy DZ is the high-y strip.
+        enemy_dz_lo = map_.height - map_.deployment_width
+        enemy_dz_hi = map_.height
+    else:
+        # Army B's enemy DZ is the low-y strip.
+        enemy_dz_lo = 0.0
+        enemy_dz_hi = map_.deployment_width
+
+    for u in own_units:
+        if u.current_health <= 0:
+            continue
+        pos = getattr(u, "position", None)
+        if pos is None:
+            continue
+        ux, uy = pos
+        # Quadrant detection: (low-x, low-y) = SW, (high-x, low-y) = SE,
+        # (low-x, high-y) = NW, (high-x, high-y) = NE.
+        qx = 0 if ux < cx else 1
+        qy = 0 if uy < cy else 1
+        quadrants_occupied.add((qx, qy))
+        # Enemy DZ check.
+        if enemy_dz_lo <= uy <= enemy_dz_hi:
+            in_enemy_dz = True
+
+    engage_vp = (
+        ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND
+        if len(quadrants_occupied) >= ENGAGE_QUADRANTS_REQUIRED
+        else 0
+    )
+    bel_vp = BEHIND_ENEMY_LINES_VP if in_enemy_dz else 0
+    return engage_vp, bel_vp

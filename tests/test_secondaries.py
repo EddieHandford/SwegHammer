@@ -7,21 +7,38 @@ import unittest
 from types import SimpleNamespace
 
 from code.secondaries import (
+    BEHIND_ENEMY_LINES_VP,
     BRING_IT_DOWN_CAP_PER_ROUND,
-    NO_PRISONERS_CAP_PER_ROUND,
     BRING_IT_DOWN_VP_PER_KILL,
+    ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND,
+    NO_PRISONERS_CAP_PER_ROUND,
     NO_PRISONERS_VP_PER_UNIT,
+    score_position_delta,
     score_round_delta,
     take_snapshot,
 )
 
 
-def _make_unit(name: str, alive: bool, keywords: tuple = ()) -> SimpleNamespace:
+def _make_unit(name: str, alive: bool, keywords: tuple = (),
+               position: tuple = None) -> SimpleNamespace:
     """Minimal Unit stand-in for the secondary scorer. The scorer only
-    reads `current_health > 0` and `profile.unit_keywords`."""
-    return SimpleNamespace(
+    reads `current_health > 0`, `profile.unit_keywords`, and (for the
+    position-tracking secondaries) `position`."""
+    ns = SimpleNamespace(
         current_health=1.0 if alive else 0.0,
         profile=SimpleNamespace(unit_keywords=keywords),
+    )
+    if position is not None:
+        ns.position = position
+    return ns
+
+
+def _make_map(width: float = 44.0, height: float = 60.0,
+              deployment_width: float = 12.0) -> SimpleNamespace:
+    """Minimal Map stand-in for position scoring. `score_position_delta`
+    only reads width / height / deployment_width."""
+    return SimpleNamespace(
+        width=width, height=height, deployment_width=deployment_width,
     )
 
 
@@ -135,6 +152,93 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         bid, np_vp = score_round_delta(snap, [warriors])
         self.assertEqual(bid, 0)
         self.assertEqual(np_vp, 0)
+
+
+class ScorePositionDeltaTests(unittest.TestCase):
+    """Engage on All Fronts + Behind Enemy Lines position scoring."""
+
+    def test_no_alive_units_scores_zero(self):
+        eng, bel = score_position_delta([], _make_map(), own_is_army_a=True)
+        self.assertEqual(eng, 0)
+        self.assertEqual(bel, 0)
+
+    def test_engage_one_quadrant_no_score(self):
+        # All units in SW quadrant (low-x, low-y).
+        units = [
+            _make_unit(f"u{i}", alive=True, position=(10.0, 10.0))
+            for i in range(5)
+        ]
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True)
+        self.assertEqual(eng, 0)
+
+    def test_engage_three_quadrants_scores_full_vp(self):
+        # 44x60 map: cx=22, cy=30. Place units in SW (10,10), NW (10,40),
+        # NE (30,40). Three quadrants — should score.
+        units = [
+            _make_unit("sw", alive=True, position=(10.0, 10.0)),
+            _make_unit("nw", alive=True, position=(10.0, 40.0)),
+            _make_unit("ne", alive=True, position=(30.0, 40.0)),
+        ]
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True)
+        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+
+    def test_engage_four_quadrants_scores_same_capped_vp(self):
+        # All four quadrants — same VP (5) since we have a single threshold.
+        units = [
+            _make_unit("sw", alive=True, position=(10.0, 10.0)),
+            _make_unit("nw", alive=True, position=(10.0, 40.0)),
+            _make_unit("ne", alive=True, position=(30.0, 40.0)),
+            _make_unit("se", alive=True, position=(30.0, 10.0)),
+        ]
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True)
+        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+
+    def test_dead_units_excluded_from_quadrant_count(self):
+        # 3 quadrants covered but only 1 unit alive.
+        dead_se = _make_unit("se", alive=False, position=(30.0, 10.0))
+        dead_nw = _make_unit("nw", alive=False, position=(10.0, 40.0))
+        live_sw = _make_unit("sw", alive=True, position=(10.0, 10.0))
+        eng, _ = score_position_delta(
+            [dead_se, dead_nw, live_sw], _make_map(), own_is_army_a=True
+        )
+        self.assertEqual(eng, 0)
+
+    def test_behind_enemy_lines_army_a_perspective(self):
+        # Army A's enemy DZ is the high-y strip (y >= height - deployment_width
+        # = 60 - 12 = 48). Place one unit at y=50 (in enemy DZ).
+        unit = _make_unit("scout", alive=True, position=(22.0, 50.0))
+        _, bel = score_position_delta(
+            [unit], _make_map(), own_is_army_a=True
+        )
+        self.assertEqual(bel, BEHIND_ENEMY_LINES_VP)
+
+    def test_behind_enemy_lines_army_b_perspective(self):
+        # Army B's enemy DZ is the low-y strip (y <= deployment_width = 12).
+        # Place one unit at y=5 (in enemy DZ for Army B).
+        unit = _make_unit("scout", alive=True, position=(22.0, 5.0))
+        _, bel = score_position_delta(
+            [unit], _make_map(), own_is_army_a=False
+        )
+        self.assertEqual(bel, BEHIND_ENEMY_LINES_VP)
+
+    def test_behind_enemy_lines_own_dz_doesnt_score(self):
+        # Army A unit at y=5 is in OWN DZ, not enemy DZ.
+        unit = _make_unit("turtle", alive=True, position=(22.0, 5.0))
+        _, bel = score_position_delta(
+            [unit], _make_map(), own_is_army_a=True
+        )
+        self.assertEqual(bel, 0)
+
+    def test_unit_without_position_ignored(self):
+        # Some test paths construct Units without setting position (the
+        # `pos = getattr(u, 'position', None)` guard returns None and we
+        # skip). Should not raise; just contribute nothing.
+        unit = _make_unit("no-pos", alive=True)
+        eng, bel = score_position_delta(
+            [unit], _make_map(), own_is_army_a=True
+        )
+        self.assertEqual(eng, 0)
+        self.assertEqual(bel, 0)
 
 
 if __name__ == "__main__":

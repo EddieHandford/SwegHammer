@@ -17,5 +17,23 @@
     "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed units against the opponent's round-start snapshot",
     "effect": "the opposing army gains 5 VP per destroyed enemy unit this round, capped at 15 VP per round",
     "scope": "phase-gated"
+  },
+
+  "simulator.secondary_engage_on_all_fronts": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Engage on All Fronts (Pariah Nexus Tactical Secondary Mission)",
+    "quoted_text": "Score 2 VP at the end of your turn if your army has one or more units within two table quarters. Score 3 VP if three table quarters, 5 VP if all four. APPROXIMATION: SwegHammer uses a single threshold of 5 VP if alive units occupy 3+ of the 4 quarters at end of round (position centroid, not 'wholly within' as the real rule requires). Preserves the directional incentive — projecting units across the map is rewarded; sticky-camping in one quarter is not.",
+    "trigger": "end of each battle round, evaluating each side's alive-unit quadrant coverage",
+    "effect": "the side scores 5 VP if their alive units' positions occupy at least 3 of the 4 table quarters (cx=width/2, cy=height/2 split)",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_behind_enemy_lines": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Behind Enemy Lines (Pariah Nexus Tactical Secondary Mission)",
+    "quoted_text": "Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. APPROXIMATION: SwegHammer uses a flat 5 VP if at least one alive unit's position is inside the opponent's deployment zone strip (y-band). 'Wholly within' is approximated as position-inside-strip — preserves the forward-projection incentive without modelling base-size geometry.",
+    "trigger": "end of each battle round, evaluating each side's alive-unit positions against the opponent's deployment-zone strip",
+    "effect": "the side scores 5 VP if any alive unit's position is within the opponent's deployment zone (Army A enemy DZ = high-y strip width=map.deployment_width; Army B enemy DZ = low-y strip)",
+    "scope": "phase-gated"
   }
 }

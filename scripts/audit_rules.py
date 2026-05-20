@@ -377,6 +377,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # round-start snapshot captured in `_run_round`.
     "simulator.secondary_bring_it_down",
     "simulator.secondary_no_prisoners",
+    # SC4-B — position-tracking Pariah Nexus tactical secondaries.
+    # Engage on All Fronts (5 VP if alive units span 3+ quadrants)
+    # and Behind Enemy Lines (5 VP if any alive unit in enemy DZ).
+    # Wired in `Battle._score_secondaries` alongside the SC4-A kill
+    # secondaries.
+    "simulator.secondary_engage_on_all_fronts",
+    "simulator.secondary_behind_enemy_lines",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

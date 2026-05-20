@@ -716,8 +716,18 @@ class Battle:
         Cited as `simulator.secondary_no_prisoners`.
 
         Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+
+        SC4-B adds position-tracking secondaries on top of the kill
+        secondaries:
+        * Engage on All Fronts — 5 VP if alive units occupy 3+ of the
+          4 table quarters at end of round
+        * Behind Enemy Lines — 5 VP if any alive unit's position is
+          inside the opponent's deployment zone
+
+        Cited as `simulator.secondary_engage_on_all_fronts` and
+        `simulator.secondary_behind_enemy_lines`.
         """
-        from .secondaries import score_round_delta
+        from .secondaries import score_round_delta, score_position_delta
         # Side A scores VP for killing side B's units this round — diff
         # B's round-start snapshot against B's current state.
         if self._b_round_snapshot is not None:
@@ -733,6 +743,21 @@ class Battle:
             )
             self._b_vp += b_bid + b_np
             self._b_secondary_vp += b_bid + b_np
+
+        # SC4-B — position-tracking secondaries scored at end of round.
+        # Each side scores against their OWN alive units (Engage is your
+        # spread; BEL is your forward projection). own_is_army_a flag
+        # tells the scorer which deployment strip is the enemy's.
+        a_eng, a_bel = score_position_delta(
+            self.a.units, self.map, own_is_army_a=True
+        )
+        self._a_vp += a_eng + a_bel
+        self._a_secondary_vp += a_eng + a_bel
+        b_eng, b_bel = score_position_delta(
+            self.b.units, self.map, own_is_army_a=False
+        )
+        self._b_vp += b_eng + b_bel
+        self._b_secondary_vp += b_eng + b_bel
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
