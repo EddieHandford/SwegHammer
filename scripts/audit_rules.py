@@ -391,6 +391,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # returning the full 4-tuple.
     "simulator.secondary_cull_the_horde",
     "simulator.secondary_assassination",
+    # LC-2 — Tactical Secondary Mission deck-draw mechanic. Gates
+    # Engage / BEL behind a per-round alternating schedule per side
+    # so each side scores at most one Tactical per round, matching
+    # real Pariah Nexus 2-of-9 average coverage.
+    "simulator.tactical_secondary_deck_draw",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

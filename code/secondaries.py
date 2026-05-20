@@ -216,10 +216,48 @@ def score_round_delta(
             cull_the_horde_vp, assassination_vp)
 
 
+def _is_tactical_secondary_active(round_num: int, side: str, tactical: str) -> bool:
+    """LC-2: deterministic tactical-secondary draw mechanic.
+
+    Real Pariah Nexus has 9 Tactical secondaries; players hold 2 at any
+    time, drawn from the deck. Any specific Tactical card is active for
+    ~2/9 (~22%) of turns on average. SwegHammer implements only 2
+    Tactical secondaries (Engage on All Fronts, Behind Enemy Lines);
+    in a 2-card pool, real meta would have BOTH always-active, so the
+    pre-LC2 sim scored both every round — which over-rewarded elite
+    low-count factions (Custodes +20.9 vs real 48%) that can always
+    hit the Engage / BEL conditions.
+
+    LC-2 model: each side scores AT MOST ONE Tactical secondary per
+    round. Selection alternates deterministically by (round_num, side):
+      * side A round 1, 3, 5: Engage
+      * side A round 2, 4:     BEL
+      * side B round 1, 3, 5: BEL
+      * side B round 2, 4:     Engage
+    This halves each tactical secondary's effective coverage to ~50%
+    per side, approximating the 22% real-meta coverage scaled to a
+    2-card pool. Deterministic per (round, side) so PYTHONHASHSEED=0
+    reproduces matrices.
+    """
+    # Sides A and B get OPPOSITE secondaries each round so neither
+    # side has the same hand twice in a row.
+    odd_round = (round_num % 2 == 1)
+    if side == "A":
+        is_engage_turn = odd_round
+    else:  # side B mirrors
+        is_engage_turn = not odd_round
+    if tactical == "engage":
+        return is_engage_turn
+    if tactical == "behind_enemy_lines":
+        return not is_engage_turn
+    return False
+
+
 def score_position_delta(
     own_units: Iterable["Unit"],
     map_: "Map",
     own_is_army_a: bool,
+    round_num: int = 1,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -277,10 +315,17 @@ def score_position_delta(
         if enemy_dz_lo <= uy <= enemy_dz_hi:
             in_enemy_dz = True
 
+    # LC-2: gate Engage / BEL behind the per-round tactical-secondary
+    # draw. Each side scores AT MOST ONE per round (the secondary that's
+    # "active" this turn per the alternating schedule).
+    side = "A" if own_is_army_a else "B"
+    engage_active = _is_tactical_secondary_active(round_num, side, "engage")
+    bel_active = _is_tactical_secondary_active(round_num, side,
+                                                "behind_enemy_lines")
     engage_vp = (
         ENGAGE_ON_ALL_FRONTS_VP
-        if len(quadrants_occupied) >= ENGAGE_QUADRANTS_REQUIRED
+        if engage_active and len(quadrants_occupied) >= ENGAGE_QUADRANTS_REQUIRED
         else 0
     )
-    bel_vp = BEHIND_ENEMY_LINES_VP if in_enemy_dz else 0
+    bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
     return engage_vp, bel_vp

@@ -46,6 +46,16 @@
     "scope": "phase-gated"
   },
 
+  "simulator.tactical_secondary_deck_draw": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Tactical Secondary Mission deck mechanic",
+    "quoted_text": "At the start of the battle, each player creates a Tactical Mission deck of 9 Secondary Mission cards. At the start of their first turn, each player draws 2 Tactical Mission cards from their deck. From each subsequent battle round onwards, each player draws back up to 2 Tactical Mission cards at the start of their turn.",
+    "trigger": "end of each battle round, when scoring tactical secondaries (Engage on All Fronts, Behind Enemy Lines) per side",
+    "effect": "each side scores AT MOST ONE of the implemented tactical secondaries per round, alternating between Engage and BEL on a deterministic schedule keyed by (round_num, side). LC-2 APPROXIMATION: real Pariah Nexus has 9 Tactical cards; SwegHammer implements 2 (Engage + BEL). Without gating, both would score every round (100% coverage) — which over-rewarded elite low-count factions that easily hit the conditions. The alternating deterministic draw scales coverage to ~50% per side per round per card, approximating the real 2-of-9 ~22% rate when scaled to a 2-card pool. Cited as `simulator.tactical_secondary_deck_draw`.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
   "simulator.secondary_assassination": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Assassination (Pariah Nexus Fixed Secondary Mission)",

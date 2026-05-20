@@ -758,13 +758,16 @@ class Battle:
         # Each side scores against their OWN alive units (Engage is your
         # spread; BEL is your forward projection). own_is_army_a flag
         # tells the scorer which deployment strip is the enemy's.
+        # LC-2: round_num gates the 2-of-9 Tactical secondary deck mechanic
+        # — each side scores at most ONE of (Engage, BEL) per round on an
+        # alternating schedule (see `_is_tactical_secondary_active`).
         a_eng, a_bel = score_position_delta(
-            self.a.units, self.map, own_is_army_a=True
+            self.a.units, self.map, own_is_army_a=True, round_num=round_num,
         )
         self._a_vp += a_eng + a_bel
         self._a_secondary_vp += a_eng + a_bel
         b_eng, b_bel = score_position_delta(
-            self.b.units, self.map, own_is_army_a=False
+            self.b.units, self.map, own_is_army_a=False, round_num=round_num,
         )
         self._b_vp += b_eng + b_bel
         self._b_secondary_vp += b_eng + b_bel
