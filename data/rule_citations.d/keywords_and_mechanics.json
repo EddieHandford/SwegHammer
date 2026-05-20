@@ -64,6 +64,15 @@
     "scope": "weapon-keyword"
   },
 
+  "simulator.precision_keyword": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Precision",
+    "rule_name": "[PRECISION]",
+    "quoted_text": "Each time an attack made with such a weapon successfully wounds an Attached unit, if a CHARACTER model in that unit is visible to the attacking model, the attacking model's player can choose to have that attack allocated to that CHARACTER model instead of following the normal attack sequence.",
+    "trigger": "attacker carries a PRECISION ranged weapon; target is a non-MONSTER/non-VEHICLE CHARACTER otherwise shielded by Look Out Sir bodyguards beyond 12\"",
+    "effect": "the Look Out Sir bodyguard gate in code.army.can_target_for_ranged is bypassed, permitting the shot at the CHARACTER directly. Equivalent of the real rule's wound-allocation override, collapsed onto the simulator's targeting gate because characters are modelled as standalone units and there is no attached-unit wound-allocation step. Lone Operative is NOT bypassed.",
+    "scope": "weapon-keyword"
+  },
+
   "weapon.pistol": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Pistol",
     "rule_name": "[PISTOL]",

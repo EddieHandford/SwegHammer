@@ -260,6 +260,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # ranged targeting to 12".
     "simulator.look_out_sir",
     "simulator.lone_operative",
+    # PRECISION keyword (10e core weapon ability). When the attacker carries
+    # a PRECISION-tagged ranged weapon (unit-level `precision` flag, collapsed
+    # by the mapper from BSData weapon keywords), the Look Out Sir bodyguard
+    # gate inside code.army.can_target_for_ranged is bypassed — equivalent of
+    # the real rule's wound-allocation override against attached CHARACTERS.
+    # Lone Operative is NOT bypassed.
+    "simulator.precision_keyword",
     # World Eaters army rule (10e). Blood Tithe: 1 BT awarded per friendly
     # WE death OR enemy unit destroyed by a WE unit; spent at the start of
     # any phase on benefits (1=re-roll charge, 2=+1 to wound vs target,
