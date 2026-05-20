@@ -4080,21 +4080,41 @@ class Battle:
                         army_name=army.name, round_num=round_num,
                     ))
         # ---- Drukhari Power From Pain (10e army rule). At the start of
-        # each Command phase, every Drukhari unit below Starting Strength
+        # each Command phase, every Drukhari unit Below Starting Strength
         # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's
         # models gain Lethal Hits + FNP 6+; the buffs themselves are
-        # applied in Unit.attack and Unit.receive_damage. We model each
-        # squad member as a separate Unit instance with starting
-        # current_health = profile.health, so "below Starting Strength"
-        # reads as "current_health < profile.health". Cited as
+        # applied in Unit.attack and Unit.receive_damage. Cited as
         # `simulator.power_from_pain`.
+        #
+        # iter-DRK fix: "Below Starting Strength" is the 10e core term
+        # for "this unit contains fewer models than its starting strength"
+        # — it ONLY applies to multi-model units, and ONLY once a whole
+        # model has been destroyed (not "lost any wounds at all"). A
+        # single-model unit (CHARACTER, VEHICLE, MONSTER, single-model
+        # MOUNTED, etc.) is never Below Starting Strength even if its
+        # last wound is one chip short of dying — the codex confirms
+        # this explicitly. The previous gate (`current_health < health`)
+        # fired the instant any wound was taken (e.g. a Raider taking a
+        # single chip damage), giving every Drukhari unit FNP 6+ and
+        # Lethal Hits from round 2 onwards — a massive over-buff vs the
+        # codex trigger. We now require BOTH:
+        #   (a) the unit is multi-model (min_models >= 2), AND
+        #   (b) it has lost at least one whole model's worth of wounds.
+        # `wounds_per_model = profile.health / profile.min_models` (this
+        # is how the catalogue builder assigns squad totals).
+        # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
         for army in (self.a, self.b):
             for u in army.units:
                 if u.profile.faction != "Drukhari":
                     continue
                 if u.pain_tokens >= 1:
                     continue   # cap: each unit holds at most 1 token
-                if u.current_health < u.profile.health:
+                # Single-model units can never be Below Starting Strength.
+                if u.profile.min_models < 2:
+                    continue
+                wounds_per_model = u.profile.health / u.profile.min_models
+                # Below Starting Strength = lost at least one full model.
+                if u.current_health <= u.profile.health - wounds_per_model:
                     u.pain_tokens = 1
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each Command phase the AdMech player picks ONE of
