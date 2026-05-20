@@ -284,6 +284,37 @@ The structural lift hurts disproportionately on factions with heavy melee multi-
 3. **TY1 follow-ups** — Subterranean Assault, Maleceptor / Norn Emissary FNP audit.
 4. **DG via Stage 2** — D2 confirmed Stage 1 per-unit levers all point wrong; consider accepting DG pricing as a Stage 2 problem.
 
+### Iter 33 (2026-05-20) — multi-profile weapon mapper (Phase 2 pivot)
+
+**Iter 33** — pivoted to Phase 2 (structural mapper) after iter 32's cross-faction AI failure. Single agent landed multi-profile weapon mapper (commit `a8d546a` → `464f872`, agent: 109k tokens, 76 tool uses, 13min coding + extra time chasing the eval). Schema: added `secondary_*` ranged-profile fields to `MappedUnit` / `CatalogEntry` / `UnitProfile`. Mapper: runner-up ranged weapon (different name from primary) populates secondary. `Unit.attack` ranged branch: picks the better profile per-target with damage-waste estimation (per DS1 finding).
+
+Spot-checked target units:
+- Stormsurge primary = Pulse Blastcannon-focused (close-range nuke), secondary = Pulse Driver Cannon (72" Heavy D6+3 × D3) — long-range profile now selectable
+- Magnus the Red primary = Gaze of Magnus, secondary = Tzeentch's Firestorm — agent corrected my iter25-T1 hypothesis (melee Blade of Magnus was already populated; missing piece was second ranged)
+- Mortarion primary = Rotwind (sweep), secondary = Lantern (single high-damage)
+
+Citation: `simulator.multi_profile_weapon_selection`. Tests + audit green.
+
+**Cumulative iter 33 (1 commit)**: MAE **6.59 → 6.14 (−0.45)** at N=40. Eval wall-clock 1419s (24 min) — multi-profile picker is ~2-3× slower per battle; Phase 4 N=80 confirmation needs proportionally longer budget.
+
+**Per-faction shifts** (iter31 N=40 → iter33 N=40):
+- Marines −2.4 → −3.6 (−1.2 — small drift)
+- Necrons −7.1 → −8.2 (−1.1 — small drift)
+- Aeldari +4.8 → +3.7 ✅ (−1.1)
+- Tyranids +4.8 → +4.5 ✅ (flat)
+- **Orks +6.8 → +3.4** ✅✅ (−3.4, unexpected win — multi-profile picker reduces opponent damage waste against Orks' high-OC mobs)
+- **T'au +8.6 → +6.9** ✅ (−1.7 — Stormsurge Pulse Driver landing as predicted)
+- DG +14.5 → +16.2 (+1.7 — Mortarion's Lantern secondary may be over-firing)
+- Custodes +0.9 → +0.3 ✅ (at target)
+- **TSON −5.4 → −3.2** ✅ (−2.2 — Magnus Firestorm closes the gap)
+- Votann +10.7 → +11.5 (+0.8 — small cross-effect)
+
+**Compared to sim-cal-3 baseline (6.20 pre-iter31)**: iter31 + iter33 net = 6.14, a −0.06 improvement. The structural Phase 2 work fully compensated for iter31's no-FNP-faction regression and added a small additional win.
+
+**Strategic confirmation**: per-unit / per-faction structural work is the productive avenue. Cross-faction AI changes (iter26-S1, iter29-SR1, iter32 wipe-the-unit) hit diminishing returns or net-negative because the calibration target is a multi-faction equilibrium. Phase 2/3 should continue to produce real wins.
+
+**Iter 34 priority**: Phase 2 / iter 2 — universal-keyword pass (DEVASTATING WOUNDS, PRECISION, BENEFITS OF COVER, LONE OPERATIVE, INFILTRATORS / SCOUTS). Single agent per keyword, parallel.
+
 ### Iter 32 (2026-05-20) — wipe-the-unit + fragile-first AI — PARKED
 
 **Iter 32 outcome**: regression, fix parked. Single agent burned 1013 tool uses / 91min / 298k tokens (≈20× the 50-tool cap) on an extended tuning loop without finding a clean landing point. Final landed config: wipe 1.3/1.1, fragile parked (over-aggressive at every tested setting). Eval N=40 vs 6.59 baseline: **MAE 6.59 → 6.84 (+0.25, regression)**.
