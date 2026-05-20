@@ -147,7 +147,35 @@ class Detachment:
     # `Unit.attack` adds +1 to the sustained-hits multiplier on a crit-to-hit
     # (matches how per-weapon sustained_hits already composes). Army-wide
     # passive — no proximity / keyword filter beyond the Orks faction tag.
+    # LC1-A generalised the gate so any faction-detachment pairing can set
+    # the flag (Custodes Auric Champions also re-uses it).
     melee_sustained_hits_army_wide: bool = False
+
+    # Necrons Awakened Dynasty Command Protocols rotation (AD-PR, branch
+    # claude/sim-calibration-4). The detachment's real rule rotates one of
+    # six Command Protocols per battle round (player picks at the start of
+    # each Command phase). Three protocols map onto clean simulator hooks
+    # and are alternated by round parity to approximate the rotation:
+    #   * `necrons_melee_ap_plus_one_army_wide` — Protocol of the Hungry
+    #     Void: "NECRONS melee weapons gain the [LETHAL HITS] ability and
+    #     improve their Armour Penetration by 1." We wire the AP+1 leg
+    #     only (the Lethal Hits leg is dropped to keep the buff bounded;
+    #     direction-correct). Fires on EVEN battle rounds (2, 4). Gate:
+    #     mode == "melee" AND attacker faction == "Necrons" AND the
+    #     detachment carries this flag AND current battle round is even.
+    #   * `necrons_ranged_sustained_hits_army_wide` — Protocol of the
+    #     Vengeful Stars: "NECRONS ranged weapons gain the [SUSTAINED HITS
+    #     1] ability." Fires on ODD battle rounds (1, 3, 5). Gate:
+    #     mode != "melee" AND attacker faction == "Necrons" AND the
+    #     detachment carries this flag AND current battle round is odd.
+    #   * `bonus_to_hit_when_led` (above) — Protocol of the Conquering
+    #     Tyrant: always-on representation of the +1-to-hit-when-led leg.
+    # Rounds 0/no battle ref treated as inactive so detachment-flag tests
+    # without a battle round set see no buff (matches the SHIELD_HOST
+    # alternation gate). Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
+    necrons_melee_ap_plus_one_army_wide: bool = False
+    necrons_ranged_sustained_hits_army_wide: bool = False
 
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
     # Martial Mastery). Wahapedia verbatim: "At the start of the battle
@@ -291,10 +319,23 @@ AWAKENED_DYNASTY = Detachment(
         "(Eternal Revenant, Vengeful Stars) have no clean simulator hook "
         "and are catalogued-but-no-op APPROXIMATIONs; the other four map "
         "onto existing transient_* flags (plus a new "
-        "transient_undying_legions_pulse for the extra reanimation pulse)."
+        "transient_undying_legions_pulse for the extra reanimation pulse). "
+        "AD-PR (claude/sim-calibration-4): the detachment-rule rotation "
+        "of Command Protocols is now modelled by alternating two new "
+        "always-on flags by battle-round parity — Hungry Void (melee "
+        "AP+1, `necrons_melee_ap_plus_one_army_wide`) on EVEN rounds and "
+        "Vengeful Stars (ranged SUSTAINED HITS 1, "
+        "`necrons_ranged_sustained_hits_army_wide`) on ODD rounds. The "
+        "always-on Conquering Tyrant +1-to-hit-when-led leg "
+        "(`bonus_to_hit_when_led`) is retained — strictly speaking the "
+        "real codex picks only ONE protocol per round, so this is an "
+        "APPROXIMATION (slight over-model) but the led-only gate keeps "
+        "the over-coverage bounded to character-led squads."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
+    necrons_melee_ap_plus_one_army_wide=True,
+    necrons_ranged_sustained_hits_army_wide=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )

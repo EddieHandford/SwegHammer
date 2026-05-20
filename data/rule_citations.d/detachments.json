@@ -1,6 +1,26 @@
 {
   "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged 'approximation: true' where the simulator's behaviour diverges from the canonical rule. 5 fabricated detachments (CULT_OF_MAGIC, PLAGUE_COMPANY, PLAGUE_MARINES_ONSLAUGHT, SAIM_HANN_WILD_HOST, WAAAGH_DETACHMENT) and their citations were deleted in commit e4b057f per the fabrication audit.",
 
+  "AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
+    "rule_name": "Command Protocols (Protocol of the Hungry Void)",
+    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Hungry Void: Until the start of your next Command phase, each time a NECRONS model from your army makes a melee attack, improve the Armour Penetration characteristic of the weapon used for that attack by 1.",
+    "trigger": "Necrons melee attacker in an army with the Awakened Dynasty detachment, on EVEN battle rounds (2, 4)",
+    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). AD-PR (claude/sim-calibration-4): the detachment's real rule rotates one of six Command Protocols per battle round (player picks at the start of each Command phase). Three protocols map onto clean simulator hooks (Hungry Void / Vengeful Stars / Conquering Tyrant); the AP+1 leg of Hungry Void (this flag) fires on EVEN battle rounds (2, 4) and the SUSTAINED HITS 1 leg of Vengeful Stars (AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide) fires on ODD battle rounds (1, 3, 5), averaging to one protocol active per round. The Conquering Tyrant +1-to-hit-when-led leg (AWAKENED_DYNASTY.bonus_to_hit_when_led) is retained as always-on; strictly speaking the codex picks only ONE protocol per round, so retaining Tyrant alongside the alternation is an over-model — bounded by the led-only gate. The Lethal Hits leg of Hungry Void is dropped (only the AP+1 leg is wired) to keep the buff bounded; direction-correct. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
+    "rule_name": "Command Protocols (Protocol of the Vengeful Stars)",
+    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Vengeful Stars: Until the start of your next Command phase, ranged weapons equipped by NECRONS models from your army have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Necrons ranged attacker in an army with the Awakened Dynasty detachment, on ODD battle rounds (1, 3, 5)",
+    "effect": "ranged weapons gain the SUSTAINED HITS 1 ability (each unmodified Hit roll of 6 scores 1 additional hit). AD-PR (claude/sim-calibration-4): paired with Protocol of the Hungry Void (AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide) via battle-round parity — Vengeful Stars fires on ODD rounds (1, 3, 5), Hungry Void fires on EVEN rounds (2, 4). This averages to one protocol active per round, matching the codex 'pick one Command Protocol at the start of each Command phase' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass. Stacks additively with per-weapon SUSTAINED HITS already on the profile (re-uses the AURIC_CHAMPIONS / WAR_HORDE army-wide sustained-hits plumbing pattern).",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
   "AWAKENED_DYNASTY.reanimate_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",

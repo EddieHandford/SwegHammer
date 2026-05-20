@@ -866,6 +866,42 @@ class Unit:
                     if _round_mk % 2 == 1:
                         ap = ap - 1
 
+        # ---- Necrons Awakened Dynasty — Protocol of the Hungry Void
+        # (army-wide melee AP+1). AD-PR (claude/sim-calibration-4): the
+        # detachment-rule rotation of Command Protocols is approximated
+        # by alternating Hungry Void (this flag) and Vengeful Stars by
+        # battle-round parity. Hungry Void fires on EVEN rounds (2, 4)
+        # so the parity matches the SHIELD_HOST AP+1 convention but
+        # inverted (Custodes AP+1 = ODD, Necrons AP+1 = EVEN; they don't
+        # collide because the faction gate keeps the two detachments
+        # apart). Gate: mode == "melee" AND attacker faction == "Necrons"
+        # AND detachment carries `necrons_melee_ap_plus_one_army_wide`
+        # (set by AWAKENED_DYNASTY) AND current battle round is even.
+        # Cited as `AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+        # #Command-Protocols.
+        if mode == "melee" and p.faction == "Necrons":
+            _own_army_hv = getattr(self, "army_ref", None)
+            if _own_army_hv is not None:
+                try:
+                    _det_hv = _own_army_hv.resolve_detachment()
+                except Exception:
+                    _det_hv = None
+                if _det_hv is not None and getattr(
+                    _det_hv, "necrons_melee_ap_plus_one_army_wide", False,
+                ):
+                    _battle_hv = getattr(_own_army_hv, "_battle_ref", None)
+                    _round_hv = (
+                        getattr(_battle_hv, "_current_round", 0)
+                        if _battle_hv is not None else 0
+                    )
+                    # Even round (2, 4) -> Hungry Void active. Round 0
+                    # (pre-battle / no battle ref) treated as inactive
+                    # so standalone tests without a battle round set
+                    # see no buff unless they configure the round.
+                    if _round_hv > 0 and _round_hv % 2 == 0:
+                        ap = ap - 1
+
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
             half_range = (p.range_inches or 24) / 2.0
@@ -1449,6 +1485,43 @@ class Unit:
                         and getattr(_det, "melee_sustained_hits_army_wide", False)
                         and getattr(_det, "faction", None) == p.faction):
                     effective_sustained_hits += 1
+
+        # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
+        # (army-wide ranged SUSTAINED HITS 1). AD-PR (claude/sim-cal-4):
+        # alternates with Hungry Void by battle-round parity. Vengeful
+        # Stars fires on ODD rounds (1, 3, 5) — opposite parity to
+        # Hungry Void (EVEN). Gate: mode != "melee" AND attacker faction
+        # == "Necrons" AND detachment carries `necrons_ranged_sustained
+        # _hits_army_wide` (set by AWAKENED_DYNASTY) AND current battle
+        # round is odd. Stacks additively with per-weapon
+        # `sustained_hits` already on the profile, matching the
+        # melee_sustained_hits_army_wide compositional behaviour above.
+        # Cited as
+        # `AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+        # #Command-Protocols.
+        if mode != "melee" and p.faction == "Necrons":
+            _own_army_vs = getattr(self, "army_ref", None)
+            if _own_army_vs is not None:
+                try:
+                    _det_vs = _own_army_vs.resolve_detachment()
+                except Exception:
+                    _det_vs = None
+                if _det_vs is not None and getattr(
+                    _det_vs, "necrons_ranged_sustained_hits_army_wide", False,
+                ):
+                    _battle_vs = getattr(_own_army_vs, "_battle_ref", None)
+                    _round_vs = (
+                        getattr(_battle_vs, "_current_round", 0)
+                        if _battle_vs is not None else 0
+                    )
+                    # Odd round (1, 3, 5) -> Vengeful Stars active.
+                    # Round 0 (pre-battle / no battle ref) treated as
+                    # inactive so standalone tests without a battle
+                    # round set see no buff unless they configure the
+                    # round explicitly.
+                    if _round_vs % 2 == 1 and _round_vs > 0:
+                        effective_sustained_hits += 1
 
         # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
         # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
