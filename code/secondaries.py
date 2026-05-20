@@ -28,23 +28,33 @@ if TYPE_CHECKING:
     from .map import Map
 
 
-# Per-round VP caps (Pariah Nexus rule text).
-BRING_IT_DOWN_CAP_PER_ROUND: int = 15
-NO_PRISONERS_CAP_PER_ROUND: int = 15
-ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND: int = 5
-BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 5
-CULL_THE_HORDE_CAP_PER_ROUND: int = 5
-ASSASSINATION_CAP_PER_ROUND: int = 10
+# Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
+#
+# Initial values (5 VP per event, 15 VP/round caps) regressed MAE from
+# 6.17 -> 9.72 by over-rewarding elite low-count factions (Custodes,
+# Marines) who avoid being scored against and punishing horde factions
+# (Orks, Tyranids, Votann) who are easy Cull/No-Prisoners targets.
+#
+# Tuned to match real Pariah Nexus magnitudes: ~3 VP per qualifying
+# event with smaller per-round caps. This brings total secondary VP
+# per game to ~40 (vs ~75 primary), matching the real-meta ratio.
+BRING_IT_DOWN_CAP_PER_ROUND: int = 8
+NO_PRISONERS_CAP_PER_ROUND: int = 5
+ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND: int = 3
+BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 3
+CULL_THE_HORDE_CAP_PER_ROUND: int = 3
+ASSASSINATION_CAP_PER_ROUND: int = 4
 
-# VP per qualifying kill.
-BRING_IT_DOWN_VP_PER_KILL: int = 5    # 5 VP per enemy MONSTER/VEHICLE destroyed
-NO_PRISONERS_VP_PER_UNIT: int = 5     # 5 VP per enemy UNIT destroyed
-CULL_THE_HORDE_VP_PER_UNIT: int = 5   # 5 VP per enemy horde-unit (10+ models) destroyed
-ASSASSINATION_VP_PER_CHAR: int = 5    # 5 VP per enemy CHARACTER destroyed
+# VP per qualifying kill (matches real Pariah Nexus rule magnitudes).
+BRING_IT_DOWN_VP_PER_KILL: int = 3    # 3 VP per enemy MONSTER/VEHICLE destroyed
+NO_PRISONERS_VP_PER_UNIT: int = 3     # 3 VP per enemy UNIT destroyed
+CULL_THE_HORDE_VP_PER_UNIT: int = 3   # 3 VP per enemy horde-unit destroyed
+ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP per enemy CHARACTER destroyed
 
 # SC4-B — position-tracking secondary thresholds.
 ENGAGE_QUADRANTS_REQUIRED: int = 3    # need units in 3+ of 4 quadrants to score
-BEHIND_ENEMY_LINES_VP: int = 5        # flat 5 VP if any alive unit in enemy DZ
+BEHIND_ENEMY_LINES_VP: int = 3        # flat 3 VP if any alive unit in enemy DZ
+ENGAGE_ON_ALL_FRONTS_VP: int = 3      # flat 3 VP if 3+ quadrants occupied
 
 # SC4-C — horde-threshold + character-flag.
 CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
@@ -268,7 +278,7 @@ def score_position_delta(
             in_enemy_dz = True
 
     engage_vp = (
-        ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND
+        ENGAGE_ON_ALL_FRONTS_VP
         if len(quadrants_occupied) >= ENGAGE_QUADRANTS_REQUIRED
         else 0
     )
