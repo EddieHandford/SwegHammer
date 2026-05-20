@@ -547,15 +547,46 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #   - Goonhammer "Detachment Focus: Auric Champions" (May 2026)
         #   - Frontline Gaming Custodes tournament reports, May 2026
         #   - Stat Check GT data aggregate, May 2026
+        #
+        # LC-AB (2026-05-20) — archetype shape rebalance. Even after the
+        # Shield Host alternation patch (chunk C1) Custodes still sit at
+        # +22.0pt over real meta at N=40 archetype eval. The residual
+        # over-performance is the COMPOUNDING of multiple defensive and
+        # offensive buffs on Custodian Wardens (4++ invuln + Resolute
+        # Will -1 to wound when led + S>T + +1 to hit from Trajann +
+        # reroll-hit-1s from Shield-Captain + Shield Host AP+1 / Crit-5+
+        # alternating + base Sv2 with cover — the INFANTRY 3+ cap from
+        # iter34-K3 does not trigger because Sv2 is already better). The
+        # iter17 template seeded TWO Wardens squads and TWO Allarus
+        # squads, doubling the fortress count.
+        #
+        # Real-meta May 2026 Custodes lists at Warp Friends events
+        # typically run 1x Wardens + 1x Allarus + a cheap BATTLELINE
+        # pick (Sisters of Silence Witchseekers / Vigilators /
+        # Prosecutors, or a single Custodian Guard squad). Trim the
+        # template to match:
+        #   * custodian_wardens: 2 -> 1 (drop one fortress squad)
+        #   * allarus_custodians: 2 -> 1 (drop one Deep Strike block)
+        #   * adeptus_custodes_prosecutors: 1 (NEW — cheap 40pt 4-model
+        #     INFANTRY shooting squad, 24" rapid fire 1 bolters, no
+        #     compounded buffs because the Sisters of Silence subfaction
+        #     does not stack with the Custodes leaders / detachment.
+        #     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/
+        #     "Prosecutors" datasheet).
+        #
+        # Freed points (~210 Wardens + ~143 Allarus = ~353pt) auto-fill
+        # via `_random_fill` into more Prosecutors / Custodian Guard /
+        # mid-elite picks rather than concentrating in another fortress.
         "Auric Champions": {
             "adeptus_custodes_trajann_valoris": 1,
-            "adeptus_custodes_custodian_wardens": 2,
+            "adeptus_custodes_custodian_wardens": 1,
             "adeptus_custodes_vertus_praetors": 2,
-            "adeptus_custodes_allarus_custodians": 2,
+            "adeptus_custodes_allarus_custodians": 1,
             "adeptus_custodes_custodian_guard": 1,
             "adeptus_custodes_shield_captain": 1,
             "adeptus_custodes_blade_champion": 1,
             "adeptus_custodes_caladius_grav_tank": 1,
+            "adeptus_custodes_prosecutors": 1,
         },
     },
     "Thousand Sons": {
