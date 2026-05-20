@@ -312,8 +312,10 @@ class ScorePositionDeltaTests(unittest.TestCase):
                                        round_num=1)
         self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
 
-    def test_engage_four_quadrants_scores_same_capped_vp(self):
-        # All four quadrants — same VP since we have a single threshold.
+    def test_engage_four_quadrants_scores_top_tier_vp(self):
+        # All four quadrants — score the top-tier 5 VP per real Pariah Nexus
+        # Engage on All Fronts (2/3/5 VP for 2/3/4 quadrants).
+        from code.secondaries import ENGAGE_VP_FOUR_QUADRANTS
         units = [
             _make_unit("sw", alive=True, position=(10.0, 10.0)),
             _make_unit("nw", alive=True, position=(10.0, 40.0)),
@@ -322,7 +324,7 @@ class ScorePositionDeltaTests(unittest.TestCase):
         ]
         eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True,
                                        round_num=1)
-        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+        self.assertEqual(eng, ENGAGE_VP_FOUR_QUADRANTS)
 
     def test_dead_units_excluded_from_quadrant_count(self):
         # 3 quadrants covered but only 1 unit alive.

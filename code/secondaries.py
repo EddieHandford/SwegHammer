@@ -53,9 +53,24 @@ ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP per enemy CHARACTER destroyed
 ASSASSINATION_WARLORD_BONUS_VP: int = 1  # +1 VP if enemy Warlord destroyed (real Pariah Nexus rule)
 
 # SC4-B — position-tracking secondary thresholds.
-ENGAGE_QUADRANTS_REQUIRED: int = 3    # need units in 3+ of 4 quadrants to score
-BEHIND_ENEMY_LINES_VP: int = 3        # flat 3 VP if any alive unit in enemy DZ
-ENGAGE_ON_ALL_FRONTS_VP: int = 3      # flat 3 VP if 3+ quadrants occupied
+# Real Pariah Nexus Engage on All Fronts (Wahapedia):
+#   "Score 2 VP if you have one or more units from your army wholly within
+#    two table quarters. Score 3 VP instead if you have one or more units
+#    from your army wholly within three different table quarters. Score 5 VP
+#    instead if you have one or more units from your army wholly within all
+#    four table quarters."
+# Real Pariah Nexus Behind Enemy Lines: "Score 4 VP if you have one or more
+# qualifying units in your opponent's deployment zone at the end of your
+# Command phase."
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+# Cited as `simulator.secondary_engage_on_all_fronts` and
+# `simulator.secondary_behind_enemy_lines`.
+ENGAGE_QUADRANTS_REQUIRED: int = 2    # minimum quadrants to score any Engage VP
+ENGAGE_VP_TWO_QUADRANTS: int = 2      # 2 VP for 2 quadrants
+ENGAGE_VP_THREE_QUADRANTS: int = 3    # 3 VP for 3 quadrants
+ENGAGE_VP_FOUR_QUADRANTS: int = 5     # 5 VP for all 4 quadrants
+BEHIND_ENEMY_LINES_VP: int = 4        # 4 VP if any alive unit in enemy DZ (real rule)
+ENGAGE_ON_ALL_FRONTS_VP: int = 3      # legacy alias (still used by tests); equals 3-quadrant tier
 
 # SC4-C — horde-threshold + character-flag.
 CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
@@ -337,10 +352,15 @@ def score_position_delta(
     engage_active = _is_tactical_secondary_active(round_num, side, "engage")
     bel_active = _is_tactical_secondary_active(round_num, side,
                                                 "behind_enemy_lines")
-    engage_vp = (
-        ENGAGE_ON_ALL_FRONTS_VP
-        if engage_active and len(quadrants_occupied) >= ENGAGE_QUADRANTS_REQUIRED
-        else 0
-    )
+    # Engage tiered (2/3/5 VP for 2/3/4 quadrants) per real Pariah Nexus.
+    engage_vp = 0
+    if engage_active:
+        n = len(quadrants_occupied)
+        if n >= 4:
+            engage_vp = ENGAGE_VP_FOUR_QUADRANTS
+        elif n == 3:
+            engage_vp = ENGAGE_VP_THREE_QUADRANTS
+        elif n == 2:
+            engage_vp = ENGAGE_VP_TWO_QUADRANTS
     bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
     return engage_vp, bel_vp
