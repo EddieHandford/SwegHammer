@@ -69,11 +69,25 @@ class SaveProbabilityTests(unittest.TestCase):
         # 4+ save in cover -> 3+ -> 4/6
         self.assertAlmostEqual(save_probability(4, ap=0, in_cover=True), 4 / 6)
 
-    def test_cover_caps_at_two_plus(self):
-        # 3+ save in cover would be 2+, capped at 2+ -> 5/6
-        self.assertAlmostEqual(save_probability(3, ap=0, in_cover=True), 5 / 6)
-        # 2+ save in cover stays 2+ (cap) -> 5/6
+    def test_cover_infantry_capped_at_three_plus(self):
+        # 10e Benefits of Cover: INFANTRY models cannot improve their
+        # save to better than 3+ by virtue of cover. A 3+ Marine in
+        # cover stays at 3+. A 2+ Terminator in cover stays at 2+
+        # (cover would have made it 1+ which is impossible — universal
+        # 2+ floor holds). Default `is_infantry=True`.
+        self.assertAlmostEqual(save_probability(3, ap=0, in_cover=True), 4 / 6)
         self.assertAlmostEqual(save_probability(2, ap=0, in_cover=True), 5 / 6)
+
+    def test_cover_vehicle_no_three_plus_cap(self):
+        # Vehicles / monsters / mounted models lack the 3+ cap. A 3+
+        # vehicle in cover saves on 2+. A 2+ vehicle stays at 2+
+        # (universal armour-save floor).
+        self.assertAlmostEqual(
+            save_probability(3, ap=0, in_cover=True, is_infantry=False), 5 / 6
+        )
+        self.assertAlmostEqual(
+            save_probability(2, ap=0, in_cover=True, is_infantry=False), 5 / 6
+        )
 
 
 class LethalHitsTests(unittest.TestCase):

@@ -119,17 +119,37 @@ def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
     return False
 
 
-def save_probability(save: int, ap: int = 0, in_cover: bool = False) -> float:
+def save_probability(
+    save: int, ap: int = 0, in_cover: bool = False, is_infantry: bool = True
+) -> float:
     """
     Probability of passing an armour save roll on a d6.
 
-    save:      the unit's base save characteristic (e.g. 3 means 3+)
-    ap:        weapon AP modifier (negative integer, e.g. -1 degrades save by 1)
-    in_cover:  cover improves save by 1 pip (e.g. 4+ → 3+), capped at 2+
+    save:         the unit's base save characteristic (e.g. 3 means 3+)
+    ap:           weapon AP modifier (negative integer, e.g. -1 degrades save by 1)
+    in_cover:     cover improves save by 1 pip (e.g. 4+ → 3+)
+    is_infantry:  whether the model has the INFANTRY keyword. Per 10e
+                  Benefits of Cover (Wahapedia core rules — Terrain Features
+                  / Benefits of Cover): "INFANTRY models cannot improve
+                  their Save characteristic to better than 3+ by virtue of
+                  this rule." Vehicles / monsters / mounted models do not
+                  share the 3+ cap. Hard armour-save floor (2+) still
+                  applies regardless. Defaults to True so legacy callers
+                  that did not pass the flag keep the rule-correct
+                  behaviour for the typical case.
     """
     effective = save - ap                       # AP-1 on a 3+ → 4+
     if in_cover:
-        effective = max(2, effective - 1)       # cover: improve by 1, cap at 2+
+        improved = effective - 1                # cover: improve by 1 pip
+        if is_infantry:
+            # Cover cannot improve an INFANTRY save to better than 3+.
+            # If the model's effective save is already 3+ or better, cover
+            # adds nothing (and must NOT degrade the save). Otherwise
+            # clamp the improvement at 3+.
+            improved = max(improved, 3)
+        improved = max(2, improved)              # universal 2+ armour floor
+        # Cover never makes a save worse than it already was.
+        effective = min(effective, improved)
     if effective > 6:
         return 0.0                              # save negated entirely
     return max(0.0, (7 - effective) / 6)
@@ -1158,8 +1178,28 @@ class Unit:
             and mode != "melee"
             and "CHARACTER" in (target.profile.unit_keywords or ())
         )
-        if target.in_cover and not ignore_cover and not precision_pierces_cover:
-            save_after_ap = max(2, save_after_ap - 1)
+        # ---- Benefits of Cover (10e core rule). Ranged-only: melee
+        # attacks never benefit from cover. +1 to the armour save (one
+        # pip better). INFANTRY models cannot improve their save to
+        # better than 3+ by virtue of this rule; vehicles / monsters /
+        # mounted models lack the 3+ cap (only the universal 2+ floor
+        # applies). Wahapedia core rules — Terrain Features / Benefits
+        # of Cover. Cited as `simulator.benefits_of_cover`.
+        if (
+            mode != "melee"
+            and target.in_cover
+            and not ignore_cover
+            and not precision_pierces_cover
+        ):
+            improved = save_after_ap - 1
+            target_is_infantry = "INFANTRY" in (target.profile.unit_keywords or ())
+            if target_is_infantry:
+                # INFANTRY cannot improve their save below 3+ by virtue
+                # of cover; if already 3+ or better, cover does nothing.
+                improved = max(improved, 3)
+            improved = max(2, improved)  # universal 2+ armour floor
+            # Cover never makes a save worse than it already was.
+            save_after_ap = min(save_after_ap, improved)
         # ---- Target's buffs: +1 to armour save ----
         # 10e core rule (Wahapedia core rules, "Modifiers"): the modified
         # Save characteristic cannot be more than +1 better or -1 worse

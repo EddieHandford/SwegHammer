@@ -16,6 +16,14 @@
     "effect": "+1 to the Hit roll",
     "scope": "unit-led"
   },
+  "simulator.benefits_of_cover": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
+    "rule_name": "Benefits of Cover",
+    "quoted_text": "When you make an armour saving throw for a model that has the Benefits of Cover, add 1 to that saving throw. INFANTRY models cannot improve their Save characteristic to better than 3+ by virtue of this rule.",
+    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this",
+    "effect": "+1 to the armour save (one pip better). INFANTRY models cap at 3+ (a 3+ Marine in cover stays at 3+). Vehicles / monsters / mounted models do not share the 3+ cap. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely.",
+    "scope": "phase-gated"
+  },
   "simulator.big_guns_never_tire": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Big-Guns-Never-Tire",
     "rule_name": "Big Guns Never Tire",
