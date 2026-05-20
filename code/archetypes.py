@@ -784,6 +784,152 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "aeldari_drukhari_cronos": 1,
         },
     },
+    # FX-ALL: minimal coverage templates for the remaining 11 major-codex
+    # factions. Goal is COVERAGE for matchup-outlier detection in
+    # `scripts/evaluate_vs_meta.py`, not real-meta realism. Each template
+    # uses a small (5-10) selection of representative units (1 anchor /
+    # CHARACTER, 1-3 BATTLELINE, 2-3 elite, 1 EPIC HERO if present); the
+    # remaining seed budget is filled by `_random_fill` with same-faction
+    # picks. Detachment names match the registry where one exists.
+    "Chaos Space Marines": {
+        "Pactbound Zealots": {
+            "chaos_space_marines_chaos_lord_in_terminator_armour": 1,
+            "chaos_space_marines_legionaries": 2,
+            "chaos_space_marines_chaos_terminator_squad": 1,
+            "chaos_space_marines_chosen": 1,
+            "chaos_space_marines_helbrute": 1,
+            "chaos_space_marines_chaos_rhino": 1,
+            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
+            "chaos_space_marines_abaddon_the_despoiler": 1,
+        },
+    },
+    "World Eaters": {
+        "Berzerker Warband": {
+            "world_eaters_khorne_berzerkers": 2,
+            "world_eaters_eightbound": 1,
+            "world_eaters_exalted_eightbound": 1,
+            "world_eaters_jakhals": 1,
+            "world_eaters_chaos_rhino": 1,
+            "world_eaters_lord_invocatus": 1,
+            "world_eaters_angron": 1,
+            "world_eaters_daemon_prince_of_khorne_with_wings": 1,
+        },
+    },
+    "Emperor's Children": {
+        # No detachment registered in code/detachments.py for Emperor's
+        # Children; calling out the placeholder name so future iterations
+        # can wire it. The army_builder falls through pick_detachment_for_army
+        # to the no-detachment path which is fine for archetype seeding.
+        "Slaaneshi Excess": {
+            "emperor_s_children_lord_exultant": 1,
+            "emperor_s_children_infractors": 2,
+            "emperor_s_children_tormentors": 1,
+            "emperor_s_children_flawless_blades": 1,
+            "emperor_s_children_chaos_terminators": 1,
+            "emperor_s_children_chaos_rhino": 1,
+            "emperor_s_children_lucius_the_eternal": 1,
+            "emperor_s_children_daemon_prince_of_slaanesh_with_wings": 1,
+        },
+    },
+    "Chaos Daemons": {
+        "Daemonic Incursion": {
+            "chaos_daemons_library_bloodletters": 2,
+            "chaos_daemons_library_plaguebearers": 1,
+            "chaos_daemons_library_daemonettes": 1,
+            "chaos_daemons_library_pink_horrors": 1,
+            "chaos_daemons_library_flesh_hounds": 1,
+            "chaos_daemons_library_bloodmaster": 1,
+            "chaos_daemons_library_bloodthirster": 1,
+            "chaos_daemons_library_be_lakor": 1,
+        },
+    },
+    "Astra Militarum": {
+        "Combined Arms": {
+            "astra_militarum_cadian_shock_troops": 2,
+            "astra_militarum_death_korps_of_krieg": 1,
+            "astra_militarum_kasrkin": 1,
+            "astra_militarum_chimera": 1,
+            "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_rogal_dorn_battle_tank": 1,
+            "astra_militarum_basilisk": 1,
+            "astra_militarum_cadian_castellan": 1,
+            "astra_militarum_ursula_creed": 1,
+        },
+    },
+    "Adeptus Mechanicus": {
+        "Skitarii Hunter Cohort": {
+            "adeptus_mechanicus_skitarii_rangers": 2,
+            "adeptus_mechanicus_skitarii_vanguard": 1,
+            "adeptus_mechanicus_sicarian_infiltrators": 1,
+            "adeptus_mechanicus_kataphron_destroyers": 1,
+            "adeptus_mechanicus_onager_dunecrawler": 1,
+            "adeptus_mechanicus_skorpius_disintegrator": 1,
+            "adeptus_mechanicus_skitarii_marshal": 1,
+            "adeptus_mechanicus_belisarius_cawl": 1,
+        },
+    },
+    "Adepta Sororitas": {
+        "Hallowed Martyrs": {
+            "adepta_sororitas_battle_sisters_squad": 2,
+            "adepta_sororitas_seraphim_squad": 1,
+            "adepta_sororitas_celestian_sacresants": 1,
+            "adepta_sororitas_paragon_warsuits": 1,
+            "adepta_sororitas_castigator": 1,
+            "adepta_sororitas_immolator": 1,
+            "adepta_sororitas_canoness": 1,
+            "adepta_sororitas_morvenn_vahl": 1,
+            "adepta_sororitas_saint_celestine": 1,
+        },
+    },
+    "Grey Knights": {
+        "Teleport Strike Force": {
+            "grey_knights_strike_squad": 2,
+            "grey_knights_brotherhood_terminator_squad": 1,
+            "grey_knights_paladin_squad": 1,
+            "grey_knights_interceptor_squad": 1,
+            "grey_knights_nemesis_dreadknight": 1,
+            "grey_knights_brother_captain": 1,
+            "grey_knights_grand_master_voldus": 1,
+        },
+    },
+    "Genestealer Cults": {
+        "Final Day": {
+            "genestealer_cults_neophyte_hybrids": 2,
+            "genestealer_cults_acolyte_hybrids_with_autopistols": 1,
+            "genestealer_cults_aberrants": 1,
+            "genestealer_cults_purestrain_genestealers": 1,
+            "genestealer_cults_atalan_jackals": 1,
+            "genestealer_cults_achilles_ridgerunners": 1,
+            "genestealer_cults_goliath_rockgrinder": 1,
+            "genestealer_cults_primus": 1,
+            "genestealer_cults_patriarch": 1,
+        },
+    },
+    "Imperial Knights": {
+        # Noble Lance is the canonical Big Knights detachment. Knight armies
+        # are MONSTER/TITANIC-only — no BATTLELINE infantry, the template
+        # is a small number of high-points models per Wahapedia / codex.
+        "Noble Lance": {
+            "imperial_knights_library_armiger_warglaive": 2,
+            "imperial_knights_library_armiger_helverin": 1,
+            "imperial_knights_library_knight_paladin": 1,
+            "imperial_knights_library_knight_errant": 1,
+            "imperial_knights_library_knight_warden": 1,
+            "imperial_knights_library_canis_rex": 1,
+        },
+    },
+    "Chaos Knights": {
+        # Mirror of Noble Lance — chaos variant; same big-stompy shape
+        # using War Dogs (Armigers) + Questoris-class Knights.
+        "Noble Lance": {
+            "chaos_knights_library_war_dog_karnivore": 2,
+            "chaos_knights_library_war_dog_huntsman": 1,
+            "chaos_knights_library_knight_desecrator": 1,
+            "chaos_knights_library_knight_rampager": 1,
+            "chaos_knights_library_knight_despoiler": 1,
+            "chaos_knights_library_knight_tyrant": 1,
+        },
+    },
 }
 
 
