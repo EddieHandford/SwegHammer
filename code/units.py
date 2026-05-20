@@ -834,11 +834,16 @@ class Unit:
         # CUSTODES models from your army with the Martial Ka'tah ability
         # by 1." Gate: mode == "melee" AND attacker faction ==
         # "Adeptus Custodes" AND detachment carries `melee_ap_plus_one`
-        # (set by SHIELD_HOST). AP is encoded as 0/-1/-2/-3 — improving
-        # AP by 1 makes the value MORE negative (AP-1 becomes AP-2 etc).
-        # APPROXIMATION: codex picks ONE Martial Mastery bullet per round;
-        # SwegHammer applies BOTH always-on (this AP+1 plus the
-        # Crit-on-5+ block below). Cited as `SHIELD_HOST.melee_ap_plus_one`.
+        # (set by SHIELD_HOST) AND the current battle round is ODD.
+        # AP is encoded as 0/-1/-2/-3 — improving AP by 1 makes the value
+        # MORE negative (AP-1 becomes AP-2 etc).
+        # C1 (claude/sim-calibration-4): codex picks ONE bullet per battle
+        # round. To match real codex pacing, the two bullets alternate by
+        # round parity — AP+1 fires on ODD rounds (1, 3, 5), Crit-on-5+
+        # fires on EVEN rounds (2, 4). This averages to one bullet per
+        # round (matching codex) rather than the prior always-on dual
+        # uplift (strictly stronger than codex). Cited as
+        # `SHIELD_HOST.melee_ap_plus_one`.
         if mode == "melee" and p.faction == "Adeptus Custodes":
             _own_army_mk = getattr(self, "army_ref", None)
             if _own_army_mk is not None:
@@ -849,7 +854,17 @@ class Unit:
                 if _det_mk is not None and getattr(
                     _det_mk, "melee_ap_plus_one", False,
                 ):
-                    ap = ap - 1
+                    _battle_mk = getattr(_own_army_mk, "_battle_ref", None)
+                    _round_mk = (
+                        getattr(_battle_mk, "_current_round", 0)
+                        if _battle_mk is not None else 0
+                    )
+                    # Odd round (1, 3, 5) -> AP+1 bullet active. Round 0
+                    # (pre-battle / no battle ref) treated as inactive so
+                    # standalone tests without a battle round set see no
+                    # buff unless they configure the round explicitly.
+                    if _round_mk % 2 == 1:
+                        ap = ap - 1
 
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
@@ -1442,7 +1457,13 @@ class Unit:
         # crit threshold that gates `crit_hit = (roll == 6)` later in the
         # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
         # adeptus-custodes/#Shield-Host.
-        # Cited as `SHIELD_HOST.melee_crit_on_5_plus_hits`.
+        # C1 (claude/sim-calibration-4): Crit-on-5+ fires on EVEN battle
+        # rounds (2, 4). AP+1 fires on ODD battle rounds (1, 3, 5). This
+        # alternation averages to one bullet active per round, matching
+        # the codex "pick one bullet at the start of each battle round"
+        # rule (prior implementation applied both always-on, strictly
+        # stronger than codex). Cited as
+        # `SHIELD_HOST.melee_crit_on_5_plus_hits`.
         melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
         if mode == "melee" and p.faction == "Adeptus Custodes":
             _own_army = getattr(self, "army_ref", None)
@@ -1454,7 +1475,17 @@ class Unit:
                 if _det is not None and getattr(
                     _det, "melee_crit_on_5_plus_hits", False,
                 ):
-                    melee_crit_threshold = 5
+                    _battle_c5 = getattr(_own_army, "_battle_ref", None)
+                    _round_c5 = (
+                        getattr(_battle_c5, "_current_round", 0)
+                        if _battle_c5 is not None else 0
+                    )
+                    # Even round (2, 4) -> Crit-on-5+ bullet active. Round
+                    # 0 (pre-battle / no battle ref) treated as inactive
+                    # so standalone tests without a battle round set see
+                    # no buff unless they configure the round explicitly.
+                    if _round_c5 > 0 and _round_c5 % 2 == 0:
+                        melee_crit_threshold = 5
 
         total_damage = 0.0
         for _ in range(n_attacks):

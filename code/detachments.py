@@ -433,11 +433,15 @@ SHIELD_HOST = Detachment(
         "scores a Critical Hit. Improve the Armour Penetration "
         "characteristic of melee weapons equipped by ADEPTUS CUSTODES "
         "models from your army with the Martial Ka'tah ability by 1.\" "
-        "Simulator implementation: both bullets are applied always-on for "
-        "Adeptus Custodes melee attackers via `melee_crit_on_5_plus_hits` "
-        "and `melee_ap_plus_one` (real codex picks ONE bullet per battle "
-        "round). APPROXIMATION: dual offensive uplift instead of per-round "
-        "alternation. Six real detachment stratagems wired (iter-8 fix, "
+        "Simulator implementation: bullets now correctly alternate per "
+        "battle round (C1 fix on claude/sim-calibration-4). The "
+        "`melee_ap_plus_one` flag fires on ODD rounds (1, 3, 5) and the "
+        "`melee_crit_on_5_plus_hits` flag fires on EVEN rounds (2, 4) — "
+        "gated inside Unit.attack via the army's `_battle_ref._current_round`. "
+        "This averages to ONE bullet active per battle round, matching the "
+        "codex pacing. Prior behaviour applied BOTH bullets always-on, "
+        "strictly stronger than codex (identified as the Custodes +22.3pt "
+        "MAE residual at N=40 archetype). Six real detachment stratagems wired (iter-8 fix, "
         "Wahapedia: Arcane Genetic Alchemy, Unwavering Sentinels, "
         "Multipotentiality, Vigilance Eternal, Archaeotech Munitions, "
         "Avenge the Fallen). Replaces the iter-0 `plus_one_save` "
@@ -447,8 +451,11 @@ SHIELD_HOST = Detachment(
         "the top fix for DG-vs-Custodes (+19.5pt residual over real meta)."
     ),
     # Real rule: Martial Ka'tah / Martial Mastery — Crit-on-5+ OR AP+1 on
-    # melee attacks (offensive). One bullet per round in real play;
-    # SwegHammer applies BOTH always-on as an APPROXIMATION.
+    # melee attacks (offensive). One bullet per round in real play.
+    # C1 (claude/sim-calibration-4): both flags remain set on the
+    # detachment, but firing is now round-gated inside Unit.attack —
+    # AP+1 on ODD rounds, Crit-on-5+ on EVEN rounds. This matches the
+    # codex "pick one bullet per battle round" pacing.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
     melee_crit_on_5_plus_hits=True,
     melee_ap_plus_one=True,
