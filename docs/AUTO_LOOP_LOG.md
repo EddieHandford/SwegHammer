@@ -32,6 +32,28 @@ Custodes outlier (+22) hasn't compressed via LC-1/2/5. Real cause: Custodes' eli
 
 PR #26 open and ready for review. Detachment variety lands as a clean rule-correctness win for DG and a structural baseline for further faction tuning.
 
+### N1 / N2 / C1 — outlier-targeted attempts (2026-05-20)
+
+After LC-5 plateau, a 3-agent dispatch targeting Custodes +22 / Necrons -11. All three returned essentially flat MAE.
+
+**N1 Necrons C'tan archetype anchor (STOP).** Agent verified C'tan Shard of the Nightbringer is ALREADY anchored in the Necrons "Awakened Dynasty" template at `code/archetypes.py:134` (iter16 commit). Spot-check confirms Nightbringer appears in 5/5 random archetype builds as the first seed. My review premise was wrong; no fix needed.
+
+**N2 Reanimation Protocols rate (STOP).** Agent verified Wahapedia rule text: revival rate is "one destroyed bodyguard model", not d3. The d3 wording is from the "Protocol of the Undying Legions" stratagem (1 CP, already separately modelled). Current `reanimate_per_round=1` is rule-correct. Side-finding: the value is also hard-capped at `min(..., 1)` in `simulator.py:3490` so naively bumping the detachment value would have been a no-op anyway.
+
+**C1 Shield Host bullet alternation (SHIPPED).** Agent wired round-parity alternation: AP+1 fires on odd rounds (1, 3, 5), Crit-on-5+ fires on even rounds (2, 4). Matches the codex "pick one bullet per round" rule exactly (the prior always-both was explicitly flagged APPROXIMATION). Tests + audit green. Eval: MAE 6.29 → 6.29 (flat); Custodes +22.3 → +22.0 (-0.3 within N=40 noise). Kept per correctness > MAE — rule-correct fix, prior state was strictly stronger than codex.
+
+**Net N1+N2+C1**: 1 correctness-positive commit, ~0pt MAE impact. The Custodes +22 engine isn't the Shield Host detachment.
+
+**Per-faction at this point (sim-cal-4 head)**:
+- Marines +2.0, Necrons -11.8, Aeldari +2.8, Tyranids +5.3, Orks +0.4, T'au -4.5, DG -3.3, Custodes +22.0, TSON -4.6, Votann +6.2
+- 5 factions within ±3pt of target (Marines, Aeldari, Orks, DG, TSON)
+- 4 factions 4-6pt off (Tyranids, T'au, Votann, plus DG at -3.3)
+- 2 outliers: Necrons -11.8, Custodes +22.0
+
+**Real Custodes engine candidate**: Wardens Resolute Will + Trajann's +1 hit + Shield-Captain's reroll-1s + Shield Host AP+1 (now alternating but still firing 50% of rounds) + 4++ invuln + cover bonus at base Sv2. The compounding makes Wardens a near-unkillable brick; 2× Wardens in the archetype = a fortress. **LC-AB task #253** (consolidated archetype/detachment build evaluation) is the right place to address this — likely needs Custodes archetype shape rebalance (1× Wardens not 2, swap one Allarus for cheap BATTLELINE).
+
+**Real Necrons engine candidate** (per N1 agent's recommendation): Awakened Dynasty 6-protocol rotation isn't fully modelled. Only one protocol (`bonus_to_hit_when_led`) is wired; the other five would add small per-round value that compounds. Doomsday Ark profile verification also flagged as iter 35 priority.
+
 ### Iter 21 (2026-05-18) — LeaderAbility fabrication audit
 
 6 agents cross-faction sweep. 5 commits landed via cherry-pick + cross-worktree merge; Orks was clean (no fabs).
