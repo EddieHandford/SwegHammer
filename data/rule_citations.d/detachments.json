@@ -61,6 +61,26 @@
     "approximation": true
   },
 
+  "PLAGUE_COMPANY.melee_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
+    "rule_name": "Sworn to Nurgle (simplified)",
+    "quoted_text": "Each time a DEATH GUARD model from your army makes an attack with a NURGLE'S GIFT weapon, an unmodified Hit roll of 6 grants 1 additional hit (SUSTAINED HITS 1).",
+    "trigger": "Death Guard melee attacker in an army with the Plague Company detachment",
+    "effect": "melee weapons gain SUSTAINED HITS 1. APPROXIMATION: simulator applies army-wide melee SUSTAINED HITS 1 for DG; real Plague Company is themed around plague-company sub-themes with different unit-narrow buffs (Mortarion's Anvil, Wraith Creepers, etc.). The detachment exists as the LC-1 melee-offensive alternative to Virulent Vectorium (whose -1 damage stratagem is per-spend defensive). DG +16.4 outlier compensation: with Virulent Vectorium dominant the sticky-defensive shape was the only DG play pattern; Plague Company gives a more aggressive shape so the DG WR average over real-meta tournament play is better represented.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "ANNIHILATION_LEGION.reroll_wound_ones": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Annihilation-Legion",
+    "rule_name": "Hardened Killers",
+    "quoted_text": "Each time a NECRONS unit from your army makes a ranged attack, you can re-roll a Wound roll of 1.",
+    "trigger": "Necrons attacker in an army with the Annihilation Legion detachment, making a ranged attack",
+    "effect": "re-roll Wound rolls of 1 on ranged attacks. APPROXIMATION: schema flag `reroll_wound_ones` applies to all attacks (ranged + melee); real detachment limits to RANGED only. Necrons is a ranged-leaning faction so the over-broad melee leakage is small in practice. The detachment exists as the LC-1 stronger-offensive alternative to Awakened Dynasty (whose +1-to-hit only fires on character-led squads) for Necrons -8.8 outlier compensation.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
   "AURIC_CHAMPIONS.melee_sustained_hits_army_wide": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions",
     "rule_name": "Trail of Glory (Sustained Hits 1 bullet)",

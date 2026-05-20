@@ -880,6 +880,60 @@ IRONSTORM_SPEARHEAD = Detachment(
     preferred_composition="vehicle",
 )
 
+PLAGUE_COMPANY = Detachment(
+    name="Plague Company",
+    faction="Death Guard",
+    notes=(
+        "Sworn to Nurgle (Wahapedia, simplified): \"Each time a "
+        "DEATH GUARD model from your army makes an attack with a "
+        "NURGLE'S GIFT weapon, an unmodified Hit roll of 6 grants 1 "
+        "additional hit (SUSTAINED HITS 1).\" Real Plague Company "
+        "detachment is themed around Sworn to Nurgle's named "
+        "plague-company sub-themes (each gives different buffs to a "
+        "narrow unit set). Simulator approximation: melee SUSTAINED "
+        "HITS 1 army-wide for DG (matches the broad sense of the "
+        "detachment giving an offensive layer atop Virulent "
+        "Vectorium's stratagem economy). Uses the same "
+        "`melee_sustained_hits_army_wide` plumbing as War Horde / "
+        "Auric Champions; faction-gated to DG via the LC1-A general "
+        "gate. Weaker than Virulent Vectorium's per-attack -1 damage "
+        "stratagem-spend power; provides a more offensive alternative "
+        "for DG armies that lean melee."
+    ),
+    melee_sustained_hits_army_wide=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # placeholder; real PC has
+    # its own stratagems. Per-strat differences smaller than rule lever.
+    preferred_composition="infantry",
+)
+
+ANNIHILATION_LEGION = Detachment(
+    name="Annihilation Legion",
+    faction="Necrons",
+    notes=(
+        "Hardened Killers (Wahapedia verbatim): \"Each time a NECRONS "
+        "unit from your army makes a ranged attack, you can re-roll a "
+        "Wound roll of 1.\" Simulator: wired via the existing army-wide "
+        "`reroll_wound_ones` flag (already in use by other detachments). "
+        "Lossy by design — the Annihilation Legion detachment text "
+        "applies the reroll specifically to RANGED attacks; the existing "
+        "schema reroll_wound_ones applies to all attacks (ranged + "
+        "melee). Necrons are a ranged-leaning faction so the over-broad "
+        "application is small in practice. Real Annihilation Legion "
+        "also gives various ranged stratagems and tank-flavour buffs "
+        "that aren't wired individually here — the detachment rule "
+        "alone is the LC-1 lever to give Necrons a stronger offensive "
+        "alternative to Awakened Dynasty (whose lead-required +1-to-hit "
+        "is conditional on character attachment that not every Necrons "
+        "squad has). Cited as `ANNIHILATION_LEGION.reroll_wound_ones`."
+    ),
+    reroll_wound_ones=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # share for now — real
+    # Annihilation Legion has its own stratagems (Galvanic Resurrection,
+    # Tachyonic Annihilation, etc.); per-strat differences are smaller
+    # than the detachment rule's MAE lever.
+    preferred_composition="balanced",
+)
+
 CANOPTEK_COURT = Detachment(
     name="Canoptek Court",
     faction="Necrons",
@@ -935,6 +989,8 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Second detachments per major faction (#126).
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
+    "annihilation_legion":     ANNIHILATION_LEGION,
+    "plague_company":          PLAGUE_COMPANY,
     # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
     # set and Worldblight rule (sticky-control APPROXIMATION).
     "virulent_vectorium":      VIRULENT_VECTORIUM,
@@ -1082,7 +1138,7 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # Necrons: Awakened Dynasty (balanced character-led) vs Canoptek Court
     # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
     # army leans on its Canoptek units.
-    "Necrons":                  ("awakened_dynasty", "canoptek_court"),
+    "Necrons":                  ("awakened_dynasty", "canoptek_court", "annihilation_legion"),
     # iter16: Tyranids gains Subterranean Assault as the real-meta default
     # (May 2026 Maastricht GT winner — see DEFAULT_BY_FACTION comment).
     # Invasion Fleet is retained as a variant for the picker; both real
@@ -1130,7 +1186,7 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # in archetype eval), the army lost the +1 save on D1 attacks AND
     # gained no compensating buff. Restore this tuple to
     # ("rubricae_phalanx", "grand_coven") when Kindred Sorcery is wired.
-    "Death Guard":              ("virulent_vectorium",),
+    "Death Guard":              ("virulent_vectorium", "plague_company"),
     "Thousand Sons":            ("rubricae_phalanx",),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
