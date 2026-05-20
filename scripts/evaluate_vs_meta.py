@@ -41,6 +41,21 @@ FACTIONS: List[str] = [
     "Adeptus Custodes",
     "Thousand Sons",
     "Leagues of Votann",
+    # FX-ALL — extended coverage to all major-codex factions so the matchup
+    # matrix can surface outliers that the 10-faction subset was missing.
+    # Templates live in `code/archetypes.py` per FX-ALL commit.
+    "Chaos Space Marines",
+    "World Eaters",
+    "Emperor's Children",
+    "Chaos Daemons",
+    "Astra Militarum",
+    "Adeptus Mechanicus",
+    "Adepta Sororitas",
+    "Grey Knights",
+    "Drukhari",
+    "Genestealer Cults",
+    "Imperial Knights",
+    "Chaos Knights",
 ]
 
 # Real tournament data: warpfriends weekly aggregate, May 2026 (~10k games).
@@ -57,9 +72,30 @@ TOURNAMENT_TARGET: Dict[str, float] = {
     "Adeptus Custodes": 48.0,        # approx
     "Thousand Sons":    54.6,
     "Leagues of Votann": 46.0,       # approx
+    # FX-ALL — meta-derived approximations. Without an authoritative
+    # warpfriends entry, these use the meta midpoint or a community
+    # consensus value. All marked approx — they're a coverage signal,
+    # not a calibration anchor.
+    "Chaos Space Marines": 46.0,
+    "World Eaters":        50.0,
+    "Emperor's Children":  48.0,
+    "Chaos Daemons":       47.0,
+    "Astra Militarum":     47.0,
+    "Adeptus Mechanicus":  45.0,
+    "Adepta Sororitas":    49.0,
+    "Grey Knights":        47.0,
+    "Drukhari":            51.0,
+    "Genestealer Cults":   46.0,
+    "Imperial Knights":    46.0,
+    "Chaos Knights":       45.0,
 }
 APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
-                   "Adeptus Custodes", "Leagues of Votann"}
+                   "Adeptus Custodes", "Leagues of Votann",
+                   # All FX-ALL additions are approximations.
+                   "Chaos Space Marines", "World Eaters", "Emperor's Children",
+                   "Chaos Daemons", "Astra Militarum", "Adeptus Mechanicus",
+                   "Adepta Sororitas", "Grey Knights", "Drukhari",
+                   "Genestealer Cults", "Imperial Knights", "Chaos Knights"}
 
 
 def _pick_rotation_map(seed: int):
