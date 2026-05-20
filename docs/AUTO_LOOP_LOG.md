@@ -2,6 +2,36 @@
 
 Older iter blocks live in `AUTO_LOOP_LOG_archive.md`.
 
+## Branch claude/sim-calibration-4 (2026-05-20)
+
+SC4 (secondary objectives + map rotation) + LC-1/LC-2/LC-5 (detachment variety + tactical-deck mechanic + Warlord designation). All committed and pushed; PR #26 open.
+
+### LC-1: Detachment variety (3 chunks)
+
+* **LC1-A**: added Auric Champions Custodes detachment (SUSTAINED HITS 1 melee via `melee_sustained_hits_army_wide`, milder than Shield Host's stacked Crit-5+ + AP+1). Generalised the `melee_sustained_hits_army_wide` gate in `Unit.attack` from Orks-only to `detachment.faction == attacker.faction`. Custodes distribution: Shield Host 22 / Auric Champions 18 across 40 seeds.
+* **LC1-B**: added Annihilation Legion Necrons detachment (army-wide `reroll_wound_ones`, real Hardened Killers rule). Necrons distribution: Awakened Dynasty 14 / Canoptek Court 16 / Annihilation Legion 10.
+* **LC1-C**: added Plague Company Death Guard detachment (`melee_sustained_hits_army_wide` for DG). DG distribution: Virulent Vectorium 20 / Plague Company 20.
+
+Cumulative LC-1 eval: **MAE 6.48 → 6.14 (−0.34)**. Big win: DG +7.6 → -1.3 (at target). Necrons stayed -10.1 (Annihilation Legion not strong enough lever). Custodes stayed +20.6 (Auric Champions only marginally weaker than Shield Host).
+
+### LC-2: Tactical secondary deck mechanic
+
+Per-round alternating schedule per side: each side scores AT MOST ONE of (Engage, BEL) per round, deterministically alternating. Approximates real Pariah Nexus 2-of-9 Tactical card draw rate when scaled to our 2-card pool. `_is_tactical_secondary_active(round_num, side, tactical)` helper, `score_position_delta` takes `round_num`.
+
+Cumulative LC-2 eval: **MAE 6.14 → 6.14 (flat)**. Custodes stayed +22.0 (the tactical-deck didn't help because Custodes wasn't really scoring Engage/BEL anyway — small army can't easily hit 3+ quadrants). Other factions redistributed in wash.
+
+### LC-5: Warlord designation
+
+`Army.warlord_uid` lazy property picks the first CHARACTER in deploy order. Pariah Nexus Assassination secondary scores +1 VP if the Warlord was among destroyed CHARACTERs this round. Smoke verification: Custodes Warlord = Trajann Valoris, DG = Mortarion, Necrons = C'tan Shard of the Nightbringer.
+
+### Honest pause point
+
+Custodes outlier (+22) hasn't compressed via LC-1/2/5. Real cause: Custodes' elite low-count army systemically dodges the 4 Fixed kill secondaries (No Prisoners, Cull, Assassination, Bring it Down) AND their primary OC is decent enough that they win without secondary scoring. Without a faction-specific Custodes tune (e.g., per-unit pricing nudge or model-count uplift in archetype), no LC item will single-handedly close the +22 gap.
+
+**LC-3 (wargear) / LC-4 (enhancements) / LC-6 (transports) / LC-7 (reserves) deferred** — large implementation work each with uncertain MAE impact. LC-8 (caps) / LC-9 (BATTLELINE min) confirmed no-op (archetypes already comply with both).
+
+PR #26 open and ready for review. Detachment variety lands as a clean rule-correctness win for DG and a structural baseline for further faction tuning.
+
 ### Iter 21 (2026-05-18) — LeaderAbility fabrication audit
 
 6 agents cross-faction sweep. 5 commits landed via cherry-pick + cross-worktree merge; Orks was clean (no fabs).
