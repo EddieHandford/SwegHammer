@@ -386,6 +386,40 @@ HALLOWED_MARTYRS = Detachment(
     preferred_composition="infantry",
 )
 
+AURIC_CHAMPIONS = Detachment(
+    name="Auric Champions",
+    faction="Adeptus Custodes",
+    notes=(
+        "Trail of Glory (Wahapedia verbatim): \"At the start of the "
+        "battle round, you can select one of the bullet points below. "
+        "If you do, until the start of the next battle round, that "
+        "bullet point's effects apply: Each time an ADEPTUS CUSTODES "
+        "model from your army makes an attack, an unmodified Hit roll "
+        "of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES "
+        "model from your army makes an attack, if that attack scores a "
+        "Critical Wound, until the attack sequence ends, that attack "
+        "has the [DEVASTATING WOUNDS] ability.\" Simulator: only the "
+        "first bullet (SUSTAINED HITS 1 on melee) is wired via "
+        "`melee_sustained_hits_army_wide` (re-using the same plumbing "
+        "as Orks War Horde, gated to faction=='Adeptus Custodes' in "
+        "Unit.attack). The DEVASTATING WOUNDS bullet is left out — "
+        "weapon-level DEVASTATING WOUNDS is already wired per-unit "
+        "(see iter34-K1 audit), and an army-wide layer would compound "
+        "with per-weapon flags on Custodes weapons that already carry "
+        "it. APPROXIMATION: SUSTAINED HITS 1 only, both round-bullets "
+        "rolled into one always-on offensive layer, weaker than Shield "
+        "Host's stacked Crit-5+ + AP+1 (per LC-1 goal: introduce a "
+        "milder Custodes detachment variant so the detachment picker "
+        "has a real choice rather than always-pick-Shield-Host)."
+    ),
+    melee_sustained_hits_army_wide=True,
+    stratagems=SHIELD_HOST_STRATAGEMS,  # share stratagems for now —
+    # real Auric Champions has its own 6-stratagem pool that we'd need
+    # to wire individually. For LC-1 the detachment rule alone is the
+    # MAE lever; per-stratagem differences are smaller and follow-up.
+    preferred_composition="infantry",
+)
+
 SHIELD_HOST = Detachment(
     name="Shield Host",
     faction="Adeptus Custodes",
@@ -885,6 +919,7 @@ DETACHMENTS: Dict[str, Detachment] = {
     "noble_lance":             NOBLE_LANCE,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
+    "auric_champions":         AURIC_CHAMPIONS,
     "skitarii_hunter_cohort":  SKITARII_HUNTER_COHORT,
     "inquisition_task_force":  INQUISITION_TASK_FORCE,
     "combined_regiment":       COMBINED_REGIMENT,
@@ -1064,7 +1099,7 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Imperial Knights":         ("noble_lance",),
     "Chaos Knights":            ("noble_lance",),
     "Adepta Sororitas":         ("hallowed_martyrs",),
-    "Adeptus Custodes":         ("shield_host",),
+    "Adeptus Custodes":         ("shield_host", "auric_champions"),
     "Adeptus Mechanicus":       ("skitarii_hunter_cohort",),
     "Agents of the Imperium":   ("inquisition_task_force",),
     "Imperial Agents":          ("inquisition_task_force",),

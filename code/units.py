@@ -1415,16 +1415,24 @@ class Unit:
             effective_sustained_hits = int(p.melee_sustained_hits or 0)
         else:
             effective_sustained_hits = int(p.sustained_hits or 0)
-        if mode == "melee" and p.faction == "Orks":
+        # LC1-A — generalised gate: any faction whose detachment carries
+        # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
+        # HITS 1 on melee. Previously Orks-only; widened so Adeptus
+        # Custodes Auric Champions (alt to Shield Host) can re-use the
+        # same plumbing. The detachment IS the faction-specific gate —
+        # only WAR_HORDE (Orks) and AURIC_CHAMPIONS (Custodes) set the
+        # flag; the gate verifies the attacker's army's resolved
+        # detachment matches the attacker's faction.
+        if mode == "melee":
             _own_army = getattr(self, "army_ref", None)
             if _own_army is not None:
                 try:
                     _det = _own_army.resolve_detachment()
                 except Exception:
                     _det = None
-                if _det is not None and getattr(
-                    _det, "melee_sustained_hits_army_wide", False,
-                ):
+                if (_det is not None
+                        and getattr(_det, "melee_sustained_hits_army_wide", False)
+                        and getattr(_det, "faction", None) == p.faction):
                     effective_sustained_hits += 1
 
         # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:

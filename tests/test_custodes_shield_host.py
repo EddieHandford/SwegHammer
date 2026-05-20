@@ -105,8 +105,13 @@ class ShieldHostRegistryTests(unittest.TestCase):
         self.assertEqual(DEFAULT_BY_FACTION["Adeptus Custodes"], "shield_host")
 
     def test_faction_detachments_custodes(self):
+        # LC1-A: Custodes detachment pool widened from (shield_host,) to
+        # (shield_host, auric_champions). Shield Host remains the default
+        # per DEFAULT_BY_FACTION; Auric Champions appears as a milder
+        # offensive alternative so the picker has a real choice.
         self.assertEqual(
-            FACTION_DETACHMENTS["Adeptus Custodes"], ("shield_host",),
+            FACTION_DETACHMENTS["Adeptus Custodes"],
+            ("shield_host", "auric_champions"),
         )
 
     def test_martial_katah_flags_set(self):
