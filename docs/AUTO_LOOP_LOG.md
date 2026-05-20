@@ -284,6 +284,43 @@ The structural lift hurts disproportionately on factions with heavy melee multi-
 3. **TY1 follow-ups** — Subterranean Assault, Maleceptor / Norn Emissary FNP audit.
 4. **DG via Stage 2** — D2 confirmed Stage 1 per-unit levers all point wrong; consider accepting DG pricing as a Stage 2 problem.
 
+### Iter 34 (2026-05-20) — universal keyword audits (Phase 2 / iter 3)
+
+Three parallel agents on universal keywords. Hard 30-tool cap held; all three agents stayed in budget.
+
+**K1 — DEVASTATING WOUNDS** (no fix, agent: 47k tokens, 20 tool uses, 2min). Audited the existing implementation; it's **already correct**. `WeaponStats.devastating_wounds` field, 192 units carry the flag, combat application at `code/units.py:1532-1535` (on crit wound, deal Damage as MWs bypassing save+invuln). Brief's premise was wrong — quoted the 2023 wording, but the sim correctly implements the June 2024 dataslate version ("no saving throw of any kind"). No code change.
+
+**K2 — PRECISION override of attached-character Look Out Sir** (commit `acbb2d1` → `c8a9183`, agent: 65k tokens, 33 tool uses, 4min). Existing `precision` field was incorrectly modelled as a cover-piercing approximation. Real 10e PRECISION lets a wound from a PRECISION-tagged weapon allocate directly to a CHARACTER in an attached unit, bypassing the bodyguard. SwegHammer collapses LOS to a targeting gate; real-rule equivalent lives at `code/army.py::can_target_for_ranged`. Fix: when attacker has `precision` and target is a CHARACTER, bypass the bodyguard scan. Lone Operative still blocks (separate keyword). Citation `simulator.precision_keyword`. **K2 alone: MAE 6.14 → 6.01 (-0.13)**.
+
+**K3 — Benefits of Cover** (commit `6294636` → `a1de12c`, agent: 54k tokens, 29 tool uses, 13min coding + lost eval). Previous `save_probability` and the in-combat cover gate applied +1 save to ALL modes (including melee) and used a flat 2+ floor (no INFANTRY 3+ cap). Wahapedia rule: ranged-only, INFANTRY models cannot improve their save to better than 3+ via cover. Fixed both the helper and the in-combat path. New citation `simulator.benefits_of_cover`. **K3 effect when bundled**: removes the previous broken cover-applies-to-melee defender protection, marginally buffing melee-heavy attackers.
+
+**Cumulative iter 34 (K2 + K3 cherry-picked)**: MAE **6.14 → 6.17 (+0.03 at N=40)**. K2's -0.13 win was offset by K3's +0.16 melee-cover regression. Both kept per correctness > MAE.
+
+**Per-faction shifts** (iter33 N=40 → iter34 N=40):
+- Marines -3.6 → -4.1 (-0.5)
+- Necrons -8.2 → -8.8 (-0.6)
+- Aeldari +3.7 → +3.1 ✅ (-0.6)
+- Tyranids +4.5 → +3.7 ✅ (-0.8)
+- Orks +3.4 → +3.7 (+0.3)
+- T'au +6.9 → +7.4 (+0.5)
+- DG +16.2 → +16.4 (+0.2)
+- Custodes +0.3 → +0.6 (+0.3)
+- TSON -3.2 → -2.7 ✅ (-0.5)
+- Votann +11.5 → +11.2 ✅ (-0.3)
+
+**Phase 1+2 honest summary** (iter 31-34 at N=40 vs sim-cal-3 baseline 6.20):
+- iter 31 (S1R + squad-size): 6.59 (+0.39, kept correctness)
+- iter 32 (wipe-the-unit): PARKED, +0.25 regression
+- iter 33 (multi-profile mapper): 6.14 (-0.06 vs baseline)
+- iter 34 (PRECISION + BoC): 6.17 (-0.03 vs baseline)
+
+Four iters of structural / AI work netted essentially zero MAE compression at N=40, while landing substantial rule-correctness fixes. The remaining MAE is genuinely structural — concentrated in DG +16.4 and Necrons -8.8 — and these factions resist both AI and rule-correctness levers.
+
+**Iter 35 priorities**:
+1. **Necrons deep structural** — Reanimation Protocols rate / Awakened Dynasty 6-protocol rotation per Phase 3 / iter 1.
+2. **Mortarion Lantern secondary investigation** — iter33 flagged DG drift +1.7 possibly due to Lantern over-firing in the new picker.
+3. **OR**: pivot to MC bisection (Stage 2) earlier than planned — the structural MAE may need price compensation rather than more rule fixes.
+
 ### Iter 33 (2026-05-20) — multi-profile weapon mapper (Phase 2 pivot)
 
 **Iter 33** — pivoted to Phase 2 (structural mapper) after iter 32's cross-faction AI failure. Single agent landed multi-profile weapon mapper (commit `a8d546a` → `464f872`, agent: 109k tokens, 76 tool uses, 13min coding + extra time chasing the eval). Schema: added `secondary_*` ranged-profile fields to `MappedUnit` / `CatalogEntry` / `UnitProfile`. Mapper: runner-up ranged weapon (different name from primary) populates secondary. `Unit.attack` ranged branch: picks the better profile per-target with damage-waste estimation (per DS1 finding).
