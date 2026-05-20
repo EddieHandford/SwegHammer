@@ -298,6 +298,18 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
+        # SC4-A — 10e Pariah Nexus secondary objectives. Each round we
+        # snapshot each army's alive units at round start (in `_run_round`)
+        # and compute Bring it Down + No Prisoners VP at round end (in
+        # `run` after `_score_objectives`). Per-round caps live in
+        # `code/secondaries.py`. The snapshot is per-army; we score side A
+        # against side B's snapshot (i.e. side A scores VP for killing
+        # side B's units this round).
+        from .secondaries import RoundSnapshot  # noqa: F401  (type only)
+        self._a_round_snapshot = None  # snapshot of A's units at round start
+        self._b_round_snapshot = None  # snapshot of B's units at round start
+        self._a_secondary_vp: int = 0  # cumulative secondary VP for side A
+        self._b_secondary_vp: int = 0  # cumulative secondary VP for side B
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
@@ -456,6 +468,7 @@ class Battle:
             self._emit(RoundStarted(round_num=rnd))
             self._run_round(rnd)
             self._score_objectives()
+            self._score_secondaries(rnd)
             self._emit(RoundEnded(
                 round_num=rnd,
                 a_vp_total=self._a_vp,
@@ -570,6 +583,8 @@ class Battle:
             b_oc = 0
             a_sticky_present = False
             b_sticky_present = False
+            a_has_dg_unit = False
+            b_has_dg_unit = False
             for u in self.a.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue   # Battleshocked = OC 0
@@ -579,12 +594,8 @@ class Battle:
                     a_oc += getattr(u.profile, "oc", 1) or 1
                     if getattr(u.profile, "sticky_objective", False):
                         a_sticky_present = True
-                    # Worldblight: non-Battle-shocked DG unit grants sticky.
-                    if (
-                        a_worldblight
-                        and (u.profile.faction or "") == "Death Guard"
-                    ):
-                        a_sticky_present = True
+                    if (u.profile.faction or "") == "Death Guard":
+                        a_has_dg_unit = True
             for u in self.b.alive_units:
                 if u.uid in self._battleshocked_this_round:
                     continue
@@ -594,11 +605,24 @@ class Battle:
                     b_oc += getattr(u.profile, "oc", 1) or 1
                     if getattr(u.profile, "sticky_objective", False):
                         b_sticky_present = True
-                    if (
-                        b_worldblight
-                        and (u.profile.faction or "") == "Death Guard"
-                    ):
-                        b_sticky_present = True
+                    if (u.profile.faction or "") == "Death Guard":
+                        b_has_dg_unit = True
+
+            # iter24-D3 — Worldblight strict gate. Per Wahapedia
+            # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#STRATAGEMS
+            # — Worldblight) the rule fires at end of the DG Command phase
+            # AND requires the DG unit to already be controlling the
+            # objective (strictly greater OC than the opponent). Promote
+            # the DG presence to a sticky flag ONLY when the DG side wins
+            # the OC contest at this objective. _score_objectives() runs
+            # once per round so the once-per-round trigger is implicit.
+            # Without this gate, a DG unit losing the OC contest would
+            # still mark sticky_present, which prevented the opponent's
+            # sticky from being cleared even though they were winning.
+            if a_worldblight and a_has_dg_unit and a_oc > b_oc:
+                a_sticky_present = True
+            if b_worldblight and b_has_dg_unit and b_oc > a_oc:
+                b_sticky_present = True
 
             # Resolve who actually scores this round. The fallback to
             # sticky_owner is only used when NEITHER side has any OC on the
@@ -667,6 +691,83 @@ class Battle:
             self._a_vp = a_vp_before + 15
         if b_round_vp > 15:
             self._b_vp = b_vp_before + 15
+
+    # ------------------------------------------------------------------
+    # SC4-A — 10e Pariah Nexus secondary objective scoring
+    # ------------------------------------------------------------------
+
+    def _score_secondaries(self, round_num: int) -> None:
+        """End-of-round secondary VP scoring (Bring it Down + No Prisoners).
+
+        Computes the kill delta between each army's round-start snapshot
+        and its current alive units, awarding per-round capped VP to the
+        opposing side. Implements Pariah Nexus tournament-pack secondary
+        scoring so the sim's win condition isn't primaries-only — without
+        secondaries the sim systematically over-rewards sticky-defensive
+        play (Death Guard +16.4 over) and under-rewards kill-oriented
+        shapes that would in real play score by removing enemy units.
+
+        SC4-A — kill-counting secondaries:
+        * Bring it Down — 5 VP per enemy MONSTER/VEHICLE destroyed
+          this round, capped at 15 VP per round.
+          Cited as `simulator.secondary_bring_it_down`.
+        * No Prisoners — 5 VP per enemy unit destroyed this round,
+          capped at 15 VP per round.
+          Cited as `simulator.secondary_no_prisoners`.
+
+        SC4-B — position-tracking secondaries:
+        * Engage on All Fronts — 5 VP if alive units occupy 3+ of the
+          4 table quarters at end of round.
+          Cited as `simulator.secondary_engage_on_all_fronts`.
+        * Behind Enemy Lines — 5 VP if any alive unit's position is
+          inside the opponent's deployment zone.
+          Cited as `simulator.secondary_behind_enemy_lines`.
+
+        SC4-C — selective kill secondaries:
+        * Cull the Horde — 5 VP per enemy 10+model unit destroyed,
+          capped at 5 VP per round (1 per round).
+          Cited as `simulator.secondary_cull_the_horde`.
+        * Assassination — 5 VP per enemy CHARACTER destroyed, capped
+          at 10 VP per round (2 per round).
+          Cited as `simulator.secondary_assassination`.
+
+        Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+        """
+        from .secondaries import score_round_delta, score_position_delta
+        # Side A scores VP for killing side B's units this round — diff
+        # B's round-start snapshot against B's current state. Four
+        # secondary categories (SC4-A Bring it Down + No Prisoners,
+        # SC4-C Cull the Horde + Assassination).
+        if self._b_round_snapshot is not None:
+            a_bid, a_np, a_cth, a_assn = score_round_delta(
+                self._b_round_snapshot, self.b.units
+            )
+            a_kill_vp = a_bid + a_np + a_cth + a_assn
+            self._a_vp += a_kill_vp
+            self._a_secondary_vp += a_kill_vp
+        # Side B scores VP for killing side A's units this round.
+        if self._a_round_snapshot is not None:
+            b_bid, b_np, b_cth, b_assn = score_round_delta(
+                self._a_round_snapshot, self.a.units
+            )
+            b_kill_vp = b_bid + b_np + b_cth + b_assn
+            self._b_vp += b_kill_vp
+            self._b_secondary_vp += b_kill_vp
+
+        # SC4-B — position-tracking secondaries scored at end of round.
+        # Each side scores against their OWN alive units (Engage is your
+        # spread; BEL is your forward projection). own_is_army_a flag
+        # tells the scorer which deployment strip is the enemy's.
+        a_eng, a_bel = score_position_delta(
+            self.a.units, self.map, own_is_army_a=True
+        )
+        self._a_vp += a_eng + a_bel
+        self._a_secondary_vp += a_eng + a_bel
+        b_eng, b_bel = score_position_delta(
+            self.b.units, self.map, own_is_army_a=False
+        )
+        self._b_vp += b_eng + b_bel
+        self._b_secondary_vp += b_eng + b_bel
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
@@ -3385,18 +3486,23 @@ class Battle:
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
-                # Fix F-NEC-2 (iter 14, #iter14): per Wahapedia army-rule
-                # wording, a revived destroyed model "is returned to that
-                # unit with one wound remaining" — NOT at full HP. For W1
+                # iter29-NE1: revert Fix F-NEC-2 (iter 14) — that trim was
+                # based on a misread of Wahapedia. The verbatim 10e rule (see
+                # docstring above, sourced from
+                # https://wahapedia.ru/wh40k10ed/factions/necrons/
+                # #Reanimation-Protocols) says revived models return "with
+                # its full wounds remaining", NOT "one wound remaining".
+                # Iter 14 was motivated by Necrons sitting +10.3pt over the
+                # real meta (iter-13 baseline); at N=40 iter 28 they now sit
+                # -9.0pt under, so the over-trim is no longer load-bearing
+                # and the strictly-correct reading is restored. For W1
                 # Warriors this is identical; for multi-wound Necron units
-                # (Wraiths W3, Lychguard W2/W3, Skorpekh W3, Praetorians W2,
-                # Lokhust Heavy Destroyers W3) the previous full-HP revival
-                # was strictly over-generous. Necrons sit +10.3pt over real
-                # meta (iter-13 baseline); this is the most defensible
-                # correctness-positive trim. Cited as
-                # `simulator.reanimation_protocols` (effect text updated).
+                # (Wraiths W3, Lychguard W3, Skorpekh W3, Praetorians W2,
+                # Lokhust Heavy Destroyers W3) this restores the revived
+                # model to full HP, matching the printed rule. Cited as
+                # `simulator.reanimation_protocols`.
                 for revived in dead_pool[:to_revive]:
-                    revived.current_health = 1.0
+                    revived.current_health = float(revived.profile.health)
                     revived.position = anchor_pos
                     self._emit(UnitReanimated(
                         unit_uid=revived.uid, position=anchor_pos,
@@ -3892,6 +3998,17 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+
+        # SC4-A — snapshot each army's alive units at round start for the
+        # 10e Pariah Nexus secondary scoring (Bring it Down + No Prisoners).
+        # End-of-round (in `run`) computes the kill delta against the
+        # snapshot to award per-round secondary VP. Snapshot is taken at
+        # round start so kills DURING this round are credited to this
+        # round's scoring (real 10e per-round caps applied in
+        # `secondaries.score_round_delta`).
+        from .secondaries import take_snapshot as _take_snapshot
+        self._a_round_snapshot = _take_snapshot(self.a.units)
+        self._b_round_snapshot = _take_snapshot(self.b.units)
 
         # Fix F-NEC-1: snapshot per-profile alive counts AT ROUND START for
         # any army with Reanimation Protocols. End-of-round `_apply_reanimation`
@@ -4930,25 +5047,43 @@ class Battle:
         """T'au Empire Markerlights → Guided (10e army-wide army rule).
 
         At the start of this army's Shooting phase, every alive MARKERLIGHT-
-        keyword unit in `army` "spots" one enemy unit (the highest-threat
-        enemy by points cost) in line-of-sight within 36" and adds its uid
-        to `army.guided_enemy_uids`. Friendly T'au attackers firing at a
-        target in the set gain [LETHAL HITS] in `Unit.attack`, gated on the
-        detachment's `lethal_hits_on_guided` flag (Mont'ka sets True).
+        keyword unit in `army` attempts to mark one enemy unit. The marker
+        is a weapon that fires in the Shooting phase like any other ranged
+        weapon (Wahapedia: Markerlight weapon ability under the T'au army
+        rule, see citation `simulator.markerlight_emission`): it requires
+        line of sight from the carrier to the candidate, the candidate
+        must lie within the Markerlight's 36" range, and the carrier must
+        pass a Hit roll against its own Ballistic Skill. On a successful
+        hit, the target's uid is added to `army.guided_enemy_uids`.
+        Friendly T'au attackers firing at a target in the set gain
+        [LETHAL HITS] in `Unit.attack`, gated on the detachment's
+        `lethal_hits_on_guided` flag (Mont'ka sets True).
+
+        Before iter27-M1 the emission was a free auto-Guided pipeline —
+        no Hit roll, no line-of-sight check, no range gate — which
+        inflated Guided uptime far above real play. Adding the three
+        gates brings the simulator into line with how a Markerlight
+        actually resolves on table.
 
         SwegHammer simplifications vs the codex Markerlight token-stacking:
             * The codex requires a unit to accrue >= some token count to
               become a Guided unit (specifics vary by edition). SwegHammer
-              collapses to "any one MARKERLIGHT carrier marks => Guided",
+              collapses to "any one successful Markerlight hit => Guided",
               which is a strict upper bound but matches the practical play
               pattern where Pathfinders + Stealth Suits saturate marks
               comfortably in a real game.
             * Range check is straight Euclidean distance from the
-              MARKERLIGHT unit's position to the candidate enemy. LoS is
-              approximated as "alive enemy in 36" radius" — the board is
-              small (60" x 44") so the radius reaches across most of it.
-            * One mark per MARKERLIGHT unit; selects the highest-points
-              live enemy in range as the threat priority.
+              MARKERLIGHT unit's position to the candidate enemy.
+            * Line of sight uses the same `Map.has_line_of_sight` helper
+              the main Shooting phase uses, plus the `can_target_for_ranged`
+              gate so Look Out Sir / Lone Operative apply to Markerlights
+              just like to any other ranged weapon.
+            * Hit roll uses the carrier's `hit_probability` (its Ballistic
+              Skill, converted via `_prob_to_target`). No modifiers are
+              applied — Markerlight is the simplest possible ranged shot.
+            * One attempt per MARKERLIGHT unit; selects the highest-points
+              live enemy in range+LoS as the threat priority before
+              rolling the hit.
 
         No-op (and no marks) when:
             * `army` has no alive MARKERLIGHT-keyword unit.
@@ -4959,7 +5094,9 @@ class Battle:
             * Detachment doesn't carry `lethal_hits_on_guided=True` (would
               never be read by `Unit.attack` even if marks were set).
 
-        Cited as `simulator.markerlights`.
+        Cited as `simulator.markerlights` (token effect) and
+        `simulator.markerlight_emission` (per-carrier hit roll + LoS +
+        range gate added in iter27-M1).
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
         """
         if (army.units and
@@ -4978,23 +5115,44 @@ class Battle:
         ]
         if not markerlight_units:
             return
+        from .army import can_target_for_ranged
+        from .units import _prob_to_target
+        # 10e core rulebook: Markerlight is a weapon ability with the
+        # standard ranged-weapon profile. The basic Markerlight is 36"
+        # range across every datasheet in the T'au index. We hold this
+        # constant here rather than reading per-weapon range off the
+        # profile because SwegHammer's UnitProfile carries one
+        # `range_inches` for the unit's primary weapon (Pulse Carbine on
+        # Pathfinders, Burst Cannon on Stealth Suits), not for the
+        # Markerlight specifically — the Markerlight is a secondary
+        # weapon riding on the carrier's BS.
+        markerlight_range = 36.0
         marked: set = set()
         for mk in markerlight_units:
-            in_range = [
+            # Range + LoS + Look-Out-Sir / Lone-Op gate the candidate pool
+            # before the to-hit roll. Skip unmarked-only targets so each
+            # carrier marks a distinct unit when multiple are available.
+            candidates = [
                 e for e in alive_enemies
-                if _distance(mk.position, e.position) <= 36.0
-                and e.uid not in marked
+                if e.uid not in marked
+                and _distance(mk.position, e.position) <= markerlight_range
+                and self.map.has_line_of_sight(
+                    mk.position, e.position,
+                    attacker_keywords=mk.profile.unit_keywords or (),
+                    target_keywords=e.profile.unit_keywords or (),
+                )
+                and can_target_for_ranged(mk, e, alive_enemies)
             ]
-            if not in_range:
-                # Fall back to any unmarked enemy if range filter empties —
-                # the small SwegHammer board makes "every enemy is in 36 inch"
-                # the common case, but if the marker is cornered we still
-                # want it to pick the closest unmarked threat.
-                in_range = [e for e in alive_enemies if e.uid not in marked]
-            if not in_range:
-                break
-            target = max(in_range, key=lambda u: u.profile.points_cost)
-            marked.add(target.uid)
+            if not candidates:
+                continue
+            target = max(candidates, key=lambda u: u.profile.points_cost)
+            # Hit roll using the carrier's BS. No modifiers — Markerlight
+            # is resolved as a plain ranged shot. A roll >= the target's
+            # `N+` succeeds; on failure no token is granted.
+            hit_target = _prob_to_target(mk.profile.hit_probability)
+            roll = random.randint(1, 6)
+            if roll >= hit_target:
+                marked.add(target.uid)
         army.guided_enemy_uids = marked
 
     def _pick_oath_target(

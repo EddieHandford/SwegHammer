@@ -845,6 +845,7 @@ def _instantiate_template(
 
     scaled: Dict[str, int] = {}
     running = 0.0
+
     for key in sorted(template, key=sort_key):
         cost = _squad_cost(key)
         if running + cost <= seed_budget:
@@ -852,6 +853,51 @@ def _instantiate_template(
             running += cost
         # else: skip — too expensive at this budget. Cheaper subsequent
         # entries may still fit, so keep walking rather than break.
+
+    # iter24-D2 — EPIC HERO anchor guarantee. The (-count, -cost) walk
+    # above leaves a template EPIC HERO unseeded when count=2 entries
+    # earlier in the sort have already consumed `seed_budget` — the EPIC
+    # HERO's count=1 priority loses, and once reached the cumulative
+    # overflow drops it. Death Guard Mortarion (380pt) is the motivating
+    # case: at the 600pt seed slice (2000pt eval x 0.3), Plagueburst
+    # Crawler + Foetid Bloat-Drone + Plague Marines at count=2 each =
+    # 393pt land first, then Mortarion's 380pt pushes running to 773pt
+    # > 600pt and is skipped. The archetype was designed around
+    # Mortarion as the centerpiece; drafting him in only 4/20 builds
+    # left the army shape wrong.
+    #
+    # Fix: AFTER the regular walk, if any template EPIC HERO went
+    # unseeded, force-seed the cheapest with the 1.5x overflow allowance
+    # (mirrors the CHARACTER-anchor guarantee below — and composes with
+    # it, since most EPIC HEROes are also CHARACTERs). Running after this
+    # may exceed `seed_budget` but is bounded by `seed_budget * 1.5`.
+    # Faction-neutral by keyword.
+    def _is_epic_hero_key(key: str) -> bool:
+        profile = UNIT_CATALOG.get(key)
+        if profile is None:
+            return False
+        return "EPIC HERO" in (profile.unit_keywords or ())
+
+    epic_hero_keys = [k for k in template if _is_epic_hero_key(k)]
+    if epic_hero_keys and not any(k in scaled for k in epic_hero_keys):
+        # Pick the MOST EXPENSIVE template EPIC HERO as the centerpiece —
+        # the priciest EPIC HERO is the archetype's flagship (Death Guard
+        # Mortarion at 380pt over Typhus at 100pt). Falling back to the
+        # cheapest would draft Typhus instead, which is not the designed
+        # anchor.
+        #
+        # Overflow cap: `points_budget * 0.6` (= 2x seed_budget at the
+        # default SEED_FRACTION=0.3). The CHARACTER-anchor guarantee
+        # below uses 1.5x but its cheapest-CHARACTER target is usually
+        # well under 100pt; an EPIC HERO centerpiece like Mortarion costs
+        # 380pt and a 1.5x cap on a partially-filled walk doesn't leave
+        # room. Cap at 60% of total army budget so random_fill still has
+        # 40% headroom.
+        anchor_eh = max(epic_hero_keys, key=_squad_cost)
+        cost = _squad_cost(anchor_eh)
+        if running + cost <= points_budget * 0.6:
+            scaled[anchor_eh] = 1
+            running += cost
 
     # iter #11 — CHARACTER-anchor guarantee. The (-count, -cost) walk above
     # can exhaust the seed budget on a multi-copy BATTLELINE entry at low

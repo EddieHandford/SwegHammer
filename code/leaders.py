@@ -54,9 +54,36 @@ class LeaderAbility:
       * `extra_invuln`, `fnp`: 7 = none, lower number = better (10e d6 target)
 
     `aura_range` is in inches. `0` means army-wide (no proximity gating).
-    `host_keys` declares the legal bodyguard units this leader can attach
-    to (UNIT_CATALOG keys, preference order). Empty = let the calibrator
-    fall back to its faction-heuristic host picker.
+
+    `host_keys` carries DOUBLE DUTY:
+
+      1. List-building hint for the calibrator's host picker: when this
+         leader is seeded into a list, the picker walks `host_keys` in
+         preference order and attaches the leader to the first UNIT_CATALOG
+         key present in the army.
+
+      2. Runtime gate for `effective_buffs`: the per-leader aura merge in
+         `effective_buffs` only fires when the attacker's UNIT_CATALOG key
+         is in `host_keys`. This implements the "While this model is
+         leading a unit..." codex wording — the buff applies to the
+         attached bodyguard squad, NOT to every friendly within aura range.
+
+    Empty `host_keys = ()` is the explicit ARMY-WIDE convention:
+
+      * Used for MONSTER / non-attachment auras whose codex wording reads
+        "While a friendly <FACTION> unit is within X" of this model..."
+        rather than "While this model is leading a unit..." — e.g. the
+        Hive Tyrant's Onslaught, the Avatar of Khaine's Bloody-Handed.
+        These leaders broadcast their aura to every friendly in range
+        with no led-unit requirement.
+      * `effective_buffs` reads an empty tuple as "skip the host gate" and
+        merges the aura buff onto whichever attacker is in range.
+
+    Iter 22 — the per-leader merge in `effective_buffs` was widened to
+    consult `host_keys` because a host_keys-less merge applied every
+    leader's aura army-wide (Typhus FNP firing on all Death Guard within
+    6", Lieutenant +1-to-wound on every Marine within 6", etc.). Same
+    structural bug affected every faction's character auras.
     """
     name: str
     aura_range: float                       # inches; 0 = army-wide
@@ -143,8 +170,19 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Captain's now-empty entry). The fix: pin the longer keys to the
     # top of the registry. Test:
     #   tests/test_leaders.py::ExpandedRegistryTests::test_each_new_leader_resolves
+    # Adeptus Custodes Shield-Captain — per the Wahapedia / BSData v10.6.0
+    # Shield-Captain datasheet, the Leader ability lists Custodian Guard
+    # and Custodian Wardens as the only legal hosts. The previous
+    # host_keys tuple omitted Wardens, which silently blocked Stoic Vigil
+    # from firing on a Wardens-led squad — half the Custodes archetype's
+    # leader-target population. iter24 fix expands the tuple to both legal
+    # hosts (also including the Adrasite/Pyrithite spear variant of
+    # Custodian Guard, which BSData groups under the same Leader entry).
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain
     ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("adeptus_custodes_custodian_guard",))),
+                                          host_keys=("adeptus_custodes_custodian_guard",
+                                                     "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
+                                                     "adeptus_custodes_custodian_wardens"))),
     ("Brother-Captain",    LeaderAbility(name="First to the Fray",          aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("grey_knights_strike_squad",))),
     # Space Marine HQ — named characters first so they win the substring
@@ -197,12 +235,16 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     # Orks
     ("Warboss",            LeaderAbility(name="Might is Right",             aura_range=6.0, plus_one_to_hit=True,   host_keys=("orks_boyz", "orks_nobz"))),
-    # Tyranids — Hive Tyrant is a Monster lead; aura still applies to nearby
-    # gants/warriors but no formal attachment in 10e. Host picker uses the
-    # synapse-cheap option for calibration purposes.
-    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True,
-                                          host_keys=("tyranids_tyranid_warriors_with_ranged_bio_weapons",
-                                                     "tyranids_termagants"))),
+    # Tyranids — Hive Tyrant is a Monster with NO formal Leader/Bodyguard
+    # attachment in 10e. The codex Onslaught aura reads "While a friendly
+    # TYRANIDS unit is within 6" of this model, ranged weapons equipped by
+    # models in that unit have the [ASSAULT] and [LETHAL HITS] abilities."
+    # — broadcast aura with no led-unit gate. Use the iter22 empty-tuple
+    # convention so `effective_buffs` applies the reroll-wound-1s proxy
+    # to ANY friendly Tyranids attacker in 6", not just one bodyguard
+    # squad. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/tyranids/Hive-Tyrant
+    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True)),
     # Aeldari
     # Yvraine (Ynnari EPIC HERO) — Herald of Ynnead grants Aeldari-friendly
     # re-roll of Wound rolls of 1 vs a fight-phase-marked target (we proxy
@@ -304,6 +346,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("thousand_sons_rubric_marines",))),
     ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("thousand_sons_rubric_marines",))),
+    # Magnus the Red — EPIC HERO MONSTER PSYKER, NOT a CHARACTER leader-
+    # attachment. Magnus does not formally lead a unit and does not confer
+    # an aura buff to nearby Thousand Sons units (per Wahapedia datasheet
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red).
+    # His self-conferred rules are already wired elsewhere:
+    #   - Impossible Form (-1 to incoming Damage): code/simulator.py:4063-4066
+    #   - Lord of the Planet of the Sorcerers (2 Rituals/turn +2 to Psychic
+    #     test): code/simulator.py:3142-3148
+    # This registry entry exists ONLY so `lookup_ability("Magnus the Red")`
+    # returns a non-None LeaderAbility per CLAUDE.md §13 (no silent
+    # defaults). No buff flags, no host_keys — empty host_keys=() follows
+    # the iter22 "army-wide / no host gate" convention used for Monster
+    # leaders like Avatar of Khaine (line 308 above) that don't formally
+    # attach. iter21's commit comment had claimed Magnus was added but
+    # he was in fact skipped from the registry tuple; iter24 closes that
+    # silent-default gap. If a future codex revision confers an aura buff
+    # to nearby PSYKERs, encode it here and add the matching
+    # LeaderAbility.Magnus the Red citation.
+    ("Magnus the Red",     LeaderAbility(name="Magnus the Red",              aura_range=0.0,                          host_keys=())),
     # Sorcerer in Terminator Armour — TSON variant. Leader-attaches to
     # Scarab Occult Terminators (per BSData v10.6.0 Leader infoLink).
     # Datasheet ability "Marked by Fate (Psychic)" grants +1 to Hit on
@@ -329,9 +390,33 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
     # Adeptus Custodes — Shield-Captain pinned to the registry head above
     # to prevent substring-collision with the generic Marines "Captain"
-    # entry; only Trajann Valoris remains in the per-faction block here.
+    # entry. Trajann Valoris and Blade Champion live in this per-faction
+    # block. Per Wahapedia / BSData v10.6.0, Trajann Valoris and Blade
+    # Champion each list Custodian Guard and Custodian Wardens as their
+    # only legal Leader hosts — Allarus / Sagittarum / Vertus Praetors are
+    # NOT in any Custodes CHARACTER's Leader text (verify via BSData cache
+    # `Imperium - Adeptus Custodes.cat.gz`). iter24: Trajann's host_keys
+    # widened from Guard-only to (Guard + Wardens), and Blade Champion
+    # added as a new structural entry (was returning None from
+    # lookup_ability per CLAUDE.md §13 fail-loud rule). The Blade Champion
+    # carries no offensive aura field today — its codex abilities are
+    # Martial Inspiration (once-per-battle advance + charge in same turn)
+    # and Swift Onslaught (re-roll Charge rolls while leading). Neither
+    # is currently expressible through the LeaderAbility aura schema; the
+    # entry exists so lookup_ability resolves cleanly and so the host-key
+    # gate on Resolute Will (Wardens) and similar future buffs can verify
+    # "the led unit has a CHARACTER attached". Same iter21 fab-removal
+    # standard as Captain / Autarch / Avatar of Khaine.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Blade-Champion
     ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
-                                          host_keys=("adeptus_custodes_custodian_guard",))),
+                                          host_keys=("adeptus_custodes_custodian_guard",
+                                                     "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
+                                                     "adeptus_custodes_custodian_wardens"))),
+    ("Blade Champion",     LeaderAbility(name="Swift Onslaught",            aura_range=6.0,
+                                          host_keys=("adeptus_custodes_custodian_guard",
+                                                     "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
+                                                     "adeptus_custodes_custodian_wardens"))),
     # Adeptus Mechanicus
     # Belisarius Cawl — entry must precede the generic Tech-Priest match so
     # the longer name wins the substring lookup. "Master of the Forge" once-
@@ -345,9 +430,14 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
     # Death Guard
+    # Lord of Contagion: per Wahapedia datasheet
+    # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
+    # the Leader Bodyguard list is restricted to Blightlord Terminators and
+    # Deathshroud Terminators only — NOT Plague Marines. Iter24-D1 fix.
     ("Lord of Contagion",  LeaderAbility(name="Plague-Ridden Champion",     aura_range=6.0, plus_one_to_wound=True,
                                           first_stratagem_free_per_round=True,
-                                          host_keys=("death_guard_plague_marines",))),
+                                          host_keys=("death_guard_blightlord_terminators",
+                                                     "death_guard_deathshroud_terminators"))),
     ("Typhus",             LeaderAbility(name="The Destroyer Hive",         aura_range=6.0, fnp=5,
                                           host_keys=("death_guard_plague_marines",))),
     # Grey Knights — Brother-Captain pinned to the registry head above to
@@ -495,24 +585,61 @@ def in_range_leaders(attacker: "Unit") -> List["Unit"]:
     return covered
 
 
-# Reverse map: UnitProfile.name -> catalog key. Used by `is_actually_led` to
-# translate an attacker's profile name back to the UNIT_CATALOG key that
-# `LeaderAbility.host_keys` is declared against. Built lazily on first use
-# so importing `code.leaders` doesn't force `code.units` to load.
-_NAME_TO_KEY_CACHE: Dict[str, str] = {}
+# Reverse map: UnitProfile.name -> tuple of all matching catalog keys.
+# Used by `is_actually_led` and the iter22 `effective_buffs` host-gate to
+# translate an attacker's profile name back to UNIT_CATALOG keys that
+# `LeaderAbility.host_keys` is declared against.
+#
+# Why a TUPLE not a single key: profile names are not unique across
+# factions. "Plague Marines" lives in both `death_guard_plague_marines`
+# and `chaos_space_marines_plague_marines`. A previous single-key cache
+# silently dropped one of the two — which caused iter22's host gate to
+# fail-closed when a Death Guard Lord of Contagion's host_keys listed
+# `death_guard_plague_marines` but the reverse lookup happened to land
+# on the CSM key. Returning ALL keys and letting the gate test set
+# intersection eliminates the false negative.
+#
+# Built lazily on first use so importing `code.leaders` doesn't force
+# `code.units` to load.
+_NAME_TO_KEYS_CACHE: Dict[str, Tuple[str, ...]] = {}
+
+
+def _name_to_catalog_keys(name: str) -> Tuple[str, ...]:
+    """Reverse lookup: UnitProfile.name -> ALL matching UNIT_CATALOG keys.
+
+    Returns an empty tuple if the name isn't present in UNIT_CATALOG.
+    Names are NOT unique across factions ("Plague Marines" appears in
+    both Death Guard and Chaos Space Marines), so callers must treat
+    the result as a set and test set membership / intersection against
+    a leader's host_keys.
+    """
+    global _NAME_TO_KEYS_CACHE
+    if not _NAME_TO_KEYS_CACHE:
+        from .units import UNIT_CATALOG
+        from collections import defaultdict
+        builder: Dict[str, list] = defaultdict(list)
+        for k, p in UNIT_CATALOG.items():
+            builder[p.name].append(k)
+        _NAME_TO_KEYS_CACHE = {n: tuple(ks) for n, ks in builder.items()}
+    return _NAME_TO_KEYS_CACHE.get(name, ())
 
 
 def _name_to_catalog_key(name: str) -> Optional[str]:
-    """Reverse lookup: UnitProfile.name -> UNIT_CATALOG key.
+    """Backwards-compatible single-key lookup.
 
-    UNIT_CATALOG is name-unique per faction in practice (the BSData mapper
-    keys by slugified name). Returns None if the name isn't present.
+    Returns the FIRST matching UNIT_CATALOG key for `name`, or None if no
+    catalog entry shares the name. Retained for the existing
+    `is_actually_led` caller (the gate is now an `any(... in host_keys)`
+    check using the full keys tuple — see below — but this single-key
+    helper is kept for any other call site that hasn't migrated).
     """
-    global _NAME_TO_KEY_CACHE
-    if not _NAME_TO_KEY_CACHE:
-        from .units import UNIT_CATALOG
-        _NAME_TO_KEY_CACHE = {p.name: k for k, p in UNIT_CATALOG.items()}
-    return _NAME_TO_KEY_CACHE.get(name)
+    keys = _name_to_catalog_keys(name)
+    return keys[0] if keys else None
+
+
+# Legacy alias retained for any debug/test code reading the old cache
+# directly. New code should use _NAME_TO_KEYS_CACHE.
+_NAME_TO_KEY_CACHE: Dict[str, str] = {}
 
 
 def is_actually_led(attacker: "Unit") -> bool:
@@ -546,14 +673,16 @@ def is_actually_led(attacker: "Unit") -> bool:
     candidates = in_range_leaders(attacker)
     if not candidates:
         return False
-    attacker_key = _name_to_catalog_key(attacker.profile.name)
-    if attacker_key is None:
+    # Use the full set of catalog keys matching this profile name (Plague
+    # Marines exists in both Death Guard and Chaos Space Marines, etc.).
+    attacker_keys = _name_to_catalog_keys(attacker.profile.name)
+    if not attacker_keys:
         return False
     for leader in candidates:
         ability = lookup_ability(leader.profile.name)
         if ability is None:
             continue
-        if attacker_key in ability.host_keys:
+        if any(k in ability.host_keys for k in attacker_keys):
             return True
     return False
 
@@ -567,6 +696,45 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
     Detachment carries all the boolean attack flags + plus_one_attack +
     plus_one_save + extra_invuln. Leader auras add the offensive booleans,
     extra_invuln, and FNP (which detachments don't currently expose).
+
+    Iter 22 host_keys gating (faction-neutral structural fix):
+      Per-leader aura merge consults `LeaderAbility.host_keys`. The 10e
+      Leader rule says a CHARACTER aura applies to "this model's unit"
+      (the attached bodyguard squad), NOT to every friendly within aura
+      range. The per-leader merge therefore filters by host_keys:
+
+        * `host_keys == ()` (empty tuple)
+            Army-wide / broadcast aura — apply to any attacker in range.
+            Used for MONSTER auras with no formal attachment whose codex
+            wording is "While a friendly <FACTION> unit is within X"...":
+              - Hive Tyrant (Onslaught — 6" Tyranids aura)
+              - Avatar of Khaine (Bloody-Handed — 6" Aeldari aura; no
+                offensive flags after iter21 fab audit, but the empty
+                tuple is structurally correct)
+              - The Yncarne (Ethereal Form is self-heal-on-kill, applied
+                via apply_round_end_healing — no offensive aura)
+
+        * `host_keys != ()` (non-empty)
+            Bodyguard-gated aura — apply ONLY when
+            `_name_to_catalog_key(attacker.profile.name)` is in
+            `host_keys`. Implements the "While this model is leading a
+            unit..." codex wording. Pre-iter22 this gate was missing,
+            so e.g. Typhus's Destroyer Hive FNP fired on EVERY Death
+            Guard unit within 6" instead of just the Plague Marines he
+            was attached to — and the same bug affected every faction's
+            leader auras (Necron Overlord, Marine Lieutenant, Aeldari
+            Spiritseer, etc.).
+
+      Existing detachment-side gates (`is_actually_led` for
+      Awakened-Dynasty Command Protocols) already apply host_keys
+      filtering correctly — only the per-leader merge below was missing
+      it.
+
+      Attackers with no UNIT_CATALOG key (hand-rolled test profiles,
+      synthetic names) cannot satisfy a non-empty host_keys check, so
+      their non-broadcast aura merges are skipped. This is deliberate:
+      if you can't be a legal bodyguard, you don't receive the led-unit
+      aura. Empty-tuple broadcast auras still apply to such attackers.
     """
     buffs = dict(_NEUTRAL_BUFFS)
 
@@ -636,10 +804,29 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             # not an attack-side modifier; it's applied via the
             # `effective_move` helper, not here.
 
+    # iter22 — resolve the attacker's full set of catalog keys once for
+    # host-gate use across the per-leader merge below. Empty tuple when
+    # the attacker is a synthetic / hand-rolled profile (test fixtures,
+    # scratch profiles), or when its name doesn't appear in UNIT_CATALOG.
+    # Returns multiple keys when the same name spans factions (Plague
+    # Marines: Death Guard + CSM), so the gate uses set intersection.
+    attacker_keys_for_host_gate = _name_to_catalog_keys(
+        getattr(attacker.profile, "name", "") or ""
+    )
+
     for leader in in_range_leaders(attacker):
         ability = lookup_ability(leader.profile.name)
         if ability is None:
             continue
+        # Host-gate: see docstring's "Iter 22 host_keys gating" block.
+        # Empty host_keys = army-wide broadcast aura (apply unconditionally).
+        # Non-empty host_keys = bodyguard-gated; apply ONLY when ANY of
+        # the attacker's UNIT_CATALOG keys is in host_keys (set
+        # intersection). Attackers with no catalog keys fail any
+        # non-empty gate.
+        if ability.host_keys:
+            if not any(k in ability.host_keys for k in attacker_keys_for_host_gate):
+                continue
         _merge_bool(buffs, ability, "reroll_hit_ones")
         _merge_bool(buffs, ability, "reroll_wound_ones")
         _merge_bool(buffs, ability, "plus_one_to_hit")

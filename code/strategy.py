@@ -312,23 +312,135 @@ def _unsaved_fraction(save: int, invuln_save: int, attacker_ap: int) -> float:
     return max(0.05, 1.0 - max(save_pass, invuln_pass))
 
 
-def _durability(profile, current_health: float, attacker_ap: int) -> float:
+def _fnp_resolved(profile, defender_unit) -> int:
+    """Resolve the defender's effective FNP value: lower of profile.fnp and
+    any leader-aura / detachment FNP granted via `effective_buffs`. Returns
+    7 (no FNP) when neither source applies.
+
+    Cited as `simulator.fnp_in_threat_score` in `data/rule_citations.json`.
+    Quoted core rule (Wahapedia 10e):
+        "Each time a model with this ability would lose a wound, roll one
+         D6: if the result equals or exceeds the Feel No Pain value, that
+         wound is not lost."
+    Without folding FNP into the AI threat heuristic, opponent units see
+    FNP-bearing defenders (Death Guard Plague Marines / Mortarion,
+    Custodian Wardens, Necron units under Reanimation Protocols when
+    granted by stratagem, Tyranid Tervigon, Nurgle daemons, Typhus-led
+    Plague Marines with the Destroyer Hive 5+) as soft and pick them
+    over harder targets — bouncing off the FNP wall in practice.
+    """
+    base_fnp = getattr(profile, "fnp", 7) or 7
+    if defender_unit is None:
+        return base_fnp
+    # Look up aura-granted FNP (Typhus 5+ to Plague Marines, Mortarion's
+    # detachment aura, etc.). Lower value wins (better roll).
+    try:
+        from .leaders import effective_buffs
+        aura_fnp = effective_buffs(defender_unit).get("fnp", 7) or 7
+    except Exception:
+        # Defender has no army context (synthetic test profile) — fall back
+        # to profile-only. effective_buffs raises when army_ref is missing
+        # under certain test paths.
+        aura_fnp = 7
+    return min(base_fnp, aura_fnp)
+
+
+def _fnp_pass_fraction(fnp: int) -> float:
+    """Probability a single unsaved wound is ignored by FNP. fnp=7 -> 0.0
+    (no FNP), fnp=5 -> 2/6, fnp=4 -> 3/6. Mirrors the (7 - fnp) / 6 math
+    from the core rule (roll equals or exceeds fnp on a D6)."""
+    if fnp >= 7:
+        return 0.0
+    if fnp <= 2:
+        # FNP 2+ ignores 5/6 — theoretical floor; no 10e datasheet has it
+        # but keep the formula consistent.
+        return 5.0 / 6.0
+    return (7 - fnp) / 6.0
+
+
+# Iter 31-S1R — squad-size durability factor. AI heuristic, NOT a 10e rule.
+# Compensation paired with the iter26-S1 FNP re-land: folding FNP into
+# `_durability` caused opponent AI to correctly avoid FNP-bearing defenders
+# and divert fire to soft no-FNP targets (Orks regressed +5.7 -> +10.1 at
+# N=20). The mechanism: a 10-model Boyz squad still threatens return fire
+# after losing 4 models — losing 4 of 10 is NOT the same single-attack
+# decision as losing 4 of 4. The AI should treat high-model-count squads
+# as effectively more durable from a per-shot allocation perspective.
+#
+# Formula (faction-neutral, linear in sibling count):
+#   squad_factor = 1.0 + max(0, sibling_count - 1) * SQUAD_SIZE_FACTOR_PER_SIBLING
+# A lone model has factor 1.0; 10-model squad has 1.45; 20-model Boyz 1.95.
+# Cited as `simulator.squad_size_durability_factor`. Defender-allocation
+# tie-in: the 10e core rule lets the defender allocate per-attack wounds
+# across models in the unit (Make Allocation Roll), so a single fire
+# decision against one model is not equivalent to wiping the whole unit.
+SQUAD_SIZE_FACTOR_PER_SIBLING: float = 0.05
+
+
+def _squad_size_factor(defender_unit) -> float:
+    """Multiplicative durability bonus from sibling models in the defender's
+    unit. A lone model returns 1.0; each additional alive sibling adds
+    SQUAD_SIZE_FACTOR_PER_SIBLING. Faction-neutral.
+
+    Sibling detection: same `profile.name` in `defender.army_ref.alive_units`
+    with positive `current_health`. Falls back to 1.0 when no army context.
+    """
+    if defender_unit is None:
+        return 1.0
+    army = getattr(defender_unit, "army_ref", None)
+    if army is None:
+        return 1.0
+    own_name = getattr(defender_unit.profile, "name", None)
+    if not own_name:
+        return 1.0
+    try:
+        sibling_count = sum(
+            1 for u in army.alive_units
+            if getattr(u.profile, "name", None) == own_name
+            and getattr(u, "current_health", 0) > 0
+        )
+    except Exception:
+        return 1.0
+    extras = max(0, sibling_count - 1)
+    return 1.0 + extras * SQUAD_SIZE_FACTOR_PER_SIBLING
+
+
+def _durability(profile, current_health: float, attacker_ap: int,
+                defender_unit=None) -> float:
     """Effective durability against an attacker with the given AP.
 
-    Combines remaining HP, toughness, and the fraction of unsaved wounds
-    after armour / invuln (whichever is better) and AP modifier. A
+    Combines remaining HP, toughness, the fraction of unsaved wounds
+    after armour / invuln (whichever is better) and AP modifier, AND the
+    Feel No Pain mitigation factor (`1 / (1 - fnp_pass_fraction)`). A
     Custodian Guard (T6, 3W, 2+/4++) is much tougher vs an AP0 melee weapon
     than HP alone suggests; a Fire Warrior (T3, 1W, 4+) is much frailer
     against AP-1 than a flat (T+HP) hides. Without folding the save in,
     high-Sv elite units register as "squishy melee targets" because their
     HP is low — exactly the T'au Battlesuit / Custodian over-rating we saw
     after the #96 charge AI landed.
+
+    Iter 26 (S1): folded FNP into the durability score. Pass `defender_unit`
+    so leader-aura / stratagem-granted FNP (Typhus 5+ to Plague Marines,
+    transient Awakened Dynasty 5+, Drukhari 6+ from Pain Token) is
+    resolved through `leaders.effective_buffs`. Cited as
+    `simulator.fnp_in_threat_score`.
+
+    Iter 31 (S1R): added a multiplicative squad-size durability bonus so
+    high-model-count units (Boyz mobs, Termagant broods, Cultist swarms)
+    look harder to wipe from a single-attack-decision perspective. This
+    compensates for the iter26-S1 re-land's side effect of opponent AI
+    diverting fire from FNP-bearing defenders to no-FNP horde armies.
+    Cited as `simulator.squad_size_durability_factor`.
     """
     # Toughness adds the wound-roll difficulty (already in attacker's DPA via
     # hit*wound math). Keep T as a multiplier rather than additive so a T8
     # Knight reads multiplicatively harder than a T4 Marine of equal HP.
-    return (profile.toughness * max(1.0, current_health)
-            / _unsaved_fraction(profile.save, profile.invuln_save, attacker_ap))
+    fnp = _fnp_resolved(profile, defender_unit)
+    fnp_mitigation = max(0.05, 1.0 - _fnp_pass_fraction(fnp))
+    squad_factor = _squad_size_factor(defender_unit)
+    return (profile.toughness * max(1.0, current_health) * squad_factor
+            / (_unsaved_fraction(profile.save, profile.invuln_save, attacker_ap)
+               * fnp_mitigation))
 
 
 # Factions whose own melee units should NOT receive the gunline-charge bonus
@@ -539,7 +651,8 @@ def _melee_target_score(attacker, defender) -> float:
 
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
-    kill_potential = a_melee_dpa / _durability(tp, defender.current_health, p.melee_ap)
+    kill_potential = a_melee_dpa / _durability(
+        tp, defender.current_health, p.melee_ap, defender_unit=defender)
 
     # Threat back: their melee output divided by OUR effective durability
     # against THEIR AP. Same machinery — an opponent with AP-3 reads as
@@ -547,7 +660,8 @@ def _melee_target_score(attacker, defender) -> float:
     threat_back = (
         tp.melee_attacks * tp.melee_hit_probability
         * (tp.melee_damage_per_shot or 1.0)
-    ) / _durability(p, attacker.current_health, tp.melee_ap)
+    ) / _durability(p, attacker.current_health, tp.melee_ap,
+                    defender_unit=attacker)
 
     ranged_value = (
         tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)
@@ -653,12 +767,14 @@ def pick_charge_target(attacker, enemy):
             continue   # out of charge range / already engaged
         tp = e.profile
 
-        kill_potential = a_melee_dpa / _durability(tp, e.current_health, p.melee_ap)
+        kill_potential = a_melee_dpa / _durability(
+            tp, e.current_health, p.melee_ap, defender_unit=e)
 
         threat_against = (
             tp.melee_attacks * tp.melee_hit_probability
             * (tp.melee_damage_per_shot or 1.0)
-        ) / _durability(p, attacker.current_health, tp.melee_ap)
+        ) / _durability(p, attacker.current_health, tp.melee_ap,
+                        defender_unit=attacker)
 
         ranged_value = (
             tp.attacks * tp.hit_probability * (tp.weapon_damage_per_shot or 0.0)

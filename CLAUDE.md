@@ -7,6 +7,13 @@ touching code.
 > ownership tags, see [`PROJECT.tex`](PROJECT.tex)** (rendered as `PROJECT.pdf`).
 > This file is the Claude-specific operating layer on top.
 
+> **For the autonomous calibration loop's operating procedure (fix-first
+> protocol, bundle-of-one agent dispatch, trimmed prompt template,
+> AUTO_LOOP_LOG archival, task-tracker discipline, periodic cleanup), see
+> [`docs/AUTO_LOOP_PROCEDURE.md`](docs/AUTO_LOOP_PROCEDURE.md).** Procedural
+> rules there apply on top of the standing rules in this file when working
+> the loop.
+
 ## Project plan: a two-stage pipeline
 
 SwegHammer runs as two sequenced feedback loops, not one. Future sessions:

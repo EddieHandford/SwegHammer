@@ -27,7 +27,7 @@ if os.environ.get("PYTHONHASHSEED") != "0":
     os.execvpe(sys.executable, [sys.executable, "-m", "scripts.evaluate_vs_meta"] + sys.argv[1:], os.environ)
 
 from code.army_builder import build_faction_random_army
-from code.maps import DEFAULT_MAP
+from code.maps import DEFAULT_MAP, PARIAH_NEXUS_2K_ROTATION, STOCK_MAPS
 from code.simulator import Battle, RulesConfig
 
 FACTIONS: List[str] = [
@@ -62,6 +62,25 @@ APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
                    "Adeptus Custodes", "Leagues of Votann"}
 
 
+def _pick_rotation_map(seed: int):
+    """Deterministic map rotation for the per-pair seed schedule.
+
+    SC4-D: real tournament play rotates through the Pariah Nexus mission
+    pack (Crucible of Battle, Take and Hold, Hammer and Anvil, Tipping
+    Point, Search and Destroy). The previous calibration used a single
+    fixed map (DEFAULT_MAP = COMBAT_PATROL_BASIC), which systematically
+    biased the win-rate matrix toward the one deployment shape that
+    happened to fit that map's geometry. Rotating across the 5 Pariah
+    Nexus shapes averages out the per-map bias.
+
+    Deterministic by seed so PYTHONHASHSEED=0 invocations reproduce
+    identical matrices across runs.
+    """
+    rotation = PARIAH_NEXUS_2K_ROTATION
+    key = rotation[seed % len(rotation)]
+    return STOCK_MAPS[key]
+
+
 def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
@@ -90,7 +109,8 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False) -
                 b = build_faction_random_army("B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype)
                 if not a.units or not b.units:
                     continue
-                r = Battle(a, b, map_=DEFAULT_MAP, rules=rules).run()
+                battle_map = _pick_rotation_map(s)
+                r = Battle(a, b, map_=battle_map, rules=rules).run()
                 winners[r.winner] += 1
             sim_wr[(a_fac, b_fac)] = winners.get("A", 0) / n * 100
 

@@ -199,6 +199,115 @@ SWEEPING_ENGAGEMENT = Map(
 )
 
 
+def _take_and_hold_objectives(width: float, height: float) -> tuple:
+    """
+    Take and Hold (Pariah Nexus mission): 4 objectives in the no-man's-land,
+    none on the deployment-zone centre-line. Forces players to push forward
+    out of their DZ to score. Classic objective control test.
+    """
+    cx, cy = width / 2.0, height / 2.0
+    return (
+        Objective(name="South Centre", x=cx,            y=height * 0.33),
+        Objective(name="North Centre", x=cx,            y=height * 0.67),
+        Objective(name="West Mid",     x=width * 0.25,  y=cy),
+        Objective(name="East Mid",     x=width * 0.75,  y=cy),
+    )
+
+
+TAKE_AND_HOLD = Map(
+    name="Take and Hold",
+    width=44.0,
+    height=60.0,
+    objectives=_take_and_hold_objectives(44.0, 60.0),
+    # 4 mid-board objectives, no central; classic Pariah Nexus push-forward
+    # mission. Light cover scattered across no-man's-land, two large ruins
+    # at the wings.
+    terrain=(
+        Terrain("West Ruin",       x=4.0,  y=28.0, width=10.0, height=12.0, type=TerrainType.RUIN),
+        Terrain("East Ruin",       x=30.0, y=28.0, width=10.0, height=12.0, type=TerrainType.RUIN),
+        Terrain("Centre Crater",   x=20.0, y=28.0, width=4.0,  height=4.0,  type=TerrainType.LIGHT_COVER),
+        Terrain("North Barricade", x=14.0, y=44.0, width=16.0, height=2.0,  type=TerrainType.LIGHT_COVER),
+        Terrain("South Barricade", x=14.0, y=14.0, width=16.0, height=2.0,  type=TerrainType.LIGHT_COVER),
+    ),
+    deployment_width=12.0,
+)
+
+
+def _hammer_and_anvil_objectives(width: float, height: float) -> tuple:
+    """
+    Hammer and Anvil (Pariah Nexus mission): short-edge deployment with the
+    map's long axis running between the deployment zones. 5 objectives
+    strung along the long axis. Long travel distance — slow factions
+    struggle to project across the map.
+    """
+    cx = width / 2.0
+    return (
+        Objective(name="South DZ Edge",  x=cx,           y=height * 0.20),
+        Objective(name="South Mid",      x=cx,           y=height * 0.35),
+        Objective(name="Centre",         x=cx,           y=height * 0.50),
+        Objective(name="North Mid",      x=cx,           y=height * 0.65),
+        Objective(name="North DZ Edge",  x=cx,           y=height * 0.80),
+    )
+
+
+HAMMER_AND_ANVIL = Map(
+    name="Hammer and Anvil",
+    width=44.0,
+    height=60.0,
+    objectives=_hammer_and_anvil_objectives(44.0, 60.0),
+    # Short-edge deployment (DZ width=12.0 on each short edge, leaving a 36"
+    # no-man's-land along the long axis). Terrain alternates side-to-side
+    # along the long axis to channel movement.
+    terrain=(
+        Terrain("South-West Wood",  x=4.0,  y=18.0, width=8.0, height=6.0, type=TerrainType.OBSCURING),
+        Terrain("South-East Ruin",  x=32.0, y=20.0, width=8.0, height=6.0, type=TerrainType.RUIN),
+        Terrain("Mid-West Ruin",    x=4.0,  y=30.0, width=8.0, height=6.0, type=TerrainType.RUIN),
+        Terrain("Mid-East Wood",    x=32.0, y=32.0, width=8.0, height=6.0, type=TerrainType.OBSCURING),
+        Terrain("North-West Ruin",  x=4.0,  y=42.0, width=8.0, height=6.0, type=TerrainType.RUIN),
+        Terrain("North-East Wood",  x=32.0, y=44.0, width=8.0, height=6.0, type=TerrainType.OBSCURING),
+        Terrain("Central Wall",     x=20.0, y=28.0, width=4.0, height=4.0, type=TerrainType.IMPASSABLE),
+    ),
+    deployment_width=12.0,
+)
+
+
+def _tipping_point_objectives(width: float, height: float) -> tuple:
+    """
+    Tipping Point (Pariah Nexus mission): one central objective worth more
+    than the rest, four corner-ish objectives at midfield. Forces a fight
+    over the centre while contesting four outer points.
+    """
+    cx, cy = width / 2.0, height / 2.0
+    return (
+        Objective(name="The Tipping Point", x=cx,           y=cy),
+        Objective(name="NW Bastion",        x=width * 0.20, y=height * 0.65),
+        Objective(name="NE Bastion",        x=width * 0.80, y=height * 0.65),
+        Objective(name="SW Bastion",        x=width * 0.20, y=height * 0.35),
+        Objective(name="SE Bastion",        x=width * 0.80, y=height * 0.35),
+    )
+
+
+TIPPING_POINT = Map(
+    name="Tipping Point",
+    width=44.0,
+    height=60.0,
+    objectives=_tipping_point_objectives(44.0, 60.0),
+    # Central objective surrounded by 4 satellite objectives. Terrain
+    # forms a ring around the centre — taking it requires committing
+    # through exposed lanes between the ring features.
+    terrain=(
+        Terrain("North Ruin",     x=18.0, y=42.0, width=8.0,  height=4.0, type=TerrainType.RUIN),
+        Terrain("South Ruin",     x=18.0, y=14.0, width=8.0,  height=4.0, type=TerrainType.RUIN),
+        Terrain("West Wood",      x=4.0,  y=26.0, width=6.0,  height=8.0, type=TerrainType.OBSCURING),
+        Terrain("East Wood",      x=34.0, y=26.0, width=6.0,  height=8.0, type=TerrainType.OBSCURING),
+        Terrain("NE Barricade",   x=26.0, y=38.0, width=6.0,  height=2.0, type=TerrainType.LIGHT_COVER),
+        Terrain("SW Barricade",   x=12.0, y=20.0, width=6.0,  height=2.0, type=TerrainType.LIGHT_COVER),
+        Terrain("Central Pillar", x=20.0, y=28.0, width=4.0,  height=4.0, type=TerrainType.IMPASSABLE),
+    ),
+    deployment_width=12.0,
+)
+
+
 STOCK_MAPS = {
     "combat_patrol":       COMBAT_PATROL_BASIC,
     "open_plains":         OPEN_PLAINS,
@@ -206,7 +315,23 @@ STOCK_MAPS = {
     "crucible_of_battle":  CRUCIBLE_OF_BATTLE,
     "search_and_destroy":  SEARCH_AND_DESTROY,
     "sweeping_engagement": SWEEPING_ENGAGEMENT,
+    # SC4-D — additional Pariah Nexus mission shapes for eval rotation.
+    "take_and_hold":       TAKE_AND_HOLD,
+    "hammer_and_anvil":    HAMMER_AND_ANVIL,
+    "tipping_point":       TIPPING_POINT,
 }
+
+# SC4-D — Pariah Nexus mission rotation. evaluate_vs_meta cycles through
+# this list per (faction-pair, seed) so each pair sees variety. Keeps
+# `DEFAULT_MAP` (COMBAT_PATROL_BASIC) for one-off battles / tests that
+# don't need a curated rotation.
+PARIAH_NEXUS_2K_ROTATION: tuple = (
+    "crucible_of_battle",   # diagonal asymmetry, 44x60
+    "take_and_hold",        # 4 mid-board objectives, no centre
+    "hammer_and_anvil",     # short-edge deployment, long-axis fight
+    "tipping_point",        # central objective with 4 satellites
+    "search_and_destroy",   # opposing corners
+)
 
 DEFAULT_MAP = COMBAT_PATROL_BASIC
 
@@ -230,6 +355,9 @@ MAP_POINTS_RANGE = {
     "crucible_of_battle":  (750, 2000),   # 44 x 60, diagonal asymmetry — Incursion / Strike Force
     "search_and_destroy":  (750, 2000),   # 44 x 60, corner deployment — Incursion / Strike Force
     "sweeping_engagement": (1500, 3500),  # 44 x 90, long-axis Strike Force — Strike Force / Onslaught
+    "take_and_hold":       (750, 2000),   # 44 x 60, 4 mid-board objectives — Strike Force
+    "hammer_and_anvil":    (750, 2000),   # 44 x 60, short-edge deployment — Strike Force
+    "tipping_point":       (750, 2000),   # 44 x 60, central + 4 satellites — Strike Force
 }
 
 

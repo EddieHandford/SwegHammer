@@ -19,13 +19,57 @@ from code.units import Unit, UnitProfile
 # ---------------------------------------------------------------------------
 
 def _grunt_profile(name: str = "Grunt") -> UnitProfile:
-    """A simple, non-character infantry profile."""
+    """A simple, non-character infantry profile.
+
+    iter22 note: when the unit needs to be a legal bodyguard for a leader
+    aura to apply through the host_keys gate in `effective_buffs`, pass a
+    `name` that matches a UNIT_CATALOG entry — e.g. "Boyz" (Ork Warboss
+    host), "Necron Warriors" (Necron Overlord host), "Plague Marines"
+    (Lord of Contagion / Typhus host). For aura tests that intentionally
+    need to verify the host gate REJECTS, leave the default "Grunt" name —
+    `_name_to_catalog_key('Grunt')` returns None, which fails any
+    non-empty `host_keys` tuple.
+    """
     return UnitProfile(
         name=name, health=2, damage=1, hit_probability=0.5,
         ap=0, save=4, strength=4, toughness=4,
         attacks=1, weapon_damage_per_shot=1.0,
         unit_keywords=("INFANTRY",),
     )
+
+
+def _boyz_profile() -> UnitProfile:
+    """A grunt named 'Boyz' — matches the Ork Warboss `host_keys=('orks_boyz', 'orks_nobz')`
+    via UNIT_CATALOG's `orks_boyz` entry. Use this whenever a test needs
+    Warboss's Might-is-Right aura to actually pass the iter22 host gate.
+    """
+    return _grunt_profile(name="Boyz")
+
+
+def _tactical_squad_profile() -> UnitProfile:
+    """A grunt named 'Tactical Squad' — matches the Marines leader hosts
+    via UNIT_CATALOG's `space_marines_tactical_squad` entry. Use for
+    tests that need Captain / Chaplain / Apothecary / Librarian auras to
+    pass the iter22 host gate.
+    """
+    return _grunt_profile(name="Tactical Squad")
+
+
+def _skitarii_vanguard_profile() -> UnitProfile:
+    """A grunt named 'Skitarii Vanguard' — matches Tech-Priest Dominus's
+    `host_keys=('adeptus_mechanicus_skitarii_vanguard', 'adeptus_mechanicus_skitarii_rangers')`
+    via UNIT_CATALOG. Use for tests that need Dominus's reroll-1s aura to
+    pass the iter22 host gate.
+    """
+    return _grunt_profile(name="Skitarii Vanguard")
+
+
+def _strike_team_profile() -> UnitProfile:
+    """A grunt named 'Strike Team' — matches T'au leader hosts
+    (Cadre Fireblade, Ethereal). Use for tests that need their auras to
+    pass the iter22 host gate.
+    """
+    return _grunt_profile(name="Strike Team")
 
 
 def _captain_profile() -> UnitProfile:
@@ -242,9 +286,12 @@ class EffectiveBuffsTests(unittest.TestCase):
         # Warboss 5" away from grunt (within 6") -> +1-to-hit True.
         # iter21: Captain's proxy aura was dropped, so this test now uses
         # the Warboss (Might is Right: real +1-to-hit codex aura).
+        # iter22: attacker must be in Warboss's host_keys (`orks_boyz` /
+        # `orks_nobz`) for the aura to fire — use `_boyz_profile()` so
+        # `_name_to_catalog_key('Boyz') == 'orks_boyz'` passes the gate.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _warboss_profile()],
+            [_boyz_profile(), _warboss_profile()],
             [(0.0, 0.0), (5.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
@@ -252,9 +299,12 @@ class EffectiveBuffsTests(unittest.TestCase):
 
     def test_leader_aura_out_of_range(self):
         # Warboss 12" away from grunt (outside 6") -> NO aura.
+        # iter22: even with a legal Boyz host attacker, the leader is
+        # out of aura_range so in_range_leaders returns [] before the
+        # host_keys gate is consulted.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _warboss_profile()],
+            [_boyz_profile(), _warboss_profile()],
             [(0.0, 0.0), (12.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
@@ -262,9 +312,11 @@ class EffectiveBuffsTests(unittest.TestCase):
 
     def test_dead_leader_does_not_buff(self):
         # Warboss in range but dead -> no aura.
+        # iter22: Boyz host attacker so the gate would PASS if the
+        # Warboss were alive; the test isolates the alive-leader gate.
         army = _make_army(
             "Side",
-            [_grunt_profile(), _warboss_profile()],
+            [_boyz_profile(), _warboss_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         army.units[1].current_health = 0.0
@@ -274,10 +326,11 @@ class EffectiveBuffsTests(unittest.TestCase):
     def test_merge_detachment_and_leader(self):
         # Detachment gives reroll_wound_ones; Warboss leader gives +1-to-hit.
         # The merged dict should carry BOTH flags.
+        # iter22: use Boyz attacker so the Warboss aura passes host gate.
         det = Detachment(name="Test", faction="X", reroll_wound_ones=True)
         army = _make_army(
             "Side",
-            [_grunt_profile(), _warboss_profile()],
+            [_boyz_profile(), _warboss_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         army.detachment = det
@@ -367,8 +420,14 @@ class AuraAttackEffectTests(unittest.TestCase):
             toughness=4, save=7,
         )
 
+        # iter22: attacker must be a legal Warboss bodyguard (`orks_boyz` /
+        # `orks_nobz`) for the +1-to-hit aura to pass the host gate. Use
+        # the "Boyz" UNIT_CATALOG name on the synthetic shooter profile so
+        # `_name_to_catalog_key('Boyz') == 'orks_boyz'`. Keep the
+        # streamlined stat-line (auto-wound vs T4) for math clarity; only
+        # the .name changes.
         atk_p = UnitProfile(
-            name="Shooter", health=1, damage=0,
+            name="Boyz", health=1, damage=0,
             hit_probability=0.5,           # 4+ to hit
             attacks=2, weapon_damage_per_shot=1.0,
             strength=10,                   # auto-wound vs T4
@@ -459,9 +518,12 @@ class LibrarianDefensiveFlipTests(unittest.TestCase):
         self.assertFalse(ab.plus_one_to_wound)
 
     def test_librarian_aura_applies_fnp_in_range(self):
+        # iter22: Librarian's host_keys lists `_MARINE_HOSTS` — the attacker
+        # must be a legal Marines bodyguard (Tactical Squad / Assault
+        # Intercessor Squad) for the FNP aura to pass the host gate.
         army = _make_army(
             "Side",
-            [_grunt_profile(), self._librarian_profile()],
+            [_tactical_squad_profile(), self._librarian_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
@@ -487,9 +549,11 @@ class WarbossHitNotWoundTests(unittest.TestCase):
         self.assertFalse(ab.plus_one_to_wound)
 
     def test_warboss_aura_lifts_hit(self):
+        # iter22: Warboss's host_keys lists `orks_boyz` / `orks_nobz` — use
+        # a Boyz attacker so the +1-to-hit aura passes the host gate.
         army = _make_army(
             "Side",
-            [_grunt_profile(), self._warboss_profile()],
+            [_boyz_profile(), self._warboss_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
@@ -517,9 +581,11 @@ class CadreFirebladeAttackTests(unittest.TestCase):
     def test_fireblade_aura_stacks_attacks(self):
         # +1-attack from leader should appear in the merged buff dict and
         # additively stack with any detachment plus_one_attack.
+        # iter22: Cadre Fireblade's host_keys lists Strike Team / Breacher
+        # Team — use a Strike Team attacker so the aura passes the gate.
         army = _make_army(
             "Side",
-            [_grunt_profile(), self._fireblade_profile()],
+            [_strike_team_profile(), self._fireblade_profile()],
             [(0.0, 0.0), (3.0, 0.0)],
         )
         buffs = effective_buffs(army.units[0])
@@ -733,6 +799,265 @@ class MarinesFabricationLockInTests(unittest.TestCase):
         self.assertFalse(ab.reroll_wound_ones)
         self.assertFalse(ab.plus_one_to_hit)
         self.assertFalse(ab.plus_one_to_wound)
+
+
+# ---------------------------------------------------------------------------
+# iter22 host_keys gating — faction-neutral structural lock-ins
+# ---------------------------------------------------------------------------
+
+class HostKeysGatingTests(unittest.TestCase):
+    """Iter 22 fix: `effective_buffs` per-leader merge now consults
+    `LeaderAbility.host_keys`. The codex Leader rule says a CHARACTER aura
+    applies to the attached bodyguard squad ("While this model is leading
+    a unit..."), NOT to every friendly within aura range. Pre-iter22,
+    Typhus's Destroyer Hive FNP fired on every Death Guard unit within 6";
+    same structural bug affected every faction's character auras.
+
+    The fix: non-empty `host_keys` requires the attacker's UNIT_CATALOG
+    key to be in the tuple. Empty `host_keys = ()` is the army-wide /
+    broadcast aura convention (Hive Tyrant's Onslaught, Avatar's
+    Bloody-Handed).
+
+    Each test below builds a tiny army: ONE leader + TWO attackers, one
+    that IS a legal bodyguard host and one that ISN'T. The host gate
+    must let the aura through on the first and block it on the second.
+    """
+
+    # --- Faction-specific gated auras (non-empty host_keys) ------------------
+
+    def _character(self, name: str) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=4, damage=1, hit_probability=2 / 3,
+            ap=-1, save=3, strength=4, toughness=4,
+            unit_keywords=("INFANTRY", "CHARACTER"),
+        )
+
+    def _non_character(self, name: str) -> UnitProfile:
+        return UnitProfile(
+            name=name, health=2, damage=1, hit_probability=0.5,
+            ap=0, save=4, strength=4, toughness=4,
+            attacks=1, weapon_damage_per_shot=1.0,
+            unit_keywords=("INFANTRY",),
+        )
+
+    def test_warboss_aura_only_buffs_boyz_host(self):
+        # Warboss host_keys = ('orks_boyz', 'orks_nobz'). Buffs Boyz, not
+        # a non-host attacker even if it's within 6".
+        leader = self._character("Warboss")
+        boyz = self._non_character("Boyz")             # legal host
+        bystander = self._non_character("Grunt")       # no catalog key
+        army = _make_army(
+            "Orks",
+            [boyz, bystander, leader],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        boyz_buffs = effective_buffs(army.units[0])
+        bystander_buffs = effective_buffs(army.units[1])
+        self.assertTrue(boyz_buffs["plus_one_to_hit"],
+            "Warboss aura must pass the gate for a Boyz attacker")
+        self.assertFalse(bystander_buffs["plus_one_to_hit"],
+            "Warboss aura must NOT fire on a non-host bystander attacker")
+
+    def test_typhus_fnp_only_to_plague_marines(self):
+        # Typhus host_keys = ('death_guard_plague_marines',). His
+        # Destroyer Hive FNP 5+ proxy must apply ONLY to a Plague Marines
+        # attacker, NOT to e.g. Poxwalkers or a hand-rolled grunt.
+        # Pre-iter22, Typhus's FNP fired on every Death Guard unit within
+        # 6" — the headline structural bug iter22 fixes.
+        leader = self._character("Typhus")
+        plague = self._non_character("Plague Marines")  # legal host
+        bystander = self._non_character("Grunt")        # no catalog key
+        army = _make_army(
+            "DG",
+            [plague, bystander, leader],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        plague_buffs = effective_buffs(army.units[0])
+        bystander_buffs = effective_buffs(army.units[1])
+        self.assertEqual(plague_buffs["fnp"], 5,
+            "Typhus FNP must reach Plague Marines (the codex-led unit)")
+        self.assertEqual(bystander_buffs["fnp"], 7,
+            "Typhus FNP must NOT leak onto a non-host bystander — this "
+            "is the iter22 structural bug fix")
+
+    def test_overlord_plus_one_to_hit_only_to_warriors(self):
+        # Necron Overlord host_keys = warriors / immortals / lychguard.
+        # A C'tan Shard or Lokhust Heavy Destroyer in range must NOT
+        # receive +1-to-hit (those datasheets can't be led at all per the
+        # 10e Overlord datasheet's LEADER block).
+        leader = self._character("Overlord")
+        warriors = self._non_character("Necron Warriors")   # legal host
+        ctan = self._non_character("C'tan Shard of the Nightbringer")  # not in host_keys
+        army = _make_army(
+            "Necrons",
+            [warriors, ctan, leader],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        warriors_buffs = effective_buffs(army.units[0])
+        ctan_buffs = effective_buffs(army.units[1])
+        self.assertTrue(warriors_buffs["plus_one_to_hit"],
+            "Overlord My Will Be Done must reach Necron Warriors")
+        self.assertFalse(ctan_buffs["plus_one_to_hit"],
+            "Overlord aura must NOT reach a non-leadable C'tan Shard")
+
+    def test_dominus_aura_only_to_skitarii(self):
+        # Tech-Priest Dominus host_keys = Skitarii Vanguard / Rangers.
+        # His reroll_hit_ones aura must NOT leak onto an unrelated grunt.
+        leader = self._character("Tech-Priest Dominus")
+        skitarii = self._non_character("Skitarii Vanguard")  # legal host
+        bystander = self._non_character("Grunt")              # no catalog key
+        army = _make_army(
+            "AdMech",
+            [skitarii, bystander, leader],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        skitarii_buffs = effective_buffs(army.units[0])
+        bystander_buffs = effective_buffs(army.units[1])
+        self.assertTrue(skitarii_buffs["reroll_hit_ones"],
+            "Dominus aura must reach Skitarii Vanguard")
+        self.assertFalse(bystander_buffs["reroll_hit_ones"],
+            "Dominus aura must NOT reach a non-host bystander")
+
+    def test_archon_aura_only_to_kabalites(self):
+        # Archon host_keys = ('aeldari_drukhari_kabalite_warriors',).
+        # His +1-to-hit aura must only reach Kabalite Warriors.
+        leader = self._character("Archon")
+        kabalites = self._non_character("Kabalite Warriors")  # legal host
+        bystander = self._non_character("Grunt")              # no catalog key
+        army = _make_army(
+            "Drukhari",
+            [kabalites, bystander, leader],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        kabalite_buffs = effective_buffs(army.units[0])
+        bystander_buffs = effective_buffs(army.units[1])
+        self.assertTrue(kabalite_buffs["plus_one_to_hit"],
+            "Archon Hatred Eternal must reach Kabalite Warriors")
+        self.assertFalse(bystander_buffs["plus_one_to_hit"],
+            "Archon aura must NOT reach a non-host bystander")
+
+    def test_lord_of_contagion_aura_only_to_terminator_bodyguards(self):
+        # iter24-D1: Lord of Contagion host_keys was corrected to
+        # ('death_guard_blightlord_terminators',
+        #  'death_guard_deathshroud_terminators') per the Wahapedia
+        # datasheet Bodyguard list — Plague Marines are NOT a legal
+        # bodyguard. Plus_one_to_wound must pass the host gate exactly
+        # once — to the Blightlord Terminators attacker. (The
+        # first_stratagem_free_per_round field is a Warlord-trait
+        # CP-econ flag, not consumed here.)
+        leader = self._character("Lord of Contagion")
+        blightlord = self._non_character("Blightlord Terminators")  # legal host
+        bystander = self._non_character("Grunt")                    # no catalog key
+        army = _make_army(
+            "DG",
+            [blightlord, bystander, leader],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)],
+        )
+        blightlord_buffs = effective_buffs(army.units[0])
+        bystander_buffs = effective_buffs(army.units[1])
+        self.assertTrue(blightlord_buffs["plus_one_to_wound"],
+            "Lord of Contagion aura must reach Blightlord Terminators")
+        self.assertFalse(bystander_buffs["plus_one_to_wound"],
+            "Lord of Contagion aura must NOT reach a non-host bystander")
+
+    # --- Army-wide / broadcast auras (empty host_keys) ----------------------
+
+    def test_hive_tyrant_aura_applies_army_wide(self):
+        # Hive Tyrant Onslaught (Wahapedia /tyranids/Hive-Tyrant): "While
+        # a friendly TYRANIDS unit is within 6" of this model, ranged
+        # weapons equipped by models in that unit have the [ASSAULT] and
+        # [LETHAL HITS] abilities." — broadcast aura, NO led-unit gate.
+        # iter22: host_keys widened to () so `effective_buffs` applies
+        # the reroll_wound_ones proxy to any Tyranids attacker in range
+        # regardless of whether it's a formal Hive Tyrant bodyguard.
+        ab = lookup_ability("Hive Tyrant")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.host_keys, (),
+            "Hive Tyrant codex aura is broadcast — host_keys must be empty")
+
+        leader_p = UnitProfile(
+            name="Hive Tyrant", health=12, damage=4, hit_probability=2 / 3,
+            ap=-2, save=2, strength=10, toughness=9,
+            unit_keywords=("MONSTER", "CHARACTER", "EPIC HERO"),
+        )
+        # Two unrelated Tyranids attackers — gants, warriors — both
+        # within 6" of the Tyrant. Both must get the aura since host_keys
+        # is empty.
+        gant = self._non_character("Termagants")
+        warrior = self._non_character("Tyranid Warriors with Melee Bio-Weapons")
+        scratch = self._non_character("Grunt")    # no catalog key
+        army = _make_army(
+            "Tyranids",
+            [gant, warrior, scratch, leader_p],
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)],
+        )
+        self.assertTrue(effective_buffs(army.units[0])["reroll_wound_ones"],
+            "Hive Tyrant aura must apply to in-range Termagants (broadcast)")
+        self.assertTrue(effective_buffs(army.units[1])["reroll_wound_ones"],
+            "Hive Tyrant aura must apply to in-range Tyranid Warriors")
+        # Even a scratch attacker with no catalog key receives the aura
+        # because host_keys=() skips the gate.
+        self.assertTrue(effective_buffs(army.units[2])["reroll_wound_ones"],
+            "Hive Tyrant broadcast aura must apply regardless of catalog key")
+
+    def test_avatar_of_khaine_host_keys_empty(self):
+        # Avatar of Khaine — codex "While a friendly AELDARI unit is
+        # within 6"" — broadcast wording, host_keys=(). The registry
+        # entry carries no offensive flags after iter21, so the aura
+        # is a structural placeholder; this test just locks in that
+        # the host_keys remain empty (iter22 broadcast convention).
+        ab = lookup_ability("Avatar of Khaine")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.host_keys, (),
+            "Avatar of Khaine codex aura is broadcast — host_keys must "
+            "be empty per the iter22 convention")
+
+    def test_yncarne_host_keys_empty(self):
+        # The Yncarne — MONSTER, no formal Leader attachment in 10e.
+        # heal_per_round is applied via apply_round_end_healing, not
+        # effective_buffs, so the host_keys field doesn't gate any aura
+        # buff. Still lock in that host_keys is empty so future code that
+        # might wire an offensive flag onto Yncarne handles the broadcast
+        # case correctly.
+        ab = lookup_ability("The Yncarne")
+        self.assertIsNotNone(ab)
+        self.assertEqual(ab.host_keys, (),
+            "The Yncarne is a MONSTER with no Leader attachment — "
+            "host_keys must be empty (iter22 broadcast convention)")
+
+
+class HostKeysGatingFlaggedTests(unittest.TestCase):
+    """iter22 flags (NOT in scope for this iteration, but recorded so the
+    next pass can pick them up). These are LeaderAbility entries where
+    `host_keys=()` (empty, currently treated as broadcast) but the codex
+    wording is "While this model is leading a unit..." — meaning the
+    correct iter22 behaviour would be a non-empty host_keys tuple.
+
+    Each test below is `expectedFailure`-marked and serves purely as a
+    machine-readable TODO. Removing the decorator + adding the right
+    host_keys to the registry entry is the follow-up fix.
+    """
+
+    @unittest.expectedFailure
+    def test_commander_in_battlesuit_has_proper_host_keys(self):
+        # T'au "Commander in <variant> Battlesuit" — per the Wahapedia
+        # Coldstar Commander datasheet
+        # (https://wahapedia.ru/wh40k10ed/factions/t-au-empire/Commander-In-Coldstar-Battlesuit):
+        # "While this model is leading a unit, models in that unit have a
+        # Move characteristic of 12" and ranged weapons equipped by models
+        # in that unit have the [ASSAULT] ability."
+        # The "While this model is leading a unit" wording requires a
+        # non-empty host_keys (Crisis Battlesuit / Stealth Battlesuit
+        # squads per the codex Leader block). The current entry leaves
+        # host_keys empty, which iter22 will now treat as ARMY-WIDE
+        # broadcast — strictly stronger than the codex's led-unit-only
+        # plus_one_to_hit proxy. Flagged for follow-up.
+        ab = lookup_ability("Commander in XV85 Enforcer Battlesuit")
+        self.assertNotEqual(ab.host_keys, (),
+            "Commander in <Battlesuit>'s codex aura is led-unit-gated. "
+            "host_keys=() is the broadcast convention — should be "
+            "(crisis_battlesuit, stealth_battlesuit) per the 10e codex "
+            "Leader block.")
 
 
 if __name__ == "__main__":

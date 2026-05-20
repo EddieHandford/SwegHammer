@@ -16,6 +16,14 @@
     "effect": "+1 to the Hit roll",
     "scope": "unit-led"
   },
+  "simulator.benefits_of_cover": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
+    "rule_name": "Benefits of Cover",
+    "quoted_text": "When you make an armour saving throw for a model that has the Benefits of Cover, add 1 to that saving throw. INFANTRY models cannot improve their Save characteristic to better than 3+ by virtue of this rule.",
+    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this",
+    "effect": "+1 to the armour save (one pip better). INFANTRY models cap at 3+ (a 3+ Marine in cover stays at 3+). Vehicles / monsters / mounted models do not share the 3+ cap. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely.",
+    "scope": "phase-gated"
+  },
   "simulator.big_guns_never_tire": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Big-Guns-Never-Tire",
     "rule_name": "Big Guns Never Tire",
@@ -23,5 +31,37 @@
     "trigger": "attacker has VEHICLE or MONSTER keyword AND is within 1\" of an enemy",
     "effect": "permitted to shoot; -1 to all hit rolls this activation",
     "scope": "keyword-gated"
+  },
+  "simulator.resolute_will": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
+    "rule_name": "Resolute Will",
+    "quoted_text": "While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.",
+    "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led — leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic",
+    "effect": "-1 to the Wound roll (subject to the ±1 modifier cap in Unit.attack)",
+    "scope": "unit-led"
+  },
+  "simulator.fnp_in_threat_score": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FEEL-NO-PAIN",
+    "rule_name": "Feel No Pain",
+    "quoted_text": "Some models have 'Feel No Pain' listed in their abilities. This is followed by a value in brackets. Each time a model with this ability would lose a wound, roll one D6: if the result equals or exceeds the value in brackets, that wound is not lost. This is known as a Feel No Pain roll.",
+    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` evaluates how attractive a defender is as a melee target — folds the defender's resolved Feel No Pain value (lower of profile.fnp and any leader-aura / detachment / stratagem-granted FNP via leaders.effective_buffs) into the durability denominator so opponent AIs correctly read Death Guard Plague Marines (5+), Custodian Wardens (under Auric Mortalis 5+), Tyranid Tervigon (5+), Nurgle daemons (5+), Typhus-led Plague Marines (Destroyer Hive 5+), and Drukhari with Pain Tokens (6+) as harder targets.",
+    "effect": "AI threat heuristic multiplies effective durability by 1 / (1 - (7-fnp)/6); fnp=7 (no FNP) is the no-op. Does NOT change combat math (Unit.attack still rolls actual FNP per receive_damage); only fixes opponent target selection.",
+    "scope": "phase-gated"
+  },
+  "simulator.multi_profile_weapon_selection": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
+    "rule_name": "The Shooting Phase / Select Targets",
+    "quoted_text": "Each time a unit shoots, after selecting targets, the player commanding that unit allocates each weapon in that unit at one of those target units. If a model has more than one ranged weapon, it can split its attacks between different targets, but if it does, all of the attacks from each weapon must be made against the same target.",
+    "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present",
+    "effect": "Unit.attack ranged branch computes expected net damage under BOTH primary and secondary profiles against the current target at the current distance (accounting for range gating and target wounds bounding excess-damage waste) and swaps to the secondary stat block via dataclasses.replace when its expected damage is higher; primary remains the default when no secondary is recorded or when primary's expected damage wins",
+    "scope": "weapon-keyword"
+  },
+  "simulator.squad_size_durability_factor": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
+    "rule_name": "Allocate Attack (Make Attacks step)",
+    "quoted_text": "If one or more models in the target unit have already lost one or more wounds, or have already had attacks allocated to them this phase, the attack must be allocated to one of those models. Otherwise, the player commanding the target unit chooses which model in their unit the attack is allocated to.",
+    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` — paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army.",
+    "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule — the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
+    "scope": "phase-gated"
   }
 }

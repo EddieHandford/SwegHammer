@@ -49,6 +49,18 @@ def can_target_for_ranged(
         target.
       * Lone Operative (`simulator.lone_operative`): if the target has the
         Lone Operative ability, the attack can only be made from within 12".
+      * PRECISION (`simulator.precision_keyword`): if the attacker carries
+        a PRECISION ranged weapon (collapsed onto the unit-level `precision`
+        flag by the mapper), the Look Out Sir bodyguard gate is bypassed.
+        Real 10e text: "...attack can be allocated to that CHARACTER model
+        instead of following the normal attack-allocation rules." The
+        simulator collapses Look Out Sir into a TARGETING gate (since
+        characters are modelled as standalone units and there is no
+        attached-unit wound-allocation step), so a precision attacker's
+        equivalent is being permitted to shoot the otherwise-shielded
+        character. Lone Operative is NOT bypassed — that is a separate
+        ability with its own keyword text. Cited as
+        `simulator.precision_keyword`.
 
     Returns False when either gate blocks the shot, True otherwise. The check
     is order-insensitive — both gates compose so a Lone Operative CHARACTER
@@ -58,7 +70,7 @@ def can_target_for_ranged(
     tp = target.profile
     target_kw = set(tp.unit_keywords or ())
 
-    # Lone Operative — keyword-gated, hard 12" cap.
+    # Lone Operative — keyword-gated, hard 12" cap. NOT bypassed by PRECISION.
     if getattr(tp, "lone_operative", False) and distance > _LOS_RANGE_INCHES:
         return False
 
@@ -69,6 +81,11 @@ def can_target_for_ranged(
         and "VEHICLE" not in target_kw
     )
     if is_los_eligible_character and distance > _LOS_RANGE_INCHES:
+        # PRECISION bypass: a PRECISION-bearing attacker is permitted to
+        # pick the CHARACTER directly even when a bodyguard is in range.
+        # Real-rule equivalent of "allocate the wound to the CHARACTER".
+        if getattr(attacker.profile, "precision", False):
+            return True
         # Bodyguard scan: any friendly non-CHARACTER unit within 3" of the
         # target (excluding the target itself).
         for f in friendly_units:

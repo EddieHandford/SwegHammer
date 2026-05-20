@@ -192,6 +192,26 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # so the buff is effectively always-on. See
     # data/rule_citations.d/thousand_sons.json#simulator.rites_of_coalescence.
     "simulator.rites_of_coalescence",
+    # Adeptus Custodes Custodian Wardens datasheet ability (10e). -1 to
+    # the wound roll on any attack targeting the led Wardens unit when
+    # attack S > target T. Three-way gate in Unit.attack: defender has
+    # `resolute_will`, defender is actually led (host_keys check via
+    # leaders.is_actually_led), attack.strength > defender.toughness.
+    # See data/rule_citations.json#simulator.resolute_will.
+    "simulator.resolute_will",
+    # AI threat-score heuristic in `code/strategy.py._durability` folds the
+    # defender's resolved Feel No Pain value into the durability denominator
+    # so opponent target selection correctly reads FNP-bearing defenders as
+    # harder targets. Iter 26 S1 (re-landed in iter 31 S1R). Cited as
+    # `simulator.fnp_in_threat_score`.
+    "simulator.fnp_in_threat_score",
+    # AI threat-score heuristic in `code/strategy.py._durability` applies a
+    # multiplicative squad-size durability bonus so high-model-count units
+    # (Boyz mobs, Termagant broods, Cultist swarms) look harder to wipe from
+    # a single-attack-decision perspective. Paired compensation for the
+    # iter26-S1 FNP re-land. Iter 31 S1R. Cited as
+    # `simulator.squad_size_durability_factor`.
+    "simulator.squad_size_durability_factor",
     # Thousand Sons army rule (10e) — Cabal of Sorcerers. At start of
     # Shooting phase, each PSYKER attempts one of four Rituals via a
     # 2D6 Psychic test against the Ritual's Warp Charge. Real BSData
@@ -240,6 +260,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # ranged targeting to 12".
     "simulator.look_out_sir",
     "simulator.lone_operative",
+    # PRECISION keyword (10e core weapon ability). When the attacker carries
+    # a PRECISION-tagged ranged weapon (unit-level `precision` flag, collapsed
+    # by the mapper from BSData weapon keywords), the Look Out Sir bodyguard
+    # gate inside code.army.can_target_for_ranged is bypassed — equivalent of
+    # the real rule's wound-allocation override against attached CHARACTERS.
+    # Lone Operative is NOT bypassed.
+    "simulator.precision_keyword",
     # World Eaters army rule (10e). Blood Tithe: 1 BT awarded per friendly
     # WE death OR enemy unit destroyed by a WE unit; spent at the start of
     # any phase on benefits (1=re-roll charge, 2=+1 to wound vs target,
@@ -285,6 +312,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # targets. Plumbed via Army.guided_enemy_uids, Battle._run_markerlight_phase,
     # and the effective_lethal_hits gate in Unit.attack.
     "simulator.markerlights",
+    # T'au Empire Markerlight weapon-ability emission gates (iter27-M1).
+    # Per-carrier Hit roll against the firing model's BS, plus line-of-sight
+    # and 36" range gates and the can_target_for_ranged (Look Out Sir /
+    # Lone Operative) check. Replaces the pre-iter27 auto-Guided pipeline
+    # which gave every MARKERLIGHT-keyword unit a free mark with no roll.
+    "simulator.markerlight_emission",
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
     # hard cap, but real-player CP economy averages ~1 stratagem per
@@ -315,6 +348,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # accumulating +/-1 contributions into hit_mod_delta / wound_mod_delta
     # then clamping to [-1, +1] before applying to the d6 target.
     "simulator.modifier_cap_plus_minus_one",
+    # 10e core-rules cap on Save characteristic: "When all the relevant
+    # modifiers have been applied, the modified characteristic or roll
+    # cannot be more than +1 better than the unmodified [...]." Enforced
+    # in code/units.py Unit.attack by counting +1-save sources and
+    # applying at most one -1 to save_after_ap. AP is NOT a modifier and
+    # stacks freely with the capped +1.
+    "simulator.save_modifier_cap_plus_minus_one",
     # 10e core Charge phase: Heroic Intervention is a FREE core ability
     # for CHARACTER models (not a stratagem). Implemented in
     # `Battle._do_heroic_intervention`.
@@ -329,6 +369,28 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 3 controlled objectives at 5 VP each). Applied in
     # `Battle._score_objectives` after per-objective awards are tallied.
     "simulator.primary_vp_cap_15",
+    # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
+    # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
+    # and No Prisoners (5 VP per enemy unit destroyed this round, capped
+    # 15). Wired in `Battle._score_secondaries`, called once per round
+    # after `_score_objectives`. Pairs the per-round delta against a
+    # round-start snapshot captured in `_run_round`.
+    "simulator.secondary_bring_it_down",
+    "simulator.secondary_no_prisoners",
+    # SC4-B — position-tracking Pariah Nexus tactical secondaries.
+    # Engage on All Fronts (5 VP if alive units span 3+ quadrants)
+    # and Behind Enemy Lines (5 VP if any alive unit in enemy DZ).
+    # Wired in `Battle._score_secondaries` alongside the SC4-A kill
+    # secondaries.
+    "simulator.secondary_engage_on_all_fronts",
+    "simulator.secondary_behind_enemy_lines",
+    # SC4-C — selective-kill Pariah Nexus Fixed secondaries.
+    # Cull the Horde (5 VP per destroyed 10+model unit, cap 5/round)
+    # and Assassination (5 VP per destroyed CHARACTER, cap 10/round).
+    # Wired in `Battle._score_secondaries` via `score_round_delta`
+    # returning the full 4-tuple.
+    "simulator.secondary_cull_the_horde",
+    "simulator.secondary_assassination",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four

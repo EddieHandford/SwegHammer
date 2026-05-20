@@ -1082,12 +1082,21 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Chaos Space Marines":      ("pactbound_zealots",),
     "Heretic Astartes":         ("pactbound_zealots",),
     # Death Guard: real codex detachment "Virulent Vectorium" wired in #195.
-    # Thousand Sons: Rubricae Phalanx (real-meta May 2026 default, durability
-    # spine) PLUS Grand Coven (psyker-heavy opt-in). The picker scores both
-    # against the army composition; INFANTRY-dominant lists with RUBRICAE
-    # squads naturally tilt toward Rubricae Phalanx.
+    # Thousand Sons: Rubricae Phalanx only (real-meta May 2026 default,
+    # durability spine).
+    #
+    # Grand Coven removed from auto-pick list iter24 — Kindred Sorcery is
+    # NOT implemented (see data/rule_citations.d/thousand_sons.json under
+    # GRAND_COVEN.psychic_mortal_wounds_per_round: the once-per-Command-
+    # phase, once-per-battle-each selectable buff does not reduce cleanly
+    # to a static Detachment flag and is currently a no-op). Grand Coven
+    # also disables All Is Dust (it's not on the Grand Coven detachment),
+    # so when the picker resolved to Grand Coven (~11/20 of TSON armies
+    # in archetype eval), the army lost the +1 save on D1 attacks AND
+    # gained no compensating buff. Restore this tuple to
+    # ("rubricae_phalanx", "grand_coven") when Kindred Sorcery is wired.
     "Death Guard":              ("virulent_vectorium",),
-    "Thousand Sons":            ("rubricae_phalanx", "grand_coven"),
+    "Thousand Sons":            ("rubricae_phalanx",),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),
     "Genestealer Cults":        ("final_day",),

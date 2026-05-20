@@ -1,0 +1,57 @@
+{
+  "_comment": "10e Pariah Nexus tournament-pack Fixed Secondary Missions. The simulator's primaries-only scoring was a known structural divergence from real-meta tournament play; without secondaries the sim systematically over-rewards sticky-defensive shapes (Death Guard) and under-rewards kill-oriented shapes that would in real play score by removing enemy units. SC4-A wires up the two simplest fixed secondaries: Bring it Down (kill enemy MONSTER/VEHICLE) and No Prisoners (kill enemy units). Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+
+  "simulator.secondary_bring_it_down": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",
+    "quoted_text": "If one or more enemy MONSTER or VEHICLE models have been destroyed this battle round, score 2 VP plus 1 VP for each enemy MONSTER or VEHICLE model destroyed this battle round, to a maximum of 8 VP. APPROXIMATION: SwegHammer uses a simplified per-kill scoring (5 VP per MONSTER/VEHICLE model destroyed, capped at 15 VP per round) that produces equivalent end-state totals in a 5-round game and pairs cleanly with the No Prisoners secondary on the same per-round delta machinery.",
+    "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed MONSTER/VEHICLE units against the opponent's round-start snapshot",
+    "effect": "the opposing army gains 5 VP per destroyed MONSTER/VEHICLE model this round, capped at 15 VP per round",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_no_prisoners": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "No Prisoners (Pariah Nexus Fixed Secondary Mission)",
+    "quoted_text": "Score 2 VP at the end of the battle round if any enemy units were destroyed this battle round, plus 1 VP for each enemy unit destroyed this battle round, to a maximum of 5 VP per battle round. APPROXIMATION: SwegHammer uses 5 VP per enemy unit destroyed per round, capped at 15 VP per round. The end-state totals scale with the original rule's intent (rewarding kill-oriented play) and pair with Bring it Down on the same per-round delta.",
+    "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed units against the opponent's round-start snapshot",
+    "effect": "the opposing army gains 5 VP per destroyed enemy unit this round, capped at 15 VP per round",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_engage_on_all_fronts": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Engage on All Fronts (Pariah Nexus Tactical Secondary Mission)",
+    "quoted_text": "Score 2 VP at the end of your turn if your army has one or more units within two table quarters. Score 3 VP if three table quarters, 5 VP if all four. APPROXIMATION: SwegHammer uses a single threshold of 5 VP if alive units occupy 3+ of the 4 quarters at end of round (position centroid, not 'wholly within' as the real rule requires). Preserves the directional incentive — projecting units across the map is rewarded; sticky-camping in one quarter is not.",
+    "trigger": "end of each battle round, evaluating each side's alive-unit quadrant coverage",
+    "effect": "the side scores 5 VP if their alive units' positions occupy at least 3 of the 4 table quarters (cx=width/2, cy=height/2 split)",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_behind_enemy_lines": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Behind Enemy Lines (Pariah Nexus Tactical Secondary Mission)",
+    "quoted_text": "Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. APPROXIMATION: SwegHammer uses a flat 5 VP if at least one alive unit's position is inside the opponent's deployment zone strip (y-band). 'Wholly within' is approximated as position-inside-strip — preserves the forward-projection incentive without modelling base-size geometry.",
+    "trigger": "end of each battle round, evaluating each side's alive-unit positions against the opponent's deployment-zone strip",
+    "effect": "the side scores 5 VP if any alive unit's position is within the opponent's deployment zone (Army A enemy DZ = high-y strip width=map.deployment_width; Army B enemy DZ = low-y strip)",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_cull_the_horde": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Cull the Horde (Pariah Nexus Fixed Secondary Mission)",
+    "quoted_text": "If one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round, score 3 VP. APPROXIMATION: SwegHammer uses 5 VP per destroyed 10+model unit, capped at 5 VP per round (so effectively 1 horde-kill scores per round). Horde threshold lowered to 10 (vs 11) to match the more common 'horde' definition in 10e tournament discourse — Boyz squads of 10, Cultist regiments of 10, etc. all qualify; Termagant broods of 30 obviously do.",
+    "trigger": "end of each battle round, when an enemy unit whose starting strength was 10+ was destroyed this round",
+    "effect": "the opposing army gains 5 VP per qualifying horde-unit destroyed this round, capped at 5 VP per round",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_assassination": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Assassination (Pariah Nexus Fixed Secondary Mission)",
+    "quoted_text": "Score 3 VP at the end of the battle round if one or more enemy CHARACTER models were destroyed this battle round. Score 4 VP instead if the enemy WARLORD was among those models. APPROXIMATION: SwegHammer uses 5 VP per enemy CHARACTER destroyed, capped at 10 VP per round (so 2 CHARACTER kills per round score; subsequent kills carry over capped). WARLORD bonus not yet differentiated; CHARACTER-flag is the gate. Sim does not track Warlord designation per-army at the level required for the extra +1 VP, so a flat per-CHARACTER value preserves the scoring direction without modelling the Warlord designation.",
+    "trigger": "end of each battle round, when an enemy CHARACTER-keyword unit was destroyed this round",
+    "effect": "the opposing army gains 5 VP per destroyed enemy CHARACTER this round, capped at 10 VP per round",
+    "scope": "phase-gated"
+  }
+}

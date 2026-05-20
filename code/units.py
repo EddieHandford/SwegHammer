@@ -119,17 +119,37 @@ def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
     return False
 
 
-def save_probability(save: int, ap: int = 0, in_cover: bool = False) -> float:
+def save_probability(
+    save: int, ap: int = 0, in_cover: bool = False, is_infantry: bool = True
+) -> float:
     """
     Probability of passing an armour save roll on a d6.
 
-    save:      the unit's base save characteristic (e.g. 3 means 3+)
-    ap:        weapon AP modifier (negative integer, e.g. -1 degrades save by 1)
-    in_cover:  cover improves save by 1 pip (e.g. 4+ → 3+), capped at 2+
+    save:         the unit's base save characteristic (e.g. 3 means 3+)
+    ap:           weapon AP modifier (negative integer, e.g. -1 degrades save by 1)
+    in_cover:     cover improves save by 1 pip (e.g. 4+ → 3+)
+    is_infantry:  whether the model has the INFANTRY keyword. Per 10e
+                  Benefits of Cover (Wahapedia core rules — Terrain Features
+                  / Benefits of Cover): "INFANTRY models cannot improve
+                  their Save characteristic to better than 3+ by virtue of
+                  this rule." Vehicles / monsters / mounted models do not
+                  share the 3+ cap. Hard armour-save floor (2+) still
+                  applies regardless. Defaults to True so legacy callers
+                  that did not pass the flag keep the rule-correct
+                  behaviour for the typical case.
     """
     effective = save - ap                       # AP-1 on a 3+ → 4+
     if in_cover:
-        effective = max(2, effective - 1)       # cover: improve by 1, cap at 2+
+        improved = effective - 1                # cover: improve by 1 pip
+        if is_infantry:
+            # Cover cannot improve an INFANTRY save to better than 3+.
+            # If the model's effective save is already 3+ or better, cover
+            # adds nothing (and must NOT degrade the save). Otherwise
+            # clamp the improvement at 3+.
+            improved = max(improved, 3)
+        improved = max(2, improved)              # universal 2+ armour floor
+        # Cover never makes a save worse than it already was.
+        effective = min(effective, improved)
     if effective > 6:
         return 0.0                              # save negated entirely
     return max(0.0, (7 - effective) / 6)
@@ -238,7 +258,11 @@ class UnitProfile:
     weapon_damage_per_shot: float = 0.0        # 0 = derive damage / attacks at use site
     # Weapon abilities (parsed from BSData Keywords field by the mapper)
     lethal_hits: bool = False                  # critical hit (6 to hit) auto-wounds
-    sustained_hits: int = 0                    # critical hit generates N extra normal hits
+    sustained_hits: int = 0                    # critical hit generates N extra normal hits (RANGED weapon)
+    # Melee-side SUSTAINED HITS — populated by the mapper from the chosen
+    # melee weapon's keywords. Read by Unit.attack when `mode == "melee"` so
+    # a ranged-only SUSTAINED HITS N does not leak into melee resolution.
+    melee_sustained_hits: int = 0
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
@@ -276,6 +300,16 @@ class UnitProfile:
     deadly_demise: int = 0                     # Deadly Demise X (10e core): when destroyed, d6; on 6, each unit within 6" suffers X mortal wounds. Integer expected value (D3→2, D6→3, D3+3→5, N→N). Cited as `simulator.deadly_demise`.
     firing_deck: int = 0                       # Firing Deck X (10e core, TRANSPORT keyword): up to X embarked passenger models may also shoot using the transport's BS each Shooting phase. 0 = no Firing Deck. Cited as `simulator.firing_deck`.
     sticky_objective: bool = False             # 10e Objective Secured / "remains controlled when the unit leaves" — once this unit claims an objective, ownership persists until an opposing unit takes it back
+    # 10e datasheet ability — Resolute Will (Custodian Wardens).
+    # Wahapedia: "While a CHARACTER is leading this unit, each time an
+    # attack targets this unit, if the Strength characteristic of that
+    # attack is greater than the Toughness characteristic of this unit,
+    # subtract 1 from the Wound roll." Wired in Unit.attack as a
+    # defender-side wound_mod_delta -1 gated by: (a) defender carries
+    # this flag, (b) defender is actually led (host_keys check via
+    # leaders.is_actually_led), (c) attack.strength > defender.toughness.
+    # Cited as `simulator.resolute_will`.
+    resolute_will: bool = False
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
     melee_attacks: int = 0
@@ -284,6 +318,34 @@ class UnitProfile:
     melee_strength: int = 4
     melee_ap: int = 0
     melee_weapon: str = ""
+    # ---- Phase 2 / iter33 — secondary RANGED weapon profile -----------------
+    # Datasheets like the Stormsurge (Pulse Driver Cannon 72" Heavy D6+3 shots
+    # of D3 dmg vs Pulse Blastcannon-focused 18" 2-shot D12) carry two distinct
+    # ranged profiles that real 10e play picks between based on range / target.
+    # The mapper records the runner-up profile here; Unit.attack's ranged
+    # branch picks whichever profile has higher expected damage against the
+    # current target at the current distance. `secondary_attacks == 0` means
+    # no secondary profile is available (most units). Cited as
+    # `simulator.multi_profile_weapon_selection`.
+    secondary_attacks: int = 0
+    secondary_weapon_damage_per_shot: float = 0.0
+    secondary_hit_probability: float = 0.0
+    secondary_ap: int = 0
+    secondary_strength: int = 4
+    secondary_range_inches: int = 0
+    secondary_weapon: str = ""
+    secondary_anti_keywords: Tuple[Tuple[str, int], ...] = ()
+    secondary_lethal_hits: bool = False
+    secondary_sustained_hits: int = 0
+    secondary_twin_linked: bool = False
+    secondary_devastating_wounds: bool = False
+    secondary_rapid_fire: int = 0
+    secondary_melta: int = 0
+    secondary_ignores_cover: bool = False
+    secondary_heavy: bool = False
+    secondary_assault: bool = False
+    secondary_torrent: bool = False
+    secondary_blast: bool = False
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
     # ---- Renderer-only: real-world GW model base footprint ---------------
     # Informational only — the simulator's collision / range logic still
@@ -660,6 +722,105 @@ class Unit:
             ap = p.melee_ap
             ignore_cover = True   # melee always ignores cover
         else:
+            # ---- Phase 2 / iter33 — multi-profile ranged weapon selection.
+            # If the datasheet's mapper recorded a secondary ranged profile
+            # (Stormsurge Pulse Driver vs Pulse Blastcannon, etc.), estimate
+            # expected NET damage under BOTH profiles against the current
+            # target and swap to the secondary's stat block when it wins.
+            # 10e core rules let a unit pick which weapon to shoot at each
+            # target separately, so per-call routing is rules-legal.
+            # Cited as `simulator.multi_profile_weapon_selection`.
+            if p.secondary_attacks > 0:
+                tgt_health = max(1.0, float(target.profile.health))
+                tgt_save = target.profile.save
+                tgt_t = target.profile.toughness
+                # Range gating — a long-range profile is unusable inside its
+                # half-range floor only if the primary out-ranges it (rare);
+                # an under-range secondary (e.g. Pulse Blastcannon 18") is
+                # not usable beyond its range. distance == 0 is permissive
+                # (callers that don't pass a distance get primary by default).
+                primary_in_range = (
+                    distance <= 0 or distance <= float(p.range_inches or 24)
+                )
+                secondary_in_range = (
+                    distance <= 0
+                    or distance <= float(p.secondary_range_inches or 0)
+                )
+                def _profile_expected_damage(
+                    n: int, dpa: float, hit_p: float, ap_: int,
+                    s: int, lh: bool, sh: int, tl: bool, dw: bool,
+                ) -> float:
+                    wp = wound_probability(s, tg=tgt_t) if False else wound_probability(s, tgt_t)
+                    unsaved = 1.0 - save_probability(tgt_save, ap_)
+                    # Bound per-shot damage by target wounds (excess-damage-lost
+                    # is correctly modelled simulator-side; this estimator just
+                    # needs to compare the two profiles consistently).
+                    eff_dpa = min(float(dpa or 1.0), tgt_health)
+                    ed = float(n) * hit_p * wp * unsaved * eff_dpa
+                    if lh:
+                        ed *= 1.15
+                    if sh:
+                        ed *= (1.0 + 0.17 * sh)
+                    if tl:
+                        ed *= 1.30
+                    if dw:
+                        ed *= 1.10
+                    return ed
+                pri_ed = (
+                    _profile_expected_damage(
+                        max(1, int(p.attacks)),
+                        p.per_shot_damage,
+                        p.hit_probability,
+                        p.ap,
+                        p.strength,
+                        p.lethal_hits,
+                        p.sustained_hits,
+                        p.twin_linked,
+                        p.devastating_wounds,
+                    )
+                    if primary_in_range else 0.0
+                )
+                sec_dpa = p.secondary_weapon_damage_per_shot or 1.0
+                sec_ed = (
+                    _profile_expected_damage(
+                        max(1, int(p.secondary_attacks)),
+                        sec_dpa,
+                        p.secondary_hit_probability,
+                        p.secondary_ap,
+                        p.secondary_strength,
+                        p.secondary_lethal_hits,
+                        p.secondary_sustained_hits,
+                        p.secondary_twin_linked,
+                        p.secondary_devastating_wounds,
+                    )
+                    if secondary_in_range else 0.0
+                )
+                if sec_ed > pri_ed:
+                    # Swap to the secondary stat block for the rest of this
+                    # resolution. dataclasses.replace clones the profile so
+                    # self.profile remains untouched (immutable contract).
+                    from dataclasses import replace
+                    p = replace(
+                        p,
+                        attacks=max(1, int(p.secondary_attacks)),
+                        weapon_damage_per_shot=p.secondary_weapon_damage_per_shot,
+                        hit_probability=p.secondary_hit_probability,
+                        ap=p.secondary_ap,
+                        strength=p.secondary_strength,
+                        range_inches=p.secondary_range_inches or p.range_inches,
+                        lethal_hits=p.secondary_lethal_hits,
+                        sustained_hits=p.secondary_sustained_hits,
+                        twin_linked=p.secondary_twin_linked,
+                        devastating_wounds=p.secondary_devastating_wounds,
+                        rapid_fire=p.secondary_rapid_fire,
+                        melta=p.secondary_melta,
+                        ignores_cover=p.secondary_ignores_cover,
+                        heavy=p.secondary_heavy,
+                        assault=p.secondary_assault,
+                        torrent=p.secondary_torrent,
+                        blast=p.secondary_blast,
+                        anti_keywords=tuple(p.secondary_anti_keywords or ()),
+                    )
             per_shot_dmg = p.per_shot_damage
             n_attacks = max(1, int(p.attacks))
             hit_target = None     # set below
@@ -897,6 +1058,29 @@ class Unit:
         ):
             wound_mod_delta -= 1
 
+        # ---- Resolute Will (Custodian Wardens datasheet, 10e Adeptus
+        # Custodes codex). Wahapedia / BSData verbatim: "While a CHARACTER
+        # is leading this unit, each time an attack targets this unit, if
+        # the Strength characteristic of that attack is greater than the
+        # Toughness characteristic of this unit, subtract 1 from the
+        # Wound roll." Three-way gate:
+        #   1. defender carries the `resolute_will` flag (set on the
+        #      Custodian Wardens UnitProfile via overrides.json),
+        #   2. defender is actually led — `leaders.is_actually_led` checks
+        #      proximity AND that an in-range CHARACTER's host_keys lists
+        #      the defender (a CHARACTER cannot be 'leading' a unit it
+        #      can't legally attach to per the leader datasheet),
+        #   3. attack Strength > defender Toughness.
+        # Cited as `simulator.resolute_will`. iter24 fix to close part of
+        # the Custodes -22.2pt under-performer gap.
+        if target.profile.resolute_will and strength > target.profile.toughness:
+            try:
+                from . import leaders as _leaders
+                if _leaders.is_actually_led(target):
+                    wound_mod_delta -= 1
+            except Exception:
+                pass
+
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # The army picks an imperative each Command phase; one mode gets
         # +1 to hit, the opposite mode gets -1 to hit. Cited as
@@ -994,22 +1178,54 @@ class Unit:
             and mode != "melee"
             and "CHARACTER" in (target.profile.unit_keywords or ())
         )
-        if target.in_cover and not ignore_cover and not precision_pierces_cover:
-            save_after_ap = max(2, save_after_ap - 1)
-        # ---- Target's buffs: +1 to armour save (cap 2+) ----
+        # ---- Benefits of Cover (10e core rule). Ranged-only: melee
+        # attacks never benefit from cover. +1 to the armour save (one
+        # pip better). INFANTRY models cannot improve their save to
+        # better than 3+ by virtue of this rule; vehicles / monsters /
+        # mounted models lack the 3+ cap (only the universal 2+ floor
+        # applies). Wahapedia core rules — Terrain Features / Benefits
+        # of Cover. Cited as `simulator.benefits_of_cover`.
+        if (
+            mode != "melee"
+            and target.in_cover
+            and not ignore_cover
+            and not precision_pierces_cover
+        ):
+            improved = save_after_ap - 1
+            target_is_infantry = "INFANTRY" in (target.profile.unit_keywords or ())
+            if target_is_infantry:
+                # INFANTRY cannot improve their save below 3+ by virtue
+                # of cover; if already 3+ or better, cover does nothing.
+                improved = max(improved, 3)
+            improved = max(2, improved)  # universal 2+ armour floor
+            # Cover never makes a save worse than it already was.
+            save_after_ap = min(save_after_ap, improved)
+        # ---- Target's buffs: +1 to armour save ----
+        # 10e core rule (Wahapedia core rules, "Modifiers"): the modified
+        # Save characteristic cannot be more than +1 better or -1 worse
+        # than the unmodified value. AP is NOT a modifier — it acts on
+        # the attack's AP characteristic, not on the defender's Save
+        # characteristic — so AP stacks freely with one +1 save buff.
+        # Multiple ability-sourced +1-save sources (army-wide
+        # plus_one_save + Lightning-Fast Reactions + All Is Dust) must
+        # clamp to a single net +1 per the ±1 cap.
+        # Cited as `simulator.save_modifier_cap_plus_minus_one`.
+        save_buff_sources = 0
         if tgt_buffs["plus_one_save"]:
-            save_after_ap = max(2, save_after_ap - 1)
+            save_buff_sources += 1
         # Lightning-Fast Reactions (Warhost) — transient +1 save on the
-        # target unit for the round. Stacks with the army-wide flag above;
-        # capped at 2+ either way.
+        # target unit for the round.
         if target.transient_plus_one_save:
-            save_after_ap = max(2, save_after_ap - 1)
+            save_buff_sources += 1
         # All Is Dust (Rubricae Phalanx, see boolean computed in the
         # wound-modifier block above). +1 to the armour save when the
         # incoming attack is Damage 1 AND the defender carries the RUBRICAE
-        # keyword. Capped at 2+ same as every other save buff in this stack.
-        # Cited as `simulator.all_is_dust`.
+        # keyword. Cited as `simulator.all_is_dust`.
         if _all_is_dust_save_buff:
+            save_buff_sources += 1
+        if save_buff_sources > 0:
+            # Clamp net save-modifier to +1 (the ±1 cap). The 2+ floor
+            # remains as a hard armour-save floor independent of the cap.
             save_after_ap = max(2, save_after_ap - 1)
         invuln = target.profile.invuln_save
         # ---- Target's buffs: army-wide invuln. Only overrides if better
@@ -1037,15 +1253,30 @@ class Unit:
         # a full failure re-roll, not just nat-1s.
         att_reroll_all_wounds = False
 
-        # ---- Leagues of Votann — Eye of the Ancestors / Judgement Tokens ----
+        # Resolve the attacker's owning Army once; downstream gates
+        # (Oath of Moment, Votann tokens) all read it.
         own_army = getattr(self, "army_ref", None)
-        if own_army is not None and getattr(own_army, "is_votann_army", False):
-            tokens = own_army.judgement_tokens.get(target.uid, 0)
-            if tokens >= 1:
-                att_reroll_hit_ones = True
-            if tokens >= 3:
-                att_reroll_all_hits = True
-                att_reroll_wound_ones = True
+
+        # ---- Leagues of Votann — Eye of the Ancestors (RETIRED) ----
+        # iter25-V1: the launch-day Eye of the Ancestors rule granted
+        # escalating re-roll buffs (hit 1s at 1 token, full hit re-rolls +
+        # wound 1s at 3 tokens) to Votann attacks against marked targets.
+        # That rule has been REPLACED in the current 10e codex by
+        # Prioritised Efficiency, which is purely an objective-token
+        # economy (Yield Points / Hostile Acquisition / Fortify Takeover)
+        # and grants NO re-roll buffs on attacks. Modelling the retired
+        # buffs on top of the simulator's other Votann uplifts was the
+        # largest single contributor to the +16.8 pt Leagues of Votann
+        # over-performance in the iter25 evaluation.
+        #
+        # The token bookkeeping itself (`_maybe_award_judgement_token`,
+        # `Army.judgement_tokens`) is kept in place because the Ancestral
+        # Sentence Oathband stratagem still references it as the place to
+        # record "this enemy unit has been marked", and downstream gates
+        # may use the marker for token-only triggers (no buff effect).
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
+        # The re-roll branch is intentionally removed — do not re-add
+        # without a verbatim Wahapedia citation per CLAUDE.md §10.
 
         # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
         # attacker is a Marine (any chapter) AND its army has declared
@@ -1171,7 +1402,19 @@ class Unit:
         # already on the profile (a SUSTAINED HITS 1 weapon would compound
         # to SUSTAINED HITS 2, matching codex behaviour). Cited as
         # `WAR_HORDE.melee_sustained_hits_army_wide`.
-        effective_sustained_hits = int(p.sustained_hits or 0)
+        #
+        # Route the per-weapon SUSTAINED HITS value by attack mode. Before
+        # iter28-MS1 the simulator read `p.sustained_hits` unconditionally,
+        # but that field is populated from the RANGED primary weapon (see
+        # `code/bsdata/mapper.py`). Reading it in melee mode fabricated
+        # ranged SUSTAINED HITS values onto Orks Choppas and several other
+        # mixed-loadout units. `p.melee_sustained_hits` is sourced from the
+        # melee weapon and defaults to 0 — the correct value for vanilla
+        # Choppas (BSData v10.6.0 Keywords: -).
+        if mode == "melee":
+            effective_sustained_hits = int(p.melee_sustained_hits or 0)
+        else:
+            effective_sustained_hits = int(p.sustained_hits or 0)
         if mode == "melee" and p.faction == "Orks":
             _own_army = getattr(self, "army_ref", None)
             if _own_army is not None:
@@ -1413,6 +1656,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             weapon_damage_per_shot=entry.weapon_damage_per_shot,
             lethal_hits=entry.lethal_hits,
             sustained_hits=entry.sustained_hits,
+            melee_sustained_hits=entry.melee_sustained_hits,
             twin_linked=entry.twin_linked,
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
@@ -1439,6 +1683,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             deadly_demise=entry.deadly_demise,
             firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
+            resolute_will=entry.resolute_will,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
             melee_damage_per_shot=entry.melee_damage_per_shot,
@@ -1447,6 +1692,27 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             melee_ap=entry.melee_ap,
             melee_weapon=entry.melee_weapon,
             range_inches=entry.range_inches,
+            secondary_attacks=entry.secondary_attacks,
+            secondary_weapon_damage_per_shot=entry.secondary_weapon_damage_per_shot,
+            secondary_hit_probability=entry.secondary_hit_probability,
+            secondary_ap=entry.secondary_ap,
+            secondary_strength=entry.secondary_strength,
+            secondary_range_inches=entry.secondary_range_inches,
+            secondary_weapon=entry.secondary_weapon,
+            secondary_anti_keywords=tuple(
+                (k, v) for k, v in (entry.secondary_anti_keywords or {}).items()
+            ),
+            secondary_lethal_hits=entry.secondary_lethal_hits,
+            secondary_sustained_hits=entry.secondary_sustained_hits,
+            secondary_twin_linked=entry.secondary_twin_linked,
+            secondary_devastating_wounds=entry.secondary_devastating_wounds,
+            secondary_rapid_fire=entry.secondary_rapid_fire,
+            secondary_melta=entry.secondary_melta,
+            secondary_ignores_cover=entry.secondary_ignores_cover,
+            secondary_heavy=entry.secondary_heavy,
+            secondary_assault=entry.secondary_assault,
+            secondary_torrent=entry.secondary_torrent,
+            secondary_blast=entry.secondary_blast,
             points_override=entry.points_override,
             base_shape=entry.base_shape,
             base_diameter_mm=entry.base_diameter_mm,

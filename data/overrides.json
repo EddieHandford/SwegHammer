@@ -21,6 +21,20 @@
       "fnp": 5,
       "notes": "Cross-codex BSData entry for Plague Marines; canonical datasheet lives in the Death Guard codex and carries Disgustingly Resilient (FNP 5+). Pricing and stats are identical to death_guard_plague_marines. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines."
     },
+    "death_guard_plaguebearers": {
+      "fnp": 5,
+      "notes": "iter24-D4: Plaguebearers (Death Guard ally Daemons unit) carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. BSData does not encode FNP at the unit level so the mapper sees default 7 (none). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Plaguebearers datasheet — Disgustingly Resilient ability)."
+    },
+    "death_guard_blightlord_terminators": {
+      "fnp": 5,
+      "invuln_save": 4,
+      "notes": "iter24-D4 + iter20 variant-invuln (merged iter28): Blightlord Terminators carry both Disgustingly Resilient (Feel No Pain 5+) per the Death Guard army rule AND a 4++ from Cataphractii-pattern Terminator armour. BSData v10.6.0 omits both the per-unit FNP and the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators."
+    },
+    "death_guard_typhus": {
+      "fnp": 5,
+      "invuln_save": 4,
+      "notes": "iter24-D4 + iter22 invuln (merged iter28): Typhus carries Disgustingly Resilient (Feel No Pain 5+) per the Death Guard army rule AND a 4++ Cataphractii Terminator armour invulnerable save. BSData v10.6.0 omits both. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Typhus."
+    },
     "aeldari_craftworlds_wraithguard": {
       "invuln_save": 4,
       "notes": "Wraithguard have a 4+ invulnerable save listed on their datasheet, but BSData does not encode it (no Invulnerable-Save infoLink in the unit entry). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithguard. | sweg_balance_mc up 218.68 -> 240.55 pts/model",
@@ -168,8 +182,30 @@
     "adeptus_custodes_custodian_guard": {
       "base_shape": "circle",
       "base_diameter_mm": 40,
-      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model",
+      "deep_strike": false,
+      "notes": "Custodian Guard ship on 40mm rounds. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard (Base size). | sweg_balance_mc up 42.5 -> 46.75 pts/model | iter24 deep_strike audit: BSData v10.6.0 flags Deep Strike on every Custodes datasheet via blanket infoLink, but Wahapedia's published datasheet for Custodian Guard does NOT include Deep Strike (only Allarus / Aquilon / Venatari Custodians have the rule). Override clears the false-positive so the simulator no longer parks Custodian Guard in Strategic Reserves at deploy. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Guard",
       "points_override": 46.75
+    },
+    "adeptus_custodes_custodian_wardens": {
+      "deep_strike": false,
+      "resolute_will": true,
+      "notes": "iter24 Custodian Wardens fix bundle. (1) deep_strike cleared: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Wardens datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). (2) resolute_will set: the Wardens datasheet ability 'Resolute Will' (verbatim from BSData cache `Imperium - Adeptus Custodes.cat.gz`: 'While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.') wires through simulator.resolute_will in Unit.attack and via leaders.is_actually_led for the host-key 'led' gate. The Wardens Living Fortress once-per-battle FNP 4+ is NOT modelled here — SwegHammer has no once-per-phase phase-scoped FNP buff layer. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
+    },
+    "adeptus_custodes_sagittarum_custodians": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Sagittarum datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Sagittarum-Custodians"
+    },
+    "adeptus_custodes_trajann_valoris": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Trajann Valoris datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). Trajann's own Feel No Pain 5+ and Captain-General ability are unchanged. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris"
+    },
+    "adeptus_custodes_blade_champion": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Blade Champion datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Blade-Champion"
+    },
+    "adeptus_custodes_shield_captain": {
+      "deep_strike": false,
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Shield-Captain (foot, power-armoured) datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike — the Allarus-Terminator variant of Shield-Captain does have it via its Terminator armour, that variant is unchanged here). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain"
     },
     "space_marines_repulsor_executioner": {
       "base_shape": "rect",
@@ -293,13 +329,293 @@
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Cataphractii-pattern Terminator armour. BSData v10.6.0 omits the Invulnerable-Save infoLink on this entry. Broader pattern affects every Chaos Terminator squad. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Deathshroud-Terminators"
     },
-    "death_guard_blightlord_terminators": {
-      "invuln_save": 4,
-      "notes": "iter20 variant-invuln mapper-gap: 4++ Cataphractii-pattern Terminator armour. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators"
-    },
     "necrons_lychguard": {
       "invuln_save": 4,
       "notes": "iter20 variant-invuln mapper-gap: 4++ Dispersion Shield. BSData v10.6.0 omits the Invulnerable-Save infoLink on the Lychguard entry. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Lychguard"
+    },
+    "aeldari_craftworlds_avatar_of_khaine": {
+      "invuln_save": 5,
+      "notes": "iter22 invuln long-tail sweep: Avatar of Khaine carries a 5++ invulnerable save (Molten Body) on its 10e datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Avatar-of-Khaine"
+    },
+    "aeldari_craftworlds_farseer": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Farseer Rune Armour grants 4++ invuln per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Farseer"
+    },
+    "aeldari_craftworlds_farseer_skyrunner": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Farseer Skyrunner shares the Farseer's 4++ Rune Armour. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Farseer-Skyrunner"
+    },
+    "aeldari_craftworlds_autarch": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Autarch carries Forceshield granting 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Autarch"
+    },
+    "aeldari_craftworlds_autarch_wayleaper": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Autarch Wayleaper carries the Autarch's Forceshield (4++). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Autarch-Wayleaper"
+    },
+    "aeldari_craftworlds_asurmen": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Asurmen (Phoenix Lord, Hand of Asuryan) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Asurmen"
+    },
+    "aeldari_craftworlds_baharroth": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Baharroth (Phoenix Lord) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Baharroth"
+    },
+    "aeldari_craftworlds_fuegan": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Fuegan (Phoenix Lord of the Fire Dragons) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Fuegan"
+    },
+    "aeldari_craftworlds_jain_zar": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Jain Zar (Phoenix Lord of the Howling Banshees) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Jain-Zar"
+    },
+    "aeldari_craftworlds_maugan_ra": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Maugan Ra (Phoenix Lord of the Dark Reapers) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Maugan-Ra"
+    },
+    "aeldari_craftworlds_eldrad_ulthran": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Eldrad Ulthran (Armour of Fate) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Eldrad-Ulthran"
+    },
+    "aeldari_craftworlds_solitaire": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Solitaire has 4++ invulnerable save (Aeldari shadowdancer of legend) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Solitaire"
+    },
+    "aeldari_craftworlds_wraithknight": {
+      "invuln_save": 5,
+      "notes": "iter22 invuln long-tail sweep: Wraithknight has a 5++ invulnerable save (force-field harness) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithknight"
+    },
+    "aeldari_craftworlds_wraithknight_with_ghostglaive": {
+      "invuln_save": 5,
+      "notes": "iter22 invuln long-tail sweep: Wraithknight (Ghostglaive loadout variant) shares the 5++ invuln. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wraithknight"
+    },
+    "aeldari_ynnari_yvraine": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Yvraine has a 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Yvraine"
+    },
+    "aeldari_ynnari_the_visarch": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: The Visarch carries a 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#The-Visarch"
+    },
+    "aeldari_ynnari_the_yncarne": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: The Yncarne (Avatar of Ynnead) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#The-Yncarne"
+    },
+    "aeldari_drukhari_drazhar": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Drazhar (Master of Blades) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Drazhar"
+    },
+    "aeldari_drukhari_archon": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Drukhari Archon carries a Shadow Field granting 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Archon"
+    },
+    "necrons_overlord": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Necron Overlord has 4++ invulnerable save (Phase Shifter) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Overlord"
+    },
+    "necrons_overlord_with_translocation_shroud": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Overlord with Translocation Shroud shares the Overlord's 4++ Phase Shifter. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Overlord-with-Translocation-Shroud"
+    },
+    "necrons_lokhust_lord": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Lokhust Lord (Resurrection Orb / Phase Shifter wargear) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Lokhust-Lord"
+    },
+    "necrons_skorpekh_lord": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Skorpekh Lord carries Phase Shifter granting 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Skorpekh-Lord"
+    },
+    "necrons_imotekh_the_stormlord": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Imotekh the Stormlord has 4++ invulnerable save (Gauntlet of Fire / Phase Shifter wargear) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Imotekh-the-Stormlord"
+    },
+    "necrons_trazyn_the_infinite": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Trazyn the Infinite has 4++ invulnerable save (Surrogate Hosts ability + Empathic Obliterator) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Trazyn-the-Infinite"
+    },
+    "necrons_illuminor_szeras": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Illuminor Szeras has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Illuminor-Szeras"
+    },
+    "necrons_the_silent_king": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: The Silent King has 4++ invulnerable save (Telekinetic Aegis) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#The-Silent-King"
+    },
+    "death_guard_mortarion": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Mortarion (Daemon Primarch of Nurgle) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
+    },
+    "death_guard_daemon_prince_of_nurgle": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Daemon Prince of Nurgle has 4++ invulnerable save (Daemonic) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink (consistent with the other Daemon Prince variants already overridden in this file). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Daemon-Prince-of-Nurgle"
+    },
+    "death_guard_daemon_prince_of_nurgle_with_wings": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Daemon Prince of Nurgle (winged) has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Daemon-Prince-of-Nurgle-with-Wings"
+    },
+    "death_guard_lord_of_contagion": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Lord of Contagion wears Cataphractii Terminator armour; 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion"
+    },
+    "death_guard_lord_of_virulence": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Lord of Virulence wears Cataphractii Terminator armour; 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Virulence"
+    },
+    "death_guard_rotigus": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Rotigus (Great Unclean One variant) has 4++ invulnerable save (Daemonic) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Rotigus"
+    },
+    "death_guard_great_unclean_one": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Great Unclean One has 4++ invulnerable save (Daemonic) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink (Daemon-codex shared issue). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Great-Unclean-One"
+    },
+    "chaos_space_marines_abaddon_the_despoiler": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Abaddon the Despoiler has 4++ invulnerable save (Talon of Horus / Cataphractii armour) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Abaddon-the-Despoiler"
+    },
+    "chaos_space_marines_heretic_astartes_daemon_prince": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Heretic Astartes Daemon Prince has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink (cf. existing TSON / DG Daemon Prince overrides). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Daemon-Prince"
+    },
+    "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Heretic Astartes Daemon Prince (winged) has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Daemon-Prince-with-Wings"
+    },
+    "chaos_daemons_chaos_lord_in_terminator_armour": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Chaos Lord in Terminator Armour has 4++ invulnerable save (Cataphractii armour). BSData v10.6.0 omits the Invulnerable-Save infoLink (consistent with other Chaos Terminator entries). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Chaos-Lord-in-Terminator-Armour"
+    },
+    "chaos_daemons_sorcerer_in_terminator_armour": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Chaos Sorcerer in Terminator Armour has 4++ invulnerable save (Cataphractii armour). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Sorcerer-in-Terminator-Armour"
+    },
+    "world_eaters_angron": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Angron (Daemon Primarch of Khorne) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Angron"
+    },
+    "world_eaters_daemon_prince_of_khorne": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Daemon Prince of Khorne 4++ (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Daemon-Prince"
+    },
+    "world_eaters_daemon_prince_of_khorne_with_wings": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Daemon Prince of Khorne (winged) 4++ (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Daemon-Prince-with-Wings"
+    },
+    "emperor_s_children_fulgrim": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Fulgrim (Daemon Primarch of Slaanesh) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Fulgrim"
+    },
+    "emperor_s_children_daemon_prince_of_slaanesh": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Daemon Prince of Slaanesh 4++ (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Daemon-Prince"
+    },
+    "emperor_s_children_daemon_prince_of_slaanesh_with_wings": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Daemon Prince of Slaanesh (winged) 4++ (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Daemon-Prince-with-Wings"
+    },
+    "emperor_s_children_lucius_the_eternal": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Lucius the Eternal has 4++ invulnerable save (Armour of Shrieking Souls) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Lucius-the-Eternal"
+    },
+    "chaos_daemons_library_be_lakor": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Be'lakor (Daemon Prince of Chaos Undivided) has 4++ invulnerable save (Daemonic) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Be-lakor"
+    },
+    "chaos_daemons_library_daemon_prince_of_chaos": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Library Daemon Prince of Chaos has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemon-Prince-of-Chaos"
+    },
+    "chaos_daemons_library_daemon_prince_of_chaos_with_wings": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Library Daemon Prince of Chaos (winged) has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemon-Prince-of-Chaos-with-Wings"
+    },
+    "chaos_daemons_library_bloodthirster": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Bloodthirster has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster"
+    },
+    "world_eaters_bloodthirster": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: World Eaters Bloodthirster cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Bloodthirster"
+    },
+    "chaos_daemons_library_great_unclean_one": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Great Unclean One has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One"
+    },
+    "chaos_daemons_library_keeper_of_secrets": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Keeper of Secrets has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets"
+    },
+    "emperor_s_children_keeper_of_secrets": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Emperor's Children Keeper of Secrets cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Keeper-of-Secrets"
+    },
+    "chaos_daemons_library_lord_of_change": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Lord of Change has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change"
+    },
+    "chaos_daemons_library_kairos_fateweaver": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Kairos Fateweaver has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Kairos-Fateweaver"
+    },
+    "chaos_daemons_library_skarbrand": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Skarbrand has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skarbrand"
+    },
+    "world_eaters_skarbrand": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: World Eaters Skarbrand cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Skarbrand"
+    },
+    "chaos_daemons_library_rotigus": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Library Rotigus has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Rotigus"
+    },
+    "chaos_daemons_library_shalaxi_helbane": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Shalaxi Helbane has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Shalaxi-Helbane"
+    },
+    "emperor_s_children_shalaxi_helbane": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Emperor's Children Shalaxi Helbane cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Shalaxi-Helbane"
+    },
+    "adeptus_sororitas_morvenn_vahl": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Morvenn Vahl has 4++ invulnerable save (Paragon Warsuit Iron Halo) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Morvenn-Vahl"
+    },
+    "adeptus_sororitas_junith_eruita": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Junith Eruita has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Junith-Eruita"
+    },
+    "adeptus_sororitas_canoness": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Canoness has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness"
+    },
+    "adeptus_sororitas_canoness_with_jump_pack": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Canoness with Jump Pack has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness-with-Jump-Pack"
+    },
+    "adeptus_sororitas_saint_celestine": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Saint Celestine has 4++ invulnerable save (Armour of Saint Katherine) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Saint-Celestine"
+    },
+    "dark_angels_azrael": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Azrael has 4++ invulnerable save (Lion Helm aura granting 4++ to himself and his unit) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Azrael"
+    },
+    "dark_angels_belial": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Belial (Master of the Deathwing) has 4++ invulnerable save (Cataphractii Terminator armour). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Belial"
+    },
+    "dark_angels_lion_el_jonson": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Lion El'Jonson (Primarch) has 4++ invulnerable save (The Emperor's Shield) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Lion-El-Jonson"
+    },
+    "space_marines_captain_in_terminator_armour": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Captain in Terminator Armour has 4++ invulnerable save (Cataphractii Terminator armour). BSData v10.6.0 omits the Invulnerable-Save infoLink on this Space Marines entry. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Captain-in-Terminator-Armour"
+    },
+    "leagues_of_votann_einhyr_champion": {
+      "invuln_save": 4,
+      "notes": "iter22 invuln long-tail sweep: Einhyr Champion carries a Mass Hammer / Exo-armour granting 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Einhyr-Champion"
     }
   }
 }

@@ -50,6 +50,11 @@ class CatalogEntry:
     weapon_damage_per_shot: float = 0.0
     lethal_hits: bool = False
     sustained_hits: int = 0
+    # Melee-side SUSTAINED HITS — sourced from the best-legal MELEE weapon by
+    # the mapper. Routed separately from `sustained_hits` (ranged-side) so
+    # the simulator can pick the correct value per attack mode. See
+    # MappedUnit.melee_sustained_hits for the iter28-MS1 rationale.
+    melee_sustained_hits: int = 0
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
@@ -87,6 +92,12 @@ class CatalogEntry:
     # 10e Sticky Objectives — control persists after the unit leaves until
     # an opposing unit takes the objective back.
     sticky_objective: bool = False
+    # 10e datasheet ability — Resolute Will (Custodian Wardens). Defender-
+    # side -1 to Wound roll while led by a CHARACTER AND attacker S >
+    # defender T. Set per-unit via overrides.json (BSData v10.6.0 mapper
+    # does not yet parse this rule out of the cache; the override is the
+    # authoritative source). Cited as `simulator.resolute_will`.
+    resolute_will: bool = False
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
     melee_damage_per_shot: float = 0.0
@@ -95,6 +106,28 @@ class CatalogEntry:
     melee_ap: int = 0
     melee_weapon: str = ""
     range_inches: int = 24
+    # Phase 2 / iter33 — secondary RANGED weapon profile. See
+    # MappedUnit.secondary_attacks for the rationale (Stormsurge Pulse Driver
+    # vs Pulse Blastcannon, etc.). 0 in secondary_attacks = "no secondary".
+    secondary_attacks: int = 0
+    secondary_weapon_damage_per_shot: float = 0.0
+    secondary_hit_probability: float = 0.0
+    secondary_ap: int = 0
+    secondary_strength: int = 4
+    secondary_range_inches: int = 0
+    secondary_weapon: str = ""
+    secondary_anti_keywords: Optional[Dict[str, int]] = None
+    secondary_lethal_hits: bool = False
+    secondary_sustained_hits: int = 0
+    secondary_twin_linked: bool = False
+    secondary_devastating_wounds: bool = False
+    secondary_rapid_fire: int = 0
+    secondary_melta: int = 0
+    secondary_ignores_cover: bool = False
+    secondary_heavy: bool = False
+    secondary_assault: bool = False
+    secondary_torrent: bool = False
+    secondary_blast: bool = False
     # 10e Movement characteristic (inches). 0 = use UnitProfile default (6.0).
     # Most BSData datasheets don't expose M numerically to the mapper, so this
     # is typically set via overrides.json (e.g. Vertus Praetors M=14"). Cited
@@ -133,6 +166,7 @@ class CatalogEntry:
             weapon_damage_per_shot=float(d.get("weapon_damage_per_shot", 0)),
             lethal_hits=bool(d.get("lethal_hits", False)),
             sustained_hits=int(d.get("sustained_hits", 0)),
+            melee_sustained_hits=int(d.get("melee_sustained_hits", 0)),
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
@@ -159,6 +193,7 @@ class CatalogEntry:
             firing_deck=int(d.get("firing_deck", 0)),
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
+            resolute_will=bool(d.get("resolute_will", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
             melee_damage_per_shot=float(d.get("melee_damage_per_shot", 0)),
@@ -167,6 +202,25 @@ class CatalogEntry:
             melee_ap=int(d.get("melee_ap", 0)),
             melee_weapon=d.get("melee_weapon", ""),
             range_inches=int(d.get("range_inches", 24)),
+            secondary_attacks=int(d.get("secondary_attacks", 0)),
+            secondary_weapon_damage_per_shot=float(d.get("secondary_weapon_damage_per_shot", 0)),
+            secondary_hit_probability=float(d.get("secondary_hit_probability", 0)),
+            secondary_ap=int(d.get("secondary_ap", 0)),
+            secondary_strength=int(d.get("secondary_strength", 4)),
+            secondary_range_inches=int(d.get("secondary_range_inches", 0)),
+            secondary_weapon=d.get("secondary_weapon", ""),
+            secondary_anti_keywords=dict(d.get("secondary_anti_keywords") or {}),
+            secondary_lethal_hits=bool(d.get("secondary_lethal_hits", False)),
+            secondary_sustained_hits=int(d.get("secondary_sustained_hits", 0)),
+            secondary_twin_linked=bool(d.get("secondary_twin_linked", False)),
+            secondary_devastating_wounds=bool(d.get("secondary_devastating_wounds", False)),
+            secondary_rapid_fire=int(d.get("secondary_rapid_fire", 0)),
+            secondary_melta=int(d.get("secondary_melta", 0)),
+            secondary_ignores_cover=bool(d.get("secondary_ignores_cover", False)),
+            secondary_heavy=bool(d.get("secondary_heavy", False)),
+            secondary_assault=bool(d.get("secondary_assault", False)),
+            secondary_torrent=bool(d.get("secondary_torrent", False)),
+            secondary_blast=bool(d.get("secondary_blast", False)),
             move=float(d.get("move", 0)),
             points_override=float(d.get("points_override", 0)),
             base_shape=str(d.get("base_shape", "circle")),
@@ -245,6 +299,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "weapon_damage_per_shot": override.get("weapon_damage_per_shot", base.weapon_damage_per_shot),
         "lethal_hits": override.get("lethal_hits", base.lethal_hits),
         "sustained_hits": override.get("sustained_hits", base.sustained_hits),
+        "melee_sustained_hits": override.get("melee_sustained_hits", base.melee_sustained_hits),
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),
@@ -271,6 +326,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "firing_deck": override.get("firing_deck", base.firing_deck),
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
+        "resolute_will": override.get("resolute_will", base.resolute_will),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),
         "melee_damage_per_shot": override.get("melee_damage_per_shot", base.melee_damage_per_shot),
@@ -279,6 +335,25 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "melee_ap": override.get("melee_ap", base.melee_ap),
         "melee_weapon": override.get("melee_weapon", base.melee_weapon),
         "range_inches": override.get("range_inches", base.range_inches),
+        "secondary_attacks": override.get("secondary_attacks", base.secondary_attacks),
+        "secondary_weapon_damage_per_shot": override.get("secondary_weapon_damage_per_shot", base.secondary_weapon_damage_per_shot),
+        "secondary_hit_probability": override.get("secondary_hit_probability", base.secondary_hit_probability),
+        "secondary_ap": override.get("secondary_ap", base.secondary_ap),
+        "secondary_strength": override.get("secondary_strength", base.secondary_strength),
+        "secondary_range_inches": override.get("secondary_range_inches", base.secondary_range_inches),
+        "secondary_weapon": override.get("secondary_weapon", base.secondary_weapon),
+        "secondary_anti_keywords": override.get("secondary_anti_keywords", base.secondary_anti_keywords),
+        "secondary_lethal_hits": override.get("secondary_lethal_hits", base.secondary_lethal_hits),
+        "secondary_sustained_hits": override.get("secondary_sustained_hits", base.secondary_sustained_hits),
+        "secondary_twin_linked": override.get("secondary_twin_linked", base.secondary_twin_linked),
+        "secondary_devastating_wounds": override.get("secondary_devastating_wounds", base.secondary_devastating_wounds),
+        "secondary_rapid_fire": override.get("secondary_rapid_fire", base.secondary_rapid_fire),
+        "secondary_melta": override.get("secondary_melta", base.secondary_melta),
+        "secondary_ignores_cover": override.get("secondary_ignores_cover", base.secondary_ignores_cover),
+        "secondary_heavy": override.get("secondary_heavy", base.secondary_heavy),
+        "secondary_assault": override.get("secondary_assault", base.secondary_assault),
+        "secondary_torrent": override.get("secondary_torrent", base.secondary_torrent),
+        "secondary_blast": override.get("secondary_blast", base.secondary_blast),
         "move": override.get("move", base.move),
         "points_override": override.get("points_override", base.points_override),
         "base_shape": override.get("base_shape", base.base_shape),
