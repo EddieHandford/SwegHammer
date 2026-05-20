@@ -707,42 +707,52 @@ class Battle:
         play (Death Guard +16.4 over) and under-rewards kill-oriented
         shapes that would in real play score by removing enemy units.
 
-        Bring it Down: 5 VP per enemy MONSTER/VEHICLE model destroyed
-        this round, capped at 15 VP per round.
-        Cited as `simulator.secondary_bring_it_down`.
+        SC4-A — kill-counting secondaries:
+        * Bring it Down — 5 VP per enemy MONSTER/VEHICLE destroyed
+          this round, capped at 15 VP per round.
+          Cited as `simulator.secondary_bring_it_down`.
+        * No Prisoners — 5 VP per enemy unit destroyed this round,
+          capped at 15 VP per round.
+          Cited as `simulator.secondary_no_prisoners`.
 
-        No Prisoners: 5 VP per enemy unit destroyed this round, capped
-        at 15 VP per round.
-        Cited as `simulator.secondary_no_prisoners`.
+        SC4-B — position-tracking secondaries:
+        * Engage on All Fronts — 5 VP if alive units occupy 3+ of the
+          4 table quarters at end of round.
+          Cited as `simulator.secondary_engage_on_all_fronts`.
+        * Behind Enemy Lines — 5 VP if any alive unit's position is
+          inside the opponent's deployment zone.
+          Cited as `simulator.secondary_behind_enemy_lines`.
+
+        SC4-C — selective kill secondaries:
+        * Cull the Horde — 5 VP per enemy 10+model unit destroyed,
+          capped at 5 VP per round (1 per round).
+          Cited as `simulator.secondary_cull_the_horde`.
+        * Assassination — 5 VP per enemy CHARACTER destroyed, capped
+          at 10 VP per round (2 per round).
+          Cited as `simulator.secondary_assassination`.
 
         Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
-
-        SC4-B adds position-tracking secondaries on top of the kill
-        secondaries:
-        * Engage on All Fronts — 5 VP if alive units occupy 3+ of the
-          4 table quarters at end of round
-        * Behind Enemy Lines — 5 VP if any alive unit's position is
-          inside the opponent's deployment zone
-
-        Cited as `simulator.secondary_engage_on_all_fronts` and
-        `simulator.secondary_behind_enemy_lines`.
         """
         from .secondaries import score_round_delta, score_position_delta
         # Side A scores VP for killing side B's units this round — diff
-        # B's round-start snapshot against B's current state.
+        # B's round-start snapshot against B's current state. Four
+        # secondary categories (SC4-A Bring it Down + No Prisoners,
+        # SC4-C Cull the Horde + Assassination).
         if self._b_round_snapshot is not None:
-            a_bid, a_np = score_round_delta(
+            a_bid, a_np, a_cth, a_assn = score_round_delta(
                 self._b_round_snapshot, self.b.units
             )
-            self._a_vp += a_bid + a_np
-            self._a_secondary_vp += a_bid + a_np
+            a_kill_vp = a_bid + a_np + a_cth + a_assn
+            self._a_vp += a_kill_vp
+            self._a_secondary_vp += a_kill_vp
         # Side B scores VP for killing side A's units this round.
         if self._a_round_snapshot is not None:
-            b_bid, b_np = score_round_delta(
+            b_bid, b_np, b_cth, b_assn = score_round_delta(
                 self._a_round_snapshot, self.a.units
             )
-            self._b_vp += b_bid + b_np
-            self._b_secondary_vp += b_bid + b_np
+            b_kill_vp = b_bid + b_np + b_cth + b_assn
+            self._b_vp += b_kill_vp
+            self._b_secondary_vp += b_kill_vp
 
         # SC4-B — position-tracking secondaries scored at end of round.
         # Each side scores against their OWN alive units (Engage is your

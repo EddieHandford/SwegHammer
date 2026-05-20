@@ -7,9 +7,13 @@ import unittest
 from types import SimpleNamespace
 
 from code.secondaries import (
+    ASSASSINATION_CAP_PER_ROUND,
+    ASSASSINATION_VP_PER_CHAR,
     BEHIND_ENEMY_LINES_VP,
     BRING_IT_DOWN_CAP_PER_ROUND,
     BRING_IT_DOWN_VP_PER_KILL,
+    CULL_THE_HORDE_CAP_PER_ROUND,
+    CULL_THE_HORDE_VP_PER_UNIT,
     ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND,
     NO_PRISONERS_CAP_PER_ROUND,
     NO_PRISONERS_VP_PER_UNIT,
@@ -20,13 +24,18 @@ from code.secondaries import (
 
 
 def _make_unit(name: str, alive: bool, keywords: tuple = (),
-               position: tuple = None) -> SimpleNamespace:
-    """Minimal Unit stand-in for the secondary scorer. The scorer only
-    reads `current_health > 0`, `profile.unit_keywords`, and (for the
-    position-tracking secondaries) `position`."""
+               position: tuple = None,
+               starting_strength: int = 1) -> SimpleNamespace:
+    """Minimal Unit stand-in for the secondary scorer. The scorer reads
+    `current_health > 0`, `profile.unit_keywords`, optionally `position`
+    (position-tracking secondaries), and `profile.starting_strength`
+    (Cull the Horde gate)."""
     ns = SimpleNamespace(
         current_health=1.0 if alive else 0.0,
-        profile=SimpleNamespace(unit_keywords=keywords),
+        profile=SimpleNamespace(
+            unit_keywords=keywords,
+            starting_strength=starting_strength,
+        ),
     )
     if position is not None:
         ns.position = position
@@ -80,28 +89,35 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         u2 = _make_unit("Hellbrute", alive=True, keywords=("VEHICLE",))
         snap = take_snapshot([u1, u2])
         # Both still alive at end of round.
-        bid, np_vp = score_round_delta(snap, [u1, u2])
+        bid, np_vp, cth, ass = score_round_delta(snap, [u1, u2])
         self.assertEqual(bid, 0)
         self.assertEqual(np_vp, 0)
+        self.assertEqual(cth, 0)
+        self.assertEqual(ass, 0)
 
     def test_one_infantry_kill_grants_no_prisoners_not_bring_it_down(self):
         infantry = _make_unit("Plague Marines", alive=True, keywords=("INFANTRY",))
         snap = take_snapshot([infantry])
         infantry.current_health = 0.0
-        bid, np_vp = score_round_delta(snap, [infantry])
+        bid, np_vp, cth, ass = score_round_delta(snap, [infantry])
         self.assertEqual(bid, 0)
         self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, 0)
+        self.assertEqual(ass, 0)
 
     def test_one_monster_kill_grants_both(self):
         mortarion = _make_unit("Mortarion", alive=True,
                                 keywords=("MONSTER", "CHARACTER"))
         snap = take_snapshot([mortarion])
         mortarion.current_health = 0.0
-        bid, np_vp = score_round_delta(snap, [mortarion])
-        # MONSTER kill counts for both Bring it Down AND No Prisoners
-        # (the unit also counted as a destroyed unit).
+        bid, np_vp, cth, ass = score_round_delta(snap, [mortarion])
+        # MONSTER + CHARACTER kill counts for Bring it Down, No Prisoners,
+        # AND Assassination (Mortarion is also a CHARACTER). Cull stays
+        # 0 since Mortarion is starting_strength=1 (single-model squad).
         self.assertEqual(bid, BRING_IT_DOWN_VP_PER_KILL)
         self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, 0)
+        self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
 
     def test_bring_it_down_caps_at_15_per_round(self):
         # Six MONSTER kills in one round = 30 VP raw, capped to 15.
@@ -112,7 +128,7 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         snap = take_snapshot(units)
         for u in units:
             u.current_health = 0.0
-        bid, _ = score_round_delta(snap, units)
+        bid, *_ = score_round_delta(snap, units)
         self.assertEqual(bid, BRING_IT_DOWN_CAP_PER_ROUND)
 
     def test_no_prisoners_caps_at_15_per_round(self):
@@ -124,7 +140,7 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         snap = take_snapshot(units)
         for u in units:
             u.current_health = 0.0
-        _, np_vp = score_round_delta(snap, units)
+        _, np_vp, *_ = score_round_delta(snap, units)
         self.assertEqual(np_vp, NO_PRISONERS_CAP_PER_ROUND)
 
     def test_dead_at_snapshot_not_credited(self):
@@ -133,9 +149,11 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         # the same unit within the same round.)
         already_dead = _make_unit("Plague Marines", alive=False)
         snap = take_snapshot([already_dead])
-        bid, np_vp = score_round_delta(snap, [already_dead])
+        bid, np_vp, cth, ass = score_round_delta(snap, [already_dead])
         self.assertEqual(bid, 0)
         self.assertEqual(np_vp, 0)
+        self.assertEqual(cth, 0)
+        self.assertEqual(ass, 0)
 
     def test_revived_unit_not_counted_as_kill(self):
         # Necron Reanimation Protocols can revive a destroyed model. If a
@@ -149,9 +167,75 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         warriors.current_health = 0.0
         # ... revival happens via _apply_reanimation in the real flow ...
         warriors.current_health = 1.0
-        bid, np_vp = score_round_delta(snap, [warriors])
+        bid, np_vp, cth, ass = score_round_delta(snap, [warriors])
         self.assertEqual(bid, 0)
         self.assertEqual(np_vp, 0)
+        self.assertEqual(cth, 0)
+        self.assertEqual(ass, 0)
+
+    def test_cull_the_horde_fires_on_10plus_squad_kill(self):
+        # 10-model Boyz squad destroyed this round → Cull scores.
+        boyz = _make_unit("Boyz", alive=True, keywords=("INFANTRY",),
+                          starting_strength=10)
+        snap = take_snapshot([boyz])
+        boyz.current_health = 0.0
+        _, np_vp, cth, _ = score_round_delta(snap, [boyz])
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, CULL_THE_HORDE_VP_PER_UNIT)
+
+    def test_cull_the_horde_does_not_fire_on_small_squad(self):
+        # 5-model Intercessor squad destroyed → No Prisoners but no Cull.
+        intercessors = _make_unit("Intercessors", alive=True,
+                                  keywords=("INFANTRY",),
+                                  starting_strength=5)
+        snap = take_snapshot([intercessors])
+        intercessors.current_health = 0.0
+        _, np_vp, cth, _ = score_round_delta(snap, [intercessors])
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, 0)
+
+    def test_cull_caps_at_5_per_round(self):
+        # Two 10+ squads killed = 10 VP raw, capped to 5.
+        squads = [
+            _make_unit(f"Boyz {i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=10)
+            for i in range(2)
+        ]
+        snap = take_snapshot(squads)
+        for u in squads:
+            u.current_health = 0.0
+        _, _, cth, _ = score_round_delta(snap, squads)
+        self.assertEqual(cth, CULL_THE_HORDE_CAP_PER_ROUND)
+
+    def test_assassination_fires_on_character_kill(self):
+        ahriman = _make_unit("Ahriman", alive=True,
+                             keywords=("CHARACTER", "INFANTRY"))
+        snap = take_snapshot([ahriman])
+        ahriman.current_health = 0.0
+        _, _, _, ass = score_round_delta(snap, [ahriman])
+        self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
+
+    def test_assassination_does_not_fire_on_non_character(self):
+        # Plain INFANTRY squad → No Prisoners but no Assassination.
+        squad = _make_unit("Tactical Squad", alive=True,
+                           keywords=("INFANTRY",))
+        snap = take_snapshot([squad])
+        squad.current_health = 0.0
+        _, _, _, ass = score_round_delta(snap, [squad])
+        self.assertEqual(ass, 0)
+
+    def test_assassination_caps_at_10_per_round(self):
+        # Three CHARACTER kills = 15 VP raw, capped to 10.
+        characters = [
+            _make_unit(f"Captain {i}", alive=True,
+                       keywords=("CHARACTER", "INFANTRY"))
+            for i in range(3)
+        ]
+        snap = take_snapshot(characters)
+        for u in characters:
+            u.current_health = 0.0
+        _, _, _, ass = score_round_delta(snap, characters)
+        self.assertEqual(ass, ASSASSINATION_CAP_PER_ROUND)
 
 
 class ScorePositionDeltaTests(unittest.TestCase):

@@ -384,6 +384,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # secondaries.
     "simulator.secondary_engage_on_all_fronts",
     "simulator.secondary_behind_enemy_lines",
+    # SC4-C — selective-kill Pariah Nexus Fixed secondaries.
+    # Cull the Horde (5 VP per destroyed 10+model unit, cap 5/round)
+    # and Assassination (5 VP per destroyed CHARACTER, cap 10/round).
+    # Wired in `Battle._score_secondaries` via `score_round_delta`
+    # returning the full 4-tuple.
+    "simulator.secondary_cull_the_horde",
+    "simulator.secondary_assassination",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four
