@@ -151,15 +151,6 @@
     "approximation": true
   },
 
-  "SKYSPLINTER_ASSAULT.reroll_wound_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Skysplinter-Assault",
-    "rule_name": "Rain of Cruelty",
-    "quoted_text": "Each time a DRUKHARI unit from your army disembarks from a TRANSPORT, until the end of the turn: Ranged weapons equipped by models in that disembarking unit have the [ignores cover] ability. Melee weapons equipped by models in that disembarking unit have the [lance] ability.",
-    "trigger": "any friendly Drukhari wound roll",
-    "effect": "re-roll wound rolls of 1 (approximation of Rain of Cruelty, which actually grants Ignores Cover and Lance keywords on the turn a unit disembarks; we collapse the disembark-then-charge buff into an always-on wound reroll)",
-    "scope": "army-wide",
-    "approximation": true
-  },
 
   "MONTKA.army_wide_assault_rounds_1_3": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka",

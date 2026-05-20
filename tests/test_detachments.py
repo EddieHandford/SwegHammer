@@ -38,7 +38,17 @@ _NEW_DETACHMENTS = (
     # approximated reroll_hit_ones flag with the real Martial Grace
     # detachment rule.
     ("warhost",                "Aeldari",                "martial_grace",     True),
-    ("skysplinter_assault",    "Drukhari",               "reroll_wound_ones", True),
+    # SC5-1 (2026-05-20): the real Skysplinter Assault rule "Rain of
+    # Cruelty" is a disembark-turn-only IGNORES-COVER + LANCE keyword
+    # grant on a single unit — none of which the simulator can gate
+    # faithfully (no embark / disembark cycle, no per-weapon LANCE wound
+    # bonus, no per-target ignores-cover). The previous proxy
+    # `reroll_wound_ones=True` (army-wide, always-on, every wound roll)
+    # was a strict over-buff driving Drukhari to +39.5pt overperformance,
+    # so it was removed. The detachment is still registered and its
+    # vehicle composition preference is still set — that's what we
+    # verify here.
+    ("skysplinter_assault",    "Drukhari",               "preferred_composition", "vehicle"),
     # Mont'ka rebuilt per #196 (2026-05-16): the launch-day +1-to-hit
     # approximation was replaced by the real Killing Blow rule, which grants
     # [ASSAULT] army-wide in rounds 1-3 (army_wide_assault_rounds_1_3) plus

@@ -610,10 +610,23 @@ SKYSPLINTER_ASSAULT = Detachment(
     name="Skysplinter Assault",
     faction="Drukhari",
     notes=(
-        "Hit-and-run raiders: approximated as army-wide re-roll wound 1s. "
-        "Real rule grants +1 to wound on the turn a unit charged."
+        "Rain of Cruelty (real 10e rule). Each time a DRUKHARI unit "
+        "disembarks from a TRANSPORT, until the end of the turn its "
+        "ranged weapons gain [IGNORES COVER] and its melee weapons "
+        "gain [LANCE]. The simulator currently has no embark / "
+        "disembark cycle, no per-weapon LANCE wound-roll bonus, and "
+        "no per-target ignores-cover modifier, so the rule cannot be "
+        "wired faithfully here. The previous implementation granted "
+        "army-wide reroll_wound_ones=True as a proxy; that proxy was "
+        "a strict over-buff (always-on, every wound roll, every unit, "
+        "with no disembark / transport gate) and drove the +39.5pt "
+        "Drukhari overperformance in the May 2026 calibration. "
+        "Removed (SC5-1, 2026-05-20). When the simulator gains "
+        "embark / disembark tracking and per-weapon LANCE / "
+        "IGNORES-COVER gating, the rule should be wired narrowly "
+        "(disembark-turn only, per-unit, weapon-keyword gated). "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Skysplinter-Assault"
     ),
-    reroll_wound_ones=True,
     preferred_composition="vehicle",
 )
 
