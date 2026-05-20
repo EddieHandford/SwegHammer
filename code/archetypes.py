@@ -126,6 +126,20 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # (template seed + 1 random_fill squad) instead of the previous
         # 4-squad ceiling that drove sim WR to 95% via Warrior OC spam
         # plus additional Immortal anti-infantry shooting.
+        # LC-6 MVP — seed Ghost Ark alongside Warriors. Real-meta May 2026
+        # Awakened Dynasty tournament lists frequently pair a 20-model
+        # Warriors brick with a Ghost Ark for round-1 alpha-strike
+        # protection and Reanimation Protocols support. SwegHammer cannot
+        # model embark / disembark mechanics yet (a much larger structural
+        # change), so the MVP just introduces the Ghost Ark as a separate
+        # VEHICLE in the seed. This adds an extra Bring it Down target
+        # (small negative), anti-infantry firepower (small positive), and
+        # a tougher board blocker (small positive). Necrons is the cleanest
+        # transport-pair candidate because the faction is currently under
+        # tournament target at -8.5 pts, so a small upward lever is
+        # direction-correct. References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/necrons/#Ghost-Ark
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Awakened Dynasty": {
             "necrons_necron_warriors": 1,
             "necrons_immortals": 1,
@@ -135,6 +149,7 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "necrons_canoptek_doomstalker": 1,
             "necrons_lokhust_heavy_destroyers": 1,
             "necrons_canoptek_scarab_swarms": 1,
+            "necrons_ghost_ark": 1,
         },
     },
     "Aeldari": {
