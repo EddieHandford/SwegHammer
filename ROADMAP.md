@@ -196,11 +196,16 @@ modelled first.
   - Necrons: Awakened Dynasty + Canoptek Court
   - Aeldari: Battle Host + Saim-Hann Wild Host
   - Death Guard: Plague Company + Plague Marines Onslaught
-- **Enhancements** (10e Warlord upgrades, 5 shipped): Champion of Humanity
-  (Gladius), Hyperphasic Fulcrum (Awakened Dynasty), Arcane Vortex
-  (Cult of Magic), Living Plague (Plague Company), Puretide Engram
-  Neurochip (Mont'ka). Auto-assigned at army build to highest-points
-  CHARACTER, one per army, points subtracted from budget.
+- **Enhancements** (10e Warlord upgrades, 5 shipped post-LC-4):
+  Champion of Humanity (Gladius), Hyperphasic Fulcrum + Phasal Subjugator
+  (Awakened Dynasty), Veiled Blade (Shield Host), Puretide Engram Neurochip
+  (Mont'ka). Auto-assigned at army build to the highest-points CHARACTER,
+  one per army, points subtracted from budget. LC-4 also corrected
+  Hyperphasic Fulcrum's mapping from +1 to hit (misread) to reroll-wound-1s
+  (BSData v10.6.0 verbatim). Auric Champions has no wired enhancement —
+  all four codex picks (Superior Creation revive-on-death, Champion of the
+  Imperium range extension, Inspirer battle-shock immunity, Radiant Mantle
+  hit-roll debuff) require simulator schema that doesn't exist yet.
 - **CP-discount HQs**: 4 named Warlords with stratagem-economy effects:
   Belisarius Cawl (+1 CP once/battle), Roboute Guilliman (+1 CP/round),
   Trazyn the Infinite (1x refund), Lord of Contagion (1st strat/round free).
