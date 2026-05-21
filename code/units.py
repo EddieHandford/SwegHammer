@@ -310,6 +310,19 @@ class UnitProfile:
     # leaders.is_actually_led), (c) attack.strength > defender.toughness.
     # Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # MAP-4 — per-unit Reanimation Protocols eligibility flag.
+    # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
+    # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
+    # benefiting (the bodyguard-led-by-character case is handled separately
+    # downstream when leader attachments resolve). True iff the datasheet
+    # carries the Reanimation Protocols infoLink AND is not a CHARACTER,
+    # MONSTER, or VEHICLE. Populated by the BSData mapper. Read by
+    # opponent-side target-priority logic so non-reanimating Necron units
+    # (C'tan Shards, Doomstalker, Doomsday Ark, Lokhust Heavy Destroyers,
+    # Monolith, Tesseract Vault, etc.) are not penalised the way reanimating
+    # bodies are. Cited as `simulator.reanimation_protocols`.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols
+    reanimates_with_army: bool = False
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
     melee_attacks: int = 0
@@ -2221,6 +2234,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
             resolute_will=entry.resolute_will,
+            reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
             melee_damage_per_shot=entry.melee_damage_per_shot,

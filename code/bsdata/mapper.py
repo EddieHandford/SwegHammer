@@ -1411,6 +1411,14 @@ class MappedUnit:
     firing_deck: int = 0
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
+    # MAP-4 — Reanimation Protocols eligibility. True iff the BSData
+    # datasheet carries the "Reanimation Protocols" infoLink AND the unit's
+    # keywords do not include CHARACTER, MONSTER, or VEHICLE (those keywords
+    # gate the army-wide tier of the ability off per the 10e codex; the
+    # bodyguard / led-by-CHARACTER override is a runtime concern handled by
+    # the simulator, not the mapper). Set via `extract_reanimates_with_army`.
+    # Non-Necron units stay False. Cited as `simulator.reanimation_protocols`.
+    reanimates_with_army: bool = False
     unit_keywords: List[str] = field(default_factory=list)
     # Phase B — melee profile (best-legal melee weapon picked the same way)
     melee_attacks: int = 0
@@ -1680,6 +1688,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
     firing_deck = extract_firing_deck(entry)
+    reanimates = extract_reanimates_with_army(entry, reg, list(unit_kw))
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -1748,6 +1757,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         deadly_demise=deadly_demise,
         firing_deck=firing_deck,
         fnp=fnp,
+        reanimates_with_army=reanimates,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
         melee_damage_per_shot=round(best_melee.damage, 2) if best_melee else 0.0,
@@ -2340,6 +2350,58 @@ def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
         if (prof.get("name") or "").strip().lower() == "stealth":
             return True
     return False
+
+
+_EXCLUSION_PROSE_RE = re.compile(
+    r"(cannot use|does not have|never gains?|loses)[^.]{0,80}Reanimation Protocols",
+    re.IGNORECASE,
+)
+
+
+def extract_reanimates_with_army(
+    entry: ET.Element, reg: Registry, unit_keywords: List[str]
+) -> bool:
+    """True iff the unit benefits from the army-wide Reanimation Protocols
+    tier. Detection has three gates:
+
+      1. The datasheet carries an `<infoLink name="Reanimation Protocols">`
+         direct child of its `<infoLinks>` block. BSData uses this shape on
+         every Necron datasheet that has the ability — including some that
+         the printed codex excludes via keyword. The keyword gate (next)
+         filters those out.
+      2. No CHARACTER, MONSTER, or VEHICLE keyword on the unit. Per Wahapedia
+         10e Necrons Reanimation Protocols:
+         https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols
+         the ability text excludes CHARACTER / MONSTER / VEHICLE models from
+         regaining wounds. Bodyguarded characters joining a reanimating unit
+         are a runtime concern (leader attachment), not a per-unit flag.
+      3. No exclusion prose like "This unit cannot use its Reanimation
+         Protocols ability" in any of the unit's own profile / characteristic
+         text. Catches the (rare) data entries that disable the ability
+         outright via a sub-profile.
+
+    Returns False for any non-Necron unit (no RP infoLink → fails gate 1).
+    Cited as `simulator.reanimation_protocols`.
+    """
+    has_rp_infolink = False
+    for il_block in entry.findall("./infoLinks"):
+        for il in il_block.findall("./infoLink"):
+            if (il.get("name") or "").strip().lower() == "reanimation protocols":
+                has_rp_infolink = True
+                break
+        if has_rp_infolink:
+            break
+    if not has_rp_infolink:
+        return False
+    # Keyword gate — uppercase normalise.
+    kws_upper = {(k or "").upper() for k in (unit_keywords or [])}
+    if kws_upper & {"CHARACTER", "MONSTER", "VEHICLE"}:
+        return False
+    # Exclusion-prose gate. Scan this unit's own profile/characteristic text.
+    for ch in entry.findall(".//characteristic"):
+        if ch.text and _EXCLUSION_PROSE_RE.search(ch.text):
+            return False
+    return True
 
 
 def extract_lone_operative(entry: ET.Element, reg: Registry) -> bool:

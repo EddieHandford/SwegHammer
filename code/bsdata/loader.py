@@ -98,6 +98,13 @@ class CatalogEntry:
     # does not yet parse this rule out of the cache; the override is the
     # authoritative source). Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # MAP-4 — per-unit Reanimation Protocols eligibility flag. True iff the
+    # BSData datasheet carries the "Reanimation Protocols" infoLink AND lacks
+    # CHARACTER / MONSTER / VEHICLE keywords (those keywords gate the ability
+    # off per the 10e codex rule). Populated by the mapper from
+    # `extract_reanimates_with_army`. Necron-specific; non-Necron units stay
+    # False. Cited as `simulator.reanimation_protocols`.
+    reanimates_with_army: bool = False
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
     melee_damage_per_shot: float = 0.0
@@ -199,6 +206,7 @@ class CatalogEntry:
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             resolute_will=bool(d.get("resolute_will", False)),
+            reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
             melee_damage_per_shot=float(d.get("melee_damage_per_shot", 0)),
@@ -335,6 +343,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "resolute_will": override.get("resolute_will", base.resolute_will),
+        "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),
         "melee_damage_per_shot": override.get("melee_damage_per_shot", base.melee_damage_per_shot),
