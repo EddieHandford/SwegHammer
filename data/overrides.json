@@ -215,7 +215,8 @@
     },
     "thousand_sons_kairos_fateweaver": {
       "invuln_save": 4,
-      "notes": "Kairos Fateweaver: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Kairos-Fateweaver"
+      "notes": "Kairos Fateweaver: 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Kairos-Fateweaver | AK-1: Staff of Tomorrow [DEVASTATING WOUNDS] per BSData v10.6.0 Thousand Sons.cat.gz. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Kairos-Fateweaver.",
+      "devastating_wounds": true
     },
     "thousand_sons_lord_of_change": {
       "invuln_save": 4,
@@ -341,7 +342,8 @@
     },
     "chaos_space_marines_rubric_marines": {
       "range_inches": 24,
-      "notes": "Cross-codex BSData entry for Rubric Marines; canonical datasheet lives in the Thousand Sons codex. Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines"
+      "notes": "Cross-codex BSData entry for Rubric Marines; canonical datasheet lives in the Thousand Sons codex. Inferno Boltgun (primary wargear) range corrected to 24\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Warpflamer). Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines | AK-1: Soulreaper cannon carries [DEVASTATING WOUNDS] per BSData v10.6.0 (Range=24\"). Mapper picks it as secondary for Rubric Marines. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Rubric-Marines.",
+      "secondary_devastating_wounds": true
     },
     "t_au_empire_breacher_team": {
       "unit_keywords": [
@@ -521,7 +523,8 @@
     },
     "chaos_space_marines_abaddon_the_despoiler": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Abaddon the Despoiler has 4++ invulnerable save (Talon of Horus / Cataphractii armour) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Abaddon-the-Despoiler"
+      "notes": "iter22 invuln long-tail sweep: Abaddon the Despoiler has 4++ invulnerable save (Talon of Horus / Cataphractii armour) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Abaddon-the-Despoiler | AK-1: Drach'nyen carries [DEVASTATING WOUNDS] per BSData v10.6.0 (Range=Melee). Talon of Horus also [DEVASTATING WOUNDS]. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Abaddon-the-Despoiler.",
+      "devastating_wounds": true
     },
     "chaos_space_marines_heretic_astartes_daemon_prince": {
       "invuln_save": 4,
@@ -605,7 +608,8 @@
     },
     "chaos_daemons_library_kairos_fateweaver": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Kairos Fateweaver has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Kairos-Fateweaver"
+      "notes": "iter22 invuln long-tail sweep: Kairos Fateweaver has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Kairos-Fateweaver | AK-1: Staff of Tomorrow carries [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Daemons Library (Range=Melee). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Kairos-Fateweaver.",
+      "devastating_wounds": true
     },
     "chaos_daemons_library_skarbrand": {
       "invuln_save": 4,
@@ -847,6 +851,46 @@
     "imperial_knights_library_armiger_moirax": {
       "secondary_anti_keywords": {"VEHICLE": 2},
       "notes": "AK-2: Armiger Moirax already shows primary anti_keywords={'VEHICLE':2} from its Lightning Lock / Volkite combo. Mirror the secondary tag so the unit's swappable Graviton-Pulsar / Siege Claw loadout (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton pulsar' Keywords='Anti-Vehicle 2+, Blast') keeps anti-VEHICLE coverage when the simulator selects the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Moirax"
+    },
+    "chaos_space_marines_heldrake": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heldrake claws carry [DEVASTATING WOUNDS] per BSData v10.6.0 Chaos Space Marines.cat.gz (Range=Melee, Keywords=\"Anti-FLY 2+, Devastating Wounds\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Heldrake."
+    },
+    "emperor_s_children_heldrake": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heldrake claws [DEVASTATING WOUNDS] per BSData v10.6.0 Emperor's Children.cat.gz. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Heldrake."
+    },
+    "thousand_sons_heldrake": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heldrake claws [DEVASTATING WOUNDS] per BSData v10.6.0 Thousand Sons.cat.gz. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Heldrake."
+    },
+    "world_eaters_heldrake": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heldrake claws [DEVASTATING WOUNDS] per BSData v10.6.0 World Eaters.cat.gz. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Heldrake."
+    },
+    "chaos_space_marines_master_of_executions": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Axe of dismemberment carries [DEVASTATING WOUNDS, PRECISION] per BSData v10.6.0 (Range=Melee). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Master-of-Executions."
+    },
+    "world_eaters_master_of_executions": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Axe of dismemberment [DEVASTATING WOUNDS, PRECISION] per BSData v10.6.0. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Master-of-Executions."
+    },
+    "chaos_space_marines_defiler": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heavy reaper autocannon carries [DEVASTATING WOUNDS, SUSTAINED HITS 1] per BSData v10.6.0 (Range=48\"). Mapper picks it as primary for Defiler. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Defiler."
+    },
+    "emperor_s_children_defiler": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heavy reaper autocannon [DEVASTATING WOUNDS, SUSTAINED HITS 1] per BSData v10.6.0. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Defiler."
+    },
+    "world_eaters_defiler": {
+      "devastating_wounds": true,
+      "notes": "AK-1: Heavy reaper autocannon [DEVASTATING WOUNDS, SUSTAINED HITS 1] per BSData v10.6.0. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Defiler."
+    },
+    "imperial_knights_library_knight_castellan": {
+      "secondary_devastating_wounds": true,
+      "notes": "AK-1: Shieldbreaker missile launcher carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+] per BSData v10.6.0 (Range=72\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan."
     }
   }
 }
