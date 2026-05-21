@@ -2562,15 +2562,33 @@ class Battle:
         start of your Command phase, on an ADEPTUS ASTARTES unit — that
         unit gains the rules of one Combat Doctrine of your choice
         (Devastator / Tactical / Assault) until end of turn, regardless
-        of which doctrine the army is currently in. APPROXIMATION:
-        Combat Doctrines in SwegHammer is a round-and-mode-gated +1 to
-        wound (see `simulator.combat_doctrines` in Unit.attack); the
-        stratagem's per-unit doctrine override would require per-unit
-        doctrine state. Routed through `transient_plus_one_to_wound_melee`
-        on the highest-DPA Marine melee unit — the dominant value the
-        stratagem provides is granting Assault Doctrine's +1-to-wound-
-        melee outside R3+, which this proxy captures exactly. Direction-
-        correct; loses the option-to-pick-ranged-instead nuance.
+        of which doctrine the army is currently in.
+
+        SC5-9 audit: this stratagem previously fired
+        `transient_plus_one_to_wound_melee = True` on the highest-DPA
+        Marine melee unit, on the premise that "Combat Doctrines in
+        SwegHammer is a round-and-mode-gated +1 to wound" and that
+        Adaptive Strategy granted Assault Doctrine's +1-to-wound-melee
+        outside R3+. That premise was a stale pre-iter-9 leftover: the
+        iter-9 May 2026 audit corrected `simulator.combat_doctrines`
+        from a fabricated +1-to-wound to the canonical utility-only
+        Devastator / Tactical / Assault Doctrine mechanics (shoot after
+        Advance / shoot + charge after Fall Back / charge after
+        Advance), per Wahapedia's verbatim Combat Doctrines text. With
+        Doctrines correctly modelled as utility-only, the Doctrines
+        themselves no longer contain a +1-to-wound to grant, so the
+        "Adaptive Strategy grants Assault Doctrine's +1-to-wound"
+        bridge has nothing to grant — the fabricated wound buff was a
+        double-count layered on top of a corrected base rule and was
+        contributing to the +17.5pt Astartes over-modelling outlier
+        (sim 65.5% vs Warp Friends 48.0% per the SC5 N=40 baseline).
+
+        Honest model: per-unit doctrine override at the resolution
+        SwegHammer carries is below modelling capability — there is no
+        per-unit doctrine state to flip. The stratagem is recorded as
+        an APPROXIMATION no-op until per-unit doctrine state lands.
+        Direction-correct: removes a fabricated buff; loses the
+        per-unit doctrine override (genuinely unmodellable today).
         """
         attacker = self._highest_dpa_marine(army)
         if attacker is None:
@@ -2580,7 +2598,11 @@ class Battle:
             return
         if not self._fire_stratagem(army, ADAPTIVE_STRATEGY):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        # SC5-9: no buff applied — see docstring. Spending the CP and
+        # emitting the StratagemFired event is retained so the CP
+        # economy and AI scheduler still see the activation, matching
+        # the real player paying 1 CP for a doctrine override that
+        # SwegHammer can't yet faithfully apply.
 
     # ----- Combined Arms (Astra Militarum) — six real strats (iter-14) ------
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
