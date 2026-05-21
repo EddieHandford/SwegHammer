@@ -4912,19 +4912,23 @@ class Battle:
         the player picks the order in real play and the heuristic picker
         approximates that choice.
         """
+        from .leaders import bump_buffs_generation
         for active, other in ((first, second), (second, first)):
-            # Movement phase — all active units move
+            # Clear the effective_buffs cache once per phase — positions don't
+            # change mid-phase, so all units in a phase safely share cached results.
+            bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_move(unit, active, other)
-            # Shooting phase — all active units shoot
+            bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_shoot(unit, active, other)
-            # Charge phase — all active units attempt charges
+            bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_charge(unit, active, other)
+            bump_buffs_generation()
             # Fight phase — active player's units fight. Real 10e Fight phase
             # interleaves both players' chargers + locked units; this
             # approximates by giving the active player their full fight pass,

@@ -394,11 +394,7 @@ def _squad_size_factor(defender_unit) -> float:
     if not own_name:
         return 1.0
     try:
-        sibling_count = sum(
-            1 for u in army.alive_units
-            if getattr(u.profile, "name", None) == own_name
-            and getattr(u, "current_health", 0) > 0
-        )
+        sibling_count = army.squad_sibling_count(own_name)
     except Exception:
         return 1.0
     extras = max(0, sibling_count - 1)
@@ -1129,13 +1125,22 @@ def pick_move_intent(
             if fall_back_pos is not None:
                 return fall_back_pos, _FALL_BACK_INTENT
 
+    # Precompute OC sums for all objectives once — _oc_on_objective iterates
+    # alive_units per call and is invoked in the hold-check, score loop, and
+    # attrition-posture branch below. Computing them here avoids O(objectives²)
+    # repeated scans of alive_units across those three passes.
+    friendly_alive = friendly.alive_units
+    enemy_alive = enemy.alive_units
+    _our_oc = {id(obj): _oc_on_objective(friendly_alive, obj) for obj in objectives}
+    _their_oc = {id(obj): _oc_on_objective(enemy_alive, obj) for obj in objectives}
+
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
     for obj in objectives:
         if _dist(unit.position, (obj.x, obj.y)) > obj.control_radius:
             continue
         # We're within control radius. Count OC without us, both sides.
-        our_oc_no_self = _oc_on_objective(friendly.alive_units, obj, exclude_uid=unit.uid)
-        their_oc = _oc_on_objective(enemy.alive_units, obj)
+        our_oc_no_self = _oc_on_objective(friendly_alive, obj, exclude_uid=unit.uid)
+        their_oc = _their_oc[id(obj)]
         # If leaving would flip control (or contest from win → tie), hold.
         # Snap to a cover-rich point near where we already stand so the
         # HOLD has a defensive benefit (HEAVY cover > OBSCURING > LIGHT).
@@ -1150,8 +1155,8 @@ def pick_move_intent(
     # objective (~1.6). Round defaults to 1 when no Battle is active.
     objs = []
     for obj in objectives:
-        a_oc = _oc_on_objective(friendly.alive_units, obj)
-        b_oc = _oc_on_objective(enemy.alive_units, obj)
+        a_oc = _our_oc[id(obj)]
+        b_oc = _their_oc[id(obj)]
         d = _dist(unit.position, (obj.x, obj.y))
         if a_oc > b_oc:
             value = 1.0           # already scoring — low priority for more bodies
@@ -1190,7 +1195,7 @@ def pick_move_intent(
     if posture in ("attrition", "psychic_attrition") and objs:
         new_objs = []
         for score, intent, obj, d in objs:
-            our_count = _oc_on_objective(friendly.alive_units, obj, exclude_uid=unit.uid)
+            our_count = _oc_on_objective(friendly_alive, obj, exclude_uid=unit.uid)
             if our_count == 0:
                 score *= 1.25   # boost objectives no friend already covers
             new_objs.append((score, intent, obj, d))
