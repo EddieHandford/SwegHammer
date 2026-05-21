@@ -1084,6 +1084,7 @@ def _counter_priority_uid(plan: Optional[str], enemy) -> Optional[str]:
 
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
+    _phase_their_oc: Optional[Dict] = None,
 ) -> Tuple[Tuple[float, float], str]:
     """
     Decide where `unit` should move this activation, and label the reason.
@@ -1136,14 +1137,19 @@ def pick_move_intent(
             if fall_back_pos is not None:
                 return fall_back_pos, _FALL_BACK_INTENT
 
-    # Precompute OC sums for all objectives once — _oc_on_objective iterates
-    # alive_units per call and is invoked in the hold-check, score loop, and
-    # attrition-posture branch below. Computing them here avoids O(objectives²)
-    # repeated scans of alive_units across those three passes.
+    # Precompute OC sums for all objectives — _oc_on_objective iterates
+    # alive_units per call. our_oc is always fresh (friendly units may have
+    # moved earlier this phase). their_oc is stable for the entire move phase
+    # (enemy units don't move during our phase) so the caller may pass a
+    # precomputed dict via _phase_their_oc to avoid re-scanning enemy units
+    # for every activation.
     friendly_alive = friendly.alive_units
     enemy_alive = enemy.alive_units
     _our_oc = {id(obj): _oc_on_objective(friendly_alive, obj) for obj in objectives}
-    _their_oc = {id(obj): _oc_on_objective(enemy_alive, obj) for obj in objectives}
+    if _phase_their_oc is not None:
+        _their_oc = _phase_their_oc
+    else:
+        _their_oc = {id(obj): _oc_on_objective(enemy_alive, obj) for obj in objectives}
 
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
     # Track which objectives the unit currently occupies; reused by the

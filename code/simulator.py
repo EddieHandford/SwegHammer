@@ -20,7 +20,7 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    _melee_target_score,
+    _melee_target_score, _oc_on_objective,
     decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
     pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
     should_fire_stratagem,
@@ -4433,9 +4433,18 @@ class Battle:
             # Clear the effective_buffs cache once per phase — positions don't
             # change mid-phase, so all units in a phase safely share cached results.
             bump_buffs_generation()
+            # Enemy units do not move during our move phase, so their OC on every
+            # objective is constant for all activations this phase. Precompute once
+            # and pass down to _do_move → pick_move_intent, halving the
+            # _oc_on_objective call count (from 10 per activation to 5).
+            _objectives = self.map.objectives
+            _other_alive = other.alive_units
+            _phase_their_oc: Dict[int, int] = {
+                id(obj): _oc_on_objective(_other_alive, obj) for obj in _objectives
+            }
             for unit in list(active.units):
                 if unit.is_alive:
-                    self._do_move(unit, active, other)
+                    self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
@@ -4460,7 +4469,8 @@ class Battle:
     # Sub-phases
     # ------------------------------------------------------------------
 
-    def _do_move(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+    def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
+                 _phase_their_oc=None) -> None:
         # Embarked passengers do not act on their own activation — the
         # transport carries them. The simulator emits UnitActivated for the
         # transport, not the passenger. Cited as `simulator.embark`.
@@ -4494,6 +4504,7 @@ class Battle:
         target_pos, intent = pick_move_intent(
             attacker, attacker_army, defender_army, self.map,
             army_plan=attacker_army.army_plan,
+            _phase_their_oc=_phase_their_oc,
         )
 
         # Fall Back (10e core). Units already locked in melee that the
