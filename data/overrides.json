@@ -264,13 +264,15 @@
     "tyranids_hive_tyrant": {
       "base_shape": "circle",
       "base_diameter_mm": 80,
-      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size)."
+      "fnp": 7,
+      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement (a single-CHARACTER, Below-Starting-Wounds-gated enhancement, not a datasheet ability). Hive Tyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant"
     },
     "tyranids_winged_hive_tyrant": {
       "base_shape": "oval",
       "base_width_mm": 105,
       "base_length_mm": 170,
-      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size)."
+      "fnp": 7,
+      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak). Winged Hive Tyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant"
     },
     "space_marines_terminator_squad": {
       "base_shape": "circle",
@@ -760,6 +762,46 @@
     "aeldari_drukhari_lady_malys": {
       "fnp": 7,
       "notes": "SC5-8: Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes."
+    },
+    "tyranids_winged_tyranid_prime": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk FNP extractor (code/bsdata/mapper.py:extract_fnp) pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement in Library - Tyranids.cat. Adaptive Biology is a single-CHARACTER, Below-Starting-Wounds-gated enhancement (\"The bearer has the Feel No Pain 5+ ability\"), not a datasheet ability — applying it as always-on to every Tyranid CHARACTER + MONSTER datasheet double-counts and over-models. Winged Tyranid Prime has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Tyranid-Prime"
+    },
+    "tyranids_parasite_of_mortrex": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Parasite of Mortrex has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Parasite-of-Mortrex"
+    },
+    "tyranids_trygon": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Trygon has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Trygon"
+    },
+    "tyranids_tervigon": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tervigon has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tervigon"
+    },
+    "tyranids_broodlord": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Broodlord has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Broodlord"
+    },
+    "tyranids_old_one_eye": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Old One Eye has Berserk Rampage (regen 3 wounds on a kill) but no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Old-One-Eye"
+    },
+    "tyranids_tyrant_guard": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyrant Guard has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyrant-Guard"
+    },
+    "tyranids_neurotyrant": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Neurotyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Neurotyrant"
+    },
+    "tyranids_malanthrope_legends": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Malanthrope (Legends) has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Malanthrope"
+    },
+    "tyranids_tyranid_prime_with_lash_whip": {
+      "fnp": 7,
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyranid Prime with Lash Whip and Bonesword has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Prime-with-Lash-Whip-and-Bonesword"
     }
   }
 }
