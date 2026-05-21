@@ -792,6 +792,70 @@ def _we_glory_charge_bonus(attacker, defender) -> float:
     return _WE_GLORY_BONUS
 
 
+# ---------------------------------------------------------------------------
+# AI-2B — Tyranids Synapse-anchored tarpit-engage charge heuristic (AI play-
+# style, NOT a rule). Companion to AI-1 (Orks tarpit) and AI-2A (WE glory).
+# ---------------------------------------------------------------------------
+# Real Tyranid play distinguishes "lesser bugs" (Hormagaunts, Termagants,
+# Genestealers, Tyranid Warriors) from "big bugs" (Hive Tyrant, Tervigon,
+# Norn Emissary). The lesser bugs are battleshock-fragile — they only press
+# the aggressive tarpit-engage charge when WITHIN Synapse range of a friendly
+# SYNAPSE-keyword model. This is a PLAY HEURISTIC, not a 10e rule (the
+# rule-side Synapse Imperative auto-pass already lives in `code/simulator.py`
+# `_resolve_battleshock`). No rule_citations entry.
+_TYRANID_SYNAPSE_TARPIT_BONUS: float = 1.5
+_SYNAPSE_RANGE_INCHES: float = 6.0
+
+
+def _is_in_synapse_range(attacker) -> bool:
+    """True when `attacker` is a Tyranid unit within 6" of a DIFFERENT friendly
+    SYNAPSE-keyword model in the same army.
+
+    Mirrors the Synapse Imperative check in `simulator._resolve_battleshock`
+    — same 6" radius, same "different uid" exclusion so a SYNAPSE unit isn't
+    counted as its own anchor. Returns False if the attacker has no
+    `army_ref` (synthetic test profile) or no friendly SYNAPSE models are
+    alive.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None or a_profile.faction != "Tyranids":
+        return False
+    army = getattr(attacker, "army_ref", None)
+    if army is None:
+        return False
+    a_uid = getattr(attacker, "uid", None)
+    for s in army.alive_units:
+        if s.uid == a_uid:
+            continue
+        s_kw = getattr(s.profile, "unit_keywords", ()) or ()
+        if "SYNAPSE" not in s_kw:
+            continue
+        if _dist(attacker.position, s.position) <= _SYNAPSE_RANGE_INCHES:
+            return True
+    return False
+
+
+def _tyranids_synapse_tarpit_bonus(attacker, defender) -> float:
+    """Return 1.5x when:
+      - attacker is a Tyranids unit, AND
+      - attacker is NOT itself a SYNAPSE source, AND
+      - attacker IS within 6" of a friendly SYNAPSE model, AND
+      - defender is a tarpit candidate (mobile + multi-W + objective-relevant).
+    Else 1.0.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None or a_profile.faction != "Tyranids":
+        return 1.0
+    a_kw = getattr(a_profile, "unit_keywords", ()) or ()
+    if "SYNAPSE" in a_kw:
+        return 1.0  # big bug — doesn't need the tarpit bias
+    if not _is_tarpit_candidate(defender):
+        return 1.0
+    if not _is_in_synapse_range(attacker):
+        return 1.0  # orphaned lesser bug — play cautiously, no override
+    return _TYRANID_SYNAPSE_TARPIT_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -841,7 +905,8 @@ def _melee_target_score(attacker, defender) -> float:
             * _screen_target_bonus(defender)
             * _synapse_target_bonus(attacker, defender)
             * _ork_tarpit_charge_bonus(attacker, defender)
-            * _we_glory_charge_bonus(attacker, defender))
+            * _we_glory_charge_bonus(attacker, defender)
+            * _tyranids_synapse_tarpit_bonus(attacker, defender))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -975,15 +1040,15 @@ def pick_charge_target(attacker, enemy):
         # Objective Control instead. Faction-gated to Orks only — other
         # factions' tarpit play-style differs and is handled separately.
         tarpit_bonus = _ork_tarpit_charge_bonus(attacker, e)
-        # AI-2A — World Eaters glory-charge bonus: WE melee units charge
-        # ANY enemy in range for Khorne glory, regardless of kill potential.
-        # WE-faction-gated, applied to every candidate in the charge loop.
+        # AI-2A — World Eaters glory-charge bonus.
         we_glory_bonus = _we_glory_charge_bonus(attacker, e)
+        # AI-2B — Tyranids Synapse-anchored tarpit bonus.
+        tyranids_tarpit_bonus = _tyranids_synapse_tarpit_bonus(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus * tarpit_bonus
-                 * we_glory_bonus)
+                 * we_glory_bonus * tyranids_tarpit_bonus)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
