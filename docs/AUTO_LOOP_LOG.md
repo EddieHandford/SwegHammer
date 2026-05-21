@@ -53,6 +53,54 @@ Top candidates ordered by expected magnitude × structural-tractability:
 
 The 5.79 pre-FX-ALL target may not be reachable on the 22-faction matrix without fleshing out the 12 minimal archetypes (10–30pt of structural uplift per archetype). Realistic iter 2 target: MAE ≤ 10 within ~8 more SC-style commits, then re-assess whether further compression requires Stage 2 or archetype-depth investment.
 
+### SC5-8 to SC5-11 — iter 2 landings
+
+**SC5-8 Drukhari static Feel No Pain double-count dropped** (`ae3c9a0`). BSData v10.6.0 embeds "Feel No Pain 5+" as a static infoLink on every Drukhari datasheet (32 units, including 8 vehicles), while `code/units.py:668` already implements **conditional** Power From Pain (FNP 6+ while pain_tokens > 0). Double-count: every Drukhari unit got permanent FNP 5+ that ignored the token gate AND was stronger than the rule. Added `fnp: 7` overrides on 24 units. **Biggest iter 2 win**: Drukhari +37.1 → +28.6 at N=40 (−8.5pt). New memory `project-bsdata-static-vs-runtime-double-count`.
+
+**SC5-9 Adaptive Strategy fabricated +1-to-wound dropped** (`7e20026`). Gladius Task Force stratagem `_try_adaptive_strategy` was firing `transient_plus_one_to_wound_melee=True` based on a docstring premise that Combat Doctrines confers +1-to-wound — but iter-9 May 2026 had already corrected Doctrines to utility-only (shoot after Advance / charge after Fall Back). The stratagem was stacking a stale fabricated wound buff on the corrected base rule. Replaced with rule-correct no-op (CP still paid). Astartes +17.5 → +16.9 N=40.
+
+**SC5-10 Tyranid Enhancement FNP prose-walk false-positive dropped** (`20d7789`). `code/bsdata/mapper.py:extract_fnp` does a depth-3 prose walk that pulled "Feel No Pain 5+" text from the **Adaptive Biology Enhancement option** (granted to one attached CHARACTER) into the base stats of every datasheet that lists the Enhancement. 15 Tyranid units carried fabricated `fnp=5`; only 3 (Norn Emissary, Norn Assimilator, Psychophage) have native FNP. Patched 12 units via overrides. New memory `project-bsdata-mapper-prose-walk-bug` — the structural mapper fix belongs in iter 31–45.
+
+**SC5-11 detachment fabrication sweep — 8 proxies dropped** (`b92665e`). Audited all 28 `Detachment(...)` entries. KEEP confirmed for 20 (citation-matched flags); DROP for 8 fabrications: NOBLE_LANCE.plus_one_to_wound (real rule is [ASSAULT]-on-Advance), PACTBOUND_ZEALOTS.reroll_wound_ones (real rule grants Lethal/Sustained via Dark Pacts), BERZERKER_WARBAND.plus_one_to_hit (real rule is +1A/+2S on charge), DAEMONIC_INCURSION.plus_one_to_hit (Warp Rifts is Deep Strike reduction), FINAL_DAY.reroll_hit_ones (Psionic Parasitism is per-Synapse +1 Hit at MW cost), IRONSTORM_SPEARHEAD.vehicles_reroll_hit_ones (Armour of Contempt is defensive -1 AP — direction-wrong), PLAGUE_COMPANY.melee_sustained_hits_army_wide (paraphrased citation, no verbatim primary), CANOPTEK_COURT.canoptek_plus_one_to_wound (Hyper-Logical Strategy is once-per-battle reroll). **N=5 MAE +0.43 immediately — kept per correctness-over-MAE.**
+
+### Iter 2 honest measurement (2026-05-21)
+
+`claude/sim-calibration-5` at `b92665e` (4 iter 2 commits on top of `f1ff9d4`). N=40 archetype eval:
+
+| Metric | Iter 1 close (N=40) | Iter 2 close (N=40) | Delta |
+|---|---|---|---|
+| MAE vs Warp Friends | 14.97 | **15.65** | +0.68 |
+| MAE vs source mean | 14.92 | 15.61 | +0.69 |
+
+**Iter 2 net regressed MAE.** Decomposition (vs iter 1 N=40 baseline):
+- ✅ SC5-8 Drukhari −8.5pt (+37.1 → +28.6) — the win.
+- ➖ SC5-9 / SC5-10 ~−0.6pt each on Astartes / Tyranids — small.
+- ❌ SC5-11 +3pt of net regression across 5 under-performing factions: World Eaters −13.7, GSC −13.0, Daemons −6.2, IK −37.5, CK −35.1. Dropping fabs from under-performers EXPOSED archetype thinness.
+
+**Pattern recognised** (memory `project-fab-bandaid-on-thin-archetypes`): removing rule-correct fabs from over-performers compresses MAE; removing the same kind of fabs from under-performers worsens MAE because the fabs were band-aids on thin FX-ALL minimal archetypes. The 12 minimal archetypes have 7–12 entries vs 15–25 in the original 10 archetypes. The structural fix is fleshing them out + modelling their actual army rules, NOT more fab cleanup.
+
+### Loop conclusion + next-phase recommendation
+
+Cumulative SC5 loop (iter 1 + iter 2, 11 commits + 2 summaries on `claude/sim-calibration-5`):
+- N=20 pre-SC5 baseline: 15.95 → N=40 post-SC5: **15.65** (−0.30 net)
+- Pre-FX-ALL N=40 10-faction target: 5.79 — **not reachable on 22-faction matrix without fleshing out minimal archetypes**.
+
+Outlier shape after iter 2 (N=40, ranked):
+- **Imperial Knights −37.5, Chaos Knights −35.1** — STRUCTURAL (mapper gap, parked memory `project-knights-multiprofile-weapons`).
+- **Custodes +30.6** — STRUCTURAL (board-control bias, parked memory `project-custodes-board-control`).
+- **Drukhari +28.6** — post-SC5-8 remnant; further compression needs Combat Drugs / per-unit stat audit.
+- **Votann +23.4, AdMech +18.7, Tyranids +18.1, TSON +16.7, Astartes +16.9, Orks +17.2, Aeldari +15.7** — mid-band, requires real-faction-rule modelling rather than fab cleanup.
+
+The natural next phase per the user's iter 31–45 plan (`project-iter31-45-plan`) is the **mapper-structural** phase: multi-profile weapon mapper + Enhancement-FNP prose-walk fix. After that, archetype-depth work for the 12 minimal archetypes. Continued SC-style outlier-grind has hit diminishing returns; iter 2 net regression confirms the band-aid pattern.
+
+Memories built in this loop (all in `~/.claude/projects/.../memory/`):
+- `project-knights-multiprofile-weapons` (IK/CK residual is mapper gap)
+- `project-custodes-board-control` (Custodes residual is sim bias)
+- `project-detachment-fabrication-pattern` (3 hits in iter 1, 8 in iter 2)
+- `project-bsdata-static-vs-runtime-double-count` (SC5-8 Drukhari, biggest single win)
+- `project-bsdata-mapper-prose-walk-bug` (SC5-10 Tyranid Enhancement FNP)
+- `project-fab-bandaid-on-thin-archetypes` (SC5-11 pattern explanation)
+
 ## Branch claude/sim-calibration-4 (2026-05-20)
 
 SC4 (secondary objectives + map rotation) + LC-1/LC-2/LC-5 (detachment variety + tactical-deck mechanic + Warlord designation). All committed and pushed; PR #26 open.
