@@ -1,6 +1,46 @@
 {
   "_comment": "Per-unit overrides on top of data/bsdata/parsed.json. Each entry can partially override any field (health, damage, hit_probability, ap, save, name, enabled, notes). Standalone entries listed here that don't exist in parsed.json become fully hand-rolled units; they must specify all required fields.",
   "units": {
+    "chaos_knights_library_knight_desecrator": {
+      "invuln_save": 5,
+      "notes": "SC5-2: Chaos Knight chassis carry a 5+ invulnerable save (Ion Shield) on their datasheet, but the BSData Chaos Knights Library cache has no Invulnerable Save infoLink attached to any Chaos Knight selectionEntry (verified via grep over Chaos - Chaos Knights Library.cat.gz: zero infoLinks named 'Invulnerable Save'). Same omission pattern as necrons_doomsday_ark / aeldari_wraithguard — the rule exists on the printed datasheet but is not encoded in BSData. Source: 10e Chaos Knights codex Ion Shield (5+ invulnerable save against ranged and melee attacks). Wahapedia unreachable from worktree DNS; restoring the missing invuln per BSData omission precedent."
+    },
+    "chaos_knights_library_knight_rampager": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_knight_despoiler": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_knight_tyrant": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_knight_abominant": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_war_dog_karnivore": {
+      "invuln_save": 5,
+      "notes": "SC5-2: War Dogs carry a 5+ Ion Shield on their datasheet — missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_war_dog_huntsman": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_war_dog_brigand": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_war_dog_executioner": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
+    "chaos_knights_library_war_dog_stalker": {
+      "invuln_save": 5,
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+    },
     "necrons_necron_warriors": {
       "sticky_objective": true,
       "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) — Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
