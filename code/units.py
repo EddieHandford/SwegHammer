@@ -902,6 +902,26 @@ class Unit:
                     if _round_hv > 0 and _round_hv % 2 == 0:
                         ap = ap - 1
 
+        # ---- Adeptus Mechanicus Doctrina Imperatives — Conqueror AP+1.
+        # Wahapedia verbatim: "Each time a model in this unit makes an
+        # attack, if this unit has the BATTLELINE keyword and/or it is
+        # within 6\" of one or more friendly ADEPTUS MECHANICUS BATTLELINE
+        # units, improve the Armour Penetration characteristic of that
+        # attack by 1." Approximated army-wide per the proximity-gate note
+        # in the Hit-roll block above (most AdMech infantry are Skitarii
+        # BATTLELINE). Gate: attacker faction == "Adeptus Mechanicus" AND
+        # the army's active imperative this round is Conqueror. AP is
+        # encoded 0/-1/-2/-3 so "improve by 1" subtracts 1. Cited as
+        # `simulator.doctrina_imperatives`.
+        if p.faction == "Adeptus Mechanicus":
+            _own_army_di_ap = getattr(self, "army_ref", None)
+            _imp_di_ap = (
+                getattr(_own_army_di_ap, "doctrina_imperative", None)
+                if _own_army_di_ap is not None else None
+            )
+            if _imp_di_ap == "conqueror":
+                ap = ap - 1
+
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
             half_range = (p.range_inches or 24) / 2.0
@@ -1133,19 +1153,53 @@ class Unit:
                 pass
 
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # The army picks an imperative each Command phase; one mode gets
-        # +1 to hit, the opposite mode gets -1 to hit. Cited as
-        # `simulator.doctrina_imperatives`. Faction-gated on the attacker.
+        # MR-D (claude/sim-calibration-5): rewritten to match the published
+        # rule. The 10e rule is BUFF-ONLY — there is no -1-to-hit penalty
+        # side; the prior implementation that gave +1 to one mode and -1 to
+        # the other was a fabrication (caught during the MR audit). Real
+        # rule (Wahapedia
+        # https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/):
+        #   Protector: "Improve the Ballistic Skill characteristic of ranged
+        #     weapons equipped by models in this unit by 1." (Heavy keyword
+        #     uplift on ranged weapons skipped — the simulator does not track
+        #     stationary state. The defensive -1 to be hit in melee is
+        #     applied below in the defender block.)
+        #   Conqueror: "Improve the Weapon Skill characteristic of melee
+        #     weapons equipped by models in this unit by 1." (Assault keyword
+        #     uplift on ranged weapons skipped — Advance-and-shoot is not
+        #     a feature the simulator models. The +1 AP for battleline-
+        #     adjacent attacks is applied below in the AP block.)
+        # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate is
+        # approximated as army-wide here: most AdMech infantry are Skitarii
+        # BATTLELINE and the simulator's abstracted positioning does not
+        # resolve 6" aura adjacency for non-battleline support units.
+        # Faction-gated on the attacker. Cited as
+        # `simulator.doctrina_imperatives`.
         if p.faction == "Adeptus Mechanicus":
             own_army = getattr(self, "army_ref", None)
             imperative = (
                 getattr(own_army, "doctrina_imperative", None)
                 if own_army is not None else None
             )
-            if imperative == "protector":
-                hit_mod_delta += 1 if mode != "melee" else -1
-            elif imperative == "conqueror":
-                hit_mod_delta += 1 if mode == "melee" else -1
+            if imperative == "protector" and mode != "melee":
+                hit_mod_delta += 1
+            elif imperative == "conqueror" and mode == "melee":
+                hit_mod_delta += 1
+
+        # ---- Doctrina Imperatives — Protector defensive side. When the
+        # TARGET unit is Adeptus Mechanicus and the active imperative is
+        # Protector, melee attacks against it take -1 to Hit. Real-rule
+        # gate is BATTLELINE or within 6" of friendly AdMech BATTLELINE;
+        # approximated army-wide here for the reasons in the attacker
+        # block above. Cited as `simulator.doctrina_imperatives`.
+        if mode == "melee" and target.profile.faction == "Adeptus Mechanicus":
+            _tgt_army_di = getattr(target, "army_ref", None)
+            _tgt_imp_di = (
+                getattr(_tgt_army_di, "doctrina_imperative", None)
+                if _tgt_army_di is not None else None
+            )
+            if _tgt_imp_di == "protector":
+                hit_mod_delta -= 1
 
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits.
