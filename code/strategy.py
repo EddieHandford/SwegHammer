@@ -2850,9 +2850,19 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # both modes. Fire when the Votann attacker has meaningful melee+
         # ranged DPA AND target is heavy/expensive — same gate shape as
         # Avenge the Fallen / Big Krumpin' on the wound-reroll axis.
+        #
+        # SC5-5 fix: real Wahapedia rule REQUIRES target to be a
+        # Judgement-Token-bearing enemy. Without this gate the stratagem
+        # was firing R1 on any heavy target before any token had been
+        # issued — a structural over-modelling of Leagues of Votann.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:
+            return False
+        # Real-rule gate: target must currently bear a Judgement Token.
+        tokens = getattr(army, "judgement_tokens", {}) or {}
+        if tokens.get(target.uid, 0) <= 0:
             return False
         try:
             cost = float(attacker.profile.points_cost)
@@ -2865,9 +2875,17 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # shooting approximation for [LETHAL HITS]. Fire when the Votann
         # attacker has real ranged DPA AND target is HEAVY-class (same gate
         # shape as Archaeotech Munitions / Focused Fire).
+        #
+        # SC5-5 fix: real Wahapedia rule REQUIRES target to be a
+        # Judgement-Token-bearing enemy. Mirrors Warrior Pride fix above.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:
+            return False
+        # Real-rule gate: target must currently bear a Judgement Token.
+        tokens = getattr(army, "judgement_tokens", {}) or {}
+        if tokens.get(target.uid, 0) <= 0:
             return False
         try:
             p = attacker.profile
