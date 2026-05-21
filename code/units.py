@@ -1399,6 +1399,29 @@ class Unit:
             att_reroll_all_hits = True
             att_reroll_all_wounds = True
 
+        # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
+        # rule lets the controller pick one Quality at battle start; the
+        # "martial valour" Quality (Wahapedia verbatim, https://wahapedia.ru/
+        # wh40k10ed/factions/imperial-knights/): "Each time this model is
+        # selected to shoot or fight, you can re-roll one Hit roll and you
+        # can re-roll one Wound roll." SwegHammer models the army rule by
+        # always taking the martial-valour pick (the offensive Quality —
+        # the other two Qualities are movement / objective-OC bumps the sim
+        # cannot express). APPROXIMATION: "re-roll one die of choice" is
+        # mapped to "re-roll natural 1s" — strictly weaker (re-roll one is
+        # ~+0.17 vs +0.5 for re-roll-of-choice on a 3+/4+ swing), erring on
+        # the under-buff side per the SC5 audit's preference against
+        # fabricated upbuffs. Faction-gated to Imperial Knights so Chaos
+        # Knights (whose army rule is Harbingers of Dread, a battle-shock
+        # aura the sim does not yet track) is untouched.
+        # Cited as `simulator.code_chivalric`.
+        if (
+            own_army is not None
+            and (p.faction or "") == "Imperial Knights"
+        ):
+            att_reroll_hit_ones = True
+            att_reroll_wound_ones = True
+
         # Fire and Fade (Aeldari Warhost stratagem) — transient
         # re-roll hit rolls of 1 on shooting attacks for the round.
         att_reroll_hits_shooting_ones = (
