@@ -802,6 +802,51 @@
     "tyranids_tyranid_prime_with_lash_whip": {
       "fnp": 7,
       "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyranid Prime with Lash Whip and Bonesword has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Prime-with-Lash-Whip-and-Bonesword"
+    },
+    "adeptus_custodes_venatari_custodians": {
+      "lance": true,
+      "notes": "AK-2: Venatari Custodians charge with Interceptor Lance, a melee weapon carrying the [LANCE] keyword (BSData 'Imperium - Adeptus Custodes.cat.gz' profile name='Interceptor lance' typeName='Melee Weapons' with Keywords='Lance'). The mapper's basket-weight aggregation drops Lance below the 50% majority because the model's secondary Kinetic Destroyer ranged shots dilute the melee basket; restore the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Venatari-Custodians"
+    },
+    "aeldari_craftworlds_skyweavers": {
+      "anti_keywords": {"VEHICLE": 4},
+      "notes": "AK-2: Skyweavers' Haywire Cannon carries [ANTI-VEHICLE 4+] and Devastating Wounds (BSData 'Aeldari - Aeldari Library.cat.gz' profile name='Skyweaver Haywire Cannon' typeName='Ranged Weapons' Keywords='Anti-Vehicle 4+, Devastating Wounds'). The mapper drops it because the alternate Shuriken Cannon loadout dilutes the basket. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Skyweavers"
+    },
+    "aeldari_drukhari_scourges": {
+      "anti_keywords": {"VEHICLE": 4},
+      "notes": "AK-2: Scourges' Haywire Blaster carries [ANTI-VEHICLE 4+] and Devastating Wounds (BSData 'Aeldari - Aeldari Library.cat.gz' profile name='Haywire Blaster' typeName='Ranged Weapons' Keywords='Anti-Vehicle 4+, Devastating Wounds, Heavy'). Mapper drops it because Scourges field five models with a mixed pool of special weapons; the anti-vehicle blaster never reaches a 50% basket majority. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Scourges"
+    },
+    "imperial_knights_library_questoris_knight_styrix": {
+      "anti_keywords": {"VEHICLE": 2},
+      "notes": "AK-2: Knight Styrix carries a Graviton Crusher with [ANTI-VEHICLE 2+] and Blast (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton crusher' typeName='Ranged Weapons' Keywords='Anti-Vehicle 2+, Blast'). The mapper kept secondary_anti_keywords={'VEHICLE':2} but lost the primary tag when other weapon profiles outweighed the crusher in the primary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Styrix"
+    },
+    "chaos_knights_library_chaos_questoris_knight_styrix": {
+      "anti_keywords": {"VEHICLE": 2},
+      "notes": "AK-2: Chaos Knight Styrix mirrors Imperial Knight Styrix — Graviton Crusher [ANTI-VEHICLE 2+, Blast] in BSData 'Chaos - Chaos Knights Library.cat.gz'. Same basket-dilution miss; surface the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Styrix"
+    },
+    "tyranids_raveners": {
+      "anti_keywords": {"MONSTER": 5, "VEHICLE": 5},
+      "notes": "AK-2: Raveners' Ravener Heavy Claws and Talons carry [ANTI-MONSTER 5+] and [ANTI-VEHICLE 5+] with Twin-linked (BSData 'Library - Tyranids.cat.gz' profile name='Ravener heavy claws and talons' typeName='Melee Weapons' Keywords='Anti-Monster 5+, Anti-Vehicle 5+, Twin-linked'). The keyword pair is the unit's anti-titan answer; basket aggregation lost it because the alternate Spinemaws ranged profile dominates the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Raveners"
+    },
+    "orks_beast_snagga_boyz": {
+      "anti_keywords": {"MONSTER": 4, "VEHICLE": 4},
+      "notes": "AK-2: Beast Snagga Boyz wield Beast Snagga Klaws with [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+] (BSData 'Orks.cat.gz' profile name='Beast Snagga klaw' typeName='Melee Weapons' Keywords='Anti-Monster 4+, Anti-Vehicle 4+'). Squad of ten with one or two big-choppa special models causes the klaw to fall below 50% basket weight in the mapper. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Beast-Snagga-Boyz"
+    },
+    "orks_kill_rig": {
+      "anti_keywords": {"MONSTER": 2, "VEHICLE": 2},
+      "secondary_anti_keywords": {"MONSTER": 4, "VEHICLE": 4},
+      "notes": "AK-2: Kill Rig packs a Stikka Kannon with [ANTI-MONSTER 2+] and [ANTI-VEHICLE 2+] (BSData 'Orks.cat.gz' profile name='Stikka kannon' typeName='Ranged Weapons' Keywords='Anti-Monster 2+, Anti-Vehicle 2+, Snagged'). It also carries Tusks plus Wurrtower [ANTI-MONSTER 4+ / ANTI-VEHICLE 4+] crew weapons on the secondary basket — restore both. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Kill-Rig"
+    },
+    "orks_warbikers": {
+      "lance": true,
+      "notes": "AK-2: Warbikers carry Power Stabba melee weapons keyworded [LANCE] (BSData 'Orks.cat.gz' profile name='Power stabba' typeName='Melee Weapons' Keywords='Lance'). Wahapedia confirms the +1 to wound on the charge for the stabba profile. Mapper drops the keyword because the bike's Dakkagun ranged profiles dominate the basket weight and the squad has only three models. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Warbikers"
+    },
+    "orks_squiggoth_legends": {
+      "lance": true,
+      "notes": "AK-2: Squiggoth's Huge Tusks melee profile is keyworded [LANCE] (BSData 'Orks.cat.gz' profile name='Huge tusks' typeName='Melee Weapons' Keywords='Lance' — the strike-mode tusks). Restoring the trample-on-charge bonus per Wahapedia. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Squiggoth"
+    },
+    "imperial_knights_library_armiger_moirax": {
+      "secondary_anti_keywords": {"VEHICLE": 2},
+      "notes": "AK-2: Armiger Moirax already shows primary anti_keywords={'VEHICLE':2} from its Lightning Lock / Volkite combo. Mirror the secondary tag so the unit's swappable Graviton-Pulsar / Siege Claw loadout (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton pulsar' Keywords='Anti-Vehicle 2+, Blast') keeps anti-VEHICLE coverage when the simulator selects the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Moirax"
     }
   }
 }
