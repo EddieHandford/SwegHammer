@@ -557,6 +557,18 @@ class Unit:
         # Cited as `simulator.embark` / `simulator.disembark`.
         "passengers",
         "embarked_in",
+        # BS-1: per-unit persistent battleshock state. Populated by
+        # `simulator._run_battleshock_phase` when this unit fails its test in
+        # the Command phase. The value stored is the round_num through which
+        # the unit is battle-shocked (the test fires at the start of a
+        # Command phase and the status lasts "until the start of your next
+        # Command phase" — i.e. for the rest of that round). Downstream
+        # consumers (Synapse Imperative, future Harbingers of Dread, future
+        # Repentia explosive death, etc.) read via
+        # `is_currently_battle_shocked(round_num)`. Default 0 = never failed
+        # a test. Cleared by the next round's Battle-shock phase (the same
+        # call that re-tests the unit). Cited as `simulator.battleshock`.
+        "battleshocked_until_round",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -640,6 +652,10 @@ class Unit:
         # is the carrier pointer for a passenger; both default to empty / None.
         self.passengers: list = []
         self.embarked_in = None  # type: ignore[assignment]
+        # BS-1: persistent battleshock-until-round marker (see __slots__ for
+        # rationale). 0 = never failed; otherwise = the round_num during
+        # which the unit is currently battle-shocked.
+        self.battleshocked_until_round: int = 0
 
     @property
     def current_health(self) -> float:
@@ -658,6 +674,22 @@ class Unit:
     @property
     def is_alive(self) -> bool:
         return self._current_health > 1e-9
+
+    def is_currently_battle_shocked(self, round_num: int) -> bool:
+        """BS-1: True iff this unit failed its Battle-shock test at the
+        start of `round_num`'s Command phase and the status has not yet
+        expired. The 10e rule wording is "until the start of your next
+        Command phase", so the marker `battleshocked_until_round` is set
+        to the failing round in `simulator._run_battleshock_phase` and
+        compared exactly here. Downstream consumers that need to fire on
+        the persisting state (Synapse Imperative tarpit gating, future
+        Chaos Knights Harbingers of Dread mortal-wound aura, future
+        Sororitas Repentia explosive death, etc.) should route through
+        this method rather than touching the field directly so the
+        round-window semantics stay in one place. Cited as
+        `simulator.battleshock`.
+        """
+        return self.battleshocked_until_round == round_num
 
     def receive_damage(self, amount: float, bonus_fnp: int = 7) -> None:
         """

@@ -4476,7 +4476,13 @@ class Battle:
             Cited as `simulator.mob_rule`.
           - Synapse Imperative (Tyranids, 10e): a Tyranid unit within 6"
             of any friendly SYNAPSE model auto-passes. Cited as
-            `simulator.synapse_imperative`.
+            `simulator.synapse_imperative`. Note (BS-1): a Tyranid unit
+            that auto-passes via Synapse never has its
+            `battleshocked_until_round` advanced, so
+            `is_currently_battle_shocked(round_num)` correctly returns
+            False for them — this matters once future Synapse-keyed
+            consumers (e.g. enemy Harbingers of Dread auras) start reading
+            the persistent flag.
           - Shadow in the Warp (Tyranids, 10e): an enemy unit within 12"
             of any Tyranid SYNAPSE model takes the test at -1. Cited as
             `simulator.shadow_in_the_warp`.
@@ -4596,6 +4602,19 @@ class Battle:
                     )
                     if roll < target:
                         self._battleshocked_this_round.add(u.uid)
+                        # BS-1: persistent per-unit state. Mark the unit as
+                        # battle-shocked through the end of this round; the
+                        # next round's Battle-shock phase will overwrite or
+                        # leave the field stale (consumers read via
+                        # `is_currently_battle_shocked(round_num)`, which
+                        # checks exact-round equality, so stale values do
+                        # not bleed forward). Downstream rules that need
+                        # the persistent state (Synapse Imperative auto-pass
+                        # gating, Harbingers of Dread mortal-wound aura,
+                        # Repentia explosive death, DG plague-fear
+                        # stratagems) consume the marker rather than the
+                        # transient `_battleshocked_this_round` set.
+                        u.battleshocked_until_round = round_num
                         self._emit(BattleshockFailed(
                             unit_uid=u.uid, roll=roll, target=target,
                         ))
