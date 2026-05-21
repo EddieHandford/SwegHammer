@@ -821,6 +821,11 @@ class Battle:
             u.transient_plus_one_to_hit_shooting = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
+            # ST-1 proper-keyword transient flags.
+            u.transient_lethal_hits = False
+            u.transient_sustained_hits = 0
+            u.transient_reroll_wounds = False
+            u.transient_reroll_wounds_ones = False
         # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
         # this round's Doombolt damage; reset every round so the boost only
         # applies the round the stratagem fires. Putrid Detonation arms the
@@ -1440,11 +1445,13 @@ class Battle:
         """Creeping Blight (Virulent Vectorium, 1 CP): re-roll Hit AND Wound
         rolls on a DG INFANTRY unit's ranged attacks vs Afflicted enemies.
         APPROXIMATION: we don't model Afflicted enemy state, so we route the
-        effect through transient_reroll_hits_shooting on the DG INFANTRY unit
-        (re-roll hits only; the wound-reroll half + Afflicted gate are dropped).
-        Picks the highest-DPA friendly DG INFANTRY that has the gate's other
-        prerequisite (not yet shot this phase, which is implicit at round-
-        start dispatch)."""
+        effect through transient_reroll_hits_shooting AND
+        transient_reroll_wounds on the DG INFANTRY unit (the full hit+wound
+        reroll grant the codex describes; ST-1 added the wound leg via the
+        new transient_reroll_wounds flag — previously only the hit leg
+        landed). Picks the highest-DPA friendly DG INFANTRY that has the
+        gate's other prerequisite (not yet shot this phase, which is
+        implicit at round-start dispatch)."""
         candidate = None
         best_dpa = 0.0
         for u in army.alive_units:
@@ -1469,6 +1476,7 @@ class Battle:
         if not self._fire_stratagem(army, CREEPING_BLIGHT):
             return
         candidate.transient_reroll_hits_shooting = True
+        candidate.transient_reroll_wounds = True
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
         """Lightning-Fast Reactions (Warhost): +1 save on the most
@@ -1564,11 +1572,12 @@ class Battle:
         phase, when an AELDARI unit is selected to shoot — until end of
         phase its ranged weapons gain [SUSTAINED HITS 1] vs targets
         within 12" (or improve to 5+ Critical Hit if already having the
-        ability). APPROXIMATION: SwegHammer has no per-weapon SUSTAINED
-        HITS toggle exposed via a transient flag, so the round-long
-        offensive uplift is routed through `transient_plus_one_to_hit_shooting`
-        — a +1 to hit roughly delivers the same expected damage uplift
-        as Sustained Hits 1 on a 12"-range engagement. Wahapedia:
+        ability). ST-1: now routes through the proper
+        `transient_sustained_hits` accumulator (additive on top of any
+        per-weapon SUSTAINED HITS already on the profile, matching the
+        codex stacking rule). The 12" range gate and the 5+ Critical
+        Hit upgrade for weapons already carrying SUSTAINED HITS X are
+        still not modelled. Wahapedia:
         https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
         attacker = self._highest_dpa_unit(
             army, keyword="AELDARI", faction="Aeldari",
@@ -1585,7 +1594,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BLITZING_FIREPOWER):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_sustained_hits += 1
 
     def _try_webway_tunnel(self, army: Army, opponent: Army) -> None:
         """Webway Tunnel (Warhost, 1 CP). Real rule: end of opponent's
@@ -1693,9 +1702,12 @@ class Battle:
         disembarked this turn re-rolls Wound rolls against the closest
         enemy unit in its shooting. APPROXIMATION: we don't track
         'disembarked-this-turn' at stratagem-dispatch time, so the gate
-        is widened to any T'au shooter and the value is routed through
-        the existing `transient_reroll_hits_shooting` flag (the closest
-        Wound-reroll proxy SwegHammer has)."""
+        is widened to any T'au shooter. ST-1: now routes through
+        `transient_reroll_wounds` (the proper full-wound-reroll flag —
+        the citation says "re-roll the Wound roll"), replacing the
+        previous mis-mapping onto `transient_reroll_hits_shooting`
+        which lifted hit-roll re-rolls instead of wound-roll re-rolls
+        and so was the wrong stat altogether."""
         attacker = self._highest_dpa_unit(
             army, faction="T'au Empire",
         )
@@ -1711,7 +1723,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, COMBAT_DEBARKATION):
             return
-        attacker.transient_reroll_hits_shooting = True
+        attacker.transient_reroll_wounds = True
 
     def _try_pulse_onslaught(self, army: Army, opponent: Army) -> None:
         """Pulse Onslaught (2 CP). Real rule: target an enemy unit; until
@@ -1908,11 +1920,15 @@ class Battle:
         """Power Of The WAAAGH! (War Horde, 1 CP). Real rule (paraphrase):
         an ORKS unit's melee weapons gain [LETHAL HITS] for the fight phase
         (or upgrade to 5+ Critical Hit if they already carry the ability).
-        APPROXIMATION: SwegHammer has no per-round transient [LETHAL HITS]
-        flag, so the offensive uplift is routed through
-        `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
-        unit — same direction (more landed wounds in melee), comparable
-        magnitude on a 4+ wound roll.
+        ST-1: now routes through the proper `transient_lethal_hits` flag
+        (composes into `effective_lethal_hits` at the crit-to-hit branch
+        in Unit.attack). Previously proxied through
+        `transient_plus_one_to_wound_melee`, which over-modelled the buff
+        because +1 to wound averages ~25% extra landed wounds at threshold
+        flip while [LETHAL HITS] only auto-wounds on natural 6s (~17%
+        of failed-wound salvage on a 4+ wound roll). The 5+ Critical-Hit
+        upgrade leg for weapons already carrying [LETHAL HITS] is still
+        dropped.
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
         """
         attacker = self._highest_dpa_unit(
@@ -1930,7 +1946,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, POWER_OF_THE_WAAAGH):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        attacker.transient_lethal_hits = True
 
     def _try_mob_up(self, army: Army, opponent: Army) -> None:
         """Mob Up (War Horde, 1 CP). Real rule (paraphrase): an ORKS
@@ -1959,12 +1975,14 @@ class Battle:
     def _try_big_krumpin(self, army: Army, opponent: Army) -> None:
         """Big Krumpin' (War Horde, 2 CP). Real rule (paraphrase): an
         ORKS unit re-rolls Wound rolls of 1 in melee (full re-roll if
-        charging). APPROXIMATION: SwegHammer has no melee-wound-reroll
-        transient flag, so the offensive uplift is routed through
-        `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
-        unit. Strictly stronger than the codex (a +1 averages ~25%
-        extra wounds; a 1s-reroll averages ~14%); the 2 CP price gate
-        keeps the AI from over-spending.
+        charging). ST-1: now routes through `transient_reroll_wounds_ones`
+        — the correct lossy proxy for the codex (1s-only re-roll averages
+        ~14% extra landed wounds). Previously proxied through
+        `transient_plus_one_to_wound_melee`, which was strictly stronger
+        (+1 to wound ≈ 25% extra wounds vs 14% for 1s-reroll). The full-
+        reroll-when-charging leg is dropped (no charge-state hook); given
+        Big Krumpin' costs 2 CP and the AI gate is already conservative,
+        the under-fire on charge turns is acceptable.
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
         """
         attacker = self._highest_dpa_unit(
@@ -1982,7 +2000,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BIG_KRUMPIN):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        attacker.transient_reroll_wounds_ones = True
 
     def _try_tellyporta(self, army: Army, opponent: Army) -> None:
         """Tellyporta (War Horde, 1 CP). Real rule (paraphrase): an ORKS
@@ -2130,11 +2148,14 @@ class Battle:
         """Archaeotech Munitions (Shield Host, 1 CP, Wargear). Real rule:
         your Shooting phase, on a Custodes unit — ranged weapons gain
         [LETHAL HITS] OR [SUSTAINED HITS 1] (player's choice) for the
-        phase. APPROXIMATION: no per-round transient [LETHAL HITS] /
-        [SUSTAINED HITS] flag in SwegHammer; offensive uplift is routed
-        through `transient_plus_one_to_hit_shooting` on the highest-DPA
-        Custodes shooter. Same direction (more landed hits/damage),
-        comparable magnitude on a 4+ hit roll.
+        phase. ST-1: now routes through `transient_lethal_hits` (the
+        higher-value half of the player's choice — [LETHAL HITS] on a
+        Custodes unit's BS2+ profile typically outscores [SUSTAINED HITS
+        1] because Custodes shots are few and high-damage). Previously
+        proxied through `transient_plus_one_to_hit_shooting`, which was
+        strictly stronger because +1 to hit fires on every die above the
+        previous fail threshold whereas [LETHAL HITS] only fires on
+        natural 6s.
         """
         attacker = self._highest_dpa_unit(
             army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
@@ -2151,7 +2172,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ARCHAEOTECH_MUNITIONS):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_lethal_hits = True
 
     def _try_avenge_the_fallen(self, army: Army, opponent: Army) -> None:
         """Avenge the Fallen (Shield Host, 1 CP, Strategic Ploy). Real rule:
@@ -2214,20 +2235,25 @@ class Battle:
             return
         if not self._fire_stratagem(army, WARRIOR_PRIDE):
             return
-        # APPROXIMATION: +1 to wound on melee AND shooting routes the wound-
-        # reroll value through the closest existing transient flag pair.
-        attacker.transient_plus_one_to_wound_melee = True
-        attacker.transient_plus_one_to_wound_shooting = True
+        # ST-1: now routes through `transient_reroll_wounds` (full failed-
+        # wound re-roll for the round, applies to both melee and shooting
+        # via the att_reroll_all_wounds path). Previously proxied through
+        # transient_plus_one_to_wound_{melee,shooting}, which was strictly
+        # stronger than the codex (+1 to wound averages ~25% extra wounds
+        # at threshold flip; reroll-wounds averages ~17% on a 4+ wound
+        # roll).
+        attacker.transient_reroll_wounds = True
 
     def _try_wrath_of_the_ancestors(self, army: Army, opponent: Army) -> None:
         """Wrath of the Ancestors (Oathband, 1 CP). Real rule: a Votann unit's
         ranged attacks gain [LETHAL HITS] vs a Judgement-Token-bearing
-        target. APPROXIMATION: SwegHammer has no per-round transient
-        [LETHAL HITS] flag, so the offensive uplift is routed through
-        `transient_plus_one_to_hit_shooting` on the highest-DPA Votann
-        shooter — same direction (more landed hits/damage), comparable
-        magnitude on a 4+ hit roll. The Judgement-Token gate is collapsed
-        onto highest-threat-enemy as in Warrior Pride.
+        target. ST-1: now routes through `transient_lethal_hits` (the
+        proper keyword grant — composes into `effective_lethal_hits` at
+        the crit-to-hit branch in Unit.attack). Previously proxied
+        through `transient_plus_one_to_hit_shooting`, which over-modelled
+        the buff because +1-to-hit lifts EVERY die above the previous
+        fail threshold whereas [LETHAL HITS] only auto-wounds on natural
+        6s.
         """
         attacker = self._highest_dpa_unit(
             army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
@@ -2244,7 +2270,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, WRATH_OF_THE_ANCESTORS):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_lethal_hits = True
 
     def _try_glory_of_the_hearth(self, army: Army, opponent: Army) -> None:
         """Glory of the Hearth (Oathband, 1 CP). Real rule: a Votann VEHICLE
@@ -2447,15 +2473,14 @@ class Battle:
         """Storm of Fire (Gladius, 1 CP, Battle Tactic). Real rule: your
         Shooting phase, on an ADEPTUS ASTARTES unit — ranged weapons gain
         [SUSTAINED HITS 1] for the phase (or improve existing
-        [SUSTAINED HITS X] by 1). APPROXIMATION: SwegHammer has no per-
-        round transient [SUSTAINED HITS] flag, so the offensive uplift is
-        routed through `transient_plus_one_to_hit_shooting` on the
-        highest-RANGED-DPA Marine shooter (combined DPA picks melee
-        bricks like Bladeguard, which can't benefit from a +1-to-hit-
-        shooting flag; we pre-filter to units with actual ranged DPA).
-        Same direction (more landed hits / damage), comparable magnitude
-        on a 4+ hit roll — same lossy pattern as Shield Host's
-        Archaeotech Munitions.
+        [SUSTAINED HITS X] by 1). ST-1: now routes through
+        `transient_sustained_hits` (additive on top of any per-weapon
+        SUSTAINED HITS already on the profile, which directly matches the
+        codex stacking rule — a weapon with SUSTAINED HITS X gets X+1).
+        Previously proxied through `transient_plus_one_to_hit_shooting`,
+        which over-modelled the buff because +1-to-hit lifts every die
+        above the previous fail threshold whereas SUSTAINED HITS 1 only
+        fires on the natural 6.
         """
         candidates = self._marine_units(army)
         # Pre-filter to units with real ranged DPA — Storm of Fire only
@@ -2479,7 +2504,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, STORM_OF_FIRE):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_sustained_hits += 1
 
     def _try_armour_of_contempt(self, army: Army, opponent: Army) -> None:
         """Armour of Contempt (Gladius, 1 CP, Battle Tactic). Real rule:

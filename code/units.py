@@ -493,6 +493,21 @@ class Unit:
         "transient_plus_one_to_hit_shooting",
         "transient_halve_damage",
         "transient_undying_legions_pulse",
+        # ST-1: proper transient keyword-grant slots. Replace the over-strong
+        # +1-to-hit / +1-to-wound proxies that were standing in for stratagems
+        # which actually grant LETHAL HITS / SUSTAINED HITS / wound re-rolls.
+        # transient_lethal_hits: critical hit (6 to hit) auto-wounds for the
+        # round, composed via OR with profile.lethal_hits and the other
+        # army-rule lethal_hits sources at the crit-to-hit branch.
+        # transient_sustained_hits: extra hits on crit, additive to
+        # effective_sustained_hits (matches detachment / army-wide stacking).
+        # transient_reroll_wounds: full failed-wound re-roll for the round.
+        # transient_reroll_wounds_ones: 1s-only wound re-roll for the round
+        # (lossy but correctly weaker proxy for "reroll 1s" stratagems).
+        "transient_lethal_hits",
+        "transient_sustained_hits",
+        "transient_reroll_wounds",
+        "transient_reroll_wounds_ones",
         # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
         # each Command phase to any Drukhari unit below Starting Strength;
         # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
@@ -589,6 +604,12 @@ class Unit:
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
         # number of wounds to reanimate in a follow-up pulse. 0 = no pulse.
         self.transient_undying_legions_pulse: int = 0
+        # ST-1 proper-keyword transient flags (see __slots__ above for the
+        # full rationale and citation linkage).
+        self.transient_lethal_hits: bool = False
+        self.transient_sustained_hits: int = 0
+        self.transient_reroll_wounds: bool = False
+        self.transient_reroll_wounds_ones: bool = False
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is
@@ -1491,6 +1512,19 @@ class Unit:
         if att_reroll_hits_shooting_ones:
             att_reroll_hit_ones = True
 
+        # ST-1: transient wound-reroll grants from stratagems that actually
+        # cite "re-roll Wound rolls" (Warrior Pride, Combat Debarkation,
+        # Creeping Blight wound leg) — full failed-wound re-roll for the
+        # round. Composes with att_reroll_all_wounds (Oath of Moment) via
+        # OR; the wound-loop only ever fires one re-roll per die.
+        # transient_reroll_wounds_ones is the weaker "1s only" variant for
+        # stratagems that grant a wound-1 re-roll (Big Krumpin'); composes
+        # with att_reroll_wound_ones via OR.
+        if getattr(self, "transient_reroll_wounds", False):
+            att_reroll_all_wounds = True
+        if getattr(self, "transient_reroll_wounds_ones", False):
+            att_reroll_wound_ones = True
+
         # Drukhari Power From Pain (army rule). While the attacker holds a
         # Pain Token, treat every attack from this unit as having Lethal
         # Hits for the duration of this resolution. Faction-gated to avoid
@@ -1498,6 +1532,14 @@ class Unit:
         effective_lethal_hits = p.lethal_hits or (
             self.pain_tokens > 0 and p.faction == "Drukhari"
         )
+        # ST-1: per-round transient LETHAL HITS grant from stratagems that
+        # actually cite [LETHAL HITS] (Wrath of the Ancestors, Power Of The
+        # WAAAGH!, Archaeotech Munitions). Composes via OR with profile and
+        # army-rule sources; the crit branch fires the lethal auto-wound
+        # exactly once per crit-to-hit. Faction-unrestricted because the
+        # stratagem dispatcher gates faction at the firing site.
+        if getattr(self, "transient_lethal_hits", False):
+            effective_lethal_hits = True
         # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
         # WE unit for the phase. SwegHammer collapses "this phase" to "this
         # round" since the activation loop doesn't break phases out. The
@@ -1707,6 +1749,19 @@ class Unit:
                     # round explicitly.
                     if _round_vs % 2 == 1 and _round_vs > 0:
                         effective_sustained_hits += 1
+
+        # ST-1 transient SUSTAINED HITS grant — stratagems that cite
+        # [SUSTAINED HITS 1] (Blitzing Firepower, Storm of Fire) used to
+        # proxy via transient_plus_one_to_hit_shooting, which is strictly
+        # stronger because +1-to-hit triggers extra-hit gains on every
+        # die above the previous fail threshold whereas SUSTAINED HITS 1
+        # only fires on the natural 6. Routes through the same
+        # `effective_sustained_hits` accumulator as the army-wide /
+        # detachment sources so all the downstream crit-extra-hit
+        # accounting is shared.
+        _ts_h = int(getattr(self, "transient_sustained_hits", 0) or 0)
+        if _ts_h > 0:
+            effective_sustained_hits += _ts_h
 
         # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
         # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
