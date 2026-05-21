@@ -381,7 +381,12 @@ class Army:
         """True iff at least one Fate die remains in the pool."""
         return bool(self.fate_dice)
 
-    def pop_fate_die_meeting(self, threshold: int) -> Optional[int]:
+    def pop_fate_die_meeting(
+        self,
+        threshold: int,
+        *,
+        high_value: bool = True,
+    ) -> Optional[int]:
         """Greedy spend: remove and return the LOWEST die in the pool
         that is >= `threshold` (so we don't waste a 6 to pass a 3+ save
         when a 3 in the pool would do). Returns None if no die qualifies.
@@ -389,6 +394,20 @@ class Army:
         The heuristic intentionally avoids ever spending a die that
         would fail the roll — substitution is only worth doing when it
         flips fail -> success.
+
+        AI-5 (claude/sim-calibration-6): added `high_value` tier to model
+        real Aeldari players' habit of hoarding the bank for decisive
+        moments. When `high_value=False` (low-stakes roll — a single-shot
+        damage-1 hit or wound, a defensive save vs a damage-1 attack), the
+        spend is gated on the qualifying die actually being a LOW die in
+        the bank (value <= 2). In other words: a 1 or 2 in the pool that
+        already happens to meet the threshold is fine to burn on a small
+        upside, but never spend a 3+ die on a low-stakes flip. This stops
+        small Aeldari units from draining the pool on shuriken-catapult
+        misses before the decisive charge / save vs lascannon arrives.
+        `high_value=True` (charges, advances, saves vs >=2-damage attacks,
+        hits/wounds with >=2-damage weapons) keeps the original
+        always-spend-if-it-flips behaviour.
         """
         if not self.fate_dice:
             return None
@@ -406,6 +425,10 @@ class Army:
                     # from the right (lowest) is already the optimum.
                     break
         if best_idx is None:
+            return None
+        # AI-5 low-stakes gate: only burn the die if it's a 1 or 2. A 3+
+        # die is held back for a high-value roll later in the game.
+        if not high_value and best_val is not None and best_val >= 3:
             return None
         return self.fate_dice.pop(best_idx)
 

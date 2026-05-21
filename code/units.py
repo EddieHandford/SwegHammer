@@ -1790,7 +1790,14 @@ class Unit:
                 ):
                     own_army = getattr(self, "army_ref", None)
                     if own_army is not None and own_army.has_fate_dice():
-                        sub = own_army.pop_fate_die_meeting(hit_target)
+                        # AI-5: gate spending by stakes. Only treat the
+                        # hit as "high value" if the weapon's per-shot
+                        # damage is >= 2 (a lascannon-shot miss is worth
+                        # a Fate die; a shuriken-catapult miss is not).
+                        sub = own_army.pop_fate_die_meeting(
+                            hit_target,
+                            high_value=(per_shot_dmg >= 2.0),
+                        )
                         if sub is not None:
                             roll = sub
                 # Adepta Sororitas Acts of Faith — Miracle Dice
@@ -1919,7 +1926,17 @@ class Unit:
                     ):
                         tgt_army = getattr(target, "army_ref", None)
                         if tgt_army is not None and tgt_army.has_fate_dice():
-                            sub = tgt_army.pop_fate_die_meeting(save_target)
+                            # AI-5: defensive saves are high-stakes when
+                            # the incoming attack does >=2 damage (a save
+                            # against a melta or lascannon is worth a
+                            # Fate die; a save against a 1-damage bolter
+                            # shot is not — the model might shrug the
+                            # other shots and the bank should be saved
+                            # for the next big swing).
+                            sub = tgt_army.pop_fate_die_meeting(
+                                save_target,
+                                high_value=(per_shot_dmg >= 2.0),
+                            )
                             if sub is not None:
                                 sroll = sub
                     # Adepta Sororitas Acts of Faith — defensive Miracle
