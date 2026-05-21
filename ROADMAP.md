@@ -62,6 +62,17 @@ Headline calibration metric:
 - Measured by `python -m scripts.evaluate_vs_meta` (or
   `--battles 200` for the honest reading).
 
+**Important: real data covers only 10 of 22 factions.**
+Of the 22 factions in the faction matrix, only 10 have authoritative
+Warp Friends tournament win rates. The remaining 12 (`FX_ALL_FACTIONS`
+in `scripts/evaluate_vs_meta.py`, `app.py`, and
+`scripts/fit_equation_calibrated.py`) have no real match data and are
+assigned a 50 % meta-midpoint placeholder. The headline MAE is computed
+over the 10 real-data factions only; the 12 placeholder factions are
+shown in the full table as "no data" and excluded from the bar chart.
+All three files must stay in sync — the constant is duplicated by design
+(no shared import) and a comment marks each copy.
+
 ---
 
 ## Sprint plan: May 2026 (Ed/Jake handover)
@@ -282,8 +293,54 @@ Deathshroud, Plague Marines, Rubric Marines, Scarab Occult Terminators,
 Hearthkyn Warriors) calibrated against the pre-fix model counts were
 dropped from `overrides.json` on 2026-05-17 and need re-running.
 
+**Track 3 — Sim-driven calibrated equation (new, 2026-05-21).**
+
+A third fitting path uses the simulator itself — not the closed-form
+damage matrix — as the oracle for unit value. This makes faction rules,
+detachment passives, leader auras, cover, and movement all feed through
+to the prices. The pipeline has two steps:
+
+1. **Fit**: `scripts/fit_equation_calibrated.py` reads
+   `data/meta_comparison_snapshot.json`, selects factions whose MAE
+   vs tournament data is within a configurable threshold (default 10 pts),
+   measures pairwise win rates for a representative unit sample from those
+   factions, and fits Bradley-Terry log-LSQ to produce per-unit
+   `price_per_model`. Units outside the trusted set inherit closed-form
+   Phase 1 fallback prices. Output: `data/equation_calibrated_points.json`.
+
+2. **Evaluate**: `scripts/evaluate_vs_meta.py --equation-prices
+   data/equation_calibrated_points.json --out data/equation_vs_meta_snapshot.json`
+   runs the full faction matrix with equation prices injected via
+   `UnitProfile.points_override`, producing "hypothetical win rates" for
+   every faction — including uncalibrated ones (extrapolation).
+
+Both steps are launchable from the Calibration tab in the graphical user
+interface (Step 1 / Step 2 expanders) without touching the terminal.
+
+**Windows / subprocess note.** `scripts/fit_equation_calibrated.py` and
+`scripts/evaluate_vs_meta.py` both contain a PYTHONHASHSEED re-exec guard
+(they call `os.execvpe` to restart themselves with `PYTHONHASHSEED=0` if
+the variable is not already set). Launching via PowerShell's `Start-Process`
+or piping stdout loses the output after the re-exec because the new process
+gets a fresh stdout handle. The graphical user interface launcher avoids
+this by setting `PYTHONHASHSEED=0` in the subprocess environment dict
+before starting the child process, so the guard never fires. If running
+manually from a terminal: prefix with `set PYTHONHASHSEED=0 &&` in cmd.exe
+or `$env:PYTHONHASHSEED="0";` in PowerShell.
+
+**Current status (2026-05-21).** First equation fit completed: 61 units
+from 4 trusted factions (Necrons, Orks, T'au Empire, Thousand Sons),
+1,830 pairs, 5 battles/pair, 11 workers, 97 seconds. 1,422 remaining
+catalogue units priced via Phase 1 fallback. Stage 1 is still
+unconverged (MAE ~7 pts), so this output is provisional.
+
 **What's next.**
 
+- Once Stage 1 MAE reaches ~4 pts, refit the equation with more trusted
+  factions, higher battle count (20+), and max-per-faction raised to 25–30.
+- Run the evaluation step and inspect the "hypothetical win rates" chart
+  in the graphical user interface to see how well the equation prices across
+  uncalibrated factions.
 - Re-run Sweg-balancer MC against the corrected GW per-model baseline and
   cross-validate vs Phase 5 — should converge to many fewer disagreements
   now that the cost basis is right.
