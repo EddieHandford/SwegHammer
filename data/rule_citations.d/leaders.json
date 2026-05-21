@@ -256,9 +256,9 @@
   "LeaderAbility.Auric Sage": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris",
     "rule_name": "Captain-General",
-    "quoted_text": "While this model is leading a unit, each time a model in this unit makes an attack, you can ignore any or all modifiers to that attack's Ballistic skill or Weapon skill characteristics and/or all modifiers to the Hit roll.",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, you can ignore any or all modifiers to that attack's Ballistic Skill or Weapon Skill characteristics and/or all modifiers to the Hit roll.",
     "trigger": "attacker's unit is led by Trajann Valoris in aura range (BSData Leader text: 'This model can be attached to the following units: Custodian Guard, Custodian Wardens')",
-    "effect": "+1 to Hit in aura range (approximation; the real Captain-General ability lets the led unit ignore all to-hit modifiers — typically a -1-to-hit cancellation. The simulator does not model modifier-cancelling, so +1-to-hit is an upper-bound flavour proxy). iter24 expanded host_keys from Guard-only to (Guard + Wardens) per the BSData Leader text — Wardens-led squads were previously silently excluded from the aura.",
+    "effect": "Captain-General is a modifier-CANCELLATION ability: it negates penalties to Ballistic Skill / Weapon Skill / Hit roll (typically -1-to-hit auras, Heavy without staying still, battle-shock). SwegHammer does not model hit-modifier penalties on the attack side, so the correct net effect of this rule in the current sim is approximately zero offensive contribution. SC5-3 (claude/sim-calibration-5) dropped the prior `plus_one_to_hit=True` fabrication that was self-flagged in this citation as an 'upper-bound flavour proxy' — it stacked on top of BS2+ Custodes (already 5/6 to hit) and contributed to the +31pt Custodes overshoot vs the May 2026 Warp Friends meta. The LeaderAbility entry is retained with no offensive aura field so lookup_ability resolves cleanly per CLAUDE.md §13, and so host-key gates (Resolute Will on Wardens) continue to verify 'led by a CHARACTER'. host_keys: Guard + Wardens, per the BSData Leader text.",
     "scope": "unit-led"
   },
 

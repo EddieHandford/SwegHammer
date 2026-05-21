@@ -206,7 +206,11 @@ class ExpandedRegistryTests(unittest.TestCase):
         ("Chaos Lord",              "plus_one_to_wound"),
         # Adeptus Custodes
         ("Shield-Captain",          "reroll_hit_ones"),
-        ("Trajann Valoris",         "plus_one_to_hit"),
+        # Trajann Valoris removed from this assertion list in SC5-3: his
+        # Captain-General ability is modifier-cancellation (negates -1-to-hit),
+        # not +1-to-hit, so the LeaderAbility carries no offensive aura field.
+        # The Blade Champion entry above is the established precedent — keep
+        # the leader registered for host-key gating without a flat buff.
         # Adeptus Mechanicus
         ("Tech-Priest Dominus",     "reroll_hit_ones"),
         # Death Guard — Typhus Destroyer Hive is -1 to Hit on melee against

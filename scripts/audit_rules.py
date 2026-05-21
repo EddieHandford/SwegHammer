@@ -179,6 +179,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # DG units themselves; the round-3+ -1 to hit doesn't compound with
     # other -1-to-hit modifiers (10e cap).
     "simulator.contagions_of_nurgle",
+    # Chaos Daemons army rule (10e). Shadow of Chaos — enemy units within
+    # the Shadow of Chaos take Battle-shock at -1 AND, on a failed test,
+    # suffer D3 mortal wounds. APPROXIMATION: the canonical zone-based
+    # trigger (deployment zone + objective-gated No Man's Land + Greater
+    # Daemon 6" aura) is proxied as 'within 18" of board centre while a
+    # Chaos Daemons opponent has any unit alive'. See
+    # data/rule_citations.d/chaos_daemons.json.
+    "simulator.shadow_of_chaos",
     # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
     # +1 to the armour save when an unmodified Damage-1 attack is allocated
     # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer
@@ -249,6 +257,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # turn-1 Deep Strike: every GSC unit is routed to reserves at deploy
     # time, then placed via the existing arrival path at the top of Round 1.
     "simulator.cult_ambush",
+    # Genestealer Cults Cult Ambush — Resurgence-point unit revival half
+    # of the army rule (10e). End-of-round hook revives one dead CULT
+    # INFANTRY unit per round at full Starting Strength, costing a flat
+    # 3 Resurgence points (median of the codex per-unit table). Marker
+    # placement, opponent-side disruption, and the per-Starting-Strength
+    # cost table are NOT modelled — APPROXIMATION proxy.
+    "simulator.cult_ambush_resurgence",
     # Adeptus Mechanicus army rule (10e). Command-phase pick of Protector
     # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
     # on attacker.profile.faction == "Adeptus Mechanicus".

@@ -800,26 +800,59 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # not fully tournament-realistic. Follow-up: refresh BSData
         # mapper or add overrides for the missing 10e generics.
         "Pactbound Zealots": {
-            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            # BATTLELINE: cult troops (Berzerkers / Plague / Rubric) are
+            # the catalogued BATTLELINE options for CSM; vanilla
+            # Legionaries / Chosen / generic CSM Terminators / Chaos Lord
+            # in Terminator Armour remain absent in BSData v10.6.0 — log
+            # in commit and skip per AX-A constraint.
+            "chaos_space_marines_khorne_berzerkers": 2,
+            "chaos_space_marines_plague_marines": 2,
+            "chaos_space_marines_rubric_marines": 1,
+            "chaos_space_marines_noise_marines": 1,
             "chaos_space_marines_chaos_bikers": 1,
             "chaos_space_marines_obliterators": 1,
             "chaos_space_marines_mutilators": 1,
+            "chaos_space_marines_chaos_spawn": 1,
             "chaos_space_marines_helbrute": 1,
+            "chaos_space_marines_maulerfiend": 1,
+            "chaos_space_marines_venomcrawler": 1,
+            "chaos_space_marines_forgefiend": 1,
+            "chaos_space_marines_heldrake": 1,
+            "chaos_space_marines_chaos_predator_destructor": 1,
             "chaos_space_marines_chaos_rhino": 1,
+            "chaos_space_marines_master_of_executions": 1,
+            "chaos_space_marines_warpsmith": 1,
+            "chaos_space_marines_lord_discordant_on_helstalker": 1,
             "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
             "chaos_space_marines_abaddon_the_despoiler": 1,
         },
     },
     "World Eaters": {
         "Berzerker Warband": {
+            # BATTLELINE: Khorne Berzerkers is the only WE BATTLELINE
+            # entry, supplemented by Jakhals / Eightbound bricks and
+            # Daemon allies (Bloodletters / Flesh Hounds) per typical
+            # tournament builds.
             "world_eaters_khorne_berzerkers": 2,
+            "world_eaters_jakhals": 2,
             "world_eaters_eightbound": 1,
             "world_eaters_exalted_eightbound": 1,
-            "world_eaters_jakhals": 1,
+            "world_eaters_chaos_terminators": 1,
+            "world_eaters_bloodletters": 1,
+            "world_eaters_flesh_hounds": 1,
+            "world_eaters_bloodcrushers": 1,
+            "world_eaters_chaos_spawn": 1,
             "world_eaters_chaos_rhino": 1,
+            "world_eaters_helbrute": 1,
+            "world_eaters_maulerfiend": 1,
+            "world_eaters_forgefiend": 1,
+            "world_eaters_master_of_executions": 1,
+            "world_eaters_lord_on_juggernaut": 1,
+            "world_eaters_slaughterbound": 1,
+            "world_eaters_kh_rn_the_betrayer": 1,
             "world_eaters_lord_invocatus": 1,
-            "world_eaters_angron": 1,
             "world_eaters_daemon_prince_of_khorne_with_wings": 1,
+            "world_eaters_angron": 1,
         },
     },
     "Emperor's Children": {
@@ -828,50 +861,120 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # can wire it. The army_builder falls through pick_detachment_for_army
         # to the no-detachment path which is fine for archetype seeding.
         "Slaaneshi Excess": {
-            "emperor_s_children_lord_exultant": 1,
+            # BATTLELINE: Infractors + Tormentors are the EC BATTLELINE
+            # pair; supplemented by Noise Marines (flagship dakka) and
+            # Slaanesh daemon allies (Daemonettes / Seekers / Fiends)
+            # per the standalone-codex army composition.
             "emperor_s_children_infractors": 2,
-            "emperor_s_children_tormentors": 1,
+            "emperor_s_children_tormentors": 2,
+            "emperor_s_children_noise_marines": 1,
             "emperor_s_children_flawless_blades": 1,
             "emperor_s_children_chaos_terminators": 1,
+            "emperor_s_children_daemonettes": 1,
+            "emperor_s_children_seekers": 1,
+            "emperor_s_children_fiends": 1,
+            "emperor_s_children_chaos_spawn": 1,
             "emperor_s_children_chaos_rhino": 1,
+            "emperor_s_children_maulerfiend": 1,
+            "emperor_s_children_heldrake": 1,
+            "emperor_s_children_lord_exultant": 1,
+            "emperor_s_children_lord_kakophonist": 1,
+            "emperor_s_children_sorcerer": 1,
             "emperor_s_children_lucius_the_eternal": 1,
+            "emperor_s_children_keeper_of_secrets": 1,
             "emperor_s_children_daemon_prince_of_slaanesh_with_wings": 1,
+            "emperor_s_children_fulgrim": 1,
         },
     },
     "Chaos Daemons": {
+        # Balanced 4-god Daemonic Incursion shape (the all-gods detachment):
+        # one Greater Daemon per god, the four troops, plus iconic
+        # supporting daemons (Flesh Hounds, Screamers, Plague Drones, Fiends,
+        # Be'lakor). Tournament templates run 1-2 troop blocks per god plus
+        # 1-2 big monsters; this spreads the OC across all four pantheons.
         "Daemonic Incursion": {
             "chaos_daemons_library_bloodletters": 2,
-            "chaos_daemons_library_plaguebearers": 1,
-            "chaos_daemons_library_daemonettes": 1,
+            "chaos_daemons_library_plaguebearers": 2,
+            "chaos_daemons_library_daemonettes": 2,
             "chaos_daemons_library_pink_horrors": 1,
             "chaos_daemons_library_flesh_hounds": 1,
-            "chaos_daemons_library_bloodmaster": 1,
+            "chaos_daemons_library_screamers": 1,
+            "chaos_daemons_library_plague_drones": 1,
+            "chaos_daemons_library_fiends": 1,
             "chaos_daemons_library_bloodthirster": 1,
+            "chaos_daemons_library_great_unclean_one": 1,
+            "chaos_daemons_library_keeper_of_secrets": 1,
+            "chaos_daemons_library_lord_of_change": 1,
             "chaos_daemons_library_be_lakor": 1,
         },
     },
     "Astra Militarum": {
+        # AX-C — flesh-out. Previous template (9 entries) was a thin Cadian +
+        # one-tank skeleton that left random_fill to pick a lot of the army
+        # shape, drifting from real-meta Combined Arms tournament composition.
+        # Real-meta May 2026 Astra Militarum lists (Goonhammer "Astra Militarum
+        # Detachment Focus — Combined Arms"; Frontline Gaming GT lists; Stat
+        # Check May 2026 aggregate) are anchored on Cadian / Krieg BATTLELINE
+        # bricks plus a multi-tank core (Leman Russ variants, Rogal Dorn,
+        # Manticore, Basilisk), supported by a Tempestus Scions deep-strike
+        # element and a Cadian Castellan / Ursula Creed / Lord Solar Leontus
+        # leader stack. The expanded template seeds that shape directly so
+        # random_fill no longer has to invent the army's silhouette.
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Combined Arms": {
             "astra_militarum_cadian_shock_troops": 2,
             "astra_militarum_death_korps_of_krieg": 1,
             "astra_militarum_kasrkin": 1,
+            "astra_militarum_tempestus_scions": 1,
+            "astra_militarum_cadian_command_squad": 1,
+            "astra_militarum_cadian_heavy_weapons_squad": 1,
             "astra_militarum_chimera": 1,
+            "astra_militarum_taurox_prime": 1,
+            "astra_militarum_scout_sentinels": 1,
             "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_leman_russ_demolisher": 1,
             "astra_militarum_rogal_dorn_battle_tank": 1,
             "astra_militarum_basilisk": 1,
+            "astra_militarum_manticore": 1,
             "astra_militarum_cadian_castellan": 1,
             "astra_militarum_ursula_creed": 1,
+            "astra_militarum_lord_solar_leontus": 1,
         },
     },
     "Adeptus Mechanicus": {
+        # AX-C — flesh-out. Previous template (8 entries) under-seeded the
+        # Skitarii / Sicarian / Pteraxii triad and only carried one Kataphron
+        # body plus a single Onager — too thin to fix the army silhouette.
+        # Real-meta May 2026 Adeptus Mechanicus tournament lists (Goonhammer
+        # "Adeptus Mechanicus Detachment Focus — Skitarii Hunter Cohort";
+        # Frontline Gaming GT lists; Stat Check May 2026 aggregate) anchor on
+        # Skitarii Rangers + Vanguard BATTLELINE bricks, a Sicarian + Pteraxii
+        # screening / objective layer, two Kataphron bodies (Breachers for
+        # melee / Destroyers for anti-tank), an Onager + Skorpius Disintegrator
+        # fire-base, Serberys Raiders / Ironstrider Ballistarii as fast
+        # support, and a Cawl / Manipulus / Skitarii Marshal leader stack.
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Skitarii Hunter Cohort": {
             "adeptus_mechanicus_skitarii_rangers": 2,
-            "adeptus_mechanicus_skitarii_vanguard": 1,
+            "adeptus_mechanicus_skitarii_vanguard": 2,
             "adeptus_mechanicus_sicarian_infiltrators": 1,
+            "adeptus_mechanicus_sicarian_ruststalkers": 1,
+            "adeptus_mechanicus_pteraxii_skystalkers": 1,
+            "adeptus_mechanicus_serberys_raiders": 1,
+            "adeptus_mechanicus_ironstrider_ballistarii": 1,
+            "adeptus_mechanicus_kataphron_breachers": 1,
             "adeptus_mechanicus_kataphron_destroyers": 1,
+            "adeptus_mechanicus_sydonian_dragoons_with_taser_lances": 1,
             "adeptus_mechanicus_onager_dunecrawler": 1,
             "adeptus_mechanicus_skorpius_disintegrator": 1,
+            "adeptus_mechanicus_skorpius_dunerider": 1,
             "adeptus_mechanicus_skitarii_marshal": 1,
+            "adeptus_mechanicus_tech_priest_manipulus": 1,
+            "adeptus_mechanicus_tech_priest_dominus": 1,
             "adeptus_mechanicus_belisarius_cawl": 1,
         },
     },
@@ -879,11 +982,20 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         "Hallowed Martyrs": {
             "adepta_sororitas_battle_sisters_squad": 2,
             "adepta_sororitas_seraphim_squad": 1,
+            "adepta_sororitas_zephyrim_squad": 1,
             "adepta_sororitas_celestian_sacresants": 1,
+            "adepta_sororitas_retributor_squad": 1,
+            "adepta_sororitas_repentia_squad": 1,
+            "adepta_sororitas_arco_flagellants": 1,
             "adepta_sororitas_paragon_warsuits": 1,
+            "adepta_sororitas_penitent_engines": 1,
             "adepta_sororitas_castigator": 1,
+            "adepta_sororitas_exorcist": 1,
             "adepta_sororitas_immolator": 1,
+            "adepta_sororitas_sororitas_rhino": 1,
             "adepta_sororitas_canoness": 1,
+            "adepta_sororitas_palatine": 1,
+            "adepta_sororitas_junith_eruita": 1,
             "adepta_sororitas_morvenn_vahl": 1,
             "adepta_sororitas_saint_celestine": 1,
         },
@@ -891,24 +1003,60 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     "Grey Knights": {
         "Teleport Strike Force": {
             "grey_knights_strike_squad": 2,
+            "grey_knights_interceptor_squad": 1,
+            "grey_knights_purifier_squad": 1,
+            "grey_knights_purgation_squad": 1,
             "grey_knights_brotherhood_terminator_squad": 1,
             "grey_knights_paladin_squad": 1,
-            "grey_knights_interceptor_squad": 1,
             "grey_knights_nemesis_dreadknight": 1,
+            "grey_knights_venerable_dreadnought": 1,
+            "grey_knights_rhino": 1,
+            "grey_knights_razorback": 1,
+            "grey_knights_land_raider": 1,
             "grey_knights_brother_captain": 1,
+            "grey_knights_brotherhood_chaplain": 1,
+            "grey_knights_brotherhood_librarian": 1,
+            "grey_knights_brotherhood_champion": 1,
+            "grey_knights_grand_master": 1,
+            "grey_knights_grand_master_in_nemesis_dreadknight": 1,
             "grey_knights_grand_master_voldus": 1,
         },
     },
     "Genestealer Cults": {
+        # AX-C — flesh-out. Previous template (9 entries) was a single
+        # Acolyte / Neophyte pair plus one Aberrant brick and a Patriarch /
+        # Primus character stack — too thin for a cult-spam army. Real-meta
+        # May 2026 Genestealer Cults tournament lists (Goonhammer "Genestealer
+        # Cults Detachment Focus — Final Day"; Frontline Gaming GT lists; Stat
+        # Check May 2026 aggregate) are spam-heavy on cheap BATTLELINE: two
+        # Neophyte bricks plus both Acolyte loadouts (autopistols + hand
+        # flamers), one Hybrid Metamorphs squad for melee threat, a Goliath
+        # Rockgrinder + Goliath Truck delivery pair, Atalan Jackals + Achilles
+        # Ridgerunners for fast objective play, an Aberrant brick, and a
+        # Patriarch + Primus + Magus + Kelermorph + Jackal Alphus + Sanctus
+        # leader / sniper assassination layer. The expanded template seeds
+        # that spam shape so random_fill no longer has to guess between cult
+        # spam vs MONSTER-heavy compositions (which Final Day never runs).
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Final Day": {
             "genestealer_cults_neophyte_hybrids": 2,
-            "genestealer_cults_acolyte_hybrids_with_autopistols": 1,
+            "genestealer_cults_acolyte_hybrids_with_autopistols": 2,
+            "genestealer_cults_acolyte_hybrids_with_hand_flamers": 1,
+            "genestealer_cults_hybrid_metamorphs": 1,
             "genestealer_cults_aberrants": 1,
             "genestealer_cults_purestrain_genestealers": 1,
             "genestealer_cults_atalan_jackals": 1,
             "genestealer_cults_achilles_ridgerunners": 1,
             "genestealer_cults_goliath_rockgrinder": 1,
+            "genestealer_cults_goliath_truck": 1,
             "genestealer_cults_primus": 1,
+            "genestealer_cults_magus": 1,
+            "genestealer_cults_kelermorph": 1,
+            "genestealer_cults_jackal_alphus": 1,
+            "genestealer_cults_sanctus": 1,
+            "genestealer_cults_clamavus": 1,
             "genestealer_cults_patriarch": 1,
         },
     },
@@ -916,25 +1064,41 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # Noble Lance is the canonical Big Knights detachment. Knight armies
         # are MONSTER/TITANIC-only — no BATTLELINE infantry, the template
         # is a small number of high-points models per Wahapedia / codex.
+        # Standard tournament template: 3 big Questoris-class chassis + 6
+        # Armiger/War Dog escorts at 2000pt. Expanded roster spreads the
+        # OC across more chassis variety (Crusader / Castellan / Preceptor)
+        # and gives the AI more activation choices.
         "Noble Lance": {
             "imperial_knights_library_armiger_warglaive": 2,
-            "imperial_knights_library_armiger_helverin": 1,
+            "imperial_knights_library_armiger_helverin": 2,
+            "imperial_knights_library_armiger_moirax": 1,
             "imperial_knights_library_knight_paladin": 1,
             "imperial_knights_library_knight_errant": 1,
             "imperial_knights_library_knight_warden": 1,
+            "imperial_knights_library_knight_crusader": 1,
+            "imperial_knights_library_knight_preceptor": 1,
+            "imperial_knights_library_knight_castellan": 1,
             "imperial_knights_library_canis_rex": 1,
         },
     },
     "Chaos Knights": {
         # Mirror of Noble Lance — chaos variant; same big-stompy shape
-        # using War Dogs (Armigers) + Questoris-class Knights.
+        # using War Dogs (Armigers) + Questoris-class Knights. Expanded
+        # roster mirrors the IK template: a full War Dog escort spread
+        # (Karnivore / Huntsman / Brigand / Executioner / Stalker) plus
+        # the iconic Chaos Questoris chassis (Desecrator / Rampager /
+        # Despoiler / Tyrant / Abominant).
         "Noble Lance": {
             "chaos_knights_library_war_dog_karnivore": 2,
             "chaos_knights_library_war_dog_huntsman": 1,
+            "chaos_knights_library_war_dog_brigand": 1,
+            "chaos_knights_library_war_dog_executioner": 1,
+            "chaos_knights_library_war_dog_stalker": 1,
             "chaos_knights_library_knight_desecrator": 1,
             "chaos_knights_library_knight_rampager": 1,
             "chaos_knights_library_knight_despoiler": 1,
             "chaos_knights_library_knight_tyrant": 1,
+            "chaos_knights_library_knight_abominant": 1,
         },
     },
 }

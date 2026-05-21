@@ -512,6 +512,25 @@ class Unit:
         # CHARACTER to merge its aura flags into the attacker's buff dict.
         # See `code/enhancements.py` for the dataclass + registry.
         "enhancement",
+        # Drukhari Combat Drugs (army rule, 10e). One drug is assigned per
+        # WYCH CULT unit at battle start; the buff persists for the entire
+        # battle (Wahapedia: drug stays active once selected). The four
+        # SwegHammer-modelled drugs map to per-unit integer/float deltas
+        # applied in `Unit.attack` (melee branch) and
+        # `detachments.effective_move`:
+        #   combat_drug_extra_melee_attacks — Adrenalight (+1 Attack on melee weapons).
+        #   combat_drug_melee_strength_bonus — Grave Lotus (+1 Strength on melee weapons).
+        #   combat_drug_toughness_bonus — Painbringer (+1 Toughness, defensive).
+        #   combat_drug_move_bonus — Hypex (+2" Move).
+        # Serpentin (+1 WS) and Splintermind (+1 Ld / +1 BS) are NOT modelled —
+        # APPROXIMATION: the existing per-unit Hit profile already encodes the
+        # post-improvement hit chance for stock loadouts and the simulator has
+        # no Leadership-driven gating outside Battle-shock thresholds the four
+        # WYCH CULT units already beat. Cited as `simulator.combat_drugs`.
+        "combat_drug_extra_melee_attacks",
+        "combat_drug_melee_strength_bonus",
+        "combat_drug_toughness_bonus",
+        "combat_drug_move_bonus",
         # Transport state (10e core). `passengers` is a list of Unit instances
         # currently embarked inside this transport (only populated when the
         # owning profile has TRANSPORT in its unit_keywords). Passengers are
@@ -588,6 +607,13 @@ class Unit:
         # buff dict.
         from typing import Optional
         self.enhancement = None  # type: ignore[assignment]
+        # Drukhari Combat Drugs (army rule). Defaults are zero / no-op. The
+        # simulator's `_apply_combat_drugs` hook stamps these at battle start
+        # on WYCH CULT units only. Cited as `simulator.combat_drugs`.
+        self.combat_drug_extra_melee_attacks: int = 0
+        self.combat_drug_melee_strength_bonus: int = 0
+        self.combat_drug_toughness_bonus: int = 0
+        self.combat_drug_move_bonus: float = 0.0
         # Transport bookkeeping. `passengers` is a fresh list on every Unit so
         # mutating it on one transport doesn't leak into another. `embarked_in`
         # is the carrier pointer for a passenger; both default to empty / None.
@@ -721,6 +747,13 @@ class Unit:
             strength = p.melee_strength
             ap = p.melee_ap
             ignore_cover = True   # melee always ignores cover
+            # Drukhari Combat Drugs (army rule): Adrenalight grants +1 Attack
+            # and Grave Lotus grants +1 Strength on WYCH CULT melee weapons.
+            # The simulator's `_apply_combat_drugs` hook stamps these per-unit
+            # at battle start; defaults to 0 on every non-Drukhari unit so the
+            # add is safe. Cited as `simulator.combat_drugs`.
+            n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
+            strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
         else:
             # ---- Phase 2 / iter33 — multi-profile ranged weapon selection.
             # If the datasheet's mapper recorded a secondary ranged profile
@@ -902,6 +935,48 @@ class Unit:
                     if _round_hv > 0 and _round_hv % 2 == 0:
                         ap = ap - 1
 
+        # ---- World Eaters Blessings of Khorne (10e army rule) —
+        # Cleaving Blows grants army-wide melee AP+1 (more negative AP)
+        # for the battle round. Gate: mode == "melee" AND attacker
+        # faction == "World Eaters" AND the army's
+        # `blessings_cleaving_blows_round` stamp matches the live battle
+        # round. AP+1 maps to subtracting 1 from `ap` (AP-1 -> AP-2
+        # etc.) — same convention as SHIELD_HOST.melee_ap_plus_one.
+        # Cited as `simulator.blessings_of_khorne`.
+        if mode == "melee" and p.faction == "World Eaters":
+            _own_army_cb = getattr(self, "army_ref", None)
+            if _own_army_cb is not None:
+                _cb_round = getattr(
+                    _own_army_cb, "blessings_cleaving_blows_round", None,
+                )
+                _battle_cb = getattr(_own_army_cb, "_battle_ref", None)
+                _cur_round_cb = (
+                    getattr(_battle_cb, "_current_round", 0)
+                    if _battle_cb is not None else 0
+                )
+                if _cb_round is not None and _cb_round == _cur_round_cb:
+                    ap = ap - 1
+
+        # ---- Adeptus Mechanicus Doctrina Imperatives — Conqueror AP+1.
+        # Wahapedia verbatim: "Each time a model in this unit makes an
+        # attack, if this unit has the BATTLELINE keyword and/or it is
+        # within 6\" of one or more friendly ADEPTUS MECHANICUS BATTLELINE
+        # units, improve the Armour Penetration characteristic of that
+        # attack by 1." Approximated army-wide per the proximity-gate note
+        # in the Hit-roll block above (most AdMech infantry are Skitarii
+        # BATTLELINE). Gate: attacker faction == "Adeptus Mechanicus" AND
+        # the army's active imperative this round is Conqueror. AP is
+        # encoded 0/-1/-2/-3 so "improve by 1" subtracts 1. Cited as
+        # `simulator.doctrina_imperatives`.
+        if p.faction == "Adeptus Mechanicus":
+            _own_army_di_ap = getattr(self, "army_ref", None)
+            _imp_di_ap = (
+                getattr(_own_army_di_ap, "doctrina_imperative", None)
+                if _own_army_di_ap is not None else None
+            )
+            if _imp_di_ap == "conqueror":
+                ap = ap - 1
+
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
             half_range = (p.range_inches or 24) / 2.0
@@ -927,7 +1002,13 @@ class Unit:
 
         if hit_target is None:
             hit_target = _prob_to_target(p.hit_probability)
-        wound_p = wound_probability(strength, target.profile.toughness)
+        # Drukhari Combat Drugs (army rule): Painbringer grants +1 Toughness
+        # on WYCH CULT models defensively. The simulator's `_apply_combat_drugs`
+        # hook stamps a per-unit bonus on the target's Unit instance; defaults
+        # to 0 on every non-Drukhari unit. Cited as `simulator.combat_drugs`.
+        _drug_toughness = int(getattr(target, "combat_drug_toughness_bonus", 0))
+        _effective_toughness = target.profile.toughness + _drug_toughness
+        wound_p = wound_probability(strength, _effective_toughness)
         wound_target = _prob_to_target(wound_p)
 
         # ---- 10e core-rules modifier cap (Wahapedia core rules / Hit Roll &
@@ -1133,19 +1214,53 @@ class Unit:
                 pass
 
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # The army picks an imperative each Command phase; one mode gets
-        # +1 to hit, the opposite mode gets -1 to hit. Cited as
-        # `simulator.doctrina_imperatives`. Faction-gated on the attacker.
+        # MR-D (claude/sim-calibration-5): rewritten to match the published
+        # rule. The 10e rule is BUFF-ONLY — there is no -1-to-hit penalty
+        # side; the prior implementation that gave +1 to one mode and -1 to
+        # the other was a fabrication (caught during the MR audit). Real
+        # rule (Wahapedia
+        # https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/):
+        #   Protector: "Improve the Ballistic Skill characteristic of ranged
+        #     weapons equipped by models in this unit by 1." (Heavy keyword
+        #     uplift on ranged weapons skipped — the simulator does not track
+        #     stationary state. The defensive -1 to be hit in melee is
+        #     applied below in the defender block.)
+        #   Conqueror: "Improve the Weapon Skill characteristic of melee
+        #     weapons equipped by models in this unit by 1." (Assault keyword
+        #     uplift on ranged weapons skipped — Advance-and-shoot is not
+        #     a feature the simulator models. The +1 AP for battleline-
+        #     adjacent attacks is applied below in the AP block.)
+        # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate is
+        # approximated as army-wide here: most AdMech infantry are Skitarii
+        # BATTLELINE and the simulator's abstracted positioning does not
+        # resolve 6" aura adjacency for non-battleline support units.
+        # Faction-gated on the attacker. Cited as
+        # `simulator.doctrina_imperatives`.
         if p.faction == "Adeptus Mechanicus":
             own_army = getattr(self, "army_ref", None)
             imperative = (
                 getattr(own_army, "doctrina_imperative", None)
                 if own_army is not None else None
             )
-            if imperative == "protector":
-                hit_mod_delta += 1 if mode != "melee" else -1
-            elif imperative == "conqueror":
-                hit_mod_delta += 1 if mode == "melee" else -1
+            if imperative == "protector" and mode != "melee":
+                hit_mod_delta += 1
+            elif imperative == "conqueror" and mode == "melee":
+                hit_mod_delta += 1
+
+        # ---- Doctrina Imperatives — Protector defensive side. When the
+        # TARGET unit is Adeptus Mechanicus and the active imperative is
+        # Protector, melee attacks against it take -1 to Hit. Real-rule
+        # gate is BATTLELINE or within 6" of friendly AdMech BATTLELINE;
+        # approximated army-wide here for the reasons in the attacker
+        # block above. Cited as `simulator.doctrina_imperatives`.
+        if mode == "melee" and target.profile.faction == "Adeptus Mechanicus":
+            _tgt_army_di = getattr(target, "army_ref", None)
+            _tgt_imp_di = (
+                getattr(_tgt_army_di, "doctrina_imperative", None)
+                if _tgt_army_di is not None else None
+            )
+            if _tgt_imp_di == "protector":
+                hit_mod_delta -= 1
 
         # ---- Heavy keyword: +1 to hit when shooting and the attacker did
         # NOT move this round. Melee never benefits.
@@ -1345,6 +1460,29 @@ class Unit:
             att_reroll_all_hits = True
             att_reroll_all_wounds = True
 
+        # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
+        # rule lets the controller pick one Quality at battle start; the
+        # "martial valour" Quality (Wahapedia verbatim, https://wahapedia.ru/
+        # wh40k10ed/factions/imperial-knights/): "Each time this model is
+        # selected to shoot or fight, you can re-roll one Hit roll and you
+        # can re-roll one Wound roll." SwegHammer models the army rule by
+        # always taking the martial-valour pick (the offensive Quality —
+        # the other two Qualities are movement / objective-OC bumps the sim
+        # cannot express). APPROXIMATION: "re-roll one die of choice" is
+        # mapped to "re-roll natural 1s" — strictly weaker (re-roll one is
+        # ~+0.17 vs +0.5 for re-roll-of-choice on a 3+/4+ swing), erring on
+        # the under-buff side per the SC5 audit's preference against
+        # fabricated upbuffs. Faction-gated to Imperial Knights so Chaos
+        # Knights (whose army rule is Harbingers of Dread, a battle-shock
+        # aura the sim does not yet track) is untouched.
+        # Cited as `simulator.code_chivalric`.
+        if (
+            own_army is not None
+            and (p.faction or "") == "Imperial Knights"
+        ):
+            att_reroll_hit_ones = True
+            att_reroll_wound_ones = True
+
         # Fire and Fade (Aeldari Warhost stratagem) — transient
         # re-roll hit rolls of 1 on shooting attacks for the round.
         att_reroll_hits_shooting_ones = (
@@ -1375,6 +1513,30 @@ class Unit:
                 battle = getattr(own_army, "_battle_ref", None)
                 cur_round = getattr(battle, "_current_round", 0) if battle else 0
                 if bt_round is not None and bt_round == cur_round:
+                    effective_lethal_hits = True
+
+        # ---- World Eaters Blessings of Khorne (10e army rule) — Warp
+        # Blades grants army-wide melee LETHAL HITS for the battle round.
+        # Gate: mode == "melee" AND attacker faction == "World Eaters"
+        # AND the army's `blessings_warp_blades_round` stamp matches the
+        # current battle round. Composes with `p.lethal_hits` via OR.
+        # Cited as `simulator.blessings_of_khorne`.
+        if (
+            mode == "melee"
+            and p.faction == "World Eaters"
+            and not effective_lethal_hits
+        ):
+            _own_army_bok = getattr(self, "army_ref", None)
+            if _own_army_bok is not None:
+                _wb_round = getattr(
+                    _own_army_bok, "blessings_warp_blades_round", None,
+                )
+                _battle_bok = getattr(_own_army_bok, "_battle_ref", None)
+                _cur_round_bok = (
+                    getattr(_battle_bok, "_current_round", 0)
+                    if _battle_bok is not None else 0
+                )
+                if _wb_round is not None and _wb_round == _cur_round_bok:
                     effective_lethal_hits = True
 
         # ---- T'au Empire Markerlights → Guided (10e army-wide army rule).
@@ -1484,6 +1646,29 @@ class Unit:
                 if (_det is not None
                         and getattr(_det, "melee_sustained_hits_army_wide", False)
                         and getattr(_det, "faction", None) == p.faction):
+                    effective_sustained_hits += 1
+
+        # ---- World Eaters Blessings of Khorne (10e army rule) — Martial
+        # Excellence grants army-wide melee SUSTAINED HITS 1 for the
+        # battle round. Gate: mode == "melee" AND attacker faction ==
+        # "World Eaters" AND the army's
+        # `blessings_martial_excellence_round` stamp matches the live
+        # battle round. Stacks additively with any per-weapon
+        # `melee_sustained_hits` already on the profile, matching the
+        # WAR_HORDE compositional convention. Cited as
+        # `simulator.blessings_of_khorne`.
+        if mode == "melee" and p.faction == "World Eaters":
+            _own_army_me = getattr(self, "army_ref", None)
+            if _own_army_me is not None:
+                _me_round = getattr(
+                    _own_army_me, "blessings_martial_excellence_round", None,
+                )
+                _battle_me = getattr(_own_army_me, "_battle_ref", None)
+                _cur_round_me = (
+                    getattr(_battle_me, "_current_round", 0)
+                    if _battle_me is not None else 0
+                )
+                if _me_round is not None and _me_round == _cur_round_me:
                     effective_sustained_hits += 1
 
         # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
@@ -1608,6 +1793,23 @@ class Unit:
                         sub = own_army.pop_fate_die_meeting(hit_target)
                         if sub is not None:
                             roll = sub
+                # Adepta Sororitas Acts of Faith — Miracle Dice
+                # substitution on a failed Hit roll. Mirrors the Strands
+                # of Fate branch above: if the attacker is a Sororitas
+                # model and the natural roll missed, pop the lowest
+                # banked die that still hits. The greedy heuristic only
+                # spends when the substitution converts miss -> hit.
+                # Cited as `simulator.acts_of_faith`. Wahapedia:
+                # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+                if (
+                    roll < hit_target
+                    and p.faction == "Adepta Sororitas"
+                ):
+                    own_army = getattr(self, "army_ref", None)
+                    if own_army is not None and own_army.has_miracle_dice():
+                        sub = own_army.pop_miracle_die_meeting(hit_target)
+                        if sub is not None:
+                            roll = sub
                 if roll < hit_target:
                     continue   # missed
                 # Crit-to-hit threshold defaults to 6 (canonical 10e); the
@@ -1677,6 +1879,22 @@ class Unit:
                         crit_wound = True
                     else:
                         crit_wound = False
+                # Adepta Sororitas Acts of Faith — Miracle Dice
+                # substitution on a failed Wound roll. Same greedy
+                # heuristic as the hit-roll branch: only spend a banked
+                # die if it converts fail -> success. Cited as
+                # `simulator.acts_of_faith`.
+                if (
+                    not wound_succeeded
+                    and p.faction == "Adepta Sororitas"
+                ):
+                    own_army = getattr(self, "army_ref", None)
+                    if own_army is not None and own_army.has_miracle_dice():
+                        sub = own_army.pop_miracle_die_meeting(wound_target)
+                        if sub is not None:
+                            wroll = sub
+                            wound_succeeded = True
+                            crit_wound = (wroll == 6)
                 if not wound_succeeded:
                     continue
 
@@ -1702,6 +1920,19 @@ class Unit:
                         tgt_army = getattr(target, "army_ref", None)
                         if tgt_army is not None and tgt_army.has_fate_dice():
                             sub = tgt_army.pop_fate_die_meeting(save_target)
+                            if sub is not None:
+                                sroll = sub
+                    # Adepta Sororitas Acts of Faith — defensive Miracle
+                    # Dice substitution on a failed save. Same greedy
+                    # heuristic — only spend if it flips fail -> save.
+                    # Cited as `simulator.acts_of_faith`.
+                    if (
+                        sroll < save_target
+                        and target.profile.faction == "Adepta Sororitas"
+                    ):
+                        tgt_army = getattr(target, "army_ref", None)
+                        if tgt_army is not None and tgt_army.has_miracle_dice():
+                            sub = tgt_army.pop_miracle_die_meeting(save_target)
                             if sub is not None:
                                 sroll = sub
                     if sroll >= save_target:

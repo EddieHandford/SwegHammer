@@ -409,7 +409,27 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # standard as Captain / Autarch / Avatar of Khaine.
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Trajann-Valoris
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Blade-Champion
-    ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0, plus_one_to_hit=True,
+    # SC5-3 (claude/sim-calibration-5): drop fabricated `plus_one_to_hit=True`
+    # on Trajann's Auric Sage. BSData cache (`Imperium - Adeptus Custodes.cat.gz`,
+    # profile "Captain-General") verbatim text: "While this model is leading a
+    # unit, each time a model in that unit makes an attack, you can ignore any
+    # or all modifiers to that attack's Ballistic Skill or Weapon Skill
+    # characteristics and/or all modifiers to the Hit roll." This is a
+    # modifier-CANCELLATION ability (negates -1-to-hit auras / Heavy penalties /
+    # battle-shock penalties), not a flat +1-to-hit uplift. SwegHammer does not
+    # model hit-modifier penalties on the attack side either, so the correct
+    # net effect of Captain-General in this sim is approximately zero offensive
+    # contribution. The prior `plus_one_to_hit=True` was self-flagged in the
+    # leaders.json citation as an "upper-bound flavour proxy" and was stacking
+    # on top of BS2+ Custodes (already 5/6 to hit) — a strictly-stronger-than-
+    # codex over-modelling that was contributing to the +31pt Custodes outlier
+    # vs the May 2026 Warp Friends meta. The entry is retained (with no
+    # offensive aura field) so lookup_ability resolves cleanly per CLAUDE.md
+    # §13 (fail-loud-on-missing-data) and so host-key gates that require "the
+    # led unit has a CHARACTER attached" continue to verify. Same iter21
+    # fabrication-removal standard as Blade Champion (line below), Captain,
+    # Autarch, Avatar of Khaine. Stage 1 calibration: matches sim to codex.
+    ("Trajann Valoris",    LeaderAbility(name="Auric Sage",                 aura_range=6.0,
                                           host_keys=("adeptus_custodes_custodian_guard",
                                                      "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
                                                      "adeptus_custodes_custodian_wardens"))),

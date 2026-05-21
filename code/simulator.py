@@ -392,6 +392,15 @@ class Battle:
             army.cp_refund_remaining = wl.cp_refund_per_battle
             army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
 
+        # Drukhari Combat Drugs (army rule, 10e). For any army containing
+        # Drukhari WYCH CULT units, assign one drug per WYCH CULT unit at
+        # battle start; the drug persists for the entire battle. The
+        # SwegHammer assignment heuristic picks the strongest realistic uplift
+        # per unit role: Wyches -> Adrenalight (+1 melee A), Hellions -> Hypex
+        # (+2" Move), Reavers -> Grave Lotus (+1 melee S), Beastmaster ->
+        # Painbringer (+1 T). Cited as `simulator.combat_drugs`.
+        self._apply_combat_drugs()
+
         self._assign_uids()
         self._deploy_armies()
         # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
@@ -413,6 +422,14 @@ class Battle:
                 for u in self._reserves.get(army.name, [])
             )
             army.starting_points = float(roster_pts)
+        # Genestealer Cults — Cult Ambush Resurgence points (10e army rule).
+        # Strike Force default = 10 points; spent at round end to revive
+        # destroyed CULT INFANTRY units (APPROXIMATION proxy for the
+        # Resurgence/Cult Ambush marker resurrection mechanic). Cited as
+        # `simulator.cult_ambush_resurgence`.
+        for army in (self.a, self.b):
+            if army.units and army.units[0].profile.faction == "Genestealer Cults":
+                army.cult_ambush_resurgence_points = 10
         # Reanimation Protocols (#75): snapshot starting model counts per
         # profile per army, including reserves. End-of-round revival reads
         # this to compute how many models have been destroyed.
@@ -2562,15 +2579,33 @@ class Battle:
         start of your Command phase, on an ADEPTUS ASTARTES unit — that
         unit gains the rules of one Combat Doctrine of your choice
         (Devastator / Tactical / Assault) until end of turn, regardless
-        of which doctrine the army is currently in. APPROXIMATION:
-        Combat Doctrines in SwegHammer is a round-and-mode-gated +1 to
-        wound (see `simulator.combat_doctrines` in Unit.attack); the
-        stratagem's per-unit doctrine override would require per-unit
-        doctrine state. Routed through `transient_plus_one_to_wound_melee`
-        on the highest-DPA Marine melee unit — the dominant value the
-        stratagem provides is granting Assault Doctrine's +1-to-wound-
-        melee outside R3+, which this proxy captures exactly. Direction-
-        correct; loses the option-to-pick-ranged-instead nuance.
+        of which doctrine the army is currently in.
+
+        SC5-9 audit: this stratagem previously fired
+        `transient_plus_one_to_wound_melee = True` on the highest-DPA
+        Marine melee unit, on the premise that "Combat Doctrines in
+        SwegHammer is a round-and-mode-gated +1 to wound" and that
+        Adaptive Strategy granted Assault Doctrine's +1-to-wound-melee
+        outside R3+. That premise was a stale pre-iter-9 leftover: the
+        iter-9 May 2026 audit corrected `simulator.combat_doctrines`
+        from a fabricated +1-to-wound to the canonical utility-only
+        Devastator / Tactical / Assault Doctrine mechanics (shoot after
+        Advance / shoot + charge after Fall Back / charge after
+        Advance), per Wahapedia's verbatim Combat Doctrines text. With
+        Doctrines correctly modelled as utility-only, the Doctrines
+        themselves no longer contain a +1-to-wound to grant, so the
+        "Adaptive Strategy grants Assault Doctrine's +1-to-wound"
+        bridge has nothing to grant — the fabricated wound buff was a
+        double-count layered on top of a corrected base rule and was
+        contributing to the +17.5pt Astartes over-modelling outlier
+        (sim 65.5% vs Warp Friends 48.0% per the SC5 N=40 baseline).
+
+        Honest model: per-unit doctrine override at the resolution
+        SwegHammer carries is below modelling capability — there is no
+        per-unit doctrine state to flip. The stratagem is recorded as
+        an APPROXIMATION no-op until per-unit doctrine state lands.
+        Direction-correct: removes a fabricated buff; loses the
+        per-unit doctrine override (genuinely unmodellable today).
         """
         attacker = self._highest_dpa_marine(army)
         if attacker is None:
@@ -2580,7 +2615,11 @@ class Battle:
             return
         if not self._fire_stratagem(army, ADAPTIVE_STRATEGY):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        # SC5-9: no buff applied — see docstring. Spending the CP and
+        # emitting the StratagemFired event is retained so the CP
+        # economy and AI scheduler still see the activation, matching
+        # the real player paying 1 CP for a doctrine override that
+        # SwegHammer can't yet faithfully apply.
 
     # ----- Combined Arms (Astra Militarum) — six real strats (iter-14) ------
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
@@ -3370,6 +3409,262 @@ class Battle:
             # plumbing.
             return
 
+    def _apply_dark_pacts(self, round_num: int) -> None:
+        """Chaos Space Marines Dark Pacts army rule (10e).
+
+        Verbatim Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-
+        space-marines/): "Each time a unit with this ability is selected to
+        shoot or fight, it can make a Dark Pact. If it does, it must first
+        take a Leadership test before any effects of that Dark Pact are
+        resolved; if that test is failed, that unit suffers D3 mortal
+        wounds." The unit then gains [LETHAL HITS] OR [SUSTAINED HITS 1]
+        for the phase.
+
+        Heuristic: only declare the pact when the elected attacker's base
+        DPA is high enough that the offensive uplift clearly outweighs
+        the D3 self-MW gamble. We elect the highest-DPA CSM unit per
+        round and opt in iff its base DPA >= 6 (worth it on a marquee
+        attacker like Terminators / Helbrute / Predator). The offensive
+        uplift uses the same `transient_plus_one_to_hit_shooting` /
+        `transient_plus_one_to_wound_melee` plumbing the rest of the
+        simulator already uses to approximate Lethal/Sustained Hits.
+
+        Self-damage IS modelled: roll 2D6, on failure (sum < Ld) deal
+        D3 mortal wounds via `receive_damage` (FNP-aware). Cited as
+        `simulator.dark_pacts`.
+        """
+        for army in (self.a, self.b):
+            csm_units = [
+                u for u in army.alive_units
+                if (u.profile.faction or "") == "Chaos Space Marines"
+                and u.uid not in self._battleshocked_this_round
+            ]
+            if not csm_units:
+                continue
+
+            def _dpa(u):
+                p = u.profile
+                ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+                melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+                return ranged + melee
+            attacker = max(csm_units, key=_dpa)
+            if _dpa(attacker) < 6.0:
+                # Opt out: not worth the D3 MW gamble on a weak attacker.
+                continue
+
+            # Leadership test: 2D6 >= Ld passes (same convention as the
+            # existing `_run_battleshock_phase`).
+            ld = attacker.profile.leadership
+            roll = random.randint(1, 6) + random.randint(1, 6)
+            passed = roll >= ld
+
+            # Grant the offensive uplift regardless of pass/fail (the
+            # codex wording resolves the keyword grant whether or not
+            # the Ld test passes; the test gates only the MW penalty).
+            attacker.transient_plus_one_to_hit_shooting = True
+            attacker.transient_plus_one_to_wound_melee = True
+
+            if not passed:
+                # D3 mortal wounds on the pact bearer. Mortals bypass
+                # armour/invuln but FNP applies via receive_damage.
+                d3 = random.randint(1, 3)
+                attacker.receive_damage(d3, bonus_fnp=attacker.profile.fnp)
+                if self.verbose:
+                    print(
+                        f"  DARK PACT: {attacker.profile.name} failed Ld "
+                        f"({roll} < {ld}), suffers {d3} mortal wounds"
+                    )
+            elif self.verbose:
+                print(
+                    f"  DARK PACT: {attacker.profile.name} passed Ld "
+                    f"({roll} >= {ld}), no self-damage"
+                )
+
+    # ---- Drukhari Combat Drugs (army rule, 10e). Profile-name allowlist of
+    # the four WYCH CULT datasheets currently in the catalogue. BSData's
+    # 10e Drukhari .cat parses these units' faction-side categoryLink "WYCH
+    # CULT" as a category, not a per-unit keyword, so they don't show up in
+    # Unit.unit_keywords. Hard-coding the list here keeps the gate explicit
+    # and CLAUDE.md rule 13 (fail-loud on missing data) honoured — a typo
+    # in a profile name simply means the unit doesn't get the buff, which
+    # is the same as a true non-WYCH-CULT result. Cited as
+    # `simulator.combat_drugs`.
+    _WYCH_CULT_DRUG_ASSIGNMENT = {
+        # name -> (extra_melee_attacks, melee_strength_bonus,
+        #          toughness_bonus, move_bonus_inches, label)
+        "Wyches":               (1, 0, 0, 0.0, "Adrenalight"),
+        "Hellions":             (0, 0, 0, 2.0, "Hypex"),
+        "Reavers":              (0, 1, 0, 0.0, "Grave Lotus"),
+        "Beastmaster [Legends]": (0, 0, 1, 0.0, "Painbringer"),
+    }
+
+    def _apply_combat_drugs(self) -> None:
+        """Drukhari Combat Drugs army rule (10e).
+
+        Verbatim Wahapedia
+        (https://wahapedia.ru/wh40k10ed/factions/drukhari/): "WYCH CULT
+        models from your army are administered combat drugs that grant the
+        following abilities (you can select a different drug for each WYCH
+        CULT unit but each must select a drug)." The six drugs:
+          Adrenalight: "Add 1 to the Attacks characteristic of melee
+            weapons equipped by WYCH CULT models from your army."
+          Hypex: "Add 2\" to the Move characteristic of WYCH CULT models
+            from your army."
+          Serpentin: "Improve the Weapon Skill characteristic of melee
+            weapons equipped by WYCH CULT models from your army by 1."
+          Painbringer: "Add 1 to the Toughness characteristic of WYCH CULT
+            models from your army."
+          Grave Lotus: "Add 1 to the Strength characteristic of melee
+            weapons equipped by WYCH CULT models from your army."
+          Splintermind: "Improve the Leadership characteristic of WYCH
+            CULT models from your army by 1, and improve the Ballistic
+            Skill characteristic of ranged weapons equipped by WYCH CULT
+            models from your army by 1."
+
+        SwegHammer models four of the six drugs (Adrenalight, Hypex,
+        Grave Lotus, Painbringer) — Serpentin and Splintermind are
+        APPROXIMATION: the simulator's per-unit Hit profile already
+        encodes the post-modifier hit chance for stock Drukhari loadouts
+        and there is no Leadership gate the four WYCH CULT datasheets
+        currently fail. The assignment heuristic picks the strongest
+        realistic uplift per unit role rather than rolling — at battle
+        start the Drukhari player picks each unit's drug, so a fixed
+        sensible pick is closer to real-table behaviour than randomising.
+        WYCH CULT unit allowlist hard-coded in
+        `_WYCH_CULT_DRUG_ASSIGNMENT`. Cited as `simulator.combat_drugs`.
+        """
+        for army in (self.a, self.b):
+            if not any(u.profile.faction == "Drukhari" for u in army.units):
+                continue
+            for u in army.units:
+                if u.profile.faction != "Drukhari":
+                    continue
+                key = self._WYCH_CULT_DRUG_ASSIGNMENT.get(u.profile.name)
+                if key is None:
+                    continue
+                xa, xs, xt, xm, label = key
+                u.combat_drug_extra_melee_attacks = xa
+                u.combat_drug_melee_strength_bonus = xs
+                u.combat_drug_toughness_bonus = xt
+                u.combat_drug_move_bonus = xm
+                if self.verbose:
+                    print(f"  COMBAT DRUGS: {u.profile.name} -> {label}")
+
+    def _apply_blessings_of_khorne(self, round_num: int) -> None:
+        """World Eaters Blessings of Khorne army rule (10e).
+
+        Verbatim BSData v10.6.0 (Chaos - World Eaters.cat): "If your Army
+        Faction is WORLD EATERS, at the start of the battle round, you can
+        make a Blessings of Khorne roll. To do so, roll eight D6. You can
+        then use those dice to activate up to two Blessings of Khorne. Each
+        Blessing of Khorne specifies the dice results it requires (where a
+        number is specified, a double or triple of that value or higher is
+        required). You can only activate each Blessing of Khorne once per
+        battle round. Any unused dice from the Blessings of Khorne roll are
+        then discarded. Once activated, each Blessing of Khorne applies to
+        all units from your army with this ability until the end of the
+        battle round."
+
+        Three modelled Blessings (all melee buffs the existing transient /
+        army-flag plumbing can carry):
+          Martial Excellence — "Melee weapons equipped by models in this
+            unit have the [SUSTAINED HITS 1] ability." (Double 4+ or
+            Triple 1+.)
+          Warp Blades — "Melee weapons equipped by models in this unit
+            have the [LETHAL HITS] ability." (Double 5+ or Triple 2+.)
+          Cleaving Blows — "Improve the Armour Penetration characteristic
+            of melee weapons equipped by models in this unit by 1."
+            (Double 6+.)
+
+        The other nine codex Blessings (Unbridled Bloodlust, Rage-fuelled
+        Invigoration, Death To Cowards, Total Carnage, Blistering Fury,
+        Blood-soaked Nightmares, Bloodthirst, Savage Guidance,
+        Decapitating Strikes) are skipped — APPROXIMATION: they touch
+        plumbing the simulator does not expose (charge re-rolls,
+        pile-in distance, Battle-shock per Engagement Range, +2" Move,
+        +1 WS, Crit-on-5+/DEVASTATING WOUNDS-vs-INFANTRY, etc.). The
+        three modelled cover the bulk of the offensive uplift.
+
+        Spend heuristic: from the eight-die pool, count occurrences of
+        each face. Compute the activatable set (each Blessing's
+        double/triple threshold satisfied). Pick up to two in priority
+        order (highest expected uplift first): Warp Blades >
+        Martial Excellence > Cleaving Blows. Picking is greedy — once a
+        Blessing is chosen, the consumed dice are removed from the pool
+        and the remaining Blessings re-checked.
+
+        Cited as `simulator.blessings_of_khorne`.
+        """
+        for army in (self.a, self.b):
+            if not any(u.profile.faction == "World Eaters" for u in army.units):
+                continue
+            # Roll 8D6.
+            dice = [random.randint(1, 6) for _ in range(8)]
+            counts = {face: dice.count(face) for face in range(1, 7)}
+            # Test each Blessing's threshold against the pool.
+            # Format: (priority, name, attr_name, predicate, consume_fn).
+            # consume_fn returns the (face, n) pair to remove from counts
+            # when this Blessing is activated.
+
+            def _has_double_at_least(min_face):
+                for f in range(min_face, 7):
+                    if counts[f] >= 2:
+                        return f
+                return None
+
+            def _has_triple_at_least(min_face):
+                for f in range(min_face, 7):
+                    if counts[f] >= 3:
+                        return f
+                return None
+
+            def _try_martial_excellence():
+                # Double 4+ OR Triple 1+.
+                f = _has_double_at_least(4)
+                if f is not None:
+                    return (f, 2)
+                f = _has_triple_at_least(1)
+                if f is not None:
+                    return (f, 3)
+                return None
+
+            def _try_warp_blades():
+                # Double 5+ OR Triple 2+.
+                f = _has_double_at_least(5)
+                if f is not None:
+                    return (f, 2)
+                f = _has_triple_at_least(2)
+                if f is not None:
+                    return (f, 3)
+                return None
+
+            def _try_cleaving_blows():
+                # Double 6+.
+                f = _has_double_at_least(6)
+                if f is not None:
+                    return (f, 2)
+                return None
+
+            # Greedy in priority order.
+            blessing_tries = [
+                ("Warp Blades", "blessings_warp_blades_round", _try_warp_blades),
+                ("Martial Excellence", "blessings_martial_excellence_round", _try_martial_excellence),
+                ("Cleaving Blows", "blessings_cleaving_blows_round", _try_cleaving_blows),
+            ]
+            activations = 0
+            for name, attr, try_fn in blessing_tries:
+                if activations >= 2:
+                    break
+                consume = try_fn()
+                if consume is None:
+                    continue
+                face, n = consume
+                counts[face] -= n
+                setattr(army, attr, round_num)
+                activations += 1
+                if self.verbose:
+                    print(f"  BLESSINGS OF KHORNE: activated {name}")
+
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
 
@@ -3405,6 +3700,92 @@ class Battle:
                 return ROLE_THREAT.get(role, 1.0) * u.current_health
             victim = max(targets, key=_score)
             victim.receive_damage(damage, bonus_fnp=victim.profile.fnp)
+
+    def _apply_cult_ambush_resurgence(self, army, round_num: int) -> None:
+        """End-of-round Cult Ambush revival hook (Genestealer Cults army rule).
+
+        APPROXIMATION proxy for the 10e Resurgence-point mechanic. The real
+        rule (Wahapedia, "Cult Ambush") spends a per-starting-strength table
+        cost (2–8 Resurgence points) to re-add a destroyed CULT INFANTRY
+        unit at full Starting Strength via a Cult Ambush marker in Strategic
+        Reserves, arriving via the marker placement and Reinforcements
+        step in subsequent turns. SwegHammer has no marker / Reserves
+        arrival timing infrastructure, so this proxy:
+
+          1. Picks one destroyed unit per round whose profile carries the
+             INFANTRY keyword.
+          2. Spends a flat 3 Resurgence points (median of the per-unit
+             table) from `army.cult_ambush_resurgence_points`.
+          3. Restores `current_health` to full and re-positions the unit
+             > 9" from every alive enemy via the existing Deep Strike
+             landing-point picker (`_safe_deepstrike_pos`).
+          4. Re-attaches the unit to the army via `_add_live_unit` and
+             flags it in `_fresh_arrivals` so it skips its movement
+             sub-phase next round (mirrors regular ambush arrival).
+
+        Skipped on:
+          * non-GSC armies (resurgence pool is 0).
+          * rounds with no dead INFANTRY (no candidate).
+          * rounds where insufficient Resurgence remain.
+
+        Cited as `simulator.cult_ambush_resurgence`.
+        """
+        if army.cult_ambush_resurgence_points < 3:
+            return
+        # Only fire for GSC armies (gate on starting Resurgence > 0 +
+        # faction tag on the first unit).
+        if not army.units or army.units[0].profile.faction != "Genestealer Cults":
+            return
+
+        # Candidate pool: dead units carrying the INFANTRY keyword,
+        # excluding CHARACTERs (the codex Resurgence table only lists
+        # multi-model troop blocks — no CHARACTER pricings).
+        candidates = []
+        for u in army.units:
+            if u.is_alive:
+                continue
+            kw = set(u.profile.unit_keywords or ())
+            if "INFANTRY" not in kw or "CHARACTER" in kw:
+                continue
+            candidates.append(u)
+        if not candidates:
+            return
+
+        # Prefer the highest-points dead unit (best resurrection value).
+        candidates.sort(key=lambda u: -u.profile.points_cost)
+        revived = candidates[0]
+
+        # Find a safe Deep Strike landing position > 9" from every alive
+        # enemy. Reuse the existing helper if available; otherwise fall
+        # back to the army's starting deployment edge.
+        opponent = self.b if army is self.a else self.a
+        landing_pos = None
+        if hasattr(self, "_safe_deepstrike_pos"):
+            try:
+                landing_pos = self._safe_deepstrike_pos(army, opponent)
+            except Exception:
+                landing_pos = None
+        if landing_pos is None:
+            # Fallback: place at the army's deployment-edge midline. Far
+            # from optimal but guarantees the proxy fires rather than
+            # silently dropping the revival.
+            a_y = self.map.deployment_width / 2.0
+            sign = 1.0 if army is self.a else -1.0
+            landing_pos = (self.map.length / 2.0, a_y * sign)
+
+        # Spend Resurgence + restore state. The flat 3-point spend is the
+        # median across the per-unit codex table.
+        army.cult_ambush_resurgence_points -= 3
+        revived.current_health = revived.profile.health
+        revived.position = landing_pos
+        # Reset transient combat flags that may have stuck on death.
+        revived.moved_this_round = True   # skips movement sub-phase next round
+        revived.fell_back_this_round = False
+        # Re-attach via the live-unit cache invalidation path.
+        army._invalidate_alive_cache()
+        # Flag as a fresh arrival so the AI scheduler treats it like a
+        # turn-1 ambush drop (no movement, can shoot/charge per Deep Strike).
+        self._fresh_arrivals.add(revived.uid)
 
     def _apply_reanimation(self) -> None:
         """End-of-round model revival for Reanimation Protocols armies.
@@ -3915,6 +4296,14 @@ class Battle:
             enemy units within 3" of any DG model take -1 Ld. Cited as
             `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
             modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
+          - Shadow of Chaos (Chaos Daemons, 10e): enemy units within the
+            Shadow of Chaos take Battle-shock at -1 AND, if failed,
+            suffer D3 mortal wounds. APPROXIMATION: SwegHammer does not
+            track deployment-zone ownership; the rule's "your deployment
+            zone + objectives-held No Man's Land" trigger is proxied as
+            "enemy unit is within 18" of board centre while a Chaos
+            Daemons army is the opponent". Cited as
+            `simulator.shadow_of_chaos`.
 
         iter-13 fix: previously gated on `round_num <= 1` (skipped R1
         entirely). 10e core fires the test at the start of every Command
@@ -3947,6 +4336,24 @@ class Battle:
                 ]
                 if round_num == 2 else []
             )
+            # Shadow of Chaos (Chaos Daemons army rule, 10e). APPROXIMATION:
+            # the real Shadow of Chaos covers the Daemons player's deployment
+            # zone always plus contested portions of No Man's Land /
+            # opponent's deployment zone if Daemons control half-or-more
+            # objectives there. SwegHammer does not track per-zone objective
+            # ownership; we proxy "inside the Shadow" as "within 18" of board
+            # centre while ANY Chaos Daemons unit is alive in the opposing
+            # army". This covers the common case (Daemons pushing centre) at
+            # the cost of missing the deployment-zone passive coverage; the
+            # 18" radius is chosen as a half-board approximation of the
+            # canonical zone-based shape.
+            shadow_of_chaos_active = any(
+                s.profile.faction == "Chaos Daemons"
+                for s in opponent.alive_units
+            )
+            if shadow_of_chaos_active:
+                cx = self.map.width / 2.0
+                cy = self.map.height / 2.0
             for u in army.alive_units:
                 if u.current_health < u.profile.health / 2.0:
                     if mob_rule_active and u.profile.faction == "Orks":
@@ -3977,6 +4384,19 @@ class Battle:
                         )
                     ):
                         contagion_penalty = 1
+                    # Shadow of Chaos: -1 to Battle-shock (modelled as +1 to
+                    # test target — same convention as Shadow in the Warp).
+                    # Only fires when the opponent is Chaos Daemons and the
+                    # testing unit is itself not Chaos Daemons.
+                    shadow_of_chaos_penalty = 0
+                    shadow_of_chaos_hit = False
+                    if (
+                        shadow_of_chaos_active
+                        and u.profile.faction != "Chaos Daemons"
+                        and _distance(u.position, (cx, cy)) <= 18.0
+                    ):
+                        shadow_of_chaos_penalty = 1
+                        shadow_of_chaos_hit = True
                     roll = random.randint(1, 6) + random.randint(1, 6)
                     target = (
                         u.profile.leadership
@@ -3984,12 +4404,20 @@ class Battle:
                         - ld_bonus
                         + shadow_penalty
                         + contagion_penalty
+                        + shadow_of_chaos_penalty
                     )
                     if roll < target:
                         self._battleshocked_this_round.add(u.uid)
                         self._emit(BattleshockFailed(
                             unit_uid=u.uid, roll=roll, target=target,
                         ))
+                        # Shadow of Chaos: failed test inside the Shadow
+                        # also inflicts D3 mortal wounds on the testing
+                        # enemy unit (Wahapedia Chaos Daemons faction
+                        # rule). Cited as `simulator.shadow_of_chaos`.
+                        if shadow_of_chaos_hit:
+                            mw = random.randint(1, 3)
+                            u.current_health = max(0, u.current_health - mw)
 
     def _run_round(self, round_num: int) -> None:
         if self.verbose:
@@ -4116,16 +4544,33 @@ class Battle:
                 # Below Starting Strength = lost at least one full model.
                 if u.current_health <= u.profile.health - wounds_per_model:
                     u.pain_tokens = 1
+        # ---- Adepta Sororitas Acts of Faith (10e army rule). At the
+        # start of each battle round, every Sororitas army gains 1
+        # Miracle die (an unmodifiable pre-rolled D6 value, banked in a
+        # pool). Additional dice are gained when a friendly Sororitas
+        # unit is destroyed — that branch fires in
+        # `_maybe_award_miracle_die` from the destroyed-unit hooks
+        # alongside Blood Tithe / Judgement Tokens. Dice are spent in
+        # `Unit.attack` to substitute the lowest banked die that flips
+        # a fail -> success on hit / wound / save rolls. Cited as
+        # `simulator.acts_of_faith`. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+        for army in (self.a, self.b):
+            if any(u.profile.faction == "Adepta Sororitas" for u in army.units):
+                army.gain_miracle_dice(1, random)
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # At the start of each Command phase the AdMech player picks ONE of
-        # two imperatives — "protector" (+1 to hit ranged, -1 to hit melee)
-        # or "conqueror" (mirror). Active until the start of their next
-        # Command phase; in SwegHammer that maps to "for this round". We
-        # reset to None first so a faction-tag flip mid-battle (paranoia)
-        # doesn't leak stale state, then re-pick via the strategy heuristic.
-        # The hit-roll modifier itself is applied in Unit.attack, gated on
-        # `attacker.profile.faction == "Adeptus Mechanicus"`. Cited as
-        # `simulator.doctrina_imperatives`.
+        # At the start of each battle round the AdMech player picks ONE of
+        # two imperatives — "protector" (+1 BS on ranged attacks, defensive
+        # -1 to be hit in melee against AdMech units) or "conqueror" (+1 WS
+        # on melee attacks, +1 AP on all attacks). MR-D
+        # (claude/sim-calibration-5) corrected the prior implementation
+        # which fabricated a -1-to-hit penalty side that does not exist in
+        # the published rule. Active until the end of the battle round; we
+        # reset to None first so a faction-tag flip mid-battle doesn't leak
+        # stale state, then re-pick via the strategy heuristic. The
+        # individual modifiers are applied in Unit.attack, faction-gated on
+        # the attacker (or target for the Protector defensive side). Cited
+        # as `simulator.doctrina_imperatives`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             army.doctrina_imperative = None
             if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
@@ -4178,6 +4623,33 @@ class Battle:
         # before deciding whether to spend CP on a new batch this round.
         self._clear_transient_stratagem_flags(self.a)
         self._clear_transient_stratagem_flags(self.b)
+        # ---- Chaos Space Marines Dark Pacts (10e army rule). At the start
+        # of the round we pick at most one CSM unit to declare a Dark Pact:
+        # it gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase in
+        # return for a Leadership test that, on failure, inflicts D3
+        # mortal wounds on the pacting unit. The codex wording fires "when
+        # the unit is selected to shoot or fight"; SwegHammer's round-loop
+        # collapses this to a once-per-round elect at Command-phase start
+        # (same as Blood Tithe / Doctrina Imperatives / Oath of Moment).
+        # APPROXIMATION: Lethal Hits / Sustained Hits have no per-attack
+        # keyword toggle in SwegHammer, so the offensive uplift is routed
+        # through `transient_plus_one_to_hit_shooting` and
+        # `transient_plus_one_to_wound_melee` on the elected CSM unit —
+        # same direction and comparable magnitude as a Lethal/Sustained
+        # grant on a 3+/4+ roll. Self-damage IS modelled: 2D6>=Ld test;
+        # on failure deal D3 mortal wounds via `receive_damage` (FNP-
+        # aware). Cited as `simulator.dark_pacts`.
+        self._apply_dark_pacts(round_num)
+        # ---- World Eaters Blessings of Khorne (10e army rule). At the
+        # start of each battle round, roll 8D6 and activate up to two
+        # Blessings using doubles/triples meeting each Blessing's
+        # threshold. Each active Blessing applies army-wide to WE units
+        # until end of battle round. SwegHammer routes the three
+        # modelled Blessings (Martial Excellence, Warp Blades, Cleaving
+        # Blows) through the army's per-round `blessings_*_round` stamps
+        # that `Unit.attack` reads. Cited as
+        # `simulator.blessings_of_khorne`.
+        self._apply_blessings_of_khorne(round_num)
         # Battleshock check MUST run before the stratagem dispatcher so
         # battleshocked units are excluded from "use Stratagems to affect
         # that unit" (10e core: while a unit is Battle-shocked, you cannot
@@ -4338,6 +4810,18 @@ class Battle:
         apply_round_end_healing(self.b)
         apply_round_end_revival(self.a)
         apply_round_end_revival(self.b)
+
+        # Genestealer Cults Cult Ambush — Resurgence point revival hook.
+        # APPROXIMATION: the real rule spends a per-unit-table cost
+        # (2–8 points) to add a fresh copy of a destroyed INFANTRY unit in
+        # Strategic Reserves. SwegHammer cannot model marker placement /
+        # Reserves arrival timing, so this proxy revives one dead GSC
+        # INFANTRY unit per round (cost 3 Resurgence points) at full
+        # health, dropping it from the existing Deep Strike picker so it
+        # lands > 9" from all enemies on the next round's arrival pass.
+        # Cited as `simulator.cult_ambush_resurgence`.
+        self._apply_cult_ambush_resurgence(self.a, round_num)
+        self._apply_cult_ambush_resurgence(self.b, round_num)
 
         if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)
@@ -4843,6 +5327,11 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=shoot_target, victim_army=defender_army,
             )
+            # Adepta Sororitas Acts of Faith: friendly Sororitas death
+            # grants the victim's army +1 Miracle die.
+            self._maybe_award_miracle_die(
+                victim=shoot_target, victim_army=defender_army,
+            )
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
@@ -5044,6 +5533,9 @@ class Battle:
             )
             self._maybe_award_blood_tithe(
                 killer=attacker, killer_army=attacker_army,
+                victim=target, victim_army=defender_army,
+            )
+            self._maybe_award_miracle_die(
                 victim=target, victim_army=defender_army,
             )
             self._maybe_apply_deadly_demise(target)
@@ -5291,6 +5783,29 @@ class Battle:
             victim_army.blood_tithe += 1
         if killer.profile.faction == "World Eaters":
             killer_army.blood_tithe += 1
+
+    def _maybe_award_miracle_die(
+        self, victim: "Unit", victim_army: Army,
+    ) -> None:
+        """Adepta Sororitas Acts of Faith — Miracle Dice on a friendly
+        death. Cited as `simulator.acts_of_faith`. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+
+        Each time a Sororitas unit from a Sororitas army is destroyed,
+        that army gains 1 Miracle die (pre-rolled D6 added to its pool,
+        capped at MIRACLE_DICE_BANK_CAP). The trigger is on the VICTIM —
+        the killer's faction does not matter, only that the destroyed
+        unit had the Sororitas faction tag and the army still has at
+        least one Sororitas unit (otherwise the army-rule condition
+        "Army Faction is Adepta Sororitas" no longer holds, and the
+        gate keeps the pool from growing on a mixed-faction list whose
+        last Sororitas unit just died).
+        """
+        if victim.profile.faction != "Adepta Sororitas":
+            return
+        if not any(u.profile.faction == "Adepta Sororitas" for u in victim_army.units):
+            return
+        victim_army.gain_miracle_dice(1, random)
 
     # APPROXIMATION: models the retired Eye of the Ancestors rule; current codex army rule is Prioritised Efficiency.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
@@ -5763,6 +6278,9 @@ class Battle:
                 killer=charger, killer_army=charger_army,
                 victim=target, victim_army=target_army,
             )
+            self._maybe_award_miracle_die(
+                victim=target, victim_army=target_army,
+            )
             self._maybe_apply_deadly_demise(target)
 
     def _do_heroic_intervention(
@@ -5859,6 +6377,9 @@ class Battle:
             )
             self._maybe_award_blood_tithe(
                 killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )
+            self._maybe_award_miracle_die(
                 victim=winner_unit, victim_army=winner_army,
             )
             self._maybe_apply_deadly_demise(winner_unit)

@@ -1,67 +1,99 @@
 {
-  "_comment": "Rule citations for every 10e mechanic the simulator implements. CLAUDE.md §10 mandates an entry here for any Detachment flag set True, any LeaderAbility, any simulator-side gate, or any Stratagem effect. scripts/audit_rules.py walks the code and verifies every rule-bearing flag has an entry.",
-  "_schema": {
-    "source": "Canonical URL (Wahapedia preferred).",
-    "rule_name": "Short name the rule is known by in the codex.",
-    "quoted_text": "Verbatim from the source — include the trigger half.",
-    "trigger": "Plain-English when-it-fires.",
-    "effect": "Plain-English what-it-does.",
-    "scope": "army-wide / unit-led / character-only / phase-gated / keyword-gated / weapon-keyword"
-  },
   "AWAKENED_DYNASTY.bonus_to_hit_when_led": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
-    "rule_name": "Command Protocols",
-    "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
-    "trigger": "attacker's unit is being led by a friendly CHARACTER — approximated as: (a) at least one alive friendly CHARACTER is within its own aura_range of the attacker, AND (b) that CHARACTER's LeaderAbility.host_keys lists the attacker's UNIT_CATALOG key (i.e. the attachment is legal in 10e per the leader datasheet's Bodyguard list). The host-key gate prevents the +1 from firing on units that cannot be led (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths, Tomb Blades, Scarab Swarms, etc.).",
     "effect": "+1 to the Hit roll",
-    "scope": "unit-led"
+    "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
+    "rule_name": "Command Protocols",
+    "scope": "unit-led",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "trigger": "attacker's unit is being led by a friendly CHARACTER \u00e2\u20ac\u201d approximated as: (a) at least one alive friendly CHARACTER is within its own aura_range of the attacker, AND (b) that CHARACTER's LeaderAbility.host_keys lists the attacker's UNIT_CATALOG key (i.e. the attachment is legal in 10e per the leader datasheet's Bodyguard list). The host-key gate prevents the +1 from firing on units that cannot be led (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths, Tomb Blades, Scarab Swarms, etc.)."
+  },
+  "_comment": "Rule citations for every 10e mechanic the simulator implements. CLAUDE.md \u00c2\u00a710 mandates an entry here for any Detachment flag set True, any LeaderAbility, any simulator-side gate, or any Stratagem effect. scripts/audit_rules.py walks the code and verifies every rule-bearing flag has an entry.",
+  "_schema": {
+    "effect": "Plain-English what-it-does.",
+    "quoted_text": "Verbatim from the source \u00e2\u20ac\u201d include the trigger half.",
+    "rule_name": "Short name the rule is known by in the codex.",
+    "scope": "army-wide / unit-led / character-only / phase-gated / keyword-gated / weapon-keyword",
+    "source": "Canonical URL (Wahapedia preferred).",
+    "trigger": "Plain-English when-it-fires."
+  },
+  "simulator.acts_of_faith": {
+    "effect": "Gain 1 Miracle die at the start of each battle round, plus 1 each time a friendly Sororitas unit is destroyed; each die is a pre-rolled D6 banked in a pool. Before any d6 roll (Advance / Battle-shock / Charge / Damage / Hit / Saving throw / Wound) a unit with this ability may perform one Act of Faith per phase, substituting one banked die for ONE d6 of that roll (multi-die rolls only allow a single substitution). The substituted die is removed from the pool and counts as an unmodified roll of its banked value.",
+    "quoted_text": "If your Army Faction is Adepta Sororitas, each unit from your army with this ability can perform one Act of Faith per phase. This is done using Miracle dice. GAINING MIRACLE DICE If your Army Faction is Adepta Sororitas, you gain 1 Miracle dice: - At the start of each battle round. - Each time an Adepta Sororitas unit from your army is destroyed. Each time you gain a Miracle dice, roll one D6. The number you roll is the value of that Miracle dice. This value cannot be changed or re-rolled, unless a rule specifically states otherwise. Keep your Miracle dice to one side – this is your Miracle dice pool. PERFORMING AN ACT OF FAITH Before making a dice roll for a model or unit from your army with the Acts of Faith ability, if you have one or more dice in your Miracle dice pool, that unit can perform an Act of Faith. If it does, select one of the dice from your Miracle dice pool to substitute that dice roll (if a roll involves more than one dice, e.g. a Charge roll or Battle-shock test, only a single dice can be substituted). The dice that is being substituted is not rolled; instead the value of the selected Miracle dice is used as if it had been rolled (this counts as an unmodified dice roll of that value for all rules purposes). Each Miracle dice can only be selected for substitution once. Once all Miracle dice substitutions have been made, remove the chosen Miracle dice from your Miracle dice pool, and roll all remaining, unsubstituted dice that are a part of the dice roll. You can use Miracle dice when a unit performs an Act of Faith for any of the following types of dice roll: Advance roll, Battle-shock test, Charge roll, Damage roll, Hit roll, Saving throw, Wound roll.",
+    "rule_name": "Acts of Faith",
+    "scope": "army-wide",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/",
+    "trigger": "attacker / defender unit has Adepta Sororitas faction tag AND its army has at least one Miracle die banked AND the natural d6 roll (hit / wound / save) would fail; the simulator's greedy heuristic only substitutes when a banked die flips fail -> success"
   },
   "simulator.benefits_of_cover": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
-    "rule_name": "Benefits of Cover",
-    "quoted_text": "When you make an armour saving throw for a model that has the Benefits of Cover, add 1 to that saving throw. INFANTRY models cannot improve their Save characteristic to better than 3+ by virtue of this rule.",
-    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this",
     "effect": "+1 to the armour save (one pip better). INFANTRY models cap at 3+ (a 3+ Marine in cover stays at 3+). Vehicles / monsters / mounted models do not share the 3+ cap. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely.",
-    "scope": "phase-gated"
+    "quoted_text": "When you make an armour saving throw for a model that has the Benefits of Cover, add 1 to that saving throw. INFANTRY models cannot improve their Save characteristic to better than 3+ by virtue of this rule.",
+    "rule_name": "Benefits of Cover",
+    "scope": "phase-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
+    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this"
   },
   "simulator.big_guns_never_tire": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Big-Guns-Never-Tire",
-    "rule_name": "Big Guns Never Tire",
-    "quoted_text": "While a VEHICLE or MONSTER unit is within Engagement Range of one or more enemy units, it can shoot, but it suffers -1 to its Hit rolls while doing so.",
-    "trigger": "attacker has VEHICLE or MONSTER keyword AND is within 1\" of an enemy",
     "effect": "permitted to shoot; -1 to all hit rolls this activation",
-    "scope": "keyword-gated"
+    "quoted_text": "While a VEHICLE or MONSTER unit is within Engagement Range of one or more enemy units, it can shoot, but it suffers -1 to its Hit rolls while doing so.",
+    "rule_name": "Big Guns Never Tire",
+    "scope": "keyword-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Big-Guns-Never-Tire",
+    "trigger": "attacker has VEHICLE or MONSTER keyword AND is within 1\" of an enemy"
   },
-  "simulator.resolute_will": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
-    "rule_name": "Resolute Will",
-    "quoted_text": "While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.",
-    "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led — leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic",
-    "effect": "-1 to the Wound roll (subject to the ±1 modifier cap in Unit.attack)",
-    "scope": "unit-led"
+  "simulator.dark_pacts": {
+    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds",
+    "quoted_text": "Each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of that Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds.",
+    "rule_name": "Dark Pacts",
+    "scope": "army-wide",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
+    "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
   },
   "simulator.fnp_in_threat_score": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FEEL-NO-PAIN",
-    "rule_name": "Feel No Pain",
-    "quoted_text": "Some models have 'Feel No Pain' listed in their abilities. This is followed by a value in brackets. Each time a model with this ability would lose a wound, roll one D6: if the result equals or exceeds the value in brackets, that wound is not lost. This is known as a Feel No Pain roll.",
-    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` evaluates how attractive a defender is as a melee target — folds the defender's resolved Feel No Pain value (lower of profile.fnp and any leader-aura / detachment / stratagem-granted FNP via leaders.effective_buffs) into the durability denominator so opponent AIs correctly read Death Guard Plague Marines (5+), Custodian Wardens (under Auric Mortalis 5+), Tyranid Tervigon (5+), Nurgle daemons (5+), Typhus-led Plague Marines (Destroyer Hive 5+), and Drukhari with Pain Tokens (6+) as harder targets.",
     "effect": "AI threat heuristic multiplies effective durability by 1 / (1 - (7-fnp)/6); fnp=7 (no FNP) is the no-op. Does NOT change combat math (Unit.attack still rolls actual FNP per receive_damage); only fixes opponent target selection.",
-    "scope": "phase-gated"
+    "quoted_text": "Some models have 'Feel No Pain' listed in their abilities. This is followed by a value in brackets. Each time a model with this ability would lose a wound, roll one D6: if the result equals or exceeds the value in brackets, that wound is not lost. This is known as a Feel No Pain roll.",
+    "rule_name": "Feel No Pain",
+    "scope": "phase-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FEEL-NO-PAIN",
+    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` evaluates how attractive a defender is as a melee target \u00e2\u20ac\u201d folds the defender's resolved Feel No Pain value (lower of profile.fnp and any leader-aura / detachment / stratagem-granted FNP via leaders.effective_buffs) into the durability denominator so opponent AIs correctly read Death Guard Plague Marines (5+), Custodian Wardens (under Auric Mortalis 5+), Tyranid Tervigon (5+), Nurgle daemons (5+), Typhus-led Plague Marines (Destroyer Hive 5+), and Drukhari with Pain Tokens (6+) as harder targets."
   },
   "simulator.multi_profile_weapon_selection": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
-    "rule_name": "The Shooting Phase / Select Targets",
-    "quoted_text": "Each time a unit shoots, after selecting targets, the player commanding that unit allocates each weapon in that unit at one of those target units. If a model has more than one ranged weapon, it can split its attacks between different targets, but if it does, all of the attacks from each weapon must be made against the same target.",
-    "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present",
     "effect": "Unit.attack ranged branch computes expected net damage under BOTH primary and secondary profiles against the current target at the current distance (accounting for range gating and target wounds bounding excess-damage waste) and swaps to the secondary stat block via dataclasses.replace when its expected damage is higher; primary remains the default when no secondary is recorded or when primary's expected damage wins",
-    "scope": "weapon-keyword"
+    "quoted_text": "Each time a unit shoots, after selecting targets, the player commanding that unit allocates each weapon in that unit at one of those target units. If a model has more than one ranged weapon, it can split its attacks between different targets, but if it does, all of the attacks from each weapon must be made against the same target.",
+    "rule_name": "The Shooting Phase / Select Targets",
+    "scope": "weapon-keyword",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
+    "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present"
+  },
+  "simulator.resolute_will": {
+    "effect": "-1 to the Wound roll (subject to the \u00c2\u00b11 modifier cap in Unit.attack)",
+    "quoted_text": "While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.",
+    "rule_name": "Resolute Will",
+    "scope": "unit-led",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
+    "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led \u00e2\u20ac\u201d leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic"
   },
   "simulator.squad_size_durability_factor": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
-    "rule_name": "Allocate Attack (Make Attacks step)",
+    "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule \u00e2\u20ac\u201d the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
     "quoted_text": "If one or more models in the target unit have already lost one or more wounds, or have already had attacks allocated to them this phase, the attack must be allocated to one of those models. Otherwise, the player commanding the target unit chooses which model in their unit the attack is allocated to.",
-    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` — paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army.",
-    "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule — the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
-    "scope": "phase-gated"
+    "rule_name": "Allocate Attack (Make Attacks step)",
+    "scope": "phase-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
+    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` \u00e2\u20ac\u201d paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
+  },
+  "simulator.combat_drugs": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Combat-Drugs",
+    "rule_name": "Combat Drugs",
+    "quoted_text": "WYCH CULT models from your army are administered combat drugs that grant the following abilities (you can select a different drug for each WYCH CULT unit but each must select a drug). Adrenalight: Add 1 to the Attacks characteristic of melee weapons equipped by WYCH CULT models from your army. Hypex: Add 2\" to the Move characteristic of WYCH CULT models from your army. Serpentin: Improve the Weapon Skill characteristic of melee weapons equipped by WYCH CULT models from your army by 1. Painbringer: Add 1 to the Toughness characteristic of WYCH CULT models from your army. Grave Lotus: Add 1 to the Strength characteristic of melee weapons equipped by WYCH CULT models from your army. Splintermind: Improve the Leadership characteristic of WYCH CULT models from your army by 1, and improve the Ballistic Skill characteristic of ranged weapons equipped by WYCH CULT models from your army by 1.",
+    "trigger": "Drukhari army at battle start; one drug selected per WYCH CULT unit",
+    "effect": "selected drug's stat uplift applies to that WYCH CULT unit for the whole battle; SwegHammer assigns Wyches -> Adrenalight (+1 melee A), Hellions -> Hypex (+2\" Move), Reavers -> Grave Lotus (+1 melee S), Beastmaster -> Painbringer (+1 T); Serpentin and Splintermind not modelled (existing per-unit Hit profile already encodes the post-modifier hit chance for stock Drukhari loadouts and no Leadership gate is active)",
+    "scope": "keyword-gated"
+  },
+  "simulator.blessings_of_khorne": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Blessings-of-Khorne",
+    "rule_name": "Blessings of Khorne",
+    "quoted_text": "If your Army Faction is WORLD EATERS, at the start of the battle round, you can make a Blessings of Khorne roll. To do so, roll eight D6. You can then use those dice to activate up to two Blessings of Khorne. Each Blessing of Khorne specifies the dice results it requires (where a number is specified, a double or triple of that value or higher is required). You can only activate each Blessing of Khorne once per battle round. Any unused dice from the Blessings of Khorne roll are then discarded. Once activated, each Blessing of Khorne applies to all units from your army with this ability until the end of the battle round. Modelled Blessings: \"Martial Excellence\" (Double 4+ or Triple 1+): \"Melee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.\" \"Warp Blades\" (Double 5+ or Triple 2+): \"Melee weapons equipped by models in this unit have the [LETHAL HITS] ability.\" \"Cleaving Blows\" (Double 6+): \"Improve the Armour Penetration characteristic of melee weapons equipped by models in this unit by 1.\"",
+    "trigger": "start of each battle round; WORLD EATERS army rolls 8D6 and may activate up to two Blessings whose dice thresholds are met",
+    "effect": "each activated Blessing applies army-wide to WORLD EATERS units until end of battle round; modelled: Martial Excellence -> melee SUSTAINED HITS 1; Warp Blades -> melee LETHAL HITS; Cleaving Blows -> melee AP+1",
+    "scope": "army-wide"
   }
 }
