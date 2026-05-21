@@ -420,10 +420,15 @@ HALLOWED_MARTYRS = Detachment(
     name="Hallowed Martyrs",
     faction="Adepta Sororitas",
     notes=(
-        "Sacrifice-themed: +1 to wound army-wide. Real rule triggers off "
-        "destroyed Sororitas units; we apply it always-on for the MVP."
+        "SC5-4 (2026-05-21): real 'Blood of Martyrs' rule grants +1 Hit only "
+        "when the attacking unit is Below Starting Strength and +1 Wound only "
+        "when Below Half-strength — a damage-gated trigger the simulator does "
+        "not track per-unit. The previous proxy `plus_one_to_wound=True` "
+        "(army-wide, always-on) was a strict over-buff driving Adepta "
+        "Sororitas to +18.9pt overperformance in the SC5-3 baseline, so it "
+        "was removed. The detachment is still registered and its infantry "
+        "composition preference is retained — list-build shape still applies."
     ),
-    plus_one_to_wound=True,
     preferred_composition="infantry",
 )
 
@@ -508,10 +513,15 @@ SKITARII_HUNTER_COHORT = Detachment(
     name="Skitarii Hunter Cohort",
     faction="Adeptus Mechanicus",
     notes=(
-        "Conqueror Doctrina Imperatives: lossy as army-wide re-roll hit 1s. "
-        "Real rule rotates between offensive / defensive imperatives."
+        "SC5-4 (2026-05-21): the codex 'Stealth Optimisation' detachment rule "
+        "is a purely defensive grant (Stealth + cover for Sicarians at >12\") — "
+        "no offensive reroll exists. The previous proxy `reroll_hit_ones=True` "
+        "was a stand-in for the launch-index Conqueror Doctrina Imperatives "
+        "(an army-rule rotation, not a detachment rule) and was driving "
+        "Adeptus Mechanicus to +20.7pt overperformance in the SC5-3 baseline. "
+        "Removed. The detachment is still registered and its infantry "
+        "composition preference is retained — list-build shape still applies."
     ),
-    reroll_hit_ones=True,
     preferred_composition="infantry",
 )
 

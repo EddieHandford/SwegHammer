@@ -22,12 +22,23 @@ from code.units import UnitProfile
 # expected boolean / int field that should be set to a non-default value).
 _NEW_DETACHMENTS = (
     # (key, faction, attribute, expected value)
-    ("hallowed_martyrs",       "Adepta Sororitas",       "plus_one_to_wound", True),
+    # SC5-4 (2026-05-21): Hallowed Martyrs' real 'Blood of Martyrs' rule is
+    # gated on attacker unit being Below Starting Strength / Half-strength —
+    # not modellable as a passive flag. The previous `plus_one_to_wound=True`
+    # proxy was a strict over-buff and has been removed. Only the infantry
+    # composition preference is retained.
+    ("hallowed_martyrs",       "Adepta Sororitas",       "preferred_composition", "infantry"),
     # iter-8 fix: Shield Host swapped the defensive `plus_one_save`
     # approximation for the real offensive Martial Ka'tah / Martial Mastery
     # buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
     ("shield_host",            "Adeptus Custodes",       "melee_crit_on_5_plus_hits", True),
-    ("skitarii_hunter_cohort", "Adeptus Mechanicus",     "reroll_hit_ones",   True),
+    # SC5-4 (2026-05-21): Skitarii Hunter Cohort's real 'Stealth Optimisation'
+    # detachment rule is defensive (Stealth + cover) — no offensive reroll.
+    # The previous `reroll_hit_ones=True` proxy was a stand-in for the
+    # launch-index Conqueror Doctrina Imperatives (an army rule, not a
+    # detachment rule) and has been removed. Only the infantry composition
+    # preference is retained.
+    ("skitarii_hunter_cohort", "Adeptus Mechanicus",     "preferred_composition", "infantry"),
     ("inquisition_task_force", "Agents of the Imperium", "reroll_hit_ones",   True),
     # iter-14: Combined Arms (renamed from Combined Regiment) — replaced the
     # plus_one_to_hit approximation with the real Born Soldiers LETHAL HITS

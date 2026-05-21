@@ -51,16 +51,6 @@
     "approximation": true
   },
 
-  "HALLOWED_MARTYRS.plus_one_to_wound": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Hallowed-Martyrs",
-    "rule_name": "The Blood of Martyrs",
-    "quoted_text": "Each time an ADEPTA SORORITAS model from your army makes an attack, add 1 to the Hit roll if that model's unit is below its Starting Strength, and add 1 to the Wound roll as well if that model's unit is Below Half-strength.",
-    "trigger": "any friendly Adepta Sororitas attack",
-    "effect": "+1 to wound rolls (approximation; the canonical rule gates +1 Hit on 'below Starting Strength' and +1 Wound on 'Below Half-strength', whereas we apply +1 Wound army-wide always-on)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
   "SHIELD_HOST.melee_crit_on_5_plus_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
     "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",
@@ -107,16 +97,6 @@
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army makes an attack, an unmodified Hit roll of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES model from your army makes an attack, if that attack scores a Critical Wound, until the attack sequence ends, that attack has the [DEVASTATING WOUNDS] ability.",
     "trigger": "Adeptus Custodes melee attacker in an army with the Auric Champions detachment",
     "effect": "melee weapons gain the SUSTAINED HITS 1 ability (each unmodified Hit roll of 6 scores 1 additional hit). APPROXIMATION: only the first Trail of Glory bullet is wired (SUSTAINED HITS 1 on melee); the second bullet (DEVASTATING WOUNDS on crit wound) is out — Custodes weapon profiles already carry per-weapon DEVASTATING WOUNDS where they should and an army-wide layer would compound. The detachment exists primarily as the LC-1 alt-detachment to Shield Host so the picker has a real choice between offensive shapes (Shield Host: Crit-5+ + AP+1 stacked; Auric Champions: SUSTAINED HITS 1).",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "SKITARII_HUNTER_COHORT.reroll_hit_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Stealth-Optimisation",
-    "rule_name": "Stealth Optimisation",
-    "quoted_text": "SKITARII INFANTRY, SKITARII MOUNTED and IRONSTRIDER BALLISTARII units from your army have the Stealth ability, and each time a ranged attack targets a SICARIAN unit from your army, unless the attacking model is within 12\", the target has the Benefit of Cover against that attack.",
-    "trigger": "any friendly Adeptus Mechanicus hit roll",
-    "effect": "re-roll hit rolls of 1 (approximation; the canonical detachment rule grants Stealth + cover for Sicarians defensively rather than any offensive reroll, so this flag stands in for the launch-index Conqueror Doctrina Imperatives offensive/defensive rotation)",
     "scope": "army-wide",
     "approximation": true
   },
