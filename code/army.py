@@ -174,6 +174,14 @@ class Army:
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!
         # Cited as `simulator.waaagh`.
         self.waaagh_round_unlocked: Optional[int] = None
+        # Genestealer Cults Cult Ambush — Resurgence points pool used to
+        # revive destroyed CULT INFANTRY units at round end. Populated at
+        # battle start by the simulator for GSC armies (Strike Force default
+        # = 10 points). 0 / unused on non-GSC armies. Each revival in the
+        # round-end hook spends a fixed cost (proxy for the per-unit table
+        # in the codex). Tracked per battle, never resets between rounds.
+        # Cited as `simulator.cult_ambush_resurgence`.
+        self.cult_ambush_resurgence_points: int = 0
         # Starting points snapshot — captured once at battle start by the
         # simulator so the WAAAGH! AI can compare current points to the
         # initial roster (the trigger fires early if Orks are taking heavy

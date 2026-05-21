@@ -249,6 +249,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # turn-1 Deep Strike: every GSC unit is routed to reserves at deploy
     # time, then placed via the existing arrival path at the top of Round 1.
     "simulator.cult_ambush",
+    # Genestealer Cults Cult Ambush — Resurgence-point unit revival half
+    # of the army rule (10e). End-of-round hook revives one dead CULT
+    # INFANTRY unit per round at full Starting Strength, costing a flat
+    # 3 Resurgence points (median of the codex per-unit table). Marker
+    # placement, opponent-side disruption, and the per-Starting-Strength
+    # cost table are NOT modelled — APPROXIMATION proxy.
+    "simulator.cult_ambush_resurgence",
     # Adeptus Mechanicus army rule (10e). Command-phase pick of Protector
     # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
     # on attacker.profile.faction == "Adeptus Mechanicus".

@@ -413,6 +413,14 @@ class Battle:
                 for u in self._reserves.get(army.name, [])
             )
             army.starting_points = float(roster_pts)
+        # Genestealer Cults — Cult Ambush Resurgence points (10e army rule).
+        # Strike Force default = 10 points; spent at round end to revive
+        # destroyed CULT INFANTRY units (APPROXIMATION proxy for the
+        # Resurgence/Cult Ambush marker resurrection mechanic). Cited as
+        # `simulator.cult_ambush_resurgence`.
+        for army in (self.a, self.b):
+            if army.units and army.units[0].profile.faction == "Genestealer Cults":
+                army.cult_ambush_resurgence_points = 10
         # Reanimation Protocols (#75): snapshot starting model counts per
         # profile per army, including reserves. End-of-round revival reads
         # this to compute how many models have been destroyed.
@@ -3428,6 +3436,92 @@ class Battle:
             victim = max(targets, key=_score)
             victim.receive_damage(damage, bonus_fnp=victim.profile.fnp)
 
+    def _apply_cult_ambush_resurgence(self, army, round_num: int) -> None:
+        """End-of-round Cult Ambush revival hook (Genestealer Cults army rule).
+
+        APPROXIMATION proxy for the 10e Resurgence-point mechanic. The real
+        rule (Wahapedia, "Cult Ambush") spends a per-starting-strength table
+        cost (2–8 Resurgence points) to re-add a destroyed CULT INFANTRY
+        unit at full Starting Strength via a Cult Ambush marker in Strategic
+        Reserves, arriving via the marker placement and Reinforcements
+        step in subsequent turns. SwegHammer has no marker / Reserves
+        arrival timing infrastructure, so this proxy:
+
+          1. Picks one destroyed unit per round whose profile carries the
+             INFANTRY keyword.
+          2. Spends a flat 3 Resurgence points (median of the per-unit
+             table) from `army.cult_ambush_resurgence_points`.
+          3. Restores `current_health` to full and re-positions the unit
+             > 9" from every alive enemy via the existing Deep Strike
+             landing-point picker (`_safe_deepstrike_pos`).
+          4. Re-attaches the unit to the army via `_add_live_unit` and
+             flags it in `_fresh_arrivals` so it skips its movement
+             sub-phase next round (mirrors regular ambush arrival).
+
+        Skipped on:
+          * non-GSC armies (resurgence pool is 0).
+          * rounds with no dead INFANTRY (no candidate).
+          * rounds where insufficient Resurgence remain.
+
+        Cited as `simulator.cult_ambush_resurgence`.
+        """
+        if army.cult_ambush_resurgence_points < 3:
+            return
+        # Only fire for GSC armies (gate on starting Resurgence > 0 +
+        # faction tag on the first unit).
+        if not army.units or army.units[0].profile.faction != "Genestealer Cults":
+            return
+
+        # Candidate pool: dead units carrying the INFANTRY keyword,
+        # excluding CHARACTERs (the codex Resurgence table only lists
+        # multi-model troop blocks — no CHARACTER pricings).
+        candidates = []
+        for u in army.units:
+            if u.is_alive:
+                continue
+            kw = set(u.profile.unit_keywords or ())
+            if "INFANTRY" not in kw or "CHARACTER" in kw:
+                continue
+            candidates.append(u)
+        if not candidates:
+            return
+
+        # Prefer the highest-points dead unit (best resurrection value).
+        candidates.sort(key=lambda u: -u.profile.points_cost)
+        revived = candidates[0]
+
+        # Find a safe Deep Strike landing position > 9" from every alive
+        # enemy. Reuse the existing helper if available; otherwise fall
+        # back to the army's starting deployment edge.
+        opponent = self.b if army is self.a else self.a
+        landing_pos = None
+        if hasattr(self, "_safe_deepstrike_pos"):
+            try:
+                landing_pos = self._safe_deepstrike_pos(army, opponent)
+            except Exception:
+                landing_pos = None
+        if landing_pos is None:
+            # Fallback: place at the army's deployment-edge midline. Far
+            # from optimal but guarantees the proxy fires rather than
+            # silently dropping the revival.
+            a_y = self.map.deployment_width / 2.0
+            sign = 1.0 if army is self.a else -1.0
+            landing_pos = (self.map.length / 2.0, a_y * sign)
+
+        # Spend Resurgence + restore state. The flat 3-point spend is the
+        # median across the per-unit codex table.
+        army.cult_ambush_resurgence_points -= 3
+        revived.current_health = revived.profile.health
+        revived.position = landing_pos
+        # Reset transient combat flags that may have stuck on death.
+        revived.moved_this_round = True   # skips movement sub-phase next round
+        revived.fell_back_this_round = False
+        # Re-attach via the live-unit cache invalidation path.
+        army._invalidate_alive_cache()
+        # Flag as a fresh arrival so the AI scheduler treats it like a
+        # turn-1 ambush drop (no movement, can shoot/charge per Deep Strike).
+        self._fresh_arrivals.add(revived.uid)
+
     def _apply_reanimation(self) -> None:
         """End-of-round model revival for Reanimation Protocols armies.
 
@@ -4139,15 +4233,18 @@ class Battle:
                 if u.current_health <= u.profile.health - wounds_per_model:
                     u.pain_tokens = 1
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # At the start of each Command phase the AdMech player picks ONE of
-        # two imperatives — "protector" (+1 to hit ranged, -1 to hit melee)
-        # or "conqueror" (mirror). Active until the start of their next
-        # Command phase; in SwegHammer that maps to "for this round". We
-        # reset to None first so a faction-tag flip mid-battle (paranoia)
-        # doesn't leak stale state, then re-pick via the strategy heuristic.
-        # The hit-roll modifier itself is applied in Unit.attack, gated on
-        # `attacker.profile.faction == "Adeptus Mechanicus"`. Cited as
-        # `simulator.doctrina_imperatives`.
+        # At the start of each battle round the AdMech player picks ONE of
+        # two imperatives — "protector" (+1 BS on ranged attacks, defensive
+        # -1 to be hit in melee against AdMech units) or "conqueror" (+1 WS
+        # on melee attacks, +1 AP on all attacks). MR-D
+        # (claude/sim-calibration-5) corrected the prior implementation
+        # which fabricated a -1-to-hit penalty side that does not exist in
+        # the published rule. Active until the end of the battle round; we
+        # reset to None first so a faction-tag flip mid-battle doesn't leak
+        # stale state, then re-pick via the strategy heuristic. The
+        # individual modifiers are applied in Unit.attack, faction-gated on
+        # the attacker (or target for the Protector defensive side). Cited
+        # as `simulator.doctrina_imperatives`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             army.doctrina_imperative = None
             if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
@@ -4360,6 +4457,18 @@ class Battle:
         apply_round_end_healing(self.b)
         apply_round_end_revival(self.a)
         apply_round_end_revival(self.b)
+
+        # Genestealer Cults Cult Ambush — Resurgence point revival hook.
+        # APPROXIMATION: the real rule spends a per-unit-table cost
+        # (2–8 points) to add a fresh copy of a destroyed INFANTRY unit in
+        # Strategic Reserves. SwegHammer cannot model marker placement /
+        # Reserves arrival timing, so this proxy revives one dead GSC
+        # INFANTRY unit per round (cost 3 Resurgence points) at full
+        # health, dropping it from the existing Deep Strike picker so it
+        # lands > 9" from all enemies on the next round's arrival pass.
+        # Cited as `simulator.cult_ambush_resurgence`.
+        self._apply_cult_ambush_resurgence(self.a, round_num)
+        self._apply_cult_ambush_resurgence(self.b, round_num)
 
         if round_num > 1 and self.rules.cp_catchup_bonus:
             self._award_cp(self.a, self.b)
