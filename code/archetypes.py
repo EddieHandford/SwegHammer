@@ -839,14 +839,24 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Chaos Daemons": {
+        # Balanced 4-god Daemonic Incursion shape (the all-gods detachment):
+        # one Greater Daemon per god, the four troops, plus iconic
+        # supporting daemons (Flesh Hounds, Screamers, Plague Drones, Fiends,
+        # Be'lakor). Tournament templates run 1-2 troop blocks per god plus
+        # 1-2 big monsters; this spreads the OC across all four pantheons.
         "Daemonic Incursion": {
             "chaos_daemons_library_bloodletters": 2,
-            "chaos_daemons_library_plaguebearers": 1,
-            "chaos_daemons_library_daemonettes": 1,
+            "chaos_daemons_library_plaguebearers": 2,
+            "chaos_daemons_library_daemonettes": 2,
             "chaos_daemons_library_pink_horrors": 1,
             "chaos_daemons_library_flesh_hounds": 1,
-            "chaos_daemons_library_bloodmaster": 1,
+            "chaos_daemons_library_screamers": 1,
+            "chaos_daemons_library_plague_drones": 1,
+            "chaos_daemons_library_fiends": 1,
             "chaos_daemons_library_bloodthirster": 1,
+            "chaos_daemons_library_great_unclean_one": 1,
+            "chaos_daemons_library_keeper_of_secrets": 1,
+            "chaos_daemons_library_lord_of_change": 1,
             "chaos_daemons_library_be_lakor": 1,
         },
     },
@@ -916,25 +926,41 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # Noble Lance is the canonical Big Knights detachment. Knight armies
         # are MONSTER/TITANIC-only — no BATTLELINE infantry, the template
         # is a small number of high-points models per Wahapedia / codex.
+        # Standard tournament template: 3 big Questoris-class chassis + 6
+        # Armiger/War Dog escorts at 2000pt. Expanded roster spreads the
+        # OC across more chassis variety (Crusader / Castellan / Preceptor)
+        # and gives the AI more activation choices.
         "Noble Lance": {
             "imperial_knights_library_armiger_warglaive": 2,
-            "imperial_knights_library_armiger_helverin": 1,
+            "imperial_knights_library_armiger_helverin": 2,
+            "imperial_knights_library_armiger_moirax": 1,
             "imperial_knights_library_knight_paladin": 1,
             "imperial_knights_library_knight_errant": 1,
             "imperial_knights_library_knight_warden": 1,
+            "imperial_knights_library_knight_crusader": 1,
+            "imperial_knights_library_knight_preceptor": 1,
+            "imperial_knights_library_knight_castellan": 1,
             "imperial_knights_library_canis_rex": 1,
         },
     },
     "Chaos Knights": {
         # Mirror of Noble Lance — chaos variant; same big-stompy shape
-        # using War Dogs (Armigers) + Questoris-class Knights.
+        # using War Dogs (Armigers) + Questoris-class Knights. Expanded
+        # roster mirrors the IK template: a full War Dog escort spread
+        # (Karnivore / Huntsman / Brigand / Executioner / Stalker) plus
+        # the iconic Chaos Questoris chassis (Desecrator / Rampager /
+        # Despoiler / Tyrant / Abominant).
         "Noble Lance": {
             "chaos_knights_library_war_dog_karnivore": 2,
             "chaos_knights_library_war_dog_huntsman": 1,
+            "chaos_knights_library_war_dog_brigand": 1,
+            "chaos_knights_library_war_dog_executioner": 1,
+            "chaos_knights_library_war_dog_stalker": 1,
             "chaos_knights_library_knight_desecrator": 1,
             "chaos_knights_library_knight_rampager": 1,
             "chaos_knights_library_knight_despoiler": 1,
             "chaos_knights_library_knight_tyrant": 1,
+            "chaos_knights_library_knight_abominant": 1,
         },
     },
 }
