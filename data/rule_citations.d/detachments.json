@@ -41,16 +41,6 @@
     "approximation": true
   },
 
-  "NOBLE_LANCE.plus_one_to_wound": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Bold-Gallantry",
-    "rule_name": "Bold Gallantry",
-    "quoted_text": "Each time an IMPERIAL KNIGHTS unit from your army Advances, until the end of the turn, ranged weapons equipped by IMPERIAL KNIGHTS models from your army have the [ASSAULT] ability.",
-    "trigger": "any friendly Imperial Knights attack",
-    "effect": "+1 to wound rolls (approximation of the Valourstrike Lance / Noble Lance lineage; the launch-day index 'Noble Lance' granted +1 to wound on a charged turn, and the codex replacement 'Valourstrike Lance' instead grants Assault on advance — our model collapses both into always-on +1 to wound)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
   "SHIELD_HOST.melee_crit_on_5_plus_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
     "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",
@@ -67,16 +57,6 @@
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
     "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
     "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). C1 (claude/sim-calibration-4): bullets now alternate per battle round — the AP+1 bullet (this flag) fires on ODD battle rounds (1, 3, 5) and the Crit-on-5+ bullet (SHIELD_HOST.melee_crit_on_5_plus_hits) fires on EVEN battle rounds (2, 4). This averages to one bullet active per round, matching the codex 'pick one bullet at the start of each battle round' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass. Replaces the iter-0 `plus_one_save` defensive approximation which inflated Custodes durability rather than melee output (the direction iter-7 diagnostic identified as the residual error).",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "PLAGUE_COMPANY.melee_sustained_hits_army_wide": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
-    "rule_name": "Sworn to Nurgle (simplified)",
-    "quoted_text": "Each time a DEATH GUARD model from your army makes an attack with a NURGLE'S GIFT weapon, an unmodified Hit roll of 6 grants 1 additional hit (SUSTAINED HITS 1).",
-    "trigger": "Death Guard melee attacker in an army with the Plague Company detachment",
-    "effect": "melee weapons gain SUSTAINED HITS 1. APPROXIMATION: simulator applies army-wide melee SUSTAINED HITS 1 for DG; real Plague Company is themed around plague-company sub-themes with different unit-narrow buffs (Mortarion's Anvil, Wraith Creepers, etc.). The detachment exists as the LC-1 melee-offensive alternative to Virulent Vectorium (whose -1 damage stratagem is per-spend defensive). DG +16.4 outlier compensation: with Virulent Vectorium dominant the sticky-defensive shape was the only DG play pattern; Plague Company gives a more aggressive shape so the DG WR average over real-meta tournament play is better represented.",
     "scope": "army-wide",
     "approximation": true
   },
@@ -158,66 +138,6 @@
     "trigger": "any friendly T'AU EMPIRE Guided unit's ranged attack",
     "effect": "ranged weapons gain [LETHAL HITS] (Crit Hit auto-wounds). Read by Unit.attack via Army.guided_enemy_uids (populated each round by Battle._run_markerlight_phase from alive MARKERLIGHT-keyword units in the T'au army). APPROXIMATION: SwegHammer applies the Guided LETHAL HITS in every round, not gated to rounds 1-3, because the underlying Markerlight army rule grants Guided-target LETHAL HITS in every Shooting phase — the Mont'ka detachment text repeats the rounds-1-3 wording but the LETHAL HITS half is upstream of the [ASSAULT] half (the Markerlight base rule, separate from the Killing Blow rounds gate). See `simulator.markerlights`.",
     "scope": "phase-gated"
-  },
-
-  "PACTBOUND_ZEALOTS.reroll_wound_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Pactbound-Zealots",
-    "rule_name": "Marks of Chaos",
-    "quoted_text": "When mustering your army, when you select a HERETIC ASTARTES unit to include in your army, if that unit is not an EPIC HERO and does not already have one of the following keywords, you must select one for that unit and note it on your Army Roster: KHORNE, TZEENTCH, NURGLE, SLAANESH, CHAOS UNDIVIDED. Each time a unit with one of these keywords gains a weapon ability as the result of a Dark Pact and does not fail the resulting Leadership test, until the end of the phase, that unit gains the associated ability below.",
-    "trigger": "any friendly Heretic Astartes wound roll",
-    "effect": "re-roll wound rolls of 1 (approximation of the Marks of Chaos / Dark Pacts loop, which grants Lethal Hits or Sustained Hits at the cost of a Battle-shock check; we model the average Lethal/Sustained payoff as a flat wound-1s reroll)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "BERZERKER_WARBAND.plus_one_to_hit": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband",
-    "rule_name": "Relentless Rage",
-    "quoted_text": "Each time a WORLD EATERS unit from your army makes a Charge move, until the end of the turn, add 1 to the Attacks characteristic and add 2 to the Strength characteristic of melee weapons equipped by models in that unit.",
-    "trigger": "any friendly World Eaters hit roll",
-    "effect": "+1 to hit rolls (approximation of Relentless Rage, which actually grants +1 Attack and +2 Strength to melee weapons on a charging unit; we collapse the charge-gated melee buff plus the Blood Tithe spending mechanic into an always-on +1 to hit)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "DAEMONIC_INCURSION.plus_one_to_hit": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion",
-    "rule_name": "Warp Rifts",
-    "quoted_text": "Each time a LEGIONES DAEMONICA unit from your army is set up on the battlefield using the Deep Strike ability, if it is set up wholly within your army's Shadow of Chaos, and/or if it is set up wholly within 6\" of one or more friendly [BLOODTHIRSTER], [GREAT UNCLEAN ONE], [KAIROS FATEWEAVER], [KEEPER OF SECRETS], [LORD OF CHANGE], [ROTIGUS], [SHALAXI HELBANE] or [SKARBRAND] units with which it shares the KHORNE, TZEENTCH, NURGLE or SLAANESH keyword, it can be set up anywhere that is more than 6\" horizontally away from all enemy models, instead of more than 9\".",
-    "trigger": "any friendly Chaos Daemons hit roll",
-    "effect": "+1 to hit rolls (approximation; canonical Warp Rifts is a deep-strike-range buff with no offensive reroll, so this flag stands in for the launch-index Shadow-of-Chaos battle-shock-immunity + god-specific buffs the simulator can't model)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "FINAL_DAY.reroll_hit_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/#Final-Day",
-    "rule_name": "Psionic Parasitism",
-    "quoted_text": "At the end of your Movement phase, for each TYRANIDS SYNAPSE unit from your army, you can select one friendly GENESTEALER CULTS unit (excluding PURESTRAIN GENESTEALER and PATRIARCH units) and one friendly TYRANIDS unit each within 9\" of and visible to that SYNAPSE unit. If you do, that GENESTEALER CULTS unit suffers D3+1 mortal wounds and one model in the selected TYRANIDS unit regains up to that many lost wounds and until the start of your next Movement phase, each time a model in the selected TYRANIDS unit makes an attack, add 1 to the Hit roll.",
-    "trigger": "any friendly Genestealer Cults hit roll",
-    "effect": "re-roll hit rolls of 1 (approximation of Psionic Parasitism, which actually grants +1 to Hit to one Tyranids unit per Synapse unit at the cost of mortal wounds on a Genestealer Cults unit; we collapse the per-unit gated +1 hit into army-wide reroll-1s)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
-  "IRONSTORM_SPEARHEAD.vehicles_reroll_hit_ones": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Ironstorm-Spearhead",
-    "rule_name": "Armour of Contempt",
-    "quoted_text": "Each time an attack is allocated to an ADEPTUS ASTARTES model from your army, worsen the Armour Penetration characteristic of that attack by 1.",
-    "trigger": "attacker's unit has the VEHICLE keyword",
-    "effect": "re-roll Hit rolls of 1 (approximation of the launch-day Ironstorm Spearhead spine, whose canonical rule worsens incoming AP by 1 on Marine models; we collapse the vehicle-centric detachment identity into a flat reroll-hit-1s gated to VEHICLE attackers so the buff fires on the units the codex empowers)",
-    "scope": "keyword-gated",
-    "approximation": true
-  },
-
-  "CANOPTEK_COURT.canoptek_plus_one_to_wound": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Court",
-    "rule_name": "Hyper-Logical Strategy",
-    "quoted_text": "Once per battle, at the start of any phase, you can use this ability. If you do, until the end of that phase, each time a CANOPTEK model from your army makes an attack, re-roll the Wound roll.",
-    "trigger": "attacker's profile name starts with 'Canoptek'",
-    "effect": "+1 to wound rolls (approximation of the Canoptek Court detachment's Cryptek-led Canoptek-buff spine, which canonically grants a once-per-battle full wound re-roll to all CANOPTEK models for a phase; we collapse the per-phase reroll plus the rest of the Cryptek toolkit into an always-on +1 to wound on CANOPTEK datasheets, gated on profile-name prefix because BSData doesn't carry a CANOPTEK keyword)",
-    "scope": "keyword-gated",
-    "approximation": true
   },
 
   "RUBRICAE_PHALANX.all_is_dust": {

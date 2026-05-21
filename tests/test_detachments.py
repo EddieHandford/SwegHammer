@@ -65,16 +65,30 @@ _NEW_DETACHMENTS = (
     # [ASSAULT] army-wide in rounds 1-3 (army_wide_assault_rounds_1_3) plus
     # [LETHAL HITS] on Guided units (lethal_hits_on_guided, citation-only).
     ("montka",                 "T'au Empire",            "army_wide_assault_rounds_1_3", True),
-    ("pactbound_zealots",      "Chaos Space Marines",    "reroll_wound_ones", True),
+    # SC5-11 (2026-05-21): pactbound_zealots' `reroll_wound_ones` proxy was
+    # a fabrication — the real Marks of Chaos rule grants Lethal/Sustained
+    # Hits via Dark Pacts at the cost of a Leadership test, not a wound-1
+    # reroll. Only the composition preference is retained.
+    ("pactbound_zealots",      "Chaos Space Marines",    "preferred_composition", "balanced"),
     # oathband carries no passive flag right now — its "army-wide re-roll
     # hit 1s" approximated the Eye of the Ancestors rule that now lives in
     # simulator.judgement_tokens, so the detachment-level reroll was
     # removed to avoid double-stacking with the Judgement Tokens buff.
     # plague_company + cult_of_magic were deleted per the 2026-05-15
     # fabrication audit (commit fa9a957); their entries are gone.
-    ("berzerker_warband",      "World Eaters",           "plus_one_to_hit",   True),
-    ("daemonic_incursion",     "Chaos Daemons",          "plus_one_to_hit",   True),
-    ("final_day",              "Genestealer Cults",      "reroll_hit_ones",   True),
+    # SC5-11 (2026-05-21): berzerker_warband's `plus_one_to_hit` proxy was a
+    # fabrication — the real Relentless Rage rule grants +1A / +2S on a
+    # charge, not +1 to hit. Composition preference retained.
+    ("berzerker_warband",      "World Eaters",           "preferred_composition", "infantry"),
+    # SC5-11 (2026-05-21): daemonic_incursion's `plus_one_to_hit` proxy was a
+    # fabrication — the real Warp Rifts rule reduces Deep Strike distance,
+    # not +1 to hit. Composition preference retained.
+    ("daemonic_incursion",     "Chaos Daemons",          "preferred_composition", "balanced"),
+    # SC5-11 (2026-05-21): final_day's `reroll_hit_ones` proxy was a
+    # fabrication — the real Psionic Parasitism rule grants +1 to Hit to
+    # one Tyranids unit per Synapse at the cost of MWs to a GSC unit, not
+    # an army-wide reroll-1s. Composition preference retained.
+    ("final_day",              "Genestealer Cults",      "preferred_composition", "infantry"),
 )
 
 
@@ -302,44 +316,40 @@ class SecondDetachmentTests(unittest.TestCase):
             move=move,
         )
 
-    def test_ironstorm_buffs_vehicle_attacker(self):
-        """Ironstorm Spearhead: VEHICLE attacker gets reroll_hit_ones."""
+    def test_ironstorm_no_longer_grants_vehicle_reroll(self):
+        """SC5-11: Ironstorm Spearhead's `vehicles_reroll_hit_ones` was a
+        direction-wrong fabrication (offensive reroll standing in for the
+        canonical Armour of Contempt defensive -1 AP). Dropped — the flag
+        no longer fires on VEHICLE attackers."""
         from code.detachments import IRONSTORM_SPEARHEAD
         from code.leaders import effective_buffs
         army = Army("Marines", detachment=IRONSTORM_SPEARHEAD)
         army.add_unit(self._profile(
             "Predator", "Adeptus Astartes", keywords=("VEHICLE",),
         ))
-        army.add_unit(self._profile(
-            "Intercessor", "Adeptus Astartes", keywords=("INFANTRY",),
-        ))
-        # Position both at origin so leader-aura distance code is unambiguous.
         for u in army.units:
             u.position = (0.0, 0.0)
         vehicle = army.units[0]
-        infantry = army.units[1]
-        veh_buffs = effective_buffs(vehicle)
-        inf_buffs = effective_buffs(infantry)
-        self.assertTrue(veh_buffs["reroll_hit_ones"], "VEHICLE should get reroll_hit_ones")
-        self.assertFalse(inf_buffs["reroll_hit_ones"], "INFANTRY shouldn't")
+        self.assertFalse(IRONSTORM_SPEARHEAD.vehicles_reroll_hit_ones)
+        self.assertFalse(effective_buffs(vehicle)["reroll_hit_ones"])
 
-    def test_canoptek_court_buffs_canoptek_attacker(self):
-        """Canoptek Court: profile-name-prefix 'Canoptek' gets +1 to wound."""
+    def test_canoptek_court_no_longer_grants_plus_one_to_wound(self):
+        """SC5-11: Canoptek Court's `canoptek_plus_one_to_wound` was a
+        magnitude- and frequency-wrong fabrication (always-on +1 to wound
+        in place of a once-per-battle full Wound-roll reroll per
+        Hyper-Logical Strategy). Dropped — the flag no longer fires on
+        Canoptek-prefixed datasheets."""
         from code.detachments import CANOPTEK_COURT
         from code.leaders import effective_buffs
         army = Army("Necrons", detachment=CANOPTEK_COURT)
         army.add_unit(self._profile(
             "Canoptek Wraiths", "Necrons", keywords=("INFANTRY",),
         ))
-        army.add_unit(self._profile(
-            "Necron Warriors", "Necrons", keywords=("INFANTRY",),
-        ))
         for u in army.units:
             u.position = (0.0, 0.0)
         wraiths = army.units[0]
-        warriors = army.units[1]
-        self.assertTrue(effective_buffs(wraiths)["plus_one_to_wound"])
-        self.assertFalse(effective_buffs(warriors)["plus_one_to_wound"])
+        self.assertFalse(CANOPTEK_COURT.canoptek_plus_one_to_wound)
+        self.assertFalse(effective_buffs(wraiths)["plus_one_to_wound"])
 
     # test_saim_hann_grants_extra_move_to_aspect_warriors and
     # test_plague_marines_onslaught_buffs_plague_marines removed per the

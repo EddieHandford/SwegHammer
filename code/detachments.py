@@ -409,10 +409,18 @@ NOBLE_LANCE = Detachment(
     name="Noble Lance",
     faction="Imperial Knights",
     notes=(
-        "Code Chivalric: lossy as army-wide +1 to wound. Real rule has "
-        "conditional triggers (charged turn, lance keyword)."
+        "SC5-11 (2026-05-21): the codex Bold Gallantry rule grants the "
+        "[ASSAULT] keyword to Imperial Knights ranged weapons in a turn "
+        "where the unit Advanced — it is NOT a +1-to-wound rule. The "
+        "previous proxy `plus_one_to_wound=True` (army-wide, always-on) "
+        "was a fabrication that bore no resemblance to the cited rule "
+        "text and biased Imperial Knights sim WR upward by ~5-15pt. "
+        "Removed. The detachment is still registered and its vehicle "
+        "composition preference is retained — list-build shape still "
+        "applies. A faithful Bold Gallantry implementation needs an "
+        "Advance-gated ASSAULT grant on the unit's ranged weapons; "
+        "follow-up wiring lands separately."
     ),
-    plus_one_to_wound=True,
     preferred_composition="vehicle",
 )
 
@@ -677,10 +685,18 @@ PACTBOUND_ZEALOTS = Detachment(
     name="Pactbound Zealots",
     faction="Chaos Space Marines",
     notes=(
-        "Dark Pacts: lossy as army-wide re-roll wound 1s. Real rule grants "
-        "Lethal Hits or Sustained Hits at the cost of Battleshock checks."
+        "SC5-11 (2026-05-21): the real Marks of Chaos / Dark Pacts rule "
+        "grants Lethal Hits OR Sustained Hits on a unit that successfully "
+        "declares a Dark Pact (a Leadership-test gamble), gated by mark "
+        "keyword. It is NOT a reroll-wound-1s rule. The previous proxy "
+        "`reroll_wound_ones=True` (army-wide, always-on) was a fabrication "
+        "biasing Chaos Space Marines sim WR upward. Removed. The "
+        "detachment is still registered and its composition preference is "
+        "retained — list-build shape still applies. A faithful Dark Pacts "
+        "implementation needs a per-unit gamble + Leadership test + "
+        "Lethal/Sustained Hits transient flag; follow-up wiring lands "
+        "separately."
     ),
-    reroll_wound_ones=True,
     preferred_composition="balanced",
 )
 
@@ -883,10 +899,17 @@ BERZERKER_WARBAND = Detachment(
     name="Berzerker Warband",
     faction="World Eaters",
     notes=(
-        "Blood Tithe frenzy: lossy as army-wide +1 to hit. Real rule spends "
-        "Blood Tithe points on a roster of escalating effects."
+        "SC5-11 (2026-05-21): the real Relentless Rage rule grants +1 "
+        "Attack and +2 Strength to melee weapons on a unit that made a "
+        "Charge move — it is NOT a +1-to-hit rule. The previous proxy "
+        "`plus_one_to_hit=True` (army-wide, always-on) was a fabrication "
+        "biasing World Eaters sim WR upward. Removed. The detachment is "
+        "still registered and its infantry composition preference is "
+        "retained — list-build shape still applies. A faithful Relentless "
+        "Rage implementation needs a charge-turn transient +1A / +2S "
+        "buff and Blood Tithe spend tracking; follow-up wiring lands "
+        "separately."
     ),
-    plus_one_to_hit=True,
     preferred_composition="infantry",
 )
 
@@ -894,10 +917,18 @@ DAEMONIC_INCURSION = Detachment(
     name="Daemonic Incursion",
     faction="Chaos Daemons",
     notes=(
-        "Shadow of Chaos: lossy as army-wide +1 to hit. Real rule grants "
-        "Battle-shock immunity and bespoke god-specific buffs in friendly zones."
+        "SC5-11 (2026-05-21): the canonical Warp Rifts rule reduces the "
+        "Deep Strike distance for Legiones Daemonica units set up wholly "
+        "within Shadow of Chaos or near greater daemons — it has no "
+        "offensive reroll or +1-to-hit component. The previous proxy "
+        "`plus_one_to_hit=True` (army-wide, always-on) was a fabrication "
+        "biasing Chaos Daemons sim WR upward. Removed. The detachment is "
+        "still registered and its composition preference is retained — "
+        "list-build shape still applies. A faithful Warp Rifts "
+        "implementation needs reserve-deployment distance tracking that "
+        "the simulator does not yet model; follow-up wiring lands "
+        "separately."
     ),
-    plus_one_to_hit=True,
     preferred_composition="balanced",
 )
 
@@ -905,10 +936,19 @@ FINAL_DAY = Detachment(
     name="Final Day",
     faction="Genestealer Cults",
     notes=(
-        "Day of Reckoning: lossy as army-wide re-roll hit 1s. Real rule "
-        "rotates between Ambush / Onslaught / Annihilation stages."
+        "SC5-11 (2026-05-21): the real Psionic Parasitism rule lets each "
+        "friendly Tyranids Synapse unit drain D3+1 mortal wounds from a "
+        "nearby Genestealer Cults unit to grant +1 to Hit to a separate "
+        "nearby Tyranids unit — a per-unit, per-Synapse trade-off, not "
+        "an army-wide reroll-1s buff. The previous proxy "
+        "`reroll_hit_ones=True` (army-wide, always-on) was a fabrication "
+        "biasing Genestealer Cults sim WR upward. Removed. The detachment "
+        "is still registered and its infantry composition preference is "
+        "retained — list-build shape still applies. A faithful Psionic "
+        "Parasitism implementation needs cross-faction Synapse-to-GSC "
+        "trading that the simulator does not yet model; follow-up "
+        "wiring lands separately."
     ),
-    reroll_hit_ones=True,
     preferred_composition="infantry",
 )
 
@@ -947,16 +987,19 @@ IRONSTORM_SPEARHEAD = Detachment(
     name="Ironstorm Spearhead",
     faction="Adeptus Astartes",
     notes=(
-        "Armoured Superiority: friendly VEHICLE units re-roll Hit rolls of 1. "
-        "Lossy approximation of the canonical 'Armour of Contempt'-style "
-        "vehicle-themed buffs in the launch-day Ironstorm Spearhead index; "
-        "the codex replacement carries a similar VEHICLE-keyword reroll "
-        "spine. Gate: attacker has the VEHICLE keyword."
+        "SC5-11 (2026-05-21): the canonical Armour of Contempt rule "
+        "worsens the Armour Penetration characteristic of incoming "
+        "attacks on Adeptus Astartes models by 1 — a defensive rule, "
+        "not an offensive vehicle hit-reroll. The previous proxy "
+        "`vehicles_reroll_hit_ones=True` was a direction-wrong "
+        "fabrication (offensive buff substituted for a defensive one) "
+        "biasing Marine-vehicle sim WR upward. Removed. The detachment "
+        "is still registered and its vehicle composition preference is "
+        "retained — list-build shape still applies. A faithful Armour "
+        "of Contempt implementation needs an -1-to-incoming-AP defensive "
+        "modifier on the Marine defender; follow-up wiring lands "
+        "separately."
     ),
-    # APPROXIMATION: offensive vehicle hit-reroll stands in for a defensive AP debuff.
-    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Ironstorm-Spearhead
-    # Real rule: Armour of Contempt — -1 AP on Marine models (defensive), not vehicle hit rerolls (offensive).
-    vehicles_reroll_hit_ones=True,
     preferred_composition="vehicle",
 )
 
@@ -964,23 +1007,24 @@ PLAGUE_COMPANY = Detachment(
     name="Plague Company",
     faction="Death Guard",
     notes=(
-        "Sworn to Nurgle (Wahapedia, simplified): \"Each time a "
-        "DEATH GUARD model from your army makes an attack with a "
-        "NURGLE'S GIFT weapon, an unmodified Hit roll of 6 grants 1 "
-        "additional hit (SUSTAINED HITS 1).\" Real Plague Company "
-        "detachment is themed around Sworn to Nurgle's named "
-        "plague-company sub-themes (each gives different buffs to a "
-        "narrow unit set). Simulator approximation: melee SUSTAINED "
-        "HITS 1 army-wide for DG (matches the broad sense of the "
-        "detachment giving an offensive layer atop Virulent "
-        "Vectorium's stratagem economy). Uses the same "
-        "`melee_sustained_hits_army_wide` plumbing as War Horde / "
-        "Auric Champions; faction-gated to DG via the LC1-A general "
-        "gate. Weaker than Virulent Vectorium's per-attack -1 damage "
-        "stratagem-spend power; provides a more offensive alternative "
-        "for DG armies that lean melee."
+        "SC5-11 (2026-05-21): the previous `melee_sustained_hits_army_wide` "
+        "flag was justified by a paraphrased 'Sworn to Nurgle (simplified)' "
+        "citation that did not match any verbatim primary source for the "
+        "Plague Company detachment rule — the real codex Plague Company "
+        "is themed around named plague-company sub-themes (Mortarion's "
+        "Anvil, Wraith Creepers, etc.), each granting different buffs to "
+        "a narrow unit set, none of which is an army-wide melee SUSTAINED "
+        "HITS 1 grant. The proxy was a fabrication biasing Death Guard "
+        "sim WR upward (already noted as the +16.4 outlier compensation "
+        "in the prior citation, which is itself a sign the buff was "
+        "over-fit). Removed. The detachment is still registered and its "
+        "infantry composition preference is retained — list-build shape "
+        "still applies. A faithful Plague Company implementation needs a "
+        "sub-theme selection layer that the simulator does not yet model; "
+        "follow-up wiring lands separately. Stratagem set kept as the "
+        "Awakened Dynasty placeholder pending a real Plague Company "
+        "stratagem pull."
     ),
-    melee_sustained_hits_army_wide=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # placeholder; real PC has
     # its own stratagems. Per-strat differences smaller than rule lever.
     preferred_composition="infantry",
@@ -1018,16 +1062,20 @@ CANOPTEK_COURT = Detachment(
     name="Canoptek Court",
     faction="Necrons",
     notes=(
-        "Canoptek-led command: friendly CANOPTEK units gain +1 to Wound "
-        "rolls. Lossy approximation of the Canoptek Court detachment's "
-        "Cryptek-led repair / acceleration buffs; we collapse the bundle "
-        "into a flat +1 to wound on the Canoptek chassis. Gate: attacker "
-        "profile name starts with 'Canoptek'."
+        "SC5-11 (2026-05-21): the canonical Hyper-Logical Strategy rule "
+        "grants a once-per-battle full Wound-roll reroll to CANOPTEK "
+        "models for one phase — it is NOT an always-on +1-to-wound rule. "
+        "The previous proxy `canoptek_plus_one_to_wound=True` (army-wide, "
+        "always-on, every Canoptek-prefixed datasheet) was a "
+        "magnitude- and frequency-wrong fabrication (a flat +1-wound "
+        "over 5 rounds is dramatically stronger than a once-per-battle "
+        "single-phase full reroll). Removed. The detachment is still "
+        "registered and its balanced composition preference is retained — "
+        "list-build shape still applies. A faithful Hyper-Logical "
+        "Strategy implementation needs a once-per-battle, single-phase "
+        "transient reroll grant that the simulator does not yet model; "
+        "follow-up wiring lands separately."
     ),
-    # APPROXIMATION: always-on +1 to wound stands in for a once-per-battle full wound reroll.
-    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Court
-    # Real rule: Hyper-Logical Strategy — once-per-battle full reroll, not always-on +1 to wound.
-    canoptek_plus_one_to_wound=True,
     preferred_composition="balanced",
 )
 
@@ -1385,7 +1433,16 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
     if total <= 0:
         return 0.0
 
-    if det.canoptek_plus_one_to_wound:
+    # SC5-11 (2026-05-21): keyword-affinity gating now reads `det.name`
+    # rather than the buff-flag fields, because three of those flags
+    # (canoptek_plus_one_to_wound, vehicles_reroll_hit_ones, and the
+    # PLAGUE_COMPANY melee-sustained-hits one) were dropped as
+    # fabrications in this commit. The list-build shape — picking
+    # Canoptek Court for Canoptek-heavy Necron armies, Ironstorm
+    # Spearhead for vehicle-heavy Marines, etc. — is preserved by
+    # gating on the detachment identity directly.
+    det_name = det.name
+    if det_name == "Canoptek Court":
         matched = sum(_pts(u) for u in units if _name(u).startswith("Canoptek"))
     elif det.plague_marines_plus_one_to_wound:
         matched = sum(_pts(u) for u in units if _name(u) == "Plague Marines")
@@ -1393,7 +1450,7 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
         matched = sum(
             _pts(u) for u in units if _name(u) in ASPECT_WARRIOR_OR_BIKE_NAMES
         )
-    elif det.vehicles_reroll_hit_ones:
+    elif det_name == "Ironstorm Spearhead":
         # VEHICLE already drives `preferred_composition="vehicle"`, but the
         # keyword affinity adds an extra nudge so Ironstorm dominates when
         # the army is genuinely tank-heavy rather than relying on the
