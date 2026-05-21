@@ -101,6 +101,44 @@ Memories built in this loop (all in `~/.claude/projects/.../memory/`):
 - `project-bsdata-mapper-prose-walk-bug` (SC5-10 Tyranid Enhancement FNP)
 - `project-fab-bandaid-on-thin-archetypes` (SC5-11 pattern explanation)
 
+### AX-A to AX-D — archetype depth expansion (2026-05-21)
+
+User directive: "flesh out the archetypes" — direct follow-up to the SC5-11 finding that fab cleanup hurt under-modelled factions because their FX-ALL minimal archetypes were too thin to compete. Four parallel agents, ~10 tool uses each (well-budgeted vs the SC5 agents' 30+).
+
+| Faction | Before | After |
+|---|---|---|
+| CSM Pactbound Zealots | 8 | 19 |
+| World Eaters Berzerker Warband | 8 | 19 |
+| Emperor's Children Slaaneshi Excess | 8 | 19 |
+| Chaos Daemons Daemonic Incursion | 8 | 13 |
+| Astra Militarum Combined Arms | 9 | 17 |
+| AdMech Skitarii Hunter Cohort | 8 | 17 |
+| Sororitas Hallowed Martyrs | 9 | 18 |
+| Grey Knights Teleport Strike Force | 7 | 18 |
+| Genestealer Cults Final Day | 9 | 17 |
+| Imperial Knights Noble Lance | 6 | 10 |
+| Chaos Knights Noble Lance | 6 | 10 |
+
+All 11 minimal archetypes now in the 10-19 range matching the original 10 archetypes' depth.
+
+**N=40 result**: MAE 15.65 → **15.28 (−0.37)**.
+
+Per-faction wins:
+- Sororitas +14.0 → +5.5 (**−8.5pt**, biggest single faction win)
+- Genestealer Cults −13.0 → −6.7 (**+6.3pt**)
+- Chaos Space Marines −6.8 → −1.7 (**+5.1pt**)
+- AdMech +18.7 → +17.5
+- Imperial Knights −37.5 → −36.2 (mapper gap dominates)
+
+Per-faction regressions (new units lose more matchups than they win):
+- Emperor's Children +0.8 → +5.0 (added Slaaneshi daemons + Fulgrim)
+- Chaos Daemons −6.2 → −9.3 (broader daemon roster represented)
+- Astartes / Tyranids / Orks +1–2pt each (untouched factions; matchup re-distribution)
+
+**Net path so far**: pre-SC5 N=20 baseline 15.95 → SC5 iter 1 14.97 → iter 2 close 15.65 → archetype expansion **15.28**. Within ~0.3pt of iter 1 close while having: 8 rule-correct fabs dropped, ~110 new archetype entries added across 11 factions, 6 carry-forward memories.
+
+Knights remain the dominant outlier (−36/−35) — confirms `project-knights-multiprofile-weapons`: archetype depth alone won't close the mapper-structural gap. Custodes +30 also structural per `project-custodes-board-control`. Real next-phase candidates are the mapper-structural work (iter 31-45 phase 2) and/or implementing missing faction army rules.
+
 ## Branch claude/sim-calibration-4 (2026-05-20)
 
 SC4 (secondary objectives + map rotation) + LC-1/LC-2/LC-5 (detachment variety + tactical-deck mechanic + Warlord designation). All committed and pushed; PR #26 open.
