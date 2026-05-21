@@ -635,6 +635,77 @@ def _equilibrium_plotly_figure_simdriven(
     )
 
 
+def _load_equation_calibrated_entries():
+    """Load `data/equation_calibrated_points.json` and join with UNIT_CATALOG.
+
+    The fit script writes per-unit `price_per_model` only; we attach name /
+    faction / role / GW price by looking each unit up in the live catalogue.
+    A unit is tagged `source="sim"` when its faction is in the snapshot's
+    `trusted_factions`, else `phase1_fallback` (approximation — exact when
+    the fit was run without `--max-per-faction`).
+    """
+    from types import SimpleNamespace
+    from code.equilibrium import _classify_role
+    if not _EQUATION_CALIBRATED_PATH.exists():
+        return [], {}
+    data = _json.loads(_EQUATION_CALIBRATED_PATH.read_text(encoding="utf-8"))
+    prices = data.get("prices", {})
+    trusted = set(data.get("trusted_factions", []))
+    entries = []
+    for key, price_per_model in prices.items():
+        unit = _RAW_CATALOG.get(key)
+        if unit is None or price_per_model <= 0:
+            continue
+        gw_per_model = (
+            unit.points_per_squad / max(1, unit.min_models)
+            if unit.points_per_squad > 0 else 0.0
+        )
+        if gw_per_model <= 0:
+            continue
+        misp = (price_per_model - gw_per_model) / gw_per_model * 100.0
+        entries.append(SimpleNamespace(
+            key=key,
+            name=unit.name,
+            faction=unit.faction or "Unknown",
+            role=_classify_role(unit),
+            min_models=unit.min_models,
+            gw_points_per_squad=unit.points_per_squad,
+            gw_points_per_model=gw_per_model,
+            equilibrium_points_per_model=float(price_per_model),
+            equilibrium_points_per_squad=float(price_per_model) * unit.min_models,
+            mispricing_pct=misp,
+            valid_matchups=0,  # not tracked by the equation fit
+            source="sim" if unit.faction in trusted else "phase1_fallback",
+        ))
+    meta = {k: v for k, v in data.items() if k != "prices"}
+    return entries, meta
+
+
+@st.cache_data(show_spinner="Building equation chart…", max_entries=4)
+def _equilibrium_plotly_figure_equation(
+    factions_tuple: Tuple[str, ...],
+    roles_tuple: Tuple[str, ...],
+    only_measured: bool,
+) -> go.Figure:
+    entries, _meta = _load_equation_calibrated_entries()
+    if not entries:
+        return go.Figure()
+    faction_set = set(factions_tuple) if factions_tuple else None
+    role_set = set(roles_tuple)
+    filtered = [
+        e for e in entries
+        if (faction_set is None or e.faction in faction_set)
+        and e.role in role_set
+        and e.gw_points_per_model > 0
+        and e.equilibrium_points_per_model > 0
+        and (not only_measured or e.source == "sim")
+    ]
+    return _build_equilibrium_figure(
+        filtered,
+        y_axis_title="Equation-calibrated points per model (log)",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
@@ -1507,9 +1578,12 @@ with tab_equilibrium:
     # `data/equilibrium_points_simdriven.json`.
     _simdriven_snapshot = load_eq_simdriven_snapshot()
     _has_simdriven = _simdriven_snapshot is not None
+    _has_equation = _EQUATION_CALIBRATED_PATH.exists()
     _source_options = ["Closed-form Phase 1 (live)"]
     if _has_simdriven:
         _source_options.append("Sim-driven (snapshot)")
+    if _has_equation:
+        _source_options.append("Equation-calibrated (snapshot)")
     _eq_source = st.radio(
         "Solver source",
         _source_options,
@@ -1520,16 +1594,26 @@ with tab_equilibrium:
             "fast, but blind to faction rules and tactics. "
             "Sim-driven measures win rates from real Battle() runs at equal "
             "points; the snapshot is built offline by "
-            "`python -m code.equilibrium_simdriven`."
+            "`python -m code.equilibrium_simdriven`. "
+            "Equation-calibrated loads `data/equation_calibrated_points.json` "
+            "from `scripts/fit_equation_calibrated.py` — fit only on factions "
+            "whose simulator MAE is within threshold of real tournament data."
         ),
     )
     _use_simdriven = (_eq_source == "Sim-driven (snapshot)")
+    _use_equation  = (_eq_source == "Equation-calibrated (snapshot)")
     if not _has_simdriven:
         st.caption(
             "No sim-driven snapshot found. Build one with "
             "`python -m code.equilibrium_simdriven` to enable the "
             "sim-driven view (the diagnostic subset takes ~5–10 minutes; "
             "`--full` is overnight)."
+        )
+    if not _has_equation:
+        st.caption(
+            "No equation-calibrated snapshot found. Build one from the "
+            "Calibration tab (Step 1) or with "
+            "`python -m scripts.fit_equation_calibrated`."
         )
 
     # ---- Controls ----
@@ -1541,6 +1625,7 @@ with tab_equilibrium:
     _default_anchor = (
         EQ_DEFAULT_ANCHOR if EQ_DEFAULT_ANCHOR in _shooty_keys else _shooty_keys[0]
     )
+    _anchor_locked = _use_simdriven or _use_equation
     with _col_anchor:
         _anchor_key = st.selectbox(
             "Anchor unit  (its cost is held fixed; everything else floats)",
@@ -1548,11 +1633,11 @@ with tab_equilibrium:
             index=_shooty_keys.index(_default_anchor),
             format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
             key="eq_anchor_key",
-            disabled=_use_simdriven,
+            disabled=_anchor_locked,
             help=(
-                "Anchor is fixed by the snapshot when using sim-driven; "
+                "Anchor is fixed by the snapshot when using a pre-built source; "
                 "rebuild the snapshot with a different `--anchor` to change it."
-                if _use_simdriven else None
+                if _anchor_locked else None
             ),
         )
     with _col_anchor_pts:
@@ -1568,7 +1653,7 @@ with tab_equilibrium:
             value=_default_anchor_pts,
             step=1.0,
             key="eq_anchor_pts",
-            disabled=_use_simdriven,
+            disabled=_anchor_locked,
         )
     with _col_role:
         _role_filter = st.multiselect(
@@ -1625,6 +1710,25 @@ with tab_equilibrium:
         )
         _result = None  # No D/T/R matrices in sim-driven; drill-down disabled.
         _result_entries = _simdriven_entries
+    elif _use_equation:
+        _equation_entries, _equation_meta = _load_equation_calibrated_entries()
+        _anchor_key = _equation_meta.get("anchor_key", _anchor_key)
+        _anchor_pts = float(_equation_meta.get("anchor_per_model", _anchor_pts))
+        _trusted = _equation_meta.get("trusted_factions", [])
+        _n_sim = _equation_meta.get("units_sim_fitted", 0)
+        _n_fb  = _equation_meta.get("units_phase1_fallback", 0)
+        st.caption(
+            f"Equation fit: **{_n_sim} units sim-measured** across "
+            f"{len(_trusted)} trusted factions "
+            f"({', '.join(_trusted) if _trusted else '—'}), "
+            f"{_equation_meta.get('n_battles_per_pair', 0)} battles/pair "
+            f"at {_equation_meta.get('budget_per_side', 0):.0f}-pt budget. "
+            f"{_n_fb} catalogue units inherit Phase 1 closed-form prices "
+            f"(marked `phase1_fallback`). "
+            f"Built {_equation_meta.get('built_at', '')[:19].replace('T', ' ')}."
+        )
+        _result = None  # No D/T/R matrices in equation-calibrated; drill-down disabled.
+        _result_entries = _equation_entries
     else:
         try:
             _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
@@ -1682,6 +1786,20 @@ with tab_equilibrium:
                     key="eq_simdriven_only_measured",
                 )
             _fig = _equilibrium_plotly_figure_simdriven(
+                factions_tuple=tuple(sorted(_selected_factions)),
+                roles_tuple=tuple(sorted(_role_filter)),
+                only_measured=bool(_only_measured),
+            )
+        elif _use_equation:
+            # Same default as sim-driven: hide Phase 1 fallback so the
+            # actual fit signal isn't buried under 1k+ inherited dots.
+            with st.expander("Equation view options", expanded=False):
+                _only_measured = st.checkbox(
+                    "Only show sim-fitted units (hide Phase 1 fallback)",
+                    value=True,
+                    key="eq_equation_only_measured",
+                )
+            _fig = _equilibrium_plotly_figure_equation(
                 factions_tuple=tuple(sorted(_selected_factions)),
                 roles_tuple=tuple(sorted(_role_filter)),
                 only_measured=bool(_only_measured),
@@ -1763,11 +1881,11 @@ with tab_equilibrium:
         # not the underlying pairwise win rates, so the drill-down is
         # hidden in that mode. Add it to the snapshot if/when the
         # per-pair detail is wanted in the UI.
-        if _use_simdriven:
+        if _use_simdriven or _use_equation:
             st.divider()
             st.info(
                 "Per-unit matchup drill-down is not yet available for the "
-                "sim-driven view. Switch the **Solver source** above to "
+                "snapshot views. Switch the **Solver source** above to "
                 "*Closed-form Phase 1* to inspect pairwise time-to-kill "
                 "and log-advantage matrices."
             )

@@ -52,6 +52,8 @@ n_battles, the measured_keys list, and wall-clock cost. Regenerate via
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
+import hashlib
 import json
 import math
 import os
@@ -255,6 +257,152 @@ def _logit_clamped(p: float, eps: float = LOGIT_EPSILON) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Checkpoint + progress file helpers
+# ---------------------------------------------------------------------------
+# A long sim-driven fit (32k pairs, hours of wall-clock) holds every measured
+# r_ij in RAM until the final JSON write. A crash/sleep/kill loses everything.
+# These helpers add a JSONL-format append-only checkpoint and a periodic
+# human-readable progress file so a re-run can pick up where the previous one
+# died, and the user can `cat` the progress file at any time to see status.
+
+PROGRESS_WRITE_INTERVAL_SEC: float = 20 * 60  # 20 minutes per the spec
+CHECKPOINT_FLUSH_EVERY: int = 50              # flush the JSONL every 50 pairs
+
+
+def _config_hash(
+    measured_keys: List[str],
+    n_battles: int,
+    points_budget: float,
+    anchor_key: str,
+    anchor_per_model: float,
+) -> str:
+    """Stable hash of the run config — used to reject mismatched checkpoints."""
+    payload = json.dumps(
+        {
+            "measured_keys": sorted(measured_keys),
+            "n_battles": n_battles,
+            "budget": round(float(points_budget), 4),
+            "anchor_key": anchor_key,
+            "anchor_per_model": round(float(anchor_per_model), 4),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def _load_checkpoint(
+    path: Path,
+    expected_hash: str,
+) -> Tuple[Dict[Tuple[int, int], Tuple[float, int]], int]:
+    """Return ``({(i, j): (r_ij, settled)}, battles_run_so_far)``.
+
+    Raises ``ValueError`` if the checkpoint's stored config hash does not
+    match ``expected_hash`` — running ``--resume`` against a different config
+    would silently mix battle results from different runs.
+    A corrupt trailing line (interrupted write) is skipped silently.
+    """
+    completed: Dict[Tuple[int, int], Tuple[float, int]] = {}
+    battles_run = 0
+    if not path.exists():
+        return completed, battles_run
+    header_seen = False
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                # Likely an interrupted write on the final line — drop it.
+                continue
+            if obj.get("_type") == "header":
+                header_seen = True
+                if obj.get("config_hash") != expected_hash:
+                    raise ValueError(
+                        f"Checkpoint config mismatch in {path}: "
+                        f"stored hash {obj.get('config_hash')!r} != current "
+                        f"hash {expected_hash!r}. Delete the checkpoint file "
+                        f"or run without --resume."
+                    )
+                continue
+            if "i" in obj and "j" in obj:
+                completed[(int(obj["i"]), int(obj["j"]))] = (
+                    float(obj["r_ij"]),
+                    int(obj["settled"]),
+                )
+                battles_run += int(obj["settled"])
+    if not header_seen and completed:
+        raise ValueError(
+            f"Checkpoint {path} has data lines but no header — refusing to "
+            f"resume from a malformed file. Delete it and start fresh."
+        )
+    return completed, battles_run
+
+
+def _write_checkpoint_header(
+    path: Path,
+    cfg_hash: str,
+    measured_keys: List[str],
+    n_battles: int,
+    points_budget: float,
+    anchor_key: str,
+    anchor_per_model: float,
+) -> None:
+    """Write the JSONL header line. Caller is responsible for opening append-mode after."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    header = {
+        "_type": "header",
+        "config_hash": cfg_hash,
+        "n_battles": n_battles,
+        "budget": points_budget,
+        "anchor_key": anchor_key,
+        "anchor_per_model": anchor_per_model,
+        "n_measured": len(measured_keys),
+        "started_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+    with path.open("w", encoding="utf-8") as f:
+        f.write(json.dumps(header) + "\n")
+
+
+def _write_progress_file(
+    path: Path,
+    done: int,
+    total: int,
+    t_start: float,
+    battles_run: int,
+) -> None:
+    """Atomic write of a small JSON status blob the user can `cat` any time."""
+    elapsed = time.time() - t_start
+    pct = (done / total * 100.0) if total > 0 else 0.0
+    eta = (elapsed / done * (total - done)) if done > 0 else 0.0
+    payload = {
+        "done": done,
+        "total": total,
+        "pct": round(pct, 2),
+        "elapsed_sec": round(elapsed, 1),
+        "eta_sec": round(eta, 1),
+        "battles_run": battles_run,
+        "updated_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Write-then-rename so a partial write never replaces the previous file.
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def _clear_checkpoint(checkpoint_path: Optional[Path], progress_path: Optional[Path]) -> None:
+    """Delete checkpoint + progress files after a successful run."""
+    for p in (checkpoint_path, progress_path):
+        if p is not None and p.exists():
+            try:
+                p.unlink()
+            except OSError:
+                pass
+
+
+# ---------------------------------------------------------------------------
 # Top-level solve
 # ---------------------------------------------------------------------------
 
@@ -268,6 +416,9 @@ def compute_phase_simdriven(
     progress_cb: Optional[Callable[[int, int, str], None]] = None,
     rng: Optional[random.Random] = None,
     max_workers: Optional[int] = None,
+    checkpoint_path: Optional[Path] = None,
+    progress_path: Optional[Path] = None,
+    resume: bool = False,
 ) -> SimDrivenResult:
     """Run the sim-driven equilibrium solve over ``measured_keys``.
 
@@ -279,6 +430,12 @@ def compute_phase_simdriven(
     ``progress_cb(done, total, message)`` is invoked once per outer-loop
     attacker so a CLI / Streamlit caller can render a progress bar without
     coupling to this module's loop shape.
+
+    ``checkpoint_path`` (parallel path only): when set, every completed pair
+    is appended as a JSONL line so a re-run with ``resume=True`` can skip
+    already-measured pairs. ``progress_path`` writes a human-readable JSON
+    status blob every 20 minutes (cat-able while the run is alive). Both
+    files are deleted on successful completion.
     """
     if catalog is None:
         catalog = UNIT_CATALOG
@@ -333,9 +490,46 @@ def compute_phase_simdriven(
         # Parallel path — distribute pair jobs across worker processes.
         # Each job is a tuple of picklable args; UnitProfile is a frozen
         # dataclass and is picklable on the Windows spawn start method.
+
+        # --- Resume from checkpoint ---------------------------------------
+        # The hash pins config (measured_keys, n_battles, budget, anchor).
+        # If the checkpoint's stored hash mismatches, _load_checkpoint
+        # raises rather than silently mixing data from a different run.
+        cfg_hash = _config_hash(
+            valid_measured, n_battles, points_budget,
+            anchor_key, anchor_per_model,
+        )
+        completed_pairs: Dict[Tuple[int, int], Tuple[float, int]] = {}
+        if resume and checkpoint_path is not None:
+            completed_pairs, prior_battles = _load_checkpoint(
+                checkpoint_path, cfg_hash,
+            )
+            battles_run += prior_battles
+            # Hydrate the R matrix from already-measured pairs so they
+            # contribute to the final log-p solve without re-running.
+            for (ci, cj), (r_ij, settled) in completed_pairs.items():
+                if settled == 0:
+                    continue
+                r_logit = _logit_clamped(r_ij)
+                R[ci, cj] = r_logit
+                R[cj, ci] = -r_logit
+                valid_pair_count[ci] += 1
+                valid_pair_count[cj] += 1
+
+        # Fresh checkpoint header if we're not resuming (or no file yet).
+        if checkpoint_path is not None and (
+            not resume or not checkpoint_path.exists()
+        ):
+            _write_checkpoint_header(
+                checkpoint_path, cfg_hash, valid_measured,
+                n_battles, points_budget, anchor_key, anchor_per_model,
+            )
+
         jobs = []
         for i in range(n):
             for j in range(i + 1, n):
+                if (i, j) in completed_pairs:
+                    continue  # already measured in a prior run
                 seed = i * 100_000 + j  # deterministic per pair
                 jobs.append((
                     i, j,
@@ -343,23 +537,60 @@ def compute_phase_simdriven(
                     catalog[valid_measured[j]],
                     n_battles, points_budget, seed,
                 ))
-        total_pairs = len(jobs)
-        done = 0
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            for res_i, res_j, r_ij, settled in executor.map(
-                _pair_job, jobs, chunksize=8
-            ):
-                done += 1
-                if settled == 0:
-                    continue
-                battles_run += settled
-                r_logit = _logit_clamped(r_ij)
-                R[res_i, res_j] = r_logit
-                R[res_j, res_i] = -r_logit
-                valid_pair_count[res_i] += 1
-                valid_pair_count[res_j] += 1
-                if progress_cb is not None:
-                    progress_cb(done, total_pairs, valid_measured[res_i])
+        total_pairs = n * (n - 1) // 2
+        done = len(completed_pairs)  # count resumed pairs as already done
+
+        # Open the checkpoint in append mode for the run. Flushed every
+        # CHECKPOINT_FLUSH_EVERY pairs to balance crash safety vs syscall
+        # overhead. The progress file is rewritten at most once per
+        # PROGRESS_WRITE_INTERVAL_SEC; an initial write fires immediately
+        # so the file appears as soon as the run starts.
+        chkp_fh = (
+            checkpoint_path.open("a", encoding="utf-8")
+            if checkpoint_path is not None else None
+        )
+        last_progress_write = 0.0  # 0 forces an initial write on first pair
+        pairs_since_flush = 0
+
+        try:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                for res_i, res_j, r_ij, settled in executor.map(
+                    _pair_job, jobs, chunksize=8
+                ):
+                    done += 1
+                    if settled > 0:
+                        battles_run += settled
+                        r_logit = _logit_clamped(r_ij)
+                        R[res_i, res_j] = r_logit
+                        R[res_j, res_i] = -r_logit
+                        valid_pair_count[res_i] += 1
+                        valid_pair_count[res_j] += 1
+                    # Append to checkpoint regardless of settled — a zero-
+                    # settled pair is still "measured" (we won't repeat it).
+                    if chkp_fh is not None:
+                        chkp_fh.write(json.dumps({
+                            "i": res_i, "j": res_j,
+                            "r_ij": float(r_ij), "settled": int(settled),
+                        }) + "\n")
+                        pairs_since_flush += 1
+                        if pairs_since_flush >= CHECKPOINT_FLUSH_EVERY:
+                            chkp_fh.flush()
+                            pairs_since_flush = 0
+                    # Progress file every 20 min.
+                    if progress_path is not None:
+                        now = time.time()
+                        if (now - last_progress_write) >= PROGRESS_WRITE_INTERVAL_SEC:
+                            _write_progress_file(
+                                progress_path, done, total_pairs,
+                                t_start, battles_run,
+                            )
+                            last_progress_write = now
+                    if progress_cb is not None:
+                        progress_cb(done, total_pairs, valid_measured[res_i])
+        finally:
+            if chkp_fh is not None:
+                chkp_fh.flush()
+                chkp_fh.close()
     else:
         # Serial path (original).
         for i, key_i in enumerate(valid_measured):

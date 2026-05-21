@@ -11,8 +11,9 @@ with the standard library, and Streamlit is invoked through
 
 from __future__ import annotations
 
-import atexit
+import glob
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -21,13 +22,9 @@ import time
 import tkinter as tk
 import webbrowser
 from tkinter import messagebox
-from typing import Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-
-_dashboard_proc: Optional[subprocess.Popen] = None
-_dashboard_port: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -53,69 +50,62 @@ def _wait_for_port(port: int, timeout: float = 15.0) -> bool:
     return False
 
 
-def _terminate_dashboard() -> None:
-    if _dashboard_proc and _dashboard_proc.poll() is None:
-        _dashboard_proc.terminate()
-        try:
-            _dashboard_proc.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            _dashboard_proc.kill()
-
-
-atexit.register(_terminate_dashboard)
-
-
 # ---------------------------------------------------------------------------
 # Button actions
 # ---------------------------------------------------------------------------
 
-def launch_dashboard(status_var: tk.StringVar) -> None:
-    """Start the Streamlit server (if not already running) and open a browser."""
-    global _dashboard_proc, _dashboard_port
-
-    if (
-        _dashboard_proc
-        and _dashboard_proc.poll() is None
-        and _dashboard_port is not None
-    ):
-        webbrowser.open(f"http://localhost:{_dashboard_port}")
-        status_var.set(f"Dashboard already running at port {_dashboard_port}.")
-        return
-
-    _dashboard_port = _free_port()
-    status_var.set(f"Starting Streamlit on port {_dashboard_port}...")
+def launch_dashboard(root: tk.Tk, status_var: tk.StringVar) -> None:
+    """Start Streamlit headlessly and open the browser once the port is ready."""
+    port = _free_port()
+    status_var.set(f"Starting Streamlit on port {port}…")
+    streamlit_bin = shutil.which("streamlit") or next(
+        iter(sorted(glob.glob(os.path.expanduser("~/.pyenv/versions/*/bin/streamlit")))),
+        None,
+    )
+    if streamlit_bin:
+        cmd = [streamlit_bin, "run", "app.py"]
+    else:
+        cmd = [sys.executable, "-m", "streamlit", "run", "app.py"]
 
     try:
-        _dashboard_proc = subprocess.Popen(
+        proc = subprocess.Popen(
             [
-                sys.executable, "-m", "streamlit", "run", "app.py",
+                *cmd,
                 "--server.headless=true",
                 "--browser.gatherUsageStats=false",
-                f"--server.port={_dashboard_port}",
+                f"--server.port={port}",
             ],
             cwd=HERE,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
     except FileNotFoundError:
-        messagebox.showerror(
-            "Could not start Python",
-            "Python is not on PATH. Make sure Python is installed.",
-        )
+        messagebox.showerror("Launch failed", "Streamlit not found. Run: pip install streamlit")
         return
 
-    def _open_when_ready() -> None:
-        port = _dashboard_port
-        if port is not None and _wait_for_port(port):
-            webbrowser.open(f"http://localhost:{port}")
-            status_var.set(f"Dashboard running at http://localhost:{port}")
-        else:
-            status_var.set(
-                "Dashboard did not start within 15s. "
-                "Try 'python -m streamlit run app.py' in a terminal to see the error."
-            )
+    url = f"http://localhost:{port}"
 
-    threading.Thread(target=_open_when_ready, daemon=True).start()
+    def _open_browser() -> None:
+        # Give the process a moment; if it dies immediately show stderr.
+        time.sleep(1.5)
+        if proc.poll() is not None:
+            err = (proc.stderr.read().decode(errors="replace") if proc.stderr else "")
+            root.after(0, lambda: messagebox.showerror(
+                "Streamlit failed to start",
+                f"Command: {proc.args}\n\n{err or 'Process exited immediately.'}"
+            ))
+            root.after(0, lambda: status_var.set("Dashboard failed to start."))
+            return
+        if _wait_for_port(port, timeout=30.0):
+            root.after(0, lambda: webbrowser.open(url))
+            root.after(0, lambda: status_var.set(f"Dashboard open at {url}"))
+        else:
+            root.after(0, lambda: status_var.set(
+                "Timed out waiting for Streamlit. "
+                "Try 'python -m streamlit run app.py' in a terminal to see the error."
+            ))
+
+    threading.Thread(target=_open_browser, daemon=True).start()
 
 
 def _open_console(cmd: list, status_var: tk.StringVar, label: str) -> None:
@@ -182,7 +172,7 @@ def launch_gui() -> None:
     tk.Button(
         root,
         text="Launch web dashboard (browser)",
-        command=lambda: launch_dashboard(status_var),
+        command=lambda: launch_dashboard(root, status_var),
         **btn_kwargs,
     ).pack(pady=4)
 

@@ -159,10 +159,42 @@ def main() -> None:
             "60 units → 1,770 pairs vs the default 264 units → 34,716 pairs."
         ),
     )
+    ap.add_argument(
+        "--resume", action="store_true",
+        help=(
+            "Resume from an existing checkpoint at --checkpoint. The "
+            "stored config hash must match the current --battles / --budget "
+            "/ --anchor / measured-keys set, otherwise the run aborts."
+        ),
+    )
+    ap.add_argument(
+        "--checkpoint", type=str, default=None,
+        help=(
+            "Path to a JSONL checkpoint file. Defaults to <out>.checkpoint.jsonl. "
+            "One line per completed pair is appended during the fit; "
+            "deleted on successful completion."
+        ),
+    )
+    ap.add_argument(
+        "--progress", type=str, default=None,
+        help=(
+            "Path to a human-readable progress JSON file. Defaults to "
+            "<out>.progress.json. Rewritten every 20 minutes during the fit "
+            "with done / total / pct / elapsed_sec / eta_sec / battles_run."
+        ),
+    )
     args = ap.parse_args()
 
     snap_path = pathlib.Path(args.snapshot)
     out_path = pathlib.Path(args.out)
+    checkpoint_path = (
+        pathlib.Path(args.checkpoint) if args.checkpoint
+        else out_path.with_suffix(".checkpoint.jsonl")
+    )
+    progress_path = (
+        pathlib.Path(args.progress) if args.progress
+        else out_path.with_suffix(".progress.json")
+    )
     workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
 
     trusted = load_trusted_factions(snap_path, args.threshold)
@@ -189,6 +221,9 @@ def main() -> None:
         f"Units to measure: {n_units}  |  Pairs: {n_pairs}  |  "
         f"~{est_battles:,} battles  |  est. {est_sec/60:.0f} min"
     )
+    print(f"Checkpoint: {checkpoint_path}  |  Progress: {progress_path}")
+    if args.resume:
+        print(f"Resume: ON (will skip pairs already in {checkpoint_path})")
     print()
 
     result = compute_phase_simdriven(
@@ -201,6 +236,9 @@ def main() -> None:
         progress_cb=_progress,
         rng=random.Random(42),
         max_workers=workers,
+        checkpoint_path=checkpoint_path,
+        progress_path=progress_path,
+        resume=args.resume,
     )
     print()  # newline after progress bar
 
@@ -232,6 +270,14 @@ def main() -> None:
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    # Final write succeeded — drop the checkpoint + progress files so the
+    # next run starts clean unless explicitly --resume'd.
+    for _p in (checkpoint_path, progress_path):
+        if _p.exists():
+            try:
+                _p.unlink()
+            except OSError:
+                pass
     print(
         f"Equation fitted: {sim_count} units from sim, "
         f"{fallback_count} via Phase 1 fallback"
