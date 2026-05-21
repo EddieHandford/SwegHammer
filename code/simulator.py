@@ -4217,6 +4217,14 @@ class Battle:
             enemy units within 3" of any DG model take -1 Ld. Cited as
             `simulator.contagions_of_nurgle`. (Radius gated to 3" per the
             modern Nurgle's Gift / Afflicted rule; older index rule was 6".)
+          - Shadow of Chaos (Chaos Daemons, 10e): enemy units within the
+            Shadow of Chaos take Battle-shock at -1 AND, if failed,
+            suffer D3 mortal wounds. APPROXIMATION: SwegHammer does not
+            track deployment-zone ownership; the rule's "your deployment
+            zone + objectives-held No Man's Land" trigger is proxied as
+            "enemy unit is within 18" of board centre while a Chaos
+            Daemons army is the opponent". Cited as
+            `simulator.shadow_of_chaos`.
 
         iter-13 fix: previously gated on `round_num <= 1` (skipped R1
         entirely). 10e core fires the test at the start of every Command
@@ -4249,6 +4257,24 @@ class Battle:
                 ]
                 if round_num == 2 else []
             )
+            # Shadow of Chaos (Chaos Daemons army rule, 10e). APPROXIMATION:
+            # the real Shadow of Chaos covers the Daemons player's deployment
+            # zone always plus contested portions of No Man's Land /
+            # opponent's deployment zone if Daemons control half-or-more
+            # objectives there. SwegHammer does not track per-zone objective
+            # ownership; we proxy "inside the Shadow" as "within 18" of board
+            # centre while ANY Chaos Daemons unit is alive in the opposing
+            # army". This covers the common case (Daemons pushing centre) at
+            # the cost of missing the deployment-zone passive coverage; the
+            # 18" radius is chosen as a half-board approximation of the
+            # canonical zone-based shape.
+            shadow_of_chaos_active = any(
+                s.profile.faction == "Chaos Daemons"
+                for s in opponent.alive_units
+            )
+            if shadow_of_chaos_active:
+                cx = self.map.width / 2.0
+                cy = self.map.height / 2.0
             for u in army.alive_units:
                 if u.current_health < u.profile.health / 2.0:
                     if mob_rule_active and u.profile.faction == "Orks":
@@ -4279,6 +4305,19 @@ class Battle:
                         )
                     ):
                         contagion_penalty = 1
+                    # Shadow of Chaos: -1 to Battle-shock (modelled as +1 to
+                    # test target — same convention as Shadow in the Warp).
+                    # Only fires when the opponent is Chaos Daemons and the
+                    # testing unit is itself not Chaos Daemons.
+                    shadow_of_chaos_penalty = 0
+                    shadow_of_chaos_hit = False
+                    if (
+                        shadow_of_chaos_active
+                        and u.profile.faction != "Chaos Daemons"
+                        and _distance(u.position, (cx, cy)) <= 18.0
+                    ):
+                        shadow_of_chaos_penalty = 1
+                        shadow_of_chaos_hit = True
                     roll = random.randint(1, 6) + random.randint(1, 6)
                     target = (
                         u.profile.leadership
@@ -4286,12 +4325,20 @@ class Battle:
                         - ld_bonus
                         + shadow_penalty
                         + contagion_penalty
+                        + shadow_of_chaos_penalty
                     )
                     if roll < target:
                         self._battleshocked_this_round.add(u.uid)
                         self._emit(BattleshockFailed(
                             unit_uid=u.uid, roll=roll, target=target,
                         ))
+                        # Shadow of Chaos: failed test inside the Shadow
+                        # also inflicts D3 mortal wounds on the testing
+                        # enemy unit (Wahapedia Chaos Daemons faction
+                        # rule). Cited as `simulator.shadow_of_chaos`.
+                        if shadow_of_chaos_hit:
+                            mw = random.randint(1, 3)
+                            u.current_health = max(0, u.current_health - mw)
 
     def _run_round(self, round_num: int) -> None:
         if self.verbose:

@@ -1,0 +1,13 @@
+{
+  "_comment": "Citations for the Chaos Daemons army rules implemented in code/simulator.py. Source: Wahapedia Chaos Daemons faction page. MR-I (2026-05-21): Shadow of Chaos wired into _run_battleshock_phase as a position-proxied -1 to Battle-shock + D3 mortal wounds on a failed test.",
+
+  "simulator.shadow_of_chaos": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Shadow of Chaos",
+    "quoted_text": "Each time that unit takes a Battle-shock test, subtract 1 from that test and, if that test is failed, that enemy unit suffers D3 mortal wounds.",
+    "trigger": "Battle-shock test for an enemy unit that is inside the Shadow of Chaos (Wahapedia: the Chaos Daemons player's deployment zone, plus No Man's Land if they control at least half the objectives there, plus the opponent's deployment zone if they control at least half the objectives there; also extends 6\" from listed Greater Daemons)",
+    "effect": "(approximation) subtract 1 from the 2D6 test result (modelled equivalently by adding 1 to the test target Leadership, same convention as Shadow in the Warp) AND, if failed, the testing enemy unit suffers D3 mortal wounds. SwegHammer does not track deployment-zone ownership or per-zone objective control; the rule is proxied as 'enemy unit within 18\" of the board centre while at least one Chaos Daemons unit is alive in the opposing army'. The Greater Daemon 6\" aura half of the rule is folded into the same area proxy (no separate model-aura check). Composes additively with detachment ld_bonus / enemy_ld_penalty.",
+    "scope": "army-wide",
+    "approximation": true
+  }
+}
