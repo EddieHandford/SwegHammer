@@ -674,25 +674,20 @@ def _synapse_target_bonus(attacker, defender) -> float:
 _ORK_TARPIT_BONUS: float = 1.6
 _ORK_LOW_DAMAGE_FRAC: float = 0.25  # "won't actually kill" threshold
 
-# AI-2C — Chaos Daemons deep-strike tarpit-engage bias. Daemons identity is
-# Warp-deploy into the enemy backline and charge to lock down. The faction
-# is currently under-performing in sim (~-9.7) because the AI doesn't bias
-# their post-deep-strike charge into tarpit-worthy targets — instead it picks
-# nominal top-DPA, which often leaves a Bloodletter mob staring at a Knight
-# they can't crack while a Custodian Guard / Aggressor brick walks an
-# objective unopposed. Bias 1.4x — smaller than Orks (1.6x) because Daemons
-# can actually KILL into the right targets, but big enough to overcome the
-# default top-DPA pick when the deep-strike charge lands on a lock-down
-# candidate. Gate: faction == "Chaos Daemons" AND attacker.profile.name
-# in the canonical deep-strike-arrival roster (Bloodletters, Plaguebearers,
-# Daemonettes, Pink Horrors). Per-round deep-strike state lives on the
-# simulator (`_fresh_arrivals`) which isn't plumbed into strategy.py, so
-# the class gate stands in as a proxy: these are the units that actually
-# deep-strike for Daemons in tournament lists.
+# AI-2C — Chaos Daemons deep-strike tarpit-engage bias.
 _DAEMONS_TARPIT_BONUS: float = 1.4
 _DAEMONS_DEEPSTRIKE_NAMES = frozenset({
     "Bloodletters", "Plaguebearers", "Daemonettes", "Pink Horrors",
 })
+
+# AI-3 — elite-army objective-priority play-style constants. Custodes /
+# Drukhari / Votann refuse damage trades that don't translate to position.
+# Each gate is faction-pure and stacks multiplicatively with the existing
+# target-score chain.
+_CUSTODES_HORDE_TARGET_PENALTY: float = 0.4
+_DRUKHARI_ENGAGE_BONUS: float = 0.5
+_DRUKHARI_DECISIVE_FRAC: float = 0.5
+_VOTANN_FALLBACK_FACTIONS: tuple = ("Leagues of Votann",)
 
 
 def _is_tarpit_candidate(defender) -> bool:
@@ -758,10 +753,7 @@ def _ork_tarpit_charge_bonus(attacker, defender) -> float:
     return _ORK_TARPIT_BONUS
 
 
-# AI-2C — Chaos Daemons deep-strike tarpit bonus constants. Frozen set of
-# the four canonical deep-strike-arrival Daemon squads, faction-gated
-# multiplier 1.4 (smaller than Orks because Daemons CAN kill but the bias
-# should still favour the lock-down pick).
+# AI-2C — Chaos Daemons deep-strike tarpit bonus constants.
 _DAEMONS_TARPIT_BONUS: float = 1.4
 _DAEMONS_DEEPSTRIKE_NAMES = frozenset({
     "Bloodletters", "Plaguebearers", "Daemonettes", "Pink Horrors",
@@ -910,6 +902,43 @@ def _daemons_deepstrike_tarpit_bonus(attacker, defender) -> float:
     return _DAEMONS_TARPIT_BONUS
 
 
+def _custodes_horde_penalty(attacker, defender) -> float:
+    """Return 0.4x when attacker is Custodes and defender's role is HORDE.
+
+    Real top Custodes lists hold the centre and never grind into Boyz /
+    Termagant / Cultist chaff. Knock the AI's chase-the-horde bias down so
+    Wardens/Custodian Guard prefer claiming objectives over chasing low-OC.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction != "Adeptus Custodes":
+        return 1.0
+    if classify(d_profile) != "HORDE":
+        return 1.0
+    return _CUSTODES_HORDE_TARGET_PENALTY
+
+
+def _drukhari_decisive_strike_penalty(attacker, defender) -> float:
+    """Return 0.5x when attacker is Drukhari/Ynnari AND expected wounds < 50%
+    of defender.current_health (engagement isn't decisive). Models
+    alpha-strike-then-fade play — Wyches/Incubi only engage when they can
+    delete the target.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction not in ("Drukhari", "Ynnari"):
+        return 1.0
+    expected_wounds = _kill_potential_wounds(a_profile, d_profile)
+    current_hp = max(1.0, getattr(defender, "current_health", 1.0))
+    if expected_wounds >= _DRUKHARI_DECISIVE_FRAC * current_hp:
+        return 1.0
+    return _DRUKHARI_ENGAGE_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -961,7 +990,10 @@ def _melee_target_score(attacker, defender) -> float:
             * _ork_tarpit_charge_bonus(attacker, defender)
             * _we_glory_charge_bonus(attacker, defender)
             * _tyranids_synapse_tarpit_bonus(attacker, defender)
-            * _daemons_deepstrike_tarpit_bonus(attacker, defender))
+            * _daemons_deepstrike_tarpit_bonus(attacker, defender)
+            # AI-3 — elite over-performer debuffs.
+            * _custodes_horde_penalty(attacker, defender)
+            * _drukhari_decisive_strike_penalty(attacker, defender))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -1406,7 +1438,17 @@ def pick_move_intent(
     # destination outside engagement of every enemy (otherwise the move would
     # just re-pin us). Cited as `simulator.fall_back` /
     # `simulator.desperate_escape`.
-    if role in ("SHOOTY", "HEAVY"):
+    # AI-3 — Votann fall-back extension: real Hearthkyn / Hernkyn gunlines
+    # fall back from melee aggressively to keep bolters firing. Hearthkyn
+    # classify as DUAL because they pack a few melee attacks, but the
+    # damage trade is heavily ranged-biased, so the right move when pinned
+    # is to break engagement. Extend the standard SHOOTY/HEAVY fall-back
+    # eligibility to DUAL specifically for Votann attackers. Stage-1 AI
+    # only — no rule citation, this is heuristic play-style modelling.
+    _fall_back_eligible_roles = ("SHOOTY", "HEAVY")
+    if unit.profile.faction in _VOTANN_FALLBACK_FACTIONS:
+        _fall_back_eligible_roles = ("SHOOTY", "HEAVY", "DUAL")
+    if role in _fall_back_eligible_roles:
         enemies = enemy.alive_units
         in_engagement = any(
             _dist(unit.position, e.position) < _ENGAGEMENT_RANGE
