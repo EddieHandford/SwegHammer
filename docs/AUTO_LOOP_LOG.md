@@ -2,6 +2,57 @@
 
 Older iter blocks live in `AUTO_LOOP_LOG_archive.md`.
 
+## Branch claude/sim-calibration-5 (2026-05-21) — SC5 outlier-grind loop
+
+22-faction matrix expanded in sim-cal-4 (FX-ALL + FX-MS) created 12 new minimal-archetype outliers. Starting baseline pre-SC5 N=20: MAE 15.95 (vs pre-FX-ALL 10-faction N=40 = 5.79). User directive: "work through all the factions starting with the biggest outliers focusing on rule correct updates to bring their MAE down. then do a loop summary and feed those notes into the next loop. continue until MAE is at least as good as before we added the remaining factions or we're below our noise floor."
+
+### SC5-1 to SC5-6 — six rule-correct landings
+
+**SC5-1 Drukhari Skysplinter Assault fabrication dropped** (`c1456c4`). `reroll_wound_ones=True` was a fabricated army-wide always-on proxy. Real "Rain of Cruelty" rule grants `[ignores cover]` + `[lance]` to a single disembarking unit per disembark — narrowly gated, no wound-roll modifier. Drukhari sim% −8.6 at N=5.
+
+**SC5-2 Chaos Knights Ion Shield 5++ restored** (`16a27f9`). BSData v10.6.0 cache omits the Invulnerable Save infoLink on all 10 Chaos Knight chassis (same omission pattern as Doomsday Ark / Wraithguard). Added `invuln_save: 5` overrides for Desecrator, Rampager, Despoiler, Tyrant, Abominant + 5 War Dog variants. IK already correctly carried 5++. CK +1.0 sim%. **Knights residual is structural — multi-profile weapon mapper gap (saved as memory `project-knights-multiprofile-weapons`)**: Castellan/Crusader fire 4–5 ranged profiles, BSData mapper captures only `weapon` + `secondary_weapon`. Parked for iter 31–45 mapper phase.
+
+**SC5-3 Trajann Valoris Captain-General fabrication dropped** (`ba85564`). LeaderAbility carried `plus_one_to_hit=True` self-flagged as "upper-bound flavour proxy". Real rule is modifier-cancellation (negates -1 to hit penalties), not a flat +1 — and SwegHammer doesn't model hit penalties on the attack side, so net contribution should be ~0. Agent verified the rest of the Custodes engine is correct: Martial Ka'tah alternation works (AP+1 odd / Crit-5+ even), Wardens Resolute Will is 3-way gated, no leader-aura stack on Allarus/Sagittarum/Vertus. **Custodes +29 residual is structural — board-control bias against elite-low-model armies (saved as memory `project-custodes-board-control`)**. Parked.
+
+**SC5-4 AdMech + Sororitas detachment fabrications dropped** (`5372011`). `SKITARII_HUNTER_COHORT.reroll_hit_ones=True` cited against "Stealth Optimisation" — real rule is purely defensive (Stealth + cover at >12" for Sicarians). `HALLOWED_MARTYRS.plus_one_to_wound=True` cited against "The Blood of Martyrs" — real rule only fires Below Starting Strength / Below Half. Both dropped. **Biggest single-commit win of the loop**: AdMech −7.6, Sororitas −12.7 combined ~20pt correction at N=5.
+
+**SC5-5 Votann Warrior Pride + Wrath of the Ancestors token-gated** (`fa0f60d`). Stratagems were firing round 1 against highest-threat target rather than waiting for a Judgement Token to be issued. Rule-correct fix tightens fire conditions per Wahapedia. **Votann sim% went up +3.8 at N=5** — agent notes the underlying stratagem effect mappings are systematically over-strong: `transient_plus_one_to_wound` proxies a Wound REROLL (close), `transient_plus_one_to_hit_shooting` proxies LETHAL HITS (over-strong on 3+ shots that gain an extra hit). Kept per correctness-over-MAE; flag for iter 2.
+
+**SC5-6 Grey Knights Fury of Titan reroll_hit_ones restored** (`a817186`). Citation in `data/rule_citations.d/detachments.json` reads "re-roll a Hit roll of 1 **and** re-roll a Wound roll of 1", but the `Detachment` instance only had `reroll_wound_ones=True`. The matching Hit reroll was dropped at some prior point. Restored — no fabrication, code now matches the citation. GK −6.6 at N=5. MAE 18.09 → 17.53.
+
+### SC5-7 honest N=40 measurement (2026-05-21)
+
+Cumulative `claude/sim-calibration-5` at `a817186`. N=40 archetype eval (parallelised, 15 workers):
+
+| Metric | Pre-SC5 N=20 | Post-SC5 N=40 |
+|---|---|---|
+| MAE vs Warp Friends | 15.95 | **14.97** |
+| MAE vs source mean | 16.something | 14.92 |
+
+Biggest residuals post-SC5:
+- **Drukhari +37.1** (was +39.5) — Combat Drugs / per-unit stat audit still on the table
+- **Imperial Knights −37.1** + **Chaos Knights −35.5** — STRUCTURAL (mapper gap), parked
+- **Adeptus Custodes +29.3** — STRUCTURAL (board-control bias), parked
+- **Leagues of Votann +21.0** — stratagem effect mapping over-strong
+- **Tyranids +18.3, Adeptus Astartes +17.5, AdMech +17.1, TSON +14.1, Aeldari +14.3, Orks +14.3, Sororitas +13.1** — mid-band, all candidates for the same detachment-fab pattern (3-of-3 hit rate so far)
+
+### Pattern observed: detachment fabrication
+
+Three of the six fixes (SC5-1 Skysplinter, SC5-4-A Skitarii Hunter Cohort, SC5-4-B Hallowed Martyrs) were the same pattern: `code/detachments.py` carrying always-on proxy flags (`reroll_wound_ones`, `reroll_hit_ones`, `plus_one_to_wound`) that don't match the cited real-rule text. Saved as memory `project-detachment-fabrication-pattern`. Strong probability more remain across the 22 detachments — iter 2 should sweep them all systematically.
+
+### Iter 2 plan (not yet dispatched)
+
+Top candidates ordered by expected magnitude × structural-tractability:
+
+1. **Drukhari Combat Drugs audit** — Adrenalight (+1 Attack) may be always-on full-archetype rather than 1-of-4 random.
+2. **Adeptus Astartes Oath of Moment** — full-army reroll-hit-1s vs Oath target, may be gated wrong (whole army instead of just declared shooters).
+3. **Tyranids Shadow in the Warp / Synapse** — Synapse buffs may apply to non-Synapse units.
+4. **Aeldari Strands of Fate** — dice-pool replacement may be modelled as always-take-the-best.
+5. **TSON All Is Dust** — -1 damage may apply to non-Rubric/Scarab units.
+6. **Sweep all 22 detachments** for fabricated proxy flags in one focused agent pass.
+
+The 5.79 pre-FX-ALL target may not be reachable on the 22-faction matrix without fleshing out the 12 minimal archetypes (10–30pt of structural uplift per archetype). Realistic iter 2 target: MAE ≤ 10 within ~8 more SC-style commits, then re-assess whether further compression requires Stage 2 or archetype-depth investment.
+
 ## Branch claude/sim-calibration-4 (2026-05-20)
 
 SC4 (secondary objectives + map rotation) + LC-1/LC-2/LC-5 (detachment variety + tactical-deck mechanic + Warlord designation). All committed and pushed; PR #26 open.
