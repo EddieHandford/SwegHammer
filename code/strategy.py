@@ -674,6 +674,26 @@ def _synapse_target_bonus(attacker, defender) -> float:
 _ORK_TARPIT_BONUS: float = 1.6
 _ORK_LOW_DAMAGE_FRAC: float = 0.25  # "won't actually kill" threshold
 
+# AI-2C — Chaos Daemons deep-strike tarpit-engage bias. Daemons identity is
+# Warp-deploy into the enemy backline and charge to lock down. The faction
+# is currently under-performing in sim (~-9.7) because the AI doesn't bias
+# their post-deep-strike charge into tarpit-worthy targets — instead it picks
+# nominal top-DPA, which often leaves a Bloodletter mob staring at a Knight
+# they can't crack while a Custodian Guard / Aggressor brick walks an
+# objective unopposed. Bias 1.4x — smaller than Orks (1.6x) because Daemons
+# can actually KILL into the right targets, but big enough to overcome the
+# default top-DPA pick when the deep-strike charge lands on a lock-down
+# candidate. Gate: faction == "Chaos Daemons" AND attacker.profile.name
+# in the canonical deep-strike-arrival roster (Bloodletters, Plaguebearers,
+# Daemonettes, Pink Horrors). Per-round deep-strike state lives on the
+# simulator (`_fresh_arrivals`) which isn't plumbed into strategy.py, so
+# the class gate stands in as a proxy: these are the units that actually
+# deep-strike for Daemons in tournament lists.
+_DAEMONS_TARPIT_BONUS: float = 1.4
+_DAEMONS_DEEPSTRIKE_NAMES = frozenset({
+    "Bloodletters", "Plaguebearers", "Daemonettes", "Pink Horrors",
+})
+
 
 def _is_tarpit_candidate(defender) -> bool:
     """True when `defender` is a mobile elite worth locking down.
@@ -736,6 +756,16 @@ def _ork_tarpit_charge_bonus(attacker, defender) -> float:
     if expected_wounds >= _ORK_LOW_DAMAGE_FRAC * current_hp:
         return 1.0  # we can actually crack it — let normal scoring decide
     return _ORK_TARPIT_BONUS
+
+
+# AI-2C — Chaos Daemons deep-strike tarpit bonus constants. Frozen set of
+# the four canonical deep-strike-arrival Daemon squads, faction-gated
+# multiplier 1.4 (smaller than Orks because Daemons CAN kill but the bias
+# should still favour the lock-down pick).
+_DAEMONS_TARPIT_BONUS: float = 1.4
+_DAEMONS_DEEPSTRIKE_NAMES = frozenset({
+    "Bloodletters", "Plaguebearers", "Daemonettes", "Pink Horrors",
+})
 
 
 # AI-2A — World Eaters glory-driven charge bias. WE's play-style is
@@ -856,6 +886,30 @@ def _tyranids_synapse_tarpit_bonus(attacker, defender) -> float:
     return _TYRANID_SYNAPSE_TARPIT_BONUS
 
 
+def _daemons_deepstrike_tarpit_bonus(attacker, defender) -> float:
+    """Return 1.4x when:
+      - attacker is a Chaos Daemons unit, AND
+      - attacker is one of the canonical deep-strike-arrival Daemon squads
+        (Bloodletters / Plaguebearers / Daemonettes / Pink Horrors), AND
+      - defender is a tarpit candidate.
+
+    Else 1.0. No won't-crack gate (smaller 1.4x multiplier prevents
+    overriding kill picks). Faction+class gate proxies for deep-strike
+    state (canonical 10e tournament arrival roster).
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction != "Chaos Daemons":
+        return 1.0
+    if getattr(a_profile, "name", "") not in _DAEMONS_DEEPSTRIKE_NAMES:
+        return 1.0
+    if not _is_tarpit_candidate(defender):
+        return 1.0
+    return _DAEMONS_TARPIT_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -906,7 +960,8 @@ def _melee_target_score(attacker, defender) -> float:
             * _synapse_target_bonus(attacker, defender)
             * _ork_tarpit_charge_bonus(attacker, defender)
             * _we_glory_charge_bonus(attacker, defender)
-            * _tyranids_synapse_tarpit_bonus(attacker, defender))
+            * _tyranids_synapse_tarpit_bonus(attacker, defender)
+            * _daemons_deepstrike_tarpit_bonus(attacker, defender))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -1040,15 +1095,16 @@ def pick_charge_target(attacker, enemy):
         # Objective Control instead. Faction-gated to Orks only — other
         # factions' tarpit play-style differs and is handled separately.
         tarpit_bonus = _ork_tarpit_charge_bonus(attacker, e)
-        # AI-2A — World Eaters glory-charge bonus.
+        # AI-2A WE / AI-2B Tyranids / AI-2C Daemons tarpit bonuses.
         we_glory_bonus = _we_glory_charge_bonus(attacker, e)
-        # AI-2B — Tyranids Synapse-anchored tarpit bonus.
         tyranids_tarpit_bonus = _tyranids_synapse_tarpit_bonus(attacker, e)
+        daemons_tarpit_bonus = _daemons_deepstrike_tarpit_bonus(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus * tarpit_bonus
-                 * we_glory_bonus * tyranids_tarpit_bonus)
+                 * we_glory_bonus * tyranids_tarpit_bonus
+                 * daemons_tarpit_bonus)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
