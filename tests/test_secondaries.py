@@ -237,12 +237,55 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         _, _, _, ass = score_round_delta(snap, characters)
         self.assertEqual(ass, ASSASSINATION_CAP_PER_ROUND)
 
+    def test_lc5_warlord_kill_grants_bonus_vp(self):
+        # LC-5: killing the enemy Warlord adds +1 VP on top of the
+        # standard 3 VP per CHARACTER. One CHARACTER kill = 3 base VP;
+        # if that CHARACTER was the Warlord, +1 = 4 total.
+        from code.secondaries import (
+            ASSASSINATION_VP_PER_CHAR,
+            ASSASSINATION_WARLORD_BONUS_VP,
+        )
+        warlord = _make_unit("Trajann", alive=True,
+                             keywords=("CHARACTER", "INFANTRY"))
+        snap = take_snapshot([warlord])
+        warlord.current_health = 0.0
+        _, _, _, ass = score_round_delta(
+            snap, [warlord], enemy_warlord_uid=id(warlord)
+        )
+        self.assertEqual(
+            ass,
+            ASSASSINATION_VP_PER_CHAR + ASSASSINATION_WARLORD_BONUS_VP,
+        )
+
+    def test_lc5_non_warlord_kill_no_bonus(self):
+        # CHARACTER killed that isn't the Warlord — no bonus.
+        from code.secondaries import ASSASSINATION_VP_PER_CHAR
+        warlord = _make_unit("Trajann", alive=True,
+                             keywords=("CHARACTER", "INFANTRY"))
+        lieutenant = _make_unit("Lt", alive=True,
+                                keywords=("CHARACTER", "INFANTRY"))
+        snap = take_snapshot([warlord, lieutenant])
+        lieutenant.current_health = 0.0
+        # Warlord survives — only the lieutenant died.
+        _, _, _, ass = score_round_delta(
+            snap, [warlord, lieutenant], enemy_warlord_uid=id(warlord)
+        )
+        self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
+
 
 class ScorePositionDeltaTests(unittest.TestCase):
     """Engage on All Fronts + Behind Enemy Lines position scoring."""
 
+    # LC-2 schedule reminder:
+    #   side A round 1, 3, 5 (odd): Engage active, BEL inactive
+    #   side A round 2, 4 (even):   BEL active, Engage inactive
+    #   side B round 1, 3, 5 (odd): BEL active, Engage inactive
+    #   side B round 2, 4 (even):   Engage active, BEL inactive
+    # Tests use the round_num that makes their tested tactical active.
+
     def test_no_alive_units_scores_zero(self):
-        eng, bel = score_position_delta([], _make_map(), own_is_army_a=True)
+        eng, bel = score_position_delta([], _make_map(), own_is_army_a=True,
+                                         round_num=1)
         self.assertEqual(eng, 0)
         self.assertEqual(bel, 0)
 
@@ -252,7 +295,9 @@ class ScorePositionDeltaTests(unittest.TestCase):
             _make_unit(f"u{i}", alive=True, position=(10.0, 10.0))
             for i in range(5)
         ]
-        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True)
+        # Side A round 1 = Engage active.
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True,
+                                       round_num=1)
         self.assertEqual(eng, 0)
 
     def test_engage_three_quadrants_scores_full_vp(self):
@@ -263,19 +308,23 @@ class ScorePositionDeltaTests(unittest.TestCase):
             _make_unit("nw", alive=True, position=(10.0, 40.0)),
             _make_unit("ne", alive=True, position=(30.0, 40.0)),
         ]
-        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True)
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True,
+                                       round_num=1)
         self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
 
-    def test_engage_four_quadrants_scores_same_capped_vp(self):
-        # All four quadrants — same VP (5) since we have a single threshold.
+    def test_engage_four_quadrants_scores_top_tier_vp(self):
+        # All four quadrants — score the top-tier 5 VP per real Pariah Nexus
+        # Engage on All Fronts (2/3/5 VP for 2/3/4 quadrants).
+        from code.secondaries import ENGAGE_VP_FOUR_QUADRANTS
         units = [
             _make_unit("sw", alive=True, position=(10.0, 10.0)),
             _make_unit("nw", alive=True, position=(10.0, 40.0)),
             _make_unit("ne", alive=True, position=(30.0, 40.0)),
             _make_unit("se", alive=True, position=(30.0, 10.0)),
         ]
-        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True)
-        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True,
+                                       round_num=1)
+        self.assertEqual(eng, ENGAGE_VP_FOUR_QUADRANTS)
 
     def test_dead_units_excluded_from_quadrant_count(self):
         # 3 quadrants covered but only 1 unit alive.
@@ -283,25 +332,28 @@ class ScorePositionDeltaTests(unittest.TestCase):
         dead_nw = _make_unit("nw", alive=False, position=(10.0, 40.0))
         live_sw = _make_unit("sw", alive=True, position=(10.0, 10.0))
         eng, _ = score_position_delta(
-            [dead_se, dead_nw, live_sw], _make_map(), own_is_army_a=True
+            [dead_se, dead_nw, live_sw], _make_map(), own_is_army_a=True,
+            round_num=1,
         )
         self.assertEqual(eng, 0)
 
     def test_behind_enemy_lines_army_a_perspective(self):
         # Army A's enemy DZ is the high-y strip (y >= height - deployment_width
-        # = 60 - 12 = 48). Place one unit at y=50 (in enemy DZ).
+        # = 60 - 12 = 48). Place one unit at y=50 (in enemy DZ). Side A
+        # round 2 (even) = BEL active.
         unit = _make_unit("scout", alive=True, position=(22.0, 50.0))
         _, bel = score_position_delta(
-            [unit], _make_map(), own_is_army_a=True
+            [unit], _make_map(), own_is_army_a=True, round_num=2,
         )
         self.assertEqual(bel, BEHIND_ENEMY_LINES_VP)
 
     def test_behind_enemy_lines_army_b_perspective(self):
         # Army B's enemy DZ is the low-y strip (y <= deployment_width = 12).
-        # Place one unit at y=5 (in enemy DZ for Army B).
+        # Place one unit at y=5 (in enemy DZ for Army B). Side B round 1
+        # (odd) = BEL active.
         unit = _make_unit("scout", alive=True, position=(22.0, 5.0))
         _, bel = score_position_delta(
-            [unit], _make_map(), own_is_army_a=False
+            [unit], _make_map(), own_is_army_a=False, round_num=1,
         )
         self.assertEqual(bel, BEHIND_ENEMY_LINES_VP)
 
@@ -309,7 +361,7 @@ class ScorePositionDeltaTests(unittest.TestCase):
         # Army A unit at y=5 is in OWN DZ, not enemy DZ.
         unit = _make_unit("turtle", alive=True, position=(22.0, 5.0))
         _, bel = score_position_delta(
-            [unit], _make_map(), own_is_army_a=True
+            [unit], _make_map(), own_is_army_a=True, round_num=2,
         )
         self.assertEqual(bel, 0)
 
@@ -319,9 +371,32 @@ class ScorePositionDeltaTests(unittest.TestCase):
         # skip). Should not raise; just contribute nothing.
         unit = _make_unit("no-pos", alive=True)
         eng, bel = score_position_delta(
-            [unit], _make_map(), own_is_army_a=True
+            [unit], _make_map(), own_is_army_a=True, round_num=1,
         )
         self.assertEqual(eng, 0)
+        self.assertEqual(bel, 0)
+
+    def test_lc2_tactical_deck_gates_engage_off_in_bel_turn(self):
+        # LC-2: side A round 2 (even) = BEL active, Engage inactive.
+        # Even though units occupy 3+ quadrants (would otherwise score
+        # Engage), the deck-draw gate suppresses it.
+        units = [
+            _make_unit("sw", alive=True, position=(10.0, 10.0)),
+            _make_unit("nw", alive=True, position=(10.0, 40.0)),
+            _make_unit("ne", alive=True, position=(30.0, 40.0)),
+        ]
+        eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True,
+                                       round_num=2)
+        self.assertEqual(eng, 0)
+
+    def test_lc2_tactical_deck_gates_bel_off_in_engage_turn(self):
+        # LC-2: side A round 1 (odd) = Engage active, BEL inactive.
+        # Even though a unit sits in enemy DZ (would score BEL), the
+        # deck-draw gate suppresses it.
+        unit = _make_unit("scout", alive=True, position=(22.0, 50.0))
+        _, bel = score_position_delta(
+            [unit], _make_map(), own_is_army_a=True, round_num=1,
+        )
         self.assertEqual(bel, 0)
 
 

@@ -21,7 +21,7 @@ Citations:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, List, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .units import Unit
@@ -50,11 +50,27 @@ BRING_IT_DOWN_VP_PER_KILL: int = 3    # 3 VP per enemy MONSTER/VEHICLE destroyed
 NO_PRISONERS_VP_PER_UNIT: int = 3     # 3 VP per enemy UNIT destroyed
 CULL_THE_HORDE_VP_PER_UNIT: int = 3   # 3 VP per enemy horde-unit destroyed
 ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP per enemy CHARACTER destroyed
+ASSASSINATION_WARLORD_BONUS_VP: int = 1  # +1 VP if enemy Warlord destroyed (real Pariah Nexus rule)
 
 # SC4-B — position-tracking secondary thresholds.
-ENGAGE_QUADRANTS_REQUIRED: int = 3    # need units in 3+ of 4 quadrants to score
-BEHIND_ENEMY_LINES_VP: int = 3        # flat 3 VP if any alive unit in enemy DZ
-ENGAGE_ON_ALL_FRONTS_VP: int = 3      # flat 3 VP if 3+ quadrants occupied
+# Real Pariah Nexus Engage on All Fronts (Wahapedia):
+#   "Score 2 VP if you have one or more units from your army wholly within
+#    two table quarters. Score 3 VP instead if you have one or more units
+#    from your army wholly within three different table quarters. Score 5 VP
+#    instead if you have one or more units from your army wholly within all
+#    four table quarters."
+# Real Pariah Nexus Behind Enemy Lines: "Score 4 VP if you have one or more
+# qualifying units in your opponent's deployment zone at the end of your
+# Command phase."
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+# Cited as `simulator.secondary_engage_on_all_fronts` and
+# `simulator.secondary_behind_enemy_lines`.
+ENGAGE_QUADRANTS_REQUIRED: int = 2    # minimum quadrants to score any Engage VP
+ENGAGE_VP_TWO_QUADRANTS: int = 2      # 2 VP for 2 quadrants
+ENGAGE_VP_THREE_QUADRANTS: int = 3    # 3 VP for 3 quadrants
+ENGAGE_VP_FOUR_QUADRANTS: int = 5     # 5 VP for all 4 quadrants
+BEHIND_ENEMY_LINES_VP: int = 4        # 4 VP if any alive unit in enemy DZ (real rule)
+ENGAGE_ON_ALL_FRONTS_VP: int = 3      # legacy alias (still used by tests); equals 3-quadrant tier
 
 # SC4-C — horde-threshold + character-flag.
 CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
@@ -158,6 +174,7 @@ def _is_character(unit: "Unit") -> bool:
 def score_round_delta(
     snapshot: RoundSnapshot,
     enemy_units_now: Iterable["Unit"],
+    enemy_warlord_uid: Optional[int] = None,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -212,14 +229,65 @@ def score_round_delta(
         ASSASSINATION_CAP_PER_ROUND,
         len(chars_killed) * ASSASSINATION_VP_PER_CHAR,
     )
+    # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
+    # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
+    # VP at the end of the battle round if one or more enemy CHARACTER
+    # models were destroyed this battle round. Score 4 VP instead if
+    # the enemy WARLORD was among those models." Cited as
+    # `simulator.warlord_designation`. The bonus is added on TOP of
+    # the per-round cap (Pariah Nexus rule treats the 4 VP as the
+    # alternative max, not as cap + bonus — but since our flat 3 VP
+    # per CHARACTER already gets close to the 4 VP ceiling on one
+    # kill, the bonus VP is small and we add it post-cap for clarity).
+    if enemy_warlord_uid is not None and enemy_warlord_uid in chars_killed:
+        assassination_vp += ASSASSINATION_WARLORD_BONUS_VP
+
     return (bring_it_down_vp, no_prisoners_vp,
             cull_the_horde_vp, assassination_vp)
+
+
+def _is_tactical_secondary_active(round_num: int, side: str, tactical: str) -> bool:
+    """LC-2: deterministic tactical-secondary draw mechanic.
+
+    Real Pariah Nexus has 9 Tactical secondaries; players hold 2 at any
+    time, drawn from the deck. Any specific Tactical card is active for
+    ~2/9 (~22%) of turns on average. SwegHammer implements only 2
+    Tactical secondaries (Engage on All Fronts, Behind Enemy Lines);
+    in a 2-card pool, real meta would have BOTH always-active, so the
+    pre-LC2 sim scored both every round — which over-rewarded elite
+    low-count factions (Custodes +20.9 vs real 48%) that can always
+    hit the Engage / BEL conditions.
+
+    LC-2 model: each side scores AT MOST ONE Tactical secondary per
+    round. Selection alternates deterministically by (round_num, side):
+      * side A round 1, 3, 5: Engage
+      * side A round 2, 4:     BEL
+      * side B round 1, 3, 5: BEL
+      * side B round 2, 4:     Engage
+    This halves each tactical secondary's effective coverage to ~50%
+    per side, approximating the 22% real-meta coverage scaled to a
+    2-card pool. Deterministic per (round, side) so PYTHONHASHSEED=0
+    reproduces matrices.
+    """
+    # Sides A and B get OPPOSITE secondaries each round so neither
+    # side has the same hand twice in a row.
+    odd_round = (round_num % 2 == 1)
+    if side == "A":
+        is_engage_turn = odd_round
+    else:  # side B mirrors
+        is_engage_turn = not odd_round
+    if tactical == "engage":
+        return is_engage_turn
+    if tactical == "behind_enemy_lines":
+        return not is_engage_turn
+    return False
 
 
 def score_position_delta(
     own_units: Iterable["Unit"],
     map_: "Map",
     own_is_army_a: bool,
+    round_num: int = 1,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -277,10 +345,22 @@ def score_position_delta(
         if enemy_dz_lo <= uy <= enemy_dz_hi:
             in_enemy_dz = True
 
-    engage_vp = (
-        ENGAGE_ON_ALL_FRONTS_VP
-        if len(quadrants_occupied) >= ENGAGE_QUADRANTS_REQUIRED
-        else 0
-    )
-    bel_vp = BEHIND_ENEMY_LINES_VP if in_enemy_dz else 0
+    # LC-2: gate Engage / BEL behind the per-round tactical-secondary
+    # draw. Each side scores AT MOST ONE per round (the secondary that's
+    # "active" this turn per the alternating schedule).
+    side = "A" if own_is_army_a else "B"
+    engage_active = _is_tactical_secondary_active(round_num, side, "engage")
+    bel_active = _is_tactical_secondary_active(round_num, side,
+                                                "behind_enemy_lines")
+    # Engage tiered (2/3/5 VP for 2/3/4 quadrants) per real Pariah Nexus.
+    engage_vp = 0
+    if engage_active:
+        n = len(quadrants_occupied)
+        if n >= 4:
+            engage_vp = ENGAGE_VP_FOUR_QUADRANTS
+        elif n == 3:
+            engage_vp = ENGAGE_VP_THREE_QUADRANTS
+        elif n == 2:
+            engage_vp = ENGAGE_VP_TWO_QUADRANTS
+    bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
     return engage_vp, bel_vp

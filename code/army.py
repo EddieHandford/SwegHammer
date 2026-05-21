@@ -120,6 +120,7 @@ class Army:
         # by Unit.current_health.setter on life-state transitions and by
         # _add_live_unit(). Rebuilt lazily on next alive_units access.
         self._alive_cache: Optional[List[Unit]] = None
+        self._squad_count_cache: Optional[Dict[str, int]] = None
         # 10e Strike Force standard: each side starts with 3 CP. Battle then
         # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
         self.command_points: int = STARTING_CP
@@ -127,6 +128,18 @@ class Army:
         # Army-wide passive rules. Auto-resolves from the army's primary
         # faction (first unit's faction tag) when not explicitly set.
         self.detachment: Optional[Detachment] = detachment
+        # LC-5: Warlord designation. 10e Strike Force requires every army
+        # to designate one CHARACTER as the Warlord. Set lazily on first
+        # access via `warlord_uid` property — picks the first alive
+        # CHARACTER in deterministic seed order, mirroring the
+        # tournament list rule "first CHARACTER on the list page is
+        # typically the Warlord by convention". Read by the secondary
+        # scorer's Assassination calculation to award +1 bonus VP when
+        # the Warlord is among the destroyed CHARACTERs this round (real
+        # Pariah Nexus Assassination rule). None means "no CHARACTER in
+        # army" (rare edge case for synthetic / Combat Patrol lists).
+        # Cited as `simulator.warlord_designation`.
+        self._warlord_uid: Optional[int] = None
         # Battle Focus tokens (Aeldari ASURYANI rule, 10e). Allocated at
         # battle start by the simulator based on faction + battle size
         # (4 at the default Strike Force ~1000pt budget). Spent during
@@ -413,6 +426,7 @@ class Army:
 
     def _invalidate_alive_cache(self) -> None:
         self._alive_cache = None
+        self._squad_count_cache = None
 
     def resolve_detachment(self) -> Optional[Detachment]:
         """Return the detachment in effect — explicit if set, else faction default."""
@@ -433,9 +447,55 @@ class Army:
             self._alive_cache = [u for u in self.units if u.is_alive]
         return self._alive_cache
 
+    def squad_sibling_count(self, unit_name: str) -> int:
+        """Return the number of alive units sharing `unit_name`, including self.
+
+        Result is cached alongside `_alive_cache` — rebuilds only when a unit
+        dies or arrives, not on every caller invocation. Used by
+        `strategy._squad_size_factor` to avoid iterating alive_units repeatedly.
+        """
+        if self._squad_count_cache is None:
+            counts: Dict[str, int] = {}
+            for u in self.alive_units:
+                name = getattr(u.profile, "name", None)
+                if name:
+                    counts[name] = counts.get(name, 0) + 1
+            self._squad_count_cache = counts
+        return self._squad_count_cache.get(unit_name, 0)
+
     @property
     def unit_count(self) -> int:
         return len(self.alive_units)
+
+    @property
+    def warlord_uid(self) -> Optional[int]:
+        """LC-5: id() of the army's Warlord (first CHARACTER by deploy order).
+
+        Computed lazily and cached. Picks the first unit in `self.units`
+        whose profile carries the CHARACTER keyword. Returns None if no
+        CHARACTER is present (synthetic test armies / Combat Patrol).
+
+        Used by `code/secondaries.py` Assassination scoring: when the
+        killed CHARACTER set includes the enemy's `warlord_uid`, an
+        additional +1 VP is awarded per real Pariah Nexus rule text
+        ("Score 3 VP at the end of the battle round if one or more
+        enemy CHARACTER models were destroyed this battle round. Score
+        4 VP instead if the enemy WARLORD was among those models").
+
+        Caching uses id() not name because multiple CHARACTERs can share
+        a profile name across leader-attachment patterns. Cache is
+        invalidated by `_invalidate_alive_cache` if the original
+        Warlord unit dies — the position is NOT transferred to another
+        CHARACTER (real 10e rule: Warlord is set pre-game and stays
+        the original model regardless of survival).
+        """
+        if self._warlord_uid is None:
+            for u in self.units:
+                keywords = u.profile.unit_keywords or ()
+                if "CHARACTER" in keywords:
+                    self._warlord_uid = id(u)
+                    break
+        return self._warlord_uid
 
     @property
     def total_points(self) -> float:

@@ -105,8 +105,13 @@ class ShieldHostRegistryTests(unittest.TestCase):
         self.assertEqual(DEFAULT_BY_FACTION["Adeptus Custodes"], "shield_host")
 
     def test_faction_detachments_custodes(self):
+        # LC1-A: Custodes detachment pool widened from (shield_host,) to
+        # (shield_host, auric_champions). Shield Host remains the default
+        # per DEFAULT_BY_FACTION; Auric Champions appears as a milder
+        # offensive alternative so the picker has a real choice.
         self.assertEqual(
-            FACTION_DETACHMENTS["Adeptus Custodes"], ("shield_host",),
+            FACTION_DETACHMENTS["Adeptus Custodes"],
+            ("shield_host", "auric_champions"),
         )
 
     def test_martial_katah_flags_set(self):
@@ -269,11 +274,17 @@ class MartialKatahCritOn5Tests(unittest.TestCase):
         )
 
     def test_crit_on_5_fires_for_shield_host_custodes_melee(self):
-        """With Shield Host active, an unmodified Hit roll of 5 on a
-        Custodes melee attacker scores a Critical Hit, which on a
-        devastating_wounds weapon bypasses saves. Without the detachment
-        (or for a non-Custodes attacker), the same roll only hits, the
-        wound roll happens, and the save can succeed.
+        """With Shield Host active AND on an EVEN battle round, an
+        unmodified Hit roll of 5 on a Custodes melee attacker scores a
+        Critical Hit, which on a devastating_wounds weapon bypasses
+        saves. Without the detachment (or for a non-Custodes attacker),
+        the same roll only hits, the wound roll happens, and the save
+        can succeed.
+
+        C1 (claude/sim-calibration-4): the Crit-on-5+ bullet now fires
+        only on EVEN battle rounds (2, 4); the AP+1 bullet fires on ODD
+        battle rounds (1, 3, 5). The test sets `_current_round = 2` to
+        exercise the Crit-on-5+ branch.
 
         We force the to-hit roll to 5, the wound roll to 6 (auto-pass),
         and the save to a value that would normally succeed. Damage > 0
@@ -282,13 +293,16 @@ class MartialKatahCritOn5Tests(unittest.TestCase):
         """
         import random as _r
 
-        # ---- WITH Shield Host: 5 should crit, dev_wounds bypasses save
+        # ---- WITH Shield Host on an EVEN round: 5 should crit, dev_wounds
+        # bypasses save.
         a = Army("Adeptus Custodes")
         a.add_unit(self._single_attack_custodian())
         b = Army("Enemy")
         b.add_unit(_target_profile())
         battle = Battle(a, b)
         battle._assign_uids()
+        # C1: Crit-on-5+ alternation — exercise the EVEN-round branch.
+        battle._current_round = 2
         attacker = a.units[0]
         defender = b.units[0]
 

@@ -93,12 +93,54 @@ HYPERPHASIC_FULCRUM = Enhancement(
     name="Hyperphasic Fulcrum",
     detachment="awakened_dynasty",
     points_cost=15,
-    # Real rule: "an unmodified Hit roll of 5+ scores a Critical Hit" —
-    # equivalent to lowering the to-hit target for crit purposes. Maps
-    # cleanly to +1 to hit because the +1 produces the same yield of
-    # natural-6 crits in expectation as lowering the crit threshold by 1
-    # (both shift one face's worth of outcomes into the crit window).
+    # LC-4 correction: BSData v10.6.0 verbatim rule is "CRYPTEK model only.
+    # While the bearer is leading a unit, if that unit is wholly within
+    # your army's Power Matrix, each time a model in that unit makes an
+    # attack, re-roll a Wound roll of 1." Previous mapping (+1 to hit)
+    # was a misread — the codex pattern is reroll-wound-1s, NOT +1 to hit.
+    # The Power Matrix wholly-within gate is dropped (SwegHammer has no
+    # Power Matrix model — it's a Necron deployment-zone token); we apply
+    # the reroll-wound-1s aura unconditionally on the bearer's unit as an
+    # approximation. CRYPTEK host_keyword gate not enforced at runtime —
+    # the warlord picker still chooses the highest-points CHARACTER,
+    # which is rarely a CRYPTEK in archetype builds (typically Overlord);
+    # downstream calibration accepts the wider host as an MVP simplification.
+    reroll_wound_ones_aura=True,
+)
+
+# LC-4 — Phasal Subjugator (Necrons Awakened Dynasty). BSData v10.6.0
+# verbatim: "NECRONS model only. While a friendly NECRONS unit (excluding
+# CHARACTER units) is within 6" of the bearer, each time a model in that
+# unit makes an attack, add 1 to the hit roll." Maps directly onto the
+# existing `plus_one_to_hit_aura` field — the enhancement aura is
+# bodyguard-gated by the `in_range_leaders` 6" check that the host's
+# LeaderAbility already enforces. Strictly +1 to hit on attacks made by
+# the led unit, both ranged and melee.
+PHASAL_SUBJUGATOR = Enhancement(
+    name="Phasal Subjugator",
+    detachment="awakened_dynasty",
+    points_cost=25,
     plus_one_to_hit_aura=True,
+)
+
+# LC-4 — Veiled Blade (Custodes Shield Host). BSData v10.6.0 verbatim:
+# "Add 2 to the Attacks characteristic of the bearer's melee weapons. Once
+# per battle, at the start of any Command phase, triple the bearer's
+# Objective Control characteristic until the end of the turn." Maps onto
+# `extra_attacks_melee=2`. The OC-triple secondary clause is dropped —
+# SwegHammer's objective control model doesn't gate buffs through the OC
+# stat in a way that benefits from a single-character-once-per-battle
+# triple. APPROXIMATION: the +2 attacks is applied unit-wide on the
+# bearer's squad (via plus_one_attack stacking through effective_buffs)
+# rather than bearer-only because SwegHammer's aura merge doesn't
+# distinguish bearer-only buffs from bodyguard-unit buffs; this slightly
+# overshoots the codex but the bearer in a Custodian Wardens / Guard
+# squad is typically the single source of melee output anyway.
+VEILED_BLADE = Enhancement(
+    name="Veiled Blade",
+    detachment="shield_host",
+    points_cost=25,
+    extra_attacks_melee=2,
 )
 
 # ARCANE_VORTEX (cult_of_magic) and LIVING_PLAGUE (plague_company) were
@@ -127,6 +169,8 @@ ENHANCEMENTS: Dict[str, Enhancement] = {
     e.name: e for e in (
         CHAMPION_OF_HUMANITY,
         HYPERPHASIC_FULCRUM,
+        PHASAL_SUBJUGATOR,
+        VEILED_BLADE,
         PURETIDE_ENGRAM_NEUROCHIP,
     )
 }

@@ -5,6 +5,14 @@
       "sticky_objective": true,
       "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) — Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
     },
+    "necrons_doomsday_ark": {
+      "invuln_save": 4,
+      "notes": "DDA diag (sim-cal-4): Doomsday Ark carries a 4+ invulnerable save on its datasheet but the BSData mapper missed it. The invuln is stored as a local profile under the unit entry (typeName=\"Abilities\", name=\"Invulnerable Save\", Description \"This model has a 4+ invulnerable save.\") rather than as an infoLink, and code/bsdata/mapper.py:extract_invuln only scans infoLinks. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Doomsday-Ark (Invulnerable Save 4+). Stats T9 W14 Sv3+ and Doomsday Cannon profile 72\" D6+1 shots S18 AP-4 D4 Blast Heavy match BSData and Wahapedia."
+    },
+    "necrons_canoptek_doomstalker": {
+      "invuln_save": 4,
+      "notes": "DDA diag (sim-cal-4): Canoptek Doomstalker carries a 4+ invulnerable save on its datasheet but the BSData mapper missed it for the same reason as necrons_doomsday_ark — local Abilities profile, not an infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Doomstalker (Invulnerable Save 4+). Stats T8 W12 Sv3+ and Doomsday Blaster profile 48\" D6+1 shots S14 AP-3 D3 Blast Heavy match BSData."
+    },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
       "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."

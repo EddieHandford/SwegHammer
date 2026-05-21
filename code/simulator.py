@@ -20,7 +20,7 @@ from .factions import is_marine_faction
 from .map import Map, TerrainType
 from .maps import DEFAULT_MAP
 from .strategy import (
-    _melee_target_score,
+    _melee_target_score, _oc_on_objective,
     decide_deepstrike_drops, pick_army_plan, pick_doctrina_imperative,
     pick_mass_arrival_anchor, pick_move_intent, should_declare_waaagh,
     should_fire_stratagem,
@@ -738,9 +738,14 @@ class Battle:
         # B's round-start snapshot against B's current state. Four
         # secondary categories (SC4-A Bring it Down + No Prisoners,
         # SC4-C Cull the Horde + Assassination).
+        # LC-5: pass each side's Warlord uid for the +1 Assassination
+        # bonus when the opponent kills it.
+        b_warlord = self.b.warlord_uid
+        a_warlord = self.a.warlord_uid
         if self._b_round_snapshot is not None:
             a_bid, a_np, a_cth, a_assn = score_round_delta(
-                self._b_round_snapshot, self.b.units
+                self._b_round_snapshot, self.b.units,
+                enemy_warlord_uid=b_warlord,
             )
             a_kill_vp = a_bid + a_np + a_cth + a_assn
             self._a_vp += a_kill_vp
@@ -748,7 +753,8 @@ class Battle:
         # Side B scores VP for killing side A's units this round.
         if self._a_round_snapshot is not None:
             b_bid, b_np, b_cth, b_assn = score_round_delta(
-                self._a_round_snapshot, self.a.units
+                self._a_round_snapshot, self.a.units,
+                enemy_warlord_uid=a_warlord,
             )
             b_kill_vp = b_bid + b_np + b_cth + b_assn
             self._b_vp += b_kill_vp
@@ -758,13 +764,16 @@ class Battle:
         # Each side scores against their OWN alive units (Engage is your
         # spread; BEL is your forward projection). own_is_army_a flag
         # tells the scorer which deployment strip is the enemy's.
+        # LC-2: round_num gates the 2-of-9 Tactical secondary deck mechanic
+        # — each side scores at most ONE of (Engage, BEL) per round on an
+        # alternating schedule (see `_is_tactical_secondary_active`).
         a_eng, a_bel = score_position_delta(
-            self.a.units, self.map, own_is_army_a=True
+            self.a.units, self.map, own_is_army_a=True, round_num=round_num,
         )
         self._a_vp += a_eng + a_bel
         self._a_secondary_vp += a_eng + a_bel
         b_eng, b_bel = score_position_delta(
-            self.b.units, self.map, own_is_army_a=False
+            self.b.units, self.map, own_is_army_a=False, round_num=round_num,
         )
         self._b_vp += b_eng + b_bel
         self._b_secondary_vp += b_eng + b_bel
@@ -4071,21 +4080,41 @@ class Battle:
                         army_name=army.name, round_num=round_num,
                     ))
         # ---- Drukhari Power From Pain (10e army rule). At the start of
-        # each Command phase, every Drukhari unit below Starting Strength
+        # each Command phase, every Drukhari unit Below Starting Strength
         # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's
         # models gain Lethal Hits + FNP 6+; the buffs themselves are
-        # applied in Unit.attack and Unit.receive_damage. We model each
-        # squad member as a separate Unit instance with starting
-        # current_health = profile.health, so "below Starting Strength"
-        # reads as "current_health < profile.health". Cited as
+        # applied in Unit.attack and Unit.receive_damage. Cited as
         # `simulator.power_from_pain`.
+        #
+        # iter-DRK fix: "Below Starting Strength" is the 10e core term
+        # for "this unit contains fewer models than its starting strength"
+        # — it ONLY applies to multi-model units, and ONLY once a whole
+        # model has been destroyed (not "lost any wounds at all"). A
+        # single-model unit (CHARACTER, VEHICLE, MONSTER, single-model
+        # MOUNTED, etc.) is never Below Starting Strength even if its
+        # last wound is one chip short of dying — the codex confirms
+        # this explicitly. The previous gate (`current_health < health`)
+        # fired the instant any wound was taken (e.g. a Raider taking a
+        # single chip damage), giving every Drukhari unit FNP 6+ and
+        # Lethal Hits from round 2 onwards — a massive over-buff vs the
+        # codex trigger. We now require BOTH:
+        #   (a) the unit is multi-model (min_models >= 2), AND
+        #   (b) it has lost at least one whole model's worth of wounds.
+        # `wounds_per_model = profile.health / profile.min_models` (this
+        # is how the catalogue builder assigns squad totals).
+        # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
         for army in (self.a, self.b):
             for u in army.units:
                 if u.profile.faction != "Drukhari":
                     continue
                 if u.pain_tokens >= 1:
                     continue   # cap: each unit holds at most 1 token
-                if u.current_health < u.profile.health:
+                # Single-model units can never be Below Starting Strength.
+                if u.profile.min_models < 2:
+                    continue
+                wounds_per_model = u.profile.health / u.profile.min_models
+                # Below Starting Strength = lost at least one full model.
+                if u.current_health <= u.profile.health - wounds_per_model:
                     u.pain_tokens = 1
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each Command phase the AdMech player picks ONE of
@@ -4399,19 +4428,32 @@ class Battle:
         the player picks the order in real play and the heuristic picker
         approximates that choice.
         """
+        from .leaders import bump_buffs_generation
         for active, other in ((first, second), (second, first)):
-            # Movement phase — all active units move
+            # Clear the effective_buffs cache once per phase — positions don't
+            # change mid-phase, so all units in a phase safely share cached results.
+            bump_buffs_generation()
+            # Enemy units do not move during our move phase, so their OC on every
+            # objective is constant for all activations this phase. Precompute once
+            # and pass down to _do_move → pick_move_intent, halving the
+            # _oc_on_objective call count (from 10 per activation to 5).
+            _objectives = self.map.objectives
+            _other_alive = other.alive_units
+            _phase_their_oc: Dict[int, int] = {
+                id(obj): _oc_on_objective(_other_alive, obj) for obj in _objectives
+            }
             for unit in list(active.units):
                 if unit.is_alive:
-                    self._do_move(unit, active, other)
-            # Shooting phase — all active units shoot
+                    self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
+            bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_shoot(unit, active, other)
-            # Charge phase — all active units attempt charges
+            bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_charge(unit, active, other)
+            bump_buffs_generation()
             # Fight phase — active player's units fight. Real 10e Fight phase
             # interleaves both players' chargers + locked units; this
             # approximates by giving the active player their full fight pass,
@@ -4427,7 +4469,8 @@ class Battle:
     # Sub-phases
     # ------------------------------------------------------------------
 
-    def _do_move(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+    def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
+                 _phase_their_oc=None) -> None:
         # Embarked passengers do not act on their own activation — the
         # transport carries them. The simulator emits UnitActivated for the
         # transport, not the passenger. Cited as `simulator.embark`.
@@ -4461,6 +4504,7 @@ class Battle:
         target_pos, intent = pick_move_intent(
             attacker, attacker_army, defender_army, self.map,
             army_plan=attacker_army.army_plan,
+            _phase_their_oc=_phase_their_oc,
         )
 
         # Fall Back (10e core). Units already locked in melee that the

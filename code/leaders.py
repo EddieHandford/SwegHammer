@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .army import Army
@@ -687,6 +687,18 @@ def is_actually_led(attacker: "Unit") -> bool:
     return False
 
 
+# Per-activation cache for effective_buffs. Keyed on unit.uid. Cleared by
+# bump_buffs_generation() which the simulator calls at the start of each unit
+# activation. Within a single pick_move_intent / target-scoring loop nothing
+# moves, so every repeated call for the same unit returns instantly.
+_buffs_cache: Dict[str, Any] = {}
+
+
+def bump_buffs_generation() -> None:
+    """Clear the effective_buffs cache. Call at the start of each unit activation."""
+    _buffs_cache.clear()
+
+
 def effective_buffs(attacker: "Unit") -> Dict[str, object]:
     """
     Merge the attacker's detachment passives with every in-range friendly
@@ -736,6 +748,10 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
       if you can't be a legal bodyguard, you don't receive the led-unit
       aura. Empty-tuple broadcast auras still apply to such attackers.
     """
+    uid = getattr(attacker, "uid", None) or None  # treat "" as uncacheable
+    if uid is not None and uid in _buffs_cache:
+        return _buffs_cache[uid]
+
     buffs = dict(_NEUTRAL_BUFFS)
 
     army = getattr(attacker, "army_ref", None)
@@ -814,7 +830,11 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         getattr(attacker.profile, "name", "") or ""
     )
 
-    for leader in in_range_leaders(attacker):
+    # Compute in_range_leaders once — reused for both leader-aura merge and
+    # enhancement-carrier scan below.
+    nearby_leaders = in_range_leaders(attacker)
+
+    for leader in nearby_leaders:
         ability = lookup_ability(leader.profile.name)
         if ability is None:
             continue
@@ -850,8 +870,8 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         if getattr(attacker, "enhancement", None) is not None:
             enh_carriers.append(attacker)
         # Plus every other in-range friendly CHARACTER carrying an
-        # Enhancement (the bearer's unit gets the aura through proximity).
-        for leader in in_range_leaders(attacker):
+        # Enhancement; reuse nearby_leaders — no second scan needed.
+        for leader in nearby_leaders:
             if leader is attacker:
                 continue
             if getattr(leader, "enhancement", None) is not None:
@@ -876,7 +896,10 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             if cur_fnp > 5:
                 buffs["fnp"] = 5
 
+    if uid is not None:
+        _buffs_cache[uid] = buffs
     return buffs
+
 
 
 # ---------------------------------------------------------------------------

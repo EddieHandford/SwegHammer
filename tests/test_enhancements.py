@@ -64,12 +64,12 @@ def _target_character_profile() -> UnitProfile:
 class EnhancementRegistryTests(unittest.TestCase):
 
     def test_three_enhancements_registered(self):
-        # Three enhancements, one per surviving implemented detachment in
-        # the starter set. Two enhancements (Arcane Vortex, Living Plague)
-        # were removed per the 2026-05-15 fabrication audit (commit fa9a957)
-        # because they pointed at fabricated detachment keys (cult_of_magic,
-        # plague_company) that have been deleted.
-        self.assertEqual(len(ENHANCEMENTS), 3)
+        # LC-4 expanded the starter set to 5 enhancements: Champion of Humanity
+        # (Gladius), Hyperphasic Fulcrum + Phasal Subjugator (Awakened Dynasty),
+        # Veiled Blade (Shield Host), Puretide Engram Neurochip (Mont'ka).
+        # Two enhancements (Arcane Vortex, Living Plague) were removed per the
+        # 2026-05-15 fabrication audit (commit fa9a957).
+        self.assertEqual(len(ENHANCEMENTS), 5)
 
     def test_each_enhancement_has_detachment_and_cost(self):
         for name, enh in ENHANCEMENTS.items():
@@ -79,14 +79,21 @@ class EnhancementRegistryTests(unittest.TestCase):
             self.assertEqual(name, enh.name)
 
     def test_enhancements_grouped_by_detachment(self):
-        # Each surviving starter Detachment has exactly one Enhancement
-        # wired. cult_of_magic and plague_company were deleted per the
-        # 2026-05-15 fabrication audit (commit fa9a957), so their
-        # enhancements (Arcane Vortex, Living Plague) are gone too.
-        for det_key in ("gladius_task_force", "awakened_dynasty", "montka"):
+        # Each surviving starter Detachment has the expected number of
+        # Enhancements wired post LC-4: Awakened Dynasty has TWO (Hyperphasic
+        # Fulcrum, Phasal Subjugator); Gladius, Shield Host, and Mont'ka each
+        # have one. cult_of_magic and plague_company were deleted per the
+        # 2026-05-15 fabrication audit (commit fa9a957).
+        expected = {
+            "gladius_task_force": 1,
+            "awakened_dynasty": 2,
+            "shield_host": 1,
+            "montka": 1,
+        }
+        for det_key, count in expected.items():
             with self.subTest(det=det_key):
                 wired = enhancements_for_detachment(det_key)
-                self.assertEqual(len(wired), 1)
+                self.assertEqual(len(wired), count)
 
     def test_detachment_carries_enhancement_tuple(self):
         # The Detachment instance itself exposes the enhancement tuple

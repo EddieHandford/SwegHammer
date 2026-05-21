@@ -13,9 +13,27 @@
   "Enhancement.Hyperphasic Fulcrum": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
     "rule_name": "Hyperphasic Fulcrum",
-    "quoted_text": "NECRONS model only. Each time the bearer makes a melee attack, an unmodified Hit roll of 3+ scores a Critical Hit.",
-    "trigger": "the bearer makes any melee Hit roll",
-    "effect": "+1 to hit on attacks (simplification: SwegHammer applies +1 to hit aura-wide on the bearer's unit because lowering the d6 hit target by 1 produces approximately the same yield of crit-6s in expectation as lowering the crit threshold by one face; the aura is applied to both ranged and melee rather than the canonical melee-only because the simulator's attack mode is decided per-resolution and gating the buff to melee-only added complexity without changing the calibration signal)",
+    "quoted_text": "CRYPTEK model only. While the bearer is leading a unit, if that unit is wholly within your army's Power Matrix, each time a model in that unit makes an attack, re-roll a Wound roll of 1.",
+    "trigger": "the bearer's unit is selected to make Wound rolls",
+    "effect": "re-roll Wound rolls of 1 on the bearer's unit (LC-4 correction: previous mapping was +1 to hit, which was a misread of an earlier draft; BSData v10.6.0 verbatim is reroll-wound-1s. SwegHammer drops the CRYPTEK-only host gate at the runtime layer because the warlord picker chooses the highest-points CHARACTER which is rarely a CRYPTEK, and drops the Power Matrix wholly-within gate because SwegHammer has no Power Matrix deployment token; both APPROXIMATIONS widen the host pool but the buff itself is faithful.)",
+    "scope": "unit-led"
+  },
+
+  "Enhancement.Phasal Subjugator": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
+    "rule_name": "Phasal Subjugator",
+    "quoted_text": "NECRONS model only. While a friendly NECRONS unit (excluding CHARACTER units) is within 6\" of the bearer, each time a model in that unit makes an attack, add 1 to the hit roll.",
+    "trigger": "the bearer's unit (or a friendly NECRONS unit in 6\") makes a Hit roll",
+    "effect": "+1 to the Hit roll on the bearer's unit. SwegHammer applies the aura through the existing leader-proximity merge in effective_buffs — the 6\" range is enforced by the host CHARACTER's LeaderAbility.aura_range. The CHARACTER-excluding clause is a no-op here because Enhancement auras don't fire on the CHARACTER bearer's own attacks (the bearer is treated as part of its led unit for buff purposes; SwegHammer's CHARACTER models share buffs with their bodyguards).",
+    "scope": "unit-led"
+  },
+
+  "Enhancement.Veiled Blade": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
+    "rule_name": "Veiled Blade",
+    "quoted_text": "Add 2 to the Attacks characteristic of the bearer's melee weapons. Once per battle, at the start of any Command phase, triple the bearer's Objective Control characteristic until the end of the turn.",
+    "trigger": "the bearer's unit is selected to make melee Attacks",
+    "effect": "+2 melee Attacks on the bearer's weapons (SwegHammer's aura schema doesn't distinguish bearer-only buffs from bodyguard-unit buffs, so the +2 attacks is applied unit-wide on the bearer's squad — slight over-coverage compared to the bearer-only codex wording, but the bearer in Custodian Wardens / Guard squads is typically the single source of melee output anyway). The once-per-battle OC triple is DROPPED — SwegHammer's objective scoring model doesn't gate buffs through the OC stat in a way that benefits from a single-character one-shot triple.",
     "scope": "unit-led"
   },
 

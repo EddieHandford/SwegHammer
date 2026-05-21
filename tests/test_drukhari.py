@@ -33,8 +33,11 @@ from code.units import UnitProfile
 
 def _drukhari_warrior(name: str = "Kabalite Warrior") -> UnitProfile:
     """A minimal Drukhari profile tagged with the canonical faction string.
-    Health=2 so half-strength is unambiguous; T3 / S4 so a Marine hits us
-    on 3+/wounds on 3+ (no AP), and we hit Marines on 3+/wound them on 4+."""
+    Two-model squad (min_models=2) at 1W per model — total health=2 — so
+    "Below Starting Strength" (lost one model = current_health <= 1) is
+    well-defined under the iter-DRK fix to the Power From Pain trigger.
+    T3 / S4 so a Marine hits us on 3+/wounds on 3+ (no AP), and we hit
+    Marines on 3+/wound them on 4+."""
     return UnitProfile(
         name=name,
         health=2, damage=1, hit_probability=2 / 3,
@@ -43,6 +46,7 @@ def _drukhari_warrior(name: str = "Kabalite Warrior") -> UnitProfile:
         leadership=7,
         faction="Drukhari",
         unit_keywords=("INFANTRY",),
+        min_models=2, max_models=2,
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
     )
@@ -116,6 +120,38 @@ class PainTokenAwardTests(unittest.TestCase):
         for u in battle.a.units:
             self.assertEqual(u.pain_tokens, 0,
                              f"{u.profile.name} at full HP must not gain a token")
+
+    def test_pain_token_not_awarded_to_single_model_unit(self):
+        """iter-DRK: a single-model Drukhari unit (CHARACTER / VEHICLE /
+        MOUNTED) is NEVER Below Starting Strength even when chipped — the
+        10e definition of Below Starting Strength requires losing a whole
+        model. Previously a Raider taking a single point of damage would
+        light up Pain Token effects army-wide; that was the over-modelling
+        root cause for Drukhari's +39 pt sim-vs-meta gap."""
+        random.seed(0)
+        kabal = Army("Kabal")
+        # Force a single-model Drukhari unit at chipped health.
+        solo = _drukhari_warrior("Drukhari Solo")
+        solo = UnitProfile(
+            **{f: getattr(solo, f) for f in solo.__dataclass_fields__
+               if f not in ("min_models", "max_models")},
+            min_models=1, max_models=1,
+        )
+        kabal.add_unit(solo)
+        marines = Army("Marines")
+        marines.add_unit(_marine_profile())
+        battle = Battle(kabal, marines)
+        battle._assign_uids()
+        # Chip the solo unit (1.5 / 2.0 HP) — current_health < health but
+        # still at "1 model alive", i.e. not Below Starting Strength.
+        battle.a.units[0].current_health = 1.5
+        battle._run_round(1)
+        self.assertEqual(
+            battle.a.units[0].pain_tokens, 0,
+            "Single-model Drukhari unit must NEVER gain a Pain Token "
+            "from chip damage — Below Starting Strength is undefined "
+            "for 1-model units.",
+        )
 
     def test_non_drukhari_does_not_get_tokens(self):
         """A Marines unit at half HP must NOT gain a Pain Token — the gate

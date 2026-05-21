@@ -834,11 +834,16 @@ class Unit:
         # CUSTODES models from your army with the Martial Ka'tah ability
         # by 1." Gate: mode == "melee" AND attacker faction ==
         # "Adeptus Custodes" AND detachment carries `melee_ap_plus_one`
-        # (set by SHIELD_HOST). AP is encoded as 0/-1/-2/-3 — improving
-        # AP by 1 makes the value MORE negative (AP-1 becomes AP-2 etc).
-        # APPROXIMATION: codex picks ONE Martial Mastery bullet per round;
-        # SwegHammer applies BOTH always-on (this AP+1 plus the
-        # Crit-on-5+ block below). Cited as `SHIELD_HOST.melee_ap_plus_one`.
+        # (set by SHIELD_HOST) AND the current battle round is ODD.
+        # AP is encoded as 0/-1/-2/-3 — improving AP by 1 makes the value
+        # MORE negative (AP-1 becomes AP-2 etc).
+        # C1 (claude/sim-calibration-4): codex picks ONE bullet per battle
+        # round. To match real codex pacing, the two bullets alternate by
+        # round parity — AP+1 fires on ODD rounds (1, 3, 5), Crit-on-5+
+        # fires on EVEN rounds (2, 4). This averages to one bullet per
+        # round (matching codex) rather than the prior always-on dual
+        # uplift (strictly stronger than codex). Cited as
+        # `SHIELD_HOST.melee_ap_plus_one`.
         if mode == "melee" and p.faction == "Adeptus Custodes":
             _own_army_mk = getattr(self, "army_ref", None)
             if _own_army_mk is not None:
@@ -849,7 +854,53 @@ class Unit:
                 if _det_mk is not None and getattr(
                     _det_mk, "melee_ap_plus_one", False,
                 ):
-                    ap = ap - 1
+                    _battle_mk = getattr(_own_army_mk, "_battle_ref", None)
+                    _round_mk = (
+                        getattr(_battle_mk, "_current_round", 0)
+                        if _battle_mk is not None else 0
+                    )
+                    # Odd round (1, 3, 5) -> AP+1 bullet active. Round 0
+                    # (pre-battle / no battle ref) treated as inactive so
+                    # standalone tests without a battle round set see no
+                    # buff unless they configure the round explicitly.
+                    if _round_mk % 2 == 1:
+                        ap = ap - 1
+
+        # ---- Necrons Awakened Dynasty — Protocol of the Hungry Void
+        # (army-wide melee AP+1). AD-PR (claude/sim-calibration-4): the
+        # detachment-rule rotation of Command Protocols is approximated
+        # by alternating Hungry Void (this flag) and Vengeful Stars by
+        # battle-round parity. Hungry Void fires on EVEN rounds (2, 4)
+        # so the parity matches the SHIELD_HOST AP+1 convention but
+        # inverted (Custodes AP+1 = ODD, Necrons AP+1 = EVEN; they don't
+        # collide because the faction gate keeps the two detachments
+        # apart). Gate: mode == "melee" AND attacker faction == "Necrons"
+        # AND detachment carries `necrons_melee_ap_plus_one_army_wide`
+        # (set by AWAKENED_DYNASTY) AND current battle round is even.
+        # Cited as `AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+        # #Command-Protocols.
+        if mode == "melee" and p.faction == "Necrons":
+            _own_army_hv = getattr(self, "army_ref", None)
+            if _own_army_hv is not None:
+                try:
+                    _det_hv = _own_army_hv.resolve_detachment()
+                except Exception:
+                    _det_hv = None
+                if _det_hv is not None and getattr(
+                    _det_hv, "necrons_melee_ap_plus_one_army_wide", False,
+                ):
+                    _battle_hv = getattr(_own_army_hv, "_battle_ref", None)
+                    _round_hv = (
+                        getattr(_battle_hv, "_current_round", 0)
+                        if _battle_hv is not None else 0
+                    )
+                    # Even round (2, 4) -> Hungry Void active. Round 0
+                    # (pre-battle / no battle ref) treated as inactive
+                    # so standalone tests without a battle round set
+                    # see no buff unless they configure the round.
+                    if _round_hv > 0 and _round_hv % 2 == 0:
+                        ap = ap - 1
 
         # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
         if mode != "melee":
@@ -1415,17 +1466,62 @@ class Unit:
             effective_sustained_hits = int(p.melee_sustained_hits or 0)
         else:
             effective_sustained_hits = int(p.sustained_hits or 0)
-        if mode == "melee" and p.faction == "Orks":
+        # LC1-A — generalised gate: any faction whose detachment carries
+        # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
+        # HITS 1 on melee. Previously Orks-only; widened so Adeptus
+        # Custodes Auric Champions (alt to Shield Host) can re-use the
+        # same plumbing. The detachment IS the faction-specific gate —
+        # only WAR_HORDE (Orks) and AURIC_CHAMPIONS (Custodes) set the
+        # flag; the gate verifies the attacker's army's resolved
+        # detachment matches the attacker's faction.
+        if mode == "melee":
             _own_army = getattr(self, "army_ref", None)
             if _own_army is not None:
                 try:
                     _det = _own_army.resolve_detachment()
                 except Exception:
                     _det = None
-                if _det is not None and getattr(
-                    _det, "melee_sustained_hits_army_wide", False,
-                ):
+                if (_det is not None
+                        and getattr(_det, "melee_sustained_hits_army_wide", False)
+                        and getattr(_det, "faction", None) == p.faction):
                     effective_sustained_hits += 1
+
+        # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
+        # (army-wide ranged SUSTAINED HITS 1). AD-PR (claude/sim-cal-4):
+        # alternates with Hungry Void by battle-round parity. Vengeful
+        # Stars fires on ODD rounds (1, 3, 5) — opposite parity to
+        # Hungry Void (EVEN). Gate: mode != "melee" AND attacker faction
+        # == "Necrons" AND detachment carries `necrons_ranged_sustained
+        # _hits_army_wide` (set by AWAKENED_DYNASTY) AND current battle
+        # round is odd. Stacks additively with per-weapon
+        # `sustained_hits` already on the profile, matching the
+        # melee_sustained_hits_army_wide compositional behaviour above.
+        # Cited as
+        # `AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+        # #Command-Protocols.
+        if mode != "melee" and p.faction == "Necrons":
+            _own_army_vs = getattr(self, "army_ref", None)
+            if _own_army_vs is not None:
+                try:
+                    _det_vs = _own_army_vs.resolve_detachment()
+                except Exception:
+                    _det_vs = None
+                if _det_vs is not None and getattr(
+                    _det_vs, "necrons_ranged_sustained_hits_army_wide", False,
+                ):
+                    _battle_vs = getattr(_own_army_vs, "_battle_ref", None)
+                    _round_vs = (
+                        getattr(_battle_vs, "_current_round", 0)
+                        if _battle_vs is not None else 0
+                    )
+                    # Odd round (1, 3, 5) -> Vengeful Stars active.
+                    # Round 0 (pre-battle / no battle ref) treated as
+                    # inactive so standalone tests without a battle
+                    # round set see no buff unless they configure the
+                    # round explicitly.
+                    if _round_vs % 2 == 1 and _round_vs > 0:
+                        effective_sustained_hits += 1
 
         # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
         # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
@@ -1434,7 +1530,13 @@ class Unit:
         # crit threshold that gates `crit_hit = (roll == 6)` later in the
         # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
         # adeptus-custodes/#Shield-Host.
-        # Cited as `SHIELD_HOST.melee_crit_on_5_plus_hits`.
+        # C1 (claude/sim-calibration-4): Crit-on-5+ fires on EVEN battle
+        # rounds (2, 4). AP+1 fires on ODD battle rounds (1, 3, 5). This
+        # alternation averages to one bullet active per round, matching
+        # the codex "pick one bullet at the start of each battle round"
+        # rule (prior implementation applied both always-on, strictly
+        # stronger than codex). Cited as
+        # `SHIELD_HOST.melee_crit_on_5_plus_hits`.
         melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
         if mode == "melee" and p.faction == "Adeptus Custodes":
             _own_army = getattr(self, "army_ref", None)
@@ -1446,7 +1548,17 @@ class Unit:
                 if _det is not None and getattr(
                     _det, "melee_crit_on_5_plus_hits", False,
                 ):
-                    melee_crit_threshold = 5
+                    _battle_c5 = getattr(_own_army, "_battle_ref", None)
+                    _round_c5 = (
+                        getattr(_battle_c5, "_current_round", 0)
+                        if _battle_c5 is not None else 0
+                    )
+                    # Even round (2, 4) -> Crit-on-5+ bullet active. Round
+                    # 0 (pre-battle / no battle ref) treated as inactive
+                    # so standalone tests without a battle round set see
+                    # no buff unless they configure the round explicitly.
+                    if _round_c5 > 0 and _round_c5 % 2 == 0:
+                        melee_crit_threshold = 5
 
         total_damage = 0.0
         for _ in range(n_attacks):

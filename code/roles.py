@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import functools
 from typing import Dict, Tuple
-
 from .units import UnitProfile, wound_probability
 
 
@@ -53,9 +52,20 @@ def expected_melee_dpa(p: UnitProfile, target_t: int = 4, target_sv: int = 3) ->
     return p.melee_attacks * p.melee_hit_probability * wound_p * unsaved * (p.melee_damage_per_shot or 1.0)
 
 
-@functools.lru_cache(maxsize=4096)
+# Manual id()-based cache for classify. UnitProfile objects come from
+# UNIT_CATALOG (module-level dict) and live for the full session, so id(p)
+# is stable — we never hit the Python id-reuse hazard. Using id() means the
+# cache key is a plain int (hashes to itself in O(1)) rather than a full
+# frozen-dataclass hash that computes across all 30+ UnitProfile fields.
+_classify_cache: Dict[int, str] = {}
+
+
 def classify(p: UnitProfile) -> str:
     """Return the role label for this UnitProfile."""
+    pid = id(p)
+    cached = _classify_cache.get(pid)
+    if cached is not None:
+        return cached
     r = expected_ranged_dpa(p)
     m = expected_melee_dpa(p)
     total = r + m
@@ -64,26 +74,27 @@ def classify(p: UnitProfile) -> str:
     # HORDE. Save 4+ qualifies (Necron Warriors) since the defining trait is
     # "many cheap bodies", not the armour rating specifically.
     if p.health == 1 and p.save >= 4 and total < 1.5:
-        return "HORDE"
-
-    if total <= 0.4:
-        return "SUPPORT"
-
+        result = "HORDE"
+    elif total <= 0.4:
+        result = "SUPPORT"
     # HEAVY: substantial wounds AND tough armour
-    if p.health >= 8 and p.save <= 3:
-        return "HEAVY"
-
+    elif p.health >= 8 and p.save <= 3:
+        result = "HEAVY"
     # MELEE / SHOOTY / DUAL by ratio
-    if m == 0:
-        return "SHOOTY"
-    if r == 0:
-        return "MELEE"
-    ratio = m / max(r, 1e-6)
-    if ratio >= 1.5:
-        return "MELEE"
-    if ratio <= 0.4:
-        return "SHOOTY"
-    return "DUAL"
+    elif m == 0:
+        result = "SHOOTY"
+    elif r == 0:
+        result = "MELEE"
+    else:
+        ratio = m / max(r, 1e-6)
+        if ratio >= 1.5:
+            result = "MELEE"
+        elif ratio <= 0.4:
+            result = "SHOOTY"
+        else:
+            result = "DUAL"
+    _classify_cache[pid] = result
+    return result
 
 
 def classify_catalogue(catalog: Dict[str, UnitProfile]) -> Dict[str, str]:

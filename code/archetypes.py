@@ -126,6 +126,20 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # (template seed + 1 random_fill squad) instead of the previous
         # 4-squad ceiling that drove sim WR to 95% via Warrior OC spam
         # plus additional Immortal anti-infantry shooting.
+        # LC-6 MVP — seed Ghost Ark alongside Warriors. Real-meta May 2026
+        # Awakened Dynasty tournament lists frequently pair a 20-model
+        # Warriors brick with a Ghost Ark for round-1 alpha-strike
+        # protection and Reanimation Protocols support. SwegHammer cannot
+        # model embark / disembark mechanics yet (a much larger structural
+        # change), so the MVP just introduces the Ghost Ark as a separate
+        # VEHICLE in the seed. This adds an extra Bring it Down target
+        # (small negative), anti-infantry firepower (small positive), and
+        # a tougher board blocker (small positive). Necrons is the cleanest
+        # transport-pair candidate because the faction is currently under
+        # tournament target at -8.5 pts, so a small upward lever is
+        # direction-correct. References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/necrons/#Ghost-Ark
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Awakened Dynasty": {
             "necrons_necron_warriors": 1,
             "necrons_immortals": 1,
@@ -135,6 +149,7 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "necrons_canoptek_doomstalker": 1,
             "necrons_lokhust_heavy_destroyers": 1,
             "necrons_canoptek_scarab_swarms": 1,
+            "necrons_ghost_ark": 1,
         },
     },
     "Aeldari": {
@@ -547,15 +562,46 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #   - Goonhammer "Detachment Focus: Auric Champions" (May 2026)
         #   - Frontline Gaming Custodes tournament reports, May 2026
         #   - Stat Check GT data aggregate, May 2026
+        #
+        # LC-AB (2026-05-20) — archetype shape rebalance. Even after the
+        # Shield Host alternation patch (chunk C1) Custodes still sit at
+        # +22.0pt over real meta at N=40 archetype eval. The residual
+        # over-performance is the COMPOUNDING of multiple defensive and
+        # offensive buffs on Custodian Wardens (4++ invuln + Resolute
+        # Will -1 to wound when led + S>T + +1 to hit from Trajann +
+        # reroll-hit-1s from Shield-Captain + Shield Host AP+1 / Crit-5+
+        # alternating + base Sv2 with cover — the INFANTRY 3+ cap from
+        # iter34-K3 does not trigger because Sv2 is already better). The
+        # iter17 template seeded TWO Wardens squads and TWO Allarus
+        # squads, doubling the fortress count.
+        #
+        # Real-meta May 2026 Custodes lists at Warp Friends events
+        # typically run 1x Wardens + 1x Allarus + a cheap BATTLELINE
+        # pick (Sisters of Silence Witchseekers / Vigilators /
+        # Prosecutors, or a single Custodian Guard squad). Trim the
+        # template to match:
+        #   * custodian_wardens: 2 -> 1 (drop one fortress squad)
+        #   * allarus_custodians: 2 -> 1 (drop one Deep Strike block)
+        #   * adeptus_custodes_prosecutors: 1 (NEW — cheap 40pt 4-model
+        #     INFANTRY shooting squad, 24" rapid fire 1 bolters, no
+        #     compounded buffs because the Sisters of Silence subfaction
+        #     does not stack with the Custodes leaders / detachment.
+        #     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/
+        #     "Prosecutors" datasheet).
+        #
+        # Freed points (~210 Wardens + ~143 Allarus = ~353pt) auto-fill
+        # via `_random_fill` into more Prosecutors / Custodian Guard /
+        # mid-elite picks rather than concentrating in another fortress.
         "Auric Champions": {
             "adeptus_custodes_trajann_valoris": 1,
-            "adeptus_custodes_custodian_wardens": 2,
+            "adeptus_custodes_custodian_wardens": 1,
             "adeptus_custodes_vertus_praetors": 2,
-            "adeptus_custodes_allarus_custodians": 2,
+            "adeptus_custodes_allarus_custodians": 1,
             "adeptus_custodes_custodian_guard": 1,
             "adeptus_custodes_shield_captain": 1,
             "adeptus_custodes_blade_champion": 1,
             "adeptus_custodes_caladius_grav_tank": 1,
+            "adeptus_custodes_prosecutors": 1,
         },
     },
     "Thousand Sons": {
@@ -736,6 +782,159 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "aeldari_drukhari_venom": 2,
             "aeldari_drukhari_ravager": 1,
             "aeldari_drukhari_cronos": 1,
+        },
+    },
+    # FX-ALL: minimal coverage templates for the remaining 11 major-codex
+    # factions. Goal is COVERAGE for matchup-outlier detection in
+    # `scripts/evaluate_vs_meta.py`, not real-meta realism. Each template
+    # uses a small (5-10) selection of representative units (1 anchor /
+    # CHARACTER, 1-3 BATTLELINE, 2-3 elite, 1 EPIC HERO if present); the
+    # remaining seed budget is filled by `_random_fill` with same-faction
+    # picks. Detachment names match the registry where one exists.
+    "Chaos Space Marines": {
+        # FX-ALL CSM catalog limitation: BSData v10.6.0 doesn't expose
+        # Legionaries / Chaos Terminator Squad / Chosen / Chaos Lord in
+        # Terminator Armour as catalog keys. Available CSM catalog leans
+        # on dedicated chassis + named CHARACTERs. Template below uses
+        # what's catalogued — provides COVERAGE per FX-ALL goal even if
+        # not fully tournament-realistic. Follow-up: refresh BSData
+        # mapper or add overrides for the missing 10e generics.
+        "Pactbound Zealots": {
+            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            "chaos_space_marines_chaos_bikers": 1,
+            "chaos_space_marines_obliterators": 1,
+            "chaos_space_marines_mutilators": 1,
+            "chaos_space_marines_helbrute": 1,
+            "chaos_space_marines_chaos_rhino": 1,
+            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
+            "chaos_space_marines_abaddon_the_despoiler": 1,
+        },
+    },
+    "World Eaters": {
+        "Berzerker Warband": {
+            "world_eaters_khorne_berzerkers": 2,
+            "world_eaters_eightbound": 1,
+            "world_eaters_exalted_eightbound": 1,
+            "world_eaters_jakhals": 1,
+            "world_eaters_chaos_rhino": 1,
+            "world_eaters_lord_invocatus": 1,
+            "world_eaters_angron": 1,
+            "world_eaters_daemon_prince_of_khorne_with_wings": 1,
+        },
+    },
+    "Emperor's Children": {
+        # No detachment registered in code/detachments.py for Emperor's
+        # Children; calling out the placeholder name so future iterations
+        # can wire it. The army_builder falls through pick_detachment_for_army
+        # to the no-detachment path which is fine for archetype seeding.
+        "Slaaneshi Excess": {
+            "emperor_s_children_lord_exultant": 1,
+            "emperor_s_children_infractors": 2,
+            "emperor_s_children_tormentors": 1,
+            "emperor_s_children_flawless_blades": 1,
+            "emperor_s_children_chaos_terminators": 1,
+            "emperor_s_children_chaos_rhino": 1,
+            "emperor_s_children_lucius_the_eternal": 1,
+            "emperor_s_children_daemon_prince_of_slaanesh_with_wings": 1,
+        },
+    },
+    "Chaos Daemons": {
+        "Daemonic Incursion": {
+            "chaos_daemons_library_bloodletters": 2,
+            "chaos_daemons_library_plaguebearers": 1,
+            "chaos_daemons_library_daemonettes": 1,
+            "chaos_daemons_library_pink_horrors": 1,
+            "chaos_daemons_library_flesh_hounds": 1,
+            "chaos_daemons_library_bloodmaster": 1,
+            "chaos_daemons_library_bloodthirster": 1,
+            "chaos_daemons_library_be_lakor": 1,
+        },
+    },
+    "Astra Militarum": {
+        "Combined Arms": {
+            "astra_militarum_cadian_shock_troops": 2,
+            "astra_militarum_death_korps_of_krieg": 1,
+            "astra_militarum_kasrkin": 1,
+            "astra_militarum_chimera": 1,
+            "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_rogal_dorn_battle_tank": 1,
+            "astra_militarum_basilisk": 1,
+            "astra_militarum_cadian_castellan": 1,
+            "astra_militarum_ursula_creed": 1,
+        },
+    },
+    "Adeptus Mechanicus": {
+        "Skitarii Hunter Cohort": {
+            "adeptus_mechanicus_skitarii_rangers": 2,
+            "adeptus_mechanicus_skitarii_vanguard": 1,
+            "adeptus_mechanicus_sicarian_infiltrators": 1,
+            "adeptus_mechanicus_kataphron_destroyers": 1,
+            "adeptus_mechanicus_onager_dunecrawler": 1,
+            "adeptus_mechanicus_skorpius_disintegrator": 1,
+            "adeptus_mechanicus_skitarii_marshal": 1,
+            "adeptus_mechanicus_belisarius_cawl": 1,
+        },
+    },
+    "Adepta Sororitas": {
+        "Hallowed Martyrs": {
+            "adepta_sororitas_battle_sisters_squad": 2,
+            "adepta_sororitas_seraphim_squad": 1,
+            "adepta_sororitas_celestian_sacresants": 1,
+            "adepta_sororitas_paragon_warsuits": 1,
+            "adepta_sororitas_castigator": 1,
+            "adepta_sororitas_immolator": 1,
+            "adepta_sororitas_canoness": 1,
+            "adepta_sororitas_morvenn_vahl": 1,
+            "adepta_sororitas_saint_celestine": 1,
+        },
+    },
+    "Grey Knights": {
+        "Teleport Strike Force": {
+            "grey_knights_strike_squad": 2,
+            "grey_knights_brotherhood_terminator_squad": 1,
+            "grey_knights_paladin_squad": 1,
+            "grey_knights_interceptor_squad": 1,
+            "grey_knights_nemesis_dreadknight": 1,
+            "grey_knights_brother_captain": 1,
+            "grey_knights_grand_master_voldus": 1,
+        },
+    },
+    "Genestealer Cults": {
+        "Final Day": {
+            "genestealer_cults_neophyte_hybrids": 2,
+            "genestealer_cults_acolyte_hybrids_with_autopistols": 1,
+            "genestealer_cults_aberrants": 1,
+            "genestealer_cults_purestrain_genestealers": 1,
+            "genestealer_cults_atalan_jackals": 1,
+            "genestealer_cults_achilles_ridgerunners": 1,
+            "genestealer_cults_goliath_rockgrinder": 1,
+            "genestealer_cults_primus": 1,
+            "genestealer_cults_patriarch": 1,
+        },
+    },
+    "Imperial Knights": {
+        # Noble Lance is the canonical Big Knights detachment. Knight armies
+        # are MONSTER/TITANIC-only — no BATTLELINE infantry, the template
+        # is a small number of high-points models per Wahapedia / codex.
+        "Noble Lance": {
+            "imperial_knights_library_armiger_warglaive": 2,
+            "imperial_knights_library_armiger_helverin": 1,
+            "imperial_knights_library_knight_paladin": 1,
+            "imperial_knights_library_knight_errant": 1,
+            "imperial_knights_library_knight_warden": 1,
+            "imperial_knights_library_canis_rex": 1,
+        },
+    },
+    "Chaos Knights": {
+        # Mirror of Noble Lance — chaos variant; same big-stompy shape
+        # using War Dogs (Armigers) + Questoris-class Knights.
+        "Noble Lance": {
+            "chaos_knights_library_war_dog_karnivore": 2,
+            "chaos_knights_library_war_dog_huntsman": 1,
+            "chaos_knights_library_knight_desecrator": 1,
+            "chaos_knights_library_knight_rampager": 1,
+            "chaos_knights_library_knight_despoiler": 1,
+            "chaos_knights_library_knight_tyrant": 1,
         },
     },
 }

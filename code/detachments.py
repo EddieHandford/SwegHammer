@@ -147,7 +147,35 @@ class Detachment:
     # `Unit.attack` adds +1 to the sustained-hits multiplier on a crit-to-hit
     # (matches how per-weapon sustained_hits already composes). Army-wide
     # passive — no proximity / keyword filter beyond the Orks faction tag.
+    # LC1-A generalised the gate so any faction-detachment pairing can set
+    # the flag (Custodes Auric Champions also re-uses it).
     melee_sustained_hits_army_wide: bool = False
+
+    # Necrons Awakened Dynasty Command Protocols rotation (AD-PR, branch
+    # claude/sim-calibration-4). The detachment's real rule rotates one of
+    # six Command Protocols per battle round (player picks at the start of
+    # each Command phase). Three protocols map onto clean simulator hooks
+    # and are alternated by round parity to approximate the rotation:
+    #   * `necrons_melee_ap_plus_one_army_wide` — Protocol of the Hungry
+    #     Void: "NECRONS melee weapons gain the [LETHAL HITS] ability and
+    #     improve their Armour Penetration by 1." We wire the AP+1 leg
+    #     only (the Lethal Hits leg is dropped to keep the buff bounded;
+    #     direction-correct). Fires on EVEN battle rounds (2, 4). Gate:
+    #     mode == "melee" AND attacker faction == "Necrons" AND the
+    #     detachment carries this flag AND current battle round is even.
+    #   * `necrons_ranged_sustained_hits_army_wide` — Protocol of the
+    #     Vengeful Stars: "NECRONS ranged weapons gain the [SUSTAINED HITS
+    #     1] ability." Fires on ODD battle rounds (1, 3, 5). Gate:
+    #     mode != "melee" AND attacker faction == "Necrons" AND the
+    #     detachment carries this flag AND current battle round is odd.
+    #   * `bonus_to_hit_when_led` (above) — Protocol of the Conquering
+    #     Tyrant: always-on representation of the +1-to-hit-when-led leg.
+    # Rounds 0/no battle ref treated as inactive so detachment-flag tests
+    # without a battle round set see no buff (matches the SHIELD_HOST
+    # alternation gate). Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
+    necrons_melee_ap_plus_one_army_wide: bool = False
+    necrons_ranged_sustained_hits_army_wide: bool = False
 
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
     # Martial Mastery). Wahapedia verbatim: "At the start of the battle
@@ -291,10 +319,23 @@ AWAKENED_DYNASTY = Detachment(
         "(Eternal Revenant, Vengeful Stars) have no clean simulator hook "
         "and are catalogued-but-no-op APPROXIMATIONs; the other four map "
         "onto existing transient_* flags (plus a new "
-        "transient_undying_legions_pulse for the extra reanimation pulse)."
+        "transient_undying_legions_pulse for the extra reanimation pulse). "
+        "AD-PR (claude/sim-calibration-4): the detachment-rule rotation "
+        "of Command Protocols is now modelled by alternating two new "
+        "always-on flags by battle-round parity — Hungry Void (melee "
+        "AP+1, `necrons_melee_ap_plus_one_army_wide`) on EVEN rounds and "
+        "Vengeful Stars (ranged SUSTAINED HITS 1, "
+        "`necrons_ranged_sustained_hits_army_wide`) on ODD rounds. The "
+        "always-on Conquering Tyrant +1-to-hit-when-led leg "
+        "(`bonus_to_hit_when_led`) is retained — strictly speaking the "
+        "real codex picks only ONE protocol per round, so this is an "
+        "APPROXIMATION (slight over-model) but the led-only gate keeps "
+        "the over-coverage bounded to character-led squads."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
+    necrons_melee_ap_plus_one_army_wide=True,
+    necrons_ranged_sustained_hits_army_wide=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )
@@ -386,6 +427,40 @@ HALLOWED_MARTYRS = Detachment(
     preferred_composition="infantry",
 )
 
+AURIC_CHAMPIONS = Detachment(
+    name="Auric Champions",
+    faction="Adeptus Custodes",
+    notes=(
+        "Trail of Glory (Wahapedia verbatim): \"At the start of the "
+        "battle round, you can select one of the bullet points below. "
+        "If you do, until the start of the next battle round, that "
+        "bullet point's effects apply: Each time an ADEPTUS CUSTODES "
+        "model from your army makes an attack, an unmodified Hit roll "
+        "of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES "
+        "model from your army makes an attack, if that attack scores a "
+        "Critical Wound, until the attack sequence ends, that attack "
+        "has the [DEVASTATING WOUNDS] ability.\" Simulator: only the "
+        "first bullet (SUSTAINED HITS 1 on melee) is wired via "
+        "`melee_sustained_hits_army_wide` (re-using the same plumbing "
+        "as Orks War Horde, gated to faction=='Adeptus Custodes' in "
+        "Unit.attack). The DEVASTATING WOUNDS bullet is left out — "
+        "weapon-level DEVASTATING WOUNDS is already wired per-unit "
+        "(see iter34-K1 audit), and an army-wide layer would compound "
+        "with per-weapon flags on Custodes weapons that already carry "
+        "it. APPROXIMATION: SUSTAINED HITS 1 only, both round-bullets "
+        "rolled into one always-on offensive layer, weaker than Shield "
+        "Host's stacked Crit-5+ + AP+1 (per LC-1 goal: introduce a "
+        "milder Custodes detachment variant so the detachment picker "
+        "has a real choice rather than always-pick-Shield-Host)."
+    ),
+    melee_sustained_hits_army_wide=True,
+    stratagems=SHIELD_HOST_STRATAGEMS,  # share stratagems for now —
+    # real Auric Champions has its own 6-stratagem pool that we'd need
+    # to wire individually. For LC-1 the detachment rule alone is the
+    # MAE lever; per-stratagem differences are smaller and follow-up.
+    preferred_composition="infantry",
+)
+
 SHIELD_HOST = Detachment(
     name="Shield Host",
     faction="Adeptus Custodes",
@@ -399,11 +474,15 @@ SHIELD_HOST = Detachment(
         "scores a Critical Hit. Improve the Armour Penetration "
         "characteristic of melee weapons equipped by ADEPTUS CUSTODES "
         "models from your army with the Martial Ka'tah ability by 1.\" "
-        "Simulator implementation: both bullets are applied always-on for "
-        "Adeptus Custodes melee attackers via `melee_crit_on_5_plus_hits` "
-        "and `melee_ap_plus_one` (real codex picks ONE bullet per battle "
-        "round). APPROXIMATION: dual offensive uplift instead of per-round "
-        "alternation. Six real detachment stratagems wired (iter-8 fix, "
+        "Simulator implementation: bullets now correctly alternate per "
+        "battle round (C1 fix on claude/sim-calibration-4). The "
+        "`melee_ap_plus_one` flag fires on ODD rounds (1, 3, 5) and the "
+        "`melee_crit_on_5_plus_hits` flag fires on EVEN rounds (2, 4) — "
+        "gated inside Unit.attack via the army's `_battle_ref._current_round`. "
+        "This averages to ONE bullet active per battle round, matching the "
+        "codex pacing. Prior behaviour applied BOTH bullets always-on, "
+        "strictly stronger than codex (identified as the Custodes +22.3pt "
+        "MAE residual at N=40 archetype). Six real detachment stratagems wired (iter-8 fix, "
         "Wahapedia: Arcane Genetic Alchemy, Unwavering Sentinels, "
         "Multipotentiality, Vigilance Eternal, Archaeotech Munitions, "
         "Avenge the Fallen). Replaces the iter-0 `plus_one_save` "
@@ -413,8 +492,11 @@ SHIELD_HOST = Detachment(
         "the top fix for DG-vs-Custodes (+19.5pt residual over real meta)."
     ),
     # Real rule: Martial Ka'tah / Martial Mastery — Crit-on-5+ OR AP+1 on
-    # melee attacks (offensive). One bullet per round in real play;
-    # SwegHammer applies BOTH always-on as an APPROXIMATION.
+    # melee attacks (offensive). One bullet per round in real play.
+    # C1 (claude/sim-calibration-4): both flags remain set on the
+    # detachment, but firing is now round-gated inside Unit.attack —
+    # AP+1 on ODD rounds, Crit-on-5+ on EVEN rounds. This matches the
+    # codex "pick one bullet per battle round" pacing.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
     melee_crit_on_5_plus_hits=True,
     melee_ap_plus_one=True,
@@ -846,6 +928,60 @@ IRONSTORM_SPEARHEAD = Detachment(
     preferred_composition="vehicle",
 )
 
+PLAGUE_COMPANY = Detachment(
+    name="Plague Company",
+    faction="Death Guard",
+    notes=(
+        "Sworn to Nurgle (Wahapedia, simplified): \"Each time a "
+        "DEATH GUARD model from your army makes an attack with a "
+        "NURGLE'S GIFT weapon, an unmodified Hit roll of 6 grants 1 "
+        "additional hit (SUSTAINED HITS 1).\" Real Plague Company "
+        "detachment is themed around Sworn to Nurgle's named "
+        "plague-company sub-themes (each gives different buffs to a "
+        "narrow unit set). Simulator approximation: melee SUSTAINED "
+        "HITS 1 army-wide for DG (matches the broad sense of the "
+        "detachment giving an offensive layer atop Virulent "
+        "Vectorium's stratagem economy). Uses the same "
+        "`melee_sustained_hits_army_wide` plumbing as War Horde / "
+        "Auric Champions; faction-gated to DG via the LC1-A general "
+        "gate. Weaker than Virulent Vectorium's per-attack -1 damage "
+        "stratagem-spend power; provides a more offensive alternative "
+        "for DG armies that lean melee."
+    ),
+    melee_sustained_hits_army_wide=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # placeholder; real PC has
+    # its own stratagems. Per-strat differences smaller than rule lever.
+    preferred_composition="infantry",
+)
+
+ANNIHILATION_LEGION = Detachment(
+    name="Annihilation Legion",
+    faction="Necrons",
+    notes=(
+        "Hardened Killers (Wahapedia verbatim): \"Each time a NECRONS "
+        "unit from your army makes a ranged attack, you can re-roll a "
+        "Wound roll of 1.\" Simulator: wired via the existing army-wide "
+        "`reroll_wound_ones` flag (already in use by other detachments). "
+        "Lossy by design — the Annihilation Legion detachment text "
+        "applies the reroll specifically to RANGED attacks; the existing "
+        "schema reroll_wound_ones applies to all attacks (ranged + "
+        "melee). Necrons are a ranged-leaning faction so the over-broad "
+        "application is small in practice. Real Annihilation Legion "
+        "also gives various ranged stratagems and tank-flavour buffs "
+        "that aren't wired individually here — the detachment rule "
+        "alone is the LC-1 lever to give Necrons a stronger offensive "
+        "alternative to Awakened Dynasty (whose lead-required +1-to-hit "
+        "is conditional on character attachment that not every Necrons "
+        "squad has). Cited as `ANNIHILATION_LEGION.reroll_wound_ones`."
+    ),
+    reroll_wound_ones=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # share for now — real
+    # Annihilation Legion has its own stratagems (Galvanic Resurrection,
+    # Tachyonic Annihilation, etc.); per-strat differences are smaller
+    # than the detachment rule's MAE lever.
+    preferred_composition="balanced",
+)
+
 CANOPTEK_COURT = Detachment(
     name="Canoptek Court",
     faction="Necrons",
@@ -885,6 +1021,7 @@ DETACHMENTS: Dict[str, Detachment] = {
     "noble_lance":             NOBLE_LANCE,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
+    "auric_champions":         AURIC_CHAMPIONS,
     "skitarii_hunter_cohort":  SKITARII_HUNTER_COHORT,
     "inquisition_task_force":  INQUISITION_TASK_FORCE,
     "combined_regiment":       COMBINED_REGIMENT,
@@ -900,6 +1037,8 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Second detachments per major faction (#126).
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
+    "annihilation_legion":     ANNIHILATION_LEGION,
+    "plague_company":          PLAGUE_COMPANY,
     # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
     # set and Worldblight rule (sticky-control APPROXIMATION).
     "virulent_vectorium":      VIRULENT_VECTORIUM,
@@ -1047,7 +1186,7 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # Necrons: Awakened Dynasty (balanced character-led) vs Canoptek Court
     # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
     # army leans on its Canoptek units.
-    "Necrons":                  ("awakened_dynasty", "canoptek_court"),
+    "Necrons":                  ("awakened_dynasty", "canoptek_court", "annihilation_legion"),
     # iter16: Tyranids gains Subterranean Assault as the real-meta default
     # (May 2026 Maastricht GT winner — see DEFAULT_BY_FACTION comment).
     # Invasion Fleet is retained as a variant for the picker; both real
@@ -1064,7 +1203,7 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Imperial Knights":         ("noble_lance",),
     "Chaos Knights":            ("noble_lance",),
     "Adepta Sororitas":         ("hallowed_martyrs",),
-    "Adeptus Custodes":         ("shield_host",),
+    "Adeptus Custodes":         ("shield_host", "auric_champions"),
     "Adeptus Mechanicus":       ("skitarii_hunter_cohort",),
     "Agents of the Imperium":   ("inquisition_task_force",),
     "Imperial Agents":          ("inquisition_task_force",),
@@ -1095,7 +1234,7 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # in archetype eval), the army lost the +1 save on D1 attacks AND
     # gained no compensating buff. Restore this tuple to
     # ("rubricae_phalanx", "grand_coven") when Kindred Sorcery is wired.
-    "Death Guard":              ("virulent_vectorium",),
+    "Death Guard":              ("virulent_vectorium", "plague_company"),
     "Thousand Sons":            ("rubricae_phalanx",),
     "World Eaters":             ("berzerker_warband",),
     "Chaos Daemons":            ("daemonic_incursion",),

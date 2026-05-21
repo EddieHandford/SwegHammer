@@ -189,18 +189,27 @@ _COVER_PRIORITY = {
 }
 
 # Per-map cover-priority lookup cache.
-# Key: (terrain_epoch, ix, iy) where ix/iy are position rounded to 0.5" grid.
-# terrain_epoch is a cheap stable int assigned by map._terrain_epoch(); it
-# avoids both the GC id-reuse hazard of id(map_) and the hash cost of using
-# the full terrain tuple as a key.
-_cover_prio_cache: Dict[tuple, int] = {}
+# Key: integer `epoch * 1_000_000 + ix * 1000 + iy` — avoids 3-tuple
+# allocation and hash on every lookup. ix/iy are positions rounded to the
+# 0.5" grid (max ~240 for a 120" board) so the encoding never collides.
+# terrain_epoch is a cheap stable int from map._terrain_epoch(); it avoids
+# both the GC id-reuse hazard of id(map_) and the cost of hashing the full
+# terrain tuple as a key.
+_cover_prio_cache: Dict[int, int] = {}
 
 
-def _cover_prio(map_, px: float, py: float) -> int:
-    """Return the integer cover priority at (px, py), using a per-map cache."""
+def _cover_prio(map_, px: float, py: float, _epoch: int = -1) -> int:
+    """Return the integer cover priority at (px, py), using a per-map cache.
+
+    Callers that invoke this in a tight loop (e.g. `_best_nearby_cover_point`)
+    should pre-compute the epoch via `_terrain_epoch(map_.terrain)` and pass
+    it as `_epoch` to avoid repeating the epoch dict lookup on every sample.
+    """
+    if _epoch < 0:
+        _epoch = _terrain_epoch(map_.terrain)
     ix = round(px * 2)
     iy = round(py * 2)
-    key = (_terrain_epoch(map_.terrain), ix, iy)
+    key = _epoch * 1_000_000 + ix * 1000 + iy
     try:
         return _cover_prio_cache[key]
     except KeyError:
@@ -239,8 +248,11 @@ def _best_nearby_cover_point(
     """
     if map_ is None:
         return base_pos
+    # Extract terrain epoch once — _cover_prio can reuse it for all 12+1
+    # samples without repeating the terrain_epoch dict lookup each time.
+    epoch = _terrain_epoch(map_.terrain)
     bx, by = base_pos
-    best_prio = _cover_prio(map_, bx, by)
+    best_prio = _cover_prio(map_, bx, by, _epoch=epoch)
     best_pt = base_pos
     best_d2 = 0.0
     mw, mh = map_.width, map_.height
@@ -252,7 +264,7 @@ def _best_nearby_cover_point(
         elif px > mw: px = mw
         if py < 0.0: py = 0.0
         elif py > mh: py = mh
-        prio = _cover_prio(map_, px, py)
+        prio = _cover_prio(map_, px, py, _epoch=epoch)
         if prio < 0:   # IMPASSABLE terrain has priority -1
             continue
         dx = px - bx
@@ -394,11 +406,7 @@ def _squad_size_factor(defender_unit) -> float:
     if not own_name:
         return 1.0
     try:
-        sibling_count = sum(
-            1 for u in army.alive_units
-            if getattr(u.profile, "name", None) == own_name
-            and getattr(u, "current_health", 0) > 0
-        )
+        sibling_count = army.squad_sibling_count(own_name)
     except Exception:
         return 1.0
     extras = max(0, sibling_count - 1)
@@ -829,8 +837,7 @@ def pick_charge_target(attacker, enemy):
 
     if not candidates:
         return None, None
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    _, dist, target = candidates[0]
+    _, dist, target = max(candidates, key=lambda x: x[0])
     return target, dist
 
 
@@ -1077,6 +1084,7 @@ def _counter_priority_uid(plan: Optional[str], enemy) -> Optional[str]:
 
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
+    _phase_their_oc: Optional[Dict] = None,
 ) -> Tuple[Tuple[float, float], str]:
     """
     Decide where `unit` should move this activation, and label the reason.
@@ -1129,19 +1137,60 @@ def pick_move_intent(
             if fall_back_pos is not None:
                 return fall_back_pos, _FALL_BACK_INTENT
 
+    # Precompute OC sums for all objectives — _oc_on_objective iterates
+    # alive_units per call. our_oc is always fresh (friendly units may have
+    # moved earlier this phase). their_oc is stable for the entire move phase
+    # (enemy units don't move during our phase) so the caller may pass a
+    # precomputed dict via _phase_their_oc to avoid re-scanning enemy units
+    # for every activation.
+    friendly_alive = friendly.alive_units
+    enemy_alive = enemy.alive_units
+    _our_oc = {id(obj): _oc_on_objective(friendly_alive, obj) for obj in objectives}
+    if _phase_their_oc is not None:
+        _their_oc = _phase_their_oc
+    else:
+        _their_oc = {id(obj): _oc_on_objective(enemy_alive, obj) for obj in objectives}
+
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
+    # Track which objectives the unit currently occupies; reused by the
+    # attrition branch below to avoid extra _oc_on_objective(exclude_uid)
+    # calls — `our_oc_no_self = _our_oc[obj] - own_oc` is correct when the
+    # unit is on the objective.
+    unit_on_obj_ids: set = set()
     for obj in objectives:
         if _dist(unit.position, (obj.x, obj.y)) > obj.control_radius:
             continue
-        # We're within control radius. Count OC without us, both sides.
-        our_oc_no_self = _oc_on_objective(friendly.alive_units, obj, exclude_uid=unit.uid)
-        their_oc = _oc_on_objective(enemy.alive_units, obj)
+        unit_on_obj_ids.add(id(obj))
+        # Count OC without us: total minus this unit's own OC.
+        our_oc_no_self = _our_oc[id(obj)] - own_oc
+        their_oc = _their_oc[id(obj)]
         # If leaving would flip control (or contest from win → tie), hold.
         # Snap to a cover-rich point near where we already stand so the
         # HOLD has a defensive benefit (HEAVY cover > OBSCURING > LIGHT).
         if own_oc > 0 and our_oc_no_self <= their_oc < our_oc_no_self + own_oc:
             hold_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
             return hold_pos, _HOLD_INTENT
+
+    # COUNTER plan: precompute the highest-DPA enemy uid once, then weight
+    # its score 1.5x in MELEE/DUAL pick.
+    counter_uid = _counter_priority_uid(army_plan, enemy)
+
+    def _plan_target_score(base: float, target) -> float:
+        s = base * _plan_engage_bias(army_plan, unit, target, map_)
+        if counter_uid is not None and target.uid == counter_uid:
+            s *= 1.5
+        return s
+
+    # MELEE closes on the BEST melee target (the gunline / battlesuit /
+    # support character whose squishy melee profile we can crack open),
+    # not just the nearest enemy. Exit here — MELEE units never consult
+    # `objs` or `nearest_enemy`, so we skip both the objectives scoring
+    # loop and the nearest-enemy scan entirely.
+    if role == "MELEE" and enemy_alive:
+        return max(
+            enemy_alive,
+            key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),
+        ).position, _ENGAGE_INTENT
 
     # ----- 2. Score every objective; pick the most worth visiting -----
     # S2: late-round contests dominate — multiply base value by `round_weight`
@@ -1150,8 +1199,8 @@ def pick_move_intent(
     # objective (~1.6). Round defaults to 1 when no Battle is active.
     objs = []
     for obj in objectives:
-        a_oc = _oc_on_objective(friendly.alive_units, obj)
-        b_oc = _oc_on_objective(enemy.alive_units, obj)
+        a_oc = _our_oc[id(obj)]
+        b_oc = _their_oc[id(obj)]
         d = _dist(unit.position, (obj.x, obj.y))
         if a_oc > b_oc:
             value = 1.0           # already scoring — low priority for more bodies
@@ -1190,7 +1239,10 @@ def pick_move_intent(
     if posture in ("attrition", "psychic_attrition") and objs:
         new_objs = []
         for score, intent, obj, d in objs:
-            our_count = _oc_on_objective(friendly.alive_units, obj, exclude_uid=unit.uid)
+            # Subtract this unit's OC only when it is currently on the
+            # objective (tracked by the hold-check loop above). Avoids an
+            # extra _oc_on_objective(exclude_uid=...) call per objective.
+            our_count = _our_oc[id(obj)] - (own_oc if id(obj) in unit_on_obj_ids else 0)
             if our_count == 0:
                 score *= 1.25   # boost objectives no friend already covers
             new_objs.append((score, intent, obj, d))
@@ -1258,48 +1310,27 @@ def pick_move_intent(
             repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
             return repo_pos, _REPOSITION_INTENT
 
-    # COUNTER plan: precompute the highest-DPA enemy uid once, then weight
-    # its score 1.5x in MELEE/DUAL pick.
-    counter_uid = _counter_priority_uid(army_plan, enemy)
-
-    def _plan_target_score(base: float, target) -> float:
-        s = base * _plan_engage_bias(army_plan, unit, target, map_)
-        if counter_uid is not None and target.uid == counter_uid:
-            s *= 1.5
-        return s
-
-    # MELEE closes on the BEST melee target (the gunline / battlesuit /
-    # support character whose squishy melee profile we can crack open),
-    # not just the nearest enemy. Without this bias, melee bricks waste
-    # activations on hard-to-kill bricks and never engage the priorities
-    # that under-rate our sim's T'au / Astartes / Votann shooty factions.
-    if role == "MELEE" and enemy.alive_units:
-        scored = sorted(
-            enemy.alive_units,
-            key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),
-            reverse=True,
-        )
-        return scored[0].position, _ENGAGE_INTENT
-
     # DUAL: if a high-value charge target is within potential charge range
     # next round (move + 12" threat), close on it; otherwise fall through
     # to objective logic. This is what real Intercessor / Boyz / similar
     # do — bias toward enemies with weak melee, not just the closest body.
-    if role == "DUAL" and enemy.alive_units:
+    if role == "DUAL" and enemy_alive:
         move_dist = effective_move(unit)
         threat_range = move_dist + 12.0
         viable = [
-            e for e in enemy.alive_units
+            e for e in enemy_alive
             if _dist(unit.position, e.position) <= threat_range
         ]
         if viable:
+            # Pre-compute raw scores to avoid calling _melee_target_score
+            # twice for the winning target (once in max(), once for the 0.1
+            # threshold check).
+            raw_scores = {id(e): _melee_target_score(unit, e) for e in viable}
             best_melee = max(
                 viable,
-                key=lambda e: _plan_target_score(_melee_target_score(unit, e), e),
+                key=lambda e: _plan_target_score(raw_scores[id(e)], e),
             )
-            # Only engage if the target's score beats a neutral baseline —
-            # otherwise the objective-grabbing fallback handles it better.
-            if _melee_target_score(unit, best_melee) > 0.1:
+            if raw_scores[id(best_melee)] > 0.1:
                 return best_melee.position, _ENGAGE_INTENT
 
     # ----- 4. Pick objective target if one scored well; else engage enemy -----

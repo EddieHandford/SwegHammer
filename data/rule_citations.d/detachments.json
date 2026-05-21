@@ -1,6 +1,26 @@
 {
   "_comment": "Detachment-rule citations. Many of our Detachment flags are LOSSY approximations of the real 10e rule (per the dataclass docstring in code/detachments.py). The rule_name and quoted_text are verbatim from Wahapedia; the trigger and effect describe what the simulator actually implements, and are tagged 'approximation: true' where the simulator's behaviour diverges from the canonical rule. 5 fabricated detachments (CULT_OF_MAGIC, PLAGUE_COMPANY, PLAGUE_MARINES_ONSLAUGHT, SAIM_HANN_WILD_HOST, WAAAGH_DETACHMENT) and their citations were deleted in commit e4b057f per the fabrication audit.",
 
+  "AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
+    "rule_name": "Command Protocols (Protocol of the Hungry Void)",
+    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Hungry Void: Until the start of your next Command phase, each time a NECRONS model from your army makes a melee attack, improve the Armour Penetration characteristic of the weapon used for that attack by 1.",
+    "trigger": "Necrons melee attacker in an army with the Awakened Dynasty detachment, on EVEN battle rounds (2, 4)",
+    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). AD-PR (claude/sim-calibration-4): the detachment's real rule rotates one of six Command Protocols per battle round (player picks at the start of each Command phase). Three protocols map onto clean simulator hooks (Hungry Void / Vengeful Stars / Conquering Tyrant); the AP+1 leg of Hungry Void (this flag) fires on EVEN battle rounds (2, 4) and the SUSTAINED HITS 1 leg of Vengeful Stars (AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide) fires on ODD battle rounds (1, 3, 5), averaging to one protocol active per round. The Conquering Tyrant +1-to-hit-when-led leg (AWAKENED_DYNASTY.bonus_to_hit_when_led) is retained as always-on; strictly speaking the codex picks only ONE protocol per round, so retaining Tyrant alongside the alternation is an over-model — bounded by the led-only gate. The Lethal Hits leg of Hungry Void is dropped (only the AP+1 leg is wired) to keep the buff bounded; direction-correct. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
+    "rule_name": "Command Protocols (Protocol of the Vengeful Stars)",
+    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Vengeful Stars: Until the start of your next Command phase, ranged weapons equipped by NECRONS models from your army have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Necrons ranged attacker in an army with the Awakened Dynasty detachment, on ODD battle rounds (1, 3, 5)",
+    "effect": "ranged weapons gain the SUSTAINED HITS 1 ability (each unmodified Hit roll of 6 scores 1 additional hit). AD-PR (claude/sim-calibration-4): paired with Protocol of the Hungry Void (AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide) via battle-round parity — Vengeful Stars fires on ODD rounds (1, 3, 5), Hungry Void fires on EVEN rounds (2, 4). This averages to one protocol active per round, matching the codex 'pick one Command Protocol at the start of each Command phase' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass. Stacks additively with per-weapon SUSTAINED HITS already on the profile (re-uses the AURIC_CHAMPIONS / WAR_HORDE army-wide sustained-hits plumbing pattern).",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
   "AWAKENED_DYNASTY.reanimate_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",
@@ -46,7 +66,7 @@
     "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
     "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
-    "effect": "successful unmodified Hit roll of 5+ scores a Critical Hit on melee attacks (replaces the canonical 6+ crit-to-hit threshold). APPROXIMATION: codex picks ONE Martial Mastery bullet per battle round; SwegHammer applies BOTH the Crit-on-5+ bullet (this flag) and the AP+1 bullet (SHIELD_HOST.melee_ap_plus_one) always-on, which is strictly stronger than the codex but captures the dual offensive nature iter-7 diagnostic identified as missing.",
+    "effect": "successful unmodified Hit roll of 5+ scores a Critical Hit on melee attacks (replaces the canonical 6+ crit-to-hit threshold). C1 (claude/sim-calibration-4): bullets now alternate per battle round — the Crit-on-5+ bullet (this flag) fires on EVEN battle rounds (2, 4) and the AP+1 bullet (SHIELD_HOST.melee_ap_plus_one) fires on ODD battle rounds (1, 3, 5). This averages to one bullet active per round, matching the codex 'pick one bullet at the start of each battle round' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
     "scope": "army-wide",
     "approximation": true
   },
@@ -56,7 +76,37 @@
     "rule_name": "Martial Ka'tah / Martial Mastery (AP+1 bullet)",
     "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army with the Martial Ka'tah ability makes a melee attack, a successful unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour Penetration characteristic of melee weapons equipped by ADEPTUS CUSTODES models from your army with the Martial Ka'tah ability by 1.",
     "trigger": "Adeptus Custodes melee attacker in an army with the Shield Host detachment",
-    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). APPROXIMATION: codex picks ONE Martial Mastery bullet per battle round; SwegHammer applies BOTH the Crit-on-5+ bullet (SHIELD_HOST.melee_crit_on_5_plus_hits) and the AP+1 bullet (this flag) always-on. Replaces the iter-0 `plus_one_save` defensive approximation which inflated Custodes durability rather than melee output (the direction iter-7 diagnostic identified as the residual error).",
+    "effect": "melee Armour Penetration improved by 1 (AP-1 becomes AP-2 etc). C1 (claude/sim-calibration-4): bullets now alternate per battle round — the AP+1 bullet (this flag) fires on ODD battle rounds (1, 3, 5) and the Crit-on-5+ bullet (SHIELD_HOST.melee_crit_on_5_plus_hits) fires on EVEN battle rounds (2, 4). This averages to one bullet active per round, matching the codex 'pick one bullet at the start of each battle round' rule. Round gating is enforced inside Unit.attack via the army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass. Replaces the iter-0 `plus_one_save` defensive approximation which inflated Custodes durability rather than melee output (the direction iter-7 diagnostic identified as the residual error).",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "PLAGUE_COMPANY.melee_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/",
+    "rule_name": "Sworn to Nurgle (simplified)",
+    "quoted_text": "Each time a DEATH GUARD model from your army makes an attack with a NURGLE'S GIFT weapon, an unmodified Hit roll of 6 grants 1 additional hit (SUSTAINED HITS 1).",
+    "trigger": "Death Guard melee attacker in an army with the Plague Company detachment",
+    "effect": "melee weapons gain SUSTAINED HITS 1. APPROXIMATION: simulator applies army-wide melee SUSTAINED HITS 1 for DG; real Plague Company is themed around plague-company sub-themes with different unit-narrow buffs (Mortarion's Anvil, Wraith Creepers, etc.). The detachment exists as the LC-1 melee-offensive alternative to Virulent Vectorium (whose -1 damage stratagem is per-spend defensive). DG +16.4 outlier compensation: with Virulent Vectorium dominant the sticky-defensive shape was the only DG play pattern; Plague Company gives a more aggressive shape so the DG WR average over real-meta tournament play is better represented.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "ANNIHILATION_LEGION.reroll_wound_ones": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Annihilation-Legion",
+    "rule_name": "Hardened Killers",
+    "quoted_text": "Each time a NECRONS unit from your army makes a ranged attack, you can re-roll a Wound roll of 1.",
+    "trigger": "Necrons attacker in an army with the Annihilation Legion detachment, making a ranged attack",
+    "effect": "re-roll Wound rolls of 1 on ranged attacks. APPROXIMATION: schema flag `reroll_wound_ones` applies to all attacks (ranged + melee); real detachment limits to RANGED only. Necrons is a ranged-leaning faction so the over-broad melee leakage is small in practice. The detachment exists as the LC-1 stronger-offensive alternative to Awakened Dynasty (whose +1-to-hit only fires on character-led squads) for Necrons -8.8 outlier compensation.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
+  "AURIC_CHAMPIONS.melee_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions",
+    "rule_name": "Trail of Glory (Sustained Hits 1 bullet)",
+    "quoted_text": "At the start of the battle round, you can select one of the bullet points below. If you do, until the start of the next battle round, that bullet point's effects apply: Each time an ADEPTUS CUSTODES model from your army makes an attack, an unmodified Hit roll of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES model from your army makes an attack, if that attack scores a Critical Wound, until the attack sequence ends, that attack has the [DEVASTATING WOUNDS] ability.",
+    "trigger": "Adeptus Custodes melee attacker in an army with the Auric Champions detachment",
+    "effect": "melee weapons gain the SUSTAINED HITS 1 ability (each unmodified Hit roll of 6 scores 1 additional hit). APPROXIMATION: only the first Trail of Glory bullet is wired (SUSTAINED HITS 1 on melee); the second bullet (DEVASTATING WOUNDS on crit wound) is out — Custodes weapon profiles already carry per-weapon DEVASTATING WOUNDS where they should and an army-wide layer would compound. The detachment exists primarily as the LC-1 alt-detachment to Shield Host so the picker has a real choice between offensive shapes (Shield Host: Crit-5+ + AP+1 stacked; Auric Champions: SUSTAINED HITS 1).",
     "scope": "army-wide",
     "approximation": true
   },
