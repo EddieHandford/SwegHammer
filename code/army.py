@@ -120,6 +120,7 @@ class Army:
         # by Unit.current_health.setter on life-state transitions and by
         # _add_live_unit(). Rebuilt lazily on next alive_units access.
         self._alive_cache: Optional[List[Unit]] = None
+        self._squad_count_cache: Optional[Dict[str, int]] = None
         # 10e Strike Force standard: each side starts with 3 CP. Battle then
         # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
         self.command_points: int = STARTING_CP
@@ -425,6 +426,7 @@ class Army:
 
     def _invalidate_alive_cache(self) -> None:
         self._alive_cache = None
+        self._squad_count_cache = None
 
     def resolve_detachment(self) -> Optional[Detachment]:
         """Return the detachment in effect — explicit if set, else faction default."""
@@ -444,6 +446,22 @@ class Army:
         if self._alive_cache is None:
             self._alive_cache = [u for u in self.units if u.is_alive]
         return self._alive_cache
+
+    def squad_sibling_count(self, unit_name: str) -> int:
+        """Return the number of alive units sharing `unit_name`, including self.
+
+        Result is cached alongside `_alive_cache` — rebuilds only when a unit
+        dies or arrives, not on every caller invocation. Used by
+        `strategy._squad_size_factor` to avoid iterating alive_units repeatedly.
+        """
+        if self._squad_count_cache is None:
+            counts: Dict[str, int] = {}
+            for u in self.alive_units:
+                name = getattr(u.profile, "name", None)
+                if name:
+                    counts[name] = counts.get(name, 0) + 1
+            self._squad_count_cache = counts
+        return self._squad_count_cache.get(unit_name, 0)
 
     @property
     def unit_count(self) -> int:
