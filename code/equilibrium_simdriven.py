@@ -794,6 +794,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=str(SIMDRIVEN_PATH),
         help=f"Output snapshot path (default {SIMDRIVEN_PATH}).",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel worker processes for pair measurement "
+             "(default 1 = serial). Set to the number of physical CPU cores "
+             "for maximum throughput, e.g. --workers 8.",
+    )
     args = parser.parse_args(argv)
 
     if args.keys and args.full:
@@ -821,10 +829,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     n_pairs = len(measured_keys) * (len(measured_keys) - 1) // 2
     estimated_battles = n_pairs * args.battles
+    est_serial_sec = estimated_battles * 0.14
+    est_wall_sec = est_serial_sec / max(1, args.workers)
+    workers_note = (
+        f", {args.workers} workers → ~{est_wall_sec:.0f} s wall-clock"
+        if args.workers > 1
+        else f", ~{est_serial_sec:.0f} s at 140 ms/battle"
+    )
     print(
         f"Sim-driven equilibrium: {len(measured_keys)} units, "
-        f"{n_pairs} ordered pairs, ~{estimated_battles} battles "
-        f"(approx {estimated_battles * 0.14:.0f} s at 140 ms/battle).",
+        f"{n_pairs} ordered pairs, ~{estimated_battles} battles"
+        f"{workers_note}.",
         flush=True,
     )
 
@@ -839,6 +854,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         points_budget=args.budget,
         progress_cb=_print_progress,
         rng=rng,
+        max_workers=args.workers if args.workers > 1 else None,
     )
     out_path = Path(args.out)
     save_snapshot(result, out_path)
