@@ -153,6 +153,20 @@ class Army:
         # armies; empty on non-Aeldari armies and once exhausted.
         # Cited as `simulator.strands_of_fate`.
         self.fate_dice: List[int] = []
+        # Adepta Sororitas army rule — Acts of Faith / Miracle Dice (10e).
+        # Bank of pre-rolled D6 values. Gain 1 at the start of each battle
+        # round AND 1 each time a Sororitas unit from this army is
+        # destroyed. Spent by substituting a banked value for one D6 in any
+        # of: Advance, Battle-shock, Charge, Damage, Hit, Saving throw,
+        # Wound. The simulator's spend AI is a greedy heuristic (pop the
+        # lowest die that flips fail -> success on hit/wound/save, same
+        # shape as fate_dice). A soft cap of 8 is enforced to keep the
+        # pool from growing without bound in a stalled simulation —
+        # tournament games rarely exceed 6-7 banked dice and the codex
+        # has no in-text cap, so 8 is a generous safety bound rather than
+        # a rule. Stored sorted descending. Empty on non-Sororitas armies.
+        # Cited as `simulator.acts_of_faith`.
+        self.miracle_dice: List[int] = []
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
@@ -419,6 +433,61 @@ class Army:
                 # Once we cross above max_value, no further candidates
                 # exist (list is sorted descending).
                 break
+        return None
+
+    # ------------------------------------------------------------------
+    # Acts of Faith helpers (Adepta Sororitas army rule, 10e). See
+    # Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+    # Real rule: gain 1 Miracle die at the start of each battle round, and
+    # +1 each time a Sororitas unit is destroyed. A unit with the Acts of
+    # Faith ability may perform one Act per phase: before any d6 roll
+    # (Advance / Battle-shock / Charge / Damage / Hit / Save / Wound),
+    # substitute one banked Miracle die for ONE of the dice in that
+    # roll (multi-die rolls like Charge only allow one substitution).
+    # The simulator's greedy heuristic: substitute only when a banked
+    # die would flip a fail -> success. Cited as `simulator.acts_of_faith`.
+    # ------------------------------------------------------------------
+
+    # Soft cap on the Sororitas Miracle Dice bank. The codex imposes no
+    # hard limit; in practice tournament games end at 6-7 dice. The cap
+    # keeps the pool from growing without bound in a stalled simulation.
+    MIRACLE_DICE_BANK_CAP = 8
+
+    def has_miracle_dice(self) -> bool:
+        """True iff at least one Miracle die remains in the pool."""
+        return bool(self.miracle_dice)
+
+    def gain_miracle_dice(self, n: int, rng) -> None:
+        """Roll `n` D6 and add them to the pool, then re-sort descending
+        and trim down to MIRACLE_DICE_BANK_CAP. `rng` is the random
+        module / instance the simulator is already using (passed in so
+        seeded runs stay deterministic).
+        """
+        for _ in range(n):
+            self.miracle_dice.append(rng.randint(1, 6))
+        # Keep sorted descending so the pop helpers can scan from the
+        # back for the lowest qualifying die.
+        self.miracle_dice.sort(reverse=True)
+        if len(self.miracle_dice) > self.MIRACLE_DICE_BANK_CAP:
+            # Trim from the tail — discard the LOWEST dice when over
+            # cap, since they're the least valuable to keep.
+            self.miracle_dice = self.miracle_dice[: self.MIRACLE_DICE_BANK_CAP]
+
+    def pop_miracle_die_meeting(self, threshold: int) -> Optional[int]:
+        """Greedy spend: remove and return the LOWEST die in the pool
+        that is >= `threshold`. Mirrors `pop_fate_die_meeting` — the
+        heuristic only substitutes when the swap converts fail ->
+        success, never when it would still fail.
+        """
+        if not self.miracle_dice:
+            return None
+        # miracle_dice is kept sorted descending. Scan from the back
+        # (lowest) for the first die that meets the threshold.
+        for i in range(len(self.miracle_dice) - 1, -1, -1):
+            v = self.miracle_dice[i]
+            if v >= threshold:
+                return self.miracle_dice.pop(i)
         return None
 
     @property

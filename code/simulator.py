@@ -4418,6 +4418,20 @@ class Battle:
                 # Below Starting Strength = lost at least one full model.
                 if u.current_health <= u.profile.health - wounds_per_model:
                     u.pain_tokens = 1
+        # ---- Adepta Sororitas Acts of Faith (10e army rule). At the
+        # start of each battle round, every Sororitas army gains 1
+        # Miracle die (an unmodifiable pre-rolled D6 value, banked in a
+        # pool). Additional dice are gained when a friendly Sororitas
+        # unit is destroyed — that branch fires in
+        # `_maybe_award_miracle_die` from the destroyed-unit hooks
+        # alongside Blood Tithe / Judgement Tokens. Dice are spent in
+        # `Unit.attack` to substitute the lowest banked die that flips
+        # a fail -> success on hit / wound / save rolls. Cited as
+        # `simulator.acts_of_faith`. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+        for army in (self.a, self.b):
+            if any(u.profile.faction == "Adepta Sororitas" for u in army.units):
+                army.gain_miracle_dice(1, random)
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each battle round the AdMech player picks ONE of
         # two imperatives — "protector" (+1 BS on ranged attacks, defensive
@@ -5172,6 +5186,11 @@ class Battle:
                 killer=attacker, killer_army=attacker_army,
                 victim=shoot_target, victim_army=defender_army,
             )
+            # Adepta Sororitas Acts of Faith: friendly Sororitas death
+            # grants the victim's army +1 Miracle die.
+            self._maybe_award_miracle_die(
+                victim=shoot_target, victim_army=defender_army,
+            )
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
@@ -5373,6 +5392,9 @@ class Battle:
             )
             self._maybe_award_blood_tithe(
                 killer=attacker, killer_army=attacker_army,
+                victim=target, victim_army=defender_army,
+            )
+            self._maybe_award_miracle_die(
                 victim=target, victim_army=defender_army,
             )
             self._maybe_apply_deadly_demise(target)
@@ -5620,6 +5642,29 @@ class Battle:
             victim_army.blood_tithe += 1
         if killer.profile.faction == "World Eaters":
             killer_army.blood_tithe += 1
+
+    def _maybe_award_miracle_die(
+        self, victim: "Unit", victim_army: Army,
+    ) -> None:
+        """Adepta Sororitas Acts of Faith — Miracle Dice on a friendly
+        death. Cited as `simulator.acts_of_faith`. Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+
+        Each time a Sororitas unit from a Sororitas army is destroyed,
+        that army gains 1 Miracle die (pre-rolled D6 added to its pool,
+        capped at MIRACLE_DICE_BANK_CAP). The trigger is on the VICTIM —
+        the killer's faction does not matter, only that the destroyed
+        unit had the Sororitas faction tag and the army still has at
+        least one Sororitas unit (otherwise the army-rule condition
+        "Army Faction is Adepta Sororitas" no longer holds, and the
+        gate keeps the pool from growing on a mixed-faction list whose
+        last Sororitas unit just died).
+        """
+        if victim.profile.faction != "Adepta Sororitas":
+            return
+        if not any(u.profile.faction == "Adepta Sororitas" for u in victim_army.units):
+            return
+        victim_army.gain_miracle_dice(1, random)
 
     # APPROXIMATION: models the retired Eye of the Ancestors rule; current codex army rule is Prioritised Efficiency.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
@@ -6092,6 +6137,9 @@ class Battle:
                 killer=charger, killer_army=charger_army,
                 victim=target, victim_army=target_army,
             )
+            self._maybe_award_miracle_die(
+                victim=target, victim_army=target_army,
+            )
             self._maybe_apply_deadly_demise(target)
 
     def _do_heroic_intervention(
@@ -6188,6 +6236,9 @@ class Battle:
             )
             self._maybe_award_blood_tithe(
                 killer=retaliator, killer_army=loser_army,
+                victim=winner_unit, victim_army=winner_army,
+            )
+            self._maybe_award_miracle_die(
                 victim=winner_unit, victim_army=winner_army,
             )
             self._maybe_apply_deadly_demise(winner_unit)

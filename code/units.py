@@ -1754,6 +1754,23 @@ class Unit:
                         sub = own_army.pop_fate_die_meeting(hit_target)
                         if sub is not None:
                             roll = sub
+                # Adepta Sororitas Acts of Faith — Miracle Dice
+                # substitution on a failed Hit roll. Mirrors the Strands
+                # of Fate branch above: if the attacker is a Sororitas
+                # model and the natural roll missed, pop the lowest
+                # banked die that still hits. The greedy heuristic only
+                # spends when the substitution converts miss -> hit.
+                # Cited as `simulator.acts_of_faith`. Wahapedia:
+                # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+                if (
+                    roll < hit_target
+                    and p.faction == "Adepta Sororitas"
+                ):
+                    own_army = getattr(self, "army_ref", None)
+                    if own_army is not None and own_army.has_miracle_dice():
+                        sub = own_army.pop_miracle_die_meeting(hit_target)
+                        if sub is not None:
+                            roll = sub
                 if roll < hit_target:
                     continue   # missed
                 # Crit-to-hit threshold defaults to 6 (canonical 10e); the
@@ -1823,6 +1840,22 @@ class Unit:
                         crit_wound = True
                     else:
                         crit_wound = False
+                # Adepta Sororitas Acts of Faith — Miracle Dice
+                # substitution on a failed Wound roll. Same greedy
+                # heuristic as the hit-roll branch: only spend a banked
+                # die if it converts fail -> success. Cited as
+                # `simulator.acts_of_faith`.
+                if (
+                    not wound_succeeded
+                    and p.faction == "Adepta Sororitas"
+                ):
+                    own_army = getattr(self, "army_ref", None)
+                    if own_army is not None and own_army.has_miracle_dice():
+                        sub = own_army.pop_miracle_die_meeting(wound_target)
+                        if sub is not None:
+                            wroll = sub
+                            wound_succeeded = True
+                            crit_wound = (wroll == 6)
                 if not wound_succeeded:
                     continue
 
@@ -1848,6 +1881,19 @@ class Unit:
                         tgt_army = getattr(target, "army_ref", None)
                         if tgt_army is not None and tgt_army.has_fate_dice():
                             sub = tgt_army.pop_fate_die_meeting(save_target)
+                            if sub is not None:
+                                sroll = sub
+                    # Adepta Sororitas Acts of Faith — defensive Miracle
+                    # Dice substitution on a failed save. Same greedy
+                    # heuristic — only spend if it flips fail -> save.
+                    # Cited as `simulator.acts_of_faith`.
+                    if (
+                        sroll < save_target
+                        and target.profile.faction == "Adepta Sororitas"
+                    ):
+                        tgt_army = getattr(target, "army_ref", None)
+                        if tgt_army is not None and tgt_army.has_miracle_dice():
+                            sub = tgt_army.pop_miracle_die_meeting(save_target)
                             if sub is not None:
                                 sroll = sub
                     if sroll >= save_target:
