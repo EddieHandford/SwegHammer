@@ -22,3 +22,6 @@ build/
 
 # Claude Code session data
 .claude/
+
+# Rust build artifacts
+target/
