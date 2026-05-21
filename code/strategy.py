@@ -646,6 +646,86 @@ def _synapse_target_bonus(attacker, defender) -> float:
 
 
 # ---------------------------------------------------------------------------
+# AI-4 — Adeptus Astartes Oath-of-Moment ranged target priority
+# ---------------------------------------------------------------------------
+# The Oath of Moment army rule (Adeptus Astartes chapters only — Codex
+# Space Marines and its successor codices) nominates ONE enemy unit per
+# turn against which every Marine attack re-rolls hit-1s and wound-1s.
+# Real tournament Marine play DUMPS the whole army's firepower on the Oath
+# target to compound those re-rolls — a Lieutenant + Devastators + Heavy
+# Intercessor brick all firing into the same anchor, finishing it in one
+# Shooting phase. The simulator's stock target-priority picks per-unit
+# locally (lowest HP among candidates), which scatters Marine fire onto
+# whatever's closest-to-dead per gun rather than concentrating on the
+# Oath nomination. This bonus biases ranged target-score so that, when
+# the Oath target is among the LoS+range candidates, it wins the pick.
+#
+# Gates:
+#   - attacker is an Adeptus Astartes faction (per `is_marine_faction`,
+#     which is the canonical membership test in `code/factions.py` and
+#     EXCLUDES Grey Knights, Adeptus Custodes, Adepta Sororitas — they
+#     are power-armour but don't share Oath of Moment).
+#   - attacker_army.oath_target_uid is set (the army's Command-phase
+#     pick exists for this round — see `_pick_oath_target`).
+#   - defender.uid == oath_target_uid (the defender IS the Oath target).
+#   - defender is alive (implicit — the caller filters for alive units
+#     before scoring, but checked defensively here too).
+#
+# When all gates pass, return a 2.0x bonus. The shooting picker uses
+# `current_health / (... * oath_bonus)` so a 2.0x bonus scores the Oath
+# target at 0.5x its raw HP, biasing the `min(...)` pick toward it.
+#
+# Implicit gating via the candidates pool:
+#   - LoS is enforced by the simulator's `has_line_of_sight` filter on
+#     `candidates` BEFORE this bonus is consulted. A unit out of LoS
+#     never reaches the scoring loop, so the 2x bias never fires for an
+#     unreachable Oath target — exactly the behaviour the briefing asks
+#     for. Same for range (the `_distance <= rng` filter).
+#
+# AI heuristic only — the Oath of Moment rule itself is already cited
+# (`simulator.oath_of_moment`); this commit just teaches the AI to USE
+# that nomination by concentrating fire on it. No new rule_citations
+# entry needed.
+_ASTARTES_OATH_TARGET_BONUS: float = 2.0
+
+
+def _astartes_oath_target_bonus(attacker, defender, attacker_army) -> float:
+    """Return 2.0x when `attacker` is an Adeptus Astartes unit whose army has
+    nominated `defender` as its current Oath of Moment target; else 1.0.
+
+    Caller (the shooting picker in `simulator._do_shoot`) divides the
+    target-score by this bonus, so 2.0x reads as 0.5x raw HP — biasing
+    the `min(...)` pick toward the Oath target.
+
+    See module-section docstring for the full gate list and design.
+    """
+    # Local import to avoid the strategy <-> factions cycle at module
+    # load time (factions module is small and free of strategy imports
+    # so the cycle wouldn't actually fire, but the project standard is
+    # to import locally inside per-call helpers).
+    from .factions import is_marine_faction
+
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None:
+        return 1.0
+    if not is_marine_faction(a_profile.faction):
+        return 1.0
+    if attacker_army is None:
+        return 1.0
+    oath_uid = getattr(attacker_army, "oath_target_uid", None)
+    if oath_uid is None:
+        return 1.0
+    if getattr(defender, "uid", None) != oath_uid:
+        return 1.0
+    # Defensive alive-check; the caller already filters for alive units,
+    # but a stale Oath target uid from earlier in the turn could survive
+    # a casualty resolution mid-phase. Don't bias toward a corpse.
+    if not getattr(defender, "is_alive", True):
+        return 1.0
+    return _ASTARTES_OATH_TARGET_BONUS
+
+
+# ---------------------------------------------------------------------------
 # AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
 # ---------------------------------------------------------------------------
 # Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)

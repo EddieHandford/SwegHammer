@@ -5259,11 +5259,25 @@ class Battle:
         # Same "lower-is-better" inversion as the screen bonus — we divide
         # the score so a 1.5x bonus reads as 0.67x its raw HP, biasing
         # min() toward it.
-        from .strategy import _screen_target_bonus, _synapse_target_bonus
+        # AI-4 — Adeptus Astartes Oath-of-Moment target priority: when this
+        # attacker is a Marine unit and its army has nominated an Oath target
+        # this turn, bias the picker toward dumping fire on that target so
+        # the army's hit-1 + wound-1 re-rolls compound on a single anchor
+        # (matches real-meta Marine play). Gated faction-pure via
+        # `is_marine_faction` (excludes Grey Knights / Custodes / Sisters);
+        # the LoS+range candidates filter above means the bonus only fires
+        # when the Oath target is actually reachable for this attacker.
+        from .strategy import (
+            _astartes_oath_target_bonus,
+            _screen_target_bonus,
+            _synapse_target_bonus,
+        )
         shoot_target = min(
             pool,
             key=lambda u: u.current_health / (
-                _screen_target_bonus(u) * _synapse_target_bonus(attacker, u)
+                _screen_target_bonus(u)
+                * _synapse_target_bonus(attacker, u)
+                * _astartes_oath_target_bonus(attacker, u, attacker_army)
             ),
         )
 
