@@ -902,6 +902,28 @@ class Unit:
                     if _round_hv > 0 and _round_hv % 2 == 0:
                         ap = ap - 1
 
+        # ---- World Eaters Blessings of Khorne (10e army rule) —
+        # Cleaving Blows grants army-wide melee AP+1 (more negative AP)
+        # for the battle round. Gate: mode == "melee" AND attacker
+        # faction == "World Eaters" AND the army's
+        # `blessings_cleaving_blows_round` stamp matches the live battle
+        # round. AP+1 maps to subtracting 1 from `ap` (AP-1 -> AP-2
+        # etc.) — same convention as SHIELD_HOST.melee_ap_plus_one.
+        # Cited as `simulator.blessings_of_khorne`.
+        if mode == "melee" and p.faction == "World Eaters":
+            _own_army_cb = getattr(self, "army_ref", None)
+            if _own_army_cb is not None:
+                _cb_round = getattr(
+                    _own_army_cb, "blessings_cleaving_blows_round", None,
+                )
+                _battle_cb = getattr(_own_army_cb, "_battle_ref", None)
+                _cur_round_cb = (
+                    getattr(_battle_cb, "_current_round", 0)
+                    if _battle_cb is not None else 0
+                )
+                if _cb_round is not None and _cb_round == _cur_round_cb:
+                    ap = ap - 1
+
         # ---- Adeptus Mechanicus Doctrina Imperatives — Conqueror AP+1.
         # Wahapedia verbatim: "Each time a model in this unit makes an
         # attack, if this unit has the BATTLELINE keyword and/or it is
@@ -1454,6 +1476,30 @@ class Unit:
                 if bt_round is not None and bt_round == cur_round:
                     effective_lethal_hits = True
 
+        # ---- World Eaters Blessings of Khorne (10e army rule) — Warp
+        # Blades grants army-wide melee LETHAL HITS for the battle round.
+        # Gate: mode == "melee" AND attacker faction == "World Eaters"
+        # AND the army's `blessings_warp_blades_round` stamp matches the
+        # current battle round. Composes with `p.lethal_hits` via OR.
+        # Cited as `simulator.blessings_of_khorne`.
+        if (
+            mode == "melee"
+            and p.faction == "World Eaters"
+            and not effective_lethal_hits
+        ):
+            _own_army_bok = getattr(self, "army_ref", None)
+            if _own_army_bok is not None:
+                _wb_round = getattr(
+                    _own_army_bok, "blessings_warp_blades_round", None,
+                )
+                _battle_bok = getattr(_own_army_bok, "_battle_ref", None)
+                _cur_round_bok = (
+                    getattr(_battle_bok, "_current_round", 0)
+                    if _battle_bok is not None else 0
+                )
+                if _wb_round is not None and _wb_round == _cur_round_bok:
+                    effective_lethal_hits = True
+
         # ---- T'au Empire Markerlights → Guided (10e army-wide army rule).
         # While a unit is a Guided unit, its ranged weapons have the
         # [LETHAL HITS] ability. The detachment flag `lethal_hits_on_guided`
@@ -1561,6 +1607,29 @@ class Unit:
                 if (_det is not None
                         and getattr(_det, "melee_sustained_hits_army_wide", False)
                         and getattr(_det, "faction", None) == p.faction):
+                    effective_sustained_hits += 1
+
+        # ---- World Eaters Blessings of Khorne (10e army rule) — Martial
+        # Excellence grants army-wide melee SUSTAINED HITS 1 for the
+        # battle round. Gate: mode == "melee" AND attacker faction ==
+        # "World Eaters" AND the army's
+        # `blessings_martial_excellence_round` stamp matches the live
+        # battle round. Stacks additively with any per-weapon
+        # `melee_sustained_hits` already on the profile, matching the
+        # WAR_HORDE compositional convention. Cited as
+        # `simulator.blessings_of_khorne`.
+        if mode == "melee" and p.faction == "World Eaters":
+            _own_army_me = getattr(self, "army_ref", None)
+            if _own_army_me is not None:
+                _me_round = getattr(
+                    _own_army_me, "blessings_martial_excellence_round", None,
+                )
+                _battle_me = getattr(_own_army_me, "_battle_ref", None)
+                _cur_round_me = (
+                    getattr(_battle_me, "_current_round", 0)
+                    if _battle_me is not None else 0
+                )
+                if _me_round is not None and _me_round == _cur_round_me:
                     effective_sustained_hits += 1
 
         # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars

@@ -71,5 +71,13 @@
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "trigger": "AI threat-score heuristic in `code/strategy.py._durability` \u00e2\u20ac\u201d paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
+  },
+  "simulator.blessings_of_khorne": {
+    "source": "BSData v10.6.0 cache: data/bsdata/cache/Chaos - World Eaters.cat.gz (rule \"Blessings of Khorne\")",
+    "rule_name": "Blessings of Khorne",
+    "quoted_text": "If your Army Faction is WORLD EATERS, at the start of the battle round, you can make a Blessings of Khorne roll. To do so, roll eight D6. You can then use those dice to activate up to two Blessings of Khorne. Each Blessing of Khorne specifies the dice results it requires (where a number is specified, a double or triple of that value or higher is required). You can only activate each Blessing of Khorne once per battle round. Any unused dice from the Blessings of Khorne roll are then discarded. Once activated, each Blessing of Khorne applies to all units from your army with this ability until the end of the battle round. Modelled Blessings: \"Martial Excellence\" (Double 4+ or Triple 1+): \"Melee weapons equipped by models in this unit have the [SUSTAINED HITS 1] ability.\" \"Warp Blades\" (Double 5+ or Triple 2+): \"Melee weapons equipped by models in this unit have the [LETHAL HITS] ability.\" \"Cleaving Blows\" (Double 6+): \"Improve the Armour Penetration characteristic of melee weapons equipped by models in this unit by 1.\"",
+    "trigger": "start of each battle round; WORLD EATERS army rolls 8D6 and may activate up to two Blessings whose dice thresholds are met",
+    "effect": "each activated Blessing applies army-wide to WORLD EATERS units until end of battle round; modelled: Martial Excellence -> melee SUSTAINED HITS 1; Warp Blades -> melee LETHAL HITS; Cleaving Blows -> melee AP+1",
+    "scope": "army-wide"
   }
 }

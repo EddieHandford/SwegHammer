@@ -3471,6 +3471,121 @@ class Battle:
                     f"({roll} >= {ld}), no self-damage"
                 )
 
+    def _apply_blessings_of_khorne(self, round_num: int) -> None:
+        """World Eaters Blessings of Khorne army rule (10e).
+
+        Verbatim BSData v10.6.0 (Chaos - World Eaters.cat): "If your Army
+        Faction is WORLD EATERS, at the start of the battle round, you can
+        make a Blessings of Khorne roll. To do so, roll eight D6. You can
+        then use those dice to activate up to two Blessings of Khorne. Each
+        Blessing of Khorne specifies the dice results it requires (where a
+        number is specified, a double or triple of that value or higher is
+        required). You can only activate each Blessing of Khorne once per
+        battle round. Any unused dice from the Blessings of Khorne roll are
+        then discarded. Once activated, each Blessing of Khorne applies to
+        all units from your army with this ability until the end of the
+        battle round."
+
+        Three modelled Blessings (all melee buffs the existing transient /
+        army-flag plumbing can carry):
+          Martial Excellence — "Melee weapons equipped by models in this
+            unit have the [SUSTAINED HITS 1] ability." (Double 4+ or
+            Triple 1+.)
+          Warp Blades — "Melee weapons equipped by models in this unit
+            have the [LETHAL HITS] ability." (Double 5+ or Triple 2+.)
+          Cleaving Blows — "Improve the Armour Penetration characteristic
+            of melee weapons equipped by models in this unit by 1."
+            (Double 6+.)
+
+        The other nine codex Blessings (Unbridled Bloodlust, Rage-fuelled
+        Invigoration, Death To Cowards, Total Carnage, Blistering Fury,
+        Blood-soaked Nightmares, Bloodthirst, Savage Guidance,
+        Decapitating Strikes) are skipped — APPROXIMATION: they touch
+        plumbing the simulator does not expose (charge re-rolls,
+        pile-in distance, Battle-shock per Engagement Range, +2" Move,
+        +1 WS, Crit-on-5+/DEVASTATING WOUNDS-vs-INFANTRY, etc.). The
+        three modelled cover the bulk of the offensive uplift.
+
+        Spend heuristic: from the eight-die pool, count occurrences of
+        each face. Compute the activatable set (each Blessing's
+        double/triple threshold satisfied). Pick up to two in priority
+        order (highest expected uplift first): Warp Blades >
+        Martial Excellence > Cleaving Blows. Picking is greedy — once a
+        Blessing is chosen, the consumed dice are removed from the pool
+        and the remaining Blessings re-checked.
+
+        Cited as `simulator.blessings_of_khorne`.
+        """
+        for army in (self.a, self.b):
+            if not any(u.profile.faction == "World Eaters" for u in army.units):
+                continue
+            # Roll 8D6.
+            dice = [random.randint(1, 6) for _ in range(8)]
+            counts = {face: dice.count(face) for face in range(1, 7)}
+            # Test each Blessing's threshold against the pool.
+            # Format: (priority, name, attr_name, predicate, consume_fn).
+            # consume_fn returns the (face, n) pair to remove from counts
+            # when this Blessing is activated.
+
+            def _has_double_at_least(min_face):
+                for f in range(min_face, 7):
+                    if counts[f] >= 2:
+                        return f
+                return None
+
+            def _has_triple_at_least(min_face):
+                for f in range(min_face, 7):
+                    if counts[f] >= 3:
+                        return f
+                return None
+
+            def _try_martial_excellence():
+                # Double 4+ OR Triple 1+.
+                f = _has_double_at_least(4)
+                if f is not None:
+                    return (f, 2)
+                f = _has_triple_at_least(1)
+                if f is not None:
+                    return (f, 3)
+                return None
+
+            def _try_warp_blades():
+                # Double 5+ OR Triple 2+.
+                f = _has_double_at_least(5)
+                if f is not None:
+                    return (f, 2)
+                f = _has_triple_at_least(2)
+                if f is not None:
+                    return (f, 3)
+                return None
+
+            def _try_cleaving_blows():
+                # Double 6+.
+                f = _has_double_at_least(6)
+                if f is not None:
+                    return (f, 2)
+                return None
+
+            # Greedy in priority order.
+            blessing_tries = [
+                ("Warp Blades", "blessings_warp_blades_round", _try_warp_blades),
+                ("Martial Excellence", "blessings_martial_excellence_round", _try_martial_excellence),
+                ("Cleaving Blows", "blessings_cleaving_blows_round", _try_cleaving_blows),
+            ]
+            activations = 0
+            for name, attr, try_fn in blessing_tries:
+                if activations >= 2:
+                    break
+                consume = try_fn()
+                if consume is None:
+                    continue
+                face, n = consume
+                counts[face] -= n
+                setattr(army, attr, round_num)
+                activations += 1
+                if self.verbose:
+                    print(f"  BLESSINGS OF KHORNE: activated {name}")
+
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
 
@@ -4385,6 +4500,16 @@ class Battle:
         # on failure deal D3 mortal wounds via `receive_damage` (FNP-
         # aware). Cited as `simulator.dark_pacts`.
         self._apply_dark_pacts(round_num)
+        # ---- World Eaters Blessings of Khorne (10e army rule). At the
+        # start of each battle round, roll 8D6 and activate up to two
+        # Blessings using doubles/triples meeting each Blessing's
+        # threshold. Each active Blessing applies army-wide to WE units
+        # until end of battle round. SwegHammer routes the three
+        # modelled Blessings (Martial Excellence, Warp Blades, Cleaving
+        # Blows) through the army's per-round `blessings_*_round` stamps
+        # that `Unit.attack` reads. Cited as
+        # `simulator.blessings_of_khorne`.
+        self._apply_blessings_of_khorne(round_num)
         # Battleshock check MUST run before the stratagem dispatcher so
         # battleshocked units are excluded from "use Stratagems to affect
         # that unit" (10e core: while a unit is Battle-shocked, you cannot

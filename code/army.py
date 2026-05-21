@@ -213,6 +213,28 @@ class Army:
         # "this round" because the simulator activation loop doesn't break
         # round-internal phases out separately. None = not active.
         self.blood_tithe_lethal_hits_round: Optional[int] = None
+        # World Eaters army rule — Blessings of Khorne (10e). At the start of
+        # each battle round a World Eaters army rolls 8D6 and activates up to
+        # 2 Blessings of Khorne; each Blessing requires a double (or triple)
+        # of at least a stated value. Each Blessing applies to every unit in
+        # the army with the ability until end of battle round. SwegHammer
+        # tracks the round in which each Blessing fired plus a single
+        # "blessings_active_round" stamp; `Unit.attack` checks the stamp
+        # against the live battle round and applies the buff only on the
+        # matching round (auto-lapses next round even if the simulator skips
+        # the clear). Three Blessings are modelled:
+        #   blessings_martial_excellence_round  — melee SUSTAINED HITS 1
+        #   blessings_warp_blades_round         — melee LETHAL HITS
+        #   blessings_cleaving_blows_round      — melee AP+1
+        # All start as None (inactive). The remaining nine Blessings are
+        # skipped per the same APPROXIMATION discipline used for Doctrina /
+        # Dark Pacts — they touch plumbing the simulator doesn't expose
+        # (per-target Battle-shock, pile-in distance, Engagement Range
+        # mortals, etc.) and the three modelled here cover the high-value
+        # offensive uplift. Cited as `simulator.blessings_of_khorne`.
+        self.blessings_martial_excellence_round: Optional[int] = None
+        self.blessings_warp_blades_round: Optional[int] = None
+        self.blessings_cleaving_blows_round: Optional[int] = None
         # Cult of Magic Cabbalistic Empowerment (Thousand Sons stratagem,
         # 1 CP). When set True for the round, the simulator's _try_doombolt
         # dispatcher pays 3 MW instead of the base 2 MW (median D3) to its
