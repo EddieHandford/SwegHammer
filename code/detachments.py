@@ -577,9 +577,18 @@ TELEPORT_STRIKE_FORCE = Detachment(
     name="Teleport Strike Force",
     faction="Grey Knights",
     notes=(
-        "Teleportarium precision: army-wide re-roll wound 1s. Real rule "
-        "includes deep strike and bespoke psychic mechanics."
+        "Fury of Titan (Wahapedia): 'Each time a unit from your army is "
+        "set up using the Deep Strike ability, until the end of the turn, "
+        "each time a model in that unit makes an attack, re-roll a Hit "
+        "roll of 1 and re-roll a Wound roll of 1.' Approximation: the "
+        "deep-strike-turn gate is dropped (modelled as army-wide always-on "
+        "re-roll hit 1s + wound 1s). Prior to SC5-6 only the wound-1 half "
+        "was wired; the hit-1 half is restored here to match the quoted "
+        "rule text. Real rule also includes bespoke psychic / teleport "
+        "redeploy mechanics that the simulator does not yet model. "
+        "Source: https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Fury-of-Titan"
     ),
+    reroll_hit_ones=True,
     reroll_wound_ones=True,
     preferred_composition="infantry",
 )
