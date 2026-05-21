@@ -909,27 +909,72 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Astra Militarum": {
+        # AX-C — flesh-out. Previous template (9 entries) was a thin Cadian +
+        # one-tank skeleton that left random_fill to pick a lot of the army
+        # shape, drifting from real-meta Combined Arms tournament composition.
+        # Real-meta May 2026 Astra Militarum lists (Goonhammer "Astra Militarum
+        # Detachment Focus — Combined Arms"; Frontline Gaming GT lists; Stat
+        # Check May 2026 aggregate) are anchored on Cadian / Krieg BATTLELINE
+        # bricks plus a multi-tank core (Leman Russ variants, Rogal Dorn,
+        # Manticore, Basilisk), supported by a Tempestus Scions deep-strike
+        # element and a Cadian Castellan / Ursula Creed / Lord Solar Leontus
+        # leader stack. The expanded template seeds that shape directly so
+        # random_fill no longer has to invent the army's silhouette.
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Combined Arms": {
             "astra_militarum_cadian_shock_troops": 2,
             "astra_militarum_death_korps_of_krieg": 1,
             "astra_militarum_kasrkin": 1,
+            "astra_militarum_tempestus_scions": 1,
+            "astra_militarum_cadian_command_squad": 1,
+            "astra_militarum_cadian_heavy_weapons_squad": 1,
             "astra_militarum_chimera": 1,
+            "astra_militarum_taurox_prime": 1,
+            "astra_militarum_scout_sentinels": 1,
             "astra_militarum_leman_russ_battle_tank": 1,
+            "astra_militarum_leman_russ_demolisher": 1,
             "astra_militarum_rogal_dorn_battle_tank": 1,
             "astra_militarum_basilisk": 1,
+            "astra_militarum_manticore": 1,
             "astra_militarum_cadian_castellan": 1,
             "astra_militarum_ursula_creed": 1,
+            "astra_militarum_lord_solar_leontus": 1,
         },
     },
     "Adeptus Mechanicus": {
+        # AX-C — flesh-out. Previous template (8 entries) under-seeded the
+        # Skitarii / Sicarian / Pteraxii triad and only carried one Kataphron
+        # body plus a single Onager — too thin to fix the army silhouette.
+        # Real-meta May 2026 Adeptus Mechanicus tournament lists (Goonhammer
+        # "Adeptus Mechanicus Detachment Focus — Skitarii Hunter Cohort";
+        # Frontline Gaming GT lists; Stat Check May 2026 aggregate) anchor on
+        # Skitarii Rangers + Vanguard BATTLELINE bricks, a Sicarian + Pteraxii
+        # screening / objective layer, two Kataphron bodies (Breachers for
+        # melee / Destroyers for anti-tank), an Onager + Skorpius Disintegrator
+        # fire-base, Serberys Raiders / Ironstrider Ballistarii as fast
+        # support, and a Cawl / Manipulus / Skitarii Marshal leader stack.
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Skitarii Hunter Cohort": {
             "adeptus_mechanicus_skitarii_rangers": 2,
-            "adeptus_mechanicus_skitarii_vanguard": 1,
+            "adeptus_mechanicus_skitarii_vanguard": 2,
             "adeptus_mechanicus_sicarian_infiltrators": 1,
+            "adeptus_mechanicus_sicarian_ruststalkers": 1,
+            "adeptus_mechanicus_pteraxii_skystalkers": 1,
+            "adeptus_mechanicus_serberys_raiders": 1,
+            "adeptus_mechanicus_ironstrider_ballistarii": 1,
+            "adeptus_mechanicus_kataphron_breachers": 1,
             "adeptus_mechanicus_kataphron_destroyers": 1,
+            "adeptus_mechanicus_sydonian_dragoons_with_taser_lances": 1,
             "adeptus_mechanicus_onager_dunecrawler": 1,
             "adeptus_mechanicus_skorpius_disintegrator": 1,
+            "adeptus_mechanicus_skorpius_dunerider": 1,
             "adeptus_mechanicus_skitarii_marshal": 1,
+            "adeptus_mechanicus_tech_priest_manipulus": 1,
+            "adeptus_mechanicus_tech_priest_dominus": 1,
             "adeptus_mechanicus_belisarius_cawl": 1,
         },
     },
@@ -978,15 +1023,40 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Genestealer Cults": {
+        # AX-C — flesh-out. Previous template (9 entries) was a single
+        # Acolyte / Neophyte pair plus one Aberrant brick and a Patriarch /
+        # Primus character stack — too thin for a cult-spam army. Real-meta
+        # May 2026 Genestealer Cults tournament lists (Goonhammer "Genestealer
+        # Cults Detachment Focus — Final Day"; Frontline Gaming GT lists; Stat
+        # Check May 2026 aggregate) are spam-heavy on cheap BATTLELINE: two
+        # Neophyte bricks plus both Acolyte loadouts (autopistols + hand
+        # flamers), one Hybrid Metamorphs squad for melee threat, a Goliath
+        # Rockgrinder + Goliath Truck delivery pair, Atalan Jackals + Achilles
+        # Ridgerunners for fast objective play, an Aberrant brick, and a
+        # Patriarch + Primus + Magus + Kelermorph + Jackal Alphus + Sanctus
+        # leader / sniper assassination layer. The expanded template seeds
+        # that spam shape so random_fill no longer has to guess between cult
+        # spam vs MONSTER-heavy compositions (which Final Day never runs).
+        # References:
+        #   - https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/
+        #   - https://www.goonhammer.com/the-goonhammer-tournament-cycle-2026-meta/
         "Final Day": {
             "genestealer_cults_neophyte_hybrids": 2,
-            "genestealer_cults_acolyte_hybrids_with_autopistols": 1,
+            "genestealer_cults_acolyte_hybrids_with_autopistols": 2,
+            "genestealer_cults_acolyte_hybrids_with_hand_flamers": 1,
+            "genestealer_cults_hybrid_metamorphs": 1,
             "genestealer_cults_aberrants": 1,
             "genestealer_cults_purestrain_genestealers": 1,
             "genestealer_cults_atalan_jackals": 1,
             "genestealer_cults_achilles_ridgerunners": 1,
             "genestealer_cults_goliath_rockgrinder": 1,
+            "genestealer_cults_goliath_truck": 1,
             "genestealer_cults_primus": 1,
+            "genestealer_cults_magus": 1,
+            "genestealer_cults_kelermorph": 1,
+            "genestealer_cults_jackal_alphus": 1,
+            "genestealer_cults_sanctus": 1,
+            "genestealer_cults_clamavus": 1,
             "genestealer_cults_patriarch": 1,
         },
     },
