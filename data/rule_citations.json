@@ -80,6 +80,14 @@
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "trigger": "AI threat-score heuristic in `code/strategy.py._durability` \u00e2\u20ac\u201d paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
   },
+  "simulator.combat_drugs": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Combat-Drugs",
+    "rule_name": "Combat Drugs",
+    "quoted_text": "WYCH CULT models from your army are administered combat drugs that grant the following abilities (you can select a different drug for each WYCH CULT unit but each must select a drug). Adrenalight: Add 1 to the Attacks characteristic of melee weapons equipped by WYCH CULT models from your army. Hypex: Add 2\" to the Move characteristic of WYCH CULT models from your army. Serpentin: Improve the Weapon Skill characteristic of melee weapons equipped by WYCH CULT models from your army by 1. Painbringer: Add 1 to the Toughness characteristic of WYCH CULT models from your army. Grave Lotus: Add 1 to the Strength characteristic of melee weapons equipped by WYCH CULT models from your army. Splintermind: Improve the Leadership characteristic of WYCH CULT models from your army by 1, and improve the Ballistic Skill characteristic of ranged weapons equipped by WYCH CULT models from your army by 1.",
+    "trigger": "Drukhari army at battle start; one drug selected per WYCH CULT unit",
+    "effect": "selected drug's stat uplift applies to that WYCH CULT unit for the whole battle; SwegHammer assigns Wyches -> Adrenalight (+1 melee A), Hellions -> Hypex (+2\" Move), Reavers -> Grave Lotus (+1 melee S), Beastmaster -> Painbringer (+1 T); Serpentin and Splintermind not modelled (existing per-unit Hit profile already encodes the post-modifier hit chance for stock Drukhari loadouts and no Leadership gate is active)",
+    "scope": "keyword-gated"
+  },
   "simulator.blessings_of_khorne": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Blessings-of-Khorne",
     "rule_name": "Blessings of Khorne",

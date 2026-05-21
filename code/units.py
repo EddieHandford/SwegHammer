@@ -512,6 +512,25 @@ class Unit:
         # CHARACTER to merge its aura flags into the attacker's buff dict.
         # See `code/enhancements.py` for the dataclass + registry.
         "enhancement",
+        # Drukhari Combat Drugs (army rule, 10e). One drug is assigned per
+        # WYCH CULT unit at battle start; the buff persists for the entire
+        # battle (Wahapedia: drug stays active once selected). The four
+        # SwegHammer-modelled drugs map to per-unit integer/float deltas
+        # applied in `Unit.attack` (melee branch) and
+        # `detachments.effective_move`:
+        #   combat_drug_extra_melee_attacks — Adrenalight (+1 Attack on melee weapons).
+        #   combat_drug_melee_strength_bonus — Grave Lotus (+1 Strength on melee weapons).
+        #   combat_drug_toughness_bonus — Painbringer (+1 Toughness, defensive).
+        #   combat_drug_move_bonus — Hypex (+2" Move).
+        # Serpentin (+1 WS) and Splintermind (+1 Ld / +1 BS) are NOT modelled —
+        # APPROXIMATION: the existing per-unit Hit profile already encodes the
+        # post-improvement hit chance for stock loadouts and the simulator has
+        # no Leadership-driven gating outside Battle-shock thresholds the four
+        # WYCH CULT units already beat. Cited as `simulator.combat_drugs`.
+        "combat_drug_extra_melee_attacks",
+        "combat_drug_melee_strength_bonus",
+        "combat_drug_toughness_bonus",
+        "combat_drug_move_bonus",
         # Transport state (10e core). `passengers` is a list of Unit instances
         # currently embarked inside this transport (only populated when the
         # owning profile has TRANSPORT in its unit_keywords). Passengers are
@@ -588,6 +607,13 @@ class Unit:
         # buff dict.
         from typing import Optional
         self.enhancement = None  # type: ignore[assignment]
+        # Drukhari Combat Drugs (army rule). Defaults are zero / no-op. The
+        # simulator's `_apply_combat_drugs` hook stamps these at battle start
+        # on WYCH CULT units only. Cited as `simulator.combat_drugs`.
+        self.combat_drug_extra_melee_attacks: int = 0
+        self.combat_drug_melee_strength_bonus: int = 0
+        self.combat_drug_toughness_bonus: int = 0
+        self.combat_drug_move_bonus: float = 0.0
         # Transport bookkeeping. `passengers` is a fresh list on every Unit so
         # mutating it on one transport doesn't leak into another. `embarked_in`
         # is the carrier pointer for a passenger; both default to empty / None.
@@ -721,6 +747,13 @@ class Unit:
             strength = p.melee_strength
             ap = p.melee_ap
             ignore_cover = True   # melee always ignores cover
+            # Drukhari Combat Drugs (army rule): Adrenalight grants +1 Attack
+            # and Grave Lotus grants +1 Strength on WYCH CULT melee weapons.
+            # The simulator's `_apply_combat_drugs` hook stamps these per-unit
+            # at battle start; defaults to 0 on every non-Drukhari unit so the
+            # add is safe. Cited as `simulator.combat_drugs`.
+            n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
+            strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
         else:
             # ---- Phase 2 / iter33 — multi-profile ranged weapon selection.
             # If the datasheet's mapper recorded a secondary ranged profile
@@ -969,7 +1002,13 @@ class Unit:
 
         if hit_target is None:
             hit_target = _prob_to_target(p.hit_probability)
-        wound_p = wound_probability(strength, target.profile.toughness)
+        # Drukhari Combat Drugs (army rule): Painbringer grants +1 Toughness
+        # on WYCH CULT models defensively. The simulator's `_apply_combat_drugs`
+        # hook stamps a per-unit bonus on the target's Unit instance; defaults
+        # to 0 on every non-Drukhari unit. Cited as `simulator.combat_drugs`.
+        _drug_toughness = int(getattr(target, "combat_drug_toughness_bonus", 0))
+        _effective_toughness = target.profile.toughness + _drug_toughness
+        wound_p = wound_probability(strength, _effective_toughness)
         wound_target = _prob_to_target(wound_p)
 
         # ---- 10e core-rules modifier cap (Wahapedia core rules / Hit Roll &

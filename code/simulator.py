@@ -392,6 +392,15 @@ class Battle:
             army.cp_refund_remaining = wl.cp_refund_per_battle
             army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
 
+        # Drukhari Combat Drugs (army rule, 10e). For any army containing
+        # Drukhari WYCH CULT units, assign one drug per WYCH CULT unit at
+        # battle start; the drug persists for the entire battle. The
+        # SwegHammer assignment heuristic picks the strongest realistic uplift
+        # per unit role: Wyches -> Adrenalight (+1 melee A), Hellions -> Hypex
+        # (+2" Move), Reavers -> Grave Lotus (+1 melee S), Beastmaster ->
+        # Painbringer (+1 T). Cited as `simulator.combat_drugs`.
+        self._apply_combat_drugs()
+
         self._assign_uids()
         self._deploy_armies()
         # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
@@ -3470,6 +3479,76 @@ class Battle:
                     f"  DARK PACT: {attacker.profile.name} passed Ld "
                     f"({roll} >= {ld}), no self-damage"
                 )
+
+    # ---- Drukhari Combat Drugs (army rule, 10e). Profile-name allowlist of
+    # the four WYCH CULT datasheets currently in the catalogue. BSData's
+    # 10e Drukhari .cat parses these units' faction-side categoryLink "WYCH
+    # CULT" as a category, not a per-unit keyword, so they don't show up in
+    # Unit.unit_keywords. Hard-coding the list here keeps the gate explicit
+    # and CLAUDE.md rule 13 (fail-loud on missing data) honoured — a typo
+    # in a profile name simply means the unit doesn't get the buff, which
+    # is the same as a true non-WYCH-CULT result. Cited as
+    # `simulator.combat_drugs`.
+    _WYCH_CULT_DRUG_ASSIGNMENT = {
+        # name -> (extra_melee_attacks, melee_strength_bonus,
+        #          toughness_bonus, move_bonus_inches, label)
+        "Wyches":               (1, 0, 0, 0.0, "Adrenalight"),
+        "Hellions":             (0, 0, 0, 2.0, "Hypex"),
+        "Reavers":              (0, 1, 0, 0.0, "Grave Lotus"),
+        "Beastmaster [Legends]": (0, 0, 1, 0.0, "Painbringer"),
+    }
+
+    def _apply_combat_drugs(self) -> None:
+        """Drukhari Combat Drugs army rule (10e).
+
+        Verbatim Wahapedia
+        (https://wahapedia.ru/wh40k10ed/factions/drukhari/): "WYCH CULT
+        models from your army are administered combat drugs that grant the
+        following abilities (you can select a different drug for each WYCH
+        CULT unit but each must select a drug)." The six drugs:
+          Adrenalight: "Add 1 to the Attacks characteristic of melee
+            weapons equipped by WYCH CULT models from your army."
+          Hypex: "Add 2\" to the Move characteristic of WYCH CULT models
+            from your army."
+          Serpentin: "Improve the Weapon Skill characteristic of melee
+            weapons equipped by WYCH CULT models from your army by 1."
+          Painbringer: "Add 1 to the Toughness characteristic of WYCH CULT
+            models from your army."
+          Grave Lotus: "Add 1 to the Strength characteristic of melee
+            weapons equipped by WYCH CULT models from your army."
+          Splintermind: "Improve the Leadership characteristic of WYCH
+            CULT models from your army by 1, and improve the Ballistic
+            Skill characteristic of ranged weapons equipped by WYCH CULT
+            models from your army by 1."
+
+        SwegHammer models four of the six drugs (Adrenalight, Hypex,
+        Grave Lotus, Painbringer) — Serpentin and Splintermind are
+        APPROXIMATION: the simulator's per-unit Hit profile already
+        encodes the post-modifier hit chance for stock Drukhari loadouts
+        and there is no Leadership gate the four WYCH CULT datasheets
+        currently fail. The assignment heuristic picks the strongest
+        realistic uplift per unit role rather than rolling — at battle
+        start the Drukhari player picks each unit's drug, so a fixed
+        sensible pick is closer to real-table behaviour than randomising.
+        WYCH CULT unit allowlist hard-coded in
+        `_WYCH_CULT_DRUG_ASSIGNMENT`. Cited as `simulator.combat_drugs`.
+        """
+        for army in (self.a, self.b):
+            if not any(u.profile.faction == "Drukhari" for u in army.units):
+                continue
+            for u in army.units:
+                if u.profile.faction != "Drukhari":
+                    continue
+                key = self._WYCH_CULT_DRUG_ASSIGNMENT.get(u.profile.name)
+                if key is None:
+                    continue
+                xa, xs, xt, xm, label = key
+                u.combat_drug_extra_melee_attacks = xa
+                u.combat_drug_melee_strength_bonus = xs
+                u.combat_drug_toughness_bonus = xt
+                u.combat_drug_move_bonus = xm
+                if self.verbose:
+                    print(f"  COMBAT DRUGS: {u.profile.name} -> {label}")
 
     def _apply_blessings_of_khorne(self, round_num: int) -> None:
         """World Eaters Blessings of Khorne army rule (10e).

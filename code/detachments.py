@@ -1515,6 +1515,11 @@ def effective_move(unit) -> float:
     work. Cited as `SAIM_HANN_WILD_HOST.aspect_warrior_or_bike_plus_one_move`.
     """
     base = float(getattr(unit.profile, "move", 6.0) or 6.0)
+    # Drukhari Combat Drugs (army rule): Hypex grants +2" Move on WYCH CULT
+    # units. The simulator's `_apply_combat_drugs` hook stamps a per-unit
+    # float bonus at battle start; default 0.0 on every non-Drukhari unit
+    # means this add is safe. Cited as `simulator.combat_drugs`.
+    base = base + float(getattr(unit, "combat_drug_move_bonus", 0.0) or 0.0)
     army = getattr(unit, "army_ref", None)
     if army is None:
         return base
