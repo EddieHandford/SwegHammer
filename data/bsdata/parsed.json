@@ -45,7 +45,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -134,7 +134,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "FLY",
@@ -316,7 +316,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -473,7 +473,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED",
@@ -589,7 +589,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -932,7 +932,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE",
@@ -1007,7 +1007,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 2
+      },
       "heavy": false,
       "assault": true,
       "torrent": false,
@@ -1025,7 +1027,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI",
@@ -1119,7 +1121,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -1233,7 +1235,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -1322,7 +1324,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -1411,7 +1413,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -1595,7 +1597,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "TRANSPORT",
@@ -1753,7 +1755,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -1869,7 +1871,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "FLY",
@@ -2007,7 +2009,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -2096,7 +2098,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -2324,7 +2326,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY",
@@ -2415,7 +2417,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -2506,7 +2508,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -2959,7 +2961,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -3164,7 +3166,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -3256,7 +3258,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -3347,7 +3349,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "FLY",
@@ -3437,7 +3439,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "MOUNTED",
@@ -3529,7 +3531,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "MOUNTED"
@@ -3709,7 +3711,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -3800,7 +3802,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -3890,7 +3892,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY",
@@ -3984,7 +3986,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "INFANTRY"
@@ -4074,7 +4076,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY",
@@ -4349,7 +4351,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -4437,7 +4439,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -4553,7 +4555,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE"
@@ -4690,7 +4692,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -4780,7 +4782,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -4869,7 +4871,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -4985,7 +4987,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "PSYKER",
         "INFANTRY",
@@ -5077,7 +5079,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "PSYKER",
         "ASURYANI",
@@ -5170,7 +5172,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY",
@@ -5260,7 +5262,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -5501,7 +5503,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -5589,7 +5591,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "TITANIC",
@@ -5748,7 +5750,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "WALKER",
@@ -5998,7 +6000,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI"
@@ -6087,7 +6089,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -6245,7 +6247,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -6493,7 +6495,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -6650,7 +6652,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -6741,7 +6743,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "VEHICLE",
@@ -6899,7 +6901,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "TOWERING",
@@ -7058,7 +7060,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY",
@@ -7150,7 +7152,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "TITANIC",
@@ -7312,7 +7314,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "WALKER",
@@ -7430,7 +7432,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -7566,7 +7568,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "WALKER",
         "MONSTER",
@@ -7898,7 +7900,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 6,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -7965,7 +7967,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -7988,7 +7990,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -8059,7 +8061,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -8082,7 +8084,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -8153,7 +8155,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -8176,7 +8178,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -8271,7 +8273,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "ASURYANI",
@@ -8387,7 +8389,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -8501,7 +8503,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -8616,7 +8618,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -8709,7 +8711,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -8950,7 +8952,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -9042,7 +9044,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -9131,7 +9133,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY"
@@ -9225,7 +9227,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 11,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -9318,7 +9320,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "MOUNTED"
@@ -9412,7 +9414,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -9506,7 +9508,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "TRANSPORT",
@@ -9601,7 +9603,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY"
@@ -9690,7 +9692,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "INFANTRY"
@@ -9780,7 +9782,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "ASURYANI",
         "INFANTRY"
@@ -10046,7 +10048,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "TITANIC",
@@ -10267,7 +10269,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -10361,7 +10363,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "ASURYANI",
@@ -10453,7 +10455,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -10543,7 +10545,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY",
@@ -10700,7 +10702,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -10857,7 +10859,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "ASURYANI",
@@ -11015,7 +11017,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "ASURYANI",
@@ -11173,7 +11175,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -11269,7 +11271,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BEAST",
         "CHARACTER",
@@ -11345,7 +11347,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 3
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -11818,7 +11822,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "FLY"
@@ -11907,7 +11911,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -11996,7 +12000,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY"
@@ -12181,7 +12185,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -12269,7 +12273,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 11,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -12360,7 +12364,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE"
@@ -12450,7 +12454,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -12610,7 +12614,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "MOUNTED"
@@ -12704,7 +12708,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "INFANTRY"
@@ -12795,7 +12799,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -13066,7 +13070,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "TRANSPORT",
@@ -13159,7 +13163,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -13271,7 +13275,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -13296,7 +13300,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY"
@@ -13390,7 +13394,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BATTLELINE",
         "INFANTRY"
@@ -13480,7 +13484,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 16,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT",
@@ -13570,7 +13574,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -13663,7 +13667,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -13843,7 +13847,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -14002,7 +14006,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "INFANTRY"
@@ -14093,7 +14097,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -14761,7 +14765,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": false,
       "indirect_fire": false,
@@ -14954,7 +14958,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -15043,7 +15047,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -15438,7 +15442,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -15620,7 +15624,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -15711,7 +15715,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -16167,7 +16171,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -16612,7 +16616,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -17067,7 +17071,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -17249,7 +17253,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -17434,7 +17438,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 3,
+      "fnp": 7,
       "unit_keywords": [
         "BEAST",
         "CHARACTER",
@@ -17525,7 +17529,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -17734,7 +17738,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -18576,7 +18580,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -19013,7 +19017,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -19509,7 +19513,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -19782,7 +19786,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -19958,7 +19962,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -20444,7 +20448,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -20536,7 +20540,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -20813,7 +20817,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 3,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -20972,7 +20976,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 3,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "DAEMON",
@@ -21131,7 +21135,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 3,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "DAEMON",
@@ -21622,7 +21626,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -21691,7 +21695,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -21807,7 +21811,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -21995,12 +21999,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -22484,7 +22490,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -22783,7 +22789,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -22897,7 +22903,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -23304,7 +23310,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -23398,7 +23404,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -24311,7 +24317,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -24898,7 +24904,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -24992,7 +24998,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25130,7 +25136,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25223,7 +25229,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25316,7 +25322,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25435,7 +25441,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25556,7 +25562,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25651,7 +25657,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25746,7 +25752,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -25905,7 +25911,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -26000,7 +26006,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -26159,7 +26165,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -26294,7 +26300,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -26407,7 +26413,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -26521,7 +26527,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -26614,7 +26620,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -26772,7 +26778,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -26907,7 +26913,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER",
@@ -27438,7 +27444,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -27529,7 +27535,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -27806,7 +27812,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -27942,7 +27948,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -28077,7 +28083,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -28169,7 +28175,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -30327,12 +30333,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": true,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -30426,7 +30434,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -35020,7 +35030,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -35178,7 +35188,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -35494,7 +35504,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -35652,7 +35662,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -35810,7 +35820,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -35968,7 +35978,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -36213,7 +36223,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -36370,7 +36380,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -36966,7 +36976,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -37725,7 +37735,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -37816,7 +37826,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -37999,7 +38009,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -38157,7 +38167,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -38253,7 +38263,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -38342,7 +38352,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -38431,7 +38441,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -38569,7 +38579,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -38665,7 +38675,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -38959,7 +38971,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -39051,7 +39063,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -39140,7 +39152,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -39232,7 +39244,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -39322,7 +39334,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -41017,7 +41029,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -41191,7 +41203,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -41729,7 +41741,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -41974,7 +41986,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -45357,7 +45369,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -47320,7 +47332,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -47412,7 +47424,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -47844,7 +47856,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -48234,12 +48246,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": true,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -48329,12 +48343,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 2,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -48445,7 +48461,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -48540,7 +48556,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -48656,7 +48672,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -48749,7 +48765,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -48831,7 +48847,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": true,
       "pistol": true,
       "indirect_fire": false,
@@ -48933,7 +48949,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -49317,7 +49333,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -49475,7 +49491,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -49813,7 +49829,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -51860,7 +51876,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -51951,7 +51967,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -52043,7 +52059,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -52134,7 +52150,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -54453,7 +54469,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": true,
       "indirect_fire": false,
@@ -54558,7 +54574,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -54739,7 +54755,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -54933,7 +54949,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": false,
       "indirect_fire": false,
@@ -56037,7 +56053,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -56127,7 +56143,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -56575,7 +56591,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -56665,7 +56681,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -56842,7 +56858,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -56909,7 +56925,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -57027,7 +57043,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -57116,7 +57132,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -57207,7 +57223,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -57384,7 +57400,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -57499,7 +57515,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -57840,7 +57856,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": false,
       "indirect_fire": false,
@@ -57946,7 +57962,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -58102,7 +58118,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -58238,7 +58254,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "TITANIC",
         "VEHICLE"
@@ -58507,7 +58523,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -59287,7 +59303,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -59606,7 +59622,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -61661,7 +61677,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -61796,7 +61812,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 12,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "TITANIC",
         "TRANSPORT",
@@ -61953,7 +61969,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "CHARACTER"
@@ -63024,7 +63040,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": false,
       "indirect_fire": false,
@@ -64076,7 +64092,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -64232,7 +64248,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -64388,7 +64404,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -64544,7 +64560,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -65105,7 +65121,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -65261,7 +65277,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT",
@@ -65418,7 +65434,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -65574,7 +65590,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -67308,7 +67324,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -68879,7 +68895,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "TITANIC",
         "VEHICLE"
@@ -69014,7 +69030,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -69370,7 +69386,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -69727,7 +69743,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "FLY",
@@ -69908,7 +69924,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER"
@@ -70172,7 +70188,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -70418,7 +70434,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "CHARACTER"
@@ -71004,7 +71020,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -72821,7 +72837,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -73221,7 +73237,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -73404,7 +73420,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -73716,7 +73732,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -74258,7 +74274,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -74553,7 +74569,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -75677,7 +75693,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -76187,12 +76203,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "PSYKER": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -78990,7 +79008,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": false,
       "indirect_fire": false,
@@ -81553,7 +81571,8 @@
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "INFANTRY": 2
+        "INFANTRY": 2,
+        "VEHICLE": 4
       },
       "heavy": false,
       "assault": false,
@@ -81644,7 +81663,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "VEHICLE": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -82162,7 +82183,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 5,
       "rapid_fire": 0,
       "melta": 0,
@@ -82592,12 +82613,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 5,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "VEHICLE": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -82686,13 +82709,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 5,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "INFANTRY": 4
+        "INFANTRY": 4,
+        "VEHICLE": 4
       },
       "heavy": false,
       "assault": false,
@@ -84593,7 +84617,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -84660,12 +84684,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "VEHICLE": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -84777,7 +84803,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -84933,7 +84959,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -85089,7 +85115,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "VEHICLE",
@@ -85315,12 +85341,15 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 5,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4,
+        "VEHICLE": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -85866,12 +85895,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -87005,7 +87036,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -87395,7 +87426,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -87615,7 +87646,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -87705,7 +87736,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -89303,7 +89334,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -89465,12 +89496,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -89672,7 +89705,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -89739,12 +89772,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -90965,7 +91000,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -91716,7 +91751,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -92974,7 +93009,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -93065,7 +93100,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -93431,7 +93466,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -94093,7 +94128,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -95134,7 +95169,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -95223,7 +95258,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -95311,7 +95346,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -95401,7 +95436,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -95558,7 +95593,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -95715,7 +95750,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -95851,7 +95886,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -96011,7 +96046,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -96167,7 +96202,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -96323,7 +96358,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -96438,7 +96473,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -96531,7 +96566,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -96621,7 +96656,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -96712,7 +96747,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -96801,7 +96836,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -96893,7 +96928,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -97031,7 +97066,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -97049,7 +97086,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -97143,7 +97180,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -97413,7 +97450,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -98093,7 +98130,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -98566,7 +98603,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -98655,7 +98692,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -98927,7 +98964,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -99195,7 +99232,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -99353,7 +99390,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -100769,7 +100806,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -100906,7 +100943,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE"
@@ -100996,7 +101033,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE"
@@ -101131,7 +101168,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE"
@@ -101221,7 +101258,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -101314,7 +101351,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -101405,7 +101442,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -101493,7 +101530,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -101585,7 +101622,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -101673,7 +101710,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "CHARACTER",
@@ -101764,7 +101801,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -101856,7 +101893,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -101950,7 +101987,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -102130,7 +102167,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE",
@@ -102264,12 +102301,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -102383,7 +102422,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -102471,7 +102510,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -102565,7 +102604,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -102720,7 +102759,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -102814,7 +102853,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -102909,7 +102948,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -103004,7 +103043,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -106454,7 +106493,9 @@
       "rapid_fire": 1,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -107140,7 +107181,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -107297,7 +107338,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "PSYKER",
@@ -107455,7 +107496,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "PSYKER",
@@ -111745,7 +111786,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -111835,7 +111876,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -111927,7 +111968,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -112016,7 +112057,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -112107,7 +112148,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -112201,7 +112242,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -112296,7 +112337,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -112385,7 +112426,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -112475,7 +112516,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -112610,7 +112651,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -112704,7 +112745,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -112793,7 +112834,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -112883,7 +112924,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -113020,7 +113061,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -113112,7 +113153,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -113202,7 +113243,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -113295,7 +113336,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -113451,7 +113492,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -113587,7 +113628,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -113679,7 +113720,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -113860,7 +113901,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -113950,7 +113991,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -114109,7 +114150,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -114203,7 +114244,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -114297,7 +114338,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -114536,7 +114577,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -114628,7 +114669,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -114721,7 +114762,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -114809,7 +114850,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -114966,7 +115007,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -115102,7 +115143,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -115369,7 +115410,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -115463,7 +115504,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -115557,7 +115598,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -115671,7 +115712,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -115829,7 +115870,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -115920,7 +115961,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -116012,7 +116053,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -116104,7 +116145,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -116196,7 +116237,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -116291,7 +116332,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -116447,7 +116488,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -116581,7 +116622,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -116737,7 +116778,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -116872,7 +116913,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -116961,7 +117002,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -117117,7 +117158,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -117273,7 +117314,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -117429,7 +117470,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -117519,7 +117560,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -117654,7 +117695,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 6,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -117859,7 +117900,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -118245,7 +118286,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -118335,7 +118376,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -118425,7 +118466,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -118605,7 +118646,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -118695,7 +118736,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -118787,7 +118828,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -118881,7 +118922,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 2,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "TRANSPORT",
         "VEHICLE"
@@ -118971,7 +119012,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -119126,7 +119167,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -119282,7 +119323,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -119438,7 +119479,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -119532,7 +119573,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -119687,7 +119728,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -119934,7 +119975,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -120023,7 +120064,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -120272,7 +120313,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -120361,7 +120402,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -120452,7 +120493,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -120608,7 +120649,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -120701,7 +120742,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -120857,7 +120898,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -120950,7 +120991,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -121044,7 +121085,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -121135,7 +121176,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -121247,7 +121288,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -121335,7 +121376,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -121426,7 +121467,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -121584,7 +121625,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -121741,7 +121782,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -121836,7 +121877,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -121929,7 +121970,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -122044,7 +122085,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -122138,7 +122179,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -122156,7 +122199,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -122250,7 +122293,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "FLY",
         "VEHICLE"
@@ -122363,7 +122406,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -122478,7 +122521,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -122638,7 +122681,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -123609,7 +123652,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC"
@@ -123765,7 +123808,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -123925,7 +123968,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -124017,7 +124060,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -124154,7 +124197,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -124310,7 +124353,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -124465,7 +124508,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -124621,7 +124664,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -124871,7 +124914,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT",
@@ -124962,7 +125005,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -125191,7 +125234,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -125347,7 +125390,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -125503,7 +125546,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -125596,7 +125639,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -125844,7 +125887,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -125934,7 +125977,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -126251,7 +126294,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TITANIC",
@@ -126345,7 +126388,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE"
       ],
@@ -126433,7 +126476,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -126589,7 +126632,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -126702,7 +126745,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "TRANSPORT"
@@ -126860,7 +126903,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -126930,7 +126973,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -126953,7 +126996,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -127135,7 +127178,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -127291,7 +127334,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -127448,7 +127491,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "VEHICLE",
@@ -128701,7 +128744,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -128857,7 +128900,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -129013,7 +129056,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -129104,7 +129147,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "BATTLELINE"
@@ -129174,12 +129217,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 1,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -129197,7 +129242,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -129379,7 +129424,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -129471,7 +129516,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -129559,7 +129604,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -129829,7 +129874,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED"
       ],
@@ -129919,7 +129964,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BEAST"
       ],
@@ -130006,7 +130051,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "FLY"
@@ -130079,7 +130124,9 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "VEHICLE": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -130097,7 +130144,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -130191,7 +130238,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -130348,7 +130395,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY",
@@ -130505,7 +130552,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -130663,7 +130710,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -130822,7 +130869,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -130978,7 +131025,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -131068,7 +131115,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "BEAST",
         "CHARACTER"
@@ -131156,7 +131203,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -131250,7 +131297,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "WALKER"
@@ -131406,7 +131453,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -131541,7 +131588,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -131766,7 +131813,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -131855,7 +131902,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -132033,7 +132080,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -132827,7 +132874,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -133010,7 +133057,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY"
       ],
@@ -133373,7 +133420,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "EPIC HERO",
         "INFANTRY"
@@ -134356,7 +134403,10 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "MONSTER": 3,
+        "VEHICLE": 3
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -135127,7 +135177,10 @@
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "MONSTER": 3,
+        "VEHICLE": 3
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -137265,7 +137318,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -137354,7 +137407,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -137444,7 +137497,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER",
@@ -137534,7 +137587,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -137623,7 +137676,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "CHARACTER",
@@ -137738,7 +137791,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -137830,7 +137883,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -137919,7 +137972,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -138007,7 +138060,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -138095,7 +138148,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -138450,7 +138503,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -139482,7 +139535,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 6,
+      "fnp": 7,
       "unit_keywords": [
         "VEHICLE",
         "FLY"
@@ -141031,7 +141084,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -142063,7 +142116,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -142331,7 +142384,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -143075,7 +143128,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -143212,7 +143265,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -143301,7 +143354,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -144445,7 +144498,7 @@
       "infiltrator": false,
       "deadly_demise": 1,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -146110,7 +146163,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -146177,12 +146230,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 6,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "FLY": 2
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -146519,7 +146574,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -146585,12 +146640,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "INFANTRY": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -146789,7 +146846,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -147691,7 +147748,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -147785,7 +147842,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -148009,7 +148066,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -149292,7 +149349,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -149676,7 +149733,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 5,
       "unit_keywords": [
         "MOUNTED",
         "CHARACTER"
@@ -151088,7 +151145,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MOUNTED"
@@ -151426,7 +151483,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 4,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER"
@@ -151668,7 +151725,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 6,
       "rapid_fire": 0,
       "melta": 0,
@@ -152300,7 +152357,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -152456,7 +152513,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY",
@@ -152613,7 +152670,7 @@
       "infiltrator": true,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "INFANTRY"
@@ -154954,12 +155011,14 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
       "ignores_cover": false,
-      "anti_keywords": {},
+      "anti_keywords": {
+        "VEHICLE": 4
+      },
       "heavy": false,
       "assault": false,
       "torrent": false,
@@ -155360,7 +155419,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": false,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -159721,7 +159780,7 @@
       "torrent": false,
       "hazardous": false,
       "blast": false,
-      "lance": false,
+      "lance": true,
       "precision": false,
       "pistol": true,
       "indirect_fire": false,
@@ -160387,7 +160446,7 @@
       "infiltrator": false,
       "deadly_demise": 2,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "MONSTER",
         "CHARACTER",
@@ -160480,7 +160539,7 @@
       "infiltrator": false,
       "deadly_demise": 3,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MONSTER",
@@ -160665,7 +160724,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -161066,7 +161125,7 @@
       "sustained_hits": 0,
       "melee_sustained_hits": 0,
       "twin_linked": true,
-      "devastating_wounds": false,
+      "devastating_wounds": true,
       "invuln_save": 7,
       "rapid_fire": 0,
       "melta": 0,
@@ -161537,7 +161596,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "CHARACTER",
         "MONSTER",
@@ -164102,7 +164161,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",
@@ -164396,7 +164455,7 @@
       "infiltrator": false,
       "deadly_demise": 0,
       "firing_deck": 0,
-      "fnp": 5,
+      "fnp": 7,
       "unit_keywords": [
         "INFANTRY",
         "CHARACTER",

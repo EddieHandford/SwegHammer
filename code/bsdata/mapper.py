@@ -305,17 +305,32 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
     # attack, so we lose less expected-damage error by setting True iff the
     # keyword fires on >50% of basket-weight, vs the legacy any(...) which
     # let a single elite weapon set the squad flag.
+    #
+    # MAP-3 exception — ``lance`` and ``devastating_wounds`` are taken as
+    # the UNION across the basket. Reasoning: these are situational/keyword
+    # bonuses that the simulator-side picker should be aware of as soon as
+    # ANY weapon profile in the basket carries them. The model in the squad
+    # actively chooses to use that weapon profile when it pays off (charging
+    # for [LANCE], shooting at high-toughness for [DEVASTATING WOUNDS]); the
+    # majority-of-basket gate previously dropped these keywords for
+    # mixed-loadout units (Venatari Custodians, Ork Warbikers, Skyweavers,
+    # Knight Castellan), forcing per-unit override patches in AK-1/AK-2.
+    # The damage-inflation risk is bounded by the fact that the simulator
+    # only fires the bonus on the profile that legitimately carries it
+    # (via per-shot picker rules / anti_keywords / multi-profile picker).
     majority = 0.5
     bool_keywords = {
         "lethal_hits": _frac_true(lambda x: x.lethal_hits) > majority,
         "twin_linked": _frac_true(lambda x: x.twin_linked) > majority,
-        "devastating_wounds": _frac_true(lambda x: x.devastating_wounds) > majority,
+        # UNION (MAP-3) — see comment above
+        "devastating_wounds": any(x.devastating_wounds for _, x in basket),
         "ignores_cover": _frac_true(lambda x: x.ignores_cover) > majority,
         "heavy": _frac_true(lambda x: x.heavy) > majority,
         "assault": _frac_true(lambda x: x.assault) > majority,
         "hazardous": _frac_true(lambda x: x.hazardous) > majority,
         "blast": _frac_true(lambda x: x.blast) > majority,
-        "lance": _frac_true(lambda x: x.lance) > majority,
+        # UNION (MAP-3) — see comment above
+        "lance": any(x.lance for _, x in basket),
         "precision": _frac_true(lambda x: x.precision) > majority,
         "pistol": _frac_true(lambda x: x.pistol) > majority,
         "indirect_fire": _frac_true(lambda x: x.indirect_fire) > majority,
@@ -345,26 +360,27 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
 
     union: Dict[str, object] = {**bool_keywords, **int_keywords, "torrent": torrent}
 
-    # Anti-X — proportion-thresholded per keyword. A single Krak-grenade
-    # bolter model carrying Anti-Vehicle 4+ on 1 of 10 attacks should not
-    # let the whole squad treat all of its attacks as Anti-Vehicle. Apply
-    # the 50% majority rule per keyword. If the keyword passes, take the
-    # best (lowest) threshold among carrying weapons.
+    # Anti-X — UNION across the basket per MAP-3. If any weapon profile in
+    # the basket carries [ANTI-VEHICLE N+], the squad's basket keeps that
+    # tag with the best (lowest) threshold among carrying weapons. The
+    # squad's per-attack damage stays honest because the simulator-side
+    # picker only fires the anti bonus on the model that's actually
+    # carrying that profile (Skyweaver Haywire Cannon, Beast Snagga Klaw,
+    # Knight Styrix Graviton Crusher) — the threshold sits on the basket
+    # so it can be SEEN, not so it gets multiplied across unrelated shots.
+    # The pre-MAP-3 majority gate dropped the keyword for any squad that
+    # mixed loadouts (Skyweavers, Scourges, Raveners, Beast Snagga Boyz,
+    # Knight Styrix), forcing per-unit override patches in AK-2.
     anti: Dict[str, int] = {}
     all_anti_kws = set()
     for _, x in basket:
         all_anti_kws.update((x.anti_keywords or {}).keys())
     for kw in all_anti_kws:
-        frac = sum(
-            w for w, x in basket
+        best_thresh = min(
+            x.anti_keywords[kw] for _, x in basket
             if kw in (x.anti_keywords or {})
-        ) / total
-        if frac > majority:
-            best_thresh = min(
-                x.anti_keywords[kw] for _, x in basket
-                if kw in (x.anti_keywords or {})
-            )
-            anti[kw] = best_thresh
+        )
+        anti[kw] = best_thresh
 
     return WeaponStats(
         name=representative.name,
@@ -2019,29 +2035,96 @@ def extract_fnp(entry: ET.Element, reg: Registry) -> int:
     # baked into an ability description ("This unit has the Feel No Pain 5+
     # ability."). Kept as a fallback for units that don't use the canonical
     # infoLink+modifier idiom.
+    #
+    # MAP-2 — prune `type="upgrade"` subtrees while walking. Enhancements
+    # (e.g. Tyranid Adaptive Biology, Custodes Talons of the Emperor, Death
+    # Guard Revolting Regeneration) live in BSData as ``selectionEntry
+    # type="upgrade"`` blocks reachable from a unit's Enhancements
+    # ``entryLink``. Their characteristic prose frequently says
+    # ``"Feel No Pain N+"`` because the Enhancement grants that to the
+    # bearer when taken — but it is NOT a base stat of the datasheet, and
+    # was silently leaking into the base FNP for every unit that COULD
+    # take the Enhancement (SC5-10 patched 12 Tyranid units via overrides
+    # when this was first spotted). Skip the upgrade subtree entirely: do
+    # not scan its characteristics and do not follow its links.
+    #
+    # Note we still recurse through ``selectionEntryGroup`` containers
+    # (the Enhancements group itself is a group, not an upgrade), but
+    # individual upgrade children inside it are pruned.
     seen: set = set()
-    def walk(elem: ET.Element, depth: int):
+
+    def _scan_characteristics(elem: ET.Element):
+        """Scan characteristic text in `elem` and its descendants, pruning
+        any subtree rooted at a ``type="upgrade"`` selectionEntry. We
+        traverse manually rather than via ``.iter()`` so the prune at
+        upgrade boundaries can fire."""
         nonlocal best
+        for child in list(elem):
+            tag = child.tag
+            if tag == "selectionEntry" and (
+                (child.get("type") or "").strip().lower() == "upgrade"
+            ):
+                # Enhancement / wargear upgrade — its prose ("Feel No
+                # Pain N+") is conditional on the upgrade being taken,
+                # so it must not propagate into the datasheet's BASE
+                # stats. Skip this whole subtree.
+                continue
+            if tag == "characteristic":
+                txt = (child.text or "")
+                m = _FNP_RE.search(txt)
+                if m:
+                    v = int(m.group(1))
+                    if v < best:
+                        best = v
+            # Descend into any other child element (profiles, groups,
+            # nested model selectionEntries, characteristics container,
+            # etc.) so the iter("characteristic") behaviour is preserved
+            # everywhere except the upgrade prune.
+            _scan_characteristics(child)
+
+    def _collect_links(elem: ET.Element):
+        """Yield (infoLinks, entryLinks) from `elem`'s subtree, pruning any
+        ``type="upgrade"`` selectionEntry the same way ``_scan_characteristics``
+        does. The legacy code used ``.//infoLink`` which recursed through
+        upgrade subtrees and followed THEIR targetIds — that was the second
+        leak path for Enhancement-granted FNP."""
+        infolinks: list = []
+        entrylinks: list = []
+        def _recurse(node: ET.Element):
+            for child in list(node):
+                if (
+                    child.tag == "selectionEntry"
+                    and (child.get("type") or "").strip().lower() == "upgrade"
+                ):
+                    continue
+                if child.tag == "infoLink":
+                    infolinks.append(child)
+                elif child.tag == "entryLink":
+                    entrylinks.append(child)
+                _recurse(child)
+        _recurse(elem)
+        return infolinks, entrylinks
+
+    def walk(elem: ET.Element, depth: int):
         if depth > 3:
+            return
+        # Skip upgrade subtrees entirely. The root call passes the unit's
+        # datasheet selectionEntry (type="unit" / "model") so the gate
+        # only fires when we follow a link INTO an upgrade target.
+        if (elem.get("type") or "").strip().lower() == "upgrade":
             return
         eid = elem.get("id")
         if eid:
             if eid in seen:
                 return
             seen.add(eid)
-        # Scan all characteristic text values for the phrase
-        for c in elem.iter("characteristic"):
-            txt = (c.text or "")
-            m = _FNP_RE.search(txt)
-            if m:
-                v = int(m.group(1))
-                if v < best:
-                    best = v
-        for il in elem.findall(".//infoLink"):
+        _scan_characteristics(elem)
+        infolinks, entrylinks = _collect_links(elem)
+        for il in infolinks:
             tgt = reg.resolve(il.get("targetId") or "")
             if tgt is not None:
                 walk(tgt, depth + 1)
-        for el in elem.findall("./entryLinks/entryLink"):
+        for el in entrylinks:
             tgt = reg.resolve(el.get("targetId") or "")
             if tgt is not None:
                 walk(tgt, depth + 1)
