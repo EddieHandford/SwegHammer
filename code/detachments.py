@@ -39,6 +39,12 @@ from .stratagems import (
     OATHBAND_STRATAGEMS,
     GLADIUS_STRATAGEMS,
     COMBINED_ARMS_STRATAGEMS,
+    # ST-2 wave 3 — one stratagem per under-performing faction
+    BERZERKER_WARBAND_STRATAGEMS,
+    DAEMONIC_INCURSION_STRATAGEMS,
+    TELEPORT_STRIKE_FORCE_STRATAGEMS,
+    FINAL_DAY_STRATAGEMS,
+    PACTBOUND_ZEALOTS_STRATAGEMS,
 )
 
 
@@ -598,6 +604,7 @@ TELEPORT_STRIKE_FORCE = Detachment(
     ),
     reroll_hit_ones=True,
     reroll_wound_ones=True,
+    stratagems=TELEPORT_STRIKE_FORCE_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -697,6 +704,7 @@ PACTBOUND_ZEALOTS = Detachment(
         "Lethal/Sustained Hits transient flag; follow-up wiring lands "
         "separately."
     ),
+    stratagems=PACTBOUND_ZEALOTS_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -910,6 +918,7 @@ BERZERKER_WARBAND = Detachment(
         "buff and Blood Tithe spend tracking; follow-up wiring lands "
         "separately."
     ),
+    stratagems=BERZERKER_WARBAND_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -929,6 +938,7 @@ DAEMONIC_INCURSION = Detachment(
         "the simulator does not yet model; follow-up wiring lands "
         "separately."
     ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -949,6 +959,7 @@ FINAL_DAY = Detachment(
         "trading that the simulator does not yet model; follow-up "
         "wiring lands separately."
     ),
+    stratagems=FINAL_DAY_STRATAGEMS,
     preferred_composition="infantry",
 )
 

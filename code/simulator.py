@@ -66,6 +66,9 @@ from .stratagems import (
     # Combined Arms (Astra Militarum) — six real detachment stratagems (iter-14)
     COORDINATED_ACTION, REINFORCEMENTS, FLEXIBLE_COMMAND,
     FIELDS_OF_FIRE, INSPIRED_COMMAND, STALWART_PROTECTOR,
+    # ST-2 wave 3 — one stratagem per under-performing faction
+    APOPLECTIC_FRENZY, DENIZENS_OF_THE_WARP, EMPYRIC_CHANNELLING,
+    CULT_AMBUSH, PROFANE_ZEAL,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -1091,6 +1094,23 @@ class Battle:
                 self._try_inspired_command(army, opponent)
             if not self._strat_cap_reached(army) and "Stalwart Protector" in strat_names:
                 self._try_stalwart_protector(army, opponent)
+
+            # ----- ST-2 wave 3 — one stratagem per under-performing faction
+            # All five route the offensive value through an existing
+            # transient_* flag (transient_plus_one_to_wound_melee for melee,
+            # transient_reroll_hits_shooting for ranged). Faction-gated via
+            # the detachment-membership check above (strat_names already
+            # filters to the active detachment's stratagem set).
+            if not self._strat_cap_reached(army) and "Apoplectic Frenzy" in strat_names:
+                self._try_apoplectic_frenzy(army, opponent)
+            if not self._strat_cap_reached(army) and "Denizens of the Warp" in strat_names:
+                self._try_denizens_of_the_warp(army, opponent)
+            if not self._strat_cap_reached(army) and "Empyric Channelling" in strat_names:
+                self._try_empyric_channelling(army, opponent)
+            if not self._strat_cap_reached(army) and "Cult Ambush" in strat_names:
+                self._try_cult_ambush(army, opponent)
+            if not self._strat_cap_reached(army) and "Profane Zeal" in strat_names:
+                self._try_profane_zeal(army, opponent)
         finally:
             # Always drop the dispatch flag — Tank Shock / Counter-Offensive /
             # Command Re-Roll fire out-of-band via _fire_stratagem and MUST
@@ -2861,6 +2881,149 @@ class Battle:
     # at full strength) has no clean simulator hook (no mid-battle unit-
     # respawn / reserve-injection primitive). The dispatch loop simply
     # skips the entry, no CP spent.
+
+    # ----- ST-2 wave 3 — one stratagem per under-performing faction ----
+    # Wahapedia citations live in data/rule_citations.d/stratagems.json.
+    # Five offensive uplifts (one each for World Eaters, Chaos Daemons,
+    # Grey Knights, Genestealer Cults, Chaos Space Marines), each routed
+    # through an existing transient_* flag because the simulator has no
+    # LETHAL HITS / SUSTAINED HITS / wound-reroll transient yet (ST-1 in
+    # parallel addresses that mapping gap). Each is faction-gated via
+    # `_highest_dpa_unit(keyword=..., faction=...)` — no buffs leak onto
+    # non-matching attached allies.
+
+    def _try_apoplectic_frenzy(self, army: Army, opponent: Army) -> None:
+        """Apoplectic Frenzy (Berzerker Warband, 1 CP). Real rule: a WORLD
+        EATERS unit's melee weapons gain [LETHAL HITS] until end of Fight
+        phase. APPROXIMATION: routed through transient_plus_one_to_wound_melee
+        on the highest-DPA WE unit (LETHAL HITS auto-wounds on crit-to-hit;
+        +1 to wound is a direction-correct offensive uplift via an existing
+        transient flag). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="WORLD EATERS", faction="World Eaters",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, APOPLECTIC_FRENZY, ctx):
+            return
+        if not self._fire_stratagem(army, APOPLECTIC_FRENZY):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_denizens_of_the_warp(self, army: Army, opponent: Army) -> None:
+        """Denizens of the Warp (Daemonic Incursion, 1 CP). Real rule: re-roll
+        Hit and Wound rolls of 1 for a CHAOS DAEMONS unit's attacks vs an
+        enemy unit within range of an Objective Marker. APPROXIMATION: routed
+        through transient_reroll_hits_shooting (the hit-1 reroll half; the
+        wound-1 reroll half and the objective-range gate are dropped — same
+        proxy as Fire and Fade / Creeping Blight). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="DAEMON", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, DENIZENS_OF_THE_WARP, ctx):
+            return
+        if not self._fire_stratagem(army, DENIZENS_OF_THE_WARP):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_empyric_channelling(self, army: Army, opponent: Army) -> None:
+        """Empyric Channelling (Teleport Strike Force, 1 CP). Real rule:
+        a GREY KNIGHTS PSYKER unit's Psychic weapons gain [SUSTAINED HITS 2]
+        until end of Shooting phase. APPROXIMATION: routed through
+        transient_reroll_hits_shooting (SUSTAINED HITS 2 is lossy on the
+        substitute, but a hit-reroll is a direction-correct offensive
+        multiplier for a GK Psyker's shooting). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Teleport-Strike-Force
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="PSYKER", faction="Grey Knights",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="GREY KNIGHTS", faction="Grey Knights",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, EMPYRIC_CHANNELLING, ctx):
+            return
+        if not self._fire_stratagem(army, EMPYRIC_CHANNELLING):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_cult_ambush(self, army: Army, opponent: Army) -> None:
+        """Cult Ambush (Final Day, 1 CP). Real rule: a GENESTEALER CULTS
+        unit gains [LETHAL HITS] on a ranged attack (or +1 to Wound on melee).
+        APPROXIMATION: routed through transient_reroll_hits_shooting on the
+        highest-DPA GSC unit (LETHAL HITS auto-wounds on crit-to-hit; a hit
+        reroll is a direction-correct offensive multiplier). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/#Final-Day
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="GENESTEALER CULTS", faction="Genestealer Cults",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, CULT_AMBUSH, ctx):
+            return
+        if not self._fire_stratagem(army, CULT_AMBUSH):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_profane_zeal(self, army: Army, opponent: Army) -> None:
+        """Profane Zeal (Pactbound Zealots, 1 CP). Real rule: re-roll Hit
+        AND Wound rolls of 1 for a HERETIC ASTARTES unit's melee attacks
+        until end of phase. APPROXIMATION: routed through
+        transient_plus_one_to_wound_melee on the highest-DPA CSM melee unit
+        (+1 to wound is a direction-correct offensive uplift; the hit-reroll
+        half is dropped). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Pactbound-Zealots
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="HERETIC ASTARTES", faction="Chaos Space Marines",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="CHAOS SPACE MARINES", faction="Chaos Space Marines",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PROFANE_ZEAL, ctx):
+            return
+        if not self._fire_stratagem(army, PROFANE_ZEAL):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
 
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/

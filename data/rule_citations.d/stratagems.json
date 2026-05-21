@@ -563,5 +563,50 @@
     "effect": "(APPROXIMATION, NO-OP for now) Mapped in code/stratagems.py to the existing transient_plus_one_to_hit_shooting flag (used by Mont’ka Pulse Onslaught, Custodes Archaeotech Munitions, several others). Catalogued only — no dispatcher this iteration. Real keywords [SUSTAINED HITS 1] + [IGNORES COVER] are lossy on the +1-to-hit substitution (less impact on crit-payload, more impact on saturated cover targets). Name + CP cost (1) confirmed via Goonhammer.",
     "scope": "phase-gated",
     "approximation": true
+  },
+  "Stratagem.Apoplectic Frenzy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband",
+    "rule_name": "Apoplectic Frenzy (Berzerker Warband Stratagem)",
+    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer World Eaters detachment focus + Frontline Gaming Berzerker Warband breakdown.) When: your Fight phase. Target: one WORLD EATERS unit from your army that has not been selected to fight this phase. Effect: until end of phase, melee weapons equipped by models in your unit have the [LETHAL HITS] ability.",
+    "trigger": "own Fight phase, on a friendly WORLD EATERS unit selected to fight",
+    "effect": "(APPROXIMATION) Routed through transient_plus_one_to_wound_melee on the highest-DPA WORLD EATERS unit. LETHAL HITS auto-wounds on a crit-to-hit; +1 to wound is a direction-correct offensive uplift via an existing transient flag. ST-1 in parallel adds a proper transient_lethal_hits_melee flag — this stratagem will rewire onto it then. ST-2 wave 3 of sim-calibration-6 (WE was -9.9 pts at N=40 in wave 2). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Denizens of the Warp": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion",
+    "rule_name": "Denizens of the Warp (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Daemonic Incursion detachment focus + Frontline Gaming Daemons codex review.) When: your Shooting phase or Fight phase. Target: one CHAOS DAEMONS unit from your army. Effect: until end of phase, each time a model in your unit makes an attack that targets an enemy unit within range of an objective marker, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
+    "trigger": "own Shooting or Fight phase, on a friendly CHAOS DAEMONS unit attacking an enemy near an objective marker",
+    "effect": "(APPROXIMATION) Routed through transient_reroll_hits_shooting on the highest-DPA CHAOS DAEMONS unit. The hit-1 reroll half is captured; the wound-1 reroll half and the objective-marker-range gate are dropped — direction-correct offensive uplift. Same proxy pattern as Fire and Fade / Creeping Blight. ST-2 wave 3 of sim-calibration-6 (Daemons was -9.5 pts at N=40 in wave 2). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Empyric Channelling": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Teleport-Strike-Force",
+    "rule_name": "Empyric Channelling (Teleport Strike Force Stratagem)",
+    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Grey Knights codex review + Frontline Gaming Teleport Strike Force breakdown.) When: start of your Shooting phase. Target: one GREY KNIGHTS PSYKER unit from your army. Effect: until end of phase, Psychic weapons equipped by models in your unit have the [SUSTAINED HITS 2] ability.",
+    "trigger": "start of own Shooting phase, on a friendly GREY KNIGHTS PSYKER unit",
+    "effect": "(APPROXIMATION) Routed through transient_reroll_hits_shooting on the highest-DPA Grey Knights PSYKER unit. SUSTAINED HITS 2 is lossy on the substitute (we don't generate extra hits on crits), but a hit reroll is a direction-correct offensive multiplier — strictly weaker than the codex in expectation. ST-2 wave 3 of sim-calibration-6 (Grey Knights was -8.0 pts at N=40 in wave 2). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Cult Ambush": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/#Final-Day",
+    "rule_name": "Cult Ambush (Final Day Stratagem)",
+    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Final Day detachment focus + Frontline Gaming GSC codex review.) When: your Shooting phase. Target: one GENESTEALER CULTS unit from your army. Effect: until end of phase, ranged weapons equipped by models in your unit have the [LETHAL HITS] ability.",
+    "trigger": "own Shooting phase, on a friendly GENESTEALER CULTS unit",
+    "effect": "(APPROXIMATION) Routed through transient_reroll_hits_shooting on the highest-DPA GENESTEALER CULTS unit. LETHAL HITS auto-wounds on a crit-to-hit; a hit reroll is a direction-correct offensive multiplier via an existing transient flag (ST-1 will rewire onto a proper transient_lethal_hits_ranged flag once implemented). ST-2 wave 3 of sim-calibration-6 (GSC was -7.0 pts at N=40 in wave 2). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+  "Stratagem.Profane Zeal": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Pactbound-Zealots",
+    "rule_name": "Profane Zeal (Pactbound Zealots Stratagem)",
+    "quoted_text": "(Paraphrase — WebFetch against wahapedia.ru returned ECONNREFUSED at edit time; cross-checked vs Goonhammer Pactbound Zealots detachment focus + Frontline Gaming CSM codex review.) When: your Fight phase. Target: one HERETIC ASTARTES unit from your army that has not been selected to fight this phase. Effect: until end of phase, each time a model in your unit makes a melee attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
+    "trigger": "own Fight phase, on a friendly HERETIC ASTARTES unit selected to fight",
+    "effect": "(APPROXIMATION) Routed through transient_plus_one_to_wound_melee on the highest-DPA HERETIC ASTARTES unit. +1 to wound is a direction-correct offensive uplift; the hit-1 reroll half is dropped. Same proxy as Apoplectic Frenzy. ST-2 wave 3 of sim-calibration-6 (CSM was -2.8 pts at N=40 in wave 2). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

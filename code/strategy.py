@@ -3583,6 +3583,81 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Reinforcements! — no AI gate; dispatcher has no implementation
     # hook so should_fire return value never matters. Cataloguer-only.
 
+    # ----- ST-2 wave 3 — one stratagem per under-performing faction -----
+
+    if name == "Apoplectic Frenzy":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP melee offensive
+        # uplift for a WORLD EATERS unit. Fire when a high-DPA WE melee
+        # unit has a HEAVY-class target — same gate as other melee-uplift
+        # stratagems (Big Krumpin' / Profane Zeal pattern).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Denizens of the Warp":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP shooting hit-reroll
+        # uplift for a CHAOS DAEMONS unit. Same shape as Fire and Fade.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Empyric Channelling":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP shooting hit-reroll
+        # uplift on a GREY KNIGHTS PSYKER unit (proxy for SUSTAINED HITS 2
+        # on Psychic weapons). Same shape as Fire and Fade.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Cult Ambush":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP shooting hit-reroll
+        # uplift on a GSC unit (proxy for LETHAL HITS on ranged).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Profane Zeal":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP melee +1-to-wound
+        # uplift on a CSM unit. Same shape as Apoplectic Frenzy.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 1.5 and _is_heavy_target(target)
+
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False
 
