@@ -139,6 +139,77 @@ Per-faction regressions (new units lose more matchups than they win):
 
 Knights remain the dominant outlier (−36/−35) — confirms `project-knights-multiprofile-weapons`: archetype depth alone won't close the mapper-structural gap. Custodes +30 also structural per `project-custodes-board-control`. Real next-phase candidates are the mapper-structural work (iter 31-45 phase 2) and/or implementing missing faction army rules.
 
+### MR-A to MR-J + DRK-2 — missing-faction-rule implementation (2026-05-21)
+
+User directive: "equal modeling quality across factions" + matchup-tuning via opponent-side rule wiring. Implemented army rules for the 11 FX-ALL factions that lacked them.
+
+| Faction | Rule | Approach |
+|---|---|---|
+| Imperial Knights | Code Chivalric (martial-valour Quality) | reroll hit+wound 1s, deliberately under-buffed proxy; CK skipped (needs battleshock infra) |
+| Genestealer Cults | Cult Ambush | Resurgence Points: 10pt budget, 3pt per revival, dead INFANTRY restored at round-end via deep-strike landing |
+| Chaos Space Marines | Dark Pacts | AI gate on DPA ≥ 6.0 units; grants LH+SH proxy; Ld test 2D6 vs unit Ld; D3 MW on fail |
+| Adeptus Mechanicus | Doctrina Imperatives | Buff-only Protector/Conqueror alternation (odd/even rounds); dropped pre-existing fabricated penalty per agent finding |
+| Adepta Sororitas | Acts of Faith | Miracle Dice bank (Strands-of-Fate pattern); +1/round + on-death; substitute hit/wound/save |
+| Astra Militarum | Voice of Command | **Already implemented** from iter-14 (4 Orders + Officer dispatch); MR-F survey-only |
+| World Eaters | Blessings of Khorne | 8D6 doubles/triples → up to 2 melee Blessings/round (Martial Excellence / Warp Blades / Cleaving Blows) |
+| Emperor's Children | Thrill Seekers | Shoot+charge after Advance/Fall Back (army-wide); 2 targeting restrictions NOT modelled (mildly over-rates) |
+| Chaos Daemons | Shadow of Chaos | 18"-centre proxy: −1 to enemy battleshock + D3 MW on fail (no deployment-zone position-tracking) |
+| Grey Knights | (survey only) | Existing impl (Teleport Strike Force + leaders) suffices; +1W-vs-DAEMONS skipped per matchup-tuning trap (would worsen already-under Daemons) |
+| Chaos Knights | (parked) | Harbingers of Dread needs battleshock infrastructure (per MR-A finding) |
+| Drukhari | Combat Drugs | WYCH CULT units: Wyches+1A, Hellions+2"M, Reavers+1S, Beastmaster+1T; Serpentin/Splintermind no-op approximation |
+
+Two agents corrected faulty brief premises by going to Wahapedia first:
+- **MR-D** found Doctrina Imperatives is **buff-only** (not buff+penalty alternation as briefed); dropped a pre-existing fabricated penalty.
+- **MR-A** found Knights have NO army-wide Lance rule — IK = Oath system (Code Chivalric), CK = Harbingers of Dread (battleshock-keyed, needs new infra).
+
+### N=40 path through this phase
+
+| State | N=40 MAE |
+|---|---|
+| Pre-SC5 (N=20 baseline) | 15.95 |
+| SC5 iter 1 close | 14.97 |
+| SC5 iter 2 close | 15.65 |
+| Post-AX (archetype expansion) | 15.28 |
+| Post-MR1 (IK/GSC/CSM/AdMech) | 15.08 |
+| Post-MR2 (Sororitas/AM/WE/EC) | 15.26 |
+| **Post-MR3+DRK-2 (Daemons/Drukhari/GK survey)** | **15.32** |
+
+Cumulative branch progress: **−0.63 MAE across 24 commits** (11 SC5 + 4 AX + 9 MR/DRK). 9 carry-forward memories built.
+
+### Quality-parity assessment
+
+All 22 factions have army rules implemented or surveyed. The Stage 1 floor for the 22-faction matrix sits ~15pt MAE without structural unblocks. Remaining dominant outliers (post-MR3):
+
+| Faction | Sim Δ | Status |
+|---|---|---|
+| Chaos Knights | −35.0 | STRUCTURAL: needs multi-profile weapon mapper + battleshock infra |
+| Imperial Knights | −32.1 | STRUCTURAL: multi-profile weapon mapper |
+| Custodes | +29.3 | STRUCTURAL: board-control bias |
+| Drukhari | +28.9 | Combat Drugs added (rule-correct overshoot); further levers per-unit / anti-keyword |
+| Votann | +22.7 | Stratagem-mapping over-strong per SC5-5 |
+| AdMech | +20.0 | Doctrina-correct overshoot |
+| Sororitas | +19.9 | Acts-of-Faith-correct overshoot |
+| Astartes | +17.4 | No clear remaining lever |
+| Tyranids | +16.9 | No clear remaining lever |
+| Orks | +16.9 | No clear remaining lever |
+| TSON | +14.4 | No clear remaining lever |
+| Aeldari | +13.9 | No clear remaining lever |
+
+### Strategic options surface (for user)
+
+Five rules-correct paths forward, ordered by leverage × tractability:
+
+1. **Anti-keyword weapon tagging sweep** — [DEVASTATING WOUNDS] / [ANTI-MONSTER 4+] / [LANCE] / [MELTA] coverage on weapon profiles. Pulls Custodes / Drukhari / Votann via opponent-side modelling. Pure data-entry in overrides; low risk.
+2. **Stratagem effect-mapping audit** — fix the over-strong `+1 to hit/wound` proxies that SC5-5 found; precondition for adding more stratagems.
+3. **Mortal-wound surface for psyker factions** — TSON Cabal of Sorcerers, GK Psychic Action, Aeldari Wraithseer charge MW. Direct counter for elite-2+ outliers.
+4. **Detachment variety** — each faction has 3-4 detachments, currently 1-2 implemented. Each new detachment diversifies the matchup matrix.
+5. **Enhancement expansion** — 4 Enhancements per detachment × 22 factions; ~15% implemented. Slow but cumulative; per-CHARACTER buffs.
+
+**Structural alternatives outside Stage 1 outlier-grind**:
+- **Battleshock infrastructure** — unlocks CK Harbingers of Dread + cleaner Sororitas/Tyranid/Drukhari interactions
+- **Multi-profile weapon mapper** — unlocks IK/CK structural residual (iter 31-45 phase 2)
+- **Stage 2 pricing** (MC bisection + utility-factor function) — tasks #186–189; the equation work is the project endgame per `project-endstate-vision` memory
+
 ## Branch claude/sim-calibration-4 (2026-05-20)
 
 SC4 (secondary objectives + map rotation) + LC-1/LC-2/LC-5 (detachment variety + tactical-deck mechanic + Warlord designation). All committed and pushed; PR #26 open.
