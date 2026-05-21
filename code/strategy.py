@@ -738,6 +738,60 @@ def _ork_tarpit_charge_bonus(attacker, defender) -> float:
     return _ORK_TARPIT_BONUS
 
 
+# AI-2A — World Eaters glory-driven charge bias. WE's play-style is
+# fundamentally different from Orks: Berzerkers / Eightbound / Angron etc.
+# charge for KHORNE GLORY, not because they can't crack the target. Real meta
+# WE Berzerkers DON'T sit and shoot — they close into melee with anything
+# breathing. AI-2A bias fires on EVERY enemy in charge range for a WE
+# melee-class attacker, regardless of kill potential, because the in-game
+# decision is always "charge". Smaller multiplier than Orks (1.5 vs 1.6)
+# because WE want to KILL not just tarpit — the bias just outweighs gunline /
+# screen / etc. picks slightly without overriding "kill the buff character"
+# math entirely. AI heuristic; no rule citation (Khorne berzerker fluff is
+# play-style, not a printed rule).
+_WE_GLORY_BONUS: float = 1.5
+
+
+def _is_melee_class(attacker_profile) -> bool:
+    """True when `attacker_profile`'s primary weapon profile is melee.
+
+    Detection: melee-DPA (attacks * hit_p * dmg/shot) >= ranged-DPA on the
+    same stat-line. Berzerkers / Eightbound / Angron / Daemon Prince /
+    Lord Invocatus all have minimal ranged output and heavy melee, so they
+    pass; a hypothetical WE shooting unit (none exist in 10e but the gate
+    is robust to overrides) would fail.
+    """
+    if attacker_profile is None:
+        return False
+    melee_dpa = (attacker_profile.melee_attacks
+                 * attacker_profile.melee_hit_probability
+                 * (attacker_profile.melee_damage_per_shot or 1.0))
+    ranged_dpa = (attacker_profile.attacks
+                  * attacker_profile.hit_probability
+                  * (attacker_profile.weapon_damage_per_shot or 0.0))
+    return melee_dpa >= ranged_dpa
+
+
+def _we_glory_charge_bonus(attacker, defender) -> float:
+    """Return 1.5x when:
+      - attacker is a World Eaters unit, AND
+      - attacker is melee-class (primary profile is melee per
+        `_is_melee_class`).
+
+    Else 1.0. Unlike `_ork_tarpit_charge_bonus`, this fires on ANY
+    enemy — WE always charge, kill potential is irrelevant to the decision.
+    Stacks multiplicatively with all other bonuses.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None:
+        return 1.0
+    if a_profile.faction != "World Eaters":
+        return 1.0
+    if not _is_melee_class(a_profile):
+        return 1.0
+    return _WE_GLORY_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -786,7 +840,8 @@ def _melee_target_score(attacker, defender) -> float:
             * _support_target_bonus(defender)
             * _screen_target_bonus(defender)
             * _synapse_target_bonus(attacker, defender)
-            * _ork_tarpit_charge_bonus(attacker, defender))
+            * _ork_tarpit_charge_bonus(attacker, defender)
+            * _we_glory_charge_bonus(attacker, defender))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -920,10 +975,15 @@ def pick_charge_target(attacker, enemy):
         # Objective Control instead. Faction-gated to Orks only — other
         # factions' tarpit play-style differs and is handled separately.
         tarpit_bonus = _ork_tarpit_charge_bonus(attacker, e)
+        # AI-2A — World Eaters glory-charge bonus: WE melee units charge
+        # ANY enemy in range for Khorne glory, regardless of kill potential.
+        # WE-faction-gated, applied to every candidate in the charge loop.
+        we_glory_bonus = _we_glory_charge_bonus(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
-                 * screen_bonus * synapse_bonus * tarpit_bonus)
+                 * screen_bonus * synapse_bonus * tarpit_bonus
+                 * we_glory_bonus)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
