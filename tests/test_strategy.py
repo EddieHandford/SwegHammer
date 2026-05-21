@@ -336,7 +336,13 @@ class GunlineChargeBonusTests(unittest.TestCase):
         )
         tau_attacker, _ = self._unit_at(tau_stand_in, (0.0, 0.0))
         base = _melee_target_score(tau_attacker, target)
-        self.assertAlmostEqual(scored / base, bonus, places=4)
+        # The Ork attacker also picks up the AI-1 tarpit bonus (battlesuit is
+        # M6+, W>=3, oc>=1 — a tarpit candidate — and an Orks brawler can't
+        # crack it). So the ratio is gunline_bonus * tarpit_bonus, not gunline
+        # alone. Compute both for a precise check.
+        from code.strategy import _ork_tarpit_charge_bonus
+        tarpit_mult = _ork_tarpit_charge_bonus(attacker, target)
+        self.assertAlmostEqual(scored / base, bonus * tarpit_mult, places=4)
         self.assertGreaterEqual(scored / base, 1.5)
 
     def test_non_tau_gunline_also_gets_bonus(self):

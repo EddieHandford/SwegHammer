@@ -645,6 +645,99 @@ def _synapse_target_bonus(attacker, defender) -> float:
     return _SYNAPSE_TARGET_BONUS
 
 
+# ---------------------------------------------------------------------------
+# AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
+# ---------------------------------------------------------------------------
+# Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)
+# don't always charge the highest damage-per-attack target. Against Custodes,
+# Knights or Vehicles they often charge to TIE THE TARGET UP — denying the
+# enemy their Movement and Objective Control phases — even though Boyz
+# won't actually kill the Wardens / Knight / Repulsor in the combat. The
+# "expected value" of the charge is in the lock-down, not the wounds.
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# (`code/strategy.py`) and has no rule_citations entry. Cited motivation:
+# Goonhammer tournament reports on Orks meta playstyle (May 2026).
+#
+# Gate (mandatory): only fires when `attacker.profile.faction == "Orks"`.
+# Other factions' tarpit calculus is different and will be addressed in
+# separate AI commits (World Eaters trade differently; Tyranids run synapse
+# anchors; Daemons play deep-strike anvils).
+#
+# Trigger: an Orks unit looking at a candidate target whose expected wounds
+# inflicted this round is < 25% of the target's current_health (i.e. the
+# top-DPA pick is a "won't-crack" charge anyway) AND a tarpit-candidate
+# alternative is within charge range — bias the score of the tarpit
+# candidate up by a flat multiplier so it can overtake the nominal top
+# pick on the existing scoring function. The heuristic NEVER replaces the
+# existing kill_potential / threat_back math; it just biases it.
+_ORK_TARPIT_BONUS: float = 1.6
+_ORK_LOW_DAMAGE_FRAC: float = 0.25  # "won't actually kill" threshold
+
+
+def _is_tarpit_candidate(defender) -> bool:
+    """True when `defender` is a mobile elite worth locking down.
+
+    Criteria (all must hold):
+      - profile.move >= 6                                    (mobile)
+      - profile.health >= 3                                  (multi-W per model)
+      - objective-relevant: oc >= 1 OR has CHARACTER /
+        MONSTER / VEHICLE in unit_keywords
+
+    Real 10e: a 3+W mobile unit is either a CHARACTER, an elite squad
+    (Wardens, Terminators) or a MONSTER/VEHICLE. Tying any of those up
+    costs the opponent their best mover.
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return False
+    move = getattr(profile, "move", 0) or 0
+    if move < 6:
+        return False
+    health = getattr(profile, "health", 0) or 0
+    if health < 3:
+        return False
+    oc = getattr(profile, "oc", 0) or 0
+    kw = getattr(profile, "unit_keywords", ()) or ()
+    if oc >= 1:
+        return True
+    if "CHARACTER" in kw or "MONSTER" in kw or "VEHICLE" in kw:
+        return True
+    return False
+
+
+def _ork_tarpit_charge_bonus(attacker, defender) -> float:
+    """Return 1.6x when:
+      - attacker is an Orks unit, AND
+      - this Ork unit's expected wounds inflicted on `defender` this round
+        is < 25% of `defender.current_health` (i.e. the charge won't kill),
+        AND
+      - defender is a tarpit candidate (mobile + multi-W + objective-relevant).
+
+    Else 1.0. Stacks multiplicatively with `_gunline_charge_bonus`,
+    `_support_target_bonus`, `_screen_target_bonus`, `_synapse_target_bonus`.
+
+    The won't-kill gate is the key — we only override the highest-DPA
+    pick when the Ork unit ISN'T going to crack it anyway. If a Mega
+    Nob mob can actually delete the Repulsor, the existing scoring
+    keeps that pick; the bias only fires for the Boyz-into-Wardens
+    case the user wants to model.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction != "Orks":
+        return 1.0
+    if not _is_tarpit_candidate(defender):
+        return 1.0
+    expected_wounds = _kill_potential_wounds(a_profile, d_profile)
+    current_hp = max(1.0, getattr(defender, "current_health", 1.0))
+    if expected_wounds >= _ORK_LOW_DAMAGE_FRAC * current_hp:
+        return 1.0  # we can actually crack it — let normal scoring decide
+    return _ORK_TARPIT_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -692,7 +785,8 @@ def _melee_target_score(attacker, defender) -> float:
             * _gunline_charge_bonus(p, tp)
             * _support_target_bonus(defender)
             * _screen_target_bonus(defender)
-            * _synapse_target_bonus(attacker, defender))
+            * _synapse_target_bonus(attacker, defender)
+            * _ork_tarpit_charge_bonus(attacker, defender))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -820,10 +914,16 @@ def pick_charge_target(attacker, enemy):
         # S7 (#168) — synapse-source bonus: bias non-Tyranid attackers
         # into the Hive Tyrant / Tervigon to revoke Synapse Imperative.
         synapse_bonus = _synapse_target_bonus(attacker, e)
+        # AI-1 — Orks tarpit-engage bonus: when a low-damage Ork unit
+        # can't crack the top-DPA pick, bias the score of mobile elite
+        # alternatives so the AI charges to LOCK them out of Movement /
+        # Objective Control instead. Faction-gated to Orks only — other
+        # factions' tarpit play-style differs and is handled separately.
+        tarpit_bonus = _ork_tarpit_charge_bonus(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
-                 * screen_bonus * synapse_bonus)
+                 * screen_bonus * synapse_bonus * tarpit_bonus)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
