@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+import os
 import random
+import subprocess
+import sys
 import time
 from io import BytesIO
 from typing import Callable, List, Optional, Tuple
@@ -47,6 +50,67 @@ from code.equilibrium_simdriven import (
     load_snapshot as load_eq_simdriven_snapshot,
 )
 from code.compare_view import render_compare_tab
+
+import json as _json
+import pathlib as _pathlib
+import csv as _csv
+
+_META_SNAPSHOT_PATH        = _pathlib.Path(__file__).parent / "data" / "meta_comparison_snapshot.json"
+_MAE_PROGRESS_PATH         = _pathlib.Path(__file__).parent / "docs" / "mae_progress.csv"
+_EQUATION_SNAPSHOT_PATH    = _pathlib.Path(__file__).parent / "data" / "equation_vs_meta_snapshot.json"
+_EQUATION_CALIBRATED_PATH  = _pathlib.Path(__file__).parent / "data" / "equation_calibrated_points.json"
+_FIT_EQ_LOG_PATH           = _pathlib.Path(__file__).parent / "logs" / "fit_eq_gui.log"
+_EVAL_EQ_LOG_PATH          = _pathlib.Path(__file__).parent / "logs" / "eval_eq_gui.log"
+
+# Factions with no authoritative tournament data — excluded from the headline
+# MAE. Must stay in sync with FX_ALL_FACTIONS in scripts/evaluate_vs_meta.py.
+_FX_ALL_FACTIONS = frozenset({
+    "Chaos Space Marines", "World Eaters", "Emperor's Children",
+    "Chaos Daemons", "Astra Militarum", "Adeptus Mechanicus",
+    "Adepta Sororitas", "Grey Knights", "Drukhari",
+    "Genestealer Cults", "Imperial Knights", "Chaos Knights",
+})
+
+
+def _load_meta_snapshot():
+    """Return parsed JSON from data/meta_comparison_snapshot.json, or None."""
+    if not _META_SNAPSHOT_PATH.exists():
+        return None
+    try:
+        return _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+
+
+def _load_equation_snapshot():
+    """Return parsed JSON from data/equation_vs_meta_snapshot.json, or None."""
+    if not _EQUATION_SNAPSHOT_PATH.exists():
+        return None
+    try:
+        return _json.loads(_EQUATION_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+
+
+def _load_mae_progress():
+    """Return list of dicts from docs/mae_progress.csv, skipping parked rows."""
+    if not _MAE_PROGRESS_PATH.exists():
+        return []
+    rows = []
+    with _MAE_PROGRESS_PATH.open(newline="", encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            if row.get("parked", "False").strip().lower() == "true":
+                continue
+            try:
+                rows.append({
+                    "when":  row["when"],
+                    "label": row["label"],
+                    "mae":   float(row["mae"]),
+                    "mode":  row.get("mode", ""),
+                })
+            except (KeyError, ValueError):
+                continue
+    return rows
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
 # below once the sidebar's "Use SwegHammer balanced points" toggle is read.
@@ -1088,9 +1152,9 @@ if run:
 # ---------------------------------------------------------------------------
 
 (tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
- tab_compare, tab_convergence) = st.tabs(
+ tab_compare, tab_convergence, tab_calibration) = st.tabs(
     ["Statistics", "Watch a battle", "Efficiency", "Equilibrium",
-     "Compare", "Convergence"]
+     "Compare", "Convergence", "Calibration"]
 )
 
 # --- Statistics tab ---
@@ -2177,3 +2241,484 @@ with tab_convergence:
         max_battles=int(_conv_max),
         tolerance_pct=float(_conv_tol),
     )
+
+
+# ---------------------------------------------------------------------------
+# Calibration tab — Stage 1 sim vs tournament win rates
+# ---------------------------------------------------------------------------
+with tab_calibration:
+    st.markdown("## Calibration — Stage 1: sim win rates vs tournament")
+    st.caption(
+        "Compares per-faction average win rate from the simulator against the "
+        "Warp Friends May 2026 ~10k-game tournament aggregate. The headline "
+        "metric is mean absolute error (MAE) vs real meta — Stage 1 target is "
+        "≤ 2.0 pts. Snapshot built offline by: "
+        "`python -m scripts.evaluate_vs_meta --battles 100 --out data/meta_comparison_snapshot.json`"
+    )
+
+    _cal_snap = _load_meta_snapshot()
+    _mae_progress = _load_mae_progress()
+
+    # ---- MAE progress chart (always shown if CSV exists) ----
+    if _mae_progress:
+        st.markdown("### MAE progress over calibration iterations")
+        _modes_seen = sorted({r["mode"] for r in _mae_progress})
+        _mode_colours = {
+            "random_fill 1000pt":    "#4C9BE8",
+            "archetype 1000pt":      "#E88C4C",
+            "archetype 2000pt":      "#9B4CE8",
+            "archetype 2000pt N=20": "#C89BE8",
+        }
+        _mode_dash = {
+            "archetype 2000pt N=20": "dot",
+        }
+        _prog_fig = go.Figure()
+        for _m in _modes_seen:
+            _rows = [r for r in _mae_progress if r["mode"] == _m]
+            _colour = _mode_colours.get(_m, "#888888")
+            _dash   = _mode_dash.get(_m, "solid")
+            _prog_fig.add_trace(go.Scatter(
+                x=[r["when"][:10] for r in _rows],
+                y=[r["mae"] for r in _rows],
+                mode="lines+markers",
+                name=_m,
+                line=dict(color=_colour, width=2, dash=_dash),
+                marker=dict(size=7, opacity=0.7 if _dash != "solid" else 1.0),
+                hovertemplate=(
+                    "<b>%{customdata}</b><br>MAE: %{y:.2f} pts<extra></extra>"
+                ),
+                customdata=[r["label"] for r in _rows],
+            ))
+        _prog_fig.add_hline(
+            y=2.0, line_dash="dash", line_color="green",
+            annotation_text="Target ≤ 2.0 pts",
+            annotation_position="bottom right",
+        )
+        _prog_fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="MAE (pts)",
+            legend_title="Evaluation mode",
+            height=300,
+            margin=dict(t=20, b=40),
+        )
+        st.plotly_chart(_prog_fig, use_container_width=True)
+
+    # ---- Snapshot-dependent content ----
+    if _cal_snap is None:
+        st.info(
+            "No calibration snapshot found. Build one with:\n\n"
+            "```\npython -m scripts.evaluate_vs_meta --battles 100 "
+            "--out data/meta_comparison_snapshot.json\n```"
+        )
+    else:
+        # ---- Headline metrics ----
+        _c1, _c2, _c3, _c4 = st.columns(4)
+        _c1.metric(
+            "MAE (10 data factions)",
+            f"{_cal_snap['mae_real']:.2f} pts",
+            help="Mean absolute error vs Warp Friends data for the 10 factions with real tournament numbers. Target ≤ 2.0 pts. The 12 factions with no real data are excluded.",
+        )
+        _c2.metric(
+            "MAE vs 50 %",
+            f"{_cal_snap['mae_sweg']:.2f} pts",
+            help="Mean absolute error between sim and 50 % for the 10 data factions. Target ≤ 2.0 pts for rule-internal balance.",
+        )
+        _c3.metric("Battles per pairing", f"{_cal_snap['n_battles']:,}")
+        _c4.metric("Factions measured", str(len(_cal_snap["factions"])))
+        _mae_all = _cal_snap.get("mae_real_all")
+        st.caption(
+            f"Snapshot: {_cal_snap['built_at'][:10]}  |  "
+            f"mode: {_cal_snap['mode']}  |  lists: {_cal_snap['list_mode']}"
+            + (f"  |  MAE all 22 factions: {_mae_all:.2f} pts (reference, 12 targets are estimates)" if _mae_all else "")
+        )
+
+        st.divider()
+
+        # ---- Per-faction deviation chart (data factions only) ----
+        st.markdown("### Per-faction sim win rate vs tournament target")
+
+        _factions_data = sorted(
+            [r for r in _cal_snap["factions"]
+             if not r.get("is_no_data", r["faction"] in _FX_ALL_FACTIONS)],
+            key=lambda r: abs(r["diff"]),
+            reverse=True,
+        )
+
+        def _bar_colour(row: dict) -> str:
+            if abs(row["diff"]) <= 2.0:
+                return "#2ecc71"   # green — within target
+            if abs(row["diff"]) <= 5.0:
+                return "#f39c12"   # amber
+            return "#e74c3c"       # red — significant outlier
+
+        _bar_colours = [_bar_colour(r) for r in _factions_data]
+        _faction_labels = [
+            f"{r['faction']} (~)" if r["is_approx"] else r["faction"]
+            for r in _factions_data
+        ]
+
+        _dev_fig = go.Figure()
+        _dev_fig.add_trace(go.Bar(
+            y=_faction_labels,
+            x=[r["diff"] for r in _factions_data],
+            orientation="h",
+            marker_color=_bar_colours,
+            customdata=[
+                [r["sim_pct"], r["tournament_pct"], r["diff"]]
+                for r in _factions_data
+            ],
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Sim: %{customdata[0]:.1f}%<br>"
+                "Tournament: %{customdata[1]:.1f}%<br>"
+                "Difference: %{customdata[2]:+.1f} pts<extra></extra>"
+            ),
+        ))
+        _dev_fig.add_vline(x=0, line_color="white", line_width=1)
+        _dev_fig.add_vrect(x0=-2, x1=2, fillcolor="green", opacity=0.08, line_width=0)
+        _dev_fig.update_layout(
+            xaxis_title="Sim % − Tournament % (positive = sim overestimates faction strength)",
+            height=max(400, len(_factions_data) * 28),
+            margin=dict(t=20, l=200, r=20, b=40),
+        )
+        st.plotly_chart(_dev_fig, use_container_width=True)
+        st.caption(
+            "Green band = ±2 pt target zone. "
+            "(~) = approximate target (some real-world basis but flagged as less authoritative). "
+            "12 factions with no real tournament data are excluded from this chart and the headline MAE."
+        )
+
+        st.divider()
+
+        # ---- Full table ----
+        st.markdown("### Full faction breakdown")
+        def _data_quality(r: dict) -> str:
+            if r.get("is_no_data", r["faction"] in _FX_ALL_FACTIONS):
+                return "no data"
+            if r["is_approx"]:
+                return "approx"
+            return "real"
+
+        _table_rows = [
+            {
+                "Faction": r["faction"],
+                "Data": _data_quality(r),
+                "Sim %": r["sim_pct"],
+                "Tournament %": r["tournament_pct"],
+                "Diff": r["diff"],
+                "vs 50 %": r["diff_vs_50"],
+            }
+            for r in sorted(_cal_snap["factions"], key=lambda r: r["faction"])
+        ]
+        st.dataframe(
+            pd.DataFrame(_table_rows),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Diff": st.column_config.NumberColumn(format="%+.1f"),
+                "vs 50 %": st.column_config.NumberColumn(format="%+.1f"),
+            },
+        )
+
+    st.divider()
+
+    # ---- Hypothetical win rates with equation-derived prices ----
+    st.markdown("## Hypothetical win rates — equation-derived prices")
+    st.caption(
+        "Win rates simulated using prices output by the calibrated equation rather than "
+        "GW published costs. Calibrated factions (those within the MAE threshold when the "
+        "equation was fit) are shown with solid bars; uncalibrated factions are dashed — "
+        "their win rates are predictions from the equation extrapolating beyond its training data."
+    )
+
+    _eq_snap = _load_equation_snapshot()
+    if _eq_snap is None:
+        st.info(
+            "No hypothetical snapshot found. Build one with:\n\n"
+            "```\n"
+            "# Step 1: fit the equation (once per calibration session)\n"
+            "python -m scripts.fit_equation_calibrated --threshold 10.0\n\n"
+            "# Step 2: run the faction matrix with equation prices\n"
+            "python -m scripts.evaluate_vs_meta --battles 40 "
+            "--equation-prices data/equation_calibrated_points.json "
+            "--out data/equation_vs_meta_snapshot.json\n"
+            "```"
+        )
+    else:
+        _eq_trusted = set(_eq_snap.get("trusted_factions", []))
+
+        _eq_col1, _eq_col2, _eq_col3 = st.columns(3)
+        _eq_col1.metric(
+            "MAE vs 50 % (all factions)",
+            f"{_eq_snap['mae_sweg']:.2f} pts",
+            help="Mean absolute error between equation-priced sim and 50 % across all factions. "
+                 "Target ≤ 2.0 pts for internal balance.",
+        )
+        _eq_col2.metric(
+            "MAE vs 50 % (calibrated factions only)",
+            f"{_eq_snap['mae_real']:.2f} pts",
+            help="MAE for the factions used to fit the equation.",
+        )
+        _eq_col3.metric("Battles per pairing", f"{_eq_snap['n_battles']:,}")
+        st.caption(
+            f"Snapshot: {_eq_snap['built_at'][:10]}  |  "
+            f"mode: {_eq_snap['mode']}  |  lists: {_eq_snap['list_mode']}"
+        )
+
+        _eq_factions = sorted(
+            _eq_snap["factions"],
+            key=lambda r: abs(r["diff_vs_50"]),
+            reverse=True,
+        )
+
+        _eq_colours = []
+        _eq_labels = []
+        for r in _eq_factions:
+            is_trusted = r["faction"] in _eq_trusted
+            diff = abs(r["diff_vs_50"])
+            if diff <= 2.0:
+                colour = "#2ecc71"
+            elif diff <= 5.0:
+                colour = "#f39c12"
+            else:
+                colour = "#e74c3c"
+            _eq_colours.append(colour)
+            label = r["faction"] if is_trusted else f"{r['faction']} *"
+            _eq_labels.append(label)
+
+        _eq_fig = go.Figure()
+        _eq_fig.add_trace(go.Bar(
+            y=_eq_labels,
+            x=[r["diff_vs_50"] for r in _eq_factions],
+            orientation="h",
+            marker_color=_eq_colours,
+            customdata=[[r["sim_pct"], r["diff_vs_50"]] for r in _eq_factions],
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Sim win rate: %{customdata[0]:.1f}%<br>"
+                "vs 50%%: %{customdata[1]:+.1f} pts<extra></extra>"
+            ),
+        ))
+        _eq_fig.add_vline(x=0, line_color="white", line_width=1)
+        _eq_fig.add_vrect(x0=-2, x1=2, fillcolor="green", opacity=0.08, line_width=0)
+        _eq_fig.update_layout(
+            xaxis_title="Sim % − 50 % (positive = equation overprices this faction's opponents)",
+            height=max(400, len(_eq_factions) * 28),
+            margin=dict(t=20, l=220, r=20, b=40),
+        )
+        st.plotly_chart(_eq_fig, use_container_width=True)
+        st.caption(
+            "Green band = ±2 pt target zone. "
+            "* = uncalibrated faction (equation extrapolation, not a training anchor)."
+        )
+
+    # -------------------------------------------------------------------------
+    # Tools — launch long-running calibration jobs from the user interface
+    # -------------------------------------------------------------------------
+    st.divider()
+    st.markdown("## Tools — run calibration jobs from the user interface")
+    st.caption(
+        "These launch the fitting and evaluation scripts as background processes. "
+        "Progress streams into the log box below. The page stays responsive while "
+        "the job runs — you can switch tabs and come back."
+    )
+
+    def _subprocess_env() -> dict:
+        """Build an env dict that suppresses the PYTHONHASHSEED re-exec guard."""
+        env = os.environ.copy()
+        env["PYTHONHASHSEED"] = "0"
+        env["PYTHONIOENCODING"] = "utf-8"
+        return env
+
+    def _launch_subprocess(args: list, log_path: _pathlib.Path) -> subprocess.Popen:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_file = open(log_path, "w", encoding="utf-8")
+        return subprocess.Popen(
+            args,
+            env=_subprocess_env(),
+            stdout=log_file,
+            stderr=log_file,
+            cwd=str(_pathlib.Path(__file__).parent),
+        )
+
+    def _read_log_tail(log_path: _pathlib.Path, max_chars: int = 4000) -> str:
+        if not log_path.exists():
+            return ""
+        try:
+            text = log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+        return text[-max_chars:] if len(text) > max_chars else text
+
+    # ---- Step 1: Fit equation ------------------------------------------------
+    with st.expander("Step 1 — Fit equation from trusted factions", expanded=True):
+        st.caption(
+            "Measures pairwise win rates for units from factions within the MAE "
+            "threshold, then fits the Bradley-Terry equation. Writes "
+            "`data/equation_calibrated_points.json`."
+        )
+        _fc1, _fc2, _fc3, _fc4 = st.columns(4)
+        _fit_threshold  = _fc1.number_input(
+            "MAE threshold (pts)", min_value=1.0, max_value=20.0, value=10.0, step=0.5,
+            key="fit_threshold",
+            help="Factions with |sim − tournament| within this value are used to fit the equation.",
+        )
+        _fit_battles    = _fc2.number_input(
+            "Battles per pair", min_value=1, max_value=200, value=5, step=1,
+            key="fit_battles",
+            help="More battles = more accurate prices but longer run time.",
+        )
+        _fit_max_per    = _fc3.number_input(
+            "Max units per faction", min_value=5, max_value=100, value=15, step=5,
+            key="fit_max_per",
+            help="Cap units per faction (evenly-spaced cost sample). 15 → ~60 units, ~80 s on 11 cores.",
+        )
+        _fit_workers    = _fc4.number_input(
+            "Worker processes", min_value=1, max_value=max(1, (os.cpu_count() or 2)),
+            value=max(1, (os.cpu_count() or 2) - 1), step=1,
+            key="fit_workers",
+        )
+
+        if "fit_proc" not in st.session_state:
+            st.session_state["fit_proc"] = None
+            st.session_state["fit_running"] = False
+
+        _fb_run, _fb_stop, _fb_status = st.columns([1, 1, 6])
+        _fit_run_clicked = _fb_run.button(
+            "▶ Fit equation", type="primary", key="fit_run_btn",
+            disabled=bool(st.session_state.get("fit_running")),
+        )
+        _fit_stop_clicked = _fb_stop.button(
+            "■ Stop", key="fit_stop_btn",
+            disabled=not bool(st.session_state.get("fit_running")),
+        )
+
+        if _fit_run_clicked:
+            proc = _launch_subprocess(
+                [
+                    sys.executable, "-m", "scripts.fit_equation_calibrated",
+                    "--threshold", str(_fit_threshold),
+                    "--battles",   str(_fit_battles),
+                    "--max-per-faction", str(int(_fit_max_per)),
+                    "--workers",   str(int(_fit_workers)),
+                ],
+                _FIT_EQ_LOG_PATH,
+            )
+            st.session_state["fit_proc"]    = proc
+            st.session_state["fit_running"] = True
+            st.rerun()
+
+        if _fit_stop_clicked:
+            proc = st.session_state.get("fit_proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+            st.session_state["fit_running"] = False
+            st.rerun()
+
+        # Check if process finished naturally
+        proc = st.session_state.get("fit_proc")
+        if proc is not None and st.session_state.get("fit_running"):
+            if proc.poll() is not None:
+                st.session_state["fit_running"] = False
+
+        _fit_log_text = _read_log_tail(_FIT_EQ_LOG_PATH)
+        if _fit_log_text:
+            if st.session_state.get("fit_running"):
+                _fb_status.info("Running… refresh to update progress.")
+                st.button("🔄 Refresh progress", key="fit_refresh_btn")
+            elif st.session_state.get("fit_proc") is not None:
+                ret = st.session_state["fit_proc"].poll()
+                if ret == 0:
+                    st.success("Equation fitting complete — `data/equation_calibrated_points.json` updated.")
+                elif ret is not None:
+                    st.error(f"Process exited with code {ret}. See log below.")
+            st.code(_fit_log_text, language=None)
+        elif _EQUATION_CALIBRATED_PATH.exists():
+            st.success(
+                f"`data/equation_calibrated_points.json` exists from a previous run. "
+                f"Press **Fit equation** to rebuild it."
+            )
+
+    # ---- Step 2: Run evaluation with equation prices ------------------------
+    with st.expander("Step 2 — Evaluate equation prices vs tournament", expanded=True):
+        st.caption(
+            "Runs the faction-vs-faction matrix using equation-derived prices instead "
+            "of GW costs and records the win rates. Writes "
+            "`data/equation_vs_meta_snapshot.json` (shown above as 'Hypothetical win rates')."
+        )
+        _ec1, _ec2 = st.columns(2)
+        _eval_battles = _ec1.number_input(
+            "Battles per faction pairing", min_value=5, max_value=500, value=40, step=5,
+            key="eval_battles",
+        )
+        _eval_workers = _ec2.number_input(
+            "Worker processes", min_value=1, max_value=max(1, (os.cpu_count() or 2)),
+            value=max(1, (os.cpu_count() or 2) - 1), step=1,
+            key="eval_workers",
+        )
+
+        if not _EQUATION_CALIBRATED_PATH.exists():
+            st.warning(
+                "Run **Step 1 — Fit equation** first. "
+                "`data/equation_calibrated_points.json` does not exist yet."
+            )
+
+        if "eval_proc" not in st.session_state:
+            st.session_state["eval_proc"] = None
+            st.session_state["eval_running"] = False
+
+        _eb_run, _eb_stop, _eb_status = st.columns([1, 1, 6])
+        _eval_run_clicked = _eb_run.button(
+            "▶ Run evaluation", type="primary", key="eval_run_btn",
+            disabled=(
+                bool(st.session_state.get("eval_running"))
+                or not _EQUATION_CALIBRATED_PATH.exists()
+            ),
+        )
+        _eval_stop_clicked = _eb_stop.button(
+            "■ Stop", key="eval_stop_btn",
+            disabled=not bool(st.session_state.get("eval_running")),
+        )
+
+        if _eval_run_clicked:
+            proc = _launch_subprocess(
+                [
+                    sys.executable, "-m", "scripts.evaluate_vs_meta",
+                    "--battles", str(int(_eval_battles)),
+                    "--workers", str(int(_eval_workers)),
+                    "--equation-prices", str(_EQUATION_CALIBRATED_PATH),
+                    "--out", "data/equation_vs_meta_snapshot.json",
+                ],
+                _EVAL_EQ_LOG_PATH,
+            )
+            st.session_state["eval_proc"]    = proc
+            st.session_state["eval_running"] = True
+            st.rerun()
+
+        if _eval_stop_clicked:
+            proc = st.session_state.get("eval_proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+            st.session_state["eval_running"] = False
+            st.rerun()
+
+        proc = st.session_state.get("eval_proc")
+        if proc is not None and st.session_state.get("eval_running"):
+            if proc.poll() is not None:
+                st.session_state["eval_running"] = False
+
+        _eval_log_text = _read_log_tail(_EVAL_EQ_LOG_PATH)
+        if _eval_log_text:
+            if st.session_state.get("eval_running"):
+                _eb_status.info("Running… refresh to update progress.")
+                st.button("🔄 Refresh progress", key="eval_refresh_btn")
+            elif st.session_state.get("eval_proc") is not None:
+                ret = st.session_state["eval_proc"].poll()
+                if ret == 0:
+                    st.success(
+                        "Evaluation complete — reload the page to see updated "
+                        "hypothetical win rates above."
+                    )
+                elif ret is not None:
+                    st.error(f"Process exited with code {ret}. See log below.")
+            st.code(_eval_log_text, language=None)

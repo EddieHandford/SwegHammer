@@ -54,9 +54,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import random
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -224,6 +226,23 @@ def _measure_pair_winrate(
     return a_wins / decided, settled
 
 
+def _pair_job(
+    args: Tuple[int, int, "UnitProfile", "UnitProfile", int, float, int],
+) -> Tuple[int, int, float, int]:
+    """Process-pool worker: measure win-rate for one unit pair.
+
+    Must be a module-level function (not a closure) so ProcessPoolExecutor
+    can pickle it across process boundaries on Windows. Args are all
+    primitives or frozen dataclasses (picklable).
+
+    Returns (i, j, r_ij, settled_battles).
+    """
+    i, j, profile_i, profile_j, n_battles, budget, seed = args
+    rng = random.Random(seed)
+    r_ij, settled = _measure_pair_winrate(profile_i, profile_j, n_battles, budget, rng)
+    return i, j, r_ij, settled
+
+
 def _logit_clamped(p: float, eps: float = LOGIT_EPSILON) -> float:
     """Logit with the input pulled into ``[eps, 1-eps]``.
 
@@ -248,6 +267,7 @@ def compute_phase_simdriven(
     points_budget: float = SIMDRIVEN_BUDGET_PTS,
     progress_cb: Optional[Callable[[int, int, str], None]] = None,
     rng: Optional[random.Random] = None,
+    max_workers: Optional[int] = None,
 ) -> SimDrivenResult:
     """Run the sim-driven equilibrium solve over ``measured_keys``.
 
@@ -309,28 +329,57 @@ def compute_phase_simdriven(
     battles_run = 0
 
     # Symmetric loop: measure (i, j) for i < j, infer R[j, i] = -R[i, j].
-    # The single Battle(A=i, B=j) gives r_ij; first-player asymmetry is
-    # absorbed into the row-mean (every i appears as both A and B across
-    # its row, so the bias is approximately constant across the row and
-    # cancels in the anchor shift).
-    for i, key_i in enumerate(valid_measured):
-        u_i = catalog[key_i]
-        for j in range(i + 1, n):
-            key_j = valid_measured[j]
-            u_j = catalog[key_j]
-            r_ij, settled = _measure_pair_winrate(
-                u_i, u_j, n_battles, points_budget, rng,
-            )
-            battles_run += settled
-            if settled == 0:
-                continue
-            r_logit = _logit_clamped(r_ij)
-            R[i, j] = r_logit
-            R[j, i] = -r_logit
-            valid_pair_count[i] += 1
-            valid_pair_count[j] += 1
-        if progress_cb is not None:
-            progress_cb(i + 1, n, key_i)
+    if max_workers is not None and max_workers > 1:
+        # Parallel path — distribute pair jobs across worker processes.
+        # Each job is a tuple of picklable args; UnitProfile is a frozen
+        # dataclass and is picklable on the Windows spawn start method.
+        jobs = []
+        for i in range(n):
+            for j in range(i + 1, n):
+                seed = i * 100_000 + j  # deterministic per pair
+                jobs.append((
+                    i, j,
+                    catalog[valid_measured[i]],
+                    catalog[valid_measured[j]],
+                    n_battles, points_budget, seed,
+                ))
+        total_pairs = len(jobs)
+        done = 0
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            for res_i, res_j, r_ij, settled in executor.map(
+                _pair_job, jobs, chunksize=8
+            ):
+                done += 1
+                if settled == 0:
+                    continue
+                battles_run += settled
+                r_logit = _logit_clamped(r_ij)
+                R[res_i, res_j] = r_logit
+                R[res_j, res_i] = -r_logit
+                valid_pair_count[res_i] += 1
+                valid_pair_count[res_j] += 1
+                if progress_cb is not None:
+                    progress_cb(done, total_pairs, valid_measured[res_i])
+    else:
+        # Serial path (original).
+        for i, key_i in enumerate(valid_measured):
+            u_i = catalog[key_i]
+            for j in range(i + 1, n):
+                key_j = valid_measured[j]
+                u_j = catalog[key_j]
+                r_ij, settled = _measure_pair_winrate(
+                    u_i, u_j, n_battles, points_budget, rng,
+                )
+                battles_run += settled
+                if settled == 0:
+                    continue
+                r_logit = _logit_clamped(r_ij)
+                R[i, j] = r_logit
+                R[j, i] = -r_logit
+                valid_pair_count[i] += 1
+                valid_pair_count[j] += 1
+            if progress_cb is not None:
+                progress_cb(i + 1, n, key_i)
 
     # Row-mean of R gives raw log-p (skew-symmetric → mean over valid
     # columns is the LSQ optimum, same closed form as solve_log_points).

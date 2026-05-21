@@ -325,6 +325,7 @@ def build_faction_random_army(
     size_policy: str = "max",
     max_unit_fraction: float = 0.5,
     use_archetype: bool = False,
+    price_overrides: Optional[Dict[str, float]] = None,
 ) -> Army:
     """
     Build a random army drawing only from a single faction's unit pool.
@@ -356,7 +357,16 @@ def build_faction_random_army(
     if rng is None:
         rng = random.Random()
 
-    pool = [UNIT_CATALOG[k] for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    import dataclasses
+    pool_items = [(k, UNIT_CATALOG[k]) for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    if price_overrides:
+        pool = [
+            dataclasses.replace(p, points_override=price_overrides[k])
+            if k in price_overrides else p
+            for k, p in pool_items
+        ]
+    else:
+        pool = [p for _, p in pool_items]
     if not pool:
         return Army(name, in_cover=in_cover)
 
