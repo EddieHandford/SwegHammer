@@ -6,7 +6,7 @@ import functools
 import math
 import random
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 from .factions import is_marine_faction
 
@@ -346,6 +346,20 @@ class UnitProfile:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # ---- MAP-1 — TERTIARY and beyond RANGED weapon profiles ------------------
+    # Generalises the multi-profile picker from 2 to N. Knight Castellan fires
+    # five ranged weapons (Volcano Lance + Plasma Decimator + Twin Meltagun +
+    # Shieldbreaker Missiles + Twin Siegebreaker Cannon) in real 10e games;
+    # the primary/secondary fields above carry the two strongest, this tuple
+    # carries the rest. Each entry is a tuple of (key, value) pairs (so the
+    # field stays hashable / dataclass-friendly) holding the same stat fields
+    # as the secondary block plus the weapon name. The simulator's per-shot
+    # picker iterates over every available profile (primary, secondary,
+    # extras) and routes to the profile with the highest expected damage
+    # against the current target at the current range. Empty tuple = no
+    # extra profiles (most units). Cited as
+    # `simulator.multi_profile_weapon_selection`.
+    extra_ranged_profiles: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
     # ---- Renderer-only: real-world GW model base footprint ---------------
     # Informational only — the simulator's collision / range logic still
@@ -808,39 +822,29 @@ class Unit:
             n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
             strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
         else:
-            # ---- Phase 2 / iter33 — multi-profile ranged weapon selection.
-            # If the datasheet's mapper recorded a secondary ranged profile
-            # (Stormsurge Pulse Driver vs Pulse Blastcannon, etc.), estimate
-            # expected NET damage under BOTH profiles against the current
-            # target and swap to the secondary's stat block when it wins.
-            # 10e core rules let a unit pick which weapon to shoot at each
-            # target separately, so per-call routing is rules-legal.
+            # ---- MAP-1 — multi-profile ranged weapon selection (N profiles).
+            # Generalised from iter33's primary/secondary pair to support any
+            # chassis with 2+ ranged weapons (Knight Castellan: 5, Repulsor:
+            # 4+, etc.). Build a list of candidate profiles (primary +
+            # secondary if present + extras), compute expected NET damage
+            # under each against the current target / range, swap to whichever
+            # wins. 10e core rules let a unit pick which weapon to shoot at
+            # each target separately, so per-call routing is rules-legal.
             # Cited as `simulator.multi_profile_weapon_selection`.
-            if p.secondary_attacks > 0:
+            if p.secondary_attacks > 0 or p.extra_ranged_profiles:
                 tgt_health = max(1.0, float(target.profile.health))
                 tgt_save = target.profile.save
                 tgt_t = target.profile.toughness
-                # Range gating — a long-range profile is unusable inside its
-                # half-range floor only if the primary out-ranges it (rare);
-                # an under-range secondary (e.g. Pulse Blastcannon 18") is
-                # not usable beyond its range. distance == 0 is permissive
-                # (callers that don't pass a distance get primary by default).
-                primary_in_range = (
-                    distance <= 0 or distance <= float(p.range_inches or 24)
-                )
-                secondary_in_range = (
-                    distance <= 0
-                    or distance <= float(p.secondary_range_inches or 0)
-                )
+
                 def _profile_expected_damage(
                     n: int, dpa: float, hit_p: float, ap_: int,
                     s: int, lh: bool, sh: int, tl: bool, dw: bool,
                 ) -> float:
-                    wp = wound_probability(s, tg=tgt_t) if False else wound_probability(s, tgt_t)
+                    wp = wound_probability(s, tgt_t)
                     unsaved = 1.0 - save_probability(tgt_save, ap_)
-                    # Bound per-shot damage by target wounds (excess-damage-lost
-                    # is correctly modelled simulator-side; this estimator just
-                    # needs to compare the two profiles consistently).
+                    # Bound per-shot damage by target wounds (excess-damage
+                    # is modelled simulator-side; the estimator just needs
+                    # to compare profiles consistently).
                     eff_dpa = min(float(dpa or 1.0), tgt_health)
                     ed = float(n) * hit_p * wp * unsaved * eff_dpa
                     if lh:
@@ -852,6 +856,13 @@ class Unit:
                     if dw:
                         ed *= 1.10
                     return ed
+
+                # Each candidate is a dict of the swap-fields plus an `_ed`
+                # score and `_range` for the range gate. Primary first.
+                candidates: list = []
+                primary_in_range = (
+                    distance <= 0 or distance <= float(p.range_inches or 24)
+                )
                 pri_ed = (
                     _profile_expected_damage(
                         max(1, int(p.attacks)),
@@ -866,47 +877,126 @@ class Unit:
                     )
                     if primary_in_range else 0.0
                 )
-                sec_dpa = p.secondary_weapon_damage_per_shot or 1.0
-                sec_ed = (
-                    _profile_expected_damage(
-                        max(1, int(p.secondary_attacks)),
-                        sec_dpa,
-                        p.secondary_hit_probability,
-                        p.secondary_ap,
-                        p.secondary_strength,
-                        p.secondary_lethal_hits,
-                        p.secondary_sustained_hits,
-                        p.secondary_twin_linked,
-                        p.secondary_devastating_wounds,
+                candidates.append({
+                    "_ed": pri_ed,
+                    "_swap": None,   # sentinel: no swap, primary stays
+                })
+
+                if p.secondary_attacks > 0:
+                    sec_in_range = (
+                        distance <= 0
+                        or distance <= float(p.secondary_range_inches or 0)
                     )
-                    if secondary_in_range else 0.0
+                    sec_ed = (
+                        _profile_expected_damage(
+                            max(1, int(p.secondary_attacks)),
+                            p.secondary_weapon_damage_per_shot or 1.0,
+                            p.secondary_hit_probability,
+                            p.secondary_ap,
+                            p.secondary_strength,
+                            p.secondary_lethal_hits,
+                            p.secondary_sustained_hits,
+                            p.secondary_twin_linked,
+                            p.secondary_devastating_wounds,
+                        )
+                        if sec_in_range else 0.0
+                    )
+                    candidates.append({
+                        "_ed": sec_ed,
+                        "_swap": {
+                            "attacks": max(1, int(p.secondary_attacks)),
+                            "weapon_damage_per_shot": p.secondary_weapon_damage_per_shot,
+                            "hit_probability": p.secondary_hit_probability,
+                            "ap": p.secondary_ap,
+                            "strength": p.secondary_strength,
+                            "range_inches": p.secondary_range_inches or p.range_inches,
+                            "lethal_hits": p.secondary_lethal_hits,
+                            "sustained_hits": p.secondary_sustained_hits,
+                            "twin_linked": p.secondary_twin_linked,
+                            "devastating_wounds": p.secondary_devastating_wounds,
+                            "rapid_fire": p.secondary_rapid_fire,
+                            "melta": p.secondary_melta,
+                            "ignores_cover": p.secondary_ignores_cover,
+                            "heavy": p.secondary_heavy,
+                            "assault": p.secondary_assault,
+                            "torrent": p.secondary_torrent,
+                            "blast": p.secondary_blast,
+                            "anti_keywords": tuple(p.secondary_anti_keywords or ()),
+                        },
+                    })
+
+                # MAP-1: extra ranged profiles (3rd, 4th, 5th, ...). Each is
+                # stored as a tuple of (key, value) pairs so the field stays
+                # hashable; convert back to a dict before reading fields.
+                for extra in (p.extra_ranged_profiles or ()):
+                    ed_fields = dict(extra)
+                    ex_range = float(ed_fields.get("range_inches", 0) or 0)
+                    ex_in_range = distance <= 0 or distance <= ex_range
+                    ex_attacks = max(1, int(ed_fields.get("attacks", 1) or 1))
+                    ex_ed = (
+                        _profile_expected_damage(
+                            ex_attacks,
+                            float(ed_fields.get("weapon_damage_per_shot", 1.0) or 1.0),
+                            float(ed_fields.get("hit_probability", 0.0) or 0.0),
+                            int(ed_fields.get("ap", 0) or 0),
+                            int(ed_fields.get("strength", 4) or 4),
+                            bool(ed_fields.get("lethal_hits", False)),
+                            int(ed_fields.get("sustained_hits", 0) or 0),
+                            bool(ed_fields.get("twin_linked", False)),
+                            bool(ed_fields.get("devastating_wounds", False)),
+                        )
+                        if ex_in_range else 0.0
+                    )
+                    candidates.append({
+                        "_ed": ex_ed,
+                        "_swap": {
+                            "attacks": ex_attacks,
+                            "weapon_damage_per_shot": float(
+                                ed_fields.get("weapon_damage_per_shot", 1.0) or 1.0
+                            ),
+                            "hit_probability": float(
+                                ed_fields.get("hit_probability", 0.0) or 0.0
+                            ),
+                            "ap": int(ed_fields.get("ap", 0) or 0),
+                            "strength": int(ed_fields.get("strength", 4) or 4),
+                            "range_inches": int(
+                                ed_fields.get("range_inches", p.range_inches)
+                                or p.range_inches
+                            ),
+                            "lethal_hits": bool(ed_fields.get("lethal_hits", False)),
+                            "sustained_hits": int(ed_fields.get("sustained_hits", 0) or 0),
+                            "twin_linked": bool(ed_fields.get("twin_linked", False)),
+                            "devastating_wounds": bool(
+                                ed_fields.get("devastating_wounds", False)
+                            ),
+                            "rapid_fire": int(ed_fields.get("rapid_fire", 0) or 0),
+                            "melta": int(ed_fields.get("melta", 0) or 0),
+                            "ignores_cover": bool(ed_fields.get("ignores_cover", False)),
+                            "heavy": bool(ed_fields.get("heavy", False)),
+                            "assault": bool(ed_fields.get("assault", False)),
+                            "torrent": bool(ed_fields.get("torrent", False)),
+                            "blast": bool(ed_fields.get("blast", False)),
+                            "anti_keywords": tuple(
+                                (ed_fields.get("anti_keywords") or {}).items()
+                                if isinstance(ed_fields.get("anti_keywords"), dict)
+                                else (ed_fields.get("anti_keywords") or ())
+                            ),
+                        },
+                    })
+
+                # Pick the highest-ED candidate. Tie-break favours the primary
+                # (first in the list) so behaviour is deterministic when two
+                # profiles are scored equally.
+                best_idx = max(
+                    range(len(candidates)),
+                    key=lambda i: (candidates[i]["_ed"], -i),
                 )
-                if sec_ed > pri_ed:
-                    # Swap to the secondary stat block for the rest of this
-                    # resolution. dataclasses.replace clones the profile so
-                    # self.profile remains untouched (immutable contract).
+                if candidates[best_idx]["_swap"] is not None:
+                    # Swap to the chosen profile's stat block for the rest of
+                    # this resolution. dataclasses.replace clones so
+                    # self.profile is untouched (immutable contract).
                     from dataclasses import replace
-                    p = replace(
-                        p,
-                        attacks=max(1, int(p.secondary_attacks)),
-                        weapon_damage_per_shot=p.secondary_weapon_damage_per_shot,
-                        hit_probability=p.secondary_hit_probability,
-                        ap=p.secondary_ap,
-                        strength=p.secondary_strength,
-                        range_inches=p.secondary_range_inches or p.range_inches,
-                        lethal_hits=p.secondary_lethal_hits,
-                        sustained_hits=p.secondary_sustained_hits,
-                        twin_linked=p.secondary_twin_linked,
-                        devastating_wounds=p.secondary_devastating_wounds,
-                        rapid_fire=p.secondary_rapid_fire,
-                        melta=p.secondary_melta,
-                        ignores_cover=p.secondary_ignores_cover,
-                        heavy=p.secondary_heavy,
-                        assault=p.secondary_assault,
-                        torrent=p.secondary_torrent,
-                        blast=p.secondary_blast,
-                        anti_keywords=tuple(p.secondary_anti_keywords or ()),
-                    )
+                    p = replace(p, **candidates[best_idx]["_swap"])
             per_shot_dmg = p.per_shot_damage
             n_attacks = max(1, int(p.attacks))
             hit_target = None     # set below
@@ -2160,6 +2250,19 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             secondary_assault=entry.secondary_assault,
             secondary_torrent=entry.secondary_torrent,
             secondary_blast=entry.secondary_blast,
+            # MAP-1: TERTIARY and beyond ranged profiles (Knight Castellan
+            # 5-weapon, etc.). Stored on the CatalogEntry as a list of dicts;
+            # flatten into a tuple-of-(key, value) pairs so the UnitProfile
+            # dataclass stays HASHABLE (required by functools.lru_cache on
+            # roles.expected_ranged_dpa et al). Any nested dict value (like
+            # anti_keywords) is itself converted to a tuple of items.
+            extra_ranged_profiles=tuple(
+                tuple(
+                    (k, (tuple(sorted(v.items())) if isinstance(v, dict) else v))
+                    for k, v in prof.items()
+                )
+                for prof in (entry.extra_ranged_profiles or ())
+            ),
             points_override=entry.points_override,
             base_shape=entry.base_shape,
             base_diameter_mm=entry.base_diameter_mm,

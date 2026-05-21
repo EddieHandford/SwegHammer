@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PARSED_PATH = REPO_ROOT / "data" / "bsdata" / "parsed.json"
@@ -128,6 +128,11 @@ class CatalogEntry:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # MAP-1: TERTIARY and beyond ranged profiles. List of dicts, each carrying
+    # the same fields as the secondary block (weapon, attacks, damage,
+    # hit_probability, ap, strength, range_inches, anti_keywords, plus the
+    # ranged keyword flags). Empty = no extras. See MappedUnit comment.
+    extra_ranged_profiles: Optional[List[Dict[str, Any]]] = None
     # 10e Movement characteristic (inches). 0 = use UnitProfile default (6.0).
     # Most BSData datasheets don't expose M numerically to the mapper, so this
     # is typically set via overrides.json (e.g. Vertus Praetors M=14"). Cited
@@ -221,6 +226,9 @@ class CatalogEntry:
             secondary_assault=bool(d.get("secondary_assault", False)),
             secondary_torrent=bool(d.get("secondary_torrent", False)),
             secondary_blast=bool(d.get("secondary_blast", False)),
+            # MAP-1: list of tertiary+ ranged profiles. Each is a dict mirroring
+            # the secondary_* fields. Missing key = no extras (most units).
+            extra_ranged_profiles=list(d.get("extra_ranged_profiles") or []),
             move=float(d.get("move", 0)),
             points_override=float(d.get("points_override", 0)),
             base_shape=str(d.get("base_shape", "circle")),
@@ -354,6 +362,12 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "secondary_assault": override.get("secondary_assault", base.secondary_assault),
         "secondary_torrent": override.get("secondary_torrent", base.secondary_torrent),
         "secondary_blast": override.get("secondary_blast", base.secondary_blast),
+        # MAP-1: tertiary+ ranged profiles — override fully replaces (rare; the
+        # mapper populates these from BSData and overrides almost never touch
+        # multi-profile lists). base value defaults to [] when None.
+        "extra_ranged_profiles": override.get(
+            "extra_ranged_profiles", base.extra_ranged_profiles or []
+        ),
         "move": override.get("move", base.move),
         "points_override": override.get("points_override", base.points_override),
         "base_shape": override.get("base_shape", base.base_shape),

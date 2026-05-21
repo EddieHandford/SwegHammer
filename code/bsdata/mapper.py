@@ -1437,6 +1437,18 @@ class MappedUnit:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # ---- MAP-1: TERTIARY+ ranged weapon profiles ----------------------------
+    # Generalises the multi-profile mapper from 2 to N. Knight Castellan fires
+    # five ranged weapons in real 10e play (Volcano Lance, Plasma Decimator,
+    # Twin Meltagun, Shieldbreaker Missiles, Twin Siegebreaker Cannon);
+    # `weapon` + `secondary_weapon` cover the two strongest, this list carries
+    # the rest (3rd, 4th, 5th, ...). Each entry is a dict with the same
+    # secondary_* stat fields, plus the weapon name and an optional
+    # anti_keywords mapping. The simulator's per-shot picker compares the
+    # expected damage of every profile (primary + secondary + each extra)
+    # against the current target / range and routes accordingly.
+    # Cited as `simulator.multi_profile_weapon_selection`.
+    extra_ranged_profiles: List[Dict] = field(default_factory=list)
     # Renderer-only base footprint. BSData doesn't encode base sizes, so we
     # derive a sensible default from the unit's keywords at map time; the
     # hand-curated override path in data/overrides.json wins for precision
@@ -1582,17 +1594,42 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     # the same profile twice). The "best" profile picked above is already
     # one weapon; the secondary is the runner-up of a different name.
     second_best: Optional[WeaponStats] = None
+    # MAP-1: tertiary+ profiles. Cap total at 5 ranged weapons per chassis to
+    # cover the worst real case (Knight Castellan = 5: Volcano Lance, Plasma
+    # Decimator, Twin Meltagun, Shieldbreaker Missiles, Twin Siegebreaker
+    # Cannon). Anything beyond the 5 strongest is dropped — heavier chassis
+    # like the Lord of Skulls cap below this anyway.
+    _MULTI_PROFILE_RANGED_CAP = 5
+    extra_weapons: List[WeaponStats] = []
     if not used_heterogeneous and gear.ranged_weapons and best is not None:
-        candidates = [
+        already_chosen = [best]
+        # Build the ranked list of remaining distinct ranged profiles.
+        remaining = [
             w for w in gear.ranged_weapons
             if w is not best
             and not (w.name == best.name and (w.range or "") == (best.range or ""))
         ]
-        if candidates:
-            second_best = max(
-                candidates,
-                key=lambda w: w.expected_damage_through_baseline(),
-            )
+        remaining_sorted = sorted(
+            remaining,
+            key=lambda w: w.expected_damage_through_baseline(),
+            reverse=True,
+        )
+        # De-duplicate by (name, range) so the same profile under different
+        # selection-entry copies doesn't get picked twice.
+        seen_keys = {(w.name, w.range or "") for w in already_chosen}
+        ranked: List[WeaponStats] = []
+        for w in remaining_sorted:
+            k = (w.name, w.range or "")
+            if k in seen_keys:
+                continue
+            seen_keys.add(k)
+            ranked.append(w)
+        if ranked:
+            second_best = ranked[0]
+            already_chosen.append(second_best)
+            # Take up to (cap - 2) more — the 3rd, 4th, 5th profiles.
+            for w in ranked[1 : _MULTI_PROFILE_RANGED_CAP - 1]:
+                extra_weapons.append(w)
     if used_heterogeneous and loadout_basket_melee:
         best_melee = weighted_basket_average(loadout_basket_melee)
     elif gear.melee_weapons:
@@ -1744,6 +1781,37 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         secondary_assault=second_best.assault if second_best else False,
         secondary_torrent=second_best.torrent if second_best else False,
         secondary_blast=second_best.blast if second_best else False,
+        # MAP-1: 3rd+ ranged profiles. Same fields as the secondary block,
+        # one dict per profile, in expected-damage-descending order so the
+        # picker sees them in priority order. Empty list = no extras.
+        # Cited as `simulator.multi_profile_weapon_selection`.
+        extra_ranged_profiles=[
+            {
+                "weapon": w.name,
+                "attacks": max(1, int(round(w.attacks))),
+                "weapon_damage_per_shot": round(w.damage, 2),
+                "hit_probability": round(w.hit_prob, 3),
+                "ap": w.ap,
+                "strength": w.strength,
+                "range_inches": (
+                    int(re.search(r"(\d+)", w.range or "").group(1))
+                    if re.search(r"(\d+)", w.range or "") else 0
+                ),
+                "anti_keywords": dict(w.anti_keywords),
+                "lethal_hits": w.lethal_hits,
+                "sustained_hits": w.sustained_hits,
+                "twin_linked": w.twin_linked,
+                "devastating_wounds": w.devastating_wounds,
+                "rapid_fire": w.rapid_fire,
+                "melta": w.melta,
+                "ignores_cover": w.ignores_cover,
+                "heavy": w.heavy,
+                "assault": w.assault,
+                "torrent": w.torrent,
+                "blast": w.blast,
+            }
+            for w in extra_weapons
+        ],
         base_shape=base_shape,
         base_diameter_mm=base_diameter,
         base_width_mm=base_width,
