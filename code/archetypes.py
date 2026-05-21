@@ -800,26 +800,59 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # not fully tournament-realistic. Follow-up: refresh BSData
         # mapper or add overrides for the missing 10e generics.
         "Pactbound Zealots": {
-            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            # BATTLELINE: cult troops (Berzerkers / Plague / Rubric) are
+            # the catalogued BATTLELINE options for CSM; vanilla
+            # Legionaries / Chosen / generic CSM Terminators / Chaos Lord
+            # in Terminator Armour remain absent in BSData v10.6.0 — log
+            # in commit and skip per AX-A constraint.
+            "chaos_space_marines_khorne_berzerkers": 2,
+            "chaos_space_marines_plague_marines": 2,
+            "chaos_space_marines_rubric_marines": 1,
+            "chaos_space_marines_noise_marines": 1,
             "chaos_space_marines_chaos_bikers": 1,
             "chaos_space_marines_obliterators": 1,
             "chaos_space_marines_mutilators": 1,
+            "chaos_space_marines_chaos_spawn": 1,
             "chaos_space_marines_helbrute": 1,
+            "chaos_space_marines_maulerfiend": 1,
+            "chaos_space_marines_venomcrawler": 1,
+            "chaos_space_marines_forgefiend": 1,
+            "chaos_space_marines_heldrake": 1,
+            "chaos_space_marines_chaos_predator_destructor": 1,
             "chaos_space_marines_chaos_rhino": 1,
+            "chaos_space_marines_master_of_executions": 1,
+            "chaos_space_marines_warpsmith": 1,
+            "chaos_space_marines_lord_discordant_on_helstalker": 1,
             "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
             "chaos_space_marines_abaddon_the_despoiler": 1,
         },
     },
     "World Eaters": {
         "Berzerker Warband": {
+            # BATTLELINE: Khorne Berzerkers is the only WE BATTLELINE
+            # entry, supplemented by Jakhals / Eightbound bricks and
+            # Daemon allies (Bloodletters / Flesh Hounds) per typical
+            # tournament builds.
             "world_eaters_khorne_berzerkers": 2,
+            "world_eaters_jakhals": 2,
             "world_eaters_eightbound": 1,
             "world_eaters_exalted_eightbound": 1,
-            "world_eaters_jakhals": 1,
+            "world_eaters_chaos_terminators": 1,
+            "world_eaters_bloodletters": 1,
+            "world_eaters_flesh_hounds": 1,
+            "world_eaters_bloodcrushers": 1,
+            "world_eaters_chaos_spawn": 1,
             "world_eaters_chaos_rhino": 1,
+            "world_eaters_helbrute": 1,
+            "world_eaters_maulerfiend": 1,
+            "world_eaters_forgefiend": 1,
+            "world_eaters_master_of_executions": 1,
+            "world_eaters_lord_on_juggernaut": 1,
+            "world_eaters_slaughterbound": 1,
+            "world_eaters_kh_rn_the_betrayer": 1,
             "world_eaters_lord_invocatus": 1,
-            "world_eaters_angron": 1,
             "world_eaters_daemon_prince_of_khorne_with_wings": 1,
+            "world_eaters_angron": 1,
         },
     },
     "Emperor's Children": {
@@ -828,14 +861,29 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # can wire it. The army_builder falls through pick_detachment_for_army
         # to the no-detachment path which is fine for archetype seeding.
         "Slaaneshi Excess": {
-            "emperor_s_children_lord_exultant": 1,
+            # BATTLELINE: Infractors + Tormentors are the EC BATTLELINE
+            # pair; supplemented by Noise Marines (flagship dakka) and
+            # Slaanesh daemon allies (Daemonettes / Seekers / Fiends)
+            # per the standalone-codex army composition.
             "emperor_s_children_infractors": 2,
-            "emperor_s_children_tormentors": 1,
+            "emperor_s_children_tormentors": 2,
+            "emperor_s_children_noise_marines": 1,
             "emperor_s_children_flawless_blades": 1,
             "emperor_s_children_chaos_terminators": 1,
+            "emperor_s_children_daemonettes": 1,
+            "emperor_s_children_seekers": 1,
+            "emperor_s_children_fiends": 1,
+            "emperor_s_children_chaos_spawn": 1,
             "emperor_s_children_chaos_rhino": 1,
+            "emperor_s_children_maulerfiend": 1,
+            "emperor_s_children_heldrake": 1,
+            "emperor_s_children_lord_exultant": 1,
+            "emperor_s_children_lord_kakophonist": 1,
+            "emperor_s_children_sorcerer": 1,
             "emperor_s_children_lucius_the_eternal": 1,
+            "emperor_s_children_keeper_of_secrets": 1,
             "emperor_s_children_daemon_prince_of_slaanesh_with_wings": 1,
+            "emperor_s_children_fulgrim": 1,
         },
     },
     "Chaos Daemons": {
