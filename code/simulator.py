@@ -3400,6 +3400,77 @@ class Battle:
             # plumbing.
             return
 
+    def _apply_dark_pacts(self, round_num: int) -> None:
+        """Chaos Space Marines Dark Pacts army rule (10e).
+
+        Verbatim Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-
+        space-marines/): "Each time a unit with this ability is selected to
+        shoot or fight, it can make a Dark Pact. If it does, it must first
+        take a Leadership test before any effects of that Dark Pact are
+        resolved; if that test is failed, that unit suffers D3 mortal
+        wounds." The unit then gains [LETHAL HITS] OR [SUSTAINED HITS 1]
+        for the phase.
+
+        Heuristic: only declare the pact when the elected attacker's base
+        DPA is high enough that the offensive uplift clearly outweighs
+        the D3 self-MW gamble. We elect the highest-DPA CSM unit per
+        round and opt in iff its base DPA >= 6 (worth it on a marquee
+        attacker like Terminators / Helbrute / Predator). The offensive
+        uplift uses the same `transient_plus_one_to_hit_shooting` /
+        `transient_plus_one_to_wound_melee` plumbing the rest of the
+        simulator already uses to approximate Lethal/Sustained Hits.
+
+        Self-damage IS modelled: roll 2D6, on failure (sum < Ld) deal
+        D3 mortal wounds via `receive_damage` (FNP-aware). Cited as
+        `simulator.dark_pacts`.
+        """
+        for army in (self.a, self.b):
+            csm_units = [
+                u for u in army.alive_units
+                if (u.profile.faction or "") == "Chaos Space Marines"
+                and u.uid not in self._battleshocked_this_round
+            ]
+            if not csm_units:
+                continue
+
+            def _dpa(u):
+                p = u.profile
+                ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+                melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+                return ranged + melee
+            attacker = max(csm_units, key=_dpa)
+            if _dpa(attacker) < 6.0:
+                # Opt out: not worth the D3 MW gamble on a weak attacker.
+                continue
+
+            # Leadership test: 2D6 >= Ld passes (same convention as the
+            # existing `_run_battleshock_phase`).
+            ld = attacker.profile.leadership
+            roll = random.randint(1, 6) + random.randint(1, 6)
+            passed = roll >= ld
+
+            # Grant the offensive uplift regardless of pass/fail (the
+            # codex wording resolves the keyword grant whether or not
+            # the Ld test passes; the test gates only the MW penalty).
+            attacker.transient_plus_one_to_hit_shooting = True
+            attacker.transient_plus_one_to_wound_melee = True
+
+            if not passed:
+                # D3 mortal wounds on the pact bearer. Mortals bypass
+                # armour/invuln but FNP applies via receive_damage.
+                d3 = random.randint(1, 3)
+                attacker.receive_damage(d3, bonus_fnp=attacker.profile.fnp)
+                if self.verbose:
+                    print(
+                        f"  DARK PACT: {attacker.profile.name} failed Ld "
+                        f"({roll} < {ld}), suffers {d3} mortal wounds"
+                    )
+            elif self.verbose:
+                print(
+                    f"  DARK PACT: {attacker.profile.name} passed Ld "
+                    f"({roll} >= {ld}), no self-damage"
+                )
+
     def _apply_psychic_phase(self) -> None:
         """End-of-round mortal-wound payload from psychic detachments.
 
@@ -4297,6 +4368,23 @@ class Battle:
         # before deciding whether to spend CP on a new batch this round.
         self._clear_transient_stratagem_flags(self.a)
         self._clear_transient_stratagem_flags(self.b)
+        # ---- Chaos Space Marines Dark Pacts (10e army rule). At the start
+        # of the round we pick at most one CSM unit to declare a Dark Pact:
+        # it gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase in
+        # return for a Leadership test that, on failure, inflicts D3
+        # mortal wounds on the pacting unit. The codex wording fires "when
+        # the unit is selected to shoot or fight"; SwegHammer's round-loop
+        # collapses this to a once-per-round elect at Command-phase start
+        # (same as Blood Tithe / Doctrina Imperatives / Oath of Moment).
+        # APPROXIMATION: Lethal Hits / Sustained Hits have no per-attack
+        # keyword toggle in SwegHammer, so the offensive uplift is routed
+        # through `transient_plus_one_to_hit_shooting` and
+        # `transient_plus_one_to_wound_melee` on the elected CSM unit —
+        # same direction and comparable magnitude as a Lethal/Sustained
+        # grant on a 3+/4+ roll. Self-damage IS modelled: 2D6>=Ld test;
+        # on failure deal D3 mortal wounds via `receive_damage` (FNP-
+        # aware). Cited as `simulator.dark_pacts`.
+        self._apply_dark_pacts(round_num)
         # Battleshock check MUST run before the stratagem dispatcher so
         # battleshocked units are excluded from "use Stratagems to affect
         # that unit" (10e core: while a unit is Battle-shocked, you cannot
