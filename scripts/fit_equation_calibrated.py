@@ -50,6 +50,43 @@ from code.units import UNIT_CATALOG
 _SNAPSHOT_PATH = pathlib.Path("data/meta_comparison_snapshot.json")
 _OUT_PATH = pathlib.Path("data/equation_calibrated_points.json")
 
+
+def _prompt_worker_count(detected_cores: int) -> Optional[int]:
+    """Show a Tkinter dialog asking how many worker processes to use.
+
+    Returns the chosen worker count, or ``None`` if Tkinter is unavailable
+    (e.g. running headless / in CI). Caller falls back to the auto-default
+    when this returns None.
+    """
+    try:
+        import tkinter as tk
+        from tkinter import simpledialog
+    except ImportError:
+        return None
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        default = max(1, detected_cores - 1)
+        msg = (
+            f"Detected {detected_cores} CPU cores.\n"
+            f"Default: {default} workers (leaves 1 core free for the OS).\n\n"
+            f"How many worker processes should the fit use?"
+        )
+        value = simpledialog.askinteger(
+            "Equation fit — worker count",
+            msg,
+            parent=root,
+            initialvalue=default,
+            minvalue=1,
+            maxvalue=detected_cores,
+        )
+        root.destroy()
+        return value if value is not None else default
+    except Exception:
+        # Any Tk failure (no display server, broken display, etc.) — quietly
+        # fall through to the CLI default.
+        return None
+
 # Must stay in sync with FX_ALL_FACTIONS in scripts/evaluate_vs_meta.py and
 # _FX_ALL_FACTIONS in app.py.
 _FX_ALL_FACTIONS = frozenset({
@@ -195,7 +232,12 @@ def main() -> None:
         pathlib.Path(args.progress) if args.progress
         else out_path.with_suffix(".progress.json")
     )
-    workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
+    detected = os.cpu_count() or 2
+    if args.workers is not None:
+        workers = args.workers
+    else:
+        prompted = _prompt_worker_count(detected)
+        workers = prompted if prompted is not None else max(1, detected - 1)
 
     trusted = load_trusted_factions(snap_path, args.threshold)
     if not trusted:
