@@ -15,7 +15,11 @@
     },
     "chaos_knights_library_knight_tyrant": {
       "invuln_save": 5,
-      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+      "extra_ranged_profiles": [
+        {"weapon": "➤ Ectoplasma decimator - supercharge", "attacks": 6, "weapon_damage_per_shot": 3.0, "hit_probability": 0.667, "ap": -4, "strength": 9, "range_inches": 36, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": false, "devastating_wounds": false, "rapid_fire": 0, "melta": 0, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": true, "pistol": false},
+        {"weapon": "Darkflame cannon", "attacks": 10, "weapon_damage_per_shot": 2.0, "hit_probability": 1.0, "ap": -1, "strength": 8, "range_inches": 18, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": false, "devastating_wounds": false, "rapid_fire": 0, "melta": 0, "ignores_cover": true, "heavy": false, "assault": false, "torrent": true, "blast": false, "pistol": false}
+      ],
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes. KNIGHT-STAT-AUDIT: composite-profile artifact fixed. Mapper emitted both Ectoplasma decimator standard (S=8 AP-3 D=2) and supercharge (S=9 AP-4 D=3) as separate extra_ranged_profiles, so MAP-MULTIFIRE doubled the ectoplasma decimator's contribution. In play the controller picks one mode per shooting phase. Override drops the standard duplicate from extra_ranged_profiles. BSData 'Chaos - Chaos Knights Library.cat.gz' profiles name='➤ Ectoplasma decimator - standard'/'- supercharge'. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Tyrant."
     },
     "chaos_knights_library_knight_abominant": {
       "invuln_save": 5,
@@ -891,7 +895,12 @@
     },
     "imperial_knights_library_knight_castellan": {
       "secondary_devastating_wounds": true,
-      "notes": "AK-1: Shieldbreaker missile launcher carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+] per BSData v10.6.0 (Range=72\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan."
+      "extra_ranged_profiles": [
+        {"weapon": "Shieldbreaker missile launcher", "attacks": 1, "weapon_damage_per_shot": 4.5, "hit_probability": 0.667, "ap": -6, "strength": 12, "range_inches": 72, "anti_keywords": {"TITANIC": 4}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": false, "devastating_wounds": true, "rapid_fire": 0, "melta": 0, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": false, "pistol": false},
+        {"weapon": "Twin meltagun", "attacks": 1, "weapon_damage_per_shot": 3.5, "hit_probability": 0.667, "ap": -4, "strength": 9, "range_inches": 12, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": true, "devastating_wounds": false, "rapid_fire": 0, "melta": 2, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": false, "pistol": false},
+        {"weapon": "Twin siegebreaker cannon", "attacks": 4, "weapon_damage_per_shot": 1.0, "hit_probability": 0.667, "ap": 0, "strength": 6, "range_inches": 36, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": true, "devastating_wounds": false, "rapid_fire": 0, "melta": 0, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": true, "pistol": false}
+      ],
+      "notes": "AK-1: Shieldbreaker missile launcher carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+] per BSData v10.6.0 (Range=72\"). KNIGHT-STAT-AUDIT: composite-profile artifact fixed. Mapper emitted both Plasma decimator standard (A=6 S=8 AP-3 D=2) and supercharge (A=6 S=9 AP-4 D=3) as separate firing profiles, so MAP-MULTIFIRE doubled the plasma decimator's contribution every turn. In play the controller picks one mode per shooting phase, not both. Override drops the 'Plasma decimator - standard' duplicate from extra_ranged_profiles (the supercharge profile already lives in secondary_weapon) and adds the missing Twin siegebreaker cannon (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Twin siegebreaker cannon': Range=36\" A=D6 BS=3+ S=6 AP=0 D=1 Keywords='Blast, Twin-Linked'). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan."
     },
     "aeldari_drukhari_drazhar": {
       "attacks": 0,
