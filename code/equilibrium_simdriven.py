@@ -67,7 +67,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .army_builder import build_homogeneous_army
+from .army_builder import build_archetype_with_seed, build_homogeneous_army
 from .equilibrium import (
     DEFAULT_ANCHOR_KEY,
     DEFAULT_ANCHOR_PER_MODEL,
@@ -190,12 +190,36 @@ class SimDrivenResult:
 # Pair measurement
 # ---------------------------------------------------------------------------
 
+VALID_BUILD_MODES = ("homogeneous", "archetype_augmented")
+
+
+def _build_side(
+    name: str,
+    profile: UnitProfile,
+    points_budget: float,
+    build_mode: str,
+    rng: random.Random,
+):
+    """Dispatch to the army builder that matches ``build_mode``.
+
+    ``homogeneous``  — legacy mono-unit list (every model is ``profile``).
+    ``archetype_augmented`` — faction archetype filling ~80% of budget,
+    topped up with the test profile so the unit's contribution registers
+    against a realistic army backbone (see CLAUDE.md project notes on the
+    equation fit's numerical-advantage bias).
+    """
+    if build_mode == "archetype_augmented":
+        return build_archetype_with_seed(name, profile, points_budget, rng=rng)
+    return build_homogeneous_army(name, profile, points_budget)
+
+
 def _measure_pair_winrate(
     profile_i: UnitProfile,
     profile_j: UnitProfile,
     n_battles: int,
     points_budget: float,
     rng: random.Random,
+    build_mode: str = "homogeneous",
 ) -> Tuple[float, int]:
     """Return ``(win_rate_of_i, settled_battle_count)``.
 
@@ -210,8 +234,8 @@ def _measure_pair_winrate(
     b_wins = 0
     settled = 0
     for _ in range(n_battles):
-        a = build_homogeneous_army("A", profile_i, points_budget)
-        b = build_homogeneous_army("B", profile_j, points_budget)
+        a = _build_side("A", profile_i, points_budget, build_mode, rng)
+        b = _build_side("B", profile_j, points_budget, build_mode, rng)
         if not a.units or not b.units:
             continue
         result = Battle(a, b, map_=DEFAULT_MAP).run()
@@ -229,7 +253,7 @@ def _measure_pair_winrate(
 
 
 def _pair_job(
-    args: Tuple[int, int, "UnitProfile", "UnitProfile", int, float, int],
+    args: Tuple[int, int, "UnitProfile", "UnitProfile", int, float, int, str],
 ) -> Tuple[int, int, float, int]:
     """Process-pool worker: measure win-rate for one unit pair.
 
@@ -239,9 +263,11 @@ def _pair_job(
 
     Returns (i, j, r_ij, settled_battles).
     """
-    i, j, profile_i, profile_j, n_battles, budget, seed = args
+    i, j, profile_i, profile_j, n_battles, budget, seed, build_mode = args
     rng = random.Random(seed)
-    r_ij, settled = _measure_pair_winrate(profile_i, profile_j, n_battles, budget, rng)
+    r_ij, settled = _measure_pair_winrate(
+        profile_i, profile_j, n_battles, budget, rng, build_mode,
+    )
     return i, j, r_ij, settled
 
 
@@ -275,6 +301,7 @@ def _config_hash(
     points_budget: float,
     anchor_key: str,
     anchor_per_model: float,
+    build_mode: str = "homogeneous",
 ) -> str:
     """Stable hash of the run config — used to reject mismatched checkpoints."""
     payload = json.dumps(
@@ -284,6 +311,7 @@ def _config_hash(
             "budget": round(float(points_budget), 4),
             "anchor_key": anchor_key,
             "anchor_per_model": round(float(anchor_per_model), 4),
+            "build_mode": build_mode,
         },
         sort_keys=True,
     )
@@ -348,6 +376,7 @@ def _write_checkpoint_header(
     points_budget: float,
     anchor_key: str,
     anchor_per_model: float,
+    build_mode: str = "homogeneous",
 ) -> None:
     """Write the JSONL header line. Caller is responsible for opening append-mode after."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -358,6 +387,7 @@ def _write_checkpoint_header(
         "budget": points_budget,
         "anchor_key": anchor_key,
         "anchor_per_model": anchor_per_model,
+        "build_mode": build_mode,
         "n_measured": len(measured_keys),
         "started_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
     }
@@ -419,6 +449,7 @@ def compute_phase_simdriven(
     checkpoint_path: Optional[Path] = None,
     progress_path: Optional[Path] = None,
     resume: bool = False,
+    build_mode: str = "homogeneous",
 ) -> SimDrivenResult:
     """Run the sim-driven equilibrium solve over ``measured_keys``.
 
@@ -485,6 +516,11 @@ def compute_phase_simdriven(
     t_start = time.time()
     battles_run = 0
 
+    if build_mode not in VALID_BUILD_MODES:
+        raise ValueError(
+            f"Unknown build_mode {build_mode!r}; expected one of {VALID_BUILD_MODES}"
+        )
+
     # Symmetric loop: measure (i, j) for i < j, infer R[j, i] = -R[i, j].
     if max_workers is not None and max_workers > 1:
         # Parallel path — distribute pair jobs across worker processes.
@@ -492,12 +528,13 @@ def compute_phase_simdriven(
         # dataclass and is picklable on the Windows spawn start method.
 
         # --- Resume from checkpoint ---------------------------------------
-        # The hash pins config (measured_keys, n_battles, budget, anchor).
-        # If the checkpoint's stored hash mismatches, _load_checkpoint
-        # raises rather than silently mixing data from a different run.
+        # The hash pins config (measured_keys, n_battles, budget, anchor,
+        # build_mode). If the checkpoint's stored hash mismatches,
+        # _load_checkpoint raises rather than silently mixing data from a
+        # different run.
         cfg_hash = _config_hash(
             valid_measured, n_battles, points_budget,
-            anchor_key, anchor_per_model,
+            anchor_key, anchor_per_model, build_mode,
         )
         completed_pairs: Dict[Tuple[int, int], Tuple[float, int]] = {}
         if resume and checkpoint_path is not None:
@@ -523,6 +560,7 @@ def compute_phase_simdriven(
             _write_checkpoint_header(
                 checkpoint_path, cfg_hash, valid_measured,
                 n_battles, points_budget, anchor_key, anchor_per_model,
+                build_mode,
             )
 
         jobs = []
@@ -535,7 +573,7 @@ def compute_phase_simdriven(
                     i, j,
                     catalog[valid_measured[i]],
                     catalog[valid_measured[j]],
-                    n_battles, points_budget, seed,
+                    n_battles, points_budget, seed, build_mode,
                 ))
         total_pairs = n * (n - 1) // 2
         done = len(completed_pairs)  # count resumed pairs as already done
@@ -599,7 +637,7 @@ def compute_phase_simdriven(
                 key_j = valid_measured[j]
                 u_j = catalog[key_j]
                 r_ij, settled = _measure_pair_winrate(
-                    u_i, u_j, n_battles, points_budget, rng,
+                    u_i, u_j, n_battles, points_budget, rng, build_mode,
                 )
                 battles_run += settled
                 if settled == 0:

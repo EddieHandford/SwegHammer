@@ -241,6 +241,20 @@ def main() -> None:
         ),
     )
     ap.add_argument(
+        "--build-mode",
+        type=str,
+        default="archetype_augmented",
+        choices=["homogeneous", "archetype_augmented"],
+        help=(
+            "How each side's army is built per battle. `homogeneous` is the "
+            "legacy mono-unit list (every model is the test unit). "
+            "`archetype_augmented` builds the unit's faction archetype to "
+            "~80%% of budget and tops up with extra copies of the test "
+            "unit, so the unit is measured in a realistic army context. "
+            "Default: archetype_augmented."
+        ),
+    )
+    ap.add_argument(
         "--resume", action="store_true",
         help=(
             "Resume from an existing checkpoint at --checkpoint. The "
@@ -325,6 +339,7 @@ def main() -> None:
         checkpoint_path=checkpoint_path,
         progress_path=progress_path,
         resume=args.resume,
+        build_mode=args.build_mode,
     )
     print()  # newline after progress bar
 
@@ -346,6 +361,7 @@ def main() -> None:
         "budget_per_side": args.budget,
         "anchor_key": args.anchor_key,
         "anchor_per_model": args.anchor_pts,
+        "build_mode": args.build_mode,
         "units_sim_fitted": sim_count,
         "units_phase1_fallback": fallback_count,
         "prices": prices,

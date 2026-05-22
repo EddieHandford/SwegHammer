@@ -138,6 +138,67 @@ def build_random_army(
     return army
 
 
+def build_archetype_with_seed(
+    name: str,
+    seed_profile: UnitProfile,
+    points_budget: float,
+    rng: Optional[random.Random] = None,
+    in_cover: bool = False,
+    seed_fraction: float = 0.20,
+) -> Army:
+    """
+    Build a curated archetype army for ``seed_profile.faction``, then top up
+    the remaining budget with extra copies of ``seed_profile``.
+
+    Used by the sim-driven equation fit's archetype-augmented mode. Replaces
+    the mono-unit ``build_homogeneous_army`` so each side fights with a
+    realistic army composition around the unit being measured, rather than
+    a 125-Intercessor numerical-advantage list against a 5-C'tan list.
+
+    Budget split:
+      * The seed reserve is ``max(one squad of seed, seed_fraction * budget)``
+        — a premium unit whose squad costs more than 20% of budget gets
+        exactly one copy, so the seed is always represented.
+      * The archetype builder fills the remaining budget.
+      * Any rounding gap left after the archetype is topped up with extra
+        seed squads until budget runs out.
+
+    Falls back to ``build_homogeneous_army(seed_profile, ...)`` when the
+    seed profile's faction has no archetype defined — keeps the function
+    safe to call for any unit.
+    """
+    from .archetypes import build_archetype_army, has_archetype
+
+    if rng is None:
+        rng = random.Random()
+
+    faction = seed_profile.faction or ""
+    seed_squad_cost = (
+        seed_profile.points_per_squad
+        if seed_profile.points_per_squad > 0
+        else seed_profile.points_cost
+    )
+
+    if not faction or not has_archetype(faction) or seed_squad_cost <= 0:
+        return build_homogeneous_army(name, seed_profile, points_budget, in_cover)
+
+    seed_reserve = max(seed_squad_cost, seed_fraction * points_budget)
+    archetype_budget = max(0.0, points_budget - seed_reserve)
+
+    army = build_archetype_army(
+        name, faction, archetype_budget,
+        rng=rng, in_cover=in_cover,
+    )
+
+    # Top up with seed squads until the next squad would overflow budget.
+    squad_size = max(1, seed_profile.min_models)
+    while army.total_points + seed_squad_cost <= points_budget:
+        for _ in range(squad_size):
+            army.add_unit(seed_profile)
+
+    return army
+
+
 def build_homogeneous_army(
     name: str,
     profile: UnitProfile,
