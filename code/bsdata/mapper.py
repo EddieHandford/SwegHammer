@@ -1336,6 +1336,11 @@ class MappedUnit:
     ap: int
     save: int                # 2-6, or 7 for no save
     points_listed: float     # BSData cost (for the minimum-size squad if it scales)
+    # 10e Move characteristic in inches (parsed from BSData's "M" stat).
+    # 0 = "missing" — should never reach the simulator because the
+    # downstream loader / UnitProfile build is supposed to surface that as
+    # a data-quality error rather than silently substituting M6.
+    move: int = 0
     min_models: int = 1
     max_models: int = 1
     # Stat-line attacker / defender numbers for the wound roll
@@ -1638,6 +1643,11 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         m = re.search(r"(\d+)", best.range or "")
         primary_range = int(m.group(1)) if m else 24
     base_shape, base_diameter, base_width, base_length = _derive_base_footprint(list(unit_kw))
+    # Parse Movement from the unit profile stat line. BSData stores "M" as a
+    # string like '8"', '12"', '5'. We take the first integer. Empty / dash /
+    # unparseable → 0, which is the "missing-data" signal for the loader.
+    _move_match = _INT_RE.search(stats.movement or "")
+    move_inches = int(_move_match.group(0)) if _move_match else 0
     return MappedUnit(
         key=key,
         name=name,
@@ -1648,6 +1658,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         ap=primary.ap,
         save=stats.save,
         points_listed=points,
+        move=move_inches,
         min_models=min_m,
         max_models=max_m,
         strength=primary.strength,
