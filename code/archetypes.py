@@ -368,11 +368,24 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #   - https://www.goonhammer.com/detachment-focus-subterranean-assault/
         #   - https://www.belloflostsouls.net/2026/05/warhammer-40k-the-unbeatable-list-gw-open-maastricht-2026-tyranids-take-the-crown.html
         #   - https://wahapedia.ru/wh40k10ed/factions/tyranids/
+        # TYRANIDS-FIX (2026-05-22): rebalanced toward real-meta Subterranean
+        # Assault shape — 2-3 chaff anchors (Termagants/Hormagaunts/Rippers) +
+        # 2 monsters (Carnifex/Tyrannofex) + 1 leader (Hive Tyrant) + 1
+        # Zoanthrope brood. Previous template ran 4 monsters (Hive Tyrant,
+        # Trygon, Carnifex, Tyrannofex) which let the MONSTER fill cap double
+        # the wrecker count, producing monster-heavy lists that didn't match
+        # the BLoS Maastricht 2026 winning shape (chaff-anchored OC with
+        # 2 big melee monsters and Synapse leaders). Termagants & Hormagaunts
+        # bumped to 2 each so the BATTLELINE cap (max(1, template_count))
+        # admits 2 fill squads per type → 4 total. Trygon dropped to 0:
+        # post-CHARACTER-keyword-strip (see data/overrides.json) it no longer
+        # tags as a leader-host and is redundant with Carnifex/Tyrannofex as
+        # a deep-strike wrecker. Rippers added as cheap secondary-scoring chaff.
         "Subterranean Assault": {
             "tyranids_hive_tyrant": 1,
-            "tyranids_termagants": 1,
-            "tyranids_hormagaunts": 1,
-            "tyranids_trygon": 1,
+            "tyranids_termagants": 2,
+            "tyranids_hormagaunts": 2,
+            "tyranids_ripper_swarms": 1,
             "tyranids_zoanthropes": 1,
             "tyranids_carnifexes": 1,
             "tyranids_tyrannofex": 1,

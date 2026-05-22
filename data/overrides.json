@@ -777,7 +777,8 @@
     },
     "tyranids_trygon": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Trygon has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Trygon"
+      "unit_keywords": ["MONSTER"],
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Trygon has no native Feel No Pain. TYRANIDS-FIX: also stripped the BSData mapper false-positive CHARACTER keyword — the Wahapedia datasheet lists Trygon as MONSTER only (no CHARACTER), so the spurious CHARACTER keyword was tripping CHARACTER-only buffs (Lone Operative gating, leader-aura host-key checks). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Trygon"
     },
     "tyranids_tervigon": {
       "fnp": 7,
