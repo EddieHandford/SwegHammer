@@ -892,6 +892,43 @@
     "imperial_knights_library_knight_castellan": {
       "secondary_devastating_wounds": true,
       "notes": "AK-1: Shieldbreaker missile launcher carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+] per BSData v10.6.0 (Range=72\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan."
+    },
+    "aeldari_drukhari_drazhar": {
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "melee_attacks": 4,
+      "melee_damage_per_shot": 2,
+      "melee_strength": 6,
+      "melee_ap": -3,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had melee A6 S6 AP-2 D3 on a phantom 'Single Blade' demiklaive profile and duplicated those stats into the ranged basket — but Drazhar has no ranged weapon and his real demiklaives have two stance profiles. Restoring Strike stance (the higher-damage, lower-volume profile, which is the threat the simulator should prioritise): The Executioner's demiklaives - Strike: A4 S6 AP-3 D2 [PRECISION]. Sweep profile is A8 S5 AP-2 D1 — equal damage budget (A times D = 8) so picking Strike loses nothing in expected damage and matches the actual datasheet. Zeroing ranged so the mapper-inflated phantom ranged basket stops contributing. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Drazhar"
+    },
+    "adeptus_custodes_custodian_wardens": {
+      "melee_strength": 7,
+      "melee_damage_per_shot": 2,
+      "melee_ap": -2,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Custodian Wardens melee A4 S9 AP-1 D2.83 — strength and ap inflated, damage averaged across phantom subprofiles. Real datasheet (castellan axe, melee): A4 S7 AP-2 D2. Ranged castellan axe (A2 S4 AP-1 D2) is already correct in parsed.json and left untouched. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
+    },
+    "leagues_of_votann_hekaton_land_fortress": {
+      "strength": 14,
+      "weapon_damage_per_shot": 6,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 — strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
+    },
+    "leagues_of_votann_sagitaur": {
+      "strength": 14,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Sagitaur ranged S12 — no Sagitaur weapon is S12. Real HYLas beam cannon: A2 S14 AP-3 D6 [HEAVY]. Restoring S14. Damage 4.5 left untouched as a defensible D6-average blend across the L7 missile and HYLas profiles. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Sagitaur"
+    },
+    "thousand_sons_magnus_the_red": {
+      "weapon_damage_per_shot": 2,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Magnus ranged A6 D3 AP-2 — D3 does not match any of Magnus's three ranged profiles. Tzeentchian Pyre: D6 S9 AP-2 D2; Tzeentch's Firestorm: 2D6 S6 AP-2 D2 [Devastating Wounds]. Restoring D2 to match the dominant Tzeentchian Pyre and Firestorm damage value. attacks=6 left untouched (Pyre D6 averaged to 3.5 plus Firestorm 2D6 averaged to 7 means a blended 6 is defensible). Melee Blade of Magnus (S16 AP-4 D6 Devastating) lives in the melee basket and is untouched. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-The-Red"
+    },
+    "death_guard_mortarion": {
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Mortarion ranged A6 S7 AP-1 D1 — that is the Reaping Volley shooting profile in isolation, but the mapper layered Silence's Devastating Wounds keyword onto it and Bell of Lost Souls's sustained hits onto the unit. Silence is melee only: A8 S14 AP-3 D3 [Devastating Wounds]. Zeroing the ranged basket so the simulator does not double-count Mortarion's threat: he is a melee monster, the Reaping Volley is a minor secondary, and conflating its keywords with Silence has been inflating his damage budget. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
+    },
+    "death_guard_plagueburst_crawler": {
+      "lethal_hits": false,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] — only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
     }
   }
 }
