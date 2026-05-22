@@ -1431,6 +1431,12 @@ class MappedUnit:
     # Lone Operative (10e core ability) — ranged attackers must be within 12"
     # to target this unit. Parsed via `extract_lone_operative` from BSData.
     lone_operative: bool = False
+    # FIGHTS FIRST datasheet keyword — unit fights in the Fights First step
+    # of the Fight phase (alongside chargers) rather than the Remaining
+    # Combats step. Parsed via `extract_fights_first` from BSData. Cited as
+    # `simulator.fights_first_keyword`. Real 10e datasheets with this
+    # keyword: Wyches, Howling Banshees, Custodian Wardens, Mandrakes, etc.
+    fights_first: bool = False
     # Phase I — deployment abilities (parsed from unit-level infoLinks)
     deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
     scout_distance: int = 0                       # pre-game Normal Move up to N"
@@ -1731,6 +1737,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     fnp = extract_fnp(entry, reg)
     stealth = extract_stealth(entry, reg)
     lone_operative = extract_lone_operative(entry, reg)
+    fights_first = extract_fights_first(entry, reg)
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
     firing_deck = extract_firing_deck(entry)
@@ -1820,6 +1827,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         one_shot=primary.one_shot,
         stealth=stealth or primary.stealth,
         lone_operative=lone_operative,
+        fights_first=fights_first,
         deep_strike=bool(deployment["deep_strike"]),
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),
@@ -2492,6 +2500,42 @@ def extract_lone_operative(entry: ET.Element, reg: Registry) -> bool:
             return True
     for prof in entry.findall(".//profile"):
         if (prof.get("name") or "").strip().lower() == "lone operative":
+            return True
+    return False
+
+
+def extract_fights_first(entry: ET.Element, reg: Registry) -> bool:
+    """True iff the unit has the FIGHTS FIRST datasheet keyword.
+
+    Per Wahapedia 10e core rules (Fight phase, "Fights First" step:
+    https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase):
+    "All eligible units that have the FIGHTS FIRST ability must fight in
+    the Fights First step. Then, in the Remaining Combats step, all other
+    eligible units fight." Datasheets carrying this keyword (Wyches,
+    Howling Banshees, Custodian Wardens, Mandrakes, etc.) gain the
+    benefit every Fight phase — not just on the turn they charged.
+
+    BSData publishes FIGHTS FIRST in two structural shapes — a shared-rule
+    infoLink named "Fights First" attached to the datasheet, or an inline
+    profile named "Fights First". A handful of datasheets only mention the
+    phrase in the unit's "Abilities" characteristic prose ("This unit has
+    the FIGHTS FIRST ability."); detect that as a fallback. Detection
+    mirrors `extract_stealth` / `extract_lone_operative` for the
+    structured shapes, then adds prose scanning for the third shape.
+    Cited as `simulator.fights_first_keyword`.
+    """
+    for il in entry.findall(".//infoLink"):
+        if (il.get("name") or "").strip().lower() == "fights first":
+            return True
+    for prof in entry.findall(".//profile"):
+        if (prof.get("name") or "").strip().lower() == "fights first":
+            return True
+    # Prose fallback — some datasheets inline the keyword in their
+    # Abilities characteristic text rather than via a structured
+    # infoLink. Match the exact uppercase keyword to avoid false
+    # positives from descriptive sentences.
+    for ch in entry.findall(".//characteristic"):
+        if ch.text and "FIGHTS FIRST" in ch.text:
             return True
     return False
 

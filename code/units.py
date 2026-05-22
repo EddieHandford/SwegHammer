@@ -311,6 +311,12 @@ class UnitProfile:
     # profile is attached to the datasheet. Cited as
     # `simulator.lone_operative`.
     lone_operative: bool = False
+    # FIGHTS FIRST datasheet keyword (10e core, Fight phase priority). When
+    # True, this unit fights in the Fights First step of the Fight phase
+    # alongside chargers, ahead of the Remaining Combats step. Parsed from
+    # BSData by the mapper via `extract_fights_first`. Cited as
+    # `simulator.fights_first_keyword`.
+    fights_first: bool = False
     # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
     deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
@@ -2542,6 +2548,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             one_shot=entry.one_shot,
             stealth=entry.stealth,
             lone_operative=entry.lone_operative,
+            fights_first=getattr(entry, "fights_first", False),
             deep_strike=entry.deep_strike,
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,

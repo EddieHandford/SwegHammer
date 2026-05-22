@@ -89,6 +89,10 @@ class CatalogEntry:
     # Lone Operative (10e core ability) — can only be targeted by ranged
     # attacks from within 12". Parsed from BSData "Lone Operative" infoLinks.
     lone_operative: bool = False
+    # FIGHTS FIRST datasheet keyword — unit fights in the Fights First step
+    # of the Fight phase. Parsed from BSData "Fights First" infoLinks /
+    # inline profiles. Cited as `simulator.fights_first_keyword`.
+    fights_first: bool = False
     # Phase I — deployment abilities
     deep_strike: bool = False
     scout_distance: int = 0
@@ -218,6 +222,7 @@ class CatalogEntry:
             one_shot=bool(d.get("one_shot", False)),
             stealth=bool(d.get("stealth", False)),
             lone_operative=bool(d.get("lone_operative", False)),
+            fights_first=bool(d.get("fights_first", False)),
             deep_strike=bool(d.get("deep_strike", False)),
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
@@ -366,6 +371,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "one_shot": override.get("one_shot", base.one_shot),
         "stealth": override.get("stealth", base.stealth),
         "lone_operative": override.get("lone_operative", base.lone_operative),
+        "fights_first": override.get("fights_first", base.fights_first),
         "deep_strike": override.get("deep_strike", base.deep_strike),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),

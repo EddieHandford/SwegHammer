@@ -134,7 +134,15 @@
     "rule_name": "Fight phase — Fights First step",
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
-    "trigger": "active player's Fight phase pass; chargers (units with uid in `_charging_this_round`) are sorted ahead of non-chargers before the per-unit `_do_fight` loop. Does NOT yet model the FIGHTS FIRST ability on non-charging datasheets (Wyches, Custodian Wardens, etc.) — that requires a profile-level `fights_first` flag and is deferred."
+    "trigger": "active player's Fight phase pass; chargers (units with uid in `_charging_this_round`) are sorted ahead of non-chargers before the per-unit `_do_fight` loop. Datasheet-level FIGHTS FIRST keyword is handled separately via `simulator.fights_first_keyword`."
+  },
+  "simulator.fights_first_keyword": {
+    "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units whose UnitProfile has `fights_first=True` are tiered into the Fights First step alongside chargers (sort key 0), ahead of remaining combats (sort key 1). The flag is set by the BSData mapper's `extract_fights_first` from a 'Fights First' infoLink / inline profile / 'FIGHTS FIRST' prose mention on the datasheet entry.",
+    "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight.",
+    "rule_name": "Fight phase — Fights First step (datasheet keyword)",
+    "scope": "keyword-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
+    "trigger": "active player's Fight phase pass; units with `profile.fights_first=True` (parsed by BSData mapper from datasheets like Wyches, Howling Banshees, Custodian Wardens, Mandrakes) are sorted into tier 0 alongside chargers via `_fight_priority` before the per-unit `_do_fight` loop."
   },
   "simulator.squad_size_durability_factor": {
     "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule \u00e2\u20ac\u201d the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",

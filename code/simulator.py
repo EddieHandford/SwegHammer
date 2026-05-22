@@ -5196,10 +5196,19 @@ class Battle:
             # whose activation_queue rank is higher could fight before the
             # charger and waste the charge's positional / buff opportunity.
             # Cited as `simulator.fights_first_chargers`.
-            ordered = sorted(
-                list(active.units),
-                key=lambda u: 0 if u.uid in self._charging_this_round else 1,
-            )
+            #
+            # FF-KEYWORD-1 — extend the priority key to also tier the
+            # datasheet-level FIGHTS FIRST keyword (Wyches, Howling Banshees,
+            # Custodian Wardens, etc.) into the Fights First step alongside
+            # chargers. Per Wahapedia datasheet text the keyword applies
+            # every Fight phase, not only the turn the unit charged.
+            # Cited as `simulator.fights_first_keyword`.
+            def _fight_priority(u):
+                charging = u.uid in self._charging_this_round
+                ff_keyword = bool(getattr(u.profile, "fights_first", False))
+                return 0 if (charging or ff_keyword) else 1
+
+            ordered = sorted(list(active.units), key=_fight_priority)
             for unit in ordered:
                 if unit.is_alive:
                     self._do_fight(unit, active, other)
