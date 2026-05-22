@@ -906,6 +906,14 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "chaos_daemons_library_keeper_of_secrets": 1,
             "chaos_daemons_library_lord_of_change": 1,
             "chaos_daemons_library_be_lakor": 1,
+            # MR-CHAOS-DAEMONS-LOCUS: each Herald wired in code/leaders.py
+            # broadcasts its god's locus aura to the attached battleline squad.
+            # Without these seeds the locus auras never fire because no
+            # Herald is ever picked into the army shape. One per god.
+            "chaos_daemons_library_bloodmaster": 1,
+            "chaos_daemons_library_poxbringer": 1,
+            "chaos_daemons_library_changecaster": 1,
+            "chaos_daemons_library_contorted_epitome": 1,
         },
     },
     "Astra Militarum": {

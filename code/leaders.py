@@ -388,6 +388,47 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("chaos_space_marines_cultist_mob",))),
     ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
+    # Chaos Daemons heralds (MR-CHAOS-DAEMONS-LOCUS, claude/sim-calibration-6).
+    # The four single-god Heralds were previously absent from this registry,
+    # which meant every Bloodletters / Plaguebearers / Pink Horrors / Daemonettes
+    # battleline squad in the Daemonic Incursion archetype seed fought without
+    # its god's locus aura. Each entry's quoted_text is verbatim from the
+    # BSData v10.6.0 datasheet (Chaos - Chaos Daemons Library.cat.gz). Citations:
+    # data/rule_citations.d/leaders.json (LeaderAbility.Bloodmaster's Locus / ...).
+    # Source (Wahapedia, fallback per CLAUDE.md §6):
+    #   https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+    ("Bloodmaster",        LeaderAbility(name="Bloodmaster's Locus",        aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("chaos_daemons_library_bloodletters",))),
+    # Poxbringer — codex ability is "successful unmodified Hit roll of 5+
+    # scores a Critical Hit" on the led Plaguebearers. SwegHammer does not
+    # currently expose a per-unit-led 5+-crit-hit flag (crit-on-5+ is a weapon
+    # ability tracked on profile, not a leader-grantable aura). The
+    # Plaguebearers' melee profile already carries [LETHAL HITS] on a 6, so
+    # the codex rule effectively expands lethals from 1/6 -> 2/6 of hits. The
+    # closest aura-flag proxy is `plus_one_to_wound=True` for the melee swarm
+    # (loose but direction-correct: more wounds get through). This proxy is
+    # called out as "(approximation)" in the citation. Plus the Feculent
+    # Despair aura is a -1 enemy battle-shock test which we don't currently
+    # gate per-leader, so it is skipped.
+    ("Poxbringer",         LeaderAbility(name="Poxbringer's Locus",         aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("chaos_daemons_library_plaguebearers",))),
+    # Changecaster — codex ability grants [SUSTAINED HITS 1] to ranged weapons
+    # on the led unit (Pink Horrors / Blue Horrors). SwegHammer's LeaderAbility
+    # has no `sustained_hits` flag, so this is proxied with `reroll_hit_ones=True`
+    # — the same proxy already used for TSON Infernal Master's [SUSTAINED HITS 1]
+    # grant (see line ~347 above). Direction-correct: both expand the per-hit-
+    # roll value, just via different math (reroll-1s = +1/6 hits, sustained-1 on
+    # a 6 = +1/6 hits). Citation flagged "(approximation)".
+    ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("chaos_daemons_library_pink_horrors",))),
+    # Contorted Epitome — Swallow Energy (Psychic) grants the led Daemonettes
+    # FNP 4+ vs mortal wounds and Psychic Attacks. SwegHammer does not tag
+    # attacks as PSYCHIC, so FNP 4 is applied army-wide (per the iter15
+    # Librarian pattern: defensive proxy, strictly stronger than the codex's
+    # restricted-trigger 4+ FNP). Horrible Fascination is a once-per-game
+    # opponent-Shooting-phase ritual with no aura-flag plumbing; skipped.
+    ("Contorted Epitome",  LeaderAbility(name="Swallow Energy",             aura_range=6.0, fnp=4,
+                                          host_keys=("chaos_daemons_library_daemonettes",))),
     # Adeptus Custodes — Shield-Captain pinned to the registry head above
     # to prevent substring-collision with the generic Marines "Captain"
     # entry. Trajann Valoris and Blade Champion live in this per-faction

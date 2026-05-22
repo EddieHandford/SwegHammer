@@ -1,6 +1,45 @@
 {
   "_comment": "Citations for every LeaderAbility entry in code/leaders.py _REGISTRY. Many of our LeaderAbility.name fields are flavour labels that do NOT match the codex — where they differ, rule_name reflects the actual 10e datasheet ability and effect tags '(approximation)' where the simulator's always-on flag is a loose translation of the real rule. Sources: Wahapedia 10e datasheets (https://wahapedia.ru/wh40k10ed/).",
 
+  "LeaderAbility.Bloodmaster's Locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Bloodmaster",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, add 1 to the Wound roll.",
+    "trigger": "Bloodmaster is leading a friendly Bloodletters unit; the led unit makes an attack",
+    "effect": "+1 to the Wound roll for the led Bloodletters squad — direct match to plus_one_to_wound=True. host_keys gated to chaos_daemons_library_bloodletters per the codex Leader entry (BSData v10.6.0, Chaos - Chaos Daemons Library.cat.gz, Bloodmaster profile: 'This model can be attached to the following unit: BLOODLETTERS').",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Poxbringer's Locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Poxbringer",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, a successful unmodified Hit roll of 5+ scores a Critical Hit.",
+    "trigger": "Poxbringer is leading a friendly Plaguebearers unit; the led unit makes an attack",
+    "effect": "(approximation) +1 to the Wound roll for the led Plaguebearers squad. The codex grants 5+ critical hits — SwegHammer has no per-leader-aura flag for expanding the critical-hit threshold (crit thresholds are a weapon-profile property, not a leader-grantable aura in current plumbing). Plaguebearers' melee profile already carries [LETHAL HITS] on a 6, so the codex rule doubles the lethals-trigger rate from 1/6 -> 2/6. plus_one_to_wound is the closest direction-correct proxy (more attacks resolve into wounds). Feculent Despair's -1 enemy battle-shock test is skipped (no per-leader battle-shock aura plumbing). host_keys gated to chaos_daemons_library_plaguebearers (BSData Poxbringer Leader profile: 'PLAGUEBEARERS').",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
+  "LeaderAbility.Changecaster's Locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Changecaster",
+    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Changecaster is leading a friendly Pink Horrors unit; the led unit makes a ranged attack",
+    "effect": "(approximation) reroll Hit rolls of 1 in aura range. The codex grants [SUSTAINED HITS 1] on the led unit's ranged weapons (+1/6 hits on a natural 6). SwegHammer's LeaderAbility has no `sustained_hits` flag, so this uses the same reroll_hit_ones proxy as TSON Infernal Master's [SUSTAINED HITS 1] grant: reroll-1s yields +1/6 hits, same numerical uplift as sustained-1-on-6, just via a different roll. host_keys gated to chaos_daemons_library_pink_horrors (BSData Changecaster Leader profile: 'PINK HORRORS, BLUE HORRORS' — Pink Horrors is the in-catalogue battleline; Blue Horrors are a sub-unit profile that doesn't surface as a separate UNIT_CATALOG key).",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
+  "LeaderAbility.Swallow Energy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Swallow Energy (Psychic)",
+    "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against mortal wounds and Psychic Attacks.",
+    "trigger": "Contorted Epitome is leading a friendly Daemonettes unit; the led unit takes a wound from a mortal wound or PSYCHIC attack",
+    "effect": "(approximation, strictly stronger than codex) FNP 4+ applied army-wide-in-aura while leading Daemonettes. The codex restricts the FNP to mortal wounds and PSYCHIC attacks; SwegHammer does not tag attacks as PSYCHIC and does not distinguish mortal-wound sources from regular wounds inside the FNP roll, so the proxy applies FNP 4+ to all incoming damage on the led unit. Same pattern as the Librarian's Mental Fortress entry. Horrible Fascination is a once-per-opponent-Shooting-phase ritual with no equivalent aura plumbing; skipped. host_keys gated to chaos_daemons_library_daemonettes (BSData Contorted Epitome Leader profile: 'DAEMONETTES').",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
   "LeaderAbility.Rites of Battle": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",
