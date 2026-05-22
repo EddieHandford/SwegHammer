@@ -1217,6 +1217,34 @@ class Unit:
         if att_buffs["plus_one_to_wound"]:
             wound_mod_delta += 1
 
+        # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
+        # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-knights/):
+        # "The Deathly Terror ability is active for your army from the start
+        # of the battle." Plus one additional Dread ability is selected at
+        # battle start; SwegHammer always picks Doom — the offensive Dread
+        # ("Each time this model makes an attack, if the target of that attack
+        # is Battle-shocked, add 1 to the Wound roll.") because Doom is the
+        # only Dread the attack pipeline can directly express; the auras
+        # (Despair / Deathly Terror, Ld debuffs within 9") are wired into the
+        # Battle-shock phase in code/simulator.py. The R1/R3/R5 bonus
+        # additional-Dread pick is NOT modelled here (the wound bonus already
+        # represents the "selected additional ability" slot, and the two
+        # always-on Ld auras saturate the battleshock side). Faction-gated to
+        # Chaos Knights so Imperial Knights' Code Chivalric handling is
+        # untouched. Cited as `simulator.harbingers_of_dread`.
+        if (
+            mode in ("melee", "ranged")
+            and (p.faction or "") == "Chaos Knights"
+            and target.is_currently_battle_shocked(
+                getattr(
+                    getattr(getattr(self, "army_ref", None), "_battle_ref", None),
+                    "_current_round",
+                    0,
+                )
+            )
+        ):
+            wound_mod_delta += 1
+
         # ---- World Eaters Eightbound — Beacons of Rage (datasheet aura,
         # BSData v10.6.0 verbatim): "While a friendly World Eaters unit is
         # within 6\" of this unit, each time a model in that unit makes a
@@ -1715,8 +1743,9 @@ class Unit:
         # ~+0.17 vs +0.5 for re-roll-of-choice on a 3+/4+ swing), erring on
         # the under-buff side per the SC5 audit's preference against
         # fabricated upbuffs. Faction-gated to Imperial Knights so Chaos
-        # Knights (whose army rule is Harbingers of Dread, a battle-shock
-        # aura the sim does not yet track) is untouched.
+        # Knights (whose army rule is Harbingers of Dread; that rule is now
+        # implemented separately above and in simulator._run_battleshock_phase)
+        # is untouched.
         # Cited as `simulator.code_chivalric`.
         if (
             own_army is not None

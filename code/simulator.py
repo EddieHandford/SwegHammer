@@ -4548,6 +4548,23 @@ class Battle:
             if shadow_of_chaos_active:
                 cx = self.map.width / 2.0
                 cy = self.map.height / 2.0
+            # Harbingers of Dread (Chaos Knights army rule, 10e). Wahapedia
+            # verbatim Deathly Terror (always-on Dread, active from R1):
+            # "While an enemy unit is within 9\" of this model, worsen the
+            # Leadership characteristic of models in that unit by 1." Every
+            # Chaos Knights datasheet has the Harbingers of Dread rule
+            # (BSData v10.6.0 confirms the infoLink is present on every CK
+            # selectionEntry), so the aura source is "any alive Chaos
+            # Knights unit in the opposing army" rather than just CHARACTERs
+            # — Chaos Knights have very few CHARACTERs and the aura is
+            # datasheet-wide. The 9" radius is the Wahapedia-verbatim range.
+            # Same convention as Shadow in the Warp (a +1 to the test
+            # target equals a -1 to Ld). Cited as
+            # `simulator.harbingers_of_dread`.
+            harbinger_sources = [
+                s for s in opponent.alive_units
+                if (s.profile.faction or "") == "Chaos Knights"
+            ]
             for u in army.alive_units:
                 if u.current_health < u.profile.health / 2.0:
                     if mob_rule_active and u.profile.faction == "Orks":
@@ -4591,6 +4608,18 @@ class Battle:
                     ):
                         shadow_of_chaos_penalty = 1
                         shadow_of_chaos_hit = True
+                    # Harbingers of Dread — Deathly Terror Ld -1 aura within
+                    # 9" of any alive enemy Chaos Knights model. Modelled as
+                    # +1 to the test target (Ld worse by 1). Gated to
+                    # non-Chaos-Knights testers, but in practice the testing
+                    # army is `army` and CK sources live on `opponent`, so a
+                    # mirror-match is already filtered structurally.
+                    harbinger_penalty = 0
+                    if harbinger_sources and any(
+                        _distance(u.position, s.position) <= 9.0
+                        for s in harbinger_sources
+                    ):
+                        harbinger_penalty = 1
                     roll = random.randint(1, 6) + random.randint(1, 6)
                     target = (
                         u.profile.leadership
@@ -4599,6 +4628,7 @@ class Battle:
                         + shadow_penalty
                         + contagion_penalty
                         + shadow_of_chaos_penalty
+                        + harbinger_penalty
                     )
                     if roll < target:
                         self._battleshocked_this_round.add(u.uid)
