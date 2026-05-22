@@ -2663,12 +2663,20 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     if name == "Doombolt":
         # ctx expects {"target": Unit, "has_psyker": bool}. Doombolt is the
         # cheapest CP spend in the codex — 1 CP for ~2 mortal wounds (median
-        # D3). Always fire when a target exists and we have a psyker.
-        # Only gate on CP affordability (already checked above).
+        # D3). ST-3: tightened to skip near-dead targets where the 2 MW
+        # payload is wasted on overkill (TSON over-performs by +17.5).
         target = ctx.get("target")
         if target is None:
             return False
         if not ctx.get("has_psyker", False):
+            return False
+        # ST-3: skip if target has < 30% HP remaining (overkill — 2 MW will
+        # land but most of it is wasted on a model that's about to die).
+        try:
+            hp_remaining_frac = target.current_health / max(1.0, target.profile.health)
+        except Exception:
+            hp_remaining_frac = 1.0
+        if hp_remaining_frac < 0.3:
             return False
         return True
 
@@ -2684,9 +2692,14 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         if not _is_heavy_target(target):
             return False
-        # Cheap enough at 1 CP — fire whenever we have a real attacker and
-        # a worthwhile target.
-        return True
+        # ST-3: require real DPA on the attacker — a +1-to-wound on a
+        # 0.5 DPA attacker is wasted CP (TSON over-performs by +17.5).
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5
 
     if name == "Glamour of Tzeentch":
         # ctx expects {"target": Unit}. 2 CP for a transient 4++ on a unit
@@ -3112,10 +3125,19 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # MW is wasted on chip damage). Doombolt itself fires whenever a
         # psyker + target exist, so this is "pay 2 CP combined this round
         # for 3 MW" — only worth it on a meaningful target.
+        # ST-3: skip if target has < 40% HP remaining — the extra MW is
+        # overkill on a near-dead model. Mirrors Doombolt's gate but
+        # tighter (this is the 2 CP combined spend). TSON over-performs.
         target = ctx.get("target")
         if target is None or not ctx.get("has_psyker", False):
             return False
-        return _is_heavy_target(target)
+        if not _is_heavy_target(target):
+            return False
+        try:
+            hp_remaining_frac = target.current_health / max(1.0, target.profile.health)
+        except Exception:
+            hp_remaining_frac = 1.0
+        return hp_remaining_frac >= 0.4
 
     # ----- Mont'ka (T'au Empire) — Strike Swiftly -----------------------
 
@@ -3239,6 +3261,10 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # ctx: {"attacker": Unit}. Transient [ASSAULT] on a RUBRICAE
         # shooter. Fire when the attacker has real ranged DPA (>= 1.0)
         # AND a meaningful cost (>= 80 — Rubric Marines squad floor).
+        # ST-3: tightened DPA bar to 1.5 — RUBRICAE squads with cheap
+        # bolters don't earn the CP back from an [ASSAULT] proxy. TSON
+        # over-performs by +17.5; tighter gates preserve CP for the
+        # high-impact Doombolt / Devastating Sorcery spends.
         attacker = ctx.get("attacker")
         if attacker is None:
             return False
@@ -3248,7 +3274,7 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             atk_cost = float(p.points_cost)
         except Exception:
             return False
-        return ranged_dpa >= 1.0 and atk_cost >= 80.0
+        return ranged_dpa >= 1.5 and atk_cost >= 80.0
 
     if name == "Infernal Fusillade":
         # ctx: {"attacker": Unit, "target": Unit}. 2 CP for a +1 to wound
@@ -3429,17 +3455,23 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     if name == "Multipotentiality":
         # ctx: {"attacker": Unit}. Assault-this-round approximation. Fire
         # for a high-cost Custodes attacker — Custodes profiles are elite
-        # so even a small brick is worth the [ASSAULT] proxy. Gate at 80
-        # pts (covers Wardens / Custodian Guard / Sagittarum) but not the
-        # 35-pt Vexilus Praetor character alone.
+        # so even a small brick is worth the [ASSAULT] proxy.
+        # ST-3: tightened to require real ranged DPA (>= 1.0) — the
+        # [ASSAULT] proxy only helps shooters that can capitalise on the
+        # advance-and-shoot. Pure melee bricks already advance for free,
+        # so CP is wasted on them. Custodes over-performs by +29.9 — the
+        # tighter gate matches Strike Swiftly's shape but with a lower
+        # cost bar (Custodes profiles are dense per-point).
         attacker = ctx.get("attacker")
         if attacker is None:
             return False
         try:
             cost = float(attacker.profile.points_cost)
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
         except Exception:
             return False
-        return cost >= 80.0
+        return cost >= 80.0 and ranged_dpa >= 1.0
 
     if name == "Archaeotech Munitions":
         # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
@@ -3464,6 +3496,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # the codex gate "below Starting Strength" maps to "HP loss > 0".
         # Cost gate prevents firing on cheap units; Custodes elite unit
         # profile costs vary but 80+ pts covers everything that matters.
+        # ST-3: tightened hp_frac to > 0.2 so we don't burn 1 CP for a
+        # single-wound chip (the codex effect is mainly meaningful when
+        # a model has actually died). Custodes over-performs by +29.9.
         target = ctx.get("target")
         if target is None:
             return False
@@ -3472,7 +3507,7 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             cost = float(target.profile.points_cost)
         except Exception:
             return False
-        return hp_frac > 0.0 and cost >= 80.0
+        return hp_frac > 0.2 and cost >= 80.0
 
     # Vigilance Eternal — no-op dispatcher (sticky-objective is per-
     # detachment-flag-gated, not per-stratagem-fire). No AI gate needed.
@@ -3554,14 +3589,20 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit on
         # an IRONKIN unit (Hearthkyn etc.). Fire when the unit has real
         # ranged DPA — cheap at 1 CP, no need for heavy-target gate.
+        # ST-3: don't fire when the attacker is already on 2+ to hit
+        # (hit_probability >= 5/6 = 0.83) — the +1 can't lift the roll
+        # any further so it's wasted CP. Votann over-performs by +23.5.
         attacker = ctx.get("attacker")
         if attacker is None:
             return False
         try:
             p = attacker.profile
             ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            hit_prob = p.hit_probability or 0.0
         except Exception:
-            ranged_dpa = 0.0
+            return False
+        if hit_prob >= 0.83:
+            return False
         return ranged_dpa >= 1.0
 
     if name == "Ancestral Sentence":
