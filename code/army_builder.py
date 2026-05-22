@@ -144,28 +144,32 @@ def build_archetype_with_seed(
     points_budget: float,
     rng: Optional[random.Random] = None,
     in_cover: bool = False,
-    seed_fraction: float = 0.20,
+    n_seed_squads: int = 1,
 ) -> Army:
     """
-    Build a curated archetype army for ``seed_profile.faction``, then top up
-    the remaining budget with extra copies of ``seed_profile``.
+    Build a curated archetype army for ``seed_profile.faction``, with
+    exactly ``n_seed_squads`` of the test unit added on top.
 
     Used by the sim-driven equation fit's archetype-augmented mode. Replaces
     the mono-unit ``build_homogeneous_army`` so each side fights with a
     realistic army composition around the unit being measured, rather than
     a 125-Intercessor numerical-advantage list against a 5-C'tan list.
 
-    Budget split:
-      * The seed reserve is ``max(one squad of seed, seed_fraction * budget)``
-        — a premium unit whose squad costs more than 20% of budget gets
-        exactly one copy, so the seed is always represented.
+    Seed sizing rule (the second-iteration design — the first iteration
+    sized the seed by budget fraction, which preserved the cost-correlated
+    numerical-advantage bias because cheap-unit seeds field 60+ models
+    while premium-unit seeds field 1).
+
+      * Reserve ``n_seed_squads * seed_squad_cost`` for the test unit.
       * The archetype builder fills the remaining budget.
-      * Any rounding gap left after the archetype is topped up with extra
-        seed squads until budget runs out.
+      * Exactly ``n_seed_squads`` squads of the seed are then added, one
+        squad at a time, even if doing so pushes the army slightly over
+        budget (ultra-premium single-model units like the Manta whose
+        squad cost exceeds the full budget still get one copy on the
+        table — without that we wouldn't be measuring them at all).
 
     Falls back to ``build_homogeneous_army(seed_profile, ...)`` when the
-    seed profile's faction has no archetype defined — keeps the function
-    safe to call for any unit.
+    seed profile's faction has no archetype defined.
     """
     from .archetypes import build_archetype_army, has_archetype
 
@@ -182,7 +186,7 @@ def build_archetype_with_seed(
     if not faction or not has_archetype(faction) or seed_squad_cost <= 0:
         return build_homogeneous_army(name, seed_profile, points_budget, in_cover)
 
-    seed_reserve = max(seed_squad_cost, seed_fraction * points_budget)
+    seed_reserve = seed_squad_cost * max(1, n_seed_squads)
     archetype_budget = max(0.0, points_budget - seed_reserve)
 
     army = build_archetype_army(
@@ -190,9 +194,13 @@ def build_archetype_with_seed(
         rng=rng, in_cover=in_cover,
     )
 
-    # Top up with seed squads until the next squad would overflow budget.
+    # Add exactly n_seed_squads squads of the seed, regardless of whether
+    # this overshoots the original budget. Cheap and premium seeds therefore
+    # contribute symmetrically (1 squad each) to the army composition; the
+    # archetype absorbs the cost difference by being smaller for expensive
+    # seeds.
     squad_size = max(1, seed_profile.min_models)
-    while army.total_points + seed_squad_cost <= points_budget:
+    for _ in range(max(1, n_seed_squads)):
         for _ in range(squad_size):
             army.add_unit(seed_profile)
 

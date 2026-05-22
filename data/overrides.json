@@ -802,6 +802,11 @@
     "tyranids_tyranid_prime_with_lash_whip": {
       "fnp": 7,
       "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyranid Prime with Lash Whip and Bonesword has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Prime-with-Lash-Whip-and-Bonesword"
+    },
+    "orks_stompa": {
+      "attacks": 14,
+      "secondary_attacks": 32,
+      "notes": "Multi-weapon override (option 1 / pass 1). The Stompa carries six ranged weapons but BSData's tree exposes only the Deffkannon (primary in the simulator: A=3D6 -> 10 shots, S14, AP-3, D6 Blast) and the Supa-gatler (secondary: 20 shots, S7, AP-1, D2, Sustained Hits 1). The other three weapon profiles are absent from the cache: 3 Big Shootas + 1 Twin Big Shoota (Rapid Fire 2, 36\", S5 AP0 D1), the Skorcha (D6 shots, 12\" Torrent, S5 AP-1 D1, Ignores Cover), and the Supa-rokkits (D6 shots, 100\", S12 AP-3 D6+2, Blast). The simulator runs Stompa with roughly 60-70%% of its real shooting output, which is the primary reason it collapses in the equation fit. As a stopgap until the mapper learns to compose multi-weapon profiles, we route the Supa-rokkits' anti-vehicle contribution into the primary slot (Deffkannon-like S14/AP-3) by bumping attacks 10 -> 14, and the Big Shootas + Twin Big Shoota + Skorcha anti-infantry contribution into the secondary slot (Supa-gatler-like S7/AP-1) by bumping attacks 20 -> 32. Keyword booleans (Blast on primary, Sustained Hits 1 on secondary) are kept as-is from BSData. The override is rough — different missing weapons have different S/AP profiles so any single-slot aggregation distorts target-type efficiency — but it lifts Stompa's expected damage from ~12 to ~17 vs a baseline Marine, which matches the Wahapedia datasheet. Source: https://wahapedia.ru/wh40k10ed/factions/orks/Stompa"
     }
   }
 }
