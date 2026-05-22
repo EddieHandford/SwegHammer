@@ -2195,6 +2195,17 @@ class Unit:
                     crit_hit = False   # torrent has no crit-on-hit
                 else:
                     roll = random.randint(1, 6)
+                    # CORE-RULE-FIX-5 — track the unmodified physical roll
+                    # separately so Crit-Hit gating only fires on the original
+                    # die. 10e core: "an unmodified Hit roll of 6 is always a
+                    # successful hit, and is known as a Critical Hit." Dice
+                    # *substituted* in by faction rules (Strands of Fate, Acts
+                    # of Faith Miracle Dice, Command Re-Roll) are replacements,
+                    # NOT original rolls, so a substituted 6 must NOT crit.
+                    # Rerolls (Twin-Linked, Oath of Moment, Fire-and-Fade)
+                    # behave differently: 10e treats the rerolled die's value
+                    # as the roll, so unmodified_roll updates after a reroll.
+                    unmodified_roll = roll
                     # Re-roll handling. Two compatible flags:
                     #   att_reroll_hit_ones: replace a natural 1 (detachment /
                     #     Judgement Tokens tier-1).
@@ -2205,8 +2216,10 @@ class Unit:
                     # another re-roll under reroll_hit_ones.
                     if att_reroll_all_hits and roll < hit_target:
                         roll = random.randint(1, 6)
+                        unmodified_roll = roll
                     elif att_reroll_hit_ones and roll == 1:
                         roll = random.randint(1, 6)
+                        unmodified_roll = roll
                     # Fire and Fade (Warhost) — transient re-roll natural 1s
                     # to hit on shooting attacks. Compose with reroll_hit_ones
                     # above but never re-roll the same die twice — both flags
@@ -2218,6 +2231,7 @@ class Unit:
                         and not att_reroll_hit_ones
                     ):
                         roll = random.randint(1, 6)
+                        unmodified_roll = roll
                     # Strands of Fate (Aeldari army rule, 10e) — Fate dice
                     # substitution on a failed Hit roll. If the attacker is an
                     # AELDARI model from an army with at least one Fate die
@@ -2271,12 +2285,16 @@ class Unit:
                     # score Critical Hits per 10e core, so the nat-6 path is
                     # gated off here. Direct-LoS shots from an Indirect Fire
                     # weapon still crit normally.
+                    # CORE-RULE-FIX-5 — gate Crit-Hit on the UNMODIFIED roll.
+                    # Strands of Fate / Acts of Faith substituted a banked die
+                    # into `roll`; per 10e core, only the original physical die
+                    # (or a rerolled replacement) can produce a Critical Hit.
                     if mode == "melee":
-                        crit_hit = (roll >= melee_crit_threshold)
+                        crit_hit = (unmodified_roll >= melee_crit_threshold)
                     elif indirect_fire_attack:
                         crit_hit = False
                     else:
-                        crit_hit = (roll == 6)
+                        crit_hit = (unmodified_roll == 6)
                 n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
                 for hit_i in range(n_hits):
@@ -2285,6 +2303,15 @@ class Unit:
                         crit_wound = False
                     else:
                         wroll = random.randint(1, 6)
+                        # CORE-RULE-FIX-5 — track the unmodified wound roll
+                        # separately so Crit-Wound gating only fires on the
+                        # original physical die (or a rerolled replacement).
+                        # 10e core: "An unmodified Wound roll of 6 is always
+                        # considered to be a successful Wound roll ... This is
+                        # known as a Critical Wound." Acts of Faith / Strands
+                        # of Fate substitutions overwrite `wroll` but must NOT
+                        # update unmodified_wroll — a substituted 6 cannot crit.
+                        unmodified_wroll = wroll
                         rerolled = False
                         # Re-roll handling for wounds. Two compatible flags:
                         #   att_reroll_all_wounds: replace ANY failure (Marines
@@ -2297,13 +2324,16 @@ class Unit:
                         # Twin-Linked.
                         if att_reroll_all_wounds and wroll < _shot_wound_target:
                             wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
                             rerolled = True
                         elif att_reroll_wound_ones and wroll == 1:
                             wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
                             rerolled = True
                         wound_succeeded = (wroll >= _shot_wound_target)
                         if not wound_succeeded and p.twin_linked and not rerolled:
                             wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
                             wound_succeeded = (wroll >= _shot_wound_target)
                             rerolled = True
                         # Universal Core Stratagem — Command Re-Roll (1 CP):
@@ -2319,6 +2349,7 @@ class Unit:
                             battle = self.army_ref._battle_ref
                             if battle.maybe_fire_command_reroll(self, target, "wound"):
                                 wroll = random.randint(1, 6)
+                                unmodified_wroll = wroll
                                 wound_succeeded = (wroll >= _shot_wound_target)
                                 rerolled = True
                         # Anti-X (10e core): "Each time an attack is made with such
@@ -2332,9 +2363,11 @@ class Unit:
                         # Critical Wound."). So a roll of >= anti_crit_threshold
                         # auto-succeeds AND is a Critical Wound — even if the
                         # roll would otherwise fail the normal S-vs-T target.
-                        # Cited as `weapon.anti_x`.
+                        # Cited as `weapon.anti_x`. Anti-X wording explicitly
+                        # references an "unmodified Wound roll of x+", so the
+                        # gate uses unmodified_wroll (CORE-RULE-FIX-5).
                         # Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#ANTI-X
-                        if wroll >= anti_crit_threshold:
+                        if unmodified_wroll >= anti_crit_threshold:
                             wound_succeeded = True
                             crit_wound = True
                         else:
@@ -2343,7 +2376,9 @@ class Unit:
                     # substitution on a failed Wound roll. Same greedy
                     # heuristic as the hit-roll branch: only spend a banked
                     # die if it converts fail -> success. Cited as
-                    # `simulator.acts_of_faith`.
+                    # `simulator.acts_of_faith`. CORE-RULE-FIX-5: the
+                    # substituted die is a replacement, NOT an unmodified
+                    # roll, so it can succeed the wound but cannot crit.
                     if (
                         not wound_succeeded
                         and p.faction == "Adepta Sororitas"
@@ -2354,7 +2389,7 @@ class Unit:
                             if sub is not None:
                                 wroll = sub
                                 wound_succeeded = True
-                                crit_wound = (wroll == 6)
+                                crit_wound = False
                     if not wound_succeeded:
                         continue
 
