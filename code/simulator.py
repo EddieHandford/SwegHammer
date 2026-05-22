@@ -5508,6 +5508,10 @@ class Battle:
             attacker_keywords=attacker.profile.unit_keywords or (),
             target_keywords=shoot_target.profile.unit_keywords or (),
         )
+        # MR-WE-3 Blood Surge — snapshot pre-shot health so we can detect a
+        # model destruction event on the defender (Khorne Berzerkers only).
+        # See `simulator.blood_surge` in rule_citations.json.
+        _blood_surge_health_before = shoot_target.current_health
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
         # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
         # TRANSPORT with embarked passengers and firing_deck > 0, up to X
@@ -5556,6 +5560,21 @@ class Battle:
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
+        # MR-WE-3 Blood Surge (Khorne Berzerkers). After this shot resolves,
+        # if the defender is a Khorne Berzerkers unit and lost one or more
+        # models from these attacks, it makes a free D6+2" reactive move
+        # ending as close as possible to the closest enemy unit. Cited as
+        # `simulator.blood_surge`. Faction-gated ("World Eaters") AND
+        # name-gated (profile.name == "Khorne Berzerkers") so Eightbound,
+        # Exalted Eightbound, Angron, and other WE datasheets DO NOT
+        # trigger. Fires per shot resolution so multiple Berzerker units
+        # each Surge from their respective shooters.
+        self._maybe_apply_blood_surge(
+            defender=shoot_target,
+            attacker_army=attacker_army,
+            health_before=_blood_surge_health_before,
+        )
+
         if self.verbose:
             alive_str = (
                 "killed" if not shoot_target.is_alive
@@ -5564,6 +5583,106 @@ class Battle:
             print(
                 f"  {attacker_army.name}: {attacker.profile.name}"
                 f" -> {shoot_target.profile.name} ({dmg:.2f} dmg, {alive_str})"
+            )
+
+    def _maybe_apply_blood_surge(
+        self,
+        defender,
+        attacker_army: Army,
+        health_before: float,
+    ) -> None:
+        """MR-WE-3 — Blood Surge reactive move for Khorne Berzerkers.
+
+        BSData v10.6.0 (Chaos - World Eaters.cat.gz), verbatim:
+          "In your opponent's Shooting phase, each time an enemy unit has
+          shot, if any models from this unit were destroyed as a result of
+          those attacks, this unit can make a Blood Surge move. To do so,
+          roll one D6 and add 2 to the roll: models in this unit move a
+          number of inches up to this result, but this unit must finish
+          that move as close as possible to the closest enemy unit."
+
+        Faction-gated to World Eaters AND name-gated to "Khorne Berzerkers"
+        — Eightbound, Exalted Eightbound, Angron etc. do NOT have this
+        ability. Triggered per shot resolution (the caller calls this once
+        per `_do_shoot` invocation), so multiple Berzerker units each Surge
+        in response to their respective shooters. Cited as
+        `simulator.blood_surge`. See data/rule_citations.json.
+
+        Movement model: roll D6+2, then close the gap to the nearest enemy
+        unit (the shooter's army's nearest unit, since that's "the closest
+        enemy unit" from the Berzerkers' point of view at the moment of
+        the shot). If the gap is larger than D6+2, advance D6+2 toward
+        the nearest enemy via `_move_toward`. If the gap is smaller, move
+        directly INTO engagement range (1.0" gap) so the Berzerkers
+        translate the surge into a melee threat the same turn — which is
+        the rule's intent ("finish as close as possible to the closest
+        enemy unit"). Engagement-range floor of 1.0" matches the
+        `_do_charge` post-charge placement and the 10e Engagement Range
+        of 1".
+        """
+        # Faction + datasheet gate.
+        if defender.profile.faction != "World Eaters":
+            return
+        if defender.profile.name != "Khorne Berzerkers":
+            return
+        if not defender.is_alive:
+            return  # whole unit wiped — nothing left to Surge
+
+        # "any models from this unit were destroyed" — gate on at least
+        # one full model worth of wounds lost across this shot resolution.
+        # `current_health` is total wounds across surviving models; a
+        # model is destroyed when the unit's health crosses a
+        # `wounds_per_model` boundary downward.
+        if defender.profile.min_models < 2:
+            return  # not a multi-model squad — defensive guard
+        wounds_per_model = defender.profile.health / defender.profile.min_models
+        if wounds_per_model <= 0:
+            return
+        models_before = int(health_before / wounds_per_model + 1e-9)
+        models_after = int(defender.current_health / wounds_per_model + 1e-9)
+        # Round up survivors: if you've taken any wounds into a model
+        # you've "wounded" but not "destroyed" it. Match the codex
+        # threshold: the floor of (lost_health / wpm) gives the count of
+        # destroyed models. Use floor of remaining health on both sides
+        # — if a model lost some-but-not-all wounds neither side counts
+        # that as destruction.
+        lost_health = max(0.0, health_before - defender.current_health)
+        models_destroyed = int(lost_health / wounds_per_model + 1e-9)
+        if models_destroyed < 1:
+            return
+
+        # Pick nearest enemy unit (from the shooting army — those are the
+        # "closest enemy" units from the Berzerkers' perspective at the
+        # moment of the surge). Fall through gracefully if there's no
+        # alive enemy (shouldn't happen since we just shot, but guard
+        # against off-board / embarked cases).
+        enemy_pool = [
+            u for u in attacker_army.alive_units
+            if getattr(u, "embarked_in", None) is None
+        ]
+        if not enemy_pool:
+            return
+        nearest = min(enemy_pool, key=lambda e: _distance(defender.position, e.position))
+        gap = _distance(defender.position, nearest.position)
+        if gap <= 0:
+            return  # already co-located, nothing to do
+
+        surge_roll = random.randint(1, 6) + 2   # D6 + 2
+        # "finish as close as possible" -> if we can reach engagement
+        # range (1.0"), stop at 1.0" gap. Otherwise advance the full
+        # surge distance toward the enemy.
+        if gap - surge_roll <= 1.0:
+            travel = max(0.0, gap - 1.0)
+        else:
+            travel = float(surge_roll)
+        old_pos = defender.position
+        new_pos = _move_toward(old_pos, nearest.position, travel, self.map)
+        defender.position = new_pos
+        if self.verbose:
+            print(
+                f"  [Blood Surge] {defender.profile.name} ({defender.uid}) "
+                f"surged {travel:.1f}\" toward {nearest.profile.name} "
+                f"(gap {gap:.1f}\" -> {_distance(new_pos, nearest.position):.1f}\")"
             )
 
     # ------------------------------------------------------------------

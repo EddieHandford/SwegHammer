@@ -119,5 +119,13 @@
     "trigger": "attacker is the World Eaters Exalted Eightbound unit; attack is melee; target has MONSTER or VEHICLE keyword",
     "effect": "+1 to the Damage characteristic of that attack",
     "scope": "keyword-gated"
+  },
+  "simulator.blood_surge": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Khorne-Berzerkers",
+    "rule_name": "Blood Surge",
+    "quoted_text": "In your opponent's Shooting phase, each time an enemy unit has shot, if any models from this unit were destroyed as a result of those attacks, this unit can make a Blood Surge move. To do so, roll one D6 and add 2 to the roll: models in this unit move a number of inches up to this result, but this unit must finish that move as close as possible to the closest enemy unit.",
+    "trigger": "defender is a World Eaters Khorne Berzerkers unit; an enemy unit has shot at it during the opponent's Shooting phase; one or more models were destroyed as a result of those attacks",
+    "effect": "the Berzerker unit makes a free reactive move of D6+2 inches toward the closest enemy unit, finishing as close as possible to it (clamped to engagement range 1\" if it can reach)",
+    "scope": "phase-gated"
   }
 }
