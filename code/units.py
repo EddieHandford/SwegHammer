@@ -1605,9 +1605,27 @@ class Unit:
                 if _tgt_imp_di == "protector":
                     hit_mod_delta -= 1
 
+            # CORE-RULE-FIX-2 — "Indirect Fire attack" trigger: ranged attack
+            # from an Indirect Fire weapon against a target not visible to the
+            # attacker. Per 10e core, such attacks (a) take -1 to Hit, (b)
+            # cannot benefit from the Heavy keyword, and (c) cannot score
+            # Critical Hits. The first leg is the standard indirect penalty;
+            # the latter two are gated on this flag and consulted further down
+            # at the crit-to-hit branch. Wahapedia:
+            # https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Indirect-Fire
+            indirect_fire_attack = (
+                p.indirect_fire and mode != "melee" and not has_los
+            )
+
             # ---- Heavy keyword: +1 to hit when shooting and the attacker did
-            # NOT move this round. Melee never benefits.
-            if p.heavy and mode != "melee" and not self.moved_this_round:
+            # NOT move this round. Melee never benefits. Indirect Fire attacks
+            # (target not visible) cannot benefit from Heavy per 10e core.
+            if (
+                p.heavy
+                and mode != "melee"
+                and not self.moved_this_round
+                and not indirect_fire_attack
+            ):
                 hit_mod_delta += 1
 
             # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
@@ -1616,7 +1634,7 @@ class Unit:
                 hit_mod_delta -= 1
 
             # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.
-            if p.indirect_fire and mode != "melee" and not has_los:
+            if indirect_fire_attack:
                 hit_mod_delta -= 1
 
             # ---- Lance: +1 to wound when this melee attack happens on a turn
@@ -2248,7 +2266,17 @@ class Unit:
                     # Shield Host Martial Ka'tah Crit-on-5+ branch lowers it to
                     # 5 for Adeptus Custodes melee attackers (see
                     # `melee_crit_threshold` setup above).
-                    crit_hit = (roll >= melee_crit_threshold) if mode == "melee" else (roll == 6)
+                    # CORE-RULE-FIX-2 — Indirect Fire attacks (ranged shot
+                    # against a target not visible to the attacker) cannot
+                    # score Critical Hits per 10e core, so the nat-6 path is
+                    # gated off here. Direct-LoS shots from an Indirect Fire
+                    # weapon still crit normally.
+                    if mode == "melee":
+                        crit_hit = (roll >= melee_crit_threshold)
+                    elif indirect_fire_attack:
+                        crit_hit = False
+                    else:
+                        crit_hit = (roll == 6)
                 n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
 
                 for hit_i in range(n_hits):
