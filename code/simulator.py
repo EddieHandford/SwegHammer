@@ -5474,10 +5474,18 @@ class Battle:
         # `is_marine_faction` (excludes Grey Knights / Custodes / Sisters);
         # the LoS+range candidates filter above means the bonus only fires
         # when the Oath target is actually reachable for this attacker.
+        # AI-8 — Transport target priority (faction-neutral): real-meta
+        # opponents shoot TRANSPORT units first to deny the embarked unit's
+        # alpha-strike disembark. The bonus is keyword-gated on the defender
+        # (TRANSPORT in unit_keywords) and stacks multiplicatively with the
+        # screen / synapse / oath chain. Empty transports get 1.8x; loaded
+        # transports get 2.2x (priority dial-up when killing the chassis
+        # also disrupts the passengers).
         from .strategy import (
             _astartes_oath_target_bonus,
             _screen_target_bonus,
             _synapse_target_bonus,
+            _transport_target_bonus,
         )
         shoot_target = min(
             pool,
@@ -5485,6 +5493,7 @@ class Battle:
                 _screen_target_bonus(u)
                 * _synapse_target_bonus(attacker, u)
                 * _astartes_oath_target_bonus(attacker, u, attacker_army)
+                * _transport_target_bonus(u)
             ),
         )
 

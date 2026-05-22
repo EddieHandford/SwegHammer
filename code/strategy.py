@@ -726,6 +726,79 @@ def _astartes_oath_target_bonus(attacker, defender, attacker_army) -> float:
 
 
 # ---------------------------------------------------------------------------
+# AI-8 — Transport target priority (faction-neutral, AI play-style)
+# ---------------------------------------------------------------------------
+# Real tournament opponents always shoot TRANSPORT units first. The reason
+# is structural: every 10e transport carries an embarked unit that will
+# disembark and alpha-strike on a future turn (Wych Cult out of a Raider /
+# Venom, Custodes Wardens out of a Land Raider, Incubi out of a Venom,
+# Sisters Battle Sisters out of an Immolator, Astartes Intercessors out of
+# a Repulsor, etc.). Destroying the transport BEFORE the disembark either
+# kills the passengers outright (if they fail the emergency disembark)
+# or strands them in an unhelpful position, denying the alpha-strike.
+# Letting the transport live for one more turn gives the embarked unit a
+# fresh delivery vector — a 50-point Raider that survives until turn 3 is
+# worth maybe 200 points of effective threat from the unit it dropped.
+#
+# The DRK-DIAG (agent a599761a1e95a00e6) audit found Drukhari over-
+# performing by +34.6 points in the simulator because opponents scored
+# the 4x Raider + 2x Venom transports the same as any other ranged target,
+# often leaving them alive into turn 3 when the Wych Cult disembarked at
+# full strength. Real-meta opponents prioritise transports as their
+# top-priority shooting target before the disembark window.
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# and has no rule_citations entry. The "rule" is the universal tournament
+# play-pattern of bracketing the disembark, not any codex text.
+#
+# Gate (faction-neutral attacker, defender-keyword-gated):
+#   - defender has TRANSPORT keyword in unit_keywords
+#   - attacker is any faction (no faction gate — every army benefits from
+#     killing the enemy's transports before the passengers disembark)
+#
+# Effect: base 1.8x bonus on the target-priority score, escalated to 2.2x
+# when the transport is currently carrying at least one passenger (the
+# "loaded" case where killing the transport disrupts the embarked unit).
+# Stacks multiplicatively with the existing screen / synapse / oath chain.
+_TRANSPORT_TARGET_BONUS: float = 1.8
+_TRANSPORT_TARGET_BONUS_LOADED: float = 2.2
+
+
+def _transport_target_bonus(defender) -> float:
+    """Return a target-priority multiplier when `defender` is a TRANSPORT.
+
+    Faction-neutral on the attacker side: every army should prioritise
+    enemy transports before their passengers disembark.
+
+    - 1.8x when defender has TRANSPORT keyword (catches the "empty
+      transport" case where the passengers already disembarked but the
+      transport itself remains a screening / firing-deck threat).
+    - 2.2x when the transport additionally has at least one passenger
+      (the alpha-strike-disrupt case — destroying the transport here
+      either kills or strands the embarked unit).
+    - 1.0x otherwise.
+
+    Returned bonus is multiplicative on the shooting picker's
+    `current_health / (... * bonus_chain)` score: a 2.2x bonus reads as
+    0.45x raw HP, biasing the `min(...)` pick toward the transport.
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return 1.0
+    keywords = getattr(profile, "unit_keywords", ()) or ()
+    if "TRANSPORT" not in keywords:
+        return 1.0
+    # `passengers` is a list on every Unit instance (see Unit.__init__ in
+    # code/units.py). An empty list means the transport is currently un-
+    # loaded — still worth the base 1.8x bias to deny screen / firing-deck
+    # value, but not the escalated 2.2x.
+    passengers = getattr(defender, "passengers", None) or ()
+    if passengers:
+        return _TRANSPORT_TARGET_BONUS_LOADED
+    return _TRANSPORT_TARGET_BONUS
+
+
+# ---------------------------------------------------------------------------
 # AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
 # ---------------------------------------------------------------------------
 # Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)
