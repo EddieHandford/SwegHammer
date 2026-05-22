@@ -42,6 +42,23 @@ _CAPTURE_INTENT = "CAPTURE"
 _STEAL_INTENT = "STEAL"
 _ENGAGE_INTENT = "ENGAGE"
 _REPOSITION_INTENT = "REPOSITION"
+# AI-9 — sacrificial chaff intent: cheap unit deliberately pushed into the
+# enemy backline to score Engage on All Fronts / Behind Enemy Lines secondary
+# victory points. Reuses _ENGAGE_INTENT-like semantics for the simulator
+# (a directed move target); the distinct label is so logs / tests can spot
+# the heuristic firing.
+_SACRIFICIAL_INTENT = "SACRIFICIAL"
+
+# AI-9 — chaff detection threshold (per-model points cost). Real-meta chaff:
+# Gretchin (3.6), Termagants (6), Cultists (5), Conscripts / Cadians /
+# Neophytes (6.5), Battle Sisters / Kroot / Strike Teams (7-10). 15 catches
+# the universe of squad-bodies-sold-cheap without tagging Intercessors (20+)
+# or even slightly-elite-but-numerous units like Tactical Marines.
+_CHAFF_MAX_POINTS_PER_MODEL: float = 15.0
+# AI-9 — only enable for units with squad of 5+ models (per-model points cost
+# of a CHARACTER under 15 is essentially impossible, but guard anyway —
+# Custodian Guard sacrifice would be terrible).
+_CHAFF_MIN_SQUAD_SIZE: int = 5
 
 
 # ---------------------------------------------------------------------------
@@ -1548,6 +1565,111 @@ def _counter_priority_uid(plan: Optional[str], enemy) -> Optional[str]:
     return max(alive, key=_dpa).uid
 
 
+def _is_chaff_unit(unit) -> bool:
+    """AI-9 — return True when `unit` is cheap-chaff that should be willing
+    to sacrifice itself to score Engage on All Fronts / Behind Enemy Lines.
+
+    Detection: per-model points cost under `_CHAFF_MAX_POINTS_PER_MODEL`
+    AND CHARACTER keyword absent. The points threshold catches the
+    universal real-meta chaff set across factions — Gretchin (3.6),
+    Termagants (6), Cultists (5), Cadians / Neophytes (6.5), Battle
+    Sisters / Kroot / Strike Teams (7-10). It excludes Intercessors
+    (20+), Custodian Guard, Plague Marines, anything that isn't sold
+    cheap. The CHARACTER guard is belt-and-braces: a sub-15-pt character
+    is essentially impossible but we'd never want to sacrifice one.
+
+    AI heuristic only — no rule_citations entry required.
+    """
+    p = unit.profile
+    pts = float(getattr(p, "points_cost", 0.0) or 0.0)
+    if pts <= 0.0 or pts >= _CHAFF_MAX_POINTS_PER_MODEL:
+        return False
+    keywords = p.unit_keywords or ()
+    if "CHARACTER" in keywords:
+        return False
+    return True
+
+
+def _friendly_already_in_enemy_dz(
+    friendly_alive, map_, own_is_army_a: bool,
+) -> bool:
+    """AI-9 — return True if any friendly unit is already standing in the
+    opponent's deployment zone. Behind Enemy Lines awards a flat 4 VP for
+    one or more units in the enemy DZ — once that's satisfied, additional
+    chaff sacrifices don't add BEL VP, so don't waste another chaff on the
+    same secondary."""
+    if not friendly_alive:
+        return False
+    if own_is_army_a:
+        # Army A's enemy DZ is high-y.
+        enemy_dz_lo = map_.height - map_.deployment_width
+        for u in friendly_alive:
+            if u.position[1] >= enemy_dz_lo:
+                return True
+    else:
+        # Army B's enemy DZ is low-y.
+        enemy_dz_hi = map_.deployment_width
+        for u in friendly_alive:
+            if u.position[1] <= enemy_dz_hi:
+                return True
+    return False
+
+
+def _sacrificial_chaff_target(
+    unit, friendly, friendly_alive, map_, unit_on_obj_ids,
+) -> Optional[Tuple[float, float]]:
+    """AI-9 — return a deep-into-enemy-territory target position when `unit`
+    is chaff and should sacrifice itself to score Engage on All Fronts /
+    Behind Enemy Lines, or None if the heuristic shouldn't fire this
+    activation.
+
+    Gates (all must pass):
+      (a) unit is chaff (per `_is_chaff_unit`).
+      (b) unit is NOT currently holding a contested objective (no
+          `unit_on_obj_ids` membership). Hold-flip protection ran earlier
+          in `pick_move_intent`; if we're past that branch, the unit is
+          either on no objective or on one whose loss isn't at stake.
+          We additionally bail when the unit IS on any objective so the
+          chaff doesn't abandon a marker it could've kept claiming.
+      (c) the enemy DZ side is known (battle back-reference present).
+      (d) no friendly is already in the enemy DZ — once BEL is locked,
+          additional chaff doesn't add VP (Engage may still benefit but
+          the marginal VP is lower; conservative gate avoids over-tagging).
+
+    Target: a point inside the enemy DZ, biased toward the half-x line
+    that the unit is currently nearest (so chaff on the LEFT half of the
+    table heads to the LEFT half of the enemy DZ, etc.). Pushing chaff
+    diagonally across the table just stretches the move into uselessness.
+    """
+    if not _is_chaff_unit(unit):
+        return None
+    # Don't abandon any objective — even uncontested objectives have OC
+    # value to friendly army positioning.
+    if unit_on_obj_ids:
+        return None
+    battle = getattr(friendly, "_battle_ref", None)
+    if battle is None:
+        return None
+    own_is_army_a = friendly is battle.a
+    if _friendly_already_in_enemy_dz(friendly_alive, map_, own_is_army_a):
+        return None
+    # Aim for the middle of the enemy DZ on the unit's current x-side,
+    # so the move stays on the unit's flank.
+    half_x = map_.width / 2.0
+    ux, _ = unit.position
+    if ux < half_x:
+        target_x = map_.width * 0.25
+    else:
+        target_x = map_.width * 0.75
+    if own_is_army_a:
+        # Army A's enemy DZ is the high-y strip. Aim for its midpoint.
+        target_y = map_.height - (map_.deployment_width * 0.5)
+    else:
+        # Army B's enemy DZ is the low-y strip. Aim for its midpoint.
+        target_y = map_.deployment_width * 0.5
+    return (target_x, target_y)
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -1646,6 +1768,18 @@ def pick_move_intent(
         if own_oc > 0 and our_oc_no_self <= their_oc < our_oc_no_self + own_oc:
             hold_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
             return hold_pos, _HOLD_INTENT
+
+    # AI-9 — sacrificial chaff toward enemy backline for Engage / BEL VP.
+    # Cheap chaff (per-model points cost under `_CHAFF_MAX_POINTS_PER_MODEL`)
+    # that isn't holding an objective should push deep into the enemy
+    # deployment zone to score the position-tracking secondaries, rather
+    # than camping mid-board. Gated so a non-chaff unit (Intercessors,
+    # Custodian Guard, Plague Marines) never sacrifices.
+    chaff_target = _sacrificial_chaff_target(
+        unit, friendly, friendly_alive, map_, unit_on_obj_ids,
+    )
+    if chaff_target is not None:
+        return chaff_target, _SACRIFICIAL_INTENT
 
     # COUNTER plan: precompute the highest-DPA enemy uid once, then weight
     # its score 1.5x in MELEE/DUAL pick.
