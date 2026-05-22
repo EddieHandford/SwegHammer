@@ -929,6 +929,38 @@
     "death_guard_plagueburst_crawler": {
       "lethal_hits": false,
       "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] — only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
+    },
+    "space_marines_infiltrator_squad": {
+      "stealth": true,
+      "notes": "SK-1: Infiltrator Squads wear Mk X Phobos Armour and carry the Stealth core unit-keyword on their 10e datasheet, but BSData's Space Marines.cat.gz attaches the Stealth shared-rule infoLink to the 'Mk X Phobos Armour' wargear entry rather than directly to the Infiltrator Squad selectionEntry, so code/bsdata/mapper.py:extract_stealth (which only matches infoLink/profile name='Stealth' on the entry itself, not on linked wargear) returns False. Wahapedia confirms the datasheet ability. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Infiltrator-Squad ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
+    },
+    "space_marines_incursor_squad": {
+      "stealth": true,
+      "notes": "SK-1: Incursor Squads wear Mk X Phobos Armour and carry the Stealth core unit-keyword on their 10e datasheet. BSData encodes Stealth on the shared 'Mk X Phobos Armour' rule rather than directly on the Incursor Squad selectionEntry, so the mapper's direct-infoLink/profile match returns False. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Incursor-Squad ; see space_marines_infiltrator_squad notes for full reasoning."
+    },
+    "space_marines_reiver_squad": {
+      "stealth": true,
+      "notes": "SK-1: Reiver Squads wear Mk X Phobos Armour and carry the Stealth core unit-keyword on their 10e datasheet. BSData encodes Stealth on the shared 'Mk X Phobos Armour' rule rather than directly on the Reiver Squad selectionEntry, so the mapper's direct-infoLink/profile match returns False. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Reiver-Squad ; see space_marines_infiltrator_squad notes for full reasoning."
+    },
+    "space_marines_lieutenant_in_phobos_armour": {
+      "stealth": true,
+      "notes": "SK-1: Lieutenant in Phobos Armour wears Mk X Phobos Armour and carries the Stealth core unit-keyword on his 10e datasheet. BSData's Space Marines.cat.gz inlines a 'Lieutenant in Phobos Armor' profile (American spelling) on the entry but does not attach a Stealth infoLink directly, so the mapper returns stealth=False. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Lieutenant-in-Phobos-Armour ; see space_marines_infiltrator_squad notes for full reasoning."
+    },
+    "space_marines_librarian_in_phobos_armour": {
+      "stealth": true,
+      "notes": "SK-1: Librarian in Phobos Armour wears Mk X Phobos Armour and carries the Stealth core unit-keyword on his 10e datasheet. Same BSData omission pattern as Lieutenant in Phobos Armour (Phobos profile inlined without a Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Librarian-in-Phobos-Armour ; see space_marines_infiltrator_squad notes for full reasoning."
+    },
+    "adeptus_mechanicus_pteraxii_skystalkers": {
+      "stealth": true,
+      "notes": "SK-1: Pteraxii Skystalkers carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet (jump-pack Skitarii skirmishers whose datasheet ability text reads 'Stealth'). BSData's Imperium - Adeptus Mechanicus.cat.gz lists infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save (5+), Pistol, Sustained Hits — but no Stealth infoLink — so code/bsdata/mapper.py:extract_stealth returns False. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Skystalkers ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
+    },
+    "adeptus_mechanicus_pteraxii_sterylizors": {
+      "stealth": true,
+      "notes": "SK-1: Pteraxii Sterylizors carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet. Same BSData omission pattern as Pteraxii Skystalkers (infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save 5+, Pistol, Sustained Hits, Ignores Cover, Torrent — but no Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Sterylizors ; see adeptus_mechanicus_pteraxii_skystalkers notes."
+    },
+    "t_au_empire_pathfinder_team": {
+      "stealth": true,
+      "notes": "SK-1: Pathfinder Team carries the Stealth core unit-keyword on its 10e T'au Empire datasheet (the 'Camo Cloaks / Stealth' wording in the unit composition section). BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry — Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not — so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
     }
   }
 }
