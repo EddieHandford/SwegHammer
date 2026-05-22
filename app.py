@@ -3428,7 +3428,12 @@ with tab_equation_fit:
                     if k is None or k not in key_to_pred:
                         continue
                     eq_total += key_to_pred[k]
-                    gw_total += profile.points_per_squad / max(1, profile.min_models) if profile.points_per_squad else 0
+                    # Use profile.points_cost (the property that falls back
+                    # to the Lanchester-derived score when points_per_squad
+                    # is 0 — Carnifexes / Ironstrider Ballistarii / 38 such
+                    # units across the catalogue) so the GW sum tracks the
+                    # actual budget the army builder spent.
+                    gw_total += float(profile.points_cost)
                 sums_eq.append(eq_total)
                 sums_gw.append(gw_total)
                 n_models_list.append(len(army.units))
