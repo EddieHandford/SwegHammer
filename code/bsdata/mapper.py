@@ -216,6 +216,19 @@ class WeaponStats:
     one_shot: bool = False       # once per battle
     # Phase H — Stealth (parsed but stored on UnitProfile, not weapon)
     stealth: bool = False
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # The MAP-3 boolean flags (lance, devastating_wounds, anti_keywords) take
+    # the UNION across the basket so heterogeneous squads (Rubric Marines,
+    # Skyweavers, Beast Snagga Boyz, Knight Castellan, AdMech Skitarii) keep
+    # the keyword visible to the picker. To prevent every shot in such a squad
+    # from firing the keyword (single-weapon model contaminating the whole
+    # unit), the simulator gates each attack with a Bernoulli draw against
+    # these fractions. Default 1.0 preserves legacy behaviour for any path
+    # that does not set them (single-weapon units, multi-profile picker swap
+    # producing a synthetic profile that already isolates the keyword).
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Dict[str, float] = field(default_factory=dict)
 
     def expected_damage_through_baseline(self) -> float:
         """Expected damage per activation against a baseline Marine."""
@@ -382,6 +395,20 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
         )
         anti[kw] = best_thresh
 
+    # MAP-3-FIX — emit basket fractions alongside the UNION booleans / dict so
+    # the simulator can Bernoulli-gate each shot. Each fraction = (sum of basket
+    # weights of weapons carrying the keyword) / total basket weight. A single
+    # heavy plague weapon in a 5-bolter squad gives fraction = 1/6 = 0.167; the
+    # simulator then only fires DEVASTATING WOUNDS on ~17% of shots, which
+    # matches reality (only 1 model in 6 carries the weapon that has it).
+    dw_fraction = _frac_true(lambda x: x.devastating_wounds)
+    lance_fraction = _frac_true(lambda x: x.lance)
+    anti_fractions: Dict[str, float] = {}
+    for kw in all_anti_kws:
+        anti_fractions[kw] = (
+            sum(w for w, x in basket if kw in (x.anti_keywords or {})) / total
+        )
+
     return WeaponStats(
         name=representative.name,
         attacks=avg_attacks,
@@ -392,6 +419,9 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
         range=representative.range,
         keywords=representative.keywords,
         anti_keywords=anti,
+        devastating_wounds_basket_fraction=dw_fraction,
+        lance_basket_fraction=lance_fraction,
+        anti_keyword_basket_fractions=anti_fractions,
         **union,  # type: ignore[arg-type]
     )
 
@@ -1473,6 +1503,16 @@ class MappedUnit:
     # against the current target / range and routes accordingly.
     # Cited as `simulator.multi_profile_weapon_selection`.
     extra_ranged_profiles: List[Dict] = field(default_factory=list)
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # See WeaponStats for the rationale. Defaults to 1.0 preserve legacy
+    # behaviour for any single-weapon unit (the keyword either fires for every
+    # shot or doesn't fire at all). Heterogeneous squads (Rubric Marines, etc.)
+    # land here with fractions < 1.0 so the simulator's Bernoulli gate fires
+    # the keyword on a proportional subset of shots. Cited as
+    # `simulator.basket_fraction_gating`.
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Dict[str, float] = field(default_factory=dict)
     # Renderer-only base footprint. BSData doesn't encode base sizes, so we
     # derive a sensible default from the unit's keywords at map time; the
     # hand-curated override path in data/overrides.json wins for precision
@@ -1734,6 +1774,20 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         melta=primary.melta,
         ignores_cover=primary.ignores_cover,
         anti_keywords=dict(primary.anti_keywords),
+        # MAP-3-FIX — propagate basket fractions from the chosen primary
+        # weapon. For single-weapon units / fallback (non-heterogeneous) path,
+        # WeaponStats defaults to 1.0 so legacy behaviour is preserved. For
+        # heterogeneous-squad units the synthetic average carries a fraction
+        # < 1.0 reflecting how much of the basket weight legitimately has the
+        # keyword.
+        devastating_wounds_basket_fraction=primary.devastating_wounds_basket_fraction,
+        # Lance is melee-only, so source from best_melee when one exists.
+        lance_basket_fraction=(
+            best_melee.lance_basket_fraction
+            if best_melee is not None
+            else primary.lance_basket_fraction
+        ),
+        anti_keyword_basket_fractions=dict(primary.anti_keyword_basket_fractions),
         heavy=primary.heavy,
         assault=primary.assault,
         torrent=primary.torrent,

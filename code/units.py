@@ -373,6 +373,18 @@ class UnitProfile:
     # extra profiles (most units). Cited as
     # `simulator.multi_profile_weapon_selection`.
     extra_ranged_profiles: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # The MAP-3 UNION (any-weapon-in-basket carries the keyword) inflates
+    # damage for heterogeneous squads (Rubric Marines, Skyweavers, Beast
+    # Snagga Boyz, AdMech Skitarii) because every shot in the synthetic
+    # average inherits the keyword. These fractions tell Unit.attack what
+    # fraction of basket weight legitimately carries the keyword, so a
+    # Bernoulli draw can gate each shot. Default 1.0 = legacy behaviour:
+    # the keyword fires on every shot. Set < 1.0 only by the mapper for
+    # heterogeneous squads. Cited as `simulator.basket_fraction_gating`.
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Tuple[Tuple[str, float], ...] = ()
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
     # ---- Renderer-only: real-world GW model base footprint ---------------
     # Informational only — the simulator's collision / range logic still
@@ -1434,8 +1446,15 @@ class Unit:
 
         # ---- Lance: +1 to wound when this melee attack happens on a turn
         # the attacker declared a charge.
-        if p.lance and mode == "melee" and is_charging:
-            wound_mod_delta += 1
+        # MAP-3-FIX — basket-fraction gating. Defer lance's wound modifier to
+        # per-shot so heterogeneous squads (Beast Snagga Boyz, Skyweavers)
+        # don't grant every shot the keyword. We record whether lance is
+        # eligible here and apply it per-shot below via Bernoulli draw against
+        # `p.lance_basket_fraction`. Single-weapon units have fraction = 1.0
+        # so the Bernoulli always fires and behaviour matches the legacy gate.
+        # Cited as `simulator.basket_fraction_gating`.
+        _lance_eligible = bool(p.lance and mode == "melee" and is_charging)
+        _lance_fraction = float(getattr(p, "lance_basket_fraction", 1.0) or 1.0)
 
         # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
         # the plain in_cover flag already grants below). Ranged shots only;
@@ -1482,14 +1501,36 @@ class Unit:
         wound_mod_clamped = max(-1, min(1, wound_mod_delta))
         hit_target = max(2, min(7, hit_target - hit_mod_clamped))
         wound_target = max(2, min(7, wound_target - wound_mod_clamped))
+        # MAP-3-FIX — pre-compute the lance-on variant of the wound target so
+        # the per-shot Bernoulli draw can pick between them without redoing
+        # the clamp math each shot. wound_target_lance applies the lance +1
+        # to the underlying delta (still subject to the ±1 cap) and clamps.
+        if _lance_eligible:
+            _wound_mod_lance_clamped = max(-1, min(1, wound_mod_delta + 1))
+            wound_target_with_lance = max(
+                2, min(7, (wound_target + wound_mod_clamped) - _wound_mod_lance_clamped),
+            )
+        else:
+            wound_target_with_lance = wound_target
 
         # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
-        anti_crit_threshold = 6
+        # MAP-3-FIX — basket-fraction gating. The MAP-3 UNION lets a single
+        # specialist weapon (Skyweaver Haywire Cannon, Beast Snagga Klaw)
+        # tag the whole synthetic basket with Anti-X. Without gating, every
+        # shot in the squad's volley would benefit from the lowered crit
+        # threshold. We collect every applicable (kw, thresh, fraction)
+        # tuple here and resolve the per-shot threshold inside the loop via
+        # a Bernoulli draw on fraction. Single-weapon units have fraction
+        # = 1.0 so the gate always fires (legacy behaviour preserved).
+        # Cited as `simulator.basket_fraction_gating`.
+        _anti_applicable: list = []  # list of (thresh:int, fraction:float)
         if p.anti_keywords and target.profile.unit_keywords:
             target_kw = set(target.profile.unit_keywords)
+            _anti_fractions = dict(getattr(p, "anti_keyword_basket_fractions", ()) or ())
             for kw, thresh in p.anti_keywords:
-                if kw in target_kw and thresh < anti_crit_threshold:
-                    anti_crit_threshold = thresh
+                if kw in target_kw:
+                    _frac = float(_anti_fractions.get(kw, 1.0) or 1.0)
+                    _anti_applicable.append((int(thresh), _frac))
 
         save_after_ap = target.profile.save - ap
         # Precision: a ranged shot at a CHARACTER target pierces concealment —
@@ -1937,6 +1978,25 @@ class Unit:
 
         total_damage = 0.0
         for _ in range(n_attacks):
+            # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
+            # weapon keywords. Lance and Anti-X resolve their per-shot value
+            # here so a heterogeneous squad's specialist-weapon keyword fires
+            # on the right proportion of shots rather than every shot. The
+            # Devastating Wounds gate is applied at its consumption site
+            # below (inside the wound-resolution branch).
+            #
+            # Lance: pick which pre-computed wound_target applies this shot.
+            if _lance_eligible and random.random() < _lance_fraction:
+                _shot_wound_target = wound_target_with_lance
+            else:
+                _shot_wound_target = wound_target
+            # Anti-X: among applicable (kw, thresh, fraction) entries, take
+            # the LOWEST threshold whose Bernoulli draw fires. If none fires,
+            # fall back to 6 (the default crit-wound threshold).
+            anti_crit_threshold = 6
+            for _thresh, _frac in _anti_applicable:
+                if _thresh < anti_crit_threshold and random.random() < _frac:
+                    anti_crit_threshold = _thresh
             # ---- Torrent: skip the to-hit roll, attack auto-hits ----
             if p.torrent:
                 crit_hit = False   # torrent has no crit-on-hit
@@ -2032,16 +2092,16 @@ class Unit:
                     # takes priority and a fired re-roll under it does not
                     # stack another re-roll under reroll_wound_ones or
                     # Twin-Linked.
-                    if att_reroll_all_wounds and wroll < wound_target:
+                    if att_reroll_all_wounds and wroll < _shot_wound_target:
                         wroll = random.randint(1, 6)
                         rerolled = True
                     elif att_reroll_wound_ones and wroll == 1:
                         wroll = random.randint(1, 6)
                         rerolled = True
-                    wound_succeeded = (wroll >= wound_target)
+                    wound_succeeded = (wroll >= _shot_wound_target)
                     if not wound_succeeded and p.twin_linked and not rerolled:
                         wroll = random.randint(1, 6)
-                        wound_succeeded = (wroll >= wound_target)
+                        wound_succeeded = (wroll >= _shot_wound_target)
                         rerolled = True
                     # Universal Core Stratagem — Command Re-Roll (1 CP):
                     # if the wound roll is still a miss AND no re-roll has
@@ -2056,7 +2116,7 @@ class Unit:
                         battle = self.army_ref._battle_ref
                         if battle.maybe_fire_command_reroll(self, target, "wound"):
                             wroll = random.randint(1, 6)
-                            wound_succeeded = (wroll >= wound_target)
+                            wound_succeeded = (wroll >= _shot_wound_target)
                             rerolled = True
                     # Anti-X (10e core): "Each time an attack is made with such
                     # a weapon against a target that has the keyword after the
@@ -2087,7 +2147,7 @@ class Unit:
                 ):
                     own_army = getattr(self, "army_ref", None)
                     if own_army is not None and own_army.has_miracle_dice():
-                        sub = own_army.pop_miracle_die_meeting(wound_target)
+                        sub = own_army.pop_miracle_die_meeting(_shot_wound_target)
                         if sub is not None:
                             wroll = sub
                             wound_succeeded = True
@@ -2096,7 +2156,23 @@ class Unit:
                     continue
 
                 tgt_fnp_buff = int(tgt_buffs["fnp"])
-                if p.devastating_wounds and crit_wound:
+                # MAP-3-FIX — Devastating Wounds basket-fraction gate. The
+                # MAP-3 UNION lets a single specialist weapon (Rubric Marines'
+                # Soulreaper Cannon, AdMech Skitarii Plasma Calivers) tag the
+                # whole squad with DW. Without gating, every crit-wound shot
+                # in the synthetic basket would skip the save. The Bernoulli
+                # draw against `devastating_wounds_basket_fraction` fires the
+                # bypass on the proportion of shots whose underlying weapon
+                # legitimately carries DW. Single-weapon units have
+                # fraction = 1.0 (legacy behaviour preserved).
+                # Cited as `simulator.basket_fraction_gating`.
+                if (
+                    p.devastating_wounds
+                    and crit_wound
+                    and random.random() < float(
+                        getattr(p, "devastating_wounds_basket_fraction", 1.0) or 1.0
+                    )
+                ):
                     target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
                     total_damage += per_shot_dmg
                     continue
@@ -2276,6 +2352,17 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
                     for k, v in prof.items()
                 )
                 for prof in (entry.extra_ranged_profiles or ())
+            ),
+            # MAP-3-FIX — basket-fraction gating. Default 1.0 preserves legacy
+            # single-weapon / non-heterogeneous behaviour; mapper sets < 1.0
+            # for heterogeneous squads. Anti-keywords dict flattened to a
+            # tuple of (kw, fraction) for hashability (same convention as
+            # anti_keywords above).
+            devastating_wounds_basket_fraction=entry.devastating_wounds_basket_fraction,
+            lance_basket_fraction=entry.lance_basket_fraction,
+            anti_keyword_basket_fractions=tuple(
+                (k, float(v))
+                for k, v in (entry.anti_keyword_basket_fractions or {}).items()
             ),
             points_override=entry.points_override,
             base_shape=entry.base_shape,

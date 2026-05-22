@@ -140,6 +140,13 @@ class CatalogEntry:
     # hit_probability, ap, strength, range_inches, anti_keywords, plus the
     # ranged keyword flags). Empty = no extras. See MappedUnit comment.
     extra_ranged_profiles: Optional[List[Dict[str, Any]]] = None
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # Defaults to 1.0 preserve legacy single-weapon behaviour. Heterogeneous
+    # squads (Rubric Marines, Skyweavers, Beast Snagga Boyz) carry values
+    # < 1.0 so Unit.attack can Bernoulli-gate keyword consumption per shot.
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Optional[Dict[str, float]] = None
     # 10e Movement characteristic (inches). 0 = use UnitProfile default (6.0).
     # Most BSData datasheets don't expose M numerically to the mapper, so this
     # is typically set via overrides.json (e.g. Vertus Praetors M=14"). Cited
@@ -237,6 +244,15 @@ class CatalogEntry:
             # MAP-1: list of tertiary+ ranged profiles. Each is a dict mirroring
             # the secondary_* fields. Missing key = no extras (most units).
             extra_ranged_profiles=list(d.get("extra_ranged_profiles") or []),
+            # MAP-3-FIX — parse basket fractions. Missing key = 1.0 (legacy:
+            # any unit predating this change keeps full-keyword behaviour).
+            devastating_wounds_basket_fraction=float(
+                d.get("devastating_wounds_basket_fraction", 1.0)
+            ),
+            lance_basket_fraction=float(d.get("lance_basket_fraction", 1.0)),
+            anti_keyword_basket_fractions=dict(
+                d.get("anti_keyword_basket_fractions") or {}
+            ),
             move=float(d.get("move", 0)),
             points_override=float(d.get("points_override", 0)),
             base_shape=str(d.get("base_shape", "circle")),
@@ -376,6 +392,20 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # multi-profile lists). base value defaults to [] when None.
         "extra_ranged_profiles": override.get(
             "extra_ranged_profiles", base.extra_ranged_profiles or []
+        ),
+        # MAP-3-FIX — basket fractions. Override path almost never sets these
+        # (the mapper computes them from BSData) but allow overrides for
+        # corner cases / hand-tuning. Default 1.0 preserves legacy behaviour.
+        "devastating_wounds_basket_fraction": override.get(
+            "devastating_wounds_basket_fraction",
+            base.devastating_wounds_basket_fraction,
+        ),
+        "lance_basket_fraction": override.get(
+            "lance_basket_fraction", base.lance_basket_fraction,
+        ),
+        "anti_keyword_basket_fractions": override.get(
+            "anti_keyword_basket_fractions",
+            base.anti_keyword_basket_fractions,
         ),
         "move": override.get("move", base.move),
         "points_override": override.get("points_override", base.points_override),
