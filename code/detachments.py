@@ -446,6 +446,34 @@ HALLOWED_MARTYRS = Detachment(
     preferred_composition="infantry",
 )
 
+BRINGERS_OF_FLAME = Detachment(
+    name="Bringers of Flame",
+    faction="Adepta Sororitas",
+    notes=(
+        "DET-VARIETY-1 (2026-05-22): real codex Bringers of Flame detachment "
+        "(Adepta Sororitas) registered as a variant pick alongside Hallowed "
+        "Martyrs so the FACTION_DETACHMENTS picker has more than one option "
+        "to roll for Sororitas. The codex detachment rule 'Fervent Purgation' "
+        "(BSData verbatim, v10.6.0): \"Ranged weapons equipped by ADEPTA "
+        "SORORITAS models from your army have the [ASSAULT] ability, and "
+        "each time an attack made with such a weapon targets a unit within "
+        "6\\\", add 1 to the Strength characteristic of that attack.\" The "
+        "rule has TWO legs: an army-wide [ASSAULT] grant on ranged weapons "
+        "(no existing Detachment flag — the closest equivalent is "
+        "MONTKA.army_wide_assault_rounds_1_3 which is round-gated to 1-3 "
+        "and faction-gated to T'au, so re-using it would be fabrication), "
+        "and a range-gated S+1 within 6\" buff (no existing flag — would "
+        "need bespoke wiring with a per-target range check in Unit.attack). "
+        "Neither leg maps to an existing transient flag without fabrication; "
+        "per the project rule 'DO NOT FABRICATE proxy flags' the detachment "
+        "ships NO-FLAG + composition-preference only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Bringers-of-Flame. "
+        "The detachment dilutes the average Sororitas WR via random "
+        "detachment-roll (was always-Hallowed-Martyrs, now 50/50 random)."
+    ),
+    preferred_composition="infantry",
+)
+
 AURIC_CHAMPIONS = Detachment(
     name="Auric Champions",
     faction="Adeptus Custodes",
@@ -535,6 +563,35 @@ SKITARII_HUNTER_COHORT = Detachment(
         "Adeptus Mechanicus to +20.7pt overperformance in the SC5-3 baseline. "
         "Removed. The detachment is still registered and its infantry "
         "composition preference is retained — list-build shape still applies."
+    ),
+    preferred_composition="infantry",
+)
+
+COHORT_CYBERNETICA = Detachment(
+    name="Cohort Cybernetica",
+    faction="Adeptus Mechanicus",
+    notes=(
+        "DET-VARIETY-1 (2026-05-22): real codex Cohort Cybernetica detachment "
+        "(Adeptus Mechanicus) registered as a variant pick alongside Skitarii "
+        "Hunter Cohort so the FACTION_DETACHMENTS picker has more than one "
+        "option to roll for Adeptus Mechanicus. The codex detachment rule "
+        "'Cyber-Psalm Programming' (BSData verbatim, v10.6.0): \"Add 2\\\" to "
+        "the Move characteristic of models in LEGIO CYBERNETICA units from "
+        "your army. In addition, unless that unit is Battle-shocked, add 1 "
+        "to the Objective Control characteristic of models in that unit.\" "
+        "Both legs are keyword-gated to LEGIO CYBERNETICA (Kastelan Robots, "
+        "Cybernetica Datasmith) — a narrow slice of the AdMech roster. "
+        "Neither leg maps to an existing Detachment flag without fabrication: "
+        "the +2\" Move would need a unit-keyword-gated Move buff (no current "
+        "schema slot — `aspect_warrior_or_bike_plus_one_move` is faction- "
+        "and keyword-gated to Aeldari Aspect Warriors / bikes, re-using it "
+        "for AdMech LEGIO CYBERNETICA would be fabrication), and the +1 OC "
+        "leg has no schema entry at all (OC is not a current Detachment-flag "
+        "axis). Per the project rule 'DO NOT FABRICATE proxy flags' the "
+        "detachment ships NO-FLAG + composition-preference only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Cohort-Cybernetica. "
+        "The detachment dilutes the average AdMech WR via random "
+        "detachment-roll (was always-Skitarii-Hunter-Cohort)."
     ),
     preferred_composition="infantry",
 )
@@ -662,6 +719,41 @@ SKYSPLINTER_ASSAULT = Detachment(
         "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Skysplinter-Assault"
     ),
     preferred_composition="vehicle",
+)
+
+KABALITE_CARTEL = Detachment(
+    name="Kabalite Cartel",
+    faction="Drukhari",
+    notes=(
+        "DET-VARIETY-1 (2026-05-22): real codex Kabalite Cartel detachment "
+        "(Drukhari) registered as a variant pick alongside Skysplinter "
+        "Assault so the FACTION_DETACHMENTS picker has more than one option "
+        "to roll for Drukhari. The codex detachment rule 'Murderous Agenda' "
+        "(Wahapedia verbatim): \"At the start of the first battle round, "
+        "select one of the following Contracts (you cannot select the same "
+        "Contract more than once per battle): Trophy Hunters (target unit "
+        "must be a CHARACTER); Sow Fear and Terror (target unit must be "
+        "INFANTRY or MOUNTED, excluding CHARACTERS); Show of Strength "
+        "(target unit must be a MONSTER or VEHICLE). KABAL and BLADES FOR "
+        "HIRE units from your army have the ability stated in that Contract. "
+        "If the target unit is destroyed before the end of the battle, you "
+        "gain 3 Pain tokens.\" The bespoke Contract / Pain-token / Pain-token-"
+        "spend economy has no equivalent flag in the Detachment schema — "
+        "Pain tokens are a per-battle-state resource (not a static buff), "
+        "Contract targeting requires a per-unit-keyword target picker (no "
+        "schema slot), and the per-Contract effects (Trophy Hunters grants "
+        "PRECISION; Sow Fear and Terror grants [LETHAL HITS]; Show of "
+        "Strength grants +1 AP) would each need separate bespoke wiring. "
+        "Per the project rule 'DO NOT FABRICATE proxy flags' the detachment "
+        "ships NO-FLAG + composition-preference only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Kabalite-Cartel. "
+        "Kabal-leaning composition preference set to 'infantry' (Kabalite "
+        "Warriors / Trueborn / Incubi / Mandrakes are infantry; Raiders / "
+        "Ravagers / Venoms are vehicles — but the detachment's identity "
+        "leans on Kabal foot-troop output, contrasting with Skysplinter's "
+        "vehicle-disembark identity)."
+    ),
+    preferred_composition="infantry",
 )
 
 MONTKA = Detachment(
@@ -1145,6 +1237,17 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Deleted per fabrication audit fa9a957: waaagh_tribe, plague_company,
     # cult_of_magic, saim_hann_wild_host, plague_marines_onslaught. Real
     # codex detachment replacements land in per-faction follow-up commits.
+    # DET-VARIETY-1 (2026-05-22): alternate detachments for three factions
+    # that previously had only one option in FACTION_DETACHMENTS, so the
+    # picker always rolled the same detachment. All three ship no-flag +
+    # composition-only (real codex rule does not map cleanly to existing
+    # Detachment schema flags; per project rule "DO NOT FABRICATE proxy
+    # flags" we ship the shell rather than invent a flag). See each
+    # detachment's `notes` for the verbatim rule text and the rationale
+    # for the no-flag choice.
+    "bringers_of_flame":       BRINGERS_OF_FLAME,
+    "cohort_cybernetica":      COHORT_CYBERNETICA,
+    "kabalite_cartel":         KABALITE_CARTEL,
 }
 
 
@@ -1293,9 +1396,17 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Orks":                     ("war_horde",),
     "Imperial Knights":         ("noble_lance",),
     "Chaos Knights":            ("noble_lance",),
-    "Adepta Sororitas":         ("hallowed_martyrs",),
+    # DET-VARIETY-1 (2026-05-22): add Bringers of Flame as a Sororitas
+    # variant pick. Both ship no-flag (Hallowed Martyrs after SC5-4,
+    # Bringers of Flame because the codex Fervent Purgation rule does
+    # not map onto existing Detachment schema flags); the picker now
+    # randomly rolls between them, diluting the always-pick-one
+    # convergence that was driving Sororitas overperformance.
+    "Adepta Sororitas":         ("hallowed_martyrs", "bringers_of_flame"),
     "Adeptus Custodes":         ("shield_host", "auric_champions"),
-    "Adeptus Mechanicus":       ("skitarii_hunter_cohort",),
+    # DET-VARIETY-1 (2026-05-22): add Cohort Cybernetica as an AdMech
+    # variant pick. Same no-flag rationale as Bringers of Flame above.
+    "Adeptus Mechanicus":       ("skitarii_hunter_cohort", "cohort_cybernetica"),
     "Agents of the Imperium":   ("inquisition_task_force",),
     "Imperial Agents":          ("inquisition_task_force",),
     "Astra Militarum":          ("combined_regiment",),
@@ -1306,7 +1417,11 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Aeldari":                  ("warhost",),
     "Aeldari (Craftworlds)":    ("warhost",),
     "Ynnari":                   ("warhost",),
-    "Drukhari":                 ("skysplinter_assault",),
+    # DET-VARIETY-1 (2026-05-22): add Kabalite Cartel as a Drukhari
+    # variant pick. Same no-flag rationale as Bringers of Flame /
+    # Cohort Cybernetica — the bespoke Contract / Pain-token economy
+    # does not reduce to a static Detachment flag.
+    "Drukhari":                 ("skysplinter_assault", "kabalite_cartel"),
     "T'au Empire":              ("montka",),
     "Tau Empire":               ("montka",),
     "Chaos Space Marines":      ("pactbound_zealots",),
