@@ -334,6 +334,65 @@ from 4 trusted factions (Necrons, Orks, T'au Empire, Thousand Sons),
 catalogue units priced via Phase 1 fallback. Stage 1 is still
 unconverged (MAE ~7 pts), so this output is provisional.
 
+**Track 4 — Data-driven equation fit (new, 2026-05-22).**
+
+After the simulator-driven Track 3 ran into a Stage 1 ceiling (premium
+units like Magnus and the C'tan shards collapsed to single-digit prices
+under every army-build variation we tried — homogeneous, archetype-seed
+at 20 percent of budget, archetype-seed capped at one squad — because
+the simulator's body-count bias bleeds through every layer), we
+pivoted to a regression approach that fits the equation directly on
+real data rather than on simulator outputs.
+
+The model is a Generalized Additive Model: for every unit, each numeric
+feature (Wounds, Toughness, Save, Strength, Damage, Attacks, OC, Move,
+Range, keyword flags, plus utility derivatives like expected damage
+per turn and effective wounds) gets a per-feature transform — linear,
+log, quadratic, cubic, or sqrt. The transformed features sum to predict
+``log(GW points per model)``. The fit produces per-feature coefficients
+plus per-unit residuals. A per-faction multiplier derived from the
+Warp Friends tournament win-rate snapshot then scales the equation
+output per faction. Ten factions have real data and get a real
+multiplier; the twelve ``FX_ALL_FACTIONS`` placeholders ride on the
+stats equation alone.
+
+Runtime is seconds, not hours — no simulator involvement. The
+simulator becomes a validator (Stage 2 evaluate-vs-meta sees whether
+cross-faction win rates equalise under the new prices) rather than
+the source of pricing signal.
+
+A new Streamlit tab ("Equation Fit") visualises the regression: a
+toggle panel for which features to include, a form selector per
+feature, R-squared and mean absolute error metrics, a predicted-vs-GW
+scatter, a 3D surface plot (pick two features for the axes, the
+surface is the fit, the points are real units, colour by faction,
+point size by mispricing), and a top-20 outlier table. The iteration
+loop is to change a feature's functional form, refit, see the surface
+shift, watch which units come back inside the residual band.
+
+Output schema reuses ``data/equation_calibrated_points.json`` so the
+existing Equilibrium tab visualisation keeps working unchanged.
+
+Implementation lives in ``code/equation_data_fit.py``,
+``scripts/fit_equation_data_driven.py``, and the new "Equation Fit"
+tab in ``app.py``. The sim-driven Track 3 (``code/equilibrium_simdriven.py``
+and ``scripts/fit_equation_calibrated.py``) remains in the tree for
+comparison and possible future use once Stage 1 converges and its
+body-count bias clears.
+
+**Known limitations of Track 4 (accepted):**
+
+- Faction multipliers are coarse — every unit in a faction gets the
+  same correction. We have no per-unit tournament data to
+  differentiate within a faction.
+- The equation inherits any systematic biases in GW's own pricing.
+- Ten of twenty-two factions get the meta correction; the other
+  twelve ride on pure stats.
+- Faction rules, detachments, and leader auras do not appear in the
+  regression unless explicitly feature-engineered (a follow-up
+  iteration would add boolean features like "has Awakened Dynasty
+  access" or "is led by a CHARACTER with an aura").
+
 **What's next.**
 
 - Once Stage 1 MAE reaches ~4 pts, refit the equation with more trusted
