@@ -3116,3 +3116,207 @@ with tab_equation_fit:
             }).round({"GW": 1, "Pred": 1, "Ratio": 2}),
             hide_index=True, use_container_width=True,
         )
+
+    # ---------------- 3D surface explorer ----------------
+    st.divider()
+    st.markdown("### 3D surface explorer")
+    st.caption(
+        "Pick two features for the axes. The surface is the equation's "
+        "predicted price across that 2D slice with all OTHER features held "
+        "at their catalogue median. Real units are overlaid as points at "
+        "their actual feature values + predicted price, coloured by faction."
+    )
+
+    # Only continuous features make sense as surface axes — boolean keywords
+    # would just give a 4-corner surface that's not informative.
+    _CONTINUOUS_FEATURES = [
+        "wounds_per_model", "toughness", "save_quality", "invuln_quality",
+        "fnp_quality", "ranged_attacks", "ranged_strength", "ranged_ap_abs",
+        "ranged_damage_per_shot", "ranged_range", "melee_attacks",
+        "melee_strength", "melee_ap_abs", "melee_damage_per_shot",
+        "move", "oc", "min_models", "scout_distance",
+        "expected_ranged_dmg_vs_meq", "expected_melee_dmg_vs_meq",
+        "effective_wounds",
+    ]
+    # Keep only features that are actually in the current fit.
+    _surface_options = [
+        n for n in _CONTINUOUS_FEATURES
+        if n in _result.feature_names
+    ]
+    if len(_surface_options) < 2:
+        st.info(
+            "Need at least two continuous features in the fit to draw the "
+            "surface. Toggle on more numeric features above."
+        )
+    else:
+        _sx_col, _sy_col, _scolor_col = st.columns(3)
+        with _sx_col:
+            _surf_x = st.selectbox(
+                "X axis feature", _surface_options,
+                index=_surface_options.index(
+                    "wounds_per_model" if "wounds_per_model" in _surface_options
+                    else _surface_options[0]
+                ),
+                key="eqfit_surf_x",
+            )
+        with _sy_col:
+            _y_default = "toughness" if "toughness" in _surface_options else _surface_options[1]
+            _surf_y = st.selectbox(
+                "Y axis feature", [s for s in _surface_options if s != _surf_x],
+                index=max(0, [s for s in _surface_options if s != _surf_x].index(_y_default))
+                    if _y_default in _surface_options and _y_default != _surf_x else 0,
+                key="eqfit_surf_y",
+            )
+        with _scolor_col:
+            _surf_logz = st.checkbox(
+                "Log Z axis (price)", value=True,
+                key="eqfit_surf_logz",
+                help="Compresses the price axis so cheap and premium units "
+                     "share the same view; off shows linear scale.",
+            )
+
+        @st.cache_data(show_spinner="Building 3D surface…", max_entries=8)
+        def _build_surface(
+            spec_signature: Tuple[Tuple[str, str], ...],
+            alpha: float,
+            x_feature: str,
+            y_feature: str,
+            n_grid: int = 30,
+        ):
+            """
+            Returns (XX, YY, ZZ, sample_units) for the 3D plot. ZZ is the
+            predicted price (after faction multiplier averaging) across the
+            (x_feature, y_feature) grid, with all other features held at
+            their catalogue median.
+            """
+            specs = []
+            for name, transform in spec_signature:
+                base = _spec_by_name.get(name)
+                description = base.description if base is not None else ""
+                specs.append(
+                    EqFitFeatureSpec(name=name, transform=transform,
+                                     include=True, description=description)
+                )
+            result = eqfit_fit(_eqfit_df, specs)
+
+            # Per-feature median across the live catalogue.
+            medians = _eqfit_df[result.feature_names].median(numeric_only=True)
+
+            x_min = float(_eqfit_df[x_feature].min())
+            x_max = float(_eqfit_df[x_feature].max())
+            y_min = float(_eqfit_df[y_feature].min())
+            y_max = float(_eqfit_df[y_feature].max())
+            # Guard against degenerate ranges
+            if x_max <= x_min:
+                x_max = x_min + 1.0
+            if y_max <= y_min:
+                y_max = y_min + 1.0
+
+            xs = np.linspace(x_min, x_max, n_grid)
+            ys = np.linspace(y_min, y_max, n_grid)
+            XX, YY = np.meshgrid(xs, ys)
+
+            # Build a synthetic DataFrame for the grid. Every feature
+            # except X/Y is at its catalogue median.
+            grid_data = {}
+            for f in result.feature_names:
+                if f == x_feature:
+                    grid_data[f] = XX.flatten()
+                elif f == y_feature:
+                    grid_data[f] = YY.flatten()
+                else:
+                    grid_data[f] = np.full(XX.size, float(medians.get(f, 0.0)))
+            synth_df = pd.DataFrame(grid_data)
+
+            # Apply transforms + predict.
+            from code.equation_data_fit import predict as eqfit_predict_fn
+            preds = eqfit_predict_fn(synth_df, result, specs)
+            ZZ = preds.reshape(n_grid, n_grid)
+            return XX, YY, ZZ, x_min, x_max, y_min, y_max
+
+        _XX, _YY, _ZZ, _xmin, _xmax, _ymin, _ymax = _build_surface(
+            _spec_signature, float(_alpha), _surf_x, _surf_y,
+        )
+
+        # If log Z requested, take log of the surface (clamped to a small
+        # positive minimum so we don't log zero).
+        _Z_plot = np.log10(np.maximum(_ZZ, 0.5)) if _surf_logz else _ZZ
+
+        _surface_fig = go.Figure()
+        _surface_fig.add_trace(go.Surface(
+            x=_XX, y=_YY, z=_Z_plot,
+            opacity=0.5,
+            colorscale="Viridis",
+            showscale=False,
+            name="fitted surface",
+            hovertemplate=(
+                f"{_surf_x}: %{{x:.2f}}<br>"
+                f"{_surf_y}: %{{y:.2f}}<br>"
+                + ("log10(price): %{z:.2f}<extra></extra>" if _surf_logz
+                   else "price: %{z:.1f}<extra></extra>")
+            ),
+        ))
+
+        # Real units overlaid as scatter, coloured by faction. Only points
+        # whose X/Y land inside the surface's range (so the camera framing
+        # stays sane).
+        _eqfit_eligible = _eqfit_df["gw_points_per_model"] > 0
+        _real_x = _eqfit_df.loc[_eqfit_eligible, _surf_x].to_numpy()
+        _real_y = _eqfit_df.loc[_eqfit_eligible, _surf_y].to_numpy()
+        _real_pred = _adjusted[_eqfit_eligible.to_numpy()]
+        _real_z = np.log10(np.maximum(_real_pred, 0.5)) if _surf_logz else _real_pred
+        _real_factions = _eqfit_df.loc[_eqfit_eligible, "faction"].to_numpy()
+        _real_names = _eqfit_df.loc[_eqfit_eligible, "name"].to_numpy()
+        _real_gw = _eqfit_df.loc[_eqfit_eligible, "gw_points_per_model"].to_numpy()
+
+        _in_range = (
+            (_real_x >= _xmin) & (_real_x <= _xmax)
+            & (_real_y >= _ymin) & (_real_y <= _ymax)
+        )
+
+        # Group by faction so each gets its own legend entry.
+        for fac in sorted(set(_real_factions[_in_range])):
+            m = (_real_factions == fac) & _in_range
+            if not m.any():
+                continue
+            _surface_fig.add_trace(go.Scatter3d(
+                x=_real_x[m], y=_real_y[m], z=_real_z[m],
+                mode="markers",
+                name=fac,
+                marker=dict(size=4, color=colour_for(fac), opacity=0.9,
+                            line=dict(width=0.2, color="white")),
+                customdata=np.stack([_real_names[m], _real_gw[m], _real_pred[m]], axis=-1),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    f"Faction: {fac}<br>"
+                    f"{_surf_x}: %{{x:.2f}}<br>"
+                    f"{_surf_y}: %{{y:.2f}}<br>"
+                    "GW pts/model: %{customdata[1]:.1f}<br>"
+                    "Predicted pts/model: %{customdata[2]:.1f}"
+                    "<extra></extra>"
+                ),
+            ))
+
+        _surface_fig.update_layout(
+            template="plotly_dark", paper_bgcolor="#0e1117",
+            scene=dict(
+                xaxis_title=_surf_x,
+                yaxis_title=_surf_y,
+                zaxis_title=("log10(predicted price)" if _surf_logz
+                             else "predicted price"),
+                xaxis=dict(backgroundcolor="#1a1d23", gridcolor="#3a3d45"),
+                yaxis=dict(backgroundcolor="#1a1d23", gridcolor="#3a3d45"),
+                zaxis=dict(backgroundcolor="#1a1d23", gridcolor="#3a3d45"),
+            ),
+            height=640, margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(font=dict(size=10), bgcolor="rgba(26,29,35,0.85)"),
+        )
+        st.plotly_chart(_surface_fig, use_container_width=True, key="eqfit_surface")
+
+        st.caption(
+            "Surface: equation's predicted price across the 2D slice "
+            f"({_surf_x} × {_surf_y}), with every other feature held at its "
+            "catalogue median. Points: real catalogue units. Distance from "
+            "a point to the surface = how much that unit's other features "
+            "differ from median. Faction colours match the scatter above."
+        )
