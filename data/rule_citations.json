@@ -128,6 +128,14 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
     "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led \u00e2\u20ac\u201d leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic"
   },
+  "simulator.fights_first_chargers": {
+    "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
+    "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight. Each time you select an eligible unit from your army to fight with that made a Charge move this turn, that unit fights first.",
+    "rule_name": "Fight phase — Fights First step",
+    "scope": "phase-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
+    "trigger": "active player's Fight phase pass; chargers (units with uid in `_charging_this_round`) are sorted ahead of non-chargers before the per-unit `_do_fight` loop. Does NOT yet model the FIGHTS FIRST ability on non-charging datasheets (Wyches, Custodian Wardens, etc.) — that requires a profile-level `fights_first` flag and is deferred."
+  },
   "simulator.squad_size_durability_factor": {
     "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule \u00e2\u20ac\u201d the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
     "quoted_text": "If one or more models in the target unit have already lost one or more wounds, or have already had attacks allocated to them this phase, the attack must be allocated to one of those models. Otherwise, the player commanding the target unit chooses which model in their unit the attack is allocated to.",

@@ -84,7 +84,7 @@ fix would produce. Complexity: **S** ≈ ≤30 LOC, **M** ≈ 30-150 LOC,
 | Pile-in (3") | start of Fight phase, mandatory | **MISSING** — see Movement table. | MISSING | medium | M |
 | Consolidate (3") | end of fight per unit | **MISSING** — see Movement table. | MISSING | medium | M |
 | Heroic Intervention (3" core, free) | core CHARACTER 3" ability when an enemy ends a charge within 6" | Implemented as 1 CP stratagem (`_try_heroic_intervention`). Wrong cost model. | WRONG | low | S |
-| Fights First (charged) | charger fights first sub-phase | `_charging_this_round` is tracked but NOT used to sequence the Fight sub-phase. In `_run_round_vanilla_turns` and `_run_round_alternating`, fight order = activation order; no two-pass "chargers first, others second". | WRONG | medium | M |
+| Fights First (charged) | charger fights first sub-phase | `_charging_this_round` is tracked and (post CORE-RULE-FIX-1) used to sort chargers ahead of non-chargers within `_run_round_vanilla_turns`' active player fight pass. `_run_round_alternating` still resolves fights pair-by-pair, no two-pass sequencing there. Datasheet-level FIGHTS FIRST (Wyches, Custodian Wardens) still not flagged. | PARTIAL | medium | M |
 | Fights First (other sources) | abilities like Marines Litany, Eldar power | Not implemented as a separate flag. Treated as plain activation. | MISSING | low | S |
 | Counter-Offensive (2 CP, defender's out-of-sequence fight) | out-of-sequence fight after attacker's fight | `_try_counter_offensive` (sim:4019) fires after attacker fights AND kills. Real rule: fires regardless of kill, on any enemy fight, defender unit eligible. Eligibility gate is too restrictive. | PARTIAL | low | S |
 

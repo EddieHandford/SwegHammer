@@ -5182,7 +5182,25 @@ class Battle:
             # turn's Fight phase. Fights First (`_charging_this_round`) is
             # already round-scoped, so chargers from this round still get
             # the bonus when their own player's turn rolls around.
-            for unit in list(active.units):
+            #
+            # CORE-RULE-FIX-1 — sequence chargers BEFORE non-chargers within
+            # the active player's fight pass. Per Wahapedia core rules
+            # (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase):
+            # "All eligible units that have the FIGHTS FIRST ability must
+            # fight in the Fights First step. Then, in the Remaining Combats
+            # step, all other eligible units fight." A unit that made a
+            # Charge move this turn counts as having FIGHTS FIRST for the
+            # turn it charged ("each time you select an eligible unit from
+            # your army to fight with that made a Charge move this turn,
+            # that unit fights first"). Without this ordering, a non-charger
+            # whose activation_queue rank is higher could fight before the
+            # charger and waste the charge's positional / buff opportunity.
+            # Cited as `simulator.fights_first_chargers`.
+            ordered = sorted(
+                list(active.units),
+                key=lambda u: 0 if u.uid in self._charging_this_round else 1,
+            )
+            for unit in ordered:
                 if unit.is_alive:
                     self._do_fight(unit, active, other)
 
