@@ -189,9 +189,10 @@ def _shimmy_target(unit, nearest_enemy, map_) -> Optional[Tuple[float, float]]:
 # Cited as `simulator.fall_back`.
 _FALL_BACK_INTENT = "FALL_BACK"
 
-# Engagement Range in SwegHammer's continuous model. Mirrors the simulator's
-# in-engagement check inside _do_shoot.
-_ENGAGEMENT_RANGE = 1.5
+# Engagement Range in SwegHammer's continuous model. 10e core: 1" horizontal
+# (vertical 5" not modelled — sim is 2D). Mirrors the simulator's in-engagement
+# check inside _do_shoot. Source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Engagement-Range
+_ENGAGEMENT_RANGE = 1.0
 
 # Terrain-strength ranking used by the cover-bias helper. Higher wins when
 # scoring candidate hold points around an objective. Imported lazily so this
@@ -1367,7 +1368,7 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
             if map_.is_blocked((cx, cy)):
                 return None
         # Must clear every enemy's engagement bubble by a small margin so
-        # the simulator's strict `< 1.5` check actually flips to False.
+        # the simulator's strict `< _ENGAGEMENT_RANGE` (1.0") check actually flips to False.
         for e in enemies:
             if _dist((cx, cy), e.position) <= _ENGAGEMENT_RANGE + 0.01:
                 return None
@@ -1984,7 +1985,7 @@ def _wounded_seek_obscuring(unit, role: str, fallback_pos: Tuple[float, float], 
     if role not in ("HORDE", "SUPPORT", "MELEE"):
         return None
     # MELEE units already in engagement (1" of fallback target) keep pushing.
-    if role == "MELEE" and _dist(unit.position, fallback_pos) <= 1.5:
+    if role == "MELEE" and _dist(unit.position, fallback_pos) <= _ENGAGEMENT_RANGE:
         return None
     nearest = _nearest_obscuring_centre(map_, unit.position)
     return nearest

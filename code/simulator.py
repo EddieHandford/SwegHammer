@@ -5432,7 +5432,7 @@ class Battle:
         kw = attacker.profile.unit_keywords or ()
         big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
-            _distance(attacker.position, e.position) < 1.5
+            _distance(attacker.position, e.position) < 1.0
             for e in defender_army.alive_units
         )
         if in_engagement:
@@ -5883,7 +5883,7 @@ class Battle:
             alive_enemies,
             key=lambda e: _distance(attacker.position, e.position),
         )
-        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.5
+        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.0
         is_charging_this_turn = attacker.uid in self._charging_this_round
         if (
             (pre_engaged or is_charging_this_turn)
@@ -5905,7 +5905,7 @@ class Battle:
         # breaks the lock rather than the closest brick.
         in_range = [
             e for e in alive_enemies
-            if _distance(attacker.position, e.position) <= 1.5
+            if _distance(attacker.position, e.position) <= 1.0
         ]
         if not in_range:
             return
@@ -6736,7 +6736,7 @@ class Battle:
             u for u in loser_army.alive_units
             if u is not loser_unit
             and u.profile.melee_attacks > 0
-            and _distance(u.position, winner_unit.position) <= 1.5
+            and _distance(u.position, winner_unit.position) <= 1.0
         ]
         in_engagement = bool(candidates)
         ctx = {
