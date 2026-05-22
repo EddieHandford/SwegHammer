@@ -52,40 +52,84 @@ _OUT_PATH = pathlib.Path("data/equation_calibrated_points.json")
 
 
 def _prompt_worker_count(detected_cores: int) -> Optional[int]:
-    """Show a Tkinter dialog asking how many worker processes to use.
+    """Ask the user how many worker processes to use, via a native dialog.
 
-    Returns the chosen worker count, or ``None`` if Tkinter is unavailable
-    (e.g. running headless / in CI). Caller falls back to the auto-default
-    when this returns None.
+    Returns the chosen worker count, or ``None`` if no interactive prompt is
+    possible (headless run, dialog cancelled, dialog unavailable). The caller
+    then falls back to the auto-default (``detected_cores - 1``).
+
+    macOS gets a native osascript dialog because Tkinter's ``simpledialog``
+    on darwin sporadically opens extra invisible root windows that the user
+    sees as duplicate popups. Other platforms fall back to Tkinter, and a
+    final fallback prompts on stdin if a TTY is attached.
     """
+    default = max(1, detected_cores - 1)
+
+    if sys.platform == "darwin":
+        import subprocess as _sp
+        script = (
+            f'set theDialog to display dialog '
+            f'"Detected {detected_cores} CPU cores.\\n'
+            f'Default: {default} workers (leaves 1 core free for the OS).\\n\\n'
+            f'How many worker processes should the fit use?" '
+            f'default answer "{default}" '
+            f'with title "Equation fit — worker count" '
+            f'buttons {{"Cancel", "OK"}} default button "OK"\n'
+            f'text returned of theDialog'
+        )
+        try:
+            out = _sp.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=300,
+            )
+            if out.returncode != 0:
+                return None  # Cancel pressed, or dialog failed
+            try:
+                n = int(out.stdout.strip())
+            except ValueError:
+                return None
+            return max(1, min(detected_cores, n))
+        except (FileNotFoundError, _sp.TimeoutExpired):
+            pass  # Fall through to Tkinter / stdin
+
+    # Tkinter path — used on Linux/Windows, or if osascript isn't available.
     try:
         import tkinter as tk
         from tkinter import simpledialog
-    except ImportError:
-        return None
-    try:
         root = tk.Tk()
         root.withdraw()
-        default = max(1, detected_cores - 1)
         msg = (
             f"Detected {detected_cores} CPU cores.\n"
             f"Default: {default} workers (leaves 1 core free for the OS).\n\n"
             f"How many worker processes should the fit use?"
         )
         value = simpledialog.askinteger(
-            "Equation fit — worker count",
-            msg,
-            parent=root,
-            initialvalue=default,
-            minvalue=1,
-            maxvalue=detected_cores,
+            "Equation fit — worker count", msg, parent=root,
+            initialvalue=default, minvalue=1, maxvalue=detected_cores,
         )
         root.destroy()
-        return value if value is not None else default
+        if value is not None:
+            return value
     except Exception:
-        # Any Tk failure (no display server, broken display, etc.) — quietly
-        # fall through to the CLI default.
-        return None
+        pass
+
+    # Final fallback — stdin prompt if interactive, else return None.
+    if sys.stdin and sys.stdin.isatty():
+        try:
+            raw = input(
+                f"Detected {detected_cores} CPU cores. "
+                f"Worker count [{default}]: "
+            )
+        except EOFError:
+            return None
+        raw = raw.strip()
+        if not raw:
+            return default
+        try:
+            return max(1, min(detected_cores, int(raw)))
+        except ValueError:
+            return None
+    return None
 
 # Must stay in sync with FX_ALL_FACTIONS in scripts/evaluate_vs_meta.py and
 # _FX_ALL_FACTIONS in app.py.
