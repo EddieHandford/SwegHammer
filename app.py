@@ -50,6 +50,14 @@ from code.equilibrium_simdriven import (
     load_snapshot as load_eq_simdriven_snapshot,
 )
 from code.compare_view import render_compare_tab
+from code.equation_data_fit import (
+    FeatureSpec as EqFitFeatureSpec,
+    default_feature_specs as eqfit_default_specs,
+    extract_features as eqfit_extract_features,
+    faction_multipliers as eqfit_faction_multipliers,
+    fit as eqfit_fit,
+    transform_names as eqfit_transform_names,
+)
 
 import json as _json
 import pathlib as _pathlib
@@ -1223,9 +1231,9 @@ if run:
 # ---------------------------------------------------------------------------
 
 (tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
- tab_compare, tab_convergence, tab_calibration) = st.tabs(
+ tab_compare, tab_convergence, tab_calibration, tab_equation_fit) = st.tabs(
     ["Statistics", "Watch a battle", "Efficiency", "Equilibrium",
-     "Compare", "Convergence", "Calibration"]
+     "Compare", "Convergence", "Calibration", "Equation Fit"]
 )
 
 # --- Statistics tab ---
@@ -2840,3 +2848,271 @@ with tab_calibration:
                 elif ret is not None:
                     st.error(f"Process exited with code {ret}. See log below.")
             st.code(_eval_log_text, language=None)
+
+
+# ===========================================================================
+# Tab: Equation Fit (Goal C Track 4 — data-driven regression visualiser)
+# ===========================================================================
+#
+# Lets the user iterate on the regression feature set: include / exclude
+# features, swap functional forms, refit, see the headline R² / MAE,
+# compare predicted-vs-GW prices, drill into outliers. The 3D surface
+# plot (pick two features for the X/Y axes, see the fitted manifold with
+# real units overlaid) is the follow-up; this tab ships with the
+# essentials so you can already drive the equation interactively.
+
+with tab_equation_fit:
+    st.markdown("## Equation Fit  —  data-driven regression on stats")
+    st.caption(
+        "Fit a Generalized Additive Model that predicts log(GW points per "
+        "model) from unit stats. Each feature gets a configurable functional "
+        "form (linear / log / sqrt / quadratic / cubic). Faction-level "
+        "tournament-meta multipliers are layered on top of the equation's "
+        "stats-only prediction so factions that over- or under-perform at "
+        "GW pricing get scaled accordingly."
+    )
+
+    # Cache the feature DataFrame so we don't re-extract on every refit.
+    @st.cache_data(show_spinner="Extracting features…", max_entries=2)
+    def _eqfit_features_df() -> "pd.DataFrame":
+        return eqfit_extract_features()
+
+    _eqfit_df = _eqfit_features_df()
+
+    _all_specs = eqfit_default_specs()
+    _spec_by_name = {s.name: s for s in _all_specs}
+    _transform_options = eqfit_transform_names()
+
+    st.divider()
+    st.markdown("### Feature panel")
+    st.caption(
+        "Tick a feature to include it, pick its transform. Hit **Refit** "
+        "below to recompute. Defaults reflect a reasonable starting model "
+        "with all stat lines on and utility derivatives off."
+    )
+
+    # Group features by topic for the panel layout.
+    _GROUPS = [
+        ("Defensive",   ["wounds_per_model", "toughness", "save_quality", "invuln_quality", "fnp_quality"]),
+        ("Ranged",      ["ranged_attacks", "ranged_strength", "ranged_ap_abs", "ranged_damage_per_shot", "ranged_range"]),
+        ("Melee",       ["melee_attacks", "melee_strength", "melee_ap_abs", "melee_damage_per_shot"]),
+        ("Mobility / objective", ["move", "oc", "min_models"]),
+        ("Weapon keywords", ["lethal_hits", "sustained_hits", "twin_linked", "devastating_wounds",
+                             "blast", "torrent", "melta", "rapid_fire", "ignores_cover"]),
+        ("Deployment",  ["deep_strike", "scout_distance", "infiltrator", "lone_operative", "stealth"]),
+        ("Utility derived", ["expected_ranged_dmg_vs_meq", "expected_melee_dmg_vs_meq", "effective_wounds"]),
+        ("Unit class",  ["is_monster", "is_vehicle", "is_character", "is_fly"]),
+    ]
+
+    # Each (feature, transform, include) triple is persisted in session
+    # state so the user's choices survive reruns.
+    if "eqfit_state" not in st.session_state:
+        st.session_state["eqfit_state"] = {
+            s.name: {"include": s.include, "transform": s.transform}
+            for s in _all_specs
+        }
+    _state = st.session_state["eqfit_state"]
+
+    for group_label, feature_names in _GROUPS:
+        with st.expander(group_label, expanded=(group_label == "Defensive")):
+            for name in feature_names:
+                spec = _spec_by_name.get(name)
+                if spec is None:
+                    continue
+                cur = _state.setdefault(
+                    name, {"include": spec.include, "transform": spec.transform},
+                )
+                c1, c2, c3 = st.columns([0.6, 1.0, 3.0])
+                with c1:
+                    cur["include"] = st.checkbox(
+                        " ", value=cur["include"], key=f"eqfit_inc_{name}",
+                        label_visibility="collapsed",
+                    )
+                with c2:
+                    cur["transform"] = st.selectbox(
+                        " ", _transform_options,
+                        index=_transform_options.index(cur["transform"]),
+                        key=f"eqfit_t_{name}",
+                        label_visibility="collapsed",
+                        disabled=not cur["include"],
+                    )
+                with c3:
+                    st.markdown(f"**{name}** — {spec.description}")
+
+    st.divider()
+
+    # Faction-multiplier alpha control.
+    _alpha = st.slider(
+        "Faction-multiplier α  (sensitivity to tournament-meta deviation)",
+        min_value=0.0, max_value=4.0, value=2.0, step=0.25,
+        help=(
+            "multiplier = 1 + α · (real_winrate − 0.5). Higher α means a "
+            "faction's over- or under-performance translates into a bigger "
+            "per-unit price adjustment. α = 0 disables the meta correction."
+        ),
+        key="eqfit_alpha",
+    )
+
+    _refit_clicked = st.button("▶ Refit", type="primary", key="eqfit_refit_btn")
+
+    # Cache the fit on the (feature set, transform set, alpha) signature.
+    @st.cache_data(show_spinner="Fitting equation…", max_entries=8)
+    def _run_eqfit(spec_signature: Tuple[Tuple[str, str], ...], alpha: float):
+        specs = []
+        for name, transform in spec_signature:
+            base = _spec_by_name.get(name)
+            description = base.description if base is not None else ""
+            specs.append(
+                EqFitFeatureSpec(name=name, transform=transform, include=True,
+                                 description=description)
+            )
+        result = eqfit_fit(_eqfit_df, specs)
+
+        # Faction multipliers.
+        mults: Dict[str, float] = {}
+        if _META_SNAPSHOT_PATH.exists():
+            snap = _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+            mults = eqfit_faction_multipliers(snap, alpha=alpha)
+
+        # Per-unit multiplied predictions for the full DataFrame.
+        adjusted = result.predicted_price.copy()
+        factions = _eqfit_df["faction"].to_numpy()
+        for i, f in enumerate(factions):
+            adjusted[i] = adjusted[i] * mults.get(f, 1.0)
+        return result, mults, adjusted
+
+    _spec_signature = tuple(
+        (name, _state[name]["transform"])
+        for name in _state
+        if _state[name]["include"]
+    )
+
+    if not _spec_signature:
+        st.warning("Toggle at least one feature on to run a fit.")
+        st.stop()
+
+    _result, _mults, _adjusted = _run_eqfit(_spec_signature, float(_alpha))
+
+    st.divider()
+    st.markdown("### Headline metrics")
+    _m1, _m2, _m3, _m4 = st.columns(4)
+    _m1.metric("R²", f"{_result.r_squared:.3f}",
+               help="Proportion of variance in log(GW points/model) explained by the regression. 1.0 is perfect.")
+    _m2.metric("MAE (log space)", f"{_result.mae_log:.3f}",
+               help="Mean absolute error on log(price). 0.10 ≈ ±10% typical price error; 0.20 ≈ ±22%.")
+    _m3.metric("MAE (price space)", f"{_result.mae_price:.1f} pts/model",
+               help="Mean absolute error on raw price. Skewed by premium units.")
+    _m4.metric("Features fitted", len(_result.feature_names),
+               help="Number of features included in the regression.")
+
+    if _mults:
+        st.caption(
+            "Faction multipliers (from data/meta_comparison_snapshot.json): "
+            + ", ".join(f"{f} {m:.2f}×" for f, m in sorted(_mults.items()))
+        )
+    else:
+        st.caption(
+            "No faction multipliers available (data/meta_comparison_snapshot.json "
+            "missing or empty). Equation predictions shown without meta correction."
+        )
+
+    # ---------------- predicted-vs-GW scatter ----------------
+    st.divider()
+    st.markdown("### Predicted vs GW points (log–log)")
+    st.caption(
+        "Each point is a unit. Above the y=x line → equation thinks GW "
+        "undercosts it; below → overcosts. Hover to inspect."
+    )
+
+    _eligible = _eqfit_df["gw_points_per_model"] > 0
+    _xs = _eqfit_df.loc[_eligible, "gw_points_per_model"].to_numpy()
+    _ys = _adjusted[_eligible.to_numpy()]
+    _names = _eqfit_df.loc[_eligible, "name"].to_numpy()
+    _factions = _eqfit_df.loc[_eligible, "faction"].to_numpy()
+
+    _fig = go.Figure()
+    for fac in sorted(set(_factions)):
+        mask = _factions == fac
+        _fig.add_trace(go.Scatter(
+            x=_xs[mask], y=_ys[mask],
+            mode="markers",
+            name=fac,
+            marker=dict(size=7, color=colour_for(fac), opacity=0.8,
+                        line=dict(width=0.5, color="white")),
+            customdata=np.stack([_names[mask]], axis=-1),
+            hovertemplate=("<b>%{customdata[0]}</b><br>"
+                           f"Faction: {fac}<br>"
+                           "GW pts/model: %{x:.1f}<br>"
+                           "Predicted: %{y:.1f}<extra></extra>"),
+        ))
+    _lo = max(0.5, float(np.nanmin(_xs)) * 0.8)
+    _hi = float(np.nanmax(_xs)) * 1.2
+    _fig.add_trace(go.Scatter(
+        x=[_lo, _hi], y=[_lo, _hi], mode="lines",
+        line=dict(color="#FFD700", dash="dash", width=1.2),
+        name="y = x", hoverinfo="skip",
+    ))
+    _fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#0e1117", plot_bgcolor="#1a1d23",
+        xaxis=dict(title="GW points / model (log)", type="log", gridcolor="#3a3d45"),
+        yaxis=dict(title="Predicted points / model (log)", type="log", gridcolor="#3a3d45"),
+        height=520, margin=dict(l=50, r=20, t=30, b=40),
+        legend=dict(font=dict(size=10), bgcolor="rgba(26,29,35,0.85)"),
+    )
+    st.plotly_chart(_fig, use_container_width=True, key="eqfit_scatter")
+
+    # ---------------- coefficient table ----------------
+    st.divider()
+    st.markdown("### Fitted coefficients")
+    st.caption(
+        "Each row is a feature's contribution to log(price). Positive = the "
+        "feature pushes price up; negative = down. Interpretable on the "
+        "log scale: β = 0.10 ≈ +10% price per unit increase (after transform)."
+    )
+    _coef_rows = [
+        {
+            "Feature": n,
+            "Transform": t,
+            "Coefficient (β)": round(float(c), 4),
+            "exp(β) per unit": round(float(np.exp(c)), 3),
+        }
+        for n, t, c in sorted(
+            zip(_result.feature_names, _result.transforms, _result.coefficients),
+            key=lambda r: -abs(r[2]),
+        )
+    ]
+    st.dataframe(_coef_rows, hide_index=True, use_container_width=True)
+
+    # ---------------- outliers ----------------
+    st.divider()
+    st.markdown("### Outliers (top 20 each way)")
+    st.caption(
+        "Top of the iteration loop: units the equation strongly disagrees "
+        "with GW on. Investigate; if real meta agrees with GW, the equation "
+        "is missing a feature. If real meta agrees with the equation, "
+        "this is a candidate mispricing in GW."
+    )
+    _resid_df = _eqfit_df.loc[_eligible].copy()
+    _resid_df["predicted"] = _ys
+    _resid_df["ratio"] = _ys / _resid_df["gw_points_per_model"]
+    _resid_df["log_resid"] = np.log(_ys) - np.log(_resid_df["gw_points_per_model"])
+    _resid_df = _resid_df.sort_values("log_resid")
+    _col_lo, _col_hi = st.columns(2)
+    with _col_lo:
+        st.markdown("**Equation says CHEAPER than GW**")
+        st.dataframe(
+            _resid_df.head(20)[["name", "faction", "gw_points_per_model", "predicted", "ratio"]].rename(columns={
+                "name": "Unit", "faction": "Faction",
+                "gw_points_per_model": "GW", "predicted": "Pred", "ratio": "Ratio",
+            }).round({"GW": 1, "Pred": 1, "Ratio": 2}),
+            hide_index=True, use_container_width=True,
+        )
+    with _col_hi:
+        st.markdown("**Equation says MORE EXPENSIVE than GW**")
+        st.dataframe(
+            _resid_df.tail(20).iloc[::-1][["name", "faction", "gw_points_per_model", "predicted", "ratio"]].rename(columns={
+                "name": "Unit", "faction": "Faction",
+                "gw_points_per_model": "GW", "predicted": "Pred", "ratio": "Ratio",
+            }).round({"GW": 1, "Pred": 1, "Ratio": 2}),
+            hide_index=True, use_container_width=True,
+        )
