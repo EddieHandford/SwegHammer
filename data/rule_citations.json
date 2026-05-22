@@ -103,5 +103,21 @@
     "trigger": "start of each battle round; WORLD EATERS army rolls 8D6 and may activate up to two Blessings whose dice thresholds are met",
     "effect": "each activated Blessing applies army-wide to WORLD EATERS units until end of battle round; modelled: Martial Excellence -> melee SUSTAINED HITS 1; Warp Blades -> melee LETHAL HITS; Cleaving Blows -> melee AP+1",
     "scope": "army-wide"
+  },
+  "simulator.beacons_of_rage": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Eightbound",
+    "rule_name": "Beacons of Rage (Aura)",
+    "quoted_text": "While a friendly World Eaters unit is within 6\" of this unit, each time a model in that unit makes a melee attack that targets a unit (excluding Monsters and Vehicles), add 1 to the Hit roll. If that attack targets a unit that is Below Half-strength, add 1 to the Wound roll as well.",
+    "trigger": "attacker is a World Eaters unit; a friendly Eightbound or Exalted Eightbound unit is alive (sim does not track 6\" aura ranges precisely, see leaders.effective_buffs for the same approximation); attack is melee; target lacks MONSTER and VEHICLE keywords",
+    "effect": "+1 to the Hit roll; additionally +1 to the Wound roll when the target is Below Half-strength (current_health < profile.health / 2)",
+    "scope": "army-wide"
+  },
+  "simulator.rend_and_tear": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Exalted-Eightbound",
+    "rule_name": "Rend and Tear",
+    "quoted_text": "Each time a model in this unit makes a melee attack that targets a Monster or Vehicle unit, until the end of the phase, improve the Damage characteristic of that attack by 1.",
+    "trigger": "attacker is the World Eaters Exalted Eightbound unit; attack is melee; target has MONSTER or VEHICLE keyword",
+    "effect": "+1 to the Damage characteristic of that attack",
+    "scope": "keyword-gated"
   }
 }

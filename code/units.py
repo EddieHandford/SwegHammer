@@ -846,6 +846,20 @@ class Unit:
             # add is safe. Cited as `simulator.combat_drugs`.
             n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
             strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
+            # ---- World Eaters Exalted Eightbound — Rend and Tear (datasheet
+            # ability, BSData v10.6.0 verbatim): "Each time a model in this
+            # unit makes a melee attack that targets a Monster or Vehicle
+            # unit, until the end of the phase, improve the Damage
+            # characteristic of that attack by 1." Faction-gated to World
+            # Eaters AND unit name == "Exalted Eightbound"; target must have
+            # MONSTER or VEHICLE keyword. Cited as `simulator.rend_and_tear`.
+            if (
+                p.faction == "World Eaters"
+                and p.name == "Exalted Eightbound"
+            ):
+                _tgt_kws_rt = set(target.profile.unit_keywords or ())
+                if "MONSTER" in _tgt_kws_rt or "VEHICLE" in _tgt_kws_rt:
+                    per_shot_dmg += 1.0
         else:
             # ---- MAP-1 — multi-profile ranged weapon selection (N profiles).
             # Generalised from iter33's primary/secondary pair to support any
@@ -1202,6 +1216,37 @@ class Unit:
             hit_mod_delta += 1
         if att_buffs["plus_one_to_wound"]:
             wound_mod_delta += 1
+
+        # ---- World Eaters Eightbound — Beacons of Rage (datasheet aura,
+        # BSData v10.6.0 verbatim): "While a friendly World Eaters unit is
+        # within 6\" of this unit, each time a model in that unit makes a
+        # melee attack that targets a unit (excluding Monsters and
+        # Vehicles), add 1 to the Hit roll. If that attack targets a unit
+        # that is Below Half-strength, add 1 to the Wound roll as well."
+        # Faction-gated to World Eaters attacker. Aura check: any friendly
+        # Eightbound (or Exalted Eightbound) unit alive in the same army
+        # (the simulator does not model precise 6" positions for auras,
+        # see leaders.effective_buffs for the same approximation). Melee
+        # only; target must NOT be MONSTER/VEHICLE. Below Half-strength
+        # gates the wound bonus: target.current_health < target.profile
+        # .health / 2. Cited as `simulator.beacons_of_rage`.
+        if mode == "melee" and p.faction == "World Eaters":
+            _own_army_bor = getattr(self, "army_ref", None)
+            if _own_army_bor is not None:
+                _tgt_kws_bor = set(target.profile.unit_keywords or ())
+                _tgt_is_vm_bor = (
+                    "MONSTER" in _tgt_kws_bor or "VEHICLE" in _tgt_kws_bor
+                )
+                if not _tgt_is_vm_bor:
+                    _eb_present = any(
+                        u.profile.name in ("Eightbound", "Exalted Eightbound")
+                        for u in _own_army_bor.alive_units
+                    )
+                    if _eb_present:
+                        hit_mod_delta += 1
+                        _tgt_hp_bor = float(target.profile.health) or 1.0
+                        if target.current_health < _tgt_hp_bor / 2.0:
+                            wound_mod_delta += 1
 
         # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
         # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
