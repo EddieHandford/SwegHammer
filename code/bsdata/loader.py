@@ -71,6 +71,17 @@ class CatalogEntry:
     lance: bool = False
     precision: bool = False
     pistol: bool = False
+    # MAP-MULTIFIRE-VALIDATE — primary ranged weapon name (mapper's
+    # `primary.name`). Surfaced on UnitProfile so the multi-profile picker
+    # can group mode-alternates by stripped root name. Default "" =
+    # legacy entries that predate the field.
+    weapon: str = ""
+    # MAP-MULTIFIRE-VALIDATE — pistol flag on the SECONDARY ranged weapon
+    # profile (the primary's flag lives in `pistol` above). 10e Pistol
+    # exclusivity is enforced in the picker; this flag tells the picker
+    # whether the secondary belongs to the pistol group or the non-pistol
+    # group of this chassis.
+    secondary_pistol: bool = False
     indirect_fire: bool = False
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit)
@@ -201,6 +212,8 @@ class CatalogEntry:
             lance=bool(d.get("lance", False)),
             precision=bool(d.get("precision", False)),
             pistol=bool(d.get("pistol", False)),
+            weapon=str(d.get("weapon", "")),
+            secondary_pistol=bool(d.get("secondary_pistol", False)),
             indirect_fire=bool(d.get("indirect_fire", False)),
             one_shot=bool(d.get("one_shot", False)),
             stealth=bool(d.get("stealth", False)),
@@ -347,6 +360,8 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "lance": override.get("lance", base.lance),
         "precision": override.get("precision", base.precision),
         "pistol": override.get("pistol", base.pistol),
+        "weapon": override.get("weapon", base.weapon),
+        "secondary_pistol": override.get("secondary_pistol", base.secondary_pistol),
         "indirect_fire": override.get("indirect_fire", base.indirect_fire),
         "one_shot": override.get("one_shot", base.one_shot),
         "stealth": override.get("stealth", base.stealth),

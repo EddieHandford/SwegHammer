@@ -282,6 +282,25 @@ class UnitProfile:
     lance: bool = False                        # +1 to wound on melee if the unit charged this turn
     precision: bool = False                    # bypass cover when shooting a CHARACTER target
     pistol: bool = False                       # can shoot while in engagement (1.5") range
+    # MAP-MULTIFIRE-VALIDATE — name of the primary ranged weapon (BSData
+    # weapon profile name on the unit's best-legal ranged loadout entry).
+    # Stamped by the mapper from `primary.name` so the simulator's
+    # multi-profile picker can detect mode-alternates (sibling weapon
+    # profiles whose names differ only by a trailing mode suffix like
+    # `" - focused mode"`, `" - dispersed mode"`, `" - standard"`,
+    # `" - supercharge"`, etc.). 10e core rule: a weapon with multiple
+    # firing modes fires ONE mode per Shooting phase, not all of them
+    # together. Empty string = legacy profile that predates the field.
+    # Cited as `simulator.multi_profile_weapon_selection`.
+    weapon: str = ""
+    # MAP-MULTIFIRE-VALIDATE — Pistol keyword carried on the SECONDARY
+    # ranged profile (the primary's pistol flag lives in `pistol` above).
+    # 10e core rule (Wahapedia, Core Rules → Weapons → Pistols): "A model
+    # armed with one or more Pistols cannot shoot any non-Pistol weapons
+    # in the same turn (and vice versa)." The picker partitions profiles
+    # into pistol / non-pistol groups and fires exactly one group per
+    # activation. Cited as `simulator.pistol_exclusivity`.
+    secondary_pistol: bool = False
     indirect_fire: bool = False                # ignores LoS; -1 to hit vs non-visible targets
     one_shot: bool = False                     # weapon fires once per battle
     # Phase H — Stealth (-1 to be hit when shot at)
@@ -847,23 +866,104 @@ class Unit:
         # the simulator's catalogue), so the list is forced to `[None]`
         # before the melee branch runs. Cited as
         # `simulator.multi_profile_weapon_selection`.
+        #
+        # MAP-MULTIFIRE-VALIDATE — gate the fire-all loop on TWO 10e core
+        # rules the original MAP-MULTIFIRE picker ignored:
+        #   (a) Multi-mode weapons fire ONE mode per Shooting phase (a
+        #       Stormsurge's Pulse Blastcannon "focused mode" and
+        #       "dispersed mode" are alternatives, not both-at-once;
+        #       plasma weapons pick "standard" or "supercharge", not
+        #       both; Tau Burst Cannons pick "strike" or "sweep").
+        #       Detected by stripping a small set of BSData mode-suffix
+        #       patterns (" - focused", " - dispersed", " - standard",
+        #       " - supercharge", " strike", " sweep") off each
+        #       profile's weapon name and grouping by the stripped root.
+        #   (b) Pistol exclusivity (Wahapedia core rules, Pistols
+        #       section, verbatim): "A model armed with one or more
+        #       Pistols cannot shoot any non-Pistol weapons in the same
+        #       turn (and vice versa)." We partition the per-group
+        #       picks into pistol and non-pistol sets and fire the
+        #       side whose summed expected damage is higher.
+        # Cited as `simulator.pistol_exclusivity` (citation entry holds
+        # the Wahapedia rule text) plus the existing
+        # `simulator.multi_profile_weapon_selection`.
         _profiles_to_fire: list = [None]
         if mode != "melee" and (
             p.secondary_attacks > 0 or p.extra_ranged_profiles
         ):
-            _profiles_to_fire = []
+            # Mode-suffix patterns the BSData mapper emits for
+            # alternative-mode weapon profiles. Stripped case-insensitively
+            # off the trailing edge of the weapon name; whatever remains
+            # is the "root" that groups siblings together.
+            _MODE_SUFFIXES = (
+                " - focused mode", " - dispersed mode",
+                " - focused", " - dispersed",
+                " - standard", " - supercharge", " - supercharged",
+                ", focused mode", ", dispersed mode",
+                ", standard", ", supercharge",
+                " strike", " sweep",
+                " - strike", " - sweep",
+            )
+
+            def _strip_mode_suffix(name: str) -> str:
+                if not name:
+                    return ""
+                low = name.lower().strip()
+                # Drop the BSData "➤ " bullet that prefixes
+                # alternative-mode entries in the cache.
+                if low.startswith("➤ "):
+                    low = low[2:]
+                if low.startswith("> "):
+                    low = low[2:]
+                for suf in _MODE_SUFFIXES:
+                    if low.endswith(suf):
+                        low = low[: -len(suf)].rstrip(" -,")
+                        break
+                return low
+
+            # Each candidate carries:
+            #   (group_key, pistol_flag, ev, swap_or_none)
+            # where swap_or_none is None for the primary or a dict for
+            # secondary/extra. EV is a lightweight expected-damage proxy
+            # used only for tie-breaking within a group; the actual
+            # damage roll happens in the resolution loop below.
+            _candidates: list = []
+
+            def _ev_proxy(
+                attacks: float,
+                dmg_per_shot: float,
+                hit_prob: float,
+                twin_linked: bool,
+            ) -> float:
+                base = max(0.0, float(attacks)) * max(0.0, float(dmg_per_shot)) \
+                    * max(0.0, float(hit_prob))
+                # twin_linked re-rolls failed wounds ≈ 1.33x effective
+                # wound probability; tiny bump to the EV proxy.
+                return base * (1.33 if twin_linked else 1.0)
+
+            # Primary profile
             primary_in_range = (
                 distance <= 0 or distance <= float(p.range_inches or 24)
             )
             if primary_in_range:
-                _profiles_to_fire.append(None)
+                _candidates.append((
+                    _strip_mode_suffix(p.weapon or ""),
+                    bool(p.pistol),
+                    _ev_proxy(
+                        p.attacks, p.weapon_damage_per_shot,
+                        p.hit_probability, p.twin_linked,
+                    ),
+                    None,
+                ))
+
+            # Secondary profile
             if p.secondary_attacks > 0:
                 sec_in_range = (
                     distance <= 0
                     or distance <= float(p.secondary_range_inches or 0)
                 )
                 if sec_in_range:
-                    _profiles_to_fire.append({
+                    sec_swap = {
                         "attacks": max(1, int(p.secondary_attacks)),
                         "weapon_damage_per_shot": p.secondary_weapon_damage_per_shot,
                         "hit_probability": p.secondary_hit_probability,
@@ -882,17 +982,27 @@ class Unit:
                         "torrent": p.secondary_torrent,
                         "blast": p.secondary_blast,
                         "anti_keywords": tuple(p.secondary_anti_keywords or ()),
-                    })
-            # MAP-1: extra ranged profiles (3rd, 4th, 5th, ...). Each is
-            # stored as a tuple of (key, value) pairs so the field stays
-            # hashable; convert back to a dict before reading fields.
+                    }
+                    _candidates.append((
+                        _strip_mode_suffix(p.secondary_weapon or ""),
+                        bool(p.secondary_pistol),
+                        _ev_proxy(
+                            sec_swap["attacks"],
+                            sec_swap["weapon_damage_per_shot"],
+                            sec_swap["hit_probability"],
+                            sec_swap["twin_linked"],
+                        ),
+                        sec_swap,
+                    ))
+
+            # MAP-1: extra ranged profiles (3rd, 4th, 5th, ...).
             for extra in (p.extra_ranged_profiles or ()):
                 ed_fields = dict(extra)
                 ex_range = float(ed_fields.get("range_inches", 0) or 0)
                 if not (distance <= 0 or distance <= ex_range):
                     continue
                 ex_attacks = max(1, int(ed_fields.get("attacks", 1) or 1))
-                _profiles_to_fire.append({
+                ex_swap = {
                     "attacks": ex_attacks,
                     "weapon_damage_per_shot": float(
                         ed_fields.get("weapon_damage_per_shot", 1.0) or 1.0
@@ -924,7 +1034,57 @@ class Unit:
                         if isinstance(ed_fields.get("anti_keywords"), dict)
                         else (ed_fields.get("anti_keywords") or ())
                     ),
-                })
+                }
+                _candidates.append((
+                    _strip_mode_suffix(str(ed_fields.get("weapon", "")) or ""),
+                    bool(ed_fields.get("pistol", False)),
+                    _ev_proxy(
+                        ex_swap["attacks"],
+                        ex_swap["weapon_damage_per_shot"],
+                        ex_swap["hit_probability"],
+                        ex_swap["twin_linked"],
+                    ),
+                    ex_swap,
+                ))
+
+            # Group by (root_name, pistol_flag). Profiles with EMPTY root
+            # name (no weapon-name metadata, e.g. units predating the
+            # field) get a unique placeholder per index so they NEVER
+            # collapse into another profile. Each non-empty group picks
+            # its single best-EV member.
+            groups: dict = {}
+            for idx, (root, pistol_flag, ev, swap) in enumerate(_candidates):
+                if not root:
+                    key = ("__no_name__", idx, pistol_flag)
+                else:
+                    key = (root, pistol_flag)
+                cur = groups.get(key)
+                if cur is None or ev > cur[0]:
+                    groups[key] = (ev, swap)
+
+            # Pistol exclusivity (10e core): partition into pistol /
+            # non-pistol sets, fire whichever side has higher total EV.
+            pistol_picks = []
+            nonpistol_picks = []
+            for key, (ev, swap) in groups.items():
+                # key is (root, pistol_flag) OR ("__no_name__", idx,
+                # pistol_flag). Pistol flag is always the LAST element.
+                pistol_flag = key[-1]
+                if pistol_flag:
+                    pistol_picks.append((ev, swap))
+                else:
+                    nonpistol_picks.append((ev, swap))
+            pistol_total = sum(e for e, _ in pistol_picks)
+            nonpistol_total = sum(e for e, _ in nonpistol_picks)
+            if pistol_picks and nonpistol_picks:
+                # Choose the side with higher summed EV; drop the other.
+                chosen = pistol_picks if pistol_total >= nonpistol_total \
+                    else nonpistol_picks
+            else:
+                chosen = pistol_picks or nonpistol_picks
+
+            _profiles_to_fire = [swap for _ev, swap in chosen]
+
             # Defensive fallback: if NOTHING is in range (caller passed a
             # huge distance), still iterate once with the primary so the
             # activation does not silently no-op. The primary's in-range
@@ -2313,6 +2473,8 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             lance=entry.lance,
             precision=entry.precision,
             pistol=entry.pistol,
+            weapon=getattr(entry, "weapon", "") or "",
+            secondary_pistol=getattr(entry, "secondary_pistol", False),
             indirect_fire=entry.indirect_fire,
             one_shot=entry.one_shot,
             stealth=entry.stealth,

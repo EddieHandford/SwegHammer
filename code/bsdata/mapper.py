@@ -1418,6 +1418,12 @@ class MappedUnit:
     lance: bool = False
     precision: bool = False
     pistol: bool = False
+    # MAP-MULTIFIRE-VALIDATE — primary ranged weapon name; surfaced for
+    # the simulator's mode-group picker.
+    weapon: str = ""
+    # MAP-MULTIFIRE-VALIDATE — Pistol keyword on the SECONDARY profile
+    # (independent of the primary's pistol flag).
+    secondary_pistol: bool = False
     indirect_fire: bool = False
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit when this unit is shot at)
@@ -1801,6 +1807,15 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         # the primary (ranged) or the chosen melee weapon has it.
         precision=primary.precision or (best_melee.precision if best_melee else False),
         pistol=primary.pistol,
+        # MAP-MULTIFIRE-VALIDATE — surface the primary ranged weapon name
+        # so the simulator's multi-profile picker can group mode-alternates
+        # (sibling weapon profiles whose names differ only by a trailing
+        # mode suffix like " - focused" / " - dispersed").
+        weapon=primary.name,
+        # MAP-MULTIFIRE-VALIDATE — pistol flag on the SECONDARY ranged
+        # profile, mirrored separately so the picker can enforce 10e
+        # Pistol exclusivity per profile (not per chassis).
+        secondary_pistol=(second_best.pistol if second_best is not None else False),
         indirect_fire=primary.indirect_fire,
         one_shot=primary.one_shot,
         stealth=stealth or primary.stealth,
@@ -1889,6 +1904,10 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
                 "assault": w.assault,
                 "torrent": w.torrent,
                 "blast": w.blast,
+                # MAP-MULTIFIRE-VALIDATE — Pistol exclusivity per
+                # profile (10e core rule). The picker partitions
+                # extras into pistol/non-pistol groups.
+                "pistol": w.pistol,
             }
             for w in extra_weapons
         ],
