@@ -382,6 +382,14 @@ body-count bias clears.
 
 **Known limitations of Track 4 (accepted):**
 
+- The cleanest validation — "do winning tournament lists sum to
+  more equation-points than 2000?" — is blocked on getting real
+  per-list tournament data into the repo. We currently only have
+  per-faction aggregates. The Equation Fit tab includes an
+  archetype-proxy section that uses the 22 curated
+  ``code/archetypes.py`` lists as one-list-per-faction substitutes,
+  flagged as directional only. See ``TODO.md`` "MASSIVE TODO — Real
+  tournament list data ingestion" for the data-collection plan.
 - Faction multipliers are coarse — every unit in a faction gets the
   same correction. We have no per-unit tournament data to
   differentiate within a faction.

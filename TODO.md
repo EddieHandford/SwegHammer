@@ -55,6 +55,29 @@ cost-anchored work until landed.
   cost rebase to absorb the redistribution. Task #150.
 
 ### Cost model (Goal C, blocked on points-per-model fix)
+- `[?]` **[MASSIVE TODO — 2026-05-22] Real tournament list data ingestion.**
+  The data-driven equation fit (Goal C Track 4) needs PER-LIST data to
+  do the cleanest validation: take real tournament lists, sum the
+  equation's stats-only prediction across each list, plot equation-sum
+  vs that list's actual win-loss record. Hypothesis: winning lists
+  should sum to MORE than 2000 GW points in equation-pts because the
+  winners are picking units the equation thinks GW under-costs. Right
+  now we only have per-faction aggregates (Warp Friends, Goonhammer,
+  Stat Check, Meta Monday) — no per-list data in the repo. Attempted
+  WebFetch scraping on 2026-05-22 failed: GoonHammer / 40k Stats
+  Centre / tabletop.to / 40kstats.com all either timed out, returned
+  empty content, or had expired certificates. Three viable paths
+  forward: (a) the user identifies a specific tournament URL that
+  returns static HTML with list text, (b) the user pastes 5-20 top-
+  table lists manually into a fresh `data/tournament_lists.json`,
+  (c) someone writes a proper scraper against Best Coast Pairings or
+  another tournament-platform JSON API. Required schema per list:
+  `{event, placement, faction, win_loss_record, units: [{key,
+  squad_count}]}`. Parser needs a unit-name → UNIT_CATALOG-key
+  resolver (fuzzy match + manual disambiguation) because tournament
+  list formats vary. Once ingested, the validation can be done in
+  the existing Equation Fit Streamlit tab (archetype-proxy version
+  ships in the same commit as this TODO as a directional placeholder).
 - `[E]` **Points-per-model import fix** — see PROJECT.tex
   `\eddie` TODO. Audit `code/bsdata/mapper.py` + `loader.py`. The
   Lanchester-derived fair cost has no signal until the printed-cost

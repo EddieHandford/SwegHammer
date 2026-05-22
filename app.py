@@ -3320,3 +3320,240 @@ with tab_equation_fit:
             "a point to the surface = how much that unit's other features "
             "differ from median. Faction colours match the scatter above."
         )
+
+    # ---------------- archetype-proxy validation ----------------
+    # MASSIVE TODO (see TODO.md): real per-list tournament data ingestion.
+    # The CLEAN version of this validation needs lists from real tournaments
+    # with their win-loss records so we can plot equation-sum vs that
+    # specific list's win rate. Until that data is in the repo, this
+    # section uses the curated faction archetypes (code/archetypes.py) as
+    # one-list-per-faction substitutes and compares against per-faction
+    # tournament-meta win rates.
+    st.divider()
+    st.markdown("### Validation: archetype list value vs real meta")
+    st.warning(
+        "⚠ **Directional proxy only.** This section sums the equation's "
+        "stats-only prediction (no faction multiplier) across each "
+        "faction's canonical archetype list and compares to that "
+        "faction's real tournament win rate. It's an approximation of the "
+        "true test (per-list equation-sum vs per-list win-loss record), "
+        "which is blocked on real per-list tournament data not yet in "
+        "the repo. See TODO.md \"MASSIVE TODO — Real tournament list "
+        "data ingestion\" for the gap and the plan to close it."
+    )
+
+    st.caption(
+        "**Hypothesis:** if the equation captures real unit value better "
+        "than GW does, then a strong faction's archetype should sum to "
+        "MORE than 2000 equation-pts (their list is built from units the "
+        "equation thinks GW underprices). A weak faction's archetype "
+        "should sum to less or near 2000. Look for a positive correlation "
+        "between equation sum and real-meta win rate."
+    )
+
+    _proxy_budget = st.slider(
+        "Budget per archetype (pts)", min_value=1000, max_value=2500,
+        value=2000, step=100, key="eqfit_proxy_budget",
+        help="Standard tournament budget is 2000. Lowering shrinks the lists.",
+    )
+    _proxy_n_builds = st.slider(
+        "Builds per faction (averaged to smooth random fill)",
+        min_value=1, max_value=20, value=5, step=1,
+        key="eqfit_proxy_n_builds",
+        help="The archetype builder tops up with same-faction random picks. "
+             "Averaging multiple builds smooths that noise.",
+    )
+
+    @st.cache_data(show_spinner="Building archetype proxies…", max_entries=4)
+    def _archetype_proxy_table(
+        spec_signature: Tuple[Tuple[str, str], ...],
+        budget: float,
+        n_builds: int,
+    ):
+        """For each faction with an archetype, compute the average
+        equation-sum (stats-only) across n_builds random instantiations."""
+        from code.archetypes import ARCHETYPES, build_archetype_army, has_archetype
+        from code.units import UNIT_CATALOG
+        import random as _random
+
+        # Recompute the fit so we have the up-to-date stats-only predictions.
+        specs = []
+        for name, transform in spec_signature:
+            base = _spec_by_name.get(name)
+            description = base.description if base is not None else ""
+            specs.append(
+                EqFitFeatureSpec(name=name, transform=transform,
+                                 include=True, description=description)
+            )
+        result = eqfit_fit(_eqfit_df, specs)
+        key_to_pred = {
+            key: float(p)
+            for key, p in zip(_eqfit_df["key"].to_numpy(), result.predicted_price)
+        }
+        # Reverse map: profile id → unit key.
+        id_to_key = {id(v): k for k, v in UNIT_CATALOG.items()}
+
+        # Meta snapshot for real win rates.
+        meta_winrates: Dict[str, float] = {}
+        if _META_SNAPSHOT_PATH.exists():
+            snap = _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+            for row in snap.get("factions", []):
+                if row.get("is_approx"):
+                    continue
+                meta_winrates[row["faction"]] = float(row.get("tournament_pct", 0)) / 100.0
+
+        rows = []
+        for faction, archetypes_dict in ARCHETYPES.items():
+            if not has_archetype(faction):
+                continue
+            arch_name = list(archetypes_dict.keys())[0]  # first archetype as canonical
+
+            sums_eq = []
+            sums_gw = []
+            n_models_list = []
+            for seed in range(n_builds):
+                rng = _random.Random(seed)
+                army = build_archetype_army(
+                    "P", faction, budget, rng=rng, archetype_name=arch_name,
+                )
+                if not army.units:
+                    continue
+                eq_total = 0.0
+                gw_total = 0.0
+                for u in army.units:
+                    profile = u.profile if hasattr(u, "profile") else None
+                    if profile is None:
+                        continue
+                    k = id_to_key.get(id(profile))
+                    if k is None or k not in key_to_pred:
+                        continue
+                    eq_total += key_to_pred[k]
+                    gw_total += profile.points_per_squad / max(1, profile.min_models) if profile.points_per_squad else 0
+                sums_eq.append(eq_total)
+                sums_gw.append(gw_total)
+                n_models_list.append(len(army.units))
+            if not sums_eq:
+                continue
+            rows.append({
+                "Faction": faction,
+                "Archetype": arch_name,
+                "Models (avg)": round(float(np.mean(n_models_list)), 1),
+                "GW sum (avg)": round(float(np.mean(sums_gw)), 1),
+                "Equation sum (avg)": round(float(np.mean(sums_eq)), 1),
+                "Equation - GW (avg)": round(float(np.mean(sums_eq) - np.mean(sums_gw)), 1),
+                "Real win rate": meta_winrates.get(faction, None),
+                "Has real data": faction in meta_winrates,
+            })
+        return rows
+
+    _proxy_rows = _archetype_proxy_table(
+        _spec_signature, float(_proxy_budget), int(_proxy_n_builds),
+    )
+
+    if not _proxy_rows:
+        st.info("No archetypes available — check code/archetypes.py.")
+    else:
+        # Scatter for the factions that DO have real data.
+        with_real = [r for r in _proxy_rows if r["Has real data"]]
+        if with_real:
+            _scatter_xs = [r["Real win rate"] * 100 for r in with_real]
+            _scatter_ys = [r["Equation sum (avg)"] for r in with_real]
+            _scatter_labels = [r["Faction"] for r in with_real]
+            _scatter_models = [r["Models (avg)"] for r in with_real]
+
+            _proxy_fig = go.Figure()
+            for r in with_real:
+                _proxy_fig.add_trace(go.Scatter(
+                    x=[r["Real win rate"] * 100],
+                    y=[r["Equation sum (avg)"]],
+                    mode="markers+text",
+                    text=[r["Faction"][:18]],
+                    textposition="top center",
+                    marker=dict(size=11, color=colour_for(r["Faction"]),
+                                line=dict(width=0.6, color="white")),
+                    name=r["Faction"],
+                    hovertemplate=(
+                        f"<b>{r['Faction']}</b><br>"
+                        f"Archetype: {r['Archetype']}<br>"
+                        f"Real WR: {r['Real win rate']*100:.1f}%<br>"
+                        f"Equation sum: {r['Equation sum (avg)']:.0f} pts<br>"
+                        f"GW sum: {r['GW sum (avg)']:.0f} pts<br>"
+                        f"Models avg: {r['Models (avg)']:.0f}"
+                        "<extra></extra>"
+                    ),
+                    showlegend=False,
+                ))
+            # Reference: budget line (where equation sum equals GW budget).
+            _proxy_fig.add_hline(
+                y=_proxy_budget, line=dict(color="#FFD700", dash="dash", width=1.2),
+                annotation_text=f"y = {_proxy_budget} pts (GW budget)",
+                annotation_position="bottom right",
+            )
+            _proxy_fig.add_vline(
+                x=50.0, line=dict(color="#888", dash="dot", width=1),
+                annotation_text="50% WR",
+                annotation_position="top right",
+            )
+            # Best-fit line if we have ≥3 points.
+            if len(with_real) >= 3:
+                xs = np.array(_scatter_xs)
+                ys = np.array(_scatter_ys)
+                slope, intercept = np.polyfit(xs, ys, 1)
+                line_xs = np.linspace(xs.min() - 2, xs.max() + 2, 50)
+                line_ys = slope * line_xs + intercept
+                # Pearson correlation.
+                corr = float(np.corrcoef(xs, ys)[0, 1])
+                _proxy_fig.add_trace(go.Scatter(
+                    x=line_xs, y=line_ys, mode="lines",
+                    line=dict(color="#9bd6ff", dash="solid", width=1.5),
+                    name=f"linear fit (r={corr:+.3f})",
+                ))
+            _proxy_fig.update_layout(
+                template="plotly_dark", paper_bgcolor="#0e1117",
+                plot_bgcolor="#1a1d23",
+                xaxis=dict(title="Real-meta win rate (%)", gridcolor="#3a3d45"),
+                yaxis=dict(title="Equation sum across archetype (pts)",
+                           gridcolor="#3a3d45"),
+                title=dict(text="Equation sum vs real meta win rate, per faction archetype",
+                           font=dict(color="#c9a84c", size=13)),
+                height=520, margin=dict(l=50, r=20, t=40, b=40),
+                legend=dict(font=dict(size=10), bgcolor="rgba(26,29,35,0.85)"),
+            )
+            st.plotly_chart(_proxy_fig, use_container_width=True,
+                            key="eqfit_proxy_scatter")
+
+            if len(with_real) >= 3:
+                xs = np.array(_scatter_xs)
+                ys = np.array(_scatter_ys)
+                corr = float(np.corrcoef(xs, ys)[0, 1])
+                if corr > 0.3:
+                    interp = ("**Positive correlation** — winning factions' archetypes "
+                              "sum to more equation-pts. Directional support for the "
+                              "equation capturing real value GW underprices.")
+                elif corr < -0.3:
+                    interp = ("**Negative correlation** — winning factions' archetypes "
+                              "sum to LESS equation-pts. Unexpected; might mean the "
+                              "equation is over-weighting features that don't actually "
+                              "drive tournament wins.")
+                else:
+                    interp = ("**No clear correlation** — the equation's residuals "
+                              "(deviations from GW pricing) don't predict real-meta "
+                              "win rate at the archetype level. Could mean the faction "
+                              "multipliers are doing most of the calibration work, or "
+                              "the per-faction signal is too small to detect with 10 data points.")
+                st.markdown(f"Pearson r = `{corr:+.3f}` across {len(with_real)} factions. " + interp)
+        else:
+            st.info(
+                "No factions in the meta snapshot have real tournament data. "
+                "All 22 factions are FX_ALL placeholders — the validation can't run."
+            )
+
+        # Show the full table, including FX_ALL factions for reference.
+        st.markdown("**Per-archetype values** (factions without real meta data shown for reference):")
+        _proxy_df_display = pd.DataFrame(_proxy_rows)
+        if "Real win rate" in _proxy_df_display.columns:
+            _proxy_df_display["Real win rate"] = _proxy_df_display["Real win rate"].apply(
+                lambda v: f"{v*100:.1f}%" if v is not None else "—"
+            )
+        st.dataframe(_proxy_df_display.drop(columns=["Has real data"]),
+                     hide_index=True, use_container_width=True)
