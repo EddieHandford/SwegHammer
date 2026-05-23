@@ -812,6 +812,14 @@
       "fnp": 7,
       "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyranid Prime with Lash Whip and Bonesword has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Prime-with-Lash-Whip-and-Bonesword"
     },
+    "tyranids_norn_emissary": {
+      "fnp": 7,
+      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 4+ baked into parsed.json by the BSData mapper. Verified BSData 'Tyranids.cat.gz' Norn Emissary selectionEntry has only ONE ability — 'Unnatural Resistance: This model has the Feel No Pain 4+ ability against Mortal Wounds.' — the FNP is conditional on mortal-wound damage only, which SwegHammer's combat resolver does not distinguish. Encoding a static fnp=4 grants the Emissary blanket 4+ FNP against every wound type, a major durability overbuff. Sim has no mortal-wound channel separation, so the rule-correct surrogate is fnp=7 (no FNP). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Emissary"
+    },
+    "tyranids_norn_assimilator": {
+      "fnp": 7,
+      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 5+ fabricated by the BSData mapper prose-walk. Verified BSData 'Tyranids.cat.gz' Norn Assimilator selectionEntry has only ONE ability — 'Harpoon Barbs: Once per turn, when an enemy unit within Engagement Range of this unit is chosen to Fall Back, roll one D6; on a 2+, that unit suffers D6 mortal wounds.' — there is no Feel No Pain ability whatsoever. The fnp=5 in parsed.json is a false positive (likely Synaptic Disintegration / Enhancement leak from sibling Tyranid entries). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Assimilator"
+    },
     "adeptus_custodes_venatari_custodians": {
       "lance": true,
       "notes": "AK-2: Venatari Custodians charge with Interceptor Lance, a melee weapon carrying the [LANCE] keyword (BSData 'Imperium - Adeptus Custodes.cat.gz' profile name='Interceptor lance' typeName='Melee Weapons' with Keywords='Lance'). The mapper's basket-weight aggregation drops Lance below the 50% majority because the model's secondary Kinetic Destroyer ranged shots dilute the melee basket; restore the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Venatari-Custodians"
