@@ -776,10 +776,21 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # and Scourges, anti-tank from Ravager triples, melee killtile from
         # Incubi + Lelith. Archon is the standard CHARACTER anchor; Lelith
         # joins as the EPIC HERO option that leads a Wyches/Incubi bomb.
-        # Multi-copy entries (Raider=4, Kabalites=2, Wyches=2, Incubi=2,
-        # Venom=2) are deliberate — these are the spine of the archetype
-        # and the (-template_count, -squad_cost) sort guarantees they seed
-        # before single-copy support like the Cronos / Ravager.
+        #
+        # DRK-ARCH-1 (2026-05-23) rebalance: previous template ran 4 Raiders
+        # + 2 Venoms = 6 transports, which over-weighted the spine sort
+        # against the actual Warp Friends meta. Real competitive Skysplinter
+        # lists at ~52.4% win rate (Warp Friends ~848 games) run 3 Raiders +
+        # 1 Venom + 1 Ravager (5 vehicles total), with the remaining slot
+        # spent on Coven anti-elite/horde tech (Wracks) and a second melee
+        # hammer. Reducing transport spam should pull Drukhari sim% down
+        # from the +23.8pt outlier toward parity. Added Wracks for Coven
+        # representation per Wahapedia datasheet:
+        # https://wahapedia.ru/wh40k10ed/factions/drukhari/#Wracks
+        #
+        # Multi-copy entries (Raider=3, Kabalites=2, Wyches=2, Incubi=2)
+        # remain the spine; the (-template_count, -squad_cost) sort still
+        # seeds them before single-copy support.
         #
         # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
         "Skysplinter Assault": {
@@ -791,9 +802,10 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "aeldari_drukhari_mandrakes": 1,
             "aeldari_drukhari_reavers": 1,
             "aeldari_drukhari_scourges_with_shardcarbines": 1,
-            "aeldari_drukhari_raider": 4,
-            "aeldari_drukhari_venom": 2,
+            "aeldari_drukhari_raider": 3,
+            "aeldari_drukhari_venom": 1,
             "aeldari_drukhari_ravager": 1,
+            "aeldari_drukhari_wracks": 1,
             "aeldari_drukhari_cronos": 1,
         },
     },
