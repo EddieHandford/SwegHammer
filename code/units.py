@@ -1122,6 +1122,21 @@ class Unit:
                 strength = p.melee_strength
                 ap = p.melee_ap
                 ignore_cover = True   # melee always ignores cover
+                # LEADERABILITY-SCHEMA: Keeper of Secrets "Daemon Lord of
+                # Slaanesh" aura — improve the Armour Penetration of melee
+                # weapons in friendly Slaanesh Legiones Daemonica units within
+                # 6" of the KoS by 1. Wahapedia / BSData verbatim:
+                # "While a friendly Slaanesh Legiones Daemonica unit is within
+                # 6" of this model, improve the Armour Penetration of melee
+                # weapons in that unit by 1."
+                # Cited as `LeaderAbility.Daemon Lord of Slaanesh`. AP is
+                # encoded as 0/-1/-2/-3 — "improve by 1" makes the value MORE
+                # negative, so we subtract 1. Same convention as SHIELD_HOST
+                # `melee_ap_plus_one` and Necrons Hungry Void. Boolean read
+                # from att_buffs which has already host-gated the merge to
+                # Slaanesh-keyed attackers.
+                if att_buffs["plus_one_ap_melee"]:
+                    ap = ap - 1
                 # Drukhari Combat Drugs (army rule): Adrenalight grants +1 Attack
                 # and Grave Lotus grants +1 Strength on WYCH CULT melee weapons.
                 # The simulator's `_apply_combat_drugs` hook stamps these per-unit
@@ -1150,6 +1165,21 @@ class Unit:
                 strength = p.strength
                 ap = p.ap
                 ignore_cover = p.ignores_cover
+                # LEADERABILITY-SCHEMA: Lord of Change "Daemon Lord of
+                # Tzeentch" aura — +1 to the Strength characteristic of
+                # ranged attacks from any TZEENTCH Legiones Daemonica unit
+                # within 6". Wahapedia / BSData verbatim:
+                # "While a friendly TZEENTCH LEGIONES DAEMONICA unit is
+                # within 6" of this model, each time a model in that unit
+                # makes a ranged attack, add 1 to the Strength characteristic
+                # of that attack."
+                # Cited as `LeaderAbility.Daemon Lord of Tzeentch`. Boolean
+                # OR-merged in effective_buffs from any in-range Lord of
+                # Change with host_keys gated to Tzeentch Daemonica units.
+                # The merge already filters to the right host; this gate
+                # just reads the merged buff and applies the +1.
+                if att_buffs["plus_one_strength_ranged"]:
+                    strength += 1
 
             # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
             # melee AP+1 portion. Wahapedia verbatim: "Improve the Armour
@@ -1298,6 +1328,21 @@ class Unit:
             # to 0 on every non-Drukhari unit. Cited as `simulator.combat_drugs`.
             _drug_toughness = int(getattr(target, "combat_drug_toughness_bonus", 0))
             _effective_toughness = target.profile.toughness + _drug_toughness
+            # LEADERABILITY-SCHEMA: Great Unclean One "Daemon Lord of Nurgle"
+            # aura — +1 to the Toughness characteristic of models in any
+            # friendly NURGLE Legiones Daemonica unit within 6" of the GUO.
+            # Wahapedia / BSData verbatim:
+            # "While a friendly Nurgle Legiones Daemonica unit is within 6"
+            # of this model, add 1 to the Toughness characteristic of models
+            # in that unit."
+            # Cited as `LeaderAbility.Daemon Lord of Nurgle`. Buff is DEFENDER-
+            # side: reads tgt_buffs (computed from the target's own army's
+            # in-range Great Unclean One with host_keys covering the target).
+            # The codex grants this army-wide-within-6", not a led-unit
+            # restriction, so the +1 T applies to whichever Nurgle unit is
+            # closest to the GUO. host_keys narrows the eligible defenders.
+            if tgt_buffs["plus_one_toughness"]:
+                _effective_toughness += 1
             wound_p = wound_probability(strength, _effective_toughness)
             wound_target = _prob_to_target(wound_p)
 

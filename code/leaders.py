@@ -93,6 +93,21 @@ class LeaderAbility:
     plus_one_to_hit: bool = False
     plus_one_to_wound: bool = False
     plus_one_attack: int = 0                # +N extra attacks per weapon (Cadre Fireblade etc.)
+    # Greater Daemon locus auras (LEADERABILITY-SCHEMA, claude/sim-calibration-6).
+    # Each maps to a per-stat uplift on the led / in-aura attacker's attack
+    # resolution. None of these were expressible before — adding them unlocks
+    # Lord of Change (Locus of Change, +1 Strength on ranged), Great Unclean One
+    # (Locus of Virulence, +1 Toughness on the led unit), and Keeper of Secrets
+    # (Locus of Slaanesh, +1 AP on melee). All three are cited verbatim in
+    # data/rule_citations.d/leaders.json. The Daemons archetype was the
+    # immediate driver — Greater Daemons sit at ~300-400pts each in tournament
+    # lists and going un-wired contributed to Daemons' -22pt gated under-perf
+    # at N=5. The fields are generic, so they can be reused by future leaders
+    # whose codex grants the same direction (e.g. any "+1 Strength to ranged
+    # in 6"" locus / etc.).
+    plus_one_strength_ranged: bool = False  # attacker's ranged S += 1 when led/in-aura
+    plus_one_toughness: bool = False         # target's T += 1 when led/in-aura
+    plus_one_ap_melee: bool = False          # attacker's melee AP improves by 1 (more negative)
     # Defensive modifiers (apply to DEFENDER when it's in range of this leader)
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
@@ -181,6 +196,62 @@ _KHORNE_DAEMON_HOSTS = (
     "chaos_daemons_library_karanak",
     "chaos_daemons_library_bloodmaster",
     "chaos_daemons_library_rendmaster_on_blood_throne",
+)
+
+# LEADERABILITY-SCHEMA — Tzeentch / Nurgle / Slaanesh Legiones Daemonica
+# rosters. Same derivation pattern as _KHORNE_DAEMON_HOSTS above: the
+# Greater Daemon's "Daemon Lord of <god>" aura reads "While a friendly
+# <GOD> Legiones Daemonica unit is within 6"" — host_keys gates the
+# buff to the catalogue keys carrying that god's keyword, applied at
+# proximity. Roster filtered to BSData v10.6.0 (no Legends entries) per
+# Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/.
+# Skull Altar and Feculent Gnarlmaw are terrain pieces (no unit profile
+# to buff); Be'lakor is UNDIVIDED (not tagged TZEENTCH/NURGLE/SLAANESH);
+# Daemon Prince of Chaos has a player-chosen god at list-building but the
+# BSData entry is undivided so it stays out of all three rosters. Syll'esske
+# is dual-keyword SLAANESH/KHORNE per the codex but lists SLAANESH for
+# Locus targeting — included in the Slaanesh roster only.
+_TZEENTCH_DAEMON_HOSTS = (
+    "chaos_daemons_library_pink_horrors",
+    "chaos_daemons_library_blue_horrors",
+    "chaos_daemons_library_flamers",
+    "chaos_daemons_library_screamers",
+    "chaos_daemons_library_burning_chariot",
+    "chaos_daemons_library_tzeentch_soul_grinder",
+    "chaos_daemons_library_kairos_fateweaver",
+    "chaos_daemons_library_changecaster",
+    "chaos_daemons_library_fluxmaster",
+    "chaos_daemons_library_fateskimmer",
+    "chaos_daemons_library_exalted_flamer",
+    "chaos_daemons_library_the_blue_scribes",
+    "chaos_daemons_library_the_changeling",
+)
+_NURGLE_DAEMON_HOSTS = (
+    "chaos_daemons_library_plaguebearers",
+    "chaos_daemons_library_nurglings",
+    "chaos_daemons_library_plague_drones",
+    "chaos_daemons_library_beasts_of_nurgle",
+    "chaos_daemons_library_nurgle_soul_grinder",
+    "chaos_daemons_library_rotigus",
+    "chaos_daemons_library_horticulous_slimux",
+    "chaos_daemons_library_epidemius",
+    "chaos_daemons_library_poxbringer",
+    "chaos_daemons_library_sloppity_bilepiper",
+    "chaos_daemons_library_spoilpox_scrivener",
+)
+_SLAANESH_DAEMON_HOSTS = (
+    "chaos_daemons_library_daemonettes",
+    "chaos_daemons_library_seekers",
+    "chaos_daemons_library_fiends",
+    "chaos_daemons_library_hellflayers",
+    "chaos_daemons_library_slaanesh_soul_grinder",
+    "chaos_daemons_library_shalaxi_helbane",
+    "chaos_daemons_library_syll_esske",
+    "chaos_daemons_library_contorted_epitome",
+    "chaos_daemons_library_infernal_enrapturess",
+    "chaos_daemons_library_the_masque_of_slaanesh",
+    "chaos_daemons_library_tormentbringer",
+    "chaos_daemons_library_tranceweaver",
 )
 
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
@@ -466,28 +537,44 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # opponent-Shooting-phase ritual with no aura-flag plumbing; skipped.
     ("Contorted Epitome",  LeaderAbility(name="Swallow Energy",             aura_range=6.0, fnp=4,
                                           host_keys=("chaos_daemons_library_daemonettes",))),
-    # Chaos Daemons Greater Daemons — Khorne aura carriers (DAEMONS-DIAG-3,
-    # claude/sim-calibration-6). Bloodthirster and Skarbrand each broadcast a
-    # 6" aura to friendly KHORNE Legiones Daemonica units. Prior to this
-    # iteration neither was in the registry, so a Daemonic Incursion list
-    # ran its Khorne units (Bloodletters, Bloodcrushers, Flesh Hounds, Skull
-    # Cannon, Khorne Soul Grinder) without the +1-Hit / +1-Attack uplift
-    # their Greater Daemon nearby is meant to grant. Two of the three god-
-    # specific Greater Daemons (Lord of Change +1 Strength, Great Unclean
-    # One +1 Toughness, Keeper of Secrets +1 AP) need LeaderAbility fields
-    # we do not yet expose (no plus_one_strength / plus_one_toughness /
-    # plus_one_ap_melee), so they are intentionally NOT wired here per
-    # CLAUDE.md §10 "no proxies" — adding loose proxies for the wrong stat
-    # is the Awakened-Dynasty failure mode. Citations in
-    # data/rule_citations.d/leaders.json (LeaderAbility.Daemon Lord of
-    # Khorne / LeaderAbility.Rage Embodied), quoted text verbatim from
-    # BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. Wahapedia:
+    # Chaos Daemons Greater Daemons — per-god aura carriers. Bloodthirster
+    # and Skarbrand (DAEMONS-DIAG-3, claude/sim-calibration-6) wire Khorne;
+    # LEADERABILITY-SCHEMA (this iteration) extends to the three remaining
+    # gods (Lord of Change / Great Unclean One / Keeper of Secrets) now that
+    # LeaderAbility carries `plus_one_strength_ranged`, `plus_one_toughness`,
+    # and `plus_one_ap_melee`. Each Greater Daemon broadcasts a 6" aura to
+    # friendly <god> Legiones Daemonica units; host_keys narrows the buff
+    # to that god's catalogue roster. Citations verbatim from BSData v10.6.0
+    # Chaos - Chaos Daemons Library.cat.gz in
+    # data/rule_citations.d/leaders.json. Wahapedia:
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skarbrand
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets
     ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit=True,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
     ("Skarbrand",          LeaderAbility(name="Rage Embodied",              aura_range=6.0, plus_one_attack=1,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
+    # Only the GENERIC Greater Daemon datasheets (Lord of Change, Great
+    # Unclean One, Keeper of Secrets) carry the "Daemon Lord of <god>" Locus
+    # aura per BSData v10.6.0 cache. The named variants (Kairos Fateweaver,
+    # Rotigus, Shalaxi Helbane) are separate datasheets with their own
+    # bespoke datasheet abilities (Kairos: CP-stealing stratagem-cost gate,
+    # Rotigus: damage uplift on a chosen target + enemy debuff aura,
+    # Shalaxi: Monster-hunter melee uplift) and explicitly DO NOT inherit
+    # the Locus aura. They are intentionally not wired here per CLAUDE.md
+    # §10 "cite every rule, don't invent". Skarbrand is the only named
+    # variant that broadcasts a Locus-equivalent — its "Rage Embodied"
+    # aura is wired above with the codex-correct +1 Attacks effect, not
+    # the Khorne Locus +1-to-hit (those are two separate auras on the
+    # same datasheet per BSData and Wahapedia).
+    ("Lord of Change",     LeaderAbility(name="Daemon Lord of Tzeentch",    aura_range=6.0, plus_one_strength_ranged=True,
+                                          host_keys=_TZEENTCH_DAEMON_HOSTS)),
+    ("Great Unclean One",  LeaderAbility(name="Daemon Lord of Nurgle",      aura_range=6.0, plus_one_toughness=True,
+                                          host_keys=_NURGLE_DAEMON_HOSTS)),
+    ("Keeper of Secrets",  LeaderAbility(name="Daemon Lord of Slaanesh",    aura_range=6.0, plus_one_ap_melee=True,
+                                          host_keys=_SLAANESH_DAEMON_HOSTS)),
     # Adeptus Custodes — Shield-Captain pinned to the registry head above
     # to prevent substring-collision with the generic Marines "Captain"
     # entry. Trajann Valoris and Blade Champion live in this per-faction
@@ -662,6 +749,13 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_save": False,
     "extra_invuln": 7,
     "fnp": 7,
+    # LEADERABILITY-SCHEMA: three new Greater Daemon locus fields (see
+    # LeaderAbility dataclass docstring for derivation). Defaults False so
+    # the buff dict matches every existing call site that consumes it via
+    # bracket access — the consumers in code/units.py only branch on True.
+    "plus_one_strength_ranged": False,
+    "plus_one_toughness": False,
+    "plus_one_ap_melee": False,
 }
 
 
@@ -988,6 +1082,19 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
+        # LEADERABILITY-SCHEMA: Greater Daemon locus fields. Booleans OR
+        # together — multiple loci of the same type don't stack numerically
+        # in 10e (you either get +1 S / +1 T / +1 AP from a locus or you
+        # don't). The simulator's modifier cap on hit/wound rolls already
+        # handles +1-to-hit / +1-to-wound at the delta level; for these
+        # stat-level uplifts the boolean OR is the right shape because
+        # codex wording is "improve by 1", not "modifier +1" subject to a
+        # cap. Strength and AP uplifts apply at the attacker side; the
+        # toughness uplift applies at the defender side (and so reads
+        # tgt_buffs, not att_buffs, in code/units.py).
+        _merge_bool(buffs, ability, "plus_one_strength_ranged")
+        _merge_bool(buffs, ability, "plus_one_toughness")
+        _merge_bool(buffs, ability, "plus_one_ap_melee")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

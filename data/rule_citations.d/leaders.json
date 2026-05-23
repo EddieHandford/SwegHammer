@@ -58,6 +58,33 @@
     "scope": "keyword-gated"
   },
 
+  "LeaderAbility.Daemon Lord of Tzeentch": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change",
+    "rule_name": "Daemon Lord of Tzeentch (Aura)",
+    "quoted_text": "While a friendly TZEENTCH LEGIONES DAEMONICA unit is within 6\" of this model, each time a model in that unit makes a ranged attack, add 1 to the Strength characteristic of that attack.",
+    "trigger": "Lord of Change is on the battlefield; a friendly TZEENTCH Legiones Daemonica unit is within 6\" of the Lord of Change and makes a ranged attack",
+    "effect": "+1 Strength on every ranged attack from the affected unit. Modelled as plus_one_strength_ranged=True with host_keys gated to the TZEENTCH Legiones Daemonica catalogue keys (Pink Horrors, Blue Horrors, Flamers, Screamers, Burning Chariot, Tzeentch Soul Grinder, Kairos Fateweaver, Changecaster, Fluxmaster, Fateskimmer, Exalted Flamer, The Blue Scribes, The Changeling) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. The Shooting-phase 'select [IGNORES COVER] / [LETHAL HITS] / [SUSTAINED HITS D3] for the Bolt of Change' bullet on the same datasheet ability is a self-buff on the Lord of Change's own ranged weapon and is NOT modelled here — it would need a per-Lord-of-Change weapon-keyword toggle the simulator does not yet expose. The +1 Strength aura is the main mechanical contribution, and is faithful to the codex.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Daemon Lord of Nurgle": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One",
+    "rule_name": "Daemon Lord of Nurgle (Aura)",
+    "quoted_text": "While a friendly Nurgle Legiones Daemonica unit is within 6\" of this model, add 1 to the Toughness characteristic of models in that unit.",
+    "trigger": "Great Unclean One is on the battlefield; a friendly NURGLE Legiones Daemonica unit is within 6\" of the GUO and is the target of an attack",
+    "effect": "+1 Toughness on models in the affected NURGLE Daemons unit. Modelled as plus_one_toughness=True with host_keys gated to the NURGLE Legiones Daemonica catalogue keys (Plaguebearers, Nurglings, Plague Drones, Beasts of Nurgle, Nurgle Soul Grinder, Rotigus, Horticulous Slimux, Epidemius, Poxbringer, Sloppity Bilepiper, Spoilpox Scrivener) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. Buff applied DEFENDER-side: read from tgt_buffs in code/units.py's wound-roll computation (+1 to target's effective_toughness). The Movement-phase 'select an enemy unit within 12\" and subtract 1 from its Toughness until next Movement phase' bullet on the same datasheet ability is a target-debuff and is NOT modelled here — the simulator has no per-unit transient toughness debuff slot. The +1 T defensive aura is the main mechanical contribution and is faithful to the codex.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Daemon Lord of Slaanesh": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets",
+    "rule_name": "Daemon Lord of Slaanesh (Aura)",
+    "quoted_text": "While a friendly Slaanesh Legiones Daemonica unit is within 6\" of this model, improve the Armour Penetration characteristic of melee weapons equipped by models in that unit by 1.",
+    "trigger": "Keeper of Secrets is on the battlefield; a friendly SLAANESH Legiones Daemonica unit is within 6\" of the KoS and makes a melee attack",
+    "effect": "AP improved by 1 (more negative) on every melee weapon in the affected unit. Modelled as plus_one_ap_melee=True with host_keys gated to the SLAANESH Legiones Daemonica catalogue keys (Daemonettes, Seekers, Fiends, Hellflayers, Slaanesh Soul Grinder, Shalaxi Helbane, Syll'esske, Contorted Epitome, Infernal Enrapturess, The Masque of Slaanesh, Tormentbringer, Tranceweaver) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. The defensive -1-to-Hit-rolls-targeting-this-model bullet on the KoS datasheet (a per-Keeper self-buff) is NOT modelled here — it would need a per-defender hit-modifier slot that the simulator does not currently expose for individual models. The +1 melee AP aura is the main mechanical contribution and is faithful to the codex.",
+    "scope": "keyword-gated"
+  },
+
   "LeaderAbility.Rites of Battle": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",
