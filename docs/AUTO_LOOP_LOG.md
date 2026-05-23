@@ -2,7 +2,53 @@
 
 Older iter blocks live in `AUTO_LOOP_LOG_archive.md`.
 
-## Branch claude/sim-calibration-5 (2026-05-21) — SC5 outlier-grind loop
+## Branch claude/sim-calibration-6 (2026-05-23) — noise-gated calibration + PR #31
+
+### Headline reframing
+
+The calibration target moved from a hand-curated `TOURNAMENT_TARGET` dictionary (10 real Warp Friends numbers + 12 meta-midpoint approximations) to a JSON load from `data/warpfriends_rolling.json` — a game-weighted 4-week rolling aggregate scraped by `scripts/scrape_warpfriends.py` from the public `warpfriends.wordpress.com` archive. Total games across the 4 weeks: 31,841. Faction-name normalisation map: 6 Space Marine chapters game-weight-aggregated into Adeptus Astartes; "Tau" / "Sisters of Battle" / "Genestealer Cult" normalised to the simulator's internal names; "Imperial Agents" dropped.
+
+The headline calibration metric is now noise-gated MAE: `mean(max(0, |sim - target| - noise_floor))`. Per-faction `noise_floor = max(week_to_week_stdev, binomial_95_CI_halfwidth)`. A faction inside its noise band contributes zero. Raw MAE retained as legacy headline. New `Factions inside noise band: N/22` count is the structural progress signal — the target endpoint of Stage 1 is now "all 22 inside" rather than a numeric MAE threshold.
+
+Mean per-faction noise floor across the 22 factions is 3.67pt. The old "MAE ≤ 2.0" Goal A target sat below it (chasing variance) and is superseded — `ROADMAP.md` updated.
+
+Top 4 signal-bearing target shifts:
+| Faction | Old target | Rolling | Noise | Gap |
+|---|---:|---:|---:|---:|
+| Chaos Space Marines | 46.0 | 55.63 | 2.48 | +9.63 |
+| Chaos Daemons | 47.0 | 52.60 | 3.16 | +5.60 |
+| World Eaters | 50.0 | 44.93 | 3.42 | -5.07 |
+| Aeldari | 44.4 | 41.55 | 3.10 | -2.85 |
+
+18 of 22 factions were already inside their noise band under the old approximations — hand-curated targets were closer than expected on average.
+
+### Stage 1 commits before the reframing (40 landings on sim-cal-6)
+
+AI piloting (9 waves): AI-1 Orks tarpit / AI-2A WE / AI-2B Tyranids / AI-2C Daemons / AI-3 Custodes-Drukhari-Votann objective priority / AI-4 Astartes Oath / AI-5 Aeldari Strands / AI-7 Necron Reanimation-aware (not landed — Detachment-level per-army flag couldn't model per-unit eligibility, parked pending MAP-4 infrastructure) / AI-8 transport priority / AI-9 sacrificial chaff deployment for Engage/BEL VP.
+
+Anti-keyword sweep (2): AK-1 [DEVASTATING WOUNDS] on 14 weapon profiles; AK-2 [LANCE] + [ANTI-MONSTER] + [ANTI-VEHICLE] on 12 profiles.
+
+Stratagem (3): ST-1 replaced 8 `transient_plus_one_*` proxies with real LETHAL HITS / REROLL WOUNDS; ST-2 added 5 stratagems for under-performers; ST-3 tightened over-eager AI gates on 7 stratagems.
+
+Mapper structural (6): MAP-1 multi-profile mapper generalised; MAP-2/3 prose-walk gate fix + basket-threshold keyword union with Bernoulli gating; MAP-3-FIX basket-fraction gating for partial-coverage; MAP-4 per-unit Reanimation eligibility; MAP-MULTIFIRE + VALIDATE multi-profile fire-all with mode-suffix clustering + pistol exclusivity. BS-1 per-unit battleshock state infra.
+
+Faction rules (4): MR-WE-2 Beacons of Rage / Rend and Tear; MR-WE-3 Berzerker Blood Surge; MR-CHAOS-DAEMONS-LOCUS 4 Herald leaders; MR-CK-HARBINGERS Chaos Knights Harbingers of Dread (3-Dread rotation, battleshock-keyed).
+
+Universal 10e core rules audit (6 passes): CORE-RULE-AUDIT 1..6 + CORE-RULE-FIX-1 chargers-fight-first / -2 Indirect Fire no-crit-no-Heavy / -5 unmodified-roll crit gate / -6a engagement range 1.5" → 1.0". FF-KEYWORD-1 per-unit Fights First datasheet keyword pipeline.
+
+Data corrections (5): STAT-AUDIT 7 unit-stat mapper artifacts; SK-1 8 Phobos/Pteraxii/Pathfinder Stealth surfaces; KNIGHT-STAT-AUDIT 2 Knight weapon artifacts; TYRANIDS-FIX Trygon CHARACTER strip + archetype rebalance; DET-VARIETY-1 3 alternative detachments.
+
+### Merge from origin/main + WF wire-up
+
+2026-05-23: merged Ed's 15+ commits from origin/main into sim-cal-6 (BSData Move-stat fix, equation-fit pipeline, Streamlit app changes). Three conflict resolutions: AI-9 block in code/strategy.py (additive — keep both); Stompa override in data/overrides.json (additive — keep both); evaluate_vs_meta.py rewrite to integrate noise-gated MAE on top of Ed's `price_overrides` + `save_snapshot` plumbing.
+
+WF-SCRAPE-1 (commit 4834002) + WF-WIRE-1 (commit 41c942d) landed on top. The snapshot JSON now also writes per-faction noise_floor + gated_error so the Calibration tab can surface inside-band vs outside-band status without re-running the matrix. PR #31 opened.
+
+### Next-iteration plan
+
+Awaiting N=40 honest baseline against the new target to identify factions outside their noise band. First wave will target the highest gated-error factions. See [[project-stage1-loop-structure]] for wave-type priority order (AI > anti-keyword > strat mapping > mortal wound > cumulative).
+
+
 
 22-faction matrix expanded in sim-cal-4 (FX-ALL + FX-MS) created 12 new minimal-archetype outliers. Starting baseline pre-SC5 N=20: MAE 15.95 (vs pre-FX-ALL 10-faction N=40 = 5.79). User directive: "work through all the factions starting with the biggest outliers focusing on rule correct updates to bring their MAE down. then do a loop summary and feed those notes into the next loop. continue until MAE is at least as good as before we added the remaining factions or we're below our noise floor."
 
