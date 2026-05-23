@@ -1302,12 +1302,23 @@ def pick_charge_target(attacker, enemy):
         we_glory_bonus = _we_glory_charge_bonus(attacker, e)
         tyranids_tarpit_bonus = _tyranids_synapse_tarpit_bonus(attacker, e)
         daemons_tarpit_bonus = _daemons_deepstrike_tarpit_bonus(attacker, e)
+        # AI-3 — Drukhari decisive-strike charge penalty. Symmetry fix
+        # (DRK-DIAG-6, 2026-05-23): the penalty already gates the MOVE
+        # planner (`_melee_target_score`) so Wyches/Incubi only CLOSE on
+        # targets they can delete, but the CHARGE planner was unbraked
+        # and re-engaged those same non-decisive targets once in range,
+        # producing the alpha-strike-anyway play-pattern the bias was
+        # meant to eliminate. Apply it here too so the brake is
+        # consistent across move + charge. Same 50% expected-wounds
+        # threshold, same 0.5x multiplier, same Drukhari/Ynnari gate.
+        drk_decisive_penalty = _drukhari_decisive_strike_penalty(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus * tarpit_bonus
                  * we_glory_bonus * tyranids_tarpit_bonus
-                 * daemons_tarpit_bonus)
+                 * daemons_tarpit_bonus
+                 * drk_decisive_penalty)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
