@@ -911,6 +911,24 @@
       "melee_ap": -3,
       "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had melee A6 S6 AP-2 D3 on a phantom 'Single Blade' demiklaive profile and duplicated those stats into the ranged basket — but Drazhar has no ranged weapon and his real demiklaives have two stance profiles. Restoring Strike stance (the higher-damage, lower-volume profile, which is the threat the simulator should prioritise): The Executioner's demiklaives - Strike: A4 S6 AP-3 D2 [PRECISION]. Sweep profile is A8 S5 AP-2 D1 — equal damage budget (A times D = 8) so picking Strike loses nothing in expected damage and matches the actual datasheet. Zeroing ranged so the mapper-inflated phantom ranged basket stops contributing. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Drazhar"
     },
+    "aeldari_drukhari_lelith_hesperax": {
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "sustained_hits": 0,
+      "precision": false,
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated Lelith's melee profile into the ranged basket — `weapon = Lelith's blades` with A8 S3 AP-2 D1 [PRECISION, SUSTAINED HITS 2] is identical to her melee profile. Lelith Hesperax has NO ranged weapon on her 10e datasheet; Lelith's blades is MELEE ONLY. Zeroing the phantom ranged basket so the simulator stops giving her a free 8-shot S3 AP-2 ranged volley each Shooting phase on top of her real melee. The melee basket (melee_attacks=8, melee_strength=3, melee_ap=-2, melee_damage_per_shot=1, melee_sustained_hits=2, precision=true on melee profile) is left untouched and remains correct. Same mapper bug as the Drazhar phantom-ranged duplication fixed in sim-cal-6 STAT-AUDIT. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Lelith-Hesperax"
+    },
+    "aeldari_drukhari_incubi": {
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Incubi melee Klaive profile into the ranged basket — `weapon = Klaive` with A3 S5 AP-2 D2 is identical to their melee Klaive. Incubi have NO ranged weapon on their 10e datasheet; Klaives are MELEE ONLY. Zeroing the phantom ranged basket so a 5-strong Incubi squad stops getting 15 free S5 AP-2 D2 ranged shots each Shooting phase on top of their real melee output. The melee basket (melee_attacks=3, melee_strength=5, melee_ap=-2, melee_damage_per_shot=2) is left untouched and remains correct. Same mapper bug as the Drazhar / Lelith phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Incubi"
+    },
+    "aeldari_drukhari_succubus": {
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "precision": false,
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Succubus melee Archite glaive and agoniser profile into the ranged basket — `weapon = Archite glaive and agoniser` with A7 S3 AP-2 D1 [PRECISION] is identical to her melee profile. Her real datasheet has only a Splinter Pistol on the ranged side (A1 S2 AP0 D1 [PISTOL]), but the mapper substituted her melee weapon. Zeroing the phantom ranged basket rather than restoring the Splinter Pistol because the Pistol is a negligible 1-shot S2 contribution that does not warrant cluttering the override; the meaningful threat the simulator must price is her melee, which is left untouched. Same mapper bug as the Drazhar / Lelith / Incubi phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus"
+    },
     "adeptus_custodes_custodian_wardens": {
       "melee_strength": 7,
       "melee_damage_per_shot": 2,
