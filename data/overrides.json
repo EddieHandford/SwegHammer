@@ -383,14 +383,30 @@
       "base_shape": "circle",
       "base_diameter_mm": 80,
       "fnp": 7,
-      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement (a single-CHARACTER, Below-Starting-Wounds-gated enhancement, not a datasheet ability). Hive Tyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant"
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement (a single-CHARACTER, Below-Starting-Wounds-gated enhancement, not a datasheet ability). Hive Tyrant has no native Feel No Pain. TYRANIDS-MULTI-LOADOUT: Wahapedia datasheet lists Heavy Venom Cannon (A=2 S=9 AP-2 D=3 BLAST) and Stranglethorn cannon (A=D6+1 avg=4.5 S=7 AP-1 D=2 BLAST) as EXCLUSIVE ranged weapon choices ('this model is equipped with: ...' lists them as alternatives, one OR the other, not both). The BSData mapper packed Stranglethorn into the primary slot (A=4 S=7 AP-1 D=2 R=36) AND Heavy Venom Cannon into the secondary slot (A=2 S=9 AP-2 D=3 R=36), so the simulator fires BOTH every Shooting phase — a doubled-ranged-output inflation. Cleared the secondary slot; primary Stranglethorn cannon stays (it is the more common tournament loadout and the parsed values match Wahapedia). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant"
     },
     "tyranids_winged_hive_tyrant": {
       "base_shape": "oval",
       "base_width_mm": 105,
       "base_length_mm": 170,
       "fnp": 7,
-      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak). Winged Hive Tyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant"
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak). Winged Hive Tyrant has no native Feel No Pain. TYRANIDS-MULTI-LOADOUT: same exclusive-ranged-loadout issue as foot Hive Tyrant — BSData mapper packed Stranglethorn cannon into the primary slot and Heavy venom cannon into the secondary slot, so both fire every Shooting phase. Real datasheet: model is equipped with ONE of (Heavy venom cannon, Stranglethorn cannon), not both. Cleared the secondary; primary Stranglethorn cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant"
     },
     "space_marines_terminator_squad": {
       "base_shape": "circle",
@@ -1134,6 +1150,24 @@
     "tyranids_norn_assimilator": {
       "fnp": 7,
       "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 5+ fabricated by the BSData mapper prose-walk. Verified BSData 'Tyranids.cat.gz' Norn Assimilator selectionEntry has only ONE ability — 'Harpoon Barbs: Once per turn, when an enemy unit within Engagement Range of this unit is chosen to Fall Back, roll one D6; on a 2+, that unit suffers D6 mortal wounds.' — there is no Feel No Pain ability whatsoever. The fnp=5 in parsed.json is a false positive (likely Synaptic Disintegration / Enhancement leak from sibling Tyranid entries). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Assimilator"
+    },
+    "tyranids_tyranid_warriors_with_ranged_bio_weapons": {
+      "attacks": 2,
+      "strength": 6,
+      "ap": -1,
+      "weapon_damage_per_shot": 1,
+      "range_inches": 24,
+      "blast": false,
+      "weapon": "Deathspitter (squad-blended with 1x venom cannon)",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "notes": "TYRANIDS-MULTI-LOADOUT: BSData mapper picked the squad's single special weapon (Venom cannon: A=2 S=9 AP-2 D=2 R=36 [BLAST]) as the per-model primary, which the simulator then fires from all 6 models — a ~6x damage inflation on what should be 5 Deathspitter shooters + 1 Venom cannon special. Real datasheet: 1 model carries Venom cannon (2D6 attacks avg 7, S9 AP-2 D2 BLAST R36); 5 models carry Deathspitters (A=2 S=5 AP-1 D=1 R=24). Attack-volume-weighted blend over 6-model squad: ~14.5 squad-wide shots total, weighted S=6.24, weighted AP=-1.31, weighted D=1.31, weighted R=24 (deathspitter dominates). Conservative per-model representation: A=2 S=6 AP=-1 D=1 R=24 no-blast, with secondary cleared (the venom cannon's single-model contribution is folded into the primary blend rather than firing as a second weapon from every model). Source (Venom cannon stats): https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Warriors-with-Ranged-Bio-Weapons (Deathspitter, Venom cannon profiles). The BSData secondary_weapon='Barbed strangler' is a different special weapon variant (only one of barbed strangler / venom cannon / stranglethorn cannon is taken per squad), not a second-per-model weapon, so clearing it removes the double-counted second-special-weapon-per-model inflation."
     },
     "adeptus_custodes_venatari_custodians": {
       "lance": true,
