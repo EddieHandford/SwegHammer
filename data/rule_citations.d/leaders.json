@@ -348,19 +348,19 @@
 
   "LeaderAbility.Overlord of Commorragh": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Archon",
-    "rule_name": "Hatred Eternal (Pain)",
+    "rule_name": "Hatred Eternal (Pain) — NO-FLAG (DRK-DIAG-3 drop)",
     "quoted_text": "In your Shooting phase or the Fight phase, when you select this model's unit to shoot or fight, you can spend 1 Pain token to Empower that unit. While that unit is Empowered, each time a model in that unit makes an attack, you can re-roll the Hit roll.",
-    "trigger": "attacker's unit is led by a Drukhari Archon in aura range",
-    "effect": "+1 to Hit in aura range (approximation; the real Hatred Eternal grants full Hit-roll re-rolls when 1 Pain token is spent to Empower the unit. The simulator does not model Pain tokens or the Empowered state, so +1-to-hit is a stronger-than-1s-only but weaker-than-full-rerolls proxy for the Archon's Pain-fuelled offensive aura)",
+    "trigger": "attacker's unit is led by a Drukhari Archon AND the unit is Empowered via 1 Pain token spent that phase (NOT modelled — sim has no Pain-token economy or Empowered state)",
+    "effect": "no flag wired (DRK-DIAG-3, 2026-05-23). Previous `plus_one_to_hit=True` proxy was an always-on, ungated buff and a strict over-buff vs the real per-Pain-token Empower gate. Restore narrowly when Pain tokens land in the sim.",
     "scope": "unit-led"
   },
 
   "LeaderAbility.Precision Blows": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus",
-    "rule_name": "Storm of Blades",
+    "rule_name": "Storm of Blades — NO-FLAG (DRK-DIAG-3 drop)",
     "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
-    "trigger": "attacker's unit is led by a Succubus in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Storm of Blades grants SUSTAINED HITS 1 to the led unit's melee weapons. The simulator does not model SUSTAINED HITS, so reroll-1s-to-hit is a flavour proxy for the Succubus's flurry-of-blows aesthetic)",
+    "trigger": "attacker's unit is led by a Succubus (melee attacks only, weapon-keyword grant — NOT modelled, sim has no SUSTAINED HITS weapon keyword)",
+    "effect": "no flag wired (DRK-DIAG-3, 2026-05-23). Previous `reroll_hit_ones=True` proxy was an always-on Hit-roll re-roll aura rather than the real per-weapon SUSTAINED HITS 1 grant on melee only. Restore narrowly (melee-only, weapon-keyword gated) when SUSTAINED HITS lands.",
     "scope": "unit-led"
   },
 

@@ -520,9 +520,23 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("grey_knights_brotherhood_terminator_squad",
                                                      "grey_knights_strike_squad"))),
     # Drukhari (10e: folded into Aeldari faction)
-    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True,
+    # DRK-DIAG-3 (2026-05-23): both Drukhari leader auras were strict
+    # fabrications, per their own rule_citations entries. Archon's
+    # `plus_one_to_hit=True` was wired as a proxy for "Hatred Eternal",
+    # which is actually a per-Pain-token Empower mechanic granting full
+    # Hit re-rolls only when the unit is Empowered — the sim doesn't
+    # model Pain tokens, so the always-on +1-to-hit aura was a stronger-
+    # than-real proxy with no gate. Succubus's `reroll_hit_ones=True`
+    # was wired as a proxy for "Storm of Blades", which grants
+    # [SUSTAINED HITS 1] to melee weapons — a weapon-keyword grant, not
+    # a Hit-roll re-roll aura. Both proxies were always-on, ungated, and
+    # contributed to Drukhari's +20.5pt gated overshoot. Dropped to NO-FLAG
+    # + host_keys-only, matching the SC5-1 Skysplinter pattern. Restore
+    # narrowly when (a) Pain-token economy lands and (b) SUSTAINED HITS is
+    # modelled. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/
+    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0,
                                           host_keys=("aeldari_drukhari_kabalite_warriors",))),
-    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True,
+    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
                                           host_keys=("aeldari_drukhari_wyches",))),
     # Genestealer Cults
     ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
