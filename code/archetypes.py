@@ -905,7 +905,26 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # supporting daemons (Flesh Hounds, Screamers, Plague Drones, Fiends,
         # Be'lakor). Tournament templates run 1-2 troop blocks per god plus
         # 1-2 big monsters; this spreads the OC across all four pantheons.
+        #
+        # DAEMONS-ARCHETYPE — Greater Daemon sort priority. The four
+        # Greater Daemons (Bloodthirster, Lord of Change, Great Unclean One,
+        # Keeper of Secrets) each carry a god-specific Locus aura wired by
+        # LEADERABILITY-SCHEMA (commit 9bee471). At the previous count=1
+        # weighting they sorted after the count=2 battleline triple and
+        # only one (Great Unclean One @ 250pt) reliably landed in the
+        # default 0.3 seed slice; the other three Loci almost never
+        # fired. Bumping the four Greater Daemons to count=3 makes them
+        # the highest-priority entries in the (-count, -cost) walk so
+        # the seed slice instantiates them first. Paired with the 0.55
+        # SEED_FRACTION_BY_FACTION override below (1100pt seed) all
+        # four Greater Daemons + Be'lakor (EPIC HERO anchor guarantee)
+        # land in the seed every build. Reference:
+        # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
         "Daemonic Incursion": {
+            "chaos_daemons_library_bloodthirster": 3,
+            "chaos_daemons_library_lord_of_change": 3,
+            "chaos_daemons_library_great_unclean_one": 3,
+            "chaos_daemons_library_keeper_of_secrets": 3,
             "chaos_daemons_library_bloodletters": 2,
             "chaos_daemons_library_plaguebearers": 2,
             "chaos_daemons_library_daemonettes": 2,
@@ -914,10 +933,6 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "chaos_daemons_library_screamers": 1,
             "chaos_daemons_library_plague_drones": 1,
             "chaos_daemons_library_fiends": 1,
-            "chaos_daemons_library_bloodthirster": 1,
-            "chaos_daemons_library_great_unclean_one": 1,
-            "chaos_daemons_library_keeper_of_secrets": 1,
-            "chaos_daemons_library_lord_of_change": 1,
             "chaos_daemons_library_be_lakor": 1,
             # MR-CHAOS-DAEMONS-LOCUS: each Herald wired in code/leaders.py
             # broadcasts its god's locus aura to the attached battleline squad.
@@ -1168,9 +1183,22 @@ SEED_FRACTION: float = 0.3
 # Wardens(210) + Vertus Praetors(150) + Allarus(143) = 503pt plus the
 # CHARACTER guarantee. Goal: lift iter16 Custodes sim 36.4% → 45-55% vs
 # real 48.0%.
+#
+# DAEMONS-ARCHETYPE — Chaos Daemons at 0.55. The four Greater Daemons
+# (Bloodthirster 305pt, Lord of Change 285pt, Great Unclean One 250pt,
+# Keeper of Secrets 240pt) sum to 1080pt — exceeding the default 0.3
+# slice (600pt) so only one or two land per build. The 0.55 slice
+# (1100pt of 2000pt) seeds all four Greater Daemons in the (-count,
+# -cost) walk after the template's count=3 priority bump (see
+# "Daemonic Incursion" comment in ARCHETYPES). Goal: every god's
+# Locus aura (Tzeentch +1 S ranged, Nurgle +1 T, Slaanesh +1 AP
+# melee, Khorne devastating wounds) wired by LEADERABILITY-SCHEMA
+# fires in every build, not just Nurgle's. Reference:
+# https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
 SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Leagues of Votann": 0.4,
     "Adeptus Custodes": 0.55,
+    "Chaos Daemons": 0.55,
 }
 
 
