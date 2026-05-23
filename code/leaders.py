@@ -222,8 +222,20 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Apothecary",         LeaderAbility(name="Narthecium",                 aura_range=3.0, revive_destroyed_per_round=1, host_keys=_MARINE_HOSTS)),
     ("Librarian",          LeaderAbility(name="Mental Fortress",             aura_range=6.0, fnp=5,                 host_keys=_MARINE_HOSTS)),
     # Adepta Sororitas
-    ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("adepta_sororitas_battle_sisters_squad",))),
+    # SORORITAS-DIAG (2026-05-23): Canoness aura removed. Prior implementation
+    # claimed "Beacon of Faith" granting reroll-hit-1s in aura range, citing
+    # Wahapedia for the Canoness "Sacred Command" ability — but the cited rule
+    # text reads: "Once per battle round, one unit from your army with this
+    # ability can use it when its unit is targeted with a Stratagem. If it
+    # does, reduce the CP cost of that use of that Stratagem by 1CP."  The
+    # Sacred Command rule is a Stratagem CP discount, NOT a hit re-roll. The
+    # prior aura was a fabricated offensive proxy (the citation itself read
+    # "invented label for a reroll-1s offensive proxy"). Project rule 10
+    # (cite every rule, do not invent) and rule 13 (no silent overbuffs)
+    # require the proxy be removed rather than relabelled. The CP-discount
+    # mechanic is not modelled in the simulator; the Canoness ships with NO
+    # offensive aura until a faithful implementation lands. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness
     # Necrons — named characters first so they win the substring match
     # before the generic "Overlord" entry below.
     ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0, plus_one_to_hit=True,

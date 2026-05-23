@@ -76,16 +76,7 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Beacon of Faith": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Canoness",
-    "rule_name": "Sacred Command",
-    "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by a Canoness in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Sacred Command is a once-per-round Stratagem CP discount, which the simulator does not model — our 'Beacon of Faith' is invented label for a reroll-1s offensive proxy)",
-    "scope": "unit-led"
-  },
-
-  "LeaderAbility.My Will Be Done": {
+"LeaderAbility.My Will Be Done": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Overlord",
     "rule_name": "My Will Be Done",
     "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
