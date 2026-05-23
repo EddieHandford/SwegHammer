@@ -135,6 +135,29 @@ Open carry-forwards for the next iteration (priority order):
 
 Loop paused per user direction.
 
+### Wave 6 (2026-05-23) — LeaderAbility schema + Onager multi-loadout
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Daemons | `9bee471` LEADERABILITY-SCHEMA | +0.23 (noise) | Extended LeaderAbility with 3 new effect fields (`plus_one_strength_ranged`, `plus_one_toughness`, `plus_one_ap_melee`); wired Lord of Change Locus of Change, Great Unclean One Locus of Virulence, Keeper of Secrets Locus of Slaanesh with their respective god rosters. Limited N=40 movement because the Daemonic Incursion archetype matrix may not seed Tzeentch/Nurgle/Slaanesh Greater Daemons frequently enough — fix is rule-correct and will pay out on archetype diversification |
+| AdMech | `d8ad3de` ONAGER-MULTILOAD | **-0.36** | Onager Dunecrawler + Skorpius Disintegrator had multiple mutually-exclusive main weapons firing per shooting phase (Onager had ALL FIVE: Eradication beamer + Neutron laser + Phosphor blaster + Icarus array + Eradication dup; Skorpius had Ferrumite + Disruptor + Belleros). Same multi-loadout pattern as DRK-DIAG-5 and Hive Tyrant. Kataphron variants + Skorpius Dunerider + Sicarian Infiltrators audited clean |
+| Drukhari | (no-ship DRK-DIAG-7) | — | Combat Drugs implementation audited clean (magnitude correct, gating correct, persistence correct). Skysplinter archetype audited clean (vehicle-heavy, Wych-light, matches real meta). The +29pt overshoot is NOT in Combat Drugs or archetype shape. Carry-forward: Pain Tokens magnitude, Drukhari overrides still baking static FNP that SC5-8 missed, AI target-priority bias toward fast skimmers |
+
+Cumulative MAE gated 10.76 → **10.66** (-0.10pt). Inside band 4/22.
+
+### Six-wave session close (2026-05-23)
+
+**Cumulative session totals: MAE gated 11.35 → 10.66 (-0.69 pt headline, -6.1% relative). 17 rule-correctness landings + 1 cross-source data source + 1 schema extension.**
+
+Open carry-forwards for next iteration:
+1. **Drukhari Pain Tokens implementation magnitude** (DRK-DIAG-7 found no defect in Combat Drugs but Drukhari residual is still 26.18 — Pain Tokens haven't been audited)
+2. **Drukhari overrides post-SC5-8 sweep** — static FNP that SC5-8 missed (DRK-DIAG-7 carry-forward)
+3. **AdMech remaining multi-loadout chassis** — Kastelan Robots (Heavy phosphor blaster vs Incendine combustor), Sydonian Dragoons (Taser lance vs Radium Jezzail), Archaeopter Stratoraptor extras
+4. **Tyranids structural** — Tyranid Warriors basket inert until archetype-surfaced
+5. **Custodes / Knights pair structural parking** (75.2 pt of headline still parked)
+6. **Daemons archetype** may need to seed Tzeentch/Nurgle/Slaanesh Greater Daemons more often so the new LEADERABILITY-SCHEMA Locus auras can surface
+
+
 Carry-forwards for the next iteration:
 1. **Mapper-structural Crusade-Points filter** in `code/bsdata/mapper.py` + parsed.json regen — sweep all factions, exclude Crusade-Points-only weapons from default loadouts (ADMECH-DIAG carry-forward).
 2. **Mapper-structural multi-loadout generalisation** — Onager Dunecrawler (AdMech), Tyranid Warriors / Hive Tyrant alt loadouts (carry-forwards from wave 3), Knight chassis (parked structural).
