@@ -622,6 +622,62 @@ class UnitWargear:
     melee_weapons: List[WeaponStats] = field(default_factory=list)
 
 
+def _is_crusade_only_entry(elem: ET.Element) -> bool:
+    """Return True if this selectionEntry / selectionEntryGroup / entryLink
+    is a narrative-campaign (Crusade) upgrade that should NOT appear in a
+    matched-play loadout.
+
+    Two signals identify Crusade-only content:
+
+    1. **Cost shape.** A Crusade-only selectionEntry carries a positive
+       ``Crusade Points`` cost while leaving the matched-play ``pts`` cost
+       at 0 (or absent). A standard matched-play wargear entry has only a
+       ``pts`` cost block. The diagnostic case is the Adeptus Mechanicus
+       Archeotech Weapon group: Digital Cannon, Electro-fused Vambraces,
+       Nanoshard Projector, Neural Jammer — each carries ``pts=0`` AND
+       ``Crusade Points=1``, sits inside a ``selectionEntryGroup`` named
+       "Archeotech Weapon" within the larger "Crusade" container.
+
+    2. **Container name.** Every 10e faction file wraps its narrative
+       content in a ``selectionEntryGroup name="Crusade"`` (or an entryLink
+       of the same name pointing to one). Inside that container are
+       sub-groups like "Legendary Archeotech" / "Battle Honours" /
+       "Crusade Relics" whose individual leaf weapons do NOT carry Crusade
+       Points cost blocks (the cost is implicit because the whole subtree
+       is Crusade) and so would slip past the cost-shape filter alone.
+       Skipping any selection at the "Crusade" name level catches those.
+
+    Pre-fix the mapper had no Crusade discrimination at all and mapped
+    Archeotech weapons onto the Archaeopter chassis as standard ranged
+    profiles, fabricating ~+1 attack of free damage onto every Adeptus
+    Mechanicus aircraft. The pre-fix mapper also wired Legendary Archeotech
+    weapons (Syntaxik Charger, etc.) into every Mechanicus unit's wargear
+    tree by reaching them through the Crusade selectionEntryGroup.
+
+    Note: a pts cost of exactly 0 (the BSData convention for "default
+    included") is fine on a normal wargear entry — it's the COMBINATION
+    (pts<=0 with Crusade Points>=1) that signals Crusade-only via cost.
+    """
+    # Signal 2: name-based gate at the Crusade container.
+    name = elem.get("name") or ""
+    if name == "Crusade":
+        return True
+    # Signal 1: cost-shape filter on the entry itself.
+    has_positive_crusade_points = False
+    has_positive_pts = False
+    for cost in elem.findall("./costs/cost"):
+        cost_name = cost.get("name") or ""
+        try:
+            value = float(cost.get("value") or 0)
+        except ValueError:
+            continue
+        if cost_name == "Crusade Points" and value > 0:
+            has_positive_crusade_points = True
+        elif (cost_name == "pts" or cost.get("typeId") == "points") and value > 0:
+            has_positive_pts = True
+    return has_positive_crusade_points and not has_positive_pts
+
+
 def _walk(
     elem: ET.Element, reg: Registry, seen: set, out: UnitWargear,
     depth: int = 0, max_depth: int = 5, primary_name: str = "",
@@ -667,8 +723,16 @@ def _walk(
         if target is not None and target.tag == "profile":
             _consume_profile(target, out, primary_name)
 
-    # entryLinks — carry their own infoLinks, then recurse into the target
+    # entryLinks — carry their own infoLinks, then recurse into the target.
+    # Filter out Crusade-only narrative options: their selectionEntries carry
+    # a positive ``Crusade Points`` cost with ``pts<=0``, and they live in
+    # max-1 selectionEntryGroups under names like "Archeotech Weapon". They
+    # are matched-play-invisible upgrades and must not become default
+    # wargear (see _is_crusade_only_entry docstring).
     for el in elem.findall("./entryLinks/entryLink"):
+        # Skip the entryLink ITSELF if it stamps Crusade Points on the link.
+        if _is_crusade_only_entry(el):
+            continue
         for il in el.findall("./infoLinks/infoLink"):
             if il.get("type") != "profile":
                 continue
@@ -676,13 +740,17 @@ def _walk(
             if tgt is not None and tgt.tag == "profile":
                 _consume_profile(tgt, out, primary_name)
         target = reg.resolve(el.get("targetId") or "")
-        if target is not None:
+        if target is not None and not _is_crusade_only_entry(target):
             _walk(target, reg, seen, out, depth + 1, max_depth, primary_name)
 
     # Nested selectionEntries / groups
     for child in elem.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
         _walk(child, reg, seen, out, depth + 1, max_depth, primary_name)
     for grp in elem.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(grp):
+            continue
         _walk(grp, reg, seen, out, depth + 1, max_depth, primary_name)
 
 
@@ -1087,6 +1155,9 @@ def _collect_weapons_for_model(
     for el in model_entry.findall("./entryLinks/entryLink"):
         if el.get("type") != "selectionEntry":
             continue
+        # Skip Crusade-only narrative wargear — see _is_crusade_only_entry.
+        if _is_crusade_only_entry(el):
+            continue
         has_selection_constraint = False
         min_val = 0
         max_val = 1
@@ -1108,6 +1179,11 @@ def _collect_weapons_for_model(
             # Optional weapon — skip; it's an upgrade, not a default carry.
             continue
         target_id = el.get("targetId") or ""
+        # Also reject if the entryLink resolves to a Crusade-only entry on
+        # the far side (cost stamped on the target, not the link).
+        resolved = reg.resolve(target_id)
+        if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
         r, m = _resolve_weapon_target(target_id, reg)
         if r is not None:
             ranged_picks.append(r)
@@ -1118,6 +1194,8 @@ def _collect_weapons_for_model(
     # Incinerator profile DIRECTLY here (not via an entryLink). Treat them
     # like fixed weapons: if min>=1 or no constraint, count as carried.
     for child in model_entry.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
         min_val = 0
         for cons in child.findall("./constraints/constraint"):
             if cons.get("field") != "selections":
@@ -1164,6 +1242,8 @@ def _collect_weapons_for_model(
     # weapon options live inline (Immortals, Ophydian Destroyers, etc.) or
     # are nested inside a sub-group.
     for grp in model_entry.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(grp):
+            continue
         candidates_ranged, candidates_melee = _gather_group_candidates(grp, reg)
         if candidates_ranged:
             best_r = max(candidates_ranged, key=lambda w: w.expected_damage_through_baseline())
@@ -1216,7 +1296,12 @@ def _gather_group_candidates(
     for el in grp.findall("./entryLinks/entryLink"):
         if el.get("type") != "selectionEntry":
             continue
+        if _is_crusade_only_entry(el):
+            continue
         target_id = el.get("targetId") or ""
+        resolved = reg.resolve(target_id)
+        if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
         r, m = _resolve_weapon_target(target_id, reg)
         if r is not None:
             candidates_ranged.append(r)
@@ -1225,6 +1310,8 @@ def _gather_group_candidates(
 
     # 2. inline selectionEntry children — the weapon profile is right here
     for child in grp.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
         r_list, m_list = _weapons_from_inline_entry(child)
         # One inline entry can carry multiple profile modes (Plasma standard /
         # supercharge); the player picks the best, so we treat that as the
@@ -1240,6 +1327,8 @@ def _gather_group_candidates(
 
     # 3. nested selectionEntryGroup children — flatten their candidates up
     for sub in grp.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(sub):
+            continue
         r_sub, m_sub = _gather_group_candidates(sub, reg)
         candidates_ranged.extend(r_sub)
         candidates_melee.extend(m_sub)
