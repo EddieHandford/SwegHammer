@@ -1133,7 +1133,7 @@ class Battle:
 
     # ----- target-selection helpers used by the dispatchers --------------
 
-    def _highest_threat_enemy(self, opponent: Army):
+    def _highest_threat_enemy(self, opponent: Army, restrict_uids=None):
         """Pick the alive enemy unit with the highest role-weighted threat.
 
         Same role-weighting as `_apply_psychic_phase` so Doombolt and any
@@ -1143,6 +1143,12 @@ class Battle:
         Battle-shocked enemies are excluded — 10e core forbids using
         Stratagems to affect a Battle-shocked unit regardless of side.
         Cited as `simulator.battleshock` (task #168).
+
+        `restrict_uids` (optional set): if provided, only candidate units
+        whose uid is in this set are considered. Used by Votann's
+        Warrior Pride / Wrath of the Ancestors stratagem dispatchers to
+        require a Judgement-Token-bearing target per the codex rule
+        (VOTANN-DIAG 2026-05-23).
         """
         from .roles import classify
         ROLE_THREAT = {"HEAVY": 3.0, "SHOOTY": 2.0, "DUAL": 1.5,
@@ -1151,6 +1157,8 @@ class Battle:
             u for u in opponent.alive_units
             if u.uid not in self._battleshocked_this_round
         ]
+        if restrict_uids is not None:
+            targets = [u for u in targets if u.uid in restrict_uids]
         if not targets:
             return None
 
@@ -2230,15 +2238,22 @@ class Battle:
     # dict, which already has full plumbing) and document any gap.
 
     def _try_warrior_pride(self, army: Army, opponent: Army) -> None:
-        """Warrior Pride (Oathband, 1 CP). Real rule: re-roll Wound rolls
-        for a Votann unit's attacks against a Judgement-Token-bearing enemy.
-        APPROXIMATION: routed through `transient_plus_one_to_wound_melee` +
-        `transient_plus_one_to_wound_shooting` on the highest-DPA Votann
-        unit — same direction (more landed wounds), comparable magnitude on
-        a 4+ wound roll. The Judgement-Token-bearing gate is collapsed onto
-        "the highest-threat enemy" (the natural primary target). Stacks
-        with the existing `simulator.judgement_tokens` re-roll buffs at
-        1+/3+ thresholds — the codex effect compounds rather than replaces.
+        """Warrior Pride (Oathband, 1 CP). Real rule (Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Warrior-Pride):
+        re-roll Wound rolls for a Votann unit's attacks against a
+        Judgement-Token-bearing enemy. The Judgement-Token gate is the
+        rule's actual limiter — without it the stratagem becomes an
+        unconditional army-wide wound-reroll buff that fires every round
+        on the highest-DPA Votann unit. VOTANN-DIAG (2026-05-23) adds the
+        missing token gate: the dispatcher walks `army.judgement_tokens`
+        for an enemy unit with at least one token and refuses to fire if
+        none exists. Under current 10e (Prioritised Efficiency replaced
+        the kill-based Eye of the Ancestors), tokens are only minted via
+        Ancestral Sentence (2 CP one-off), so Warrior Pride goes from
+        unconditional-per-round to functionally rare — matching codex
+        cost-gating. The wound-reroll itself still routes through
+        `transient_reroll_wounds` (full failed-wound re-roll for the
+        round).
         """
         attacker = self._highest_dpa_unit(
             army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
@@ -2247,7 +2262,17 @@ class Battle:
             attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
         if attacker is None:
             return
-        target = self._highest_threat_enemy(opponent)
+        # Token gate: the target must hold at least one Judgement Token
+        # in the Votann army's token dict. Picks the highest-threat
+        # token-bearing enemy that is still alive; falls through with no
+        # spend if none exists.
+        tokens = army.judgement_tokens
+        token_bearer_uids = {uid for uid, n in tokens.items() if n >= 1}
+        if not token_bearer_uids:
+            return
+        target = self._highest_threat_enemy(
+            opponent, restrict_uids=token_bearer_uids,
+        )
         if target is None:
             return
         ctx = {"attacker": attacker, "target": target}
@@ -2255,25 +2280,20 @@ class Battle:
             return
         if not self._fire_stratagem(army, WARRIOR_PRIDE):
             return
-        # ST-1: now routes through `transient_reroll_wounds` (full failed-
-        # wound re-roll for the round, applies to both melee and shooting
-        # via the att_reroll_all_wounds path). Previously proxied through
-        # transient_plus_one_to_wound_{melee,shooting}, which was strictly
-        # stronger than the codex (+1 to wound averages ~25% extra wounds
-        # at threshold flip; reroll-wounds averages ~17% on a 4+ wound
-        # roll).
         attacker.transient_reroll_wounds = True
 
     def _try_wrath_of_the_ancestors(self, army: Army, opponent: Army) -> None:
-        """Wrath of the Ancestors (Oathband, 1 CP). Real rule: a Votann unit's
-        ranged attacks gain [LETHAL HITS] vs a Judgement-Token-bearing
-        target. ST-1: now routes through `transient_lethal_hits` (the
-        proper keyword grant — composes into `effective_lethal_hits` at
-        the crit-to-hit branch in Unit.attack). Previously proxied
-        through `transient_plus_one_to_hit_shooting`, which over-modelled
-        the buff because +1-to-hit lifts EVERY die above the previous
-        fail threshold whereas [LETHAL HITS] only auto-wounds on natural
-        6s.
+        """Wrath of the Ancestors (Oathband, 1 CP). Real rule (Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Wrath-of-the-Ancestors):
+        a Votann unit's ranged attacks gain [LETHAL HITS] vs a
+        Judgement-Token-bearing target. VOTANN-DIAG (2026-05-23) adds the
+        missing token gate — see `_try_warrior_pride` for the same
+        rationale. Without the gate, this stratagem fires every shooting
+        phase on the highest-DPA shooter as an unconditional LETHAL HITS
+        grant; with the gate, it requires Ancestral Sentence (2 CP) to
+        have previously marked an enemy, matching the codex cost
+        sequence. The LETHAL HITS effect still routes through
+        `transient_lethal_hits`.
         """
         attacker = self._highest_dpa_unit(
             army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
@@ -2282,7 +2302,13 @@ class Battle:
             attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
         if attacker is None:
             return
-        target = self._highest_threat_enemy(opponent)
+        tokens = army.judgement_tokens
+        token_bearer_uids = {uid for uid, n in tokens.items() if n >= 1}
+        if not token_bearer_uids:
+            return
+        target = self._highest_threat_enemy(
+            opponent, restrict_uids=token_bearer_uids,
+        )
         if target is None:
             return
         ctx = {"attacker": attacker, "target": target}
