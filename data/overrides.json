@@ -1,6 +1,79 @@
 {
   "_comment": "Per-unit overrides on top of data/bsdata/parsed.json. Each entry can partially override any field (health, damage, hit_probability, ap, save, name, enabled, notes). Standalone entries listed here that don't exist in parsed.json become fully hand-rolled units; they must specify all required fields.",
   "units": {
+    "adeptus_mechanicus_archaeopter_fusilave": {
+      "weapon": "Cognis heavy stubber array",
+      "attacks": 9,
+      "strength": 4,
+      "ap": 0,
+      "weapon_damage_per_shot": 1.0,
+      "hit_probability": 0.5,
+      "range_inches": 36,
+      "sustained_hits": 1,
+      "twin_linked": true,
+      "rapid_fire": 9,
+      "devastating_wounds": false,
+      "pistol": false,
+      "secondary_attacks": 0,
+      "secondary_weapon": "",
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_pistol": false,
+      "secondary_sustained_hits": 0,
+      "secondary_twin_linked": false,
+      "secondary_devastating_wounds": false,
+      "extra_ranged_profiles": [],
+      "devastating_wounds_basket_fraction": 0.0,
+      "notes": "ADMECH-DIAG: BSData maps four Crusade-only Archeotech upgrade weapons (Electro-fused Vambraces, Nanoshard Projector, Digital Cannon, Neural Jammer) onto Archaeopter chassis as standard ranged profiles. BSData cache Imperium - Adeptus Mechanicus.cat.gz shows each has cost block <cost name=pts value=0/> but <cost name=Crusade Points value=1/>, and all four sit inside an Archeotech selectionEntryGroup with a max=1 constraint - these are CRUSADE narrative upgrades, not matched-play wargear. The BSData mapper has no Crusade-Points filter, so these become primary+secondary+extras and the simulator fires several of them per shooting phase. Real Fusilave datasheet (Wahapedia https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Archaeopter-Fusilave): only Cognis heavy stubber array (twin-linked, 36in 9A S4 AP0 D1 Sustained 1, Rapid Fire 9), Bombs (one-shot Drop Bomb action, not modelled), and Armoured hull (melee). Structural fix (Crusade-Points filter in code/bsdata/mapper.py) is iter 31-45 mapper phase 2."
+    },
+    "adeptus_mechanicus_archaeopter_stratoraptor": {
+      "secondary_attacks": 9,
+      "secondary_weapon": "Cognis heavy stubber array",
+      "secondary_weapon_damage_per_shot": 1.0,
+      "secondary_strength": 4,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.5,
+      "secondary_range_inches": 36,
+      "secondary_pistol": false,
+      "secondary_sustained_hits": 1,
+      "secondary_twin_linked": true,
+      "secondary_devastating_wounds": false,
+      "secondary_rapid_fire": 9,
+      "extra_ranged_profiles": [],
+      "devastating_wounds_basket_fraction": 0.0,
+      "notes": "ADMECH-DIAG: Crusade-only Archeotech weapons mapped onto Stratoraptor secondary+extras - see adeptus_mechanicus_archaeopter_fusilave notes. Real Stratoraptor datasheet (Wahapedia https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Archaeopter-Stratoraptor): Twin cognis lascannon (already primary), Cognis heavy stubber array (36in 9A S4 AP0 D1 Sustained 1, Rapid Fire 9), Armoured hull (melee). Override moves real Cognis stubber to secondary and clears Crusade extras."
+    },
+    "adeptus_mechanicus_archaeopter_transvector": {
+      "weapon": "Cognis heavy stubber array",
+      "attacks": 9,
+      "strength": 4,
+      "ap": 0,
+      "weapon_damage_per_shot": 1.0,
+      "hit_probability": 0.5,
+      "range_inches": 36,
+      "sustained_hits": 1,
+      "twin_linked": true,
+      "rapid_fire": 9,
+      "devastating_wounds": false,
+      "pistol": false,
+      "secondary_attacks": 0,
+      "secondary_weapon": "",
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_pistol": false,
+      "secondary_sustained_hits": 0,
+      "secondary_twin_linked": false,
+      "secondary_devastating_wounds": false,
+      "extra_ranged_profiles": [],
+      "devastating_wounds_basket_fraction": 0.0,
+      "notes": "ADMECH-DIAG: Crusade-only Archeotech weapons mapped onto Transvector - see adeptus_mechanicus_archaeopter_fusilave notes. Real Transvector datasheet (Wahapedia https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Archaeopter-Transvector): only Cognis heavy stubber array (36in 9A S4 AP0 D1 Sustained 1, Rapid Fire 9) and Armoured hull (melee) - it is the transport variant with no upgrade weapons. Override replaces primary with real Cognis stubber and clears Crusade upgrades."
+    },
     "chaos_knights_library_knight_desecrator": {
       "invuln_save": 5,
       "notes": "SC5-2: Chaos Knight chassis carry a 5+ invulnerable save (Ion Shield) on their datasheet, but the BSData Chaos Knights Library cache has no Invulnerable Save infoLink attached to any Chaos Knight selectionEntry (verified via grep over Chaos - Chaos Knights Library.cat.gz: zero infoLinks named 'Invulnerable Save'). Same omission pattern as necrons_doomsday_ark / aeldari_wraithguard — the rule exists on the printed datasheet but is not encoded in BSData. Source: 10e Chaos Knights codex Ion Shield (5+ invulnerable save against ranged and melee attacks). Wahapedia unreachable from worktree DNS; restoring the missing invuln per BSData omission precedent."
@@ -16,8 +89,50 @@
     "chaos_knights_library_knight_tyrant": {
       "invuln_save": 5,
       "extra_ranged_profiles": [
-        {"weapon": "➤ Ectoplasma decimator - supercharge", "attacks": 6, "weapon_damage_per_shot": 3.0, "hit_probability": 0.667, "ap": -4, "strength": 9, "range_inches": 36, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": false, "devastating_wounds": false, "rapid_fire": 0, "melta": 0, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": true, "pistol": false},
-        {"weapon": "Darkflame cannon", "attacks": 10, "weapon_damage_per_shot": 2.0, "hit_probability": 1.0, "ap": -1, "strength": 8, "range_inches": 18, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": false, "devastating_wounds": false, "rapid_fire": 0, "melta": 0, "ignores_cover": true, "heavy": false, "assault": false, "torrent": true, "blast": false, "pistol": false}
+        {
+          "weapon": "➤ Ectoplasma decimator - supercharge",
+          "attacks": 6,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -4,
+          "strength": 9,
+          "range_inches": 36,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": true,
+          "pistol": false
+        },
+        {
+          "weapon": "Darkflame cannon",
+          "attacks": 10,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 1.0,
+          "ap": -1,
+          "strength": 8,
+          "range_inches": 18,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": true,
+          "heavy": false,
+          "assault": false,
+          "torrent": true,
+          "blast": false,
+          "pistol": false
+        }
       ],
       "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes. KNIGHT-STAT-AUDIT: composite-profile artifact fixed. Mapper emitted both Ectoplasma decimator standard (S=8 AP-3 D=2) and supercharge (S=9 AP-4 D=3) as separate extra_ranged_profiles, so MAP-MULTIFIRE doubled the ectoplasma decimator's contribution. In play the controller picks one mode per shooting phase. Override drops the standard duplicate from extra_ranged_profiles. BSData 'Chaos - Chaos Knights Library.cat.gz' profiles name='➤ Ectoplasma decimator - standard'/'- supercharge'. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Tyrant."
     },
@@ -102,11 +217,8 @@
       "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 — was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
     "t_au_empire_pathfinder_team": {
-      "unit_keywords": [
-        "INFANTRY",
-        "MARKERLIGHT"
-      ],
-      "notes": "Pathfinder Team carries Markerlights (Pulse Carbine + Markerlight wargear). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase can spot Guided enemies. BSData does not encode the Markerlight keyword as a unit-level tag — it lives on the weapon entry — so we surface it here. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Pathfinder-Team and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+      "stealth": true,
+      "notes": "SK-1: Pathfinder Team carries the Stealth core unit-keyword on its 10e T'au Empire datasheet (the 'Camo Cloaks / Stealth' wording in the unit composition section). BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry — Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not — so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
     },
     "t_au_empire_stealth_battlesuits": {
       "unit_keywords": [
@@ -186,8 +298,8 @@
       "notes": "Screamers: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Screamers.html (Save 6+ / Invulnerable Save 4+ / T4 / W3)."
     },
     "thousand_sons_magnus_the_red": {
-      "invuln_save": 4,
-      "notes": "Magnus the Red: 4++ invulnerable save. BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-the-Red"
+      "weapon_damage_per_shot": 2,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Magnus ranged A6 D3 AP-2 — D3 does not match any of Magnus's three ranged profiles. Tzeentchian Pyre: D6 S9 AP-2 D2; Tzeentch's Firestorm: 2D6 S6 AP-2 D2 [Devastating Wounds]. Restoring D2 to match the dominant Tzeentchian Pyre and Firestorm damage value. attacks=6 left untouched (Pyre D6 averaged to 3.5 plus Firestorm 2D6 averaged to 7 means a blended 6 is defensible). Melee Blade of Magnus (S16 AP-4 D6 Devastating) lives in the melee basket and is untouched. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-The-Red"
     },
     "thousand_sons_ahriman": {
       "invuln_save": 4,
@@ -240,9 +352,10 @@
       "points_override": 46.75
     },
     "adeptus_custodes_custodian_wardens": {
-      "deep_strike": false,
-      "resolute_will": true,
-      "notes": "iter24 Custodian Wardens fix bundle. (1) deep_strike cleared: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Wardens datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike). (2) resolute_will set: the Wardens datasheet ability 'Resolute Will' (verbatim from BSData cache `Imperium - Adeptus Custodes.cat.gz`: 'While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.') wires through simulator.resolute_will in Unit.attack and via leaders.is_actually_led for the host-key 'led' gate. The Wardens Living Fortress once-per-battle FNP 4+ is NOT modelled here — SwegHammer has no once-per-phase phase-scoped FNP buff layer. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
+      "melee_strength": 7,
+      "melee_damage_per_shot": 2,
+      "melee_ap": -2,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Custodian Wardens melee A4 S9 AP-1 D2.83 — strength and ap inflated, damage averaged across phantom subprofiles. Real datasheet (castellan axe, melee): A4 S7 AP-2 D2. Ranged castellan axe (A2 S4 AP-1 D2) is already correct in parsed.json and left untouched. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
     },
     "adeptus_custodes_sagittarum_custodians": {
       "deep_strike": false,
@@ -302,8 +415,8 @@
       "notes": "sweg_balance_mc up 26.67 -> 29.33 pts/model"
     },
     "death_guard_plagueburst_crawler": {
-      "points_override": 198.0,
-      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model"
+      "lethal_hits": false,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] — only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
     },
     "adeptus_custodes_caladius_grav_tank": {
       "points_override": 236.5,
@@ -328,12 +441,13 @@
       "notes": "Ion Blaster (mapper-selected primary, x9 on loadout) range corrected to 18\" per Wahapedia datasheet (mapper basket-average underrated as 12\" by mixing in Autoch-pattern Bolt Pistol 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hearthkyn-Warriors"
     },
     "leagues_of_votann_sagitaur": {
-      "points_override": 103.5,
-      "notes": "sweg_balance_mc down 115.0 -> 103.5 pts/model"
+      "strength": 14,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Sagitaur ranged S12 — no Sagitaur weapon is S12. Real HYLas beam cannon: A2 S14 AP-3 D6 [HEAVY]. Restoring S14. Damage 4.5 left untouched as a defensible D6-average blend across the L7 missile and HYLas profiles. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Sagitaur"
     },
     "leagues_of_votann_hekaton_land_fortress": {
-      "points_override": 101.25,
-      "notes": "sweg_balance_mc down 112.5 -> 101.25 pts/model"
+      "strength": 14,
+      "weapon_damage_per_shot": 6,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 — strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
     },
     "t_au_empire_strike_team": {
       "range_inches": 30,
@@ -458,8 +572,13 @@
       "notes": "iter22 invuln long-tail sweep: The Yncarne (Avatar of Ynnead) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#The-Yncarne"
     },
     "aeldari_drukhari_drazhar": {
-      "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Drazhar (Master of Blades) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Drazhar"
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "melee_attacks": 4,
+      "melee_damage_per_shot": 2,
+      "melee_strength": 6,
+      "melee_ap": -3,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had melee A6 S6 AP-2 D3 on a phantom 'Single Blade' demiklaive profile and duplicated those stats into the ranged basket — but Drazhar has no ranged weapon and his real demiklaives have two stance profiles. Restoring Strike stance (the higher-damage, lower-volume profile, which is the threat the simulator should prioritise): The Executioner's demiklaives - Strike: A4 S6 AP-3 D2 [PRECISION]. Sweep profile is A8 S5 AP-2 D1 — equal damage budget (A times D = 8) so picking Strike loses nothing in expected damage and matches the actual datasheet. Zeroing ranged so the mapper-inflated phantom ranged basket stops contributing. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Drazhar"
     },
     "aeldari_drukhari_archon": {
       "invuln_save": 4,
@@ -498,8 +617,9 @@
       "notes": "iter22 invuln long-tail sweep: The Silent King has 4++ invulnerable save (Telekinetic Aegis) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#The-Silent-King"
     },
     "death_guard_mortarion": {
-      "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Mortarion (Daemon Primarch of Nurgle) has 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Mortarion ranged A6 S7 AP-1 D1 — that is the Reaping Volley shooting profile in isolation, but the mapper layered Silence's Devastating Wounds keyword onto it and Bell of Lost Souls's sustained hits onto the unit. Silence is melee only: A8 S14 AP-3 D3 [Devastating Wounds]. Zeroing the ranged basket so the simulator does not double-count Mortarion's threat: he is a melee monster, the Reaping Volley is a minor secondary, and conflating its keywords with Silence has been inflating his damage budget. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
     },
     "death_guard_daemon_prince_of_nurgle": {
       "invuln_save": 4,
@@ -864,8 +984,9 @@
       "notes": "SC5-8: BSData attaches a static Feel No Pain 5+ infoLink to every Drukhari unit alongside the Power from Pain rule. Power From Pain (10e Drukhari army rule) is conditional: a unit only gains Feel No Pain 6+ while holding a Pain Token (awarded each Command phase to units Below Starting Strength). The simulator already implements the conditional rule in code/units.py (line 668: 'if self.pain_tokens > 0 and self.profile.faction == Drukhari: effective_fnp = min(effective_fnp, 6)'). Baking fnp=5 into the static profile double-counts: it gives every Drukhari unit a permanent Feel No Pain 5+ that ignores the Pain Token gate AND is stronger than the rule actually grants (6+ vs 5+). Reset to 7 (no static Feel No Pain) and let the runtime Power From Pain handle FNP 6+ conditionally. Source: 10e Drukhari codex Power From Pain (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Power-from-Pain)."
     },
     "aeldari_drukhari_incubi": {
-      "fnp": 7,
-      "notes": "SC5-8: Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes. Runtime conditional Power From Pain in code/units.py handles the 6+ FNP while a Pain Token is held."
+      "attacks": 0,
+      "weapon_damage_per_shot": 0,
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Incubi melee Klaive profile into the ranged basket — `weapon = Klaive` with A3 S5 AP-2 D2 is identical to their melee Klaive. Incubi have NO ranged weapon on their 10e datasheet; Klaives are MELEE ONLY. Zeroing the phantom ranged basket so a 5-strong Incubi squad stops getting 15 free S5 AP-2 D2 ranged shots each Shooting phase on top of their real melee output. The melee basket (melee_attacks=3, melee_strength=5, melee_ap=-2, melee_damage_per_shot=2) is left untouched and remains correct. Same mapper bug as the Drazhar / Lelith phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Incubi"
     },
     "aeldari_drukhari_hellions": {
       "fnp": 7,
@@ -965,7 +1086,9 @@
     },
     "tyranids_trygon": {
       "fnp": 7,
-      "unit_keywords": ["MONSTER"],
+      "unit_keywords": [
+        "MONSTER"
+      ],
       "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Trygon has no native Feel No Pain. TYRANIDS-FIX: also stripped the BSData mapper false-positive CHARACTER keyword — the Wahapedia datasheet lists Trygon as MONSTER only (no CHARACTER), so the spurious CHARACTER keyword was tripping CHARACTER-only buffs (Lone Operative gating, leader-aura host-key checks). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Trygon"
     },
     "tyranids_tervigon": {
@@ -1009,32 +1132,52 @@
       "notes": "AK-2: Venatari Custodians charge with Interceptor Lance, a melee weapon carrying the [LANCE] keyword (BSData 'Imperium - Adeptus Custodes.cat.gz' profile name='Interceptor lance' typeName='Melee Weapons' with Keywords='Lance'). The mapper's basket-weight aggregation drops Lance below the 50% majority because the model's secondary Kinetic Destroyer ranged shots dilute the melee basket; restore the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Venatari-Custodians"
     },
     "aeldari_craftworlds_skyweavers": {
-      "anti_keywords": {"VEHICLE": 4},
+      "anti_keywords": {
+        "VEHICLE": 4
+      },
       "notes": "AK-2: Skyweavers' Haywire Cannon carries [ANTI-VEHICLE 4+] and Devastating Wounds (BSData 'Aeldari - Aeldari Library.cat.gz' profile name='Skyweaver Haywire Cannon' typeName='Ranged Weapons' Keywords='Anti-Vehicle 4+, Devastating Wounds'). The mapper drops it because the alternate Shuriken Cannon loadout dilutes the basket. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Skyweavers"
     },
     "aeldari_drukhari_scourges": {
-      "anti_keywords": {"VEHICLE": 4},
+      "anti_keywords": {
+        "VEHICLE": 4
+      },
       "notes": "AK-2: Scourges' Haywire Blaster carries [ANTI-VEHICLE 4+] and Devastating Wounds (BSData 'Aeldari - Aeldari Library.cat.gz' profile name='Haywire Blaster' typeName='Ranged Weapons' Keywords='Anti-Vehicle 4+, Devastating Wounds, Heavy'). Mapper drops it because Scourges field five models with a mixed pool of special weapons; the anti-vehicle blaster never reaches a 50% basket majority. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Scourges"
     },
     "imperial_knights_library_questoris_knight_styrix": {
-      "anti_keywords": {"VEHICLE": 2},
+      "anti_keywords": {
+        "VEHICLE": 2
+      },
       "notes": "AK-2: Knight Styrix carries a Graviton Crusher with [ANTI-VEHICLE 2+] and Blast (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton crusher' typeName='Ranged Weapons' Keywords='Anti-Vehicle 2+, Blast'). The mapper kept secondary_anti_keywords={'VEHICLE':2} but lost the primary tag when other weapon profiles outweighed the crusher in the primary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Styrix"
     },
     "chaos_knights_library_chaos_questoris_knight_styrix": {
-      "anti_keywords": {"VEHICLE": 2},
+      "anti_keywords": {
+        "VEHICLE": 2
+      },
       "notes": "AK-2: Chaos Knight Styrix mirrors Imperial Knight Styrix — Graviton Crusher [ANTI-VEHICLE 2+, Blast] in BSData 'Chaos - Chaos Knights Library.cat.gz'. Same basket-dilution miss; surface the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Styrix"
     },
     "tyranids_raveners": {
-      "anti_keywords": {"MONSTER": 5, "VEHICLE": 5},
+      "anti_keywords": {
+        "MONSTER": 5,
+        "VEHICLE": 5
+      },
       "notes": "AK-2: Raveners' Ravener Heavy Claws and Talons carry [ANTI-MONSTER 5+] and [ANTI-VEHICLE 5+] with Twin-linked (BSData 'Library - Tyranids.cat.gz' profile name='Ravener heavy claws and talons' typeName='Melee Weapons' Keywords='Anti-Monster 5+, Anti-Vehicle 5+, Twin-linked'). The keyword pair is the unit's anti-titan answer; basket aggregation lost it because the alternate Spinemaws ranged profile dominates the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Raveners"
     },
     "orks_beast_snagga_boyz": {
-      "anti_keywords": {"MONSTER": 4, "VEHICLE": 4},
+      "anti_keywords": {
+        "MONSTER": 4,
+        "VEHICLE": 4
+      },
       "notes": "AK-2: Beast Snagga Boyz wield Beast Snagga Klaws with [ANTI-MONSTER 4+] and [ANTI-VEHICLE 4+] (BSData 'Orks.cat.gz' profile name='Beast Snagga klaw' typeName='Melee Weapons' Keywords='Anti-Monster 4+, Anti-Vehicle 4+'). Squad of ten with one or two big-choppa special models causes the klaw to fall below 50% basket weight in the mapper. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Beast-Snagga-Boyz"
     },
     "orks_kill_rig": {
-      "anti_keywords": {"MONSTER": 2, "VEHICLE": 2},
-      "secondary_anti_keywords": {"MONSTER": 4, "VEHICLE": 4},
+      "anti_keywords": {
+        "MONSTER": 2,
+        "VEHICLE": 2
+      },
+      "secondary_anti_keywords": {
+        "MONSTER": 4,
+        "VEHICLE": 4
+      },
       "notes": "AK-2: Kill Rig packs a Stikka Kannon with [ANTI-MONSTER 2+] and [ANTI-VEHICLE 2+] (BSData 'Orks.cat.gz' profile name='Stikka kannon' typeName='Ranged Weapons' Keywords='Anti-Monster 2+, Anti-Vehicle 2+, Snagged'). It also carries Tusks plus Wurrtower [ANTI-MONSTER 4+ / ANTI-VEHICLE 4+] crew weapons on the secondary basket — restore both. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Kill-Rig"
     },
     "orks_warbikers": {
@@ -1046,7 +1189,9 @@
       "notes": "AK-2: Squiggoth's Huge Tusks melee profile is keyworded [LANCE] (BSData 'Orks.cat.gz' profile name='Huge tusks' typeName='Melee Weapons' Keywords='Lance' — the strike-mode tusks). Restoring the trample-on-charge bonus per Wahapedia. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Squiggoth"
     },
     "imperial_knights_library_armiger_moirax": {
-      "secondary_anti_keywords": {"VEHICLE": 2},
+      "secondary_anti_keywords": {
+        "VEHICLE": 2
+      },
       "notes": "AK-2: Armiger Moirax already shows primary anti_keywords={'VEHICLE':2} from its Lightning Lock / Volkite combo. Mirror the secondary tag so the unit's swappable Graviton-Pulsar / Siege Claw loadout (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton pulsar' Keywords='Anti-Vehicle 2+, Blast') keeps anti-VEHICLE coverage when the simulator selects the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Moirax"
     },
     "chaos_space_marines_heldrake": {
@@ -1088,20 +1233,76 @@
     "imperial_knights_library_knight_castellan": {
       "secondary_devastating_wounds": true,
       "extra_ranged_profiles": [
-        {"weapon": "Shieldbreaker missile launcher", "attacks": 1, "weapon_damage_per_shot": 4.5, "hit_probability": 0.667, "ap": -6, "strength": 12, "range_inches": 72, "anti_keywords": {"TITANIC": 4}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": false, "devastating_wounds": true, "rapid_fire": 0, "melta": 0, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": false, "pistol": false},
-        {"weapon": "Twin meltagun", "attacks": 1, "weapon_damage_per_shot": 3.5, "hit_probability": 0.667, "ap": -4, "strength": 9, "range_inches": 12, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": true, "devastating_wounds": false, "rapid_fire": 0, "melta": 2, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": false, "pistol": false},
-        {"weapon": "Twin siegebreaker cannon", "attacks": 4, "weapon_damage_per_shot": 1.0, "hit_probability": 0.667, "ap": 0, "strength": 6, "range_inches": 36, "anti_keywords": {}, "lethal_hits": false, "sustained_hits": 0, "twin_linked": true, "devastating_wounds": false, "rapid_fire": 0, "melta": 0, "ignores_cover": false, "heavy": false, "assault": false, "torrent": false, "blast": true, "pistol": false}
+        {
+          "weapon": "Shieldbreaker missile launcher",
+          "attacks": 1,
+          "weapon_damage_per_shot": 4.5,
+          "hit_probability": 0.667,
+          "ap": -6,
+          "strength": 12,
+          "range_inches": 72,
+          "anti_keywords": {
+            "TITANIC": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Twin meltagun",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -4,
+          "strength": 9,
+          "range_inches": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 2,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Twin siegebreaker cannon",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 6,
+          "range_inches": 36,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": true,
+          "pistol": false
+        }
       ],
       "notes": "AK-1: Shieldbreaker missile launcher carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+] per BSData v10.6.0 (Range=72\"). KNIGHT-STAT-AUDIT: composite-profile artifact fixed. Mapper emitted both Plasma decimator standard (A=6 S=8 AP-3 D=2) and supercharge (A=6 S=9 AP-4 D=3) as separate firing profiles, so MAP-MULTIFIRE doubled the plasma decimator's contribution every turn. In play the controller picks one mode per shooting phase, not both. Override drops the 'Plasma decimator - standard' duplicate from extra_ranged_profiles (the supercharge profile already lives in secondary_weapon) and adds the missing Twin siegebreaker cannon (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Twin siegebreaker cannon': Range=36\" A=D6 BS=3+ S=6 AP=0 D=1 Keywords='Blast, Twin-Linked'). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan."
-    },
-    "aeldari_drukhari_drazhar": {
-      "attacks": 0,
-      "weapon_damage_per_shot": 0,
-      "melee_attacks": 4,
-      "melee_damage_per_shot": 2,
-      "melee_strength": 6,
-      "melee_ap": -3,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had melee A6 S6 AP-2 D3 on a phantom 'Single Blade' demiklaive profile and duplicated those stats into the ranged basket — but Drazhar has no ranged weapon and his real demiklaives have two stance profiles. Restoring Strike stance (the higher-damage, lower-volume profile, which is the threat the simulator should prioritise): The Executioner's demiklaives - Strike: A4 S6 AP-3 D2 [PRECISION]. Sweep profile is A8 S5 AP-2 D1 — equal damage budget (A times D = 8) so picking Strike loses nothing in expected damage and matches the actual datasheet. Zeroing ranged so the mapper-inflated phantom ranged basket stops contributing. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Drazhar"
     },
     "aeldari_drukhari_lelith_hesperax": {
       "attacks": 0,
@@ -1110,44 +1311,11 @@
       "precision": false,
       "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated Lelith's melee profile into the ranged basket — `weapon = Lelith's blades` with A8 S3 AP-2 D1 [PRECISION, SUSTAINED HITS 2] is identical to her melee profile. Lelith Hesperax has NO ranged weapon on her 10e datasheet; Lelith's blades is MELEE ONLY. Zeroing the phantom ranged basket so the simulator stops giving her a free 8-shot S3 AP-2 ranged volley each Shooting phase on top of her real melee. The melee basket (melee_attacks=8, melee_strength=3, melee_ap=-2, melee_damage_per_shot=1, melee_sustained_hits=2, precision=true on melee profile) is left untouched and remains correct. Same mapper bug as the Drazhar phantom-ranged duplication fixed in sim-cal-6 STAT-AUDIT. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Lelith-Hesperax"
     },
-    "aeldari_drukhari_incubi": {
-      "attacks": 0,
-      "weapon_damage_per_shot": 0,
-      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Incubi melee Klaive profile into the ranged basket — `weapon = Klaive` with A3 S5 AP-2 D2 is identical to their melee Klaive. Incubi have NO ranged weapon on their 10e datasheet; Klaives are MELEE ONLY. Zeroing the phantom ranged basket so a 5-strong Incubi squad stops getting 15 free S5 AP-2 D2 ranged shots each Shooting phase on top of their real melee output. The melee basket (melee_attacks=3, melee_strength=5, melee_ap=-2, melee_damage_per_shot=2) is left untouched and remains correct. Same mapper bug as the Drazhar / Lelith phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Incubi"
-    },
     "aeldari_drukhari_succubus": {
       "attacks": 0,
       "weapon_damage_per_shot": 0,
       "precision": false,
       "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Succubus melee Archite glaive and agoniser profile into the ranged basket — `weapon = Archite glaive and agoniser` with A7 S3 AP-2 D1 [PRECISION] is identical to her melee profile. Her real datasheet has only a Splinter Pistol on the ranged side (A1 S2 AP0 D1 [PISTOL]), but the mapper substituted her melee weapon. Zeroing the phantom ranged basket rather than restoring the Splinter Pistol because the Pistol is a negligible 1-shot S2 contribution that does not warrant cluttering the override; the meaningful threat the simulator must price is her melee, which is left untouched. Same mapper bug as the Drazhar / Lelith / Incubi phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus"
-    },
-    "adeptus_custodes_custodian_wardens": {
-      "melee_strength": 7,
-      "melee_damage_per_shot": 2,
-      "melee_ap": -2,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Custodian Wardens melee A4 S9 AP-1 D2.83 — strength and ap inflated, damage averaged across phantom subprofiles. Real datasheet (castellan axe, melee): A4 S7 AP-2 D2. Ranged castellan axe (A2 S4 AP-1 D2) is already correct in parsed.json and left untouched. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
-    },
-    "leagues_of_votann_hekaton_land_fortress": {
-      "strength": 14,
-      "weapon_damage_per_shot": 6,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 — strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
-    },
-    "leagues_of_votann_sagitaur": {
-      "strength": 14,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Sagitaur ranged S12 — no Sagitaur weapon is S12. Real HYLas beam cannon: A2 S14 AP-3 D6 [HEAVY]. Restoring S14. Damage 4.5 left untouched as a defensible D6-average blend across the L7 missile and HYLas profiles. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Sagitaur"
-    },
-    "thousand_sons_magnus_the_red": {
-      "weapon_damage_per_shot": 2,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Magnus ranged A6 D3 AP-2 — D3 does not match any of Magnus's three ranged profiles. Tzeentchian Pyre: D6 S9 AP-2 D2; Tzeentch's Firestorm: 2D6 S6 AP-2 D2 [Devastating Wounds]. Restoring D2 to match the dominant Tzeentchian Pyre and Firestorm damage value. attacks=6 left untouched (Pyre D6 averaged to 3.5 plus Firestorm 2D6 averaged to 7 means a blended 6 is defensible). Melee Blade of Magnus (S16 AP-4 D6 Devastating) lives in the melee basket and is untouched. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-The-Red"
-    },
-    "death_guard_mortarion": {
-      "attacks": 0,
-      "weapon_damage_per_shot": 0,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Mortarion ranged A6 S7 AP-1 D1 — that is the Reaping Volley shooting profile in isolation, but the mapper layered Silence's Devastating Wounds keyword onto it and Bell of Lost Souls's sustained hits onto the unit. Silence is melee only: A8 S14 AP-3 D3 [Devastating Wounds]. Zeroing the ranged basket so the simulator does not double-count Mortarion's threat: he is a melee monster, the Reaping Volley is a minor secondary, and conflating its keywords with Silence has been inflating his damage budget. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
-    },
-    "death_guard_plagueburst_crawler": {
-      "lethal_hits": false,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] — only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
     },
     "space_marines_infiltrator_squad": {
       "stealth": true,
@@ -1176,10 +1344,6 @@
     "adeptus_mechanicus_pteraxii_sterylizors": {
       "stealth": true,
       "notes": "SK-1: Pteraxii Sterylizors carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet. Same BSData omission pattern as Pteraxii Skystalkers (infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save 5+, Pistol, Sustained Hits, Ignores Cover, Torrent — but no Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Sterylizors ; see adeptus_mechanicus_pteraxii_skystalkers notes."
-    },
-    "t_au_empire_pathfinder_team": {
-      "stealth": true,
-      "notes": "SK-1: Pathfinder Team carries the Stealth core unit-keyword on its 10e T'au Empire datasheet (the 'Camo Cloaks / Stealth' wording in the unit composition section). BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry — Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not — so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
     },
     "orks_stompa": {
       "attacks": 14,
