@@ -55,6 +55,58 @@ cost-anchored work until landed.
   cost rebase to absorb the redistribution. Task #150.
 
 ### Cost model (Goal C, blocked on points-per-model fix)
+- `[?]` **[IN PROGRESS — Phase 1 done 2026-05-22] Real tournament list
+  data ingestion via BCP.** The data-driven equation fit (Goal C
+  Track 4) needs PER-LIST data to do the cleanest validation: take
+  real tournament lists, sum the equation's stats-only prediction
+  across each list, plot equation-sum vs that list's actual
+  win-loss record. Hypothesis: winning lists should sum to MORE
+  than 2000 GW points in equation-pts because winners pick units
+  the equation thinks GW under-costs. Archetype-proxy stand-in
+  shipped in the Equation Fit tab as a directional placeholder
+  (Pearson r ≈ +0.28 with n = 5; weak signal, right direction).
+
+  **Phase 1 findings (2026-05-22 session, see git log for the
+  exploration commits):**
+  - BCP frontend is a pure SPA backed by an AWS API Gateway at
+    `https://05jflsrfm0.execute-api.us-east-1.amazonaws.com/bcpdev`.
+  - Endpoint paths in the bundle: `/events`, `/events/highlighted`,
+    `/placings`, `/placings/user/`, `/pairings`, `/pairingsStatus`,
+    `/players`, `/players/gwworlds`, `/teams`. Versioning under `/v1` /
+    `/v2` / `/api/v2/`.
+  - Every endpoint returned HTTP 403 "Missing Authentication Token"
+    to unauthenticated curl. BCP uses AWS Cognito for auth (user
+    pool `us-east-1_XKIHsbz0B`). No identity-pool / guest flow found
+    in the bundle — every API call needs a signed-in user.
+  - Community Python scrapers exist: `josephcmarion/bcp_scraper` (40k,
+    2021) and `adrpadua/BestCoastPairings_Parser` (AoS, March 2026,
+    MIT-licensed, Selenium-based). The recent one is the better
+    reference for what fields are exposed downstream of auth.
+
+  **Plan to close (next session):**
+  1. User grabs a Bearer JWT from their BCP browser session (Path C
+     in the chat summary): open DevTools → Network → copy any
+     `Authorization: Bearer …` header value from a request to the
+     execute-api host.
+  2. Build `code/bcp_client.py` (~50-100 lines) that takes the JWT,
+     hits `/events` with the right 40k filter, paginates, and saves
+     responses to `data/bcp_cache/`.
+  3. Build `scripts/scrape_bcp_lists.py` that walks the cached events
+     and pulls `/placings` + `/pairings` + list text per event.
+  4. Build the unit-name → UNIT_CATALOG-key parser (the genuinely
+     hard part — fuzzy match + manual override dict for tricky
+     cases like "Sgt Telion + Scouts" or "Big Mek w/ KMK"). Output:
+     `data/tournament_lists.json` with schema
+     `{event, placement, faction, win_loss_record, units: [{key,
+     squad_count}]}`.
+  5. Replace the archetype-proxy in the Equation Fit tab with the
+     real-list source; per-list scatter (each dot = one list, x =
+     that list's tournament record, y = equation sum).
+
+  **Tokens expire (~1 hour typically)**, so for repeated scrapes
+  Path C becomes Path A — implement Cognito SRP auth in Python so
+  the script can refresh its own token from stored credentials.
+  Deferred until we know the API returns useful data.
 - `[E]` **Points-per-model import fix** — see PROJECT.tex
   `\eddie` TODO. Audit `code/bsdata/mapper.py` + `loader.py`. The
   Lanchester-derived fair cost has no signal until the printed-cost

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
+import os
 import random
+import subprocess
+import sys
 import time
 from io import BytesIO
 from typing import Callable, List, Optional, Tuple
@@ -47,6 +50,75 @@ from code.equilibrium_simdriven import (
     load_snapshot as load_eq_simdriven_snapshot,
 )
 from code.compare_view import render_compare_tab
+from code.equation_data_fit import (
+    FeatureSpec as EqFitFeatureSpec,
+    default_feature_specs as eqfit_default_specs,
+    extract_features as eqfit_extract_features,
+    faction_multipliers as eqfit_faction_multipliers,
+    fit as eqfit_fit,
+    transform_names as eqfit_transform_names,
+)
+
+import json as _json
+import pathlib as _pathlib
+import csv as _csv
+
+_META_SNAPSHOT_PATH        = _pathlib.Path(__file__).parent / "data" / "meta_comparison_snapshot.json"
+_MAE_PROGRESS_PATH         = _pathlib.Path(__file__).parent / "docs" / "mae_progress.csv"
+_EQUATION_SNAPSHOT_PATH    = _pathlib.Path(__file__).parent / "data" / "equation_vs_meta_snapshot.json"
+_EQUATION_CALIBRATED_PATH  = _pathlib.Path(__file__).parent / "data" / "equation_calibrated_points.json"
+_FIT_EQ_LOG_PATH           = _pathlib.Path(__file__).parent / "logs" / "fit_eq_gui.log"
+_EVAL_EQ_LOG_PATH          = _pathlib.Path(__file__).parent / "logs" / "eval_eq_gui.log"
+
+# Factions with no authoritative tournament data — excluded from the headline
+# MAE. Must stay in sync with FX_ALL_FACTIONS in scripts/evaluate_vs_meta.py.
+_FX_ALL_FACTIONS = frozenset({
+    "Chaos Space Marines", "World Eaters", "Emperor's Children",
+    "Chaos Daemons", "Astra Militarum", "Adeptus Mechanicus",
+    "Adepta Sororitas", "Grey Knights", "Drukhari",
+    "Genestealer Cults", "Imperial Knights", "Chaos Knights",
+})
+
+
+def _load_meta_snapshot():
+    """Return parsed JSON from data/meta_comparison_snapshot.json, or None."""
+    if not _META_SNAPSHOT_PATH.exists():
+        return None
+    try:
+        return _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+
+
+def _load_equation_snapshot():
+    """Return parsed JSON from data/equation_vs_meta_snapshot.json, or None."""
+    if not _EQUATION_SNAPSHOT_PATH.exists():
+        return None
+    try:
+        return _json.loads(_EQUATION_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+
+
+def _load_mae_progress():
+    """Return list of dicts from docs/mae_progress.csv, skipping parked rows."""
+    if not _MAE_PROGRESS_PATH.exists():
+        return []
+    rows = []
+    with _MAE_PROGRESS_PATH.open(newline="", encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            if row.get("parked", "False").strip().lower() == "true":
+                continue
+            try:
+                rows.append({
+                    "when":  row["when"],
+                    "label": row["label"],
+                    "mae":   float(row["mae"]),
+                    "mode":  row.get("mode", ""),
+                })
+            except (KeyError, ValueError):
+                continue
+    return rows
 
 # `UNIT_CATALOG` in this module starts as the raw catalogue but gets re-bound
 # below once the sidebar's "Use SwegHammer balanced points" toggle is read.
@@ -571,6 +643,77 @@ def _equilibrium_plotly_figure_simdriven(
     )
 
 
+def _load_equation_calibrated_entries():
+    """Load `data/equation_calibrated_points.json` and join with UNIT_CATALOG.
+
+    The fit script writes per-unit `price_per_model` only; we attach name /
+    faction / role / GW price by looking each unit up in the live catalogue.
+    A unit is tagged `source="sim"` when its faction is in the snapshot's
+    `trusted_factions`, else `phase1_fallback` (approximation — exact when
+    the fit was run without `--max-per-faction`).
+    """
+    from types import SimpleNamespace
+    from code.equilibrium import _classify_role
+    if not _EQUATION_CALIBRATED_PATH.exists():
+        return [], {}
+    data = _json.loads(_EQUATION_CALIBRATED_PATH.read_text(encoding="utf-8"))
+    prices = data.get("prices", {})
+    trusted = set(data.get("trusted_factions", []))
+    entries = []
+    for key, price_per_model in prices.items():
+        unit = _RAW_CATALOG.get(key)
+        if unit is None or price_per_model <= 0:
+            continue
+        gw_per_model = (
+            unit.points_per_squad / max(1, unit.min_models)
+            if unit.points_per_squad > 0 else 0.0
+        )
+        if gw_per_model <= 0:
+            continue
+        misp = (price_per_model - gw_per_model) / gw_per_model * 100.0
+        entries.append(SimpleNamespace(
+            key=key,
+            name=unit.name,
+            faction=unit.faction or "Unknown",
+            role=_classify_role(unit),
+            min_models=unit.min_models,
+            gw_points_per_squad=unit.points_per_squad,
+            gw_points_per_model=gw_per_model,
+            equilibrium_points_per_model=float(price_per_model),
+            equilibrium_points_per_squad=float(price_per_model) * unit.min_models,
+            mispricing_pct=misp,
+            valid_matchups=0,  # not tracked by the equation fit
+            source="sim" if unit.faction in trusted else "phase1_fallback",
+        ))
+    meta = {k: v for k, v in data.items() if k != "prices"}
+    return entries, meta
+
+
+@st.cache_data(show_spinner="Building equation chart…", max_entries=4)
+def _equilibrium_plotly_figure_equation(
+    factions_tuple: Tuple[str, ...],
+    roles_tuple: Tuple[str, ...],
+    only_measured: bool,
+) -> go.Figure:
+    entries, _meta = _load_equation_calibrated_entries()
+    if not entries:
+        return go.Figure()
+    faction_set = set(factions_tuple) if factions_tuple else None
+    role_set = set(roles_tuple)
+    filtered = [
+        e for e in entries
+        if (faction_set is None or e.faction in faction_set)
+        and e.role in role_set
+        and e.gw_points_per_model > 0
+        and e.equilibrium_points_per_model > 0
+        and (not only_measured or e.source == "sim")
+    ]
+    return _build_equilibrium_figure(
+        filtered,
+        y_axis_title="Equation-calibrated points per model (log)",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
@@ -1088,9 +1231,9 @@ if run:
 # ---------------------------------------------------------------------------
 
 (tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
- tab_compare, tab_convergence) = st.tabs(
+ tab_compare, tab_convergence, tab_calibration, tab_equation_fit) = st.tabs(
     ["Statistics", "Watch a battle", "Efficiency", "Equilibrium",
-     "Compare", "Convergence"]
+     "Compare", "Convergence", "Calibration", "Equation Fit"]
 )
 
 # --- Statistics tab ---
@@ -1443,9 +1586,12 @@ with tab_equilibrium:
     # `data/equilibrium_points_simdriven.json`.
     _simdriven_snapshot = load_eq_simdriven_snapshot()
     _has_simdriven = _simdriven_snapshot is not None
+    _has_equation = _EQUATION_CALIBRATED_PATH.exists()
     _source_options = ["Closed-form Phase 1 (live)"]
     if _has_simdriven:
         _source_options.append("Sim-driven (snapshot)")
+    if _has_equation:
+        _source_options.append("Equation-calibrated (snapshot)")
     _eq_source = st.radio(
         "Solver source",
         _source_options,
@@ -1456,16 +1602,26 @@ with tab_equilibrium:
             "fast, but blind to faction rules and tactics. "
             "Sim-driven measures win rates from real Battle() runs at equal "
             "points; the snapshot is built offline by "
-            "`python -m code.equilibrium_simdriven`."
+            "`python -m code.equilibrium_simdriven`. "
+            "Equation-calibrated loads `data/equation_calibrated_points.json` "
+            "from `scripts/fit_equation_calibrated.py` — fit only on factions "
+            "whose simulator MAE is within threshold of real tournament data."
         ),
     )
     _use_simdriven = (_eq_source == "Sim-driven (snapshot)")
+    _use_equation  = (_eq_source == "Equation-calibrated (snapshot)")
     if not _has_simdriven:
         st.caption(
             "No sim-driven snapshot found. Build one with "
             "`python -m code.equilibrium_simdriven` to enable the "
             "sim-driven view (the diagnostic subset takes ~5–10 minutes; "
             "`--full` is overnight)."
+        )
+    if not _has_equation:
+        st.caption(
+            "No equation-calibrated snapshot found. Build one from the "
+            "Calibration tab (Step 1) or with "
+            "`python -m scripts.fit_equation_calibrated`."
         )
 
     # ---- Controls ----
@@ -1477,6 +1633,7 @@ with tab_equilibrium:
     _default_anchor = (
         EQ_DEFAULT_ANCHOR if EQ_DEFAULT_ANCHOR in _shooty_keys else _shooty_keys[0]
     )
+    _anchor_locked = _use_simdriven or _use_equation
     with _col_anchor:
         _anchor_key = st.selectbox(
             "Anchor unit  (its cost is held fixed; everything else floats)",
@@ -1484,11 +1641,11 @@ with tab_equilibrium:
             index=_shooty_keys.index(_default_anchor),
             format_func=lambda k: f"{UNIT_CATALOG[k].name}  —  {UNIT_CATALOG[k].faction}",
             key="eq_anchor_key",
-            disabled=_use_simdriven,
+            disabled=_anchor_locked,
             help=(
-                "Anchor is fixed by the snapshot when using sim-driven; "
+                "Anchor is fixed by the snapshot when using a pre-built source; "
                 "rebuild the snapshot with a different `--anchor` to change it."
-                if _use_simdriven else None
+                if _anchor_locked else None
             ),
         )
     with _col_anchor_pts:
@@ -1504,7 +1661,7 @@ with tab_equilibrium:
             value=_default_anchor_pts,
             step=1.0,
             key="eq_anchor_pts",
-            disabled=_use_simdriven,
+            disabled=_anchor_locked,
         )
     with _col_role:
         _role_filter = st.multiselect(
@@ -1561,6 +1718,25 @@ with tab_equilibrium:
         )
         _result = None  # No D/T/R matrices in sim-driven; drill-down disabled.
         _result_entries = _simdriven_entries
+    elif _use_equation:
+        _equation_entries, _equation_meta = _load_equation_calibrated_entries()
+        _anchor_key = _equation_meta.get("anchor_key", _anchor_key)
+        _anchor_pts = float(_equation_meta.get("anchor_per_model", _anchor_pts))
+        _trusted = _equation_meta.get("trusted_factions", [])
+        _n_sim = _equation_meta.get("units_sim_fitted", 0)
+        _n_fb  = _equation_meta.get("units_phase1_fallback", 0)
+        st.caption(
+            f"Equation fit: **{_n_sim} units sim-measured** across "
+            f"{len(_trusted)} trusted factions "
+            f"({', '.join(_trusted) if _trusted else '—'}), "
+            f"{_equation_meta.get('n_battles_per_pair', 0)} battles/pair "
+            f"at {_equation_meta.get('budget_per_side', 0):.0f}-pt budget. "
+            f"{_n_fb} catalogue units inherit Phase 1 closed-form prices "
+            f"(marked `phase1_fallback`). "
+            f"Built {_equation_meta.get('built_at', '')[:19].replace('T', ' ')}."
+        )
+        _result = None  # No D/T/R matrices in equation-calibrated; drill-down disabled.
+        _result_entries = _equation_entries
     else:
         try:
             _result = _equilibrium_result(_anchor_key, float(_anchor_pts))
@@ -1618,6 +1794,20 @@ with tab_equilibrium:
                     key="eq_simdriven_only_measured",
                 )
             _fig = _equilibrium_plotly_figure_simdriven(
+                factions_tuple=tuple(sorted(_selected_factions)),
+                roles_tuple=tuple(sorted(_role_filter)),
+                only_measured=bool(_only_measured),
+            )
+        elif _use_equation:
+            # Same default as sim-driven: hide Phase 1 fallback so the
+            # actual fit signal isn't buried under 1k+ inherited dots.
+            with st.expander("Equation view options", expanded=False):
+                _only_measured = st.checkbox(
+                    "Only show sim-fitted units (hide Phase 1 fallback)",
+                    value=True,
+                    key="eq_equation_only_measured",
+                )
+            _fig = _equilibrium_plotly_figure_equation(
                 factions_tuple=tuple(sorted(_selected_factions)),
                 roles_tuple=tuple(sorted(_role_filter)),
                 only_measured=bool(_only_measured),
@@ -1699,11 +1889,11 @@ with tab_equilibrium:
         # not the underlying pairwise win rates, so the drill-down is
         # hidden in that mode. Add it to the snapshot if/when the
         # per-pair detail is wanted in the UI.
-        if _use_simdriven:
+        if _use_simdriven or _use_equation:
             st.divider()
             st.info(
                 "Per-unit matchup drill-down is not yet available for the "
-                "sim-driven view. Switch the **Solver source** above to "
+                "snapshot views. Switch the **Solver source** above to "
                 "*Closed-form Phase 1* to inspect pairwise time-to-kill "
                 "and log-advantage matrices."
             )
@@ -2177,3 +2367,1198 @@ with tab_convergence:
         max_battles=int(_conv_max),
         tolerance_pct=float(_conv_tol),
     )
+
+
+# ---------------------------------------------------------------------------
+# Calibration tab — Stage 1 sim vs tournament win rates
+# ---------------------------------------------------------------------------
+with tab_calibration:
+    st.markdown("## Calibration — Stage 1: sim win rates vs tournament")
+    st.caption(
+        "Compares per-faction average win rate from the simulator against the "
+        "Warp Friends May 2026 ~10k-game tournament aggregate. The headline "
+        "metric is mean absolute error (MAE) vs real meta — Stage 1 target is "
+        "≤ 2.0 pts. Snapshot built offline by: "
+        "`python -m scripts.evaluate_vs_meta --battles 100 --out data/meta_comparison_snapshot.json`"
+    )
+
+    _cal_snap = _load_meta_snapshot()
+    _mae_progress = _load_mae_progress()
+
+    # ---- MAE progress chart (always shown if CSV exists) ----
+    if _mae_progress:
+        st.markdown("### MAE progress over calibration iterations")
+        _modes_seen = sorted({r["mode"] for r in _mae_progress})
+        _mode_colours = {
+            "random_fill 1000pt":    "#4C9BE8",
+            "archetype 1000pt":      "#E88C4C",
+            "archetype 2000pt":      "#9B4CE8",
+            "archetype 2000pt N=20": "#C89BE8",
+        }
+        _mode_dash = {
+            "archetype 2000pt N=20": "dot",
+        }
+        _prog_fig = go.Figure()
+        for _m in _modes_seen:
+            _rows = [r for r in _mae_progress if r["mode"] == _m]
+            _colour = _mode_colours.get(_m, "#888888")
+            _dash   = _mode_dash.get(_m, "solid")
+            _prog_fig.add_trace(go.Scatter(
+                x=[r["when"][:10] for r in _rows],
+                y=[r["mae"] for r in _rows],
+                mode="lines+markers",
+                name=_m,
+                line=dict(color=_colour, width=2, dash=_dash),
+                marker=dict(size=7, opacity=0.7 if _dash != "solid" else 1.0),
+                hovertemplate=(
+                    "<b>%{customdata}</b><br>MAE: %{y:.2f} pts<extra></extra>"
+                ),
+                customdata=[r["label"] for r in _rows],
+            ))
+        _prog_fig.add_hline(
+            y=2.0, line_dash="dash", line_color="green",
+            annotation_text="Target ≤ 2.0 pts",
+            annotation_position="bottom right",
+        )
+        _prog_fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="MAE (pts)",
+            legend_title="Evaluation mode",
+            height=300,
+            margin=dict(t=20, b=40),
+        )
+        st.plotly_chart(_prog_fig, use_container_width=True)
+
+    # ---- Snapshot-dependent content ----
+    if _cal_snap is None:
+        st.info(
+            "No calibration snapshot found. Build one with:\n\n"
+            "```\npython -m scripts.evaluate_vs_meta --battles 100 "
+            "--out data/meta_comparison_snapshot.json\n```"
+        )
+    else:
+        # ---- Headline metrics ----
+        _c1, _c2, _c3, _c4 = st.columns(4)
+        _c1.metric(
+            "MAE (10 data factions)",
+            f"{_cal_snap['mae_real']:.2f} pts",
+            help="Mean absolute error vs Warp Friends data for the 10 factions with real tournament numbers. Target ≤ 2.0 pts. The 12 factions with no real data are excluded.",
+        )
+        _c2.metric(
+            "MAE vs 50 %",
+            f"{_cal_snap['mae_sweg']:.2f} pts",
+            help="Mean absolute error between sim and 50 % for the 10 data factions. Target ≤ 2.0 pts for rule-internal balance.",
+        )
+        _c3.metric("Battles per pairing", f"{_cal_snap['n_battles']:,}")
+        _c4.metric("Factions measured", str(len(_cal_snap["factions"])))
+        _mae_all = _cal_snap.get("mae_real_all")
+        st.caption(
+            f"Snapshot: {_cal_snap['built_at'][:10]}  |  "
+            f"mode: {_cal_snap['mode']}  |  lists: {_cal_snap['list_mode']}"
+            + (f"  |  MAE all 22 factions: {_mae_all:.2f} pts (reference, 12 targets are estimates)" if _mae_all else "")
+        )
+
+        st.divider()
+
+        # ---- Per-faction deviation chart (data factions only) ----
+        st.markdown("### Per-faction sim win rate vs tournament target")
+
+        _factions_data = sorted(
+            [r for r in _cal_snap["factions"]
+             if not r.get("is_no_data", r["faction"] in _FX_ALL_FACTIONS)],
+            key=lambda r: abs(r["diff"]),
+            reverse=True,
+        )
+
+        def _bar_colour(row: dict) -> str:
+            if abs(row["diff"]) <= 2.0:
+                return "#2ecc71"   # green — within target
+            if abs(row["diff"]) <= 5.0:
+                return "#f39c12"   # amber
+            return "#e74c3c"       # red — significant outlier
+
+        _bar_colours = [_bar_colour(r) for r in _factions_data]
+        _faction_labels = [
+            f"{r['faction']} (~)" if r["is_approx"] else r["faction"]
+            for r in _factions_data
+        ]
+
+        _dev_fig = go.Figure()
+        _dev_fig.add_trace(go.Bar(
+            y=_faction_labels,
+            x=[r["diff"] for r in _factions_data],
+            orientation="h",
+            marker_color=_bar_colours,
+            customdata=[
+                [r["sim_pct"], r["tournament_pct"], r["diff"]]
+                for r in _factions_data
+            ],
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Sim: %{customdata[0]:.1f}%<br>"
+                "Tournament: %{customdata[1]:.1f}%<br>"
+                "Difference: %{customdata[2]:+.1f} pts<extra></extra>"
+            ),
+        ))
+        _dev_fig.add_vline(x=0, line_color="white", line_width=1)
+        _dev_fig.add_vrect(x0=-2, x1=2, fillcolor="green", opacity=0.08, line_width=0)
+        _dev_fig.update_layout(
+            xaxis_title="Sim % − Tournament % (positive = sim overestimates faction strength)",
+            height=max(400, len(_factions_data) * 28),
+            margin=dict(t=20, l=200, r=20, b=40),
+        )
+        st.plotly_chart(_dev_fig, use_container_width=True)
+        st.caption(
+            "Green band = ±2 pt target zone. "
+            "(~) = approximate target (some real-world basis but flagged as less authoritative). "
+            "12 factions with no real tournament data are excluded from this chart and the headline MAE."
+        )
+
+        st.divider()
+
+        # ---- Full table ----
+        st.markdown("### Full faction breakdown")
+        def _data_quality(r: dict) -> str:
+            if r.get("is_no_data", r["faction"] in _FX_ALL_FACTIONS):
+                return "no data"
+            if r["is_approx"]:
+                return "approx"
+            return "real"
+
+        _table_rows = [
+            {
+                "Faction": r["faction"],
+                "Data": _data_quality(r),
+                "Sim %": r["sim_pct"],
+                "Tournament %": r["tournament_pct"],
+                "Diff": r["diff"],
+                "vs 50 %": r["diff_vs_50"],
+            }
+            for r in sorted(_cal_snap["factions"], key=lambda r: r["faction"])
+        ]
+        st.dataframe(
+            pd.DataFrame(_table_rows),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Diff": st.column_config.NumberColumn(format="%+.1f"),
+                "vs 50 %": st.column_config.NumberColumn(format="%+.1f"),
+            },
+        )
+
+    st.divider()
+
+    # ---- Hypothetical win rates with equation-derived prices ----
+    st.markdown("## Hypothetical win rates — equation-derived prices")
+    st.caption(
+        "Win rates simulated using prices output by the calibrated equation rather than "
+        "GW published costs. Calibrated factions (those within the MAE threshold when the "
+        "equation was fit) are shown with solid bars; uncalibrated factions are dashed — "
+        "their win rates are predictions from the equation extrapolating beyond its training data."
+    )
+
+    _eq_snap = _load_equation_snapshot()
+    if _eq_snap is None:
+        st.info(
+            "No hypothetical snapshot found. Build one with:\n\n"
+            "```\n"
+            "# Step 1: fit the equation (once per calibration session)\n"
+            "python -m scripts.fit_equation_calibrated --threshold 10.0\n\n"
+            "# Step 2: run the faction matrix with equation prices\n"
+            "python -m scripts.evaluate_vs_meta --battles 40 "
+            "--equation-prices data/equation_calibrated_points.json "
+            "--out data/equation_vs_meta_snapshot.json\n"
+            "```"
+        )
+    else:
+        _eq_trusted = set(_eq_snap.get("trusted_factions", []))
+
+        _eq_col1, _eq_col2, _eq_col3 = st.columns(3)
+        _eq_col1.metric(
+            "MAE vs 50 % (all factions)",
+            f"{_eq_snap['mae_sweg']:.2f} pts",
+            help="Mean absolute error between equation-priced sim and 50 % across all factions. "
+                 "Target ≤ 2.0 pts for internal balance.",
+        )
+        _eq_col2.metric(
+            "MAE vs 50 % (calibrated factions only)",
+            f"{_eq_snap['mae_real']:.2f} pts",
+            help="MAE for the factions used to fit the equation.",
+        )
+        _eq_col3.metric("Battles per pairing", f"{_eq_snap['n_battles']:,}")
+        st.caption(
+            f"Snapshot: {_eq_snap['built_at'][:10]}  |  "
+            f"mode: {_eq_snap['mode']}  |  lists: {_eq_snap['list_mode']}"
+        )
+
+        _eq_factions = sorted(
+            _eq_snap["factions"],
+            key=lambda r: abs(r["diff_vs_50"]),
+            reverse=True,
+        )
+
+        _eq_colours = []
+        _eq_labels = []
+        for r in _eq_factions:
+            is_trusted = r["faction"] in _eq_trusted
+            diff = abs(r["diff_vs_50"])
+            if diff <= 2.0:
+                colour = "#2ecc71"
+            elif diff <= 5.0:
+                colour = "#f39c12"
+            else:
+                colour = "#e74c3c"
+            _eq_colours.append(colour)
+            label = r["faction"] if is_trusted else f"{r['faction']} *"
+            _eq_labels.append(label)
+
+        _eq_fig = go.Figure()
+        _eq_fig.add_trace(go.Bar(
+            y=_eq_labels,
+            x=[r["diff_vs_50"] for r in _eq_factions],
+            orientation="h",
+            marker_color=_eq_colours,
+            customdata=[[r["sim_pct"], r["diff_vs_50"]] for r in _eq_factions],
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "Sim win rate: %{customdata[0]:.1f}%<br>"
+                "vs 50%%: %{customdata[1]:+.1f} pts<extra></extra>"
+            ),
+        ))
+        _eq_fig.add_vline(x=0, line_color="white", line_width=1)
+        _eq_fig.add_vrect(x0=-2, x1=2, fillcolor="green", opacity=0.08, line_width=0)
+        _eq_fig.update_layout(
+            xaxis_title="Sim % − 50 % (positive = equation overprices this faction's opponents)",
+            height=max(400, len(_eq_factions) * 28),
+            margin=dict(t=20, l=220, r=20, b=40),
+        )
+        st.plotly_chart(_eq_fig, use_container_width=True)
+        st.caption(
+            "Green band = ±2 pt target zone. "
+            "* = uncalibrated faction (equation extrapolation, not a training anchor)."
+        )
+
+    # -------------------------------------------------------------------------
+    # Tools — launch long-running calibration jobs from the user interface
+    # -------------------------------------------------------------------------
+    st.divider()
+    st.markdown("## Tools — run calibration jobs from the user interface")
+    st.caption(
+        "These launch the fitting and evaluation scripts as background processes. "
+        "Progress streams into the log box below. The page stays responsive while "
+        "the job runs — you can switch tabs and come back."
+    )
+
+    def _subprocess_env() -> dict:
+        """Build an env dict that suppresses the PYTHONHASHSEED re-exec guard."""
+        env = os.environ.copy()
+        env["PYTHONHASHSEED"] = "0"
+        env["PYTHONIOENCODING"] = "utf-8"
+        return env
+
+    def _launch_subprocess(args: list, log_path: _pathlib.Path) -> subprocess.Popen:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_file = open(log_path, "w", encoding="utf-8")
+        return subprocess.Popen(
+            args,
+            env=_subprocess_env(),
+            stdout=log_file,
+            stderr=log_file,
+            cwd=str(_pathlib.Path(__file__).parent),
+        )
+
+    def _read_log_tail(log_path: _pathlib.Path, max_chars: int = 4000) -> str:
+        if not log_path.exists():
+            return ""
+        try:
+            text = log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+        return text[-max_chars:] if len(text) > max_chars else text
+
+    # ---- Step 1: Fit equation ------------------------------------------------
+    with st.expander("Step 1 — Fit equation from trusted factions", expanded=True):
+        st.caption(
+            "Measures pairwise win rates for units from factions within the MAE "
+            "threshold, then fits the Bradley-Terry equation. Writes "
+            "`data/equation_calibrated_points.json`."
+        )
+        _fc1, _fc2, _fc3, _fc4 = st.columns(4)
+        _fit_threshold  = _fc1.number_input(
+            "MAE threshold (pts)", min_value=1.0, max_value=20.0, value=10.0, step=0.5,
+            key="fit_threshold",
+            help="Factions with |sim − tournament| within this value are used to fit the equation.",
+        )
+        _fit_battles    = _fc2.number_input(
+            "Battles per pair", min_value=1, max_value=200, value=5, step=1,
+            key="fit_battles",
+            help="More battles = more accurate prices but longer run time.",
+        )
+        _fit_max_per    = _fc3.number_input(
+            "Max units per faction", min_value=5, max_value=100, value=15, step=5,
+            key="fit_max_per",
+            help="Cap units per faction (evenly-spaced cost sample). 15 → ~60 units, ~80 s on 11 cores.",
+        )
+        _fit_workers    = _fc4.number_input(
+            "Worker processes", min_value=1, max_value=max(1, (os.cpu_count() or 2)),
+            value=max(1, (os.cpu_count() or 2) - 1), step=1,
+            key="fit_workers",
+        )
+
+        if "fit_proc" not in st.session_state:
+            st.session_state["fit_proc"] = None
+            st.session_state["fit_running"] = False
+
+        _fb_run, _fb_stop, _fb_status = st.columns([1, 1, 6])
+        _fit_run_clicked = _fb_run.button(
+            "▶ Fit equation", type="primary", key="fit_run_btn",
+            disabled=bool(st.session_state.get("fit_running")),
+        )
+        _fit_stop_clicked = _fb_stop.button(
+            "■ Stop", key="fit_stop_btn",
+            disabled=not bool(st.session_state.get("fit_running")),
+        )
+
+        if _fit_run_clicked:
+            proc = _launch_subprocess(
+                [
+                    sys.executable, "-m", "scripts.fit_equation_calibrated",
+                    "--threshold", str(_fit_threshold),
+                    "--battles",   str(_fit_battles),
+                    "--max-per-faction", str(int(_fit_max_per)),
+                    "--workers",   str(int(_fit_workers)),
+                ],
+                _FIT_EQ_LOG_PATH,
+            )
+            st.session_state["fit_proc"]    = proc
+            st.session_state["fit_running"] = True
+            st.rerun()
+
+        if _fit_stop_clicked:
+            proc = st.session_state.get("fit_proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+            st.session_state["fit_running"] = False
+            st.rerun()
+
+        # Check if process finished naturally
+        proc = st.session_state.get("fit_proc")
+        if proc is not None and st.session_state.get("fit_running"):
+            if proc.poll() is not None:
+                st.session_state["fit_running"] = False
+
+        _fit_log_text = _read_log_tail(_FIT_EQ_LOG_PATH)
+        if _fit_log_text:
+            if st.session_state.get("fit_running"):
+                _fb_status.info("Running… refresh to update progress.")
+                st.button("🔄 Refresh progress", key="fit_refresh_btn")
+            elif st.session_state.get("fit_proc") is not None:
+                ret = st.session_state["fit_proc"].poll()
+                if ret == 0:
+                    st.success("Equation fitting complete — `data/equation_calibrated_points.json` updated.")
+                elif ret is not None:
+                    st.error(f"Process exited with code {ret}. See log below.")
+            st.code(_fit_log_text, language=None)
+        elif _EQUATION_CALIBRATED_PATH.exists():
+            st.success(
+                f"`data/equation_calibrated_points.json` exists from a previous run. "
+                f"Press **Fit equation** to rebuild it."
+            )
+
+    # ---- Step 2: Run evaluation with equation prices ------------------------
+    with st.expander("Step 2 — Evaluate equation prices vs tournament", expanded=True):
+        st.caption(
+            "Runs the faction-vs-faction matrix using equation-derived prices instead "
+            "of GW costs and records the win rates. Writes "
+            "`data/equation_vs_meta_snapshot.json` (shown above as 'Hypothetical win rates')."
+        )
+        _ec1, _ec2 = st.columns(2)
+        _eval_battles = _ec1.number_input(
+            "Battles per faction pairing", min_value=5, max_value=500, value=40, step=5,
+            key="eval_battles",
+        )
+        _eval_workers = _ec2.number_input(
+            "Worker processes", min_value=1, max_value=max(1, (os.cpu_count() or 2)),
+            value=max(1, (os.cpu_count() or 2) - 1), step=1,
+            key="eval_workers",
+        )
+
+        if not _EQUATION_CALIBRATED_PATH.exists():
+            st.warning(
+                "Run **Step 1 — Fit equation** first. "
+                "`data/equation_calibrated_points.json` does not exist yet."
+            )
+
+        if "eval_proc" not in st.session_state:
+            st.session_state["eval_proc"] = None
+            st.session_state["eval_running"] = False
+
+        _eb_run, _eb_stop, _eb_status = st.columns([1, 1, 6])
+        _eval_run_clicked = _eb_run.button(
+            "▶ Run evaluation", type="primary", key="eval_run_btn",
+            disabled=(
+                bool(st.session_state.get("eval_running"))
+                or not _EQUATION_CALIBRATED_PATH.exists()
+            ),
+        )
+        _eval_stop_clicked = _eb_stop.button(
+            "■ Stop", key="eval_stop_btn",
+            disabled=not bool(st.session_state.get("eval_running")),
+        )
+
+        if _eval_run_clicked:
+            proc = _launch_subprocess(
+                [
+                    sys.executable, "-m", "scripts.evaluate_vs_meta",
+                    "--battles", str(int(_eval_battles)),
+                    "--workers", str(int(_eval_workers)),
+                    "--equation-prices", str(_EQUATION_CALIBRATED_PATH),
+                    "--out", "data/equation_vs_meta_snapshot.json",
+                ],
+                _EVAL_EQ_LOG_PATH,
+            )
+            st.session_state["eval_proc"]    = proc
+            st.session_state["eval_running"] = True
+            st.rerun()
+
+        if _eval_stop_clicked:
+            proc = st.session_state.get("eval_proc")
+            if proc and proc.poll() is None:
+                proc.terminate()
+            st.session_state["eval_running"] = False
+            st.rerun()
+
+        proc = st.session_state.get("eval_proc")
+        if proc is not None and st.session_state.get("eval_running"):
+            if proc.poll() is not None:
+                st.session_state["eval_running"] = False
+
+        _eval_log_text = _read_log_tail(_EVAL_EQ_LOG_PATH)
+        if _eval_log_text:
+            if st.session_state.get("eval_running"):
+                _eb_status.info("Running… refresh to update progress.")
+                st.button("🔄 Refresh progress", key="eval_refresh_btn")
+            elif st.session_state.get("eval_proc") is not None:
+                ret = st.session_state["eval_proc"].poll()
+                if ret == 0:
+                    st.success(
+                        "Evaluation complete — reload the page to see updated "
+                        "hypothetical win rates above."
+                    )
+                elif ret is not None:
+                    st.error(f"Process exited with code {ret}. See log below.")
+            st.code(_eval_log_text, language=None)
+
+
+# ===========================================================================
+# Tab: Equation Fit (Goal C Track 4 — data-driven regression visualiser)
+# ===========================================================================
+#
+# Lets the user iterate on the regression feature set: include / exclude
+# features, swap functional forms, refit, see the headline R² / MAE,
+# compare predicted-vs-GW prices, drill into outliers. The 3D surface
+# plot (pick two features for the X/Y axes, see the fitted manifold with
+# real units overlaid) is the follow-up; this tab ships with the
+# essentials so you can already drive the equation interactively.
+
+with tab_equation_fit:
+    st.markdown("## Equation Fit  —  data-driven regression on stats")
+    st.caption(
+        "Fit a Generalized Additive Model that predicts log(GW points per "
+        "model) from unit stats. Each feature gets a configurable functional "
+        "form (linear / log / sqrt / quadratic / cubic). Faction-level "
+        "tournament-meta multipliers are layered on top of the equation's "
+        "stats-only prediction so factions that over- or under-perform at "
+        "GW pricing get scaled accordingly."
+    )
+
+    # Cache the feature DataFrame so we don't re-extract on every refit.
+    @st.cache_data(show_spinner="Extracting features…", max_entries=2)
+    def _eqfit_features_df() -> "pd.DataFrame":
+        return eqfit_extract_features()
+
+    _eqfit_df = _eqfit_features_df()
+
+    _all_specs = eqfit_default_specs()
+    _spec_by_name = {s.name: s for s in _all_specs}
+    _transform_options = eqfit_transform_names()
+
+    st.divider()
+    st.markdown("### Feature panel")
+    st.caption(
+        "Tick a feature to include it, pick its transform. Hit **Refit** "
+        "below to recompute. Defaults reflect a reasonable starting model "
+        "with all stat lines on and utility derivatives off."
+    )
+
+    # Group features by topic for the panel layout.
+    _GROUPS = [
+        ("Defensive",   ["wounds_per_model", "toughness", "save_quality", "invuln_quality", "fnp_quality"]),
+        ("Ranged",      ["ranged_attacks", "ranged_strength", "ranged_ap_abs", "ranged_damage_per_shot", "ranged_range"]),
+        ("Melee",       ["melee_attacks", "melee_strength", "melee_ap_abs", "melee_damage_per_shot"]),
+        ("Mobility / objective", ["move", "oc", "min_models"]),
+        ("Weapon keywords", ["lethal_hits", "sustained_hits", "twin_linked", "devastating_wounds",
+                             "blast", "torrent", "melta", "rapid_fire", "ignores_cover"]),
+        ("Deployment",  ["deep_strike", "scout_distance", "infiltrator", "lone_operative", "stealth"]),
+        ("Utility derived", ["expected_ranged_dmg_vs_meq", "expected_melee_dmg_vs_meq", "effective_wounds"]),
+        ("Unit class",  ["is_monster", "is_vehicle", "is_character", "is_fly"]),
+    ]
+
+    # Each (feature, transform, include) triple is persisted in session
+    # state so the user's choices survive reruns.
+    if "eqfit_state" not in st.session_state:
+        st.session_state["eqfit_state"] = {
+            s.name: {"include": s.include, "transform": s.transform}
+            for s in _all_specs
+        }
+    _state = st.session_state["eqfit_state"]
+
+    for group_label, feature_names in _GROUPS:
+        with st.expander(group_label, expanded=(group_label == "Defensive")):
+            for name in feature_names:
+                spec = _spec_by_name.get(name)
+                if spec is None:
+                    continue
+                cur = _state.setdefault(
+                    name, {"include": spec.include, "transform": spec.transform},
+                )
+                c1, c2, c3 = st.columns([0.6, 1.0, 3.0])
+                with c1:
+                    cur["include"] = st.checkbox(
+                        " ", value=cur["include"], key=f"eqfit_inc_{name}",
+                        label_visibility="collapsed",
+                    )
+                with c2:
+                    cur["transform"] = st.selectbox(
+                        " ", _transform_options,
+                        index=_transform_options.index(cur["transform"]),
+                        key=f"eqfit_t_{name}",
+                        label_visibility="collapsed",
+                        disabled=not cur["include"],
+                    )
+                with c3:
+                    st.markdown(f"**{name}** — {spec.description}")
+
+    st.divider()
+
+    # Faction-multiplier alpha control.
+    _alpha = st.slider(
+        "Faction-multiplier α  (sensitivity to tournament-meta deviation)",
+        min_value=0.0, max_value=4.0, value=2.0, step=0.25,
+        help=(
+            "multiplier = 1 + α · (real_winrate − 0.5). Higher α means a "
+            "faction's over- or under-performance translates into a bigger "
+            "per-unit price adjustment. α = 0 disables the meta correction."
+        ),
+        key="eqfit_alpha",
+    )
+
+    _refit_clicked = st.button("▶ Refit", type="primary", key="eqfit_refit_btn")
+
+    # Cache the fit on the (feature set, transform set, alpha) signature.
+    @st.cache_data(show_spinner="Fitting equation…", max_entries=8)
+    def _run_eqfit(spec_signature: Tuple[Tuple[str, str], ...], alpha: float):
+        specs = []
+        for name, transform in spec_signature:
+            base = _spec_by_name.get(name)
+            description = base.description if base is not None else ""
+            specs.append(
+                EqFitFeatureSpec(name=name, transform=transform, include=True,
+                                 description=description)
+            )
+        result = eqfit_fit(_eqfit_df, specs)
+
+        # Faction multipliers.
+        mults: Dict[str, float] = {}
+        if _META_SNAPSHOT_PATH.exists():
+            snap = _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+            mults = eqfit_faction_multipliers(snap, alpha=alpha)
+
+        # Per-unit multiplied predictions for the full DataFrame.
+        adjusted = result.predicted_price.copy()
+        factions = _eqfit_df["faction"].to_numpy()
+        for i, f in enumerate(factions):
+            adjusted[i] = adjusted[i] * mults.get(f, 1.0)
+        return result, mults, adjusted
+
+    _spec_signature = tuple(
+        (name, _state[name]["transform"])
+        for name in _state
+        if _state[name]["include"]
+    )
+
+    if not _spec_signature:
+        st.warning("Toggle at least one feature on to run a fit.")
+        st.stop()
+
+    _result, _mults, _adjusted = _run_eqfit(_spec_signature, float(_alpha))
+
+    st.divider()
+    st.markdown("### Headline metrics")
+    _m1, _m2, _m3, _m4 = st.columns(4)
+    _m1.metric("R²", f"{_result.r_squared:.3f}",
+               help="Proportion of variance in log(GW points/model) explained by the regression. 1.0 is perfect.")
+    _m2.metric("MAE (log space)", f"{_result.mae_log:.3f}",
+               help="Mean absolute error on log(price). 0.10 ≈ ±10% typical price error; 0.20 ≈ ±22%.")
+    _m3.metric("MAE (price space)", f"{_result.mae_price:.1f} pts/model",
+               help="Mean absolute error on raw price. Skewed by premium units.")
+    _m4.metric("Features fitted", len(_result.feature_names),
+               help="Number of features included in the regression.")
+
+    if _mults:
+        st.caption(
+            "Faction multipliers (from data/meta_comparison_snapshot.json): "
+            + ", ".join(f"{f} {m:.2f}×" for f, m in sorted(_mults.items()))
+        )
+    else:
+        st.caption(
+            "No faction multipliers available (data/meta_comparison_snapshot.json "
+            "missing or empty). Equation predictions shown without meta correction."
+        )
+
+    # ---------------- predicted-vs-GW scatter ----------------
+    st.divider()
+    st.markdown("### Predicted vs GW points (log–log)")
+    st.caption(
+        "Each point is a unit. Above the y=x line → equation thinks GW "
+        "undercosts it; below → overcosts. Hover to inspect."
+    )
+
+    _eligible = _eqfit_df["gw_points_per_model"] > 0
+    _xs = _eqfit_df.loc[_eligible, "gw_points_per_model"].to_numpy()
+    _ys = _adjusted[_eligible.to_numpy()]
+    _names = _eqfit_df.loc[_eligible, "name"].to_numpy()
+    _factions = _eqfit_df.loc[_eligible, "faction"].to_numpy()
+
+    _fig = go.Figure()
+    for fac in sorted(set(_factions)):
+        mask = _factions == fac
+        _fig.add_trace(go.Scatter(
+            x=_xs[mask], y=_ys[mask],
+            mode="markers",
+            name=fac,
+            marker=dict(size=7, color=colour_for(fac), opacity=0.8,
+                        line=dict(width=0.5, color="white")),
+            customdata=np.stack([_names[mask]], axis=-1),
+            hovertemplate=("<b>%{customdata[0]}</b><br>"
+                           f"Faction: {fac}<br>"
+                           "GW pts/model: %{x:.1f}<br>"
+                           "Predicted: %{y:.1f}<extra></extra>"),
+        ))
+    _lo = max(0.5, float(np.nanmin(_xs)) * 0.8)
+    _hi = float(np.nanmax(_xs)) * 1.2
+    _fig.add_trace(go.Scatter(
+        x=[_lo, _hi], y=[_lo, _hi], mode="lines",
+        line=dict(color="#FFD700", dash="dash", width=1.2),
+        name="y = x", hoverinfo="skip",
+    ))
+    _fig.update_layout(
+        template="plotly_dark", paper_bgcolor="#0e1117", plot_bgcolor="#1a1d23",
+        xaxis=dict(title="GW points / model (log)", type="log", gridcolor="#3a3d45"),
+        yaxis=dict(title="Predicted points / model (log)", type="log", gridcolor="#3a3d45"),
+        height=520, margin=dict(l=50, r=20, t=30, b=40),
+        legend=dict(font=dict(size=10), bgcolor="rgba(26,29,35,0.85)"),
+    )
+    st.plotly_chart(_fig, use_container_width=True, key="eqfit_scatter")
+
+    # ---------------- coefficient table ----------------
+    st.divider()
+    st.markdown("### Fitted coefficients")
+    st.caption(
+        "Each row is a feature's contribution to log(price). Positive = the "
+        "feature pushes price up; negative = down. Interpretable on the "
+        "log scale: β = 0.10 ≈ +10% price per unit increase (after transform)."
+    )
+    _coef_rows = [
+        {
+            "Feature": n,
+            "Transform": t,
+            "Coefficient (β)": round(float(c), 4),
+            "exp(β) per unit": round(float(np.exp(c)), 3),
+        }
+        for n, t, c in sorted(
+            zip(_result.feature_names, _result.transforms, _result.coefficients),
+            key=lambda r: -abs(r[2]),
+        )
+    ]
+    st.dataframe(_coef_rows, hide_index=True, use_container_width=True)
+
+    # ---------------- outliers ----------------
+    st.divider()
+    st.markdown("### Outliers (top 20 each way)")
+    st.caption(
+        "Top of the iteration loop: units the equation strongly disagrees "
+        "with GW on. Investigate; if real meta agrees with GW, the equation "
+        "is missing a feature. If real meta agrees with the equation, "
+        "this is a candidate mispricing in GW."
+    )
+    _resid_df = _eqfit_df.loc[_eligible].copy()
+    _resid_df["predicted"] = _ys
+    _resid_df["ratio"] = _ys / _resid_df["gw_points_per_model"]
+    _resid_df["log_resid"] = np.log(_ys) - np.log(_resid_df["gw_points_per_model"])
+    _resid_df = _resid_df.sort_values("log_resid")
+    _col_lo, _col_hi = st.columns(2)
+    with _col_lo:
+        st.markdown("**Equation says CHEAPER than GW**")
+        st.dataframe(
+            _resid_df.head(20)[["name", "faction", "gw_points_per_model", "predicted", "ratio"]].rename(columns={
+                "name": "Unit", "faction": "Faction",
+                "gw_points_per_model": "GW", "predicted": "Pred", "ratio": "Ratio",
+            }).round({"GW": 1, "Pred": 1, "Ratio": 2}),
+            hide_index=True, use_container_width=True,
+        )
+    with _col_hi:
+        st.markdown("**Equation says MORE EXPENSIVE than GW**")
+        st.dataframe(
+            _resid_df.tail(20).iloc[::-1][["name", "faction", "gw_points_per_model", "predicted", "ratio"]].rename(columns={
+                "name": "Unit", "faction": "Faction",
+                "gw_points_per_model": "GW", "predicted": "Pred", "ratio": "Ratio",
+            }).round({"GW": 1, "Pred": 1, "Ratio": 2}),
+            hide_index=True, use_container_width=True,
+        )
+
+    # ---------------- 3D surface explorer ----------------
+    st.divider()
+    st.markdown("### 3D surface explorer")
+    st.caption(
+        "Pick two features for the axes. The surface is the equation's "
+        "predicted price across that 2D slice with all OTHER features held "
+        "at their catalogue median. Real units are overlaid as points at "
+        "their actual feature values + predicted price, coloured by faction."
+    )
+
+    # Only continuous features make sense as surface axes — boolean keywords
+    # would just give a 4-corner surface that's not informative.
+    _CONTINUOUS_FEATURES = [
+        "wounds_per_model", "toughness", "save_quality", "invuln_quality",
+        "fnp_quality", "ranged_attacks", "ranged_strength", "ranged_ap_abs",
+        "ranged_damage_per_shot", "ranged_range", "melee_attacks",
+        "melee_strength", "melee_ap_abs", "melee_damage_per_shot",
+        "move", "oc", "min_models", "scout_distance",
+        "expected_ranged_dmg_vs_meq", "expected_melee_dmg_vs_meq",
+        "effective_wounds",
+    ]
+    # Keep only features that are actually in the current fit.
+    _surface_options = [
+        n for n in _CONTINUOUS_FEATURES
+        if n in _result.feature_names
+    ]
+    if len(_surface_options) < 2:
+        st.info(
+            "Need at least two continuous features in the fit to draw the "
+            "surface. Toggle on more numeric features above."
+        )
+    else:
+        _sx_col, _sy_col, _scolor_col = st.columns(3)
+        with _sx_col:
+            _surf_x = st.selectbox(
+                "X axis feature", _surface_options,
+                index=_surface_options.index(
+                    "wounds_per_model" if "wounds_per_model" in _surface_options
+                    else _surface_options[0]
+                ),
+                key="eqfit_surf_x",
+            )
+        with _sy_col:
+            _y_default = "toughness" if "toughness" in _surface_options else _surface_options[1]
+            _surf_y = st.selectbox(
+                "Y axis feature", [s for s in _surface_options if s != _surf_x],
+                index=max(0, [s for s in _surface_options if s != _surf_x].index(_y_default))
+                    if _y_default in _surface_options and _y_default != _surf_x else 0,
+                key="eqfit_surf_y",
+            )
+        with _scolor_col:
+            _surf_logz = st.checkbox(
+                "Log Z axis (price)", value=True,
+                key="eqfit_surf_logz",
+                help="Compresses the price axis so cheap and premium units "
+                     "share the same view; off shows linear scale.",
+            )
+
+        @st.cache_data(show_spinner="Building 3D surface…", max_entries=8)
+        def _build_surface(
+            spec_signature: Tuple[Tuple[str, str], ...],
+            alpha: float,
+            x_feature: str,
+            y_feature: str,
+            n_grid: int = 30,
+        ):
+            """
+            Returns (XX, YY, ZZ, sample_units) for the 3D plot. ZZ is the
+            predicted price (after faction multiplier averaging) across the
+            (x_feature, y_feature) grid, with all other features held at
+            their catalogue median.
+            """
+            specs = []
+            for name, transform in spec_signature:
+                base = _spec_by_name.get(name)
+                description = base.description if base is not None else ""
+                specs.append(
+                    EqFitFeatureSpec(name=name, transform=transform,
+                                     include=True, description=description)
+                )
+            result = eqfit_fit(_eqfit_df, specs)
+
+            # Per-feature median across the live catalogue.
+            medians = _eqfit_df[result.feature_names].median(numeric_only=True)
+
+            x_min = float(_eqfit_df[x_feature].min())
+            x_max = float(_eqfit_df[x_feature].max())
+            y_min = float(_eqfit_df[y_feature].min())
+            y_max = float(_eqfit_df[y_feature].max())
+            # Guard against degenerate ranges
+            if x_max <= x_min:
+                x_max = x_min + 1.0
+            if y_max <= y_min:
+                y_max = y_min + 1.0
+
+            xs = np.linspace(x_min, x_max, n_grid)
+            ys = np.linspace(y_min, y_max, n_grid)
+            XX, YY = np.meshgrid(xs, ys)
+
+            # Build a synthetic DataFrame for the grid. Every feature
+            # except X/Y is at its catalogue median.
+            grid_data = {}
+            for f in result.feature_names:
+                if f == x_feature:
+                    grid_data[f] = XX.flatten()
+                elif f == y_feature:
+                    grid_data[f] = YY.flatten()
+                else:
+                    grid_data[f] = np.full(XX.size, float(medians.get(f, 0.0)))
+            synth_df = pd.DataFrame(grid_data)
+
+            # Apply transforms + predict.
+            from code.equation_data_fit import predict as eqfit_predict_fn
+            preds = eqfit_predict_fn(synth_df, result, specs)
+            ZZ = preds.reshape(n_grid, n_grid)
+            return XX, YY, ZZ, x_min, x_max, y_min, y_max
+
+        _XX, _YY, _ZZ, _xmin, _xmax, _ymin, _ymax = _build_surface(
+            _spec_signature, float(_alpha), _surf_x, _surf_y,
+        )
+
+        # If log Z requested, take log of the surface (clamped to a small
+        # positive minimum so we don't log zero).
+        _Z_plot = np.log10(np.maximum(_ZZ, 0.5)) if _surf_logz else _ZZ
+
+        _surface_fig = go.Figure()
+        _surface_fig.add_trace(go.Surface(
+            x=_XX, y=_YY, z=_Z_plot,
+            opacity=0.5,
+            colorscale="Viridis",
+            showscale=False,
+            name="fitted surface",
+            hovertemplate=(
+                f"{_surf_x}: %{{x:.2f}}<br>"
+                f"{_surf_y}: %{{y:.2f}}<br>"
+                + ("log10(price): %{z:.2f}<extra></extra>" if _surf_logz
+                   else "price: %{z:.1f}<extra></extra>")
+            ),
+        ))
+
+        # Real units overlaid as scatter, coloured by faction. Only points
+        # whose X/Y land inside the surface's range (so the camera framing
+        # stays sane).
+        _eqfit_eligible = _eqfit_df["gw_points_per_model"] > 0
+        _real_x = _eqfit_df.loc[_eqfit_eligible, _surf_x].to_numpy()
+        _real_y = _eqfit_df.loc[_eqfit_eligible, _surf_y].to_numpy()
+        _real_pred = _adjusted[_eqfit_eligible.to_numpy()]
+        _real_z = np.log10(np.maximum(_real_pred, 0.5)) if _surf_logz else _real_pred
+        _real_factions = _eqfit_df.loc[_eqfit_eligible, "faction"].to_numpy()
+        _real_names = _eqfit_df.loc[_eqfit_eligible, "name"].to_numpy()
+        _real_gw = _eqfit_df.loc[_eqfit_eligible, "gw_points_per_model"].to_numpy()
+
+        _in_range = (
+            (_real_x >= _xmin) & (_real_x <= _xmax)
+            & (_real_y >= _ymin) & (_real_y <= _ymax)
+        )
+
+        # Group by faction so each gets its own legend entry.
+        for fac in sorted(set(_real_factions[_in_range])):
+            m = (_real_factions == fac) & _in_range
+            if not m.any():
+                continue
+            _surface_fig.add_trace(go.Scatter3d(
+                x=_real_x[m], y=_real_y[m], z=_real_z[m],
+                mode="markers",
+                name=fac,
+                marker=dict(size=4, color=colour_for(fac), opacity=0.9,
+                            line=dict(width=0.2, color="white")),
+                customdata=np.stack([_real_names[m], _real_gw[m], _real_pred[m]], axis=-1),
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    f"Faction: {fac}<br>"
+                    f"{_surf_x}: %{{x:.2f}}<br>"
+                    f"{_surf_y}: %{{y:.2f}}<br>"
+                    "GW pts/model: %{customdata[1]:.1f}<br>"
+                    "Predicted pts/model: %{customdata[2]:.1f}"
+                    "<extra></extra>"
+                ),
+            ))
+
+        _surface_fig.update_layout(
+            template="plotly_dark", paper_bgcolor="#0e1117",
+            scene=dict(
+                xaxis_title=_surf_x,
+                yaxis_title=_surf_y,
+                zaxis_title=("log10(predicted price)" if _surf_logz
+                             else "predicted price"),
+                xaxis=dict(backgroundcolor="#1a1d23", gridcolor="#3a3d45"),
+                yaxis=dict(backgroundcolor="#1a1d23", gridcolor="#3a3d45"),
+                zaxis=dict(backgroundcolor="#1a1d23", gridcolor="#3a3d45"),
+            ),
+            height=640, margin=dict(l=0, r=0, t=10, b=0),
+            legend=dict(font=dict(size=10), bgcolor="rgba(26,29,35,0.85)"),
+        )
+        st.plotly_chart(_surface_fig, use_container_width=True, key="eqfit_surface")
+
+        st.caption(
+            "Surface: equation's predicted price across the 2D slice "
+            f"({_surf_x} × {_surf_y}), with every other feature held at its "
+            "catalogue median. Points: real catalogue units. Distance from "
+            "a point to the surface = how much that unit's other features "
+            "differ from median. Faction colours match the scatter above."
+        )
+
+    # ---------------- archetype-proxy validation ----------------
+    # MASSIVE TODO (see TODO.md): real per-list tournament data ingestion.
+    # The CLEAN version of this validation needs lists from real tournaments
+    # with their win-loss records so we can plot equation-sum vs that
+    # specific list's win rate. Until that data is in the repo, this
+    # section uses the curated faction archetypes (code/archetypes.py) as
+    # one-list-per-faction substitutes and compares against per-faction
+    # tournament-meta win rates.
+    st.divider()
+    st.markdown("### Validation: archetype list value vs real meta")
+    st.warning(
+        "⚠ **Directional proxy only.** This section sums the equation's "
+        "stats-only prediction (no faction multiplier) across each "
+        "faction's canonical archetype list and compares to that "
+        "faction's real tournament win rate. It's an approximation of the "
+        "true test (per-list equation-sum vs per-list win-loss record), "
+        "which is blocked on real per-list tournament data not yet in "
+        "the repo. See TODO.md \"MASSIVE TODO — Real tournament list "
+        "data ingestion\" for the gap and the plan to close it."
+    )
+
+    st.caption(
+        "**Hypothesis:** if the equation captures real unit value better "
+        "than GW does, then a strong faction's archetype should sum to "
+        "MORE than 2000 equation-pts (their list is built from units the "
+        "equation thinks GW underprices). A weak faction's archetype "
+        "should sum to less or near 2000. Look for a positive correlation "
+        "between equation sum and real-meta win rate."
+    )
+
+    _proxy_budget = st.slider(
+        "Budget per archetype (pts)", min_value=1000, max_value=2500,
+        value=2000, step=100, key="eqfit_proxy_budget",
+        help="Standard tournament budget is 2000. Lowering shrinks the lists.",
+    )
+    _proxy_n_builds = st.slider(
+        "Builds per faction (averaged to smooth random fill)",
+        min_value=1, max_value=20, value=5, step=1,
+        key="eqfit_proxy_n_builds",
+        help="The archetype builder tops up with same-faction random picks. "
+             "Averaging multiple builds smooths that noise.",
+    )
+
+    @st.cache_data(show_spinner="Building archetype proxies…", max_entries=4)
+    def _archetype_proxy_table(
+        spec_signature: Tuple[Tuple[str, str], ...],
+        budget: float,
+        n_builds: int,
+    ):
+        """For each faction with an archetype, compute the average
+        equation-sum (stats-only) across n_builds random instantiations."""
+        from code.archetypes import ARCHETYPES, build_archetype_army, has_archetype
+        from code.units import UNIT_CATALOG
+        import random as _random
+
+        # Recompute the fit so we have the up-to-date stats-only predictions.
+        specs = []
+        for name, transform in spec_signature:
+            base = _spec_by_name.get(name)
+            description = base.description if base is not None else ""
+            specs.append(
+                EqFitFeatureSpec(name=name, transform=transform,
+                                 include=True, description=description)
+            )
+        result = eqfit_fit(_eqfit_df, specs)
+        key_to_pred = {
+            key: float(p)
+            for key, p in zip(_eqfit_df["key"].to_numpy(), result.predicted_price)
+        }
+        # Reverse map: profile id → unit key.
+        id_to_key = {id(v): k for k, v in UNIT_CATALOG.items()}
+
+        # Meta snapshot for real win rates.
+        meta_winrates: Dict[str, float] = {}
+        if _META_SNAPSHOT_PATH.exists():
+            snap = _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+            for row in snap.get("factions", []):
+                if row.get("is_approx"):
+                    continue
+                meta_winrates[row["faction"]] = float(row.get("tournament_pct", 0)) / 100.0
+
+        rows = []
+        for faction, archetypes_dict in ARCHETYPES.items():
+            if not has_archetype(faction):
+                continue
+            arch_name = list(archetypes_dict.keys())[0]  # first archetype as canonical
+
+            sums_eq = []
+            sums_gw = []
+            n_models_list = []
+            for seed in range(n_builds):
+                rng = _random.Random(seed)
+                army = build_archetype_army(
+                    "P", faction, budget, rng=rng, archetype_name=arch_name,
+                )
+                if not army.units:
+                    continue
+                eq_total = 0.0
+                gw_total = 0.0
+                for u in army.units:
+                    profile = u.profile if hasattr(u, "profile") else None
+                    if profile is None:
+                        continue
+                    k = id_to_key.get(id(profile))
+                    if k is None or k not in key_to_pred:
+                        continue
+                    eq_total += key_to_pred[k]
+                    # Use profile.points_cost (the property that falls back
+                    # to the Lanchester-derived score when points_per_squad
+                    # is 0 — Carnifexes / Ironstrider Ballistarii / 38 such
+                    # units across the catalogue) so the GW sum tracks the
+                    # actual budget the army builder spent.
+                    gw_total += float(profile.points_cost)
+                sums_eq.append(eq_total)
+                sums_gw.append(gw_total)
+                n_models_list.append(len(army.units))
+            if not sums_eq:
+                continue
+            rows.append({
+                "Faction": faction,
+                "Archetype": arch_name,
+                "Models (avg)": round(float(np.mean(n_models_list)), 1),
+                "GW sum (avg)": round(float(np.mean(sums_gw)), 1),
+                "Equation sum (avg)": round(float(np.mean(sums_eq)), 1),
+                "Equation - GW (avg)": round(float(np.mean(sums_eq) - np.mean(sums_gw)), 1),
+                "Real win rate": meta_winrates.get(faction, None),
+                "Has real data": faction in meta_winrates,
+            })
+        return rows
+
+    _proxy_rows = _archetype_proxy_table(
+        _spec_signature, float(_proxy_budget), int(_proxy_n_builds),
+    )
+
+    if not _proxy_rows:
+        st.info("No archetypes available — check code/archetypes.py.")
+    else:
+        # Scatter for the factions that DO have real data.
+        with_real = [r for r in _proxy_rows if r["Has real data"]]
+        if with_real:
+            _scatter_xs = [r["Real win rate"] * 100 for r in with_real]
+            _scatter_ys = [r["Equation sum (avg)"] for r in with_real]
+            _scatter_labels = [r["Faction"] for r in with_real]
+            _scatter_models = [r["Models (avg)"] for r in with_real]
+
+            _proxy_fig = go.Figure()
+            for r in with_real:
+                _proxy_fig.add_trace(go.Scatter(
+                    x=[r["Real win rate"] * 100],
+                    y=[r["Equation sum (avg)"]],
+                    mode="markers+text",
+                    text=[r["Faction"][:18]],
+                    textposition="top center",
+                    marker=dict(size=11, color=colour_for(r["Faction"]),
+                                line=dict(width=0.6, color="white")),
+                    name=r["Faction"],
+                    hovertemplate=(
+                        f"<b>{r['Faction']}</b><br>"
+                        f"Archetype: {r['Archetype']}<br>"
+                        f"Real WR: {r['Real win rate']*100:.1f}%<br>"
+                        f"Equation sum: {r['Equation sum (avg)']:.0f} pts<br>"
+                        f"GW sum: {r['GW sum (avg)']:.0f} pts<br>"
+                        f"Models avg: {r['Models (avg)']:.0f}"
+                        "<extra></extra>"
+                    ),
+                    showlegend=False,
+                ))
+            # Reference: budget line (where equation sum equals GW budget).
+            _proxy_fig.add_hline(
+                y=_proxy_budget, line=dict(color="#FFD700", dash="dash", width=1.2),
+                annotation_text=f"y = {_proxy_budget} pts (GW budget)",
+                annotation_position="bottom right",
+            )
+            _proxy_fig.add_vline(
+                x=50.0, line=dict(color="#888", dash="dot", width=1),
+                annotation_text="50% WR",
+                annotation_position="top right",
+            )
+            # Best-fit line if we have ≥3 points.
+            if len(with_real) >= 3:
+                xs = np.array(_scatter_xs)
+                ys = np.array(_scatter_ys)
+                slope, intercept = np.polyfit(xs, ys, 1)
+                line_xs = np.linspace(xs.min() - 2, xs.max() + 2, 50)
+                line_ys = slope * line_xs + intercept
+                # Pearson correlation.
+                corr = float(np.corrcoef(xs, ys)[0, 1])
+                _proxy_fig.add_trace(go.Scatter(
+                    x=line_xs, y=line_ys, mode="lines",
+                    line=dict(color="#9bd6ff", dash="solid", width=1.5),
+                    name=f"linear fit (r={corr:+.3f})",
+                ))
+            _proxy_fig.update_layout(
+                template="plotly_dark", paper_bgcolor="#0e1117",
+                plot_bgcolor="#1a1d23",
+                xaxis=dict(title="Real-meta win rate (%)", gridcolor="#3a3d45"),
+                yaxis=dict(title="Equation sum across archetype (pts)",
+                           gridcolor="#3a3d45"),
+                title=dict(text="Equation sum vs real meta win rate, per faction archetype",
+                           font=dict(color="#c9a84c", size=13)),
+                height=520, margin=dict(l=50, r=20, t=40, b=40),
+                legend=dict(font=dict(size=10), bgcolor="rgba(26,29,35,0.85)"),
+            )
+            st.plotly_chart(_proxy_fig, use_container_width=True,
+                            key="eqfit_proxy_scatter")
+
+            if len(with_real) >= 3:
+                xs = np.array(_scatter_xs)
+                ys = np.array(_scatter_ys)
+                corr = float(np.corrcoef(xs, ys)[0, 1])
+                if corr > 0.3:
+                    interp = ("**Positive correlation** — winning factions' archetypes "
+                              "sum to more equation-pts. Directional support for the "
+                              "equation capturing real value GW underprices.")
+                elif corr < -0.3:
+                    interp = ("**Negative correlation** — winning factions' archetypes "
+                              "sum to LESS equation-pts. Unexpected; might mean the "
+                              "equation is over-weighting features that don't actually "
+                              "drive tournament wins.")
+                else:
+                    interp = ("**No clear correlation** — the equation's residuals "
+                              "(deviations from GW pricing) don't predict real-meta "
+                              "win rate at the archetype level. Could mean the faction "
+                              "multipliers are doing most of the calibration work, or "
+                              "the per-faction signal is too small to detect with 10 data points.")
+                st.markdown(f"Pearson r = `{corr:+.3f}` across {len(with_real)} factions. " + interp)
+        else:
+            st.info(
+                "No factions in the meta snapshot have real tournament data. "
+                "All 22 factions are FX_ALL placeholders — the validation can't run."
+            )
+
+        # Show the full table, including FX_ALL factions for reference.
+        st.markdown("**Per-archetype values** (factions without real meta data shown for reference):")
+        _proxy_df_display = pd.DataFrame(_proxy_rows)
+        if "Real win rate" in _proxy_df_display.columns:
+            _proxy_df_display["Real win rate"] = _proxy_df_display["Real win rate"].apply(
+                lambda v: f"{v*100:.1f}%" if v is not None else "—"
+            )
+        st.dataframe(_proxy_df_display.drop(columns=["Has real data"]),
+                     hide_index=True, use_container_width=True)

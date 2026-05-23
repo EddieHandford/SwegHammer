@@ -1,0 +1,318 @@
+{
+  "built_at": "2026-05-21T18:30:07.681763+00:00",
+  "n_battles": 100,
+  "mode": "vanilla",
+  "list_mode": "random_fill",
+  "mae_real": 15.57,
+  "mae_sweg": 15.26,
+  "factions": [
+    {
+      "faction": "Adeptus Astartes",
+      "sim_pct": 65.33,
+      "tournament_pct": 48.0,
+      "is_approx": true,
+      "diff": 17.33,
+      "diff_vs_50": 15.33,
+      "tournament_sources": {
+        "warp_friends_may_2026": 48.0,
+        "goonhammer_q2_2026": 48.5,
+        "stat_check_may_2026": 48.0,
+        "meta_monday_may_2026": 48.2
+      }
+    },
+    {
+      "faction": "Necrons",
+      "sim_pct": 50.38,
+      "tournament_pct": 53.2,
+      "is_approx": false,
+      "diff": -2.82,
+      "diff_vs_50": 0.38,
+      "tournament_sources": {
+        "warp_friends_may_2026": 53.2,
+        "goonhammer_q2_2026": 52.8,
+        "stat_check_may_2026": 53.5,
+        "meta_monday_may_2026": 53.0
+      }
+    },
+    {
+      "faction": "Aeldari",
+      "sim_pct": 59.0,
+      "tournament_pct": 44.4,
+      "is_approx": false,
+      "diff": 14.6,
+      "diff_vs_50": 9.0,
+      "tournament_sources": {
+        "warp_friends_may_2026": 44.4,
+        "goonhammer_q2_2026": 45.5,
+        "stat_check_may_2026": 44.0,
+        "meta_monday_may_2026": 44.8
+      }
+    },
+    {
+      "faction": "Tyranids",
+      "sim_pct": 58.67,
+      "tournament_pct": 48.0,
+      "is_approx": true,
+      "diff": 10.67,
+      "diff_vs_50": 8.67,
+      "tournament_sources": {
+        "warp_friends_may_2026": 48.0,
+        "goonhammer_q2_2026": 49.0,
+        "stat_check_may_2026": 48.5,
+        "meta_monday_may_2026": 48.2
+      }
+    },
+    {
+      "faction": "Orks",
+      "sim_pct": 39.24,
+      "tournament_pct": 44.9,
+      "is_approx": false,
+      "diff": -5.66,
+      "diff_vs_50": -10.76,
+      "tournament_sources": {
+        "warp_friends_may_2026": 44.9,
+        "goonhammer_q2_2026": 45.8,
+        "stat_check_may_2026": 44.5,
+        "meta_monday_may_2026": 45.0
+      }
+    },
+    {
+      "faction": "T'au Empire",
+      "sim_pct": 63.48,
+      "tournament_pct": 54.5,
+      "is_approx": false,
+      "diff": 8.98,
+      "diff_vs_50": 13.48,
+      "tournament_sources": {
+        "warp_friends_may_2026": 54.5,
+        "goonhammer_q2_2026": 53.0,
+        "stat_check_may_2026": 54.0,
+        "meta_monday_may_2026": 54.0
+      }
+    },
+    {
+      "faction": "Death Guard",
+      "sim_pct": 64.24,
+      "tournament_pct": 48.0,
+      "is_approx": true,
+      "diff": 16.24,
+      "diff_vs_50": 14.24,
+      "tournament_sources": {
+        "warp_friends_may_2026": 48.0,
+        "goonhammer_q2_2026": 49.0,
+        "stat_check_may_2026": 48.0,
+        "meta_monday_may_2026": 48.5
+      }
+    },
+    {
+      "faction": "Adeptus Custodes",
+      "sim_pct": 71.86,
+      "tournament_pct": 48.0,
+      "is_approx": true,
+      "diff": 23.86,
+      "diff_vs_50": 21.86,
+      "tournament_sources": {
+        "warp_friends_may_2026": 48.0,
+        "goonhammer_q2_2026": 49.5,
+        "stat_check_may_2026": 48.0,
+        "meta_monday_may_2026": 49.0
+      }
+    },
+    {
+      "faction": "Thousand Sons",
+      "sim_pct": 64.43,
+      "tournament_pct": 54.6,
+      "is_approx": false,
+      "diff": 9.83,
+      "diff_vs_50": 14.43,
+      "tournament_sources": {
+        "warp_friends_may_2026": 54.6,
+        "goonhammer_q2_2026": 53.5,
+        "stat_check_may_2026": 54.0,
+        "meta_monday_may_2026": 54.2
+      }
+    },
+    {
+      "faction": "Leagues of Votann",
+      "sim_pct": 68.76,
+      "tournament_pct": 46.0,
+      "is_approx": true,
+      "diff": 22.76,
+      "diff_vs_50": 18.76,
+      "tournament_sources": {
+        "warp_friends_may_2026": 46.0,
+        "goonhammer_q2_2026": 46.5,
+        "stat_check_may_2026": 46.0,
+        "meta_monday_may_2026": 46.2
+      }
+    },
+    {
+      "faction": "Chaos Space Marines",
+      "sim_pct": 29.14,
+      "tournament_pct": 46.0,
+      "is_approx": true,
+      "diff": -16.86,
+      "diff_vs_50": -20.86,
+      "tournament_sources": {
+        "warp_friends_may_2026": 46.0,
+        "goonhammer_q2_2026": 46.0,
+        "stat_check_may_2026": 46.0,
+        "meta_monday_may_2026": 46.0
+      }
+    },
+    {
+      "faction": "World Eaters",
+      "sim_pct": 39.05,
+      "tournament_pct": 50.0,
+      "is_approx": true,
+      "diff": -10.95,
+      "diff_vs_50": -10.95,
+      "tournament_sources": {
+        "warp_friends_may_2026": 50.0,
+        "goonhammer_q2_2026": 50.0,
+        "stat_check_may_2026": 50.0,
+        "meta_monday_may_2026": 50.0
+      }
+    },
+    {
+      "faction": "Emperor's Children",
+      "sim_pct": 51.57,
+      "tournament_pct": 48.0,
+      "is_approx": true,
+      "diff": 3.57,
+      "diff_vs_50": 1.57,
+      "tournament_sources": {
+        "warp_friends_may_2026": 48.0,
+        "goonhammer_q2_2026": 48.0,
+        "stat_check_may_2026": 48.0,
+        "meta_monday_may_2026": 48.0
+      }
+    },
+    {
+      "faction": "Chaos Daemons",
+      "sim_pct": 56.95,
+      "tournament_pct": 47.0,
+      "is_approx": true,
+      "diff": 9.95,
+      "diff_vs_50": 6.95,
+      "tournament_sources": {
+        "warp_friends_may_2026": 47.0,
+        "goonhammer_q2_2026": 47.0,
+        "stat_check_may_2026": 47.0,
+        "meta_monday_may_2026": 47.0
+      }
+    },
+    {
+      "faction": "Astra Militarum",
+      "sim_pct": 33.81,
+      "tournament_pct": 47.0,
+      "is_approx": true,
+      "diff": -13.19,
+      "diff_vs_50": -16.19,
+      "tournament_sources": {
+        "warp_friends_may_2026": 47.0,
+        "goonhammer_q2_2026": 47.0,
+        "stat_check_may_2026": 47.0,
+        "meta_monday_may_2026": 47.0
+      }
+    },
+    {
+      "faction": "Adeptus Mechanicus",
+      "sim_pct": 70.86,
+      "tournament_pct": 45.0,
+      "is_approx": true,
+      "diff": 25.86,
+      "diff_vs_50": 20.86,
+      "tournament_sources": {
+        "warp_friends_may_2026": 45.0,
+        "goonhammer_q2_2026": 45.0,
+        "stat_check_may_2026": 45.0,
+        "meta_monday_may_2026": 45.0
+      }
+    },
+    {
+      "faction": "Adepta Sororitas",
+      "sim_pct": 75.43,
+      "tournament_pct": 49.0,
+      "is_approx": true,
+      "diff": 26.43,
+      "diff_vs_50": 25.43,
+      "tournament_sources": {
+        "warp_friends_may_2026": 49.0,
+        "goonhammer_q2_2026": 49.0,
+        "stat_check_may_2026": 49.0,
+        "meta_monday_may_2026": 49.0
+      }
+    },
+    {
+      "faction": "Grey Knights",
+      "sim_pct": 59.0,
+      "tournament_pct": 47.0,
+      "is_approx": true,
+      "diff": 12.0,
+      "diff_vs_50": 9.0,
+      "tournament_sources": {
+        "warp_friends_may_2026": 47.0,
+        "goonhammer_q2_2026": 47.0,
+        "stat_check_may_2026": 47.0,
+        "meta_monday_may_2026": 47.0
+      }
+    },
+    {
+      "faction": "Drukhari",
+      "sim_pct": 73.0,
+      "tournament_pct": 51.0,
+      "is_approx": true,
+      "diff": 22.0,
+      "diff_vs_50": 23.0,
+      "tournament_sources": {
+        "warp_friends_may_2026": 51.0,
+        "goonhammer_q2_2026": 51.0,
+        "stat_check_may_2026": 51.0,
+        "meta_monday_may_2026": 51.0
+      }
+    },
+    {
+      "faction": "Genestealer Cults",
+      "sim_pct": 54.33,
+      "tournament_pct": 46.0,
+      "is_approx": true,
+      "diff": 8.33,
+      "diff_vs_50": 4.33,
+      "tournament_sources": {
+        "warp_friends_may_2026": 46.0,
+        "goonhammer_q2_2026": 46.0,
+        "stat_check_may_2026": 46.0,
+        "meta_monday_may_2026": 46.0
+      }
+    },
+    {
+      "faction": "Imperial Knights",
+      "sim_pct": 15.67,
+      "tournament_pct": 46.0,
+      "is_approx": true,
+      "diff": -30.33,
+      "diff_vs_50": -34.33,
+      "tournament_sources": {
+        "warp_friends_may_2026": 46.0,
+        "goonhammer_q2_2026": 46.0,
+        "stat_check_may_2026": 46.0,
+        "meta_monday_may_2026": 46.0
+      }
+    },
+    {
+      "faction": "Chaos Knights",
+      "sim_pct": 14.57,
+      "tournament_pct": 45.0,
+      "is_approx": true,
+      "diff": -30.43,
+      "diff_vs_50": -35.43,
+      "tournament_sources": {
+        "warp_friends_may_2026": 45.0,
+        "goonhammer_q2_2026": 45.0,
+        "stat_check_may_2026": 45.0,
+        "meta_monday_may_2026": 45.0
+      }
+    }
+  ]
+}

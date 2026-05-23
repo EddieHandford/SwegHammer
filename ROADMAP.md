@@ -62,6 +62,17 @@ Headline calibration metric:
 - Measured by `python -m scripts.evaluate_vs_meta` (or
   `--battles 200` for the honest reading).
 
+**Important: real data covers only 10 of 22 factions.**
+Of the 22 factions in the faction matrix, only 10 have authoritative
+Warp Friends tournament win rates. The remaining 12 (`FX_ALL_FACTIONS`
+in `scripts/evaluate_vs_meta.py`, `app.py`, and
+`scripts/fit_equation_calibrated.py`) have no real match data and are
+assigned a 50 % meta-midpoint placeholder. The headline MAE is computed
+over the 10 real-data factions only; the 12 placeholder factions are
+shown in the full table as "no data" and excluded from the bar chart.
+All three files must stay in sync — the constant is duplicated by design
+(no shared import) and a comment marks each copy.
+
 ---
 
 ## Sprint plan: May 2026 (Ed/Jake handover)
@@ -282,8 +293,121 @@ Deathshroud, Plague Marines, Rubric Marines, Scarab Occult Terminators,
 Hearthkyn Warriors) calibrated against the pre-fix model counts were
 dropped from `overrides.json` on 2026-05-17 and need re-running.
 
+**Track 3 — Sim-driven calibrated equation (new, 2026-05-21).**
+
+A third fitting path uses the simulator itself — not the closed-form
+damage matrix — as the oracle for unit value. This makes faction rules,
+detachment passives, leader auras, cover, and movement all feed through
+to the prices. The pipeline has two steps:
+
+1. **Fit**: `scripts/fit_equation_calibrated.py` reads
+   `data/meta_comparison_snapshot.json`, selects factions whose MAE
+   vs tournament data is within a configurable threshold (default 10 pts),
+   measures pairwise win rates for a representative unit sample from those
+   factions, and fits Bradley-Terry log-LSQ to produce per-unit
+   `price_per_model`. Units outside the trusted set inherit closed-form
+   Phase 1 fallback prices. Output: `data/equation_calibrated_points.json`.
+
+2. **Evaluate**: `scripts/evaluate_vs_meta.py --equation-prices
+   data/equation_calibrated_points.json --out data/equation_vs_meta_snapshot.json`
+   runs the full faction matrix with equation prices injected via
+   `UnitProfile.points_override`, producing "hypothetical win rates" for
+   every faction — including uncalibrated ones (extrapolation).
+
+Both steps are launchable from the Calibration tab in the graphical user
+interface (Step 1 / Step 2 expanders) without touching the terminal.
+
+**Windows / subprocess note.** `scripts/fit_equation_calibrated.py` and
+`scripts/evaluate_vs_meta.py` both contain a PYTHONHASHSEED re-exec guard
+(they call `os.execvpe` to restart themselves with `PYTHONHASHSEED=0` if
+the variable is not already set). Launching via PowerShell's `Start-Process`
+or piping stdout loses the output after the re-exec because the new process
+gets a fresh stdout handle. The graphical user interface launcher avoids
+this by setting `PYTHONHASHSEED=0` in the subprocess environment dict
+before starting the child process, so the guard never fires. If running
+manually from a terminal: prefix with `set PYTHONHASHSEED=0 &&` in cmd.exe
+or `$env:PYTHONHASHSEED="0";` in PowerShell.
+
+**Current status (2026-05-21).** First equation fit completed: 61 units
+from 4 trusted factions (Necrons, Orks, T'au Empire, Thousand Sons),
+1,830 pairs, 5 battles/pair, 11 workers, 97 seconds. 1,422 remaining
+catalogue units priced via Phase 1 fallback. Stage 1 is still
+unconverged (MAE ~7 pts), so this output is provisional.
+
+**Track 4 — Data-driven equation fit (new, 2026-05-22).**
+
+After the simulator-driven Track 3 ran into a Stage 1 ceiling (premium
+units like Magnus and the C'tan shards collapsed to single-digit prices
+under every army-build variation we tried — homogeneous, archetype-seed
+at 20 percent of budget, archetype-seed capped at one squad — because
+the simulator's body-count bias bleeds through every layer), we
+pivoted to a regression approach that fits the equation directly on
+real data rather than on simulator outputs.
+
+The model is a Generalized Additive Model: for every unit, each numeric
+feature (Wounds, Toughness, Save, Strength, Damage, Attacks, OC, Move,
+Range, keyword flags, plus utility derivatives like expected damage
+per turn and effective wounds) gets a per-feature transform — linear,
+log, quadratic, cubic, or sqrt. The transformed features sum to predict
+``log(GW points per model)``. The fit produces per-feature coefficients
+plus per-unit residuals. A per-faction multiplier derived from the
+Warp Friends tournament win-rate snapshot then scales the equation
+output per faction. Ten factions have real data and get a real
+multiplier; the twelve ``FX_ALL_FACTIONS`` placeholders ride on the
+stats equation alone.
+
+Runtime is seconds, not hours — no simulator involvement. The
+simulator becomes a validator (Stage 2 evaluate-vs-meta sees whether
+cross-faction win rates equalise under the new prices) rather than
+the source of pricing signal.
+
+A new Streamlit tab ("Equation Fit") visualises the regression: a
+toggle panel for which features to include, a form selector per
+feature, R-squared and mean absolute error metrics, a predicted-vs-GW
+scatter, a 3D surface plot (pick two features for the axes, the
+surface is the fit, the points are real units, colour by faction,
+point size by mispricing), and a top-20 outlier table. The iteration
+loop is to change a feature's functional form, refit, see the surface
+shift, watch which units come back inside the residual band.
+
+Output schema reuses ``data/equation_calibrated_points.json`` so the
+existing Equilibrium tab visualisation keeps working unchanged.
+
+Implementation lives in ``code/equation_data_fit.py``,
+``scripts/fit_equation_data_driven.py``, and the new "Equation Fit"
+tab in ``app.py``. The sim-driven Track 3 (``code/equilibrium_simdriven.py``
+and ``scripts/fit_equation_calibrated.py``) remains in the tree for
+comparison and possible future use once Stage 1 converges and its
+body-count bias clears.
+
+**Known limitations of Track 4 (accepted):**
+
+- The cleanest validation — "do winning tournament lists sum to
+  more equation-points than 2000?" — is blocked on getting real
+  per-list tournament data into the repo. We currently only have
+  per-faction aggregates. The Equation Fit tab includes an
+  archetype-proxy section that uses the 22 curated
+  ``code/archetypes.py`` lists as one-list-per-faction substitutes,
+  flagged as directional only. See ``TODO.md`` "MASSIVE TODO — Real
+  tournament list data ingestion" for the data-collection plan.
+- Faction multipliers are coarse — every unit in a faction gets the
+  same correction. We have no per-unit tournament data to
+  differentiate within a faction.
+- The equation inherits any systematic biases in GW's own pricing.
+- Ten of twenty-two factions get the meta correction; the other
+  twelve ride on pure stats.
+- Faction rules, detachments, and leader auras do not appear in the
+  regression unless explicitly feature-engineered (a follow-up
+  iteration would add boolean features like "has Awakened Dynasty
+  access" or "is led by a CHARACTER with an aura").
+
 **What's next.**
 
+- Once Stage 1 MAE reaches ~4 pts, refit the equation with more trusted
+  factions, higher battle count (20+), and max-per-faction raised to 25–30.
+- Run the evaluation step and inspect the "hypothetical win rates" chart
+  in the graphical user interface to see how well the equation prices across
+  uncalibrated factions.
 - Re-run Sweg-balancer MC against the corrected GW per-model baseline and
   cross-validate vs Phase 5 — should converge to many fewer disagreements
   now that the cost basis is right.

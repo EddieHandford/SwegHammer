@@ -98,6 +98,12 @@ APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
                    "Adepta Sororitas", "Grey Knights", "Drukhari",
                    "Genestealer Cults", "Imperial Knights", "Chaos Knights"}
 
+# FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
+# 10-faction subset. None have authoritative tournament data; their targets are
+# meta-midpoint guesses. Excluded from the headline MAE so the calibration
+# signal stays honest. Shown in reports for coverage, not as anchors.
+FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
+
 
 # FX-MS — multi-source tournament-target comparison. Calibrating against a
 # single source (Warp Friends weekly aggregate) bakes in that tournament
@@ -205,8 +211,9 @@ def _pick_rotation_map(seed: int):
     return STOCK_MAPS[key]
 
 
-def _run_battle_job(args: Tuple[str, str, int, int, Optional[RulesConfig], bool]
-                    ) -> Tuple[str, str, int, Optional[str]]:
+def _run_battle_job(
+    args: Tuple[str, str, int, int, Optional[RulesConfig], bool, Optional[Dict[str, float]]],
+) -> Tuple[str, str, int, Optional[str]]:
     """Worker: build armies + run one battle for (a_fac, b_fac, seed).
 
     Performs the entire build-and-run inside the worker process. We pass
@@ -222,13 +229,15 @@ def _run_battle_job(args: Tuple[str, str, int, int, Optional[RulesConfig], bool]
     Returns (a_fac, b_fac, seed, winner) where winner is "A"/"B"/None.
     None indicates the pairing was skipped (empty army on either side).
     """
-    a_fac, b_fac, s, pair_seed, rules, use_archetype = args
+    a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides = args
     random.seed(pair_seed)
     a = build_faction_random_army(
-        "A", a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype
+        "A", a_fac, 2000, rng=random.Random(s), use_archetype=use_archetype,
+        price_overrides=price_overrides,
     )
     b = build_faction_random_army(
-        "B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype
+        "B", b_fac, 2000, rng=random.Random(s + 10000), use_archetype=use_archetype,
+        price_overrides=price_overrides,
     )
     if not a.units or not b.units:
         return (a_fac, b_fac, s, None)
@@ -238,7 +247,8 @@ def _run_battle_job(args: Tuple[str, str, int, int, Optional[RulesConfig], bool]
 
 
 def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
-               max_workers: Optional[int] = None) -> Dict[str, float]:
+               max_workers: Optional[int] = None,
+               price_overrides: Optional[Dict[str, float]] = None) -> Dict[str, float]:
     """Average win-rate per faction across all opponents in the FACTIONS list.
 
     Seeds the global random module per battle so the same code base produces
@@ -272,7 +282,7 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
             for s in range(n):
                 ai, bi = fac_idx[a_fac], fac_idx[b_fac]
                 pair_seed = (ai * 1000 + bi) * 100 + s
-                jobs.append((a_fac, b_fac, s, pair_seed, rules, use_archetype))
+                jobs.append((a_fac, b_fac, s, pair_seed, rules, use_archetype, price_overrides))
 
     # Aggregate winners per (a_fac, b_fac) pair. Job-completion order does
     # not affect the per-pair Counter because each pair_seed is unique.
@@ -335,8 +345,10 @@ def report(sim: Dict[str, float]) -> Tuple[float, float]:
     """
     print(f"{'Faction':22s}  {'Sim%':>6s}  {'Real%':>6s}  {'Diff':>6s}  {'vs50':>6s}")
     print("-" * 55)
-    diffs_real = []
-    diffs_sweg = []
+    diffs_real = []       # anchored: 10 data factions only
+    diffs_sweg = []       # anchored: 10 data factions only
+    diffs_real_all = []   # all 22 factions
+    diffs_sweg_all = []   # all 22 factions
     for fac in FACTIONS:
         target = TOURNAMENT_TARGET[fac]
         diff_real = sim[fac] - target
@@ -344,15 +356,22 @@ def report(sim: Dict[str, float]) -> Tuple[float, float]:
         marker = "" if fac not in APPROX_FACTIONS else " (~)"
         print(f"{fac:22s}  {sim[fac]:6.1f}  {target:6.1f}  "
               f"{diff_real:+6.1f}  {diff_sweg:+6.1f}{marker}")
-        diffs_real.append(abs(diff_real))
-        diffs_sweg.append(abs(diff_sweg))
+        diffs_real_all.append(abs(diff_real))
+        diffs_sweg_all.append(abs(diff_sweg))
+        if fac not in FX_ALL_FACTIONS:
+            diffs_real.append(abs(diff_real))
+            diffs_sweg.append(abs(diff_sweg))
     mae_real = statistics.mean(diffs_real)
     mae_sweg = statistics.mean(diffs_sweg)
+    mae_real_all = statistics.mean(diffs_real_all)
+    mae_sweg_all = statistics.mean(diffs_sweg_all)
     print("-" * 55)
-    print(f"MAE vs real meta:    {mae_real:6.2f} pts  (target ≤ 2.0; "
-          f"the calibration-against-GW signal)")
-    print(f"MAE vs Sweg-balanced: {mae_sweg:6.2f} pts  (target ≤ 2.0; "
-          f"the rule-internal-balance signal — 50/50 across factions)")
+    print(f"MAE vs real meta (10 data factions): {mae_real:6.2f} pts  "
+          f"(target ≤ 2.0; calibration anchor)")
+    print(f"MAE vs real meta (all 22 factions):  {mae_real_all:6.2f} pts  "
+          f"(reference only — 12 targets are estimates)")
+    print(f"MAE vs Sweg-balanced (10 factions):  {mae_sweg:6.2f} pts  "
+          f"(target ≤ 2.0; rule-internal-balance signal — 50/50 across factions)")
 
     # FX-MS — multi-source diagnostics. Show MAE against each source +
     # cross-source variance per faction. Identifies meta-volatile factions
@@ -391,7 +410,63 @@ def report(sim: Dict[str, float]) -> Tuple[float, float]:
     for src in sorted(per_source_diffs.keys()):
         per_mae = statistics.mean(per_source_diffs[src])
         print(f"  {src:30s}  {per_mae:6.2f} pts")
-    return mae_real, mae_sweg
+    return mae_real, mae_sweg, mae_real_all, mae_sweg_all
+
+
+def save_snapshot(
+    sim: Dict[str, float],
+    mae_real: float,
+    mae_sweg: float,
+    mae_real_all: float,
+    mae_sweg_all: float,
+    n_battles: int,
+    mode: str,
+    list_mode: str,
+    path: str,
+    trusted_factions: Optional[List[str]] = None,
+) -> None:
+    """Write the faction win-rate matrix result to a JSON snapshot file.
+
+    The snapshot is read by the Calibration tab in app.py to display the
+    per-faction sim-vs-tournament comparison without re-running the matrix.
+    """
+    import datetime
+    faction_rows = []
+    for fac in FACTIONS:
+        target = TOURNAMENT_TARGET[fac]
+        sim_pct = sim[fac]
+        sources = TOURNAMENT_SOURCES.get(fac, {})
+        faction_rows.append({
+            "faction": fac,
+            "sim_pct": round(sim_pct, 2),
+            "tournament_pct": target,
+            "is_approx": fac in APPROX_FACTIONS,
+            "is_no_data": fac in FX_ALL_FACTIONS,
+            "diff": round(sim_pct - target, 2),
+            "diff_vs_50": round(sim_pct - 50.0, 2),
+            "tournament_sources": {k: round(v, 1) for k, v in sources.items()},
+        })
+    payload = {
+        "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "n_battles": n_battles,
+        "mode": mode,
+        "list_mode": list_mode,
+        "mae_real": round(mae_real, 2),          # anchored: 10 data factions
+        "mae_sweg": round(mae_sweg, 2),          # anchored: 10 data factions
+        "mae_real_all": round(mae_real_all, 2),  # reference: all 22 factions
+        "mae_sweg_all": round(mae_sweg_all, 2),  # reference: all 22 factions
+        "factions": faction_rows,
+    }
+    if trusted_factions is not None:
+        payload["trusted_factions"] = trusted_factions
+    import pathlib
+    out = pathlib.Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        __import__("json").dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Snapshot written → {out}")
 
 
 def main() -> None:
@@ -419,15 +494,54 @@ def main() -> None:
              "os.cpu_count() - 1 (leaves one core for OS / parent). Pass 1 "
              "to force the serial code path (debugging / reproducibility).",
     )
+    p.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help="If given, write a JSON snapshot of results to this path. "
+             "The snapshot is consumed by the Calibration tab in app.py.",
+    )
+    p.add_argument(
+        "--equation-prices",
+        type=str,
+        default=None,
+        help="Path to equation_calibrated_points.json. When set, armies are "
+             "built using equation-derived prices instead of GW prices. "
+             "Use with --out to produce a hypothetical win-rate snapshot.",
+    )
     args = p.parse_args()
     rules = RulesConfig.sweghammer() if args.sweghammer else None
+    mode = "sweghammer" if args.sweghammer else "vanilla"
     list_mode = "tourney-archetype" if args.use_archetype else "random_fill"
     workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
+
+    price_overrides: Optional[Dict[str, float]] = None
+    if args.equation_prices:
+        import pathlib as _pl
+        eq_path = _pl.Path(args.equation_prices)
+        if not eq_path.exists():
+            raise FileNotFoundError(
+                f"Equation prices file not found: {eq_path}\n"
+                "Run first: python -m scripts.fit_equation_calibrated"
+            )
+        eq_data = __import__("json").loads(eq_path.read_text(encoding="utf-8"))
+        price_overrides = eq_data["prices"]
+        print(
+            f"Using equation prices from {eq_path} "
+            f"(threshold {eq_data.get('threshold', '?')} pts, "
+            f"trusted factions: {', '.join(eq_data.get('trusted_factions', []))})\n"
+        )
+
     print(f"Mode: {'SwegHammer' if args.sweghammer else 'vanilla WH40k 10e'} | "
           f"Lists: {list_mode} | N={args.battles} | workers={workers}\n")
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
-                     max_workers=workers)
-    mae_real, mae_sweg = report(sim)
+                     max_workers=workers, price_overrides=price_overrides)
+    mae_real, mae_sweg, mae_real_all, mae_sweg_all = report(sim)
+    if args.out:
+        trusted = eq_data.get("trusted_factions") if args.equation_prices else None
+        save_snapshot(sim, mae_real, mae_sweg, mae_real_all, mae_sweg_all,
+                      args.battles, mode, list_mode, args.out,
+                      trusted_factions=trusted)
     sys.exit(0)   # informational only — never error-exit
 
 

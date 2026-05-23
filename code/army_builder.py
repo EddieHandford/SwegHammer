@@ -138,6 +138,75 @@ def build_random_army(
     return army
 
 
+def build_archetype_with_seed(
+    name: str,
+    seed_profile: UnitProfile,
+    points_budget: float,
+    rng: Optional[random.Random] = None,
+    in_cover: bool = False,
+    n_seed_squads: int = 1,
+) -> Army:
+    """
+    Build a curated archetype army for ``seed_profile.faction``, with
+    exactly ``n_seed_squads`` of the test unit added on top.
+
+    Used by the sim-driven equation fit's archetype-augmented mode. Replaces
+    the mono-unit ``build_homogeneous_army`` so each side fights with a
+    realistic army composition around the unit being measured, rather than
+    a 125-Intercessor numerical-advantage list against a 5-C'tan list.
+
+    Seed sizing rule (the second-iteration design — the first iteration
+    sized the seed by budget fraction, which preserved the cost-correlated
+    numerical-advantage bias because cheap-unit seeds field 60+ models
+    while premium-unit seeds field 1).
+
+      * Reserve ``n_seed_squads * seed_squad_cost`` for the test unit.
+      * The archetype builder fills the remaining budget.
+      * Exactly ``n_seed_squads`` squads of the seed are then added, one
+        squad at a time, even if doing so pushes the army slightly over
+        budget (ultra-premium single-model units like the Manta whose
+        squad cost exceeds the full budget still get one copy on the
+        table — without that we wouldn't be measuring them at all).
+
+    Falls back to ``build_homogeneous_army(seed_profile, ...)`` when the
+    seed profile's faction has no archetype defined.
+    """
+    from .archetypes import build_archetype_army, has_archetype
+
+    if rng is None:
+        rng = random.Random()
+
+    faction = seed_profile.faction or ""
+    seed_squad_cost = (
+        seed_profile.points_per_squad
+        if seed_profile.points_per_squad > 0
+        else seed_profile.points_cost
+    )
+
+    if not faction or not has_archetype(faction) or seed_squad_cost <= 0:
+        return build_homogeneous_army(name, seed_profile, points_budget, in_cover)
+
+    seed_reserve = seed_squad_cost * max(1, n_seed_squads)
+    archetype_budget = max(0.0, points_budget - seed_reserve)
+
+    army = build_archetype_army(
+        name, faction, archetype_budget,
+        rng=rng, in_cover=in_cover,
+    )
+
+    # Add exactly n_seed_squads squads of the seed, regardless of whether
+    # this overshoots the original budget. Cheap and premium seeds therefore
+    # contribute symmetrically (1 squad each) to the army composition; the
+    # archetype absorbs the cost difference by being smaller for expensive
+    # seeds.
+    squad_size = max(1, seed_profile.min_models)
+    for _ in range(max(1, n_seed_squads)):
+        for _ in range(squad_size):
+            army.add_unit(seed_profile)
+
+    return army
+
+
 def build_homogeneous_army(
     name: str,
     profile: UnitProfile,
@@ -325,6 +394,7 @@ def build_faction_random_army(
     size_policy: str = "max",
     max_unit_fraction: float = 0.5,
     use_archetype: bool = False,
+    price_overrides: Optional[Dict[str, float]] = None,
 ) -> Army:
     """
     Build a random army drawing only from a single faction's unit pool.
@@ -356,7 +426,16 @@ def build_faction_random_army(
     if rng is None:
         rng = random.Random()
 
-    pool = [UNIT_CATALOG[k] for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    import dataclasses
+    pool_items = [(k, UNIT_CATALOG[k]) for k in UNIT_CATALOG if UNIT_CATALOG[k].faction == faction]
+    if price_overrides:
+        pool = [
+            dataclasses.replace(p, points_override=price_overrides[k])
+            if k in price_overrides else p
+            for k, p in pool_items
+        ]
+    else:
+        pool = [p for _, p in pool_items]
     if not pool:
         return Army(name, in_cover=in_cover)
 

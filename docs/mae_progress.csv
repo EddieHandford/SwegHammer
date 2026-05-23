@@ -1,0 +1,36 @@
+when,sha,label,mae,mode,parked,source
+2026-05-14T18:08:49+00:00,#8,PR8: 10e rules buildout,5.06,random_fill 1000pt,False,pull-request
+2026-05-14T21:30:58+00:00,#10,PR10: Stratagems + CP economy,4.42,random_fill 1000pt,False,pull-request
+2026-05-15T18:17:55+00:00,#12,PR12: May 15 sprint (N=200 honest),7.01,random_fill 1000pt,False,pull-request
+2026-05-15T20:50:06+00:00,#14,PR14: BSData refresh + faction calibration,6.94,random_fill 1000pt,False,pull-request
+2026-05-16T00:45:28+00:00,cf927e9f0,iter 0 baseline,6.72,random_fill 1000pt,False,commit
+2026-05-16T01:38:57+00:00,1e862613e,iter 1,6.39,random_fill 1000pt,False,commit
+2026-05-16T02:04:45+00:00,08b841ed5,iter 2,5.66,random_fill 1000pt,False,commit
+2026-05-16T11:23:56+00:00,3ce585943,iter 3,5.28,random_fill 1000pt,False,commit
+2026-05-16T12:21:02+00:00,8be029a57,iter 4,5.01,random_fill 1000pt,False,commit
+2026-05-16T13:06:21+00:00,65ab7adff,iter 5,5.03,random_fill 1000pt,False,commit
+2026-05-16T13:32:26+00:00,611d5559e,iter 6,5.03,random_fill 1000pt,False,commit
+2026-05-16T16:07:50+00:00,39440ccee,iter 7,5.14,random_fill 1000pt,False,commit
+2026-05-16T18:02:43+00:00,#15,PR15: Auto-loop iter 1-7 close (N=40),4.76,random_fill 1000pt,False,pull-request
+2026-05-17T02:38:26+00:00,14b51163f,iter 13,5.38,random_fill 1000pt,False,commit
+2026-05-17T06:43:56+00:00,489c16f2f,iter 14,5.2,random_fill 1000pt,False,commit
+2026-05-17T08:20:11+00:00,7a5ab28b2,iter 15,5.13,random_fill 1000pt,False,commit
+2026-05-17T14:20:31+00:00,d21cf6fb7,iter 16,11.48,archetype 1000pt,False,commit
+2026-05-17T16:30:20+00:00,526c1483b,iter 17,8.25,archetype 1000pt,False,commit
+2026-05-17T19:01:12+00:00,94710ebcd,iter 18 (parked),12.96,archetype 2000pt,True,commit
+2026-05-17T23:04:53+00:00,1b2b89ea5,iter 19 (parked),12.96,archetype 2000pt,True,commit
+2026-05-18T02:48:49+00:00,1fe21e447,iter 20,13.73,archetype 2000pt,False,commit
+2026-05-18T19:39:40+00:00,7c0aeaa58,iter 21,13.43,archetype 2000pt,False,commit
+2026-05-19T07:30:00+00:00,fe9458a,sim-cal-2: post-PR22 baseline (Ed + Jake fixes merged),9.13,archetype 2000pt,False,commit
+2026-05-19T10:00:00+00:00,ab89afd,iter 22: host_keys aura gate + invuln long-tail sweep,9.20,archetype 2000pt,False,commit
+2026-05-19T13:00:00+00:00,f12ba87,iter 24 (N=20): DG + TSON + Custodes rule bundles,6.51,archetype 2000pt N=20,False,commit
+2026-05-19T14:30:00+00:00,cc38091,sim-cal-3 baseline (N=20): perf-optim merge,6.62,archetype 2000pt N=20,False,commit
+2026-05-19T15:30:00+00:00,5ccc301,iter 25 (N=20): TSON Magnus backout + Votann retired-rule,4.49,archetype 2000pt N=20,False,commit
+2026-05-19T17:00:00+00:00,86e3137,iter 27 (N=20): Markerlight realism (M1),4.08,archetype 2000pt N=20,False,commit
+2026-05-19T18:30:00+00:00,9ed2658,iter 28 (N=40 honest): melee_SH field + dupe-key fix,6.20,archetype 2000pt,False,commit
+2026-05-19T20:00:00+00:00,5cd270c,iter 30 (N=40): save-modifier cap (MC1),6.20,archetype 2000pt,False,commit
+2026-05-20T09:00:00+00:00,4f6c4bc,LC-AB (N=40): detachment variety + Custodes + Necrons tuning,5.79,archetype 2000pt,False,commit
+2026-05-20T11:00:00+00:00,ecd6419,iter 31 (N=40): FNP + squad-size AI (kept: correctness),6.59,archetype 2000pt,False,commit
+2026-05-20T13:00:00+00:00,aa32115,iter 32 (N=40): wipe-the-unit AI (parked: regression),6.84,archetype 2000pt,True,commit
+2026-05-20T15:00:00+00:00,464f872,iter 33 (N=40): multi-profile weapon mapper,6.14,archetype 2000pt,False,commit
+2026-05-20T17:00:00+00:00,a1de12c,iter 34 (N=40): PRECISION + Benefits of Cover,6.17,archetype 2000pt,False,commit
