@@ -1917,9 +1917,17 @@ class Unit:
             # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
             # attacker is a Marine (any chapter) AND its army has declared
             # this round's oath target on this defender's uid, every attack
-            # against that defender re-rolls BOTH the hit roll and the wound
-            # roll. The flag composes with the existing 1s-only re-rolls but
-            # the `att_reroll_all_*` branches take priority in the loop below
+            # against that defender re-rolls the HIT roll only. The codex
+            # rule (Wahapedia, verbatim) reads: "each time an attack made by
+            # a model from your army targets the unit selected as the target
+            # of the Oath of Moment, you can re-roll the Hit roll." There is
+            # no wound-roll re-roll — the prior implementation that set
+            # `att_reroll_all_wounds = True` was a fabrication (it stacked
+            # the codex hit re-roll with a non-existent wound re-roll,
+            # roughly doubling the buff). Wound re-rolls only enter via
+            # detachment-specific stratagems / leader abilities. The flag
+            # composes with the existing 1s-only re-rolls but the
+            # `att_reroll_all_hits` branch takes priority in the loop below
             # (one re-roll per die — never stacks). Cited as
             # `simulator.oath_of_moment`.
             if (
@@ -1928,7 +1936,6 @@ class Unit:
                 and getattr(own_army, "oath_target_uid", None) == target.uid
             ):
                 att_reroll_all_hits = True
-                att_reroll_all_wounds = True
 
             # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
             # rule lets the controller pick one Quality at battle start; the

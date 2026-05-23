@@ -5,12 +5,12 @@
     "rule_name": "Command Protocols",
     "scope": "unit-led",
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Awakened-Dynasty",
-    "trigger": "attacker's unit is being led by a friendly CHARACTER \u00e2\u20ac\u201d approximated as: (a) at least one alive friendly CHARACTER is within its own aura_range of the attacker, AND (b) that CHARACTER's LeaderAbility.host_keys lists the attacker's UNIT_CATALOG key (i.e. the attachment is legal in 10e per the leader datasheet's Bodyguard list). The host-key gate prevents the +1 from firing on units that cannot be led (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths, Tomb Blades, Scarab Swarms, etc.)."
+    "trigger": "attacker's unit is being led by a friendly CHARACTER â€” approximated as: (a) at least one alive friendly CHARACTER is within its own aura_range of the attacker, AND (b) that CHARACTER's LeaderAbility.host_keys lists the attacker's UNIT_CATALOG key (i.e. the attachment is legal in 10e per the leader datasheet's Bodyguard list). The host-key gate prevents the +1 from firing on units that cannot be led (C'tan Shards, Lokhust Heavy Destroyers, Doomstalkers, Wraiths, Tomb Blades, Scarab Swarms, etc.)."
   },
-  "_comment": "Rule citations for every 10e mechanic the simulator implements. CLAUDE.md \u00c2\u00a710 mandates an entry here for any Detachment flag set True, any LeaderAbility, any simulator-side gate, or any Stratagem effect. scripts/audit_rules.py walks the code and verifies every rule-bearing flag has an entry.",
+  "_comment": "Rule citations for every 10e mechanic the simulator implements. CLAUDE.md Â§10 mandates an entry here for any Detachment flag set True, any LeaderAbility, any simulator-side gate, or any Stratagem effect. scripts/audit_rules.py walks the code and verifies every rule-bearing flag has an entry.",
   "_schema": {
     "effect": "Plain-English what-it-does.",
-    "quoted_text": "Verbatim from the source \u00e2\u20ac\u201d include the trigger half.",
+    "quoted_text": "Verbatim from the source â€” include the trigger half.",
     "rule_name": "Short name the rule is known by in the codex.",
     "scope": "army-wide / unit-led / character-only / phase-gated / keyword-gated / weapon-keyword",
     "source": "Canonical URL (Wahapedia preferred).",
@@ -18,7 +18,7 @@
   },
   "simulator.acts_of_faith": {
     "effect": "Gain 1 Miracle die at the start of each battle round, plus 1 each time a friendly Sororitas unit is destroyed; each die is a pre-rolled D6 banked in a pool. Before any d6 roll (Advance / Battle-shock / Charge / Damage / Hit / Saving throw / Wound) a unit with this ability may perform one Act of Faith per phase, substituting one banked die for ONE d6 of that roll (multi-die rolls only allow a single substitution). The substituted die is removed from the pool and counts as an unmodified roll of its banked value.",
-    "quoted_text": "If your Army Faction is Adepta Sororitas, each unit from your army with this ability can perform one Act of Faith per phase. This is done using Miracle dice. GAINING MIRACLE DICE If your Army Faction is Adepta Sororitas, you gain 1 Miracle dice: - At the start of each battle round. - Each time an Adepta Sororitas unit from your army is destroyed. Each time you gain a Miracle dice, roll one D6. The number you roll is the value of that Miracle dice. This value cannot be changed or re-rolled, unless a rule specifically states otherwise. Keep your Miracle dice to one side \u00e2\u20ac\u201c this is your Miracle dice pool. PERFORMING AN ACT OF FAITH Before making a dice roll for a model or unit from your army with the Acts of Faith ability, if you have one or more dice in your Miracle dice pool, that unit can perform an Act of Faith. If it does, select one of the dice from your Miracle dice pool to substitute that dice roll (if a roll involves more than one dice, e.g. a Charge roll or Battle-shock test, only a single dice can be substituted). The dice that is being substituted is not rolled; instead the value of the selected Miracle dice is used as if it had been rolled (this counts as an unmodified dice roll of that value for all rules purposes). Each Miracle dice can only be selected for substitution once. Once all Miracle dice substitutions have been made, remove the chosen Miracle dice from your Miracle dice pool, and roll all remaining, unsubstituted dice that are a part of the dice roll. You can use Miracle dice when a unit performs an Act of Faith for any of the following types of dice roll: Advance roll, Battle-shock test, Charge roll, Damage roll, Hit roll, Saving throw, Wound roll.",
+    "quoted_text": "If your Army Faction is Adepta Sororitas, each unit from your army with this ability can perform one Act of Faith per phase. This is done using Miracle dice. GAINING MIRACLE DICE If your Army Faction is Adepta Sororitas, you gain 1 Miracle dice: - At the start of each battle round. - Each time an Adepta Sororitas unit from your army is destroyed. Each time you gain a Miracle dice, roll one D6. The number you roll is the value of that Miracle dice. This value cannot be changed or re-rolled, unless a rule specifically states otherwise. Keep your Miracle dice to one side â€“ this is your Miracle dice pool. PERFORMING AN ACT OF FAITH Before making a dice roll for a model or unit from your army with the Acts of Faith ability, if you have one or more dice in your Miracle dice pool, that unit can perform an Act of Faith. If it does, select one of the dice from your Miracle dice pool to substitute that dice roll (if a roll involves more than one dice, e.g. a Charge roll or Battle-shock test, only a single dice can be substituted). The dice that is being substituted is not rolled; instead the value of the selected Miracle dice is used as if it had been rolled (this counts as an unmodified dice roll of that value for all rules purposes). Each Miracle dice can only be selected for substitution once. Once all Miracle dice substitutions have been made, remove the chosen Miracle dice from your Miracle dice pool, and roll all remaining, unsubstituted dice that are a part of the dice roll. You can use Miracle dice when a unit performs an Act of Faith for any of the following types of dice roll: Advance roll, Battle-shock test, Charge roll, Damage roll, Hit roll, Saving throw, Wound roll.",
     "rule_name": "Acts of Faith",
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/",
@@ -88,13 +88,29 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
     "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
   },
+  "simulator.fights_first_chargers": {
+    "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
+    "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight. Each time you select an eligible unit from your army to fight with that made a Charge move this turn, that unit fights first.",
+    "rule_name": "Fight phase — Fights First step",
+    "scope": "phase-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
+    "trigger": "active player's Fight phase pass; chargers (units with uid in `_charging_this_round`) are sorted ahead of non-chargers before the per-unit `_do_fight` loop. Datasheet-level FIGHTS FIRST keyword is handled separately via `simulator.fights_first_keyword`."
+  },
+  "simulator.fights_first_keyword": {
+    "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units whose UnitProfile has `fights_first=True` are tiered into the Fights First step alongside chargers (sort key 0), ahead of remaining combats (sort key 1). The flag is set by the BSData mapper's `extract_fights_first` from a 'Fights First' infoLink / inline profile / 'FIGHTS FIRST' prose mention on the datasheet entry.",
+    "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight.",
+    "rule_name": "Fight phase — Fights First step (datasheet keyword)",
+    "scope": "keyword-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
+    "trigger": "active player's Fight phase pass; units with `profile.fights_first=True` (parsed by BSData mapper from datasheets like Wyches, Howling Banshees, Custodian Wardens, Mandrakes) are sorted into tier 0 alongside chargers via `_fight_priority` before the per-unit `_do_fight` loop."
+  },
   "simulator.fnp_in_threat_score": {
     "effect": "AI threat heuristic multiplies effective durability by 1 / (1 - (7-fnp)/6); fnp=7 (no FNP) is the no-op. Does NOT change combat math (Unit.attack still rolls actual FNP per receive_damage); only fixes opponent target selection.",
     "quoted_text": "Some models have 'Feel No Pain' listed in their abilities. This is followed by a value in brackets. Each time a model with this ability would lose a wound, roll one D6: if the result equals or exceeds the value in brackets, that wound is not lost. This is known as a Feel No Pain roll.",
     "rule_name": "Feel No Pain",
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FEEL-NO-PAIN",
-    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` evaluates how attractive a defender is as a melee target \u00e2\u20ac\u201d folds the defender's resolved Feel No Pain value (lower of profile.fnp and any leader-aura / detachment / stratagem-granted FNP via leaders.effective_buffs) into the durability denominator so opponent AIs correctly read Death Guard Plague Marines (5+), Custodian Wardens (under Auric Mortalis 5+), Tyranid Tervigon (5+), Nurgle daemons (5+), Typhus-led Plague Marines (Destroyer Hive 5+), and Drukhari with Pain Tokens (6+) as harder targets."
+    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` evaluates how attractive a defender is as a melee target â€” folds the defender's resolved Feel No Pain value (lower of profile.fnp and any leader-aura / detachment / stratagem-granted FNP via leaders.effective_buffs) into the durability denominator so opponent AIs correctly read Death Guard Plague Marines (5+), Custodian Wardens (under Auric Mortalis 5+), Tyranid Tervigon (5+), Nurgle daemons (5+), Typhus-led Plague Marines (Destroyer Hive 5+), and Drukhari with Pain Tokens (6+) as harder targets."
   },
   "simulator.multi_profile_weapon_selection": {
     "effect": "Unit.attack ranged branch computes expected net damage under BOTH primary and secondary profiles against the current target at the current distance (accounting for range gating and target wounds bounding excess-damage waste) and swaps to the secondary stat block via dataclasses.replace when its expected damage is higher; primary remains the default when no secondary is recorded or when primary's expected damage wins",
@@ -103,6 +119,14 @@
     "scope": "weapon-keyword",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
     "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present"
+  },
+  "simulator.oath_of_moment": {
+    "effect": "Re-roll the Hit roll (full hit re-rolls, not just 1s; HIT only, no wound re-roll)",
+    "quoted_text": "At the start of your Command phase, select one enemy unit that is on the battlefield to be the target of the Oath of Moment. Until the start of your next Command phase, each time an attack made by a model from your army targets the unit selected as the target of the Oath of Moment, you can re-roll the Hit roll.",
+    "rule_name": "Oath of Moment",
+    "scope": "army-wide",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/",
+    "trigger": "Marine player selects one enemy unit each Command phase; while that unit is the chosen target, every attack from any model in the Marine army against it gates the buff"
   },
   "simulator.pistol_exclusivity": {
     "effect": "unit fires the Pistol set OR the non-Pistol set, not both",
@@ -121,35 +145,19 @@
     "trigger": "attacker is the World Eaters Exalted Eightbound unit; attack is melee; target has MONSTER or VEHICLE keyword"
   },
   "simulator.resolute_will": {
-    "effect": "-1 to the Wound roll (subject to the \u00c2\u00b11 modifier cap in Unit.attack)",
+    "effect": "-1 to the Wound roll (subject to the Â±1 modifier cap in Unit.attack)",
     "quoted_text": "While a CHARACTER is leading this unit, each time an attack targets this unit, if the Strength characteristic of that attack is greater than the Toughness characteristic of this unit, subtract 1 from the Wound roll.",
     "rule_name": "Resolute Will",
     "scope": "unit-led",
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Custodian-Wardens",
-    "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led \u00e2\u20ac\u201d leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic"
-  },
-  "simulator.fights_first_chargers": {
-    "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
-    "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight. Each time you select an eligible unit from your army to fight with that made a Charge move this turn, that unit fights first.",
-    "rule_name": "Fight phase — Fights First step",
-    "scope": "phase-gated",
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
-    "trigger": "active player's Fight phase pass; chargers (units with uid in `_charging_this_round`) are sorted ahead of non-chargers before the per-unit `_do_fight` loop. Datasheet-level FIGHTS FIRST keyword is handled separately via `simulator.fights_first_keyword`."
-  },
-  "simulator.fights_first_keyword": {
-    "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units whose UnitProfile has `fights_first=True` are tiered into the Fights First step alongside chargers (sort key 0), ahead of remaining combats (sort key 1). The flag is set by the BSData mapper's `extract_fights_first` from a 'Fights First' infoLink / inline profile / 'FIGHTS FIRST' prose mention on the datasheet entry.",
-    "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight.",
-    "rule_name": "Fight phase — Fights First step (datasheet keyword)",
-    "scope": "keyword-gated",
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
-    "trigger": "active player's Fight phase pass; units with `profile.fights_first=True` (parsed by BSData mapper from datasheets like Wyches, Howling Banshees, Custodian Wardens, Mandrakes) are sorted into tier 0 alongside chargers via `_fight_priority` before the per-unit `_do_fight` loop."
+    "trigger": "defender has `resolute_will` set on the UnitProfile (per overrides.json), defender is actually led â€” leaders.is_actually_led() returns True (at least one in-range friendly CHARACTER whose LeaderAbility.host_keys lists the defender's UNIT_CATALOG key), AND the attack's Strength characteristic is strictly greater than the defender's Toughness characteristic"
   },
   "simulator.squad_size_durability_factor": {
-    "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule \u00e2\u20ac\u201d the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
+    "effect": "AI threat heuristic multiplies effective durability by a squad-size factor (lone model 1.0; 2-model squad 1.05; 5-model 1.20; 10-model 1.45; 20-model 1.95). This is an AI design heuristic, NOT a 10e rule â€” the cited core wording motivates why per-attack allocation makes high-model-count squads structurally harder to remove than 1-vs-1 durability suggests. Does NOT change combat math; only fixes opponent target selection.",
     "quoted_text": "If one or more models in the target unit have already lost one or more wounds, or have already had attacks allocated to them this phase, the attack must be allocated to one of those models. Otherwise, the player commanding the target unit chooses which model in their unit the attack is allocated to.",
     "rule_name": "Allocate Attack (Make Attacks step)",
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
-    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` \u00e2\u20ac\u201d paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
+    "trigger": "AI threat-score heuristic in `code/strategy.py._durability` â€” paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
   }
 }

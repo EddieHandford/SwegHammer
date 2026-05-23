@@ -4849,11 +4849,12 @@ class Battle:
                 army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
         # ---- Adeptus Astartes Oath of Moment (army rule, 10e). At the start
         # of each Command phase a Marine player picks one enemy unit; every
-        # Marine attack against that unit re-rolls hits AND wounds (full
-        # re-rolls, not just 1s) until the start of the next Command phase.
-        # We reset to None at the top of the round so a stale uid never
-        # leaks across rounds (the buff only fires while uid == current
-        # target). Cited as `simulator.oath_of_moment`.
+        # Marine attack against that unit re-rolls the Hit roll (full hit
+        # re-rolls, not just 1s; codex grants HIT re-rolls only — no wound
+        # re-roll) until the start of the next Command phase. We reset to
+        # None at the top of the round so a stale uid never leaks across
+        # rounds (the buff only fires while uid == current target). Cited
+        # as `simulator.oath_of_moment`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             # Snapshot prior round's target before clearing — _pick_oath_target
             # uses this to rotate off a still-alive anchor when a comparable
@@ -6160,9 +6161,10 @@ class Battle:
         Sets `army.oath_target_uid` and emits `OathTargetChosen`. No-op
         (and no event) when the opponent has no alive units left.
 
-        The buff itself (re-roll all hits AND all wounds against the
-        chosen unit) is applied in Unit.attack, gated on the attacker
-        being a Marine and `attacker_army.oath_target_uid == target.uid`.
+        The buff itself (re-roll all hits against the chosen unit — the
+        codex grants HIT re-rolls only, no wound re-roll) is applied in
+        Unit.attack, gated on the attacker being a Marine and
+        `attacker_army.oath_target_uid == target.uid`.
         """
         alive = opponent.alive_units
         if not alive:
