@@ -874,16 +874,21 @@ GRAND_COVEN = Detachment(
         "Fate, Egotistical Power, Desecration of Worlds, Arcane Focus, "
         "Devastating Sorcery)."
     ),
-    # APPROXIMATION: Kindred Sorcery's selectable, once-per-battle Psychic-
-    # weapon-keyword buff cannot reduce to a single static Detachment flag.
-    # The Cabal of Sorcerers Rituals pass (real Psychic test, real WC values,
-    # real D3 / D3+3 Doombolt math) is the actual implementation surface; the
-    # `psychic_mortal_wounds_per_round=2` baseline is a fallback for rounds
-    # where no Ritual fires successfully. Wahapedia URL above.
-    # Real rule: per-Command-phase choose-one (range / wound / DevWounds) on
-    # Psychic weapons, once-per-battle each; SwegHammer collapses to a flat
-    # 2-MW-per-round payload + the Cabal Rituals pass.
-    psychic_mortal_wounds_per_round=2,
+    # TSON-DIAG (claude/sim-calibration-6): zeroed from 2 to 0.
+    # Kindred Sorcery's real rule is a once-per-battle-each selection of three
+    # Psychic-weapon-keyword buffs (Imbued Manifestation / Psychic Maelstrom /
+    # Wrath of the Immaterium); NONE of those grant an unconditional per-round
+    # mortal-wound payload to the highest-threat enemy. The Cabal of Sorcerers
+    # Rituals pass (`_run_cabal_rituals`) is the actual implementation surface
+    # for TSON's psychic teeth — real 2D6 Psychic test, real Doombolt D3 /
+    # D3+3 mortals, real cadence (Magnus gets 2 attempts + 2 to test, Ahriman
+    # gets +1 to test). The previous `psychic_mortal_wounds_per_round=2`
+    # baseline stacked an unconditional 2-MW-per-round payload ON TOP of the
+    # stochastic Ritual pass, double-counting Doombolt's already-modelled
+    # damage and contributing to TSON's +22pt over-perf at the Warp Friends
+    # rolling target. Removing the fabricated baseline lets the rule-accurate
+    # Cabal pass be the only source of TSON psychic MW output.
+    psychic_mortal_wounds_per_round=0,
     stratagems=GRAND_COVEN_STRATAGEMS,
     preferred_composition="infantry",
 )
@@ -951,15 +956,19 @@ RUBRICAE_PHALANX = Detachment(
     # Real rule: +1 to armour save vs unmodified D1 attacks on RUBRICAE models.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
     all_is_dust=True,
-    # Cabal of Sorcerers Ritual fallback baseline — matches Grand Coven's
-    # `psychic_mortal_wounds_per_round=2` (median-D3 Doombolt). Cabal of
-    # Sorcerers is the TSON army rule (faction-gated, not detachment-
-    # gated), so it fires under EITHER detachment; the baseline is a
-    # round-end MW payload that compensates when the stochastic 2D6
-    # Psychic test in `_run_cabal_rituals` produces no manifested
-    # Ritual. Same APPROXIMATION shape as GRAND_COVEN — see citation
-    # `RUBRICAE_PHALANX.psychic_mortal_wounds_per_round` for full notes.
-    psychic_mortal_wounds_per_round=2,
+    # TSON-DIAG (claude/sim-calibration-6): zeroed from 2 to 0, matching the
+    # GRAND_COVEN fix in the same commit. The notes block above this
+    # Detachment already states "psychic_mortal_wounds_per_round=0 baseline
+    # (NOT 2 — that lives on Grand Coven only)" — the code previously
+    # contradicted its own comment and set the value to 2 anyway. The real
+    # All Is Dust detachment rule (verbatim Wahapedia) grants +1 to armour
+    # saves on D1 attacks against RUBRICAE models; it does NOT grant a
+    # per-round MW payload to the highest-threat enemy. The Cabal of
+    # Sorcerers Rituals pass (`_run_cabal_rituals`) is the rule-accurate
+    # source of TSON psychic MW output; the previous baseline double-counted
+    # Doombolt and contributed to TSON's +22pt over-perf at the Warp Friends
+    # rolling target.
+    psychic_mortal_wounds_per_round=0,
     stratagems=RUBRICAE_PHALANX_STRATAGEMS,
     preferred_composition="infantry",
 )
