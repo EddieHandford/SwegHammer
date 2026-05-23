@@ -61,39 +61,70 @@ FACTIONS: List[str] = [
     "Chaos Knights",
 ]
 
-# Real tournament target: loaded from data/warpfriends_rolling.json — a
-# game-weighted 4-week rolling aggregate scraped from warpfriends.wordpress.com
-# (which hand-scrapes Best Coast Pairings). Replaces the prior mix of 10 hard
-# Warp Friends numbers + 12 hand-curated midpoint approximations. Regenerate
-# with `python -m scripts.scrape_warpfriends`.
+# Real tournament target: loaded from data/warpfriends_rolling.json (primary)
+# plus data/statcheck_meta.json (cross-source). Warp Friends is a game-weighted
+# 4-week rolling aggregate scraped from warpfriends.wordpress.com (which hand-
+# scrapes Best Coast Pairings). Stat Check pulls from BCP + TourneyKeeper +
+# Mini Headquarters via its Tableau dashboard. Regenerate respectively with
+# `python -m scripts.scrape_warpfriends` and `python -m scripts.scrape_statcheck`.
 #
-# Each faction also carries a `noise_floor` — the larger of (week-to-week
-# population stdev, binomial 95% CI half-width on the aggregate sample). It's
-# the lower bound on MAE per faction: a sim landing inside its noise floor is
-# inside sampling variance and shouldn't be chased further.
-_WARPFRIENDS_PATH = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
-with open(_WARPFRIENDS_PATH, "r", encoding="utf-8") as _wf_f:
+# Each faction carries three noise components:
+#   - within-source noise_floor (Warp Friends week-to-week stdev OR binomial
+#     CI half-width — whichever is larger),
+#   - cross-source half-gap |WF_wr - SC_wr| / 2 — a faction sitting inside this
+#     band is inside the disagreement-envelope between two independent
+#     tournament aggregators, beyond which chasing a single source would mean
+#     fitting to one source's event pool quirks.
+# The combined noise floor (the larger of the two) is the lower bound on MAE
+# per faction: a sim landing inside its noise floor is inside sampling and
+# cross-source variance and shouldn't be chased further.
+_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+with open(_DATA_DIR / "warpfriends_rolling.json", "r", encoding="utf-8") as _wf_f:
     _WF_DATA = json.load(_wf_f)
+with open(_DATA_DIR / "statcheck_meta.json", "r", encoding="utf-8") as _sc_f:
+    _SC_DATA = json.load(_sc_f)
 
-# Fail loud per CLAUDE.md §13: every faction in FACTIONS must appear in the
-# rolling-aggregate JSON. A missing faction here means the scraper or the
-# rollup map fell out of sync with the simulator's faction list, and we want
-# the import to crash rather than silently substitute a default win rate.
-_MISSING = [f for f in FACTIONS if f not in _WF_DATA["factions"]]
-if _MISSING:
+# Fail loud per CLAUDE.md §13: every faction in FACTIONS must appear in both
+# source JSONs. Missing factions mean the scrapers fell out of sync with the
+# simulator's faction list — crash on import rather than substitute defaults.
+_MISSING_WF = [f for f in FACTIONS if f not in _WF_DATA["factions"]]
+if _MISSING_WF:
     raise KeyError(
-        f"warpfriends_rolling.json is missing factions: {_MISSING}. "
-        f"Re-run `python -m scripts.scrape_warpfriends` or update the rollup map."
+        f"warpfriends_rolling.json is missing factions: {_MISSING_WF}. "
+        f"Re-run `python -m scripts.scrape_warpfriends`."
+    )
+_MISSING_SC = [
+    f for f in FACTIONS
+    if f not in _SC_DATA["factions"]
+    or _SC_DATA["factions"][f].get("win_rate") is None
+]
+if _MISSING_SC:
+    raise KeyError(
+        f"statcheck_meta.json is missing factions: {_MISSING_SC}. "
+        f"Re-run `python -m scripts.scrape_statcheck`."
     )
 
 TOURNAMENT_TARGET: Dict[str, float] = {
     fac: _WF_DATA["factions"][fac]["win_rate"] for fac in FACTIONS
 }
-NOISE_FLOOR: Dict[str, float] = {
-    fac: _WF_DATA["factions"][fac]["noise_floor"] for fac in FACTIONS
-}
+# Combined noise floor = max(within-source noise, cross-source half-gap).
+# The cross-source half-gap is conservative: it treats Warp Friends and
+# Stat Check as two independent measurements of the same underlying meta,
+# so the band |WF - SC|/2 is roughly the standard error of the mean of two
+# samples. A faction inside this band is at the calibration limit.
+NOISE_FLOOR: Dict[str, float] = {}
+for fac in FACTIONS:
+    within = _WF_DATA["factions"][fac]["noise_floor"]
+    cross_half = abs(
+        _WF_DATA["factions"][fac]["win_rate"]
+        - _SC_DATA["factions"][fac]["win_rate"]
+    ) / 2.0
+    NOISE_FLOOR[fac] = max(within, cross_half)
 TOURNAMENT_GAMES: Dict[str, int] = {
     fac: _WF_DATA["factions"][fac]["total_games"] for fac in FACTIONS
+}
+STATCHECK_WR: Dict[str, float] = {
+    fac: _SC_DATA["factions"][fac]["win_rate"] for fac in FACTIONS
 }
 # Retained as empty sets for backwards compat with downstream consumers
 # (app.py Calibration tab, scripts/fit_equation_calibrated.py). Under the

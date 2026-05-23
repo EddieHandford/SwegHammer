@@ -1,20 +1,200 @@
 {
   "metadata": {
-    "scraped_at": null,
+    "scraped_at": "2026-05-23",
     "source": "stat-check.com via public.tableau.com",
     "primary_upstream": "Best Coast Pairings + TourneyKeeper + Mini Headquarters",
     "tableau_workbook": "StatCheckThe40kMetaDataDashboard-10thEdition",
     "tableau_view": "StateoftheGame",
-    "filter_applied": null,
+    "filter_applied": "default (whichever Meta filter loads on first paint)",
     "minimum_event_size": "25 players, 5 rounds",
     "unmapped_strings_surfaced": {},
     "dropped_strings": [
       "Imperial Agents"
     ],
     "capture_method": "playwright network-response interception",
-    "captured_response_count": 0,
-    "status": "stub - not yet populated",
-    "instructions": "Run `pip install playwright && playwright install chromium && python -m scripts.scrape_statcheck` locally to populate this file. The agent worktree that authored scripts/scrape_statcheck.py could not install Playwright. See docs/statcheck_access_report.md for the access investigation that motivated the Playwright fallback."
+    "captured_response_count": 2
   },
-  "factions": {}
+  "factions": {
+    "Adeptus Astartes": {
+      "win_rate": 47.48,
+      "total_games": 3138,
+      "noise_floor": 1.747,
+      "rolled_from": [
+        "Black Templars",
+        "Blood Angels",
+        "Dark Angels",
+        "Deathwatch",
+        "Space Marines",
+        "Space Wolves"
+      ]
+    },
+    "Necrons": {
+      "win_rate": 51.25,
+      "total_games": 1116,
+      "noise_floor": 2.933,
+      "rolled_from": [
+        "Necrons"
+      ]
+    },
+    "Aeldari": {
+      "win_rate": 44.17,
+      "total_games": 489,
+      "noise_floor": 4.402,
+      "rolled_from": [
+        "Aeldari"
+      ]
+    },
+    "Tyranids": {
+      "win_rate": 45.81,
+      "total_games": 692,
+      "noise_floor": 3.712,
+      "rolled_from": [
+        "Tyranids"
+      ]
+    },
+    "Orks": {
+      "win_rate": 43.72,
+      "total_games": 565,
+      "noise_floor": 4.09,
+      "rolled_from": [
+        "Orks"
+      ]
+    },
+    "T'au Empire": {
+      "win_rate": 52.7,
+      "total_games": 943,
+      "noise_floor": 3.187,
+      "rolled_from": [
+        "T'au Empire"
+      ]
+    },
+    "Death Guard": {
+      "win_rate": 53.2,
+      "total_games": 688,
+      "noise_floor": 3.729,
+      "rolled_from": [
+        "Death Guard"
+      ]
+    },
+    "Adeptus Custodes": {
+      "win_rate": 52.46,
+      "total_games": 650,
+      "noise_floor": 3.839,
+      "rolled_from": [
+        "Adeptus Custodes"
+      ]
+    },
+    "Thousand Sons": {
+      "win_rate": 61.8,
+      "total_games": 445,
+      "noise_floor": 4.514,
+      "rolled_from": [
+        "Thousand Sons"
+      ]
+    },
+    "Leagues of Votann": {
+      "win_rate": 51.13,
+      "total_games": 487,
+      "noise_floor": 4.44,
+      "rolled_from": [
+        "Leagues of Votann"
+      ]
+    },
+    "Chaos Space Marines": {
+      "win_rate": 57.19,
+      "total_games": 981,
+      "noise_floor": 3.096,
+      "rolled_from": [
+        "Chaos Space Marines"
+      ]
+    },
+    "World Eaters": {
+      "win_rate": 44.73,
+      "total_games": 693,
+      "noise_floor": 3.702,
+      "rolled_from": [
+        "World Eaters"
+      ]
+    },
+    "Emperor's Children": {
+      "win_rate": 57.52,
+      "total_games": 525,
+      "noise_floor": 4.228,
+      "rolled_from": [
+        "Emperor's Children"
+      ]
+    },
+    "Chaos Daemons": {
+      "win_rate": 53.3,
+      "total_games": 454,
+      "noise_floor": 4.589,
+      "rolled_from": [
+        "Chaos Daemons"
+      ]
+    },
+    "Astra Militarum": {
+      "win_rate": 47.82,
+      "total_games": 711,
+      "noise_floor": 3.672,
+      "rolled_from": [
+        "Astra Militarum"
+      ]
+    },
+    "Adeptus Mechanicus": {
+      "win_rate": 45.19,
+      "total_games": 312,
+      "noise_floor": 5.522,
+      "rolled_from": [
+        "Adeptus Mechanicus"
+      ]
+    },
+    "Adepta Sororitas": {
+      "win_rate": 47.63,
+      "total_games": 359,
+      "noise_floor": 5.166,
+      "rolled_from": [
+        "Adepta Sororitas"
+      ]
+    },
+    "Grey Knights": {
+      "win_rate": 50.19,
+      "total_games": 265,
+      "noise_floor": 6.02,
+      "rolled_from": [
+        "Grey Knights"
+      ]
+    },
+    "Drukhari": {
+      "win_rate": 49.87,
+      "total_games": 395,
+      "noise_floor": 4.931,
+      "rolled_from": [
+        "Drukhari"
+      ]
+    },
+    "Genestealer Cults": {
+      "win_rate": 50.26,
+      "total_games": 195,
+      "noise_floor": 7.018,
+      "rolled_from": [
+        "Genestealer Cults"
+      ]
+    },
+    "Imperial Knights": {
+      "win_rate": 49.22,
+      "total_games": 579,
+      "noise_floor": 4.072,
+      "rolled_from": [
+        "Imperial Knights"
+      ]
+    },
+    "Chaos Knights": {
+      "win_rate": 50.27,
+      "total_games": 370,
+      "noise_floor": 5.095,
+      "rolled_from": [
+        "Chaos Knights"
+      ]
+    }
+  }
 }

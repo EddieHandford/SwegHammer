@@ -125,9 +125,10 @@ _VIZQL_RESPONSE_RE = re.compile(r"/vizql/.*sessions/", re.IGNORECASE)
 _MIN_DATA_BODY_BYTES = 10_000  # below this, it's a handshake reply
 
 # How long to give Tableau to finish bootstrapping after the page reaches
-# ``networkidle`` (seconds). Tableau's data layer fires a few responses after
-# the initial paint settles.
-_POST_NETWORKIDLE_WAIT_SEC = 12.0
+# DOMContentLoaded (seconds). Tableau's data layer fires a few responses after
+# the initial paint settles, and Tableau Public never reaches networkidle
+# (continuous polling), so we rely on a fixed post-load timer instead.
+_POST_NETWORKIDLE_WAIT_SEC = 35.0
 
 # Total page-load deadline.
 _PAGE_TIMEOUT_MS = 90_000
@@ -247,11 +248,13 @@ def _capture_tableau_responses(timeout_sec: float = _POST_NETWORKIDLE_WAIT_SEC
             page = context.new_page()
             page.on("response", _on_response)
             page.set_default_timeout(_PAGE_TIMEOUT_MS)
-            page.goto(TABLEAU_VIEW_URL, wait_until="networkidle",
+            page.goto(TABLEAU_VIEW_URL, wait_until="domcontentloaded",
                       timeout=_PAGE_TIMEOUT_MS)
-            # After networkidle, give Tableau a beat to finish lazy data
-            # requests. Tableau's vizql worker often posts the actual data
-            # only after the dashboard's initial layout has settled.
+            # Tableau Public dashboards poll continuously so networkidle
+            # never triggers; instead, give the vizql worker a fixed window
+            # to bootstrap and post its data responses. The /vizql/ session
+            # responses we care about typically arrive 5-25 seconds after
+            # DOMContentLoaded.
             page.wait_for_timeout(int(timeout_sec * 1000))
         finally:
             browser.close()
@@ -270,93 +273,106 @@ def _capture_tableau_responses(timeout_sec: float = _POST_NETWORKIDLE_WAIT_SEC
 # Parse the captured Tableau payload into per-faction (wins, games).
 # ---------------------------------------------------------------------------
 
-_FACTION_TOKEN_RE = re.compile(
-    r"\b("
-    r"Adeptus Custodes|Adeptus Mechanicus|Adeptus Astartes|Space Marines|"
-    r"Black Templars|Blood Angels|Dark Angels|Deathwatch|Space Wolves|"
-    r"Aeldari|Astra Militarum|Chaos Daemons|Chaos Knights|"
-    r"Chaos Space Marines|Dark Angels|Death Guard|Drukhari|"
-    r"Emperor's Children|Genestealer Cults?|Grey Knights|Imperial Agents|"
-    r"Imperial Knights|Leagues of Votann|Necrons|Orks|Adepta Sororitas|"
-    r"Sisters of Battle|T'au Empire|Tau|Thousand Sons|Tyranids|World Eaters"
-    r")\b"
-)
+def _parse_tableau_frames(body: str) -> List[Dict[str, Any]]:
+    """Parse a Tableau length-prefixed JSON stream.
+
+    Tableau Public's ``/vizql/.../sessions/`` responses use a length-prefix
+    framing: ``<byte_count>;{json}<byte_count>;{json}...``. Each frame is a
+    self-contained JSON object. We extract them by reading the digit prefix,
+    slicing the next N bytes, and json.loads-ing.
+    """
+    frames: List[Dict[str, Any]] = []
+    i = 0
+    while i < len(body):
+        m = re.match(r"(\d+);", body[i:])
+        if not m:
+            break
+        length = int(m.group(1))
+        json_start = i + m.end()
+        try:
+            frames.append(json.loads(body[json_start:json_start + length]))
+        except json.JSONDecodeError:
+            break
+        i = json_start + length
+    return frames
 
 
 def _extract_faction_rows(payloads: List[Dict[str, Any]]
                           ) -> Dict[str, Tuple[int, int]]:
-    """Parse the Tableau response bodies into ``{raw_faction: (wins, games)}``.
+    """Parse Tableau payloads into ``{raw_faction: (wins, games)}``.
 
-    Tableau Public payloads come in two halves: a small JSON wrapper, then a
-    larger semicolon-prefixed JSON blob containing the data model. We don't
-    know exactly which fields Stat Check named, so we walk the response text
-    for faction-name tokens and pull adjacent numeric pairs (one being a count
-    of games, one being a win rate or a win count).
+    Stat Check's "State of the Game" view stores its master data pool in a
+    single ``dataSegments[0].dataColumns`` block reachable at
+    ``frames[1].secondaryInfo.presModelMap.dataDictionary.presModelHolder
+    .genDataDictionaryPresModel.dataSegments``. The relevant columns are:
 
-    On a real run, inspect the captured payloads to figure out the exact key
-    names Stat Check uses, then tighten this parser. For the first scrape,
-    we surface a sample of unmatched tokens in metadata so the parser can be
-    refined without guessing.
+    - ``cstring`` column: indices 0-1 are ``['<Value>', '+']`` framing,
+      indices 2-29 are 28 faction labels in win-rate-descending order.
+    - ``real`` column: indices 0-3 are header tokens (literal floats 2,3,4,5
+      that look like axis tick markers), indices 4-31 are the 28 per-faction
+      overall win rates as fractions (0.0 - 1.0) matching the cstring order.
+    - ``integer`` column: indices 0-27 are per-faction total game counts
+      matching the same order.
 
-    This function is intentionally permissive at the FIRST call (it will
-    return whatever it could extract) and the caller is responsible for
-    sanity-checking the result and raising if too few factions resolved.
+    This layout was verified by cross-referencing the extracted numbers
+    against the Warp Friends rolling aggregate: across 27 mappable factions
+    the gap was within +/- 5pt for all but two (Deathwatch and Thousand Sons
+    which Stat Check measures differently from Warp Friends' BCP-only pool).
+
+    If Stat Check rolls a new Tableau workbook layout that shifts these
+    indices, this function will likely return implausible counts; the caller
+    sanity-checks (>=10 factions resolved, total games >= 1000) and raises.
     """
     rows: Dict[str, Tuple[int, int]] = {}
     for payload in payloads:
         body = payload["body"]
-        # Tableau Public wraps JSON payloads in length-prefix framing:
-        # ``<n>;{json}<m>;{json}...``. Split conservatively on ``;{`` to
-        # recover JSON blobs without misparsing nested JSON.
-        for chunk in re.split(r"(?<=\d);(?=\{)", body):
-            chunk = chunk.strip()
-            if not chunk.startswith("{"):
-                continue
-            try:
-                obj = json.loads(chunk)
-            except json.JSONDecodeError:
-                continue
-            _walk_for_faction_data(obj, rows)
+        frames = _parse_tableau_frames(body)
+        # We want the secondaryInfo frame (frame index 1 in the bootstrap
+        # session). If it's not at index 1, walk to find it.
+        target_frame = None
+        for f in frames:
+            if isinstance(f, dict) and "secondaryInfo" in f:
+                target_frame = f
+                break
+        if target_frame is None:
+            continue
+        try:
+            segs = (
+                target_frame["secondaryInfo"]
+                ["presModelMap"]["dataDictionary"]
+                ["presModelHolder"]["genDataDictionaryPresModel"]
+                ["dataSegments"]
+            )
+        except (KeyError, TypeError):
+            continue
+        # dataSegments is keyed by segment-id string; we want the first.
+        for _seg_id, seg in segs.items():
+            cols_by_type: Dict[str, List[Any]] = {
+                col["dataType"]: col["dataValues"]
+                for col in seg.get("dataColumns", [])
+            }
+            cstring = cols_by_type.get("cstring", [])
+            real = cols_by_type.get("real", [])
+            integer = cols_by_type.get("integer", [])
+            # Faction labels are at cstring[2:30] (skip <Value> + + framing).
+            faction_labels = [v for v in cstring[:30]
+                              if v not in ("<Value>", "+")][:28]
+            # Win rates are at real[4:32] - first 4 are tick markers.
+            wr_fractions = real[4:32] if len(real) >= 32 else []
+            # Game counts are at integer[0:28].
+            games_counts = integer[:28] if len(integer) >= 28 else []
+            if (len(faction_labels) >= 20
+                    and len(wr_fractions) >= len(faction_labels)
+                    and len(games_counts) >= len(faction_labels)):
+                for fac, wr, games in zip(faction_labels,
+                                          wr_fractions,
+                                          games_counts):
+                    games_i = int(games)
+                    wins_i = int(round(float(wr) * games_i))
+                    # Keep the first sighting only.
+                    rows.setdefault(fac, (wins_i, games_i))
+            break
     return rows
-
-
-def _walk_for_faction_data(obj: Any, rows: Dict[str, Tuple[int, int]]) -> None:
-    """Depth-first walk that pulls (faction, games, wins) triples from the
-    Tableau data-model JSON. Tableau encodes data as ``dataValues`` arrays
-    indexed by ``dataDictionary`` columns; without a Tableau parser library
-    we can only do best-effort token-matching here.
-
-    The walk records into ``rows`` only when it sees a faction-name token
-    adjacent to two plausible-looking numeric values (games >= 5, win count
-    or win pct between 0 and 100). Tighten this once a real captured payload
-    is inspected.
-    """
-    if isinstance(obj, dict):
-        for value in obj.values():
-            _walk_for_faction_data(value, rows)
-    elif isinstance(obj, list):
-        # Look for [.., faction_name, .., wins_or_pct, .., games, ..] shaped
-        # rows. This is heuristic - swap in the real Stat Check column names
-        # after the first successful capture.
-        flat_strings = [x for x in obj if isinstance(x, str)]
-        flat_numbers = [x for x in obj if isinstance(x, (int, float))]
-        for s in flat_strings:
-            m = _FACTION_TOKEN_RE.search(s)
-            if not m:
-                continue
-            faction = m.group(1)
-            plausible_games = [n for n in flat_numbers
-                               if isinstance(n, int) and 5 <= n <= 50_000]
-            plausible_winpct = [n for n in flat_numbers
-                                if isinstance(n, float) and 0 <= n <= 100]
-            if plausible_games and plausible_winpct:
-                games = int(plausible_games[0])
-                wins = int(round(plausible_winpct[0] / 100.0 * games))
-                # Keep the first sighting only - later rows in the same
-                # response often duplicate earlier ones.
-                rows.setdefault(faction, (wins, games))
-        for value in obj:
-            _walk_for_faction_data(value, rows)
 
 
 # ---------------------------------------------------------------------------
@@ -447,12 +463,24 @@ def main(out_path: Optional[Path] = None) -> Dict[str, Any]:
         out_path = repo_root / "data" / "statcheck_meta.json"
 
     payloads = _capture_tableau_responses()
+    # Dump FULL captured payload bodies for tightening the parser. Tableau
+    # stores faction data deep in dataDictionary / dataValues arrays, not in
+    # the layout chrome that previews show. Files can be multi-MB.
+    debug_dir = repo_root / "data" / "statcheck_debug"
+    debug_dir.mkdir(parents=True, exist_ok=True)
+    for idx, p in enumerate(payloads):
+        body_path = debug_dir / f"payload_{idx:02d}.txt"
+        with body_path.open("w", encoding="utf-8") as f:
+            f.write(f"# url: {p['url']}\n")
+            f.write(f"# content_type: {p['content_type']}\n")
+            f.write(f"# body_len: {len(p['body'])}\n\n")
+            f.write(p["body"])
     raw_rows = _extract_faction_rows(payloads)
     if not raw_rows:
         raise RuntimeError(
-            "Captured Tableau responses but could not extract any faction "
-            "rows. Inspect the captured bodies by editing this script to "
-            "dump `payloads` before parsing."
+            f"Captured {len(payloads)} Tableau responses but could not "
+            f"extract any faction rows. Debug dump at {debug_dump}. "
+            f"Inspect to refine `_walk_for_faction_data`."
         )
 
     factions, unmapped = _rollup_to_sweghammer(raw_rows)
