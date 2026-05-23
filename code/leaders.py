@@ -158,6 +158,31 @@ _AELDARI_GUARDIAN_HOSTS = (
 )
 _TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
 
+# Khorne Legiones Daemonica units — units that benefit from Bloodthirster's
+# "Daemon Lord of Khorne" aura and Skarbrand's "Rage Embodied" aura. Both
+# auras read "While a friendly KHORNE Legiones Daemonica unit is within 6"".
+# This is NOT a led-unit gate (the Greater Daemons do not formally attach via
+# Leader): host_keys here gates the buff to attacker units carrying the
+# Khorne keyword, applied at proximity per the aura wording. Same structural
+# pattern as Magnus / Avatar (empty host_keys for army-wide MONSTER auras),
+# but narrowed to mono-mark units because the Daemonic Incursion archetype
+# is multi-god — broadcasting Khorne to Plaguebearers / Pink Horrors /
+# Daemonettes would be a fabrication (CLAUDE.md §10).
+# Roster per Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+# filtered to BSData v10.6.0 catalogue keys (no Legends entries).
+_KHORNE_DAEMON_HOSTS = (
+    "chaos_daemons_library_bloodletters",
+    "chaos_daemons_library_bloodcrushers",
+    "chaos_daemons_library_flesh_hounds",
+    "chaos_daemons_library_skull_cannon",
+    "chaos_daemons_library_khorne_soul_grinder",
+    "chaos_daemons_library_skullmaster",
+    "chaos_daemons_library_skulltaker",
+    "chaos_daemons_library_karanak",
+    "chaos_daemons_library_bloodmaster",
+    "chaos_daemons_library_rendmaster_on_blood_throne",
+)
+
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # ORDER NOTE — iter21: substring matching is greedy first-match, so
     # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
@@ -441,6 +466,28 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # opponent-Shooting-phase ritual with no aura-flag plumbing; skipped.
     ("Contorted Epitome",  LeaderAbility(name="Swallow Energy",             aura_range=6.0, fnp=4,
                                           host_keys=("chaos_daemons_library_daemonettes",))),
+    # Chaos Daemons Greater Daemons — Khorne aura carriers (DAEMONS-DIAG-3,
+    # claude/sim-calibration-6). Bloodthirster and Skarbrand each broadcast a
+    # 6" aura to friendly KHORNE Legiones Daemonica units. Prior to this
+    # iteration neither was in the registry, so a Daemonic Incursion list
+    # ran its Khorne units (Bloodletters, Bloodcrushers, Flesh Hounds, Skull
+    # Cannon, Khorne Soul Grinder) without the +1-Hit / +1-Attack uplift
+    # their Greater Daemon nearby is meant to grant. Two of the three god-
+    # specific Greater Daemons (Lord of Change +1 Strength, Great Unclean
+    # One +1 Toughness, Keeper of Secrets +1 AP) need LeaderAbility fields
+    # we do not yet expose (no plus_one_strength / plus_one_toughness /
+    # plus_one_ap_melee), so they are intentionally NOT wired here per
+    # CLAUDE.md §10 "no proxies" — adding loose proxies for the wrong stat
+    # is the Awakened-Dynasty failure mode. Citations in
+    # data/rule_citations.d/leaders.json (LeaderAbility.Daemon Lord of
+    # Khorne / LeaderAbility.Rage Embodied), quoted text verbatim from
+    # BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skarbrand
+    ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=_KHORNE_DAEMON_HOSTS)),
+    ("Skarbrand",          LeaderAbility(name="Rage Embodied",              aura_range=6.0, plus_one_attack=1,
+                                          host_keys=_KHORNE_DAEMON_HOSTS)),
     # Adeptus Custodes — Shield-Captain pinned to the registry head above
     # to prevent substring-collision with the generic Marines "Captain"
     # entry. Trajann Valoris and Blade Champion live in this per-faction

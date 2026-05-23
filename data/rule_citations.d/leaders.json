@@ -40,6 +40,24 @@
     "approximation": true
   },
 
+  "LeaderAbility.Daemon Lord of Khorne": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
+    "rule_name": "Daemon Lord of Khorne (Aura)",
+    "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+    "trigger": "Bloodthirster is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of the Bloodthirster and makes a melee attack",
+    "effect": "+1 to the melee Hit roll for the affected unit. Modelled as plus_one_to_hit=True with host_keys gated to the catalogue keys carrying the KHORNE Legiones Daemonica keyword (Bloodletters, Bloodcrushers, Flesh Hounds, Skull Cannon, Khorne Soul Grinder, Skullmaster, Skulltaker, Karanak, Bloodmaster, Rendmaster on Blood Throne) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. (loose-edge) SwegHammer's plus_one_to_hit flag does not distinguish melee from ranged at LeaderAbility level, so the +1 also applies to the rare ranged profiles those units carry (Skull Cannon's Burning Skulls, Khorne Soul Grinder's Phlegm Bombardment). Direction-correct uplift, strictly weaker than fabricating a Strength/AP buff for the other Greater Daemons whose buff stats SwegHammer has no field for.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Rage Embodied": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skarbrand",
+    "rule_name": "Rage Embodied (Aura)",
+    "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, add 1 to the Attacks characteristic of melee weapons equipped by models in that unit.",
+    "trigger": "Skarbrand is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of Skarbrand",
+    "effect": "+1 Attacks on every melee weapon in the affected unit. Modelled as plus_one_attack=1 with host_keys gated to the KHORNE Legiones Daemonica catalogue keys (same roster as Bloodthirster's Daemon Lord of Khorne). (loose-edge) plus_one_attack in SwegHammer applies the +1 to every weapon profile carried by the attacker, which over-includes the ranged profiles on Skull Cannon / Khorne Soul Grinder. Direction-correct uplift, strictly weaker than fabricating the missing field; the codex rule explicitly only adds the attack to melee profiles.",
+    "scope": "keyword-gated"
+  },
+
   "LeaderAbility.Rites of Battle": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",
