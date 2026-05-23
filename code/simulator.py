@@ -4520,10 +4520,21 @@ class Battle:
             own_det = army.resolve_detachment()
             ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
             ld_bonus = own_det.ld_bonus if own_det else 0
-            ork_count = sum(
-                1 for u in army.alive_units if u.profile.faction == "Orks"
+            # Mob Rule (10e): per-unit, not army-wide. Wahapedia: "Each time
+            # a Battle-shock test is taken for an ORKS unit from your army,
+            # if that unit has 10 or more models in it, that test is
+            # automatically passed." ORKS-DIAG: SwegHammer models each squad
+            # member as a separate Unit, so we proxy "the unit" by grouping
+            # alive Orks by `profile.name` (datasheet name). A 10+ Boyz mob
+            # auto-passes; a 6-strong Tankbusta squad or a lone Warboss does
+            # not. The previous army-wide gate (`ork_count >= 10`) gave Mob
+            # Rule to every Ork unit on the board whenever any single big
+            # mob was alive, inflating Ork resilience.
+            from collections import Counter as _Counter
+            mob_rule_squad_counts = _Counter(
+                u.profile.name for u in army.alive_units
+                if u.profile.faction == "Orks"
             )
-            mob_rule_active = ork_count >= 10
             own_synapse = [
                 s for s in army.alive_units
                 if "SYNAPSE" in (s.profile.unit_keywords or ())
@@ -4577,7 +4588,10 @@ class Battle:
             ]
             for u in army.alive_units:
                 if u.current_health < u.profile.health / 2.0:
-                    if mob_rule_active and u.profile.faction == "Orks":
+                    if (
+                        u.profile.faction == "Orks"
+                        and mob_rule_squad_counts.get(u.profile.name, 0) >= 10
+                    ):
                         continue
                     if (
                         u.profile.faction == "Tyranids"

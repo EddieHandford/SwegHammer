@@ -285,8 +285,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Mob-Rule",
     "rule_name": "Mob Rule",
     "quoted_text": "Each time a Battle-shock test is taken for an ORKS unit from your army, if that unit has 10 or more models in it, that test is automatically passed.",
-    "trigger": "Battle-shock test for an Orks unit; the Ork army has 10+ Ork models on the battlefield",
-    "effect": "(approximation) the unit auto-passes its Battle-shock test (no 2D6 roll). SwegHammer models each squad member as a separate Unit instance, so the canonical '10+ models in the unit' is approximated as '10+ alive Ork models army-wide' — close enough for Strike Force rosters where the Boyz / Gretchin blocks dominate the count.",
+    "trigger": "Battle-shock test for an Orks unit; that unit (squad) currently has 10+ alive models",
+    "effect": "the unit auto-passes its Battle-shock test (no 2D6 roll). SwegHammer models each squad member as a separate Unit instance; the canonical '10+ models in the unit' is approximated as '10+ alive Ork models sharing the same datasheet name'. Big Boyz / Gretchin / Beast Snagga / Kommandos blocks (typically 10-30 strong) auto-pass; small squads (Tankbustas 6, Meganobz 2, Killa Kans 3) and lone characters / vehicles do not. Prior implementation (pre-ORKS-DIAG) gated on army-wide 10+ which gave Mob Rule to every Ork unit whenever any single big mob was alive — fixed to per-squad on 2026-05-23.",
     "scope": "phase-gated"
   },
 
