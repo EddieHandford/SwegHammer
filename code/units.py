@@ -2038,15 +2038,22 @@ class Unit:
                     if _wb_round is not None and _wb_round == _cur_round_bok:
                         effective_lethal_hits = True
 
-            # ---- T'au Empire Markerlights → Guided (10e army-wide army rule).
-            # While a unit is a Guided unit, its ranged weapons have the
-            # [LETHAL HITS] ability. The detachment flag `lethal_hits_on_guided`
-            # gates the simulator wiring (Mont'ka sets it True). The mark is
-            # populated at the start of the marker-spotting army's Shooting
-            # phase by Battle._run_markerlight_phase. Shooting branch only —
-            # melee Guided does not exist in 10e. Composes with profile.lethal_hits
+            # ---- T'au Empire Mont'ka Killing Blow — Guided [LETHAL HITS]
+            # (rounds 1-3). Wahapedia (Mont'ka, Killing Blow) verbatim:
+            # "During the first, second and third battle rounds, while a
+            # unit is a Guided unit, its ranged weapons have the [LETHAL
+            # HITS] ability." T-AU-DIAG-2 (2026-05-23) corrects the prior
+            # APPROXIMATION which fired this army-wide every round; the
+            # detachment text is explicit about the rounds 1-3 window.
+            # Guided population still happens every round in
+            # Battle._run_markerlight_phase (the Marked/Guided base status
+            # is granted by the army rule with no round gate), but the
+            # [LETHAL HITS] keyword interaction is the detachment effect
+            # and only applies in rounds 1-3. Shooting branch only — melee
+            # Guided does not exist in 10e. Composes with profile.lethal_hits
             # via OR (one re-roll branch in the loop, no double-fire).
-            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
+            # Cited as `MONTKA.lethal_hits_on_guided`.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
             if (
                 mode != "melee"
                 and not effective_lethal_hits
@@ -2056,7 +2063,13 @@ class Unit:
             ):
                 det = own_army.resolve_detachment()
                 if det is not None and getattr(det, "lethal_hits_on_guided", False):
-                    effective_lethal_hits = True
+                    _battle_ref_tau = getattr(own_army, "_battle_ref", None)
+                    _cur_round_tau = (
+                        getattr(_battle_ref_tau, "_current_round", 0)
+                        if _battle_ref_tau is not None else 0
+                    )
+                    if 1 <= _cur_round_tau <= 3:
+                        effective_lethal_hits = True
 
             # ---- Astra Militarum Combined Arms detachment — Born Soldiers
             # (army-wide ranged [LETHAL HITS] gated on REGIMENT-vs-non-V/M and
