@@ -1408,6 +1408,45 @@
       "stealth": true,
       "notes": "SK-1: Pteraxii Sterylizors carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet. Same BSData omission pattern as Pteraxii Skystalkers (infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save 5+, Pistol, Sustained Hits, Ignores Cover, Torrent — but no Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Sterylizors ; see adeptus_mechanicus_pteraxii_skystalkers notes."
     },
+    "adeptus_mechanicus_onager_dunecrawler": {
+      "weapon": "Neutron laser",
+      "range_inches": 48,
+      "attacks": 3,
+      "strength": 16,
+      "ap": -4,
+      "weapon_damage_per_shot": 5.5,
+      "hit_probability": 0.5,
+      "blast": false,
+      "heavy": true,
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "extra_ranged_profiles": [],
+      "notes": "ONAGER-MULTILOAD: Wahapedia Onager Dunecrawler datasheet lists four EXCLUSIVE main-weapon choices ('this model is equipped with: ...' — Eradication beamer OR Neutron laser OR Twin heavy phosphor blaster OR Icarus array), plus the fixed Cognis heavy stubber + Smoke launcher utility. BSData (Imperium - Adeptus Mechanicus.cat.gz selectionEntry 'Replace eradication beamer' with three exclusive child options) confirms only one main weapon is mounted per chassis. The mapper packed Eradication beamer - focused into the primary slot (R=18 A=6 S=10 AP=-3 D=3 BLAST), Neutron laser into the secondary slot (R=48 A=3 S=16 AP=-4 D=5.5), and Eradication beamer - dissipated + Twin heavy phosphor blaster + Icarus array into extra_ranged_profiles — so the simulator fired ALL FOUR main weapons (plus Cognis stubber) every Shooting phase. Same multi-loadout inflation pattern as DRK-DIAG-5 (Raider/Ravager) and TYRANIDS-MULTI-LOADOUT (Hive Tyrant). Picked Neutron laser as the primary (most-played tournament loadout — anti-vehicle role); cleared secondary and extra_ranged_profiles (Cognis heavy stubber is a low-impact utility profile and is dropped here for the same reason DRK-DIAG-5 dropped it from Skorpius — too small to model alongside the kept primary). Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Onager-Dunecrawler ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz selectionEntry name=\"Onager Dunecrawler\" exclusive-replacement block."
+    },
+    "adeptus_mechanicus_skorpius_disintegrator": {
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "extra_ranged_profiles": [],
+      "notes": "ONAGER-MULTILOAD: Wahapedia Skorpius Disintegrator datasheet lists Belleros energy cannon OR Ferrumite cannon as EXCLUSIVE main-weapon choices ('this model is equipped with: ...' — one OR the other), plus a fixed Disruptor missile launcher and two Cognis heavy stubbers. BSData (Imperium - Adeptus Mechanicus.cat.gz selectionEntry 'Skorpius Disintegrator') confirms the exclusive replace pattern between the two main turret cannons. The mapper packed Ferrumite cannon into the primary slot (R=48 A=3 S=12 AP=-3 D=4.5) AND Disruptor missile launcher into the secondary slot (R=36 A=3 S=9 AP=-2 D=3.5), with Belleros energy cannon + a second Cognis heavy stubber profile in extra_ranged_profiles — three main-weapon profiles all firing simultaneously per Shooting phase. Same multi-loadout inflation pattern as Onager Dunecrawler above. Note: per the datasheet, Disruptor missile launcher IS a real fixed-mount weapon on the Skorpius (not exclusive with the cannons), but keeping it as a co-firing secondary would still leave both main cannons summing into damage output via the extra_ranged_profiles path. To follow the same clean-cut as DRK-DIAG-5 and TYRANIDS-MULTI-LOADOUT (clear secondary, keep primary), cleared secondary and extra_ranged_profiles; primary Ferrumite cannon stays (more common competitive build — anti-vehicle role). The dropped Disruptor missile launcher contribution is the trade-off for matching the DRK-DIAG-5 / TYRANIDS-MULTI-LOADOUT clean-cut convention; total post-fix damage output is closer to one real loadout's volume than the previous three-profile-stack. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Skorpius-Disintegrator ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz selectionEntry name=\"Skorpius Disintegrator\" exclusive-replacement block."
+    },
+    "adeptus_mechanicus_kataphron_destroyers": {
+      "notes": "ONAGER-MULTILOAD audit: Wahapedia Kataphron Destroyers datasheet lists ALL models equipped with the SAME main-weapon choice (Heavy grav-cannon OR Kataphron plasma culverin — exclusive), plus a fixed Phosphor blaster and a melee Close combat weapon. BSData (Imperium - Adeptus Mechanicus.cat.gz) confirms the exclusive pattern via two named model entries ('Kataphron Destroyer (Heavy grav-cannon & Cognis flamer)' vs the plasma culverin variant). Inspected parsed.json: primary = Heavy grav-cannon (R=30 A=3 S=6 AP=-1 D=1.25), secondary slot is empty (A=0 S=4 — clean), extra_ranged_profiles is empty. No multi-firing inflation in the parsed values — the squad runs the Heavy grav-cannon profile cleanly. Note left for future BSData mapper structural work: the loadout list ['Heavy grav-cannon x2','Cognis flamer x2','Close combat weapon x2','Phosphor blaster x2','➤ Kataphron plasma culverin - standard x2'] still mentions the plasma culverin in the loadout string, but the parsed stats only fire grav-cannon, so the simulator behaves correctly. No override applied — this entry exists only to document the audit result. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kataphron-Destroyers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
+    },
+    "adeptus_mechanicus_kataphron_breachers": {
+      "notes": "ONAGER-MULTILOAD audit: Wahapedia Kataphron Breachers datasheet lists ALL models equipped with the SAME main-weapon choice (Heavy arc rifle OR Torsion cannon — exclusive), plus a melee Hydraulic claw / Arc claw. BSData (Imperium - Adeptus Mechanicus.cat.gz) confirms the exclusive pattern via two named model entries ('Kataphron Breacher (Heavy arc rifle & arc claw)' vs the torsion variant). Inspected parsed.json: primary = Heavy arc rifle (R=30 A=2 S=7 AP=-2 D=2.33), secondary slot is empty (A=0 S=4 — clean), extra_ranged_profiles is empty. No multi-firing inflation in the parsed values — the squad runs the Heavy arc rifle profile cleanly. No override applied — this entry exists only to document the audit result. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kataphron-Breachers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
+    },
     "orks_stompa": {
       "attacks": 14,
       "secondary_attacks": 32,
