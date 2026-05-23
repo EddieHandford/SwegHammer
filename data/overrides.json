@@ -1038,7 +1038,15 @@
     },
     "aeldari_drukhari_raider": {
       "fnp": 7,
-      "notes": "SC5-8: Raider is a VEHICLE and cannot have Feel No Pain. BSData incorrectly attached a static Feel No Pain 5+ infoLink to every Drukhari unit (vehicles included) as a shorthand for Power from Pain. See aeldari_drukhari_wyches notes."
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "notes": "SC5-8: Raider is a VEHICLE and cannot have Feel No Pain. BSData incorrectly attached a static Feel No Pain 5+ infoLink to every Drukhari unit (vehicles included) as a shorthand for Power from Pain. See aeldari_drukhari_wyches notes. DRK-DIAG-5: Wahapedia Raider datasheet states 'This model is equipped with: dark lance' OR 'This model is equipped with: disintegrator cannon' — the two ranged weapons are EXCLUSIVE loadout choices, not both-at-once. The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing BOTH every Shooting phase — doubled ranged output across every Raider in every Skysplinter list. Cleared the secondary; primary Disintegrator Cannon stays (matches one valid datasheet loadout). Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Raider"
     },
     "aeldari_drukhari_venom": {
       "fnp": 7,
@@ -1046,11 +1054,27 @@
     },
     "aeldari_drukhari_ravager": {
       "fnp": 7,
-      "notes": "SC5-8: Ravager is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes."
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "notes": "SC5-8: Ravager is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes. DRK-DIAG-5: Wahapedia Ravager datasheet states 'This model is equipped with: 3 dark lances' OR 'This model is equipped with: 3 disintegrator cannons' — the two ranged weapon mounts are EXCLUSIVE loadout choices, not both-at-once. The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing both every Shooting phase. Cleared the secondary; primary Disintegrator Cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Ravager"
     },
     "aeldari_drukhari_razorwing_jetfighter": {
       "fnp": 7,
-      "notes": "SC5-8: Razorwing Jetfighter is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes."
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_hit_probability": 0,
+      "secondary_ap": 0,
+      "secondary_strength": 4,
+      "secondary_range_inches": 0,
+      "secondary_weapon": "",
+      "secondary_blast": false,
+      "notes": "SC5-8: Razorwing Jetfighter is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes. DRK-DIAG-5: Wahapedia Razorwing Jetfighter datasheet lists 'two dark lances' OR 'two disintegrator cannons' as the primary cannon-mount choice (plus Razorwing Missiles + Splinter Cannon + Bladed Wings, which are kept via extra_ranged_profiles). The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing both. Cleared the secondary; primary Disintegrator Cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Razorwing-Jetfighter"
     },
     "aeldari_drukhari_voidraven_bomber": {
       "fnp": 7,
