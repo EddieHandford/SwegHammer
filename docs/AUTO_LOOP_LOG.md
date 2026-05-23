@@ -78,9 +78,29 @@ Cumulative MAE gated 10.99 → 10.98 (-0.01pt). Inside band stayed at 3/22. Wave
 
 Cumulative MAE gated 10.98 → 10.93 (-0.05pt). Inside band 3/22 → **4/22** (Death Guard rejoins).
 
+### Wave 4 (2026-05-23) — structural mapper + Greater Daemon auras + Drukhari vehicles
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Drukhari | `b29a4c9` DRK-DIAG-5 | **-4.17** | Raider / Ravager / Razorwing exclusive-loadout dual-firing fixed (Disintegrator + Dark Lance both firing per shot, should be one-or-other). Same TYRANIDS-MULTI-LOADOUT pattern, bigger impact because Skysplinter Assault is vehicle-heavy |
+| Daemons | `f4c8109` DAEMONS-DIAG-3 | -0.12 | All 4 Greater Daemons + Skarbrand were missing from leader registry (silent zero-buff bug). Wired Bloodthirster + Skarbrand Khorne auras; LoC/GUO/KoS deferred because LeaderAbility schema lacks `plus_one_strength_ranged` / `plus_one_toughness` / `plus_one_ap_melee` fields (refused to fabricate per CLAUDE.md section 10). Limited impact because Daemonic Incursion is multi-god |
+| AdMech | `1927b99` MAPPER-CRUSADE-FILTER | **-2.50** | Structural mapper fix: `_is_crusade_only_entry` helper in `code/bsdata/mapper.py` excludes weapons with `Crusade Points`-only cost AND any entry inside a `"Crusade"` container. 20 AdMech units cleaned (multiple Tech-priest variants, Sicarian Ruststalkers, Sydonian Skatros). Defensive container-name gate confirmed no other factions affected |
+| Infra | `0769e81` STATCHECK-1 | — | Playwright scraper for Stat Check Tableau viz. Cannot run in agent harness (no pip access); user must `pip install playwright && playwright install chromium && python -m scripts.scrape_statcheck` locally to populate `data/statcheck_meta.json`. Stub written with expected JSON shape |
+
+Cumulative MAE gated 10.93 → **10.73** (-0.20pt). Inside band stayed at 4/22 (DG/WE/EC/GK).
+
 ### Iteration close summary (2026-05-23)
 
-3 waves of 3 parallel agents = 9 dispatches. 8 commits landed (one parked: AI-7 Necron Reanimation gate didn't ship due to per-unit eligibility infra gap). Cumulative MAE gated **11.35 → 10.93 (-0.42pt headline)**, 4/22 inside noise band, big wins on Daemons (-4.40) and Tyranids (-3.33).
+**4 waves of 3 parallel agents = 12 dispatches, 11 commits landed + 1 infra commit.** Cumulative MAE gated **11.35 → 10.73 (-0.62pt headline, -5.5% relative)**, 4/22 inside noise band.
+
+Biggest wins:
+- DAEMONS-DIAG-2 (-4.40, 46-unit Daemonic invuln restore)
+- DRK-DIAG-5 (-4.17, vehicle dual-firing fix)
+- TYRANIDS-MULTI-LOADOUT (-3.33, Hive Tyrant exclusive-alternative)
+- MAPPER-CRUSADE-FILTER (-2.50, structural Crusade filter on 20 AdMech units)
+- DRK-DIAG-2 (-1.91, phantom-ranged baskets on Lelith / Incubi / Succubus)
+
+Pattern: every meaningful headline movement came from data corrections (BSData omissions, basket-composition inflation, multi-loadout dual-firing), not from rule/AI tuning. Small per-unit fab drops in already-audited factions are clean correctness hygiene but MAE-neutral.
 
 Carry-forwards for the next iteration:
 1. **Mapper-structural Crusade-Points filter** in `code/bsdata/mapper.py` + parsed.json regen — sweep all factions, exclude Crusade-Points-only weapons from default loadouts (ADMECH-DIAG carry-forward).
