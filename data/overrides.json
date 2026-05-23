@@ -631,6 +631,190 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Shalaxi Helbane has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Shalaxi-Helbane"
     },
+    "chaos_daemons_library_bloodletters": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Bloodletters carry the Daemonic 5+ invulnerable save (army rule). BSData v10.6.0 Chaos Daemons Library omits every Invulnerable-Save infoLink (same omission pattern as SC5-2 chaos_knights / aeldari_wraithguard / necrons_doomsday_ark). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodletters"
+    },
+    "chaos_daemons_library_plaguebearers": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Plaguebearers carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plaguebearers"
+    },
+    "chaos_daemons_library_daemonettes": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Daemonettes carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonettes"
+    },
+    "chaos_daemons_library_pink_horrors": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Pink Horrors carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Pink-Horrors"
+    },
+    "chaos_daemons_library_blue_horrors": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Blue Horrors (Split! spawn from Pink Horrors) carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Pink-Horrors"
+    },
+    "chaos_daemons_library_nurglings": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Nurglings carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Nurglings"
+    },
+    "chaos_daemons_library_flesh_hounds": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Flesh Hounds carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Flesh-Hounds"
+    },
+    "chaos_daemons_library_seekers": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Seekers carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Seekers"
+    },
+    "chaos_daemons_library_flamers": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Flamers of Tzeentch carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Flamers"
+    },
+    "chaos_daemons_library_screamers": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Screamers of Tzeentch carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Screamers"
+    },
+    "chaos_daemons_library_fiends": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Fiends of Slaanesh carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Fiends"
+    },
+    "chaos_daemons_library_bloodcrushers": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Bloodcrushers carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodcrushers"
+    },
+    "chaos_daemons_library_plague_drones": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Plague Drones carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plague-Drones"
+    },
+    "chaos_daemons_library_beasts_of_nurgle": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Beasts of Nurgle carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Beasts-of-Nurgle"
+    },
+    "chaos_daemons_library_furies_legends": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Furies carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: Legends datasheet, 10e Daemonic army rule."
+    },
+    "chaos_daemons_library_hellflayers": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Hellflayer chariots carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Hellflayer"
+    },
+    "chaos_daemons_library_skull_cannon": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Skull Cannon carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skull-Cannon"
+    },
+    "chaos_daemons_library_burning_chariot": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Burning Chariot of Tzeentch carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Burning-Chariot"
+    },
+    "chaos_daemons_library_feculent_gnarlmaw": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Feculent Gnarlmaw (terrain monster) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Feculent-Gnarlmaw"
+    },
+    "chaos_daemons_library_skull_altar": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Skull Altar carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skull-Altar"
+    },
+    "chaos_daemons_library_exalted_flamer": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Exalted Flamer of Tzeentch carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Exalted-Flamer"
+    },
+    "chaos_daemons_library_karanak": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Karanak (named Flesh Hound CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Karanak"
+    },
+    "chaos_daemons_library_bloodmaster": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Bloodmaster (Khorne Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodmaster"
+    },
+    "chaos_daemons_library_skullmaster": {
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2: Skullmaster (Khorne Herald on Juggernaut, CHARACTER MOUNT) carries the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skullmaster"
+    },
+    "chaos_daemons_library_skulltaker": {
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2: Skulltaker (named Khorne CHARACTER) carries the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker"
+    },
+    "chaos_daemons_library_poxbringer": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Poxbringer (Nurgle Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Poxbringer"
+    },
+    "chaos_daemons_library_sloppity_bilepiper": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Sloppity Bilepiper carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Sloppity-Bilepiper"
+    },
+    "chaos_daemons_library_spoilpox_scrivener": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Spoilpox Scrivener carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Spoilpox-Scrivener"
+    },
+    "chaos_daemons_library_epidemius": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Epidemius (named Nurgle CHARACTER on palanquin) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Epidemius"
+    },
+    "chaos_daemons_library_horticulous_slimux": {
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2: Horticulous Slimux (named Nurgle CHARACTER MONSTER on mount) carries the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Horticulous-Slimux"
+    },
+    "chaos_daemons_library_changecaster": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Changecaster (Tzeentch Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Changecaster"
+    },
+    "chaos_daemons_library_fluxmaster": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Fluxmaster (Tzeentch Herald on disc) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Fluxmaster"
+    },
+    "chaos_daemons_library_fateskimmer": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Fateskimmer (Tzeentch Herald on Burning Chariot) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Fateskimmer"
+    },
+    "chaos_daemons_library_the_blue_scribes": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: The Blue Scribes (named Tzeentch CHARACTER) carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Blue-Scribes"
+    },
+    "chaos_daemons_library_the_changeling": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: The Changeling (named Tzeentch CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#The-Changeling"
+    },
+    "chaos_daemons_library_infernal_enrapturess": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Infernal Enrapturess (Slaanesh CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Infernal-Enrapturess"
+    },
+    "chaos_daemons_library_tormentbringer": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Tormentbringer (Slaanesh Herald on Hellflayer) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Tormentbringer"
+    },
+    "chaos_daemons_library_tranceweaver": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Tranceweaver (Slaanesh Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Tranceweaver"
+    },
+    "chaos_daemons_library_the_masque_of_slaanesh": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: The Masque of Slaanesh (named CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#The-Masque-of-Slaanesh"
+    },
+    "chaos_daemons_library_rendmaster_on_blood_throne": {
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2: Rendmaster on Blood Throne (Khorne CHARACTER MOUNT) carries the Daemonic 4+ invulnerable save (CHARACTER+MOUNT tier). BSData omits the Invulnerable-Save infoLink. Source: 10e Chaos Daemons codex datasheet."
+    },
+    "chaos_daemons_library_syll_esske": {
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2: Syll'Esske, the Vengeful Allegiance (named Slaanesh CHARACTER MONSTER pair) carry the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Syll-Esske"
+    },
+    "chaos_daemons_library_khorne_soul_grinder": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Khorne Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save (Soul Grinder datasheet specifies 5+ not 4+). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+    },
+    "chaos_daemons_library_nurgle_soul_grinder": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Nurgle Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+    },
+    "chaos_daemons_library_tzeentch_soul_grinder": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Tzeentch Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+    },
+    "chaos_daemons_library_slaanesh_soul_grinder": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: Slaanesh Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+    },
+    "chaos_daemons_library_contorted_epitome": {
+      "invuln_save": 5,
+      "notes": "DAEMONS-DIAG-2: The Contorted Epitome (named Slaanesh CHARACTER on chariot) carries the Daemonic 5+ invulnerable save (matches BSData base value 5 — written explicitly so the audit trail records the Daemonic source). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Contorted-Epitome"
+    },
     "emperor_s_children_shalaxi_helbane": {
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Emperor's Children Shalaxi Helbane cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Shalaxi-Helbane"
