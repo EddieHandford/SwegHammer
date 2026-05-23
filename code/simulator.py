@@ -3677,49 +3677,60 @@ class Battle:
     # in a profile name simply means the unit doesn't get the buff, which
     # is the same as a true non-WYCH-CULT result. Cited as
     # `simulator.combat_drugs`.
-    _WYCH_CULT_DRUG_ASSIGNMENT = {
-        # name -> (extra_melee_attacks, melee_strength_bonus,
-        #          toughness_bonus, move_bonus_inches, label)
-        "Wyches":               (1, 0, 0, 0.0, "Adrenalight"),
-        "Hellions":             (0, 0, 0, 2.0, "Hypex"),
-        "Reavers":              (0, 1, 0, 0.0, "Grave Lotus"),
-        "Beastmaster [Legends]": (0, 0, 1, 0.0, "Painbringer"),
-    }
+    _WYCH_CULT_UNITS = (
+        "Wyches",
+        "Hellions",
+        "Reavers",
+        "Beastmaster [Legends]",
+    )
 
     def _apply_combat_drugs(self) -> None:
         """Drukhari Combat Drugs army rule (10e).
 
         Verbatim Wahapedia
-        (https://wahapedia.ru/wh40k10ed/factions/drukhari/): "WYCH CULT
-        models from your army are administered combat drugs that grant the
-        following abilities (you can select a different drug for each WYCH
-        CULT unit but each must select a drug)." The six drugs:
-          Adrenalight: "Add 1 to the Attacks characteristic of melee
-            weapons equipped by WYCH CULT models from your army."
-          Hypex: "Add 2\" to the Move characteristic of WYCH CULT models
-            from your army."
-          Serpentin: "Improve the Weapon Skill characteristic of melee
-            weapons equipped by WYCH CULT models from your army by 1."
-          Painbringer: "Add 1 to the Toughness characteristic of WYCH CULT
-            models from your army."
-          Grave Lotus: "Add 1 to the Strength characteristic of melee
-            weapons equipped by WYCH CULT models from your army."
-          Splintermind: "Improve the Leadership characteristic of WYCH
-            CULT models from your army by 1, and improve the Ballistic
-            Skill characteristic of ranged weapons equipped by WYCH CULT
-            models from your army by 1."
+        (https://wahapedia.ru/wh40k10ed/factions/drukhari/#Combat-Drugs):
+        "At the start of your Command phase, select which Combat Drugs
+        will be active for your army until the start of your next Command
+        phase. To do so, either select one from the list below (you
+        cannot select the same Combat Drug more than once per battle), or
+        randomly select two by rolling two D6."
 
-        SwegHammer models four of the six drugs (Adrenalight, Hypex,
-        Grave Lotus, Painbringer) — Serpentin and Splintermind are
-        APPROXIMATION: the simulator's per-unit Hit profile already
-        encodes the post-modifier hit chance for stock Drukhari loadouts
-        and there is no Leadership gate the four WYCH CULT datasheets
-        currently fail. The assignment heuristic picks the strongest
-        realistic uplift per unit role rather than rolling — at battle
-        start the Drukhari player picks each unit's drug, so a fixed
-        sensible pick is closer to real-table behaviour than randomising.
-        WYCH CULT unit allowlist hard-coded in
-        `_WYCH_CULT_DRUG_ASSIGNMENT`. Cited as `simulator.combat_drugs`.
+        The six drugs:
+          Adrenalight: "Add 1 to the Attacks characteristic of melee
+            weapons equipped by WYCH CULT models."
+          Hypex: "Add 2\" to the Move characteristic of WYCH CULT
+            models."
+          Serpentin: "Improve the Weapon Skill characteristic of melee
+            weapons equipped by WYCH CULT models by 1."
+          Painbringer: "Add 1 to the Toughness characteristic of WYCH
+            CULT models."
+          Grave Lotus: "Add 1 to the Strength characteristic of melee
+            weapons equipped by WYCH CULT models."
+          Splintermind: "Improve the Leadership characteristic of WYCH
+            CULT models by 1, and improve the Ballistic Skill
+            characteristic of ranged weapons equipped by WYCH CULT
+            models by 1."
+
+        The rule selects ONE Combat Drug at a time army-wide that applies
+        to every WYCH CULT unit until the next Command phase, and the
+        drugs are mutually exclusive (the same drug cannot be reselected
+        in the same battle if picked manually). The prior implementation
+        stacked four drugs (Adrenalight + Hypex + Grave Lotus +
+        Painbringer) simultaneously across four different WYCH CULT
+        datasheets, which is rules-illegal and produced an excess melee
+        uplift across the Wych Cult roster.
+
+        DRK-DIAG-4 collapses the stack to a single drug picked
+        army-wide. Adrenalight (+1 melee Attacks for every WYCH CULT
+        model) is the canonical tournament default — the unit roster
+        skews melee, and Adrenalight has the largest expected damage
+        uplift across the Wych Cult units modelled here. Hypex, Grave
+        Lotus, and Painbringer are intentionally NOT applied; modelling
+        the per-round re-selection over the six drugs is left to a
+        future Stage 1 iteration if tournament data calls for it.
+
+        WYCH CULT unit allowlist hard-coded in `_WYCH_CULT_UNITS`.
+        Cited as `simulator.combat_drugs`.
         """
         for army in (self.a, self.b):
             if not any(u.profile.faction == "Drukhari" for u in army.units):
@@ -3727,16 +3738,15 @@ class Battle:
             for u in army.units:
                 if u.profile.faction != "Drukhari":
                     continue
-                key = self._WYCH_CULT_DRUG_ASSIGNMENT.get(u.profile.name)
-                if key is None:
+                if u.profile.name not in self._WYCH_CULT_UNITS:
                     continue
-                xa, xs, xt, xm, label = key
-                u.combat_drug_extra_melee_attacks = xa
-                u.combat_drug_melee_strength_bonus = xs
-                u.combat_drug_toughness_bonus = xt
-                u.combat_drug_move_bonus = xm
+                # Single army-wide drug pick: Adrenalight (+1 melee A).
+                u.combat_drug_extra_melee_attacks = 1
+                u.combat_drug_melee_strength_bonus = 0
+                u.combat_drug_toughness_bonus = 0
+                u.combat_drug_move_bonus = 0.0
                 if self.verbose:
-                    print(f"  COMBAT DRUGS: {u.profile.name} -> {label}")
+                    print(f"  COMBAT DRUGS: {u.profile.name} -> Adrenalight")
 
     def _apply_blessings_of_khorne(self, round_num: int) -> None:
         """World Eaters Blessings of Khorne army rule (10e).
