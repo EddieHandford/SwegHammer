@@ -3553,7 +3553,12 @@ class Battle:
             if target is None:
                 return
             damage = 5 if test_total >= 11 else 2
-            target.receive_damage(float(damage), bonus_fnp=target.profile.fnp)
+            # Doombolt is a Cabal of Sorcerers Ritual — a 10e [PSYCHIC]
+            # Attack. Magnus's Impossible Form excludes Psychic Attacks
+            # from its -1-damage reduction, so flag this as psychic so the
+            # `receive_damage` path skips the `transient_minus_one_damage_taken`
+            # clamp for Magnus (and any future Impossible-Form-like target).
+            target.receive_damage(float(damage), bonus_fnp=target.profile.fnp, psychic=True)
             # Death detection: if the Doombolt kills the target, fan out
             # through the same death-handling code paths as a normal kill.
             if not target.is_alive:
@@ -3897,7 +3902,13 @@ class Battle:
                 role = classify(u.profile)
                 return ROLE_THREAT.get(role, 1.0) * u.current_health
             victim = max(targets, key=_score)
-            victim.receive_damage(damage, bonus_fnp=victim.profile.fnp)
+            # `psychic_mortal_wounds_per_round` represents end-of-round
+            # mortal-wound output from psychic detachments (currently TSON
+            # Cabal proxy / GRAND_COVEN flow). These are 10e [PSYCHIC]
+            # Attacks, so flag `psychic=True` to bypass Magnus's Impossible
+            # Form -1-damage clamp (Wahapedia, Magnus the Red datasheet:
+            # "Psychic Attacks are not affected by this ability").
+            victim.receive_damage(damage, bonus_fnp=victim.profile.fnp, psychic=True)
 
     def _apply_cult_ambush_resurgence(self, army, round_num: int) -> None:
         """End-of-round Cult Ambush revival hook (Genestealer Cults army rule).

@@ -755,7 +755,7 @@ class Unit:
         """
         return self.battleshocked_until_round == round_num
 
-    def receive_damage(self, amount: float, bonus_fnp: int = 7) -> None:
+    def receive_damage(self, amount: float, bonus_fnp: int = 7, psychic: bool = False) -> None:
         """
         Apply damage. If this unit has Feel No Pain X+, each point of damage
         gets a d6 roll; on X+, it's ignored. Mortal wounds applied via this
@@ -764,13 +764,26 @@ class Unit:
         `bonus_fnp` lets the caller pass in a transient FNP value from a
         leader aura (lower of profile.fnp and bonus_fnp wins). 7 = no aura.
 
+        `psychic` lets the caller flag the incoming attack as a 10e
+        [PSYCHIC] Attack. Magnus the Red's Impossible Form ("Each time an
+        attack is allocated to this model, subtract 1 from the Damage
+        characteristic of that attack — Psychic Attacks are not affected by
+        this ability") excludes Psychic Attacks from the -1 damage
+        reduction, so when `psychic=True` the `transient_minus_one_damage_taken`
+        clamp is skipped for ALL units carrying the flag. We pass it
+        per-call from psychic-source sites: Cabal of Sorcerers Doombolt
+        (`_dispatch_ritual`) and the end-of-round psychic-detachment mortal
+        wound payload (`_apply_psychic_phase`). Cited as
+        `simulator.magnus_unearthly_power_impossible_form` in
+        data/rule_citations.d/thousand_sons.json.
+
         Disgustingly Resilient (Plague Company stratagem): if the target
         has `transient_minus_one_damage_taken` set for the round, subtract
         1 from the per-call damage characteristic (to a minimum of 1). The
         rule fires per-attack in the codex; receive_damage is called per
         per-shot in Unit.attack, so the floor lives here.
         """
-        if self.transient_minus_one_damage_taken and amount > 0:
+        if self.transient_minus_one_damage_taken and amount > 0 and not psychic:
             amount = max(1.0, amount - 1.0)
         # Saim-Hann Spirit Stones (Aeldari stratagem, 1 CP): halve incoming
         # damage (rounded up) for the round. Applied per receive_damage call —
