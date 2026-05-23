@@ -253,6 +253,14 @@ class Battle:
         # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
         # Reset each round.
         self._did_move_this_round: set = set()
+        # UIDs of units that disembarked from a TRANSPORT this round (10e
+        # core: "If a unit disembarks from a Transport in your Movement
+        # phase, it cannot make a Normal, Advance or Fall Back move that
+        # turn. The unit is then treated as having moved a distance equal
+        # to its Move characteristic this turn."). The unit may still
+        # Shoot and Charge normally. Reset each round. Cited as
+        # `simulator.disembark`.
+        self._disembarked_this_round: set = set()
         # UIDs of units that have already fired their One Shot weapon this
         # battle. Once a uid is here, the unit may not shoot again.
         # Persists for the whole battle (NOT reset per round).
@@ -4733,6 +4741,8 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+        # Reset disembark tracking: nothing has disembarked yet this round.
+        self._disembarked_this_round = set()
 
         # SC4-A — snapshot each army's alive units at round start for the
         # 10e Pariah Nexus secondary scoring (Bring it Down + No Prisoners).
@@ -5303,6 +5313,18 @@ class Battle:
         # is satisfied. Cited as `simulator.disembark`.
         if self._is_transport(attacker) and attacker.passengers:
             self._maybe_disembark_before_move(attacker, attacker_army, defender_army)
+
+        # Disembark lockout (10e core): "If a unit disembarks from a
+        # Transport in your Movement phase, it cannot make a Normal,
+        # Advance or Fall Back move that turn." Shoot and Charge are NOT
+        # blocked (handled separately via _do_shoot / _do_charge). Cited
+        # as `simulator.disembark`. The passenger was already placed
+        # within 3" of the transport and is treated as having moved its
+        # Move characteristic — `_did_move_this_round` / `moved_this_round`
+        # are set in `_disembark`, surfacing the move to the Heavy
+        # keyword check.
+        if attacker.uid in self._disembarked_this_round:
+            return
 
         # Strategy layer (code/strategy.py): role + objective-aware pick of
         # where this unit wants to go. The simulator USED to always march at
@@ -6522,6 +6544,19 @@ class Battle:
         passenger.embarked_in = None
         if passenger in transport.passengers:
             transport.passengers.remove(passenger)
+        # 10e core Disembark: "The unit is then treated as having moved a
+        # distance equal to its Move characteristic this turn" — surface
+        # to the Heavy keyword check. The unit cannot make a Normal,
+        # Advance or Fall Back move when its own activation arrives —
+        # tracked in `_disembarked_this_round` and enforced in `_do_move`.
+        # Voluntary disembark (forced=False) fires from the transport's
+        # own Movement sub-phase, so the lockout applies for the rest of
+        # this round. Forced disembark (transport destroyed) is also a
+        # disembark for rule purposes and the same lockout applies.
+        # Wahapedia core rules: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS
+        self._did_move_this_round.add(passenger.uid)
+        passenger.moved_this_round = True
+        self._disembarked_this_round.add(passenger.uid)
         self._emit(TransportDisembarked(
             transport_uid=transport.uid,
             passenger_uid=passenger.uid,

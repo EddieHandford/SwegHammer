@@ -88,6 +88,14 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
     "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
   },
+  "simulator.disembark": {
+    "effect": "When a unit disembarks from a TRANSPORT via the voluntary `_maybe_disembark_before_move` hook or the forced `_destroyed_transport_disembark` path, the passenger is placed within 3\" of the transport, its uid is added to `_did_move_this_round` (surfacing the move to the Heavy keyword check), and its uid is added to `_disembarked_this_round`. When that passenger's own activation arrives, `_do_move` returns early after the disembark hook so it cannot make a Normal, Advance or Fall Back move that turn. The passenger can still Shoot and Charge — those are dispatched separately via `_do_shoot` / `_do_charge` and are NOT blocked by the disembark lockout. DRK-DISEMBARK (2026-05-23) added the lockout; prior code let the disembarked unit Move/Advance again on its own activation, granting an extra phase of action per disembark.",
+    "quoted_text": "If a unit disembarks from a Transport in your Movement phase, it cannot make a Normal, Advance or Fall Back move that turn. The unit is then treated as having moved a distance equal to its Move characteristic this turn.",
+    "rule_name": "Transports — Disembark",
+    "scope": "phase-gated",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
+    "trigger": "a unit disembarks from a TRANSPORT in the Movement phase (voluntary hook or destroyed-transport forced disembark)"
+  },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
     "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight. Each time you select an eligible unit from your army to fight with that made a Charge move this turn, that unit fights first.",
