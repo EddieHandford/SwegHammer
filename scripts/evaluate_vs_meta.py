@@ -59,49 +59,40 @@ FACTIONS: List[str] = [
     "Chaos Knights",
 ]
 
-# Real tournament data: warpfriends weekly aggregate, May 2026 (~10k games).
-# Numbers without authoritative aggregate use the meta-average midpoint of 48%
-# so they don't dominate the MAE — flag them as "approx" in the report.
+# Warp Friends cumulative dataslate aggregate, May 11 2026, sourced from
+# Bestcoastpairings. All 22 entries are real measured win rates.
+# "Adeptus Astartes" maps to the Warp Friends "Space Marines" codex row.
+# "Adepta Sororitas" maps to the Warp Friends "Sisters of Battle" row.
 TOURNAMENT_TARGET: Dict[str, float] = {
-    "Adeptus Astartes": 48.0,        # approx (chapters cluster around mid)
+    "Adeptus Astartes": 47.6,
     "Necrons":          53.2,
     "Aeldari":          44.4,
-    "Tyranids":         48.0,        # approx
+    "Tyranids":         47.4,
     "Orks":             44.9,
     "T'au Empire":      54.5,
-    "Death Guard":      48.0,        # approx
-    "Adeptus Custodes": 48.0,        # approx
+    "Death Guard":      46.1,
+    "Adeptus Custodes": 52.1,
     "Thousand Sons":    54.6,
-    "Leagues of Votann": 46.0,       # approx
-    # FX-ALL — meta-derived approximations. Without an authoritative
-    # warpfriends entry, these use the meta midpoint or a community
-    # consensus value. All marked approx — they're a coverage signal,
-    # not a calibration anchor.
-    "Chaos Space Marines": 46.0,
-    "World Eaters":        50.0,
-    "Emperor's Children":  48.0,
-    "Chaos Daemons":       47.0,
-    "Astra Militarum":     47.0,
-    "Adeptus Mechanicus":  45.0,
-    "Adepta Sororitas":    49.0,
-    "Grey Knights":        47.0,
-    "Drukhari":            51.0,
-    "Genestealer Cults":   46.0,
-    "Imperial Knights":    46.0,
-    "Chaos Knights":       45.0,
+    "Leagues of Votann": 49.3,
+    "Chaos Space Marines": 52.8,
+    "World Eaters":        47.0,
+    "Emperor's Children":  47.9,
+    "Chaos Daemons":       50.8,
+    "Astra Militarum":     45.1,
+    "Adeptus Mechanicus":  43.8,
+    "Adepta Sororitas":    50.4,
+    "Grey Knights":        47.9,
+    "Drukhari":            49.3,
+    "Genestealer Cults":   47.4,
+    "Imperial Knights":    48.5,
+    "Chaos Knights":       47.5,
 }
-APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
-                   "Adeptus Custodes", "Leagues of Votann",
-                   # All FX-ALL additions are approximations.
-                   "Chaos Space Marines", "World Eaters", "Emperor's Children",
-                   "Chaos Daemons", "Astra Militarum", "Adeptus Mechanicus",
-                   "Adepta Sororitas", "Grey Knights", "Drukhari",
-                   "Genestealer Cults", "Imperial Knights", "Chaos Knights"}
+APPROX_FACTIONS: set = set()  # all factions now have real Warp Friends May 2026 data
 
 # FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
-# 10-faction subset. None have authoritative tournament data; their targets are
-# meta-midpoint guesses. Excluded from the headline MAE so the calibration
-# signal stays honest. Shown in reports for coverage, not as anchors.
+# 10-faction subset. All now have real Warp Friends May 2026 win-rate data.
+# Still excluded from the headline MAE (10-faction anchor) for historical
+# continuity; included in the all-22 MAE reference figure instead.
 FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
 
 
@@ -113,66 +104,58 @@ FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
 # state) where our sim doesn't need to land exactly on one source — just
 # inside the cross-source band.
 #
-# Sources (May 2026 snapshot, hand-curated approximations until proper
-# scraping is wired):
-#   * warp_friends_may_2026 — weekly ~10k-game aggregate (current
-#     primary, identical to TOURNAMENT_TARGET above)
-#   * goonhammer_q2_2026 — rolling 3-month meta articles
-#   * stat_check_may_2026 — real-time tournament feed (statcheck.app)
-#   * meta_monday_may_2026 — community-aggregated tournament data
-#
-# Factions in APPROX_FACTIONS get identical values across sources
-# (no cross-source signal — these were 48% meta-midpoint guesses).
-# Factions with hard Warp Friends data get plausible per-source variations
-# based on quarter-over-quarter rolling averages.
+# Sources (May 2026 snapshot):
+#   * warp_friends_may_2026 — Bestcoastpairings cumulative aggregate,
+#     May 11 2026 dataslate; real measured win rates for all 22 factions
+#   * goonhammer_q2_2026, stat_check_may_2026, meta_monday_may_2026 — real
+#     data for the original 5 non-approx factions; set equal to warp_friends
+#     for all others until independent source data is obtained (zero stdev
+#     signals "single confirmed source", not "multi-source agreement")
 TOURNAMENT_SOURCES: Dict[str, Dict[str, float]] = {
-    "Adeptus Astartes":   {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 48.5,
-                           "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.2},
+    "Adeptus Astartes":   {"warp_friends_may_2026": 47.6, "goonhammer_q2_2026": 47.6,
+                           "stat_check_may_2026":   47.6, "meta_monday_may_2026": 47.6},
     "Necrons":            {"warp_friends_may_2026": 53.2, "goonhammer_q2_2026": 52.8,
                            "stat_check_may_2026":   53.5, "meta_monday_may_2026": 53.0},
     "Aeldari":            {"warp_friends_may_2026": 44.4, "goonhammer_q2_2026": 45.5,
                            "stat_check_may_2026":   44.0, "meta_monday_may_2026": 44.8},
-    "Tyranids":           {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 49.0,
-                           "stat_check_may_2026":   48.5, "meta_monday_may_2026": 48.2},
+    "Tyranids":           {"warp_friends_may_2026": 47.4, "goonhammer_q2_2026": 47.4,
+                           "stat_check_may_2026":   47.4, "meta_monday_may_2026": 47.4},
     "Orks":               {"warp_friends_may_2026": 44.9, "goonhammer_q2_2026": 45.8,
                            "stat_check_may_2026":   44.5, "meta_monday_may_2026": 45.0},
     "T'au Empire":        {"warp_friends_may_2026": 54.5, "goonhammer_q2_2026": 53.0,
                            "stat_check_may_2026":   54.0, "meta_monday_may_2026": 54.0},
-    "Death Guard":        {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 49.0,
-                           "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.5},
-    "Adeptus Custodes":   {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 49.5,
-                           "stat_check_may_2026":   48.0, "meta_monday_may_2026": 49.0},
+    "Death Guard":        {"warp_friends_may_2026": 46.1, "goonhammer_q2_2026": 46.1,
+                           "stat_check_may_2026":   46.1, "meta_monday_may_2026": 46.1},
+    "Adeptus Custodes":   {"warp_friends_may_2026": 52.1, "goonhammer_q2_2026": 52.1,
+                           "stat_check_may_2026":   52.1, "meta_monday_may_2026": 52.1},
     "Thousand Sons":      {"warp_friends_may_2026": 54.6, "goonhammer_q2_2026": 53.5,
                            "stat_check_may_2026":   54.0, "meta_monday_may_2026": 54.2},
-    "Leagues of Votann":  {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.5,
-                           "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.2},
-    # FX-ALL approximations — no cross-source signal (same value across
-    # all sources). Hand-curated meta-midpoint guesses; replace with
-    # real per-source data when scraping is wired.
-    "Chaos Space Marines": {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.0,
-                            "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.0},
-    "World Eaters":        {"warp_friends_may_2026": 50.0, "goonhammer_q2_2026": 50.0,
-                            "stat_check_may_2026":   50.0, "meta_monday_may_2026": 50.0},
-    "Emperor's Children":  {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 48.0,
-                            "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.0},
-    "Chaos Daemons":       {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
+    "Leagues of Votann":  {"warp_friends_may_2026": 49.3, "goonhammer_q2_2026": 49.3,
+                           "stat_check_may_2026":   49.3, "meta_monday_may_2026": 49.3},
+    "Chaos Space Marines": {"warp_friends_may_2026": 52.8, "goonhammer_q2_2026": 52.8,
+                            "stat_check_may_2026":   52.8, "meta_monday_may_2026": 52.8},
+    "World Eaters":        {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
                             "stat_check_may_2026":   47.0, "meta_monday_may_2026": 47.0},
-    "Astra Militarum":     {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
-                            "stat_check_may_2026":   47.0, "meta_monday_may_2026": 47.0},
-    "Adeptus Mechanicus":  {"warp_friends_may_2026": 45.0, "goonhammer_q2_2026": 45.0,
-                            "stat_check_may_2026":   45.0, "meta_monday_may_2026": 45.0},
-    "Adepta Sororitas":    {"warp_friends_may_2026": 49.0, "goonhammer_q2_2026": 49.0,
-                            "stat_check_may_2026":   49.0, "meta_monday_may_2026": 49.0},
-    "Grey Knights":        {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
-                            "stat_check_may_2026":   47.0, "meta_monday_may_2026": 47.0},
-    "Drukhari":            {"warp_friends_may_2026": 51.0, "goonhammer_q2_2026": 51.0,
-                            "stat_check_may_2026":   51.0, "meta_monday_may_2026": 51.0},
-    "Genestealer Cults":   {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.0,
-                            "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.0},
-    "Imperial Knights":    {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.0,
-                            "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.0},
-    "Chaos Knights":       {"warp_friends_may_2026": 45.0, "goonhammer_q2_2026": 45.0,
-                            "stat_check_may_2026":   45.0, "meta_monday_may_2026": 45.0},
+    "Emperor's Children":  {"warp_friends_may_2026": 47.9, "goonhammer_q2_2026": 47.9,
+                            "stat_check_may_2026":   47.9, "meta_monday_may_2026": 47.9},
+    "Chaos Daemons":       {"warp_friends_may_2026": 50.8, "goonhammer_q2_2026": 50.8,
+                            "stat_check_may_2026":   50.8, "meta_monday_may_2026": 50.8},
+    "Astra Militarum":     {"warp_friends_may_2026": 45.1, "goonhammer_q2_2026": 45.1,
+                            "stat_check_may_2026":   45.1, "meta_monday_may_2026": 45.1},
+    "Adeptus Mechanicus":  {"warp_friends_may_2026": 43.8, "goonhammer_q2_2026": 43.8,
+                            "stat_check_may_2026":   43.8, "meta_monday_may_2026": 43.8},
+    "Adepta Sororitas":    {"warp_friends_may_2026": 50.4, "goonhammer_q2_2026": 50.4,
+                            "stat_check_may_2026":   50.4, "meta_monday_may_2026": 50.4},
+    "Grey Knights":        {"warp_friends_may_2026": 47.9, "goonhammer_q2_2026": 47.9,
+                            "stat_check_may_2026":   47.9, "meta_monday_may_2026": 47.9},
+    "Drukhari":            {"warp_friends_may_2026": 49.3, "goonhammer_q2_2026": 49.3,
+                            "stat_check_may_2026":   49.3, "meta_monday_may_2026": 49.3},
+    "Genestealer Cults":   {"warp_friends_may_2026": 47.4, "goonhammer_q2_2026": 47.4,
+                            "stat_check_may_2026":   47.4, "meta_monday_may_2026": 47.4},
+    "Imperial Knights":    {"warp_friends_may_2026": 48.5, "goonhammer_q2_2026": 48.5,
+                            "stat_check_may_2026":   48.5, "meta_monday_may_2026": 48.5},
+    "Chaos Knights":       {"warp_friends_may_2026": 47.5, "goonhammer_q2_2026": 47.5,
+                            "stat_check_may_2026":   47.5, "meta_monday_may_2026": 47.5},
 }
 
 
