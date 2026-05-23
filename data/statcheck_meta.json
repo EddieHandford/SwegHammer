@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "scraped_at": null,
+    "source": "stat-check.com via public.tableau.com",
+    "primary_upstream": "Best Coast Pairings + TourneyKeeper + Mini Headquarters",
+    "tableau_workbook": "StatCheckThe40kMetaDataDashboard-10thEdition",
+    "tableau_view": "StateoftheGame",
+    "filter_applied": null,
+    "minimum_event_size": "25 players, 5 rounds",
+    "unmapped_strings_surfaced": {},
+    "dropped_strings": [
+      "Imperial Agents"
+    ],
+    "capture_method": "playwright network-response interception",
+    "captured_response_count": 0,
+    "status": "stub - not yet populated",
+    "instructions": "Run `pip install playwright && playwright install chromium && python -m scripts.scrape_statcheck` locally to populate this file. The agent worktree that authored scripts/scrape_statcheck.py could not install Playwright. See docs/statcheck_access_report.md for the access investigation that motivated the Playwright fallback."
+  },
+  "factions": {}
+}
