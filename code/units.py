@@ -585,6 +585,16 @@ class Unit:
         # Round 2). Cleared once the unit lands. Cited as
         # `simulator.cult_ambush`.
         "cult_ambush_pending",
+        # GSC-DIAG: True once this unit has been revived via Cult Ambush
+        # Resurgence (the per-destruction revival half of the army rule).
+        # Prevents the proxy from ping-ponging a single unit through
+        # multiple revivals when one unit dies, revives, and dies again
+        # in the same battle. The codex "Add a new unit identical to
+        # your destroyed unit" phrasing implies the revived unit is a
+        # fresh entity, but at the proxy level we collapse this to
+        # one-revival-per-original-unit so the same slot doesn't churn
+        # the entire Resurgence pool by itself.
+        "cult_ambush_revived",
         # 10e Enhancement (Warlord upgrade). Assigned to a single CHARACTER
         # per army by the army builder; None on every other unit. Read by
         # `leaders.effective_buffs` when this unit is an in-range friendly
@@ -693,6 +703,8 @@ class Unit:
         # path; cleared the moment it arrives on the battlefield. See
         # `simulator.cult_ambush` citation for the verbatim Wahapedia quote.
         self.cult_ambush_pending: bool = False
+        # GSC-DIAG: Cult Ambush Resurgence one-shot guard. See __slots__ comment.
+        self.cult_ambush_revived: bool = False
         # Fall Back (10e core). Set True by Battle._do_move when the unit
         # elects the FALL_BACK intent; gates _do_shoot / _do_charge unless
         # the profile has FLY. Reset at the top of each round.

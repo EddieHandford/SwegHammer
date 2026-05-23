@@ -438,8 +438,18 @@ class Battle:
         # destroyed CULT INFANTRY units (APPROXIMATION proxy for the
         # Resurgence/Cult Ambush marker resurrection mechanic). Cited as
         # `simulator.cult_ambush_resurgence`.
+        #
+        # GSC-DIAG bugfix: because Cult Ambush routes the ENTIRE GSC army
+        # into reserves at deployment, `army.units` is empty for the GSC
+        # side at this point. The previous gate `army.units[0].profile.
+        # faction == "Genestealer Cults"` therefore never matched, and
+        # GSC armies started every battle with 0 Resurgence — silently
+        # disabling the revival half of Cult Ambush. We now inspect
+        # reserves too, so the pool is correctly seeded for the GSC army
+        # before Round 1 begins.
         for army in (self.a, self.b):
-            if army.units and army.units[0].profile.faction == "Genestealer Cults":
+            roster = list(army.units) + list(self._reserves.get(army.name, []))
+            if roster and roster[0].profile.faction == "Genestealer Cults":
                 army.cult_ambush_resurgence_points = 10
         # Reanimation Protocols (#75): snapshot starting model counts per
         # profile per army, including reserves. End-of-round revival reads
@@ -3975,17 +3985,33 @@ class Battle:
         """
         if army.cult_ambush_resurgence_points < 3:
             return
-        # Only fire for GSC armies (gate on starting Resurgence > 0 +
-        # faction tag on the first unit).
-        if not army.units or army.units[0].profile.faction != "Genestealer Cults":
+        # Only fire for GSC armies. Inspect on-board units AND reserves
+        # because the GSC roster starts the battle entirely in reserves
+        # (Cult Ambush). Checking only `army.units[0]` falsely rejects
+        # the GSC side during Round 1 before any ambush arrivals.
+        roster = list(army.units) + list(self._reserves.get(army.name, []))
+        if not roster or roster[0].profile.faction != "Genestealer Cults":
             return
 
         # Candidate pool: dead units carrying the INFANTRY keyword,
         # excluding CHARACTERs (the codex Resurgence table only lists
-        # multi-model troop blocks — no CHARACTER pricings).
+        # multi-model troop blocks — no CHARACTER pricings) and
+        # excluding units already revived this battle so the proxy
+        # doesn't ping-pong the same unit (the codex "Add a new unit"
+        # phrasing implies a per-destruction one-shot, but tracking
+        # one-revival-per-original-unit at the proxy level is enough).
+        opponent = self.b if army is self.a else self.a
+
+        # Single revival per round, as the original proxy intended.
+        # GSC-DIAG kept the loop scaffold (and the cult_ambush_revived
+        # one-shot guard) so a future calibration step can lift the
+        # cap to N>1 if needed; the once-per-round throttle is
+        # APPROXIMATION because the real rule fires per-destruction.
         candidates = []
         for u in army.units:
             if u.is_alive:
+                continue
+            if getattr(u, "cult_ambush_revived", False):
                 continue
             kw = set(u.profile.unit_keywords or ())
             if "INFANTRY" not in kw or "CHARACTER" in kw:
@@ -3998,36 +4024,24 @@ class Battle:
         candidates.sort(key=lambda u: -u.profile.points_cost)
         revived = candidates[0]
 
-        # Find a safe Deep Strike landing position > 9" from every alive
-        # enemy. Reuse the existing helper if available; otherwise fall
-        # back to the army's starting deployment edge.
-        opponent = self.b if army is self.a else self.a
-        landing_pos = None
-        if hasattr(self, "_safe_deepstrike_pos"):
-            try:
-                landing_pos = self._safe_deepstrike_pos(army, opponent)
-            except Exception:
-                landing_pos = None
+        landing_pos = self._pick_arrival_point(
+            opponent, arriving_unit=revived, round_num=round_num,
+        )
         if landing_pos is None:
-            # Fallback: place at the army's deployment-edge midline. Far
-            # from optimal but guarantees the proxy fires rather than
-            # silently dropping the revival.
-            a_y = self.map.deployment_width / 2.0
-            sign = 1.0 if army is self.a else -1.0
-            landing_pos = (self.map.length / 2.0, a_y * sign)
+            return
 
         # Spend Resurgence + restore state. The flat 3-point spend is the
-        # median across the per-unit codex table.
+        # median across the per-unit codex table (2-8 per Starting Strength).
         army.cult_ambush_resurgence_points -= 3
         revived.current_health = revived.profile.health
         revived.position = landing_pos
+        revived.cult_ambush_revived = True
         # Reset transient combat flags that may have stuck on death.
-        revived.moved_this_round = True   # skips movement sub-phase next round
+        revived.moved_this_round = True   # skips movement sub-phase
         revived.fell_back_this_round = False
-        # Re-attach via the live-unit cache invalidation path.
         army._invalidate_alive_cache()
-        # Flag as a fresh arrival so the AI scheduler treats it like a
-        # turn-1 ambush drop (no movement, can shoot/charge per Deep Strike).
+        # Flag as a fresh arrival so the AI scheduler treats it like an
+        # ambush drop (no movement, can shoot/charge per Deep Strike).
         self._fresh_arrivals.add(revived.uid)
 
     def _apply_reanimation(self) -> None:
