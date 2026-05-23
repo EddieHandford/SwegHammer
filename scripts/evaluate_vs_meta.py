@@ -11,12 +11,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import random
 import statistics
 import sys
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Lock Python's hash randomisation off so set() / dict-of-string iteration
@@ -59,72 +61,54 @@ FACTIONS: List[str] = [
     "Chaos Knights",
 ]
 
-# Real tournament data: warpfriends weekly aggregate, May 2026 (~10k games).
-# Numbers without authoritative aggregate use the meta-average midpoint of 48%
-# so they don't dominate the MAE — flag them as "approx" in the report.
+# Real tournament target: loaded from data/warpfriends_rolling.json — a
+# game-weighted 4-week rolling aggregate scraped from warpfriends.wordpress.com
+# (which hand-scrapes Best Coast Pairings). Replaces the prior mix of 10 hard
+# Warp Friends numbers + 12 hand-curated midpoint approximations. Regenerate
+# with `python -m scripts.scrape_warpfriends`.
+#
+# Each faction also carries a `noise_floor` — the larger of (week-to-week
+# population stdev, binomial 95% CI half-width on the aggregate sample). It's
+# the lower bound on MAE per faction: a sim landing inside its noise floor is
+# inside sampling variance and shouldn't be chased further.
+_WARPFRIENDS_PATH = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
+with open(_WARPFRIENDS_PATH, "r", encoding="utf-8") as _wf_f:
+    _WF_DATA = json.load(_wf_f)
+
+# Fail loud per CLAUDE.md §13: every faction in FACTIONS must appear in the
+# rolling-aggregate JSON. A missing faction here means the scraper or the
+# rollup map fell out of sync with the simulator's faction list, and we want
+# the import to crash rather than silently substitute a default win rate.
+_MISSING = [f for f in FACTIONS if f not in _WF_DATA["factions"]]
+if _MISSING:
+    raise KeyError(
+        f"warpfriends_rolling.json is missing factions: {_MISSING}. "
+        f"Re-run `python -m scripts.scrape_warpfriends` or update the rollup map."
+    )
+
 TOURNAMENT_TARGET: Dict[str, float] = {
-    "Adeptus Astartes": 48.0,        # approx (chapters cluster around mid)
-    "Necrons":          53.2,
-    "Aeldari":          44.4,
-    "Tyranids":         48.0,        # approx
-    "Orks":             44.9,
-    "T'au Empire":      54.5,
-    "Death Guard":      48.0,        # approx
-    "Adeptus Custodes": 48.0,        # approx
-    "Thousand Sons":    54.6,
-    "Leagues of Votann": 46.0,       # approx
-    # FX-ALL — meta-derived approximations. Without an authoritative
-    # warpfriends entry, these use the meta midpoint or a community
-    # consensus value. All marked approx — they're a coverage signal,
-    # not a calibration anchor.
-    "Chaos Space Marines": 46.0,
-    "World Eaters":        50.0,
-    "Emperor's Children":  48.0,
-    "Chaos Daemons":       47.0,
-    "Astra Militarum":     47.0,
-    "Adeptus Mechanicus":  45.0,
-    "Adepta Sororitas":    49.0,
-    "Grey Knights":        47.0,
-    "Drukhari":            51.0,
-    "Genestealer Cults":   46.0,
-    "Imperial Knights":    46.0,
-    "Chaos Knights":       45.0,
+    fac: _WF_DATA["factions"][fac]["win_rate"] for fac in FACTIONS
 }
-APPROX_FACTIONS = {"Adeptus Astartes", "Tyranids", "Death Guard",
-                   "Adeptus Custodes", "Leagues of Votann",
-                   # All FX-ALL additions are approximations.
-                   "Chaos Space Marines", "World Eaters", "Emperor's Children",
-                   "Chaos Daemons", "Astra Militarum", "Adeptus Mechanicus",
-                   "Adepta Sororitas", "Grey Knights", "Drukhari",
-                   "Genestealer Cults", "Imperial Knights", "Chaos Knights"}
+NOISE_FLOOR: Dict[str, float] = {
+    fac: _WF_DATA["factions"][fac]["noise_floor"] for fac in FACTIONS
+}
+TOURNAMENT_GAMES: Dict[str, int] = {
+    fac: _WF_DATA["factions"][fac]["total_games"] for fac in FACTIONS
+}
+# Retained as empty sets for backwards compat with downstream consumers
+# (app.py Calibration tab, scripts/fit_equation_calibrated.py). Under the
+# Warp Friends rolling aggregate every faction has real data, so the
+# "approximate" and "no-data" categories are now empty.
+APPROX_FACTIONS: set = set()
+FX_ALL_FACTIONS: frozenset = frozenset()
 
-# FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
-# 10-faction subset. None have authoritative tournament data; their targets are
-# meta-midpoint guesses. Excluded from the headline MAE so the calibration
-# signal stays honest. Shown in reports for coverage, not as anchors.
-FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
 
-
-# FX-MS — multi-source tournament-target comparison. Calibrating against a
-# single source (Warp Friends weekly aggregate) bakes in that tournament
-# pool's meta snapshot. Real-meta data from independent aggregators agrees
-# within roughly 2-3pts per faction; high cross-source variance signals
-# a meta-volatile faction (recent codex/dataslate, contentious balance
-# state) where our sim doesn't need to land exactly on one source — just
-# inside the cross-source band.
-#
-# Sources (May 2026 snapshot, hand-curated approximations until proper
-# scraping is wired):
-#   * warp_friends_may_2026 — weekly ~10k-game aggregate (current
-#     primary, identical to TOURNAMENT_TARGET above)
-#   * goonhammer_q2_2026 — rolling 3-month meta articles
-#   * stat_check_may_2026 — real-time tournament feed (statcheck.app)
-#   * meta_monday_may_2026 — community-aggregated tournament data
-#
-# Factions in APPROX_FACTIONS get identical values across sources
-# (no cross-source signal — these were 48% meta-midpoint guesses).
-# Factions with hard Warp Friends data get plausible per-source variations
-# based on quarter-over-quarter rolling averages.
+# Retained for backwards compat with any external script importing the
+# dict, but no longer the primary signal. The hand-curated multi-source
+# data here is a stale May 2026 snapshot where the 12 approximate factions
+# had identical values across all four sources. The real cross-sample
+# variance signal now lives in NOISE_FLOOR (week-to-week rolling stdev
+# of independent weekly tournament samples from the Warp Friends scrape).
 TOURNAMENT_SOURCES: Dict[str, Dict[str, float]] = {
     "Adeptus Astartes":   {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 48.5,
                            "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.2},
@@ -176,20 +160,20 @@ TOURNAMENT_SOURCES: Dict[str, Dict[str, float]] = {
 }
 
 
-def _source_stats(faction: str) -> Tuple[float, float, float]:
-    """Return (mean, median, stdev) of tournament-source values for faction.
+def _noise_gated_error(sim_wr: float, target: float, noise: float) -> float:
+    """Return the portion of |sim - target| that exceeds the noise floor.
 
-    Used by the FX-MS multi-source report. Stdev signals how meta-volatile
-    a faction is across the source pool: high stdev = real-meta is itself
-    unsettled for that faction, so our sim doesn't need to land exactly on
-    one source — anywhere inside the band is acceptable.
+    Inside the noise band the gated error is zero — the simulator is within
+    sampling variance of the real-meta tournament aggregate, and chasing it
+    further is chasing noise rather than rule fidelity. Outside the band, the
+    gated error is the overshoot (always non-negative).
+
+    The headline calibration metric becomes "mean(gated_error) across
+    factions" — directly answering "by how many points is the sim outside
+    its measurable signal envelope?" rather than the raw "by how many points
+    does the sim differ from a point estimate?".
     """
-    values = list(TOURNAMENT_SOURCES[faction].values())
-    return (
-        statistics.mean(values),
-        statistics.median(values),
-        statistics.pstdev(values) if len(values) > 1 else 0.0,
-    )
+    return max(0.0, abs(sim_wr - target) - noise)
 
 
 def _pick_rotation_map(seed: int):
@@ -327,98 +311,69 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     return out
 
 
-def report(sim: Dict[str, float]) -> Tuple[float, float]:
-    """Print the sim-vs-real table and return (mae_real, mae_sweg).
+def report(sim: Dict[str, float]) -> Tuple[float, float, float]:
+    """Print the sim-vs-real table and return (mae_raw, mae_gated, mae_sweg).
 
-    Returns a dual headline:
-      * `mae_real` — MAE between simulator and the real-meta tournament
-        target. This is the calibration-against-GW signal that adding
-        more faction rules can move.
-      * `mae_sweg` — MAE between simulator and 50% across all factions.
-        This is the Sweg-balanced target: a perfectly balanced rule set
-        produces 50/50 cross-faction win rates. SwegHammer's "minimal
-        rule changes" (alternating activation, CP-for-fewer-units) drift
-        from real 10e by design, so `mae_real` has a structural floor that
-        `mae_sweg` does not. Once the Sweg-balancer settles, `mae_sweg`
-        should converge to ~0 while `mae_real` plateaus at the design
-        floor.
+    Three headline numbers:
+      * `mae_raw` — mean |sim - target| across factions. The classic signal;
+        useful for trend tracking but doesn't account for the fact that
+        real-meta numbers carry their own sampling and week-to-week
+        variance.
+      * `mae_gated` — mean(max(0, |sim - target| - noise_floor)) across
+        factions. Per-faction error is only counted to the extent it
+        exceeds the noise floor (the larger of week-to-week stdev and
+        binomial 95% CI half-width on the WF aggregate sample). This is
+        the calibration metric that actually matters: a faction sitting
+        inside its noise band contributes zero, because chasing it
+        further is chasing sampling variance.
+      * `mae_sweg` — mean |sim - 50.0|. The Sweg-balanced target: a
+        perfectly internally-balanced rule set yields 50/50 cross-faction
+        win rates. Independent of the real-meta target.
+
+    Inside-noise-band factions are marked with a trailing dot in the table.
     """
-    print(f"{'Faction':22s}  {'Sim%':>6s}  {'Real%':>6s}  {'Diff':>6s}  {'vs50':>6s}")
-    print("-" * 55)
-    diffs_real = []       # anchored: 10 data factions only
-    diffs_sweg = []       # anchored: 10 data factions only
-    diffs_real_all = []   # all 22 factions
-    diffs_sweg_all = []   # all 22 factions
+    print(f"{'Faction':22s}  {'Sim%':>6s}  {'Real%':>6s}  {'Noise':>6s}  "
+          f"{'Diff':>6s}  {'Gated':>6s}  {'vs50':>6s}")
+    print("-" * 72)
+    diffs_raw = []
+    diffs_gated = []
+    diffs_sweg = []
+    inside_band = 0
     for fac in FACTIONS:
         target = TOURNAMENT_TARGET[fac]
+        noise = NOISE_FLOOR[fac]
         diff_real = sim[fac] - target
+        gated = _noise_gated_error(sim[fac], target, noise)
         diff_sweg = sim[fac] - 50.0
-        marker = "" if fac not in APPROX_FACTIONS else " (~)"
-        print(f"{fac:22s}  {sim[fac]:6.1f}  {target:6.1f}  "
-              f"{diff_real:+6.1f}  {diff_sweg:+6.1f}{marker}")
-        diffs_real_all.append(abs(diff_real))
-        diffs_sweg_all.append(abs(diff_sweg))
-        if fac not in FX_ALL_FACTIONS:
-            diffs_real.append(abs(diff_real))
-            diffs_sweg.append(abs(diff_sweg))
-    mae_real = statistics.mean(diffs_real)
+        in_band = gated == 0.0
+        if in_band:
+            inside_band += 1
+        marker = " ." if in_band else "  "
+        print(f"{fac:22s}  {sim[fac]:6.1f}  {target:6.1f}  {noise:6.2f}  "
+              f"{diff_real:+6.1f}  {gated:6.2f}  {diff_sweg:+6.1f}{marker}")
+        diffs_raw.append(abs(diff_real))
+        diffs_gated.append(gated)
+        diffs_sweg.append(abs(diff_sweg))
+    mae_raw = statistics.mean(diffs_raw)
+    mae_gated = statistics.mean(diffs_gated)
     mae_sweg = statistics.mean(diffs_sweg)
-    mae_real_all = statistics.mean(diffs_real_all)
-    mae_sweg_all = statistics.mean(diffs_sweg_all)
-    print("-" * 55)
-    print(f"MAE vs real meta (10 data factions): {mae_real:6.2f} pts  "
-          f"(target ≤ 2.0; calibration anchor)")
-    print(f"MAE vs real meta (all 22 factions):  {mae_real_all:6.2f} pts  "
-          f"(reference only — 12 targets are estimates)")
-    print(f"MAE vs Sweg-balanced (10 factions):  {mae_sweg:6.2f} pts  "
-          f"(target ≤ 2.0; rule-internal-balance signal — 50/50 across factions)")
-
-    # FX-MS — multi-source diagnostics. Show MAE against each source +
-    # cross-source variance per faction. Identifies meta-volatile factions
-    # (high stdev) vs meta-stable factions (low stdev).
-    print()
-    print("FX-MS multi-source diagnostic")
-    print("-" * 75)
-    print(f"{'Faction':22s}  {'Sim%':>6s}  {'Mean':>6s}  {'Med':>6s}  "
-          f"{'σ':>5s}  {'Δmean':>6s}  {'Δmed':>6s}")
-    print("-" * 75)
-    diffs_mean: List[float] = []
-    diffs_median: List[float] = []
-    sources_seen = set()
-    per_source_diffs: Dict[str, List[float]] = {}
-    for fac in FACTIONS:
-        sources_seen.update(TOURNAMENT_SOURCES[fac].keys())
-    for src in sorted(sources_seen):
-        per_source_diffs[src] = []
-    for fac in FACTIONS:
-        mean_t, median_t, stdev_t = _source_stats(fac)
-        d_mean = sim[fac] - mean_t
-        d_median = sim[fac] - median_t
-        diffs_mean.append(abs(d_mean))
-        diffs_median.append(abs(d_median))
-        print(f"{fac:22s}  {sim[fac]:6.1f}  {mean_t:6.1f}  {median_t:6.1f}  "
-              f"{stdev_t:5.2f}  {d_mean:+6.1f}  {d_median:+6.1f}")
-        for src, val in TOURNAMENT_SOURCES[fac].items():
-            per_source_diffs[src].append(abs(sim[fac] - val))
-    print("-" * 75)
-    mae_mean = statistics.mean(diffs_mean)
-    mae_median = statistics.mean(diffs_median)
-    print(f"MAE vs source mean:   {mae_mean:6.2f} pts")
-    print(f"MAE vs source median: {mae_median:6.2f} pts")
-    print()
-    print(f"Per-source MAE (which source the sim aligns best to):")
-    for src in sorted(per_source_diffs.keys()):
-        per_mae = statistics.mean(per_source_diffs[src])
-        print(f"  {src:30s}  {per_mae:6.2f} pts")
-    return mae_real, mae_sweg, mae_real_all, mae_sweg_all
+    print("-" * 72)
+    print(f"MAE raw (sim - real_meta):       {mae_raw:6.2f} pts  "
+          f"(legacy headline)")
+    print(f"MAE gated (only beyond noise):   {mae_gated:6.2f} pts  "
+          f"(target → 0; the real calibration signal)")
+    print(f"MAE vs Sweg-balanced (50/50):    {mae_sweg:6.2f} pts  "
+          f"(rule-internal-balance signal)")
+    print(f"Factions inside noise band:      {inside_band}/{len(FACTIONS)}  "
+          f"(target → all 22)")
+    return mae_raw, mae_gated, mae_sweg
 
 
 def save_snapshot(
     sim: Dict[str, float],
-    mae_real: float,
+    mae_raw: float,
+    mae_gated: float,
     mae_sweg: float,
-    mae_real_all: float,
-    mae_sweg_all: float,
     n_battles: int,
     mode: str,
     list_mode: str,
@@ -429,32 +384,45 @@ def save_snapshot(
 
     The snapshot is read by the Calibration tab in app.py to display the
     per-faction sim-vs-tournament comparison without re-running the matrix.
+    Snapshot fields surface the noise floor + gated error so the UI can
+    show inside-band vs outside-band status without recomputing.
+
+    Legacy `mae_real` / `mae_real_all` / `mae_sweg_all` fields are written
+    equal to the corresponding raw/sweg values for backwards compat with
+    consumers that haven't been updated to the noise-gated headline.
     """
     import datetime
     faction_rows = []
     for fac in FACTIONS:
         target = TOURNAMENT_TARGET[fac]
         sim_pct = sim[fac]
-        sources = TOURNAMENT_SOURCES.get(fac, {})
+        noise = NOISE_FLOOR[fac]
+        gated = _noise_gated_error(sim_pct, target, noise)
         faction_rows.append({
             "faction": fac,
             "sim_pct": round(sim_pct, 2),
-            "tournament_pct": target,
-            "is_approx": fac in APPROX_FACTIONS,
-            "is_no_data": fac in FX_ALL_FACTIONS,
+            "tournament_pct": round(target, 2),
+            "noise_floor": round(noise, 2),
             "diff": round(sim_pct - target, 2),
-            "diff_vs_50": round(sim_pct - 50.0, 2),
-            "tournament_sources": {k: round(v, 1) for k, v in sources.items()},
+            "gated_error": round(gated, 2),
+            "inside_noise_band": gated == 0.0,
+            "tournament_games": TOURNAMENT_GAMES[fac],
+            "is_approx": False,
+            "is_no_data": False,
         })
     payload = {
         "built_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "n_battles": n_battles,
         "mode": mode,
         "list_mode": list_mode,
-        "mae_real": round(mae_real, 2),          # anchored: 10 data factions
-        "mae_sweg": round(mae_sweg, 2),          # anchored: 10 data factions
-        "mae_real_all": round(mae_real_all, 2),  # reference: all 22 factions
-        "mae_sweg_all": round(mae_sweg_all, 2),  # reference: all 22 factions
+        "mae_raw": round(mae_raw, 2),
+        "mae_gated": round(mae_gated, 2),
+        "mae_sweg": round(mae_sweg, 2),
+        # Legacy aliases retained for backwards compat with consumers that
+        # still expect the old 4-MAE shape (e.g. app.py Calibration tab).
+        "mae_real": round(mae_raw, 2),
+        "mae_real_all": round(mae_raw, 2),
+        "mae_sweg_all": round(mae_sweg, 2),
         "factions": faction_rows,
     }
     if trusted_factions is not None:
@@ -536,10 +504,10 @@ def main() -> None:
           f"Lists: {list_mode} | N={args.battles} | workers={workers}\n")
     sim = run_matrix(args.battles, rules=rules, use_archetype=args.use_archetype,
                      max_workers=workers, price_overrides=price_overrides)
-    mae_real, mae_sweg, mae_real_all, mae_sweg_all = report(sim)
+    mae_raw, mae_gated, mae_sweg = report(sim)
     if args.out:
         trusted = eq_data.get("trusted_factions") if args.equation_prices else None
-        save_snapshot(sim, mae_real, mae_sweg, mae_real_all, mae_sweg_all,
+        save_snapshot(sim, mae_raw, mae_gated, mae_sweg,
                       args.battles, mode, list_mode, args.out,
                       trusted_factions=trusted)
     sys.exit(0)   # informational only — never error-exit
