@@ -1034,6 +1034,140 @@ DAEMONIC_INCURSION = Detachment(
     preferred_composition="balanced",
 )
 
+# DAEMONS-DIAG-4 (2026-05-23, claude/sim-calibration-6): the four god-aligned
+# sub-detachments published in the 10e Chaos Daemons codex (Blood Legion,
+# Legion of Excess, Plague Legion, Scintillating Legion) registered alongside
+# Daemonic Incursion so the FACTION_DETACHMENTS picker has more than one
+# option to roll for Chaos Daemons. Each is composition-only + no-flag
+# because none of the four real detachment rules reduces to an existing
+# Detachment schema field without fabrication:
+#   * Blood Legion's Murdercall is a per-trigger Surge move (no movement
+#     hook of that shape in the simulator).
+#   * Legion of Excess's Beguiling Aura is a fall-back-then-charge
+#     eligibility flag (the simulator does not track Fell Back state).
+#   * Plague Legion's Melancholic Miasma expands the Shadow of Chaos to 9"
+#     around each Nurgle unit AND forces a per-Command-phase Battle-shock
+#     test on a selected enemy (overlaps with simulator.shadow_of_chaos
+#     which is already wired army-wide; the per-CP-phase forced test is a
+#     Command Phase hook the simulator does not model).
+#   * Scintillating Legion's Fates in Flux is a Flux token economy (3
+#     re-roll tokens per battle, spendable on Advance/Hit/Wound/Damage/
+#     save/Hazardous rolls) — there is no transient token-spend layer in
+#     the schema.
+# Wahapedia source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+# Same DET-VARIETY-1 pattern as Bringers of Flame / Cohort Cybernetica /
+# Kabalite Cartel above — ship the shell with composition preference so
+# the random detachment picker no longer always rolls Daemonic Incursion
+# and the eval matrix gains variety. No citation block needed because no
+# rule-bearing flag is set (audit_rules.py only requires citations on
+# detachments that toggle a RULE_BEARING_FIELDS field). When a proper
+# movement / fall-back-and-charge / token-spend layer lands in the
+# simulator, each detachment's wired flag should be added back here with
+# a fresh citation in data/rule_citations.d/detachments.json.
+
+BLOOD_LEGION = Detachment(
+    name="Blood Legion",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Khorne). Real codex detachment rule 'Murdercall' (Wahapedia "
+        "verbatim): \"Each time an enemy unit (excluding AIRCRAFT) ends a "
+        "Normal or Advance move within 6\\\" of one or more LEGIONES "
+        "DAEMONICA KHORNE units from your army, one of those LEGIONES "
+        "DAEMONICA KHORNE units can make a Surge move towards that enemy "
+        "unit.\" The Surge move is a transient out-of-phase movement that "
+        "the simulator's positional model does not represent (no movement "
+        "phase ordering, no per-trigger reactive moves); the rule does "
+        "NOT reduce to any existing Detachment flag without fabrication. "
+        "Per CLAUDE.md §10 ship NO-FLAG + composition-only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
+        "infantry composition tilt biases the picker toward Khorne "
+        "infantry archetypes (Bloodletters / Bloodcrushers / Flesh "
+        "Hounds), which already collect the Bloodthirster / Skarbrand "
+        "auras wired in DAEMONS-DIAG-3."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+LEGION_OF_EXCESS = Detachment(
+    name="Legion of Excess",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Slaanesh). Real codex detachment rule 'Beguiling Aura' "
+        "(Wahapedia verbatim): \"LEGIONES DAEMONICA SLAANESH units from "
+        "your army are eligible to declare a charge in a turn in which "
+        "they Fell Back.\" The simulator does not track Fall-Back state "
+        "(units cannot disengage and re-engage in the same battle round "
+        "in the current movement model), so the rule has no place to "
+        "fire and does NOT reduce to any existing Detachment flag without "
+        "fabrication. Per CLAUDE.md §10 ship NO-FLAG + composition-only. "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. "
+        "The infantry composition tilt biases the picker toward Slaanesh "
+        "infantry archetypes (Daemonettes / Fiends / Seekers)."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+PLAGUE_LEGION = Detachment(
+    name="Plague Legion",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Nurgle). Real codex detachment rule 'Melancholic Miasma' "
+        "(Wahapedia verbatim): \"While an enemy unit is within 9\\\" of "
+        "one or more LEGIONES DAEMONICA NURGLE units from your army, "
+        "that enemy unit is within your army's Shadow of Chaos. In each "
+        "player's Command phase, select one enemy unit within your "
+        "army's Shadow of Chaos. That unit must take a Battle-shock "
+        "test.\" The first leg (extending Shadow of Chaos to a 9\" aura "
+        "around Nurgle units) overlaps with the existing army-wide "
+        "approximation in simulator.shadow_of_chaos (cited in "
+        "data/rule_citations.d/chaos_daemons.json) which already applies "
+        "the Shadow of Chaos -1-Battle-shock + D3-mortal-on-fail effect "
+        "across an 18\" central area when any Chaos Daemons unit is "
+        "alive — re-wiring it as a per-Nurgle-unit 9\" aura is a follow-"
+        "up refinement, not a flag-flip. The second leg (forced Command-"
+        "phase Battle-shock test on a selected enemy) has no per-Command-"
+        "phase enemy-targeting hook in the schema. Per CLAUDE.md §10 "
+        "ship NO-FLAG + composition-only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
+        "infantry composition tilt biases the picker toward Nurgle "
+        "infantry archetypes (Plaguebearers / Nurglings / Plague Drones)."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+SCINTILLATING_LEGION = Detachment(
+    name="Scintillating Legion",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Tzeentch). Real codex detachment rule 'Fates in Flux' "
+        "(Wahapedia verbatim): \"You start the battle with three Flux "
+        "tokens. You can spend one Flux token just after an Advance "
+        "roll, Hit roll, Wound roll, Damage roll, saving throw or "
+        "Hazardous test is made for a LEGIONES DAEMONICA TZEENTCH model "
+        "or unit to re-roll that result.\" The token economy is a "
+        "per-battle, per-roll-class reroll pool that the simulator does "
+        "not model (no transient token-spend layer for any-stat reroll); "
+        "the rule does NOT reduce to any existing Detachment flag "
+        "without fabrication — a generic reroll_hit_ones / "
+        "reroll_wound_ones would be the wrong shape (3 tokens flat, not "
+        "an always-on roll-of-1 reroll). Per CLAUDE.md §10 ship NO-FLAG "
+        "+ composition-only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
+        "balanced composition tilt biases the picker toward Tzeentch "
+        "lists that mix infantry (Pink Horrors / Flamers) with monster/"
+        "elite shooting (Burning Chariot / Lord of Change auras)."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="balanced",
+)
+
 FINAL_DAY = Detachment(
     name="Final Day",
     faction="Genestealer Cults",
@@ -1248,6 +1382,13 @@ DETACHMENTS: Dict[str, Detachment] = {
     "bringers_of_flame":       BRINGERS_OF_FLAME,
     "cohort_cybernetica":      COHORT_CYBERNETICA,
     "kabalite_cartel":         KABALITE_CARTEL,
+    # DAEMONS-DIAG-4 (2026-05-23): god-aligned Chaos Daemons sub-detachments
+    # alongside Daemonic Incursion. All four ship no-flag + composition-only
+    # — see per-detachment notes for the rule text and rationale.
+    "blood_legion":            BLOOD_LEGION,
+    "legion_of_excess":        LEGION_OF_EXCESS,
+    "plague_legion":           PLAGUE_LEGION,
+    "scintillating_legion":    SCINTILLATING_LEGION,
 }
 
 
@@ -1443,7 +1584,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Death Guard":              ("virulent_vectorium", "plague_company"),
     "Thousand Sons":            ("rubricae_phalanx",),
     "World Eaters":             ("berzerker_warband",),
-    "Chaos Daemons":            ("daemonic_incursion",),
+    # DAEMONS-DIAG-4 (2026-05-23): four god-aligned variant detachments
+    # alongside the generic Daemonic Incursion. All no-flag + composition-only
+    # per Wahapedia rule text (see per-detachment notes above). The picker
+    # now rolls 5-way randomly instead of always Daemonic Incursion, diluting
+    # the always-pick-one convergence the +18.96pt gated under-perf reflects.
+    "Chaos Daemons":            ("daemonic_incursion", "blood_legion",
+                                 "legion_of_excess", "plague_legion",
+                                 "scintillating_legion"),
     "Genestealer Cults":        ("final_day",),
     "Leagues of Votann":        ("oathband",),
 }
