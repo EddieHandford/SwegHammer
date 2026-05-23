@@ -847,6 +847,22 @@ class Unit:
         """
         p = self.profile
 
+        # SOROR-DIAG-2 (2026-05-23) — Acts of Faith one-per-phase-per-unit gate.
+        # Wahapedia (verbatim): "each unit from your army with this ability can
+        # perform one Act of Faith per phase" (citation: simulator.acts_of_faith).
+        # Prior implementation substituted a Miracle die on EVERY failed hit /
+        # wound / save across the unit's entire attack call (potentially dozens
+        # of substitutions per phase), driving Adepta Sororitas to +19.7pt
+        # over-performance in the SOROR-DIAG-2 N=5 baseline. One attack() call =
+        # one unit resolving in one phase (shooting or fight), so this local
+        # boolean enforces the per-unit-per-phase cap by tripping after the
+        # first substitution and short-circuiting the other two branches for the
+        # rest of the call. Acts of Faith on Strands of Fate-equivalent
+        # defensive substitution (save rolls) when the OPPONENT attacks this
+        # unit lives in a separate attack() call on the attacker's side and is
+        # gated identically there. Cited as `simulator.acts_of_faith`.
+        attack_aof_substitution_used = False
+
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
         # whose aura covers this unit (re-rolls, +1 to hit/wound).
@@ -2319,12 +2335,14 @@ class Unit:
                     if (
                         roll < hit_target
                         and p.faction == "Adepta Sororitas"
+                        and not attack_aof_substitution_used
                     ):
                         own_army = getattr(self, "army_ref", None)
                         if own_army is not None and own_army.has_miracle_dice():
                             sub = own_army.pop_miracle_die_meeting(hit_target)
                             if sub is not None:
                                 roll = sub
+                                attack_aof_substitution_used = True
                     if roll < hit_target:
                         continue   # missed
                     # Crit-to-hit threshold defaults to 6 (canonical 10e); the
@@ -2433,6 +2451,7 @@ class Unit:
                     if (
                         not wound_succeeded
                         and p.faction == "Adepta Sororitas"
+                        and not attack_aof_substitution_used
                     ):
                         own_army = getattr(self, "army_ref", None)
                         if own_army is not None and own_army.has_miracle_dice():
@@ -2441,6 +2460,7 @@ class Unit:
                                 wroll = sub
                                 wound_succeeded = True
                                 crit_wound = False
+                                attack_aof_substitution_used = True
                     if not wound_succeeded:
                         continue
 
@@ -2497,16 +2517,25 @@ class Unit:
                         # Adepta Sororitas Acts of Faith — defensive Miracle
                         # Dice substitution on a failed save. Same greedy
                         # heuristic — only spend if it flips fail -> save.
-                        # Cited as `simulator.acts_of_faith`.
+                        # Cited as `simulator.acts_of_faith`. SOROR-DIAG-2:
+                        # gated by the per-attack-call AoF-used flag too — the
+                        # real rule caps the *defender* at one substitution per
+                        # phase, but the simulator's attack() runs per
+                        # attacker so this is an UNDER-approximation (a
+                        # Sororitas defender can still use one AoF save sub
+                        # per attacker attacking it). That's consistent with
+                        # the SOROR-DIAG-2 over-buff fix erring conservative.
                         if (
                             sroll < save_target
                             and target.profile.faction == "Adepta Sororitas"
+                            and not attack_aof_substitution_used
                         ):
                             tgt_army = getattr(target, "army_ref", None)
                             if tgt_army is not None and tgt_army.has_miracle_dice():
                                 sub = tgt_army.pop_miracle_die_meeting(save_target)
                                 if sub is not None:
                                     sroll = sub
+                                    attack_aof_substitution_used = True
                         if sroll >= save_target:
                             continue   # saved
                     target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
