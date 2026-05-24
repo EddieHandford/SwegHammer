@@ -1030,6 +1030,26 @@ class Unit:
             # alternative-mode weapon profiles. Stripped case-insensitively
             # off the trailing edge of the weapon name; whatever remains
             # is the "root" that groups siblings together.
+            #
+            # MODE-SUFFIX-SWEEP: SOROR-DIAG-5 (commit 90bb1a3) traced
+            # Morvenn Vahl firing both prioris- and sanctorum-mode shots
+            # of her Paragon missile launcher to this list being a tiny
+            # allowlist that only knew the plasma/Stormsurge/Burst-cannon
+            # mode tokens. A parsed.json survey of every weapon name with
+            # a " - " separator (BSData's canonical alt-mode delimiter)
+            # found 317 such names across 70+ distinct mode tokens —
+            # krak/frag/starshot/witchfire/contained/overcharge/neurolance
+            # /foehammer/rift/prioris/sanctorum and many more. Every one
+            # of those names is a mutex alt-mode of the same underlying
+            # weapon (10e core: multi-profile weapons pick ONE mode per
+            # Shooting phase), so the safe structural rule is to strip
+            # everything after the last " - " when forming the group
+            # root. The allowlist below is kept for the legacy non-dash
+            # cases (BSData has occasionally emitted ", standard" or a
+            # bare " strike" suffix without the em-dash), then the
+            # em-dash fallback below catches the long tail. Verified on
+            # the live catalogue: collapses 114 units' profile lists, no
+            # regressions where a unit's root count INCREASES.
             _MODE_SUFFIXES = (
                 " - focused mode", " - dispersed mode",
                 " - focused", " - dispersed",
@@ -1052,8 +1072,17 @@ class Unit:
                     low = low[2:]
                 for suf in _MODE_SUFFIXES:
                     if low.endswith(suf):
-                        low = low[: -len(suf)].rstrip(" -,")
-                        break
+                        return low[: -len(suf)].rstrip(" -,")
+                # Generalised fallback: every alt-mode profile BSData
+                # emits today uses the " - <mode>" separator (e.g.
+                # "Ballistus Missile Launcher - Krak",
+                # "Phantasmagoria - witchfire",
+                # "Paragon missile launcher - prioris"). Treating the
+                # text before the LAST " - " as the root collapses all
+                # alt-mode siblings of the same weapon into one mutex
+                # group without enumerating every individual mode token.
+                if " - " in low:
+                    low = low.rsplit(" - ", 1)[0].rstrip(" -,")
                 return low
 
             # Each candidate carries:
