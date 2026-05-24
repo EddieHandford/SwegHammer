@@ -1238,7 +1238,8 @@
     },
     "adepta_sororitas_morvenn_vahl": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Morvenn Vahl has 4++ invulnerable save (Paragon Warsuit Iron Halo) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Morvenn-Vahl"
+      "extra_ranged_profiles": [],
+      "notes": "iter22 invuln long-tail sweep: Morvenn Vahl has 4++ invulnerable save (Paragon Warsuit Iron Halo) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Morvenn-Vahl. SOROR-DIAG-5: Morvenn's Paragon missile launcher has TWO mutually-exclusive firing modes (prioris S9 AP-2 D6, and sanctorum 2D6-shot S4 blast) per Wahapedia — you 'select one profile per shooting attack'. The BSData mapper packed prioris into the primary weapon slot AND sanctorum into extra_ranged_profiles, so the simulator was firing both every Shooting phase. The picker's _strip_mode_suffix heuristic in code/units.py only collapses a handful of mode names ('strike', 'sweep', 'focused', 'dispersed', 'standard', 'supercharge') — neither 'prioris' nor 'sanctorum' is in that list, so the two profiles get treated as distinct weapons rather than collapsed into one group. Cleared extra_ranged_profiles so only the prioris profile fires alongside the always-on Fidelis (her separate heavy-bolter-style secondary). Picked prioris as the kept profile because the S9 AP-2 D6 anti-armour role is the meta-competitive pick for Vahl as a Paragon Warsuits leader; sanctorum's anti-horde 2D6×S4 mode is the situational fallback. Same SOROR-MUTEX-2 pattern as Castigator/Exorcist/Immolator. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Morvenn-Vahl"
     },
     "adepta_sororitas_junith_eruita": {
       "invuln_save": 4,
