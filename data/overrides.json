@@ -76,7 +76,7 @@
     },
     "chaos_knights_library_knight_desecrator": {
       "invuln_save": 5,
-      "notes": "SC5-2: Chaos Knight chassis carry a 5+ invulnerable save (Ion Shield) on their datasheet, but the BSData Chaos Knights Library cache has no Invulnerable Save infoLink attached to any Chaos Knight selectionEntry (verified via grep over Chaos - Chaos Knights Library.cat.gz: zero infoLinks named 'Invulnerable Save'). Same omission pattern as necrons_doomsday_ark / aeldari_wraithguard — the rule exists on the printed datasheet but is not encoded in BSData. Source: 10e Chaos Knights codex Ion Shield (5+ invulnerable save against ranged and melee attacks). Wahapedia unreachable from worktree DNS; restoring the missing invuln per BSData omission precedent."
+      "notes": "SC5-2: Chaos Knight chassis carry a 5+ invulnerable save (Ion Shield) on their datasheet, but the BSData Chaos Knights Library cache has no Invulnerable Save infoLink attached to any Chaos Knight selectionEntry (verified via grep over Chaos - Chaos Knights Library.cat.gz: zero infoLinks named 'Invulnerable Save'). Same omission pattern as necrons_doomsday_ark / aeldari_wraithguard \u00e2\u20ac\u201d the rule exists on the printed datasheet but is not encoded in BSData. Source: 10e Chaos Knights codex Ion Shield (5+ invulnerable save against ranged and melee attacks). Wahapedia unreachable from worktree DNS; restoring the missing invuln per BSData omission precedent."
     },
     "chaos_knights_library_knight_rampager": {
       "invuln_save": 5,
@@ -90,7 +90,7 @@
       "invuln_save": 5,
       "extra_ranged_profiles": [
         {
-          "weapon": "➤ Ectoplasma decimator - supercharge",
+          "weapon": "\u00e2\u017e\u00a4 Ectoplasma decimator - supercharge",
           "attacks": 6,
           "weapon_damage_per_shot": 3.0,
           "hit_probability": 0.667,
@@ -134,7 +134,7 @@
           "pistol": false
         }
       ],
-      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes. KNIGHT-STAT-AUDIT: composite-profile artifact fixed. Mapper emitted both Ectoplasma decimator standard (S=8 AP-3 D=2) and supercharge (S=9 AP-4 D=3) as separate extra_ranged_profiles, so MAP-MULTIFIRE doubled the ectoplasma decimator's contribution. In play the controller picks one mode per shooting phase. Override drops the standard duplicate from extra_ranged_profiles. BSData 'Chaos - Chaos Knights Library.cat.gz' profiles name='➤ Ectoplasma decimator - standard'/'- supercharge'. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Tyrant."
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes. KNIGHT-STAT-AUDIT: composite-profile artifact fixed. Mapper emitted both Ectoplasma decimator standard (S=8 AP-3 D=2) and supercharge (S=9 AP-4 D=3) as separate extra_ranged_profiles, so MAP-MULTIFIRE doubled the ectoplasma decimator's contribution. In play the controller picks one mode per shooting phase. Override drops the standard duplicate from extra_ranged_profiles. BSData 'Chaos - Chaos Knights Library.cat.gz' profiles name='\u00e2\u017e\u00a4 Ectoplasma decimator - standard'/'- supercharge'. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Tyrant."
     },
     "chaos_knights_library_knight_abominant": {
       "invuln_save": 5,
@@ -142,7 +142,7 @@
     },
     "chaos_knights_library_war_dog_karnivore": {
       "invuln_save": 5,
-      "notes": "SC5-2: War Dogs carry a 5+ Ion Shield on their datasheet — missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+      "notes": "SC5-2: War Dogs carry a 5+ Ion Shield on their datasheet \u00e2\u20ac\u201d missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
     },
     "chaos_knights_library_war_dog_huntsman": {
       "invuln_save": 5,
@@ -162,7 +162,7 @@
     },
     "necrons_necron_warriors": {
       "sticky_objective": true,
-      "notes": "10e Necron Warriors carry the Their Number Is Legion rule — they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) — Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
+      "notes": "10e Necron Warriors carry the Their Number Is Legion rule \u00e2\u20ac\u201d they have OC equal to a normal infantryman PLUS hold objectives even after leaving them. Sourced from wahapedia.ru Necrons datasheet. | Range left at mapper-selected 12\" (Gauss Reaper) \u00e2\u20ac\u201d Gauss Flayer 24\" is the alternate wargear, both valid; not a mapper bug."
     },
     "necrons_doomsday_ark": {
       "invuln_save": 4,
@@ -170,7 +170,7 @@
     },
     "necrons_canoptek_doomstalker": {
       "invuln_save": 4,
-      "notes": "DDA diag (sim-cal-4): Canoptek Doomstalker carries a 4+ invulnerable save on its datasheet but the BSData mapper missed it for the same reason as necrons_doomsday_ark — local Abilities profile, not an infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Doomstalker (Invulnerable Save 4+). Stats T8 W12 Sv3+ and Doomsday Blaster profile 48\" D6+1 shots S14 AP-3 D3 Blast Heavy match BSData."
+      "notes": "DDA diag (sim-cal-4): Canoptek Doomstalker carries a 4+ invulnerable save on its datasheet but the BSData mapper missed it for the same reason as necrons_doomsday_ark \u00e2\u20ac\u201d local Abilities profile, not an infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Doomstalker (Invulnerable Save 4+). Stats T8 W12 Sv3+ and Doomsday Blaster profile 48\" D6+1 shots S14 AP-3 D3 Blast Heavy match BSData."
     },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
@@ -182,7 +182,7 @@
     },
     "death_guard_plague_marines": {
       "fnp": 5,
-      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it — override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines"
+      "notes": "Death Guard army rule Disgustingly Resilient grants every DEATH GUARD model FNP 5+. The rule is codex-level and is not encoded on individual BSData datasheets, so the mapper cannot see it \u00e2\u20ac\u201d override here. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Army Rule: Disgustingly Resilient). | Plague Marine boltgun range 24\" confirmed correct (no change). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines"
     },
     "chaos_space_marines_plague_marines": {
       "fnp": 5,
@@ -190,7 +190,7 @@
     },
     "death_guard_plaguebearers": {
       "fnp": 5,
-      "notes": "iter24-D4: Plaguebearers (Death Guard ally Daemons unit) carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. BSData does not encode FNP at the unit level so the mapper sees default 7 (none). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Plaguebearers datasheet — Disgustingly Resilient ability)."
+      "notes": "iter24-D4: Plaguebearers (Death Guard ally Daemons unit) carry Disgustingly Resilient (Feel No Pain 5+) per their 10e datasheet. BSData does not encode FNP at the unit level so the mapper sees default 7 (none). Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/ (Plaguebearers datasheet \u00e2\u20ac\u201d Disgustingly Resilient ability)."
     },
     "death_guard_blightlord_terminators": {
       "fnp": 5,
@@ -214,11 +214,11 @@
     "t_au_empire_riptide_battlesuit": {
       "base_shape": "circle",
       "base_diameter_mm": 80,
-      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 — was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
+      "notes": "Riptide ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Riptide-Battlesuit (Base size). points_override removed 2026-05-15 \u00e2\u20ac\u201d was 1180.58 from sweg_balance_mc (Lanchester-tainted), real GW is 180 pts/model; let base catalogue price it."
     },
     "t_au_empire_pathfinder_team": {
       "stealth": true,
-      "notes": "SK-1: Pathfinder Team carries the Stealth core unit-keyword on its 10e T'au Empire datasheet (the 'Camo Cloaks / Stealth' wording in the unit composition section). BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry — Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not — so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
+      "notes": "SK-1: Pathfinder Team carries the Stealth core unit-keyword on its 10e T'au Empire datasheet (the 'Camo Cloaks / Stealth' wording in the unit composition section). BSData's T'au Empire.cat.gz attaches no Stealth infoLink to the Pathfinder Team selectionEntry \u00e2\u20ac\u201d Stealth Battlesuits get it (verified, parsed.json stealth=True), but Pathfinders do not \u00e2\u20ac\u201d so the mapper returns False. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Pathfinder-Team ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
     },
     "t_au_empire_stealth_battlesuits": {
       "unit_keywords": [
@@ -226,7 +226,7 @@
         "FLY",
         "MARKERLIGHT"
       ],
-      "notes": "Stealth Battlesuits — the squad shas'ui can take a Homing Beacon, and one model in the unit can take a Markerlight (Burst Cannon swap). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase counts the squad as a marker carrier. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Stealth-Battlesuits and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+      "notes": "Stealth Battlesuits \u00e2\u20ac\u201d the squad shas'ui can take a Homing Beacon, and one model in the unit can take a Markerlight (Burst Cannon swap). Add MARKERLIGHT keyword so the simulator's _run_markerlight_phase counts the squad as a marker carrier. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Stealth-Battlesuits and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
     },
     "t_au_empire_tetras_legends": {
       "unit_keywords": [
@@ -234,7 +234,7 @@
         "FLY",
         "MARKERLIGHT"
       ],
-      "notes": "Tetra Scout Speeders — twin Markerlight platform. Legends datasheet retains the MARKERLIGHT keyword. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Tetras and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
+      "notes": "Tetra Scout Speeders \u00e2\u20ac\u201d twin Markerlight platform. Legends datasheet retains the MARKERLIGHT keyword. Source: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Tetras and the army-rule https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights"
     },
     "aeldari_craftworlds_falcon": {
       "points_override": 644.45,
@@ -299,7 +299,7 @@
     },
     "thousand_sons_magnus_the_red": {
       "weapon_damage_per_shot": 2,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Magnus ranged A6 D3 AP-2 — D3 does not match any of Magnus's three ranged profiles. Tzeentchian Pyre: D6 S9 AP-2 D2; Tzeentch's Firestorm: 2D6 S6 AP-2 D2 [Devastating Wounds]. Restoring D2 to match the dominant Tzeentchian Pyre and Firestorm damage value. attacks=6 left untouched (Pyre D6 averaged to 3.5 plus Firestorm 2D6 averaged to 7 means a blended 6 is defensible). Melee Blade of Magnus (S16 AP-4 D6 Devastating) lives in the melee basket and is untouched. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-The-Red"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Magnus ranged A6 D3 AP-2 \u00e2\u20ac\u201d D3 does not match any of Magnus's three ranged profiles. Tzeentchian Pyre: D6 S9 AP-2 D2; Tzeentch's Firestorm: 2D6 S6 AP-2 D2 [Devastating Wounds]. Restoring D2 to match the dominant Tzeentchian Pyre and Firestorm damage value. attacks=6 left untouched (Pyre D6 averaged to 3.5 plus Firestorm 2D6 averaged to 7 means a blended 6 is defensible). Melee Blade of Magnus (S16 AP-4 D6 Devastating) lives in the melee basket and is untouched. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-The-Red"
     },
     "thousand_sons_ahriman": {
       "invuln_save": 4,
@@ -355,7 +355,7 @@
       "melee_strength": 7,
       "melee_damage_per_shot": 2,
       "melee_ap": -2,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Custodian Wardens melee A4 S9 AP-1 D2.83 — strength and ap inflated, damage averaged across phantom subprofiles. Real datasheet (castellan axe, melee): A4 S7 AP-2 D2. Ranged castellan axe (A2 S4 AP-1 D2) is already correct in parsed.json and left untouched. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Custodian Wardens melee A4 S9 AP-1 D2.83 \u00e2\u20ac\u201d strength and ap inflated, damage averaged across phantom subprofiles. Real datasheet (castellan axe, melee): A4 S7 AP-2 D2. Ranged castellan axe (A2 S4 AP-1 D2) is already correct in parsed.json and left untouched. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Custodian-Wardens"
     },
     "adeptus_custodes_sagittarum_custodians": {
       "deep_strike": false,
@@ -371,13 +371,122 @@
     },
     "adeptus_custodes_shield_captain": {
       "deep_strike": false,
-      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Shield-Captain (foot, power-armoured) datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike — the Allarus-Terminator variant of Shield-Captain does have it via its Terminator armour, that variant is unchanged here). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain"
+      "notes": "iter24 deep_strike audit: BSData v10.6.0 blanket-flagged Deep Strike on every Custodes datasheet, but Wahapedia's published Shield-Captain (foot, power-armoured) datasheet does NOT include the rule (only Allarus / Aquilon / Venatari Custodians have Deep Strike \u00e2\u20ac\u201d the Allarus-Terminator variant of Shield-Captain does have it via its Terminator armour, that variant is unchanged here). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain"
     },
     "space_marines_repulsor_executioner": {
       "base_shape": "rect",
       "base_width_mm": 102,
       "base_length_mm": 178,
-      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base — kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\")."
+      "weapon": "Heavy Laser Destroyer",
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Twin heavy bolter",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "range_inches": 36,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Heavy Onslaught Gatling Cannon",
+          "attacks": 12,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 6,
+          "range_inches": 24,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Icarus Rocket Pod",
+          "attacks": 2,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8,
+          "range_inches": 24,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Ironhail Heavy Stubber",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 4,
+          "range_inches": 36,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "Repulsor / Repulsor Executioner hover-tank footprint approximated as 102x178mm (no GW-supplied base \u00e2\u20ac\u201d kit sits on its grav-plates). Reference: GW dimensions for the Repulsor kit (~7\"x4\"). | MUTEX-SWEEP: Repulsor Executioner turret is Heavy Laser Destroyer OR Macro Plasma Incinerator per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Heavy Laser Destroyer into primary, Macro Plasma Incinerator Supercharge into secondary, Macro Plasma Incinerator Standard into extras. Kept Heavy Laser Destroyer as primary (more common competitive pick), cleared secondary, dropped Macro Plasma standard from extras. Rebuilt extras with the four always-carried hull weapons (Twin heavy bolter, Heavy Onslaught Gatling Cannon, Icarus Rocket Pod, Ironhail Heavy Stubber). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Repulsor-Executioner"
     },
     "tyranids_hive_tyrant": {
       "base_shape": "circle",
@@ -391,7 +500,7 @@
       "secondary_range_inches": 0,
       "secondary_weapon": "",
       "secondary_blast": false,
-      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement (a single-CHARACTER, Below-Starting-Wounds-gated enhancement, not a datasheet ability). Hive Tyrant has no native Feel No Pain. TYRANIDS-MULTI-LOADOUT: Wahapedia datasheet lists Heavy Venom Cannon (A=2 S=9 AP-2 D=3 BLAST) and Stranglethorn cannon (A=D6+1 avg=4.5 S=7 AP-1 D=2 BLAST) as EXCLUSIVE ranged weapon choices ('this model is equipped with: ...' lists them as alternatives, one OR the other, not both). The BSData mapper packed Stranglethorn into the primary slot (A=4 S=7 AP-1 D=2 R=36) AND Heavy Venom Cannon into the secondary slot (A=2 S=9 AP-2 D=3 R=36), so the simulator fires BOTH every Shooting phase — a doubled-ranged-output inflation. Cleared the secondary slot; primary Stranglethorn cannon stays (it is the more common tournament loadout and the parsed values match Wahapedia). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant"
+      "notes": "Foot Hive Tyrant ships on an 80mm round. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement (a single-CHARACTER, Below-Starting-Wounds-gated enhancement, not a datasheet ability). Hive Tyrant has no native Feel No Pain. TYRANIDS-MULTI-LOADOUT: Wahapedia datasheet lists Heavy Venom Cannon (A=2 S=9 AP-2 D=3 BLAST) and Stranglethorn cannon (A=D6+1 avg=4.5 S=7 AP-1 D=2 BLAST) as EXCLUSIVE ranged weapon choices ('this model is equipped with: ...' lists them as alternatives, one OR the other, not both). The BSData mapper packed Stranglethorn into the primary slot (A=4 S=7 AP-1 D=2 R=36) AND Heavy Venom Cannon into the secondary slot (A=2 S=9 AP-2 D=3 R=36), so the simulator fires BOTH every Shooting phase \u00e2\u20ac\u201d a doubled-ranged-output inflation. Cleared the secondary slot; primary Stranglethorn cannon stays (it is the more common tournament loadout and the parsed values match Wahapedia). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Hive-Tyrant"
     },
     "tyranids_winged_hive_tyrant": {
       "base_shape": "oval",
@@ -406,7 +515,7 @@
       "secondary_range_inches": 0,
       "secondary_weapon": "",
       "secondary_blast": false,
-      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak). Winged Hive Tyrant has no native Feel No Pain. TYRANIDS-MULTI-LOADOUT: same exclusive-ranged-loadout issue as foot Hive Tyrant — BSData mapper packed Stranglethorn cannon into the primary slot and Heavy venom cannon into the secondary slot, so both fire every Shooting phase. Real datasheet: model is equipped with ONE of (Heavy venom cannon, Stranglethorn cannon), not both. Cleared the secondary; primary Stranglethorn cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant"
+      "notes": "Winged Hive Tyrant ships on a 170x105mm oval flying base. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant (Base size). SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak). Winged Hive Tyrant has no native Feel No Pain. TYRANIDS-MULTI-LOADOUT: same exclusive-ranged-loadout issue as foot Hive Tyrant \u00e2\u20ac\u201d BSData mapper packed Stranglethorn cannon into the primary slot and Heavy venom cannon into the secondary slot, so both fire every Shooting phase. Real datasheet: model is equipped with ONE of (Heavy venom cannon, Stranglethorn cannon), not both. Cleared the secondary; primary Stranglethorn cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Hive-Tyrant"
     },
     "space_marines_terminator_squad": {
       "base_shape": "circle",
@@ -424,7 +533,53 @@
     },
     "space_marines_repulsor": {
       "points_override": 198.0,
-      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model"
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Twin heavy bolter",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "range_inches": 36,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Heavy Onslaught Gatling Cannon",
+          "attacks": 12,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 6,
+          "range_inches": 24,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "sweg_balance_mc up 180.0 -> 198.0 pts/model | MUTEX-SWEEP: Repulsor hull weapon is Heavy Onslaught Gatling Cannon OR Twin lascannon per codex (BSData selectionEntryGroup Hull mounted weapon, max=1). Mapper packed both into extras alongside Twin heavy bolter. Dropped Twin lascannon from extras, kept Heavy Onslaught Gatling Cannon (popular default) and Twin heavy bolter (always carried). Primary Las-talon and secondary Repulsor Defensive Array left intact -- Las-talon is the turret and the defensive array aggregates always-carried bolter/missile/stubber wargear. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Repulsor"
     },
     "space_marines_bladeguard_veteran_squad": {
       "points_override": 29.33,
@@ -432,7 +587,7 @@
     },
     "death_guard_plagueburst_crawler": {
       "lethal_hits": false,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] — only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Plagueburst Crawler ranged with lethal_hits=true, but no Plagueburst Crawler weapon profile carries [LETHAL HITS] on its 10e datasheet. Plagueburst mortar: D6 S8 AP-1 D2 [INDIRECT FIRE, BLAST]. Heavy slugger: A3 S5 AP0 D1. Plaguespitters: D6 S6 AP0 D1 [TORRENT, IGNORES COVER]. Entropy cannon variant: 2 S9 AP-3 D3 [LETHAL HITS] \u00e2\u20ac\u201d only the entropy cannon has Lethal Hits, but it is an alternate loadout, not the default which the mapper picks (mortar). Removing lethal_hits to match the mortar default profile. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plagueburst-Crawler"
     },
     "adeptus_custodes_caladius_grav_tank": {
       "points_override": 236.5,
@@ -450,7 +605,7 @@
     },
     "adeptus_custodes_prosecutors": {
       "move": 7.0,
-      "notes": "iter8 mobility audit: M=7\" per Wahapedia datasheet (Sisters of Silence light infantry — faster than power-armoured marines). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Prosecutors"
+      "notes": "iter8 mobility audit: M=7\" per Wahapedia datasheet (Sisters of Silence light infantry \u00e2\u20ac\u201d faster than power-armoured marines). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Prosecutors"
     },
     "leagues_of_votann_hearthkyn_warriors": {
       "range_inches": 18,
@@ -458,12 +613,12 @@
     },
     "leagues_of_votann_sagitaur": {
       "strength": 14,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Sagitaur ranged S12 — no Sagitaur weapon is S12. Real HYLas beam cannon: A2 S14 AP-3 D6 [HEAVY]. Restoring S14. Damage 4.5 left untouched as a defensible D6-average blend across the L7 missile and HYLas profiles. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Sagitaur"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Sagitaur ranged S12 \u00e2\u20ac\u201d no Sagitaur weapon is S12. Real HYLas beam cannon: A2 S14 AP-3 D6 [HEAVY]. Restoring S14. Damage 4.5 left untouched as a defensible D6-average blend across the L7 missile and HYLas profiles. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Sagitaur"
     },
     "leagues_of_votann_hekaton_land_fortress": {
       "strength": 14,
       "weapon_damage_per_shot": 6,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 — strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Hekaton primary ranged basket at S18 D7.5 \u00e2\u20ac\u201d strength 18 does not appear on any Hekaton weapon and was a mapper composite. Real primary is the SP heavy conversion beamer: A D6 S14 AP-3 D6 [HEAVY]. Restoring S14 D6. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Hekaton-Land-Fortress"
     },
     "t_au_empire_strike_team": {
       "range_inches": 30,
@@ -594,7 +749,7 @@
       "melee_damage_per_shot": 2,
       "melee_strength": 6,
       "melee_ap": -3,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had melee A6 S6 AP-2 D3 on a phantom 'Single Blade' demiklaive profile and duplicated those stats into the ranged basket — but Drazhar has no ranged weapon and his real demiklaives have two stance profiles. Restoring Strike stance (the higher-damage, lower-volume profile, which is the threat the simulator should prioritise): The Executioner's demiklaives - Strike: A4 S6 AP-3 D2 [PRECISION]. Sweep profile is A8 S5 AP-2 D1 — equal damage budget (A times D = 8) so picking Strike loses nothing in expected damage and matches the actual datasheet. Zeroing ranged so the mapper-inflated phantom ranged basket stops contributing. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Drazhar"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had melee A6 S6 AP-2 D3 on a phantom 'Single Blade' demiklaive profile and duplicated those stats into the ranged basket \u00e2\u20ac\u201d but Drazhar has no ranged weapon and his real demiklaives have two stance profiles. Restoring Strike stance (the higher-damage, lower-volume profile, which is the threat the simulator should prioritise): The Executioner's demiklaives - Strike: A4 S6 AP-3 D2 [PRECISION]. Sweep profile is A8 S5 AP-2 D1 \u00e2\u20ac\u201d equal damage budget (A times D = 8) so picking Strike loses nothing in expected damage and matches the actual datasheet. Zeroing ranged so the mapper-inflated phantom ranged basket stops contributing. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Drazhar"
     },
     "aeldari_drukhari_archon": {
       "invuln_save": 4,
@@ -651,7 +806,7 @@
     "death_guard_mortarion": {
       "attacks": 0,
       "weapon_damage_per_shot": 0,
-      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Mortarion ranged A6 S7 AP-1 D1 — that is the Reaping Volley shooting profile in isolation, but the mapper layered Silence's Devastating Wounds keyword onto it and Bell of Lost Souls's sustained hits onto the unit. Silence is melee only: A8 S14 AP-3 D3 [Devastating Wounds]. Zeroing the ranged basket so the simulator does not double-count Mortarion's threat: he is a melee monster, the Reaping Volley is a minor secondary, and conflating its keywords with Silence has been inflating his damage budget. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
+      "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Mortarion ranged A6 S7 AP-1 D1 \u00e2\u20ac\u201d that is the Reaping Volley shooting profile in isolation, but the mapper layered Silence's Devastating Wounds keyword onto it and Bell of Lost Souls's sustained hits onto the unit. Silence is melee only: A8 S14 AP-3 D3 [Devastating Wounds]. Zeroing the ranged basket so the simulator does not double-count Mortarion's threat: he is a melee monster, the Reaping Volley is a minor secondary, and conflating its keywords with Silence has been inflating his damage budget. Source: https://wahapedia.ru/wh40k10ed/factions/death-guard/#Mortarion"
     },
     "death_guard_daemon_prince_of_nurgle": {
       "invuln_save": 4,
@@ -965,7 +1120,7 @@
     },
     "chaos_daemons_library_contorted_epitome": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: The Contorted Epitome (named Slaanesh CHARACTER on chariot) carries the Daemonic 5+ invulnerable save (matches BSData base value 5 — written explicitly so the audit trail records the Daemonic source). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Contorted-Epitome"
+      "notes": "DAEMONS-DIAG-2: The Contorted Epitome (named Slaanesh CHARACTER on chariot) carries the Daemonic 5+ invulnerable save (matches BSData base value 5 \u00e2\u20ac\u201d written explicitly so the audit trail records the Daemonic source). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Contorted-Epitome"
     },
     "emperor_s_children_shalaxi_helbane": {
       "invuln_save": 4,
@@ -997,7 +1152,7 @@
       "secondary_range_inches": 0,
       "secondary_twin_linked": false,
       "secondary_rapid_fire": 0,
-      "notes": "SOROR-STAT-AUDIT: Castigator's two main guns — Castigator battle cannon and Castigator autocannons — are MUTUALLY EXCLUSIVE wargear options per Wahapedia datasheet. The BSData 'Main gun' selectionEntryGroup wraps both as max=1 children with a defaultSelectionEntryId on the autocannons, meaning the model picks exactly one. Wahapedia (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator) states the wargear options as: 'A Castigator is equipped with: 3 heavy bolters; Castigator battle cannon; armoured tracks. The Castigator battle cannon can be replaced with Castigator autocannons.' One main gun, not both. The mapper packed battle cannon into the primary slot (A=D6+3 avg 6, S10 AP-1 D3, Blast/Ignores Cover) and autocannons into the secondary slot (A=4 with Rapid Fire 4 i.e. 8 in range, S9 AP-1 D3, Twin-Linked) so the simulator was firing BOTH every Shooting phase, ~24 extra wound output per round on top of the 3 heavy bolters + storm bolter + hunter-killer in extra_ranged_profiles. Cleared the secondary slot to leave only the battle cannon firing alongside the always-carried wargear in extras. Castigator is in the Sororitas archetype list so this lands directly on the Sororitas eval signal. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator"
+      "notes": "SOROR-STAT-AUDIT: Castigator's two main guns \u00e2\u20ac\u201d Castigator battle cannon and Castigator autocannons \u00e2\u20ac\u201d are MUTUALLY EXCLUSIVE wargear options per Wahapedia datasheet. The BSData 'Main gun' selectionEntryGroup wraps both as max=1 children with a defaultSelectionEntryId on the autocannons, meaning the model picks exactly one. Wahapedia (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator) states the wargear options as: 'A Castigator is equipped with: 3 heavy bolters; Castigator battle cannon; armoured tracks. The Castigator battle cannon can be replaced with Castigator autocannons.' One main gun, not both. The mapper packed battle cannon into the primary slot (A=D6+3 avg 6, S10 AP-1 D3, Blast/Ignores Cover) and autocannons into the secondary slot (A=4 with Rapid Fire 4 i.e. 8 in range, S9 AP-1 D3, Twin-Linked) so the simulator was firing BOTH every Shooting phase, ~24 extra wound output per round on top of the 3 heavy bolters + storm bolter + hunter-killer in extra_ranged_profiles. Cleared the secondary slot to leave only the battle cannon firing alongside the always-carried wargear in extras. Castigator is in the Sororitas archetype list so this lands directly on the Sororitas eval signal. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator"
     },
     "adepta_sororitas_exorcist": {
       "secondary_weapon": "",
@@ -1053,7 +1208,7 @@
     },
     "adepta_sororitas_hospitaller": {
       "fnp": 7,
-      "notes": "SORORITAS-MORTIFIER-FNP: BSData attaches a top-level Feel No Pain 5+ infoLink to the Hospitaller unit. The real 10e datasheet ability 'Medicus Ministorum' grants Feel No Pain 5+ to the unit she is leading, NOT to the Hospitaller herself: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is the same prose-walk leak as the SC5-10 Tyranid sweep — the BSData mapper's extract_fnp pulls 'Feel No Pain 5+' text from Hospitaller's leader ability into the base unit profile. Reset to 7 (no static Feel No Pain) so the Hospitaller herself does not benefit. The leader-granted FNP to the bodyguard unit is the responsibility of code/leaders.py if not already there. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Hospitaller"
+      "notes": "SORORITAS-MORTIFIER-FNP: BSData attaches a top-level Feel No Pain 5+ infoLink to the Hospitaller unit. The real 10e datasheet ability 'Medicus Ministorum' grants Feel No Pain 5+ to the unit she is leading, NOT to the Hospitaller herself: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is the same prose-walk leak as the SC5-10 Tyranid sweep \u00e2\u20ac\u201d the BSData mapper's extract_fnp pulls 'Feel No Pain 5+' text from Hospitaller's leader ability into the base unit profile. Reset to 7 (no static Feel No Pain) so the Hospitaller herself does not benefit. The leader-granted FNP to the bodyguard unit is the responsibility of code/leaders.py if not already there. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Hospitaller"
     },
     "adepta_sororitas_saint_celestine": {
       "fnp": 7,
@@ -1087,7 +1242,7 @@
     "aeldari_drukhari_incubi": {
       "attacks": 0,
       "weapon_damage_per_shot": 0,
-      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Incubi melee Klaive profile into the ranged basket — `weapon = Klaive` with A3 S5 AP-2 D2 is identical to their melee Klaive. Incubi have NO ranged weapon on their 10e datasheet; Klaives are MELEE ONLY. Zeroing the phantom ranged basket so a 5-strong Incubi squad stops getting 15 free S5 AP-2 D2 ranged shots each Shooting phase on top of their real melee output. The melee basket (melee_attacks=3, melee_strength=5, melee_ap=-2, melee_damage_per_shot=2) is left untouched and remains correct. Same mapper bug as the Drazhar / Lelith phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Incubi"
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Incubi melee Klaive profile into the ranged basket \u00e2\u20ac\u201d `weapon = Klaive` with A3 S5 AP-2 D2 is identical to their melee Klaive. Incubi have NO ranged weapon on their 10e datasheet; Klaives are MELEE ONLY. Zeroing the phantom ranged basket so a 5-strong Incubi squad stops getting 15 free S5 AP-2 D2 ranged shots each Shooting phase on top of their real melee output. The melee basket (melee_attacks=3, melee_strength=5, melee_ap=-2, melee_damage_per_shot=2) is left untouched and remains correct. Same mapper bug as the Drazhar / Lelith phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Incubi"
     },
     "aeldari_drukhari_hellions": {
       "fnp": 7,
@@ -1123,7 +1278,7 @@
       "secondary_range_inches": 0,
       "secondary_weapon": "",
       "secondary_blast": false,
-      "notes": "SC5-8: Raider is a VEHICLE and cannot have Feel No Pain. BSData incorrectly attached a static Feel No Pain 5+ infoLink to every Drukhari unit (vehicles included) as a shorthand for Power from Pain. See aeldari_drukhari_wyches notes. DRK-DIAG-5: Wahapedia Raider datasheet states 'This model is equipped with: dark lance' OR 'This model is equipped with: disintegrator cannon' — the two ranged weapons are EXCLUSIVE loadout choices, not both-at-once. The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing BOTH every Shooting phase — doubled ranged output across every Raider in every Skysplinter list. Cleared the secondary; primary Disintegrator Cannon stays (matches one valid datasheet loadout). Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Raider"
+      "notes": "SC5-8: Raider is a VEHICLE and cannot have Feel No Pain. BSData incorrectly attached a static Feel No Pain 5+ infoLink to every Drukhari unit (vehicles included) as a shorthand for Power from Pain. See aeldari_drukhari_wyches notes. DRK-DIAG-5: Wahapedia Raider datasheet states 'This model is equipped with: dark lance' OR 'This model is equipped with: disintegrator cannon' \u00e2\u20ac\u201d the two ranged weapons are EXCLUSIVE loadout choices, not both-at-once. The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing BOTH every Shooting phase \u00e2\u20ac\u201d doubled ranged output across every Raider in every Skysplinter list. Cleared the secondary; primary Disintegrator Cannon stays (matches one valid datasheet loadout). Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Raider"
     },
     "aeldari_drukhari_venom": {
       "fnp": 7,
@@ -1139,7 +1294,7 @@
       "secondary_range_inches": 0,
       "secondary_weapon": "",
       "secondary_blast": false,
-      "notes": "SC5-8: Ravager is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes. DRK-DIAG-5: Wahapedia Ravager datasheet states 'This model is equipped with: 3 dark lances' OR 'This model is equipped with: 3 disintegrator cannons' — the two ranged weapon mounts are EXCLUSIVE loadout choices, not both-at-once. The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing both every Shooting phase. Cleared the secondary; primary Disintegrator Cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Ravager"
+      "notes": "SC5-8: Ravager is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes. DRK-DIAG-5: Wahapedia Ravager datasheet states 'This model is equipped with: 3 dark lances' OR 'This model is equipped with: 3 disintegrator cannons' \u00e2\u20ac\u201d the two ranged weapon mounts are EXCLUSIVE loadout choices, not both-at-once. The BSData mapper packed Disintegrator Cannon (A=3 S=6 AP-3 D=2 R=36) into the primary slot AND Dark Lance (A=1 S=12 AP-3 D=D6+2 R=36) into the secondary slot, so the simulator was firing both every Shooting phase. Cleared the secondary; primary Disintegrator Cannon stays. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Ravager"
     },
     "aeldari_drukhari_razorwing_jetfighter": {
       "fnp": 7,
@@ -1203,54 +1358,54 @@
     },
     "tyranids_winged_tyranid_prime": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk FNP extractor (code/bsdata/mapper.py:extract_fnp) pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement in Library - Tyranids.cat. Adaptive Biology is a single-CHARACTER, Below-Starting-Wounds-gated enhancement (\"The bearer has the Feel No Pain 5+ ability\"), not a datasheet ability — applying it as always-on to every Tyranid CHARACTER + MONSTER datasheet double-counts and over-models. Winged Tyranid Prime has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Tyranid-Prime"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk FNP extractor (code/bsdata/mapper.py:extract_fnp) pulling 'Feel No Pain 5+' text out of the Tyranid 'Adaptive Biology' Enhancement in Library - Tyranids.cat. Adaptive Biology is a single-CHARACTER, Below-Starting-Wounds-gated enhancement (\"The bearer has the Feel No Pain 5+ ability\"), not a datasheet ability \u00e2\u20ac\u201d applying it as always-on to every Tyranid CHARACTER + MONSTER datasheet double-counts and over-models. Winged Tyranid Prime has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Winged-Tyranid-Prime"
     },
     "tyranids_parasite_of_mortrex": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Parasite of Mortrex has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Parasite-of-Mortrex"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Parasite of Mortrex has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Parasite-of-Mortrex"
     },
     "tyranids_trygon": {
       "fnp": 7,
       "unit_keywords": [
         "MONSTER"
       ],
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Trygon has no native Feel No Pain. TYRANIDS-FIX: also stripped the BSData mapper false-positive CHARACTER keyword — the Wahapedia datasheet lists Trygon as MONSTER only (no CHARACTER), so the spurious CHARACTER keyword was tripping CHARACTER-only buffs (Lone Operative gating, leader-aura host-key checks). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Trygon"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Trygon has no native Feel No Pain. TYRANIDS-FIX: also stripped the BSData mapper false-positive CHARACTER keyword \u00e2\u20ac\u201d the Wahapedia datasheet lists Trygon as MONSTER only (no CHARACTER), so the spurious CHARACTER keyword was tripping CHARACTER-only buffs (Lone Operative gating, leader-aura host-key checks). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Trygon"
     },
     "tyranids_tervigon": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tervigon has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tervigon"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Tervigon has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tervigon"
     },
     "tyranids_broodlord": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Broodlord has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Broodlord"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Broodlord has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Broodlord"
     },
     "tyranids_old_one_eye": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Old One Eye has Berserk Rampage (regen 3 wounds on a kill) but no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Old-One-Eye"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Old One Eye has Berserk Rampage (regen 3 wounds on a kill) but no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Old-One-Eye"
     },
     "tyranids_tyrant_guard": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyrant Guard has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyrant-Guard"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Tyrant Guard has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyrant-Guard"
     },
     "tyranids_neurotyrant": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Neurotyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Neurotyrant"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Neurotyrant has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Neurotyrant"
     },
     "tyranids_malanthrope_legends": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Malanthrope (Legends) has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Malanthrope"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Malanthrope (Legends) has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Malanthrope"
     },
     "tyranids_tyranid_prime_with_lash_whip": {
       "fnp": 7,
-      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak — see tyranids_winged_tyranid_prime notes). Tyranid Prime with Lash Whip and Bonesword has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Prime-with-Lash-Whip-and-Bonesword"
+      "notes": "SC5-10: cleared static Feel No Pain 5+ fabricated by the BSData prose-walk extractor (Adaptive Biology Enhancement leak \u00e2\u20ac\u201d see tyranids_winged_tyranid_prime notes). Tyranid Prime with Lash Whip and Bonesword has no native Feel No Pain. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Prime-with-Lash-Whip-and-Bonesword"
     },
     "tyranids_norn_emissary": {
       "fnp": 7,
-      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 4+ baked into parsed.json by the BSData mapper. Verified BSData 'Tyranids.cat.gz' Norn Emissary selectionEntry has only ONE ability — 'Unnatural Resistance: This model has the Feel No Pain 4+ ability against Mortal Wounds.' — the FNP is conditional on mortal-wound damage only, which SwegHammer's combat resolver does not distinguish. Encoding a static fnp=4 grants the Emissary blanket 4+ FNP against every wound type, a major durability overbuff. Sim has no mortal-wound channel separation, so the rule-correct surrogate is fnp=7 (no FNP). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Emissary"
+      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 4+ baked into parsed.json by the BSData mapper. Verified BSData 'Tyranids.cat.gz' Norn Emissary selectionEntry has only ONE ability \u00e2\u20ac\u201d 'Unnatural Resistance: This model has the Feel No Pain 4+ ability against Mortal Wounds.' \u00e2\u20ac\u201d the FNP is conditional on mortal-wound damage only, which SwegHammer's combat resolver does not distinguish. Encoding a static fnp=4 grants the Emissary blanket 4+ FNP against every wound type, a major durability overbuff. Sim has no mortal-wound channel separation, so the rule-correct surrogate is fnp=7 (no FNP). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Emissary"
     },
     "tyranids_norn_assimilator": {
       "fnp": 7,
-      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 5+ fabricated by the BSData mapper prose-walk. Verified BSData 'Tyranids.cat.gz' Norn Assimilator selectionEntry has only ONE ability — 'Harpoon Barbs: Once per turn, when an enemy unit within Engagement Range of this unit is chosen to Fall Back, roll one D6; on a 2+, that unit suffers D6 mortal wounds.' — there is no Feel No Pain ability whatsoever. The fnp=5 in parsed.json is a false positive (likely Synaptic Disintegration / Enhancement leak from sibling Tyranid entries). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Assimilator"
+      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 5+ fabricated by the BSData mapper prose-walk. Verified BSData 'Tyranids.cat.gz' Norn Assimilator selectionEntry has only ONE ability \u00e2\u20ac\u201d 'Harpoon Barbs: Once per turn, when an enemy unit within Engagement Range of this unit is chosen to Fall Back, roll one D6; on a 2+, that unit suffers D6 mortal wounds.' \u00e2\u20ac\u201d there is no Feel No Pain ability whatsoever. The fnp=5 in parsed.json is a false positive (likely Synaptic Disintegration / Enhancement leak from sibling Tyranid entries). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Assimilator"
     },
     "tyranids_tyrannofex": {
       "weapon": "Rupture cannon",
@@ -1290,7 +1445,7 @@
       "secondary_range_inches": 0,
       "secondary_weapon": "",
       "secondary_blast": false,
-      "notes": "TYRANIDS-MULTI-LOADOUT: BSData mapper picked the squad's single special weapon (Venom cannon: A=2 S=9 AP-2 D=2 R=36 [BLAST]) as the per-model primary, which the simulator then fires from all 6 models — a ~6x damage inflation on what should be 5 Deathspitter shooters + 1 Venom cannon special. Real datasheet: 1 model carries Venom cannon (2D6 attacks avg 7, S9 AP-2 D2 BLAST R36); 5 models carry Deathspitters (A=2 S=5 AP-1 D=1 R=24). Attack-volume-weighted blend over 6-model squad: ~14.5 squad-wide shots total, weighted S=6.24, weighted AP=-1.31, weighted D=1.31, weighted R=24 (deathspitter dominates). Conservative per-model representation: A=2 S=6 AP=-1 D=1 R=24 no-blast, with secondary cleared (the venom cannon's single-model contribution is folded into the primary blend rather than firing as a second weapon from every model). Source (Venom cannon stats): https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Warriors-with-Ranged-Bio-Weapons (Deathspitter, Venom cannon profiles). The BSData secondary_weapon='Barbed strangler' is a different special weapon variant (only one of barbed strangler / venom cannon / stranglethorn cannon is taken per squad), not a second-per-model weapon, so clearing it removes the double-counted second-special-weapon-per-model inflation."
+      "notes": "TYRANIDS-MULTI-LOADOUT: BSData mapper picked the squad's single special weapon (Venom cannon: A=2 S=9 AP-2 D=2 R=36 [BLAST]) as the per-model primary, which the simulator then fires from all 6 models \u00e2\u20ac\u201d a ~6x damage inflation on what should be 5 Deathspitter shooters + 1 Venom cannon special. Real datasheet: 1 model carries Venom cannon (2D6 attacks avg 7, S9 AP-2 D2 BLAST R36); 5 models carry Deathspitters (A=2 S=5 AP-1 D=1 R=24). Attack-volume-weighted blend over 6-model squad: ~14.5 squad-wide shots total, weighted S=6.24, weighted AP=-1.31, weighted D=1.31, weighted R=24 (deathspitter dominates). Conservative per-model representation: A=2 S=6 AP=-1 D=1 R=24 no-blast, with secondary cleared (the venom cannon's single-model contribution is folded into the primary blend rather than firing as a second weapon from every model). Source (Venom cannon stats): https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Warriors-with-Ranged-Bio-Weapons (Deathspitter, Venom cannon profiles). The BSData secondary_weapon='Barbed strangler' is a different special weapon variant (only one of barbed strangler / venom cannon / stranglethorn cannon is taken per squad), not a second-per-model weapon, so clearing it removes the double-counted second-special-weapon-per-model inflation."
     },
     "adeptus_custodes_venatari_custodians": {
       "lance": true,
@@ -1318,7 +1473,7 @@
       "anti_keywords": {
         "VEHICLE": 2
       },
-      "notes": "AK-2: Chaos Knight Styrix mirrors Imperial Knight Styrix — Graviton Crusher [ANTI-VEHICLE 2+, Blast] in BSData 'Chaos - Chaos Knights Library.cat.gz'. Same basket-dilution miss; surface the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Styrix"
+      "notes": "AK-2: Chaos Knight Styrix mirrors Imperial Knight Styrix \u00e2\u20ac\u201d Graviton Crusher [ANTI-VEHICLE 2+, Blast] in BSData 'Chaos - Chaos Knights Library.cat.gz'. Same basket-dilution miss; surface the keyword via override. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Styrix"
     },
     "tyranids_raveners": {
       "anti_keywords": {
@@ -1343,7 +1498,7 @@
         "MONSTER": 4,
         "VEHICLE": 4
       },
-      "notes": "AK-2: Kill Rig packs a Stikka Kannon with [ANTI-MONSTER 2+] and [ANTI-VEHICLE 2+] (BSData 'Orks.cat.gz' profile name='Stikka kannon' typeName='Ranged Weapons' Keywords='Anti-Monster 2+, Anti-Vehicle 2+, Snagged'). It also carries Tusks plus Wurrtower [ANTI-MONSTER 4+ / ANTI-VEHICLE 4+] crew weapons on the secondary basket — restore both. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Kill-Rig"
+      "notes": "AK-2: Kill Rig packs a Stikka Kannon with [ANTI-MONSTER 2+] and [ANTI-VEHICLE 2+] (BSData 'Orks.cat.gz' profile name='Stikka kannon' typeName='Ranged Weapons' Keywords='Anti-Monster 2+, Anti-Vehicle 2+, Snagged'). It also carries Tusks plus Wurrtower [ANTI-MONSTER 4+ / ANTI-VEHICLE 4+] crew weapons on the secondary basket \u00e2\u20ac\u201d restore both. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Kill-Rig"
     },
     "orks_warbikers": {
       "lance": true,
@@ -1351,7 +1506,7 @@
     },
     "orks_squiggoth_legends": {
       "lance": true,
-      "notes": "AK-2: Squiggoth's Huge Tusks melee profile is keyworded [LANCE] (BSData 'Orks.cat.gz' profile name='Huge tusks' typeName='Melee Weapons' Keywords='Lance' — the strike-mode tusks). Restoring the trample-on-charge bonus per Wahapedia. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Squiggoth"
+      "notes": "AK-2: Squiggoth's Huge Tusks melee profile is keyworded [LANCE] (BSData 'Orks.cat.gz' profile name='Huge tusks' typeName='Melee Weapons' Keywords='Lance' \u00e2\u20ac\u201d the strike-mode tusks). Restoring the trample-on-charge bonus per Wahapedia. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Squiggoth"
     },
     "imperial_knights_library_armiger_moirax": {
       "secondary_anti_keywords": {
@@ -1474,13 +1629,13 @@
       "weapon_damage_per_shot": 0,
       "sustained_hits": 0,
       "precision": false,
-      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated Lelith's melee profile into the ranged basket — `weapon = Lelith's blades` with A8 S3 AP-2 D1 [PRECISION, SUSTAINED HITS 2] is identical to her melee profile. Lelith Hesperax has NO ranged weapon on her 10e datasheet; Lelith's blades is MELEE ONLY. Zeroing the phantom ranged basket so the simulator stops giving her a free 8-shot S3 AP-2 ranged volley each Shooting phase on top of her real melee. The melee basket (melee_attacks=8, melee_strength=3, melee_ap=-2, melee_damage_per_shot=1, melee_sustained_hits=2, precision=true on melee profile) is left untouched and remains correct. Same mapper bug as the Drazhar phantom-ranged duplication fixed in sim-cal-6 STAT-AUDIT. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Lelith-Hesperax"
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated Lelith's melee profile into the ranged basket \u00e2\u20ac\u201d `weapon = Lelith's blades` with A8 S3 AP-2 D1 [PRECISION, SUSTAINED HITS 2] is identical to her melee profile. Lelith Hesperax has NO ranged weapon on her 10e datasheet; Lelith's blades is MELEE ONLY. Zeroing the phantom ranged basket so the simulator stops giving her a free 8-shot S3 AP-2 ranged volley each Shooting phase on top of her real melee. The melee basket (melee_attacks=8, melee_strength=3, melee_ap=-2, melee_damage_per_shot=1, melee_sustained_hits=2, precision=true on melee profile) is left untouched and remains correct. Same mapper bug as the Drazhar phantom-ranged duplication fixed in sim-cal-6 STAT-AUDIT. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Lelith-Hesperax"
     },
     "aeldari_drukhari_succubus": {
       "attacks": 0,
       "weapon_damage_per_shot": 0,
       "precision": false,
-      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Succubus melee Archite glaive and agoniser profile into the ranged basket — `weapon = Archite glaive and agoniser` with A7 S3 AP-2 D1 [PRECISION] is identical to her melee profile. Her real datasheet has only a Splinter Pistol on the ranged side (A1 S2 AP0 D1 [PISTOL]), but the mapper substituted her melee weapon. Zeroing the phantom ranged basket rather than restoring the Splinter Pistol because the Pistol is a negligible 1-shot S2 contribution that does not warrant cluttering the override; the meaningful threat the simulator must price is her melee, which is left untouched. Same mapper bug as the Drazhar / Lelith / Incubi phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus"
+      "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Succubus melee Archite glaive and agoniser profile into the ranged basket \u00e2\u20ac\u201d `weapon = Archite glaive and agoniser` with A7 S3 AP-2 D1 [PRECISION] is identical to her melee profile. Her real datasheet has only a Splinter Pistol on the ranged side (A1 S2 AP0 D1 [PISTOL]), but the mapper substituted her melee weapon. Zeroing the phantom ranged basket rather than restoring the Splinter Pistol because the Pistol is a negligible 1-shot S2 contribution that does not warrant cluttering the override; the meaningful threat the simulator must price is her melee, which is left untouched. Same mapper bug as the Drazhar / Lelith / Incubi phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus"
     },
     "space_marines_infiltrator_squad": {
       "stealth": true,
@@ -1504,11 +1659,11 @@
     },
     "adeptus_mechanicus_pteraxii_skystalkers": {
       "stealth": true,
-      "notes": "SK-1: Pteraxii Skystalkers carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet (jump-pack Skitarii skirmishers whose datasheet ability text reads 'Stealth'). BSData's Imperium - Adeptus Mechanicus.cat.gz lists infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save (5+), Pistol, Sustained Hits — but no Stealth infoLink — so code/bsdata/mapper.py:extract_stealth returns False. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Skystalkers ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
+      "notes": "SK-1: Pteraxii Skystalkers carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet (jump-pack Skitarii skirmishers whose datasheet ability text reads 'Stealth'). BSData's Imperium - Adeptus Mechanicus.cat.gz lists infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save (5+), Pistol, Sustained Hits \u00e2\u20ac\u201d but no Stealth infoLink \u00e2\u20ac\u201d so code/bsdata/mapper.py:extract_stealth returns False. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Skystalkers ; keyword definition cited under unit.stealth in data/rule_citations.d/keywords_and_mechanics.json."
     },
     "adeptus_mechanicus_pteraxii_sterylizors": {
       "stealth": true,
-      "notes": "SK-1: Pteraxii Sterylizors carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet. Same BSData omission pattern as Pteraxii Skystalkers (infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save 5+, Pistol, Sustained Hits, Ignores Cover, Torrent — but no Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Sterylizors ; see adeptus_mechanicus_pteraxii_skystalkers notes."
+      "notes": "SK-1: Pteraxii Sterylizors carry the Stealth core unit-keyword on their 10e Adeptus Mechanicus datasheet. Same BSData omission pattern as Pteraxii Skystalkers (infoLinks for Deep Strike, Doctrina Imperatives, Invulnerable Save 5+, Pistol, Sustained Hits, Ignores Cover, Torrent \u00e2\u20ac\u201d but no Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Pteraxii-Sterylizors ; see adeptus_mechanicus_pteraxii_skystalkers notes."
     },
     "adeptus_mechanicus_onager_dunecrawler": {
       "weapon": "Neutron laser",
@@ -1529,7 +1684,7 @@
       "secondary_weapon": "",
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "notes": "ONAGER-MULTILOAD: Wahapedia Onager Dunecrawler datasheet lists four EXCLUSIVE main-weapon choices ('this model is equipped with: ...' — Eradication beamer OR Neutron laser OR Twin heavy phosphor blaster OR Icarus array), plus the fixed Cognis heavy stubber + Smoke launcher utility. BSData (Imperium - Adeptus Mechanicus.cat.gz selectionEntry 'Replace eradication beamer' with three exclusive child options) confirms only one main weapon is mounted per chassis. The mapper packed Eradication beamer - focused into the primary slot (R=18 A=6 S=10 AP=-3 D=3 BLAST), Neutron laser into the secondary slot (R=48 A=3 S=16 AP=-4 D=5.5), and Eradication beamer - dissipated + Twin heavy phosphor blaster + Icarus array into extra_ranged_profiles — so the simulator fired ALL FOUR main weapons (plus Cognis stubber) every Shooting phase. Same multi-loadout inflation pattern as DRK-DIAG-5 (Raider/Ravager) and TYRANIDS-MULTI-LOADOUT (Hive Tyrant). Picked Neutron laser as the primary (most-played tournament loadout — anti-vehicle role); cleared secondary and extra_ranged_profiles (Cognis heavy stubber is a low-impact utility profile and is dropped here for the same reason DRK-DIAG-5 dropped it from Skorpius — too small to model alongside the kept primary). Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Onager-Dunecrawler ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz selectionEntry name=\"Onager Dunecrawler\" exclusive-replacement block."
+      "notes": "ONAGER-MULTILOAD: Wahapedia Onager Dunecrawler datasheet lists four EXCLUSIVE main-weapon choices ('this model is equipped with: ...' \u00e2\u20ac\u201d Eradication beamer OR Neutron laser OR Twin heavy phosphor blaster OR Icarus array), plus the fixed Cognis heavy stubber + Smoke launcher utility. BSData (Imperium - Adeptus Mechanicus.cat.gz selectionEntry 'Replace eradication beamer' with three exclusive child options) confirms only one main weapon is mounted per chassis. The mapper packed Eradication beamer - focused into the primary slot (R=18 A=6 S=10 AP=-3 D=3 BLAST), Neutron laser into the secondary slot (R=48 A=3 S=16 AP=-4 D=5.5), and Eradication beamer - dissipated + Twin heavy phosphor blaster + Icarus array into extra_ranged_profiles \u00e2\u20ac\u201d so the simulator fired ALL FOUR main weapons (plus Cognis stubber) every Shooting phase. Same multi-loadout inflation pattern as DRK-DIAG-5 (Raider/Ravager) and TYRANIDS-MULTI-LOADOUT (Hive Tyrant). Picked Neutron laser as the primary (most-played tournament loadout \u00e2\u20ac\u201d anti-vehicle role); cleared secondary and extra_ranged_profiles (Cognis heavy stubber is a low-impact utility profile and is dropped here for the same reason DRK-DIAG-5 dropped it from Skorpius \u00e2\u20ac\u201d too small to model alongside the kept primary). Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Onager-Dunecrawler ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz selectionEntry name=\"Onager Dunecrawler\" exclusive-replacement block."
     },
     "adeptus_mechanicus_skorpius_disintegrator": {
       "secondary_attacks": 0,
@@ -1541,18 +1696,543 @@
       "secondary_weapon": "",
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "notes": "ONAGER-MULTILOAD: Wahapedia Skorpius Disintegrator datasheet lists Belleros energy cannon OR Ferrumite cannon as EXCLUSIVE main-weapon choices ('this model is equipped with: ...' — one OR the other), plus a fixed Disruptor missile launcher and two Cognis heavy stubbers. BSData (Imperium - Adeptus Mechanicus.cat.gz selectionEntry 'Skorpius Disintegrator') confirms the exclusive replace pattern between the two main turret cannons. The mapper packed Ferrumite cannon into the primary slot (R=48 A=3 S=12 AP=-3 D=4.5) AND Disruptor missile launcher into the secondary slot (R=36 A=3 S=9 AP=-2 D=3.5), with Belleros energy cannon + a second Cognis heavy stubber profile in extra_ranged_profiles — three main-weapon profiles all firing simultaneously per Shooting phase. Same multi-loadout inflation pattern as Onager Dunecrawler above. Note: per the datasheet, Disruptor missile launcher IS a real fixed-mount weapon on the Skorpius (not exclusive with the cannons), but keeping it as a co-firing secondary would still leave both main cannons summing into damage output via the extra_ranged_profiles path. To follow the same clean-cut as DRK-DIAG-5 and TYRANIDS-MULTI-LOADOUT (clear secondary, keep primary), cleared secondary and extra_ranged_profiles; primary Ferrumite cannon stays (more common competitive build — anti-vehicle role). The dropped Disruptor missile launcher contribution is the trade-off for matching the DRK-DIAG-5 / TYRANIDS-MULTI-LOADOUT clean-cut convention; total post-fix damage output is closer to one real loadout's volume than the previous three-profile-stack. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Skorpius-Disintegrator ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz selectionEntry name=\"Skorpius Disintegrator\" exclusive-replacement block."
+      "notes": "ONAGER-MULTILOAD: Wahapedia Skorpius Disintegrator datasheet lists Belleros energy cannon OR Ferrumite cannon as EXCLUSIVE main-weapon choices ('this model is equipped with: ...' \u00e2\u20ac\u201d one OR the other), plus a fixed Disruptor missile launcher and two Cognis heavy stubbers. BSData (Imperium - Adeptus Mechanicus.cat.gz selectionEntry 'Skorpius Disintegrator') confirms the exclusive replace pattern between the two main turret cannons. The mapper packed Ferrumite cannon into the primary slot (R=48 A=3 S=12 AP=-3 D=4.5) AND Disruptor missile launcher into the secondary slot (R=36 A=3 S=9 AP=-2 D=3.5), with Belleros energy cannon + a second Cognis heavy stubber profile in extra_ranged_profiles \u00e2\u20ac\u201d three main-weapon profiles all firing simultaneously per Shooting phase. Same multi-loadout inflation pattern as Onager Dunecrawler above. Note: per the datasheet, Disruptor missile launcher IS a real fixed-mount weapon on the Skorpius (not exclusive with the cannons), but keeping it as a co-firing secondary would still leave both main cannons summing into damage output via the extra_ranged_profiles path. To follow the same clean-cut as DRK-DIAG-5 and TYRANIDS-MULTI-LOADOUT (clear secondary, keep primary), cleared secondary and extra_ranged_profiles; primary Ferrumite cannon stays (more common competitive build \u00e2\u20ac\u201d anti-vehicle role). The dropped Disruptor missile launcher contribution is the trade-off for matching the DRK-DIAG-5 / TYRANIDS-MULTI-LOADOUT clean-cut convention; total post-fix damage output is closer to one real loadout's volume than the previous three-profile-stack. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Skorpius-Disintegrator ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz selectionEntry name=\"Skorpius Disintegrator\" exclusive-replacement block."
     },
     "adeptus_mechanicus_kataphron_destroyers": {
-      "notes": "ONAGER-MULTILOAD audit: Wahapedia Kataphron Destroyers datasheet lists ALL models equipped with the SAME main-weapon choice (Heavy grav-cannon OR Kataphron plasma culverin — exclusive), plus a fixed Phosphor blaster and a melee Close combat weapon. BSData (Imperium - Adeptus Mechanicus.cat.gz) confirms the exclusive pattern via two named model entries ('Kataphron Destroyer (Heavy grav-cannon & Cognis flamer)' vs the plasma culverin variant). Inspected parsed.json: primary = Heavy grav-cannon (R=30 A=3 S=6 AP=-1 D=1.25), secondary slot is empty (A=0 S=4 — clean), extra_ranged_profiles is empty. No multi-firing inflation in the parsed values — the squad runs the Heavy grav-cannon profile cleanly. Note left for future BSData mapper structural work: the loadout list ['Heavy grav-cannon x2','Cognis flamer x2','Close combat weapon x2','Phosphor blaster x2','➤ Kataphron plasma culverin - standard x2'] still mentions the plasma culverin in the loadout string, but the parsed stats only fire grav-cannon, so the simulator behaves correctly. No override applied — this entry exists only to document the audit result. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kataphron-Destroyers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
+      "notes": "ONAGER-MULTILOAD audit: Wahapedia Kataphron Destroyers datasheet lists ALL models equipped with the SAME main-weapon choice (Heavy grav-cannon OR Kataphron plasma culverin \u00e2\u20ac\u201d exclusive), plus a fixed Phosphor blaster and a melee Close combat weapon. BSData (Imperium - Adeptus Mechanicus.cat.gz) confirms the exclusive pattern via two named model entries ('Kataphron Destroyer (Heavy grav-cannon & Cognis flamer)' vs the plasma culverin variant). Inspected parsed.json: primary = Heavy grav-cannon (R=30 A=3 S=6 AP=-1 D=1.25), secondary slot is empty (A=0 S=4 \u00e2\u20ac\u201d clean), extra_ranged_profiles is empty. No multi-firing inflation in the parsed values \u00e2\u20ac\u201d the squad runs the Heavy grav-cannon profile cleanly. Note left for future BSData mapper structural work: the loadout list ['Heavy grav-cannon x2','Cognis flamer x2','Close combat weapon x2','Phosphor blaster x2','\u00e2\u017e\u00a4 Kataphron plasma culverin - standard x2'] still mentions the plasma culverin in the loadout string, but the parsed stats only fire grav-cannon, so the simulator behaves correctly. No override applied \u00e2\u20ac\u201d this entry exists only to document the audit result. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kataphron-Destroyers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
     },
     "adeptus_mechanicus_kataphron_breachers": {
-      "notes": "ONAGER-MULTILOAD audit: Wahapedia Kataphron Breachers datasheet lists ALL models equipped with the SAME main-weapon choice (Heavy arc rifle OR Torsion cannon — exclusive), plus a melee Hydraulic claw / Arc claw. BSData (Imperium - Adeptus Mechanicus.cat.gz) confirms the exclusive pattern via two named model entries ('Kataphron Breacher (Heavy arc rifle & arc claw)' vs the torsion variant). Inspected parsed.json: primary = Heavy arc rifle (R=30 A=2 S=7 AP=-2 D=2.33), secondary slot is empty (A=0 S=4 — clean), extra_ranged_profiles is empty. No multi-firing inflation in the parsed values — the squad runs the Heavy arc rifle profile cleanly. No override applied — this entry exists only to document the audit result. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kataphron-Breachers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
+      "notes": "ONAGER-MULTILOAD audit: Wahapedia Kataphron Breachers datasheet lists ALL models equipped with the SAME main-weapon choice (Heavy arc rifle OR Torsion cannon \u00e2\u20ac\u201d exclusive), plus a melee Hydraulic claw / Arc claw. BSData (Imperium - Adeptus Mechanicus.cat.gz) confirms the exclusive pattern via two named model entries ('Kataphron Breacher (Heavy arc rifle & arc claw)' vs the torsion variant). Inspected parsed.json: primary = Heavy arc rifle (R=30 A=2 S=7 AP=-2 D=2.33), secondary slot is empty (A=0 S=4 \u00e2\u20ac\u201d clean), extra_ranged_profiles is empty. No multi-firing inflation in the parsed values \u00e2\u20ac\u201d the squad runs the Heavy arc rifle profile cleanly. No override applied \u00e2\u20ac\u201d this entry exists only to document the audit result. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kataphron-Breachers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
     },
     "orks_stompa": {
       "attacks": 14,
       "secondary_attacks": 32,
-      "notes": "Multi-weapon override (option 1 / pass 1). The Stompa carries six ranged weapons but BSData's tree exposes only the Deffkannon (primary in the simulator: A=3D6 -> 10 shots, S14, AP-3, D6 Blast) and the Supa-gatler (secondary: 20 shots, S7, AP-1, D2, Sustained Hits 1). The other three weapon profiles are absent from the cache: 3 Big Shootas + 1 Twin Big Shoota (Rapid Fire 2, 36\", S5 AP0 D1), the Skorcha (D6 shots, 12\" Torrent, S5 AP-1 D1, Ignores Cover), and the Supa-rokkits (D6 shots, 100\", S12 AP-3 D6+2, Blast). The simulator runs Stompa with roughly 60-70%% of its real shooting output, which is the primary reason it collapses in the equation fit. As a stopgap until the mapper learns to compose multi-weapon profiles, we route the Supa-rokkits' anti-vehicle contribution into the primary slot (Deffkannon-like S14/AP-3) by bumping attacks 10 -> 14, and the Big Shootas + Twin Big Shoota + Skorcha anti-infantry contribution into the secondary slot (Supa-gatler-like S7/AP-1) by bumping attacks 20 -> 32. Keyword booleans (Blast on primary, Sustained Hits 1 on secondary) are kept as-is from BSData. The override is rough — different missing weapons have different S/AP profiles so any single-slot aggregation distorts target-type efficiency — but it lifts Stompa's expected damage from ~12 to ~17 vs a baseline Marine, which matches the Wahapedia datasheet. Source: https://wahapedia.ru/wh40k10ed/factions/orks/Stompa"
+      "notes": "Multi-weapon override (option 1 / pass 1). The Stompa carries six ranged weapons but BSData's tree exposes only the Deffkannon (primary in the simulator: A=3D6 -> 10 shots, S14, AP-3, D6 Blast) and the Supa-gatler (secondary: 20 shots, S7, AP-1, D2, Sustained Hits 1). The other three weapon profiles are absent from the cache: 3 Big Shootas + 1 Twin Big Shoota (Rapid Fire 2, 36\", S5 AP0 D1), the Skorcha (D6 shots, 12\" Torrent, S5 AP-1 D1, Ignores Cover), and the Supa-rokkits (D6 shots, 100\", S12 AP-3 D6+2, Blast). The simulator runs Stompa with roughly 60-70%% of its real shooting output, which is the primary reason it collapses in the equation fit. As a stopgap until the mapper learns to compose multi-weapon profiles, we route the Supa-rokkits' anti-vehicle contribution into the primary slot (Deffkannon-like S14/AP-3) by bumping attacks 10 -> 14, and the Big Shootas + Twin Big Shoota + Skorcha anti-infantry contribution into the secondary slot (Supa-gatler-like S7/AP-1) by bumping attacks 20 -> 32. Keyword booleans (Blast on primary, Sustained Hits 1 on secondary) are kept as-is from BSData. The override is rough \u00e2\u20ac\u201d different missing weapons have different S/AP profiles so any single-slot aggregation distorts target-type efficiency \u00e2\u20ac\u201d but it lifts Stompa's expected damage from ~12 to ~17 vs a baseline Marine, which matches the Wahapedia datasheet. Source: https://wahapedia.ru/wh40k10ed/factions/orks/Stompa"
+    },
+    "t_au_empire_hammerhead_gunship": {
+      "weapon": "Railgun",
+      "strength": 20,
+      "ap": -5,
+      "weapon_damage_per_shot": 9.5,
+      "range_inches": 72,
+      "attacks": 1,
+      "hit_probability": 0.667,
+      "twin_linked": false,
+      "rapid_fire": 0,
+      "blast": false,
+      "ignores_cover": false,
+      "heavy": true,
+      "lethal_hits": false,
+      "sustained_hits": 0,
+      "devastating_wounds": true,
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Seeker missile",
+          "attacks": 1,
+          "weapon_damage_per_shot": 4.5,
+          "hit_probability": 0.833,
+          "ap": -3,
+          "strength": 14,
+          "range_inches": 48,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false,
+          "one_shot": true
+        },
+        {
+          "weapon": "Accelerator burst cannon",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "range_inches": 18,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "MUTEX-SWEEP: Hammerhead Gunship main gun is Railgun OR Ion cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Ion cannon (overcharge) into primary, Railgun into secondary, Ion cannon (standard) into extras so the simulator was firing all three every Shooting phase. Set primary to Railgun (meta anti-tank choice, Devastating Wounds), cleared secondary, dropped the Ion cannon standard profile from extras. Kept Seeker missile (one-shot) and Accelerator burst cannon (always-carried hull weapon). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Hammerhead-Gunship"
+    },
+    "t_au_empire_stormsurge": {
+      "weapon": "Pulse Driver Cannon",
+      "strength": 12,
+      "ap": -3,
+      "weapon_damage_per_shot": 3.0,
+      "range_inches": 72,
+      "attacks": 5,
+      "hit_probability": 0.667,
+      "twin_linked": false,
+      "rapid_fire": 0,
+      "blast": true,
+      "ignores_cover": false,
+      "heavy": true,
+      "lethal_hits": false,
+      "sustained_hits": 0,
+      "devastating_wounds": false,
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Destroyer missiles",
+          "attacks": 2,
+          "weapon_damage_per_shot": 5.5,
+          "hit_probability": 0.667,
+          "ap": -4,
+          "strength": 16,
+          "range_inches": 60,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": true,
+          "pistol": false,
+          "one_shot": true
+        },
+        {
+          "weapon": "Cluster rocket system",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 5,
+          "range_inches": 48,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": true,
+          "pistol": false
+        },
+        {
+          "weapon": "Twin smart missile system",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 5,
+          "range_inches": 30,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": true,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "MUTEX-SWEEP: Stormsurge main gun is Pulse Driver Cannon OR Pulse blast cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Pulse blast cannon focused (S24 AP-6 D12) into primary, Pulse Driver Cannon into secondary, Pulse blast cannon dispersed into extras so the simulator was firing all three modes every Shooting phase. Set primary to Pulse Driver Cannon (long-range S12 staple), cleared secondary, dropped the Pulse blast cannon dispersed mode from extras. Kept Destroyer missiles, Cluster rocket system, and Twin smart missile system (always-carried hull weapons). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Stormsurge"
+    },
+    "t_au_empire_ghostkeel_battlesuit": {
+      "weapon": "Cyclic ion raker",
+      "strength": 7,
+      "ap": -1,
+      "weapon_damage_per_shot": 2.0,
+      "range_inches": 36,
+      "attacks": 6,
+      "hit_probability": 0.667,
+      "twin_linked": false,
+      "rapid_fire": 0,
+      "blast": false,
+      "ignores_cover": false,
+      "heavy": false,
+      "lethal_hits": false,
+      "sustained_hits": 0,
+      "devastating_wounds": false,
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Twin fusion blaster",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -4,
+          "strength": 9,
+          "range_inches": 18,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 2,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Twin T'au flamer",
+          "attacks": 3.5,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 1.0,
+          "ap": 0,
+          "strength": 4,
+          "range_inches": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": true,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "MUTEX-SWEEP: Ghostkeel main gun is Cyclic ion raker OR Fusion collider per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Cyclic ion raker overcharge (S8 AP-2 D3) into primary, Fusion collider (S12 AP-4 D6 Melta 4) into secondary, Cyclic ion raker standard into extras so the simulator was firing all three profiles. Set primary to Cyclic ion raker standard mode (no hazardous self-damage), cleared secondary, dropped Cyclic ion raker overcharge from extras. Kept Twin fusion blaster and Twin T'au flamer (always-carried support drones). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#XV95-Ghostkeel-Battlesuit"
+    },
+    "aeldari_craftworlds_fire_prism": {
+      "weapon": "Prism Cannon - focused lances",
+      "strength": 18,
+      "ap": -4,
+      "weapon_damage_per_shot": 6.0,
+      "range_inches": 60,
+      "attacks": 1,
+      "hit_probability": 0.667,
+      "twin_linked": false,
+      "rapid_fire": 0,
+      "blast": false,
+      "ignores_cover": false,
+      "heavy": true,
+      "lethal_hits": false,
+      "sustained_hits": 0,
+      "devastating_wounds": false,
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Shuriken Cannon",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "range_inches": 24,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": true,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Twin Shuriken Catapult",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 4,
+          "range_inches": 12,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": true,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "MUTEX-SWEEP: Fire Prism Prism Cannon has three firing modes (focused lances, dispersed pulse, linked fire) and the model picks exactly ONE each Shooting phase per the datasheet weapon profiles (single weapon, multiple selectable profiles). Mapper packed the focused lances mode into primary and the dispersed pulse mode into secondary, so the simulator was firing two modes of the same gun each Shooting phase. Kept focused lances as the primary (most common anti-tank choice), cleared the secondary. Kept Shuriken Cannon and Twin Shuriken Catapult in extras (always-carried hull weapons). Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Fire-Prism"
+    },
+    "aeldari_craftworlds_wave_serpent": {
+      "weapon": "Twin Bright Lance",
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Shuriken Cannon",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "range_inches": 24,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": true,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Twin Shuriken Catapult",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 4,
+          "range_inches": 12,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": true,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": true,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "MUTEX-SWEEP: Wave Serpent turret weapon is one of Twin Bright Lance / Twin Scatter Laser / Twin Shuriken Cannon / Twin Starcannon per codex (BSData selectionEntryGroup max=1). Mapper packed Twin Bright Lance into primary, Twin Shuriken Cannon into secondary, Twin Starcannon and Twin Scatter Laser into extras so the simulator was firing all four turret options. Kept Twin Bright Lance as primary (meta anti-tank), cleared secondary, replaced extras with only the always-carried Shuriken Cannon and Twin Shuriken Catapult hull guns. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wave-Serpent"
+    },
+    "space_marines_predator_destructor": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "notes": "MUTEX-SWEEP: Predator Destructor sponsons are 2x Lascannons OR 2x Heavy Bolters per codex (BSData selectionEntryGroup Side sponsons, max=1 for the pair). Mapper put a single Lascannon profile into secondary and Heavy Bolter into extras, so the simulator was firing both sponson options as if the tank had heterogeneous sponsons. Cleared the lascannon secondary (Predator Destructor is the anti-infantry variant; heavy bolter sponsons match the autocannon turret theme and are the more common loadout). Heavy Bolter remains in extras representing the sponson pair; Hunter-killer and Storm bolter unchanged. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Predator-Destructor"
+    },
+    "astra_militarum_hellhound": {
+      "weapon": "Inferno cannon",
+      "strength": 6,
+      "ap": -2,
+      "weapon_damage_per_shot": 1.0,
+      "range_inches": 18,
+      "attacks": 4.5,
+      "hit_probability": 1.0,
+      "twin_linked": false,
+      "rapid_fire": 0,
+      "blast": false,
+      "ignores_cover": true,
+      "torrent": true,
+      "heavy": false,
+      "lethal_hits": false,
+      "sustained_hits": 0,
+      "devastating_wounds": false,
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "secondary_torrent": false,
+      "secondary_melta": 0,
+      "secondary_sustained_hits": 0,
+      "secondary_devastating_wounds": false,
+      "secondary_lethal_hits": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Heavy bolter",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "range_inches": 36,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        },
+        {
+          "weapon": "Hunter-killer missile",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.833,
+          "ap": -3,
+          "strength": 14,
+          "range_inches": 48,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false,
+          "one_shot": true
+        }
+      ],
+      "notes": "MUTEX-SWEEP: BSData merges Hellhound + Bane Wolf + Devil Dog into one entry; in 10e these are three SEPARATE datasheets with mutually exclusive main guns. Mapper packed Chem cannon (Bane Wolf) into primary, Inferno cannon (Hellhound) into secondary, Multi-melta and Melta cannon (Devil Dog) into extras, so the simulator was firing four chassis-mutex main guns simultaneously. Picked Inferno cannon (the canonical Hellhound chassis the override key resolves to), cleared secondary, rebuilt extras with the always-carried Heavy bolter sponson and Hunter-killer missile. Bane Wolf and Devil Dog should have their own override keys eventually; this entry now represents Hellhound proper. Source: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Hellhound"
     }
   }
 }
