@@ -119,6 +119,50 @@ def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
     return False
 
 
+def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
+    """True iff `unit` satisfies the Doctrina Imperatives BATTLELINE proximity
+    gate: it has the BATTLELINE keyword itself, OR it is within 6" of any
+    friendly ADEPTUS MECHANICUS BATTLELINE unit.
+
+    Wahapedia verbatim
+    (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/):
+        "...if this unit has the BATTLELINE keyword and/or it is within 6"
+        of one or more friendly ADEPTUS MECHANICUS BATTLELINE units..."
+
+    This gate scopes the Protector defensive -1 to Hit (melee attacks
+    targeting the AdMech unit) and the Conqueror +1 AP buff to the
+    AdMech-side units that are themselves BATTLELINE (Skitarii Rangers,
+    Skitarii Vanguard) or which are coordinating with one within 6".
+    The +1 BS / WS portion of each imperative is genuinely army-wide and
+    is NOT gated by this helper.
+
+    Cited as `simulator.doctrina_imperatives`. Returns False when the unit
+    has no army_ref (defensive) — the gate fails-closed in that edge case
+    so a stray test profile cannot silently receive the gated bonus.
+    """
+    kws = unit.profile.unit_keywords or ()
+    if "BATTLELINE" in kws:
+        return True
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return False
+    ux, uy = unit.position
+    r2 = 6.0 * 6.0
+    for ally in own_army.alive_units:
+        if ally is unit:
+            continue
+        if ally.profile.faction != "Adeptus Mechanicus":
+            continue
+        if "BATTLELINE" not in (ally.profile.unit_keywords or ()):
+            continue
+        ax, ay = ally.position
+        dx = ax - ux
+        dy = ay - uy
+        if dx * dx + dy * dy <= r2:
+            return True
+    return False
+
+
 def save_probability(
     save: int, ap: int = 0, in_cover: bool = False, is_infantry: bool = True
 ) -> float:
@@ -1440,19 +1484,27 @@ class Unit:
             # attack, if this unit has the BATTLELINE keyword and/or it is
             # within 6\" of one or more friendly ADEPTUS MECHANICUS BATTLELINE
             # units, improve the Armour Penetration characteristic of that
-            # attack by 1." Approximated army-wide per the proximity-gate note
-            # in the Hit-roll block above (most AdMech infantry are Skitarii
-            # BATTLELINE). Gate: attacker faction == "Adeptus Mechanicus" AND
-            # the army's active imperative this round is Conqueror. AP is
-            # encoded 0/-1/-2/-3 so "improve by 1" subtracts 1. Cited as
-            # `simulator.doctrina_imperatives`.
+            # attack by 1." ADMECH-DIAG-2 (2026-05-24) replaced the prior
+            # army-wide approximation with the real BATTLELINE-or-within-6"
+            # proximity gate (see `_doctrina_battleline_proximity_met`).
+            # Only 2 of 42 AdMech datasheets carry BATTLELINE (Skitarii
+            # Vanguard / Rangers), so the army-wide approximation was
+            # over-applying the AP buff to ~95% of AdMech units that the
+            # codex does not actually grant it to. Gate: attacker faction
+            # == "Adeptus Mechanicus" AND active imperative is Conqueror
+            # AND the attacker passes the BATTLELINE proximity check.
+            # AP is encoded 0/-1/-2/-3 so "improve by 1" subtracts 1.
+            # Cited as `simulator.doctrina_imperatives`.
             if p.faction == "Adeptus Mechanicus":
                 _own_army_di_ap = getattr(self, "army_ref", None)
                 _imp_di_ap = (
                     getattr(_own_army_di_ap, "doctrina_imperative", None)
                     if _own_army_di_ap is not None else None
                 )
-                if _imp_di_ap == "conqueror":
+                if (
+                    _imp_di_ap == "conqueror"
+                    and _doctrina_battleline_proximity_met(self)
+                ):
                     ap = ap - 1
 
             # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
@@ -1813,16 +1865,24 @@ class Unit:
             # ---- Doctrina Imperatives — Protector defensive side. When the
             # TARGET unit is Adeptus Mechanicus and the active imperative is
             # Protector, melee attacks against it take -1 to Hit. Real-rule
-            # gate is BATTLELINE or within 6" of friendly AdMech BATTLELINE;
-            # approximated army-wide here for the reasons in the attacker
-            # block above. Cited as `simulator.doctrina_imperatives`.
+            # gate is BATTLELINE or within 6" of friendly AdMech BATTLELINE.
+            # ADMECH-DIAG-2 (2026-05-24) replaced the prior army-wide
+            # approximation with the real proximity check (see
+            # `_doctrina_battleline_proximity_met`). Only 2 of 42 AdMech
+            # datasheets carry BATTLELINE (Skitarii Vanguard / Rangers),
+            # so the army-wide approximation was making ~95% of AdMech
+            # units more durable in melee than the codex grants them.
+            # Cited as `simulator.doctrina_imperatives`.
             if mode == "melee" and target.profile.faction == "Adeptus Mechanicus":
                 _tgt_army_di = getattr(target, "army_ref", None)
                 _tgt_imp_di = (
                     getattr(_tgt_army_di, "doctrina_imperative", None)
                     if _tgt_army_di is not None else None
                 )
-                if _tgt_imp_di == "protector":
+                if (
+                    _tgt_imp_di == "protector"
+                    and _doctrina_battleline_proximity_met(target)
+                ):
                     hit_mod_delta -= 1
 
             # CORE-RULE-FIX-2 — "Indirect Fire attack" trigger: ranged attack
