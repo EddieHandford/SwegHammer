@@ -643,6 +643,23 @@ class Unit:
         # a test. Cleared by the next round's Battle-shock phase (the same
         # call that re-tests the unit). Cited as `simulator.battleshock`.
         "battleshocked_until_round",
+        # SOROR-DIAG-4: Adepta Sororitas Acts of Faith per-round budget.
+        # The codex caps Acts of Faith at one per phase per unit; SOROR-DIAG-3
+        # left the substitution gated only by a per-attack() local flag, which
+        # let a defender spend one Miracle die per ATTACKING ENEMY across a
+        # whole shooting / fight phase (each enemy attacker enters attack()
+        # with a fresh flag, so the defender's defensive substitution branch
+        # could fire dozens of times per phase). SOROR-DIAG-4 promotes the
+        # flag onto the Unit itself and resets it once per round in
+        # `Battle._run_round`, capping each Sororitas unit at one Act of
+        # Faith per round across BOTH offensive (its own attack() calls) and
+        # defensive (incoming attack() calls on this unit). Tighter than the
+        # codex literal (which would permit one per phase, i.e. up to four
+        # per round across Move / Shoot / Charge / Fight), chosen
+        # conservatively because SOROR-DIAG-3 left Sororitas at +14.39pt
+        # over-performance after the bank cap was already tightened to 5.
+        # Cited as `simulator.acts_of_faith`.
+        "aof_used_this_round",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -732,6 +749,12 @@ class Unit:
         # rationale). 0 = never failed; otherwise = the round_num during
         # which the unit is currently battle-shocked.
         self.battleshocked_until_round: int = 0
+        # SOROR-DIAG-4: per-round Acts of Faith budget. Reset at the top of
+        # every round in Battle._run_round for every Sororitas unit on both
+        # armies. While True, no further offensive OR defensive Miracle die
+        # substitution may fire on this unit until the next round-reset.
+        # See __slots__ for full rationale and citation linkage.
+        self.aof_used_this_round: bool = False
 
     @property
     def current_health(self) -> float:
@@ -877,15 +900,23 @@ class Unit:
         # perform one Act of Faith per phase" (citation: simulator.acts_of_faith).
         # Prior implementation substituted a Miracle die on EVERY failed hit /
         # wound / save across the unit's entire attack call (potentially dozens
-        # of substitutions per phase), driving Adepta Sororitas to +19.7pt
-        # over-performance in the SOROR-DIAG-2 N=5 baseline. One attack() call =
-        # one unit resolving in one phase (shooting or fight), so this local
-        # boolean enforces the per-unit-per-phase cap by tripping after the
-        # first substitution and short-circuiting the other two branches for the
-        # rest of the call. Acts of Faith on Strands of Fate-equivalent
-        # defensive substitution (save rolls) when the OPPONENT attacks this
-        # unit lives in a separate attack() call on the attacker's side and is
-        # gated identically there. Cited as `simulator.acts_of_faith`.
+        # of substitutions per phase). The local boolean short-circuits the
+        # three substitution branches inside ONE attack() call after the first
+        # fire.
+        #
+        # SOROR-DIAG-4 (2026-05-24) — promote the budget to the Unit. The
+        # SOROR-DIAG-2 local-only gate fixed within-one-attack-call double
+        # spending but did NOT cap cross-call spending: a Sororitas defender
+        # could spend one defensive Miracle die per ATTACKING enemy across an
+        # entire phase, because each enemy attacker entered attack() with a
+        # fresh local flag. Likewise an attacking Sororitas unit firing
+        # multiple weapon profiles routes through attack() once per target,
+        # each call fresh. Now we read AND write
+        # `self.aof_used_this_round` (offensive side, this unit) and
+        # `target.aof_used_this_round` (defensive side, the target unit) at
+        # each substitution gate, capping each Sororitas unit at one Act of
+        # Faith per round across both directions. Round-level reset happens
+        # in `Battle._run_round`. Cited as `simulator.acts_of_faith`.
         attack_aof_substitution_used = False
 
         # ---- Buff lookups (detachment + in-range leader auras) -------------
@@ -2396,6 +2427,7 @@ class Unit:
                         roll < hit_target
                         and p.faction == "Adepta Sororitas"
                         and not attack_aof_substitution_used
+                        and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
                     ):
                         own_army = getattr(self, "army_ref", None)
                         if own_army is not None and own_army.has_miracle_dice():
@@ -2403,6 +2435,7 @@ class Unit:
                             if sub is not None:
                                 roll = sub
                                 attack_aof_substitution_used = True
+                                self.aof_used_this_round = True  # SOROR-DIAG-4
                     if roll < hit_target:
                         continue   # missed
                     # Crit-to-hit threshold defaults to 6 (canonical 10e); the
@@ -2512,6 +2545,7 @@ class Unit:
                         not wound_succeeded
                         and p.faction == "Adepta Sororitas"
                         and not attack_aof_substitution_used
+                        and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
                     ):
                         own_army = getattr(self, "army_ref", None)
                         if own_army is not None and own_army.has_miracle_dice():
@@ -2521,6 +2555,7 @@ class Unit:
                                 wound_succeeded = True
                                 crit_wound = False
                                 attack_aof_substitution_used = True
+                                self.aof_used_this_round = True  # SOROR-DIAG-4
                     if not wound_succeeded:
                         continue
 
@@ -2585,10 +2620,18 @@ class Unit:
                         # Sororitas defender can still use one AoF save sub
                         # per attacker attacking it). That's consistent with
                         # the SOROR-DIAG-2 over-buff fix erring conservative.
+                        #
+                        # SOROR-DIAG-4: the per-attack-call flag did NOT cap
+                        # cross-attacker spending. We now ALSO consult / set
+                        # `target.aof_used_this_round` so a Sororitas defender
+                        # spends at most one Miracle die across all attackers
+                        # attacking it in a single round — across offensive
+                        # AND defensive directions combined.
                         if (
                             sroll < save_target
                             and target.profile.faction == "Adepta Sororitas"
                             and not attack_aof_substitution_used
+                            and not target.aof_used_this_round  # SOROR-DIAG-4
                         ):
                             tgt_army = getattr(target, "army_ref", None)
                             if tgt_army is not None and tgt_army.has_miracle_dice():
@@ -2596,6 +2639,7 @@ class Unit:
                                 if sub is not None:
                                     sroll = sub
                                     attack_aof_substitution_used = True
+                                    target.aof_used_this_round = True  # SOROR-DIAG-4
                         if sroll >= save_target:
                             continue   # saved
                     target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)

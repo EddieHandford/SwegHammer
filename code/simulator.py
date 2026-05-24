@@ -4759,6 +4759,20 @@ class Battle:
         # Reset disembark tracking: nothing has disembarked yet this round.
         self._disembarked_this_round = set()
 
+        # SOROR-DIAG-4 — reset each Sororitas unit's per-round Acts of Faith
+        # budget. The codex caps Acts of Faith at one per phase per unit; the
+        # simulator collapses this to one per ROUND per unit (conservative
+        # under-approximation — see Unit.aof_used_this_round docstring for the
+        # rationale). Walks both armies so defender-side resets fire too.
+        # Cited as `simulator.acts_of_faith`.
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.profile.faction == "Adepta Sororitas":
+                    u.aof_used_this_round = False
+            for u in self._reserves.get(army.name, []):
+                if u.profile.faction == "Adepta Sororitas":
+                    u.aof_used_this_round = False
+
         # SC4-A — snapshot each army's alive units at round start for the
         # 10e Pariah Nexus secondary scoring (Bring it Down + No Prisoners).
         # End-of-round (in `run`) computes the kill delta against the
