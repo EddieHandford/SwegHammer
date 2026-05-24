@@ -105,4 +105,12 @@ Rules:
   partial roster (e.g. only "highlights" shown), set `total_points` to null
   and add `"partial": true` at the list level.
 
+Once you have produced the JSON, save it to the file
+`data/tournament_lists/<slug>.json` where `<slug>` is derived from the event
+name and date — lowercase, hyphens instead of spaces, e.g.
+`goonhammer-competitive-innovations-2026-05-20.json`. If you cannot determine
+the date, use the article publication date. If you are running in a context
+where you cannot write files, print the intended filename as the first line
+before the JSON so the user knows where to save it.
+
 Article text follows below.
