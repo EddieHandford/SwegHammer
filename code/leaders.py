@@ -403,9 +403,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (a self-heal-on-kill) or Inevitable Death (a reactive teleport).
     # Same pattern iter20 dropped from Necron Overlord and Typhus — proxy
     # flag approximating a rule that does not, in fact, grant an aura buff.
-    # The heal_per_round=2 stays (legitimate D3-median proxy of the
-    # codex's on-kill regain).
-    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=2)),
+    #
+    # AELDARI-DIAG-3 (2026-05-24): cut heal_per_round from 2 to 1. The real
+    # Ethereal Form rule is on-unit-kill (D3 wounds each time Yncarne
+    # destroys an enemy unit), NOT every round end. Yncarne typically
+    # destroys 0-2 enemy units across a 5-round game (it has to charge,
+    # fight, and finish a target — frequently dead by round 3-4 itself).
+    # Real expected total heal: ~D3 * 1-2 kills = 2-4 wounds over the
+    # battle. Old sim heal_per_round=2 * 5 rounds = 10 wounds free, ~3x
+    # reality. heal_per_round=1 puts total sim heal at 5 wounds over 5
+    # rounds, closer to the codex median while preserving the conservative
+    # "Yncarne sometimes self-heals when stalled" approximation. Aeldari
+    # is +10.9pt over Warp Friends real win-rate (52.4% sim vs 41.5%
+    # real) at wave 25 — Yncarne is in the Battle Host archetype at
+    # count=4 (highest seed weight) so this lever lands on most Aeldari
+    # eval runs. Same scale-back rationale as Yvraine
+    # revive_destroyed_per_round=1 (iter15: D3+1 median proxy already
+    # halved to model real per-round attrition). Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne
+    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=1)),
     ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
     # Autarch — Path of Command is a once-per-round Stratagem CP-discount
     # ability, IDENTICAL in pattern to Necron Overlord "My Will Be Done"
