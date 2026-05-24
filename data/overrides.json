@@ -2221,7 +2221,7 @@
       "weapon_damage_per_shot": 9.5,
       "range_inches": 72,
       "attacks": 1,
-      "hit_probability": 0.667,
+      "hit_probability": 0.5,
       "twin_linked": false,
       "rapid_fire": 0,
       "blast": false,
@@ -2253,7 +2253,7 @@
           "weapon": "Seeker missile",
           "attacks": 1,
           "weapon_damage_per_shot": 4.5,
-          "hit_probability": 0.833,
+          "hit_probability": 0.5,
           "ap": -3,
           "strength": 14,
           "range_inches": 48,
@@ -2276,7 +2276,7 @@
           "weapon": "Accelerator burst cannon",
           "attacks": 6,
           "weapon_damage_per_shot": 1.0,
-          "hit_probability": 0.667,
+          "hit_probability": 0.5,
           "ap": -1,
           "strength": 6,
           "range_inches": 18,
@@ -2295,7 +2295,7 @@
           "pistol": false
         }
       ],
-      "notes": "MUTEX-SWEEP: Hammerhead Gunship main gun is Railgun OR Ion cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Ion cannon (overcharge) into primary, Railgun into secondary, Ion cannon (standard) into extras so the simulator was firing all three every Shooting phase. Set primary to Railgun (meta anti-tank choice, Devastating Wounds), cleared secondary, dropped the Ion cannon standard profile from extras. Kept Seeker missile (one-shot) and Accelerator burst cannon (always-carried hull weapon). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Hammerhead-Gunship"
+      "notes": "MUTEX-SWEEP: Hammerhead Gunship main gun is Railgun OR Ion cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Ion cannon (overcharge) into primary, Railgun into secondary, Ion cannon (standard) into extras so the simulator was firing all three every Shooting phase. Set primary to Railgun (meta anti-tank choice, Devastating Wounds), cleared secondary, dropped the Ion cannon standard profile from extras. Kept Seeker missile (one-shot) and Accelerator burst cannon (always-carried hull weapon). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Hammerhead-Gunship | T-AU-DIAG-3 (2026-05-24): hit_probability values reverted 0.667 -> 0.5 across primary + extras. Hammerhead Gunship is BS 4+ (0.5) per Wahapedia datasheet stat line; MUTEX-SWEEP accidentally copy-pasted the BS 3+ (0.667) value from the Aeldari / Space Marines vehicle overrides where that BS is canonical. T'au battlesuits and vehicles are BS 4+ across the board, with the only BS 3+ exception being characters / specialists (e.g. Farsight, Shadowsun). Seeker missile extra also reverted 0.833 -> 0.5 (a Seeker missile uses the carrier's BS, not its own implicit BS 2+ — same rule as a Hunter-Killer Missile)."
     },
     "t_au_empire_stormsurge": {
       "weapon": "Pulse Driver Cannon",
@@ -2304,7 +2304,7 @@
       "weapon_damage_per_shot": 3.0,
       "range_inches": 72,
       "attacks": 5,
-      "hit_probability": 0.667,
+      "hit_probability": 0.5,
       "twin_linked": false,
       "rapid_fire": 0,
       "blast": true,
@@ -2336,7 +2336,7 @@
           "weapon": "Destroyer missiles",
           "attacks": 2,
           "weapon_damage_per_shot": 5.5,
-          "hit_probability": 0.667,
+          "hit_probability": 0.5,
           "ap": -4,
           "strength": 16,
           "range_inches": 60,
@@ -2359,7 +2359,7 @@
           "weapon": "Cluster rocket system",
           "attacks": 4,
           "weapon_damage_per_shot": 1.0,
-          "hit_probability": 0.667,
+          "hit_probability": 0.5,
           "ap": 0,
           "strength": 5,
           "range_inches": 48,
@@ -2381,7 +2381,7 @@
           "weapon": "Twin smart missile system",
           "attacks": 4,
           "weapon_damage_per_shot": 1.0,
-          "hit_probability": 0.667,
+          "hit_probability": 0.5,
           "ap": 0,
           "strength": 5,
           "range_inches": 30,
@@ -2400,7 +2400,7 @@
           "pistol": false
         }
       ],
-      "notes": "MUTEX-SWEEP: Stormsurge main gun is Pulse Driver Cannon OR Pulse blast cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Pulse blast cannon focused (S24 AP-6 D12) into primary, Pulse Driver Cannon into secondary, Pulse blast cannon dispersed into extras so the simulator was firing all three modes every Shooting phase. Set primary to Pulse Driver Cannon (long-range S12 staple), cleared secondary, dropped the Pulse blast cannon dispersed mode from extras. Kept Destroyer missiles, Cluster rocket system, and Twin smart missile system (always-carried hull weapons). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Stormsurge"
+      "notes": "MUTEX-SWEEP: Stormsurge main gun is Pulse Driver Cannon OR Pulse blast cannon per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Pulse blast cannon focused (S24 AP-6 D12) into primary, Pulse Driver Cannon into secondary, Pulse blast cannon dispersed into extras so the simulator was firing all three modes every Shooting phase. Set primary to Pulse Driver Cannon (long-range S12 staple), cleared secondary, dropped the Pulse blast cannon dispersed mode from extras. Kept Destroyer missiles, Cluster rocket system, and Twin smart missile system (always-carried hull weapons). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Stormsurge | T-AU-DIAG-3 (2026-05-24): hit_probability values reverted 0.667 -> 0.5 across primary + 3 extra profiles. Stormsurge is BS 4+ (0.5) per Wahapedia datasheet stat line; MUTEX-SWEEP accidentally applied the BS 3+ (0.667) value to a BS 4+ chassis. The over-buff combined with Mont'ka Killing Blow [ASSAULT] + [LETHAL HITS] on Guided was a significant T'au damage uplift across rounds 1-3."
     },
     "t_au_empire_ghostkeel_battlesuit": {
       "weapon": "Cyclic ion raker",
@@ -2409,7 +2409,7 @@
       "weapon_damage_per_shot": 2.0,
       "range_inches": 36,
       "attacks": 6,
-      "hit_probability": 0.667,
+      "hit_probability": 0.5,
       "twin_linked": false,
       "rapid_fire": 0,
       "blast": false,
@@ -2441,7 +2441,7 @@
           "weapon": "Twin fusion blaster",
           "attacks": 1,
           "weapon_damage_per_shot": 3.5,
-          "hit_probability": 0.667,
+          "hit_probability": 0.5,
           "ap": -4,
           "strength": 9,
           "range_inches": 18,
@@ -2482,7 +2482,7 @@
           "pistol": false
         }
       ],
-      "notes": "MUTEX-SWEEP: Ghostkeel main gun is Cyclic ion raker OR Fusion collider per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Cyclic ion raker overcharge (S8 AP-2 D3) into primary, Fusion collider (S12 AP-4 D6 Melta 4) into secondary, Cyclic ion raker standard into extras so the simulator was firing all three profiles. Set primary to Cyclic ion raker standard mode (no hazardous self-damage), cleared secondary, dropped Cyclic ion raker overcharge from extras. Kept Twin fusion blaster and Twin T'au flamer (always-carried support drones). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#XV95-Ghostkeel-Battlesuit"
+      "notes": "MUTEX-SWEEP: Ghostkeel main gun is Cyclic ion raker OR Fusion collider per codex (BSData selectionEntryGroup Main gun, max=1). Mapper packed Cyclic ion raker overcharge (S8 AP-2 D3) into primary, Fusion collider (S12 AP-4 D6 Melta 4) into secondary, Cyclic ion raker standard into extras so the simulator was firing all three profiles. Set primary to Cyclic ion raker standard mode (no hazardous self-damage), cleared secondary, dropped Cyclic ion raker overcharge from extras. Kept Twin fusion blaster and Twin T'au flamer (always-carried support drones). Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#XV95-Ghostkeel-Battlesuit | T-AU-DIAG-3 (2026-05-24): hit_probability values reverted 0.667 -> 0.5 across primary + Twin fusion blaster extra (T'au flamer's torrent auto-hit of 1.0 left untouched — torrent weapons auto-hit per 10e core). Ghostkeel is BS 4+ (0.5) per Wahapedia datasheet stat line; MUTEX-SWEEP accidentally applied the BS 3+ (0.667) value to a BS 4+ chassis."
     },
     "aeldari_craftworlds_fire_prism": {
       "weapon": "Prism Cannon - focused lances",
