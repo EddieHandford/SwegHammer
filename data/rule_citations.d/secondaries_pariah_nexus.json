@@ -73,5 +73,15 @@
     "trigger": "end of each battle round, when an enemy CHARACTER-keyword unit was destroyed this round",
     "effect": "the opposing army gains 5 VP per destroyed enemy CHARACTER this round, capped at 10 VP per round",
     "scope": "phase-gated"
+  },
+
+  "simulator.secondary_elite_army_modifier": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
+    "rule_name": "Elite-army defender modifier on Pariah Nexus kill-event secondaries (CUSTODES-UNPARK)",
+    "quoted_text": "Bring it Down: Score 2 VP plus 1 VP per enemy MONSTER or VEHICLE model destroyed this battle round, max 8 VP. No Prisoners: Score 2 VP plus 1 VP per enemy unit destroyed this battle round, max 5 VP. Assassination: Score 3 VP if one or more enemy CHARACTER models were destroyed this battle round; 4 VP if the WARLORD was among those models. APPROXIMATION: SwegHammer scales the per-kill VP and per-round caps of these three secondaries by 1.5x when the side being scored against is Adeptus Custodes. Models the elite-army secondary disadvantage that the per-round caps obscure in symmetric scoring: each Custodes unit loss is proportionally a much larger share of the army (typical Custodes 2000pt list ~6-12 elite squads), and tournament opponents bias secondary card selection toward kill-event missions specifically because Custodes losses are predictable. Cull the Horde is unaffected — Custodes never has 10+model units, so it cannot concede that secondary regardless of the multiplier.",
+    "trigger": "end of each battle round, when scoring secondary VP delta against an Adeptus Custodes army's round-start snapshot",
+    "effect": "the opposing army's Bring it Down, No Prisoners, and Assassination per-kill VP and per-round caps are multiplied by 1.5x (integer-floored) when the defender_faction passed to secondaries.score_round_delta equals 'Adeptus Custodes'. Cull the Horde is unchanged.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

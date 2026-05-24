@@ -782,10 +782,22 @@ class Battle:
         # bonus when the opponent kills it.
         b_warlord = self.b.warlord_uid
         a_warlord = self.a.warlord_uid
+        # CUSTODES-UNPARK — defender faction is whose snapshot is being
+        # scored against (i.e. whose units are dying). Pulled from the
+        # first unit's profile.faction tag (matches the convention used
+        # in `simulator._do_charge`, `_apply_reanimation` and elsewhere
+        # in this file for resolving an army's primary faction).
+        b_defender_faction = (
+            self.b.units[0].profile.faction if self.b.units else None
+        )
+        a_defender_faction = (
+            self.a.units[0].profile.faction if self.a.units else None
+        )
         if self._b_round_snapshot is not None:
             a_bid, a_np, a_cth, a_assn = score_round_delta(
                 self._b_round_snapshot, self.b.units,
                 enemy_warlord_uid=b_warlord,
+                defender_faction=b_defender_faction,
             )
             a_kill_vp = a_bid + a_np + a_cth + a_assn
             self._a_vp += a_kill_vp
@@ -795,6 +807,7 @@ class Battle:
             b_bid, b_np, b_cth, b_assn = score_round_delta(
                 self._a_round_snapshot, self.a.units,
                 enemy_warlord_uid=a_warlord,
+                defender_faction=a_defender_faction,
             )
             b_kill_vp = b_bid + b_np + b_cth + b_assn
             self._b_vp += b_kill_vp

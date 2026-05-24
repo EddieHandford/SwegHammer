@@ -406,6 +406,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # returning the full 4-tuple.
     "simulator.secondary_cull_the_horde",
     "simulator.secondary_assassination",
+    # CUSTODES-UNPARK — elite-army defender modifier on the kill-event
+    # Pariah Nexus secondaries (Bring it Down, No Prisoners, Assassination).
+    # Faction-gated to Adeptus Custodes. Cull the Horde is excluded
+    # (Custodes never concedes Cull regardless of multiplier). Applied
+    # in `secondaries.score_round_delta` via the defender_faction param
+    # passed from `Battle._score_secondaries`.
+    "simulator.secondary_elite_army_modifier",
     # LC-2 — Tactical Secondary Mission deck-draw mechanic. Gates
     # Engage / BEL behind a per-round alternating schedule per side
     # so each side scores at most one Tactical per round, matching

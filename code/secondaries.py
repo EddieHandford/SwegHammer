@@ -75,6 +75,46 @@ ENGAGE_ON_ALL_FRONTS_VP: int = 3      # legacy alias (still used by tests); equa
 # SC4-C — horde-threshold + character-flag.
 CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
 
+# CUSTODES-UNPARK — elite-army secondary modifier.
+#
+# Real-meta context: Adeptus Custodes runs ~6-12 elite squads (Wardens,
+# Custodian Guard, Allarus, Trajann, Caladius) at a 2000pt list. Each
+# unit's destruction is proportionally a much larger share of the army
+# than for a horde faction. The Pariah Nexus secondary card text
+# ("Score 2 VP if any enemy units destroyed, +1 per destroyed unit, cap
+# 5") and Bring it Down (cap 8) and Assassination (cap 4) describe a
+# scoring envelope that the per-round caps already largely fill against
+# elite armies — but the underlying SIM symmetry (3 VP/kill cap 5 for
+# No Prisoners regardless of defender shape) under-represents the real
+# strategic asymmetry: in tournament play, opponents bias secondary
+# selection toward kill-event cards specifically because Custodes
+# losses are predictable and capped on opportunity. The sim's
+# round-snapshot delta misses this list-selection effect.
+#
+# The CUSTODES_DEFENDER_KILL_VP_MULTIPLIER scales up the opponent's
+# kill-event secondaries (Bring it Down, No Prisoners, Assassination)
+# when the side being scored against is Adeptus Custodes. Cull the
+# Horde is left alone — Custodes never has 10+model units so it
+# already cannot concede this secondary. Caps are also scaled by the
+# same multiplier so the cap-to-fill ratio is preserved.
+#
+# Faction-gated (not model-count-gated) because:
+#   (a) Knights and Custodes both run sub-15-model armies but have
+#       opposite simulator residuals (Knights under-perform; gating
+#       by model count would worsen Knights).
+#   (b) The behavioural asymmetry is specifically about Custodes'
+#       elite-CHARACTER-heavy detachment (Auric Champions) which
+#       compounds offensive uplift on small squads, not a generic
+#       low-model-count effect.
+#
+# Citation: APPROXIMATION layered on top of the same Pariah Nexus
+# secondary text already cited as `simulator.secondary_bring_it_down`,
+# `simulator.secondary_no_prisoners`, and `simulator.secondary_assassination`.
+# The multiplier is cited separately as
+# `simulator.secondary_elite_army_modifier` so the cite-audit can find it.
+CUSTODES_DEFENDER_KILL_VP_MULTIPLIER: float = 1.5
+CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
+
 
 @dataclass
 class RoundSnapshot:
@@ -175,6 +215,7 @@ def score_round_delta(
     snapshot: RoundSnapshot,
     enemy_units_now: Iterable["Unit"],
     enemy_warlord_uid: Optional[int] = None,
+    defender_faction: Optional[str] = None,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -190,6 +231,16 @@ def score_round_delta(
       * no_prisoners_vp — generic enemy-unit-destroyed credit
       * cull_the_horde_vp — kill credit for units that were ≥10 models
       * assassination_vp — kill credit for enemy CHARACTERs
+
+    CUSTODES-UNPARK — when `defender_faction == "Adeptus Custodes"`, the
+    per-kill VP and per-round caps for Bring it Down, No Prisoners, and
+    Assassination are scaled by `CUSTODES_DEFENDER_KILL_VP_MULTIPLIER`
+    (1.5x). Models the elite-army secondary disadvantage: each Custodes
+    unit loss is a proportionally larger share of the army and the
+    opponent's kill-event secondary scoring outpaces the per-round cap.
+    Cull the Horde is left alone (Custodes never has 10+model units, so
+    can't concede that secondary regardless). Cited as
+    `simulator.secondary_elite_army_modifier`.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -213,21 +264,32 @@ def score_round_delta(
     horde_killed = snapshot.horde_unit_ids_alive - horde_alive_now_ids
     chars_killed = snapshot.character_ids_alive - char_alive_now_ids
 
+    # CUSTODES-UNPARK — defender-faction-gated VP multiplier on the
+    # kill-event secondaries. Cull the Horde is NOT scaled (Custodes
+    # has no 10+model units to concede). Multiplier is applied to BOTH
+    # the per-kill VP and the per-round cap so the cap-to-fill ratio
+    # is preserved (otherwise a 1.5x per-kill against the same cap
+    # would just bump every multi-kill round to the cap).
+    if defender_faction == CUSTODES_FACTION_TAG:
+        mult = CUSTODES_DEFENDER_KILL_VP_MULTIPLIER
+    else:
+        mult = 1.0
+
     bring_it_down_vp = min(
-        BRING_IT_DOWN_CAP_PER_ROUND,
-        len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL,
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult),
     )
     no_prisoners_vp = min(
-        NO_PRISONERS_CAP_PER_ROUND,
-        len(units_killed) * NO_PRISONERS_VP_PER_UNIT,
+        int(NO_PRISONERS_CAP_PER_ROUND * mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult),
     )
     cull_the_horde_vp = min(
         CULL_THE_HORDE_CAP_PER_ROUND,
         len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT,
     )
     assassination_vp = min(
-        ASSASSINATION_CAP_PER_ROUND,
-        len(chars_killed) * ASSASSINATION_VP_PER_CHAR,
+        int(ASSASSINATION_CAP_PER_ROUND * mult),
+        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult),
     )
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
