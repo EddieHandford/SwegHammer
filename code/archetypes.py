@@ -817,25 +817,19 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     # remaining seed budget is filled by `_random_fill` with same-faction
     # picks. Detachment names match the registry where one exists.
     "Chaos Space Marines": {
-        # CSM-ARCH-2: the 4 vanilla CSM generics (Legionaries, Chaos
-        # Terminator Squad, Chosen, Chaos Lord in Terminator Armour) are
-        # now available as hand-rolled override entries — see
-        # data/overrides.json keyed with the chaos_space_marines_*
-        # prefix. BSData v10.6.0 still only catalogues them under the
-        # chaos_daemons_* namespace, but stats are copied verbatim and
-        # tagged with the Chaos Space Marines codex/faction/keywords.
-        # Weight=2 each so they sort favourably alongside the cult
-        # troops and represent realistic Pactbound Zealots backbone.
+        # FX-ALL CSM catalog limitation: BSData v10.6.0 doesn't expose
+        # Legionaries / Chaos Terminator Squad / Chosen / Chaos Lord in
+        # Terminator Armour as catalog keys. Available CSM catalog leans
+        # on dedicated chassis + named CHARACTERs. Template below uses
+        # what's catalogued — provides COVERAGE per FX-ALL goal even if
+        # not fully tournament-realistic. Follow-up: refresh BSData
+        # mapper or add overrides for the missing 10e generics.
         "Pactbound Zealots": {
-            # BATTLELINE: cult troops + vanilla Legionaries are the full
-            # BATTLELINE set for CSM. Pactbound Zealots commonly leads
-            # Terminator bricks (Chaos Terminator Squad + Chaos Lord in
-            # Terminator Armour) and runs Chosen as a marked-leader
-            # anvil.
-            "chaos_space_marines_legionaries": 2,
-            "chaos_space_marines_chaos_terminator_squad": 2,
-            "chaos_space_marines_chosen": 2,
-            "chaos_space_marines_chaos_lord_in_terminator_armour": 2,
+            # BATTLELINE: cult troops (Berzerkers / Plague / Rubric) are
+            # the catalogued BATTLELINE options for CSM; vanilla
+            # Legionaries / Chosen / generic CSM Terminators / Chaos Lord
+            # in Terminator Armour remain absent in BSData v10.6.0 — log
+            # in commit and skip per AX-A constraint.
             "chaos_space_marines_khorne_berzerkers": 2,
             "chaos_space_marines_plague_marines": 2,
             "chaos_space_marines_rubric_marines": 1,
