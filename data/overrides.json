@@ -987,6 +987,70 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Canoness with Jump Pack has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness-with-Jump-Pack"
     },
+    "adepta_sororitas_castigator": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "notes": "SOROR-STAT-AUDIT: Castigator's two main guns — Castigator battle cannon and Castigator autocannons — are MUTUALLY EXCLUSIVE wargear options per Wahapedia datasheet. The BSData 'Main gun' selectionEntryGroup wraps both as max=1 children with a defaultSelectionEntryId on the autocannons, meaning the model picks exactly one. Wahapedia (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator) states the wargear options as: 'A Castigator is equipped with: 3 heavy bolters; Castigator battle cannon; armoured tracks. The Castigator battle cannon can be replaced with Castigator autocannons.' One main gun, not both. The mapper packed battle cannon into the primary slot (A=D6+3 avg 6, S10 AP-1 D3, Blast/Ignores Cover) and autocannons into the secondary slot (A=4 with Rapid Fire 4 i.e. 8 in range, S9 AP-1 D3, Twin-Linked) so the simulator was firing BOTH every Shooting phase, ~24 extra wound output per round on top of the 3 heavy bolters + storm bolter + hunter-killer in extra_ranged_profiles. Cleared the secondary slot to leave only the battle cannon firing alongside the always-carried wargear in extras. Castigator is in the Sororitas archetype list so this lands directly on the Sororitas eval signal. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator"
+    },
+    "adepta_sororitas_exorcist": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_blast": false,
+      "notes": "SOROR-MUTEX-2: Exorcist's two main guns — Exorcist missile launcher and Exorcist conflagration rockets — are MUTUALLY EXCLUSIVE wargear options per Wahapedia datasheet. The BSData 'Main gun' selectionEntryGroup wraps both as max=1 children, meaning the model picks exactly one. Wahapedia (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Exorcist) states: 'One Exorcist is equipped with: 1 storm bolter; 1 Exorcist missile launcher; armoured tracks. The Exorcist missile launcher can be replaced with 1 Exorcist conflagration rockets.' One main gun, not both. The mapper packed the missile launcher (D6 shots, 48\", S9 AP-2 D3, Heavy/Blast/Indirect Fire) into the primary slot and the conflagration rockets (D6+1 shots, 36\", S6 AP-1 D1, Blast/Ignores Cover/Sustained Hits 1) into the secondary slot, so the simulator was firing BOTH every Shooting phase. Cleared the secondary slot to leave only the missile launcher (the more competitive anti-tank role) firing alongside the always-carried Hunter-killer missile and Heavy Bolter in extra_ranged_profiles. Same pattern as the SOROR-STAT-AUDIT Castigator cleanup. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Exorcist"
+    },
+    "adepta_sororitas_immolator": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_torrent": false,
+      "extra_ranged_profiles": [
+        {
+          "weapon": "Hunter-killer missile",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.833,
+          "ap": -3,
+          "strength": 14,
+          "range_inches": 48,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
+        }
+      ],
+      "notes": "SOROR-MUTEX-2: Immolator has THREE mutually-exclusive main guns — twin multi-melta, immolation flamers, twin heavy bolter — per Wahapedia datasheet. The BSData 'Main gun' selectionEntryGroup wraps all three as max=1 children, meaning the model picks exactly one. Wahapedia (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Immolator) states: 'One Immolator is equipped with: 1 storm bolter; 1 hunter-killer missile; 1 immolation flamers OR 1 twin multi-melta OR 1 twin heavy bolter; armoured tracks.' One main gun, not all three. The mapper packed the twin multi-melta (S9 AP-4 D6, Melta 2, Twin-Linked) into the primary slot, the immolation flamers (D6 shots, S6 AP-1 D1, Torrent/Ignores Cover) into the secondary slot, AND the twin heavy bolter (3 shots, S5 AP-1 D2, Sustained Hits 2, Twin-Linked) into extra_ranged_profiles — so the simulator was firing all three every Shooting phase. Picked twin multi-melta as primary (popular anti-tank meta choice), cleared secondary, and replaced extra_ranged_profiles with only the Hunter-killer missile (the only legitimate always-carried ranged wargear from the codex equipment line that BSData also exposes; storm bolter isn't mapped into extras). The pre-existing 'Heavy Bolter' entry in BSData's extras is not in the real codex equipment line and is dropped here as well to avoid stacking another spurious gun. Same pattern as the SOROR-STAT-AUDIT Castigator cleanup. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Immolator"
+    },
     "adepta_sororitas_hospitaller": {
       "fnp": 7,
       "notes": "SORORITAS-MORTIFIER-FNP: BSData attaches a top-level Feel No Pain 5+ infoLink to the Hospitaller unit. The real 10e datasheet ability 'Medicus Ministorum' grants Feel No Pain 5+ to the unit she is leading, NOT to the Hospitaller herself: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is the same prose-walk leak as the SC5-10 Tyranid sweep — the BSData mapper's extract_fnp pulls 'Feel No Pain 5+' text from Hospitaller's leader ability into the base unit profile. Reset to 7 (no static Feel No Pain) so the Hospitaller herself does not benefit. The leader-granted FNP to the bodyguard unit is the responsibility of code/leaders.py if not already there. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Hospitaller"
