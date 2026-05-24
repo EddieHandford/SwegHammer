@@ -1041,7 +1041,21 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "astra_militarum_basilisk": 1,
             "astra_militarum_manticore": 1,
             "astra_militarum_cadian_castellan": 1,
-            "astra_militarum_ursula_creed": 1,
+            # AM-DIAG-5 — drop Ursula Creed. AM-DIAG-4 carry-forward flagged
+            # Voice of Command over-supply: prior archetype seeded 4 OFFICER
+            # entries (Cadian Command Squad + Cadian Castellan + Ursula Creed
+            # + Lord Solar Leontus), so the sim issued 4 Orders/round. Real
+            # May 2026 Combined Arms tournament lists (Goonhammer "Astra
+            # Militarum Detachment Focus — Combined Arms"; Frontline Gaming
+            # GT lists) field 2-3 OFFICERs at 2000pt — paying for all 3
+            # named Castellan-class characters plus a Cadian Command Squad
+            # is rare (~365pt in Officers alone). Ursula Creed is a named
+            # Cadian Castellan (per Wahapedia
+            # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/) so
+            # she duplicates the generic Cadian Castellan slot — cleanest
+            # cut. Remaining 3 OFFICERs (Cadian Command Squad, Cadian
+            # Castellan, Lord Solar Leontus) match real-meta Voice of
+            # Command Order economy of 3 Orders/round.
             "astra_militarum_lord_solar_leontus": 1,
         },
     },
