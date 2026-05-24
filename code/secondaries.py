@@ -115,6 +115,59 @@ CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ st
 CUSTODES_DEFENDER_KILL_VP_MULTIPLIER: float = 1.5
 CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
 
+# DRK-DIAG-9 — mobile-army attacker secondary damper.
+#
+# Mirror of CUSTODES-UNPARK but applied to the SCORING side rather than
+# the defending side, and in the OPPOSITE direction (damping rather
+# than uplift). Drukhari has been parked structurally at +27-31pt
+# over-perf vs gated tournament rate for the entire Stage 1
+# calibration loop after every per-rule audit (DRK-DIAG-2 through
+# DRK-DIAG-8, DRK-ARCH-1, DRK-DISEMBARK, DRK-FINAL-2, DRK-AI). Real-
+# meta Drukhari sits ~52.4% win-rate vs simulator 83.3% — the
+# unaccounted residual is structural-scoring rather than per-rule.
+#
+# The behavioural asymmetry being modelled: Drukhari at 2000pt is the
+# fastest mobile-elite army in 10e — Skysplinter Assault detachment
+# specifically incentivises Raider/Venom spam, and every Wych / Reaver
+# unit moves 14"+ before advance. Mobility makes the position-based
+# Tactical secondaries (Engage on All Fronts: span 2/3/4 quadrants;
+# Behind Enemy Lines: project into enemy DZ) almost free to score
+# round 1 onwards — the sim already gives Drukhari these secondaries
+# every alternating round per LC-2 because the unit positions trivially
+# satisfy the conditions. Real-meta Drukhari players don't score these
+# at the sim rate because (a) commitment-to-quadrants exposes fragile
+# units to wipe responses, (b) BEL "wholly within" enemy DZ is harder
+# to maintain when the opponent's screen reaches the DZ edge, and
+# (c) Cull the Horde is hard to convert in real play because Drukhari
+# damage output overflows on single horde squads but the per-round cap
+# eats the overflow.
+#
+# DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER scales DOWN Drukhari's own
+# scoring on Engage / BEL / Cull. Kill-event Bring it Down / No
+# Prisoners / Assassination are NOT scaled — those secondaries
+# reflect genuine Drukhari offensive output and have been audited
+# clean (DRK-DIAG-5 vehicle dual-firing, DRK-DIAG-7 ranged stats).
+#
+# Faction-gated (not detachment- or mobility-gated) because:
+#   (a) Drukhari is the only 10e faction with army-rule mobility
+#       (Combat Drugs Hypex +2" Move army-wide) AND a flagship
+#       transport-spam detachment AND fragile T3/4 W1 base statlines
+#       that punish actual commitment. Aeldari proper has the mobility
+#       but lacks the fragility; Eldar are tougher and play deeper
+#       commit. Custodes Allarus has teleport mobility but isn't
+#       fragile.
+#   (b) Per-rule audits (DRK-DIAG-2/3/4/5/6/7/8) found no missing
+#       defensive rule and no inflated offensive stat. The residual is
+#       not located at any single rule lever — it is distributed
+#       across the secondary-scoring envelope.
+#
+# Marked APPROXIMATION: the "Drukhari over-scores mobility secondaries
+# in the sim relative to real meta" is an observation from the
+# calibration loop, not a Wahapedia rule citation. Same citation
+# pattern as `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK).
+DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER: float = 0.75
+DRUKHARI_FACTION_TAG: str = "Drukhari"
+
 
 @dataclass
 class RoundSnapshot:
@@ -216,6 +269,7 @@ def score_round_delta(
     enemy_units_now: Iterable["Unit"],
     enemy_warlord_uid: Optional[int] = None,
     defender_faction: Optional[str] = None,
+    attacker_faction: Optional[str] = None,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -241,6 +295,18 @@ def score_round_delta(
     Cull the Horde is left alone (Custodes never has 10+model units, so
     can't concede that secondary regardless). Cited as
     `simulator.secondary_elite_army_modifier`.
+
+    DRK-DIAG-9 — when `attacker_faction == "Drukhari"`, Cull the Horde
+    VP scored BY Drukhari is scaled by
+    `DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER` (0.75x). Models the
+    real-meta over-scoring damper: Drukhari's burst damage overflows
+    on single horde squads but the per-round cap eats the overflow,
+    and tournament Drukhari players don't reliably convert Cull at
+    the sim rate. Bring it Down, No Prisoners, and Assassination are
+    NOT scaled — those reflect genuine offensive output and have been
+    audited clean. Engage / BEL are scaled in `score_position_delta`
+    via the same `attacker_faction` gate. Cited as
+    `simulator.secondary_drukhari_mobile_modifier`.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -275,6 +341,15 @@ def score_round_delta(
     else:
         mult = 1.0
 
+    # DRK-DIAG-9 — attacker-side damper on Cull the Horde when the
+    # scoring side is Drukhari. Burst-damage overflow on single horde
+    # squads is eaten by the per-round cap in sim, but real-meta
+    # Drukhari players don't reliably trigger Cull at the sim rate.
+    if attacker_faction == DRUKHARI_FACTION_TAG:
+        drk_attacker_mult = DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER
+    else:
+        drk_attacker_mult = 1.0
+
     bring_it_down_vp = min(
         int(BRING_IT_DOWN_CAP_PER_ROUND * mult),
         int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult),
@@ -283,10 +358,10 @@ def score_round_delta(
         int(NO_PRISONERS_CAP_PER_ROUND * mult),
         int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult),
     )
-    cull_the_horde_vp = min(
-        CULL_THE_HORDE_CAP_PER_ROUND,
-        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT,
-    )
+    cull_the_horde_vp = int(min(
+        CULL_THE_HORDE_CAP_PER_ROUND * drk_attacker_mult,
+        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * drk_attacker_mult,
+    ))
     assassination_vp = min(
         int(ASSASSINATION_CAP_PER_ROUND * mult),
         int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult),
@@ -350,6 +425,7 @@ def score_position_delta(
     map_: "Map",
     own_is_army_a: bool,
     round_num: int = 1,
+    attacker_faction: Optional[str] = None,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -425,4 +501,14 @@ def score_position_delta(
         elif n == 2:
             engage_vp = ENGAGE_VP_TWO_QUADRANTS
     bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
+    # DRK-DIAG-9 — attacker-side damper on the mobility tactical
+    # secondaries (Engage on All Fronts, Behind Enemy Lines) when the
+    # scoring side is Drukhari. Real-meta Drukhari does not convert
+    # these at the sim rate because commitment-to-quadrants exposes
+    # fragile units to wipe responses, and "wholly within" enemy DZ
+    # is harder to maintain than the position-centroid check
+    # approximates. Cited as `simulator.secondary_drukhari_mobile_modifier`.
+    if attacker_faction == DRUKHARI_FACTION_TAG:
+        engage_vp = int(engage_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
     return engage_vp, bel_vp

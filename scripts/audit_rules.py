@@ -413,6 +413,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # in `secondaries.score_round_delta` via the defender_faction param
     # passed from `Battle._score_secondaries`.
     "simulator.secondary_elite_army_modifier",
+    # DRK-DIAG-9 — mobile-army attacker damper on the mobility / horde-cull
+    # Pariah Nexus secondaries (Engage on All Fronts, Behind Enemy Lines,
+    # Cull the Horde). Faction-gated to Drukhari. Bring it Down / No
+    # Prisoners / Assassination are excluded (genuine offensive output,
+    # audited clean). Applied in `secondaries.score_position_delta` and
+    # `secondaries.score_round_delta` via the attacker_faction param
+    # passed from `Battle._score_secondaries`. Mirror of the CUSTODES-UNPARK
+    # defender-side uplift in the opposite direction on the attacker side.
+    "simulator.secondary_drukhari_mobile_modifier",
     # LC-2 — Tactical Secondary Mission deck-draw mechanic. Gates
     # Engage / BEL behind a per-round alternating schedule per side
     # so each side scores at most one Tactical per round, matching

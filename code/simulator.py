@@ -793,11 +793,21 @@ class Battle:
         a_defender_faction = (
             self.a.units[0].profile.faction if self.a.units else None
         )
+        # DRK-DIAG-9 — attacker faction is the SCORING side (i.e. who is
+        # earning the VP this delta). Drukhari-attacker triggers the
+        # mobile-army damper on Cull (here) and Engage/BEL (below).
+        a_attacker_faction = (
+            self.a.units[0].profile.faction if self.a.units else None
+        )
+        b_attacker_faction = (
+            self.b.units[0].profile.faction if self.b.units else None
+        )
         if self._b_round_snapshot is not None:
             a_bid, a_np, a_cth, a_assn = score_round_delta(
                 self._b_round_snapshot, self.b.units,
                 enemy_warlord_uid=b_warlord,
                 defender_faction=b_defender_faction,
+                attacker_faction=a_attacker_faction,
             )
             a_kill_vp = a_bid + a_np + a_cth + a_assn
             self._a_vp += a_kill_vp
@@ -808,6 +818,7 @@ class Battle:
                 self._a_round_snapshot, self.a.units,
                 enemy_warlord_uid=a_warlord,
                 defender_faction=a_defender_faction,
+                attacker_faction=b_attacker_faction,
             )
             b_kill_vp = b_bid + b_np + b_cth + b_assn
             self._b_vp += b_kill_vp
@@ -822,11 +833,13 @@ class Battle:
         # alternating schedule (see `_is_tactical_secondary_active`).
         a_eng, a_bel = score_position_delta(
             self.a.units, self.map, own_is_army_a=True, round_num=round_num,
+            attacker_faction=a_attacker_faction,
         )
         self._a_vp += a_eng + a_bel
         self._a_secondary_vp += a_eng + a_bel
         b_eng, b_bel = score_position_delta(
             self.b.units, self.map, own_is_army_a=False, round_num=round_num,
+            attacker_faction=b_attacker_faction,
         )
         self._b_vp += b_eng + b_bel
         self._b_secondary_vp += b_eng + b_bel
