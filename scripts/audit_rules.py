@@ -187,6 +187,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Chaos Daemons opponent has any unit alive'. See
     # data/rule_citations.d/chaos_daemons.json.
     "simulator.shadow_of_chaos",
+    # Chaos Daemons EPIC HERO Bloodthirster datasheet ability (10e).
+    # "Relentless Carnage" — at the end of each Fight phase, the
+    # Bloodthirster selects one enemy unit in 1" Engagement Range and
+    # rolls 8D6; each 4+ inflicts 1 mortal wound (expected 4 per trigger,
+    # FNP-eligible). Wired in `_apply_relentless_carnage`, fired once per
+    # active player's fight pass after the regular fight ordering loop.
+    # See data/rule_citations.d/chaos_daemons.json. DAEMONS-DIAG-5 fix
+    # for the persistent -16.94pt Chaos Daemons gated under-perf at N=40
+    # — the Bloodthirster's datasheet payload was wired only as the
+    # Locus aura (+1 to hit) and was missing its end-of-phase mortal-
+    # wound output despite being the Khorne archetype anchor.
+    "simulator.relentless_carnage",
     # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
     # +1 to the armour save when an unmodified Damage-1 attack is allocated
     # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer

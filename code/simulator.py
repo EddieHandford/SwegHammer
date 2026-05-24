@@ -5497,6 +5497,62 @@ class Battle:
             for unit in ordered:
                 if unit.is_alive:
                     self._do_fight(unit, active, other)
+            # DAEMONS-DIAG-5: Bloodthirster "Relentless Carnage" — end-of-
+            # Fight-phase mortal-wound payload. BSData v10.6.0 Chaos Daemons
+            # Library (Bloodthirster datasheet, "Relentless Carnage" ability
+            # description) verbatim: "At the end of the Fight phase, you can
+            # select one enemy unit within Engagement Range of this model and
+            # roll eight D6: for each 4+, that enemy unit suffers 1 mortal
+            # wound." Fires once per Bloodthirster per fight pass. Picks the
+            # highest-DPA living enemy in 1" engagement range as the codex
+            # leaves the choice to the player. Cited as
+            # `simulator.relentless_carnage`. Wahapedia source:
+            # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
+            self._apply_relentless_carnage(active, other)
+
+    def _apply_relentless_carnage(self, active: Army, other: Army) -> None:
+        """End-of-Fight-phase Bloodthirster mortal-wound payload.
+
+        For each alive Bloodthirster in `active` (the player whose Fight
+        phase just resolved), if any enemy unit is within 1" Engagement
+        Range, roll eight D6 and inflict one mortal wound per 4+ on the
+        chosen enemy. Codex leaves the target choice to the Bloodthirster's
+        player; SwegHammer picks the highest-DPA living engagement-range
+        enemy as a reasonable approximation of "the most threatening target
+        in melee".
+
+        Mortal wounds are FNP-eligible per 10e core rules; routed through
+        `receive_damage(..., bonus_fnp=victim.profile.fnp)` so any defender
+        FNP applies (matches the Shadow of Chaos failed-test mortal-wound
+        delivery convention above). Cited as `simulator.relentless_carnage`
+        in data/rule_citations.d/chaos_daemons.json.
+        """
+        for src in list(active.alive_units):
+            if src.profile.name != "Bloodthirster":
+                continue
+            in_engagement = [
+                e for e in other.alive_units
+                if _distance(src.position, e.position) <= 1.0
+            ]
+            if not in_engagement:
+                continue
+            # Pick the highest-DPA engagement-range enemy. _highest_dpa_unit
+            # is army-scoped, so we inline a lightweight DPA-on-this-unit
+            # proxy: melee damage potential (mA * mD * mhit_p) as the threat
+            # heuristic. Falls back to "first in list" if all are scoreless.
+            def _melee_dpa(u):
+                p = u.profile
+                return (
+                    max(1, int(p.melee_attacks))
+                    * float(p.melee_damage_per_shot or 0.0)
+                    * float(p.melee_hit_probability or 0.0)
+                )
+            victim = max(in_engagement, key=_melee_dpa)
+            mw = sum(1 for _ in range(8) if random.randint(1, 6) >= 4)
+            if mw > 0:
+                victim.receive_damage(
+                    float(mw), bonus_fnp=victim.profile.fnp,
+                )
 
     # ------------------------------------------------------------------
     # Sub-phases

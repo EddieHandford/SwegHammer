@@ -1,5 +1,5 @@
 {
-  "_comment": "Citations for the Chaos Daemons army rules implemented in code/simulator.py. Source: Wahapedia Chaos Daemons faction page. MR-I (2026-05-21): Shadow of Chaos wired into _run_battleshock_phase as a position-proxied -1 to Battle-shock + D3 mortal wounds on a failed test.",
+  "_comment": "Citations for the Chaos Daemons army rules implemented in code/simulator.py. Source: Wahapedia Chaos Daemons faction page. MR-I (2026-05-21): Shadow of Chaos wired into _run_battleshock_phase as a position-proxied -1 to Battle-shock + D3 mortal wounds on a failed test. DAEMONS-DIAG-5 (2026-05-24): Bloodthirster 'Relentless Carnage' end-of-Fight-phase mortal-wound payload wired into _apply_relentless_carnage.",
 
   "simulator.shadow_of_chaos": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
@@ -8,6 +8,16 @@
     "trigger": "Battle-shock test for an enemy unit that is inside the Shadow of Chaos (Wahapedia: the Chaos Daemons player's deployment zone, plus No Man's Land if they control at least half the objectives there, plus the opponent's deployment zone if they control at least half the objectives there; also extends 6\" from listed Greater Daemons)",
     "effect": "(approximation) subtract 1 from the 2D6 test result (modelled equivalently by adding 1 to the test target Leadership, same convention as Shadow in the Warp) AND, if failed, the testing enemy unit suffers D3 mortal wounds. SwegHammer does not track deployment-zone ownership or per-zone objective control; the rule is proxied as 'enemy unit within 18\" of the board centre while at least one Chaos Daemons unit is alive in the opposing army'. The Greater Daemon 6\" aura half of the rule is folded into the same area proxy (no separate model-aura check). Composes additively with detachment ld_bonus / enemy_ld_penalty.",
     "scope": "army-wide",
+    "approximation": true
+  },
+
+  "simulator.relentless_carnage": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
+    "rule_name": "Relentless Carnage",
+    "quoted_text": "At the end of the Fight phase, you can select one enemy unit within Engagement Range of this model and roll eight D6: for each 4+, that enemy unit suffers 1 mortal wound.",
+    "trigger": "End of the Fight phase, for each alive Bloodthirster on the board with at least one enemy unit within 1\" Engagement Range",
+    "effect": "Roll 8D6; each 4+ inflicts 1 mortal wound (expected 4 per trigger). Mortal wounds are routed through receive_damage(..., bonus_fnp=victim.profile.fnp) so defender Feel No Pain applies per 10e core rules. SwegHammer fires once per active player's fight pass (the codex 'end of the Fight phase' is per-phase, which in the simulator's per-turn-half model collapses to once per Bloodthirster per round). Target is picked as the highest-melee-DPA living engagement-range enemy as a reasonable approximation of 'the most threatening target in melee'.",
+    "scope": "character-only",
     "approximation": true
   }
 }
