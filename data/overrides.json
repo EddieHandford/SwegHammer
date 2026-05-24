@@ -1401,7 +1401,27 @@
     },
     "tyranids_norn_emissary": {
       "fnp": 7,
-      "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 4+ baked into parsed.json by the BSData mapper. Verified BSData 'Tyranids.cat.gz' Norn Emissary selectionEntry has only ONE ability \u00e2\u20ac\u201d 'Unnatural Resistance: This model has the Feel No Pain 4+ ability against Mortal Wounds.' \u00e2\u20ac\u201d the FNP is conditional on mortal-wound damage only, which SwegHammer's combat resolver does not distinguish. Encoding a static fnp=4 grants the Emissary blanket 4+ FNP against every wound type, a major durability overbuff. Sim has no mortal-wound channel separation, so the rule-correct surrogate is fnp=7 (no FNP). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Emissary"
+      "weapon": "\u27a4 Psychic tendril - neurolance",
+      "attacks": 7,
+      "strength": 8,
+      "ap": -3,
+      "weapon_damage_per_shot": 2.0,
+      "hit_probability": 0.833,
+      "range_inches": 24,
+      "heavy": true,
+      "blast": false,
+      "anti_keywords": {"VEHICLE": 4},
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_heavy": false,
+      "secondary_blast": false,
+      "extra_ranged_profiles": [],
+      "notes": "TYRANID-NORN-MULTILOAD: Norn psychic tendrils have THREE mutually-exclusive firing modes per Wahapedia: 'The Norn psychic tendrils can fire one of the following profiles each Shooting phase' (Neurolance / Neuroblast / Neuroparasite). The BSData mapper packed Neurolance into the primary slot, Neuroblast into the secondary slot, AND Neuroparasite into extra_ranged_profiles - so the simulator was firing all three tendril modes every Shooting phase, a 3x ranged-output inflation. Promoted Neurolance to the sole primary (the dominant tournament choice for monster-hunting: 24\" Heavy, A 2D6 (avg 7), S 8 AP-3 D 2, Anti-Vehicle 4+, since the Norn already has Monstrous Bonesword + Lashwhip + Monstrous scything talons for chaff). Cleared secondary slot and extras. Also retains TYRANIDS-DIAG-2: fnp=7 to clear static Feel No Pain 4+ that was conditional on mortal wounds only (sim has no mortal-wound channel separation). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Emissary"
     },
     "tyranids_norn_assimilator": {
       "fnp": 7,
