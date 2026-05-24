@@ -1086,6 +1086,7 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "adepta_sororitas_seraphim_squad": 1,
             "adepta_sororitas_zephyrim_squad": 1,
             "adepta_sororitas_celestian_sacresants": 1,
+            "adepta_sororitas_celestian_insidiants": 1,
             "adepta_sororitas_retributor_squad": 1,
             "adepta_sororitas_repentia_squad": 1,
             "adepta_sororitas_arco_flagellants": 1,
