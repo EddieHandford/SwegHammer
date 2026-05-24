@@ -474,16 +474,9 @@ class Army:
     # ------------------------------------------------------------------
 
     # Soft cap on the Sororitas Miracle Dice bank. The codex imposes no
-    # hard limit, but tournament-realistic play has skilled players
-    # spending dice as they earn them — late-game dice have low value
-    # because few opportunities remain, so the bank rarely exceeds 5
-    # in practice. SOROR-DIAG-3 (2026-05-24) tightened from 8 -> 5
-    # to close residual +15.94pt Sororitas over-performance after
-    # SOROR-DIAG-2 (per-attack-call substitution cap). Carry-forward
-    # from SOROR-DIAG-2: "MIRACLE_DICE_BANK_CAP=8 still too generous
-    # combined with +1/round + per-death gain — bank realistically
-    # stays <= 3-4 in tournament play."
-    MIRACLE_DICE_BANK_CAP = 5
+    # hard limit; in practice tournament games end at 6-7 dice. The cap
+    # keeps the pool from growing without bound in a stalled simulation.
+    MIRACLE_DICE_BANK_CAP = 8
 
     def has_miracle_dice(self) -> bool:
         """True iff at least one Miracle die remains in the pool."""
