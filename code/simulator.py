@@ -69,6 +69,8 @@ from .stratagems import (
     # ST-2 wave 3 — one stratagem per under-performing faction
     APOPLECTIC_FRENZY, DENIZENS_OF_THE_WARP, EMPYRIC_CHANNELLING,
     CULT_AMBUSH, PROFANE_ZEAL,
+    # CSM-EYE-OF-GODS — Pactbound Zealots snowball stratagem (1 CP)
+    EYE_OF_THE_GODS,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -3070,6 +3072,50 @@ class Battle:
             return
         attacker.transient_plus_one_to_wound_melee = True
 
+    def _try_eye_of_the_gods(self, killer, killer_army: Army) -> None:
+        """Eye of the Gods (Pactbound Zealots, 1 CP). Real rule: end of
+        Fight phase, when a CSM CHARACTER from your army has destroyed an
+        enemy unit with a melee attack — roll D6+Wounds and look up the
+        result on the Eye of the Gods table (2-5: +1 Move; 6-8: +1
+        Toughness; 9-12: +1 Attack OR +1 Strength; 13+: +1 Damage to melee
+        weapons OR pick another result). The result stamps PERMANENTLY on
+        the CHARACTER for the rest of the battle. APPROXIMATION: we
+        collapse the roll-and-pick table to a single +1-to-wound-melee
+        snowball stamped on the CHARACTER on its first qualifying melee
+        kill. Persistent (not cleared with round-start transient_* flags).
+        Fired inline at the kill site rather than via the round-start
+        detachment-stratagem dispatcher because the trigger is "destroyed
+        an enemy unit with a melee attack", which only the live fight loop
+        observes. Per-Command-phase stratagem cap is NOT incremented (the
+        cap covers round-start spends; on-kill reactive spends are out-of-
+        band, same exemption Counter-Offensive / Heroic Intervention use).
+        Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Eye-of-the-Gods
+        """
+        # Faction gate: CSM only.
+        if (killer.profile.faction or "") != "Chaos Space Marines":
+            return
+        # CHARACTER gate: only CSM CHARACTERs trigger the stratagem.
+        if "CHARACTER" not in set(killer.profile.unit_keywords or ()):
+            return
+        # Once-per-CHARACTER guard: stamp is permanent, so re-firing on a
+        # already-stamped CHARACTER would waste CP for no effect.
+        if killer.eye_of_the_gods_stamped:
+            return
+        # Detachment gate: the stratagem only exists in Pactbound Zealots.
+        # `stratagems_for_army` is the authoritative list; if EYE_OF_THE_GODS
+        # isn't in it, the army isn't running Pactbound Zealots.
+        from .stratagems import stratagems_for_army
+        if EYE_OF_THE_GODS not in stratagems_for_army(killer_army):
+            return
+        # CP spend + book-keeping. No target / attacker ctx needed — the
+        # decision is "always fire when a fresh CSM CHARACTER scores a
+        # melee kill", which is the highest-EV use of 1 CP under the
+        # snowball proxy.
+        if not self._fire_stratagem(killer_army, EYE_OF_THE_GODS):
+            return
+        killer.eye_of_the_gods_stamped = True
+
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
     # Stratagem names + CP costs confirmed against Wahapedia. Verbatim
@@ -6058,6 +6104,19 @@ class Battle:
                 victim=target, victim_army=defender_army,
             )
             self._maybe_apply_deadly_demise(target)
+            # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
+            # End-of-Fight-phase reactive stratagem fired on the kill site.
+            # Real rule: at end of Fight phase, a CSM CHARACTER that
+            # destroyed an enemy unit in melee rolls D6+Wounds on the Eye
+            # of the Gods table for a permanent stat buff. APPROXIMATION:
+            # collapsed to a permanent +1-to-wound-melee snowball stamped
+            # on the CHARACTER. The dispatcher self-gates on faction +
+            # CHARACTER keyword + Pactbound Zealots detachment + once-per-
+            # CHARACTER + CP affordability. Cited as
+            # `Stratagem.Eye of the Gods`.
+            self._try_eye_of_the_gods(
+                killer=attacker, killer_army=attacker_army,
+            )
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The

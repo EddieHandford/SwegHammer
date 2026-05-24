@@ -1346,8 +1346,27 @@ PROFANE_ZEAL = Stratagem(
     effect="reroll_hits_and_wounds_ones_melee_approximation",
 )
 
+# Eye of the Gods (Pactbound Zealots, 1 CP — Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Eye-of-the-Gods
+# Real text: end of Fight phase, when a CHARACTER from your army with this
+# ability has destroyed an enemy unit with a melee attack — roll D6+Wounds
+# on the Eye of the Gods table (2-5: +1 M; 6-8: +1 T; 9-12: +1 A OR +1 S;
+# 13+: +1 D melee OR pick another result). The stamped result persists for
+# the rest of the battle. APPROXIMATION: collapse the roll-and-pick table
+# to a single +1-to-wound-melee snowball on the CHARACTER, stamped
+# permanently on first qualifying melee kill. Direction-correct offensive
+# uplift that grows CSM CHARACTER lethality across rounds. 1 CP.
+EYE_OF_THE_GODS = Stratagem(
+    name="Eye of the Gods",
+    cp_cost=1,
+    phase="fight",
+    trigger="end_of_fight_phase_csm_character_destroyed_enemy_unit_melee",
+    effect="persistent_plus_one_to_wound_melee_on_character_approximation",
+)
+
 PACTBOUND_ZEALOTS_STRATAGEMS: Tuple[Stratagem, ...] = (
     PROFANE_ZEAL,
+    EYE_OF_THE_GODS,
 )
 
 
@@ -1492,6 +1511,7 @@ __all__ = [
     "CULT_AMBUSH",
     "FINAL_DAY_STRATAGEMS",
     "PROFANE_ZEAL",
+    "EYE_OF_THE_GODS",
     "PACTBOUND_ZEALOTS_STRATAGEMS",
     # CP economy
     "STARTING_CP",
