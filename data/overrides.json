@@ -1988,9 +1988,31 @@
           "torrent": false,
           "blast": false,
           "pistol": false
+        },
+        {
+          "weapon": "Stormspear rocket pod",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "range_inches": 48,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "rapid_fire": 0,
+          "melta": 0,
+          "ignores_cover": false,
+          "heavy": false,
+          "assault": false,
+          "torrent": false,
+          "blast": false,
+          "pistol": false
         }
       ],
-      "notes": "KNIGHTS-MAPPER: Knight Crusader datasheet 'equipped with' explicitly lists 'avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'. BSData mapper picked Avenger gatling into primary and Thermal cannon into secondary but dropped the Heavy flamer and Meltagun (close-range utility) and instead populated extra_ranged_profiles with three wargear options (Rapid-fire battle cannon, Stormspear rocket pod, Icarus autocannons) that are NOT in the base kit. KNIGHTS-MAPPER replaces extras with the two missing default-loadout guns. Heavy flamer is [IGNORES COVER, TORRENT] D6 hits S5 AP-1 D1; Meltagun is [MELTA 2] 1 shot S9 AP-4 D6. The spurious extras the mapper picked are left out — Crusader gets one chassis-mounted carapace weapon, not all three. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Crusader (verbatim 'this model is equipped with: avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet')."
+      "notes": "KNIGHTS-MAPPER + KNIGHTS-MULTIPROFILE-1: Knight Crusader datasheet 'equipped with' explicitly lists 'avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'. BSData mapper picked Avenger gatling into primary and Thermal cannon into secondary but dropped the Heavy flamer and Meltagun (close-range utility) and instead populated extra_ranged_profiles with three wargear options (Rapid-fire battle cannon, Stormspear rocket pod, Icarus autocannons) that are NOT in the base 'equipped with' kit. KNIGHTS-MAPPER replaced extras with the two missing default-loadout guns; KNIGHTS-MULTIPROFILE-1 adds back ONE carapace mount (Stormspear rocket pod) per the Crusader's wargear options — every tournament-built Crusader takes one of {ironstorm, stormspear, twin Icarus}, and Stormspear is the most common pick. Heavy flamer is [IGNORES COVER, TORRENT] D6 hits S5 AP-1 D1; Meltagun is [MELTA 2] 1 shot S9 AP-4 D6; Stormspear rocket pod is 48-inch A=3 S=8 AP-2 D=D6 (no keywords). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Crusader (verbatim 'this model is equipped with: avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'; wargear option: 'The model can be equipped with one of the following: 1 ironstorm missile pod; 1 stormspear rocket pod; 1 twin Icarus autocannon')."
     },
     "imperial_knights_library_knight_paladin": {
       "extra_ranged_profiles": [
