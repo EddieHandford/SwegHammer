@@ -143,10 +143,23 @@ CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
 # eats the overflow.
 #
 # DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER scales DOWN Drukhari's own
-# scoring on Engage / BEL / Cull. Kill-event Bring it Down / No
-# Prisoners / Assassination are NOT scaled — those secondaries
-# reflect genuine Drukhari offensive output and have been audited
-# clean (DRK-DIAG-5 vehicle dual-firing, DRK-DIAG-7 ranged stats).
+# scoring on Engage / BEL / Cull (0.75x — the original DRK-DIAG-9
+# multiplier). Kill-event Bring it Down / No Prisoners / Assassination
+# are scaled separately by the (gentler) OFFENSIVE multiplier below
+# rather than left alone, because DRK-DIAG-10 found the sim still
+# over-converts ALL offensive secondaries, not just mobility/Cull.
+# Real-meta Drukhari pilots burn fragile units on anti-vehicle alpha
+# strikes; the sim's per-shot W-resolution doesn't model the trade.
+#
+# DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER (DRK-DIAG-10) extends the
+# attacker damper to Bring it Down / No Prisoners / Assassination at
+# 0.85x — gentler than the 0.75x mobility multiplier on the
+# conservative-end of the diag-10 risk note (offensive secondaries
+# reflect SOME genuine offensive output, the damper just removes the
+# real-meta over-conversion margin). Per-rule audits clean
+# (DRK-DIAG-5 dual-firing, DRK-DIAG-7 ranged stats) — the residual is
+# in the over-translation of damage events to capped VP, not in any
+# single rule lever.
 #
 # Faction-gated (not detachment- or mobility-gated) because:
 #   (a) Drukhari is the only 10e faction with army-rule mobility
@@ -161,11 +174,12 @@ CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
 #       not located at any single rule lever — it is distributed
 #       across the secondary-scoring envelope.
 #
-# Marked APPROXIMATION: the "Drukhari over-scores mobility secondaries
-# in the sim relative to real meta" is an observation from the
-# calibration loop, not a Wahapedia rule citation. Same citation
-# pattern as `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK).
+# Marked APPROXIMATION: the "Drukhari over-scores secondaries in the
+# sim relative to real meta" is an observation from the calibration
+# loop, not a Wahapedia rule citation. Same citation pattern as
+# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK).
 DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER: float = 0.75
+DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
 DRUKHARI_FACTION_TAG: str = "Drukhari"
 
 
@@ -302,11 +316,33 @@ def score_round_delta(
     real-meta over-scoring damper: Drukhari's burst damage overflows
     on single horde squads but the per-round cap eats the overflow,
     and tournament Drukhari players don't reliably convert Cull at
-    the sim rate. Bring it Down, No Prisoners, and Assassination are
-    NOT scaled — those reflect genuine offensive output and have been
-    audited clean. Engage / BEL are scaled in `score_position_delta`
+    the sim rate. Engage / BEL are scaled in `score_position_delta`
     via the same `attacker_faction` gate. Cited as
     `simulator.secondary_drukhari_mobile_modifier`.
+
+    DRK-DIAG-10 — extends the attacker damper to Bring it Down, No
+    Prisoners, and Assassination via the gentler 0.85x
+    `DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER`. After DRK-DIAG-9
+    (+0.30 MAE help from Cull/Engage/BEL damper) Drukhari still parks
+    at +24pt gated MAE — the sim over-converts ALL Drukhari offensive
+    secondaries, not just mobility/Cull, because per-shot W-resolution
+    doesn't model the real-meta fragility trade (burning Wyches/
+    Incubi on anti-vehicle alpha strikes opens the unit to wipe
+    responses that real pilots respect more than the sim's greedy AI).
+    0.85x rather than 0.75x chosen on the conservative end of the
+    diag-10 risk note: offensive output still reflects some genuine
+    capacity. Cited as `simulator.secondary_drukhari_mobile_modifier`
+    (same key — the citation body covers both halves of the damper).
+
+    Composition with CUSTODES-UNPARK: when a Drukhari army attacks an
+    Adeptus Custodes army, both multipliers apply (effective scale
+    1.5 * 0.85 = 1.275x for BiD/NP/Assassination, 1.5 * 1.0 = 1.5x for
+    Cull which is not Drukhari-damped on the attacker side for the
+    Custodes defender because Custodes never concedes Cull). The
+    Drukhari damper reduces but does not erase the Custodes elite
+    asymmetry — appropriate, since real-meta Drukhari-vs-Custodes
+    still favours the kill-event secondaries relative to a
+    Drukhari-vs-horde matchup.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -345,26 +381,33 @@ def score_round_delta(
     # scoring side is Drukhari. Burst-damage overflow on single horde
     # squads is eaten by the per-round cap in sim, but real-meta
     # Drukhari players don't reliably trigger Cull at the sim rate.
+    # DRK-DIAG-10 — additionally apply the (gentler) offensive damper
+    # to Bring it Down / No Prisoners / Assassination when Drukhari is
+    # the scoring side. Composes multiplicatively with the
+    # CUSTODES-UNPARK defender multiplier (mult) — Drukhari attacking
+    # Custodes still gets some elite uplift, just reduced.
     if attacker_faction == DRUKHARI_FACTION_TAG:
         drk_attacker_mult = DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER
+        drk_offensive_mult = DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER
     else:
         drk_attacker_mult = 1.0
+        drk_offensive_mult = 1.0
 
     bring_it_down_vp = min(
-        int(BRING_IT_DOWN_CAP_PER_ROUND * mult),
-        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult),
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * drk_offensive_mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * drk_offensive_mult),
     )
     no_prisoners_vp = min(
-        int(NO_PRISONERS_CAP_PER_ROUND * mult),
-        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult),
+        int(NO_PRISONERS_CAP_PER_ROUND * mult * drk_offensive_mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * drk_offensive_mult),
     )
     cull_the_horde_vp = int(min(
         CULL_THE_HORDE_CAP_PER_ROUND * drk_attacker_mult,
         len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * drk_attacker_mult,
     ))
     assassination_vp = min(
-        int(ASSASSINATION_CAP_PER_ROUND * mult),
-        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult),
+        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult),
+        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult),
     )
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
