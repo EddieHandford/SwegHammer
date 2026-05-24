@@ -189,6 +189,18 @@ class Army:
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!
         # Cited as `simulator.waaagh`.
         self.waaagh_round_unlocked: Optional[int] = None
+        # Tyranids Shadow in the Warp — declared once per battle in either
+        # player's Command phase. Stores the round in which Shadow was
+        # unleashed; the Battle-shock phase reads this against the live battle
+        # round to apply the -1 to enemy Battle-shock tests (only on that
+        # round, within 6"). None = not yet declared.
+        # TYRANIDS-DIAG-5 (2026-05-24) — collapsed from the prior always-on
+        # 12" aura to the codex-correct once-per-battle 6" trigger. The
+        # previous always-on implementation over-applied the debuff every
+        # round, contributing to Tyranids +24pt sim over-perf. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/tyranids/ "Shadow in the
+        # Warp". Cited as `simulator.shadow_in_the_warp`.
+        self.shadow_in_the_warp_used_round: Optional[int] = None
         # Genestealer Cults Cult Ambush — Resurgence points pool used to
         # revive destroyed CULT INFANTRY units at round end. Populated at
         # battle start by the simulator for GSC armies (Strike Force default

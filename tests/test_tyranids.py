@@ -4,9 +4,12 @@ Covered:
   - Synapse Imperative: a Tyranid unit within 6" of any friendly SYNAPSE
     model auto-passes its Battle-shock test (no roll). Cited as
     `simulator.synapse_imperative`.
-  - Shadow in the Warp: an enemy unit within 12" of any SYNAPSE model from
-    the Tyranid army takes Battle-shock at -1 (i.e. the 2D6 must clear
-    Leadership + 1). Cited as `simulator.shadow_in_the_warp`.
+  - Shadow in the Warp (TYRANIDS-DIAG-5, codex 10e): once per battle, in
+    either player's Command phase, an enemy unit within 6" of any SYNAPSE
+    model from the Tyranid army takes Battle-shock at -1. Modelled by
+    `Army.shadow_in_the_warp_used_round` set during the Command phase
+    (AI heuristic fires at Round 2). Cited as
+    `simulator.shadow_in_the_warp`.
 
 Both effects key off the SYNAPSE keyword extracted by the BSData mapper from
 the unit's categoryLinks. The tests bypass Battle.run() and drive _run_round
@@ -182,7 +185,8 @@ class SynapseImperativeTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Shadow in the Warp — enemy units within 12" take Battle-shock at -1
+# Shadow in the Warp — once-per-battle, enemy units within 6" take
+# Battle-shock at -1 on the round it is unleashed (TYRANIDS-DIAG-5).
 # ---------------------------------------------------------------------------
 
 
@@ -205,15 +209,17 @@ class ShadowInTheWarpTests(unittest.TestCase):
         return []
 
     def test_shadow_in_the_warp_subtracts_1(self):
-        """A wounded Marine 8" from the opposing Tyranids' Hive Tyrant must
+        """A wounded Marine 4" from the opposing Tyranids' Hive Tyrant must
         face a higher test target (Ld + 1) than the same Marine with no
-        SYNAPSE model in range. We verify by comparing per-seed failure
-        rates: with Shadow, more seeds fail.
+        SYNAPSE model in range. TYRANIDS-DIAG-5: codex radius is 6" and
+        the rule fires once-per-battle (declared at Round 2 by the AI
+        heuristic). We verify by comparing per-seed failure rates: with
+        Shadow, more seeds fail.
 
         We rebuild a fresh Battle per seed so that positional drift and
         damage carried over from in-round activations don't pollute the
         comparison."""
-        marine_pos = (10.0, 0.0)
+        marine_pos = (4.0, 0.0)  # within 6" of Hive Tyrant at (0,0)
 
         def _fail_rate(ht_pos, n_seeds: int = 144) -> int:
             fails = 0
@@ -233,8 +239,8 @@ class ShadowInTheWarpTests(unittest.TestCase):
                     fails += 1
             return fails
 
-        fails_with_shadow = _fail_rate((0.0, 0.0))     # 10" away — in 12" aura
-        fails_no_shadow = _fail_rate((50.0, 0.0))      # 40" away — out of aura
+        fails_with_shadow = _fail_rate((0.0, 0.0))     # 4" away — inside 6" aura
+        fails_no_shadow = _fail_rate((50.0, 0.0))      # 46" away — out of aura
         # Shadow makes the test harder (Ld + 1), so fails_with > fails_no.
         # Mathematically: P(2D6<7) = 15/36 vs P(2D6<6) = 10/36 — substantial.
         self.assertGreater(
@@ -243,11 +249,12 @@ class ShadowInTheWarpTests(unittest.TestCase):
             f"with={fails_with_shadow} no={fails_no_shadow}",
         )
 
-    def test_shadow_in_the_warp_outside_12_does_nothing(self):
-        """A Hive Tyrant 15" from the Marine is outside the 12" aura — no
-        penalty. The failure rate must equal the no-Tyrant baseline
-        (matching seed iteration)."""
-        marine_pos = (15.0, 0.0)
+    def test_shadow_in_the_warp_outside_6_does_nothing(self):
+        """A Hive Tyrant 7" from the Marine is outside the codex 6" aura
+        — no penalty. The failure rate must equal the no-Tyrant baseline
+        (matching seed iteration). TYRANIDS-DIAG-5: tightened from the
+        prior 12" always-on aura to the codex 6" once-per-battle gate."""
+        marine_pos = (7.0, 0.0)  # 7" away — outside 6"
 
         def _fail_count(ht_pos, n_seeds: int = 72) -> int:
             fails = 0
@@ -267,12 +274,46 @@ class ShadowInTheWarpTests(unittest.TestCase):
                     fails += 1
             return fails
 
-        # Both Tyrant positions are out of the 12" aura → identical fail rates.
+        # Both Tyrant positions are out of the 6" aura → identical fail rates.
         self.assertEqual(
-            _fail_count((0.0, 0.0)),         # 15" away from Marine
-            _fail_count((60.0, 0.0)),        # 45" away
-            "Shadow in the Warp outside 12\" must not apply — failure "
+            _fail_count((0.0, 0.0)),         # 7" away from Marine
+            _fail_count((60.0, 0.0)),        # 53" away
+            "Shadow in the Warp outside 6\" must not apply — failure "
             "rate must match the far-away control",
+        )
+
+    def test_shadow_in_the_warp_round_1_does_nothing(self):
+        """TYRANIDS-DIAG-5: Shadow in the Warp is once-per-battle, declared
+        at Round 2 by the AI heuristic. Running Round 1 should NOT apply
+        the -1 debuff (the Tyranid army has not yet unleashed Shadow). The
+        failure rate for a Marine within the 6" radius at Round 1 must
+        equal the no-Tyrant baseline."""
+        marine_pos = (4.0, 0.0)
+
+        def _fail_count(ht_pos, n_seeds: int = 72) -> int:
+            fails = 0
+            for seed in range(n_seeds):
+                random.seed(seed)
+                battle = _build_battle(
+                    a_units=[_hive_tyrant_profile()],
+                    b_units=[_marine_profile()],
+                    positions_a=[ht_pos],
+                    positions_b=[marine_pos],
+                )
+                marine = battle.b.units[0]
+                marine.current_health = 0.5
+                battle._current_round = 1
+                battle._run_round(1)
+                if marine.uid in battle._battleshocked_this_round:
+                    fails += 1
+            return fails
+
+        # Round 1 — Shadow not yet declared. Both should equal baseline.
+        self.assertEqual(
+            _fail_count((0.0, 0.0)),         # 4" away from Marine, Round 1
+            _fail_count((60.0, 0.0)),        # 56" away, Round 1
+            "Shadow in the Warp at Round 1 must not apply — once-per-battle "
+            "AI heuristic declares at Round 2.",
         )
 
 

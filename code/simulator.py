@@ -4665,8 +4665,20 @@ class Battle:
             False for them — this matters once future Synapse-keyed
             consumers (e.g. enemy Harbingers of Dread auras) start reading
             the persistent flag.
-          - Shadow in the Warp (Tyranids, 10e): an enemy unit within 12"
-            of any Tyranid SYNAPSE model takes the test at -1. Cited as
+          - Shadow in the Warp (Tyranids, 10e Codex): the Tyranid player
+            unleashes Shadow once per battle, in either player's Command
+            phase. On the round it is unleashed, each enemy unit within 6"
+            of any friendly Tyranid SYNAPSE model takes its Battle-shock
+            test at -1. TYRANIDS-DIAG-5: was previously modelled as an
+            always-on 12" aura — over-applied the debuff every round at a
+            wider radius, contributing to Tyranids sim over-perf. Now gated
+            on `army.shadow_in_the_warp_used_round == round_num`, declared
+            from the Command-phase loop with the AI heuristic firing at
+            Round 2. The "forces a Battle-shock test on every enemy unit on
+            the battlefield on the unleashing round" half of the codex rule
+            is NOT modelled here — most at-strength enemy units (Ld 7-9)
+            pass 2D6-1 reliably, so the dominant impact comes from -1
+            applied to the existing below-half tests within 6". Cited as
             `simulator.shadow_in_the_warp`.
           - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
             enemy units within 3" of any DG model take -1 Ld. Cited as
@@ -4711,11 +4723,23 @@ class Battle:
                 s for s in army.alive_units
                 if "SYNAPSE" in (s.profile.unit_keywords or ())
             ]
-            shadow_sources = [
-                s for s in opponent.alive_units
-                if "SYNAPSE" in (s.profile.unit_keywords or ())
-                and s.profile.faction == "Tyranids"
-            ]
+            # Shadow in the Warp — once-per-battle (TYRANIDS-DIAG-5).
+            # The opponent's Tyranid army may have unleashed Shadow this
+            # round; the test-side debuff applies only on that round.
+            # `opponent.shadow_in_the_warp_used_round == round_num` gates
+            # the source list to empty when Shadow is dormant, so the
+            # downstream `shadow_penalty` block becomes a no-op.
+            if (
+                opponent.shadow_in_the_warp_used_round is not None
+                and opponent.shadow_in_the_warp_used_round == round_num
+            ):
+                shadow_sources = [
+                    s for s in opponent.alive_units
+                    if "SYNAPSE" in (s.profile.unit_keywords or ())
+                    and s.profile.faction == "Tyranids"
+                ]
+            else:
+                shadow_sources = []
             contagion_sources = (
                 [
                     s for s in opponent.alive_units
@@ -4776,8 +4800,12 @@ class Battle:
                     ):
                         continue
                     shadow_penalty = 0
+                    # TYRANIDS-DIAG-5: codex radius is 6", not the prior
+                    # always-on 12" aura. Source list is gated to the
+                    # once-per-battle declared round above; here we just
+                    # check distance.
                     if shadow_sources and any(
-                        _distance(u.position, s.position) <= 12.0
+                        _distance(u.position, s.position) <= 6.0
                         for s in shadow_sources
                     ):
                         shadow_penalty = 1
@@ -4956,6 +4984,50 @@ class Battle:
                     self._emit(WaaaghDeclared(
                         army_name=army.name, round_num=round_num,
                     ))
+        # ---- Tyranids Shadow in the Warp once-per-battle declaration
+        # (Command phase). 10e Codex Tyranids army rule (current Wahapedia):
+        # "Once per battle, in either player's Command phase, if one or more
+        # units from your army with this ability are on the battlefield, you
+        # can unleash the Shadow in the Warp. When you do, each enemy unit on
+        # the battlefield must take a Battle-shock test. Each time an enemy
+        # unit takes such a Battle-shock test, if it is within 6\" of one or
+        # more SYNAPSE units from your army, subtract 1 from that test."
+        #
+        # The previous SwegHammer implementation modelled SitW as an
+        # always-on 12" -1 Ld aura on every Battle-shock test against any
+        # below-half enemy unit — a multi-round, wider-radius over-buff vs
+        # the codex once-per-battle 6" trigger. TYRANIDS-DIAG-5 (2026-05-24)
+        # collapses to once-per-battle. AI heuristic: fire in Round 2 —
+        # earliest round when enemies have moved into range AND not yet
+        # taken meaningful casualties (Round 1 is opportunity-cost-cheaper
+        # but most enemy units may still be in their deployment zone and
+        # outside 6"). The "force a test on EVERY enemy unit" half of the
+        # rule is NOT modelled here — at-strength enemy units (Ld 7-9) pass
+        # 2D6-1 most of the time, so the dominant impact is the -1 to
+        # already-occurring below-half tests within 6". Cited as
+        # `simulator.shadow_in_the_warp`.
+        for army in (self.a, self.b):
+            if army.shadow_in_the_warp_used_round is not None:
+                continue  # already fired this battle
+            # Faction-gated to Tyranids armies with at least one alive SYNAPSE
+            # source on the battlefield (the codex prerequisite).
+            if not any(u.profile.faction == "Tyranids" for u in army.units):
+                continue
+            has_synapse_alive = any(
+                "SYNAPSE" in (u.profile.unit_keywords or ())
+                for u in army.alive_units
+            )
+            if not has_synapse_alive:
+                continue
+            # AI heuristic: declare from Round 2 onwards (first round
+            # enemies have advanced into 6" of Synapse anchors). The
+            # `is not None` early-exit above ensures this only fires once;
+            # the `>= 2` gate means a battle that only reaches Round 1
+            # leaves Shadow undeclared (acceptable: 5-round battles
+            # always reach Round 2). By Round 5 the gate is still true
+            # so the rule auto-declares as a use-it-or-lose-it fallback.
+            if round_num >= 2:
+                army.shadow_in_the_warp_used_round = round_num
         # ---- Drukhari Power From Pain (10e army rule). At the start of
         # each Command phase, every Drukhari unit Below Starting Strength
         # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's

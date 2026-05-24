@@ -301,10 +301,13 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         )
 
     def test_tyranids_shadow_in_the_warp_penalty(self):
-        """A Marine within 12" of a Tyranid SYNAPSE source must fail
+        """A Marine within 6" of a Tyranid SYNAPSE source must fail
         Battle-shock more often than one out of range. Iterates many
         seeds — at least one near-failure is sufficient to confirm the
-        penalty path was even reached. Cites: simulator.shadow_in_the_warp."""
+        penalty path was even reached. TYRANIDS-DIAG-5: codex radius is
+        6" (was 12" always-on aura pre-fix), and the rule fires once-
+        per-battle at Round 2 via the AI heuristic. Cites:
+        simulator.shadow_in_the_warp."""
         fails_near = 0
         for seed in range(40):
             random.seed(seed)
@@ -315,7 +318,7 @@ class FactionMechanicSmokeTests(unittest.TestCase):
             battle = Battle(nids, marines)
             battle._assign_uids()
             nids.units[0].position = (0.0, 0.0)
-            marines.units[0].position = (10.0, 0.0)   # 10" — inside 12"
+            marines.units[0].position = (4.0, 0.0)   # 4" — inside codex 6"
             marines.units[0].current_health = 0.5
             battle._current_round = 2
             battle._run_round(2)
