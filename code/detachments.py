@@ -224,10 +224,18 @@ class Detachment:
     # VEHICLE-keyword). The matrix gate (REGIMENT vs non-VEHICLE/MONSTER /
     # SQUADRON vs VEHICLE/MONSTER) is enforced inline at the LH branch.
     # APPROXIMATION: the codex uses bespoke keywords REGIMENT / SQUADRON
-    # that don't appear as datasheet keywords in BSData v10.6.0; we map
-    # REGIMENT → "INFANTRY" and SQUADRON → "VEHICLE" (matches the codex
-    # split where REGIMENT covers the infantry rosters and SQUADRON covers
-    # the Leman Russ / Sentinel / Rogal Dorn vehicle squadrons).
+    # that don't appear as datasheet keywords in BSData v10.6.0. AM-DIAG-2
+    # narrowed REGIMENT to BATTLELINE-keyword (the three core Cadian /
+    # Catachan / Krieg troop squads). AM-DIAG-3 (2026-05-24) narrowed
+    # SQUADRON to an explicit name allowlist of the codex SQUADRON
+    # datasheets (Leman Russ family, Rogal Dorn family, Hellhound,
+    # Armoured / Scout / Commander Sentinels — see
+    # `code/units.py::_AM_BORN_SOLDIERS_SQUADRON_NAMES`); the previous
+    # "any VEHICLE-keyword AM attacker" proxy over-granted LETHAL HITS
+    # on transports (Chimera, Taurox), flyers (Valkyrie, Vendetta),
+    # HEAVY artillery (Basilisk, Manticore, Wyvern), super-heavies
+    # (Baneblade family), Knights, and VEHICLE CHARACTERS — none of
+    # which carry the codex SQUADRON keyword.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
     am_born_soldiers_lethal_hits: bool = False
 
@@ -629,8 +637,15 @@ COMBINED_REGIMENT = Detachment(
         "REGIMENT/SQUADRON vs target-type matrix matches; the LH branch fires "
         "via the existing `effective_lethal_hits` plumbing. APPROXIMATION: "
         "the codex REGIMENT / SQUADRON keywords don't appear in BSData "
-        "v10.6.0; we map REGIMENT → INFANTRY-keyword (non-VEHICLE/MONSTER) "
-        "and SQUADRON → VEHICLE-keyword (matches the codex split). "
+        "v10.6.0; AM-DIAG-2 narrowed REGIMENT to BATTLELINE-keyword (the "
+        "three core Cadian / Catachan / Krieg troop squads); AM-DIAG-3 "
+        "narrowed SQUADRON to an explicit name allowlist of the codex "
+        "SQUADRON datasheets (Leman Russ family, Rogal Dorn family, "
+        "Hellhound, Armoured / Scout / Commander Sentinels — see "
+        "`code/units.py::_AM_BORN_SOLDIERS_SQUADRON_NAMES`) instead of "
+        "any VEHICLE-keyword AM unit (which over-fired LETHAL HITS on "
+        "transports, flyers, HEAVY artillery, super-heavies, Knights, "
+        "and VEHICLE CHARACTERS). "
         "Voice of Command Order economy (iter-14): officers issue Orders to "
         "BATTLELINE INFANTRY units at the start of each Command phase via "
         "`code.orders.dispatch_orders` — see that module for the four wired "

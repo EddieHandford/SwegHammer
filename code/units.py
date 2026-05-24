@@ -229,6 +229,39 @@ def lanchester_score(
 
 
 # ---------------------------------------------------------------------------
+# Astra Militarum SQUADRON allowlist — see the SQUADRON-leg gate in
+# Unit.attack() for the Born Soldiers Combined Arms detachment rule. BSData
+# v10.6.0 does not tag datasheets with the codex SQUADRON keyword, so we
+# match on `UnitProfile.name`. Per Wahapedia AM datasheets (see
+# https://wahapedia.ru/wh40k10ed/factions/astra-militarum/ ), the SQUADRON
+# keyword belongs to the Leman Russ family, the Rogal Dorn family, the
+# Hellhound (Bane Wolf / Devil Dog are weapon-loadout variants of the
+# Hellhound datasheet in BSData v10.6.0), and the Sentinels.
+# ---------------------------------------------------------------------------
+_AM_BORN_SOLDIERS_SQUADRON_NAMES = frozenset({
+    # Leman Russ family
+    "Leman Russ Battle Tank",
+    "Leman Russ Demolisher",
+    "Leman Russ Eradicator",
+    "Leman Russ Executioner",
+    "Leman Russ Exterminator",
+    "Leman Russ Punisher",
+    "Leman Russ Vanquisher",
+    "Leman Russ Commander",
+    # Rogal Dorn family
+    "Rogal Dorn Battle Tank",
+    "Rogal Dorn Commander",
+    # Hellhound family (Bane Wolf / Devil Dog are weapon-loadout variants
+    # of the Hellhound datasheet in BSData v10.6.0 — no separate entry).
+    "Hellhound",
+    # Sentinels
+    "Armoured Sentinels",
+    "Scout Sentinels",
+    "Sentinel Commander [Crucible]",
+})
+
+
+# ---------------------------------------------------------------------------
 # UnitProfile — immutable stat block
 # ---------------------------------------------------------------------------
 
@@ -2141,7 +2174,11 @@ class Unit:
             # under-covers a handful of non-BATTLELINE REGIMENT squads
             # (Heavy Weapons Squads, Command Squads), which is the much
             # smaller error vs the over-firing the INFANTRY proxy caused.
-            # SQUADRON → attacker has VEHICLE is unchanged.
+            # AM-DIAG-3 (2026-05-24) followed up by narrowing SQUADRON
+            # from "any VEHICLE-keyword AM attacker" to an explicit name
+            # allowlist of the codex SQUADRON datasheets — see
+            # `_AM_BORN_SOLDIERS_SQUADRON_NAMES` above for the contents
+            # and the citation.
             # Composes with profile.lethal_hits via OR (one re-roll branch
             # in the loop, no double-fire).
             # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
@@ -2169,9 +2206,41 @@ class Unit:
                         and not target_is_vm
                     ):
                         effective_lethal_hits = True
-                    # SQUADRON leg: VEHICLE-keyword attacker vs VEHICLE/MONSTER
-                    # target.
-                    elif "VEHICLE" in attacker_kws and target_is_vm:
+                    # SQUADRON leg: attacker is on the explicit AM SQUADRON
+                    # roster vs VEHICLE/MONSTER target. AM-DIAG-3 (2026-05-24)
+                    # narrowed the SQUADRON proxy from "any VEHICLE-keyword AM
+                    # attacker" to a curated allowlist after the VEHICLE proxy
+                    # was found to over-grant LETHAL HITS to transports
+                    # (Chimera, Taurox, Taurox Prime, Centaur RSV, Storm
+                    # Chimera), flyers (Valkyrie, Vendetta, Avenger Strike
+                    # Fighter, Vulture, Marauder, Voss-pattern Lightning,
+                    # Arvus Lighter, Aquila Lander), self-propelled HEAVY
+                    # artillery (Basilisk, Manticore, Wyvern, Deathstrike,
+                    # Hydra, Colossus, Medusa, Griffon), super-heavies
+                    # (Baneblade / Banehammer / Banesword / Doomhammer /
+                    # Hellhammer / Shadowsword / Stormblade / Stormlord /
+                    # Stormsword), Knights, and vehicle CHARACTERS that don't
+                    # carry the SQUADRON keyword — none of which are in the
+                    # codex SQUADRON keyword list. Per Wahapedia Astra
+                    # Militarum datasheets, the SQUADRON keyword belongs to:
+                    # Leman Russ Battle Tank + all Russ variants
+                    # (Demolisher, Eradicator, Executioner, Exterminator,
+                    # Punisher, Vanquisher) + Leman Russ Commander; Rogal
+                    # Dorn Battle Tank + Rogal Dorn Commander; Hellhound
+                    # (Bane Wolf / Devil Dog are weapon-loadout variants of
+                    # the same datasheet, not separate datasheets in BSData
+                    # v10.6.0); Armoured Sentinels, Scout Sentinels, and the
+                    # Sentinel Commander [Crucible]. Match on
+                    # `UnitProfile.name` because BSData v10.6.0 does not
+                    # surface a SQUADRON unit keyword and the profile has
+                    # no datasheet-key field. See
+                    # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+                    # (each Leman Russ / Rogal Dorn / Hellhound / Sentinel
+                    # datasheet carries the SQUADRON keyword in its header).
+                    elif (
+                        p.name in _AM_BORN_SOLDIERS_SQUADRON_NAMES
+                        and target_is_vm
+                    ):
                         effective_lethal_hits = True
 
             # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
