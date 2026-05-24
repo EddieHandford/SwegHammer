@@ -183,6 +183,24 @@ class Detachment:
     necrons_melee_ap_plus_one_army_wide: bool = False
     necrons_ranged_sustained_hits_army_wide: bool = False
 
+    # NECRONS-CLOSE (claude/sim-calibration-6): Command Protocols third slot —
+    # Protocol of the Eternal Conquerors (defensive). Real Wahapedia text:
+    # "Until the start of your next Command phase, the first failed armour
+    # saving throw made for each NECRONS unit from your army in each phase
+    # is automatically passed." Closest clean simulator hook: army-wide +1
+    # to the armour save, gated by the save-modifier ±1 cap so it composes
+    # with no other defensive +1-save sources stacked. Round-gated to ROUND
+    # 3 ONLY — odd-round Vengeful Stars and even-round Hungry Void already
+    # cover rounds 1-2-4-5, so Eternal Conquerors adds a single round of
+    # additional defensive uplift (over-model bounded to one round). The
+    # save-cap clamp (see code/units.py save_buff_sources) means this
+    # composes with at most one other +1-save source as a single net +1
+    # rather than stacking to +2. Gate: defender faction == "Necrons" AND
+    # detachment carries `necrons_army_wide_plus_one_save_command_protocol`
+    # AND current battle round == 3. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
+    necrons_army_wide_plus_one_save_command_protocol: bool = False
+
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
     # Martial Mastery). Wahapedia verbatim: "At the start of the battle
     # round, you can select one of the bullet points below. If you do,
@@ -344,12 +362,20 @@ AWAKENED_DYNASTY = Detachment(
         "(`bonus_to_hit_when_led`) is retained — strictly speaking the "
         "real codex picks only ONE protocol per round, so this is an "
         "APPROXIMATION (slight over-model) but the led-only gate keeps "
-        "the over-coverage bounded to character-led squads."
+        "the over-coverage bounded to character-led squads. "
+        "NECRONS-CLOSE (claude/sim-calibration-6): wires the fourth "
+        "Command Protocol — Protocol of the Eternal Conquerors (defensive, "
+        "first failed armour save auto-passed per phase) — as army-wide "
+        "+1 to the armour save (`necrons_army_wide_plus_one_save_command_protocol`) "
+        "gated to ROUND 3 ONLY. Single-round defensive uplift; clamped to "
+        "+1 by the existing save-modifier cap so it composes safely with "
+        "any other +1-save source as a single net +1 rather than stacking."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
     necrons_melee_ap_plus_one_army_wide=True,
     necrons_ranged_sustained_hits_army_wide=True,
+    necrons_army_wide_plus_one_save_command_protocol=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )

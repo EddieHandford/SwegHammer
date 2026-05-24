@@ -21,6 +21,16 @@
     "approximation": true
   },
 
+  "AWAKENED_DYNASTY.necrons_army_wide_plus_one_save_command_protocol": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols",
+    "rule_name": "Command Protocols (Protocol of the Eternal Conquerors)",
+    "quoted_text": "At the start of your Command phase, select one Command Protocol that is not already active for your army: ... Protocol of the Eternal Conquerors: Until the start of your next Command phase, the first failed armour saving throw made for each NECRONS unit from your army in each phase is automatically passed.",
+    "trigger": "Necrons defender in an army with the Awakened Dynasty detachment, on battle ROUND 3 ONLY",
+    "effect": "+1 to the armour save (cap 2+) for Necrons defenders. APPROXIMATION: the codex rule auto-passes the FIRST failed armour save per NECRONS unit per PHASE (a per-unit-per-phase one-shot save save); SwegHammer has no per-unit/per-phase one-shot save hook, so the closest direction-correct proxy is +1 to the armour save, contributed into the existing `save_buff_sources` counter so the global ±1 save-modifier cap clamps it as a single net +1 alongside any other +1-save source (Lightning-Fast Reactions, All Is Dust). NECRONS-CLOSE (claude/sim-calibration-6): paired with Protocol of the Hungry Void (necrons_melee_ap_plus_one_army_wide, EVEN rounds 2/4) and Protocol of the Vengeful Stars (necrons_ranged_sustained_hits_army_wide, ODD rounds 1/3/5) — Eternal Conquerors fires on ROUND 3 ONLY as a single-round defensive uplift, the smallest direction-correct buff to close the Necrons under-perform residual (-5pt gated 1.79). Round 3 over-models (Vengeful Stars also active) bounded to one round; the save-cap clamp prevents stacking with any future +1-save source. Round gating is enforced inside Unit.attack via the defender army's _battle_ref._current_round; the detachment flag remains True so detachment registry tests still pass.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
   "AWAKENED_DYNASTY.reanimate_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols",
     "rule_name": "Reanimation Protocols",

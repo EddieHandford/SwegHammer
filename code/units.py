@@ -1964,6 +1964,44 @@ class Unit:
             # target unit for the round.
             if target.transient_plus_one_save:
                 save_buff_sources += 1
+            # ---- Necrons Awakened Dynasty — Protocol of the Eternal Conquerors
+            # (army-wide +1 save, round-gated). NECRONS-CLOSE
+            # (claude/sim-calibration-6): wires the fourth Command Protocol as
+            # a single-round defensive uplift on round 3 only. Real codex text
+            # auto-passes the first failed armour save per NECRONS unit per
+            # phase; the closest clean simulator hook is +1 to the armour
+            # save, contributed into the same `save_buff_sources` counter so
+            # the existing ±1 save-modifier cap clamps it as a single net +1
+            # alongside any other +1-save source. Gate: defender faction ==
+            # "Necrons" AND defender's detachment carries
+            # `necrons_army_wide_plus_one_save_command_protocol` (set by
+            # AWAKENED_DYNASTY) AND current battle round == 3.
+            # Cited as
+            # `AWAKENED_DYNASTY.necrons_army_wide_plus_one_save_command_protocol`.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+            # #Command-Protocols.
+            if target.profile.faction == "Necrons":
+                _own_army_ec = getattr(target, "army_ref", None)
+                if _own_army_ec is not None:
+                    try:
+                        _det_ec = _own_army_ec.resolve_detachment()
+                    except Exception:
+                        _det_ec = None
+                    if _det_ec is not None and getattr(
+                        _det_ec,
+                        "necrons_army_wide_plus_one_save_command_protocol",
+                        False,
+                    ):
+                        _battle_ec = getattr(_own_army_ec, "_battle_ref", None)
+                        _round_ec = (
+                            getattr(_battle_ec, "_current_round", 0)
+                            if _battle_ec is not None else 0
+                        )
+                        # Round 3 only — single-round defensive uplift to
+                        # keep the Command Protocol rotation approximately
+                        # one-protocol-per-round on average.
+                        if _round_ec == 3:
+                            save_buff_sources += 1
             # All Is Dust (Rubricae Phalanx, see boolean computed in the
             # wound-modifier block above). +1 to the armour save when the
             # incoming attack is Damage 1 AND the defender carries the RUBRICAE
