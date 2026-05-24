@@ -1172,6 +1172,28 @@
       "fnp": 7,
       "notes": "TYRANIDS-DIAG-2: cleared static Feel No Pain 5+ fabricated by the BSData mapper prose-walk. Verified BSData 'Tyranids.cat.gz' Norn Assimilator selectionEntry has only ONE ability — 'Harpoon Barbs: Once per turn, when an enemy unit within Engagement Range of this unit is chosen to Fall Back, roll one D6; on a 2+, that unit suffers D6 mortal wounds.' — there is no Feel No Pain ability whatsoever. The fnp=5 in parsed.json is a false positive (likely Synaptic Disintegration / Enhancement leak from sibling Tyranid entries). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Norn-Assimilator"
     },
+    "tyranids_tyrannofex": {
+      "weapon": "Rupture cannon",
+      "attacks": 2,
+      "strength": 18,
+      "ap": -4,
+      "weapon_damage_per_shot": 9.5,
+      "hit_probability": 0.667,
+      "range_inches": 48,
+      "heavy": true,
+      "torrent": false,
+      "blast": false,
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_heavy": false,
+      "extra_ranged_profiles": [],
+      "notes": "TYRANIDS-DIAG-3: Tyrannofex's three big ranged weapons (Acid spray, Rupture cannon, Fleshborer hive) are MUTUALLY EXCLUSIVE wargear choices per Wahapedia datasheet: 'This model's fleshborer hive can be replaced with one of the following: 1 acid spray, 1 rupture cannon.' One slot, one weapon - the model carries ONE of the three. The BSData mapper packed Acid spray into the primary slot, Rupture cannon into the secondary slot, AND Fleshborer hive into extra_ranged_profiles - so the simulator was firing ALL THREE every Shooting phase, a 3x ranged-output inflation on the most-fielded Tyranid monster archetype. Promoted the Rupture cannon (the dominant tournament choice for monster-hunting: 48\" Heavy, S18 AP-4 D6+6 will one-shot most vehicles/monsters) to the primary slot. Stinger salvoes are co-fired correctly (always-carried per the 'Equipment' paragraph), so they're left in place via extra_ranged_profiles after this override - but the extras list is cleared here because the parsed.json basket also contained Fleshborer hive. SwegHammer simulator does not currently distinguish 'carried-simultaneously' co-fired weapons from 'wargear-exclusive' alternatives, so to avoid double-counting we drop the secondary co-fire of Stinger salvoes too (a small under-count: ~8 S5 D1 shots at 24\" lost vs a 19-wound damage gain from clearing two duplicate ranged baskets). Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyrannofex"
+    },
     "tyranids_tyranid_warriors_with_ranged_bio_weapons": {
       "attacks": 2,
       "strength": 6,
