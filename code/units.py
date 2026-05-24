@@ -693,6 +693,17 @@ class Unit:
         # over-performance after the bank cap was already tightened to 5.
         # Cited as `simulator.acts_of_faith`.
         "aof_used_this_round",
+        # CSM-EYE-OF-GODS: Eye of the Gods stratagem stamp (Pactbound Zealots,
+        # 1 CP). Set True the first time this CHARACTER destroys an enemy
+        # unit with a melee attack AND the stratagem fires. While True, the
+        # CHARACTER gains a persistent +1 to wound on its own melee attacks
+        # for the rest of the battle. APPROXIMATION: the real Eye of the
+        # Gods rolls D6+Wounds on a table that grants +M / +T / +A/+S /
+        # +D melee depending on the roll; we collapse to +1-to-wound-melee
+        # because that's the closest single-flag analogue to the snowball.
+        # Persistent (NOT cleared with the round-start transient_* flags).
+        # Cited as `Stratagem.Eye of the Gods`.
+        "eye_of_the_gods_stamped",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -788,6 +799,11 @@ class Unit:
         # substitution may fire on this unit until the next round-reset.
         # See __slots__ for full rationale and citation linkage.
         self.aof_used_this_round: bool = False
+        # CSM-EYE-OF-GODS: persistent CHARACTER snowball flag. See __slots__
+        # for full rationale; default False on construction. Stamped True by
+        # `Battle._try_eye_of_the_gods` after a melee kill by a CSM CHARACTER
+        # consumes 1 CP via the Pactbound Zealots stratagem.
+        self.eye_of_the_gods_stamped: bool = False
 
     @property
     def current_health(self) -> float:
@@ -1569,6 +1585,17 @@ class Unit:
                 mode == "melee"
                 and self.transient_plus_one_to_wound_melee
             ):
+                wound_mod_delta += 1
+            # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
+            # Persistent +1 to wound on melee attacks once this CHARACTER
+            # has stamped the buff via a prior melee kill. APPROXIMATION:
+            # real Eye of the Gods rolls D6+Wounds on a table for +M / +T /
+            # +A/+S / +D melee — we collapse to a single +1-to-wound-melee
+            # snowball. Stacks at the delta level with transient_plus_one_to_
+            # wound_melee (Profane Zeal) before the 10e ±1 modifier cap. The
+            # stamp persists across rounds (not cleared with round-start
+            # transient_* flags). Cited as `Stratagem.Eye of the Gods`.
+            if mode == "melee" and self.eye_of_the_gods_stamped:
                 wound_mod_delta += 1
             # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
             # selected NECRON unit's ranged attacks for the round. Stacks at the

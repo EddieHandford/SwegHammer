@@ -608,5 +608,14 @@
     "effect": "(APPROXIMATION) Routed through transient_plus_one_to_wound_melee on the highest-DPA HERETIC ASTARTES unit. +1 to wound is a direction-correct offensive uplift; the hit-1 reroll half is dropped. Same proxy as Apoplectic Frenzy. ST-2 wave 3 of sim-calibration-6 (CSM was -2.8 pts at N=40 in wave 2). 1 CP.",
     "scope": "phase-gated",
     "approximation": true
+  },
+  "Stratagem.Eye of the Gods": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Eye-of-the-Gods",
+    "rule_name": "Eye of the Gods (Pactbound Zealots Stratagem)",
+    "quoted_text": "(Paraphrase — wahapedia.ru DNS unreachable from agent worktree at edit time; cross-checked vs Goonhammer Pactbound Zealots detachment focus + the Wahapedia CSM stratagems index linked in the citation source URL.) When: the end of the Fight phase, when a model from your army with this ability has destroyed an enemy unit with a melee attack. Effect: roll one D6 and add the model's Wounds characteristic to the roll. Look up the result on the Eye of the Gods table — 2-5: +1 Move; 6-8: +1 Toughness; 9-12: +1 Attack OR +1 Strength; 13+: +1 Damage to melee weapons OR pick another result from this table. The result persists on that model for the rest of the battle.",
+    "trigger": "end of own Fight phase, on a friendly CHAOS SPACE MARINES CHARACTER that destroyed an enemy unit with a melee attack this phase",
+    "effect": "(APPROXIMATION — proxy explicitly tagged) Collapsed to a permanent +1-to-wound-melee snowball stamped on the CHARACTER (eye_of_the_gods_stamped flag) on the first qualifying melee kill. The D6+Wounds table roll and the choice between +M / +T / +A/+S / +D-melee are dropped — a single direction-correct melee uplift stands in for the whole table. Stacks at the wound-mod delta level with transient_plus_one_to_wound_melee (Profane Zeal) before the 10e ±1 modifier cap clamps. Fires reactively at the melee kill site (Battle._do_fight), not via the round-start dispatcher, because the trigger requires an actual melee kill. CSM-EYE-OF-GODS of sim-calibration-6 (CSM was -7.08 pts under-perf per CSM-DIAG-2). 1 CP.",
+    "scope": "character-only",
+    "approximation": true
   }
 }
