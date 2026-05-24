@@ -2769,9 +2769,25 @@ class Battle:
         `transient_plus_one_to_hit_shooting` on the highest-DPA AM
         SQUADRON (VEHICLE) — the canonical use case is extending
         Take Aim! / FRFSRF from an Infantry Squad to a Leman Russ pair.
+        AM-DIAG-4 (2026-05-24): added anti-stack guard — skip fire if the
+        SQUADRON target already holds any transient Order buff for the
+        round. The real rule "mirrors" an Order from one unit to another,
+        so re-applying the same flag the unit already has is a no-op in
+        the codex and a fab-magnitude amplifier in the proxy.
         """
         attacker = self._highest_dpa_am_squadron(army)
         if attacker is None:
+            return
+        # AM-DIAG-4: anti-stack guard. The proxy buff (+1 to hit shooting) is
+        # the same flag Take Aim! / FRFSRF set on REGIMENT targets. If the
+        # SQUADRON is already buffed (e.g. by Flexible Command + Take Aim!
+        # earlier the same round), re-firing is wasted CP at best and an
+        # unintentional double-buff at worst when the proxy is summed
+        # elsewhere. Real codex: mirroring an Order is a no-op if the
+        # destination already holds it.
+        if (attacker.transient_plus_one_to_hit_shooting
+                or attacker.transient_plus_one_to_wound_melee
+                or attacker.transient_plus_one_save):
             return
         target = self._highest_threat_enemy(opponent)
         if target is None:
@@ -2827,7 +2843,20 @@ class Battle:
         def _ranged_dpa(u):
             p = u.profile
             return (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
-        ranged_candidates = [u for u in candidates if _ranged_dpa(u) > 0.0]
+        # AM-DIAG-4 (2026-05-24): pick the highest-DPA AM unit that does NOT
+        # already hold a transient offensive buff. The +1-to-hit-shooting
+        # proxy is the same flag Take Aim! / FRFSRF / Coordinated Action
+        # set; re-firing on an already-buffed unit is wasted CP in the
+        # codex (the rule grants AP+1, not +1 to hit, so on a real codex
+        # build it would stack with Take Aim — but on the proxy it does
+        # not, and we don't want the dispatcher to think it accomplished
+        # anything when it didn't). Picking an un-buffed second unit also
+        # narrows the magnitude per round to a single ranged shooter.
+        ranged_candidates = [
+            u for u in candidates
+            if _ranged_dpa(u) > 0.0
+            and not u.transient_plus_one_to_hit_shooting
+        ]
         if not ranged_candidates:
             return
         attacker = max(ranged_candidates, key=_ranged_dpa)
@@ -2913,6 +2942,17 @@ class Battle:
             return
         target = self._most_vulnerable_am_infantry(army)
         if target is None:
+            return
+        # AM-DIAG-4 (2026-05-24): anti-stack guard. The proxy buff
+        # (+1 save) is the same flag Take Cover! Order sets; if the
+        # vulnerable INFANTRY target already holds Take Cover! (or any
+        # transient buff) for the round, re-firing is wasted CP in the
+        # codex (Benefit of Cover does not stack with itself) and a
+        # magnitude amplifier in the proxy. The real LoS-blocked-by-
+        # VEHICLE visibility gate is also not modelled — without the
+        # anti-stack guard the dispatcher fires every round AM has a
+        # vehicle, which over-states the rule's frequency.
+        if target.transient_plus_one_save:
             return
         ctx = {"target": target}
         if not should_fire_stratagem(army, STALWART_PROTECTOR, ctx):
