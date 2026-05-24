@@ -58,10 +58,41 @@ from code.equation_data_fit import (
     fit as eqfit_fit,
     transform_names as eqfit_transform_names,
 )
+from code.tournament_validation import (
+    aggregate_by_faction as tv_aggregate_by_faction,
+    fit_winrate_model as tv_fit_winrate_model,
+    load_tournament_lists as tv_load_tournament_lists,
+    match_units as tv_match_units,
+    score_list as tv_score_list,
+)
 
 import json as _json
 import pathlib as _pathlib
 import csv as _csv
+
+# ---------------------------------------------------------------------------
+# v1.0 release identity (the "fanfare" — a cool title and a quiet version)
+# ---------------------------------------------------------------------------
+
+from code import __version__   # single source of truth: code/__init__.py
+_APP_TITLE = "SwegHammer — Recalibrated"
+_APP_TAGLINE = "Fair points, fitted to the meta"
+
+# One palette for the whole app. Existing references to these hex codes
+# stay as literals where they're already in use; this dict is the
+# authoritative source for any new chart / widget.
+SWEG_PALETTE = {
+    "accent_gold":  "#c9a84c",   # primary headline / wordmark accent
+    "line_blue":    "#9bd6ff",   # regression / reference lines
+    "delta_up":     "#7eb87e",   # positive Δ (Sweg priced unit UP)
+    "delta_down":   "#d65f5f",   # negative Δ (Sweg priced unit DOWN)
+    "neutral_grey": "#888888",
+    "bg_panel":     "#1a1d23",
+    "bg_page":      "#0e1117",
+    "grid":         "#3a3d45",
+}
+
+_SWEG_POINTS_PATH = _pathlib.Path(__file__).parent / "data" / "sweg_points_v1.json"
 
 _META_SNAPSHOT_PATH        = _pathlib.Path(__file__).parent / "data" / "meta_comparison_snapshot.json"
 _MAE_PROGRESS_PATH         = _pathlib.Path(__file__).parent / "docs" / "mae_progress.csv"
@@ -741,6 +772,490 @@ def unit_card(profile: UnitProfile, name: str, colour: str, cover: bool):
     cols2[2].metric("Pts/unit", f"{profile.points_cost:.0f}")
 
 # ---------------------------------------------------------------------------
+# v1.0 release: view-mode toggle + SwegHammer-points switch
+# ---------------------------------------------------------------------------
+#
+# Rendered before the existing sidebar so the wordmark and view toggle sit
+# at the top of the sidebar. Player view diverts to a separate render path
+# and `st.stop()`s before the existing Calibration code below has a chance
+# to execute, so the legacy ~3,500 lines of dashboard logic stay untouched
+# whenever a hobbyist user picks the Player view.
+
+st.set_page_config(
+    page_title=_APP_TITLE,
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+st.sidebar.markdown(f"## {_APP_TITLE}")
+st.sidebar.caption(f"v{__version__}  ·  {_APP_TAGLINE}")
+st.sidebar.divider()
+
+_view_mode = st.sidebar.radio(
+    "View",
+    ["Player", "Calibration"],
+    horizontal=True,
+    key="sweg_view_mode",
+    help=(
+        "**Player** shows the curated SwegHammer prices view "
+        "(unit browser, faction overview, the equation explained). "
+        "**Calibration** is the full technical dashboard with the "
+        "simulator, calibration sweeps and the equation-fit internals."
+    ),
+)
+
+_use_sweg_points = st.sidebar.checkbox(
+    "Use SwegHammer points (v1.0)",
+    value=(_view_mode == "Player"),
+    key="sweg_use_v1_points",
+    help=(
+        "Swap in the v1 SwegHammer prices for every unit in the "
+        "catalogue. Default ON in Player view, OFF in Calibration view. "
+        "Toggling off restores the printed GW costs."
+    ),
+)
+
+# Apply / reset the v1 prices on every rerun so the catalogue state is
+# deterministic per script execution. The catalogue dict object is shared
+# across reruns inside one Python process — without this reset, stale
+# overrides would leak between mode flips.
+from code.sweg_points import (  # noqa: E402  (intentional late import)
+    apply_to_catalog as _sweg_apply_to_catalog,
+    load_sweg_overrides as _sweg_load_overrides,
+    reset_catalog_overrides as _sweg_reset_catalog_overrides,
+)
+
+_sweg_reset_catalog_overrides(_RAW_CATALOG)
+if _use_sweg_points and _SWEG_POINTS_PATH.exists():
+    try:
+        _sweg_apply_to_catalog(
+            _RAW_CATALOG,
+            _sweg_load_overrides(_SWEG_POINTS_PATH),
+            strict=False,   # tolerate catalogue drift between bakes
+        )
+    except (FileNotFoundError, ValueError, KeyError) as _e:
+        st.sidebar.warning(f"Could not load SwegHammer points: {_e}")
+
+st.sidebar.divider()
+
+# ---------------------------------------------------------------------------
+# Player-view tab renderers
+# ---------------------------------------------------------------------------
+#
+# Each renderer is a small function so the tab dispatch reads cleanly.
+# Steps 5–6 of the v1 execution plan populate the actual content; for now
+# they render placeholders so the structure can be smoke-tested first.
+
+def _load_sweg_dataset():
+    """Read the v1 prices file once per rerun (st.cache_data-friendly)."""
+    if not _SWEG_POINTS_PATH.exists():
+        return None
+    return _json.loads(_SWEG_POINTS_PATH.read_text(encoding="utf-8"))
+
+
+def _render_player_home(sweg_data):
+    """Player-mode landing page: wordmark + tagline + intro + jump cards."""
+    st.markdown(f"# {_APP_TITLE}")
+    st.caption(_APP_TAGLINE + f"  ·  v{__version__}")
+    if sweg_data is None:
+        st.warning(
+            "The v1 SwegHammer prices dataset is missing. Generate it with "
+            "`python3 scripts/bake_swegpoints_v1.py` then refresh the page."
+        )
+        return
+    counts = sweg_data.get("counts", {})
+    n_units = counts.get("total_units", "?")
+    n_mults = len(sweg_data.get("faction_multipliers_active", {}))
+    r2 = sweg_data.get("fit_metrics", {}).get("r_squared", "?")
+    st.markdown(
+        f"**SwegHammer v1.0** prices **{n_units} units** across "
+        f"**{n_mults} factions** with active tournament meta multipliers. "
+        f"The regression equation fits stat-line features against printed "
+        f"GW prices at R² = **{r2}**, then corrects per-faction using the "
+        f"Warp Friends May 2026 win-rate snapshot."
+    )
+    st.divider()
+    st.markdown(
+        "Use the tabs above to:\n\n"
+        "- **Unit Browser** — see every unit's GW price vs SwegHammer "
+        "price, sorted by where they disagree most.\n"
+        "- **Army Compare** — line two armies up side by side and see "
+        "the matchup at a glance.\n"
+        "- **Faction Overview** — pick a faction, see its biggest "
+        "winners and losers under the SwegHammer rebalance.\n"
+        "- **The Equation** — a friendly walk-through of how prices "
+        "are derived from stats."
+    )
+    st.caption("Switch to **Calibration view** in the sidebar for the "
+               "full technical dashboard with the simulator and "
+               "calibration sweeps.")
+
+
+def _render_unit_browser(sweg_data):
+    st.markdown("## Unit Browser")
+    if sweg_data is None:
+        st.warning("v1 prices dataset is missing; cannot render the browser.")
+        return
+    st.caption(
+        "Every catalogue unit with its printed GW price and SwegHammer v1 "
+        "price side by side. Sort by **|Δ %|** to surface the units the "
+        "equation re-priced most. Click a row's expander for the feature "
+        "contributions that drove the re-price."
+    )
+
+    prices = sweg_data.get("prices", {})
+    if not prices:
+        st.info("Prices block is empty.")
+        return
+
+    # Flatten to a list of dicts for the dataframe.
+    rows = []
+    for key, rec in prices.items():
+        rows.append({
+            "key": key,
+            "Unit": rec.get("name", key),
+            "Faction": rec.get("faction", "—"),
+            "GW pts/model": rec.get("gw_pts_per_model"),
+            "Sweg pts/model": rec.get("sweg_pts_per_model"),
+            "Δ %": rec.get("delta_pct"),
+            "Faction mult": rec.get("faction_multiplier"),
+            "Method": rec.get("method", ""),
+        })
+    df = pd.DataFrame(rows)
+
+    # Sidebar-local filters (rendered inside this tab to keep the main
+    # sidebar reserved for view-mode controls).
+    f_col, s_col, sort_col = st.columns([2.0, 2.0, 1.0])
+    with f_col:
+        all_factions = sorted(df["Faction"].dropna().unique())
+        picked = st.multiselect(
+            "Factions", all_factions, default=[],
+            placeholder="(all factions)",
+            key="sweg_browser_factions",
+        )
+    with s_col:
+        query = st.text_input(
+            "Search by unit name", value="",
+            placeholder="e.g. Intercessor, Magnus, Hellblade",
+            key="sweg_browser_query",
+        )
+    with sort_col:
+        sort_choice = st.selectbox(
+            "Sort by",
+            ["|Δ %| desc", "Δ % desc", "Δ % asc", "Sweg pts desc",
+             "Sweg pts asc", "Unit name"],
+            key="sweg_browser_sort",
+        )
+
+    view = df
+    if picked:
+        view = view[view["Faction"].isin(picked)]
+    if query.strip():
+        view = view[view["Unit"].str.contains(query.strip(), case=False, na=False)]
+
+    if sort_choice == "|Δ %| desc":
+        view = view.assign(_abs=view["Δ %"].abs()).sort_values(
+            "_abs", ascending=False, na_position="last").drop(columns="_abs")
+    elif sort_choice == "Δ % desc":
+        view = view.sort_values("Δ %", ascending=False, na_position="last")
+    elif sort_choice == "Δ % asc":
+        view = view.sort_values("Δ %", ascending=True, na_position="last")
+    elif sort_choice == "Sweg pts desc":
+        view = view.sort_values("Sweg pts/model", ascending=False)
+    elif sort_choice == "Sweg pts asc":
+        view = view.sort_values("Sweg pts/model", ascending=True)
+    else:
+        view = view.sort_values("Unit")
+
+    st.caption(f"Showing **{len(view)} / {len(df)}** units.")
+    st.dataframe(
+        view.drop(columns=["key", "Method"]),
+        hide_index=True,
+        use_container_width=True,
+        height=520,
+        column_config={
+            "GW pts/model":   st.column_config.NumberColumn(format="%.1f"),
+            "Sweg pts/model": st.column_config.NumberColumn(format="%d"),
+            "Δ %":            st.column_config.NumberColumn(format="%+.1f%%"),
+            "Faction mult":   st.column_config.NumberColumn(format="%.2fx"),
+        },
+    )
+
+    # Inspector — pick a unit, see its full feature contribution breakdown.
+    st.divider()
+    st.markdown("### Inspect a unit")
+    if view.empty:
+        st.info("No units match the current filters.")
+        return
+    visible_keys = view["key"].tolist()
+    visible_names = view["Unit"].tolist()
+    label_to_key = {f"{n}  ({k})": k for n, k in zip(visible_names, visible_keys)}
+    pick_label = st.selectbox(
+        "Pick a unit from the filtered list",
+        list(label_to_key.keys()),
+        key="sweg_browser_inspect",
+    )
+    pick_key = label_to_key[pick_label]
+    rec = prices[pick_key]
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("GW pts/model", f"{rec['gw_pts_per_model']:.1f}")
+    c2.metric("Sweg pts/model", f"{rec['sweg_pts_per_model']}")
+    delta = rec.get("delta_pct")
+    c3.metric("Δ %", f"{delta:+.1f}%" if delta is not None else "—")
+    c4.metric("Faction mult", f"{rec.get('faction_multiplier', 1.0):.2f}×")
+    st.caption(f"**Method:** {rec.get('method', '?')}")
+    st.markdown("**Top feature contributions** (to log(price)):")
+    top = rec.get("top_features") or []
+    if not top:
+        st.info("No top-features recorded for this unit.")
+    else:
+        contrib_df = pd.DataFrame(top, columns=["Feature", "Contribution"])
+        st.dataframe(
+            contrib_df, hide_index=True, use_container_width=True,
+            column_config={
+                "Contribution": st.column_config.NumberColumn(format="%+.4f"),
+            },
+        )
+        st.caption(
+            "Each row is `coefficient × transform(feature_value)` — the "
+            "additive piece in the equation's log-price prediction. Positive "
+            "values push the unit's price up, negative push it down. The "
+            "intercept and the remaining feature contributions are also part "
+            "of the equation; only the three with largest absolute effect "
+            "are listed here."
+        )
+
+
+def _render_army_compare_player():
+    st.markdown("## Army Compare")
+    st.caption(
+        "Pit two armies against one another with the current points "
+        "in effect (SwegHammer v1 if the sidebar toggle is on, GW otherwise). "
+        "Pick presets or build custom lists, then watch the matchup at a "
+        "glance."
+    )
+    render_compare_tab(st)
+
+
+def _render_faction_overview(sweg_data):
+    st.markdown("## Faction Overview")
+    if sweg_data is None:
+        st.warning("v1 prices dataset is missing.")
+        return
+    prices = sweg_data.get("prices", {})
+    mults = sweg_data.get("faction_multipliers_active", {})
+    if not prices:
+        st.info("Prices block is empty.")
+        return
+
+    all_factions = sorted({rec["faction"] for rec in prices.values()
+                           if rec.get("faction")})
+    pick = st.selectbox("Faction", all_factions, key="sweg_faction_pick")
+
+    fac_rows = [rec for rec in prices.values() if rec.get("faction") == pick]
+    # Drop super-heavy fallbacks from the over/under-priced lists (their
+    # delta is zero by construction).
+    re_priced = [r for r in fac_rows
+                 if r.get("method") != "gw_fallback_super_heavy"
+                 and r.get("delta_pct") is not None]
+    n_units = len(fac_rows)
+    n_repriced = len(re_priced)
+
+    mult = mults.get(pick)
+    # Look up the per-faction tournament win rate from the snapshot if present.
+    wf_pct = None
+    if _EQUATION_SNAPSHOT_PATH.exists():
+        snap = _json.loads(_EQUATION_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        for row in snap.get("factions", []):
+            if row.get("faction") == pick and not row.get("is_approx"):
+                wf_pct = row.get("tournament_pct")
+                break
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Units in catalogue", n_units)
+    m2.metric("Re-priced", n_repriced)
+    m3.metric("Faction multiplier",
+              f"{mult:.2f}×" if mult is not None else "1.00× (default)")
+    m4.metric("Warp Friends WR",
+              f"{wf_pct:.1f}%" if wf_pct is not None else "—")
+
+    if not re_priced:
+        st.info("No re-priced units to break down (every unit is in the "
+                "super-heavy GW-fallback bucket).")
+        return
+
+    by_delta = sorted(re_priced, key=lambda r: r["delta_pct"])
+    top_down = by_delta[:5]
+    top_up = list(reversed(by_delta[-5:]))
+
+    st.divider()
+    cu, cd = st.columns(2)
+    with cu:
+        st.markdown("### Equation priced **UP** vs GW")
+        st.caption("Units the equation thinks GW under-costs — these are "
+                   "the 'fair' prices argue should be higher.")
+        df_up = pd.DataFrame(top_up)[["name", "gw_pts_per_model",
+                                       "sweg_pts_per_model", "delta_pct"]]
+        df_up.columns = ["Unit", "GW", "Sweg", "Δ %"]
+        st.dataframe(df_up, hide_index=True, use_container_width=True,
+                     column_config={
+                         "GW":   st.column_config.NumberColumn(format="%.1f"),
+                         "Sweg": st.column_config.NumberColumn(format="%d"),
+                         "Δ %":  st.column_config.NumberColumn(format="%+.1f%%"),
+                     })
+    with cd:
+        st.markdown("### Equation priced **DOWN** vs GW")
+        st.caption("Units the equation thinks GW over-costs — these come "
+                   "down in SwegHammer v1.")
+        df_dn = pd.DataFrame(top_down)[["name", "gw_pts_per_model",
+                                         "sweg_pts_per_model", "delta_pct"]]
+        df_dn.columns = ["Unit", "GW", "Sweg", "Δ %"]
+        st.dataframe(df_dn, hide_index=True, use_container_width=True,
+                     column_config={
+                         "GW":   st.column_config.NumberColumn(format="%.1f"),
+                         "Sweg": st.column_config.NumberColumn(format="%d"),
+                         "Δ %":  st.column_config.NumberColumn(format="%+.1f%%"),
+                     })
+
+    st.divider()
+    st.markdown(f"### Δ % across the {pick} catalogue")
+    bar_df = pd.DataFrame(re_priced)[["name", "delta_pct"]].sort_values(
+        "delta_pct", ascending=False)
+    bar_fig = go.Figure(go.Bar(
+        x=bar_df["name"], y=bar_df["delta_pct"],
+        marker_color=[SWEG_PALETTE["delta_up"] if v >= 0
+                      else SWEG_PALETTE["delta_down"]
+                      for v in bar_df["delta_pct"]],
+        hovertemplate="<b>%{x}</b><br>Δ = %{y:+.1f}%<extra></extra>",
+    ))
+    bar_fig.add_hline(y=0, line=dict(color=SWEG_PALETTE["neutral_grey"],
+                                     width=1))
+    bar_fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor=SWEG_PALETTE["bg_page"],
+        plot_bgcolor=SWEG_PALETTE["bg_panel"],
+        xaxis=dict(title="Unit", tickangle=-40,
+                   gridcolor=SWEG_PALETTE["grid"], showticklabels=False),
+        yaxis=dict(title="Sweg − GW (%)", gridcolor=SWEG_PALETTE["grid"]),
+        height=360, margin=dict(l=40, r=20, t=10, b=40),
+    )
+    st.plotly_chart(bar_fig, use_container_width=True,
+                    key="sweg_faction_bar")
+
+    mean_delta = float(np.mean([r["delta_pct"] for r in re_priced]))
+    st.caption(f"Mean Δ for {pick}: **{mean_delta:+.1f}%** across "
+               f"{n_repriced} re-priced units.")
+
+
+def _render_equation_lite(sweg_data):
+    st.markdown("## The Equation")
+    if sweg_data is None:
+        st.warning("v1 prices dataset is missing.")
+        return
+
+    fit = sweg_data.get("fit_metrics", {})
+    r2 = fit.get("r_squared", "?")
+    mae_log = fit.get("mae_log", "?")
+    feat_n = sweg_data.get("feature_count", "?")
+
+    st.markdown(
+        "SwegHammer's points are produced by a small regression equation "
+        "fitted to **stat-line features** — Wounds, Toughness, Save, "
+        "Attacks, Damage, Move, OC, weapon keywords, plus a few interaction "
+        "terms like `toughness × wounds`. The equation predicts "
+        "`log(price per model)`, which is exponentiated back to a points "
+        "value and then multiplied by a **per-faction tournament-meta "
+        "correction**.\n\n"
+        f"The fit covers **{feat_n}** features and lands at **R² = {r2}** "
+        f"against the printed GW prices (mean absolute error in log space "
+        f"is **{mae_log}**, so most predicted prices land within roughly "
+        f"±20 % of GW)."
+    )
+
+    st.divider()
+    st.markdown("### Worked example")
+    # Find a canonical infantry workhorse for the worked example. Intercessor
+    # Squad is the project's documented baseline.
+    target = None
+    for key, rec in sweg_data.get("prices", {}).items():
+        if "intercessor_squad" in key and "assault" not in key:
+            target = (key, rec)
+            break
+    if target is None:
+        # Fallback: any Marine infantry workhorse.
+        for key, rec in sweg_data.get("prices", {}).items():
+            if rec.get("faction") == "Adeptus Astartes" and rec.get("delta_pct") is not None:
+                target = (key, rec)
+                break
+    if target is None:
+        st.info("Could not find a worked-example unit in the dataset.")
+        return
+
+    ex_rec = target[1]
+    st.markdown(f"**Unit:** {ex_rec['name']}  ·  *{ex_rec['faction']}*")
+
+    cols = st.columns(4)
+    cols[0].metric("GW pts/model", f"{ex_rec['gw_pts_per_model']:.1f}")
+    cols[1].metric("Equation only",
+                   f"{ex_rec['sweg_pts_per_model'] / max(0.001, ex_rec.get('faction_multiplier', 1.0)):.1f}")
+    cols[2].metric("Faction mult",
+                   f"{ex_rec.get('faction_multiplier', 1.0):.2f}×")
+    cols[3].metric("Sweg pts/model", f"{ex_rec['sweg_pts_per_model']}")
+
+    st.markdown("**Top three feature contributions** to this unit's log(price):")
+    top = ex_rec.get("top_features") or []
+    if top:
+        contrib_df = pd.DataFrame(top, columns=["Feature", "Contribution to log(price)"])
+        st.dataframe(contrib_df, hide_index=True, use_container_width=True,
+                     column_config={
+                         "Contribution to log(price)":
+                            st.column_config.NumberColumn(format="%+.4f"),
+                     })
+    st.caption(
+        "Each contribution = coefficient × transform(feature value). The "
+        "equation sums these (plus contributions from every other feature, "
+        "plus an intercept) and exponentiates the result to land on the "
+        "per-model price. The faction multiplier then scales that price up "
+        "(faction over-performs in real tournaments) or down (under-performs)."
+    )
+
+    st.divider()
+    st.markdown("### Want the full equation?")
+    st.caption(
+        "Switch to **Calibration view** in the sidebar and open the "
+        "**Equation Fit** tab — it has the full feature panel, the fitted "
+        "coefficients, a 3D surface explorer, and the outlier diagnostics."
+    )
+
+
+def _render_player_view():
+    """Top-level Player-view dispatcher: builds the five tabs and renders each."""
+    sweg_data = _load_sweg_dataset()
+    p_home, p_browser, p_compare, p_faction, p_equation = st.tabs(
+        ["Home", "Unit Browser", "Army Compare",
+         "Faction Overview", "The Equation"]
+    )
+    with p_home:
+        _render_player_home(sweg_data)
+    with p_browser:
+        _render_unit_browser(sweg_data)
+    with p_compare:
+        _render_army_compare_player()
+    with p_faction:
+        _render_faction_overview(sweg_data)
+    with p_equation:
+        _render_equation_lite(sweg_data)
+    st.caption(f"SwegHammer v{__version__}  ·  Player view")
+
+
+# Player view is a self-contained branch: render the five tabs, then halt
+# script execution so none of the Calibration-view code below runs.
+if _view_mode == "Player":
+    _render_player_view()
+    st.stop()
+
+
+# ---------------------------------------------------------------------------
 # Sidebar — controls
 # ---------------------------------------------------------------------------
 
@@ -1227,14 +1742,133 @@ if run:
         st.session_state["points_curve_data"] = None
 
 # ---------------------------------------------------------------------------
-# Tabs: Statistics + Watch a battle
+# Tabs: Home + Statistics + Watch a battle + …
 # ---------------------------------------------------------------------------
+#
+# v1.0 added a Home tab at the front of the Calibration view as the default
+# landing — it shows the headline calibration metrics and a small
+# MAE-history line chart, so the dashboard opens to "where are we" rather
+# than the empty Statistics tab.
 
-(tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
+(tab_home, tab_stats, tab_replay, tab_efficiency, tab_equilibrium,
  tab_compare, tab_convergence, tab_calibration, tab_equation_fit) = st.tabs(
-    ["Statistics", "Watch a battle", "Efficiency", "Equilibrium",
+    ["Home", "Statistics", "Watch a battle", "Efficiency", "Equilibrium",
      "Compare", "Convergence", "Calibration", "Equation Fit"]
 )
+
+# --- Calibration Home tab ---
+with tab_home:
+    st.markdown(f"# {_APP_TITLE}")
+    st.caption(f"v{__version__}  ·  Calibration view  ·  {_APP_TAGLINE}")
+    st.divider()
+    st.markdown("### Headline metrics")
+
+    # Pull the freshest numbers we can find on disk.
+    _ch_mae = None
+    if _EQUATION_SNAPSHOT_PATH.exists():
+        try:
+            _ch_snap = _json.loads(_EQUATION_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+            _ch_mae = _ch_snap.get("mae_real_all")
+        except (ValueError, OSError):
+            _ch_mae = None
+    _ch_sweg_meta = None
+    if _SWEG_POINTS_PATH.exists():
+        try:
+            _ch_sweg_meta = _json.loads(_SWEG_POINTS_PATH.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            _ch_sweg_meta = None
+
+    _hc1, _hc2, _hc3, _hc4 = st.columns(4)
+    _hc1.metric(
+        "Sim MAE vs Warp Friends",
+        f"{_ch_mae:.2f} pts" if _ch_mae is not None else "—",
+        help="Headline calibration metric. Target ≤ 2.0. Loaded from "
+             "data/equation_vs_meta_snapshot.json.",
+    )
+    if _ch_sweg_meta:
+        _hc2.metric(
+            "Equation R²",
+            f"{_ch_sweg_meta['fit_metrics']['r_squared']}",
+            help="Regression fit quality vs printed GW prices.",
+        )
+        _hc3.metric(
+            "Units priced",
+            _ch_sweg_meta["counts"]["total_units"],
+            help="Total catalogue size covered by the v1 dataset.",
+        )
+        _hc4.metric(
+            "Active faction multipliers",
+            len(_ch_sweg_meta.get("faction_multipliers_active", {})),
+            help="Factions with real Warp Friends tournament data feeding "
+                 "the multiplier; the rest default to 1.0×.",
+        )
+    else:
+        _hc2.metric("Equation R²", "—")
+        _hc3.metric("Units priced", "—")
+        _hc4.metric("Active faction multipliers", "—")
+
+    # MAE history mini-chart from docs/mae_progress.csv.
+    if _MAE_PROGRESS_PATH.exists():
+        _mae_rows = []
+        try:
+            with _MAE_PROGRESS_PATH.open(encoding="utf-8") as _fh:
+                for _row in _csv.DictReader(_fh):
+                    if _row.get("parked", "False").strip().lower() == "true":
+                        continue
+                    try:
+                        _mae_rows.append({
+                            "when":  _row["when"],
+                            "label": _row["label"],
+                            "mae":   float(_row["mae"]),
+                        })
+                    except (KeyError, ValueError):
+                        continue
+        except OSError:
+            _mae_rows = []
+
+        if _mae_rows:
+            _mae_df = pd.DataFrame(_mae_rows)
+            _mae_fig = go.Figure(go.Scatter(
+                x=_mae_df["when"], y=_mae_df["mae"],
+                mode="lines+markers",
+                line=dict(color=SWEG_PALETTE["line_blue"], width=1.6),
+                marker=dict(size=5, color=SWEG_PALETTE["accent_gold"]),
+                hovertemplate="%{x}<br>MAE = %{y:.2f}<br>%{text}<extra></extra>",
+                text=_mae_df["label"],
+            ))
+            _mae_fig.add_hline(y=2.0, line=dict(color=SWEG_PALETTE["delta_up"],
+                                                dash="dash", width=1),
+                               annotation_text="target 2.0",
+                               annotation_position="bottom right")
+            _mae_fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor=SWEG_PALETTE["bg_page"],
+                plot_bgcolor=SWEG_PALETTE["bg_panel"],
+                xaxis=dict(title="When",
+                           gridcolor=SWEG_PALETTE["grid"],
+                           showticklabels=False),
+                yaxis=dict(title="MAE (pts)",
+                           gridcolor=SWEG_PALETTE["grid"]),
+                height=240, margin=dict(l=40, r=20, t=10, b=30),
+            )
+            st.markdown("### MAE history")
+            st.plotly_chart(_mae_fig, use_container_width=True,
+                            key="cal_home_mae_history")
+
+    st.divider()
+    st.markdown("### Quick jump")
+    st.markdown(
+        "- **Equation Fit** — feature panel, fitted coefficients, 3D "
+        "surface, outliers, tournament-list validation.\n"
+        "- **Convergence** — live calibration sweep with streaming updates.\n"
+        "- **Calibration** — run an evaluate-vs-meta sweep from the GUI.\n"
+        "- **Compare** — pit two armies head to head.\n"
+        "- **Statistics / Watch a battle / Efficiency / Equilibrium** — "
+        "the original sim-driven tabs."
+    )
+    st.caption("Switch to **Player view** in the sidebar for the curated "
+               "SwegHammer prices view (unit browser, faction overview, "
+               "equation explainer).")
 
 # --- Statistics tab ---
 with tab_stats:
@@ -3323,25 +3957,324 @@ with tab_equation_fit:
             "differ from median. Faction colours match the scatter above."
         )
 
+    # ---------------- tournament list validation ----------------
+    # Independent real-world check on the equation: load Goonhammer-scraped
+    # tournament lists, fuzzy-match every unit to UNIT_CATALOG, sum the
+    # equation's prediction for each list, and compare to the player's
+    # actual placement / win record. See code/tournament_validation.py
+    # for the loader, matcher and scorer.
+    st.divider()
+    st.markdown("### Tournament list validation  —  real lists vs equation")
+    st.caption(
+        "Loads scraped tournament lists from `data/tournament_lists/`, "
+        "fuzzy-matches each unit against `UNIT_CATALOG`, sums the equation's "
+        "predicted price per list and compares the resulting **equation cost "
+        "overrun** to how the list actually performed."
+    )
+    st.warning(
+        "⚠ **Selection bias in the current dataset.** The scraped Goonhammer "
+        "\"Competitive Innovations\" write-ups only publish podium finishers "
+        "and a handful of notable lists per event — they do not publish the "
+        "bottom of the table. That means every list in this dataset already "
+        "won most of its games, the win-rate variance is heavily compressed, "
+        "and a low R² on the win-rate scatter is mostly a feature of the "
+        "censored sample rather than a fault of the equation. The "
+        "placement-percentile scatter has more data (every list has a "
+        "placement, only podium finishers have win/loss records) but the "
+        "same bias applies — we're ranking winners against winners. The "
+        "faction roll-up further down is the chart most robust to this "
+        "bias because it averages across the meta."
+    )
+
+    with st.expander("Tournament list validation", expanded=False):
+        @st.cache_data(show_spinner="Scoring tournament lists…", max_entries=8)
+        def _tv_score_lists(spec_signature: Tuple[Tuple[str, str], ...],
+                            alpha: float):
+            specs = []
+            for name, transform in spec_signature:
+                base = _spec_by_name.get(name)
+                description = base.description if base is not None else ""
+                specs.append(EqFitFeatureSpec(
+                    name=name, transform=transform, include=True,
+                    description=description,
+                ))
+            fit_result = eqfit_fit(_eqfit_df, specs)
+
+            mults: Dict[str, float] = {}
+            if _META_SNAPSHOT_PATH.exists():
+                snap = _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+                mults = eqfit_faction_multipliers(snap, alpha=alpha)
+
+            try:
+                raw_lists = tv_load_tournament_lists()
+            except FileNotFoundError:
+                return None, [], pd.DataFrame(), {}
+
+            scored = []
+            unmatched_counter: Dict[str, int] = {}
+            for lr in raw_lists:
+                match = tv_match_units(lr)
+                for nm, _pts in match.unmatched:
+                    unmatched_counter[nm] = unmatched_counter.get(nm, 0) + 1
+                s = tv_score_list(match, fit_result, _eqfit_df, mults, specs=specs)
+                if s is not None:
+                    scored.append(s)
+            faction_agg = tv_aggregate_by_faction(scored)
+            return raw_lists, scored, faction_agg, unmatched_counter
+
+        (_tv_raw_lists, _tv_scores, _tv_faction_agg,
+         _tv_unmatched) = _tv_score_lists(
+            _spec_signature, float(_alpha),
+        )
+
+        if _tv_raw_lists is None:
+            st.info("No `data/tournament_lists/` directory found; add scraped "
+                    "tournament JSON dumps to enable this view.")
+        elif not _tv_scores:
+            st.info("Loaded tournament lists but failed to score any of them. "
+                    "The matcher rejected every unit — check that "
+                    "`UNIT_CATALOG` was loaded.")
+        else:
+            # ---- coverage report ----
+            _tv_n_loaded = len(_tv_raw_lists)
+            _tv_n_scored = len(_tv_scores)
+            _tv_n_with_record = sum(1 for s in _tv_scores if s.actual_winrate is not None)
+            _tv_n_with_placement = sum(1 for s in _tv_scores if s.placement_percentile is not None)
+            _tv_total_unmatched = sum(_tv_unmatched.values())
+
+            _c1, _c2, _c3, _c4 = st.columns(4)
+            _c1.metric("Lists loaded", _tv_n_loaded,
+                       help="Non-partial lists across all JSON files in data/tournament_lists/.")
+            _c2.metric("Lists scored", _tv_n_scored,
+                       help="Lists where at least one unit matched UNIT_CATALOG.")
+            _c3.metric("With win/loss record", _tv_n_with_record,
+                       help="Lists where the source article published a wins/losses record (usually podium finishers only).")
+            _c4.metric("With placement", _tv_n_with_placement,
+                       help="Lists where placement and event size are both known.")
+
+            if _tv_total_unmatched:
+                _top_unmatched = sorted(_tv_unmatched.items(),
+                                        key=lambda kv: -kv[1])[:30]
+                with st.expander(f"Unmatched unit names ({len(_tv_unmatched)} unique, "
+                                 f"{_tv_total_unmatched} total appearances)"):
+                    st.dataframe(
+                        pd.DataFrame(_top_unmatched, columns=["unit_name", "appearances"]),
+                        hide_index=True, use_container_width=True,
+                    )
+                    st.caption(
+                        "These names didn't fuzzy-match any UNIT_CATALOG entry "
+                        "in the list's faction scope above the 0.78 similarity "
+                        "cutoff. Most are new releases, named characters or "
+                        "Legends datasheets missing from BSData. They count "
+                        "toward each list's total points but not toward the "
+                        "equation prediction."
+                    )
+
+            def _render_scatter(target: str, y_label: str, y_unit: str,
+                                chart_key: str):
+                """Draw one overrun-vs-performance scatter with an OLS best fit."""
+                dots = [s for s in _tv_scores
+                        if (s.actual_winrate if target == "winrate"
+                            else s.placement_percentile) is not None]
+                if not dots:
+                    st.info(f"No lists with {y_label.lower()} data available.")
+                    return
+                fit = tv_fit_winrate_model(_tv_scores, target=target)
+                xs = np.array([s.overrun_ratio for s in dots])
+                ys = np.array([(s.actual_winrate if target == "winrate"
+                                else s.placement_percentile) for s in dots])
+                facs_dots = [s.match.list_record.faction for s in dots]
+                names = [f"{s.match.list_record.player} — {s.match.list_record.event_name}"
+                         for s in dots]
+
+                fig = go.Figure()
+                for fac in sorted(set(facs_dots)):
+                    mask = np.array([f == fac for f in facs_dots])
+                    fig.add_trace(go.Scatter(
+                        x=xs[mask], y=ys[mask] * 100.0,
+                        mode="markers", name=fac,
+                        marker=dict(size=10, color=colour_for(fac),
+                                    line=dict(width=0.6, color="white"),
+                                    opacity=0.85),
+                        text=[names[i] for i, m in enumerate(mask) if m],
+                        hovertemplate=("<b>%{text}</b><br>"
+                                       f"Faction: {fac}<br>"
+                                       "Overrun ratio: %{x:.2f}<br>"
+                                       f"{y_label}: %{{y:.1f}}{y_unit}<extra></extra>"),
+                    ))
+                if fit is not None and fit.n >= 3:
+                    line_xs = np.linspace(xs.min(), xs.max(), 50)
+                    line_ys = (fit.intercept + fit.slope * line_xs) * 100.0
+                    fig.add_trace(go.Scatter(
+                        x=line_xs, y=line_ys, mode="lines",
+                        line=dict(color="#9bd6ff", dash="solid", width=1.8),
+                        name=(f"OLS fit  slope={fit.slope:+.2f}, "
+                              f"R²={fit.r_squared:+.2f}, N={fit.n}"),
+                    ))
+                fig.add_vline(x=1.0, line=dict(color="#888", dash="dot", width=1),
+                              annotation_text="equation = GW",
+                              annotation_position="top right")
+                fig.update_layout(
+                    template="plotly_dark", paper_bgcolor="#0e1117",
+                    plot_bgcolor="#1a1d23",
+                    xaxis=dict(title="Equation overrun ratio  (predicted ÷ paid)",
+                               gridcolor="#3a3d45"),
+                    yaxis=dict(title=f"{y_label} ({y_unit.strip()})",
+                               gridcolor="#3a3d45"),
+                    height=460, margin=dict(l=50, r=20, t=30, b=40),
+                    legend=dict(font=dict(size=10),
+                                bgcolor="rgba(26,29,35,0.85)"),
+                )
+                st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
+            # ---- scatter 1: overrun vs actual win rate ----
+            st.divider()
+            st.markdown("#### Scatter 1  —  overrun vs actual win rate")
+            st.caption(
+                "Y = wins ÷ (wins + losses). Only podium finishers have full "
+                f"records, so N is small ({_tv_n_with_record} lists). "
+                "A positive slope means the equation correctly identifies "
+                "stronger lists; expect a flat line on this view given the "
+                "selection-bias caveat above."
+            )
+            _render_scatter("winrate", "Actual win rate", "%",
+                            "eqfit_tv_scatter_winrate")
+
+            # ---- scatter 2: overrun vs placement percentile ----
+            st.divider()
+            st.markdown("#### Scatter 2  —  overrun vs placement percentile")
+            st.caption(
+                "Y = 100% for 1st place at the event, 0% for last. Every list "
+                f"with a placement is shown (N = {_tv_n_with_placement}), so "
+                "this is our larger-sample view. Within-podium ranking: does "
+                "the equation predict who finished higher among the winners?"
+            )
+            _render_scatter("placement", "Placement percentile", "%",
+                            "eqfit_tv_scatter_placement")
+
+            # ---- per-faction roll-up ----
+            st.divider()
+            st.markdown("#### Per-faction roll-up")
+            st.caption(
+                "Cross-check the equation against the Warp Friends per-faction "
+                "tournament rates. If the equation is healthy, factions with "
+                "high mean overrun should also have high Warp Friends win rates."
+            )
+
+            # Layer the Warp Friends rate from the meta snapshot.
+            _wf_rates: Dict[str, float] = {}
+            if _META_SNAPSHOT_PATH.exists():
+                _wf_snap = _json.loads(_META_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+                for row in _wf_snap.get("factions", []):
+                    if row.get("is_approx"):
+                        continue
+                    pct = row.get("tournament_pct")
+                    if pct is None:
+                        continue
+                    _wf_rates[row["faction"]] = float(pct) / 100.0
+
+            _fac_disp = _tv_faction_agg.copy()
+            _fac_disp["warp_friends_winrate"] = _fac_disp["faction"].map(_wf_rates)
+
+            _fac_table = _fac_disp.copy()
+            _fac_table["mean_overrun_ratio"] = _fac_table["mean_overrun_ratio"].map(
+                lambda v: f"{v:.2f}×" if v == v else "—")
+            _fac_table["mean_actual_winrate"] = _fac_table["mean_actual_winrate"].map(
+                lambda v: f"{v*100:.1f}%" if v is not None and v == v else "—")
+            _fac_table["mean_placement_percentile"] = _fac_table["mean_placement_percentile"].map(
+                lambda v: f"{v*100:.1f}%" if v is not None and v == v else "—")
+            _fac_table["warp_friends_winrate"] = _fac_table["warp_friends_winrate"].map(
+                lambda v: f"{v*100:.1f}%" if v == v else "—")
+            st.dataframe(_fac_table, hide_index=True, use_container_width=True)
+
+            # Bar chart pairs the equation-implied advantage with Warp Friends.
+            _bar_rows = []
+            for _, r in _fac_disp.iterrows():
+                if r["warp_friends_winrate"] != r["warp_friends_winrate"]:  # NaN
+                    continue
+                _bar_rows.append({
+                    "faction": r["faction"],
+                    "Equation overrun (% above GW)": (r["mean_overrun_ratio"] - 1.0) * 100.0,
+                    "Warp Friends winrate − 50 (%)":
+                        (r["warp_friends_winrate"] - 0.5) * 100.0,
+                })
+            if _bar_rows:
+                _bar_df = pd.DataFrame(_bar_rows).sort_values(
+                    "Equation overrun (% above GW)", ascending=False,
+                )
+                _bar_fig = go.Figure()
+                _bar_fig.add_trace(go.Bar(
+                    x=_bar_df["faction"],
+                    y=_bar_df["Equation overrun (% above GW)"],
+                    name="Equation overrun (% above GW)",
+                    marker_color="#9bd6ff",
+                ))
+                _bar_fig.add_trace(go.Bar(
+                    x=_bar_df["faction"],
+                    y=_bar_df["Warp Friends winrate − 50 (%)"],
+                    name="Warp Friends winrate − 50 %",
+                    marker_color="#c9a84c",
+                ))
+                _bar_fig.update_layout(
+                    template="plotly_dark", paper_bgcolor="#0e1117",
+                    plot_bgcolor="#1a1d23", barmode="group", height=400,
+                    margin=dict(l=50, r=20, t=20, b=80),
+                    xaxis=dict(tickangle=-30, gridcolor="#3a3d45"),
+                    yaxis=dict(title="Percent", gridcolor="#3a3d45"),
+                    legend=dict(font=dict(size=10),
+                                bgcolor="rgba(26,29,35,0.85)"),
+                )
+                st.plotly_chart(_bar_fig, use_container_width=True,
+                                key="eqfit_tv_faction_bars")
+
+            # ---- per-list explorer ----
+            st.divider()
+            st.markdown("#### Per-list explorer")
+            _list_rows = []
+            for s in _tv_scores:
+                lr = s.match.list_record
+                rec = (f"{lr.wins}-{lr.losses}-{lr.draws}"
+                       if lr.wins is not None else "—")
+                _list_rows.append({
+                    "event": lr.event_name,
+                    "player": lr.player,
+                    "faction": lr.faction,
+                    "detachment": lr.detachment or "—",
+                    "placement": lr.placement if lr.placement is not None else "—",
+                    "record": rec,
+                    "predicted_total": round(s.predicted_total, 1),
+                    "gw_total (matched)": s.gw_total,
+                    "overrun_ratio": round(s.overrun_ratio, 3),
+                    "coverage": f"{s.match.coverage_ratio*100:.0f}%",
+                })
+            st.dataframe(pd.DataFrame(_list_rows), hide_index=True,
+                         use_container_width=True)
+
+            st.caption(
+                "**Scope.** Three scraped Goonhammer events, "
+                f"{_tv_n_scored} scored lists, {_tv_n_with_record} with full "
+                "win/loss records — wide confidence intervals on the "
+                "regression. Win rate is per-list (army-level), not per-unit. "
+                "Fuzzy name matching uses a 0.78 similarity cutoff scoped "
+                "to the list's faction; unmatched units are reported above."
+            )
+
     # ---------------- archetype-proxy validation ----------------
-    # MASSIVE TODO (see TODO.md): real per-list tournament data ingestion.
-    # The CLEAN version of this validation needs lists from real tournaments
-    # with their win-loss records so we can plot equation-sum vs that
-    # specific list's win rate. Until that data is in the repo, this
-    # section uses the curated faction archetypes (code/archetypes.py) as
-    # one-list-per-faction substitutes and compares against per-faction
-    # tournament-meta win rates.
+    # Faction-level fallback for factions without good per-list data in the
+    # tournament dump above. Sums the equation across each faction's
+    # canonical archetype list and compares against per-faction tournament
+    # win rates.
     st.divider()
     st.markdown("### Validation: archetype list value vs real meta")
     st.warning(
-        "⚠ **Directional proxy only.** This section sums the equation's "
-        "stats-only prediction (no faction multiplier) across each "
-        "faction's canonical archetype list and compares to that "
-        "faction's real tournament win rate. It's an approximation of the "
-        "true test (per-list equation-sum vs per-list win-loss record), "
-        "which is blocked on real per-list tournament data not yet in "
-        "the repo. See TODO.md \"MASSIVE TODO — Real tournament list "
-        "data ingestion\" for the gap and the plan to close it."
+        "⚠ **Faction-level proxy.** Sums the equation's stats-only "
+        "prediction across each faction's canonical archetype list (no "
+        "faction multiplier) and compares to that faction's real "
+        "tournament win rate. Per-list validation against scraped "
+        "tournament rosters lives in the **Tournament list validation** "
+        "section above; this archetype proxy is the wider-coverage "
+        "fallback for factions with few or no real lists in the scraped "
+        "dataset."
     )
 
     st.caption(

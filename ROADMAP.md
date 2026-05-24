@@ -40,7 +40,7 @@ and Stage 2's solvers possible.
 |------|--------|-------------|
 | Goal A | 🟡 9 of 10 faction army-rules shipped | Sim matches real tournament data (faction-specific mechanics) |
 | Goal B | ✅ Foundation complete | Equal-quality simulation per faction (stratagems / leaders / enhancements) |
-| Goal C | 🟡 Phases 1–6 shipped; needs cost rebase | Generate balanced SwegHammer points (two-track: balancer + equilibrium) |
+| Goal C | ✅ v1 shipped (Track 4 data-driven equation, frozen at `data/sweg_points_v1.json`) | Generate balanced SwegHammer points (two-track: balancer + equilibrium) |
 | Goal D | 🟡 Phase 4 live | Price non-damaging abilities — `tactical_value(u)` overlay on Phase 2 |
 
 Headline calibration metric:
@@ -464,6 +464,22 @@ run on top of. Retained as a historical record.
 ---
 
 ## Changelog
+
+- **2026-05-24** — **v1.0 release: SwegHammer — Recalibrated.** Track 4
+  data-driven equation frozen as a per-unit prices dataset at
+  `data/sweg_points_v1.json` (1,483 units priced — 1,456 via the
+  equation, 27 super-heavy GW fallback). New `code/sweg_points.py`
+  loader and `--swegpoints` flag in `scripts/evaluate_vs_meta.py` swap
+  the v1 prices into the catalogue. The Streamlit dashboard gained a
+  sidebar **Player / Calibration** mode toggle: Player view exposes
+  five curated tabs (Home, Unit Browser, Army Compare, Faction
+  Overview, The Equation) for hobbyist use; Calibration view keeps the
+  existing nine-tab technical dashboard with a new Home banner showing
+  headline calibration metrics and a MAE history mini-chart. Cross-
+  validation review against the Equilibrium Phase 5 solver lives at
+  `docs/SWEG_V1_REVIEW.md` — every top-20 disagreement was traced to a
+  known method-bias difference, none required dataset regeneration.
+  `code/__init__.py` now exposes `__version__ = "1.0.0"`.
 
 - **2026-05-23** — Equation fit (Track 4) improvements. Regenerated
   `data/equation_vs_meta_snapshot.json` with all 22 factions carrying

@@ -1,0 +1,441 @@
+{
+  "source_article": {
+    "title": "Competitive Innovations in 10th: Kroot Cocktail pt.1",
+    "publication": "Goonhammer",
+    "author": "Robert \"TheChirurgeon\" Jones, James \"One_Wing\" Grover",
+    "publication_date": "2026-04-15",
+    "url": null
+  },
+  "events": [
+    {
+      "event": {
+        "name": "The South-Coast 40k Super-Major",
+        "date": "2026-04-11",
+        "size_players": 241,
+        "rounds": 7,
+        "format": "2000 points",
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Ross Tully",
+          "placement": 1,
+          "record": null,
+          "faction": "T'au Empire",
+          "detachment": "Kroot Hunting Pack",
+          "warlord": "Kroot Lone-spear",
+          "total_points": 1990,
+          "enhancements": [
+            {"name": "Kroothawk Flock", "attached_to": "Kroot Lone-spear", "points": null},
+            {"name": "Nomadic Hunter", "attached_to": "Kroot Trail Shaper", "points": null},
+            {"name": "Root-carved Weapons", "attached_to": "Kroot War Shaper", "points": null}
+          ],
+          "units": [
+            {"name": "Kroot Flesh Shaper", "model_count": 1, "points": 45, "wargear": ["Kroot scattergun", "Twin ritualistic blades"]},
+            {"name": "Kroot Flesh Shaper", "model_count": 1, "points": 45, "wargear": ["Kroot scattergun", "Twin ritualistic blades"]},
+            {"name": "Kroot Lone-spear", "model_count": 1, "points": 90, "wargear": ["Blast javelin", "Hunting javelin", "Kalamandra's bite"]},
+            {"name": "Kroot Trail Shaper", "model_count": 1, "points": 75, "wargear": ["Kroot rifle", "Shaper's blade"]},
+            {"name": "Kroot War Shaper", "model_count": 1, "points": 60, "wargear": ["Dart-bow and tri-blade", "Kroot pistol", "Shaper's blade"]},
+            {"name": "Kroot Carnivores", "model_count": 20, "points": 140, "wargear": ["Long-quill", "Kroot carbine", "Kroot pistol", "17x Kroot rifle", "2x Tanglebomb launcher"]},
+            {"name": "Kroot Carnivores", "model_count": 20, "points": 140, "wargear": ["Long-quill", "Kroot carbine", "Kroot pistol", "17x Kroot rifle", "2x Tanglebomb launcher"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Long-quill", "Kroot carbine", "Kroot pistol", "8x Kroot rifle", "Tanglebomb launcher"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Long-quill", "Kroot carbine", "Kroot pistol", "8x Kroot rifle", "Tanglebomb launcher"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Long-quill", "Kroot carbine", "Kroot pistol", "8x Kroot rifle", "Tanglebomb launcher"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Long-quill", "Kroot carbine", "Kroot pistol", "8x Kroot rifle", "Tanglebomb launcher"]},
+            {"name": "Kroot Farstalkers", "model_count": 12, "points": 85, "wargear": ["Kroot Kill-broker", "Ritual blade", "T'au-tech rifle", "Dvorgite skinner", "8x Farstalker firearm", "Pech'ra", "2x Kroot Hound", "2x Ripping fangs"]},
+            {"name": "Kroot Farstalkers", "model_count": 12, "points": 85, "wargear": ["Kroot Kill-broker", "Ritual blade", "T'au-tech rifle", "Dvorgite skinner", "8x Farstalker firearm", "Pech'ra", "2x Kroot Hound", "2x Ripping fangs"]},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": ["5x Ripping fangs"]},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": ["5x Ripping fangs"]},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": ["5x Ripping fangs"]},
+            {"name": "Krootox Rampagers", "model_count": 6, "points": 170, "wargear": ["6x Hunting blades", "6x Kroot pistol and hunting javelins", "6x Rampager fists"]},
+            {"name": "Krootox Rampagers", "model_count": 6, "points": 170, "wargear": ["6x Hunting blades", "6x Kroot pistol and hunting javelins", "6x Rampager fists"]},
+            {"name": "Krootox Rampagers", "model_count": 6, "points": 170, "wargear": ["6x Hunting blades", "6x Kroot pistol and hunting javelins", "6x Rampager fists"]},
+            {"name": "Krootox Riders", "model_count": 3, "points": 90, "wargear": ["3x Krootox fists", "3x Repeater cannon"]},
+            {"name": "Krootox Riders", "model_count": 3, "points": 90, "wargear": ["3x Krootox fists", "3x Repeater cannon"]},
+            {"name": "Krootox Riders", "model_count": 3, "points": 90, "wargear": ["3x Krootox fists", "3x Repeater cannon"]},
+            {"name": "Vespid Stingwings", "model_count": 5, "points": 65, "wargear": ["Vespid Strain Leader", "5x Neutron blaster", "5x Stingwing claws"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Mani Cheema",
+          "placement": 2,
+          "record": {"wins": 7, "losses": 0, "draws": 0},
+          "faction": "Ultramarines",
+          "detachment": "Gladius Task Force",
+          "warlord": "Marneus Calgar in Armour of Antilochus",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Artificer Armour", "attached_to": "Captain in Gravis Armour", "points": null},
+            {"name": "The Honour Vehement", "attached_to": "Techmarine", "points": null}
+          ],
+          "units": [
+            {"name": "Captain in Gravis Armour", "model_count": 1, "points": 90, "wargear": ["Boltstorm gauntlet", "Power fist", "Relic blade"]},
+            {"name": "Cato Sicarius", "model_count": 1, "points": 95, "wargear": ["Artisan plasma pistol", "Talassarian tempest blade"]},
+            {"name": "Marneus Calgar in Armour of Antilochus", "model_count": 1, "points": 140, "wargear": ["Gauntlets of Ultramar"]},
+            {"name": "Techmarine", "model_count": 1, "points": 70, "wargear": ["Forge bolter", "Grav-pistol", "Omnissian power axe", "Servo-arm"]},
+            {"name": "Uriel Ventris", "model_count": 1, "points": 95, "wargear": ["Bolt Pistol", "Invictus", "Sword of Idaeus"]},
+            {"name": "Incursor Squad", "model_count": 5, "points": 80, "wargear": ["Paired combat blades", "Occulus bolt carbine", "Haywire Mine"]},
+            {"name": "Incursor Squad", "model_count": 5, "points": 80, "wargear": ["Paired combat blades", "Occulus bolt carbine", "Haywire Mine"]},
+            {"name": "Repulsor Executioner", "model_count": 1, "points": 230, "wargear": ["Heavy laser destroyer", "Heavy onslaught gatling cannon", "Icarus rocket pod", "Ironhail heavy stubber", "Twin Icarus ironhail heavy stubber", "Twin heavy bolter"]},
+            {"name": "Repulsor Executioner", "model_count": 1, "points": 230, "wargear": ["Heavy laser destroyer", "Heavy onslaught gatling cannon", "Icarus rocket pod", "Ironhail heavy stubber", "Twin Icarus ironhail heavy stubber", "Twin heavy bolter"]},
+            {"name": "Repulsor Executioner", "model_count": 1, "points": 230, "wargear": ["Heavy laser destroyer", "Heavy onslaught gatling cannon", "Icarus rocket pod", "Ironhail heavy stubber", "Twin Icarus ironhail heavy stubber", "Twin heavy bolter"]},
+            {"name": "Victrix Honour Guard", "model_count": 6, "points": 220, "wargear": ["Chapter Ancient", "Banner of Macragge", "Master-crafted power weapon", "Chapter Champion", "Blades of honour", "4x Master-crafted bolt carbine", "4x Master-crafted power weapon"]},
+            {"name": "Victrix Honour Guard", "model_count": 6, "points": 220, "wargear": ["6x Master-crafted bolt carbine", "6x Master-crafted power weapon"]},
+            {"name": "Victrix Honour Guard", "model_count": 6, "points": 220, "wargear": ["6x Master-crafted bolt carbine", "6x Master-crafted power weapon"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Andy Moore",
+          "placement": 3,
+          "record": null,
+          "faction": "Space Marines",
+          "detachment": "Forgefather's Seekers",
+          "warlord": "Vulkan He'stan",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Immolator", "attached_to": "Captain with Jump Pack", "points": null}
+          ],
+          "units": [
+            {"name": "Adrax Agatone", "model_count": 1, "points": 85, "wargear": ["Drakkis", "Malleus Noctum"]},
+            {"name": "Captain with Jump Pack", "model_count": 1, "points": 85, "wargear": ["Hand flamer", "Power fist"]},
+            {"name": "Lieutenant with Combi-weapon", "model_count": 1, "points": 85, "wargear": ["Combi-weapon", "Paired combat blades"]},
+            {"name": "Vulkan He'stan", "model_count": 1, "points": 100, "wargear": ["Bolt Pistol", "Gauntlet of the Forge", "Spear of Vulkan"]},
+            {"name": "Intercessor Squad", "model_count": 5, "points": 80, "wargear": ["Astartes grenade launcher", "Bolt rifle", "Power fist"]},
+            {"name": "Impulsor", "model_count": 1, "points": 80, "wargear": ["Ironhail heavy stubber", "Ironhail skytalon array", "2x Storm bolter"]},
+            {"name": "Impulsor", "model_count": 1, "points": 80, "wargear": ["Ironhail heavy stubber", "Ironhail skytalon array", "2x Storm bolter"]},
+            {"name": "Bladeguard Veteran Squad", "model_count": 6, "points": 170, "wargear": ["Master-crafted power weapon", "Plasma pistol", "5x Heavy bolt pistol", "5x Master-crafted power weapon"]},
+            {"name": "Company Heroes", "model_count": 4, "points": 105, "wargear": ["Ancient", "Bolt rifle", "Company Champion", "Master-crafted power weapon", "Master-crafted bolt rifle", "Master-crafted heavy bolter"]},
+            {"name": "Incursor Squad", "model_count": 5, "points": 80, "wargear": ["Paired combat blades", "Occulus bolt carbine", "Haywire Mine"]},
+            {"name": "Incursor Squad", "model_count": 5, "points": 80, "wargear": ["Paired combat blades", "Occulus bolt carbine", "Haywire Mine"]},
+            {"name": "Infernus Squad", "model_count": 5, "points": 90, "wargear": ["5x Pyreblaster"]},
+            {"name": "Infernus Squad", "model_count": 5, "points": 90, "wargear": ["5x Pyreblaster"]},
+            {"name": "Land Raider Redeemer", "model_count": 1, "points": 270, "wargear": ["2x Flamestorm cannon", "Hunter-killer missile", "Multi-melta", "Storm bolter", "Twin assault cannon"]},
+            {"name": "Scout Squad", "model_count": 5, "points": 70, "wargear": ["Astartes chainsword", "2x Combat knife", "Missile launcher", "Scout sniper rifle"]},
+            {"name": "Storm Speeder Hammerstrike", "model_count": 1, "points": 125, "wargear": ["Hammerstrike missile launcher", "2x Krakstorm grenade launcher", "Melta destroyer"]},
+            {"name": "Storm Speeder Hammerstrike", "model_count": 1, "points": 125, "wargear": ["Hammerstrike missile launcher", "2x Krakstorm grenade launcher", "Melta destroyer"]},
+            {"name": "Vanguard Veteran Squad with Jump Packs", "model_count": 10, "points": 200, "wargear": ["10x Hand flamer", "10x Vanguard Veteran weapon"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Byron Sidhu",
+          "placement": 4,
+          "record": null,
+          "faction": "Chaos Daemons",
+          "detachment": "Daemonic Incursion",
+          "warlord": "Be'lakor",
+          "total_points": 1995,
+          "enhancements": [
+            {"name": "The Everstave", "attached_to": "Lord of Change", "points": null}
+          ],
+          "units": [
+            {"name": "Be'lakor", "model_count": 1, "points": 375, "wargear": ["Betraying Shades", "The Blade of Shadows"]},
+            {"name": "Kairos Fateweaver", "model_count": 1, "points": 295, "wargear": ["Infernal Gateway", "Staff of Tomorrow"]},
+            {"name": "Lord of Change", "model_count": 1, "points": 310, "wargear": ["Bolt of Change", "Rod of sorcery", "Staff of Tzeentch"]},
+            {"name": "Rotigus", "model_count": 1, "points": 265, "wargear": ["Gnarlrod", "Streams of brackish filth"]},
+            {"name": "Skarbrand", "model_count": 1, "points": 305, "wargear": ["Bellow of endless fury", "Slaughter and Carnage"]},
+            {"name": "Plaguebearers", "model_count": 10, "points": 110, "wargear": ["Plagueridden", "Daemonic Icon", "Instrument of Chaos", "10x Plaguesword"]},
+            {"name": "Plaguebearers", "model_count": 10, "points": 110, "wargear": ["Plagueridden", "Daemonic Icon", "Instrument of Chaos", "10x Plaguesword"]},
+            {"name": "Beasts of Nurgle", "model_count": 1, "points": 65, "wargear": ["Putrid appendages"]},
+            {"name": "Fiends", "model_count": 3, "points": 95, "wargear": ["Blissbringer", "3x Barbed tail and dissecting claws"]},
+            {"name": "Flamers", "model_count": 3, "points": 65, "wargear": ["Pyrocaster", "3x Flamer mouths", "3x Flickering flames"]}
+          ],
+          "per_round_opponents": []
+        }
+      ]
+    },
+    {
+      "event": {
+        "name": "Battle For GreenHollow Singles",
+        "date": "2026-04-11",
+        "size_players": 76,
+        "rounds": 6,
+        "format": "2000 points",
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Blair Wilson",
+          "placement": 1,
+          "record": null,
+          "faction": "Necrons",
+          "detachment": "Starshatter Arsenal",
+          "warlord": "The Silent King",
+          "total_points": 1995,
+          "enhancements": [
+            {"name": "Chrono-impedance Fields", "attached_to": "Psychomancer", "points": null},
+            {"name": "Demanding Leader", "attached_to": "Technomancer", "points": null}
+          ],
+          "units": [
+            {"name": "C'tan Shard of the Deceiver", "model_count": 1, "points": 295, "wargear": ["Cosmic insanity", "Golden fists"]},
+            {"name": "C'tan Shard of the Nightbringer", "model_count": 1, "points": 325, "wargear": ["Gaze of death", "Scythe of the Nightbringer"]},
+            {"name": "Nekrosor Ammentar", "model_count": 1, "points": 185, "wargear": ["Blade tail and whip coils", "Enmitic disintegrators", "Nullstone Field Generator (Aura)", "Unmaker Gauntlet"]},
+            {"name": "Psychomancer", "model_count": 1, "points": 80, "wargear": ["Abyssal lance"]},
+            {"name": "Technomancer", "model_count": 1, "points": 90, "wargear": ["Staff of light"]},
+            {"name": "The Silent King", "model_count": 3, "points": 400, "wargear": ["Sceptre of Eternal Glory", "Staff of Stars", "Weapons of the Final Triarch", "2x Triarchal Menhir", "2x Annihilator beam"]},
+            {"name": "Canoptek Reanimator", "model_count": 1, "points": 75, "wargear": ["2x Atomiser beam", "Reanimator's claws"]},
+            {"name": "Canoptek Tomb Crawlers", "model_count": 2, "points": 50, "wargear": ["2x Claws", "Transdimensional isolator", "Twin gauss reaper"]},
+            {"name": "Canoptek Wraiths", "model_count": 6, "points": 220, "wargear": ["6x Particle caster", "6x Vicious claws"]},
+            {"name": "Deathmarks", "model_count": 5, "points": 60, "wargear": ["5x Synaptic disintegrator"]},
+            {"name": "Flayed Ones", "model_count": 5, "points": 60, "wargear": ["5x Flayer claws"]},
+            {"name": "Ophydian Destroyers", "model_count": 3, "points": 80, "wargear": ["3x Ophydian hyperphase weapons"]},
+            {"name": "Tomb Blades", "model_count": 3, "points": 75, "wargear": ["3x Particle beamer", "3x Shadowloom"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Derek Douglas",
+          "placement": 2,
+          "record": null,
+          "faction": "Adeptus Custodes",
+          "detachment": "Shield Host",
+          "warlord": "Shield-Captain",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "From the Hall of Armouries", "attached_to": "Shield-Captain", "points": null}
+          ],
+          "units": [
+            {"name": "Blade Champion", "model_count": 1, "points": 120, "wargear": ["Vaultswords"]},
+            {"name": "Shield-Captain", "model_count": 1, "points": 145, "wargear": ["Guardian spear"]},
+            {"name": "Custodian Guard", "model_count": 5, "points": 200, "wargear": ["5x Guardian spear"]},
+            {"name": "Custodian Guard", "model_count": 5, "points": 200, "wargear": ["5x Guardian spear"]},
+            {"name": "Custodian Guard", "model_count": 4, "points": 160, "wargear": ["3x Guardian spear", "Misericordia", "Praesidium Shield", "Vexilla"]},
+            {"name": "Custodian Guard", "model_count": 4, "points": 160, "wargear": ["3x Guardian spear", "Misericordia", "Praesidium Shield", "Vexilla"]},
+            {"name": "Custodian Guard", "model_count": 4, "points": 160, "wargear": ["3x Guardian spear", "Misericordia", "Praesidium Shield", "Vexilla"]},
+            {"name": "Caladius Grav-tank", "model_count": 1, "points": 215, "wargear": ["Twin arachnus heavy blaze cannon", "Twin lastrum bolt cannon"]},
+            {"name": "Caladius Grav-tank", "model_count": 1, "points": 215, "wargear": ["Twin arachnus heavy blaze cannon", "Twin lastrum bolt cannon"]},
+            {"name": "Venatari Custodians", "model_count": 3, "points": 165, "wargear": ["3x Venatari lance"]},
+            {"name": "Venatari Custodians", "model_count": 3, "points": 165, "wargear": ["3x Venatari lance"]},
+            {"name": "Witchseekers", "model_count": 4, "points": 45, "wargear": ["Witchseeker Sister Superior", "4x Witchseeker flamer"]},
+            {"name": "Witchseekers", "model_count": 4, "points": 45, "wargear": ["Witchseeker Sister Superior", "4x Witchseeker flamer"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Andrew White",
+          "placement": 3,
+          "record": null,
+          "faction": "Space Wolves",
+          "detachment": "Gladius Task Force",
+          "warlord": "Logan Grimnar",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "The Honour Vehement", "attached_to": "Wolf Guard Battle Leader", "points": null}
+          ],
+          "units": [
+            {"name": "Arjac Rockfist", "model_count": 1, "points": 105, "wargear": ["Foehammer"]},
+            {"name": "Bjorn the Fell-Handed", "model_count": 1, "points": 160, "wargear": ["Heavy flamer", "Helfrost cannon", "Trueclaw"]},
+            {"name": "Logan Grimnar", "model_count": 1, "points": 110, "wargear": ["Axe Morkai", "Storm bolter", "Tyrnak and Fenrir"]},
+            {"name": "Wolf Guard Battle Leader", "model_count": 1, "points": 80, "wargear": ["Storm Shield", "Thunder hammer"]},
+            {"name": "Infiltrator Squad", "model_count": 5, "points": 100, "wargear": ["Marksman bolt carbine", "Helix Gauntlet", "Infiltrator Comms Array"]},
+            {"name": "Thunderwolf Cavalry", "model_count": 6, "points": 230, "wargear": ["Pack Leader", "6x Storm Shield", "6x Teeth and Claws", "6x Wolf Guard weapon"]},
+            {"name": "Venerable Dreadnought", "model_count": 1, "points": 130, "wargear": ["Blizzard Shield", "Fenrisian great axe", "Heavy flamer"]},
+            {"name": "Vindicator", "model_count": 1, "points": 185, "wargear": ["Demolisher cannon", "Hunter-killer missile", "Storm bolter"]},
+            {"name": "Wolf Guard Headtakers", "model_count": 6, "points": 220, "wargear": ["6x Heavy bolt pistol", "6x Master-crafted power weapon", "6x Storm Shield", "6x Hunting Wolves"]},
+            {"name": "Wolf Guard Terminators", "model_count": 10, "points": 340, "wargear": ["Relic greataxe", "2x Assault cannon", "7x Master-crafted power weapon", "2x Power fist", "7x Storm Shield"]},
+            {"name": "Wolf Guard Terminators", "model_count": 10, "points": 340, "wargear": ["Relic greataxe", "2x Assault cannon", "7x Master-crafted power weapon", "2x Power fist", "7x Storm Shield"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Phil Davies",
+          "placement": 4,
+          "record": null,
+          "faction": "Blood Angels",
+          "detachment": "Rage-cursed Onslaught",
+          "warlord": "Lemartes",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Master of the Red Thirst", "attached_to": "Captain with Jump Pack", "points": null}
+          ],
+          "units": [
+            {"name": "Captain with Jump Pack", "model_count": 1, "points": 100, "wargear": ["Power Fist", "Hand Flamer"]},
+            {"name": "Chaplain with Jump Pack", "model_count": 1, "points": 75, "wargear": ["Crozius arcanum", "Power fist"]},
+            {"name": "Chief Librarian Mephiston", "model_count": 1, "points": 120, "wargear": ["Fury of the Ancients", "Plasma pistol", "Vitarus"]},
+            {"name": "Commander Dante", "model_count": 1, "points": 120, "wargear": ["Perdition Pistol", "The Axe Mortalis"]},
+            {"name": "Lemartes", "model_count": 1, "points": 100, "wargear": ["Absolvor bolt pistol", "The Blood Crozius"]},
+            {"name": "Lieutenant with Combi-weapon", "model_count": 1, "points": 85, "wargear": ["Combi-weapon", "Paired combat blades"]},
+            {"name": "Death Company Marines with Jump Packs", "model_count": 10, "points": 230, "wargear": ["5x Astartes chainsword", "2x Eviscerator", "6x Heavy bolt pistol", "2x Inferno pistol", "2x Plasma pistol", "3x Power fist"]},
+            {"name": "Death Company Marines with Jump Packs", "model_count": 5, "points": 120, "wargear": ["2x Astartes chainsword", "Eviscerator", "3x Heavy bolt pistol", "Inferno pistol", "Plasma pistol", "2x Power fist"]},
+            {"name": "Death Company Marines with Jump Packs", "model_count": 5, "points": 120, "wargear": ["2x Astartes chainsword", "Eviscerator", "3x Heavy bolt pistol", "Inferno pistol", "Plasma pistol", "2x Power fist"]},
+            {"name": "Infiltrator Squad", "model_count": 5, "points": 100, "wargear": ["Marksman bolt carbine", "Helix Gauntlet", "Infiltrator Comms Array"]},
+            {"name": "Reiver Squad", "model_count": 5, "points": 80, "wargear": ["5x Combat knife", "5x Grapnel Launcher", "5x Reiver Grav-chute", "5x Special issue bolt pistol"]},
+            {"name": "Sanguinary Guard", "model_count": 6, "points": 260, "wargear": ["4x Angelus boltgun", "6x Encarmine spear", "2x Inferno pistol", "Sanguinary Banner"]},
+            {"name": "Sanguinary Guard", "model_count": 3, "points": 125, "wargear": ["2x Angelus boltgun", "3x Encarmine blade", "Inferno pistol", "Sanguinary Banner"]},
+            {"name": "Sanguinary Guard", "model_count": 3, "points": 125, "wargear": ["2x Angelus boltgun", "3x Encarmine blade", "Inferno pistol", "Sanguinary Banner"]},
+            {"name": "Scout Squad", "model_count": 5, "points": 70, "wargear": ["Astartes chainsword", "4x Combat knife"]},
+            {"name": "Scout Squad", "model_count": 5, "points": 70, "wargear": ["Astartes chainsword", "4x Combat knife"]},
+            {"name": "Callidus Assassin", "model_count": 1, "points": 100, "wargear": ["Neural shredder", "Phase sword and poison blades"]}
+          ],
+          "per_round_opponents": []
+        }
+      ]
+    },
+    {
+      "event": {
+        "name": "ANZAC CUP 2026",
+        "date": "2026-04-10",
+        "size_players": 60,
+        "rounds": 5,
+        "format": "2000 points",
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Dale Mann",
+          "placement": 1,
+          "record": null,
+          "faction": "Chaos Space Marines",
+          "detachment": "Huron's Marauders",
+          "warlord": "Huron Blackheart",
+          "total_points": 2000,
+          "enhancements": [],
+          "units": [
+            {"name": "Cypher", "model_count": 1, "points": 90, "wargear": ["Cypher's bolt pistol", "Cypher's plasma pistol"]},
+            {"name": "Dark Commune", "model_count": 5, "points": 90, "wargear": ["Cult Demagogue", "Commune stave", "Mindwitch", "Warp Curse", "Iconarch", "Chaos Icon", "2x Commune blade"]},
+            {"name": "Dark Commune", "model_count": 5, "points": 90, "wargear": ["Cult Demagogue", "Commune stave", "Mindwitch", "Warp Curse", "Iconarch", "Chaos Icon", "2x Commune blade"]},
+            {"name": "Fabius Bile", "model_count": 2, "points": 100, "wargear": ["Chirurgeon", "Rod of Torment", "Xyclos Needler", "Surgeon Acolyte", "Surgeon Acolyte's tools"]},
+            {"name": "Huron Blackheart", "model_count": 1, "points": 120, "wargear": ["Tyrant's Claw and exalted power weapon", "Tyrant's Claw heavy flamer"]},
+            {"name": "Cultist Mob", "model_count": 10, "points": 50, "wargear": ["10x Autopistol", "10x Brutal assault weapon"]},
+            {"name": "Chaos Rhino", "model_count": 1, "points": 75, "wargear": ["2x Combi-bolter", "Havoc launcher"]},
+            {"name": "Accursed Cultists", "model_count": 16, "points": 195, "wargear": ["10x Blasphemous appendages", "6x Hideous mutations"]},
+            {"name": "Accursed Cultists", "model_count": 16, "points": 195, "wargear": ["10x Blasphemous appendages", "6x Hideous mutations"]},
+            {"name": "Chosen", "model_count": 10, "points": 250, "wargear": ["Chaos Icon", "Plasma pistol", "2x Power fist", "6x Accursed weapon", "3x Boltgun", "4x Combi-weapon", "2x Paired accursed weapons", "3x Plasma pistol"]},
+            {"name": "Chosen", "model_count": 10, "points": 250, "wargear": ["Chaos Icon", "Plasma pistol", "2x Power fist", "6x Accursed weapon", "3x Boltgun", "4x Combi-weapon", "2x Paired accursed weapons", "3x Plasma pistol"]},
+            {"name": "Masters of the Maelstrom", "model_count": 5, "points": 115, "wargear": ["Garreon the Corpsemaster", "Absolvor bolt pistol", "Reductor array", "Garlon Souleater", "Force stave", "Mind Wrench", "Katar Garrix", "Axe of Ending", "Captain Sargotta", "Power sabre", "The Enforcer", "Bionic gauntlet", "Londaxi maimer"]},
+            {"name": "Nemesis Claw", "model_count": 5, "points": 110, "wargear": ["Visionary", "Plasma pistol", "Power fist", "Astartes chainsword", "Meltagun", "Nostraman chainglaive", "Paired accursed weapons", "Voice Eater"]},
+            {"name": "Warp Talons", "model_count": 10, "points": 270, "wargear": ["10x Warp claws"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Joe Loke",
+          "placement": 2,
+          "record": {"wins": 5, "losses": 0, "draws": 0},
+          "faction": "Ultramarines",
+          "detachment": "Gladius Task Force",
+          "warlord": "Roboute Guilliman",
+          "total_points": 2000,
+          "enhancements": [],
+          "units": [
+            {"name": "Cato Sicarius", "model_count": 1, "points": 95, "wargear": ["Artisan plasma pistol", "Talassarian tempest blade"]},
+            {"name": "Lieutenant with Combi-weapon", "model_count": 1, "points": 85, "wargear": ["Combi-weapon", "Paired combat blades"]},
+            {"name": "Roboute Guilliman", "model_count": 1, "points": 340, "wargear": ["Emperor's Sword", "Hand of Dominion"]},
+            {"name": "Uriel Ventris", "model_count": 1, "points": 95, "wargear": ["Bolt Pistol", "Invictus", "Sword of Idaeus"]},
+            {"name": "Intercessor Squad", "model_count": 5, "points": 80, "wargear": ["Astartes grenade launcher", "Bolt rifle", "Power fist"]},
+            {"name": "Repulsor Executioner", "model_count": 1, "points": 230, "wargear": ["Heavy laser destroyer", "Heavy onslaught gatling cannon", "Icarus rocket pod", "Ironhail heavy stubber", "Twin Icarus ironhail heavy stubber", "Twin heavy bolter"]},
+            {"name": "Repulsor Executioner", "model_count": 1, "points": 230, "wargear": ["Heavy laser destroyer", "Heavy onslaught gatling cannon", "Icarus rocket pod", "Ironhail heavy stubber", "Twin Icarus ironhail heavy stubber", "Twin heavy bolter"]},
+            {"name": "Repulsor Executioner", "model_count": 1, "points": 230, "wargear": ["Heavy laser destroyer", "Heavy onslaught gatling cannon", "Icarus rocket pod", "Ironhail heavy stubber", "Twin Icarus ironhail heavy stubber", "Twin heavy bolter"]},
+            {"name": "Scout Squad", "model_count": 5, "points": 70, "wargear": ["Astartes chainsword", "2x Astartes shotgun", "Missile launcher", "Scout sniper rifle"]},
+            {"name": "Victrix Honour Guard", "model_count": 6, "points": 220, "wargear": ["Chapter Ancient", "Banner of Macragge", "Master-crafted power weapon", "Chapter Champion", "Blades of honour", "4x Master-crafted bolt carbine", "4x Master-crafted power weapon"]},
+            {"name": "Victrix Honour Guard", "model_count": 6, "points": 220, "wargear": ["6x Master-crafted bolt carbine", "6x Master-crafted power weapon"]},
+            {"name": "Wardens of Ultramar", "model_count": 6, "points": 105, "wargear": ["Ancient Gadriel", "Veteran Sergeant Metaurus", "Master-crafted power weapon", "Storm Shield", "Gaius Silva", "Archeotech laspistol", "Power weapon", "Refractor Field", "Aemelia Minervas", "Dainal Komelius", "Astropathic Blast", "Force stave", "Lucia Vestha"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Jawad Salah",
+          "placement": 3,
+          "record": null,
+          "faction": "Astra Militarum",
+          "detachment": "Recon Element",
+          "warlord": "Cadian Castellan",
+          "total_points": 2000,
+          "enhancements": [],
+          "units": [
+            {"name": "Cadian Castellan", "model_count": 1, "points": 55, "wargear": ["Plasma pistol", "Power fist"]},
+            {"name": "Cadian Castellan", "model_count": 1, "points": 55, "wargear": ["Plasma pistol", "Power fist"]},
+            {"name": "Cadian Castellan", "model_count": 1, "points": 55, "wargear": ["Plasma pistol", "Power fist"]},
+            {"name": "Cadian Command Squad", "model_count": 5, "points": 65, "wargear": ["Cadian Commander", "Plasma pistol", "Power fist", "2x Plasma gun", "Master Vox", "Medi-pack"]},
+            {"name": "Cadian Command Squad", "model_count": 5, "points": 65, "wargear": ["Cadian Commander", "Plasma pistol", "Power fist", "2x Plasma gun", "Master Vox", "Medi-pack"]},
+            {"name": "Cadian Command Squad", "model_count": 5, "points": 65, "wargear": ["Cadian Commander", "Plasma pistol", "Power fist", "2x Plasma gun", "Master Vox", "Medi-pack"]},
+            {"name": "Commissar", "model_count": 1, "points": 30, "wargear": ["Plasma pistol", "Power weapon"]},
+            {"name": "Gaunt's Ghosts", "model_count": 6, "points": 100, "wargear": ["Ibram Gaunt", "Gaunt's chainsword", "Colm Corbec", "Corbec's hot-shot lascarbine", "Elim Rawne", "Rawne's lascarbine", "Hlaine Larkin", "Larkin's long-las", "Try Again Bragg", "Bragg's autocannon", "Oan Mkoll", "Lascarbine"]},
+            {"name": "Ursula Creed", "model_count": 1, "points": 85, "wargear": ["Duty and Vengeance", "Power weapon"]},
+            {"name": "Cadian Shock Troops", "model_count": 20, "points": 120, "wargear": ["2x Sergeant's autogun", "14x Lasgun", "2x Meltagun", "2x Plasma gun", "2x Vox-caster"]},
+            {"name": "Cadian Shock Troops", "model_count": 20, "points": 120, "wargear": ["2x Sergeant's autogun", "14x Lasgun", "2x Meltagun", "2x Plasma gun", "2x Vox-caster"]},
+            {"name": "Cadian Shock Troops", "model_count": 20, "points": 120, "wargear": ["2x Chainsword", "2x Laspistol", "14x Lasgun", "2x Meltagun", "2x Plasma gun", "2x Vox-caster"]},
+            {"name": "Catachan Jungle Fighters", "model_count": 20, "points": 120, "wargear": ["4x Flamer", "14x Lasgun", "2x Vox-caster"]},
+            {"name": "Catachan Jungle Fighters", "model_count": 10, "points": 65, "wargear": ["2x Flamer", "7x Lasgun", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Death Korps Medi-pack", "7x Lasgun", "Meltagun", "Plasma gun", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Death Korps Medi-pack", "7x Lasgun", "Meltagun", "Plasma gun", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Death Korps Medi-pack", "7x Lasgun", "Meltagun", "Plasma gun", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Death Korps Medi-pack", "7x Lasgun", "Meltagun", "Plasma gun", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Death Korps Medi-pack", "7x Lasgun", "Meltagun", "Plasma gun", "Vox-caster"]},
+            {"name": "Attilan Rough Riders", "model_count": 10, "points": 120, "wargear": ["10x Hunting lance", "10x Lasgun", "10x Laspistol"]},
+            {"name": "Attilan Rough Riders", "model_count": 10, "points": 120, "wargear": ["10x Hunting lance", "10x Lasgun", "10x Laspistol"]},
+            {"name": "Cyclops Demolition Vehicle", "model_count": 1, "points": 25, "wargear": []},
+            {"name": "Kasrkin", "model_count": 10, "points": 110, "wargear": ["Plasma pistol", "Power weapon", "3x Hot-shot lasgun", "Hot-shot laspistol", "Hot-shot marksman rifle", "Melta Mine", "2x Meltagun", "2x Plasma gun", "Vox-caster"]},
+            {"name": "Krieg Combat Engineers", "model_count": 5, "points": 60, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Autopistol", "2x Combat shotgun", "Flamer", "Remote Mine"]},
+            {"name": "Krieg Combat Engineers", "model_count": 5, "points": 60, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Autopistol", "2x Combat shotgun", "Flamer", "Remote Mine"]},
+            {"name": "Krieg Combat Engineers", "model_count": 5, "points": 60, "wargear": ["Watchmaster", "Plasma pistol", "Power weapon", "Autopistol", "2x Combat shotgun", "Flamer", "Remote Mine"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Ashley Thompson",
+          "placement": 4,
+          "record": null,
+          "faction": "T'au Empire",
+          "detachment": "Mont'ka",
+          "warlord": "The Twin Lance",
+          "total_points": 1995,
+          "enhancements": [
+            {"name": "Strategic Conqueror", "attached_to": "Kroot War Shaper", "points": 15}
+          ],
+          "units": [
+            {"name": "Kroot War Shaper", "model_count": 1, "points": 65, "wargear": ["Kroot pistol", "Shaper's blade", "Dart-bow and tri-blade"]},
+            {"name": "The Twin Lance", "model_count": 4, "points": 185, "wargear": ["Ri'Lantar", "Fusion eliminator", "Twin pulse blaster", "Shardstorm burst system", "XV pulse pistol", "MV15 Gun Drone", "Ri'Locai", "Ion scattercannon"]},
+            {"name": "Crisis Starscythe Battlesuits", "model_count": 3, "points": 110, "wargear": ["6x T'au flamer", "3x Battlesuit fists", "Marker Drone", "3x Shield Drone", "2x Gun Drone"]},
+            {"name": "Crisis Starscythe Battlesuits", "model_count": 3, "points": 110, "wargear": ["6x T'au flamer", "3x Battlesuit fists", "Marker Drone", "3x Shield Drone", "2x Gun Drone"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Long-quill", "Kroot pistol", "Kroot rifle", "9x Kroot rifle"]},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Semi-automatic grenade launcher", "2x Drone burst cannon", "Gun Drone", "Shield Drone", "Recon drone", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Semi-automatic grenade launcher", "Gun Drone", "Shield Drone", "Grav-inhibitor drone", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Piranhas", "model_count": 1, "points": 60, "wargear": ["2x Twin pulse carbine", "Piranha fusion blaster", "2x Seeker missile"]},
+            {"name": "Piranhas", "model_count": 1, "points": 60, "wargear": ["2x Twin pulse carbine", "Piranha fusion blaster", "2x Seeker missile"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Riptide fists", "Ion accelerator", "2x Missile pod", "Twin plasma rifle"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Riptide fists", "Ion accelerator", "2x Missile pod", "Twin plasma rifle"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Riptide fists", "Ion accelerator", "2x Missile pod", "Twin plasma rifle"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Stealth Shas'vre", "Pulse pistol", "Fusion blaster", "Homing beacon", "Gun Drone", "3x Burst cannon", "Fusion blaster"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Stealth Shas'vre", "Pulse pistol", "Fusion blaster", "Homing beacon", "Gun Drone", "3x Burst cannon", "Fusion blaster"]},
+            {"name": "Stormsurge", "model_count": 1, "points": 360, "wargear": ["Cluster rocket system", "Destroyer missiles", "Thunderous footfalls", "2x Twin smart missile system", "Pulse blast cannon", "Twin airbursting fragmentation projector"]}
+          ],
+          "per_round_opponents": []
+        }
+      ]
+    },
+    {
+      "event": {
+        "name": "Clash of the Titans x Gash Hammer Gaming 40k GT",
+        "date": "2026-04-10",
+        "size_players": 33,
+        "rounds": 5,
+        "format": "2000 points",
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Daniel Ngai",
+          "placement": 1,
+          "record": null,
+          "faction": "Necrons",
+          "detachment": "Cursed Legion",
+          "warlord": null,
+          "total_points": null,
+          "partial": true,
+          "enhancements": [],
+          "units": [
+            {"name": "C'tan Shard of the Nightbringer", "model_count": 1, "points": 340, "wargear": ["Gaze of death", "Scythe of the Nightbringer"]},
+            {"name": "C'tan Shard of the Void Dragon", "model_count": 1, "points": 330, "wargear": ["Canoptek tail blades", "Spear of the Void Dragon", "Voltaic storm"]},
+            {"name": "Hexmark Destroyer", "model_count": 1, "points": 75, "wargear": ["Enmitic disintegrator pistols"]},
+            {"name": "Illuminor Szeras", "model_count": 1, "points": 165, "wargear": ["Eldritch Lance", "Impaling legs"]}
+          ],
+          "per_round_opponents": [],
+          "_note": "Article text truncated mid-list at Nekrosor Ammentar entry; remainder of Daniel Ngai's list and all subsequent lists/events not captured."
+        }
+      ]
+    }
+  ]
+}

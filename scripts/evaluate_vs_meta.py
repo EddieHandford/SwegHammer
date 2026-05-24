@@ -492,6 +492,14 @@ def main() -> None:
              "built using equation-derived prices instead of GW prices. "
              "Use with --out to produce a hypothetical win-rate snapshot.",
     )
+    p.add_argument(
+        "--swegpoints",
+        action="store_true",
+        help="Build armies using the v1.0 SwegHammer points dataset at "
+             "data/sweg_points_v1.json (regenerate with "
+             "`python3 scripts/bake_swegpoints_v1.py`). Convenience "
+             "wrapper over --equation-prices for the canonical v1 release.",
+    )
     args = p.parse_args()
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
@@ -499,6 +507,15 @@ def main() -> None:
     workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
 
     price_overrides: Optional[Dict[str, float]] = None
+    if args.swegpoints and args.equation_prices:
+        raise SystemExit("Pass either --swegpoints or --equation-prices, not both.")
+    if args.swegpoints:
+        from code.sweg_points import load_sweg_overrides, SWEG_POINTS_V1_PATH
+        price_overrides = load_sweg_overrides()
+        print(
+            f"Using SwegHammer v1 points from {SWEG_POINTS_V1_PATH.name} "
+            f"({len(price_overrides)} units priced).\n"
+        )
     if args.equation_prices:
         import pathlib as _pl
         eq_path = _pl.Path(args.equation_prices)

@@ -1,0 +1,95 @@
+{
+  "source_article": {
+    "title": "Competitive Innovations in 10th: Wind Down",
+    "publication": "Goonhammer",
+    "author": "James \"One_Wing\" Grover",
+    "publication_date": "2026-05-13",
+    "url": null
+  },
+  "events": [
+    {
+      "event": {
+        "name": "The 2026 Central Arkansas Warhammer 40K Grand Tournament",
+        "date": "2026-05-09",
+        "size_players": 44,
+        "rounds": 6,
+        "format": null,
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Hunter Spakes",
+          "placement": 1,
+          "record": null,
+          "faction": "Leagues of Votann",
+          "detachment": "Needgaârd Oathband",
+          "warlord": "Ûthar the Destined",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Oathbound Speculator", "attached_to": "Brôkhyr Iron-master", "points": null}
+          ],
+          "units": [
+            {"name": "Arkanyst Evaluator", "model_count": 1, "points": 65, "wargear": ["Close combat weapon", "Transmatter inverter"]},
+            {"name": "Berehk Stornbröw", "model_count": 1, "points": 95, "wargear": ["Kromlôk's Revenge", "Warforge Gauntlets"]},
+            {"name": "Brôkhyr Iron-master", "model_count": 5, "points": 105, "wargear": ["Graviton hammer", "Graviton rifle", "Las-beam cutter", "Plasma torch", "Manipulator arms", "Autoch-pattern bolt pistol", "2x Close combat weapon"]},
+            {"name": "Buri Aegnirssen", "model_count": 1, "points": 95, "wargear": ["Autoch-pattern bolt pistol", "Bane"]},
+            {"name": "Ûthar the Destined", "model_count": 1, "points": 95, "wargear": ["Blade of the Ancestors", "Rampart Crest", "Volkanite disintegrator"]},
+            {"name": "Kapricus Carrier", "model_count": 1, "points": 75, "wargear": ["Armoured hull", "Magna-coil autocannon", "Smoke Launcher", "Twin magna-coil autocannon"]},
+            {"name": "Brôkhyr Thunderkyn", "model_count": 6, "points": 160, "wargear": ["6x Close combat weapon", "6x Graviton blast cannon"]},
+            {"name": "Brôkhyr Thunderkyn", "model_count": 6, "points": 160, "wargear": ["6x Close combat weapon", "6x SP conversion beamer"]},
+            {"name": "Brôkhyr Thunderkyn", "model_count": 3, "points": 80, "wargear": ["3x Close combat weapon", "3x SP conversion beamer"]},
+            {"name": "Cthonian Beserks", "model_count": 5, "points": 100, "wargear": ["5x Heavy plasma axe"]},
+            {"name": "Hekaton Land Fortress", "model_count": 1, "points": 240, "wargear": ["Armoured wheels", "Heavy magna-rail cannon", "MATR autocannon", "Panspectral Scanner", "2x Twin bolt cannon"]},
+            {"name": "Hekaton Land Fortress", "model_count": 1, "points": 240, "wargear": ["Armoured wheels", "Heavy magna-rail cannon", "MATR autocannon", "Panspectral Scanner", "2x Twin bolt cannon"]},
+            {"name": "Hekaton Land Fortress", "model_count": 1, "points": 240, "wargear": ["Armoured wheels", "MATR autocannon", "Panspectral Scanner", "SP heavy conversion beamer", "2x Twin bolt cannon"]},
+            {"name": "Hernkyn Pioneers", "model_count": 3, "points": 80, "wargear": ["3x Bolt revolver", "3x Bolt shotgun", "HYLas rotary cannon", "3x Magna-coil autocannon", "Panspectral Scanner", "3x Plasma knife", "Rollbar Searchlight"]},
+            {"name": "Hernkyn Pioneers", "model_count": 3, "points": 80, "wargear": ["3x Bolt revolver", "3x Bolt shotgun", "HYLas rotary cannon", "3x Magna-coil autocannon", "Panspectral Scanner", "3x Plasma knife", "Rollbar Searchlight"]},
+            {"name": "Hernkyn Yaegirs", "model_count": 10, "points": 90, "wargear": ["8x Bolt revolver", "10x Close combat weapon", "8x Plasma knife", "APM launcher", "Magna-coil rifle"]}
+          ],
+          "per_round_opponents": []
+        }
+      ]
+    },
+    {
+      "event": {
+        "name": "OWN's Breaking Point GT at Game HQ",
+        "date": "2026-05-09",
+        "size_players": 33,
+        "rounds": 5,
+        "format": null,
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Cam Hawkins",
+          "placement": 1,
+          "record": null,
+          "faction": "Aeldari",
+          "detachment": "Aspect Host",
+          "warlord": "Asurmen",
+          "total_points": 2000,
+          "enhancements": [],
+          "units": [
+            {"name": "Asurmen", "model_count": 1, "points": 135, "wargear": ["Bloody Twins", "Sword of Asur"]},
+            {"name": "Avatar of Khaine", "model_count": 1, "points": 280, "wargear": ["The Wailing Doom"]},
+            {"name": "Lhykhis", "model_count": 1, "points": 135, "wargear": ["Brood Twain", "Spider's Fangs", "Weaverender"]},
+            {"name": "Wave Serpent", "model_count": 1, "points": 125, "wargear": ["Shuriken cannon", "Twin bright lance", "Wraithbone hull"]},
+            {"name": "Dire Avengers", "model_count": 10, "points": 150, "wargear": ["2x Aspect Shrine Token", "11x Avenger shuriken catapult", "10x Close combat weapon"]},
+            {"name": "Fire Prism", "model_count": 1, "points": 150, "wargear": ["Prism cannon", "Shuriken cannon", "Wraithbone hull"]},
+            {"name": "Fire Prism", "model_count": 1, "points": 150, "wargear": ["Prism cannon", "Shuriken cannon", "Wraithbone hull"]},
+            {"name": "Fire Prism", "model_count": 1, "points": 150, "wargear": ["Prism cannon", "Shuriken cannon", "Wraithbone hull"]},
+            {"name": "Rangers", "model_count": 5, "points": 55, "wargear": ["5x Close combat weapon", "5x Long rifle", "5x Shuriken pistol"]},
+            {"name": "War Walkers", "model_count": 1, "points": 85, "wargear": ["Bright lance", "Missile launcher", "War Walker feet"]},
+            {"name": "Warlock Skyrunners", "model_count": 1, "points": 45, "wargear": ["Destructor", "Shuriken pistol", "Singing Spear", "Twin shuriken catapult"]},
+            {"name": "Warlock Skyrunners", "model_count": 1, "points": 45, "wargear": ["Destructor", "Shuriken pistol", "Singing Spear", "Twin shuriken catapult"]},
+            {"name": "Warp Spiders", "model_count": 5, "points": 105, "wargear": ["Aspect Shrine Token", "5x Close combat weapon", "Powerblade array", "4x Death spinner"]},
+            {"name": "Wraithlord", "model_count": 1, "points": 130, "wargear": ["2x Bright lance", "2x Flamer", "Ghostglaive", "Wraithbone fists"]},
+            {"name": "Wraithlord", "model_count": 1, "points": 130, "wargear": ["2x Bright lance", "2x Flamer", "Ghostglaive", "Wraithbone fists"]},
+            {"name": "Wraithlord", "model_count": 1, "points": 130, "wargear": ["2x Bright lance", "2x Flamer", "Ghostglaive", "Wraithbone fists"]}
+          ],
+          "per_round_opponents": []
+        }
+      ]
+    }
+  ]
+}
