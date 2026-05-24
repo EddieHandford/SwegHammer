@@ -182,6 +182,56 @@ DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER: float = 0.75
 DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
 DRUKHARI_FACTION_TAG: str = "Drukhari"
 
+# TYRANIDS-DIAG-6 — monster-mash attacker secondary damper.
+#
+# Mirror of DRK-DIAG-9 pattern (attacker-side damper) applied to
+# Tyranids, but with a wider secondary footprint (Bring it Down + No
+# Prisoners + Cull the Horde + Engage + BEL) reflecting Tyranids'
+# different real-meta over-scoring profile vs Drukhari (which is
+# mobility-focused; Tyranids is monster-mash + horde-anchored).
+#
+# Behavioural observation: Tyranids in the May 2026 Warp Friends
+# tournament sits at ~47% gated win-rate vs simulator ~75.6% (+24.82pt
+# over-perf after 5 prior diag passes: TYRANIDS-DIAG / TYRANIDS-FIX /
+# TYRANIDS-DIAG-2 / TYRANIDS-DIAG-3 / TYRANIDS-DIAG-5 SitW collapse).
+# Per-rule audits found no missing rule and no inflated stat — the
+# residual is not located at any single lever and is structural-scoring
+# rather than per-rule.
+#
+# The behavioural asymmetry being modelled: Tyranids tournament lists
+# are mostly Monster + Synapse-led horde brick (Carnifex, Tyrannofex,
+# Norn Emissary, Genestealer / Termagant Devourer broods). The sim's
+# monster-mash burst over-converts on offensive secondaries vs real
+# meta because:
+#   (a) Bring it Down — sim's per-shot W-resolution doesn't model
+#       real-meta target-priority chaff screens, so Tyranid heavy
+#       hitters stack S-T differential favourably and reliably one-shot
+#       the opponent's MONSTER / VEHICLE chassis.
+#   (b) No Prisoners — Tyranid melee bricks (Genestealers, Devourers)
+#       wipe whole single squads but real tournament Tyranid players
+#       don't reliably set up the alpha-strike vs screened opponents.
+#   (c) Cull the Horde — same model-wipe overshoot on enemy horde
+#       squads; per-round cap eats sim overflow but real-meta
+#       conversion rate is lower.
+#   (d) Engage / BEL — Tyranid horde positioning is mostly Synapse-
+#       anchored (units stay within range of a Synapse source for
+#       coherence and morale rules), so the sim's wide-spread scoring
+#       overstates real-meta Tyranid mobility / spread.
+#
+# TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER scales DOWN Tyranids' own
+# scoring on Bring it Down, No Prisoners, Cull the Horde, Engage on
+# All Fronts, and Behind Enemy Lines. Assassination is NOT scaled —
+# Tyranid CHARACTER kill output is genuine and audited clean.
+#
+# Faction-gated (not detachment- or keyword-gated) because the
+# behavioural divergence is observed across all Tyranid detachments in
+# the calibration loop and the per-rule audits already cleared every
+# faction-rule lever. Marked APPROXIMATION: same citation pattern as
+# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK) and
+# `simulator.secondary_drukhari_mobile_modifier` (DRK-DIAG-9).
+TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER: float = 0.75
+TYRANIDS_FACTION_TAG: str = "Tyranids"
+
 
 @dataclass
 class RoundSnapshot:
@@ -343,6 +393,21 @@ def score_round_delta(
     asymmetry — appropriate, since real-meta Drukhari-vs-Custodes
     still favours the kill-event secondaries relative to a
     Drukhari-vs-horde matchup.
+
+    TYRANIDS-DIAG-6 — when `attacker_faction == "Tyranids"`, Bring it
+    Down, No Prisoners, and Cull the Horde VP scored BY Tyranids are
+    scaled by `TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER` (0.75x).
+    Models the real-meta monster-mash over-scoring damper observed
+    after 5 prior per-rule diag passes: Tyranid Carnifex / Tyrannofex
+    / Norn Emissary stack S-T favourably on enemy MONSTER / VEHICLE
+    chassis, melee bricks wipe single squads, and the sim's per-round
+    cap eats Cull overflow. Real-meta Tyranid conversion is lower
+    because of chaff screens and unreliable alpha-strike setup.
+    Assassination is NOT scaled — CHARACTER kill output is genuine.
+    Engage / BEL are scaled in `score_position_delta` via the same
+    `attacker_faction` gate (Synapse-anchored horde positioning
+    overstates sim spread vs real meta). Cited as
+    `simulator.secondary_tyranids_monster_modifier`.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -393,17 +458,34 @@ def score_round_delta(
         drk_attacker_mult = 1.0
         drk_offensive_mult = 1.0
 
+    # TYRANIDS-DIAG-6 — attacker-side damper on Bring it Down + No
+    # Prisoners + Cull the Horde when the scoring side is Tyranids.
+    # Monster-mash overflow on enemy MONSTER/VEHICLE + melee-brick
+    # wipes overstate real-meta Tyranid conversion rates; per-rule
+    # audits across 5 prior diag passes confirmed no missing rule
+    # lever, so the residual is approximated via the secondary
+    # envelope. Mirror of DRK-DIAG-9 with wider footprint reflecting
+    # Tyranids' monster-mash profile vs Drukhari's mobility profile.
+    if attacker_faction == TYRANIDS_FACTION_TAG:
+        tyr_attacker_mult = TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER
+    else:
+        tyr_attacker_mult = 1.0
+
     bring_it_down_vp = min(
-        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * drk_offensive_mult),
-        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * drk_offensive_mult),
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * drk_offensive_mult * tyr_attacker_mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * drk_offensive_mult * tyr_attacker_mult),
     )
     no_prisoners_vp = min(
-        int(NO_PRISONERS_CAP_PER_ROUND * mult * drk_offensive_mult),
-        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * drk_offensive_mult),
+        int(NO_PRISONERS_CAP_PER_ROUND * mult * drk_offensive_mult * tyr_attacker_mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * drk_offensive_mult * tyr_attacker_mult),
     )
+    # Cull damper is the product of Drukhari (mobility) and Tyranids
+    # (monster-mash) gates — both factions trigger the same direction
+    # on Cull. In practice only one or the other will fire per army.
+    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult
     cull_the_horde_vp = int(min(
-        CULL_THE_HORDE_CAP_PER_ROUND * drk_attacker_mult,
-        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * drk_attacker_mult,
+        CULL_THE_HORDE_CAP_PER_ROUND * cull_combined_mult,
+        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * cull_combined_mult,
     ))
     assassination_vp = min(
         int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult),
@@ -554,4 +636,14 @@ def score_position_delta(
     if attacker_faction == DRUKHARI_FACTION_TAG:
         engage_vp = int(engage_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
         bel_vp = int(bel_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
+    # TYRANIDS-DIAG-6 — attacker-side damper on the mobility tactical
+    # secondaries when the scoring side is Tyranids. Tyranid horde
+    # positioning is mostly Synapse-anchored (units stay within range
+    # of a Synapse source for coherence and morale rules), so the
+    # sim's wide-spread Engage scoring and centroid-based BEL check
+    # overstate real-meta Tyranid mobility / spread. Cited as
+    # `simulator.secondary_tyranids_monster_modifier`.
+    if attacker_faction == TYRANIDS_FACTION_TAG:
+        engage_vp = int(engage_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
     return engage_vp, bel_vp

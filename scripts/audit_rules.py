@@ -434,6 +434,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # passed from `Battle._score_secondaries`. Mirror of the CUSTODES-UNPARK
     # defender-side uplift in the opposite direction on the attacker side.
     "simulator.secondary_drukhari_mobile_modifier",
+    # TYRANIDS-DIAG-6 — monster-mash attacker damper on Pariah Nexus
+    # kill-event + horde-cull + mobility secondaries (Bring it Down,
+    # No Prisoners, Cull the Horde, Engage on All Fronts, Behind Enemy
+    # Lines). Faction-gated to Tyranids. Assassination is excluded
+    # (genuine CHARACTER-kill output, audited clean). Applied in
+    # `secondaries.score_round_delta` and `secondaries.score_position_delta`
+    # via the attacker_faction param passed from `Battle._score_secondaries`.
+    # Mirror of the DRK-DIAG-9 pattern with wider footprint reflecting
+    # Tyranids' monster-mash + horde-anchored profile.
+    "simulator.secondary_tyranids_monster_modifier",
     # LC-2 — Tactical Secondary Mission deck-draw mechanic. Gates
     # Engage / BEL behind a per-round alternating schedule per side
     # so each side scores at most one Tactical per round, matching
