@@ -368,6 +368,14 @@ class UnitProfile:
     # leaders.is_actually_led), (c) attack.strength > defender.toughness.
     # Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Each time an
+    # attack is allocated to this model, halve the Damage characteristic
+    # (rounding up); D1 attacks deal 0 damage. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/. Applied at the
+    # per-shot damage allocation sites in Unit.attack (both the
+    # devastating-wounds bypass path and the failed-save path). Cited as
+    # `UnitProfile.necrodermis`.
+    necrodermis: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag.
     # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
     # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
@@ -2646,8 +2654,18 @@ class Unit:
                             getattr(p, "devastating_wounds_basket_fraction", 1.0) or 1.0
                         )
                     ):
-                        target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
-                        total_damage += per_shot_dmg
+                        # NECRONS-CTAN: Necrodermis halves Damage characteristic
+                        # (rounding up); D1 attacks deal 0. Wahapedia C'tan
+                        # datasheet ability. Cited as `UnitProfile.necrodermis`.
+                        _dw_dmg = per_shot_dmg
+                        if target.profile.necrodermis:
+                            if _dw_dmg <= 1.0:
+                                _dw_dmg = 0.0
+                            else:
+                                _dw_dmg = math.ceil(_dw_dmg / 2.0)
+                            _dw_dmg = max(0.0, _dw_dmg)
+                        target.receive_damage(_dw_dmg, bonus_fnp=tgt_fnp_buff)
+                        total_damage += _dw_dmg
                         continue
 
                     if save_target <= 6:
@@ -2711,8 +2729,18 @@ class Unit:
                                     target.aof_used_this_round = True  # SOROR-DIAG-4
                         if sroll >= save_target:
                             continue   # saved
-                    target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
-                    total_damage += per_shot_dmg
+                    # NECRONS-CTAN: Necrodermis halves Damage characteristic
+                    # (rounding up); D1 attacks deal 0. Wahapedia C'tan
+                    # datasheet ability. Cited as `UnitProfile.necrodermis`.
+                    _alloc_dmg = per_shot_dmg
+                    if target.profile.necrodermis:
+                        if _alloc_dmg <= 1.0:
+                            _alloc_dmg = 0.0
+                        else:
+                            _alloc_dmg = math.ceil(_alloc_dmg / 2.0)
+                        _alloc_dmg = max(0.0, _alloc_dmg)
+                    target.receive_damage(_alloc_dmg, bonus_fnp=tgt_fnp_buff)
+                    total_damage += _alloc_dmg
 
         # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
         if p.hazardous:
@@ -2804,6 +2832,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
             resolute_will=entry.resolute_will,
+            necrodermis=entry.necrodermis,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,

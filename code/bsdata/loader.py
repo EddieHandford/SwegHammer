@@ -113,6 +113,12 @@ class CatalogEntry:
     # does not yet parse this rule out of the cache; the override is the
     # authoritative source). Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
+    # Damage characteristic of each allocated attack (rounding up); D1
+    # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
+    # mapper does not currently extract this datasheet ability). Cited as
+    # `UnitProfile.necrodermis`.
+    necrodermis: bool = False
     # MAP-4 — per-unit Reanimation Protocols eligibility flag. True iff the
     # BSData datasheet carries the "Reanimation Protocols" infoLink AND lacks
     # CHARACTER / MONSTER / VEHICLE keywords (those keywords gate the ability
@@ -231,6 +237,7 @@ class CatalogEntry:
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             resolute_will=bool(d.get("resolute_will", False)),
+            necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
@@ -380,6 +387,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "resolute_will": override.get("resolute_will", base.resolute_will),
+        "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),

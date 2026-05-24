@@ -632,6 +632,22 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: The Silent King has 4++ invulnerable save (Telekinetic Aegis) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#The-Silent-King"
     },
+    "necrons_c_tan_shard_of_the_deceiver": {
+      "necrodermis": true,
+      "notes": "NECRONS-CTAN: Necrodermis halves incoming Damage characteristic rounding up, and reduces D1 attacks to 0. C'tan datasheet ability. Cited as `UnitProfile.necrodermis`. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/"
+    },
+    "necrons_c_tan_shard_of_the_nightbringer": {
+      "necrodermis": true,
+      "notes": "NECRONS-CTAN: Necrodermis halves incoming Damage characteristic rounding up, and reduces D1 attacks to 0. C'tan datasheet ability. Cited as `UnitProfile.necrodermis`. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/"
+    },
+    "necrons_c_tan_shard_of_the_void_dragon": {
+      "necrodermis": true,
+      "notes": "NECRONS-CTAN: Necrodermis halves incoming Damage characteristic rounding up, and reduces D1 attacks to 0. C'tan datasheet ability. Cited as `UnitProfile.necrodermis`. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/"
+    },
+    "necrons_transcendent_c_tan": {
+      "necrodermis": true,
+      "notes": "NECRONS-CTAN: Necrodermis halves incoming Damage characteristic rounding up, and reduces D1 attacks to 0. C'tan datasheet ability. Cited as `UnitProfile.necrodermis`. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/"
+    },
     "death_guard_mortarion": {
       "attacks": 0,
       "weapon_damage_per_shot": 0,
