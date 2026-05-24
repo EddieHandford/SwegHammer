@@ -62,16 +62,14 @@ Headline calibration metric:
 - Measured by `python -m scripts.evaluate_vs_meta` (or
   `--battles 200` for the honest reading).
 
-**Important: real data covers only 10 of 22 factions.**
-Of the 22 factions in the faction matrix, only 10 have authoritative
-Warp Friends tournament win rates. The remaining 12 (`FX_ALL_FACTIONS`
-in `scripts/evaluate_vs_meta.py`, `app.py`, and
-`scripts/fit_equation_calibrated.py`) have no real match data and are
-assigned a 50 % meta-midpoint placeholder. The headline MAE is computed
-over the 10 real-data factions only; the 12 placeholder factions are
-shown in the full table as "no data" and excluded from the bar chart.
-All three files must stay in sync — the constant is duplicated by design
-(no shared import) and a comment marks each copy.
+**All 22 factions now have real Warp Friends tournament data (as of pull
+request 32, 2026-05-23).** `APPROX_FACTIONS` in
+`scripts/evaluate_vs_meta.py` is now empty. The headline mean absolute
+error is still anchored to the original 10-faction subset for historical
+continuity; the all-22 figure is reported alongside it. All 22 faction
+multipliers in the data-driven equation fit are now active (previously
+only 10 were real; the remaining 12 defaulted to a 1.0× no-correction
+multiplier).
 
 ---
 
@@ -346,15 +344,15 @@ real data rather than on simulator outputs.
 
 The model is a Generalized Additive Model: for every unit, each numeric
 feature (Wounds, Toughness, Save, Strength, Damage, Attacks, OC, Move,
-Range, keyword flags, plus utility derivatives like expected damage
-per turn and effective wounds) gets a per-feature transform — linear,
-log, quadratic, cubic, or sqrt. The transformed features sum to predict
-``log(GW points per model)``. The fit produces per-feature coefficients
-plus per-unit residuals. A per-faction multiplier derived from the
-Warp Friends tournament win-rate snapshot then scales the equation
-output per faction. Ten factions have real data and get a real
-multiplier; the twelve ``FX_ALL_FACTIONS`` placeholders ride on the
-stats equation alone.
+Range, keyword flags, interaction terms, plus utility derivatives like
+expected damage per turn and effective wounds) gets a per-feature
+transform — linear, log, quadratic, cubic, or sqrt. The transformed
+features sum to predict ``log(GW points per model)``. The fit produces
+per-feature coefficients plus per-unit residuals. A per-faction
+multiplier derived from the Warp Friends tournament win-rate snapshot
+then scales the equation output per faction. All 22 factions now have
+real win-rate data and receive a non-trivial multiplier (see pull
+request 32, 2026-05-23).
 
 Runtime is seconds, not hours — no simulator involvement. The
 simulator becomes a validator (Stage 2 evaluate-vs-meta sees whether
@@ -394,8 +392,11 @@ body-count bias clears.
   same correction. We have no per-unit tournament data to
   differentiate within a faction.
 - The equation inherits any systematic biases in GW's own pricing.
-- Ten of twenty-two factions get the meta correction; the other
-  twelve ride on pure stats.
+- Super-heavy units (500+ points per model — Titans, Thunderhawks,
+  Forgeworld Legends) have a structural mean absolute error around
+  344 points per model. The stats-only equation cannot price these
+  accurately; they are out-of-scope for the equation's primary use
+  case (competitively-played units in the 15–500 points range).
 - Faction rules, detachments, and leader auras do not appear in the
   regression unless explicitly feature-engineered (a follow-up
   iteration would add boolean features like "has Awakened Dynasty
@@ -463,6 +464,19 @@ run on top of. Retained as a historical record.
 ---
 
 ## Changelog
+
+- **2026-05-23** — Equation fit (Track 4) improvements. Regenerated
+  `data/equation_vs_meta_snapshot.json` with all 22 factions carrying
+  real Warp Friends May 2026 win-rate targets (`APPROX_FACTIONS` now
+  empty), activating faction multipliers for all 22 factions in the
+  Equation Fit tab (previously only 5 of 22 were real; 17 rode a 1.0×
+  no-correction default). Added two interaction features to
+  `code/equation_data_fit.py` and `default_feature_specs()`:
+  `log(toughness × wounds/model)` and `log(total_wounds)`. Together
+  these raise R² from 0.946 to 0.950 and reduce overall price mean
+  absolute error from 23.5 to 21.6 points per model, with vehicle mean
+  absolute error falling from 41.9 to 37.3. A new "Interactions"
+  expander in the Equation Fit tab exposes both features.
 
 - **2026-05-19** — Simulator hot-path performance: three tiers of optimisation
   reduced per-battle wall time from ~117 ms to ~32 ms (73% reduction) on a

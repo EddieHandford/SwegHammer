@@ -2900,6 +2900,7 @@ with tab_equation_fit:
         ("Weapon keywords", ["lethal_hits", "sustained_hits", "twin_linked", "devastating_wounds",
                              "blast", "torrent", "melta", "rapid_fire", "ignores_cover"]),
         ("Deployment",  ["deep_strike", "scout_distance", "infiltrator", "lone_operative", "stealth"]),
+        ("Interactions",    ["toughness_x_wounds", "total_wounds"]),
         ("Utility derived", ["expected_ranged_dmg_vs_meq", "expected_melee_dmg_vs_meq", "effective_wounds"]),
         ("Unit class",  ["is_monster", "is_vehicle", "is_character", "is_fly"]),
     ]
@@ -3137,6 +3138,7 @@ with tab_equation_fit:
         "move", "oc", "min_models", "scout_distance",
         "expected_ranged_dmg_vs_meq", "expected_melee_dmg_vs_meq",
         "effective_wounds",
+        "toughness_x_wounds", "total_wounds",
     ]
     # Keep only features that are actually in the current fit.
     _surface_options = [

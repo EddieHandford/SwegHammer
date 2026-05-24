@@ -43,7 +43,7 @@ units that dominate on both axes — see `THEORY.md` for the Lanchester derivati
 ## Unit Catalogue
 
 The catalogue is derived from BSData's WH40k 10th-edition data files. There are
-~1100 units in `UNIT_CATALOG`, built at import time from:
+~1483 units in `UNIT_CATALOG`, built at import time from:
 
 - `data/bsdata/parsed.json` — base stats produced by `code/bsdata/mapper.py`
   walking each unit's selectionEntry tree. For multi-model squads the mapper
