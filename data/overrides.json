@@ -971,6 +971,18 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Canoness with Jump Pack has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness-with-Jump-Pack"
     },
+    "adepta_sororitas_castigator": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_twin_linked": false,
+      "secondary_rapid_fire": 0,
+      "notes": "SOROR-STAT-AUDIT: Castigator's two main guns — Castigator battle cannon and Castigator autocannons — are MUTUALLY EXCLUSIVE wargear options per Wahapedia datasheet. The BSData 'Main gun' selectionEntryGroup wraps both as max=1 children with a defaultSelectionEntryId on the autocannons, meaning the model picks exactly one. Wahapedia (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator) states the wargear options as: 'A Castigator is equipped with: 3 heavy bolters; Castigator battle cannon; armoured tracks. The Castigator battle cannon can be replaced with Castigator autocannons.' One main gun, not both. The mapper packed battle cannon into the primary slot (A=D6+3 avg 6, S10 AP-1 D3, Blast/Ignores Cover) and autocannons into the secondary slot (A=4 with Rapid Fire 4 i.e. 8 in range, S9 AP-1 D3, Twin-Linked) so the simulator was firing BOTH every Shooting phase, ~24 extra wound output per round on top of the 3 heavy bolters + storm bolter + hunter-killer in extra_ranged_profiles. Cleared the secondary slot to leave only the battle cannon firing alongside the always-carried wargear in extras. Castigator is in the Sororitas archetype list so this lands directly on the Sororitas eval signal. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Castigator"
+    },
     "adepta_sororitas_hospitaller": {
       "fnp": 7,
       "notes": "SORORITAS-MORTIFIER-FNP: BSData attaches a top-level Feel No Pain 5+ infoLink to the Hospitaller unit. The real 10e datasheet ability 'Medicus Ministorum' grants Feel No Pain 5+ to the unit she is leading, NOT to the Hospitaller herself: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is the same prose-walk leak as the SC5-10 Tyranid sweep — the BSData mapper's extract_fnp pulls 'Feel No Pain 5+' text from Hospitaller's leader ability into the base unit profile. Reset to 7 (no static Feel No Pain) so the Hospitaller herself does not benefit. The leader-granted FNP to the bodyguard unit is the responsibility of code/leaders.py if not already there. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Hospitaller"
