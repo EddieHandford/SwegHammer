@@ -1351,7 +1351,8 @@
     },
     "dark_angels_azrael": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Azrael has 4++ invulnerable save (Lion Helm aura granting 4++ to himself and his unit) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Azrael"
+      "notes": "iter22 invuln long-tail sweep: Azrael has 4++ invulnerable save (Lion Helm aura granting 4++ to himself and his unit) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Azrael || MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 4+ from Azrael's 'Lion Helm' relic Description: 'Once per battle, in any phase, the bearer can summon a Watcher in the Dark. When it does, until the end of the phase, models in the bearer's unit have the Feel No Pain 4+ ability against mortal wounds.' This is once-per-battle, phase-scoped, mortal-wound-only, and applies to the led unit (not Azrael himself unless leading). Simulator has no once-per-battle / mortal-wound gating for static Feel No Pain - applying fnp=4 unconditionally gives Azrael permanent 4+ Feel No Pain against ALL damage. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Azrael ; data/bsdata/cache/Imperium - Dark Angels.cat.gz Lion Helm Description.",
+      "fnp": 7
     },
     "dark_angels_belial": {
       "invuln_save": 4,
@@ -1359,7 +1360,8 @@
     },
     "dark_angels_lion_el_jonson": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Lion El'Jonson (Primarch) has 4++ invulnerable save (The Emperor's Shield) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Lion-El-Jonson"
+      "notes": "iter22 invuln long-tail sweep: Lion El'Jonson (Primarch) has 4++ invulnerable save (The Emperor's Shield) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Lion-El-Jonson || MAPPER-FNP-SWEEP: Lion El'Jonson has no canonical 'Feel No Pain' infoLink in BSData. parsed.json fnp=4 likely comes from a prose-walk reaching 'Lion Helm' Warlord trait (same once-per-battle Watcher-in-the-Dark trigger as Azrael) and/or 'Mighty Champions' wargear entryLink. The Lion's actual datasheet does not grant him an unconditional static Feel No Pain (per Wahapedia: he has Deep Strike + Lethal/Sustained + Fights First, no static FNP). Reset to 7 to avoid the prose-walk over-buff. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Lion-ElJonson .",
+      "fnp": 7
     },
     "space_marines_captain_in_terminator_armour": {
       "invuln_save": 4,
@@ -2170,7 +2172,8 @@
     },
     "space_marines_librarian_in_phobos_armour": {
       "stealth": true,
-      "notes": "SK-1: Librarian in Phobos Armour wears Mk X Phobos Armour and carries the Stealth core unit-keyword on his 10e datasheet. Same BSData omission pattern as Lieutenant in Phobos Armour (Phobos profile inlined without a Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Librarian-in-Phobos-Armour ; see space_marines_infiltrator_squad notes for full reasoning."
+      "notes": "SK-1: Librarian in Phobos Armour wears Mk X Phobos Armour and carries the Stealth core unit-keyword on his 10e datasheet. Same BSData omission pattern as Lieutenant in Phobos Armour (Phobos profile inlined without a Stealth infoLink on the entry). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Librarian-in-Phobos-Armour ; see space_marines_infiltrator_squad notes for full reasoning. || MAPPER-FNP-SWEEP: Same Psychic Hood prose-walk leak as space_marines_librarian - no canonical Feel No Pain infoLink, the fnp=4 is pulled from the Psychic Hood aura description ('While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks.'). The aura is psychic-only and applies to the led unit, not the Librarian. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Librarian-in-Phobos-Armour .",
+      "fnp": 7
     },
     "adeptus_mechanicus_pteraxii_skystalkers": {
       "stealth": true,
@@ -2760,6 +2763,70 @@
         }
       ],
       "notes": "MUTEX-SWEEP: BSData merges Hellhound + Bane Wolf + Devil Dog into one entry; in 10e these are three SEPARATE datasheets with mutually exclusive main guns. Mapper packed Chem cannon (Bane Wolf) into primary, Inferno cannon (Hellhound) into secondary, Multi-melta and Melta cannon (Devil Dog) into extras, so the simulator was firing four chassis-mutex main guns simultaneously. Picked Inferno cannon (the canonical Hellhound chassis the override key resolves to), cleared secondary, rebuilt extras with the always-carried Heavy bolter sponson and Hunter-killer missile. Bane Wolf and Devil Dog should have their own override keys eventually; this entry now represents Hellhound proper. Source: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Hellhound"
+    },
+    "adepta_sororitas_triumph_of_saint_katherine": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 6+ from the Triumph's 'Icon of the Valorous Heart (Aura)' Description text: 'While a friendly Adepta Sororitas unit is within 6\" of this model, models in that unit have the Feel No Pain 6+ ability.' This is an aura granted to OTHER friendly units within 6 inches, NOT a static Feel No Pain on the Triumph itself. Same prose-walk pattern as SC5-10 / SORORITAS-MORTIFIER-FNP. Reset to 7 (no static Feel No Pain). Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Triumph-of-Saint-Katherine ; BSData cache Imperium - Adepta Sororitas.cat.gz Icon of the Valorous Heart (Aura) Description."
+    },
+    "dark_angels_ezekiel": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData has no canonical 'Feel No Pain' infoLink on Ezekiel. parsed.json fnp=4 comes from the prose-walk following his 'Psychic Hood' infoLink - the shared Psychic Hood ability profile reads: 'While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks.' This is an aura granted to the led unit, against psychic attacks only - not static Feel No Pain for Ezekiel himself. Same SC5-10 prose-walk pattern. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Ezekiel ; Psychic Hood ability text in BSData shared rules."
+    },
+    "dark_angels_lazarus": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 3+ from Lazarus's 'Spiritshield Helm' Description: 'This model has the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.' Same conditional-FNP leak pattern as SC5-8 (Drukhari Power From Pain), SOROR-DIAG-6 (Insidiants psychic/MW-only). Simulator has no psychic/MW gating for static Feel No Pain - applying fnp=3 statically gives Lazarus 3+ Feel No Pain against ALL damage. Reset to 7. The conditional psychic/MW FNP 3+ could in principle be modelled via a `psychic_fnp` field but is not yet implemented. Source: https://wahapedia.ru/wh40k10ed/factions/dark-angels/#Lazarus ; Spiritshield Helm ability text."
+    },
+    "space_marines_chaplain_in_terminator_armour": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 4+ from the Chaplain in Terminator Armour's 'Recitation of Faith' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against mortal wounds.' This is an aura granted to the led unit (not the Chaplain), and is mortal-wound-only. Same prose-walk pattern as ADMECH-DIAG / SORORITAS-MORTIFIER-FNP. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Chaplain-in-Terminator-Armour ; Recitation of Faith ability text."
+    },
+    "space_marines_librarian": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData has no canonical 'Feel No Pain' infoLink on the SM Librarian. parsed.json fnp=4 comes from the prose-walk following the 'Psychic Hood' infoLink to the shared ability profile: 'While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks.' This is an aura granted to the led unit, psychic-only - not static FNP for the Librarian himself. Same prose-walk leak class as SC5-10 / SOROR-DIAG-6. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Librarian ; Psychic Hood ability in BSData shared rules."
+    },
+    "space_marines_librarian_in_terminator_armour": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: Same Psychic Hood prose-walk leak as space_marines_librarian - no canonical Feel No Pain infoLink, the fnp=4 is pulled from the Psychic Hood aura description (led-unit, psychic-only). Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Librarian-in-Terminator-Armour ."
+    },
+    "space_marines_ancient": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 4+ from the Ancient's 'Unbreakable Duty' ability: 'While this model is within range of an objective marker and/or within 6\" of the centre of the battlefield, this model has the Feel No Pain 4+ ability.' This is positional (only fires on/near objective markers or board centre), not a static stat. Simulator has no positional gating for static FNP. Reset to 7 - the conditional FNP could in principle be wired via an `objective_fnp` field but is not yet implemented. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Ancient ."
+    },
+    "ultramarines_chief_librarian_tigurius": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 4+ from Tigurius's 'Hood of Hellfire' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks and mortal wounds.' This is an aura granted to the led unit (not Tigurius), and psychic/MW-only. Same conditional-FNP-aura leak class as SC5-10 / SORORITAS-MORTIFIER-FNP / ADMECH-DIAG / SOROR-DIAG-6. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/ultramarines/#Chief-Librarian-Tigurius ."
+    },
+    "ultramarines_marneus_calgar": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 4+ from Calgar's 'Honour Guard of Macragge' ability: 'While this unit contains one or more Victrix Honour Guard models, this unit's Marneus Calgar model has the Feel No Pain 4+ ability.' This is conditional on Victrix Honour Guard bodyguards being attached and alive - the simulator does not track Calgar's bodyguard composition. Applying fnp=4 statically gives Calgar permanent FNP whether or not Victrix are attached. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/ultramarines/#Marneus-Calgar ."
+    },
+    "blood_angels_sanguinary_priest": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 5+ from the Sanguinary Priest's namesake ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is an aura granted to the bodyguard unit, NOT a static FNP for the Priest himself. Same prose-walk pattern as ADMECH-DIAG (Tech-Priest Dominus / Enginseer) and SORORITAS-MORTIFIER-FNP (Hospitaller). Reset to 7. The led-unit grant should be wired via code/leaders.py with the appropriate host_keys - deferred here. Source: https://wahapedia.ru/wh40k10ed/factions/blood-angels/#Sanguinary-Priest ."
+    },
+    "iron_hands_iron_father_feirros": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 5+ from Feirros's 'Rites of Tempering' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is an aura granted to the led unit, NOT a static FNP for Feirros himself. Same prose-walk pattern as ADMECH-DIAG / SORORITAS-MORTIFIER-FNP / blood_angels_sanguinary_priest in this commit. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/iron-hands/#Iron-Father-Feirros ."
+    },
+    "astra_militarum_primaris_psyker": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 4+ from the Primaris Psyker's 'Malign Wardings (Psychic)' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against Psychic Attacks.' This is an aura granted to the led unit, psychic-only - not a static FNP for the Psyker himself. Same conditional-aura prose-walk pattern as SC5-10 / SORORITAS-MORTIFIER-FNP / SOROR-DIAG-6 / ADMECH-DIAG. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/#Primaris-Psyker ; BSData cache Imperium - Astra Militarum - Library.cat.gz Malign Wardings Description."
+    },
+    "t_au_empire_ethereal": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 5+ from the Ethereal's 'Failure Is Not an Option' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is an aura granted to the led unit (the Fire Warrior squad / Pathfinders the Ethereal is attached to), NOT a static FNP for the Ethereal himself. Same prose-walk pattern as ADMECH-DIAG / SORORITAS-MORTIFIER-FNP. Reset to 7 - the Ethereal is a fragile T3 W3 4+/4++ support character at ~50pts; static fnp=5 gave him ~1.5x effective durability on top of his invuln. Source: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Ethereal ; BSData cache T'au Empire.cat.gz Failure Is Not an Option Description."
+    },
+    "orks_painboy": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 5+ from the Painboy's 'Dok's Toolz' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is an aura granted to the led unit, NOT a static FNP for the Painboy himself. Note: the Painboss datasheet (orks_painboss) has BOTH this aura AND a canonical Feel No Pain 5+ infoLink (he's a Beast Snagga character with intrinsic FNP), so his static fnp=5 is correct. The Painboy has ONLY the aura - fnp=5 in parsed.json is the prose-walk false positive. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/orks/#Painboy ; BSData cache Orks.cat.gz Dok's Toolz Description vs Painboss canonical FNP infoLink."
+    },
+    "agents_of_the_imperium_culexus_assassin": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 2+ from the Culexus Assassin's 'Abomination' ability: 'This model has the Feel No Pain 2+ ability against Psychic Attacks.' This is psychic-only - not a static FNP. Same conditional-FNP leak class as SOROR-DIAG-6 (Insidiants psychic/MW-only) and dark_angels_lazarus in this commit. Simulator has no psychic gate on static FNP, so fnp=2 was giving the Culexus a near-immortal 2+ Feel No Pain against ALL damage (a single T4 W4 model effectively gaining ~6x durability). Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-agents/#Culexus-Assassin ; BSData cache Imperium - Agents of the Imperium.cat.gz Abomination Description."
+    },
+    "leagues_of_votann_grimnyr": {
+      "fnp": 7,
+      "notes": "MAPPER-FNP-SWEEP: BSData prose-walk leaks Feel No Pain 5+ from the Grimnyr's 'Fortify (Psychic)' ability: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.' This is an aura granted to the led unit (typically Hearthkyn Warriors), NOT a static FNP for the Grimnyr himself. Same prose-walk pattern as ADMECH-DIAG / SORORITAS-MORTIFIER-FNP / iron_hands_iron_father_feirros in this commit. Reset to 7. Source: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Grimnyr ; BSData cache Leagues of Votann.cat.gz Fortify Description."
     }
   }
 }
