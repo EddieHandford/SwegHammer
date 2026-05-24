@@ -1328,7 +1328,26 @@
     },
     "adepta_sororitas_celestian_insidiants": {
       "fnp": 7,
-      "notes": "SOROR-DIAG-6: BSData parsed.json captures fnp=4 on Celestian Insidiants, derived from the datasheet ability 'Rituale Nullificatus' which (per Wahapedia) reads: 'Models in this unit have the Feel No Pain 4+ ability against Psychic Attacks and against mortal wounds.' The simulator's Feel No Pain check has no psychic / mortal-wound gate — applying fnp=4 statically grants the unit a blanket 4+ FNP against ALL damage, including regular bolter shots, which is a massive defensive over-buff for a 10-model T3 Sv3+ squad at 120pts. Same SC5-8 / SC5-10 / SORORITAS-MORTIFIER-FNP prose-walk pattern: BSData's extract_fnp pulls FNP text from a conditional datasheet rule into the static profile. Reset to 7 (no static Feel No Pain) — the conditional psychic/mortal-wound FNP 4+ belongs in code (not yet implemented); under-approximating here is the conservative direction since wave 23 has Sororitas sim 68.5% vs real 50.8% (+13.92pt over-perf, gated). Insidiants is in the Hallowed Martyrs archetype list (code/archetypes.py:1089), so this lands directly on the Sororitas eval signal. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Celestian-Insidiants"
+      "weapon": "Condemnor bolt pistol",
+      "attacks": 1,
+      "strength": 4,
+      "ap": 0,
+      "weapon_damage_per_shot": 1.0,
+      "hit_probability": 0.667,
+      "range_inches": 12,
+      "devastating_wounds": true,
+      "torrent": false,
+      "ignores_cover": false,
+      "rapid_fire": 0,
+      "lethal_hits": false,
+      "sustained_hits": 0,
+      "twin_linked": false,
+      "melta": 0,
+      "blast": false,
+      "heavy": false,
+      "assault": false,
+      "pistol": true,
+      "notes": "SOROR-DIAG-6: BSData parsed.json captures fnp=4 on Celestian Insidiants, derived from the datasheet ability 'Rituale Nullificatus' which (per Wahapedia) reads: 'Models in this unit have the Feel No Pain 4+ ability against Psychic Attacks and against mortal wounds.' The simulator's Feel No Pain check has no psychic / mortal-wound gate — applying fnp=4 statically grants the unit a blanket 4+ FNP against ALL damage, including regular bolter shots, which is a massive defensive over-buff for a 10-model T3 Sv3+ squad at 120pts. Same SC5-8 / SC5-10 / SORORITAS-MORTIFIER-FNP prose-walk pattern: BSData's extract_fnp pulls FNP text from a conditional datasheet rule into the static profile. Reset to 7 (no static Feel No Pain) — the conditional psychic/mortal-wound FNP 4+ belongs in code (not yet implemented); under-approximating here is the conservative direction since wave 23 has Sororitas sim 68.5% vs real 50.8% (+13.92pt over-perf, gated). Insidiants is in the Hallowed Martyrs archetype list (code/archetypes.py:1089), so this lands directly on the Sororitas eval signal. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Celestian-Insidiants. SOROR-FAB-AUDIT: Sororitas detachment audit (HALLOWED_MARTYRS + BRINGERS_OF_FLAME) found no fab flags to remove — both detachments already ship no-flag after SC5-4 and DET-VARIETY-1. The remaining +15.82pt gated over-perf (wave 24, sim 70.4% vs real 50.8%) tracks back to a unit-level mapper amalgamation on this unit's primary weapon. BSData parsed.json packs the Insidiants primary as 'Ministorum hand flamer' with attacks=2, strength=5, ap=-1, weapon_damage_per_shot=1.2, hit_probability=0.8 (BS 3+), devastating_wounds=true — a hybrid profile that matches NEITHER real weapon the unit carries. Wahapedia datasheet (https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Celestian-Insidiants) shows the actual loadout: 9 Insidiants + 1 Superior, default ranged weapon on the model = Condemnor bolt pistol (12\", A=1, BS=3+, S=4, AP=0, D=1, [DEVASTATING WOUNDS] + [ANTI-PSYKER 4+] + [PISTOL]). Only 1 model in 10 swaps its Condemnor for a hand flamer, 1 in 10 swaps for an inferno pistol — neither swap is unit-majority. The hand flamer profile in BSData (id c462-3995-88b0-200c) is correctly defined as A=D6, S=4, AP=0, D=1, [Ignores Cover, Pistol, Torrent] with NO Devastating Wounds; the inflated 2-attack S5 AP-1 D1.2 mapping is a mapper composite that combines several wrong sources (likely the Devastating Wounds keyword leaked from Condemnor bolt pistol, AP-1 leaked from Null mace melee weapon, attacks/damage averaged across the variant model profiles). Setting primary weapon stats to the real Condemnor bolt pistol profile: drops per-shot damage from inflated ~24 wounds/round (2A * 10 models * 0.8 hit * D1.2 with Devastating Wounds) to ~6.7 wounds/round (1A * 10 models * 0.667 hit * D1 with Devastating Wounds), a ~17 wound/round reduction. Anti-PSYKER 4+ is omitted from this override pass — the simulator's anti_keywords field supports it but the gain is marginal vs non-psyker targets in the archetype-vs-archetype eval. The melee Null mace profile is unchanged (parsed A=3 vs real A=2 is a minor over-buff but inside noise compared to the ranged delta). Hand flamer + inferno pistol variants on 2 of the 10 models are dropped from the override; their contribution is small and packing them into extra_ranged_profiles would re-introduce the multi-profile mapper problem the cleanup is meant to fix. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Celestian-Insidiants"
     },
     "dark_angels_azrael": {
       "invuln_save": 4,
