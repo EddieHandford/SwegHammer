@@ -5891,8 +5891,21 @@ class Battle:
         # screen / synapse / oath chain. Empty transports get 1.8x; loaded
         # transports get 2.2x (priority dial-up when killing the chassis
         # also disrupts the passengers).
+        # DRK-DIAG-11 — Drukhari fragile FLY VEHICLE target priority
+        # (defender-faction-gated, keyword-gated, defensive-stat-gated):
+        # real-meta opponents shoot Ravagers / Voidravens / Razorwings on
+        # round 1 because their alpha-strike damage scales linearly with
+        # rounds alive but they die to focused fire (no invuln / no Feel
+        # No Pain). The bonus only fires on Drukhari FLY VEHICLEs with
+        # no defensive layers; Talos / Cronos (MONSTER, FNP 5+) and
+        # non-Drukhari FLY VEHICLEs (Wave Serpent 5++, Caladius 5++)
+        # are excluded. 1.5x multiplier stacks with the transport bonus
+        # for loaded Raiders / Venoms (1.5 * 2.2 = 3.3x), and stands
+        # alone at 1.5x for Ravager / Voidraven / Razorwing (which are
+        # not transports).
         from .strategy import (
             _astartes_oath_target_bonus,
+            _drukhari_fragile_flyer_bonus,
             _screen_target_bonus,
             _synapse_target_bonus,
             _transport_target_bonus,
@@ -5904,6 +5917,7 @@ class Battle:
                 * _synapse_target_bonus(attacker, u)
                 * _astartes_oath_target_bonus(attacker, u, attacker_army)
                 * _transport_target_bonus(u)
+                * _drukhari_fragile_flyer_bonus(u)
             ),
         )
 

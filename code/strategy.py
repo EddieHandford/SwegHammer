@@ -817,6 +817,108 @@ def _transport_target_bonus(defender) -> float:
 
 
 # ---------------------------------------------------------------------------
+# DRK-DIAG-11 — Drukhari fragile flyer / gun-skimmer shooting target priority
+# ---------------------------------------------------------------------------
+# Real tournament opponents facing a Drukhari list prioritise the army's
+# fragile high-output gun-skimmers and flyers BEFORE wading into the
+# infantry, alongside the AI-8 transport priority that already biases
+# toward Raiders / Venoms. The targets in question are:
+#
+#   Ravager           — three lances or disintegrators on a T9 W11 sv4+
+#                       chassis with no invuln / no Feel No Pain
+#   Voidraven Bomber  — Void mine + two void lances on T9 W12 sv4+, no
+#                       invuln / no Feel No Pain
+#   Razorwing Jetfighter — twin lances + missile rack on T8 W10 sv4+, no
+#                          invuln / no Feel No Pain
+#   Reaper / Raven Strike Fighter (Legends) — equivalent profiles
+#
+# These chassis pump out alpha-strike damage that scales linearly with
+# rounds alive but die in a single focused-fire round to most mid-tier
+# anti-tank weaponry (no invuln to soak Lascannons, no Feel No Pain
+# 6+/5+ to chip wounds). Real-meta opponents always shoot them in the
+# first opportunity — letting a Ravager live to round 2 costs ~6
+# damage-per-shot more than killing it on round 1. The simulator's
+# default current_health-min picker chews through tougher TRANSPORT
+# targets first (Tantalus T10 W18) when the right play is to remove the
+# fragile high-damage chassis.
+#
+# DRK-DIAG-9 (mobility VP damper) and DRK-DIAG-10 (offensive VP damper)
+# attacked the residual at the secondary-scoring envelope. DRK-DIAG-5
+# fixed dual-firing on Raider / Ravager / Razorwing. DRK-DIAG-7 audited
+# Combat Drugs clean. The remaining lever per the DRK-DIAG-7 carry-
+# forward note in docs/AUTO_LOOP_LOG.md is "AI target-priority bias
+# toward fast skimmers" — this commit lands that lever.
+#
+# Gate (defender-keyword-gated, faction-gated, no attacker gate):
+#   - defender.profile.faction == "Drukhari"
+#   - defender has BOTH VEHICLE AND FLY keywords (catches the skimmer /
+#     flyer subset, excludes Talos / Cronos MONSTERs and the foot
+#     infantry)
+#   - defender has no invulnerable save (invuln_save >= 7) AND no Feel
+#     No Pain (fnp >= 7). This is what makes them FRAGILE — Knights /
+#     Custodes Caladius Grav-tanks are also FLY VEHICLE but carry 5++
+#     and FNP layers that change the calculus.
+#
+# Effect: 1.5x target-priority multiplier. Smaller than the
+# TRANSPORT_TARGET_BONUS (1.8x empty / 2.2x loaded) because Raiders /
+# Venoms which ARE transports get the higher bonus first via
+# _transport_target_bonus, and this bonus stacks on top for the loaded
+# Raider case (which is exactly the alpha-strike-disrupt case we want
+# to reinforce). For Ravagers / Voidravens (NON-transport flyers), this
+# is the only bonus, and 1.5x is enough to overtake the default
+# current_health-min pick against a tougher non-skimmer alternative
+# without overshooting into "always shoot the Ravager regardless".
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# and has no rule_citations entry. The "rule" is the universal
+# tournament play-pattern of bracketing the alpha-strike chassis on
+# round 1, not any codex text.
+_DRUKHARI_FRAGILE_FLYER_BONUS: float = 1.5
+
+
+def _drukhari_fragile_flyer_bonus(defender) -> float:
+    """Return a target-priority multiplier when `defender` is a fragile
+    Drukhari FLY VEHICLE (Ravager, Voidraven, Razorwing, etc.).
+
+    Defender-faction-gated AND keyword-gated AND defensive-stat-gated so
+    the bonus never lights up on a Custodes Caladius (FLY VEHICLE + 5++)
+    or an Aeldari Wave Serpent (FLY VEHICLE + 5++) — only on the
+    no-invuln / no-FNP Drukhari subset. Faction-neutral on the attacker
+    side: every opposing army benefits from clearing the alpha-strike
+    chassis before they bleed wounds across multiple rounds.
+
+    - 1.5x when defender meets ALL gates.
+    - 1.0x otherwise.
+
+    Stacks multiplicatively with the existing screen / synapse / oath /
+    transport chain; for loaded Raiders / Venoms the cumulative bonus
+    is 1.5 * 2.2 = 3.3x, which is the right priority order (the loaded
+    transport-flyer is the highest-value target on the board for a
+    non-Drukhari shooter).
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return 1.0
+    if (profile.faction or "") != "Drukhari":
+        return 1.0
+    keywords = getattr(profile, "unit_keywords", ()) or ()
+    if "VEHICLE" not in keywords or "FLY" not in keywords:
+        return 1.0
+    # Fragile gate: no invuln save (invuln_save >= 7 means "no invuln")
+    # AND no Feel No Pain (fnp >= 7 means "no FNP"). Excludes any
+    # Drukhari FLY VEHICLE that might carry defensive layers via
+    # override / leader buff / detachment — though no such unit
+    # currently exists in the catalogue, future-proofing the gate
+    # keeps the bonus tightly scoped to the alpha-strike chassis
+    # described in the rationale block.
+    invuln = getattr(profile, "invuln_save", 7) or 7
+    fnp = getattr(profile, "fnp", 7) or 7
+    if invuln <= 6 or fnp <= 6:
+        return 1.0
+    return _DRUKHARI_FRAGILE_FLYER_BONUS
+
+
+# ---------------------------------------------------------------------------
 # AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
 # ---------------------------------------------------------------------------
 # Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)
