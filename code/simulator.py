@@ -6656,10 +6656,20 @@ class Battle:
         """Force-disembark every passenger when a TRANSPORT is destroyed (10e).
 
         For each model in the disembarking unit, roll 1D6; on a 1 that model
-        is destroyed. SwegHammer models units as one Unit instance per model,
-        so a single D6 is rolled per passenger Unit; on a 1 the passenger's
-        current_health is zeroed and a UnitKilled event is emitted. Cited as
+        is destroyed. SwegHammer's Unit instance represents a whole squad
+        whose `current_health` is the pooled wound count across surviving
+        models, so we need one D6 per live model — not one per Unit. Models
+        alive = `current_health / wounds_per_model`, where wounds_per_model
+        = `profile.health / profile.min_models`. Each model destroyed reduces
+        `current_health` by `wounds_per_model`. Cited as
         `simulator.destroyed_transport`.
+
+        Prior behaviour (DRK-AI carry-forward bug, fixed by DRK-FINAL-2):
+        rolled a single D6 per Unit and zeroed the whole squad on a 1. For a
+        10-Kabalite squad that's ~16% chance of total wipe instead of the
+        correct ~84% chance of losing 1-3 models in expectation. Under-
+        modelled the cost of Venom/Raider destruction in proportion to
+        squad size.
 
         We snapshot the passenger list because `_disembark` mutates it as it
         runs.
@@ -6669,11 +6679,27 @@ class Battle:
         survivors = list(transport.passengers)
         for passenger in survivors:
             self._disembark(passenger, transport, forced=True)
-            # Per-model D6: on a 1, the model is destroyed.
-            if random.randint(1, 6) == 1:
-                passenger.current_health = 0.0
-                if not passenger.is_alive:
-                    self._emit(UnitKilled(unit_uid=passenger.uid))
+            # Per-model D6: roll one die per surviving model and destroy
+            # that model on a 1. SwegHammer abstracts a multi-model squad
+            # as a single Unit with pooled wounds, so we compute model
+            # count from `current_health / wounds_per_model` and subtract
+            # `wounds_per_model` from `current_health` for each 1 rolled.
+            min_models = max(1, getattr(passenger.profile, "min_models", 1) or 1)
+            wounds_per_model = passenger.profile.health / min_models
+            if wounds_per_model <= 0:
+                continue
+            models_alive = max(
+                1, int(passenger.current_health / wounds_per_model + 1e-9)
+            )
+            kills = sum(
+                1 for _ in range(models_alive) if random.randint(1, 6) == 1
+            )
+            if kills <= 0:
+                continue
+            damage = kills * wounds_per_model
+            passenger.current_health = max(0.0, passenger.current_health - damage)
+            if not passenger.is_alive:
+                self._emit(UnitKilled(unit_uid=passenger.uid))
 
     def _maybe_disembark_before_move(
         self, transport: "Unit", army: Army, opponent: Army,
