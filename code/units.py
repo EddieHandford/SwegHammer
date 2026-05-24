@@ -2093,13 +2093,26 @@ class Unit:
             # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL
             # HITS] ability."
             # APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the
-            # codex's REGIMENT / SQUADRON keywords, so we map REGIMENT →
-            # attacker has INFANTRY (and not VEHICLE/MONSTER), SQUADRON →
-            # attacker has VEHICLE. This captures the codex split: AM infantry
-            # squads (Cadians, Krieg, Scions, Ogryns) trigger the anti-troop
-            # leg; AM vehicle squadrons (Leman Russ, Rogal Dorn, Sentinels)
-            # trigger the anti-armour leg. Composes with profile.lethal_hits
-            # via OR (one re-roll branch in the loop, no double-fire).
+            # codex's REGIMENT / SQUADRON keywords. AM-DIAG-2 (2026-05-24)
+            # narrowed the REGIMENT proxy from INFANTRY → BATTLELINE after
+            # the INFANTRY mapping was found to massively over-grant LETHAL
+            # HITS: it pulled in 40+ non-REGIMENT AM INFANTRY units
+            # (Tempestus Scions, Kasrkin, Tempestus Aquilons, Ratlings,
+            # Ogryns, Bullgryns, all Commissars / Commissar Yarrick /
+            # Commissar Graves on Foot, Tech-Priest Enginseer, Primaris
+            # Psyker, Sly Marbo, Ursula Creed, Cadian Castellan, Lord Solar
+            # Leontus, Krieg/Cadian/Catachan/Tempestus Command Squads,
+            # Inquisition agents, Heavy Weapons Squads, etc.) — none of
+            # which carry the codex REGIMENT keyword. The BATTLELINE proxy
+            # catches the three core REGIMENT troop choices that the rule
+            # was clearly written for (Cadian Shock Troops, Catachan Jungle
+            # Fighters, Death Korps of Krieg). Trade-off: this also
+            # under-covers a handful of non-BATTLELINE REGIMENT squads
+            # (Heavy Weapons Squads, Command Squads), which is the much
+            # smaller error vs the over-firing the INFANTRY proxy caused.
+            # SQUADRON → attacker has VEHICLE is unchanged.
+            # Composes with profile.lethal_hits via OR (one re-roll branch
+            # in the loop, no double-fire).
             # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
             if (
                 mode != "melee"
@@ -2114,10 +2127,12 @@ class Unit:
                     target_is_vm = (
                         "VEHICLE" in target_kws or "MONSTER" in target_kws
                     )
-                    # REGIMENT leg: INFANTRY-keyword attacker (and not VEHICLE/
-                    # MONSTER) vs non-VEHICLE/MONSTER target.
+                    # REGIMENT leg: BATTLELINE-keyword attacker (the three
+                    # core Cadian / Catachan / Krieg troop squads, which all
+                    # carry the codex REGIMENT keyword) vs non-VEHICLE/MONSTER
+                    # target.
                     if (
-                        "INFANTRY" in attacker_kws
+                        "BATTLELINE" in attacker_kws
                         and "VEHICLE" not in attacker_kws
                         and "MONSTER" not in attacker_kws
                         and not target_is_vm
