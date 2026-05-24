@@ -232,6 +232,68 @@ DRUKHARI_FACTION_TAG: str = "Drukhari"
 TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER: float = 0.75
 TYRANIDS_FACTION_TAG: str = "Tyranids"
 
+# DAEMONS-DIAG-6 - invuln-stacked defender secondary damper.
+#
+# Inversion of CUSTODES-UNPARK: where Custodes is an elite low-count
+# defender that the per-round caps under-punish (multiplier 1.5x UP on
+# defender side), Chaos Daemons is a hyper-resilient defender that the
+# per-round caps OVER-punish in the simulator. Real-meta Chaos Daemons
+# trades durability (army-wide 4++ invulnerable save on every datasheet,
+# 5++ on Greater Daemons against melee, Locus auras for sub-faction
+# defensive uplift, Shadow of Chaos battleshock immunity, deny-the-
+# witch on most psychic) against the simulator per-shot W-resolution
+# which removes Greater Daemon chassis cleanly when an opposing alpha
+# strike rolls average - but real tournament play sees those Greater
+# Daemons survive longer because of (a) cover-vs-invuln-vs-armour best-
+# pick stacking on each saving throw (the simulator current armour-vs-
+# best-fixed choice loses ~10% durability per pass), (b) opponent threat
+# economy spreading damage rather than alpha-striking a single 4++
+# chassis, (c) Shadow-of-Chaos battleshock immunity protecting the
+# Daemon screen from secondary-cascading wipes after a partial kill.
+#
+# Behavioural observation: Chaos Daemons in the May 2026 Warp Friends
+# tournament sits at ~52.6% gated win-rate vs simulator ~31.0% (-21.6pt
+# UNDER-perf after 5 prior DAEMONS-DIAG passes plus 4 god sub-detachment
+# adds plus MR-CHAOS-DAEMONS-LOCUS + MR-I + LEADERABILITY-SCHEMA). Per-
+# rule audits across all those diag passes found no missing rule lever
+# - the residual is structural defender-side scoring, not per-rule.
+# Daemons is the largest single under-performer (excluding parked
+# Imperial Knights / Chaos Knights structural).
+#
+# DAEMONS_DEFENDER_KILL_VP_MULTIPLIER scales DOWN opponent BiD + No
+# Prisoners + Cull the Horde VP scored AGAINST Daemons. Mirror of
+# CUSTODES_DEFENDER_KILL_VP_MULTIPLIER structure (defender-faction-
+# gated, applied to per-kill VP and per-round cap so the cap-to-fill
+# ratio is preserved) but in the OPPOSITE direction (multiplier <1.0
+# rather than >1.0). Assassination is NOT scaled - Daemon Herald
+# CHARACTERs are fragile T4 W4 4++ chassis that genuinely die in real
+# tournament play; the simulator assassination scoring against Daemons
+# is directionally correct.
+#
+# Faction-gated (not keyword-gated) because:
+#   (a) Chaos Daemons is the only 10e faction with universal datasheet
+#       invuln (every Daemon model has 4++ army-wide via the Daemonic
+#       Saves army rule) AND Shadow of Chaos battleshock immunity AND
+#       Locus aura defensive uplift on key models. Death Guard has
+#       Feel No Pain but not universal invuln; Thousand Sons has
+#       invuln on most but Rubrics fail to leverage it across the
+#       roster. The composite defensive envelope is Chaos-Daemons-
+#       specific.
+#   (b) The 5 prior per-rule diag passes (DAEMONS-DIAG / -2 / -3 / -4
+#       / -5) plus the LeaderAbility schema fix plus the Locus / MR-I
+#       passes already cleaned every per-rule lever; the residual is
+#       distributed across the defensive-secondary envelope, not at
+#       any single rule.
+#
+# Marked APPROXIMATION: the "Daemons under-takes secondary kills in the
+# sim relative to real meta" is an observation from the calibration
+# loop, not a Wahapedia rule citation. Same citation pattern as
+# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK, the
+# inverted-direction sibling of this damper). Cited as
+# `simulator.secondary_daemons_defender_damper`.
+DAEMONS_DEFENDER_KILL_VP_MULTIPLIER: float = 0.75
+DAEMONS_FACTION_TAG: str = "Chaos Daemons"
+
 
 @dataclass
 class RoundSnapshot:
@@ -408,6 +470,24 @@ def score_round_delta(
     `attacker_faction` gate (Synapse-anchored horde positioning
     overstates sim spread vs real meta). Cited as
     `simulator.secondary_tyranids_monster_modifier`.
+
+    DAEMONS-DIAG-6 - when `defender_faction == "Chaos Daemons"`, the
+    opponent Bring it Down, No Prisoners, and Cull the Horde VP plus
+    per-round caps are scaled by `DAEMONS_DEFENDER_KILL_VP_MULTIPLIER`
+    (0.75x DOWN). Inversion of CUSTODES-UNPARK structure (defender-
+    gated, applied to per-kill VP and per-round cap, composes
+    multiplicatively with the CUSTODES `mult` variable) but in the
+    OPPOSITE direction (damper rather than uplift). Models the
+    invuln-stacked-defender over-conversion observed across 5 prior
+    per-rule diag passes plus Locus / MR-I / LeaderAbility schema
+    fixes - Daemons sim WR parks at ~31% vs real ~52.6% (-21.6pt) and
+    per-rule audits all came back clean. Real-meta Daemons gets
+    cover-vs-invuln-vs-armour best-pick stacking, Shadow of Chaos
+    battleshock immunity protecting from cascading wipes, and Locus
+    aura defensive uplift that the sim under-models. Assassination
+    NOT scaled (Daemon Heralds genuinely die). Cull IS scaled (10-
+    model Plaguebearer/Bloodletter/Pink Horror squads over-wiped by
+    sim). Cited as `simulator.secondary_daemons_defender_damper`.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -442,6 +522,33 @@ def score_round_delta(
     else:
         mult = 1.0
 
+    # DAEMONS-DIAG-6 - defender-faction-gated VP DAMPER on the kill-event
+    # secondaries when the side being scored against is Chaos Daemons.
+    # Inversion of CUSTODES-UNPARK structure (defender-gated, applied to
+    # per-kill VP and per-round cap, composes multiplicatively with the
+    # CUSTODES `mult` variable above) but in the OPPOSITE direction
+    # (0.75x DOWN vs 1.5x UP). Models the invuln-stacked-defender
+    # over-conversion observed across 5 prior per-rule diag passes:
+    # Daemons sim WR parks at ~31% vs real ~52.6% (-21.6pt) and per-rule
+    # audits across DAEMONS-DIAG / -2 / -3 / -4 / -5 + MR-CHAOS-DAEMONS-
+    # LOCUS + MR-I + LEADERABILITY-SCHEMA all came back clean - the
+    # residual is structural defender-side scoring. Real-meta Daemons
+    # gets cover-vs-invuln-vs-armour best-pick stacking, Shadow of
+    # Chaos battleshock immunity protecting from cascading wipes, and
+    # Locus aura defensive uplift that the simulator per-shot
+    # W-resolution under-models. Cull the Horde is INCLUDED (Daemons
+    # does field 10-model Plaguebearer / Bloodletter / Pink Horror
+    # squads that the sim over-wipes vs real-meta 5++ + Daemonic
+    # invuln durability - different from Custodes where Cull was
+    # excluded for the opposite reason of no 10+ model units).
+    # Assassination NOT scaled (Daemon Heralds are fragile and
+    # genuinely die in real meta). Cited as
+    # `simulator.secondary_daemons_defender_damper`.
+    if defender_faction == DAEMONS_FACTION_TAG:
+        daemons_def_mult = DAEMONS_DEFENDER_KILL_VP_MULTIPLIER
+    else:
+        daemons_def_mult = 1.0
+
     # DRK-DIAG-9 — attacker-side damper on Cull the Horde when the
     # scoring side is Drukhari. Burst-damage overflow on single horde
     # squads is eaten by the per-round cap in sim, but real-meta
@@ -472,21 +579,29 @@ def score_round_delta(
         tyr_attacker_mult = 1.0
 
     bring_it_down_vp = min(
-        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * drk_offensive_mult * tyr_attacker_mult),
-        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * drk_offensive_mult * tyr_attacker_mult),
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
     )
     no_prisoners_vp = min(
-        int(NO_PRISONERS_CAP_PER_ROUND * mult * drk_offensive_mult * tyr_attacker_mult),
-        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * drk_offensive_mult * tyr_attacker_mult),
+        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
     )
-    # Cull damper is the product of Drukhari (mobility) and Tyranids
-    # (monster-mash) gates — both factions trigger the same direction
-    # on Cull. In practice only one or the other will fire per army.
-    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult
+    # Cull damper composes the Drukhari (mobility), Tyranids
+    # (monster-mash) attacker gates and the Daemons (invuln-stacked)
+    # defender gate. CUSTODES `mult` does NOT apply to Cull (Custodes
+    # never has 10+model units to concede). DAEMONS_DEFENDER damper
+    # DOES apply (Daemons fields 10-model Plaguebearer/Bloodletter/
+    # Pink Horror squads that the sim over-wipes vs real-meta 5++ +
+    # Daemonic-invuln durability).
+    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult
     cull_the_horde_vp = int(min(
         CULL_THE_HORDE_CAP_PER_ROUND * cull_combined_mult,
         len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * cull_combined_mult,
     ))
+    # Assassination intentionally NOT scaled by the DAEMONS defender
+    # damper - Daemon Heralds are fragile T4 W4 4++ chassis that
+    # genuinely die in real tournament play; the simulator Assassination
+    # scoring against Daemons is directionally correct.
     assassination_vp = min(
         int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult),
         int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult),
