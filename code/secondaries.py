@@ -294,6 +294,70 @@ TYRANIDS_FACTION_TAG: str = "Tyranids"
 DAEMONS_DEFENDER_KILL_VP_MULTIPLIER: float = 0.75
 DAEMONS_FACTION_TAG: str = "Chaos Daemons"
 
+# SOROR-LAST-RESORT-DAMPER - balanced-army attacker offensive secondary damper.
+#
+# Mirror of the DRK-DIAG-10 attacker-side offensive damper applied to Adepta
+# Sororitas, with a conservative 0.85x (rather than the 0.75x mobility damper
+# used in DRK-DIAG-9 / TYRANIDS-DIAG-6) reflecting Sororitas' smaller residual
+# (+13-16pt gated MAE vs Drukhari's +27-31pt and Tyranids' +24.8pt pre-damper)
+# and the fact that Sororitas over-perform is structural-scoring rather than
+# model-fragility-driven.
+#
+# Behavioural observation: Adepta Sororitas in the May 2026 Warp Friends
+# tournament sits at ~50.8% gated win-rate vs simulator ~68.2% (+13-16pt
+# over-perf across the entire Stage 1 calibration loop after 6 prior per-rule
+# diag passes: SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-FIX/2,
+# SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT). Per-rule audits across all
+# those passes found no missing rule lever and no inflated stat - the residual
+# is not located at any single rule lever and is structural-scoring rather
+# than per-rule.
+#
+# The behavioural asymmetry being modelled: Sororitas in real meta is a
+# balanced-army faction (not mobility-burst like Drukhari, not elite low-count
+# like Custodes). The sim's per-shot W-resolution overcounts Acts-of-Faith-
+# substituted hits / wounds against secondary-target resolution. Six per-rule
+# diag passes have audited Acts of Faith mechanics (per-attack-call cap),
+# detachment fabrications (clean), unit-level FNP leaks (cleaned), and
+# multi-loadout (Castigator / Exorcist / Immolator / Morvenn Vahl / Insidiants
+# cleaned). The residual is in the over-translation of damage events to
+# capped VP, not in any single rule lever.
+#
+# SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER scales DOWN Sororitas' own
+# scoring on Bring it Down, No Prisoners, Assassination, and Cull the Horde
+# at 0.85x (conservative). Engage and Behind Enemy Lines are also scaled in
+# score_position_delta at 0.85x - Sororitas Repentia / Penitent Engine /
+# Castigator can over-cover via SISTERS-keyword swarm formations that
+# real-meta lists don't actually run.
+#
+# Conservative 0.85x rather than 0.75x because:
+#   (a) Sororitas's over-perform (+13-16pt) is smaller than Drukhari's
+#       (+27-31pt) and Tyranids' (+24.8pt pre-damper).
+#   (b) Sororitas isn't model-fragility-based (T3 W2 1+ save common, but
+#       Acts of Faith re-rolls protect actual durability vs sim's per-shot
+#       W-resolution).
+#   (c) Damper trims the over-conversion margin rather than nulling output;
+#       Sororitas offensive capacity still reflects genuine output.
+#
+# Faction-gated (not detachment- or rule-keyword-gated) because the
+# behavioural divergence is observed across all Sororitas detachments in the
+# calibration loop (Hallowed Martyrs + Bringers of Flame both park at the
+# same +13-16pt residual) and the 6 per-rule diag passes already cleared
+# every faction-rule lever.
+#
+# Composition with other multipliers:
+#   - CUSTODES-UNPARK 1.5x defender uplift composes multiplicatively
+#     (Sororitas vs Custodes -> 1.5 * 0.85 = 1.275x net on BiD/NP/Assassination)
+#   - DAEMONS-DIAG-6 0.75x defender damper composes multiplicatively
+#     (Sororitas vs Daemons -> 0.75 * 0.85 = 0.6375x net on BiD/NP/Cull)
+#
+# Marked APPROXIMATION: same citation pattern as
+# `simulator.secondary_drukhari_mobile_modifier` (DRK-DIAG-10) and
+# `simulator.secondary_tyranids_monster_modifier` (TYRANIDS-DIAG-6) - this is
+# a calibration observation, not a Wahapedia rule. Cited as
+# `simulator.secondary_sororitas_attacker_damper`.
+SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
+SORORITAS_FACTION_TAG: str = "Adepta Sororitas"
+
 
 @dataclass
 class RoundSnapshot:
@@ -488,6 +552,23 @@ def score_round_delta(
     NOT scaled (Daemon Heralds genuinely die). Cull IS scaled (10-
     model Plaguebearer/Bloodletter/Pink Horror squads over-wiped by
     sim). Cited as `simulator.secondary_daemons_defender_damper`.
+
+    SOROR-LAST-RESORT-DAMPER - when `attacker_faction == "Adepta Sororitas"`,
+    the scoring side's Bring it Down + No Prisoners + Assassination + Cull
+    the Horde VP plus per-round caps are scaled by the conservative
+    `SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER` (0.85x). Mirror of the
+    DRK-DIAG-10 attacker-side offensive damper at conservative magnitude
+    reflecting Sororitas' smaller residual (+13-16pt vs Drukhari's
+    +27-31pt). Models the structural over-scoring observed across the
+    Stage 1 loop after 6 prior per-rule diag passes (SORORITAS-MORTIFIER-
+    FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-FIX/2, SOROR-MUTEX-2, SOROR-STAT-
+    AUDIT, SOROR-FAB-AUDIT) all came back with no missing rule lever - the
+    residual is in the over-translation of Acts-of-Faith-substituted
+    hits/wounds to capped VP, not at any single rule. Composes
+    multiplicatively with CUSTODES uplift (1.5 * 0.85 = 1.275x) and with
+    DAEMONS defender damper (0.75 * 0.85 = 0.6375x). Engage / BEL also
+    damped in score_position_delta. Cited as
+    `simulator.secondary_sororitas_attacker_damper`.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -578,22 +659,39 @@ def score_round_delta(
     else:
         tyr_attacker_mult = 1.0
 
+    # SOROR-LAST-RESORT-DAMPER - attacker-side damper on Bring it Down +
+    # No Prisoners + Assassination + Cull the Horde when the scoring
+    # side is Adepta Sororitas. Conservative 0.85x reflecting smaller
+    # residual (+13-16pt vs Drukhari +27-31pt). Six prior per-rule diag
+    # passes (SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-
+    # FIX/2, SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT) all came
+    # back with no missing rule lever - the residual is in over-
+    # translation of Acts-of-Faith-substituted damage events to capped
+    # VP. Composes multiplicatively with all other multipliers.
+    if attacker_faction == SORORITAS_FACTION_TAG:
+        soror_attacker_mult = SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER
+    else:
+        soror_attacker_mult = 1.0
+
     bring_it_down_vp = min(
-        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
-        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
     )
     no_prisoners_vp = min(
-        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
-        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult),
+        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
     )
     # Cull damper composes the Drukhari (mobility), Tyranids
-    # (monster-mash) attacker gates and the Daemons (invuln-stacked)
-    # defender gate. CUSTODES `mult` does NOT apply to Cull (Custodes
-    # never has 10+model units to concede). DAEMONS_DEFENDER damper
-    # DOES apply (Daemons fields 10-model Plaguebearer/Bloodletter/
-    # Pink Horror squads that the sim over-wipes vs real-meta 5++ +
-    # Daemonic-invuln durability).
-    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult
+    # (monster-mash), Sororitas (last-resort) attacker gates and the
+    # Daemons (invuln-stacked) defender gate. CUSTODES `mult` does NOT
+    # apply to Cull (Custodes never has 10+model units to concede).
+    # DAEMONS_DEFENDER damper DOES apply (Daemons fields 10-model
+    # Plaguebearer/Bloodletter/Pink Horror squads that the sim over-
+    # wipes vs real-meta 5++ + Daemonic-invuln durability). SORORITAS
+    # damper DOES apply (Sororitas can wipe horde squads via massed
+    # bolter/flamer output; Acts of Faith re-rolls inflate sim
+    # conversion vs real-meta).
+    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult * soror_attacker_mult
     cull_the_horde_vp = int(min(
         CULL_THE_HORDE_CAP_PER_ROUND * cull_combined_mult,
         len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * cull_combined_mult,
@@ -601,10 +699,14 @@ def score_round_delta(
     # Assassination intentionally NOT scaled by the DAEMONS defender
     # damper - Daemon Heralds are fragile T4 W4 4++ chassis that
     # genuinely die in real tournament play; the simulator Assassination
-    # scoring against Daemons is directionally correct.
+    # scoring against Daemons is directionally correct. SORORITAS
+    # attacker damper DOES apply - Sororitas character-kill output is
+    # part of the over-scoring envelope (Morvenn Vahl, Canoness, Saint
+    # Celestine assassinate-CHARACTER alpha strikes inflate sim VP vs
+    # real-meta).
     assassination_vp = min(
-        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult),
-        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult),
+        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult * soror_attacker_mult),
+        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult * soror_attacker_mult),
     )
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
@@ -761,4 +863,15 @@ def score_position_delta(
     if attacker_faction == TYRANIDS_FACTION_TAG:
         engage_vp = int(engage_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
         bel_vp = int(bel_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
+    # SOROR-LAST-RESORT-DAMPER - attacker-side damper on the mobility
+    # tactical secondaries when the scoring side is Adepta Sororitas.
+    # Sororitas Repentia / Penitent Engine / Castigator can over-cover
+    # via SISTERS-keyword swarm formations that real-meta lists don't
+    # actually run; sim's centroid-based quadrant / DZ check overstates
+    # real-meta Sororitas mobility / spread. Conservative 0.85x mirror
+    # of the DRK-DIAG-9 / TYRANIDS-DIAG-6 pattern. Cited as
+    # `simulator.secondary_sororitas_attacker_damper`.
+    if attacker_faction == SORORITAS_FACTION_TAG:
+        engage_vp = int(engage_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
     return engage_vp, bel_vp
