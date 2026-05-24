@@ -107,6 +107,47 @@ if TYPE_CHECKING:
 OFFICER_AURA_RANGE: float = 6.0   # 10e canonical (Voice of Command)
 
 
+# Canonical AM OFFICER datasheets — only these can issue Voice of Command
+# Orders. Sourced from Wahapedia AM faction page
+# (https://wahapedia.ru/wh40k10ed/factions/astra-militarum/) by reading
+# each CHARACTER datasheet's keyword line. The OFFICER keyword is the
+# codex gate for issuing Orders; BSData v10.6.0's parsed unit_keywords
+# field does not preserve it (the bsdata mapper retains only INFANTRY /
+# VEHICLE / BATTLELINE / CHARACTER / EPIC HERO / PSYKER / MOUNTED /
+# WALKER / MONSTER), so the gate has to be applied via an allowlist of
+# unit catalogue keys.
+#
+# Including a unit in this set requires that its Wahapedia datasheet
+# carry the OFFICER keyword on the printed faction-keyword line. Adding
+# units that are merely "leaders" or "command-y" is forbidden — that
+# was the bug this allowlist exists to fix. The gate uses the unit
+# catalogue's display `name` (which the simulator passes through
+# untouched from the bsdata mapper) so the allowlist tracks Wahapedia's
+# datasheet titles directly.
+#
+# NOT OFFICERs (and thus excluded — present in the catalogue as
+# CHARACTERs but cannot issue Orders per codex): Commissar, Commissar
+# Yarrick, Commissar Graves, Ministorum Priest, Tech-Priest Enginseer,
+# Primaris Psyker, Nork Deddog, Ogryn Bodyguard, Sly Marbo, "Iron
+# Hand" Straken, Sergeant Harker, Gaunt's Ghosts, Hell's Last, Rein
+# and Raus, Provisionally Prepared, Quartermaster Cadre Squad,
+# Augmented Bone 'Ead, Death Rider Commissar.
+AM_OFFICER_NAMES: frozenset = frozenset({
+    "Lord Solar Leontus",
+    "Cadian Castellan",
+    "Cadian Command Squad",
+    "Militarum Tempestus Command Squad",
+    "Krieg Command Squad",
+    "Catachan Command Squad",
+    "Lord Marshal Dreir",
+    "Ursula Creed",
+    "Leman Russ Commander",
+    "Rogal Dorn Commander",
+    "Sentinel Commander [Crucible]",
+    "Front-line Commander [Crucible]",
+})
+
+
 def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     dx = a[0] - b[0]
     dy = a[1] - b[1]
@@ -114,24 +155,30 @@ def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
 
 
 def _is_am_officer(unit: "Unit") -> bool:
-    """True iff the unit is an alive AM CHARACTER.
+    """True iff the unit is an alive AM OFFICER datasheet.
 
-    The codex restricts Voice of Command to OFFICER models; SwegHammer
-    collapses OFFICER onto CHARACTER (the codex's OFFICER keyword maps to
-    a subset of CHARACTER datasheets that excludes Tech-Priest Enginseer
-    and Primaris Psyker). We accept any AM CHARACTER as an issuer — the
-    cap-at-1-Order-per-Officer-per-round rule prevents over-stacking
-    even if non-Officer characters are included; the gate is a faction
-    + CHARACTER check.
+    Per Wahapedia (https://wahapedia.ru/wh40k10ed/factions/astra-
+    militarum/) Voice of Command restricts Order issuance to OFFICER
+    models. The codex's OFFICER keyword maps to a specific subset of
+    CHARACTER datasheets — not every AM CHARACTER is an Officer.
+    Commissar / Commissar Yarrick / Commissar Graves / Ministorum
+    Priest / Tech-Priest Enginseer / Primaris Psyker / Nork Deddog /
+    Ogryn Bodyguard / Sly Marbo / "Iron Hand" Straken / Sergeant
+    Harker / Gaunt's Ghosts / Hell's Last / Rein and Raus /
+    Provisionally Prepared / Quartermaster Cadre Squad / Augmented
+    Bone 'Ead / Death Rider Commissar all carry CHARACTER but NOT
+    OFFICER, so they cannot issue Orders.
+
+    BSData v10.6.0's parsed.json does not preserve the OFFICER keyword
+    (the mapper strips it during keyword filtering), so we gate via the
+    `AM_OFFICER_KEYS` allowlist — verified against Wahapedia datasheet
+    keyword lines.
     """
     if not unit.is_alive:
         return False
     if (unit.profile.faction or "") != "Astra Militarum":
         return False
-    kw = set(unit.profile.unit_keywords or ())
-    if "CHARACTER" not in kw:
-        return False
-    return True
+    return (unit.profile.name or "") in AM_OFFICER_NAMES
 
 
 def _is_order_target_eligible(unit: "Unit", squadron_allowed: bool = False) -> bool:
@@ -344,6 +391,7 @@ def dispatch_orders(army: "Army", battleshocked_uids: set) -> List[Tuple[str, st
 
 
 __all__ = [
+    "AM_OFFICER_NAMES",
     "OFFICER_AURA_RANGE",
     "ORDER_TAKE_AIM",
     "ORDER_FIX_BAYONETS",

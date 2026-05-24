@@ -2789,9 +2789,10 @@ class Battle:
         = True` for the round; `code.orders._is_order_target_eligible`
         reads the flag and widens the target pool to BATTLELINE VEHICLE.
         """
+        from .orders import _is_am_officer
         officers = [
             u for u in self._am_units(army)
-            if "CHARACTER" in (u.profile.unit_keywords or ())
+            if _is_am_officer(u)
         ]
         if not officers:
             return
