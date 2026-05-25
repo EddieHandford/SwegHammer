@@ -139,6 +139,16 @@ def default_feature_specs() -> List[FeatureSpec]:
         FeatureSpec("lone_operative", "linear", True, "1 if LONE OPERATIVE."),
         FeatureSpec("stealth", "linear", True, "1 if STEALTH (-1 to be hit)."),
 
+        # Interaction features — capture non-additive stat combinations.
+        FeatureSpec("toughness_x_wounds", "log", True,
+                    "log(toughness × wounds/model). Captures the synergy between high "
+                    "toughness and many wounds — a T12/3W model is much tankier than "
+                    "the additive terms alone express."),
+        FeatureSpec("total_wounds", "log", True,
+                    "log(wounds/model × min_models). Squad-level total wounds; a 10-model "
+                    "2W squad has 20 wounds to absorb, priced differently from a single "
+                    "20W monster even when wounds_per_model appears equal."),
+
         # Utility derivatives — computed from the raw stats above.
         FeatureSpec("expected_ranged_dmg_vs_meq", "linear", False,
                     "Expected damage per shooting phase vs MEQ baseline (T6 Sv3+). "
@@ -312,6 +322,15 @@ def extract_features(
             "expected_ranged_dmg_vs_meq": ranged_dmg,
             "expected_melee_dmg_vs_meq":  melee_dmg,
             "effective_wounds": _effective_wounds(float(u.health or 0), save_q, inv_q, fnp_q),
+
+            # Interaction / derived durability
+            # toughness_x_wounds: captures the synergy between high toughness and many
+            # wounds — e.g. a T12 3W unit is much tankier than additive stats suggest.
+            "toughness_x_wounds": float((u.toughness or 0) * (u.health or 0)),
+            # total_wounds: squad-level durability — wounds/model × squad size. A 10-model
+            # squad with 2W/model has 20 effective wounds to chew through, priced differently
+            # from a single 20W monster even if wounds_per_model alone looks similar.
+            "total_wounds": float((u.health or 0) * max(1, u.min_models or 1)),
 
             # Unit-type keyword classes
             "is_monster":   int("MONSTER" in unit_kw),
