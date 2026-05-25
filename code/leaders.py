@@ -93,6 +93,21 @@ class LeaderAbility:
     plus_one_to_hit: bool = False
     plus_one_to_wound: bool = False
     plus_one_attack: int = 0                # +N extra attacks per weapon (Cadre Fireblade etc.)
+    # Greater Daemon locus auras (LEADERABILITY-SCHEMA, claude/sim-calibration-6).
+    # Each maps to a per-stat uplift on the led / in-aura attacker's attack
+    # resolution. None of these were expressible before — adding them unlocks
+    # Lord of Change (Locus of Change, +1 Strength on ranged), Great Unclean One
+    # (Locus of Virulence, +1 Toughness on the led unit), and Keeper of Secrets
+    # (Locus of Slaanesh, +1 AP on melee). All three are cited verbatim in
+    # data/rule_citations.d/leaders.json. The Daemons archetype was the
+    # immediate driver — Greater Daemons sit at ~300-400pts each in tournament
+    # lists and going un-wired contributed to Daemons' -22pt gated under-perf
+    # at N=5. The fields are generic, so they can be reused by future leaders
+    # whose codex grants the same direction (e.g. any "+1 Strength to ranged
+    # in 6"" locus / etc.).
+    plus_one_strength_ranged: bool = False  # attacker's ranged S += 1 when led/in-aura
+    plus_one_toughness: bool = False         # target's T += 1 when led/in-aura
+    plus_one_ap_melee: bool = False          # attacker's melee AP improves by 1 (more negative)
     # Defensive modifiers (apply to DEFENDER when it's in range of this leader)
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
@@ -158,6 +173,87 @@ _AELDARI_GUARDIAN_HOSTS = (
 )
 _TAU_FIRE_HOSTS = ("t_au_empire_strike_team", "t_au_empire_breacher_team")
 
+# Khorne Legiones Daemonica units — units that benefit from Bloodthirster's
+# "Daemon Lord of Khorne" aura and Skarbrand's "Rage Embodied" aura. Both
+# auras read "While a friendly KHORNE Legiones Daemonica unit is within 6"".
+# This is NOT a led-unit gate (the Greater Daemons do not formally attach via
+# Leader): host_keys here gates the buff to attacker units carrying the
+# Khorne keyword, applied at proximity per the aura wording. Same structural
+# pattern as Magnus / Avatar (empty host_keys for army-wide MONSTER auras),
+# but narrowed to mono-mark units because the Daemonic Incursion archetype
+# is multi-god — broadcasting Khorne to Plaguebearers / Pink Horrors /
+# Daemonettes would be a fabrication (CLAUDE.md §10).
+# Roster per Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+# filtered to BSData v10.6.0 catalogue keys (no Legends entries).
+_KHORNE_DAEMON_HOSTS = (
+    "chaos_daemons_library_bloodletters",
+    "chaos_daemons_library_bloodcrushers",
+    "chaos_daemons_library_flesh_hounds",
+    "chaos_daemons_library_skull_cannon",
+    "chaos_daemons_library_khorne_soul_grinder",
+    "chaos_daemons_library_skullmaster",
+    "chaos_daemons_library_skulltaker",
+    "chaos_daemons_library_karanak",
+    "chaos_daemons_library_bloodmaster",
+    "chaos_daemons_library_rendmaster_on_blood_throne",
+)
+
+# LEADERABILITY-SCHEMA — Tzeentch / Nurgle / Slaanesh Legiones Daemonica
+# rosters. Same derivation pattern as _KHORNE_DAEMON_HOSTS above: the
+# Greater Daemon's "Daemon Lord of <god>" aura reads "While a friendly
+# <GOD> Legiones Daemonica unit is within 6"" — host_keys gates the
+# buff to the catalogue keys carrying that god's keyword, applied at
+# proximity. Roster filtered to BSData v10.6.0 (no Legends entries) per
+# Wahapedia https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/.
+# Skull Altar and Feculent Gnarlmaw are terrain pieces (no unit profile
+# to buff); Be'lakor is UNDIVIDED (not tagged TZEENTCH/NURGLE/SLAANESH);
+# Daemon Prince of Chaos has a player-chosen god at list-building but the
+# BSData entry is undivided so it stays out of all three rosters. Syll'esske
+# is dual-keyword SLAANESH/KHORNE per the codex but lists SLAANESH for
+# Locus targeting — included in the Slaanesh roster only.
+_TZEENTCH_DAEMON_HOSTS = (
+    "chaos_daemons_library_pink_horrors",
+    "chaos_daemons_library_blue_horrors",
+    "chaos_daemons_library_flamers",
+    "chaos_daemons_library_screamers",
+    "chaos_daemons_library_burning_chariot",
+    "chaos_daemons_library_tzeentch_soul_grinder",
+    "chaos_daemons_library_kairos_fateweaver",
+    "chaos_daemons_library_changecaster",
+    "chaos_daemons_library_fluxmaster",
+    "chaos_daemons_library_fateskimmer",
+    "chaos_daemons_library_exalted_flamer",
+    "chaos_daemons_library_the_blue_scribes",
+    "chaos_daemons_library_the_changeling",
+)
+_NURGLE_DAEMON_HOSTS = (
+    "chaos_daemons_library_plaguebearers",
+    "chaos_daemons_library_nurglings",
+    "chaos_daemons_library_plague_drones",
+    "chaos_daemons_library_beasts_of_nurgle",
+    "chaos_daemons_library_nurgle_soul_grinder",
+    "chaos_daemons_library_rotigus",
+    "chaos_daemons_library_horticulous_slimux",
+    "chaos_daemons_library_epidemius",
+    "chaos_daemons_library_poxbringer",
+    "chaos_daemons_library_sloppity_bilepiper",
+    "chaos_daemons_library_spoilpox_scrivener",
+)
+_SLAANESH_DAEMON_HOSTS = (
+    "chaos_daemons_library_daemonettes",
+    "chaos_daemons_library_seekers",
+    "chaos_daemons_library_fiends",
+    "chaos_daemons_library_hellflayers",
+    "chaos_daemons_library_slaanesh_soul_grinder",
+    "chaos_daemons_library_shalaxi_helbane",
+    "chaos_daemons_library_syll_esske",
+    "chaos_daemons_library_contorted_epitome",
+    "chaos_daemons_library_infernal_enrapturess",
+    "chaos_daemons_library_the_masque_of_slaanesh",
+    "chaos_daemons_library_tormentbringer",
+    "chaos_daemons_library_tranceweaver",
+)
+
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # ORDER NOTE — iter21: substring matching is greedy first-match, so
     # cross-faction CHARACTERs whose names CONTAIN "Captain" (Custodes
@@ -222,8 +318,20 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Apothecary",         LeaderAbility(name="Narthecium",                 aura_range=3.0, revive_destroyed_per_round=1, host_keys=_MARINE_HOSTS)),
     ("Librarian",          LeaderAbility(name="Mental Fortress",             aura_range=6.0, fnp=5,                 host_keys=_MARINE_HOSTS)),
     # Adepta Sororitas
-    ("Canoness",           LeaderAbility(name="Beacon of Faith",            aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("adepta_sororitas_battle_sisters_squad",))),
+    # SORORITAS-DIAG (2026-05-23): Canoness aura removed. Prior implementation
+    # claimed "Beacon of Faith" granting reroll-hit-1s in aura range, citing
+    # Wahapedia for the Canoness "Sacred Command" ability — but the cited rule
+    # text reads: "Once per battle round, one unit from your army with this
+    # ability can use it when its unit is targeted with a Stratagem. If it
+    # does, reduce the CP cost of that use of that Stratagem by 1CP."  The
+    # Sacred Command rule is a Stratagem CP discount, NOT a hit re-roll. The
+    # prior aura was a fabricated offensive proxy (the citation itself read
+    # "invented label for a reroll-1s offensive proxy"). Project rule 10
+    # (cite every rule, do not invent) and rule 13 (no silent overbuffs)
+    # require the proxy be removed rather than relabelled. The CP-discount
+    # mechanic is not modelled in the simulator; the Canoness ships with NO
+    # offensive aura until a faithful implementation lands. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Canoness
     # Necrons — named characters first so they win the substring match
     # before the generic "Overlord" entry below.
     ("Trazyn the Infinite", LeaderAbility(name="Surreptitious Acquisition", aura_range=6.0, plus_one_to_hit=True,
@@ -295,9 +403,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (a self-heal-on-kill) or Inevitable Death (a reactive teleport).
     # Same pattern iter20 dropped from Necron Overlord and Typhus — proxy
     # flag approximating a rule that does not, in fact, grant an aura buff.
-    # The heal_per_round=2 stays (legitimate D3-median proxy of the
-    # codex's on-kill regain).
-    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=2)),
+    #
+    # AELDARI-DIAG-3 (2026-05-24): cut heal_per_round from 2 to 1. The real
+    # Ethereal Form rule is on-unit-kill (D3 wounds each time Yncarne
+    # destroys an enemy unit), NOT every round end. Yncarne typically
+    # destroys 0-2 enemy units across a 5-round game (it has to charge,
+    # fight, and finish a target — frequently dead by round 3-4 itself).
+    # Real expected total heal: ~D3 * 1-2 kills = 2-4 wounds over the
+    # battle. Old sim heal_per_round=2 * 5 rounds = 10 wounds free, ~3x
+    # reality. heal_per_round=1 puts total sim heal at 5 wounds over 5
+    # rounds, closer to the codex median while preserving the conservative
+    # "Yncarne sometimes self-heals when stalled" approximation. Aeldari
+    # is +10.9pt over Warp Friends real win-rate (52.4% sim vs 41.5%
+    # real) at wave 25 — Yncarne is in the Battle Host archetype at
+    # count=4 (highest seed weight) so this lever lands on most Aeldari
+    # eval runs. Same scale-back rationale as Yvraine
+    # revive_destroyed_per_round=1 (iter15: D3+1 median proxy already
+    # halved to model real per-round attrition). Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/aeldari/The-Yncarne
+    ("The Yncarne",        LeaderAbility(name="Ethereal Form",              aura_range=6.0, heal_per_round=1)),
     ("Farseer",            LeaderAbility(name="Runes of Fate",              aura_range=6.0, reroll_wound_ones=True, host_keys=_AELDARI_GUARDIAN_HOSTS)),
     # Autarch — Path of Command is a once-per-round Stratagem CP-discount
     # ability, IDENTICAL in pattern to Necron Overlord "My Will Be Done"
@@ -388,6 +512,85 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("chaos_space_marines_cultist_mob",))),
     ("Chaos Lord",         LeaderAbility(name="Lord of Hosts",              aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_space_marines_traitor_guardsmen_squad",))),
+    # Chaos Daemons heralds (MR-CHAOS-DAEMONS-LOCUS, claude/sim-calibration-6).
+    # The four single-god Heralds were previously absent from this registry,
+    # which meant every Bloodletters / Plaguebearers / Pink Horrors / Daemonettes
+    # battleline squad in the Daemonic Incursion archetype seed fought without
+    # its god's locus aura. Each entry's quoted_text is verbatim from the
+    # BSData v10.6.0 datasheet (Chaos - Chaos Daemons Library.cat.gz). Citations:
+    # data/rule_citations.d/leaders.json (LeaderAbility.Bloodmaster's Locus / ...).
+    # Source (Wahapedia, fallback per CLAUDE.md §6):
+    #   https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+    ("Bloodmaster",        LeaderAbility(name="Bloodmaster's Locus",        aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("chaos_daemons_library_bloodletters",))),
+    # Poxbringer — codex ability is "successful unmodified Hit roll of 5+
+    # scores a Critical Hit" on the led Plaguebearers. SwegHammer does not
+    # currently expose a per-unit-led 5+-crit-hit flag (crit-on-5+ is a weapon
+    # ability tracked on profile, not a leader-grantable aura). The
+    # Plaguebearers' melee profile already carries [LETHAL HITS] on a 6, so
+    # the codex rule effectively expands lethals from 1/6 -> 2/6 of hits. The
+    # closest aura-flag proxy is `plus_one_to_wound=True` for the melee swarm
+    # (loose but direction-correct: more wounds get through). This proxy is
+    # called out as "(approximation)" in the citation. Plus the Feculent
+    # Despair aura is a -1 enemy battle-shock test which we don't currently
+    # gate per-leader, so it is skipped.
+    ("Poxbringer",         LeaderAbility(name="Poxbringer's Locus",         aura_range=6.0, plus_one_to_wound=True,
+                                          host_keys=("chaos_daemons_library_plaguebearers",))),
+    # Changecaster — codex ability grants [SUSTAINED HITS 1] to ranged weapons
+    # on the led unit (Pink Horrors / Blue Horrors). SwegHammer's LeaderAbility
+    # has no `sustained_hits` flag, so this is proxied with `reroll_hit_ones=True`
+    # — the same proxy already used for TSON Infernal Master's [SUSTAINED HITS 1]
+    # grant (see line ~347 above). Direction-correct: both expand the per-hit-
+    # roll value, just via different math (reroll-1s = +1/6 hits, sustained-1 on
+    # a 6 = +1/6 hits). Citation flagged "(approximation)".
+    ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0, reroll_hit_ones=True,
+                                          host_keys=("chaos_daemons_library_pink_horrors",))),
+    # Contorted Epitome — Swallow Energy (Psychic) grants the led Daemonettes
+    # FNP 4+ vs mortal wounds and Psychic Attacks. SwegHammer does not tag
+    # attacks as PSYCHIC, so FNP 4 is applied army-wide (per the iter15
+    # Librarian pattern: defensive proxy, strictly stronger than the codex's
+    # restricted-trigger 4+ FNP). Horrible Fascination is a once-per-game
+    # opponent-Shooting-phase ritual with no aura-flag plumbing; skipped.
+    ("Contorted Epitome",  LeaderAbility(name="Swallow Energy",             aura_range=6.0, fnp=4,
+                                          host_keys=("chaos_daemons_library_daemonettes",))),
+    # Chaos Daemons Greater Daemons — per-god aura carriers. Bloodthirster
+    # and Skarbrand (DAEMONS-DIAG-3, claude/sim-calibration-6) wire Khorne;
+    # LEADERABILITY-SCHEMA (this iteration) extends to the three remaining
+    # gods (Lord of Change / Great Unclean One / Keeper of Secrets) now that
+    # LeaderAbility carries `plus_one_strength_ranged`, `plus_one_toughness`,
+    # and `plus_one_ap_melee`. Each Greater Daemon broadcasts a 6" aura to
+    # friendly <god> Legiones Daemonica units; host_keys narrows the buff
+    # to that god's catalogue roster. Citations verbatim from BSData v10.6.0
+    # Chaos - Chaos Daemons Library.cat.gz in
+    # data/rule_citations.d/leaders.json. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skarbrand
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One
+    # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets
+    ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit=True,
+                                          host_keys=_KHORNE_DAEMON_HOSTS)),
+    ("Skarbrand",          LeaderAbility(name="Rage Embodied",              aura_range=6.0, plus_one_attack=1,
+                                          host_keys=_KHORNE_DAEMON_HOSTS)),
+    # Only the GENERIC Greater Daemon datasheets (Lord of Change, Great
+    # Unclean One, Keeper of Secrets) carry the "Daemon Lord of <god>" Locus
+    # aura per BSData v10.6.0 cache. The named variants (Kairos Fateweaver,
+    # Rotigus, Shalaxi Helbane) are separate datasheets with their own
+    # bespoke datasheet abilities (Kairos: CP-stealing stratagem-cost gate,
+    # Rotigus: damage uplift on a chosen target + enemy debuff aura,
+    # Shalaxi: Monster-hunter melee uplift) and explicitly DO NOT inherit
+    # the Locus aura. They are intentionally not wired here per CLAUDE.md
+    # §10 "cite every rule, don't invent". Skarbrand is the only named
+    # variant that broadcasts a Locus-equivalent — its "Rage Embodied"
+    # aura is wired above with the codex-correct +1 Attacks effect, not
+    # the Khorne Locus +1-to-hit (those are two separate auras on the
+    # same datasheet per BSData and Wahapedia).
+    ("Lord of Change",     LeaderAbility(name="Daemon Lord of Tzeentch",    aura_range=6.0, plus_one_strength_ranged=True,
+                                          host_keys=_TZEENTCH_DAEMON_HOSTS)),
+    ("Great Unclean One",  LeaderAbility(name="Daemon Lord of Nurgle",      aura_range=6.0, plus_one_toughness=True,
+                                          host_keys=_NURGLE_DAEMON_HOSTS)),
+    ("Keeper of Secrets",  LeaderAbility(name="Daemon Lord of Slaanesh",    aura_range=6.0, plus_one_ap_melee=True,
+                                          host_keys=_SLAANESH_DAEMON_HOSTS)),
     # Adeptus Custodes — Shield-Captain pinned to the registry head above
     # to prevent substring-collision with the generic Marines "Captain"
     # entry. Trajann Valoris and Blade Champion live in this per-faction
@@ -467,9 +670,23 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("grey_knights_brotherhood_terminator_squad",
                                                      "grey_knights_strike_squad"))),
     # Drukhari (10e: folded into Aeldari faction)
-    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0, plus_one_to_hit=True,
+    # DRK-DIAG-3 (2026-05-23): both Drukhari leader auras were strict
+    # fabrications, per their own rule_citations entries. Archon's
+    # `plus_one_to_hit=True` was wired as a proxy for "Hatred Eternal",
+    # which is actually a per-Pain-token Empower mechanic granting full
+    # Hit re-rolls only when the unit is Empowered — the sim doesn't
+    # model Pain tokens, so the always-on +1-to-hit aura was a stronger-
+    # than-real proxy with no gate. Succubus's `reroll_hit_ones=True`
+    # was wired as a proxy for "Storm of Blades", which grants
+    # [SUSTAINED HITS 1] to melee weapons — a weapon-keyword grant, not
+    # a Hit-roll re-roll aura. Both proxies were always-on, ungated, and
+    # contributed to Drukhari's +20.5pt gated overshoot. Dropped to NO-FLAG
+    # + host_keys-only, matching the SC5-1 Skysplinter pattern. Restore
+    # narrowly when (a) Pain-token economy lands and (b) SUSTAINED HITS is
+    # modelled. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/
+    ("Archon",             LeaderAbility(name="Overlord of Commorragh",     aura_range=6.0,
                                           host_keys=("aeldari_drukhari_kabalite_warriors",))),
-    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0, reroll_hit_ones=True,
+    ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
                                           host_keys=("aeldari_drukhari_wyches",))),
     # Genestealer Cults
     ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
@@ -548,6 +765,13 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_save": False,
     "extra_invuln": 7,
     "fnp": 7,
+    # LEADERABILITY-SCHEMA: three new Greater Daemon locus fields (see
+    # LeaderAbility dataclass docstring for derivation). Defaults False so
+    # the buff dict matches every existing call site that consumes it via
+    # bracket access — the consumers in code/units.py only branch on True.
+    "plus_one_strength_ranged": False,
+    "plus_one_toughness": False,
+    "plus_one_ap_melee": False,
 }
 
 
@@ -874,6 +1098,19 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")
         _merge_min(buffs, ability, "fnp")
+        # LEADERABILITY-SCHEMA: Greater Daemon locus fields. Booleans OR
+        # together — multiple loci of the same type don't stack numerically
+        # in 10e (you either get +1 S / +1 T / +1 AP from a locus or you
+        # don't). The simulator's modifier cap on hit/wound rolls already
+        # handles +1-to-hit / +1-to-wound at the delta level; for these
+        # stat-level uplifts the boolean OR is the right shape because
+        # codex wording is "improve by 1", not "modifier +1" subject to a
+        # cap. Strength and AP uplifts apply at the attacker side; the
+        # toughness uplift applies at the defender side (and so reads
+        # tgt_buffs, not att_buffs, in code/units.py).
+        _merge_bool(buffs, ability, "plus_one_strength_ranged")
+        _merge_bool(buffs, ability, "plus_one_toughness")
+        _merge_bool(buffs, ability, "plus_one_ap_melee")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

@@ -102,9 +102,18 @@ class GrandCovenWiringTests(unittest.TestCase):
         self.assertEqual(cp_by_name["Devastating Sorcery"], 2)
 
     def test_grand_coven_baseline_psychic_payload(self):
-        """Median-D3 Doombolt baseline (2 MW/round) is wired on the
-        detachment for the round-end psychic phase fallback."""
-        self.assertEqual(GRAND_COVEN.psychic_mortal_wounds_per_round, 2)
+        """Grand Coven exposes NO unconditional per-round MW baseline.
+
+        TSON-DIAG (claude/sim-calibration-6): the previous fabricated
+        `psychic_mortal_wounds_per_round=2` "fallback" was zeroed —
+        Kindred Sorcery's real text (Imbued Manifestation / Psychic
+        Maelstrom / Wrath of the Immaterium) does NOT grant an
+        unconditional per-round MW payload, and the Cabal of Sorcerers
+        Ritual pass (`_run_cabal_rituals`) already produces stochastic
+        Doombolt D3 / D3+3 MW. Stacking a flat baseline on top
+        double-counted that damage and contributed to TSON's over-perf.
+        """
+        self.assertEqual(GRAND_COVEN.psychic_mortal_wounds_per_round, 0)
 
     def test_grand_coven_stratagems_module_re_export(self):
         """The stratagem tuple lives in code.stratagems and is re-exported

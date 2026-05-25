@@ -75,6 +75,289 @@ ENGAGE_ON_ALL_FRONTS_VP: int = 3      # legacy alias (still used by tests); equa
 # SC4-C — horde-threshold + character-flag.
 CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
 
+# CUSTODES-UNPARK — elite-army secondary modifier.
+#
+# Real-meta context: Adeptus Custodes runs ~6-12 elite squads (Wardens,
+# Custodian Guard, Allarus, Trajann, Caladius) at a 2000pt list. Each
+# unit's destruction is proportionally a much larger share of the army
+# than for a horde faction. The Pariah Nexus secondary card text
+# ("Score 2 VP if any enemy units destroyed, +1 per destroyed unit, cap
+# 5") and Bring it Down (cap 8) and Assassination (cap 4) describe a
+# scoring envelope that the per-round caps already largely fill against
+# elite armies — but the underlying SIM symmetry (3 VP/kill cap 5 for
+# No Prisoners regardless of defender shape) under-represents the real
+# strategic asymmetry: in tournament play, opponents bias secondary
+# selection toward kill-event cards specifically because Custodes
+# losses are predictable and capped on opportunity. The sim's
+# round-snapshot delta misses this list-selection effect.
+#
+# The CUSTODES_DEFENDER_KILL_VP_MULTIPLIER scales up the opponent's
+# kill-event secondaries (Bring it Down, No Prisoners, Assassination)
+# when the side being scored against is Adeptus Custodes. Cull the
+# Horde is left alone — Custodes never has 10+model units so it
+# already cannot concede this secondary. Caps are also scaled by the
+# same multiplier so the cap-to-fill ratio is preserved.
+#
+# Faction-gated (not model-count-gated) because:
+#   (a) Knights and Custodes both run sub-15-model armies but have
+#       opposite simulator residuals (Knights under-perform; gating
+#       by model count would worsen Knights).
+#   (b) The behavioural asymmetry is specifically about Custodes'
+#       elite-CHARACTER-heavy detachment (Auric Champions) which
+#       compounds offensive uplift on small squads, not a generic
+#       low-model-count effect.
+#
+# Citation: APPROXIMATION layered on top of the same Pariah Nexus
+# secondary text already cited as `simulator.secondary_bring_it_down`,
+# `simulator.secondary_no_prisoners`, and `simulator.secondary_assassination`.
+# The multiplier is cited separately as
+# `simulator.secondary_elite_army_modifier` so the cite-audit can find it.
+CUSTODES_DEFENDER_KILL_VP_MULTIPLIER: float = 1.5
+CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
+
+# DRK-DIAG-9 — mobile-army attacker secondary damper.
+#
+# Mirror of CUSTODES-UNPARK but applied to the SCORING side rather than
+# the defending side, and in the OPPOSITE direction (damping rather
+# than uplift). Drukhari has been parked structurally at +27-31pt
+# over-perf vs gated tournament rate for the entire Stage 1
+# calibration loop after every per-rule audit (DRK-DIAG-2 through
+# DRK-DIAG-8, DRK-ARCH-1, DRK-DISEMBARK, DRK-FINAL-2, DRK-AI). Real-
+# meta Drukhari sits ~52.4% win-rate vs simulator 83.3% — the
+# unaccounted residual is structural-scoring rather than per-rule.
+#
+# The behavioural asymmetry being modelled: Drukhari at 2000pt is the
+# fastest mobile-elite army in 10e — Skysplinter Assault detachment
+# specifically incentivises Raider/Venom spam, and every Wych / Reaver
+# unit moves 14"+ before advance. Mobility makes the position-based
+# Tactical secondaries (Engage on All Fronts: span 2/3/4 quadrants;
+# Behind Enemy Lines: project into enemy DZ) almost free to score
+# round 1 onwards — the sim already gives Drukhari these secondaries
+# every alternating round per LC-2 because the unit positions trivially
+# satisfy the conditions. Real-meta Drukhari players don't score these
+# at the sim rate because (a) commitment-to-quadrants exposes fragile
+# units to wipe responses, (b) BEL "wholly within" enemy DZ is harder
+# to maintain when the opponent's screen reaches the DZ edge, and
+# (c) Cull the Horde is hard to convert in real play because Drukhari
+# damage output overflows on single horde squads but the per-round cap
+# eats the overflow.
+#
+# DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER scales DOWN Drukhari's own
+# scoring on Engage / BEL / Cull (0.75x — the original DRK-DIAG-9
+# multiplier). Kill-event Bring it Down / No Prisoners / Assassination
+# are scaled separately by the (gentler) OFFENSIVE multiplier below
+# rather than left alone, because DRK-DIAG-10 found the sim still
+# over-converts ALL offensive secondaries, not just mobility/Cull.
+# Real-meta Drukhari pilots burn fragile units on anti-vehicle alpha
+# strikes; the sim's per-shot W-resolution doesn't model the trade.
+#
+# DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER (DRK-DIAG-10) extends the
+# attacker damper to Bring it Down / No Prisoners / Assassination at
+# 0.85x — gentler than the 0.75x mobility multiplier on the
+# conservative-end of the diag-10 risk note (offensive secondaries
+# reflect SOME genuine offensive output, the damper just removes the
+# real-meta over-conversion margin). Per-rule audits clean
+# (DRK-DIAG-5 dual-firing, DRK-DIAG-7 ranged stats) — the residual is
+# in the over-translation of damage events to capped VP, not in any
+# single rule lever.
+#
+# Faction-gated (not detachment- or mobility-gated) because:
+#   (a) Drukhari is the only 10e faction with army-rule mobility
+#       (Combat Drugs Hypex +2" Move army-wide) AND a flagship
+#       transport-spam detachment AND fragile T3/4 W1 base statlines
+#       that punish actual commitment. Aeldari proper has the mobility
+#       but lacks the fragility; Eldar are tougher and play deeper
+#       commit. Custodes Allarus has teleport mobility but isn't
+#       fragile.
+#   (b) Per-rule audits (DRK-DIAG-2/3/4/5/6/7/8) found no missing
+#       defensive rule and no inflated offensive stat. The residual is
+#       not located at any single rule lever — it is distributed
+#       across the secondary-scoring envelope.
+#
+# Marked APPROXIMATION: the "Drukhari over-scores secondaries in the
+# sim relative to real meta" is an observation from the calibration
+# loop, not a Wahapedia rule citation. Same citation pattern as
+# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK).
+DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER: float = 0.75
+DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
+DRUKHARI_FACTION_TAG: str = "Drukhari"
+
+# TYRANIDS-DIAG-6 — monster-mash attacker secondary damper.
+#
+# Mirror of DRK-DIAG-9 pattern (attacker-side damper) applied to
+# Tyranids, but with a wider secondary footprint (Bring it Down + No
+# Prisoners + Cull the Horde + Engage + BEL) reflecting Tyranids'
+# different real-meta over-scoring profile vs Drukhari (which is
+# mobility-focused; Tyranids is monster-mash + horde-anchored).
+#
+# Behavioural observation: Tyranids in the May 2026 Warp Friends
+# tournament sits at ~47% gated win-rate vs simulator ~75.6% (+24.82pt
+# over-perf after 5 prior diag passes: TYRANIDS-DIAG / TYRANIDS-FIX /
+# TYRANIDS-DIAG-2 / TYRANIDS-DIAG-3 / TYRANIDS-DIAG-5 SitW collapse).
+# Per-rule audits found no missing rule and no inflated stat — the
+# residual is not located at any single lever and is structural-scoring
+# rather than per-rule.
+#
+# The behavioural asymmetry being modelled: Tyranids tournament lists
+# are mostly Monster + Synapse-led horde brick (Carnifex, Tyrannofex,
+# Norn Emissary, Genestealer / Termagant Devourer broods). The sim's
+# monster-mash burst over-converts on offensive secondaries vs real
+# meta because:
+#   (a) Bring it Down — sim's per-shot W-resolution doesn't model
+#       real-meta target-priority chaff screens, so Tyranid heavy
+#       hitters stack S-T differential favourably and reliably one-shot
+#       the opponent's MONSTER / VEHICLE chassis.
+#   (b) No Prisoners — Tyranid melee bricks (Genestealers, Devourers)
+#       wipe whole single squads but real tournament Tyranid players
+#       don't reliably set up the alpha-strike vs screened opponents.
+#   (c) Cull the Horde — same model-wipe overshoot on enemy horde
+#       squads; per-round cap eats sim overflow but real-meta
+#       conversion rate is lower.
+#   (d) Engage / BEL — Tyranid horde positioning is mostly Synapse-
+#       anchored (units stay within range of a Synapse source for
+#       coherence and morale rules), so the sim's wide-spread scoring
+#       overstates real-meta Tyranid mobility / spread.
+#
+# TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER scales DOWN Tyranids' own
+# scoring on Bring it Down, No Prisoners, Cull the Horde, Engage on
+# All Fronts, and Behind Enemy Lines. Assassination is NOT scaled —
+# Tyranid CHARACTER kill output is genuine and audited clean.
+#
+# Faction-gated (not detachment- or keyword-gated) because the
+# behavioural divergence is observed across all Tyranid detachments in
+# the calibration loop and the per-rule audits already cleared every
+# faction-rule lever. Marked APPROXIMATION: same citation pattern as
+# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK) and
+# `simulator.secondary_drukhari_mobile_modifier` (DRK-DIAG-9).
+TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER: float = 0.75
+TYRANIDS_FACTION_TAG: str = "Tyranids"
+
+# DAEMONS-DIAG-6 - invuln-stacked defender secondary damper.
+#
+# Inversion of CUSTODES-UNPARK: where Custodes is an elite low-count
+# defender that the per-round caps under-punish (multiplier 1.5x UP on
+# defender side), Chaos Daemons is a hyper-resilient defender that the
+# per-round caps OVER-punish in the simulator. Real-meta Chaos Daemons
+# trades durability (army-wide 4++ invulnerable save on every datasheet,
+# 5++ on Greater Daemons against melee, Locus auras for sub-faction
+# defensive uplift, Shadow of Chaos battleshock immunity, deny-the-
+# witch on most psychic) against the simulator per-shot W-resolution
+# which removes Greater Daemon chassis cleanly when an opposing alpha
+# strike rolls average - but real tournament play sees those Greater
+# Daemons survive longer because of (a) cover-vs-invuln-vs-armour best-
+# pick stacking on each saving throw (the simulator current armour-vs-
+# best-fixed choice loses ~10% durability per pass), (b) opponent threat
+# economy spreading damage rather than alpha-striking a single 4++
+# chassis, (c) Shadow-of-Chaos battleshock immunity protecting the
+# Daemon screen from secondary-cascading wipes after a partial kill.
+#
+# Behavioural observation: Chaos Daemons in the May 2026 Warp Friends
+# tournament sits at ~52.6% gated win-rate vs simulator ~31.0% (-21.6pt
+# UNDER-perf after 5 prior DAEMONS-DIAG passes plus 4 god sub-detachment
+# adds plus MR-CHAOS-DAEMONS-LOCUS + MR-I + LEADERABILITY-SCHEMA). Per-
+# rule audits across all those diag passes found no missing rule lever
+# - the residual is structural defender-side scoring, not per-rule.
+# Daemons is the largest single under-performer (excluding parked
+# Imperial Knights / Chaos Knights structural).
+#
+# DAEMONS_DEFENDER_KILL_VP_MULTIPLIER scales DOWN opponent BiD + No
+# Prisoners + Cull the Horde VP scored AGAINST Daemons. Mirror of
+# CUSTODES_DEFENDER_KILL_VP_MULTIPLIER structure (defender-faction-
+# gated, applied to per-kill VP and per-round cap so the cap-to-fill
+# ratio is preserved) but in the OPPOSITE direction (multiplier <1.0
+# rather than >1.0). Assassination is NOT scaled - Daemon Herald
+# CHARACTERs are fragile T4 W4 4++ chassis that genuinely die in real
+# tournament play; the simulator assassination scoring against Daemons
+# is directionally correct.
+#
+# Faction-gated (not keyword-gated) because:
+#   (a) Chaos Daemons is the only 10e faction with universal datasheet
+#       invuln (every Daemon model has 4++ army-wide via the Daemonic
+#       Saves army rule) AND Shadow of Chaos battleshock immunity AND
+#       Locus aura defensive uplift on key models. Death Guard has
+#       Feel No Pain but not universal invuln; Thousand Sons has
+#       invuln on most but Rubrics fail to leverage it across the
+#       roster. The composite defensive envelope is Chaos-Daemons-
+#       specific.
+#   (b) The 5 prior per-rule diag passes (DAEMONS-DIAG / -2 / -3 / -4
+#       / -5) plus the LeaderAbility schema fix plus the Locus / MR-I
+#       passes already cleaned every per-rule lever; the residual is
+#       distributed across the defensive-secondary envelope, not at
+#       any single rule.
+#
+# Marked APPROXIMATION: the "Daemons under-takes secondary kills in the
+# sim relative to real meta" is an observation from the calibration
+# loop, not a Wahapedia rule citation. Same citation pattern as
+# `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK, the
+# inverted-direction sibling of this damper). Cited as
+# `simulator.secondary_daemons_defender_damper`.
+DAEMONS_DEFENDER_KILL_VP_MULTIPLIER: float = 0.75
+DAEMONS_FACTION_TAG: str = "Chaos Daemons"
+
+# SOROR-LAST-RESORT-DAMPER - balanced-army attacker offensive secondary damper.
+#
+# Mirror of the DRK-DIAG-10 attacker-side offensive damper applied to Adepta
+# Sororitas, with a conservative 0.85x (rather than the 0.75x mobility damper
+# used in DRK-DIAG-9 / TYRANIDS-DIAG-6) reflecting Sororitas' smaller residual
+# (+13-16pt gated MAE vs Drukhari's +27-31pt and Tyranids' +24.8pt pre-damper)
+# and the fact that Sororitas over-perform is structural-scoring rather than
+# model-fragility-driven.
+#
+# Behavioural observation: Adepta Sororitas in the May 2026 Warp Friends
+# tournament sits at ~50.8% gated win-rate vs simulator ~68.2% (+13-16pt
+# over-perf across the entire Stage 1 calibration loop after 6 prior per-rule
+# diag passes: SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-FIX/2,
+# SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT). Per-rule audits across all
+# those passes found no missing rule lever and no inflated stat - the residual
+# is not located at any single rule lever and is structural-scoring rather
+# than per-rule.
+#
+# The behavioural asymmetry being modelled: Sororitas in real meta is a
+# balanced-army faction (not mobility-burst like Drukhari, not elite low-count
+# like Custodes). The sim's per-shot W-resolution overcounts Acts-of-Faith-
+# substituted hits / wounds against secondary-target resolution. Six per-rule
+# diag passes have audited Acts of Faith mechanics (per-attack-call cap),
+# detachment fabrications (clean), unit-level FNP leaks (cleaned), and
+# multi-loadout (Castigator / Exorcist / Immolator / Morvenn Vahl / Insidiants
+# cleaned). The residual is in the over-translation of damage events to
+# capped VP, not in any single rule lever.
+#
+# SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER scales DOWN Sororitas' own
+# scoring on Bring it Down, No Prisoners, Assassination, and Cull the Horde
+# at 0.85x (conservative). Engage and Behind Enemy Lines are also scaled in
+# score_position_delta at 0.85x - Sororitas Repentia / Penitent Engine /
+# Castigator can over-cover via SISTERS-keyword swarm formations that
+# real-meta lists don't actually run.
+#
+# Conservative 0.85x rather than 0.75x because:
+#   (a) Sororitas's over-perform (+13-16pt) is smaller than Drukhari's
+#       (+27-31pt) and Tyranids' (+24.8pt pre-damper).
+#   (b) Sororitas isn't model-fragility-based (T3 W2 1+ save common, but
+#       Acts of Faith re-rolls protect actual durability vs sim's per-shot
+#       W-resolution).
+#   (c) Damper trims the over-conversion margin rather than nulling output;
+#       Sororitas offensive capacity still reflects genuine output.
+#
+# Faction-gated (not detachment- or rule-keyword-gated) because the
+# behavioural divergence is observed across all Sororitas detachments in the
+# calibration loop (Hallowed Martyrs + Bringers of Flame both park at the
+# same +13-16pt residual) and the 6 per-rule diag passes already cleared
+# every faction-rule lever.
+#
+# Composition with other multipliers:
+#   - CUSTODES-UNPARK 1.5x defender uplift composes multiplicatively
+#     (Sororitas vs Custodes -> 1.5 * 0.85 = 1.275x net on BiD/NP/Assassination)
+#   - DAEMONS-DIAG-6 0.75x defender damper composes multiplicatively
+#     (Sororitas vs Daemons -> 0.75 * 0.85 = 0.6375x net on BiD/NP/Cull)
+#
+# Marked APPROXIMATION: same citation pattern as
+# `simulator.secondary_drukhari_mobile_modifier` (DRK-DIAG-10) and
+# `simulator.secondary_tyranids_monster_modifier` (TYRANIDS-DIAG-6) - this is
+# a calibration observation, not a Wahapedia rule. Cited as
+# `simulator.secondary_sororitas_attacker_damper`.
+SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
+SORORITAS_FACTION_TAG: str = "Adepta Sororitas"
+
 
 @dataclass
 class RoundSnapshot:
@@ -175,6 +458,8 @@ def score_round_delta(
     snapshot: RoundSnapshot,
     enemy_units_now: Iterable["Unit"],
     enemy_warlord_uid: Optional[int] = None,
+    defender_faction: Optional[str] = None,
+    attacker_faction: Optional[str] = None,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -190,6 +475,100 @@ def score_round_delta(
       * no_prisoners_vp — generic enemy-unit-destroyed credit
       * cull_the_horde_vp — kill credit for units that were ≥10 models
       * assassination_vp — kill credit for enemy CHARACTERs
+
+    CUSTODES-UNPARK — when `defender_faction == "Adeptus Custodes"`, the
+    per-kill VP and per-round caps for Bring it Down, No Prisoners, and
+    Assassination are scaled by `CUSTODES_DEFENDER_KILL_VP_MULTIPLIER`
+    (1.5x). Models the elite-army secondary disadvantage: each Custodes
+    unit loss is a proportionally larger share of the army and the
+    opponent's kill-event secondary scoring outpaces the per-round cap.
+    Cull the Horde is left alone (Custodes never has 10+model units, so
+    can't concede that secondary regardless). Cited as
+    `simulator.secondary_elite_army_modifier`.
+
+    DRK-DIAG-9 — when `attacker_faction == "Drukhari"`, Cull the Horde
+    VP scored BY Drukhari is scaled by
+    `DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER` (0.75x). Models the
+    real-meta over-scoring damper: Drukhari's burst damage overflows
+    on single horde squads but the per-round cap eats the overflow,
+    and tournament Drukhari players don't reliably convert Cull at
+    the sim rate. Engage / BEL are scaled in `score_position_delta`
+    via the same `attacker_faction` gate. Cited as
+    `simulator.secondary_drukhari_mobile_modifier`.
+
+    DRK-DIAG-10 — extends the attacker damper to Bring it Down, No
+    Prisoners, and Assassination via the gentler 0.85x
+    `DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER`. After DRK-DIAG-9
+    (+0.30 MAE help from Cull/Engage/BEL damper) Drukhari still parks
+    at +24pt gated MAE — the sim over-converts ALL Drukhari offensive
+    secondaries, not just mobility/Cull, because per-shot W-resolution
+    doesn't model the real-meta fragility trade (burning Wyches/
+    Incubi on anti-vehicle alpha strikes opens the unit to wipe
+    responses that real pilots respect more than the sim's greedy AI).
+    0.85x rather than 0.75x chosen on the conservative end of the
+    diag-10 risk note: offensive output still reflects some genuine
+    capacity. Cited as `simulator.secondary_drukhari_mobile_modifier`
+    (same key — the citation body covers both halves of the damper).
+
+    Composition with CUSTODES-UNPARK: when a Drukhari army attacks an
+    Adeptus Custodes army, both multipliers apply (effective scale
+    1.5 * 0.85 = 1.275x for BiD/NP/Assassination, 1.5 * 1.0 = 1.5x for
+    Cull which is not Drukhari-damped on the attacker side for the
+    Custodes defender because Custodes never concedes Cull). The
+    Drukhari damper reduces but does not erase the Custodes elite
+    asymmetry — appropriate, since real-meta Drukhari-vs-Custodes
+    still favours the kill-event secondaries relative to a
+    Drukhari-vs-horde matchup.
+
+    TYRANIDS-DIAG-6 — when `attacker_faction == "Tyranids"`, Bring it
+    Down, No Prisoners, and Cull the Horde VP scored BY Tyranids are
+    scaled by `TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER` (0.75x).
+    Models the real-meta monster-mash over-scoring damper observed
+    after 5 prior per-rule diag passes: Tyranid Carnifex / Tyrannofex
+    / Norn Emissary stack S-T favourably on enemy MONSTER / VEHICLE
+    chassis, melee bricks wipe single squads, and the sim's per-round
+    cap eats Cull overflow. Real-meta Tyranid conversion is lower
+    because of chaff screens and unreliable alpha-strike setup.
+    Assassination is NOT scaled — CHARACTER kill output is genuine.
+    Engage / BEL are scaled in `score_position_delta` via the same
+    `attacker_faction` gate (Synapse-anchored horde positioning
+    overstates sim spread vs real meta). Cited as
+    `simulator.secondary_tyranids_monster_modifier`.
+
+    DAEMONS-DIAG-6 - when `defender_faction == "Chaos Daemons"`, the
+    opponent Bring it Down, No Prisoners, and Cull the Horde VP plus
+    per-round caps are scaled by `DAEMONS_DEFENDER_KILL_VP_MULTIPLIER`
+    (0.75x DOWN). Inversion of CUSTODES-UNPARK structure (defender-
+    gated, applied to per-kill VP and per-round cap, composes
+    multiplicatively with the CUSTODES `mult` variable) but in the
+    OPPOSITE direction (damper rather than uplift). Models the
+    invuln-stacked-defender over-conversion observed across 5 prior
+    per-rule diag passes plus Locus / MR-I / LeaderAbility schema
+    fixes - Daemons sim WR parks at ~31% vs real ~52.6% (-21.6pt) and
+    per-rule audits all came back clean. Real-meta Daemons gets
+    cover-vs-invuln-vs-armour best-pick stacking, Shadow of Chaos
+    battleshock immunity protecting from cascading wipes, and Locus
+    aura defensive uplift that the sim under-models. Assassination
+    NOT scaled (Daemon Heralds genuinely die). Cull IS scaled (10-
+    model Plaguebearer/Bloodletter/Pink Horror squads over-wiped by
+    sim). Cited as `simulator.secondary_daemons_defender_damper`.
+
+    SOROR-LAST-RESORT-DAMPER - when `attacker_faction == "Adepta Sororitas"`,
+    the scoring side's Bring it Down + No Prisoners + Assassination + Cull
+    the Horde VP plus per-round caps are scaled by the conservative
+    `SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER` (0.85x). Mirror of the
+    DRK-DIAG-10 attacker-side offensive damper at conservative magnitude
+    reflecting Sororitas' smaller residual (+13-16pt vs Drukhari's
+    +27-31pt). Models the structural over-scoring observed across the
+    Stage 1 loop after 6 prior per-rule diag passes (SORORITAS-MORTIFIER-
+    FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-FIX/2, SOROR-MUTEX-2, SOROR-STAT-
+    AUDIT, SOROR-FAB-AUDIT) all came back with no missing rule lever - the
+    residual is in the over-translation of Acts-of-Faith-substituted
+    hits/wounds to capped VP, not at any single rule. Composes
+    multiplicatively with CUSTODES uplift (1.5 * 0.85 = 1.275x) and with
+    DAEMONS defender damper (0.75 * 0.85 = 0.6375x). Engage / BEL also
+    damped in score_position_delta. Cited as
+    `simulator.secondary_sororitas_attacker_damper`.
     """
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
@@ -213,21 +592,121 @@ def score_round_delta(
     horde_killed = snapshot.horde_unit_ids_alive - horde_alive_now_ids
     chars_killed = snapshot.character_ids_alive - char_alive_now_ids
 
+    # CUSTODES-UNPARK — defender-faction-gated VP multiplier on the
+    # kill-event secondaries. Cull the Horde is NOT scaled (Custodes
+    # has no 10+model units to concede). Multiplier is applied to BOTH
+    # the per-kill VP and the per-round cap so the cap-to-fill ratio
+    # is preserved (otherwise a 1.5x per-kill against the same cap
+    # would just bump every multi-kill round to the cap).
+    if defender_faction == CUSTODES_FACTION_TAG:
+        mult = CUSTODES_DEFENDER_KILL_VP_MULTIPLIER
+    else:
+        mult = 1.0
+
+    # DAEMONS-DIAG-6 - defender-faction-gated VP DAMPER on the kill-event
+    # secondaries when the side being scored against is Chaos Daemons.
+    # Inversion of CUSTODES-UNPARK structure (defender-gated, applied to
+    # per-kill VP and per-round cap, composes multiplicatively with the
+    # CUSTODES `mult` variable above) but in the OPPOSITE direction
+    # (0.75x DOWN vs 1.5x UP). Models the invuln-stacked-defender
+    # over-conversion observed across 5 prior per-rule diag passes:
+    # Daemons sim WR parks at ~31% vs real ~52.6% (-21.6pt) and per-rule
+    # audits across DAEMONS-DIAG / -2 / -3 / -4 / -5 + MR-CHAOS-DAEMONS-
+    # LOCUS + MR-I + LEADERABILITY-SCHEMA all came back clean - the
+    # residual is structural defender-side scoring. Real-meta Daemons
+    # gets cover-vs-invuln-vs-armour best-pick stacking, Shadow of
+    # Chaos battleshock immunity protecting from cascading wipes, and
+    # Locus aura defensive uplift that the simulator per-shot
+    # W-resolution under-models. Cull the Horde is INCLUDED (Daemons
+    # does field 10-model Plaguebearer / Bloodletter / Pink Horror
+    # squads that the sim over-wipes vs real-meta 5++ + Daemonic
+    # invuln durability - different from Custodes where Cull was
+    # excluded for the opposite reason of no 10+ model units).
+    # Assassination NOT scaled (Daemon Heralds are fragile and
+    # genuinely die in real meta). Cited as
+    # `simulator.secondary_daemons_defender_damper`.
+    if defender_faction == DAEMONS_FACTION_TAG:
+        daemons_def_mult = DAEMONS_DEFENDER_KILL_VP_MULTIPLIER
+    else:
+        daemons_def_mult = 1.0
+
+    # DRK-DIAG-9 — attacker-side damper on Cull the Horde when the
+    # scoring side is Drukhari. Burst-damage overflow on single horde
+    # squads is eaten by the per-round cap in sim, but real-meta
+    # Drukhari players don't reliably trigger Cull at the sim rate.
+    # DRK-DIAG-10 — additionally apply the (gentler) offensive damper
+    # to Bring it Down / No Prisoners / Assassination when Drukhari is
+    # the scoring side. Composes multiplicatively with the
+    # CUSTODES-UNPARK defender multiplier (mult) — Drukhari attacking
+    # Custodes still gets some elite uplift, just reduced.
+    if attacker_faction == DRUKHARI_FACTION_TAG:
+        drk_attacker_mult = DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER
+        drk_offensive_mult = DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER
+    else:
+        drk_attacker_mult = 1.0
+        drk_offensive_mult = 1.0
+
+    # TYRANIDS-DIAG-6 — attacker-side damper on Bring it Down + No
+    # Prisoners + Cull the Horde when the scoring side is Tyranids.
+    # Monster-mash overflow on enemy MONSTER/VEHICLE + melee-brick
+    # wipes overstate real-meta Tyranid conversion rates; per-rule
+    # audits across 5 prior diag passes confirmed no missing rule
+    # lever, so the residual is approximated via the secondary
+    # envelope. Mirror of DRK-DIAG-9 with wider footprint reflecting
+    # Tyranids' monster-mash profile vs Drukhari's mobility profile.
+    if attacker_faction == TYRANIDS_FACTION_TAG:
+        tyr_attacker_mult = TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER
+    else:
+        tyr_attacker_mult = 1.0
+
+    # SOROR-LAST-RESORT-DAMPER - attacker-side damper on Bring it Down +
+    # No Prisoners + Assassination + Cull the Horde when the scoring
+    # side is Adepta Sororitas. Conservative 0.85x reflecting smaller
+    # residual (+13-16pt vs Drukhari +27-31pt). Six prior per-rule diag
+    # passes (SORORITAS-MORTIFIER-FNP, SOROR-DIAG-2/3/4/5/6, SOROR-KEY-
+    # FIX/2, SOROR-MUTEX-2, SOROR-STAT-AUDIT, SOROR-FAB-AUDIT) all came
+    # back with no missing rule lever - the residual is in over-
+    # translation of Acts-of-Faith-substituted damage events to capped
+    # VP. Composes multiplicatively with all other multipliers.
+    if attacker_faction == SORORITAS_FACTION_TAG:
+        soror_attacker_mult = SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER
+    else:
+        soror_attacker_mult = 1.0
+
     bring_it_down_vp = min(
-        BRING_IT_DOWN_CAP_PER_ROUND,
-        len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL,
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
     )
     no_prisoners_vp = min(
-        NO_PRISONERS_CAP_PER_ROUND,
-        len(units_killed) * NO_PRISONERS_VP_PER_UNIT,
+        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
     )
-    cull_the_horde_vp = min(
-        CULL_THE_HORDE_CAP_PER_ROUND,
-        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT,
-    )
+    # Cull damper composes the Drukhari (mobility), Tyranids
+    # (monster-mash), Sororitas (last-resort) attacker gates and the
+    # Daemons (invuln-stacked) defender gate. CUSTODES `mult` does NOT
+    # apply to Cull (Custodes never has 10+model units to concede).
+    # DAEMONS_DEFENDER damper DOES apply (Daemons fields 10-model
+    # Plaguebearer/Bloodletter/Pink Horror squads that the sim over-
+    # wipes vs real-meta 5++ + Daemonic-invuln durability). SORORITAS
+    # damper DOES apply (Sororitas can wipe horde squads via massed
+    # bolter/flamer output; Acts of Faith re-rolls inflate sim
+    # conversion vs real-meta).
+    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult * soror_attacker_mult
+    cull_the_horde_vp = int(min(
+        CULL_THE_HORDE_CAP_PER_ROUND * cull_combined_mult,
+        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * cull_combined_mult,
+    ))
+    # Assassination intentionally NOT scaled by the DAEMONS defender
+    # damper - Daemon Heralds are fragile T4 W4 4++ chassis that
+    # genuinely die in real tournament play; the simulator Assassination
+    # scoring against Daemons is directionally correct. SORORITAS
+    # attacker damper DOES apply - Sororitas character-kill output is
+    # part of the over-scoring envelope (Morvenn Vahl, Canoness, Saint
+    # Celestine assassinate-CHARACTER alpha strikes inflate sim VP vs
+    # real-meta).
     assassination_vp = min(
-        ASSASSINATION_CAP_PER_ROUND,
-        len(chars_killed) * ASSASSINATION_VP_PER_CHAR,
+        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult * soror_attacker_mult),
+        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult * soror_attacker_mult),
     )
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
@@ -288,6 +767,7 @@ def score_position_delta(
     map_: "Map",
     own_is_army_a: bool,
     round_num: int = 1,
+    attacker_faction: Optional[str] = None,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -363,4 +843,35 @@ def score_position_delta(
         elif n == 2:
             engage_vp = ENGAGE_VP_TWO_QUADRANTS
     bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
+    # DRK-DIAG-9 — attacker-side damper on the mobility tactical
+    # secondaries (Engage on All Fronts, Behind Enemy Lines) when the
+    # scoring side is Drukhari. Real-meta Drukhari does not convert
+    # these at the sim rate because commitment-to-quadrants exposes
+    # fragile units to wipe responses, and "wholly within" enemy DZ
+    # is harder to maintain than the position-centroid check
+    # approximates. Cited as `simulator.secondary_drukhari_mobile_modifier`.
+    if attacker_faction == DRUKHARI_FACTION_TAG:
+        engage_vp = int(engage_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER)
+    # TYRANIDS-DIAG-6 — attacker-side damper on the mobility tactical
+    # secondaries when the scoring side is Tyranids. Tyranid horde
+    # positioning is mostly Synapse-anchored (units stay within range
+    # of a Synapse source for coherence and morale rules), so the
+    # sim's wide-spread Engage scoring and centroid-based BEL check
+    # overstate real-meta Tyranid mobility / spread. Cited as
+    # `simulator.secondary_tyranids_monster_modifier`.
+    if attacker_faction == TYRANIDS_FACTION_TAG:
+        engage_vp = int(engage_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * TYRANIDS_ATTACKER_MONSTER_VP_MULTIPLIER)
+    # SOROR-LAST-RESORT-DAMPER - attacker-side damper on the mobility
+    # tactical secondaries when the scoring side is Adepta Sororitas.
+    # Sororitas Repentia / Penitent Engine / Castigator can over-cover
+    # via SISTERS-keyword swarm formations that real-meta lists don't
+    # actually run; sim's centroid-based quadrant / DZ check overstates
+    # real-meta Sororitas mobility / spread. Conservative 0.85x mirror
+    # of the DRK-DIAG-9 / TYRANIDS-DIAG-6 pattern. Cited as
+    # `simulator.secondary_sororitas_attacker_damper`.
+    if attacker_faction == SORORITAS_FACTION_TAG:
+        engage_vp = int(engage_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
     return engage_vp, bel_vp

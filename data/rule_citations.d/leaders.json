@@ -1,6 +1,90 @@
 {
   "_comment": "Citations for every LeaderAbility entry in code/leaders.py _REGISTRY. Many of our LeaderAbility.name fields are flavour labels that do NOT match the codex — where they differ, rule_name reflects the actual 10e datasheet ability and effect tags '(approximation)' where the simulator's always-on flag is a loose translation of the real rule. Sources: Wahapedia 10e datasheets (https://wahapedia.ru/wh40k10ed/).",
 
+  "LeaderAbility.Bloodmaster's Locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Bloodmaster",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, add 1 to the Wound roll.",
+    "trigger": "Bloodmaster is leading a friendly Bloodletters unit; the led unit makes an attack",
+    "effect": "+1 to the Wound roll for the led Bloodletters squad — direct match to plus_one_to_wound=True. host_keys gated to chaos_daemons_library_bloodletters per the codex Leader entry (BSData v10.6.0, Chaos - Chaos Daemons Library.cat.gz, Bloodmaster profile: 'This model can be attached to the following unit: BLOODLETTERS').",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Poxbringer's Locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Poxbringer",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, a successful unmodified Hit roll of 5+ scores a Critical Hit.",
+    "trigger": "Poxbringer is leading a friendly Plaguebearers unit; the led unit makes an attack",
+    "effect": "(approximation) +1 to the Wound roll for the led Plaguebearers squad. The codex grants 5+ critical hits — SwegHammer has no per-leader-aura flag for expanding the critical-hit threshold (crit thresholds are a weapon-profile property, not a leader-grantable aura in current plumbing). Plaguebearers' melee profile already carries [LETHAL HITS] on a 6, so the codex rule doubles the lethals-trigger rate from 1/6 -> 2/6. plus_one_to_wound is the closest direction-correct proxy (more attacks resolve into wounds). Feculent Despair's -1 enemy battle-shock test is skipped (no per-leader battle-shock aura plumbing). host_keys gated to chaos_daemons_library_plaguebearers (BSData Poxbringer Leader profile: 'PLAGUEBEARERS').",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
+  "LeaderAbility.Changecaster's Locus": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Changecaster",
+    "quoted_text": "While this model is leading a unit, ranged weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Changecaster is leading a friendly Pink Horrors unit; the led unit makes a ranged attack",
+    "effect": "(approximation) reroll Hit rolls of 1 in aura range. The codex grants [SUSTAINED HITS 1] on the led unit's ranged weapons (+1/6 hits on a natural 6). SwegHammer's LeaderAbility has no `sustained_hits` flag, so this uses the same reroll_hit_ones proxy as TSON Infernal Master's [SUSTAINED HITS 1] grant: reroll-1s yields +1/6 hits, same numerical uplift as sustained-1-on-6, just via a different roll. host_keys gated to chaos_daemons_library_pink_horrors (BSData Changecaster Leader profile: 'PINK HORRORS, BLUE HORRORS' — Pink Horrors is the in-catalogue battleline; Blue Horrors are a sub-unit profile that doesn't surface as a separate UNIT_CATALOG key).",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
+  "LeaderAbility.Swallow Energy": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/",
+    "rule_name": "Swallow Energy (Psychic)",
+    "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 4+ ability against mortal wounds and Psychic Attacks.",
+    "trigger": "Contorted Epitome is leading a friendly Daemonettes unit; the led unit takes a wound from a mortal wound or PSYCHIC attack",
+    "effect": "(approximation, strictly stronger than codex) FNP 4+ applied army-wide-in-aura while leading Daemonettes. The codex restricts the FNP to mortal wounds and PSYCHIC attacks; SwegHammer does not tag attacks as PSYCHIC and does not distinguish mortal-wound sources from regular wounds inside the FNP roll, so the proxy applies FNP 4+ to all incoming damage on the led unit. Same pattern as the Librarian's Mental Fortress entry. Horrible Fascination is a once-per-opponent-Shooting-phase ritual with no equivalent aura plumbing; skipped. host_keys gated to chaos_daemons_library_daemonettes (BSData Contorted Epitome Leader profile: 'DAEMONETTES').",
+    "scope": "unit-led",
+    "approximation": true
+  },
+
+  "LeaderAbility.Daemon Lord of Khorne": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
+    "rule_name": "Daemon Lord of Khorne (Aura)",
+    "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+    "trigger": "Bloodthirster is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of the Bloodthirster and makes a melee attack",
+    "effect": "+1 to the melee Hit roll for the affected unit. Modelled as plus_one_to_hit=True with host_keys gated to the catalogue keys carrying the KHORNE Legiones Daemonica keyword (Bloodletters, Bloodcrushers, Flesh Hounds, Skull Cannon, Khorne Soul Grinder, Skullmaster, Skulltaker, Karanak, Bloodmaster, Rendmaster on Blood Throne) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. (loose-edge) SwegHammer's plus_one_to_hit flag does not distinguish melee from ranged at LeaderAbility level, so the +1 also applies to the rare ranged profiles those units carry (Skull Cannon's Burning Skulls, Khorne Soul Grinder's Phlegm Bombardment). Direction-correct uplift, strictly weaker than fabricating a Strength/AP buff for the other Greater Daemons whose buff stats SwegHammer has no field for.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Rage Embodied": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skarbrand",
+    "rule_name": "Rage Embodied (Aura)",
+    "quoted_text": "While a friendly KHORNE Legiones Daemonica unit is within 6\" of this model, add 1 to the Attacks characteristic of melee weapons equipped by models in that unit.",
+    "trigger": "Skarbrand is on the battlefield; a friendly KHORNE Legiones Daemonica unit is within 6\" of Skarbrand",
+    "effect": "+1 Attacks on every melee weapon in the affected unit. Modelled as plus_one_attack=1 with host_keys gated to the KHORNE Legiones Daemonica catalogue keys (same roster as Bloodthirster's Daemon Lord of Khorne). (loose-edge) plus_one_attack in SwegHammer applies the +1 to every weapon profile carried by the attacker, which over-includes the ranged profiles on Skull Cannon / Khorne Soul Grinder. Direction-correct uplift, strictly weaker than fabricating the missing field; the codex rule explicitly only adds the attack to melee profiles.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Daemon Lord of Tzeentch": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change",
+    "rule_name": "Daemon Lord of Tzeentch (Aura)",
+    "quoted_text": "While a friendly TZEENTCH LEGIONES DAEMONICA unit is within 6\" of this model, each time a model in that unit makes a ranged attack, add 1 to the Strength characteristic of that attack.",
+    "trigger": "Lord of Change is on the battlefield; a friendly TZEENTCH Legiones Daemonica unit is within 6\" of the Lord of Change and makes a ranged attack",
+    "effect": "+1 Strength on every ranged attack from the affected unit. Modelled as plus_one_strength_ranged=True with host_keys gated to the TZEENTCH Legiones Daemonica catalogue keys (Pink Horrors, Blue Horrors, Flamers, Screamers, Burning Chariot, Tzeentch Soul Grinder, Kairos Fateweaver, Changecaster, Fluxmaster, Fateskimmer, Exalted Flamer, The Blue Scribes, The Changeling) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. The Shooting-phase 'select [IGNORES COVER] / [LETHAL HITS] / [SUSTAINED HITS D3] for the Bolt of Change' bullet on the same datasheet ability is a self-buff on the Lord of Change's own ranged weapon and is NOT modelled here — it would need a per-Lord-of-Change weapon-keyword toggle the simulator does not yet expose. The +1 Strength aura is the main mechanical contribution, and is faithful to the codex.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Daemon Lord of Nurgle": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One",
+    "rule_name": "Daemon Lord of Nurgle (Aura)",
+    "quoted_text": "While a friendly Nurgle Legiones Daemonica unit is within 6\" of this model, add 1 to the Toughness characteristic of models in that unit.",
+    "trigger": "Great Unclean One is on the battlefield; a friendly NURGLE Legiones Daemonica unit is within 6\" of the GUO and is the target of an attack",
+    "effect": "+1 Toughness on models in the affected NURGLE Daemons unit. Modelled as plus_one_toughness=True with host_keys gated to the NURGLE Legiones Daemonica catalogue keys (Plaguebearers, Nurglings, Plague Drones, Beasts of Nurgle, Nurgle Soul Grinder, Rotigus, Horticulous Slimux, Epidemius, Poxbringer, Sloppity Bilepiper, Spoilpox Scrivener) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. Buff applied DEFENDER-side: read from tgt_buffs in code/units.py's wound-roll computation (+1 to target's effective_toughness). The Movement-phase 'select an enemy unit within 12\" and subtract 1 from its Toughness until next Movement phase' bullet on the same datasheet ability is a target-debuff and is NOT modelled here — the simulator has no per-unit transient toughness debuff slot. The +1 T defensive aura is the main mechanical contribution and is faithful to the codex.",
+    "scope": "keyword-gated"
+  },
+
+  "LeaderAbility.Daemon Lord of Slaanesh": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets",
+    "rule_name": "Daemon Lord of Slaanesh (Aura)",
+    "quoted_text": "While a friendly Slaanesh Legiones Daemonica unit is within 6\" of this model, improve the Armour Penetration characteristic of melee weapons equipped by models in that unit by 1.",
+    "trigger": "Keeper of Secrets is on the battlefield; a friendly SLAANESH Legiones Daemonica unit is within 6\" of the KoS and makes a melee attack",
+    "effect": "AP improved by 1 (more negative) on every melee weapon in the affected unit. Modelled as plus_one_ap_melee=True with host_keys gated to the SLAANESH Legiones Daemonica catalogue keys (Daemonettes, Seekers, Fiends, Hellflayers, Slaanesh Soul Grinder, Shalaxi Helbane, Syll'esske, Contorted Epitome, Infernal Enrapturess, The Masque of Slaanesh, Tormentbringer, Tranceweaver) per BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz. The defensive -1-to-Hit-rolls-targeting-this-model bullet on the KoS datasheet (a per-Keeper self-buff) is NOT modelled here — it would need a per-defender hit-modifier slot that the simulator does not currently expose for individual models. The +1 melee AP aura is the main mechanical contribution and is faithful to the codex.",
+    "scope": "keyword-gated"
+  },
+
   "LeaderAbility.Rites of Battle": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",
@@ -37,16 +121,7 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Beacon of Faith": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/Canoness",
-    "rule_name": "Sacred Command",
-    "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
-    "trigger": "attacker's unit is led by a Canoness in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Sacred Command is a once-per-round Stratagem CP discount, which the simulator does not model — our 'Beacon of Faith' is invented label for a reroll-1s offensive proxy)",
-    "scope": "unit-led"
-  },
-
-  "LeaderAbility.My Will Be Done": {
+"LeaderAbility.My Will Be Done": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/Overlord",
     "rule_name": "My Will Be Done",
     "quoted_text": "Once per battle round, one unit from your army with this ability can use it when its unit is targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP.",
@@ -114,7 +189,7 @@
     "rule_name": "Ethereal Form + Inevitable Death",
     "quoted_text": "Ethereal Form: Each time this model destroys an enemy unit it regains up to D3 lost wounds. Inevitable Death: Once in each of your opponent's turns, if this model is on the battlefield when another friendly Aeldari unit is destroyed, just after removing the last model in that unit, you can remove this model from the battlefield and set it up as close as possible to where that destroyed model was destroyed and not within Engagement Range of one or more enemy units.",
     "trigger": "Yncarne is alive (round-end heal fires via apply_round_end_healing every round)",
-    "effect": "(approximation) heal 2 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). Approximates Ethereal Form's on-kill D3 heal as a steady 2/round end (D3 median = 2). Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths. iter21 fab audit dropped the prior plus_one_to_hit=True flag, which was admitted in the iter15-17 citation as 'a loose threat-mobility proxy for the teleport's tactical upside' with no basis in either Ethereal Form or Inevitable Death — same pattern iter20 dropped from Necron Overlord 'My Will Be Done' and Typhus 'Destroyer Hive'.",
+    "effect": "(approximation) heal 1 HP at round end (prefers most-wounded friendly in 6\" aura, falls back to Yncarne itself when no friendly is wounded). AELDARI-DIAG-3 (2026-05-24) scaled the prior heal_per_round=2 down to 1: the real Ethereal Form is gated on Yncarne destroying an enemy UNIT (D3 wounds per kill), not an unconditional round-end heal. Realistic 5-round battle: Yncarne destroys ~1-2 enemy units total before either finishing the game or being killed itself, so expected total heal under the real rule is ~D3 * 1-2 = 2-4 wounds. heal_per_round=1 over 5 rounds = 5 wounds, closer to the codex median than the prior 10-wound ceiling. Inevitable Death (reactive teleport on Aeldari death) is NOT modelled — SwegHammer has no reactive-relocation hook in the death-detection code paths. iter21 fab audit dropped the prior plus_one_to_hit=True flag, which was admitted in the iter15-17 citation as 'a loose threat-mobility proxy for the teleport's tactical upside' with no basis in either Ethereal Form or Inevitable Death — same pattern iter20 dropped from Necron Overlord 'My Will Be Done' and Typhus 'Destroyer Hive'.",
     "scope": "unit-led"
   },
 
@@ -318,19 +393,19 @@
 
   "LeaderAbility.Overlord of Commorragh": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Archon",
-    "rule_name": "Hatred Eternal (Pain)",
+    "rule_name": "Hatred Eternal (Pain) — NO-FLAG (DRK-DIAG-3 drop)",
     "quoted_text": "In your Shooting phase or the Fight phase, when you select this model's unit to shoot or fight, you can spend 1 Pain token to Empower that unit. While that unit is Empowered, each time a model in that unit makes an attack, you can re-roll the Hit roll.",
-    "trigger": "attacker's unit is led by a Drukhari Archon in aura range",
-    "effect": "+1 to Hit in aura range (approximation; the real Hatred Eternal grants full Hit-roll re-rolls when 1 Pain token is spent to Empower the unit. The simulator does not model Pain tokens or the Empowered state, so +1-to-hit is a stronger-than-1s-only but weaker-than-full-rerolls proxy for the Archon's Pain-fuelled offensive aura)",
+    "trigger": "attacker's unit is led by a Drukhari Archon AND the unit is Empowered via 1 Pain token spent that phase (NOT modelled — sim has no Pain-token economy or Empowered state)",
+    "effect": "no flag wired (DRK-DIAG-3, 2026-05-23). Previous `plus_one_to_hit=True` proxy was an always-on, ungated buff and a strict over-buff vs the real per-Pain-token Empower gate. Restore narrowly when Pain tokens land in the sim.",
     "scope": "unit-led"
   },
 
   "LeaderAbility.Precision Blows": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/Succubus",
-    "rule_name": "Storm of Blades",
+    "rule_name": "Storm of Blades — NO-FLAG (DRK-DIAG-3 drop)",
     "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
-    "trigger": "attacker's unit is led by a Succubus in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Storm of Blades grants SUSTAINED HITS 1 to the led unit's melee weapons. The simulator does not model SUSTAINED HITS, so reroll-1s-to-hit is a flavour proxy for the Succubus's flurry-of-blows aesthetic)",
+    "trigger": "attacker's unit is led by a Succubus (melee attacks only, weapon-keyword grant — NOT modelled, sim has no SUSTAINED HITS weapon keyword)",
+    "effect": "no flag wired (DRK-DIAG-3, 2026-05-23). Previous `reroll_hit_ones=True` proxy was an always-on Hit-roll re-roll aura rather than the real per-weapon SUSTAINED HITS 1 grant on melee only. Restore narrowly (melee-only, weapon-keyword gated) when SUSTAINED HITS lands.",
     "scope": "unit-led"
   },
 

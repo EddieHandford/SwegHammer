@@ -6,7 +6,7 @@ import functools
 import math
 import random
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 from .factions import is_marine_faction
 
@@ -114,6 +114,50 @@ def _is_near_enemy_dg_model(unit: "Unit", radius: float = 6.0) -> bool:
         mx, my = m.position
         dx = mx - ux
         dy = my - uy
+        if dx * dx + dy * dy <= r2:
+            return True
+    return False
+
+
+def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
+    """True iff `unit` satisfies the Doctrina Imperatives BATTLELINE proximity
+    gate: it has the BATTLELINE keyword itself, OR it is within 6" of any
+    friendly ADEPTUS MECHANICUS BATTLELINE unit.
+
+    Wahapedia verbatim
+    (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/):
+        "...if this unit has the BATTLELINE keyword and/or it is within 6"
+        of one or more friendly ADEPTUS MECHANICUS BATTLELINE units..."
+
+    This gate scopes the Protector defensive -1 to Hit (melee attacks
+    targeting the AdMech unit) and the Conqueror +1 AP buff to the
+    AdMech-side units that are themselves BATTLELINE (Skitarii Rangers,
+    Skitarii Vanguard) or which are coordinating with one within 6".
+    The +1 BS / WS portion of each imperative is genuinely army-wide and
+    is NOT gated by this helper.
+
+    Cited as `simulator.doctrina_imperatives`. Returns False when the unit
+    has no army_ref (defensive) — the gate fails-closed in that edge case
+    so a stray test profile cannot silently receive the gated bonus.
+    """
+    kws = unit.profile.unit_keywords or ()
+    if "BATTLELINE" in kws:
+        return True
+    own_army = getattr(unit, "army_ref", None)
+    if own_army is None:
+        return False
+    ux, uy = unit.position
+    r2 = 6.0 * 6.0
+    for ally in own_army.alive_units:
+        if ally is unit:
+            continue
+        if ally.profile.faction != "Adeptus Mechanicus":
+            continue
+        if "BATTLELINE" not in (ally.profile.unit_keywords or ()):
+            continue
+        ax, ay = ally.position
+        dx = ax - ux
+        dy = ay - uy
         if dx * dx + dy * dy <= r2:
             return True
     return False
@@ -229,6 +273,39 @@ def lanchester_score(
 
 
 # ---------------------------------------------------------------------------
+# Astra Militarum SQUADRON allowlist — see the SQUADRON-leg gate in
+# Unit.attack() for the Born Soldiers Combined Arms detachment rule. BSData
+# v10.6.0 does not tag datasheets with the codex SQUADRON keyword, so we
+# match on `UnitProfile.name`. Per Wahapedia AM datasheets (see
+# https://wahapedia.ru/wh40k10ed/factions/astra-militarum/ ), the SQUADRON
+# keyword belongs to the Leman Russ family, the Rogal Dorn family, the
+# Hellhound (Bane Wolf / Devil Dog are weapon-loadout variants of the
+# Hellhound datasheet in BSData v10.6.0), and the Sentinels.
+# ---------------------------------------------------------------------------
+_AM_BORN_SOLDIERS_SQUADRON_NAMES = frozenset({
+    # Leman Russ family
+    "Leman Russ Battle Tank",
+    "Leman Russ Demolisher",
+    "Leman Russ Eradicator",
+    "Leman Russ Executioner",
+    "Leman Russ Exterminator",
+    "Leman Russ Punisher",
+    "Leman Russ Vanquisher",
+    "Leman Russ Commander",
+    # Rogal Dorn family
+    "Rogal Dorn Battle Tank",
+    "Rogal Dorn Commander",
+    # Hellhound family (Bane Wolf / Devil Dog are weapon-loadout variants
+    # of the Hellhound datasheet in BSData v10.6.0 — no separate entry).
+    "Hellhound",
+    # Sentinels
+    "Armoured Sentinels",
+    "Scout Sentinels",
+    "Sentinel Commander [Crucible]",
+})
+
+
+# ---------------------------------------------------------------------------
 # UnitProfile — immutable stat block
 # ---------------------------------------------------------------------------
 
@@ -282,6 +359,25 @@ class UnitProfile:
     lance: bool = False                        # +1 to wound on melee if the unit charged this turn
     precision: bool = False                    # bypass cover when shooting a CHARACTER target
     pistol: bool = False                       # can shoot while in engagement (1.5") range
+    # MAP-MULTIFIRE-VALIDATE — name of the primary ranged weapon (BSData
+    # weapon profile name on the unit's best-legal ranged loadout entry).
+    # Stamped by the mapper from `primary.name` so the simulator's
+    # multi-profile picker can detect mode-alternates (sibling weapon
+    # profiles whose names differ only by a trailing mode suffix like
+    # `" - focused mode"`, `" - dispersed mode"`, `" - standard"`,
+    # `" - supercharge"`, etc.). 10e core rule: a weapon with multiple
+    # firing modes fires ONE mode per Shooting phase, not all of them
+    # together. Empty string = legacy profile that predates the field.
+    # Cited as `simulator.multi_profile_weapon_selection`.
+    weapon: str = ""
+    # MAP-MULTIFIRE-VALIDATE — Pistol keyword carried on the SECONDARY
+    # ranged profile (the primary's pistol flag lives in `pistol` above).
+    # 10e core rule (Wahapedia, Core Rules → Weapons → Pistols): "A model
+    # armed with one or more Pistols cannot shoot any non-Pistol weapons
+    # in the same turn (and vice versa)." The picker partitions profiles
+    # into pistol / non-pistol groups and fires exactly one group per
+    # activation. Cited as `simulator.pistol_exclusivity`.
+    secondary_pistol: bool = False
     indirect_fire: bool = False                # ignores LoS; -1 to hit vs non-visible targets
     one_shot: bool = False                     # weapon fires once per battle
     # Phase H — Stealth (-1 to be hit when shot at)
@@ -292,6 +388,12 @@ class UnitProfile:
     # profile is attached to the datasheet. Cited as
     # `simulator.lone_operative`.
     lone_operative: bool = False
+    # FIGHTS FIRST datasheet keyword (10e core, Fight phase priority). When
+    # True, this unit fights in the Fights First step of the Fight phase
+    # alongside chargers, ahead of the Remaining Combats step. Parsed from
+    # BSData by the mapper via `extract_fights_first`. Cited as
+    # `simulator.fights_first_keyword`.
+    fights_first: bool = False
     # Phase I — deployment abilities (decided pre-Round 1 by the simulator)
     deep_strike: bool = False                  # starts in Reserves; arrives from Round 2
     scout_distance: int = 0                    # pre-game Normal Move up to N inches
@@ -310,6 +412,27 @@ class UnitProfile:
     # leaders.is_actually_led), (c) attack.strength > defender.toughness.
     # Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Each time an
+    # attack is allocated to this model, halve the Damage characteristic
+    # (rounding up); D1 attacks deal 0 damage. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/. Applied at the
+    # per-shot damage allocation sites in Unit.attack (both the
+    # devastating-wounds bypass path and the failed-save path). Cited as
+    # `UnitProfile.necrodermis`.
+    necrodermis: bool = False
+    # MAP-4 — per-unit Reanimation Protocols eligibility flag.
+    # 10e Necron datasheets all CARRY the "Reanimation Protocols" ability, but
+    # the ability text excludes CHARACTER / MONSTER / VEHICLE models from
+    # benefiting (the bodyguard-led-by-character case is handled separately
+    # downstream when leader attachments resolve). True iff the datasheet
+    # carries the Reanimation Protocols infoLink AND is not a CHARACTER,
+    # MONSTER, or VEHICLE. Populated by the BSData mapper. Read by
+    # opponent-side target-priority logic so non-reanimating Necron units
+    # (C'tan Shards, Doomstalker, Doomsday Ark, Lokhust Heavy Destroyers,
+    # Monolith, Tesseract Vault, etc.) are not penalised the way reanimating
+    # bodies are. Cited as `simulator.reanimation_protocols`.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols
+    reanimates_with_army: bool = False
     unit_keywords: Tuple[str, ...] = ()        # 10e keywords (INFANTRY, VEHICLE, etc.) for Anti-X targeting
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
     melee_attacks: int = 0
@@ -346,6 +469,32 @@ class UnitProfile:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # ---- MAP-1 — TERTIARY and beyond RANGED weapon profiles ------------------
+    # Generalises the multi-profile picker from 2 to N. Knight Castellan fires
+    # five ranged weapons (Volcano Lance + Plasma Decimator + Twin Meltagun +
+    # Shieldbreaker Missiles + Twin Siegebreaker Cannon) in real 10e games;
+    # the primary/secondary fields above carry the two strongest, this tuple
+    # carries the rest. Each entry is a tuple of (key, value) pairs (so the
+    # field stays hashable / dataclass-friendly) holding the same stat fields
+    # as the secondary block plus the weapon name. The simulator's per-shot
+    # picker iterates over every available profile (primary, secondary,
+    # extras) and routes to the profile with the highest expected damage
+    # against the current target at the current range. Empty tuple = no
+    # extra profiles (most units). Cited as
+    # `simulator.multi_profile_weapon_selection`.
+    extra_ranged_profiles: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # The MAP-3 UNION (any-weapon-in-basket carries the keyword) inflates
+    # damage for heterogeneous squads (Rubric Marines, Skyweavers, Beast
+    # Snagga Boyz, AdMech Skitarii) because every shot in the synthetic
+    # average inherits the keyword. These fractions tell Unit.attack what
+    # fraction of basket weight legitimately carries the keyword, so a
+    # Bernoulli draw can gate each shot. Default 1.0 = legacy behaviour:
+    # the keyword fires on every shot. Set < 1.0 only by the mapper for
+    # heterogeneous squads. Cited as `simulator.basket_fraction_gating`.
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Tuple[Tuple[str, float], ...] = ()
     points_override: float = 0.0               # 0 = use derived points_cost; >0 wins (used by the balancer)
     # ---- Renderer-only: real-world GW model base footprint ---------------
     # Informational only — the simulator's collision / range logic still
@@ -493,6 +642,21 @@ class Unit:
         "transient_plus_one_to_hit_shooting",
         "transient_halve_damage",
         "transient_undying_legions_pulse",
+        # ST-1: proper transient keyword-grant slots. Replace the over-strong
+        # +1-to-hit / +1-to-wound proxies that were standing in for stratagems
+        # which actually grant LETHAL HITS / SUSTAINED HITS / wound re-rolls.
+        # transient_lethal_hits: critical hit (6 to hit) auto-wounds for the
+        # round, composed via OR with profile.lethal_hits and the other
+        # army-rule lethal_hits sources at the crit-to-hit branch.
+        # transient_sustained_hits: extra hits on crit, additive to
+        # effective_sustained_hits (matches detachment / army-wide stacking).
+        # transient_reroll_wounds: full failed-wound re-roll for the round.
+        # transient_reroll_wounds_ones: 1s-only wound re-roll for the round
+        # (lossy but correctly weaker proxy for "reroll 1s" stratagems).
+        "transient_lethal_hits",
+        "transient_sustained_hits",
+        "transient_reroll_wounds",
+        "transient_reroll_wounds_ones",
         # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
         # each Command phase to any Drukhari unit below Starting Strength;
         # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
@@ -506,6 +670,16 @@ class Unit:
         # Round 2). Cleared once the unit lands. Cited as
         # `simulator.cult_ambush`.
         "cult_ambush_pending",
+        # GSC-DIAG: True once this unit has been revived via Cult Ambush
+        # Resurgence (the per-destruction revival half of the army rule).
+        # Prevents the proxy from ping-ponging a single unit through
+        # multiple revivals when one unit dies, revives, and dies again
+        # in the same battle. The codex "Add a new unit identical to
+        # your destroyed unit" phrasing implies the revived unit is a
+        # fresh entity, but at the proxy level we collapse this to
+        # one-revival-per-original-unit so the same slot doesn't churn
+        # the entire Resurgence pool by itself.
+        "cult_ambush_revived",
         # 10e Enhancement (Warlord upgrade). Assigned to a single CHARACTER
         # per army by the army builder; None on every other unit. Read by
         # `leaders.effective_buffs` when this unit is an in-range friendly
@@ -542,6 +716,46 @@ class Unit:
         # Cited as `simulator.embark` / `simulator.disembark`.
         "passengers",
         "embarked_in",
+        # BS-1: per-unit persistent battleshock state. Populated by
+        # `simulator._run_battleshock_phase` when this unit fails its test in
+        # the Command phase. The value stored is the round_num through which
+        # the unit is battle-shocked (the test fires at the start of a
+        # Command phase and the status lasts "until the start of your next
+        # Command phase" — i.e. for the rest of that round). Downstream
+        # consumers (Synapse Imperative, future Harbingers of Dread, future
+        # Repentia explosive death, etc.) read via
+        # `is_currently_battle_shocked(round_num)`. Default 0 = never failed
+        # a test. Cleared by the next round's Battle-shock phase (the same
+        # call that re-tests the unit). Cited as `simulator.battleshock`.
+        "battleshocked_until_round",
+        # SOROR-DIAG-4: Adepta Sororitas Acts of Faith per-round budget.
+        # The codex caps Acts of Faith at one per phase per unit; SOROR-DIAG-3
+        # left the substitution gated only by a per-attack() local flag, which
+        # let a defender spend one Miracle die per ATTACKING ENEMY across a
+        # whole shooting / fight phase (each enemy attacker enters attack()
+        # with a fresh flag, so the defender's defensive substitution branch
+        # could fire dozens of times per phase). SOROR-DIAG-4 promotes the
+        # flag onto the Unit itself and resets it once per round in
+        # `Battle._run_round`, capping each Sororitas unit at one Act of
+        # Faith per round across BOTH offensive (its own attack() calls) and
+        # defensive (incoming attack() calls on this unit). Tighter than the
+        # codex literal (which would permit one per phase, i.e. up to four
+        # per round across Move / Shoot / Charge / Fight), chosen
+        # conservatively because SOROR-DIAG-3 left Sororitas at +14.39pt
+        # over-performance after the bank cap was already tightened to 5.
+        # Cited as `simulator.acts_of_faith`.
+        "aof_used_this_round",
+        # CSM-EYE-OF-GODS: Eye of the Gods stratagem stamp (Pactbound Zealots,
+        # 1 CP). Set True the first time this CHARACTER destroys an enemy
+        # unit with a melee attack AND the stratagem fires. While True, the
+        # CHARACTER gains a persistent +1 to wound on its own melee attacks
+        # for the rest of the battle. APPROXIMATION: the real Eye of the
+        # Gods rolls D6+Wounds on a table that grants +M / +T / +A/+S /
+        # +D melee depending on the roll; we collapse to +1-to-wound-melee
+        # because that's the closest single-flag analogue to the snowball.
+        # Persistent (NOT cleared with the round-start transient_* flags).
+        # Cited as `Stratagem.Eye of the Gods`.
+        "eye_of_the_gods_stamped",
     )
 
     def __init__(self, profile: UnitProfile, in_cover: bool = False) -> None:
@@ -589,6 +803,12 @@ class Unit:
         # Awakened Dynasty (Necrons) Protocol of the Undying Legions: integer
         # number of wounds to reanimate in a follow-up pulse. 0 = no pulse.
         self.transient_undying_legions_pulse: int = 0
+        # ST-1 proper-keyword transient flags (see __slots__ above for the
+        # full rationale and citation linkage).
+        self.transient_lethal_hits: bool = False
+        self.transient_sustained_hits: int = 0
+        self.transient_reroll_wounds: bool = False
+        self.transient_reroll_wounds_ones: bool = False
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is
@@ -596,6 +816,8 @@ class Unit:
         # path; cleared the moment it arrives on the battlefield. See
         # `simulator.cult_ambush` citation for the verbatim Wahapedia quote.
         self.cult_ambush_pending: bool = False
+        # GSC-DIAG: Cult Ambush Resurgence one-shot guard. See __slots__ comment.
+        self.cult_ambush_revived: bool = False
         # Fall Back (10e core). Set True by Battle._do_move when the unit
         # elects the FALL_BACK intent; gates _do_shoot / _do_charge unless
         # the profile has FLY. Reset at the top of each round.
@@ -619,6 +841,21 @@ class Unit:
         # is the carrier pointer for a passenger; both default to empty / None.
         self.passengers: list = []
         self.embarked_in = None  # type: ignore[assignment]
+        # BS-1: persistent battleshock-until-round marker (see __slots__ for
+        # rationale). 0 = never failed; otherwise = the round_num during
+        # which the unit is currently battle-shocked.
+        self.battleshocked_until_round: int = 0
+        # SOROR-DIAG-4: per-round Acts of Faith budget. Reset at the top of
+        # every round in Battle._run_round for every Sororitas unit on both
+        # armies. While True, no further offensive OR defensive Miracle die
+        # substitution may fire on this unit until the next round-reset.
+        # See __slots__ for full rationale and citation linkage.
+        self.aof_used_this_round: bool = False
+        # CSM-EYE-OF-GODS: persistent CHARACTER snowball flag. See __slots__
+        # for full rationale; default False on construction. Stamped True by
+        # `Battle._try_eye_of_the_gods` after a melee kill by a CSM CHARACTER
+        # consumes 1 CP via the Pactbound Zealots stratagem.
+        self.eye_of_the_gods_stamped: bool = False
 
     @property
     def current_health(self) -> float:
@@ -638,7 +875,23 @@ class Unit:
     def is_alive(self) -> bool:
         return self._current_health > 1e-9
 
-    def receive_damage(self, amount: float, bonus_fnp: int = 7) -> None:
+    def is_currently_battle_shocked(self, round_num: int) -> bool:
+        """BS-1: True iff this unit failed its Battle-shock test at the
+        start of `round_num`'s Command phase and the status has not yet
+        expired. The 10e rule wording is "until the start of your next
+        Command phase", so the marker `battleshocked_until_round` is set
+        to the failing round in `simulator._run_battleshock_phase` and
+        compared exactly here. Downstream consumers that need to fire on
+        the persisting state (Synapse Imperative tarpit gating, future
+        Chaos Knights Harbingers of Dread mortal-wound aura, future
+        Sororitas Repentia explosive death, etc.) should route through
+        this method rather than touching the field directly so the
+        round-window semantics stay in one place. Cited as
+        `simulator.battleshock`.
+        """
+        return self.battleshocked_until_round == round_num
+
+    def receive_damage(self, amount: float, bonus_fnp: int = 7, psychic: bool = False) -> None:
         """
         Apply damage. If this unit has Feel No Pain X+, each point of damage
         gets a d6 roll; on X+, it's ignored. Mortal wounds applied via this
@@ -647,13 +900,26 @@ class Unit:
         `bonus_fnp` lets the caller pass in a transient FNP value from a
         leader aura (lower of profile.fnp and bonus_fnp wins). 7 = no aura.
 
+        `psychic` lets the caller flag the incoming attack as a 10e
+        [PSYCHIC] Attack. Magnus the Red's Impossible Form ("Each time an
+        attack is allocated to this model, subtract 1 from the Damage
+        characteristic of that attack — Psychic Attacks are not affected by
+        this ability") excludes Psychic Attacks from the -1 damage
+        reduction, so when `psychic=True` the `transient_minus_one_damage_taken`
+        clamp is skipped for ALL units carrying the flag. We pass it
+        per-call from psychic-source sites: Cabal of Sorcerers Doombolt
+        (`_dispatch_ritual`) and the end-of-round psychic-detachment mortal
+        wound payload (`_apply_psychic_phase`). Cited as
+        `simulator.magnus_unearthly_power_impossible_form` in
+        data/rule_citations.d/thousand_sons.json.
+
         Disgustingly Resilient (Plague Company stratagem): if the target
         has `transient_minus_one_damage_taken` set for the round, subtract
         1 from the per-call damage characteristic (to a minimum of 1). The
         rule fires per-attack in the codex; receive_damage is called per
         per-shot in Unit.attack, so the floor lives here.
         """
-        if self.transient_minus_one_damage_taken and amount > 0:
+        if self.transient_minus_one_damage_taken and amount > 0 and not psychic:
             amount = max(1.0, amount - 1.0)
         # Saim-Hann Spirit Stones (Aeldari stratagem, 1 CP): halve incoming
         # damage (rounded up) for the round. Applied per receive_damage call —
@@ -730,6 +996,30 @@ class Unit:
         """
         p = self.profile
 
+        # SOROR-DIAG-2 (2026-05-23) — Acts of Faith one-per-phase-per-unit gate.
+        # Wahapedia (verbatim): "each unit from your army with this ability can
+        # perform one Act of Faith per phase" (citation: simulator.acts_of_faith).
+        # Prior implementation substituted a Miracle die on EVERY failed hit /
+        # wound / save across the unit's entire attack call (potentially dozens
+        # of substitutions per phase). The local boolean short-circuits the
+        # three substitution branches inside ONE attack() call after the first
+        # fire.
+        #
+        # SOROR-DIAG-4 (2026-05-24) — promote the budget to the Unit. The
+        # SOROR-DIAG-2 local-only gate fixed within-one-attack-call double
+        # spending but did NOT cap cross-call spending: a Sororitas defender
+        # could spend one defensive Miracle die per ATTACKING enemy across an
+        # entire phase, because each enemy attacker entered attack() with a
+        # fresh local flag. Likewise an attacking Sororitas unit firing
+        # multiple weapon profiles routes through attack() once per target,
+        # each call fresh. Now we read AND write
+        # `self.aof_used_this_round` (offensive side, this unit) and
+        # `target.aof_used_this_round` (defensive side, the target unit) at
+        # each substitution gate, capping each Sororitas unit at one Act of
+        # Faith per round across both directions. Round-level reset happens
+        # in `Battle._run_round`. Cited as `simulator.acts_of_faith`.
+        attack_aof_substitution_used = False
+
         # ---- Buff lookups (detachment + in-range leader auras) -------------
         # Attacker side: detachment passives + every in-range friendly leader
         # whose aura covers this unit (re-rolls, +1 to hit/wound).
@@ -739,1206 +1029,1872 @@ class Unit:
         att_buffs = effective_buffs(self)
         tgt_buffs = effective_buffs(target)
 
-        if mode == "melee" and p.melee_attacks > 0:
-            # Substitute the melee stat block for this resolution
-            per_shot_dmg = p.melee_damage_per_shot or 1.0
-            n_attacks = max(1, int(p.melee_attacks))
-            hit_target = _prob_to_target(p.melee_hit_probability)
-            strength = p.melee_strength
-            ap = p.melee_ap
-            ignore_cover = True   # melee always ignores cover
-            # Drukhari Combat Drugs (army rule): Adrenalight grants +1 Attack
-            # and Grave Lotus grants +1 Strength on WYCH CULT melee weapons.
-            # The simulator's `_apply_combat_drugs` hook stamps these per-unit
-            # at battle start; defaults to 0 on every non-Drukhari unit so the
-            # add is safe. Cited as `simulator.combat_drugs`.
-            n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
-            strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
-        else:
-            # ---- Phase 2 / iter33 — multi-profile ranged weapon selection.
-            # If the datasheet's mapper recorded a secondary ranged profile
-            # (Stormsurge Pulse Driver vs Pulse Blastcannon, etc.), estimate
-            # expected NET damage under BOTH profiles against the current
-            # target and swap to the secondary's stat block when it wins.
-            # 10e core rules let a unit pick which weapon to shoot at each
-            # target separately, so per-call routing is rules-legal.
-            # Cited as `simulator.multi_profile_weapon_selection`.
+        # ---- MAP-MULTIFIRE — Build the list of ranged weapon profiles that
+        # will fire this activation. 10e core rule: a unit must fire ALL its
+        # weapons in its Shooting phase (it may split-fire targets per
+        # weapon, but every weapon resolves). Prior to this change the
+        # simulator's MAP-1 picker selected the single highest-EV profile
+        # per activation — that left ~80% of a Knight Castellan's gun
+        # rack idle each turn. This block builds the list of in-range
+        # profile-swap dicts; the resolution loop below iterates over the
+        # list, applying each swap to the local `p` and accumulating
+        # damage. For single-profile units (the vast majority) the list
+        # contains a single `None` sentinel and the loop runs exactly
+        # once — preserving legacy behaviour. Melee mode always uses the
+        # single melee profile (10e has no melee multi-profile chassis in
+        # the simulator's catalogue), so the list is forced to `[None]`
+        # before the melee branch runs. Cited as
+        # `simulator.multi_profile_weapon_selection`.
+        #
+        # MAP-MULTIFIRE-VALIDATE — gate the fire-all loop on TWO 10e core
+        # rules the original MAP-MULTIFIRE picker ignored:
+        #   (a) Multi-mode weapons fire ONE mode per Shooting phase (a
+        #       Stormsurge's Pulse Blastcannon "focused mode" and
+        #       "dispersed mode" are alternatives, not both-at-once;
+        #       plasma weapons pick "standard" or "supercharge", not
+        #       both; Tau Burst Cannons pick "strike" or "sweep").
+        #       Detected by stripping a small set of BSData mode-suffix
+        #       patterns (" - focused", " - dispersed", " - standard",
+        #       " - supercharge", " strike", " sweep") off each
+        #       profile's weapon name and grouping by the stripped root.
+        #   (b) Pistol exclusivity (Wahapedia core rules, Pistols
+        #       section, verbatim): "A model armed with one or more
+        #       Pistols cannot shoot any non-Pistol weapons in the same
+        #       turn (and vice versa)." We partition the per-group
+        #       picks into pistol and non-pistol sets and fire the
+        #       side whose summed expected damage is higher.
+        # Cited as `simulator.pistol_exclusivity` (citation entry holds
+        # the Wahapedia rule text) plus the existing
+        # `simulator.multi_profile_weapon_selection`.
+        _profiles_to_fire: list = [None]
+        if mode != "melee" and (
+            p.secondary_attacks > 0 or p.extra_ranged_profiles
+        ):
+            # Mode-suffix patterns the BSData mapper emits for
+            # alternative-mode weapon profiles. Stripped case-insensitively
+            # off the trailing edge of the weapon name; whatever remains
+            # is the "root" that groups siblings together.
+            #
+            # MODE-SUFFIX-SWEEP: SOROR-DIAG-5 (commit 90bb1a3) traced
+            # Morvenn Vahl firing both prioris- and sanctorum-mode shots
+            # of her Paragon missile launcher to this list being a tiny
+            # allowlist that only knew the plasma/Stormsurge/Burst-cannon
+            # mode tokens. A parsed.json survey of every weapon name with
+            # a " - " separator (BSData's canonical alt-mode delimiter)
+            # found 317 such names across 70+ distinct mode tokens —
+            # krak/frag/starshot/witchfire/contained/overcharge/neurolance
+            # /foehammer/rift/prioris/sanctorum and many more. Every one
+            # of those names is a mutex alt-mode of the same underlying
+            # weapon (10e core: multi-profile weapons pick ONE mode per
+            # Shooting phase), so the safe structural rule is to strip
+            # everything after the last " - " when forming the group
+            # root. The allowlist below is kept for the legacy non-dash
+            # cases (BSData has occasionally emitted ", standard" or a
+            # bare " strike" suffix without the em-dash), then the
+            # em-dash fallback below catches the long tail. Verified on
+            # the live catalogue: collapses 114 units' profile lists, no
+            # regressions where a unit's root count INCREASES.
+            _MODE_SUFFIXES = (
+                " - focused mode", " - dispersed mode",
+                " - focused", " - dispersed",
+                " - standard", " - supercharge", " - supercharged",
+                ", focused mode", ", dispersed mode",
+                ", standard", ", supercharge",
+                " strike", " sweep",
+                " - strike", " - sweep",
+            )
+
+            def _strip_mode_suffix(name: str) -> str:
+                if not name:
+                    return ""
+                low = name.lower().strip()
+                # Drop the BSData "➤ " bullet that prefixes
+                # alternative-mode entries in the cache.
+                if low.startswith("➤ "):
+                    low = low[2:]
+                if low.startswith("> "):
+                    low = low[2:]
+                for suf in _MODE_SUFFIXES:
+                    if low.endswith(suf):
+                        return low[: -len(suf)].rstrip(" -,")
+                # Generalised fallback: every alt-mode profile BSData
+                # emits today uses the " - <mode>" separator (e.g.
+                # "Ballistus Missile Launcher - Krak",
+                # "Phantasmagoria - witchfire",
+                # "Paragon missile launcher - prioris"). Treating the
+                # text before the LAST " - " as the root collapses all
+                # alt-mode siblings of the same weapon into one mutex
+                # group without enumerating every individual mode token.
+                if " - " in low:
+                    low = low.rsplit(" - ", 1)[0].rstrip(" -,")
+                return low
+
+            # Each candidate carries:
+            #   (group_key, pistol_flag, ev, swap_or_none)
+            # where swap_or_none is None for the primary or a dict for
+            # secondary/extra. EV is a lightweight expected-damage proxy
+            # used only for tie-breaking within a group; the actual
+            # damage roll happens in the resolution loop below.
+            _candidates: list = []
+
+            def _ev_proxy(
+                attacks: float,
+                dmg_per_shot: float,
+                hit_prob: float,
+                twin_linked: bool,
+            ) -> float:
+                base = max(0.0, float(attacks)) * max(0.0, float(dmg_per_shot)) \
+                    * max(0.0, float(hit_prob))
+                # twin_linked re-rolls failed wounds ≈ 1.33x effective
+                # wound probability; tiny bump to the EV proxy.
+                return base * (1.33 if twin_linked else 1.0)
+
+            # Primary profile
+            primary_in_range = (
+                distance <= 0 or distance <= float(p.range_inches or 24)
+            )
+            if primary_in_range:
+                _candidates.append((
+                    _strip_mode_suffix(p.weapon or ""),
+                    bool(p.pistol),
+                    _ev_proxy(
+                        p.attacks, p.weapon_damage_per_shot,
+                        p.hit_probability, p.twin_linked,
+                    ),
+                    None,
+                ))
+
+            # Secondary profile
             if p.secondary_attacks > 0:
-                tgt_health = max(1.0, float(target.profile.health))
-                tgt_save = target.profile.save
-                tgt_t = target.profile.toughness
-                # Range gating — a long-range profile is unusable inside its
-                # half-range floor only if the primary out-ranges it (rare);
-                # an under-range secondary (e.g. Pulse Blastcannon 18") is
-                # not usable beyond its range. distance == 0 is permissive
-                # (callers that don't pass a distance get primary by default).
-                primary_in_range = (
-                    distance <= 0 or distance <= float(p.range_inches or 24)
-                )
-                secondary_in_range = (
+                sec_in_range = (
                     distance <= 0
                     or distance <= float(p.secondary_range_inches or 0)
                 )
-                def _profile_expected_damage(
-                    n: int, dpa: float, hit_p: float, ap_: int,
-                    s: int, lh: bool, sh: int, tl: bool, dw: bool,
-                ) -> float:
-                    wp = wound_probability(s, tg=tgt_t) if False else wound_probability(s, tgt_t)
-                    unsaved = 1.0 - save_probability(tgt_save, ap_)
-                    # Bound per-shot damage by target wounds (excess-damage-lost
-                    # is correctly modelled simulator-side; this estimator just
-                    # needs to compare the two profiles consistently).
-                    eff_dpa = min(float(dpa or 1.0), tgt_health)
-                    ed = float(n) * hit_p * wp * unsaved * eff_dpa
-                    if lh:
-                        ed *= 1.15
-                    if sh:
-                        ed *= (1.0 + 0.17 * sh)
-                    if tl:
-                        ed *= 1.30
-                    if dw:
-                        ed *= 1.10
-                    return ed
-                pri_ed = (
-                    _profile_expected_damage(
-                        max(1, int(p.attacks)),
-                        p.per_shot_damage,
-                        p.hit_probability,
-                        p.ap,
-                        p.strength,
-                        p.lethal_hits,
-                        p.sustained_hits,
-                        p.twin_linked,
-                        p.devastating_wounds,
-                    )
-                    if primary_in_range else 0.0
-                )
-                sec_dpa = p.secondary_weapon_damage_per_shot or 1.0
-                sec_ed = (
-                    _profile_expected_damage(
-                        max(1, int(p.secondary_attacks)),
-                        sec_dpa,
-                        p.secondary_hit_probability,
-                        p.secondary_ap,
-                        p.secondary_strength,
-                        p.secondary_lethal_hits,
-                        p.secondary_sustained_hits,
-                        p.secondary_twin_linked,
-                        p.secondary_devastating_wounds,
-                    )
-                    if secondary_in_range else 0.0
-                )
-                if sec_ed > pri_ed:
-                    # Swap to the secondary stat block for the rest of this
-                    # resolution. dataclasses.replace clones the profile so
-                    # self.profile remains untouched (immutable contract).
-                    from dataclasses import replace
-                    p = replace(
-                        p,
-                        attacks=max(1, int(p.secondary_attacks)),
-                        weapon_damage_per_shot=p.secondary_weapon_damage_per_shot,
-                        hit_probability=p.secondary_hit_probability,
-                        ap=p.secondary_ap,
-                        strength=p.secondary_strength,
-                        range_inches=p.secondary_range_inches or p.range_inches,
-                        lethal_hits=p.secondary_lethal_hits,
-                        sustained_hits=p.secondary_sustained_hits,
-                        twin_linked=p.secondary_twin_linked,
-                        devastating_wounds=p.secondary_devastating_wounds,
-                        rapid_fire=p.secondary_rapid_fire,
-                        melta=p.secondary_melta,
-                        ignores_cover=p.secondary_ignores_cover,
-                        heavy=p.secondary_heavy,
-                        assault=p.secondary_assault,
-                        torrent=p.secondary_torrent,
-                        blast=p.secondary_blast,
-                        anti_keywords=tuple(p.secondary_anti_keywords or ()),
-                    )
-            per_shot_dmg = p.per_shot_damage
-            n_attacks = max(1, int(p.attacks))
-            hit_target = None     # set below
-            strength = p.strength
-            ap = p.ap
-            ignore_cover = p.ignores_cover
+                if sec_in_range:
+                    sec_swap = {
+                        "attacks": max(1, int(p.secondary_attacks)),
+                        "weapon_damage_per_shot": p.secondary_weapon_damage_per_shot,
+                        "hit_probability": p.secondary_hit_probability,
+                        "ap": p.secondary_ap,
+                        "strength": p.secondary_strength,
+                        "range_inches": p.secondary_range_inches or p.range_inches,
+                        "lethal_hits": p.secondary_lethal_hits,
+                        "sustained_hits": p.secondary_sustained_hits,
+                        "twin_linked": p.secondary_twin_linked,
+                        "devastating_wounds": p.secondary_devastating_wounds,
+                        "rapid_fire": p.secondary_rapid_fire,
+                        "melta": p.secondary_melta,
+                        "ignores_cover": p.secondary_ignores_cover,
+                        "heavy": p.secondary_heavy,
+                        "assault": p.secondary_assault,
+                        "torrent": p.secondary_torrent,
+                        "blast": p.secondary_blast,
+                        "anti_keywords": tuple(p.secondary_anti_keywords or ()),
+                    }
+                    _candidates.append((
+                        _strip_mode_suffix(p.secondary_weapon or ""),
+                        bool(p.secondary_pistol),
+                        _ev_proxy(
+                            sec_swap["attacks"],
+                            sec_swap["weapon_damage_per_shot"],
+                            sec_swap["hit_probability"],
+                            sec_swap["twin_linked"],
+                        ),
+                        sec_swap,
+                    ))
 
-        # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
-        # melee AP+1 portion. Wahapedia verbatim: "Improve the Armour
-        # Penetration characteristic of melee weapons equipped by ADEPTUS
-        # CUSTODES models from your army with the Martial Ka'tah ability
-        # by 1." Gate: mode == "melee" AND attacker faction ==
-        # "Adeptus Custodes" AND detachment carries `melee_ap_plus_one`
-        # (set by SHIELD_HOST) AND the current battle round is ODD.
-        # AP is encoded as 0/-1/-2/-3 — improving AP by 1 makes the value
-        # MORE negative (AP-1 becomes AP-2 etc).
-        # C1 (claude/sim-calibration-4): codex picks ONE bullet per battle
-        # round. To match real codex pacing, the two bullets alternate by
-        # round parity — AP+1 fires on ODD rounds (1, 3, 5), Crit-on-5+
-        # fires on EVEN rounds (2, 4). This averages to one bullet per
-        # round (matching codex) rather than the prior always-on dual
-        # uplift (strictly stronger than codex). Cited as
-        # `SHIELD_HOST.melee_ap_plus_one`.
-        if mode == "melee" and p.faction == "Adeptus Custodes":
-            _own_army_mk = getattr(self, "army_ref", None)
-            if _own_army_mk is not None:
-                try:
-                    _det_mk = _own_army_mk.resolve_detachment()
-                except Exception:
-                    _det_mk = None
-                if _det_mk is not None and getattr(
-                    _det_mk, "melee_ap_plus_one", False,
+            # MAP-1: extra ranged profiles (3rd, 4th, 5th, ...).
+            for extra in (p.extra_ranged_profiles or ()):
+                ed_fields = dict(extra)
+                ex_range = float(ed_fields.get("range_inches", 0) or 0)
+                if not (distance <= 0 or distance <= ex_range):
+                    continue
+                ex_attacks = max(1, int(ed_fields.get("attacks", 1) or 1))
+                ex_swap = {
+                    "attacks": ex_attacks,
+                    "weapon_damage_per_shot": float(
+                        ed_fields.get("weapon_damage_per_shot", 1.0) or 1.0
+                    ),
+                    "hit_probability": float(
+                        ed_fields.get("hit_probability", 0.0) or 0.0
+                    ),
+                    "ap": int(ed_fields.get("ap", 0) or 0),
+                    "strength": int(ed_fields.get("strength", 4) or 4),
+                    "range_inches": int(
+                        ed_fields.get("range_inches", p.range_inches)
+                        or p.range_inches
+                    ),
+                    "lethal_hits": bool(ed_fields.get("lethal_hits", False)),
+                    "sustained_hits": int(ed_fields.get("sustained_hits", 0) or 0),
+                    "twin_linked": bool(ed_fields.get("twin_linked", False)),
+                    "devastating_wounds": bool(
+                        ed_fields.get("devastating_wounds", False)
+                    ),
+                    "rapid_fire": int(ed_fields.get("rapid_fire", 0) or 0),
+                    "melta": int(ed_fields.get("melta", 0) or 0),
+                    "ignores_cover": bool(ed_fields.get("ignores_cover", False)),
+                    "heavy": bool(ed_fields.get("heavy", False)),
+                    "assault": bool(ed_fields.get("assault", False)),
+                    "torrent": bool(ed_fields.get("torrent", False)),
+                    "blast": bool(ed_fields.get("blast", False)),
+                    "anti_keywords": tuple(
+                        (ed_fields.get("anti_keywords") or {}).items()
+                        if isinstance(ed_fields.get("anti_keywords"), dict)
+                        else (ed_fields.get("anti_keywords") or ())
+                    ),
+                }
+                _candidates.append((
+                    _strip_mode_suffix(str(ed_fields.get("weapon", "")) or ""),
+                    bool(ed_fields.get("pistol", False)),
+                    _ev_proxy(
+                        ex_swap["attacks"],
+                        ex_swap["weapon_damage_per_shot"],
+                        ex_swap["hit_probability"],
+                        ex_swap["twin_linked"],
+                    ),
+                    ex_swap,
+                ))
+
+            # Group by (root_name, pistol_flag). Profiles with EMPTY root
+            # name (no weapon-name metadata, e.g. units predating the
+            # field) get a unique placeholder per index so they NEVER
+            # collapse into another profile. Each non-empty group picks
+            # its single best-EV member.
+            groups: dict = {}
+            for idx, (root, pistol_flag, ev, swap) in enumerate(_candidates):
+                if not root:
+                    key = ("__no_name__", idx, pistol_flag)
+                else:
+                    key = (root, pistol_flag)
+                cur = groups.get(key)
+                if cur is None or ev > cur[0]:
+                    groups[key] = (ev, swap)
+
+            # Pistol exclusivity (10e core): partition into pistol /
+            # non-pistol sets, fire whichever side has higher total EV.
+            pistol_picks = []
+            nonpistol_picks = []
+            for key, (ev, swap) in groups.items():
+                # key is (root, pistol_flag) OR ("__no_name__", idx,
+                # pistol_flag). Pistol flag is always the LAST element.
+                pistol_flag = key[-1]
+                if pistol_flag:
+                    pistol_picks.append((ev, swap))
+                else:
+                    nonpistol_picks.append((ev, swap))
+            pistol_total = sum(e for e, _ in pistol_picks)
+            nonpistol_total = sum(e for e, _ in nonpistol_picks)
+            if pistol_picks and nonpistol_picks:
+                # Choose the side with higher summed EV; drop the other.
+                chosen = pistol_picks if pistol_total >= nonpistol_total \
+                    else nonpistol_picks
+            else:
+                chosen = pistol_picks or nonpistol_picks
+
+            _profiles_to_fire = [swap for _ev, swap in chosen]
+
+            # Defensive fallback: if NOTHING is in range (caller passed a
+            # huge distance), still iterate once with the primary so the
+            # activation does not silently no-op. The primary's in-range
+            # check inside the body will then end up firing 0 damage
+            # because all the ranged gates fail — same outcome as the
+            # legacy picker which returned 0 expected damage for every
+            # candidate.
+            if not _profiles_to_fire:
+                _profiles_to_fire = [None]
+
+        # Save the primary profile so we can reset before each iteration of
+        # the multi-profile loop applies a fresh swap. `p_base` stays the
+        # immutable primary; the local `p` is rebuilt per profile.
+        _p_base = p
+        total_damage = 0.0
+        for _swap_profile in _profiles_to_fire:
+            # Reset to the primary profile, then apply this iteration's
+            # swap (None means "fire the primary as-is").
+            p = _p_base
+            if _swap_profile is not None:
+                from dataclasses import replace
+                p = replace(_p_base, **_swap_profile)
+
+            if mode == "melee" and p.melee_attacks > 0:
+                # Substitute the melee stat block for this resolution
+                per_shot_dmg = p.melee_damage_per_shot or 1.0
+                n_attacks = max(1, int(p.melee_attacks))
+                hit_target = _prob_to_target(p.melee_hit_probability)
+                strength = p.melee_strength
+                ap = p.melee_ap
+                ignore_cover = True   # melee always ignores cover
+                # LEADERABILITY-SCHEMA: Keeper of Secrets "Daemon Lord of
+                # Slaanesh" aura — improve the Armour Penetration of melee
+                # weapons in friendly Slaanesh Legiones Daemonica units within
+                # 6" of the KoS by 1. Wahapedia / BSData verbatim:
+                # "While a friendly Slaanesh Legiones Daemonica unit is within
+                # 6" of this model, improve the Armour Penetration of melee
+                # weapons in that unit by 1."
+                # Cited as `LeaderAbility.Daemon Lord of Slaanesh`. AP is
+                # encoded as 0/-1/-2/-3 — "improve by 1" makes the value MORE
+                # negative, so we subtract 1. Same convention as SHIELD_HOST
+                # `melee_ap_plus_one` and Necrons Hungry Void. Boolean read
+                # from att_buffs which has already host-gated the merge to
+                # Slaanesh-keyed attackers.
+                if att_buffs["plus_one_ap_melee"]:
+                    ap = ap - 1
+                # Drukhari Combat Drugs (army rule): Adrenalight grants +1 Attack
+                # and Grave Lotus grants +1 Strength on WYCH CULT melee weapons.
+                # The simulator's `_apply_combat_drugs` hook stamps these per-unit
+                # at battle start; defaults to 0 on every non-Drukhari unit so the
+                # add is safe. Cited as `simulator.combat_drugs`.
+                n_attacks += int(getattr(self, "combat_drug_extra_melee_attacks", 0))
+                strength += int(getattr(self, "combat_drug_melee_strength_bonus", 0))
+                # ---- World Eaters Exalted Eightbound — Rend and Tear (datasheet
+                # ability, BSData v10.6.0 verbatim): "Each time a model in this
+                # unit makes a melee attack that targets a Monster or Vehicle
+                # unit, until the end of the phase, improve the Damage
+                # characteristic of that attack by 1." Faction-gated to World
+                # Eaters AND unit name == "Exalted Eightbound"; target must have
+                # MONSTER or VEHICLE keyword. Cited as `simulator.rend_and_tear`.
+                if (
+                    p.faction == "World Eaters"
+                    and p.name == "Exalted Eightbound"
                 ):
-                    _battle_mk = getattr(_own_army_mk, "_battle_ref", None)
-                    _round_mk = (
-                        getattr(_battle_mk, "_current_round", 0)
-                        if _battle_mk is not None else 0
+                    _tgt_kws_rt = set(target.profile.unit_keywords or ())
+                    if "MONSTER" in _tgt_kws_rt or "VEHICLE" in _tgt_kws_rt:
+                        per_shot_dmg += 1.0
+            else:
+                per_shot_dmg = p.per_shot_damage
+                n_attacks = max(1, int(p.attacks))
+                hit_target = None     # set below
+                strength = p.strength
+                ap = p.ap
+                ignore_cover = p.ignores_cover
+                # LEADERABILITY-SCHEMA: Lord of Change "Daemon Lord of
+                # Tzeentch" aura — +1 to the Strength characteristic of
+                # ranged attacks from any TZEENTCH Legiones Daemonica unit
+                # within 6". Wahapedia / BSData verbatim:
+                # "While a friendly TZEENTCH LEGIONES DAEMONICA unit is
+                # within 6" of this model, each time a model in that unit
+                # makes a ranged attack, add 1 to the Strength characteristic
+                # of that attack."
+                # Cited as `LeaderAbility.Daemon Lord of Tzeentch`. Boolean
+                # OR-merged in effective_buffs from any in-range Lord of
+                # Change with host_keys gated to Tzeentch Daemonica units.
+                # The merge already filters to the right host; this gate
+                # just reads the merged buff and applies the +1.
+                if att_buffs["plus_one_strength_ranged"]:
+                    strength += 1
+
+            # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
+            # melee AP+1 portion. Wahapedia verbatim: "Improve the Armour
+            # Penetration characteristic of melee weapons equipped by ADEPTUS
+            # CUSTODES models from your army with the Martial Ka'tah ability
+            # by 1." Gate: mode == "melee" AND attacker faction ==
+            # "Adeptus Custodes" AND detachment carries `melee_ap_plus_one`
+            # (set by SHIELD_HOST) AND the current battle round is ODD.
+            # AP is encoded as 0/-1/-2/-3 — improving AP by 1 makes the value
+            # MORE negative (AP-1 becomes AP-2 etc).
+            # C1 (claude/sim-calibration-4): codex picks ONE bullet per battle
+            # round. To match real codex pacing, the two bullets alternate by
+            # round parity — AP+1 fires on ODD rounds (1, 3, 5), Crit-on-5+
+            # fires on EVEN rounds (2, 4). This averages to one bullet per
+            # round (matching codex) rather than the prior always-on dual
+            # uplift (strictly stronger than codex). Cited as
+            # `SHIELD_HOST.melee_ap_plus_one`.
+            if mode == "melee" and p.faction == "Adeptus Custodes":
+                _own_army_mk = getattr(self, "army_ref", None)
+                if _own_army_mk is not None:
+                    try:
+                        _det_mk = _own_army_mk.resolve_detachment()
+                    except Exception:
+                        _det_mk = None
+                    if _det_mk is not None and getattr(
+                        _det_mk, "melee_ap_plus_one", False,
+                    ):
+                        _battle_mk = getattr(_own_army_mk, "_battle_ref", None)
+                        _round_mk = (
+                            getattr(_battle_mk, "_current_round", 0)
+                            if _battle_mk is not None else 0
+                        )
+                        # Odd round (1, 3, 5) -> AP+1 bullet active. Round 0
+                        # (pre-battle / no battle ref) treated as inactive so
+                        # standalone tests without a battle round set see no
+                        # buff unless they configure the round explicitly.
+                        if _round_mk % 2 == 1:
+                            ap = ap - 1
+
+            # ---- Necrons Awakened Dynasty — Protocol of the Hungry Void
+            # (army-wide melee AP+1). AD-PR (claude/sim-calibration-4): the
+            # detachment-rule rotation of Command Protocols is approximated
+            # by alternating Hungry Void (this flag) and Vengeful Stars by
+            # battle-round parity. Hungry Void fires on EVEN rounds (2, 4)
+            # so the parity matches the SHIELD_HOST AP+1 convention but
+            # inverted (Custodes AP+1 = ODD, Necrons AP+1 = EVEN; they don't
+            # collide because the faction gate keeps the two detachments
+            # apart). Gate: mode == "melee" AND attacker faction == "Necrons"
+            # AND detachment carries `necrons_melee_ap_plus_one_army_wide`
+            # (set by AWAKENED_DYNASTY) AND current battle round is even.
+            # Cited as `AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide`.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+            # #Command-Protocols.
+            if mode == "melee" and p.faction == "Necrons":
+                _own_army_hv = getattr(self, "army_ref", None)
+                if _own_army_hv is not None:
+                    try:
+                        _det_hv = _own_army_hv.resolve_detachment()
+                    except Exception:
+                        _det_hv = None
+                    if _det_hv is not None and getattr(
+                        _det_hv, "necrons_melee_ap_plus_one_army_wide", False,
+                    ):
+                        _battle_hv = getattr(_own_army_hv, "_battle_ref", None)
+                        _round_hv = (
+                            getattr(_battle_hv, "_current_round", 0)
+                            if _battle_hv is not None else 0
+                        )
+                        # Even round (2, 4) -> Hungry Void active. Round 0
+                        # (pre-battle / no battle ref) treated as inactive
+                        # so standalone tests without a battle round set
+                        # see no buff unless they configure the round.
+                        if _round_hv > 0 and _round_hv % 2 == 0:
+                            ap = ap - 1
+
+            # ---- World Eaters Blessings of Khorne (10e army rule) —
+            # Cleaving Blows grants army-wide melee AP+1 (more negative AP)
+            # for the battle round. Gate: mode == "melee" AND attacker
+            # faction == "World Eaters" AND the army's
+            # `blessings_cleaving_blows_round` stamp matches the live battle
+            # round. AP+1 maps to subtracting 1 from `ap` (AP-1 -> AP-2
+            # etc.) — same convention as SHIELD_HOST.melee_ap_plus_one.
+            # Cited as `simulator.blessings_of_khorne`.
+            if mode == "melee" and p.faction == "World Eaters":
+                _own_army_cb = getattr(self, "army_ref", None)
+                if _own_army_cb is not None:
+                    _cb_round = getattr(
+                        _own_army_cb, "blessings_cleaving_blows_round", None,
                     )
-                    # Odd round (1, 3, 5) -> AP+1 bullet active. Round 0
-                    # (pre-battle / no battle ref) treated as inactive so
-                    # standalone tests without a battle round set see no
-                    # buff unless they configure the round explicitly.
-                    if _round_mk % 2 == 1:
+                    _battle_cb = getattr(_own_army_cb, "_battle_ref", None)
+                    _cur_round_cb = (
+                        getattr(_battle_cb, "_current_round", 0)
+                        if _battle_cb is not None else 0
+                    )
+                    if _cb_round is not None and _cb_round == _cur_round_cb:
                         ap = ap - 1
 
-        # ---- Necrons Awakened Dynasty — Protocol of the Hungry Void
-        # (army-wide melee AP+1). AD-PR (claude/sim-calibration-4): the
-        # detachment-rule rotation of Command Protocols is approximated
-        # by alternating Hungry Void (this flag) and Vengeful Stars by
-        # battle-round parity. Hungry Void fires on EVEN rounds (2, 4)
-        # so the parity matches the SHIELD_HOST AP+1 convention but
-        # inverted (Custodes AP+1 = ODD, Necrons AP+1 = EVEN; they don't
-        # collide because the faction gate keeps the two detachments
-        # apart). Gate: mode == "melee" AND attacker faction == "Necrons"
-        # AND detachment carries `necrons_melee_ap_plus_one_army_wide`
-        # (set by AWAKENED_DYNASTY) AND current battle round is even.
-        # Cited as `AWAKENED_DYNASTY.necrons_melee_ap_plus_one_army_wide`.
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-        # #Command-Protocols.
-        if mode == "melee" and p.faction == "Necrons":
-            _own_army_hv = getattr(self, "army_ref", None)
-            if _own_army_hv is not None:
-                try:
-                    _det_hv = _own_army_hv.resolve_detachment()
-                except Exception:
-                    _det_hv = None
-                if _det_hv is not None and getattr(
-                    _det_hv, "necrons_melee_ap_plus_one_army_wide", False,
+            # ---- Adeptus Mechanicus Doctrina Imperatives — Conqueror AP+1.
+            # Wahapedia verbatim: "Each time a model in this unit makes an
+            # attack, if this unit has the BATTLELINE keyword and/or it is
+            # within 6\" of one or more friendly ADEPTUS MECHANICUS BATTLELINE
+            # units, improve the Armour Penetration characteristic of that
+            # attack by 1." ADMECH-DIAG-2 (2026-05-24) replaced the prior
+            # army-wide approximation with the real BATTLELINE-or-within-6"
+            # proximity gate (see `_doctrina_battleline_proximity_met`).
+            # Only 2 of 42 AdMech datasheets carry BATTLELINE (Skitarii
+            # Vanguard / Rangers), so the army-wide approximation was
+            # over-applying the AP buff to ~95% of AdMech units that the
+            # codex does not actually grant it to. Gate: attacker faction
+            # == "Adeptus Mechanicus" AND active imperative is Conqueror
+            # AND the attacker passes the BATTLELINE proximity check.
+            # AP is encoded 0/-1/-2/-3 so "improve by 1" subtracts 1.
+            # Cited as `simulator.doctrina_imperatives`.
+            if p.faction == "Adeptus Mechanicus":
+                _own_army_di_ap = getattr(self, "army_ref", None)
+                _imp_di_ap = (
+                    getattr(_own_army_di_ap, "doctrina_imperative", None)
+                    if _own_army_di_ap is not None else None
+                )
+                if (
+                    _imp_di_ap == "conqueror"
+                    and _doctrina_battleline_proximity_met(self)
                 ):
-                    _battle_hv = getattr(_own_army_hv, "_battle_ref", None)
-                    _round_hv = (
-                        getattr(_battle_hv, "_current_round", 0)
-                        if _battle_hv is not None else 0
-                    )
-                    # Even round (2, 4) -> Hungry Void active. Round 0
-                    # (pre-battle / no battle ref) treated as inactive
-                    # so standalone tests without a battle round set
-                    # see no buff unless they configure the round.
-                    if _round_hv > 0 and _round_hv % 2 == 0:
-                        ap = ap - 1
-
-        # ---- World Eaters Blessings of Khorne (10e army rule) —
-        # Cleaving Blows grants army-wide melee AP+1 (more negative AP)
-        # for the battle round. Gate: mode == "melee" AND attacker
-        # faction == "World Eaters" AND the army's
-        # `blessings_cleaving_blows_round` stamp matches the live battle
-        # round. AP+1 maps to subtracting 1 from `ap` (AP-1 -> AP-2
-        # etc.) — same convention as SHIELD_HOST.melee_ap_plus_one.
-        # Cited as `simulator.blessings_of_khorne`.
-        if mode == "melee" and p.faction == "World Eaters":
-            _own_army_cb = getattr(self, "army_ref", None)
-            if _own_army_cb is not None:
-                _cb_round = getattr(
-                    _own_army_cb, "blessings_cleaving_blows_round", None,
-                )
-                _battle_cb = getattr(_own_army_cb, "_battle_ref", None)
-                _cur_round_cb = (
-                    getattr(_battle_cb, "_current_round", 0)
-                    if _battle_cb is not None else 0
-                )
-                if _cb_round is not None and _cb_round == _cur_round_cb:
                     ap = ap - 1
 
-        # ---- Adeptus Mechanicus Doctrina Imperatives — Conqueror AP+1.
-        # Wahapedia verbatim: "Each time a model in this unit makes an
-        # attack, if this unit has the BATTLELINE keyword and/or it is
-        # within 6\" of one or more friendly ADEPTUS MECHANICUS BATTLELINE
-        # units, improve the Armour Penetration characteristic of that
-        # attack by 1." Approximated army-wide per the proximity-gate note
-        # in the Hit-roll block above (most AdMech infantry are Skitarii
-        # BATTLELINE). Gate: attacker faction == "Adeptus Mechanicus" AND
-        # the army's active imperative this round is Conqueror. AP is
-        # encoded 0/-1/-2/-3 so "improve by 1" subtracts 1. Cited as
-        # `simulator.doctrina_imperatives`.
-        if p.faction == "Adeptus Mechanicus":
-            _own_army_di_ap = getattr(self, "army_ref", None)
-            _imp_di_ap = (
-                getattr(_own_army_di_ap, "doctrina_imperative", None)
-                if _own_army_di_ap is not None else None
-            )
-            if _imp_di_ap == "conqueror":
-                ap = ap - 1
+            # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
+            if mode != "melee":
+                half_range = (p.range_inches or 24) / 2.0
+                at_half_range = distance > 0 and distance <= half_range
+                if at_half_range:
+                    n_attacks += int(p.rapid_fire)           # Rapid Fire X
+                    per_shot_dmg += float(p.melta)           # Melta X
 
-        # ---- Range-dependent weapon keywords (Phase A2, ranged mode only) ----
-        if mode != "melee":
-            half_range = (p.range_inches or 24) / 2.0
-            at_half_range = distance > 0 and distance <= half_range
-            if at_half_range:
-                n_attacks += int(p.rapid_fire)           # Rapid Fire X
-                per_shot_dmg += float(p.melta)           # Melta X
-
-        # ---- Blast: +1 attack per 5 enemy models in the target unit ----
-        if p.blast and target.profile.blast is not None:  # always true; null-guard
-            try:
-                same_squad = sum(
-                    1 for u in target.army_ref.alive_units
-                    if u.profile.name == target.profile.name
-                ) if target.army_ref is not None else 1
-            except Exception:
-                same_squad = 1
-            n_attacks += same_squad // 5
-
-        # ---- Buffs: +N extra attacks per weapon (detachment-only field) ----
-        if att_buffs["plus_one_attack"]:
-            n_attacks += int(att_buffs["plus_one_attack"])
-
-        if hit_target is None:
-            hit_target = _prob_to_target(p.hit_probability)
-        # Drukhari Combat Drugs (army rule): Painbringer grants +1 Toughness
-        # on WYCH CULT models defensively. The simulator's `_apply_combat_drugs`
-        # hook stamps a per-unit bonus on the target's Unit instance; defaults
-        # to 0 on every non-Drukhari unit. Cited as `simulator.combat_drugs`.
-        _drug_toughness = int(getattr(target, "combat_drug_toughness_bonus", 0))
-        _effective_toughness = target.profile.toughness + _drug_toughness
-        wound_p = wound_probability(strength, _effective_toughness)
-        wound_target = _prob_to_target(wound_p)
-
-        # ---- 10e core-rules modifier cap (Wahapedia core rules / Hit Roll &
-        # Wound Roll): "Hit roll modifiers are cumulative, but the Hit roll
-        # for an attack can never be modified by more than -1 or +1." Same
-        # wording for the Wound roll. Cited as
-        # `simulator.modifier_cap_plus_minus_one`.
-        #
-        # Each per-source +1 / -1 modifier is added to `hit_mod_delta` /
-        # `wound_mod_delta` instead of being applied directly to
-        # hit_target / wound_target. After all sources have contributed,
-        # we clamp the delta to [-1, +1] (see `_apply_modifier_cap` block
-        # at the end of this section) and apply the clamped delta to the
-        # base targets. This keeps multiple +1-to-hit sources (Oath of
-        # Moment is a re-roll, but e.g. detachment-aura +1 to hit +
-        # stratagem +1 to hit) from netting to +2.
-        hit_mod_delta: int = 0
-        wound_mod_delta: int = 0
-
-        # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
-        # enhancement — all merged to a single bool by leaders.effective_buffs).
-        if att_buffs["plus_one_to_hit"]:
-            hit_mod_delta += 1
-        if att_buffs["plus_one_to_wound"]:
-            wound_mod_delta += 1
-
-        # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
-        # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
-        # audit (May 2026) found that the previous +1-to-wound-per-round
-        # implementation was fabricated — the real Doctrines (Wahapedia
-        # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force,
-        # cross-confirmed via newrecruit.eu Gladius entry) grant only
-        # movement utility:
-        #   Devastator (R1): "This unit is eligible to shoot in a turn
-        #     in which it Advanced." — bypasses the Advance shoot-lockout.
-        #   Tactical (R2):   "This unit is eligible to shoot and declare
-        #     a charge in a turn in which it Fell Back." — bypasses both
-        #     the Fall Back shoot-lockout AND the Fall Back charge-lockout.
-        #   Assault (R3+):   "This unit is eligible to declare a charge
-        #     in a turn in which it Advanced." — bypasses the Advance
-        #     charge-lockout.
-        # No wound buff. The gates are implemented in simulator._do_shoot
-        # and simulator._do_charge as Advance/Fall-Back lockout exemptions.
-        # Cited as `simulator.combat_doctrines`.
-
-        # ---- Transient stratagem buffs (attacker side) ------------------
-        # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
-        # Twist of Fate (Cult of Magic): +1 to wound on attacks for the
-        # round; we route both through the same shooting flag because the
-        # simulator's Twist of Fate trigger fires on a TSons unit about to
-        # shoot. Outbreak of Pestilence (Plague Company): +1 to wound on
-        # melee attacks for the round.
-        if (
-            mode != "melee"
-            and self.transient_plus_one_to_wound_shooting
-        ):
-            wound_mod_delta += 1
-        if (
-            mode == "melee"
-            and self.transient_plus_one_to_wound_melee
-        ):
-            wound_mod_delta += 1
-        # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
-        # selected NECRON unit's ranged attacks for the round. Stacks at the
-        # delta level so the post-clamp behaviour matches 10e (e.g. layered
-        # with Awakened Dynasty's bonus_to_hit_when_led both wanting +1 to
-        # hit, the clamp keeps the net at +1). Cited as
-        # `Stratagem.Methodical Destruction`.
-        if (
-            mode != "melee"
-            and self.transient_plus_one_to_hit_shooting
-        ):
-            hit_mod_delta += 1
-
-        # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
-        # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
-        # launch-index wording. The current 10e codex replaces it with
-        # randomly-assigned Afflictions (Skullsquirm Blight / Rattlejoint
-        # Ague / Scabrous Soulrot). The strongest of those — Scabrous
-        # Soulrot's -1 to hit — is already modelled by the R3+ branch
-        # below, and Rattlejoint Ague's direction (debuff to enemy unit's
-        # action economy) maps onto the R2 -1 Ld battleshock penalty in
-        # Battle._run_round. So the R1 -1 T effect has no modern-rule
-        # anchor and is removed entirely. R2 -1 Ld and R3+ -1 to hit are
-        # preserved (see comment further down in this function for R3+,
-        # and code/simulator.py:_run_round for R2 battleshock).
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
-        # Cited as `simulator.contagions_of_nurgle` (approximation flag
-        # remains true; effect text in the citation reflects the 2-round
-        # shape post-removal).
-
-        # ---- Orks WAAAGH! once-per-battle window: +1 to wound in melee for
-        # Ork attackers on the turn WAAAGH! was declared. Cited as
-        # `simulator.waaagh`. The army-level field `waaagh_round_unlocked`
-        # stores the round in which the AI declared; we compare against the
-        # live battle round via the army's _battle_ref so the buff applies
-        # ONLY on that turn (not the rest of the battle).
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH
-        # Real rule: +1 to wound (melee) AND +1 to Charge rolls AND
-        # army-wide 5+ invuln vs melee AND Advance-counts-as-Charge.
-        # Modelled: +1-to-wound-melee (here) and +1-to-charge-roll
-        # (simulator._do_charge).
-        # APPROXIMATION: army-wide 5++ vs melee + Advance-counts-as-Charge
-        # legs are NOT yet modelled — deferred to future iterations.
-        if mode == "melee" and p.faction == "Orks":
-            own_army = getattr(self, "army_ref", None)
-            if own_army is not None:
-                waaagh_round = getattr(own_army, "waaagh_round_unlocked", None)
-                battle = getattr(own_army, "_battle_ref", None)
-                cur_round = getattr(battle, "_current_round", 0) if battle else 0
-                if waaagh_round is not None and waaagh_round == cur_round:
-                    wound_mod_delta += 1
-
-        # ---- Thousand Sons "All Is Dust" (Rubricae Phalanx detachment rule,
-        # 10e current codex). Wahapedia verbatim: "Each time an attack with
-        # an unmodified Damage characteristic of 1 is allocated to a RUBRICAE
-        # model from your army, add 1 to any armour saving throw made against
-        # that attack." Applied as a +1 to the target's armour save when the
-        # incoming attack has weapon_damage_per_shot == 1 AND the defender
-        # carries the RUBRICAE unit-keyword (Rubric Marines, Scarab Occult
-        # Terminators — both have RUBRICAE set via data/overrides.json since
-        # BSData's mapper does not extract sub-faction keywords).
-        #
-        # iter15: the buff is now gated on the defender's army carrying the
-        # Rubricae Phalanx detachment (Detachment.all_is_dust). Real-meta
-        # TSON tournament lists in May 2026 are Rubricae Phalanx, so
-        # `DEFAULT_BY_FACTION["Thousand Sons"] = "rubricae_phalanx"` keeps
-        # the unconditional path working for the common case; armies that
-        # explicitly pick Grand Coven (psyker-heavy lists) lose the save buff
-        # — same outcome the codex enforces.
-        #
-        # APPROXIMATION vs the codex text (only one remaining after iter15):
-        #   The codex says "unmodified Damage 1". SwegHammer reads the
-        #   per-shot weapon damage AFTER Melta range bonuses have been
-        #   composed (Melta is a +damage range modifier; the only
-        #   "modifier to damage" in 10e). The two reconverge in the common
-        #   case — a D1 bolter never picks up Melta — but a D1 Melta weapon
-        #   (very rare in 10e) would lose the save buff under our reading
-        #   even if the codex would keep it.
-        # The save buff stacks at the save-modifier layer rather than the
-        # wound-modifier layer used by the prior implementation (which
-        # incorrectly modelled All Is Dust as a -1 to wound; that was the
-        # 10e launch-index datasheet ability, removed when the codex landed
-        # and replaced with the Rubricae Phalanx detachment +1 save rule).
-        # The new behaviour is applied below at the `save_after_ap` reduction
-        # step — see `_all_is_dust_save_buff` boolean computed here, consumed
-        # ~25 lines down where save_after_ap is finalised.
-        _all_is_dust_save_buff = False
-        if (
-            target.profile.faction == "Thousand Sons"
-            and per_shot_dmg == 1.0
-            and "RUBRICAE" in (target.profile.unit_keywords or ())
-        ):
-            _tgt_army = getattr(target, "army_ref", None)
-            if _tgt_army is not None:
+            # ---- Blast: +1 attack per 5 enemy models in the target unit ----
+            if p.blast and target.profile.blast is not None:  # always true; null-guard
                 try:
-                    _tgt_det = _tgt_army.resolve_detachment()
+                    same_squad = sum(
+                        1 for u in target.army_ref.alive_units
+                        if u.profile.name == target.profile.name
+                    ) if target.army_ref is not None else 1
                 except Exception:
-                    _tgt_det = None
-                if _tgt_det is not None and getattr(
-                    _tgt_det, "all_is_dust", False,
+                    same_squad = 1
+                n_attacks += same_squad // 5
+
+            # ---- Buffs: +N extra attacks per weapon (detachment-only field) ----
+            if att_buffs["plus_one_attack"]:
+                n_attacks += int(att_buffs["plus_one_attack"])
+
+            if hit_target is None:
+                hit_target = _prob_to_target(p.hit_probability)
+            # Drukhari Combat Drugs (army rule): Painbringer grants +1 Toughness
+            # on WYCH CULT models defensively. The simulator's `_apply_combat_drugs`
+            # hook stamps a per-unit bonus on the target's Unit instance; defaults
+            # to 0 on every non-Drukhari unit. Cited as `simulator.combat_drugs`.
+            _drug_toughness = int(getattr(target, "combat_drug_toughness_bonus", 0))
+            _effective_toughness = target.profile.toughness + _drug_toughness
+            # LEADERABILITY-SCHEMA: Great Unclean One "Daemon Lord of Nurgle"
+            # aura — +1 to the Toughness characteristic of models in any
+            # friendly NURGLE Legiones Daemonica unit within 6" of the GUO.
+            # Wahapedia / BSData verbatim:
+            # "While a friendly Nurgle Legiones Daemonica unit is within 6"
+            # of this model, add 1 to the Toughness characteristic of models
+            # in that unit."
+            # Cited as `LeaderAbility.Daemon Lord of Nurgle`. Buff is DEFENDER-
+            # side: reads tgt_buffs (computed from the target's own army's
+            # in-range Great Unclean One with host_keys covering the target).
+            # The codex grants this army-wide-within-6", not a led-unit
+            # restriction, so the +1 T applies to whichever Nurgle unit is
+            # closest to the GUO. host_keys narrows the eligible defenders.
+            if tgt_buffs["plus_one_toughness"]:
+                _effective_toughness += 1
+            wound_p = wound_probability(strength, _effective_toughness)
+            wound_target = _prob_to_target(wound_p)
+
+            # ---- 10e core-rules modifier cap (Wahapedia core rules / Hit Roll &
+            # Wound Roll): "Hit roll modifiers are cumulative, but the Hit roll
+            # for an attack can never be modified by more than -1 or +1." Same
+            # wording for the Wound roll. Cited as
+            # `simulator.modifier_cap_plus_minus_one`.
+            #
+            # Each per-source +1 / -1 modifier is added to `hit_mod_delta` /
+            # `wound_mod_delta` instead of being applied directly to
+            # hit_target / wound_target. After all sources have contributed,
+            # we clamp the delta to [-1, +1] (see `_apply_modifier_cap` block
+            # at the end of this section) and apply the clamped delta to the
+            # base targets. This keeps multiple +1-to-hit sources (Oath of
+            # Moment is a re-roll, but e.g. detachment-aura +1 to hit +
+            # stratagem +1 to hit) from netting to +2.
+            hit_mod_delta: int = 0
+            wound_mod_delta: int = 0
+
+            # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
+            # enhancement — all merged to a single bool by leaders.effective_buffs).
+            if att_buffs["plus_one_to_hit"]:
+                hit_mod_delta += 1
+            if att_buffs["plus_one_to_wound"]:
+                wound_mod_delta += 1
+
+            # ---- Chaos Knights — Harbingers of Dread (army rule, 10e). Verbatim
+            # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-knights/):
+            # "The Deathly Terror ability is active for your army from the start
+            # of the battle." Plus one additional Dread ability is selected at
+            # battle start; SwegHammer always picks Doom — the offensive Dread
+            # ("Each time this model makes an attack, if the target of that attack
+            # is Battle-shocked, add 1 to the Wound roll.") because Doom is the
+            # only Dread the attack pipeline can directly express; the auras
+            # (Despair / Deathly Terror, Ld debuffs within 9") are wired into the
+            # Battle-shock phase in code/simulator.py. The R1/R3/R5 bonus
+            # additional-Dread pick is NOT modelled here (the wound bonus already
+            # represents the "selected additional ability" slot, and the two
+            # always-on Ld auras saturate the battleshock side). Faction-gated to
+            # Chaos Knights so Imperial Knights' Code Chivalric handling is
+            # untouched. Cited as `simulator.harbingers_of_dread`.
+            if (
+                mode in ("melee", "ranged")
+                and (p.faction or "") == "Chaos Knights"
+                and target.is_currently_battle_shocked(
+                    getattr(
+                        getattr(getattr(self, "army_ref", None), "_battle_ref", None),
+                        "_current_round",
+                        0,
+                    )
+                )
+            ):
+                wound_mod_delta += 1
+
+            # ---- World Eaters Eightbound — Beacons of Rage (datasheet aura,
+            # BSData v10.6.0 verbatim): "While a friendly World Eaters unit is
+            # within 6\" of this unit, each time a model in that unit makes a
+            # melee attack that targets a unit (excluding Monsters and
+            # Vehicles), add 1 to the Hit roll. If that attack targets a unit
+            # that is Below Half-strength, add 1 to the Wound roll as well."
+            # Faction-gated to World Eaters attacker. Aura check: any friendly
+            # Eightbound (or Exalted Eightbound) unit alive in the same army
+            # (the simulator does not model precise 6" positions for auras,
+            # see leaders.effective_buffs for the same approximation). Melee
+            # only; target must NOT be MONSTER/VEHICLE. Below Half-strength
+            # gates the wound bonus: target.current_health < target.profile
+            # .health / 2. Cited as `simulator.beacons_of_rage`.
+            if mode == "melee" and p.faction == "World Eaters":
+                _own_army_bor = getattr(self, "army_ref", None)
+                if _own_army_bor is not None:
+                    _tgt_kws_bor = set(target.profile.unit_keywords or ())
+                    _tgt_is_vm_bor = (
+                        "MONSTER" in _tgt_kws_bor or "VEHICLE" in _tgt_kws_bor
+                    )
+                    if not _tgt_is_vm_bor:
+                        _eb_present = any(
+                            u.profile.name in ("Eightbound", "Exalted Eightbound")
+                            for u in _own_army_bor.alive_units
+                        )
+                        if _eb_present:
+                            hit_mod_delta += 1
+                            _tgt_hp_bor = float(target.profile.health) or 1.0
+                            if target.current_health < _tgt_hp_bor / 2.0:
+                                wound_mod_delta += 1
+
+            # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
+            # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
+            # audit (May 2026) found that the previous +1-to-wound-per-round
+            # implementation was fabricated — the real Doctrines (Wahapedia
+            # https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force,
+            # cross-confirmed via newrecruit.eu Gladius entry) grant only
+            # movement utility:
+            #   Devastator (R1): "This unit is eligible to shoot in a turn
+            #     in which it Advanced." — bypasses the Advance shoot-lockout.
+            #   Tactical (R2):   "This unit is eligible to shoot and declare
+            #     a charge in a turn in which it Fell Back." — bypasses both
+            #     the Fall Back shoot-lockout AND the Fall Back charge-lockout.
+            #   Assault (R3+):   "This unit is eligible to declare a charge
+            #     in a turn in which it Advanced." — bypasses the Advance
+            #     charge-lockout.
+            # No wound buff. The gates are implemented in simulator._do_shoot
+            # and simulator._do_charge as Advance/Fall-Back lockout exemptions.
+            # Cited as `simulator.combat_doctrines`.
+
+            # ---- Transient stratagem buffs (attacker side) ------------------
+            # Plague Weapons (Plague Company): +1 to wound on ranged attacks.
+            # Twist of Fate (Cult of Magic): +1 to wound on attacks for the
+            # round; we route both through the same shooting flag because the
+            # simulator's Twist of Fate trigger fires on a TSons unit about to
+            # shoot. Outbreak of Pestilence (Plague Company): +1 to wound on
+            # melee attacks for the round.
+            if (
+                mode != "melee"
+                and self.transient_plus_one_to_wound_shooting
+            ):
+                wound_mod_delta += 1
+            if (
+                mode == "melee"
+                and self.transient_plus_one_to_wound_melee
+            ):
+                wound_mod_delta += 1
+            # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
+            # Persistent +1 to wound on melee attacks once this CHARACTER
+            # has stamped the buff via a prior melee kill. APPROXIMATION:
+            # real Eye of the Gods rolls D6+Wounds on a table for +M / +T /
+            # +A/+S / +D melee — we collapse to a single +1-to-wound-melee
+            # snowball. Stacks at the delta level with transient_plus_one_to_
+            # wound_melee (Profane Zeal) before the 10e ±1 modifier cap. The
+            # stamp persists across rounds (not cleared with round-start
+            # transient_* flags). Cited as `Stratagem.Eye of the Gods`.
+            if mode == "melee" and self.eye_of_the_gods_stamped:
+                wound_mod_delta += 1
+            # Methodical Destruction (Awakened Dynasty, 1 CP): +1 to hit on the
+            # selected NECRON unit's ranged attacks for the round. Stacks at the
+            # delta level so the post-clamp behaviour matches 10e (e.g. layered
+            # with Awakened Dynasty's bonus_to_hit_when_led both wanting +1 to
+            # hit, the clamp keeps the net at +1). Cited as
+            # `Stratagem.Methodical Destruction`.
+            if (
+                mode != "melee"
+                and self.transient_plus_one_to_hit_shooting
+            ):
+                hit_mod_delta += 1
+
+            # ---- Death Guard Contagions of Nurgle (army rule, 10e) — Round 1
+            # DROPPED (iter-4): the Round-1 Virulent Rot (-1 T) branch was the
+            # launch-index wording. The current 10e codex replaces it with
+            # randomly-assigned Afflictions (Skullsquirm Blight / Rattlejoint
+            # Ague / Scabrous Soulrot). The strongest of those — Scabrous
+            # Soulrot's -1 to hit — is already modelled by the R3+ branch
+            # below, and Rattlejoint Ague's direction (debuff to enemy unit's
+            # action economy) maps onto the R2 -1 Ld battleshock penalty in
+            # Battle._run_round. So the R1 -1 T effect has no modern-rule
+            # anchor and is removed entirely. R2 -1 Ld and R3+ -1 to hit are
+            # preserved (see comment further down in this function for R3+,
+            # and code/simulator.py:_run_round for R2 battleshock).
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
+            # Cited as `simulator.contagions_of_nurgle` (approximation flag
+            # remains true; effect text in the citation reflects the 2-round
+            # shape post-removal).
+
+            # ---- Orks WAAAGH! once-per-battle window: +1 to wound in melee for
+            # Ork attackers on the turn WAAAGH! was declared. Cited as
+            # `simulator.waaagh`. The army-level field `waaagh_round_unlocked`
+            # stores the round in which the AI declared; we compare against the
+            # live battle round via the army's _battle_ref so the buff applies
+            # ONLY on that turn (not the rest of the battle).
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH
+            # Real rule: +1 to wound (melee) AND +1 to Charge rolls AND
+            # army-wide 5+ invuln vs melee AND Advance-counts-as-Charge.
+            # Modelled: +1-to-wound-melee (here) and +1-to-charge-roll
+            # (simulator._do_charge).
+            # APPROXIMATION: army-wide 5++ vs melee + Advance-counts-as-Charge
+            # legs are NOT yet modelled — deferred to future iterations.
+            if mode == "melee" and p.faction == "Orks":
+                own_army = getattr(self, "army_ref", None)
+                if own_army is not None:
+                    waaagh_round = getattr(own_army, "waaagh_round_unlocked", None)
+                    battle = getattr(own_army, "_battle_ref", None)
+                    cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                    if waaagh_round is not None and waaagh_round == cur_round:
+                        wound_mod_delta += 1
+
+            # ---- Thousand Sons "All Is Dust" (Rubricae Phalanx detachment rule,
+            # 10e current codex). Wahapedia verbatim: "Each time an attack with
+            # an unmodified Damage characteristic of 1 is allocated to a RUBRICAE
+            # model from your army, add 1 to any armour saving throw made against
+            # that attack." Applied as a +1 to the target's armour save when the
+            # incoming attack has weapon_damage_per_shot == 1 AND the defender
+            # carries the RUBRICAE unit-keyword (Rubric Marines, Scarab Occult
+            # Terminators — both have RUBRICAE set via data/overrides.json since
+            # BSData's mapper does not extract sub-faction keywords).
+            #
+            # iter15: the buff is now gated on the defender's army carrying the
+            # Rubricae Phalanx detachment (Detachment.all_is_dust). Real-meta
+            # TSON tournament lists in May 2026 are Rubricae Phalanx, so
+            # `DEFAULT_BY_FACTION["Thousand Sons"] = "rubricae_phalanx"` keeps
+            # the unconditional path working for the common case; armies that
+            # explicitly pick Grand Coven (psyker-heavy lists) lose the save buff
+            # — same outcome the codex enforces.
+            #
+            # APPROXIMATION vs the codex text (only one remaining after iter15):
+            #   The codex says "unmodified Damage 1". SwegHammer reads the
+            #   per-shot weapon damage AFTER Melta range bonuses have been
+            #   composed (Melta is a +damage range modifier; the only
+            #   "modifier to damage" in 10e). The two reconverge in the common
+            #   case — a D1 bolter never picks up Melta — but a D1 Melta weapon
+            #   (very rare in 10e) would lose the save buff under our reading
+            #   even if the codex would keep it.
+            # The save buff stacks at the save-modifier layer rather than the
+            # wound-modifier layer used by the prior implementation (which
+            # incorrectly modelled All Is Dust as a -1 to wound; that was the
+            # 10e launch-index datasheet ability, removed when the codex landed
+            # and replaced with the Rubricae Phalanx detachment +1 save rule).
+            # The new behaviour is applied below at the `save_after_ap` reduction
+            # step — see `_all_is_dust_save_buff` boolean computed here, consumed
+            # ~25 lines down where save_after_ap is finalised.
+            _all_is_dust_save_buff = False
+            if (
+                target.profile.faction == "Thousand Sons"
+                and per_shot_dmg == 1.0
+                and "RUBRICAE" in (target.profile.unit_keywords or ())
+            ):
+                _tgt_army = getattr(target, "army_ref", None)
+                if _tgt_army is not None:
+                    try:
+                        _tgt_det = _tgt_army.resolve_detachment()
+                    except Exception:
+                        _tgt_det = None
+                    if _tgt_det is not None and getattr(
+                        _tgt_det, "all_is_dust", False,
+                    ):
+                        _all_is_dust_save_buff = True
+
+            # ---- Thousand Sons "Rites of Coalescence" (Scarab Occult Terminators
+            # datasheet ability, 10e current codex). Wahapedia verbatim: "While
+            # this unit contains one or more PSYKER models, each time an attack
+            # targets this unit, subtract 1 from the Wound roll." The Aspiring
+            # Sorcerer is mandatory in a Scarab Occult squad and is the PSYKER
+            # carrier, so the buff is effectively always-on as long as the squad
+            # has at least one model left. We gate on profile name to be precise
+            # (the rule is unique to Scarab Occult Terminators — no other TSON
+            # datasheet carries it) plus the PSYKER unit-keyword as a sanity
+            # check that the squad still contains its Sorcerer. Cited as
+            # `simulator.rites_of_coalescence`.
+            if (
+                target.profile.name == "Scarab Occult Terminators"
+                and "PSYKER" in (target.profile.unit_keywords or ())
+            ):
+                wound_mod_delta -= 1
+
+            # ---- Resolute Will (Custodian Wardens datasheet, 10e Adeptus
+            # Custodes codex). Wahapedia / BSData verbatim: "While a CHARACTER
+            # is leading this unit, each time an attack targets this unit, if
+            # the Strength characteristic of that attack is greater than the
+            # Toughness characteristic of this unit, subtract 1 from the
+            # Wound roll." Three-way gate:
+            #   1. defender carries the `resolute_will` flag (set on the
+            #      Custodian Wardens UnitProfile via overrides.json),
+            #   2. defender is actually led — `leaders.is_actually_led` checks
+            #      proximity AND that an in-range CHARACTER's host_keys lists
+            #      the defender (a CHARACTER cannot be 'leading' a unit it
+            #      can't legally attach to per the leader datasheet),
+            #   3. attack Strength > defender Toughness.
+            # Cited as `simulator.resolute_will`. iter24 fix to close part of
+            # the Custodes -22.2pt under-performer gap.
+            if target.profile.resolute_will and strength > target.profile.toughness:
+                try:
+                    from . import leaders as _leaders
+                    if _leaders.is_actually_led(target):
+                        wound_mod_delta -= 1
+                except Exception:
+                    pass
+
+            # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
+            # MR-D (claude/sim-calibration-5): rewritten to match the published
+            # rule. The 10e rule is BUFF-ONLY — there is no -1-to-hit penalty
+            # side; the prior implementation that gave +1 to one mode and -1 to
+            # the other was a fabrication (caught during the MR audit). Real
+            # rule (Wahapedia
+            # https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/):
+            #   Protector: "Improve the Ballistic Skill characteristic of ranged
+            #     weapons equipped by models in this unit by 1." (Heavy keyword
+            #     uplift on ranged weapons skipped — the simulator does not track
+            #     stationary state. The defensive -1 to be hit in melee is
+            #     applied below in the defender block.)
+            #   Conqueror: "Improve the Weapon Skill characteristic of melee
+            #     weapons equipped by models in this unit by 1." (Assault keyword
+            #     uplift on ranged weapons skipped — Advance-and-shoot is not
+            #     a feature the simulator models. The +1 AP for battleline-
+            #     adjacent attacks is applied below in the AP block.)
+            # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate is
+            # approximated as army-wide here: most AdMech infantry are Skitarii
+            # BATTLELINE and the simulator's abstracted positioning does not
+            # resolve 6" aura adjacency for non-battleline support units.
+            # Faction-gated on the attacker. Cited as
+            # `simulator.doctrina_imperatives`.
+            if p.faction == "Adeptus Mechanicus":
+                own_army = getattr(self, "army_ref", None)
+                imperative = (
+                    getattr(own_army, "doctrina_imperative", None)
+                    if own_army is not None else None
+                )
+                if imperative == "protector" and mode != "melee":
+                    hit_mod_delta += 1
+                elif imperative == "conqueror" and mode == "melee":
+                    hit_mod_delta += 1
+
+            # ---- Doctrina Imperatives — Protector defensive side. When the
+            # TARGET unit is Adeptus Mechanicus and the active imperative is
+            # Protector, melee attacks against it take -1 to Hit. Real-rule
+            # gate is BATTLELINE or within 6" of friendly AdMech BATTLELINE.
+            # ADMECH-DIAG-2 (2026-05-24) replaced the prior army-wide
+            # approximation with the real proximity check (see
+            # `_doctrina_battleline_proximity_met`). Only 2 of 42 AdMech
+            # datasheets carry BATTLELINE (Skitarii Vanguard / Rangers),
+            # so the army-wide approximation was making ~95% of AdMech
+            # units more durable in melee than the codex grants them.
+            # Cited as `simulator.doctrina_imperatives`.
+            if mode == "melee" and target.profile.faction == "Adeptus Mechanicus":
+                _tgt_army_di = getattr(target, "army_ref", None)
+                _tgt_imp_di = (
+                    getattr(_tgt_army_di, "doctrina_imperative", None)
+                    if _tgt_army_di is not None else None
+                )
+                if (
+                    _tgt_imp_di == "protector"
+                    and _doctrina_battleline_proximity_met(target)
                 ):
-                    _all_is_dust_save_buff = True
+                    hit_mod_delta -= 1
 
-        # ---- Thousand Sons "Rites of Coalescence" (Scarab Occult Terminators
-        # datasheet ability, 10e current codex). Wahapedia verbatim: "While
-        # this unit contains one or more PSYKER models, each time an attack
-        # targets this unit, subtract 1 from the Wound roll." The Aspiring
-        # Sorcerer is mandatory in a Scarab Occult squad and is the PSYKER
-        # carrier, so the buff is effectively always-on as long as the squad
-        # has at least one model left. We gate on profile name to be precise
-        # (the rule is unique to Scarab Occult Terminators — no other TSON
-        # datasheet carries it) plus the PSYKER unit-keyword as a sanity
-        # check that the squad still contains its Sorcerer. Cited as
-        # `simulator.rites_of_coalescence`.
-        if (
-            target.profile.name == "Scarab Occult Terminators"
-            and "PSYKER" in (target.profile.unit_keywords or ())
-        ):
-            wound_mod_delta -= 1
-
-        # ---- Resolute Will (Custodian Wardens datasheet, 10e Adeptus
-        # Custodes codex). Wahapedia / BSData verbatim: "While a CHARACTER
-        # is leading this unit, each time an attack targets this unit, if
-        # the Strength characteristic of that attack is greater than the
-        # Toughness characteristic of this unit, subtract 1 from the
-        # Wound roll." Three-way gate:
-        #   1. defender carries the `resolute_will` flag (set on the
-        #      Custodian Wardens UnitProfile via overrides.json),
-        #   2. defender is actually led — `leaders.is_actually_led` checks
-        #      proximity AND that an in-range CHARACTER's host_keys lists
-        #      the defender (a CHARACTER cannot be 'leading' a unit it
-        #      can't legally attach to per the leader datasheet),
-        #   3. attack Strength > defender Toughness.
-        # Cited as `simulator.resolute_will`. iter24 fix to close part of
-        # the Custodes -22.2pt under-performer gap.
-        if target.profile.resolute_will and strength > target.profile.toughness:
-            try:
-                from . import leaders as _leaders
-                if _leaders.is_actually_led(target):
-                    wound_mod_delta -= 1
-            except Exception:
-                pass
-
-        # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
-        # MR-D (claude/sim-calibration-5): rewritten to match the published
-        # rule. The 10e rule is BUFF-ONLY — there is no -1-to-hit penalty
-        # side; the prior implementation that gave +1 to one mode and -1 to
-        # the other was a fabrication (caught during the MR audit). Real
-        # rule (Wahapedia
-        # https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/):
-        #   Protector: "Improve the Ballistic Skill characteristic of ranged
-        #     weapons equipped by models in this unit by 1." (Heavy keyword
-        #     uplift on ranged weapons skipped — the simulator does not track
-        #     stationary state. The defensive -1 to be hit in melee is
-        #     applied below in the defender block.)
-        #   Conqueror: "Improve the Weapon Skill characteristic of melee
-        #     weapons equipped by models in this unit by 1." (Assault keyword
-        #     uplift on ranged weapons skipped — Advance-and-shoot is not
-        #     a feature the simulator models. The +1 AP for battleline-
-        #     adjacent attacks is applied below in the AP block.)
-        # The rule's BATTLELINE-or-within-6"-of-BATTLELINE proximity gate is
-        # approximated as army-wide here: most AdMech infantry are Skitarii
-        # BATTLELINE and the simulator's abstracted positioning does not
-        # resolve 6" aura adjacency for non-battleline support units.
-        # Faction-gated on the attacker. Cited as
-        # `simulator.doctrina_imperatives`.
-        if p.faction == "Adeptus Mechanicus":
-            own_army = getattr(self, "army_ref", None)
-            imperative = (
-                getattr(own_army, "doctrina_imperative", None)
-                if own_army is not None else None
+            # CORE-RULE-FIX-2 — "Indirect Fire attack" trigger: ranged attack
+            # from an Indirect Fire weapon against a target not visible to the
+            # attacker. Per 10e core, such attacks (a) take -1 to Hit, (b)
+            # cannot benefit from the Heavy keyword, and (c) cannot score
+            # Critical Hits. The first leg is the standard indirect penalty;
+            # the latter two are gated on this flag and consulted further down
+            # at the crit-to-hit branch. Wahapedia:
+            # https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Indirect-Fire
+            indirect_fire_attack = (
+                p.indirect_fire and mode != "melee" and not has_los
             )
-            if imperative == "protector" and mode != "melee":
-                hit_mod_delta += 1
-            elif imperative == "conqueror" and mode == "melee":
+
+            # ---- Heavy keyword: +1 to hit when shooting and the attacker did
+            # NOT move this round. Melee never benefits. Indirect Fire attacks
+            # (target not visible) cannot benefit from Heavy per 10e core.
+            if (
+                p.heavy
+                and mode != "melee"
+                and not self.moved_this_round
+                and not indirect_fire_attack
+            ):
                 hit_mod_delta += 1
 
-        # ---- Doctrina Imperatives — Protector defensive side. When the
-        # TARGET unit is Adeptus Mechanicus and the active imperative is
-        # Protector, melee attacks against it take -1 to Hit. Real-rule
-        # gate is BATTLELINE or within 6" of friendly AdMech BATTLELINE;
-        # approximated army-wide here for the reasons in the attacker
-        # block above. Cited as `simulator.doctrina_imperatives`.
-        if mode == "melee" and target.profile.faction == "Adeptus Mechanicus":
-            _tgt_army_di = getattr(target, "army_ref", None)
-            _tgt_imp_di = (
-                getattr(_tgt_army_di, "doctrina_imperative", None)
-                if _tgt_army_di is not None else None
-            )
-            if _tgt_imp_di == "protector":
+            # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
+            # while in engagement range pay -1 to hit. Ranged only.
+            if mode != "melee" and self.shooting_in_engagement:
                 hit_mod_delta -= 1
 
-        # ---- Heavy keyword: +1 to hit when shooting and the attacker did
-        # NOT move this round. Melee never benefits.
-        if p.heavy and mode != "melee" and not self.moved_this_round:
-            hit_mod_delta += 1
+            # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.
+            if indirect_fire_attack:
+                hit_mod_delta -= 1
 
-        # ---- Big Guns Never Tire: VEHICLE / MONSTER units that shoot
-        # while in engagement range pay -1 to hit. Ranged only.
-        if mode != "melee" and self.shooting_in_engagement:
-            hit_mod_delta -= 1
+            # ---- Lance: +1 to wound when this melee attack happens on a turn
+            # the attacker declared a charge.
+            # MAP-3-FIX — basket-fraction gating. Defer lance's wound modifier to
+            # per-shot so heterogeneous squads (Beast Snagga Boyz, Skyweavers)
+            # don't grant every shot the keyword. We record whether lance is
+            # eligible here and apply it per-shot below via Bernoulli draw against
+            # `p.lance_basket_fraction`. Single-weapon units have fraction = 1.0
+            # so the Bernoulli always fires and behaviour matches the legacy gate.
+            # Cited as `simulator.basket_fraction_gating`.
+            _lance_eligible = bool(p.lance and mode == "melee" and is_charging)
+            _lance_fraction = float(getattr(p, "lance_basket_fraction", 1.0) or 1.0)
 
-        # ---- Indirect Fire: -1 to hit when target is not visible. Ranged only.
-        if p.indirect_fire and mode != "melee" and not has_los:
-            hit_mod_delta -= 1
+            # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
+            # the plain in_cover flag already grants below). Ranged shots only;
+            # melee always ignores cover. Ignores Cover bypasses both effects.
+            if (
+                mode != "melee"
+                and target.in_heavy_cover
+                and not ignore_cover
+            ):
+                hit_mod_delta -= 1
 
-        # ---- Lance: +1 to wound when this melee attack happens on a turn
-        # the attacker declared a charge.
-        if p.lance and mode == "melee" and is_charging:
-            wound_mod_delta += 1
+            # ---- Stealth keyword: shooters take -1 to hit against the target.
+            # Melee is unaffected (Stealth is a ranged defence).
+            if mode != "melee" and target.profile.stealth:
+                hit_mod_delta -= 1
 
-        # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
-        # the plain in_cover flag already grants below). Ranged shots only;
-        # melee always ignores cover. Ignores Cover bypasses both effects.
-        if (
-            mode != "melee"
-            and target.in_heavy_cover
-            and not ignore_cover
-        ):
-            hit_mod_delta -= 1
+            # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
+            # an enemy unit (the ATTACKER here) within 3" of any DG model takes
+            # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
+            # DG model on the opposing side, and on the attacker NOT being a DG
+            # model itself (the aura debuffs *enemy* units). The ±1 cap below
+            # subsumes the old "skip if already capped" gate — adding -1 here
+            # when the delta is already -1 is harmless because the clamp
+            # collapses the net to -1 anyway. Radius gated to 3" per the modern
+            # Nurgle's Gift / Afflicted rule (Wahapedia). Cited as
+            # `simulator.contagions_of_nurgle`.
+            if (
+                _contagion_round_for(self) >= 3
+                and p.faction != "Death Guard"
+                and _is_near_enemy_dg_model(self, radius=3.0)
+            ):
+                hit_mod_delta -= 1
 
-        # ---- Stealth keyword: shooters take -1 to hit against the target.
-        # Melee is unaffected (Stealth is a ranged defence).
-        if mode != "melee" and target.profile.stealth:
-            hit_mod_delta -= 1
+            # ---- Apply the ±1 modifier cap (Wahapedia core rules: "Hit roll
+            # modifiers are cumulative, but the Hit roll for an attack can
+            # never be modified by more than -1 or +1." Same for Wound rolls).
+            # `hit_target` was already set to its base value; positive delta =
+            # +1 to hit = LOWER target (easier roll); negative delta = -1 to
+            # hit = HIGHER target (harder roll). Symmetric for wound. The
+            # arithmetic clamps to [2, 7] which preserves existing semantics
+            # (target 7 = auto-miss, target 2 = always succeeds bar nat-1).
+            # Cited as `simulator.modifier_cap_plus_minus_one`.
+            hit_mod_clamped = max(-1, min(1, hit_mod_delta))
+            wound_mod_clamped = max(-1, min(1, wound_mod_delta))
+            hit_target = max(2, min(7, hit_target - hit_mod_clamped))
+            wound_target = max(2, min(7, wound_target - wound_mod_clamped))
+            # MAP-3-FIX — pre-compute the lance-on variant of the wound target so
+            # the per-shot Bernoulli draw can pick between them without redoing
+            # the clamp math each shot. wound_target_lance applies the lance +1
+            # to the underlying delta (still subject to the ±1 cap) and clamps.
+            if _lance_eligible:
+                _wound_mod_lance_clamped = max(-1, min(1, wound_mod_delta + 1))
+                wound_target_with_lance = max(
+                    2, min(7, (wound_target + wound_mod_clamped) - _wound_mod_lance_clamped),
+                )
+            else:
+                wound_target_with_lance = wound_target
 
-        # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
-        # an enemy unit (the ATTACKER here) within 3" of any DG model takes
-        # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
-        # DG model on the opposing side, and on the attacker NOT being a DG
-        # model itself (the aura debuffs *enemy* units). The ±1 cap below
-        # subsumes the old "skip if already capped" gate — adding -1 here
-        # when the delta is already -1 is harmless because the clamp
-        # collapses the net to -1 anyway. Radius gated to 3" per the modern
-        # Nurgle's Gift / Afflicted rule (Wahapedia). Cited as
-        # `simulator.contagions_of_nurgle`.
-        if (
-            _contagion_round_for(self) >= 3
-            and p.faction != "Death Guard"
-            and _is_near_enemy_dg_model(self, radius=3.0)
-        ):
-            hit_mod_delta -= 1
+            # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
+            # MAP-3-FIX — basket-fraction gating. The MAP-3 UNION lets a single
+            # specialist weapon (Skyweaver Haywire Cannon, Beast Snagga Klaw)
+            # tag the whole synthetic basket with Anti-X. Without gating, every
+            # shot in the squad's volley would benefit from the lowered crit
+            # threshold. We collect every applicable (kw, thresh, fraction)
+            # tuple here and resolve the per-shot threshold inside the loop via
+            # a Bernoulli draw on fraction. Single-weapon units have fraction
+            # = 1.0 so the gate always fires (legacy behaviour preserved).
+            # Cited as `simulator.basket_fraction_gating`.
+            _anti_applicable: list = []  # list of (thresh:int, fraction:float)
+            if p.anti_keywords and target.profile.unit_keywords:
+                target_kw = set(target.profile.unit_keywords)
+                _anti_fractions = dict(getattr(p, "anti_keyword_basket_fractions", ()) or ())
+                for kw, thresh in p.anti_keywords:
+                    if kw in target_kw:
+                        _frac = float(_anti_fractions.get(kw, 1.0) or 1.0)
+                        _anti_applicable.append((int(thresh), _frac))
 
-        # ---- Apply the ±1 modifier cap (Wahapedia core rules: "Hit roll
-        # modifiers are cumulative, but the Hit roll for an attack can
-        # never be modified by more than -1 or +1." Same for Wound rolls).
-        # `hit_target` was already set to its base value; positive delta =
-        # +1 to hit = LOWER target (easier roll); negative delta = -1 to
-        # hit = HIGHER target (harder roll). Symmetric for wound. The
-        # arithmetic clamps to [2, 7] which preserves existing semantics
-        # (target 7 = auto-miss, target 2 = always succeeds bar nat-1).
-        # Cited as `simulator.modifier_cap_plus_minus_one`.
-        hit_mod_clamped = max(-1, min(1, hit_mod_delta))
-        wound_mod_clamped = max(-1, min(1, wound_mod_delta))
-        hit_target = max(2, min(7, hit_target - hit_mod_clamped))
-        wound_target = max(2, min(7, wound_target - wound_mod_clamped))
+            save_after_ap = target.profile.save - ap
+            # Precision: a ranged shot at a CHARACTER target pierces concealment —
+            # cover does not improve the save. Same effect as Ignores Cover, but
+            # gated on the target's keywords.
+            precision_pierces_cover = (
+                p.precision
+                and mode != "melee"
+                and "CHARACTER" in (target.profile.unit_keywords or ())
+            )
+            # ---- Benefits of Cover (10e core rule). Ranged-only: melee
+            # attacks never benefit from cover. +1 to the armour save (one
+            # pip better). INFANTRY models cannot improve their save to
+            # better than 3+ by virtue of this rule; vehicles / monsters /
+            # mounted models lack the 3+ cap (only the universal 2+ floor
+            # applies). Wahapedia core rules — Terrain Features / Benefits
+            # of Cover. Cited as `simulator.benefits_of_cover`.
+            if (
+                mode != "melee"
+                and target.in_cover
+                and not ignore_cover
+                and not precision_pierces_cover
+            ):
+                improved = save_after_ap - 1
+                target_is_infantry = "INFANTRY" in (target.profile.unit_keywords or ())
+                if target_is_infantry:
+                    # INFANTRY cannot improve their save below 3+ by virtue
+                    # of cover; if already 3+ or better, cover does nothing.
+                    improved = max(improved, 3)
+                improved = max(2, improved)  # universal 2+ armour floor
+                # Cover never makes a save worse than it already was.
+                save_after_ap = min(save_after_ap, improved)
+            # ---- Target's buffs: +1 to armour save ----
+            # 10e core rule (Wahapedia core rules, "Modifiers"): the modified
+            # Save characteristic cannot be more than +1 better or -1 worse
+            # than the unmodified value. AP is NOT a modifier — it acts on
+            # the attack's AP characteristic, not on the defender's Save
+            # characteristic — so AP stacks freely with one +1 save buff.
+            # Multiple ability-sourced +1-save sources (army-wide
+            # plus_one_save + Lightning-Fast Reactions + All Is Dust) must
+            # clamp to a single net +1 per the ±1 cap.
+            # Cited as `simulator.save_modifier_cap_plus_minus_one`.
+            save_buff_sources = 0
+            if tgt_buffs["plus_one_save"]:
+                save_buff_sources += 1
+            # Lightning-Fast Reactions (Warhost) — transient +1 save on the
+            # target unit for the round.
+            if target.transient_plus_one_save:
+                save_buff_sources += 1
+            # ---- Necrons Awakened Dynasty — Protocol of the Eternal Conquerors
+            # (army-wide +1 save, round-gated). NECRONS-CLOSE
+            # (claude/sim-calibration-6): wires the fourth Command Protocol as
+            # a single-round defensive uplift on round 3 only. Real codex text
+            # auto-passes the first failed armour save per NECRONS unit per
+            # phase; the closest clean simulator hook is +1 to the armour
+            # save, contributed into the same `save_buff_sources` counter so
+            # the existing ±1 save-modifier cap clamps it as a single net +1
+            # alongside any other +1-save source. Gate: defender faction ==
+            # "Necrons" AND defender's detachment carries
+            # `necrons_army_wide_plus_one_save_command_protocol` (set by
+            # AWAKENED_DYNASTY) AND current battle round == 3.
+            # Cited as
+            # `AWAKENED_DYNASTY.necrons_army_wide_plus_one_save_command_protocol`.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+            # #Command-Protocols.
+            if target.profile.faction == "Necrons":
+                _own_army_ec = getattr(target, "army_ref", None)
+                if _own_army_ec is not None:
+                    try:
+                        _det_ec = _own_army_ec.resolve_detachment()
+                    except Exception:
+                        _det_ec = None
+                    if _det_ec is not None and getattr(
+                        _det_ec,
+                        "necrons_army_wide_plus_one_save_command_protocol",
+                        False,
+                    ):
+                        _battle_ec = getattr(_own_army_ec, "_battle_ref", None)
+                        _round_ec = (
+                            getattr(_battle_ec, "_current_round", 0)
+                            if _battle_ec is not None else 0
+                        )
+                        # Round 3 only — single-round defensive uplift to
+                        # keep the Command Protocol rotation approximately
+                        # one-protocol-per-round on average.
+                        if _round_ec == 3:
+                            save_buff_sources += 1
+            # All Is Dust (Rubricae Phalanx, see boolean computed in the
+            # wound-modifier block above). +1 to the armour save when the
+            # incoming attack is Damage 1 AND the defender carries the RUBRICAE
+            # keyword. Cited as `simulator.all_is_dust`.
+            if _all_is_dust_save_buff:
+                save_buff_sources += 1
+            if save_buff_sources > 0:
+                # Clamp net save-modifier to +1 (the ±1 cap). The 2+ floor
+                # remains as a hard armour-save floor independent of the cap.
+                save_after_ap = max(2, save_after_ap - 1)
+            invuln = target.profile.invuln_save
+            # ---- Target's buffs: army-wide invuln. Only overrides if better
+            # (lower number) than what the target already has. 7 = unset.
+            tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
+            if tgt_invuln_buff <= 6 and tgt_invuln_buff < invuln:
+                invuln = tgt_invuln_buff
+            # Glamour of Tzeentch (Cult of Magic) — transient 4++ invuln on the
+            # target unit for the round. Same "only override if better" rule.
+            if target.transient_invuln_4 and invuln > 4:
+                invuln = 4
+            effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
+            save_target = effective_save  # 7 = no save
 
-        # ---- Anti-X: lower the crit-wound threshold against matching keywords ----
-        anti_crit_threshold = 6
-        if p.anti_keywords and target.profile.unit_keywords:
-            target_kw = set(target.profile.unit_keywords)
-            for kw, thresh in p.anti_keywords:
-                if kw in target_kw and thresh < anti_crit_threshold:
-                    anti_crit_threshold = thresh
+            # Re-roll flags from attacker's buffs.
+            att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
+            att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
+            # "Re-roll ALL failed hits" defaults to off — only the Votann
+            # Judgement Tokens path (below) and Marines Oath of Moment turn
+            # it on.
+            att_reroll_all_hits = False
+            # "Re-roll ALL failed wounds" defaults to off. Set by Oath of
+            # Moment for a Marine attacker firing at the army's oath target.
+            # Distinct from `att_reroll_wound_ones` (1s only): the rule grants
+            # a full failure re-roll, not just nat-1s.
+            att_reroll_all_wounds = False
 
-        save_after_ap = target.profile.save - ap
-        # Precision: a ranged shot at a CHARACTER target pierces concealment —
-        # cover does not improve the save. Same effect as Ignores Cover, but
-        # gated on the target's keywords.
-        precision_pierces_cover = (
-            p.precision
-            and mode != "melee"
-            and "CHARACTER" in (target.profile.unit_keywords or ())
-        )
-        # ---- Benefits of Cover (10e core rule). Ranged-only: melee
-        # attacks never benefit from cover. +1 to the armour save (one
-        # pip better). INFANTRY models cannot improve their save to
-        # better than 3+ by virtue of this rule; vehicles / monsters /
-        # mounted models lack the 3+ cap (only the universal 2+ floor
-        # applies). Wahapedia core rules — Terrain Features / Benefits
-        # of Cover. Cited as `simulator.benefits_of_cover`.
-        if (
-            mode != "melee"
-            and target.in_cover
-            and not ignore_cover
-            and not precision_pierces_cover
-        ):
-            improved = save_after_ap - 1
-            target_is_infantry = "INFANTRY" in (target.profile.unit_keywords or ())
-            if target_is_infantry:
-                # INFANTRY cannot improve their save below 3+ by virtue
-                # of cover; if already 3+ or better, cover does nothing.
-                improved = max(improved, 3)
-            improved = max(2, improved)  # universal 2+ armour floor
-            # Cover never makes a save worse than it already was.
-            save_after_ap = min(save_after_ap, improved)
-        # ---- Target's buffs: +1 to armour save ----
-        # 10e core rule (Wahapedia core rules, "Modifiers"): the modified
-        # Save characteristic cannot be more than +1 better or -1 worse
-        # than the unmodified value. AP is NOT a modifier — it acts on
-        # the attack's AP characteristic, not on the defender's Save
-        # characteristic — so AP stacks freely with one +1 save buff.
-        # Multiple ability-sourced +1-save sources (army-wide
-        # plus_one_save + Lightning-Fast Reactions + All Is Dust) must
-        # clamp to a single net +1 per the ±1 cap.
-        # Cited as `simulator.save_modifier_cap_plus_minus_one`.
-        save_buff_sources = 0
-        if tgt_buffs["plus_one_save"]:
-            save_buff_sources += 1
-        # Lightning-Fast Reactions (Warhost) — transient +1 save on the
-        # target unit for the round.
-        if target.transient_plus_one_save:
-            save_buff_sources += 1
-        # All Is Dust (Rubricae Phalanx, see boolean computed in the
-        # wound-modifier block above). +1 to the armour save when the
-        # incoming attack is Damage 1 AND the defender carries the RUBRICAE
-        # keyword. Cited as `simulator.all_is_dust`.
-        if _all_is_dust_save_buff:
-            save_buff_sources += 1
-        if save_buff_sources > 0:
-            # Clamp net save-modifier to +1 (the ±1 cap). The 2+ floor
-            # remains as a hard armour-save floor independent of the cap.
-            save_after_ap = max(2, save_after_ap - 1)
-        invuln = target.profile.invuln_save
-        # ---- Target's buffs: army-wide invuln. Only overrides if better
-        # (lower number) than what the target already has. 7 = unset.
-        tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
-        if tgt_invuln_buff <= 6 and tgt_invuln_buff < invuln:
-            invuln = tgt_invuln_buff
-        # Glamour of Tzeentch (Cult of Magic) — transient 4++ invuln on the
-        # target unit for the round. Same "only override if better" rule.
-        if target.transient_invuln_4 and invuln > 4:
-            invuln = 4
-        effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
-        save_target = effective_save  # 7 = no save
-
-        # Re-roll flags from attacker's buffs.
-        att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
-        att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
-        # "Re-roll ALL failed hits" defaults to off — only the Votann
-        # Judgement Tokens path (below) and Marines Oath of Moment turn
-        # it on.
-        att_reroll_all_hits = False
-        # "Re-roll ALL failed wounds" defaults to off. Set by Oath of
-        # Moment for a Marine attacker firing at the army's oath target.
-        # Distinct from `att_reroll_wound_ones` (1s only): the rule grants
-        # a full failure re-roll, not just nat-1s.
-        att_reroll_all_wounds = False
-
-        # Resolve the attacker's owning Army once; downstream gates
-        # (Oath of Moment, Votann tokens) all read it.
-        own_army = getattr(self, "army_ref", None)
-
-        # ---- Leagues of Votann — Eye of the Ancestors (RETIRED) ----
-        # iter25-V1: the launch-day Eye of the Ancestors rule granted
-        # escalating re-roll buffs (hit 1s at 1 token, full hit re-rolls +
-        # wound 1s at 3 tokens) to Votann attacks against marked targets.
-        # That rule has been REPLACED in the current 10e codex by
-        # Prioritised Efficiency, which is purely an objective-token
-        # economy (Yield Points / Hostile Acquisition / Fortify Takeover)
-        # and grants NO re-roll buffs on attacks. Modelling the retired
-        # buffs on top of the simulator's other Votann uplifts was the
-        # largest single contributor to the +16.8 pt Leagues of Votann
-        # over-performance in the iter25 evaluation.
-        #
-        # The token bookkeeping itself (`_maybe_award_judgement_token`,
-        # `Army.judgement_tokens`) is kept in place because the Ancestral
-        # Sentence Oathband stratagem still references it as the place to
-        # record "this enemy unit has been marked", and downstream gates
-        # may use the marker for token-only triggers (no buff effect).
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
-        # The re-roll branch is intentionally removed — do not re-add
-        # without a verbatim Wahapedia citation per CLAUDE.md §10.
-
-        # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
-        # attacker is a Marine (any chapter) AND its army has declared
-        # this round's oath target on this defender's uid, every attack
-        # against that defender re-rolls BOTH the hit roll and the wound
-        # roll. The flag composes with the existing 1s-only re-rolls but
-        # the `att_reroll_all_*` branches take priority in the loop below
-        # (one re-roll per die — never stacks). Cited as
-        # `simulator.oath_of_moment`.
-        if (
-            own_army is not None
-            and is_marine_faction(p.faction)
-            and getattr(own_army, "oath_target_uid", None) == target.uid
-        ):
-            att_reroll_all_hits = True
-            att_reroll_all_wounds = True
-
-        # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
-        # rule lets the controller pick one Quality at battle start; the
-        # "martial valour" Quality (Wahapedia verbatim, https://wahapedia.ru/
-        # wh40k10ed/factions/imperial-knights/): "Each time this model is
-        # selected to shoot or fight, you can re-roll one Hit roll and you
-        # can re-roll one Wound roll." SwegHammer models the army rule by
-        # always taking the martial-valour pick (the offensive Quality —
-        # the other two Qualities are movement / objective-OC bumps the sim
-        # cannot express). APPROXIMATION: "re-roll one die of choice" is
-        # mapped to "re-roll natural 1s" — strictly weaker (re-roll one is
-        # ~+0.17 vs +0.5 for re-roll-of-choice on a 3+/4+ swing), erring on
-        # the under-buff side per the SC5 audit's preference against
-        # fabricated upbuffs. Faction-gated to Imperial Knights so Chaos
-        # Knights (whose army rule is Harbingers of Dread, a battle-shock
-        # aura the sim does not yet track) is untouched.
-        # Cited as `simulator.code_chivalric`.
-        if (
-            own_army is not None
-            and (p.faction or "") == "Imperial Knights"
-        ):
-            att_reroll_hit_ones = True
-            att_reroll_wound_ones = True
-
-        # Fire and Fade (Aeldari Warhost stratagem) — transient
-        # re-roll hit rolls of 1 on shooting attacks for the round.
-        att_reroll_hits_shooting_ones = (
-            mode != "melee" and getattr(self, "transient_reroll_hits_shooting", False)
-        )
-        if att_reroll_hits_shooting_ones:
-            att_reroll_hit_ones = True
-
-        # Drukhari Power From Pain (army rule). While the attacker holds a
-        # Pain Token, treat every attack from this unit as having Lethal
-        # Hits for the duration of this resolution. Faction-gated to avoid
-        # ever lighting up if another codex has a same-named field someday.
-        effective_lethal_hits = p.lethal_hits or (
-            self.pain_tokens > 0 and p.faction == "Drukhari"
-        )
-        # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
-        # WE unit for the phase. SwegHammer collapses "this phase" to "this
-        # round" since the activation loop doesn't break phases out. The
-        # army-level flag stores the round in which BT-4 fired; we compare
-        # against the live battle round so the buff lapses next round even
-        # if we skip clearing it. Faction-gated to keep allies clean.
-        # Composes with profile.lethal_hits via OR (never double-fires —
-        # the gate is at the crit-to-hit branch below, fires once per crit).
-        if p.faction == "World Eaters" and not effective_lethal_hits:
+            # Resolve the attacker's owning Army once; downstream gates
+            # (Oath of Moment, Votann tokens) all read it.
             own_army = getattr(self, "army_ref", None)
-            if own_army is not None:
-                bt_round = getattr(own_army, "blood_tithe_lethal_hits_round", None)
-                battle = getattr(own_army, "_battle_ref", None)
-                cur_round = getattr(battle, "_current_round", 0) if battle else 0
-                if bt_round is not None and bt_round == cur_round:
-                    effective_lethal_hits = True
 
-        # ---- World Eaters Blessings of Khorne (10e army rule) — Warp
-        # Blades grants army-wide melee LETHAL HITS for the battle round.
-        # Gate: mode == "melee" AND attacker faction == "World Eaters"
-        # AND the army's `blessings_warp_blades_round` stamp matches the
-        # current battle round. Composes with `p.lethal_hits` via OR.
-        # Cited as `simulator.blessings_of_khorne`.
-        if (
-            mode == "melee"
-            and p.faction == "World Eaters"
-            and not effective_lethal_hits
-        ):
-            _own_army_bok = getattr(self, "army_ref", None)
-            if _own_army_bok is not None:
-                _wb_round = getattr(
-                    _own_army_bok, "blessings_warp_blades_round", None,
-                )
-                _battle_bok = getattr(_own_army_bok, "_battle_ref", None)
-                _cur_round_bok = (
-                    getattr(_battle_bok, "_current_round", 0)
-                    if _battle_bok is not None else 0
-                )
-                if _wb_round is not None and _wb_round == _cur_round_bok:
-                    effective_lethal_hits = True
+            # ---- Leagues of Votann — Eye of the Ancestors (RETIRED) ----
+            # iter25-V1: the launch-day Eye of the Ancestors rule granted
+            # escalating re-roll buffs (hit 1s at 1 token, full hit re-rolls +
+            # wound 1s at 3 tokens) to Votann attacks against marked targets.
+            # That rule has been REPLACED in the current 10e codex by
+            # Prioritised Efficiency, which is purely an objective-token
+            # economy (Yield Points / Hostile Acquisition / Fortify Takeover)
+            # and grants NO re-roll buffs on attacks. Modelling the retired
+            # buffs on top of the simulator's other Votann uplifts was the
+            # largest single contributor to the +16.8 pt Leagues of Votann
+            # over-performance in the iter25 evaluation.
+            #
+            # The token bookkeeping itself (`_maybe_award_judgement_token`,
+            # `Army.judgement_tokens`) is kept in place because the Ancestral
+            # Sentence Oathband stratagem still references it as the place to
+            # record "this enemy unit has been marked", and downstream gates
+            # may use the marker for token-only triggers (no buff effect).
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Prioritised-Efficiency
+            # The re-roll branch is intentionally removed — do not re-add
+            # without a verbatim Wahapedia citation per CLAUDE.md §10.
 
-        # ---- T'au Empire Markerlights → Guided (10e army-wide army rule).
-        # While a unit is a Guided unit, its ranged weapons have the
-        # [LETHAL HITS] ability. The detachment flag `lethal_hits_on_guided`
-        # gates the simulator wiring (Mont'ka sets it True). The mark is
-        # populated at the start of the marker-spotting army's Shooting
-        # phase by Battle._run_markerlight_phase. Shooting branch only —
-        # melee Guided does not exist in 10e. Composes with profile.lethal_hits
-        # via OR (one re-roll branch in the loop, no double-fire).
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
-        if (
-            mode != "melee"
-            and not effective_lethal_hits
-            and own_army is not None
-            and target.uid in getattr(own_army, "guided_enemy_uids", set())
-            and (p.faction or "").lower() in ("t'au empire", "tau empire")
-        ):
-            det = own_army.resolve_detachment()
-            if det is not None and getattr(det, "lethal_hits_on_guided", False):
+            # ---- Adeptus Astartes Oath of Moment (army rule, 10e). When the
+            # attacker is a Marine (any chapter) AND its army has declared
+            # this round's oath target on this defender's uid, every attack
+            # against that defender re-rolls the HIT roll only. The codex
+            # rule (Wahapedia, verbatim) reads: "each time an attack made by
+            # a model from your army targets the unit selected as the target
+            # of the Oath of Moment, you can re-roll the Hit roll." There is
+            # no wound-roll re-roll — the prior implementation that set
+            # `att_reroll_all_wounds = True` was a fabrication (it stacked
+            # the codex hit re-roll with a non-existent wound re-roll,
+            # roughly doubling the buff). Wound re-rolls only enter via
+            # detachment-specific stratagems / leader abilities. The flag
+            # composes with the existing 1s-only re-rolls but the
+            # `att_reroll_all_hits` branch takes priority in the loop below
+            # (one re-roll per die — never stacks). Cited as
+            # `simulator.oath_of_moment`.
+            if (
+                own_army is not None
+                and is_marine_faction(p.faction)
+                and getattr(own_army, "oath_target_uid", None) == target.uid
+            ):
+                att_reroll_all_hits = True
+
+            # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
+            # rule lets the controller pick one Quality at battle start; the
+            # "martial valour" Quality (Wahapedia verbatim, https://wahapedia.ru/
+            # wh40k10ed/factions/imperial-knights/): "Each time this model is
+            # selected to shoot or fight, you can re-roll one Hit roll and you
+            # can re-roll one Wound roll." SwegHammer models the army rule by
+            # always taking the martial-valour pick (the offensive Quality —
+            # the other two Qualities are movement / objective-OC bumps the sim
+            # cannot express). APPROXIMATION: "re-roll one die of choice" is
+            # mapped to "re-roll natural 1s" — strictly weaker (re-roll one is
+            # ~+0.17 vs +0.5 for re-roll-of-choice on a 3+/4+ swing), erring on
+            # the under-buff side per the SC5 audit's preference against
+            # fabricated upbuffs. Faction-gated to Imperial Knights so Chaos
+            # Knights (whose army rule is Harbingers of Dread; that rule is now
+            # implemented separately above and in simulator._run_battleshock_phase)
+            # is untouched.
+            # Cited as `simulator.code_chivalric`.
+            if (
+                own_army is not None
+                and (p.faction or "") == "Imperial Knights"
+            ):
+                att_reroll_hit_ones = True
+                att_reroll_wound_ones = True
+
+            # Fire and Fade (Aeldari Warhost stratagem) — transient
+            # re-roll hit rolls of 1 on shooting attacks for the round.
+            att_reroll_hits_shooting_ones = (
+                mode != "melee" and getattr(self, "transient_reroll_hits_shooting", False)
+            )
+            if att_reroll_hits_shooting_ones:
+                att_reroll_hit_ones = True
+
+            # ST-1: transient wound-reroll grants from stratagems that actually
+            # cite "re-roll Wound rolls" (Warrior Pride, Combat Debarkation,
+            # Creeping Blight wound leg) — full failed-wound re-roll for the
+            # round. Composes with att_reroll_all_wounds (Oath of Moment) via
+            # OR; the wound-loop only ever fires one re-roll per die.
+            # transient_reroll_wounds_ones is the weaker "1s only" variant for
+            # stratagems that grant a wound-1 re-roll (Big Krumpin'); composes
+            # with att_reroll_wound_ones via OR.
+            if getattr(self, "transient_reroll_wounds", False):
+                att_reroll_all_wounds = True
+            if getattr(self, "transient_reroll_wounds_ones", False):
+                att_reroll_wound_ones = True
+
+            # Drukhari Power From Pain (army rule). While the attacker holds a
+            # Pain Token, treat every attack from this unit as having Lethal
+            # Hits for the duration of this resolution. Faction-gated to avoid
+            # ever lighting up if another codex has a same-named field someday.
+            effective_lethal_hits = p.lethal_hits or (
+                self.pain_tokens > 0 and p.faction == "Drukhari"
+            )
+            # ST-1: per-round transient LETHAL HITS grant from stratagems that
+            # actually cite [LETHAL HITS] (Wrath of the Ancestors, Power Of The
+            # WAAAGH!, Archaeotech Munitions). Composes via OR with profile and
+            # army-rule sources; the crit branch fires the lethal auto-wound
+            # exactly once per crit-to-hit. Faction-unrestricted because the
+            # stratagem dispatcher gates faction at the firing site.
+            if getattr(self, "transient_lethal_hits", False):
                 effective_lethal_hits = True
+            # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
+            # WE unit for the phase. SwegHammer collapses "this phase" to "this
+            # round" since the activation loop doesn't break phases out. The
+            # army-level flag stores the round in which BT-4 fired; we compare
+            # against the live battle round so the buff lapses next round even
+            # if we skip clearing it. Faction-gated to keep allies clean.
+            # Composes with profile.lethal_hits via OR (never double-fires —
+            # the gate is at the crit-to-hit branch below, fires once per crit).
+            if p.faction == "World Eaters" and not effective_lethal_hits:
+                own_army = getattr(self, "army_ref", None)
+                if own_army is not None:
+                    bt_round = getattr(own_army, "blood_tithe_lethal_hits_round", None)
+                    battle = getattr(own_army, "_battle_ref", None)
+                    cur_round = getattr(battle, "_current_round", 0) if battle else 0
+                    if bt_round is not None and bt_round == cur_round:
+                        effective_lethal_hits = True
 
-        # ---- Astra Militarum Combined Arms detachment — Born Soldiers
-        # (army-wide ranged [LETHAL HITS] gated on REGIMENT-vs-non-V/M and
-        # SQUADRON-vs-V/M matchups). Wahapedia verbatim: "Each time a model
-        # in a REGIMENT unit from your army makes a ranged attack that
-        # targets a visible unit (excluding MONSTERS and VEHICLES), that
-        # attack has the [LETHAL HITS] ability. Each time a model in a
-        # SQUADRON unit from your army makes a ranged attack that targets
-        # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL
-        # HITS] ability."
-        # APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the
-        # codex's REGIMENT / SQUADRON keywords, so we map REGIMENT →
-        # attacker has INFANTRY (and not VEHICLE/MONSTER), SQUADRON →
-        # attacker has VEHICLE. This captures the codex split: AM infantry
-        # squads (Cadians, Krieg, Scions, Ogryns) trigger the anti-troop
-        # leg; AM vehicle squadrons (Leman Russ, Rogal Dorn, Sentinels)
-        # trigger the anti-armour leg. Composes with profile.lethal_hits
-        # via OR (one re-roll branch in the loop, no double-fire).
-        # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
-        if (
-            mode != "melee"
-            and not effective_lethal_hits
-            and own_army is not None
-            and (p.faction or "") == "Astra Militarum"
-        ):
-            det = own_army.resolve_detachment()
-            if det is not None and getattr(det, "am_born_soldiers_lethal_hits", False):
-                attacker_kws = set(p.unit_keywords or ())
-                target_kws = set((target.profile.unit_keywords or ()) if target else ())
-                target_is_vm = (
-                    "VEHICLE" in target_kws or "MONSTER" in target_kws
-                )
-                # REGIMENT leg: INFANTRY-keyword attacker (and not VEHICLE/
-                # MONSTER) vs non-VEHICLE/MONSTER target.
-                if (
-                    "INFANTRY" in attacker_kws
-                    and "VEHICLE" not in attacker_kws
-                    and "MONSTER" not in attacker_kws
-                    and not target_is_vm
-                ):
-                    effective_lethal_hits = True
-                # SQUADRON leg: VEHICLE-keyword attacker vs VEHICLE/MONSTER
-                # target.
-                elif "VEHICLE" in attacker_kws and target_is_vm:
-                    effective_lethal_hits = True
-
-        # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
-        # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
-        # by ORKS models from your army have the [SUSTAINED HITS 1] ability."
-        # Gate: mode == "melee" AND attacker faction == "Orks" AND the
-        # attacker's army's detachment carries the `melee_sustained_hits
-        # _army_wide` flag (set by WAR_HORDE). The effective sustained-hits
-        # multiplier is incremented by 1 for the duration of this attack
-        # resolution; stacks additively with any per-weapon `sustained_hits`
-        # already on the profile (a SUSTAINED HITS 1 weapon would compound
-        # to SUSTAINED HITS 2, matching codex behaviour). Cited as
-        # `WAR_HORDE.melee_sustained_hits_army_wide`.
-        #
-        # Route the per-weapon SUSTAINED HITS value by attack mode. Before
-        # iter28-MS1 the simulator read `p.sustained_hits` unconditionally,
-        # but that field is populated from the RANGED primary weapon (see
-        # `code/bsdata/mapper.py`). Reading it in melee mode fabricated
-        # ranged SUSTAINED HITS values onto Orks Choppas and several other
-        # mixed-loadout units. `p.melee_sustained_hits` is sourced from the
-        # melee weapon and defaults to 0 — the correct value for vanilla
-        # Choppas (BSData v10.6.0 Keywords: -).
-        if mode == "melee":
-            effective_sustained_hits = int(p.melee_sustained_hits or 0)
-        else:
-            effective_sustained_hits = int(p.sustained_hits or 0)
-        # LC1-A — generalised gate: any faction whose detachment carries
-        # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
-        # HITS 1 on melee. Previously Orks-only; widened so Adeptus
-        # Custodes Auric Champions (alt to Shield Host) can re-use the
-        # same plumbing. The detachment IS the faction-specific gate —
-        # only WAR_HORDE (Orks) and AURIC_CHAMPIONS (Custodes) set the
-        # flag; the gate verifies the attacker's army's resolved
-        # detachment matches the attacker's faction.
-        if mode == "melee":
-            _own_army = getattr(self, "army_ref", None)
-            if _own_army is not None:
-                try:
-                    _det = _own_army.resolve_detachment()
-                except Exception:
-                    _det = None
-                if (_det is not None
-                        and getattr(_det, "melee_sustained_hits_army_wide", False)
-                        and getattr(_det, "faction", None) == p.faction):
-                    effective_sustained_hits += 1
-
-        # ---- World Eaters Blessings of Khorne (10e army rule) — Martial
-        # Excellence grants army-wide melee SUSTAINED HITS 1 for the
-        # battle round. Gate: mode == "melee" AND attacker faction ==
-        # "World Eaters" AND the army's
-        # `blessings_martial_excellence_round` stamp matches the live
-        # battle round. Stacks additively with any per-weapon
-        # `melee_sustained_hits` already on the profile, matching the
-        # WAR_HORDE compositional convention. Cited as
-        # `simulator.blessings_of_khorne`.
-        if mode == "melee" and p.faction == "World Eaters":
-            _own_army_me = getattr(self, "army_ref", None)
-            if _own_army_me is not None:
-                _me_round = getattr(
-                    _own_army_me, "blessings_martial_excellence_round", None,
-                )
-                _battle_me = getattr(_own_army_me, "_battle_ref", None)
-                _cur_round_me = (
-                    getattr(_battle_me, "_current_round", 0)
-                    if _battle_me is not None else 0
-                )
-                if _me_round is not None and _me_round == _cur_round_me:
-                    effective_sustained_hits += 1
-
-        # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
-        # (army-wide ranged SUSTAINED HITS 1). AD-PR (claude/sim-cal-4):
-        # alternates with Hungry Void by battle-round parity. Vengeful
-        # Stars fires on ODD rounds (1, 3, 5) — opposite parity to
-        # Hungry Void (EVEN). Gate: mode != "melee" AND attacker faction
-        # == "Necrons" AND detachment carries `necrons_ranged_sustained
-        # _hits_army_wide` (set by AWAKENED_DYNASTY) AND current battle
-        # round is odd. Stacks additively with per-weapon
-        # `sustained_hits` already on the profile, matching the
-        # melee_sustained_hits_army_wide compositional behaviour above.
-        # Cited as
-        # `AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide`.
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
-        # #Command-Protocols.
-        if mode != "melee" and p.faction == "Necrons":
-            _own_army_vs = getattr(self, "army_ref", None)
-            if _own_army_vs is not None:
-                try:
-                    _det_vs = _own_army_vs.resolve_detachment()
-                except Exception:
-                    _det_vs = None
-                if _det_vs is not None and getattr(
-                    _det_vs, "necrons_ranged_sustained_hits_army_wide", False,
-                ):
-                    _battle_vs = getattr(_own_army_vs, "_battle_ref", None)
-                    _round_vs = (
-                        getattr(_battle_vs, "_current_round", 0)
-                        if _battle_vs is not None else 0
+            # ---- World Eaters Blessings of Khorne (10e army rule) — Warp
+            # Blades grants army-wide melee LETHAL HITS for the battle round.
+            # Gate: mode == "melee" AND attacker faction == "World Eaters"
+            # AND the army's `blessings_warp_blades_round` stamp matches the
+            # current battle round. Composes with `p.lethal_hits` via OR.
+            # Cited as `simulator.blessings_of_khorne`.
+            if (
+                mode == "melee"
+                and p.faction == "World Eaters"
+                and not effective_lethal_hits
+            ):
+                _own_army_bok = getattr(self, "army_ref", None)
+                if _own_army_bok is not None:
+                    _wb_round = getattr(
+                        _own_army_bok, "blessings_warp_blades_round", None,
                     )
-                    # Odd round (1, 3, 5) -> Vengeful Stars active.
-                    # Round 0 (pre-battle / no battle ref) treated as
-                    # inactive so standalone tests without a battle
-                    # round set see no buff unless they configure the
-                    # round explicitly.
-                    if _round_vs % 2 == 1 and _round_vs > 0:
+                    _battle_bok = getattr(_own_army_bok, "_battle_ref", None)
+                    _cur_round_bok = (
+                        getattr(_battle_bok, "_current_round", 0)
+                        if _battle_bok is not None else 0
+                    )
+                    if _wb_round is not None and _wb_round == _cur_round_bok:
+                        effective_lethal_hits = True
+
+            # ---- T'au Empire Mont'ka Killing Blow — Guided [LETHAL HITS]
+            # (rounds 1-3). Wahapedia (Mont'ka, Killing Blow) verbatim:
+            # "During the first, second and third battle rounds, while a
+            # unit is a Guided unit, its ranged weapons have the [LETHAL
+            # HITS] ability." T-AU-DIAG-2 (2026-05-23) corrects the prior
+            # APPROXIMATION which fired this army-wide every round; the
+            # detachment text is explicit about the rounds 1-3 window.
+            # Guided population still happens every round in
+            # Battle._run_markerlight_phase (the Marked/Guided base status
+            # is granted by the army rule with no round gate), but the
+            # [LETHAL HITS] keyword interaction is the detachment effect
+            # and only applies in rounds 1-3. Shooting branch only — melee
+            # Guided does not exist in 10e. Composes with profile.lethal_hits
+            # via OR (one re-roll branch in the loop, no double-fire).
+            # Cited as `MONTKA.lethal_hits_on_guided`.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
+            if (
+                mode != "melee"
+                and not effective_lethal_hits
+                and own_army is not None
+                and target.uid in getattr(own_army, "guided_enemy_uids", set())
+                and (p.faction or "").lower() in ("t'au empire", "tau empire")
+            ):
+                det = own_army.resolve_detachment()
+                if det is not None and getattr(det, "lethal_hits_on_guided", False):
+                    _battle_ref_tau = getattr(own_army, "_battle_ref", None)
+                    _cur_round_tau = (
+                        getattr(_battle_ref_tau, "_current_round", 0)
+                        if _battle_ref_tau is not None else 0
+                    )
+                    if 1 <= _cur_round_tau <= 3:
+                        effective_lethal_hits = True
+
+            # ---- Astra Militarum Combined Arms detachment — Born Soldiers
+            # (army-wide ranged [LETHAL HITS] gated on REGIMENT-vs-non-V/M and
+            # SQUADRON-vs-V/M matchups). Wahapedia verbatim: "Each time a model
+            # in a REGIMENT unit from your army makes a ranged attack that
+            # targets a visible unit (excluding MONSTERS and VEHICLES), that
+            # attack has the [LETHAL HITS] ability. Each time a model in a
+            # SQUADRON unit from your army makes a ranged attack that targets
+            # a visible MONSTER or VEHICLE unit, that attack has the [LETHAL
+            # HITS] ability."
+            # APPROXIMATION: BSData v10.6.0 doesn't tag datasheets with the
+            # codex's REGIMENT / SQUADRON keywords. AM-DIAG-2 (2026-05-24)
+            # narrowed the REGIMENT proxy from INFANTRY → BATTLELINE after
+            # the INFANTRY mapping was found to massively over-grant LETHAL
+            # HITS: it pulled in 40+ non-REGIMENT AM INFANTRY units
+            # (Tempestus Scions, Kasrkin, Tempestus Aquilons, Ratlings,
+            # Ogryns, Bullgryns, all Commissars / Commissar Yarrick /
+            # Commissar Graves on Foot, Tech-Priest Enginseer, Primaris
+            # Psyker, Sly Marbo, Ursula Creed, Cadian Castellan, Lord Solar
+            # Leontus, Krieg/Cadian/Catachan/Tempestus Command Squads,
+            # Inquisition agents, Heavy Weapons Squads, etc.) — none of
+            # which carry the codex REGIMENT keyword. The BATTLELINE proxy
+            # catches the three core REGIMENT troop choices that the rule
+            # was clearly written for (Cadian Shock Troops, Catachan Jungle
+            # Fighters, Death Korps of Krieg). Trade-off: this also
+            # under-covers a handful of non-BATTLELINE REGIMENT squads
+            # (Heavy Weapons Squads, Command Squads), which is the much
+            # smaller error vs the over-firing the INFANTRY proxy caused.
+            # AM-DIAG-3 (2026-05-24) followed up by narrowing SQUADRON
+            # from "any VEHICLE-keyword AM attacker" to an explicit name
+            # allowlist of the codex SQUADRON datasheets — see
+            # `_AM_BORN_SOLDIERS_SQUADRON_NAMES` above for the contents
+            # and the citation.
+            # Composes with profile.lethal_hits via OR (one re-roll branch
+            # in the loop, no double-fire).
+            # Cited as `COMBINED_REGIMENT.am_born_soldiers_lethal_hits`.
+            if (
+                mode != "melee"
+                and not effective_lethal_hits
+                and own_army is not None
+                and (p.faction or "") == "Astra Militarum"
+            ):
+                det = own_army.resolve_detachment()
+                if det is not None and getattr(det, "am_born_soldiers_lethal_hits", False):
+                    attacker_kws = set(p.unit_keywords or ())
+                    target_kws = set((target.profile.unit_keywords or ()) if target else ())
+                    target_is_vm = (
+                        "VEHICLE" in target_kws or "MONSTER" in target_kws
+                    )
+                    # REGIMENT leg: BATTLELINE-keyword attacker (the three
+                    # core Cadian / Catachan / Krieg troop squads, which all
+                    # carry the codex REGIMENT keyword) vs non-VEHICLE/MONSTER
+                    # target.
+                    if (
+                        "BATTLELINE" in attacker_kws
+                        and "VEHICLE" not in attacker_kws
+                        and "MONSTER" not in attacker_kws
+                        and not target_is_vm
+                    ):
+                        effective_lethal_hits = True
+                    # SQUADRON leg: attacker is on the explicit AM SQUADRON
+                    # roster vs VEHICLE/MONSTER target. AM-DIAG-3 (2026-05-24)
+                    # narrowed the SQUADRON proxy from "any VEHICLE-keyword AM
+                    # attacker" to a curated allowlist after the VEHICLE proxy
+                    # was found to over-grant LETHAL HITS to transports
+                    # (Chimera, Taurox, Taurox Prime, Centaur RSV, Storm
+                    # Chimera), flyers (Valkyrie, Vendetta, Avenger Strike
+                    # Fighter, Vulture, Marauder, Voss-pattern Lightning,
+                    # Arvus Lighter, Aquila Lander), self-propelled HEAVY
+                    # artillery (Basilisk, Manticore, Wyvern, Deathstrike,
+                    # Hydra, Colossus, Medusa, Griffon), super-heavies
+                    # (Baneblade / Banehammer / Banesword / Doomhammer /
+                    # Hellhammer / Shadowsword / Stormblade / Stormlord /
+                    # Stormsword), Knights, and vehicle CHARACTERS that don't
+                    # carry the SQUADRON keyword — none of which are in the
+                    # codex SQUADRON keyword list. Per Wahapedia Astra
+                    # Militarum datasheets, the SQUADRON keyword belongs to:
+                    # Leman Russ Battle Tank + all Russ variants
+                    # (Demolisher, Eradicator, Executioner, Exterminator,
+                    # Punisher, Vanquisher) + Leman Russ Commander; Rogal
+                    # Dorn Battle Tank + Rogal Dorn Commander; Hellhound
+                    # (Bane Wolf / Devil Dog are weapon-loadout variants of
+                    # the same datasheet, not separate datasheets in BSData
+                    # v10.6.0); Armoured Sentinels, Scout Sentinels, and the
+                    # Sentinel Commander [Crucible]. Match on
+                    # `UnitProfile.name` because BSData v10.6.0 does not
+                    # surface a SQUADRON unit keyword and the profile has
+                    # no datasheet-key field. See
+                    # https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
+                    # (each Leman Russ / Rogal Dorn / Hellhound / Sentinel
+                    # datasheet carries the SQUADRON keyword in its header).
+                    elif (
+                        p.name in _AM_BORN_SOLDIERS_SQUADRON_NAMES
+                        and target_is_vm
+                    ):
+                        effective_lethal_hits = True
+
+            # ---- Orks War Horde detachment — Get Stuck In (army-wide melee
+            # SUSTAINED HITS 1). BSData v10.6.0 verbatim: "Melee weapons equipped
+            # by ORKS models from your army have the [SUSTAINED HITS 1] ability."
+            # Gate: mode == "melee" AND attacker faction == "Orks" AND the
+            # attacker's army's detachment carries the `melee_sustained_hits
+            # _army_wide` flag (set by WAR_HORDE). The effective sustained-hits
+            # multiplier is incremented by 1 for the duration of this attack
+            # resolution; stacks additively with any per-weapon `sustained_hits`
+            # already on the profile (a SUSTAINED HITS 1 weapon would compound
+            # to SUSTAINED HITS 2, matching codex behaviour). Cited as
+            # `WAR_HORDE.melee_sustained_hits_army_wide`.
+            #
+            # Route the per-weapon SUSTAINED HITS value by attack mode. Before
+            # iter28-MS1 the simulator read `p.sustained_hits` unconditionally,
+            # but that field is populated from the RANGED primary weapon (see
+            # `code/bsdata/mapper.py`). Reading it in melee mode fabricated
+            # ranged SUSTAINED HITS values onto Orks Choppas and several other
+            # mixed-loadout units. `p.melee_sustained_hits` is sourced from the
+            # melee weapon and defaults to 0 — the correct value for vanilla
+            # Choppas (BSData v10.6.0 Keywords: -).
+            if mode == "melee":
+                effective_sustained_hits = int(p.melee_sustained_hits or 0)
+            else:
+                effective_sustained_hits = int(p.sustained_hits or 0)
+            # LC1-A — generalised gate: any faction whose detachment carries
+            # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
+            # HITS 1 on melee. Previously Orks-only; widened so Adeptus
+            # Custodes Auric Champions (alt to Shield Host) can re-use the
+            # same plumbing. The detachment IS the faction-specific gate —
+            # only WAR_HORDE (Orks) and AURIC_CHAMPIONS (Custodes) set the
+            # flag; the gate verifies the attacker's army's resolved
+            # detachment matches the attacker's faction.
+            if mode == "melee":
+                _own_army = getattr(self, "army_ref", None)
+                if _own_army is not None:
+                    try:
+                        _det = _own_army.resolve_detachment()
+                    except Exception:
+                        _det = None
+                    if (_det is not None
+                            and getattr(_det, "melee_sustained_hits_army_wide", False)
+                            and getattr(_det, "faction", None) == p.faction):
                         effective_sustained_hits += 1
 
-        # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
-        # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
-        # `save_after_ap` is computed) — see the block tagged
-        # `SHIELD_HOST.melee_ap_plus_one` above. This block only sets the
-        # crit threshold that gates `crit_hit = (roll == 6)` later in the
-        # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
-        # adeptus-custodes/#Shield-Host.
-        # C1 (claude/sim-calibration-4): Crit-on-5+ fires on EVEN battle
-        # rounds (2, 4). AP+1 fires on ODD battle rounds (1, 3, 5). This
-        # alternation averages to one bullet active per round, matching
-        # the codex "pick one bullet at the start of each battle round"
-        # rule (prior implementation applied both always-on, strictly
-        # stronger than codex). Cited as
-        # `SHIELD_HOST.melee_crit_on_5_plus_hits`.
-        melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
-        if mode == "melee" and p.faction == "Adeptus Custodes":
-            _own_army = getattr(self, "army_ref", None)
-            if _own_army is not None:
-                try:
-                    _det = _own_army.resolve_detachment()
-                except Exception:
-                    _det = None
-                if _det is not None and getattr(
-                    _det, "melee_crit_on_5_plus_hits", False,
-                ):
-                    _battle_c5 = getattr(_own_army, "_battle_ref", None)
-                    _round_c5 = (
-                        getattr(_battle_c5, "_current_round", 0)
-                        if _battle_c5 is not None else 0
+            # ---- World Eaters Blessings of Khorne (10e army rule) — Martial
+            # Excellence grants army-wide melee SUSTAINED HITS 1 for the
+            # battle round. Gate: mode == "melee" AND attacker faction ==
+            # "World Eaters" AND the army's
+            # `blessings_martial_excellence_round` stamp matches the live
+            # battle round. Stacks additively with any per-weapon
+            # `melee_sustained_hits` already on the profile, matching the
+            # WAR_HORDE compositional convention. Cited as
+            # `simulator.blessings_of_khorne`.
+            if mode == "melee" and p.faction == "World Eaters":
+                _own_army_me = getattr(self, "army_ref", None)
+                if _own_army_me is not None:
+                    _me_round = getattr(
+                        _own_army_me, "blessings_martial_excellence_round", None,
                     )
-                    # Even round (2, 4) -> Crit-on-5+ bullet active. Round
-                    # 0 (pre-battle / no battle ref) treated as inactive
-                    # so standalone tests without a battle round set see
-                    # no buff unless they configure the round explicitly.
-                    if _round_c5 > 0 and _round_c5 % 2 == 0:
-                        melee_crit_threshold = 5
+                    _battle_me = getattr(_own_army_me, "_battle_ref", None)
+                    _cur_round_me = (
+                        getattr(_battle_me, "_current_round", 0)
+                        if _battle_me is not None else 0
+                    )
+                    if _me_round is not None and _me_round == _cur_round_me:
+                        effective_sustained_hits += 1
 
-        total_damage = 0.0
-        for _ in range(n_attacks):
-            # ---- Torrent: skip the to-hit roll, attack auto-hits ----
-            if p.torrent:
-                crit_hit = False   # torrent has no crit-on-hit
-            else:
-                roll = random.randint(1, 6)
-                # Re-roll handling. Two compatible flags:
-                #   att_reroll_hit_ones: replace a natural 1 (detachment /
-                #     Judgement Tokens tier-1).
-                #   att_reroll_all_hits: replace ANY failure (Judgement
-                #     Tokens tier-3; superset of reroll_hit_ones).
-                # Only one re-roll per die — `att_reroll_all_hits` takes
-                # priority and a fired re-roll under it does not stack
-                # another re-roll under reroll_hit_ones.
-                if att_reroll_all_hits and roll < hit_target:
-                    roll = random.randint(1, 6)
-                elif att_reroll_hit_ones and roll == 1:
-                    roll = random.randint(1, 6)
-                # Fire and Fade (Warhost) — transient re-roll natural 1s
-                # to hit on shooting attacks. Compose with reroll_hit_ones
-                # above but never re-roll the same die twice — both flags
-                # target the natural-1 case so the first that triggered the
-                # re-roll has already swapped the value.
-                if (
-                    att_reroll_hits_shooting_ones
-                    and roll == 1
-                    and not att_reroll_hit_ones
-                ):
-                    roll = random.randint(1, 6)
-                # Strands of Fate (Aeldari army rule, 10e) — Fate dice
-                # substitution on a failed Hit roll. If the attacker is an
-                # AELDARI model from an army with at least one Fate die
-                # in pool, and the natural roll is a miss, we pop the
-                # lowest die in the pool that still hits and substitute.
-                # No die is spent if substitution wouldn't convert the
-                # miss to a hit (greedy floor at hit_target). Cited as
-                # `simulator.strands_of_fate`. Wahapedia:
-                # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
-                if (
-                    roll < hit_target
-                    and p.faction == "Aeldari"
-                ):
-                    own_army = getattr(self, "army_ref", None)
-                    if own_army is not None and own_army.has_fate_dice():
-                        sub = own_army.pop_fate_die_meeting(hit_target)
-                        if sub is not None:
-                            roll = sub
-                # Adepta Sororitas Acts of Faith — Miracle Dice
-                # substitution on a failed Hit roll. Mirrors the Strands
-                # of Fate branch above: if the attacker is a Sororitas
-                # model and the natural roll missed, pop the lowest
-                # banked die that still hits. The greedy heuristic only
-                # spends when the substitution converts miss -> hit.
-                # Cited as `simulator.acts_of_faith`. Wahapedia:
-                # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
-                if (
-                    roll < hit_target
-                    and p.faction == "Adepta Sororitas"
-                ):
-                    own_army = getattr(self, "army_ref", None)
-                    if own_army is not None and own_army.has_miracle_dice():
-                        sub = own_army.pop_miracle_die_meeting(hit_target)
-                        if sub is not None:
-                            roll = sub
-                if roll < hit_target:
-                    continue   # missed
-                # Crit-to-hit threshold defaults to 6 (canonical 10e); the
-                # Shield Host Martial Ka'tah Crit-on-5+ branch lowers it to
-                # 5 for Adeptus Custodes melee attackers (see
-                # `melee_crit_threshold` setup above).
-                crit_hit = (roll >= melee_crit_threshold) if mode == "melee" else (roll == 6)
-            n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
-
-            for hit_i in range(n_hits):
-                if effective_lethal_hits and crit_hit and hit_i == 0:
-                    wound_succeeded = True
-                    crit_wound = False
-                else:
-                    wroll = random.randint(1, 6)
-                    rerolled = False
-                    # Re-roll handling for wounds. Two compatible flags:
-                    #   att_reroll_all_wounds: replace ANY failure (Marines
-                    #     Oath of Moment; superset of reroll_wound_ones).
-                    #   att_reroll_wound_ones: replace a natural 1 only
-                    #     (Gladius / detachment / Votann tier-3).
-                    # Only one re-roll per die — `att_reroll_all_wounds`
-                    # takes priority and a fired re-roll under it does not
-                    # stack another re-roll under reroll_wound_ones or
-                    # Twin-Linked.
-                    if att_reroll_all_wounds and wroll < wound_target:
-                        wroll = random.randint(1, 6)
-                        rerolled = True
-                    elif att_reroll_wound_ones and wroll == 1:
-                        wroll = random.randint(1, 6)
-                        rerolled = True
-                    wound_succeeded = (wroll >= wound_target)
-                    if not wound_succeeded and p.twin_linked and not rerolled:
-                        wroll = random.randint(1, 6)
-                        wound_succeeded = (wroll >= wound_target)
-                        rerolled = True
-                    # Universal Core Stratagem — Command Re-Roll (1 CP):
-                    # if the wound roll is still a miss AND no re-roll has
-                    # already been used on this die AND our army's battle
-                    # reference has a stratagem hook AND the heuristic
-                    # green-lights the spend, re-roll once more.
-                    if (
-                        not wound_succeeded and not rerolled
-                        and self.army_ref is not None
-                        and getattr(self.army_ref, "_battle_ref", None) is not None
+            # ---- Necrons Awakened Dynasty — Protocol of the Vengeful Stars
+            # (army-wide ranged SUSTAINED HITS 1). AD-PR (claude/sim-cal-4):
+            # alternates with Hungry Void by battle-round parity. Vengeful
+            # Stars fires on ODD rounds (1, 3, 5) — opposite parity to
+            # Hungry Void (EVEN). Gate: mode != "melee" AND attacker faction
+            # == "Necrons" AND detachment carries `necrons_ranged_sustained
+            # _hits_army_wide` (set by AWAKENED_DYNASTY) AND current battle
+            # round is odd. Stacks additively with per-weapon
+            # `sustained_hits` already on the profile, matching the
+            # melee_sustained_hits_army_wide compositional behaviour above.
+            # Cited as
+            # `AWAKENED_DYNASTY.necrons_ranged_sustained_hits_army_wide`.
+            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/necrons/
+            # #Command-Protocols.
+            if mode != "melee" and p.faction == "Necrons":
+                _own_army_vs = getattr(self, "army_ref", None)
+                if _own_army_vs is not None:
+                    try:
+                        _det_vs = _own_army_vs.resolve_detachment()
+                    except Exception:
+                        _det_vs = None
+                    if _det_vs is not None and getattr(
+                        _det_vs, "necrons_ranged_sustained_hits_army_wide", False,
                     ):
-                        battle = self.army_ref._battle_ref
-                        if battle.maybe_fire_command_reroll(self, target, "wound"):
-                            wroll = random.randint(1, 6)
-                            wound_succeeded = (wroll >= wound_target)
-                            rerolled = True
-                    # Anti-X (10e core): "Each time an attack is made with such
-                    # a weapon against a target that has the keyword after the
-                    # word 'Anti-', an unmodified Wound roll of 'x+' scores a
-                    # Critical Wound." A Critical Wound is by definition a
-                    # successful Wound roll (10e core: "An unmodified Wound
-                    # roll of 6 is always considered to be a successful Wound
-                    # roll, irrespective of the attack's Strength and the
-                    # target's Toughness characteristic. This is known as a
-                    # Critical Wound."). So a roll of >= anti_crit_threshold
-                    # auto-succeeds AND is a Critical Wound — even if the
-                    # roll would otherwise fail the normal S-vs-T target.
-                    # Cited as `weapon.anti_x`.
-                    # Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#ANTI-X
-                    if wroll >= anti_crit_threshold:
-                        wound_succeeded = True
-                        crit_wound = True
-                    else:
-                        crit_wound = False
-                # Adepta Sororitas Acts of Faith — Miracle Dice
-                # substitution on a failed Wound roll. Same greedy
-                # heuristic as the hit-roll branch: only spend a banked
-                # die if it converts fail -> success. Cited as
-                # `simulator.acts_of_faith`.
-                if (
-                    not wound_succeeded
-                    and p.faction == "Adepta Sororitas"
-                ):
-                    own_army = getattr(self, "army_ref", None)
-                    if own_army is not None and own_army.has_miracle_dice():
-                        sub = own_army.pop_miracle_die_meeting(wound_target)
-                        if sub is not None:
-                            wroll = sub
-                            wound_succeeded = True
-                            crit_wound = (wroll == 6)
-                if not wound_succeeded:
-                    continue
+                        _battle_vs = getattr(_own_army_vs, "_battle_ref", None)
+                        _round_vs = (
+                            getattr(_battle_vs, "_current_round", 0)
+                            if _battle_vs is not None else 0
+                        )
+                        # Odd round (1, 3, 5) -> Vengeful Stars active.
+                        # Round 0 (pre-battle / no battle ref) treated as
+                        # inactive so standalone tests without a battle
+                        # round set see no buff unless they configure the
+                        # round explicitly.
+                        if _round_vs % 2 == 1 and _round_vs > 0:
+                            effective_sustained_hits += 1
 
-                tgt_fnp_buff = int(tgt_buffs["fnp"])
-                if p.devastating_wounds and crit_wound:
-                    target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
-                    total_damage += per_shot_dmg
-                    continue
+            # ST-1 transient SUSTAINED HITS grant — stratagems that cite
+            # [SUSTAINED HITS 1] (Blitzing Firepower, Storm of Fire) used to
+            # proxy via transient_plus_one_to_hit_shooting, which is strictly
+            # stronger because +1-to-hit triggers extra-hit gains on every
+            # die above the previous fail threshold whereas SUSTAINED HITS 1
+            # only fires on the natural 6. Routes through the same
+            # `effective_sustained_hits` accumulator as the army-wide /
+            # detachment sources so all the downstream crit-extra-hit
+            # accounting is shared.
+            _ts_h = int(getattr(self, "transient_sustained_hits", 0) or 0)
+            if _ts_h > 0:
+                effective_sustained_hits += _ts_h
 
-                if save_target <= 6:
-                    sroll = random.randint(1, 6)
-                    # Strands of Fate (Aeldari army rule, 10e) — defensive
-                    # substitution on a failed save. If the DEFENDER is an
-                    # AELDARI model from an army with at least one Fate
-                    # die in pool, and the natural save fails, pop the
-                    # lowest die that still passes the save and use it.
-                    # Cited as `simulator.strands_of_fate`. Wahapedia:
+            # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
+            # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
+            # `save_after_ap` is computed) — see the block tagged
+            # `SHIELD_HOST.melee_ap_plus_one` above. This block only sets the
+            # crit threshold that gates `crit_hit = (roll == 6)` later in the
+            # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
+            # adeptus-custodes/#Shield-Host.
+            # C1 (claude/sim-calibration-4): Crit-on-5+ fires on EVEN battle
+            # rounds (2, 4). AP+1 fires on ODD battle rounds (1, 3, 5). This
+            # alternation averages to one bullet active per round, matching
+            # the codex "pick one bullet at the start of each battle round"
+            # rule (prior implementation applied both always-on, strictly
+            # stronger than codex). Cited as
+            # `SHIELD_HOST.melee_crit_on_5_plus_hits`.
+            melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
+            if mode == "melee" and p.faction == "Adeptus Custodes":
+                _own_army = getattr(self, "army_ref", None)
+                if _own_army is not None:
+                    try:
+                        _det = _own_army.resolve_detachment()
+                    except Exception:
+                        _det = None
+                    if _det is not None and getattr(
+                        _det, "melee_crit_on_5_plus_hits", False,
+                    ):
+                        _battle_c5 = getattr(_own_army, "_battle_ref", None)
+                        _round_c5 = (
+                            getattr(_battle_c5, "_current_round", 0)
+                            if _battle_c5 is not None else 0
+                        )
+                        # Even round (2, 4) -> Crit-on-5+ bullet active. Round
+                        # 0 (pre-battle / no battle ref) treated as inactive
+                        # so standalone tests without a battle round set see
+                        # no buff unless they configure the round explicitly.
+                        if _round_c5 > 0 and _round_c5 % 2 == 0:
+                            melee_crit_threshold = 5
+
+            for _ in range(n_attacks):
+                # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
+                # weapon keywords. Lance and Anti-X resolve their per-shot value
+                # here so a heterogeneous squad's specialist-weapon keyword fires
+                # on the right proportion of shots rather than every shot. The
+                # Devastating Wounds gate is applied at its consumption site
+                # below (inside the wound-resolution branch).
+                #
+                # Lance: pick which pre-computed wound_target applies this shot.
+                if _lance_eligible and random.random() < _lance_fraction:
+                    _shot_wound_target = wound_target_with_lance
+                else:
+                    _shot_wound_target = wound_target
+                # Anti-X: among applicable (kw, thresh, fraction) entries, take
+                # the LOWEST threshold whose Bernoulli draw fires. If none fires,
+                # fall back to 6 (the default crit-wound threshold).
+                anti_crit_threshold = 6
+                for _thresh, _frac in _anti_applicable:
+                    if _thresh < anti_crit_threshold and random.random() < _frac:
+                        anti_crit_threshold = _thresh
+                # ---- Torrent: skip the to-hit roll, attack auto-hits ----
+                if p.torrent:
+                    crit_hit = False   # torrent has no crit-on-hit
+                else:
+                    roll = random.randint(1, 6)
+                    # CORE-RULE-FIX-5 — track the unmodified physical roll
+                    # separately so Crit-Hit gating only fires on the original
+                    # die. 10e core: "an unmodified Hit roll of 6 is always a
+                    # successful hit, and is known as a Critical Hit." Dice
+                    # *substituted* in by faction rules (Strands of Fate, Acts
+                    # of Faith Miracle Dice, Command Re-Roll) are replacements,
+                    # NOT original rolls, so a substituted 6 must NOT crit.
+                    # Rerolls (Twin-Linked, Oath of Moment, Fire-and-Fade)
+                    # behave differently: 10e treats the rerolled die's value
+                    # as the roll, so unmodified_roll updates after a reroll.
+                    unmodified_roll = roll
+                    # Re-roll handling. Two compatible flags:
+                    #   att_reroll_hit_ones: replace a natural 1 (detachment /
+                    #     Judgement Tokens tier-1).
+                    #   att_reroll_all_hits: replace ANY failure (Judgement
+                    #     Tokens tier-3; superset of reroll_hit_ones).
+                    # Only one re-roll per die — `att_reroll_all_hits` takes
+                    # priority and a fired re-roll under it does not stack
+                    # another re-roll under reroll_hit_ones.
+                    if att_reroll_all_hits and roll < hit_target:
+                        roll = random.randint(1, 6)
+                        unmodified_roll = roll
+                    elif att_reroll_hit_ones and roll == 1:
+                        roll = random.randint(1, 6)
+                        unmodified_roll = roll
+                    # Fire and Fade (Warhost) — transient re-roll natural 1s
+                    # to hit on shooting attacks. Compose with reroll_hit_ones
+                    # above but never re-roll the same die twice — both flags
+                    # target the natural-1 case so the first that triggered the
+                    # re-roll has already swapped the value.
+                    if (
+                        att_reroll_hits_shooting_ones
+                        and roll == 1
+                        and not att_reroll_hit_ones
+                    ):
+                        roll = random.randint(1, 6)
+                        unmodified_roll = roll
+                    # Strands of Fate (Aeldari army rule, 10e) — Fate dice
+                    # substitution on a failed Hit roll. If the attacker is an
+                    # AELDARI model from an army with at least one Fate die
+                    # in pool, and the natural roll is a miss, we pop the
+                    # lowest die in the pool that still hits and substitute.
+                    # No die is spent if substitution wouldn't convert the
+                    # miss to a hit (greedy floor at hit_target). Cited as
+                    # `simulator.strands_of_fate`. Wahapedia:
                     # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
                     if (
-                        sroll < save_target
-                        and target.profile.faction == "Aeldari"
+                        roll < hit_target
+                        and p.faction == "Aeldari"
                     ):
-                        tgt_army = getattr(target, "army_ref", None)
-                        if tgt_army is not None and tgt_army.has_fate_dice():
-                            sub = tgt_army.pop_fate_die_meeting(save_target)
+                        own_army = getattr(self, "army_ref", None)
+                        if own_army is not None and own_army.has_fate_dice():
+                            # AI-5: gate spending by stakes. Only treat the
+                            # hit as "high value" if the weapon's per-shot
+                            # damage is >= 2 (a lascannon-shot miss is worth
+                            # a Fate die; a shuriken-catapult miss is not).
+                            sub = own_army.pop_fate_die_meeting(
+                                hit_target,
+                                high_value=(per_shot_dmg >= 2.0),
+                            )
                             if sub is not None:
-                                sroll = sub
-                    # Adepta Sororitas Acts of Faith — defensive Miracle
-                    # Dice substitution on a failed save. Same greedy
-                    # heuristic — only spend if it flips fail -> save.
-                    # Cited as `simulator.acts_of_faith`.
+                                roll = sub
+                    # Adepta Sororitas Acts of Faith — Miracle Dice
+                    # substitution on a failed Hit roll. Mirrors the Strands
+                    # of Fate branch above: if the attacker is a Sororitas
+                    # model and the natural roll missed, pop the lowest
+                    # banked die that still hits. The greedy heuristic only
+                    # spends when the substitution converts miss -> hit.
+                    # Cited as `simulator.acts_of_faith`. Wahapedia:
+                    # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
                     if (
-                        sroll < save_target
-                        and target.profile.faction == "Adepta Sororitas"
+                        roll < hit_target
+                        and p.faction == "Adepta Sororitas"
+                        and not attack_aof_substitution_used
+                        and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
                     ):
-                        tgt_army = getattr(target, "army_ref", None)
-                        if tgt_army is not None and tgt_army.has_miracle_dice():
-                            sub = tgt_army.pop_miracle_die_meeting(save_target)
+                        own_army = getattr(self, "army_ref", None)
+                        if own_army is not None and own_army.has_miracle_dice():
+                            sub = own_army.pop_miracle_die_meeting(hit_target)
                             if sub is not None:
-                                sroll = sub
-                    if sroll >= save_target:
-                        continue   # saved
-                target.receive_damage(per_shot_dmg, bonus_fnp=tgt_fnp_buff)
-                total_damage += per_shot_dmg
+                                roll = sub
+                                attack_aof_substitution_used = True
+                                self.aof_used_this_round = True  # SOROR-DIAG-4
+                    if roll < hit_target:
+                        continue   # missed
+                    # Crit-to-hit threshold defaults to 6 (canonical 10e); the
+                    # Shield Host Martial Ka'tah Crit-on-5+ branch lowers it to
+                    # 5 for Adeptus Custodes melee attackers (see
+                    # `melee_crit_threshold` setup above).
+                    # CORE-RULE-FIX-2 — Indirect Fire attacks (ranged shot
+                    # against a target not visible to the attacker) cannot
+                    # score Critical Hits per 10e core, so the nat-6 path is
+                    # gated off here. Direct-LoS shots from an Indirect Fire
+                    # weapon still crit normally.
+                    # CORE-RULE-FIX-5 — gate Crit-Hit on the UNMODIFIED roll.
+                    # Strands of Fate / Acts of Faith substituted a banked die
+                    # into `roll`; per 10e core, only the original physical die
+                    # (or a rerolled replacement) can produce a Critical Hit.
+                    if mode == "melee":
+                        crit_hit = (unmodified_roll >= melee_crit_threshold)
+                    elif indirect_fire_attack:
+                        crit_hit = False
+                    else:
+                        crit_hit = (unmodified_roll == 6)
+                n_hits = 1 + (effective_sustained_hits if crit_hit else 0)
+
+                for hit_i in range(n_hits):
+                    if effective_lethal_hits and crit_hit and hit_i == 0:
+                        wound_succeeded = True
+                        crit_wound = False
+                    else:
+                        wroll = random.randint(1, 6)
+                        # CORE-RULE-FIX-5 — track the unmodified wound roll
+                        # separately so Crit-Wound gating only fires on the
+                        # original physical die (or a rerolled replacement).
+                        # 10e core: "An unmodified Wound roll of 6 is always
+                        # considered to be a successful Wound roll ... This is
+                        # known as a Critical Wound." Acts of Faith / Strands
+                        # of Fate substitutions overwrite `wroll` but must NOT
+                        # update unmodified_wroll — a substituted 6 cannot crit.
+                        unmodified_wroll = wroll
+                        rerolled = False
+                        # Re-roll handling for wounds. Two compatible flags:
+                        #   att_reroll_all_wounds: replace ANY failure (Marines
+                        #     Oath of Moment; superset of reroll_wound_ones).
+                        #   att_reroll_wound_ones: replace a natural 1 only
+                        #     (Gladius / detachment / Votann tier-3).
+                        # Only one re-roll per die — `att_reroll_all_wounds`
+                        # takes priority and a fired re-roll under it does not
+                        # stack another re-roll under reroll_wound_ones or
+                        # Twin-Linked.
+                        if att_reroll_all_wounds and wroll < _shot_wound_target:
+                            wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
+                            rerolled = True
+                        elif att_reroll_wound_ones and wroll == 1:
+                            wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
+                            rerolled = True
+                        wound_succeeded = (wroll >= _shot_wound_target)
+                        if not wound_succeeded and p.twin_linked and not rerolled:
+                            wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
+                            wound_succeeded = (wroll >= _shot_wound_target)
+                            rerolled = True
+                        # Universal Core Stratagem — Command Re-Roll (1 CP):
+                        # if the wound roll is still a miss AND no re-roll has
+                        # already been used on this die AND our army's battle
+                        # reference has a stratagem hook AND the heuristic
+                        # green-lights the spend, re-roll once more.
+                        if (
+                            not wound_succeeded and not rerolled
+                            and self.army_ref is not None
+                            and getattr(self.army_ref, "_battle_ref", None) is not None
+                        ):
+                            battle = self.army_ref._battle_ref
+                            if battle.maybe_fire_command_reroll(self, target, "wound"):
+                                wroll = random.randint(1, 6)
+                                unmodified_wroll = wroll
+                                wound_succeeded = (wroll >= _shot_wound_target)
+                                rerolled = True
+                        # Anti-X (10e core): "Each time an attack is made with such
+                        # a weapon against a target that has the keyword after the
+                        # word 'Anti-', an unmodified Wound roll of 'x+' scores a
+                        # Critical Wound." A Critical Wound is by definition a
+                        # successful Wound roll (10e core: "An unmodified Wound
+                        # roll of 6 is always considered to be a successful Wound
+                        # roll, irrespective of the attack's Strength and the
+                        # target's Toughness characteristic. This is known as a
+                        # Critical Wound."). So a roll of >= anti_crit_threshold
+                        # auto-succeeds AND is a Critical Wound — even if the
+                        # roll would otherwise fail the normal S-vs-T target.
+                        # Cited as `weapon.anti_x`. Anti-X wording explicitly
+                        # references an "unmodified Wound roll of x+", so the
+                        # gate uses unmodified_wroll (CORE-RULE-FIX-5).
+                        # Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#ANTI-X
+                        if unmodified_wroll >= anti_crit_threshold:
+                            wound_succeeded = True
+                            crit_wound = True
+                        else:
+                            crit_wound = False
+                    # Adepta Sororitas Acts of Faith — Miracle Dice
+                    # substitution on a failed Wound roll. Same greedy
+                    # heuristic as the hit-roll branch: only spend a banked
+                    # die if it converts fail -> success. Cited as
+                    # `simulator.acts_of_faith`. CORE-RULE-FIX-5: the
+                    # substituted die is a replacement, NOT an unmodified
+                    # roll, so it can succeed the wound but cannot crit.
+                    if (
+                        not wound_succeeded
+                        and p.faction == "Adepta Sororitas"
+                        and not attack_aof_substitution_used
+                        and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
+                    ):
+                        own_army = getattr(self, "army_ref", None)
+                        if own_army is not None and own_army.has_miracle_dice():
+                            sub = own_army.pop_miracle_die_meeting(_shot_wound_target)
+                            if sub is not None:
+                                wroll = sub
+                                wound_succeeded = True
+                                crit_wound = False
+                                attack_aof_substitution_used = True
+                                self.aof_used_this_round = True  # SOROR-DIAG-4
+                    if not wound_succeeded:
+                        continue
+
+                    tgt_fnp_buff = int(tgt_buffs["fnp"])
+                    # MAP-3-FIX — Devastating Wounds basket-fraction gate. The
+                    # MAP-3 UNION lets a single specialist weapon (Rubric Marines'
+                    # Soulreaper Cannon, AdMech Skitarii Plasma Calivers) tag the
+                    # whole squad with DW. Without gating, every crit-wound shot
+                    # in the synthetic basket would skip the save. The Bernoulli
+                    # draw against `devastating_wounds_basket_fraction` fires the
+                    # bypass on the proportion of shots whose underlying weapon
+                    # legitimately carries DW. Single-weapon units have
+                    # fraction = 1.0 (legacy behaviour preserved).
+                    # Cited as `simulator.basket_fraction_gating`.
+                    if (
+                        p.devastating_wounds
+                        and crit_wound
+                        and random.random() < float(
+                            getattr(p, "devastating_wounds_basket_fraction", 1.0) or 1.0
+                        )
+                    ):
+                        # NECRONS-CTAN: Necrodermis halves Damage characteristic
+                        # (rounding up); D1 attacks deal 0. Wahapedia C'tan
+                        # datasheet ability. Cited as `UnitProfile.necrodermis`.
+                        _dw_dmg = per_shot_dmg
+                        if target.profile.necrodermis:
+                            if _dw_dmg <= 1.0:
+                                _dw_dmg = 0.0
+                            else:
+                                _dw_dmg = math.ceil(_dw_dmg / 2.0)
+                            _dw_dmg = max(0.0, _dw_dmg)
+                        target.receive_damage(_dw_dmg, bonus_fnp=tgt_fnp_buff)
+                        total_damage += _dw_dmg
+                        continue
+
+                    if save_target <= 6:
+                        sroll = random.randint(1, 6)
+                        # Strands of Fate (Aeldari army rule, 10e) — defensive
+                        # substitution on a failed save. If the DEFENDER is an
+                        # AELDARI model from an army with at least one Fate
+                        # die in pool, and the natural save fails, pop the
+                        # lowest die that still passes the save and use it.
+                        # Cited as `simulator.strands_of_fate`. Wahapedia:
+                        # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+                        if (
+                            sroll < save_target
+                            and target.profile.faction == "Aeldari"
+                        ):
+                            tgt_army = getattr(target, "army_ref", None)
+                            if tgt_army is not None and tgt_army.has_fate_dice():
+                                # AI-5: defensive saves are high-stakes when
+                                # the incoming attack does >=2 damage (a save
+                                # against a melta or lascannon is worth a
+                                # Fate die; a save against a 1-damage bolter
+                                # shot is not — the model might shrug the
+                                # other shots and the bank should be saved
+                                # for the next big swing).
+                                sub = tgt_army.pop_fate_die_meeting(
+                                    save_target,
+                                    high_value=(per_shot_dmg >= 2.0),
+                                )
+                                if sub is not None:
+                                    sroll = sub
+                        # Adepta Sororitas Acts of Faith — defensive Miracle
+                        # Dice substitution on a failed save. Same greedy
+                        # heuristic — only spend if it flips fail -> save.
+                        # Cited as `simulator.acts_of_faith`. SOROR-DIAG-2:
+                        # gated by the per-attack-call AoF-used flag too — the
+                        # real rule caps the *defender* at one substitution per
+                        # phase, but the simulator's attack() runs per
+                        # attacker so this is an UNDER-approximation (a
+                        # Sororitas defender can still use one AoF save sub
+                        # per attacker attacking it). That's consistent with
+                        # the SOROR-DIAG-2 over-buff fix erring conservative.
+                        #
+                        # SOROR-DIAG-4: the per-attack-call flag did NOT cap
+                        # cross-attacker spending. We now ALSO consult / set
+                        # `target.aof_used_this_round` so a Sororitas defender
+                        # spends at most one Miracle die across all attackers
+                        # attacking it in a single round — across offensive
+                        # AND defensive directions combined.
+                        if (
+                            sroll < save_target
+                            and target.profile.faction == "Adepta Sororitas"
+                            and not attack_aof_substitution_used
+                            and not target.aof_used_this_round  # SOROR-DIAG-4
+                        ):
+                            tgt_army = getattr(target, "army_ref", None)
+                            if tgt_army is not None and tgt_army.has_miracle_dice():
+                                sub = tgt_army.pop_miracle_die_meeting(save_target)
+                                if sub is not None:
+                                    sroll = sub
+                                    attack_aof_substitution_used = True
+                                    target.aof_used_this_round = True  # SOROR-DIAG-4
+                        if sroll >= save_target:
+                            continue   # saved
+                    # NECRONS-CTAN: Necrodermis halves Damage characteristic
+                    # (rounding up); D1 attacks deal 0. Wahapedia C'tan
+                    # datasheet ability. Cited as `UnitProfile.necrodermis`.
+                    _alloc_dmg = per_shot_dmg
+                    if target.profile.necrodermis:
+                        if _alloc_dmg <= 1.0:
+                            _alloc_dmg = 0.0
+                        else:
+                            _alloc_dmg = math.ceil(_alloc_dmg / 2.0)
+                        _alloc_dmg = max(0.0, _alloc_dmg)
+                    target.receive_damage(_alloc_dmg, bonus_fnp=tgt_fnp_buff)
+                    total_damage += _alloc_dmg
 
         # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
         if p.hazardous:
@@ -2015,10 +2971,13 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             lance=entry.lance,
             precision=entry.precision,
             pistol=entry.pistol,
+            weapon=getattr(entry, "weapon", "") or "",
+            secondary_pistol=getattr(entry, "secondary_pistol", False),
             indirect_fire=entry.indirect_fire,
             one_shot=entry.one_shot,
             stealth=entry.stealth,
             lone_operative=entry.lone_operative,
+            fights_first=getattr(entry, "fights_first", False),
             deep_strike=entry.deep_strike,
             scout_distance=entry.scout_distance,
             infiltrator=entry.infiltrator,
@@ -2027,6 +2986,8 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
             resolute_will=entry.resolute_will,
+            necrodermis=entry.necrodermis,
+            reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),
             melee_attacks=entry.melee_attacks,
             melee_damage_per_shot=entry.melee_damage_per_shot,
@@ -2056,6 +3017,30 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             secondary_assault=entry.secondary_assault,
             secondary_torrent=entry.secondary_torrent,
             secondary_blast=entry.secondary_blast,
+            # MAP-1: TERTIARY and beyond ranged profiles (Knight Castellan
+            # 5-weapon, etc.). Stored on the CatalogEntry as a list of dicts;
+            # flatten into a tuple-of-(key, value) pairs so the UnitProfile
+            # dataclass stays HASHABLE (required by functools.lru_cache on
+            # roles.expected_ranged_dpa et al). Any nested dict value (like
+            # anti_keywords) is itself converted to a tuple of items.
+            extra_ranged_profiles=tuple(
+                tuple(
+                    (k, (tuple(sorted(v.items())) if isinstance(v, dict) else v))
+                    for k, v in prof.items()
+                )
+                for prof in (entry.extra_ranged_profiles or ())
+            ),
+            # MAP-3-FIX — basket-fraction gating. Default 1.0 preserves legacy
+            # single-weapon / non-heterogeneous behaviour; mapper sets < 1.0
+            # for heterogeneous squads. Anti-keywords dict flattened to a
+            # tuple of (kw, fraction) for hashability (same convention as
+            # anti_keywords above).
+            devastating_wounds_basket_fraction=entry.devastating_wounds_basket_fraction,
+            lance_basket_fraction=entry.lance_basket_fraction,
+            anti_keyword_basket_fractions=tuple(
+                (k, float(v))
+                for k, v in (entry.anti_keyword_basket_fractions or {}).items()
+            ),
             points_override=entry.points_override,
             base_shape=entry.base_shape,
             base_diameter_mm=entry.base_diameter_mm,

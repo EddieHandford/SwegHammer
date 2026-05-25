@@ -39,6 +39,12 @@ from .stratagems import (
     OATHBAND_STRATAGEMS,
     GLADIUS_STRATAGEMS,
     COMBINED_ARMS_STRATAGEMS,
+    # ST-2 wave 3 — one stratagem per under-performing faction
+    BERZERKER_WARBAND_STRATAGEMS,
+    DAEMONIC_INCURSION_STRATAGEMS,
+    TELEPORT_STRIKE_FORCE_STRATAGEMS,
+    FINAL_DAY_STRATAGEMS,
+    PACTBOUND_ZEALOTS_STRATAGEMS,
 )
 
 
@@ -177,6 +183,24 @@ class Detachment:
     necrons_melee_ap_plus_one_army_wide: bool = False
     necrons_ranged_sustained_hits_army_wide: bool = False
 
+    # NECRONS-CLOSE (claude/sim-calibration-6): Command Protocols third slot —
+    # Protocol of the Eternal Conquerors (defensive). Real Wahapedia text:
+    # "Until the start of your next Command phase, the first failed armour
+    # saving throw made for each NECRONS unit from your army in each phase
+    # is automatically passed." Closest clean simulator hook: army-wide +1
+    # to the armour save, gated by the save-modifier ±1 cap so it composes
+    # with no other defensive +1-save sources stacked. Round-gated to ROUND
+    # 3 ONLY — odd-round Vengeful Stars and even-round Hungry Void already
+    # cover rounds 1-2-4-5, so Eternal Conquerors adds a single round of
+    # additional defensive uplift (over-model bounded to one round). The
+    # save-cap clamp (see code/units.py save_buff_sources) means this
+    # composes with at most one other +1-save source as a single net +1
+    # rather than stacking to +2. Gate: defender faction == "Necrons" AND
+    # detachment carries `necrons_army_wide_plus_one_save_command_protocol`
+    # AND current battle round == 3. Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
+    necrons_army_wide_plus_one_save_command_protocol: bool = False
+
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
     # Martial Mastery). Wahapedia verbatim: "At the start of the battle
     # round, you can select one of the bullet points below. If you do,
@@ -218,10 +242,18 @@ class Detachment:
     # VEHICLE-keyword). The matrix gate (REGIMENT vs non-VEHICLE/MONSTER /
     # SQUADRON vs VEHICLE/MONSTER) is enforced inline at the LH branch.
     # APPROXIMATION: the codex uses bespoke keywords REGIMENT / SQUADRON
-    # that don't appear as datasheet keywords in BSData v10.6.0; we map
-    # REGIMENT → "INFANTRY" and SQUADRON → "VEHICLE" (matches the codex
-    # split where REGIMENT covers the infantry rosters and SQUADRON covers
-    # the Leman Russ / Sentinel / Rogal Dorn vehicle squadrons).
+    # that don't appear as datasheet keywords in BSData v10.6.0. AM-DIAG-2
+    # narrowed REGIMENT to BATTLELINE-keyword (the three core Cadian /
+    # Catachan / Krieg troop squads). AM-DIAG-3 (2026-05-24) narrowed
+    # SQUADRON to an explicit name allowlist of the codex SQUADRON
+    # datasheets (Leman Russ family, Rogal Dorn family, Hellhound,
+    # Armoured / Scout / Commander Sentinels — see
+    # `code/units.py::_AM_BORN_SOLDIERS_SQUADRON_NAMES`); the previous
+    # "any VEHICLE-keyword AM attacker" proxy over-granted LETHAL HITS
+    # on transports (Chimera, Taurox), flyers (Valkyrie, Vendetta),
+    # HEAVY artillery (Basilisk, Manticore, Wyvern), super-heavies
+    # (Baneblade family), Knights, and VEHICLE CHARACTERS — none of
+    # which carry the codex SQUADRON keyword.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/astra-militarum/
     am_born_soldiers_lethal_hits: bool = False
 
@@ -330,12 +362,20 @@ AWAKENED_DYNASTY = Detachment(
         "(`bonus_to_hit_when_led`) is retained — strictly speaking the "
         "real codex picks only ONE protocol per round, so this is an "
         "APPROXIMATION (slight over-model) but the led-only gate keeps "
-        "the over-coverage bounded to character-led squads."
+        "the over-coverage bounded to character-led squads. "
+        "NECRONS-CLOSE (claude/sim-calibration-6): wires the fourth "
+        "Command Protocol — Protocol of the Eternal Conquerors (defensive, "
+        "first failed armour save auto-passed per phase) — as army-wide "
+        "+1 to the armour save (`necrons_army_wide_plus_one_save_command_protocol`) "
+        "gated to ROUND 3 ONLY. Single-round defensive uplift; clamped to "
+        "+1 by the existing save-modifier cap so it composes safely with "
+        "any other +1-save source as a single net +1 rather than stacking."
     ),
     reanimate_per_round=1,
     bonus_to_hit_when_led=True,
     necrons_melee_ap_plus_one_army_wide=True,
     necrons_ranged_sustained_hits_army_wide=True,
+    necrons_army_wide_plus_one_save_command_protocol=True,
     stratagems=AWAKENED_DYNASTY_STRATAGEMS,
     preferred_composition="balanced",
 )
@@ -440,6 +480,34 @@ HALLOWED_MARTYRS = Detachment(
     preferred_composition="infantry",
 )
 
+BRINGERS_OF_FLAME = Detachment(
+    name="Bringers of Flame",
+    faction="Adepta Sororitas",
+    notes=(
+        "DET-VARIETY-1 (2026-05-22): real codex Bringers of Flame detachment "
+        "(Adepta Sororitas) registered as a variant pick alongside Hallowed "
+        "Martyrs so the FACTION_DETACHMENTS picker has more than one option "
+        "to roll for Sororitas. The codex detachment rule 'Fervent Purgation' "
+        "(BSData verbatim, v10.6.0): \"Ranged weapons equipped by ADEPTA "
+        "SORORITAS models from your army have the [ASSAULT] ability, and "
+        "each time an attack made with such a weapon targets a unit within "
+        "6\\\", add 1 to the Strength characteristic of that attack.\" The "
+        "rule has TWO legs: an army-wide [ASSAULT] grant on ranged weapons "
+        "(no existing Detachment flag — the closest equivalent is "
+        "MONTKA.army_wide_assault_rounds_1_3 which is round-gated to 1-3 "
+        "and faction-gated to T'au, so re-using it would be fabrication), "
+        "and a range-gated S+1 within 6\" buff (no existing flag — would "
+        "need bespoke wiring with a per-target range check in Unit.attack). "
+        "Neither leg maps to an existing transient flag without fabrication; "
+        "per the project rule 'DO NOT FABRICATE proxy flags' the detachment "
+        "ships NO-FLAG + composition-preference only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Bringers-of-Flame. "
+        "The detachment dilutes the average Sororitas WR via random "
+        "detachment-roll (was always-Hallowed-Martyrs, now 50/50 random)."
+    ),
+    preferred_composition="infantry",
+)
+
 AURIC_CHAMPIONS = Detachment(
     name="Auric Champions",
     faction="Adeptus Custodes",
@@ -533,6 +601,35 @@ SKITARII_HUNTER_COHORT = Detachment(
     preferred_composition="infantry",
 )
 
+COHORT_CYBERNETICA = Detachment(
+    name="Cohort Cybernetica",
+    faction="Adeptus Mechanicus",
+    notes=(
+        "DET-VARIETY-1 (2026-05-22): real codex Cohort Cybernetica detachment "
+        "(Adeptus Mechanicus) registered as a variant pick alongside Skitarii "
+        "Hunter Cohort so the FACTION_DETACHMENTS picker has more than one "
+        "option to roll for Adeptus Mechanicus. The codex detachment rule "
+        "'Cyber-Psalm Programming' (BSData verbatim, v10.6.0): \"Add 2\\\" to "
+        "the Move characteristic of models in LEGIO CYBERNETICA units from "
+        "your army. In addition, unless that unit is Battle-shocked, add 1 "
+        "to the Objective Control characteristic of models in that unit.\" "
+        "Both legs are keyword-gated to LEGIO CYBERNETICA (Kastelan Robots, "
+        "Cybernetica Datasmith) — a narrow slice of the AdMech roster. "
+        "Neither leg maps to an existing Detachment flag without fabrication: "
+        "the +2\" Move would need a unit-keyword-gated Move buff (no current "
+        "schema slot — `aspect_warrior_or_bike_plus_one_move` is faction- "
+        "and keyword-gated to Aeldari Aspect Warriors / bikes, re-using it "
+        "for AdMech LEGIO CYBERNETICA would be fabrication), and the +1 OC "
+        "leg has no schema entry at all (OC is not a current Detachment-flag "
+        "axis). Per the project rule 'DO NOT FABRICATE proxy flags' the "
+        "detachment ships NO-FLAG + composition-preference only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Cohort-Cybernetica. "
+        "The detachment dilutes the average AdMech WR via random "
+        "detachment-roll (was always-Skitarii-Hunter-Cohort)."
+    ),
+    preferred_composition="infantry",
+)
+
 INQUISITION_TASK_FORCE = Detachment(
     name="Inquisition Task Force",
     faction="Agents of the Imperium",
@@ -566,8 +663,15 @@ COMBINED_REGIMENT = Detachment(
         "REGIMENT/SQUADRON vs target-type matrix matches; the LH branch fires "
         "via the existing `effective_lethal_hits` plumbing. APPROXIMATION: "
         "the codex REGIMENT / SQUADRON keywords don't appear in BSData "
-        "v10.6.0; we map REGIMENT → INFANTRY-keyword (non-VEHICLE/MONSTER) "
-        "and SQUADRON → VEHICLE-keyword (matches the codex split). "
+        "v10.6.0; AM-DIAG-2 narrowed REGIMENT to BATTLELINE-keyword (the "
+        "three core Cadian / Catachan / Krieg troop squads); AM-DIAG-3 "
+        "narrowed SQUADRON to an explicit name allowlist of the codex "
+        "SQUADRON datasheets (Leman Russ family, Rogal Dorn family, "
+        "Hellhound, Armoured / Scout / Commander Sentinels — see "
+        "`code/units.py::_AM_BORN_SOLDIERS_SQUADRON_NAMES`) instead of "
+        "any VEHICLE-keyword AM unit (which over-fired LETHAL HITS on "
+        "transports, flyers, HEAVY artillery, super-heavies, Knights, "
+        "and VEHICLE CHARACTERS). "
         "Voice of Command Order economy (iter-14): officers issue Orders to "
         "BATTLELINE INFANTRY units at the start of each Command phase via "
         "`code.orders.dispatch_orders` — see that module for the four wired "
@@ -598,6 +702,7 @@ TELEPORT_STRIKE_FORCE = Detachment(
     ),
     reroll_hit_ones=True,
     reroll_wound_ones=True,
+    stratagems=TELEPORT_STRIKE_FORCE_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -657,6 +762,41 @@ SKYSPLINTER_ASSAULT = Detachment(
     preferred_composition="vehicle",
 )
 
+KABALITE_CARTEL = Detachment(
+    name="Kabalite Cartel",
+    faction="Drukhari",
+    notes=(
+        "DET-VARIETY-1 (2026-05-22): real codex Kabalite Cartel detachment "
+        "(Drukhari) registered as a variant pick alongside Skysplinter "
+        "Assault so the FACTION_DETACHMENTS picker has more than one option "
+        "to roll for Drukhari. The codex detachment rule 'Murderous Agenda' "
+        "(Wahapedia verbatim): \"At the start of the first battle round, "
+        "select one of the following Contracts (you cannot select the same "
+        "Contract more than once per battle): Trophy Hunters (target unit "
+        "must be a CHARACTER); Sow Fear and Terror (target unit must be "
+        "INFANTRY or MOUNTED, excluding CHARACTERS); Show of Strength "
+        "(target unit must be a MONSTER or VEHICLE). KABAL and BLADES FOR "
+        "HIRE units from your army have the ability stated in that Contract. "
+        "If the target unit is destroyed before the end of the battle, you "
+        "gain 3 Pain tokens.\" The bespoke Contract / Pain-token / Pain-token-"
+        "spend economy has no equivalent flag in the Detachment schema — "
+        "Pain tokens are a per-battle-state resource (not a static buff), "
+        "Contract targeting requires a per-unit-keyword target picker (no "
+        "schema slot), and the per-Contract effects (Trophy Hunters grants "
+        "PRECISION; Sow Fear and Terror grants [LETHAL HITS]; Show of "
+        "Strength grants +1 AP) would each need separate bespoke wiring. "
+        "Per the project rule 'DO NOT FABRICATE proxy flags' the detachment "
+        "ships NO-FLAG + composition-preference only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Kabalite-Cartel. "
+        "Kabal-leaning composition preference set to 'infantry' (Kabalite "
+        "Warriors / Trueborn / Incubi / Mandrakes are infantry; Raiders / "
+        "Ravagers / Venoms are vehicles — but the detachment's identity "
+        "leans on Kabal foot-troop output, contrasting with Skysplinter's "
+        "vehicle-disembark identity)."
+    ),
+    preferred_composition="infantry",
+)
+
 MONTKA = Detachment(
     name="Mont'ka",
     faction="T'au Empire",
@@ -697,6 +837,7 @@ PACTBOUND_ZEALOTS = Detachment(
         "Lethal/Sustained Hits transient flag; follow-up wiring lands "
         "separately."
     ),
+    stratagems=PACTBOUND_ZEALOTS_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -774,16 +915,21 @@ GRAND_COVEN = Detachment(
         "Fate, Egotistical Power, Desecration of Worlds, Arcane Focus, "
         "Devastating Sorcery)."
     ),
-    # APPROXIMATION: Kindred Sorcery's selectable, once-per-battle Psychic-
-    # weapon-keyword buff cannot reduce to a single static Detachment flag.
-    # The Cabal of Sorcerers Rituals pass (real Psychic test, real WC values,
-    # real D3 / D3+3 Doombolt math) is the actual implementation surface; the
-    # `psychic_mortal_wounds_per_round=2` baseline is a fallback for rounds
-    # where no Ritual fires successfully. Wahapedia URL above.
-    # Real rule: per-Command-phase choose-one (range / wound / DevWounds) on
-    # Psychic weapons, once-per-battle each; SwegHammer collapses to a flat
-    # 2-MW-per-round payload + the Cabal Rituals pass.
-    psychic_mortal_wounds_per_round=2,
+    # TSON-DIAG (claude/sim-calibration-6): zeroed from 2 to 0.
+    # Kindred Sorcery's real rule is a once-per-battle-each selection of three
+    # Psychic-weapon-keyword buffs (Imbued Manifestation / Psychic Maelstrom /
+    # Wrath of the Immaterium); NONE of those grant an unconditional per-round
+    # mortal-wound payload to the highest-threat enemy. The Cabal of Sorcerers
+    # Rituals pass (`_run_cabal_rituals`) is the actual implementation surface
+    # for TSON's psychic teeth — real 2D6 Psychic test, real Doombolt D3 /
+    # D3+3 mortals, real cadence (Magnus gets 2 attempts + 2 to test, Ahriman
+    # gets +1 to test). The previous `psychic_mortal_wounds_per_round=2`
+    # baseline stacked an unconditional 2-MW-per-round payload ON TOP of the
+    # stochastic Ritual pass, double-counting Doombolt's already-modelled
+    # damage and contributing to TSON's +22pt over-perf at the Warp Friends
+    # rolling target. Removing the fabricated baseline lets the rule-accurate
+    # Cabal pass be the only source of TSON psychic MW output.
+    psychic_mortal_wounds_per_round=0,
     stratagems=GRAND_COVEN_STRATAGEMS,
     preferred_composition="infantry",
 )
@@ -851,15 +997,19 @@ RUBRICAE_PHALANX = Detachment(
     # Real rule: +1 to armour save vs unmodified D1 attacks on RUBRICAE models.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
     all_is_dust=True,
-    # Cabal of Sorcerers Ritual fallback baseline — matches Grand Coven's
-    # `psychic_mortal_wounds_per_round=2` (median-D3 Doombolt). Cabal of
-    # Sorcerers is the TSON army rule (faction-gated, not detachment-
-    # gated), so it fires under EITHER detachment; the baseline is a
-    # round-end MW payload that compensates when the stochastic 2D6
-    # Psychic test in `_run_cabal_rituals` produces no manifested
-    # Ritual. Same APPROXIMATION shape as GRAND_COVEN — see citation
-    # `RUBRICAE_PHALANX.psychic_mortal_wounds_per_round` for full notes.
-    psychic_mortal_wounds_per_round=2,
+    # TSON-DIAG (claude/sim-calibration-6): zeroed from 2 to 0, matching the
+    # GRAND_COVEN fix in the same commit. The notes block above this
+    # Detachment already states "psychic_mortal_wounds_per_round=0 baseline
+    # (NOT 2 — that lives on Grand Coven only)" — the code previously
+    # contradicted its own comment and set the value to 2 anyway. The real
+    # All Is Dust detachment rule (verbatim Wahapedia) grants +1 to armour
+    # saves on D1 attacks against RUBRICAE models; it does NOT grant a
+    # per-round MW payload to the highest-threat enemy. The Cabal of
+    # Sorcerers Rituals pass (`_run_cabal_rituals`) is the rule-accurate
+    # source of TSON psychic MW output; the previous baseline double-counted
+    # Doombolt and contributed to TSON's +22pt over-perf at the Warp Friends
+    # rolling target.
+    psychic_mortal_wounds_per_round=0,
     stratagems=RUBRICAE_PHALANX_STRATAGEMS,
     preferred_composition="infantry",
 )
@@ -910,6 +1060,7 @@ BERZERKER_WARBAND = Detachment(
         "buff and Blood Tithe spend tracking; follow-up wiring lands "
         "separately."
     ),
+    stratagems=BERZERKER_WARBAND_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -929,6 +1080,141 @@ DAEMONIC_INCURSION = Detachment(
         "the simulator does not yet model; follow-up wiring lands "
         "separately."
     ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="balanced",
+)
+
+# DAEMONS-DIAG-4 (2026-05-23, claude/sim-calibration-6): the four god-aligned
+# sub-detachments published in the 10e Chaos Daemons codex (Blood Legion,
+# Legion of Excess, Plague Legion, Scintillating Legion) registered alongside
+# Daemonic Incursion so the FACTION_DETACHMENTS picker has more than one
+# option to roll for Chaos Daemons. Each is composition-only + no-flag
+# because none of the four real detachment rules reduces to an existing
+# Detachment schema field without fabrication:
+#   * Blood Legion's Murdercall is a per-trigger Surge move (no movement
+#     hook of that shape in the simulator).
+#   * Legion of Excess's Beguiling Aura is a fall-back-then-charge
+#     eligibility flag (the simulator does not track Fell Back state).
+#   * Plague Legion's Melancholic Miasma expands the Shadow of Chaos to 9"
+#     around each Nurgle unit AND forces a per-Command-phase Battle-shock
+#     test on a selected enemy (overlaps with simulator.shadow_of_chaos
+#     which is already wired army-wide; the per-CP-phase forced test is a
+#     Command Phase hook the simulator does not model).
+#   * Scintillating Legion's Fates in Flux is a Flux token economy (3
+#     re-roll tokens per battle, spendable on Advance/Hit/Wound/Damage/
+#     save/Hazardous rolls) — there is no transient token-spend layer in
+#     the schema.
+# Wahapedia source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+# Same DET-VARIETY-1 pattern as Bringers of Flame / Cohort Cybernetica /
+# Kabalite Cartel above — ship the shell with composition preference so
+# the random detachment picker no longer always rolls Daemonic Incursion
+# and the eval matrix gains variety. No citation block needed because no
+# rule-bearing flag is set (audit_rules.py only requires citations on
+# detachments that toggle a RULE_BEARING_FIELDS field). When a proper
+# movement / fall-back-and-charge / token-spend layer lands in the
+# simulator, each detachment's wired flag should be added back here with
+# a fresh citation in data/rule_citations.d/detachments.json.
+
+BLOOD_LEGION = Detachment(
+    name="Blood Legion",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Khorne). Real codex detachment rule 'Murdercall' (Wahapedia "
+        "verbatim): \"Each time an enemy unit (excluding AIRCRAFT) ends a "
+        "Normal or Advance move within 6\\\" of one or more LEGIONES "
+        "DAEMONICA KHORNE units from your army, one of those LEGIONES "
+        "DAEMONICA KHORNE units can make a Surge move towards that enemy "
+        "unit.\" The Surge move is a transient out-of-phase movement that "
+        "the simulator's positional model does not represent (no movement "
+        "phase ordering, no per-trigger reactive moves); the rule does "
+        "NOT reduce to any existing Detachment flag without fabrication. "
+        "Per CLAUDE.md §10 ship NO-FLAG + composition-only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
+        "infantry composition tilt biases the picker toward Khorne "
+        "infantry archetypes (Bloodletters / Bloodcrushers / Flesh "
+        "Hounds), which already collect the Bloodthirster / Skarbrand "
+        "auras wired in DAEMONS-DIAG-3."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+LEGION_OF_EXCESS = Detachment(
+    name="Legion of Excess",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Slaanesh). Real codex detachment rule 'Beguiling Aura' "
+        "(Wahapedia verbatim): \"LEGIONES DAEMONICA SLAANESH units from "
+        "your army are eligible to declare a charge in a turn in which "
+        "they Fell Back.\" The simulator does not track Fall-Back state "
+        "(units cannot disengage and re-engage in the same battle round "
+        "in the current movement model), so the rule has no place to "
+        "fire and does NOT reduce to any existing Detachment flag without "
+        "fabrication. Per CLAUDE.md §10 ship NO-FLAG + composition-only. "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. "
+        "The infantry composition tilt biases the picker toward Slaanesh "
+        "infantry archetypes (Daemonettes / Fiends / Seekers)."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+PLAGUE_LEGION = Detachment(
+    name="Plague Legion",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Nurgle). Real codex detachment rule 'Melancholic Miasma' "
+        "(Wahapedia verbatim): \"While an enemy unit is within 9\\\" of "
+        "one or more LEGIONES DAEMONICA NURGLE units from your army, "
+        "that enemy unit is within your army's Shadow of Chaos. In each "
+        "player's Command phase, select one enemy unit within your "
+        "army's Shadow of Chaos. That unit must take a Battle-shock "
+        "test.\" The first leg (extending Shadow of Chaos to a 9\" aura "
+        "around Nurgle units) overlaps with the existing army-wide "
+        "approximation in simulator.shadow_of_chaos (cited in "
+        "data/rule_citations.d/chaos_daemons.json) which already applies "
+        "the Shadow of Chaos -1-Battle-shock + D3-mortal-on-fail effect "
+        "across an 18\" central area when any Chaos Daemons unit is "
+        "alive — re-wiring it as a per-Nurgle-unit 9\" aura is a follow-"
+        "up refinement, not a flag-flip. The second leg (forced Command-"
+        "phase Battle-shock test on a selected enemy) has no per-Command-"
+        "phase enemy-targeting hook in the schema. Per CLAUDE.md §10 "
+        "ship NO-FLAG + composition-only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
+        "infantry composition tilt biases the picker toward Nurgle "
+        "infantry archetypes (Plaguebearers / Nurglings / Plague Drones)."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    preferred_composition="infantry",
+)
+
+SCINTILLATING_LEGION = Detachment(
+    name="Scintillating Legion",
+    faction="Chaos Daemons",
+    notes=(
+        "DAEMONS-DIAG-4 (2026-05-23): god-aligned variant detachment "
+        "(Tzeentch). Real codex detachment rule 'Fates in Flux' "
+        "(Wahapedia verbatim): \"You start the battle with three Flux "
+        "tokens. You can spend one Flux token just after an Advance "
+        "roll, Hit roll, Wound roll, Damage roll, saving throw or "
+        "Hazardous test is made for a LEGIONES DAEMONICA TZEENTCH model "
+        "or unit to re-roll that result.\" The token economy is a "
+        "per-battle, per-roll-class reroll pool that the simulator does "
+        "not model (no transient token-spend layer for any-stat reroll); "
+        "the rule does NOT reduce to any existing Detachment flag "
+        "without fabrication — a generic reroll_hit_ones / "
+        "reroll_wound_ones would be the wrong shape (3 tokens flat, not "
+        "an always-on roll-of-1 reroll). Per CLAUDE.md §10 ship NO-FLAG "
+        "+ composition-only. Wahapedia: "
+        "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
+        "balanced composition tilt biases the picker toward Tzeentch "
+        "lists that mix infantry (Pink Horrors / Flamers) with monster/"
+        "elite shooting (Burning Chariot / Lord of Change auras)."
+    ),
+    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
     preferred_composition="balanced",
 )
 
@@ -949,6 +1235,7 @@ FINAL_DAY = Detachment(
         "trading that the simulator does not yet model; follow-up "
         "wiring lands separately."
     ),
+    stratagems=FINAL_DAY_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1134,6 +1421,24 @@ DETACHMENTS: Dict[str, Detachment] = {
     # Deleted per fabrication audit fa9a957: waaagh_tribe, plague_company,
     # cult_of_magic, saim_hann_wild_host, plague_marines_onslaught. Real
     # codex detachment replacements land in per-faction follow-up commits.
+    # DET-VARIETY-1 (2026-05-22): alternate detachments for three factions
+    # that previously had only one option in FACTION_DETACHMENTS, so the
+    # picker always rolled the same detachment. All three ship no-flag +
+    # composition-only (real codex rule does not map cleanly to existing
+    # Detachment schema flags; per project rule "DO NOT FABRICATE proxy
+    # flags" we ship the shell rather than invent a flag). See each
+    # detachment's `notes` for the verbatim rule text and the rationale
+    # for the no-flag choice.
+    "bringers_of_flame":       BRINGERS_OF_FLAME,
+    "cohort_cybernetica":      COHORT_CYBERNETICA,
+    "kabalite_cartel":         KABALITE_CARTEL,
+    # DAEMONS-DIAG-4 (2026-05-23): god-aligned Chaos Daemons sub-detachments
+    # alongside Daemonic Incursion. All four ship no-flag + composition-only
+    # — see per-detachment notes for the rule text and rationale.
+    "blood_legion":            BLOOD_LEGION,
+    "legion_of_excess":        LEGION_OF_EXCESS,
+    "plague_legion":           PLAGUE_LEGION,
+    "scintillating_legion":    SCINTILLATING_LEGION,
 }
 
 
@@ -1282,9 +1587,17 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Orks":                     ("war_horde",),
     "Imperial Knights":         ("noble_lance",),
     "Chaos Knights":            ("noble_lance",),
-    "Adepta Sororitas":         ("hallowed_martyrs",),
+    # DET-VARIETY-1 (2026-05-22): add Bringers of Flame as a Sororitas
+    # variant pick. Both ship no-flag (Hallowed Martyrs after SC5-4,
+    # Bringers of Flame because the codex Fervent Purgation rule does
+    # not map onto existing Detachment schema flags); the picker now
+    # randomly rolls between them, diluting the always-pick-one
+    # convergence that was driving Sororitas overperformance.
+    "Adepta Sororitas":         ("hallowed_martyrs", "bringers_of_flame"),
     "Adeptus Custodes":         ("shield_host", "auric_champions"),
-    "Adeptus Mechanicus":       ("skitarii_hunter_cohort",),
+    # DET-VARIETY-1 (2026-05-22): add Cohort Cybernetica as an AdMech
+    # variant pick. Same no-flag rationale as Bringers of Flame above.
+    "Adeptus Mechanicus":       ("skitarii_hunter_cohort", "cohort_cybernetica"),
     "Agents of the Imperium":   ("inquisition_task_force",),
     "Imperial Agents":          ("inquisition_task_force",),
     "Astra Militarum":          ("combined_regiment",),
@@ -1295,7 +1608,11 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Aeldari":                  ("warhost",),
     "Aeldari (Craftworlds)":    ("warhost",),
     "Ynnari":                   ("warhost",),
-    "Drukhari":                 ("skysplinter_assault",),
+    # DET-VARIETY-1 (2026-05-22): add Kabalite Cartel as a Drukhari
+    # variant pick. Same no-flag rationale as Bringers of Flame /
+    # Cohort Cybernetica — the bespoke Contract / Pain-token economy
+    # does not reduce to a static Detachment flag.
+    "Drukhari":                 ("skysplinter_assault", "kabalite_cartel"),
     "T'au Empire":              ("montka",),
     "Tau Empire":               ("montka",),
     "Chaos Space Marines":      ("pactbound_zealots",),
@@ -1317,7 +1634,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Death Guard":              ("virulent_vectorium", "plague_company"),
     "Thousand Sons":            ("rubricae_phalanx",),
     "World Eaters":             ("berzerker_warband",),
-    "Chaos Daemons":            ("daemonic_incursion",),
+    # DAEMONS-DIAG-4 (2026-05-23): four god-aligned variant detachments
+    # alongside the generic Daemonic Incursion. All no-flag + composition-only
+    # per Wahapedia rule text (see per-detachment notes above). The picker
+    # now rolls 5-way randomly instead of always Daemonic Incursion, diluting
+    # the always-pick-one convergence the +18.96pt gated under-perf reflects.
+    "Chaos Daemons":            ("daemonic_incursion", "blood_legion",
+                                 "legion_of_excess", "plague_legion",
+                                 "scintillating_legion"),
     "Genestealer Cults":        ("final_day",),
     "Leagues of Votann":        ("oathband",),
 }

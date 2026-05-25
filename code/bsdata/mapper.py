@@ -216,6 +216,19 @@ class WeaponStats:
     one_shot: bool = False       # once per battle
     # Phase H — Stealth (parsed but stored on UnitProfile, not weapon)
     stealth: bool = False
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # The MAP-3 boolean flags (lance, devastating_wounds, anti_keywords) take
+    # the UNION across the basket so heterogeneous squads (Rubric Marines,
+    # Skyweavers, Beast Snagga Boyz, Knight Castellan, AdMech Skitarii) keep
+    # the keyword visible to the picker. To prevent every shot in such a squad
+    # from firing the keyword (single-weapon model contaminating the whole
+    # unit), the simulator gates each attack with a Bernoulli draw against
+    # these fractions. Default 1.0 preserves legacy behaviour for any path
+    # that does not set them (single-weapon units, multi-profile picker swap
+    # producing a synthetic profile that already isolates the keyword).
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Dict[str, float] = field(default_factory=dict)
 
     def expected_damage_through_baseline(self) -> float:
         """Expected damage per activation against a baseline Marine."""
@@ -305,17 +318,32 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
     # attack, so we lose less expected-damage error by setting True iff the
     # keyword fires on >50% of basket-weight, vs the legacy any(...) which
     # let a single elite weapon set the squad flag.
+    #
+    # MAP-3 exception — ``lance`` and ``devastating_wounds`` are taken as
+    # the UNION across the basket. Reasoning: these are situational/keyword
+    # bonuses that the simulator-side picker should be aware of as soon as
+    # ANY weapon profile in the basket carries them. The model in the squad
+    # actively chooses to use that weapon profile when it pays off (charging
+    # for [LANCE], shooting at high-toughness for [DEVASTATING WOUNDS]); the
+    # majority-of-basket gate previously dropped these keywords for
+    # mixed-loadout units (Venatari Custodians, Ork Warbikers, Skyweavers,
+    # Knight Castellan), forcing per-unit override patches in AK-1/AK-2.
+    # The damage-inflation risk is bounded by the fact that the simulator
+    # only fires the bonus on the profile that legitimately carries it
+    # (via per-shot picker rules / anti_keywords / multi-profile picker).
     majority = 0.5
     bool_keywords = {
         "lethal_hits": _frac_true(lambda x: x.lethal_hits) > majority,
         "twin_linked": _frac_true(lambda x: x.twin_linked) > majority,
-        "devastating_wounds": _frac_true(lambda x: x.devastating_wounds) > majority,
+        # UNION (MAP-3) — see comment above
+        "devastating_wounds": any(x.devastating_wounds for _, x in basket),
         "ignores_cover": _frac_true(lambda x: x.ignores_cover) > majority,
         "heavy": _frac_true(lambda x: x.heavy) > majority,
         "assault": _frac_true(lambda x: x.assault) > majority,
         "hazardous": _frac_true(lambda x: x.hazardous) > majority,
         "blast": _frac_true(lambda x: x.blast) > majority,
-        "lance": _frac_true(lambda x: x.lance) > majority,
+        # UNION (MAP-3) — see comment above
+        "lance": any(x.lance for _, x in basket),
         "precision": _frac_true(lambda x: x.precision) > majority,
         "pistol": _frac_true(lambda x: x.pistol) > majority,
         "indirect_fire": _frac_true(lambda x: x.indirect_fire) > majority,
@@ -345,26 +373,41 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
 
     union: Dict[str, object] = {**bool_keywords, **int_keywords, "torrent": torrent}
 
-    # Anti-X — proportion-thresholded per keyword. A single Krak-grenade
-    # bolter model carrying Anti-Vehicle 4+ on 1 of 10 attacks should not
-    # let the whole squad treat all of its attacks as Anti-Vehicle. Apply
-    # the 50% majority rule per keyword. If the keyword passes, take the
-    # best (lowest) threshold among carrying weapons.
+    # Anti-X — UNION across the basket per MAP-3. If any weapon profile in
+    # the basket carries [ANTI-VEHICLE N+], the squad's basket keeps that
+    # tag with the best (lowest) threshold among carrying weapons. The
+    # squad's per-attack damage stays honest because the simulator-side
+    # picker only fires the anti bonus on the model that's actually
+    # carrying that profile (Skyweaver Haywire Cannon, Beast Snagga Klaw,
+    # Knight Styrix Graviton Crusher) — the threshold sits on the basket
+    # so it can be SEEN, not so it gets multiplied across unrelated shots.
+    # The pre-MAP-3 majority gate dropped the keyword for any squad that
+    # mixed loadouts (Skyweavers, Scourges, Raveners, Beast Snagga Boyz,
+    # Knight Styrix), forcing per-unit override patches in AK-2.
     anti: Dict[str, int] = {}
     all_anti_kws = set()
     for _, x in basket:
         all_anti_kws.update((x.anti_keywords or {}).keys())
     for kw in all_anti_kws:
-        frac = sum(
-            w for w, x in basket
+        best_thresh = min(
+            x.anti_keywords[kw] for _, x in basket
             if kw in (x.anti_keywords or {})
-        ) / total
-        if frac > majority:
-            best_thresh = min(
-                x.anti_keywords[kw] for _, x in basket
-                if kw in (x.anti_keywords or {})
-            )
-            anti[kw] = best_thresh
+        )
+        anti[kw] = best_thresh
+
+    # MAP-3-FIX — emit basket fractions alongside the UNION booleans / dict so
+    # the simulator can Bernoulli-gate each shot. Each fraction = (sum of basket
+    # weights of weapons carrying the keyword) / total basket weight. A single
+    # heavy plague weapon in a 5-bolter squad gives fraction = 1/6 = 0.167; the
+    # simulator then only fires DEVASTATING WOUNDS on ~17% of shots, which
+    # matches reality (only 1 model in 6 carries the weapon that has it).
+    dw_fraction = _frac_true(lambda x: x.devastating_wounds)
+    lance_fraction = _frac_true(lambda x: x.lance)
+    anti_fractions: Dict[str, float] = {}
+    for kw in all_anti_kws:
+        anti_fractions[kw] = (
+            sum(w for w, x in basket if kw in (x.anti_keywords or {})) / total
+        )
 
     return WeaponStats(
         name=representative.name,
@@ -376,6 +419,9 @@ def weighted_basket_average(basket: "List[tuple[float, WeaponStats]]") -> Option
         range=representative.range,
         keywords=representative.keywords,
         anti_keywords=anti,
+        devastating_wounds_basket_fraction=dw_fraction,
+        lance_basket_fraction=lance_fraction,
+        anti_keyword_basket_fractions=anti_fractions,
         **union,  # type: ignore[arg-type]
     )
 
@@ -576,6 +622,62 @@ class UnitWargear:
     melee_weapons: List[WeaponStats] = field(default_factory=list)
 
 
+def _is_crusade_only_entry(elem: ET.Element) -> bool:
+    """Return True if this selectionEntry / selectionEntryGroup / entryLink
+    is a narrative-campaign (Crusade) upgrade that should NOT appear in a
+    matched-play loadout.
+
+    Two signals identify Crusade-only content:
+
+    1. **Cost shape.** A Crusade-only selectionEntry carries a positive
+       ``Crusade Points`` cost while leaving the matched-play ``pts`` cost
+       at 0 (or absent). A standard matched-play wargear entry has only a
+       ``pts`` cost block. The diagnostic case is the Adeptus Mechanicus
+       Archeotech Weapon group: Digital Cannon, Electro-fused Vambraces,
+       Nanoshard Projector, Neural Jammer — each carries ``pts=0`` AND
+       ``Crusade Points=1``, sits inside a ``selectionEntryGroup`` named
+       "Archeotech Weapon" within the larger "Crusade" container.
+
+    2. **Container name.** Every 10e faction file wraps its narrative
+       content in a ``selectionEntryGroup name="Crusade"`` (or an entryLink
+       of the same name pointing to one). Inside that container are
+       sub-groups like "Legendary Archeotech" / "Battle Honours" /
+       "Crusade Relics" whose individual leaf weapons do NOT carry Crusade
+       Points cost blocks (the cost is implicit because the whole subtree
+       is Crusade) and so would slip past the cost-shape filter alone.
+       Skipping any selection at the "Crusade" name level catches those.
+
+    Pre-fix the mapper had no Crusade discrimination at all and mapped
+    Archeotech weapons onto the Archaeopter chassis as standard ranged
+    profiles, fabricating ~+1 attack of free damage onto every Adeptus
+    Mechanicus aircraft. The pre-fix mapper also wired Legendary Archeotech
+    weapons (Syntaxik Charger, etc.) into every Mechanicus unit's wargear
+    tree by reaching them through the Crusade selectionEntryGroup.
+
+    Note: a pts cost of exactly 0 (the BSData convention for "default
+    included") is fine on a normal wargear entry — it's the COMBINATION
+    (pts<=0 with Crusade Points>=1) that signals Crusade-only via cost.
+    """
+    # Signal 2: name-based gate at the Crusade container.
+    name = elem.get("name") or ""
+    if name == "Crusade":
+        return True
+    # Signal 1: cost-shape filter on the entry itself.
+    has_positive_crusade_points = False
+    has_positive_pts = False
+    for cost in elem.findall("./costs/cost"):
+        cost_name = cost.get("name") or ""
+        try:
+            value = float(cost.get("value") or 0)
+        except ValueError:
+            continue
+        if cost_name == "Crusade Points" and value > 0:
+            has_positive_crusade_points = True
+        elif (cost_name == "pts" or cost.get("typeId") == "points") and value > 0:
+            has_positive_pts = True
+    return has_positive_crusade_points and not has_positive_pts
+
+
 def _walk(
     elem: ET.Element, reg: Registry, seen: set, out: UnitWargear,
     depth: int = 0, max_depth: int = 5, primary_name: str = "",
@@ -621,8 +723,16 @@ def _walk(
         if target is not None and target.tag == "profile":
             _consume_profile(target, out, primary_name)
 
-    # entryLinks — carry their own infoLinks, then recurse into the target
+    # entryLinks — carry their own infoLinks, then recurse into the target.
+    # Filter out Crusade-only narrative options: their selectionEntries carry
+    # a positive ``Crusade Points`` cost with ``pts<=0``, and they live in
+    # max-1 selectionEntryGroups under names like "Archeotech Weapon". They
+    # are matched-play-invisible upgrades and must not become default
+    # wargear (see _is_crusade_only_entry docstring).
     for el in elem.findall("./entryLinks/entryLink"):
+        # Skip the entryLink ITSELF if it stamps Crusade Points on the link.
+        if _is_crusade_only_entry(el):
+            continue
         for il in el.findall("./infoLinks/infoLink"):
             if il.get("type") != "profile":
                 continue
@@ -630,13 +740,17 @@ def _walk(
             if tgt is not None and tgt.tag == "profile":
                 _consume_profile(tgt, out, primary_name)
         target = reg.resolve(el.get("targetId") or "")
-        if target is not None:
+        if target is not None and not _is_crusade_only_entry(target):
             _walk(target, reg, seen, out, depth + 1, max_depth, primary_name)
 
     # Nested selectionEntries / groups
     for child in elem.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
         _walk(child, reg, seen, out, depth + 1, max_depth, primary_name)
     for grp in elem.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(grp):
+            continue
         _walk(grp, reg, seen, out, depth + 1, max_depth, primary_name)
 
 
@@ -1041,6 +1155,9 @@ def _collect_weapons_for_model(
     for el in model_entry.findall("./entryLinks/entryLink"):
         if el.get("type") != "selectionEntry":
             continue
+        # Skip Crusade-only narrative wargear — see _is_crusade_only_entry.
+        if _is_crusade_only_entry(el):
+            continue
         has_selection_constraint = False
         min_val = 0
         max_val = 1
@@ -1062,6 +1179,11 @@ def _collect_weapons_for_model(
             # Optional weapon — skip; it's an upgrade, not a default carry.
             continue
         target_id = el.get("targetId") or ""
+        # Also reject if the entryLink resolves to a Crusade-only entry on
+        # the far side (cost stamped on the target, not the link).
+        resolved = reg.resolve(target_id)
+        if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
         r, m = _resolve_weapon_target(target_id, reg)
         if r is not None:
             ranged_picks.append(r)
@@ -1072,6 +1194,8 @@ def _collect_weapons_for_model(
     # Incinerator profile DIRECTLY here (not via an entryLink). Treat them
     # like fixed weapons: if min>=1 or no constraint, count as carried.
     for child in model_entry.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
         min_val = 0
         for cons in child.findall("./constraints/constraint"):
             if cons.get("field") != "selections":
@@ -1118,6 +1242,8 @@ def _collect_weapons_for_model(
     # weapon options live inline (Immortals, Ophydian Destroyers, etc.) or
     # are nested inside a sub-group.
     for grp in model_entry.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(grp):
+            continue
         candidates_ranged, candidates_melee = _gather_group_candidates(grp, reg)
         if candidates_ranged:
             best_r = max(candidates_ranged, key=lambda w: w.expected_damage_through_baseline())
@@ -1170,7 +1296,12 @@ def _gather_group_candidates(
     for el in grp.findall("./entryLinks/entryLink"):
         if el.get("type") != "selectionEntry":
             continue
+        if _is_crusade_only_entry(el):
+            continue
         target_id = el.get("targetId") or ""
+        resolved = reg.resolve(target_id)
+        if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
         r, m = _resolve_weapon_target(target_id, reg)
         if r is not None:
             candidates_ranged.append(r)
@@ -1179,6 +1310,8 @@ def _gather_group_candidates(
 
     # 2. inline selectionEntry children — the weapon profile is right here
     for child in grp.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
         r_list, m_list = _weapons_from_inline_entry(child)
         # One inline entry can carry multiple profile modes (Plasma standard /
         # supercharge); the player picks the best, so we treat that as the
@@ -1194,6 +1327,8 @@ def _gather_group_candidates(
 
     # 3. nested selectionEntryGroup children — flatten their candidates up
     for sub in grp.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(sub):
+            continue
         r_sub, m_sub = _gather_group_candidates(sub, reg)
         candidates_ranged.extend(r_sub)
         candidates_melee.extend(m_sub)
@@ -1377,6 +1512,12 @@ class MappedUnit:
     lance: bool = False
     precision: bool = False
     pistol: bool = False
+    # MAP-MULTIFIRE-VALIDATE — primary ranged weapon name; surfaced for
+    # the simulator's mode-group picker.
+    weapon: str = ""
+    # MAP-MULTIFIRE-VALIDATE — Pistol keyword on the SECONDARY profile
+    # (independent of the primary's pistol flag).
+    secondary_pistol: bool = False
     indirect_fire: bool = False
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit when this unit is shot at)
@@ -1384,6 +1525,12 @@ class MappedUnit:
     # Lone Operative (10e core ability) — ranged attackers must be within 12"
     # to target this unit. Parsed via `extract_lone_operative` from BSData.
     lone_operative: bool = False
+    # FIGHTS FIRST datasheet keyword — unit fights in the Fights First step
+    # of the Fight phase (alongside chargers) rather than the Remaining
+    # Combats step. Parsed via `extract_fights_first` from BSData. Cited as
+    # `simulator.fights_first_keyword`. Real 10e datasheets with this
+    # keyword: Wyches, Howling Banshees, Custodian Wardens, Mandrakes, etc.
+    fights_first: bool = False
     # Phase I — deployment abilities (parsed from unit-level infoLinks)
     deep_strike: bool = False                     # starts in Reserves; arrives turn 2+
     scout_distance: int = 0                       # pre-game Normal Move up to N"
@@ -1400,6 +1547,14 @@ class MappedUnit:
     firing_deck: int = 0
     # Unit-level
     fnp: int = 7                                  # 7 = no Feel No Pain
+    # MAP-4 — Reanimation Protocols eligibility. True iff the BSData
+    # datasheet carries the "Reanimation Protocols" infoLink AND the unit's
+    # keywords do not include CHARACTER, MONSTER, or VEHICLE (those keywords
+    # gate the army-wide tier of the ability off per the 10e codex; the
+    # bodyguard / led-by-CHARACTER override is a runtime concern handled by
+    # the simulator, not the mapper). Set via `extract_reanimates_with_army`.
+    # Non-Necron units stay False. Cited as `simulator.reanimation_protocols`.
+    reanimates_with_army: bool = False
     unit_keywords: List[str] = field(default_factory=list)
     # Phase B — melee profile (best-legal melee weapon picked the same way)
     melee_attacks: int = 0
@@ -1442,6 +1597,28 @@ class MappedUnit:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # ---- MAP-1: TERTIARY+ ranged weapon profiles ----------------------------
+    # Generalises the multi-profile mapper from 2 to N. Knight Castellan fires
+    # five ranged weapons in real 10e play (Volcano Lance, Plasma Decimator,
+    # Twin Meltagun, Shieldbreaker Missiles, Twin Siegebreaker Cannon);
+    # `weapon` + `secondary_weapon` cover the two strongest, this list carries
+    # the rest (3rd, 4th, 5th, ...). Each entry is a dict with the same
+    # secondary_* stat fields, plus the weapon name and an optional
+    # anti_keywords mapping. The simulator's per-shot picker compares the
+    # expected damage of every profile (primary + secondary + each extra)
+    # against the current target / range and routes accordingly.
+    # Cited as `simulator.multi_profile_weapon_selection`.
+    extra_ranged_profiles: List[Dict] = field(default_factory=list)
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # See WeaponStats for the rationale. Defaults to 1.0 preserve legacy
+    # behaviour for any single-weapon unit (the keyword either fires for every
+    # shot or doesn't fire at all). Heterogeneous squads (Rubric Marines, etc.)
+    # land here with fractions < 1.0 so the simulator's Bernoulli gate fires
+    # the keyword on a proportional subset of shots. Cited as
+    # `simulator.basket_fraction_gating`.
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Dict[str, float] = field(default_factory=dict)
     # Renderer-only base footprint. BSData doesn't encode base sizes, so we
     # derive a sensible default from the unit's keywords at map time; the
     # hand-curated override path in data/overrides.json wins for precision
@@ -1587,17 +1764,42 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     # the same profile twice). The "best" profile picked above is already
     # one weapon; the secondary is the runner-up of a different name.
     second_best: Optional[WeaponStats] = None
+    # MAP-1: tertiary+ profiles. Cap total at 5 ranged weapons per chassis to
+    # cover the worst real case (Knight Castellan = 5: Volcano Lance, Plasma
+    # Decimator, Twin Meltagun, Shieldbreaker Missiles, Twin Siegebreaker
+    # Cannon). Anything beyond the 5 strongest is dropped — heavier chassis
+    # like the Lord of Skulls cap below this anyway.
+    _MULTI_PROFILE_RANGED_CAP = 5
+    extra_weapons: List[WeaponStats] = []
     if not used_heterogeneous and gear.ranged_weapons and best is not None:
-        candidates = [
+        already_chosen = [best]
+        # Build the ranked list of remaining distinct ranged profiles.
+        remaining = [
             w for w in gear.ranged_weapons
             if w is not best
             and not (w.name == best.name and (w.range or "") == (best.range or ""))
         ]
-        if candidates:
-            second_best = max(
-                candidates,
-                key=lambda w: w.expected_damage_through_baseline(),
-            )
+        remaining_sorted = sorted(
+            remaining,
+            key=lambda w: w.expected_damage_through_baseline(),
+            reverse=True,
+        )
+        # De-duplicate by (name, range) so the same profile under different
+        # selection-entry copies doesn't get picked twice.
+        seen_keys = {(w.name, w.range or "") for w in already_chosen}
+        ranked: List[WeaponStats] = []
+        for w in remaining_sorted:
+            k = (w.name, w.range or "")
+            if k in seen_keys:
+                continue
+            seen_keys.add(k)
+            ranked.append(w)
+        if ranked:
+            second_best = ranked[0]
+            already_chosen.append(second_best)
+            # Take up to (cap - 2) more — the 3rd, 4th, 5th profiles.
+            for w in ranked[1 : _MULTI_PROFILE_RANGED_CAP - 1]:
+                extra_weapons.append(w)
     if used_heterogeneous and loadout_basket_melee:
         best_melee = weighted_basket_average(loadout_basket_melee)
     elif gear.melee_weapons:
@@ -1629,9 +1831,11 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     fnp = extract_fnp(entry, reg)
     stealth = extract_stealth(entry, reg)
     lone_operative = extract_lone_operative(entry, reg)
+    fights_first = extract_fights_first(entry, reg)
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
     firing_deck = extract_firing_deck(entry)
+    reanimates = extract_reanimates_with_army(entry, reg, list(unit_kw))
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
     primary = best if best is not None else best_melee
@@ -1683,6 +1887,20 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         melta=primary.melta,
         ignores_cover=primary.ignores_cover,
         anti_keywords=dict(primary.anti_keywords),
+        # MAP-3-FIX — propagate basket fractions from the chosen primary
+        # weapon. For single-weapon units / fallback (non-heterogeneous) path,
+        # WeaponStats defaults to 1.0 so legacy behaviour is preserved. For
+        # heterogeneous-squad units the synthetic average carries a fraction
+        # < 1.0 reflecting how much of the basket weight legitimately has the
+        # keyword.
+        devastating_wounds_basket_fraction=primary.devastating_wounds_basket_fraction,
+        # Lance is melee-only, so source from best_melee when one exists.
+        lance_basket_fraction=(
+            best_melee.lance_basket_fraction
+            if best_melee is not None
+            else primary.lance_basket_fraction
+        ),
+        anti_keyword_basket_fractions=dict(primary.anti_keyword_basket_fractions),
         heavy=primary.heavy,
         assault=primary.assault,
         torrent=primary.torrent,
@@ -1696,16 +1914,27 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         # the primary (ranged) or the chosen melee weapon has it.
         precision=primary.precision or (best_melee.precision if best_melee else False),
         pistol=primary.pistol,
+        # MAP-MULTIFIRE-VALIDATE — surface the primary ranged weapon name
+        # so the simulator's multi-profile picker can group mode-alternates
+        # (sibling weapon profiles whose names differ only by a trailing
+        # mode suffix like " - focused" / " - dispersed").
+        weapon=primary.name,
+        # MAP-MULTIFIRE-VALIDATE — pistol flag on the SECONDARY ranged
+        # profile, mirrored separately so the picker can enforce 10e
+        # Pistol exclusivity per profile (not per chassis).
+        secondary_pistol=(second_best.pistol if second_best is not None else False),
         indirect_fire=primary.indirect_fire,
         one_shot=primary.one_shot,
         stealth=stealth or primary.stealth,
         lone_operative=lone_operative,
+        fights_first=fights_first,
         deep_strike=bool(deployment["deep_strike"]),
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),
         deadly_demise=deadly_demise,
         firing_deck=firing_deck,
         fnp=fnp,
+        reanimates_with_army=reanimates,
         unit_keywords=list(unit_kw),
         melee_attacks=max(0, int(round(best_melee.attacks))) if best_melee else 0,
         melee_damage_per_shot=round(best_melee.damage, 2) if best_melee else 0.0,
@@ -1755,6 +1984,41 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         secondary_assault=second_best.assault if second_best else False,
         secondary_torrent=second_best.torrent if second_best else False,
         secondary_blast=second_best.blast if second_best else False,
+        # MAP-1: 3rd+ ranged profiles. Same fields as the secondary block,
+        # one dict per profile, in expected-damage-descending order so the
+        # picker sees them in priority order. Empty list = no extras.
+        # Cited as `simulator.multi_profile_weapon_selection`.
+        extra_ranged_profiles=[
+            {
+                "weapon": w.name,
+                "attacks": max(1, int(round(w.attacks))),
+                "weapon_damage_per_shot": round(w.damage, 2),
+                "hit_probability": round(w.hit_prob, 3),
+                "ap": w.ap,
+                "strength": w.strength,
+                "range_inches": (
+                    int(re.search(r"(\d+)", w.range or "").group(1))
+                    if re.search(r"(\d+)", w.range or "") else 0
+                ),
+                "anti_keywords": dict(w.anti_keywords),
+                "lethal_hits": w.lethal_hits,
+                "sustained_hits": w.sustained_hits,
+                "twin_linked": w.twin_linked,
+                "devastating_wounds": w.devastating_wounds,
+                "rapid_fire": w.rapid_fire,
+                "melta": w.melta,
+                "ignores_cover": w.ignores_cover,
+                "heavy": w.heavy,
+                "assault": w.assault,
+                "torrent": w.torrent,
+                "blast": w.blast,
+                # MAP-MULTIFIRE-VALIDATE — Pistol exclusivity per
+                # profile (10e core rule). The picker partitions
+                # extras into pistol/non-pistol groups.
+                "pistol": w.pistol,
+            }
+            for w in extra_weapons
+        ],
         base_shape=base_shape,
         base_diameter_mm=base_diameter,
         base_width_mm=base_width,
@@ -1962,29 +2226,96 @@ def extract_fnp(entry: ET.Element, reg: Registry) -> int:
     # baked into an ability description ("This unit has the Feel No Pain 5+
     # ability."). Kept as a fallback for units that don't use the canonical
     # infoLink+modifier idiom.
+    #
+    # MAP-2 — prune `type="upgrade"` subtrees while walking. Enhancements
+    # (e.g. Tyranid Adaptive Biology, Custodes Talons of the Emperor, Death
+    # Guard Revolting Regeneration) live in BSData as ``selectionEntry
+    # type="upgrade"`` blocks reachable from a unit's Enhancements
+    # ``entryLink``. Their characteristic prose frequently says
+    # ``"Feel No Pain N+"`` because the Enhancement grants that to the
+    # bearer when taken — but it is NOT a base stat of the datasheet, and
+    # was silently leaking into the base FNP for every unit that COULD
+    # take the Enhancement (SC5-10 patched 12 Tyranid units via overrides
+    # when this was first spotted). Skip the upgrade subtree entirely: do
+    # not scan its characteristics and do not follow its links.
+    #
+    # Note we still recurse through ``selectionEntryGroup`` containers
+    # (the Enhancements group itself is a group, not an upgrade), but
+    # individual upgrade children inside it are pruned.
     seen: set = set()
-    def walk(elem: ET.Element, depth: int):
+
+    def _scan_characteristics(elem: ET.Element):
+        """Scan characteristic text in `elem` and its descendants, pruning
+        any subtree rooted at a ``type="upgrade"`` selectionEntry. We
+        traverse manually rather than via ``.iter()`` so the prune at
+        upgrade boundaries can fire."""
         nonlocal best
+        for child in list(elem):
+            tag = child.tag
+            if tag == "selectionEntry" and (
+                (child.get("type") or "").strip().lower() == "upgrade"
+            ):
+                # Enhancement / wargear upgrade — its prose ("Feel No
+                # Pain N+") is conditional on the upgrade being taken,
+                # so it must not propagate into the datasheet's BASE
+                # stats. Skip this whole subtree.
+                continue
+            if tag == "characteristic":
+                txt = (child.text or "")
+                m = _FNP_RE.search(txt)
+                if m:
+                    v = int(m.group(1))
+                    if v < best:
+                        best = v
+            # Descend into any other child element (profiles, groups,
+            # nested model selectionEntries, characteristics container,
+            # etc.) so the iter("characteristic") behaviour is preserved
+            # everywhere except the upgrade prune.
+            _scan_characteristics(child)
+
+    def _collect_links(elem: ET.Element):
+        """Yield (infoLinks, entryLinks) from `elem`'s subtree, pruning any
+        ``type="upgrade"`` selectionEntry the same way ``_scan_characteristics``
+        does. The legacy code used ``.//infoLink`` which recursed through
+        upgrade subtrees and followed THEIR targetIds — that was the second
+        leak path for Enhancement-granted FNP."""
+        infolinks: list = []
+        entrylinks: list = []
+        def _recurse(node: ET.Element):
+            for child in list(node):
+                if (
+                    child.tag == "selectionEntry"
+                    and (child.get("type") or "").strip().lower() == "upgrade"
+                ):
+                    continue
+                if child.tag == "infoLink":
+                    infolinks.append(child)
+                elif child.tag == "entryLink":
+                    entrylinks.append(child)
+                _recurse(child)
+        _recurse(elem)
+        return infolinks, entrylinks
+
+    def walk(elem: ET.Element, depth: int):
         if depth > 3:
+            return
+        # Skip upgrade subtrees entirely. The root call passes the unit's
+        # datasheet selectionEntry (type="unit" / "model") so the gate
+        # only fires when we follow a link INTO an upgrade target.
+        if (elem.get("type") or "").strip().lower() == "upgrade":
             return
         eid = elem.get("id")
         if eid:
             if eid in seen:
                 return
             seen.add(eid)
-        # Scan all characteristic text values for the phrase
-        for c in elem.iter("characteristic"):
-            txt = (c.text or "")
-            m = _FNP_RE.search(txt)
-            if m:
-                v = int(m.group(1))
-                if v < best:
-                    best = v
-        for il in elem.findall(".//infoLink"):
+        _scan_characteristics(elem)
+        infolinks, entrylinks = _collect_links(elem)
+        for il in infolinks:
             tgt = reg.resolve(il.get("targetId") or "")
             if tgt is not None:
                 walk(tgt, depth + 1)
-        for el in elem.findall("./entryLinks/entryLink"):
+        for el in entrylinks:
             tgt = reg.resolve(el.get("targetId") or "")
             if tgt is not None:
                 walk(tgt, depth + 1)
@@ -2202,6 +2533,58 @@ def extract_stealth(entry: ET.Element, reg: Registry) -> bool:
     return False
 
 
+_EXCLUSION_PROSE_RE = re.compile(
+    r"(cannot use|does not have|never gains?|loses)[^.]{0,80}Reanimation Protocols",
+    re.IGNORECASE,
+)
+
+
+def extract_reanimates_with_army(
+    entry: ET.Element, reg: Registry, unit_keywords: List[str]
+) -> bool:
+    """True iff the unit benefits from the army-wide Reanimation Protocols
+    tier. Detection has three gates:
+
+      1. The datasheet carries an `<infoLink name="Reanimation Protocols">`
+         direct child of its `<infoLinks>` block. BSData uses this shape on
+         every Necron datasheet that has the ability — including some that
+         the printed codex excludes via keyword. The keyword gate (next)
+         filters those out.
+      2. No CHARACTER, MONSTER, or VEHICLE keyword on the unit. Per Wahapedia
+         10e Necrons Reanimation Protocols:
+         https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols
+         the ability text excludes CHARACTER / MONSTER / VEHICLE models from
+         regaining wounds. Bodyguarded characters joining a reanimating unit
+         are a runtime concern (leader attachment), not a per-unit flag.
+      3. No exclusion prose like "This unit cannot use its Reanimation
+         Protocols ability" in any of the unit's own profile / characteristic
+         text. Catches the (rare) data entries that disable the ability
+         outright via a sub-profile.
+
+    Returns False for any non-Necron unit (no RP infoLink → fails gate 1).
+    Cited as `simulator.reanimation_protocols`.
+    """
+    has_rp_infolink = False
+    for il_block in entry.findall("./infoLinks"):
+        for il in il_block.findall("./infoLink"):
+            if (il.get("name") or "").strip().lower() == "reanimation protocols":
+                has_rp_infolink = True
+                break
+        if has_rp_infolink:
+            break
+    if not has_rp_infolink:
+        return False
+    # Keyword gate — uppercase normalise.
+    kws_upper = {(k or "").upper() for k in (unit_keywords or [])}
+    if kws_upper & {"CHARACTER", "MONSTER", "VEHICLE"}:
+        return False
+    # Exclusion-prose gate. Scan this unit's own profile/characteristic text.
+    for ch in entry.findall(".//characteristic"):
+        if ch.text and _EXCLUSION_PROSE_RE.search(ch.text):
+            return False
+    return True
+
+
 def extract_lone_operative(entry: ET.Element, reg: Registry) -> bool:
     """True iff the unit has the Lone Operative core ability (ranged attackers
     must be within 12" to target it).
@@ -2217,6 +2600,42 @@ def extract_lone_operative(entry: ET.Element, reg: Registry) -> bool:
             return True
     for prof in entry.findall(".//profile"):
         if (prof.get("name") or "").strip().lower() == "lone operative":
+            return True
+    return False
+
+
+def extract_fights_first(entry: ET.Element, reg: Registry) -> bool:
+    """True iff the unit has the FIGHTS FIRST datasheet keyword.
+
+    Per Wahapedia 10e core rules (Fight phase, "Fights First" step:
+    https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase):
+    "All eligible units that have the FIGHTS FIRST ability must fight in
+    the Fights First step. Then, in the Remaining Combats step, all other
+    eligible units fight." Datasheets carrying this keyword (Wyches,
+    Howling Banshees, Custodian Wardens, Mandrakes, etc.) gain the
+    benefit every Fight phase — not just on the turn they charged.
+
+    BSData publishes FIGHTS FIRST in two structural shapes — a shared-rule
+    infoLink named "Fights First" attached to the datasheet, or an inline
+    profile named "Fights First". A handful of datasheets only mention the
+    phrase in the unit's "Abilities" characteristic prose ("This unit has
+    the FIGHTS FIRST ability."); detect that as a fallback. Detection
+    mirrors `extract_stealth` / `extract_lone_operative` for the
+    structured shapes, then adds prose scanning for the third shape.
+    Cited as `simulator.fights_first_keyword`.
+    """
+    for il in entry.findall(".//infoLink"):
+        if (il.get("name") or "").strip().lower() == "fights first":
+            return True
+    for prof in entry.findall(".//profile"):
+        if (prof.get("name") or "").strip().lower() == "fights first":
+            return True
+    # Prose fallback — some datasheets inline the keyword in their
+    # Abilities characteristic text rather than via a structured
+    # infoLink. Match the exact uppercase keyword to avoid false
+    # positives from descriptive sentences.
+    for ch in entry.findall(".//characteristic"):
+        if ch.text and "FIGHTS FIRST" in ch.text:
             return True
     return False
 

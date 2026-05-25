@@ -42,6 +42,23 @@ _CAPTURE_INTENT = "CAPTURE"
 _STEAL_INTENT = "STEAL"
 _ENGAGE_INTENT = "ENGAGE"
 _REPOSITION_INTENT = "REPOSITION"
+# AI-9 — sacrificial chaff intent: cheap unit deliberately pushed into the
+# enemy backline to score Engage on All Fronts / Behind Enemy Lines secondary
+# victory points. Reuses _ENGAGE_INTENT-like semantics for the simulator
+# (a directed move target); the distinct label is so logs / tests can spot
+# the heuristic firing.
+_SACRIFICIAL_INTENT = "SACRIFICIAL"
+
+# AI-9 — chaff detection threshold (per-model points cost). Real-meta chaff:
+# Gretchin (3.6), Termagants (6), Cultists (5), Conscripts / Cadians /
+# Neophytes (6.5), Battle Sisters / Kroot / Strike Teams (7-10). 15 catches
+# the universe of squad-bodies-sold-cheap without tagging Intercessors (20+)
+# or even slightly-elite-but-numerous units like Tactical Marines.
+_CHAFF_MAX_POINTS_PER_MODEL: float = 15.0
+# AI-9 — only enable for units with squad of 5+ models (per-model points cost
+# of a CHARACTER under 15 is essentially impossible, but guard anyway —
+# Custodian Guard sacrifice would be terrible).
+_CHAFF_MIN_SQUAD_SIZE: int = 5
 
 
 # ---------------------------------------------------------------------------
@@ -172,9 +189,10 @@ def _shimmy_target(unit, nearest_enemy, map_) -> Optional[Tuple[float, float]]:
 # Cited as `simulator.fall_back`.
 _FALL_BACK_INTENT = "FALL_BACK"
 
-# Engagement Range in SwegHammer's continuous model. Mirrors the simulator's
-# in-engagement check inside _do_shoot.
-_ENGAGEMENT_RANGE = 1.5
+# Engagement Range in SwegHammer's continuous model. 10e core: 1" horizontal
+# (vertical 5" not modelled — sim is 2D). Mirrors the simulator's in-engagement
+# check inside _do_shoot. Source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Engagement-Range
+_ENGAGEMENT_RANGE = 1.0
 
 # Terrain-strength ranking used by the cover-bias helper. Higher wins when
 # scoring candidate hold points around an objective. Imported lazily so this
@@ -645,6 +663,555 @@ def _synapse_target_bonus(attacker, defender) -> float:
     return _SYNAPSE_TARGET_BONUS
 
 
+# ---------------------------------------------------------------------------
+# AI-4 — Adeptus Astartes Oath-of-Moment ranged target priority
+# ---------------------------------------------------------------------------
+# The Oath of Moment army rule (Adeptus Astartes chapters only — Codex
+# Space Marines and its successor codices) nominates ONE enemy unit per
+# turn against which every Marine attack re-rolls hit-1s and wound-1s.
+# Real tournament Marine play DUMPS the whole army's firepower on the Oath
+# target to compound those re-rolls — a Lieutenant + Devastators + Heavy
+# Intercessor brick all firing into the same anchor, finishing it in one
+# Shooting phase. The simulator's stock target-priority picks per-unit
+# locally (lowest HP among candidates), which scatters Marine fire onto
+# whatever's closest-to-dead per gun rather than concentrating on the
+# Oath nomination. This bonus biases ranged target-score so that, when
+# the Oath target is among the LoS+range candidates, it wins the pick.
+#
+# Gates:
+#   - attacker is an Adeptus Astartes faction (per `is_marine_faction`,
+#     which is the canonical membership test in `code/factions.py` and
+#     EXCLUDES Grey Knights, Adeptus Custodes, Adepta Sororitas — they
+#     are power-armour but don't share Oath of Moment).
+#   - attacker_army.oath_target_uid is set (the army's Command-phase
+#     pick exists for this round — see `_pick_oath_target`).
+#   - defender.uid == oath_target_uid (the defender IS the Oath target).
+#   - defender is alive (implicit — the caller filters for alive units
+#     before scoring, but checked defensively here too).
+#
+# When all gates pass, return a 2.0x bonus. The shooting picker uses
+# `current_health / (... * oath_bonus)` so a 2.0x bonus scores the Oath
+# target at 0.5x its raw HP, biasing the `min(...)` pick toward it.
+#
+# Implicit gating via the candidates pool:
+#   - LoS is enforced by the simulator's `has_line_of_sight` filter on
+#     `candidates` BEFORE this bonus is consulted. A unit out of LoS
+#     never reaches the scoring loop, so the 2x bias never fires for an
+#     unreachable Oath target — exactly the behaviour the briefing asks
+#     for. Same for range (the `_distance <= rng` filter).
+#
+# AI heuristic only — the Oath of Moment rule itself is already cited
+# (`simulator.oath_of_moment`); this commit just teaches the AI to USE
+# that nomination by concentrating fire on it. No new rule_citations
+# entry needed.
+_ASTARTES_OATH_TARGET_BONUS: float = 2.0
+
+
+def _astartes_oath_target_bonus(attacker, defender, attacker_army) -> float:
+    """Return 2.0x when `attacker` is an Adeptus Astartes unit whose army has
+    nominated `defender` as its current Oath of Moment target; else 1.0.
+
+    Caller (the shooting picker in `simulator._do_shoot`) divides the
+    target-score by this bonus, so 2.0x reads as 0.5x raw HP — biasing
+    the `min(...)` pick toward the Oath target.
+
+    See module-section docstring for the full gate list and design.
+    """
+    # Local import to avoid the strategy <-> factions cycle at module
+    # load time (factions module is small and free of strategy imports
+    # so the cycle wouldn't actually fire, but the project standard is
+    # to import locally inside per-call helpers).
+    from .factions import is_marine_faction
+
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None:
+        return 1.0
+    if not is_marine_faction(a_profile.faction):
+        return 1.0
+    if attacker_army is None:
+        return 1.0
+    oath_uid = getattr(attacker_army, "oath_target_uid", None)
+    if oath_uid is None:
+        return 1.0
+    if getattr(defender, "uid", None) != oath_uid:
+        return 1.0
+    # Defensive alive-check; the caller already filters for alive units,
+    # but a stale Oath target uid from earlier in the turn could survive
+    # a casualty resolution mid-phase. Don't bias toward a corpse.
+    if not getattr(defender, "is_alive", True):
+        return 1.0
+    return _ASTARTES_OATH_TARGET_BONUS
+
+
+# ---------------------------------------------------------------------------
+# AI-8 — Transport target priority (faction-neutral, AI play-style)
+# ---------------------------------------------------------------------------
+# Real tournament opponents always shoot TRANSPORT units first. The reason
+# is structural: every 10e transport carries an embarked unit that will
+# disembark and alpha-strike on a future turn (Wych Cult out of a Raider /
+# Venom, Custodes Wardens out of a Land Raider, Incubi out of a Venom,
+# Sisters Battle Sisters out of an Immolator, Astartes Intercessors out of
+# a Repulsor, etc.). Destroying the transport BEFORE the disembark either
+# kills the passengers outright (if they fail the emergency disembark)
+# or strands them in an unhelpful position, denying the alpha-strike.
+# Letting the transport live for one more turn gives the embarked unit a
+# fresh delivery vector — a 50-point Raider that survives until turn 3 is
+# worth maybe 200 points of effective threat from the unit it dropped.
+#
+# The DRK-DIAG (agent a599761a1e95a00e6) audit found Drukhari over-
+# performing by +34.6 points in the simulator because opponents scored
+# the 4x Raider + 2x Venom transports the same as any other ranged target,
+# often leaving them alive into turn 3 when the Wych Cult disembarked at
+# full strength. Real-meta opponents prioritise transports as their
+# top-priority shooting target before the disembark window.
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# and has no rule_citations entry. The "rule" is the universal tournament
+# play-pattern of bracketing the disembark, not any codex text.
+#
+# Gate (faction-neutral attacker, defender-keyword-gated):
+#   - defender has TRANSPORT keyword in unit_keywords
+#   - attacker is any faction (no faction gate — every army benefits from
+#     killing the enemy's transports before the passengers disembark)
+#
+# Effect: base 1.8x bonus on the target-priority score, escalated to 2.2x
+# when the transport is currently carrying at least one passenger (the
+# "loaded" case where killing the transport disrupts the embarked unit).
+# Stacks multiplicatively with the existing screen / synapse / oath chain.
+_TRANSPORT_TARGET_BONUS: float = 1.8
+_TRANSPORT_TARGET_BONUS_LOADED: float = 2.2
+
+
+def _transport_target_bonus(defender) -> float:
+    """Return a target-priority multiplier when `defender` is a TRANSPORT.
+
+    Faction-neutral on the attacker side: every army should prioritise
+    enemy transports before their passengers disembark.
+
+    - 1.8x when defender has TRANSPORT keyword (catches the "empty
+      transport" case where the passengers already disembarked but the
+      transport itself remains a screening / firing-deck threat).
+    - 2.2x when the transport additionally has at least one passenger
+      (the alpha-strike-disrupt case — destroying the transport here
+      either kills or strands the embarked unit).
+    - 1.0x otherwise.
+
+    Returned bonus is multiplicative on the shooting picker's
+    `current_health / (... * bonus_chain)` score: a 2.2x bonus reads as
+    0.45x raw HP, biasing the `min(...)` pick toward the transport.
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return 1.0
+    keywords = getattr(profile, "unit_keywords", ()) or ()
+    if "TRANSPORT" not in keywords:
+        return 1.0
+    # `passengers` is a list on every Unit instance (see Unit.__init__ in
+    # code/units.py). An empty list means the transport is currently un-
+    # loaded — still worth the base 1.8x bias to deny screen / firing-deck
+    # value, but not the escalated 2.2x.
+    passengers = getattr(defender, "passengers", None) or ()
+    if passengers:
+        return _TRANSPORT_TARGET_BONUS_LOADED
+    return _TRANSPORT_TARGET_BONUS
+
+
+# ---------------------------------------------------------------------------
+# DRK-DIAG-11 — Drukhari fragile flyer / gun-skimmer shooting target priority
+# ---------------------------------------------------------------------------
+# Real tournament opponents facing a Drukhari list prioritise the army's
+# fragile high-output gun-skimmers and flyers BEFORE wading into the
+# infantry, alongside the AI-8 transport priority that already biases
+# toward Raiders / Venoms. The targets in question are:
+#
+#   Ravager           — three lances or disintegrators on a T9 W11 sv4+
+#                       chassis with no invuln / no Feel No Pain
+#   Voidraven Bomber  — Void mine + two void lances on T9 W12 sv4+, no
+#                       invuln / no Feel No Pain
+#   Razorwing Jetfighter — twin lances + missile rack on T8 W10 sv4+, no
+#                          invuln / no Feel No Pain
+#   Reaper / Raven Strike Fighter (Legends) — equivalent profiles
+#
+# These chassis pump out alpha-strike damage that scales linearly with
+# rounds alive but die in a single focused-fire round to most mid-tier
+# anti-tank weaponry (no invuln to soak Lascannons, no Feel No Pain
+# 6+/5+ to chip wounds). Real-meta opponents always shoot them in the
+# first opportunity — letting a Ravager live to round 2 costs ~6
+# damage-per-shot more than killing it on round 1. The simulator's
+# default current_health-min picker chews through tougher TRANSPORT
+# targets first (Tantalus T10 W18) when the right play is to remove the
+# fragile high-damage chassis.
+#
+# DRK-DIAG-9 (mobility VP damper) and DRK-DIAG-10 (offensive VP damper)
+# attacked the residual at the secondary-scoring envelope. DRK-DIAG-5
+# fixed dual-firing on Raider / Ravager / Razorwing. DRK-DIAG-7 audited
+# Combat Drugs clean. The remaining lever per the DRK-DIAG-7 carry-
+# forward note in docs/AUTO_LOOP_LOG.md is "AI target-priority bias
+# toward fast skimmers" — this commit lands that lever.
+#
+# Gate (defender-keyword-gated, faction-gated, no attacker gate):
+#   - defender.profile.faction == "Drukhari"
+#   - defender has BOTH VEHICLE AND FLY keywords (catches the skimmer /
+#     flyer subset, excludes Talos / Cronos MONSTERs and the foot
+#     infantry)
+#   - defender has no invulnerable save (invuln_save >= 7) AND no Feel
+#     No Pain (fnp >= 7). This is what makes them FRAGILE — Knights /
+#     Custodes Caladius Grav-tanks are also FLY VEHICLE but carry 5++
+#     and FNP layers that change the calculus.
+#
+# Effect: 1.5x target-priority multiplier. Smaller than the
+# TRANSPORT_TARGET_BONUS (1.8x empty / 2.2x loaded) because Raiders /
+# Venoms which ARE transports get the higher bonus first via
+# _transport_target_bonus, and this bonus stacks on top for the loaded
+# Raider case (which is exactly the alpha-strike-disrupt case we want
+# to reinforce). For Ravagers / Voidravens (NON-transport flyers), this
+# is the only bonus, and 1.5x is enough to overtake the default
+# current_health-min pick against a tougher non-skimmer alternative
+# without overshooting into "always shoot the Ravager regardless".
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# and has no rule_citations entry. The "rule" is the universal
+# tournament play-pattern of bracketing the alpha-strike chassis on
+# round 1, not any codex text.
+_DRUKHARI_FRAGILE_FLYER_BONUS: float = 1.5
+
+
+def _drukhari_fragile_flyer_bonus(defender) -> float:
+    """Return a target-priority multiplier when `defender` is a fragile
+    Drukhari FLY VEHICLE (Ravager, Voidraven, Razorwing, etc.).
+
+    Defender-faction-gated AND keyword-gated AND defensive-stat-gated so
+    the bonus never lights up on a Custodes Caladius (FLY VEHICLE + 5++)
+    or an Aeldari Wave Serpent (FLY VEHICLE + 5++) — only on the
+    no-invuln / no-FNP Drukhari subset. Faction-neutral on the attacker
+    side: every opposing army benefits from clearing the alpha-strike
+    chassis before they bleed wounds across multiple rounds.
+
+    - 1.5x when defender meets ALL gates.
+    - 1.0x otherwise.
+
+    Stacks multiplicatively with the existing screen / synapse / oath /
+    transport chain; for loaded Raiders / Venoms the cumulative bonus
+    is 1.5 * 2.2 = 3.3x, which is the right priority order (the loaded
+    transport-flyer is the highest-value target on the board for a
+    non-Drukhari shooter).
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return 1.0
+    if (profile.faction or "") != "Drukhari":
+        return 1.0
+    keywords = getattr(profile, "unit_keywords", ()) or ()
+    if "VEHICLE" not in keywords or "FLY" not in keywords:
+        return 1.0
+    # Fragile gate: no invuln save (invuln_save >= 7 means "no invuln")
+    # AND no Feel No Pain (fnp >= 7 means "no FNP"). Excludes any
+    # Drukhari FLY VEHICLE that might carry defensive layers via
+    # override / leader buff / detachment — though no such unit
+    # currently exists in the catalogue, future-proofing the gate
+    # keeps the bonus tightly scoped to the alpha-strike chassis
+    # described in the rationale block.
+    invuln = getattr(profile, "invuln_save", 7) or 7
+    fnp = getattr(profile, "fnp", 7) or 7
+    if invuln <= 6 or fnp <= 6:
+        return 1.0
+    return _DRUKHARI_FRAGILE_FLYER_BONUS
+
+
+# ---------------------------------------------------------------------------
+# AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
+# ---------------------------------------------------------------------------
+# Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)
+# don't always charge the highest damage-per-attack target. Against Custodes,
+# Knights or Vehicles they often charge to TIE THE TARGET UP — denying the
+# enemy their Movement and Objective Control phases — even though Boyz
+# won't actually kill the Wardens / Knight / Repulsor in the combat. The
+# "expected value" of the charge is in the lock-down, not the wounds.
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# (`code/strategy.py`) and has no rule_citations entry. Cited motivation:
+# Goonhammer tournament reports on Orks meta playstyle (May 2026).
+#
+# Gate (mandatory): only fires when `attacker.profile.faction == "Orks"`.
+# Other factions' tarpit calculus is different and will be addressed in
+# separate AI commits (World Eaters trade differently; Tyranids run synapse
+# anchors; Daemons play deep-strike anvils).
+#
+# Trigger: an Orks unit looking at a candidate target whose expected wounds
+# inflicted this round is < 25% of the target's current_health (i.e. the
+# top-DPA pick is a "won't-crack" charge anyway) AND a tarpit-candidate
+# alternative is within charge range — bias the score of the tarpit
+# candidate up by a flat multiplier so it can overtake the nominal top
+# pick on the existing scoring function. The heuristic NEVER replaces the
+# existing kill_potential / threat_back math; it just biases it.
+_ORK_TARPIT_BONUS: float = 1.6
+_ORK_LOW_DAMAGE_FRAC: float = 0.25  # "won't actually kill" threshold
+
+# AI-2C — Chaos Daemons deep-strike tarpit-engage bias.
+_DAEMONS_TARPIT_BONUS: float = 1.4
+_DAEMONS_DEEPSTRIKE_NAMES = frozenset({
+    "Bloodletters", "Plaguebearers", "Daemonettes", "Pink Horrors",
+})
+
+# AI-3 — elite-army objective-priority play-style constants. Custodes /
+# Drukhari / Votann refuse damage trades that don't translate to position.
+# Each gate is faction-pure and stacks multiplicatively with the existing
+# target-score chain.
+_CUSTODES_HORDE_TARGET_PENALTY: float = 0.4
+_DRUKHARI_ENGAGE_BONUS: float = 0.5
+_DRUKHARI_DECISIVE_FRAC: float = 0.5
+_VOTANN_FALLBACK_FACTIONS: tuple = ("Leagues of Votann",)
+
+
+def _is_tarpit_candidate(defender) -> bool:
+    """True when `defender` is a mobile elite worth locking down.
+
+    Criteria (all must hold):
+      - profile.move >= 6                                    (mobile)
+      - profile.health >= 3                                  (multi-W per model)
+      - objective-relevant: oc >= 1 OR has CHARACTER /
+        MONSTER / VEHICLE in unit_keywords
+
+    Real 10e: a 3+W mobile unit is either a CHARACTER, an elite squad
+    (Wardens, Terminators) or a MONSTER/VEHICLE. Tying any of those up
+    costs the opponent their best mover.
+    """
+    profile = getattr(defender, "profile", None)
+    if profile is None:
+        return False
+    move = getattr(profile, "move", 0) or 0
+    if move < 6:
+        return False
+    health = getattr(profile, "health", 0) or 0
+    if health < 3:
+        return False
+    oc = getattr(profile, "oc", 0) or 0
+    kw = getattr(profile, "unit_keywords", ()) or ()
+    if oc >= 1:
+        return True
+    if "CHARACTER" in kw or "MONSTER" in kw or "VEHICLE" in kw:
+        return True
+    return False
+
+
+def _ork_tarpit_charge_bonus(attacker, defender) -> float:
+    """Return 1.6x when:
+      - attacker is an Orks unit, AND
+      - this Ork unit's expected wounds inflicted on `defender` this round
+        is < 25% of `defender.current_health` (i.e. the charge won't kill),
+        AND
+      - defender is a tarpit candidate (mobile + multi-W + objective-relevant).
+
+    Else 1.0. Stacks multiplicatively with `_gunline_charge_bonus`,
+    `_support_target_bonus`, `_screen_target_bonus`, `_synapse_target_bonus`.
+
+    The won't-kill gate is the key — we only override the highest-DPA
+    pick when the Ork unit ISN'T going to crack it anyway. If a Mega
+    Nob mob can actually delete the Repulsor, the existing scoring
+    keeps that pick; the bias only fires for the Boyz-into-Wardens
+    case the user wants to model.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction != "Orks":
+        return 1.0
+    if not _is_tarpit_candidate(defender):
+        return 1.0
+    expected_wounds = _kill_potential_wounds(a_profile, d_profile)
+    current_hp = max(1.0, getattr(defender, "current_health", 1.0))
+    if expected_wounds >= _ORK_LOW_DAMAGE_FRAC * current_hp:
+        return 1.0  # we can actually crack it — let normal scoring decide
+    return _ORK_TARPIT_BONUS
+
+
+# AI-2C — Chaos Daemons deep-strike tarpit bonus constants.
+_DAEMONS_TARPIT_BONUS: float = 1.4
+_DAEMONS_DEEPSTRIKE_NAMES = frozenset({
+    "Bloodletters", "Plaguebearers", "Daemonettes", "Pink Horrors",
+})
+
+
+# AI-2A — World Eaters glory-driven charge bias. WE's play-style is
+# fundamentally different from Orks: Berzerkers / Eightbound / Angron etc.
+# charge for KHORNE GLORY, not because they can't crack the target. Real meta
+# WE Berzerkers DON'T sit and shoot — they close into melee with anything
+# breathing. AI-2A bias fires on EVERY enemy in charge range for a WE
+# melee-class attacker, regardless of kill potential, because the in-game
+# decision is always "charge". Smaller multiplier than Orks (1.5 vs 1.6)
+# because WE want to KILL not just tarpit — the bias just outweighs gunline /
+# screen / etc. picks slightly without overriding "kill the buff character"
+# math entirely. AI heuristic; no rule citation (Khorne berzerker fluff is
+# play-style, not a printed rule).
+_WE_GLORY_BONUS: float = 1.5
+
+
+def _is_melee_class(attacker_profile) -> bool:
+    """True when `attacker_profile`'s primary weapon profile is melee.
+
+    Detection: melee-DPA (attacks * hit_p * dmg/shot) >= ranged-DPA on the
+    same stat-line. Berzerkers / Eightbound / Angron / Daemon Prince /
+    Lord Invocatus all have minimal ranged output and heavy melee, so they
+    pass; a hypothetical WE shooting unit (none exist in 10e but the gate
+    is robust to overrides) would fail.
+    """
+    if attacker_profile is None:
+        return False
+    melee_dpa = (attacker_profile.melee_attacks
+                 * attacker_profile.melee_hit_probability
+                 * (attacker_profile.melee_damage_per_shot or 1.0))
+    ranged_dpa = (attacker_profile.attacks
+                  * attacker_profile.hit_probability
+                  * (attacker_profile.weapon_damage_per_shot or 0.0))
+    return melee_dpa >= ranged_dpa
+
+
+def _we_glory_charge_bonus(attacker, defender) -> float:
+    """Return 1.5x when:
+      - attacker is a World Eaters unit, AND
+      - attacker is melee-class (primary profile is melee per
+        `_is_melee_class`).
+
+    Else 1.0. Unlike `_ork_tarpit_charge_bonus`, this fires on ANY
+    enemy — WE always charge, kill potential is irrelevant to the decision.
+    Stacks multiplicatively with all other bonuses.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None:
+        return 1.0
+    if a_profile.faction != "World Eaters":
+        return 1.0
+    if not _is_melee_class(a_profile):
+        return 1.0
+    return _WE_GLORY_BONUS
+
+
+# ---------------------------------------------------------------------------
+# AI-2B — Tyranids Synapse-anchored tarpit-engage charge heuristic (AI play-
+# style, NOT a rule). Companion to AI-1 (Orks tarpit) and AI-2A (WE glory).
+# ---------------------------------------------------------------------------
+# Real Tyranid play distinguishes "lesser bugs" (Hormagaunts, Termagants,
+# Genestealers, Tyranid Warriors) from "big bugs" (Hive Tyrant, Tervigon,
+# Norn Emissary). The lesser bugs are battleshock-fragile — they only press
+# the aggressive tarpit-engage charge when WITHIN Synapse range of a friendly
+# SYNAPSE-keyword model. This is a PLAY HEURISTIC, not a 10e rule (the
+# rule-side Synapse Imperative auto-pass already lives in `code/simulator.py`
+# `_resolve_battleshock`). No rule_citations entry.
+_TYRANID_SYNAPSE_TARPIT_BONUS: float = 1.5
+_SYNAPSE_RANGE_INCHES: float = 6.0
+
+
+def _is_in_synapse_range(attacker) -> bool:
+    """True when `attacker` is a Tyranid unit within 6" of a DIFFERENT friendly
+    SYNAPSE-keyword model in the same army.
+
+    Mirrors the Synapse Imperative check in `simulator._resolve_battleshock`
+    — same 6" radius, same "different uid" exclusion so a SYNAPSE unit isn't
+    counted as its own anchor. Returns False if the attacker has no
+    `army_ref` (synthetic test profile) or no friendly SYNAPSE models are
+    alive.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None or a_profile.faction != "Tyranids":
+        return False
+    army = getattr(attacker, "army_ref", None)
+    if army is None:
+        return False
+    a_uid = getattr(attacker, "uid", None)
+    for s in army.alive_units:
+        if s.uid == a_uid:
+            continue
+        s_kw = getattr(s.profile, "unit_keywords", ()) or ()
+        if "SYNAPSE" not in s_kw:
+            continue
+        if _dist(attacker.position, s.position) <= _SYNAPSE_RANGE_INCHES:
+            return True
+    return False
+
+
+def _tyranids_synapse_tarpit_bonus(attacker, defender) -> float:
+    """Return 1.5x when:
+      - attacker is a Tyranids unit, AND
+      - attacker is NOT itself a SYNAPSE source, AND
+      - attacker IS within 6" of a friendly SYNAPSE model, AND
+      - defender is a tarpit candidate (mobile + multi-W + objective-relevant).
+    Else 1.0.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None or a_profile.faction != "Tyranids":
+        return 1.0
+    a_kw = getattr(a_profile, "unit_keywords", ()) or ()
+    if "SYNAPSE" in a_kw:
+        return 1.0  # big bug — doesn't need the tarpit bias
+    if not _is_tarpit_candidate(defender):
+        return 1.0
+    if not _is_in_synapse_range(attacker):
+        return 1.0  # orphaned lesser bug — play cautiously, no override
+    return _TYRANID_SYNAPSE_TARPIT_BONUS
+
+
+def _daemons_deepstrike_tarpit_bonus(attacker, defender) -> float:
+    """Return 1.4x when:
+      - attacker is a Chaos Daemons unit, AND
+      - attacker is one of the canonical deep-strike-arrival Daemon squads
+        (Bloodletters / Plaguebearers / Daemonettes / Pink Horrors), AND
+      - defender is a tarpit candidate.
+
+    Else 1.0. No won't-crack gate (smaller 1.4x multiplier prevents
+    overriding kill picks). Faction+class gate proxies for deep-strike
+    state (canonical 10e tournament arrival roster).
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction != "Chaos Daemons":
+        return 1.0
+    if getattr(a_profile, "name", "") not in _DAEMONS_DEEPSTRIKE_NAMES:
+        return 1.0
+    if not _is_tarpit_candidate(defender):
+        return 1.0
+    return _DAEMONS_TARPIT_BONUS
+
+
+def _custodes_horde_penalty(attacker, defender) -> float:
+    """Return 0.4x when attacker is Custodes and defender's role is HORDE.
+
+    Real top Custodes lists hold the centre and never grind into Boyz /
+    Termagant / Cultist chaff. Knock the AI's chase-the-horde bias down so
+    Wardens/Custodian Guard prefer claiming objectives over chasing low-OC.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction != "Adeptus Custodes":
+        return 1.0
+    if classify(d_profile) != "HORDE":
+        return 1.0
+    return _CUSTODES_HORDE_TARGET_PENALTY
+
+
+def _drukhari_decisive_strike_penalty(attacker, defender) -> float:
+    """Return 0.5x when attacker is Drukhari/Ynnari AND expected wounds < 50%
+    of defender.current_health (engagement isn't decisive). Models
+    alpha-strike-then-fade play — Wyches/Incubi only engage when they can
+    delete the target.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    d_profile = getattr(defender, "profile", None)
+    if a_profile is None or d_profile is None:
+        return 1.0
+    if a_profile.faction not in ("Drukhari", "Ynnari"):
+        return 1.0
+    expected_wounds = _kill_potential_wounds(a_profile, d_profile)
+    current_hp = max(1.0, getattr(defender, "current_health", 1.0))
+    if expected_wounds >= _DRUKHARI_DECISIVE_FRAC * current_hp:
+        return 1.0
+    return _DRUKHARI_ENGAGE_BONUS
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -692,7 +1259,14 @@ def _melee_target_score(attacker, defender) -> float:
             * _gunline_charge_bonus(p, tp)
             * _support_target_bonus(defender)
             * _screen_target_bonus(defender)
-            * _synapse_target_bonus(attacker, defender))
+            * _synapse_target_bonus(attacker, defender)
+            * _ork_tarpit_charge_bonus(attacker, defender)
+            * _we_glory_charge_bonus(attacker, defender)
+            * _tyranids_synapse_tarpit_bonus(attacker, defender)
+            * _daemons_deepstrike_tarpit_bonus(attacker, defender)
+            # AI-3 — elite over-performer debuffs.
+            * _custodes_horde_penalty(attacker, defender)
+            * _drukhari_decisive_strike_penalty(attacker, defender))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -820,10 +1394,33 @@ def pick_charge_target(attacker, enemy):
         # S7 (#168) — synapse-source bonus: bias non-Tyranid attackers
         # into the Hive Tyrant / Tervigon to revoke Synapse Imperative.
         synapse_bonus = _synapse_target_bonus(attacker, e)
+        # AI-1 — Orks tarpit-engage bonus: when a low-damage Ork unit
+        # can't crack the top-DPA pick, bias the score of mobile elite
+        # alternatives so the AI charges to LOCK them out of Movement /
+        # Objective Control instead. Faction-gated to Orks only — other
+        # factions' tarpit play-style differs and is handled separately.
+        tarpit_bonus = _ork_tarpit_charge_bonus(attacker, e)
+        # AI-2A WE / AI-2B Tyranids / AI-2C Daemons tarpit bonuses.
+        we_glory_bonus = _we_glory_charge_bonus(attacker, e)
+        tyranids_tarpit_bonus = _tyranids_synapse_tarpit_bonus(attacker, e)
+        daemons_tarpit_bonus = _daemons_deepstrike_tarpit_bonus(attacker, e)
+        # AI-3 — Drukhari decisive-strike charge penalty. Symmetry fix
+        # (DRK-DIAG-6, 2026-05-23): the penalty already gates the MOVE
+        # planner (`_melee_target_score`) so Wyches/Incubi only CLOSE on
+        # targets they can delete, but the CHARGE planner was unbraked
+        # and re-engaged those same non-decisive targets once in range,
+        # producing the alpha-strike-anyway play-pattern the bias was
+        # meant to eliminate. Apply it here too so the brake is
+        # consistent across move + charge. Same 50% expected-wounds
+        # threshold, same 0.5x multiplier, same Drukhari/Ynnari gate.
+        drk_decisive_penalty = _drukhari_decisive_strike_penalty(attacker, e)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
-                 * screen_bonus * synapse_bonus)
+                 * screen_bonus * synapse_bonus * tarpit_bonus
+                 * we_glory_bonus * tyranids_tarpit_bonus
+                 * daemons_tarpit_bonus
+                 * drk_decisive_penalty)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
@@ -884,7 +1481,7 @@ def _pick_fall_back_destination(unit, enemies, map_) -> Optional[Tuple[float, fl
             if map_.is_blocked((cx, cy)):
                 return None
         # Must clear every enemy's engagement bubble by a small margin so
-        # the simulator's strict `< 1.5` check actually flips to False.
+        # the simulator's strict `< _ENGAGEMENT_RANGE` (1.0") check actually flips to False.
         for e in enemies:
             if _dist((cx, cy), e.position) <= _ENGAGEMENT_RANGE + 0.01:
                 return None
@@ -1082,6 +1679,111 @@ def _counter_priority_uid(plan: Optional[str], enemy) -> Optional[str]:
     return max(alive, key=_dpa).uid
 
 
+def _is_chaff_unit(unit) -> bool:
+    """AI-9 — return True when `unit` is cheap-chaff that should be willing
+    to sacrifice itself to score Engage on All Fronts / Behind Enemy Lines.
+
+    Detection: per-model points cost under `_CHAFF_MAX_POINTS_PER_MODEL`
+    AND CHARACTER keyword absent. The points threshold catches the
+    universal real-meta chaff set across factions — Gretchin (3.6),
+    Termagants (6), Cultists (5), Cadians / Neophytes (6.5), Battle
+    Sisters / Kroot / Strike Teams (7-10). It excludes Intercessors
+    (20+), Custodian Guard, Plague Marines, anything that isn't sold
+    cheap. The CHARACTER guard is belt-and-braces: a sub-15-pt character
+    is essentially impossible but we'd never want to sacrifice one.
+
+    AI heuristic only — no rule_citations entry required.
+    """
+    p = unit.profile
+    pts = float(getattr(p, "points_cost", 0.0) or 0.0)
+    if pts <= 0.0 or pts >= _CHAFF_MAX_POINTS_PER_MODEL:
+        return False
+    keywords = p.unit_keywords or ()
+    if "CHARACTER" in keywords:
+        return False
+    return True
+
+
+def _friendly_already_in_enemy_dz(
+    friendly_alive, map_, own_is_army_a: bool,
+) -> bool:
+    """AI-9 — return True if any friendly unit is already standing in the
+    opponent's deployment zone. Behind Enemy Lines awards a flat 4 VP for
+    one or more units in the enemy DZ — once that's satisfied, additional
+    chaff sacrifices don't add BEL VP, so don't waste another chaff on the
+    same secondary."""
+    if not friendly_alive:
+        return False
+    if own_is_army_a:
+        # Army A's enemy DZ is high-y.
+        enemy_dz_lo = map_.height - map_.deployment_width
+        for u in friendly_alive:
+            if u.position[1] >= enemy_dz_lo:
+                return True
+    else:
+        # Army B's enemy DZ is low-y.
+        enemy_dz_hi = map_.deployment_width
+        for u in friendly_alive:
+            if u.position[1] <= enemy_dz_hi:
+                return True
+    return False
+
+
+def _sacrificial_chaff_target(
+    unit, friendly, friendly_alive, map_, unit_on_obj_ids,
+) -> Optional[Tuple[float, float]]:
+    """AI-9 — return a deep-into-enemy-territory target position when `unit`
+    is chaff and should sacrifice itself to score Engage on All Fronts /
+    Behind Enemy Lines, or None if the heuristic shouldn't fire this
+    activation.
+
+    Gates (all must pass):
+      (a) unit is chaff (per `_is_chaff_unit`).
+      (b) unit is NOT currently holding a contested objective (no
+          `unit_on_obj_ids` membership). Hold-flip protection ran earlier
+          in `pick_move_intent`; if we're past that branch, the unit is
+          either on no objective or on one whose loss isn't at stake.
+          We additionally bail when the unit IS on any objective so the
+          chaff doesn't abandon a marker it could've kept claiming.
+      (c) the enemy DZ side is known (battle back-reference present).
+      (d) no friendly is already in the enemy DZ — once BEL is locked,
+          additional chaff doesn't add VP (Engage may still benefit but
+          the marginal VP is lower; conservative gate avoids over-tagging).
+
+    Target: a point inside the enemy DZ, biased toward the half-x line
+    that the unit is currently nearest (so chaff on the LEFT half of the
+    table heads to the LEFT half of the enemy DZ, etc.). Pushing chaff
+    diagonally across the table just stretches the move into uselessness.
+    """
+    if not _is_chaff_unit(unit):
+        return None
+    # Don't abandon any objective — even uncontested objectives have OC
+    # value to friendly army positioning.
+    if unit_on_obj_ids:
+        return None
+    battle = getattr(friendly, "_battle_ref", None)
+    if battle is None:
+        return None
+    own_is_army_a = friendly is battle.a
+    if _friendly_already_in_enemy_dz(friendly_alive, map_, own_is_army_a):
+        return None
+    # Aim for the middle of the enemy DZ on the unit's current x-side,
+    # so the move stays on the unit's flank.
+    half_x = map_.width / 2.0
+    ux, _ = unit.position
+    if ux < half_x:
+        target_x = map_.width * 0.25
+    else:
+        target_x = map_.width * 0.75
+    if own_is_army_a:
+        # Army A's enemy DZ is the high-y strip. Aim for its midpoint.
+        target_y = map_.height - (map_.deployment_width * 0.5)
+    else:
+        # Army B's enemy DZ is the low-y strip. Aim for its midpoint.
+        target_y = map_.deployment_width * 0.5
+    return (target_x, target_y)
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -1126,7 +1828,17 @@ def pick_move_intent(
     # destination outside engagement of every enemy (otherwise the move would
     # just re-pin us). Cited as `simulator.fall_back` /
     # `simulator.desperate_escape`.
-    if role in ("SHOOTY", "HEAVY"):
+    # AI-3 — Votann fall-back extension: real Hearthkyn / Hernkyn gunlines
+    # fall back from melee aggressively to keep bolters firing. Hearthkyn
+    # classify as DUAL because they pack a few melee attacks, but the
+    # damage trade is heavily ranged-biased, so the right move when pinned
+    # is to break engagement. Extend the standard SHOOTY/HEAVY fall-back
+    # eligibility to DUAL specifically for Votann attackers. Stage-1 AI
+    # only — no rule citation, this is heuristic play-style modelling.
+    _fall_back_eligible_roles = ("SHOOTY", "HEAVY")
+    if unit.profile.faction in _VOTANN_FALLBACK_FACTIONS:
+        _fall_back_eligible_roles = ("SHOOTY", "HEAVY", "DUAL")
+    if role in _fall_back_eligible_roles:
         enemies = enemy.alive_units
         in_engagement = any(
             _dist(unit.position, e.position) < _ENGAGEMENT_RANGE
@@ -1170,6 +1882,18 @@ def pick_move_intent(
         if own_oc > 0 and our_oc_no_self <= their_oc < our_oc_no_self + own_oc:
             hold_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)
             return hold_pos, _HOLD_INTENT
+
+    # AI-9 — sacrificial chaff toward enemy backline for Engage / BEL VP.
+    # Cheap chaff (per-model points cost under `_CHAFF_MAX_POINTS_PER_MODEL`)
+    # that isn't holding an objective should push deep into the enemy
+    # deployment zone to score the position-tracking secondaries, rather
+    # than camping mid-board. Gated so a non-chaff unit (Intercessors,
+    # Custodian Guard, Plague Marines) never sacrifices.
+    chaff_target = _sacrificial_chaff_target(
+        unit, friendly, friendly_alive, map_, unit_on_obj_ids,
+    )
+    if chaff_target is not None:
+        return chaff_target, _SACRIFICIAL_INTENT
 
     # COUNTER plan: precompute the highest-DPA enemy uid once, then weight
     # its score 1.5x in MELEE/DUAL pick.
@@ -1374,7 +2098,7 @@ def _wounded_seek_obscuring(unit, role: str, fallback_pos: Tuple[float, float], 
     if role not in ("HORDE", "SUPPORT", "MELEE"):
         return None
     # MELEE units already in engagement (1" of fallback target) keep pushing.
-    if role == "MELEE" and _dist(unit.position, fallback_pos) <= 1.5:
+    if role == "MELEE" and _dist(unit.position, fallback_pos) <= _ENGAGEMENT_RANGE:
         return None
     nearest = _nearest_obscuring_centre(map_, unit.position)
     return nearest
@@ -2053,12 +2777,20 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     if name == "Doombolt":
         # ctx expects {"target": Unit, "has_psyker": bool}. Doombolt is the
         # cheapest CP spend in the codex — 1 CP for ~2 mortal wounds (median
-        # D3). Always fire when a target exists and we have a psyker.
-        # Only gate on CP affordability (already checked above).
+        # D3). ST-3: tightened to skip near-dead targets where the 2 MW
+        # payload is wasted on overkill (TSON over-performs by +17.5).
         target = ctx.get("target")
         if target is None:
             return False
         if not ctx.get("has_psyker", False):
+            return False
+        # ST-3: skip if target has < 30% HP remaining (overkill — 2 MW will
+        # land but most of it is wasted on a model that's about to die).
+        try:
+            hp_remaining_frac = target.current_health / max(1.0, target.profile.health)
+        except Exception:
+            hp_remaining_frac = 1.0
+        if hp_remaining_frac < 0.3:
             return False
         return True
 
@@ -2074,9 +2806,14 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             return False
         if not _is_heavy_target(target):
             return False
-        # Cheap enough at 1 CP — fire whenever we have a real attacker and
-        # a worthwhile target.
-        return True
+        # ST-3: require real DPA on the attacker — a +1-to-wound on a
+        # 0.5 DPA attacker is wasted CP (TSON over-performs by +17.5).
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5
 
     if name == "Glamour of Tzeentch":
         # ctx expects {"target": Unit}. 2 CP for a transient 4++ on a unit
@@ -2502,10 +3239,19 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # MW is wasted on chip damage). Doombolt itself fires whenever a
         # psyker + target exist, so this is "pay 2 CP combined this round
         # for 3 MW" — only worth it on a meaningful target.
+        # ST-3: skip if target has < 40% HP remaining — the extra MW is
+        # overkill on a near-dead model. Mirrors Doombolt's gate but
+        # tighter (this is the 2 CP combined spend). TSON over-performs.
         target = ctx.get("target")
         if target is None or not ctx.get("has_psyker", False):
             return False
-        return _is_heavy_target(target)
+        if not _is_heavy_target(target):
+            return False
+        try:
+            hp_remaining_frac = target.current_health / max(1.0, target.profile.health)
+        except Exception:
+            hp_remaining_frac = 1.0
+        return hp_remaining_frac >= 0.4
 
     # ----- Mont'ka (T'au Empire) — Strike Swiftly -----------------------
 
@@ -2629,6 +3375,10 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # ctx: {"attacker": Unit}. Transient [ASSAULT] on a RUBRICAE
         # shooter. Fire when the attacker has real ranged DPA (>= 1.0)
         # AND a meaningful cost (>= 80 — Rubric Marines squad floor).
+        # ST-3: tightened DPA bar to 1.5 — RUBRICAE squads with cheap
+        # bolters don't earn the CP back from an [ASSAULT] proxy. TSON
+        # over-performs by +17.5; tighter gates preserve CP for the
+        # high-impact Doombolt / Devastating Sorcery spends.
         attacker = ctx.get("attacker")
         if attacker is None:
             return False
@@ -2638,7 +3388,7 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             atk_cost = float(p.points_cost)
         except Exception:
             return False
-        return ranged_dpa >= 1.0 and atk_cost >= 80.0
+        return ranged_dpa >= 1.5 and atk_cost >= 80.0
 
     if name == "Infernal Fusillade":
         # ctx: {"attacker": Unit, "target": Unit}. 2 CP for a +1 to wound
@@ -2819,17 +3569,23 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     if name == "Multipotentiality":
         # ctx: {"attacker": Unit}. Assault-this-round approximation. Fire
         # for a high-cost Custodes attacker — Custodes profiles are elite
-        # so even a small brick is worth the [ASSAULT] proxy. Gate at 80
-        # pts (covers Wardens / Custodian Guard / Sagittarum) but not the
-        # 35-pt Vexilus Praetor character alone.
+        # so even a small brick is worth the [ASSAULT] proxy.
+        # ST-3: tightened to require real ranged DPA (>= 1.0) — the
+        # [ASSAULT] proxy only helps shooters that can capitalise on the
+        # advance-and-shoot. Pure melee bricks already advance for free,
+        # so CP is wasted on them. Custodes over-performs by +29.9 — the
+        # tighter gate matches Strike Swiftly's shape but with a lower
+        # cost bar (Custodes profiles are dense per-point).
         attacker = ctx.get("attacker")
         if attacker is None:
             return False
         try:
             cost = float(attacker.profile.points_cost)
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
         except Exception:
             return False
-        return cost >= 80.0
+        return cost >= 80.0 and ranged_dpa >= 1.0
 
     if name == "Archaeotech Munitions":
         # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
@@ -2854,6 +3610,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # the codex gate "below Starting Strength" maps to "HP loss > 0".
         # Cost gate prevents firing on cheap units; Custodes elite unit
         # profile costs vary but 80+ pts covers everything that matters.
+        # ST-3: tightened hp_frac to > 0.2 so we don't burn 1 CP for a
+        # single-wound chip (the codex effect is mainly meaningful when
+        # a model has actually died). Custodes over-performs by +29.9.
         target = ctx.get("target")
         if target is None:
             return False
@@ -2862,7 +3621,7 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             cost = float(target.profile.points_cost)
         except Exception:
             return False
-        return hp_frac > 0.0 and cost >= 80.0
+        return hp_frac > 0.2 and cost >= 80.0
 
     # Vigilance Eternal — no-op dispatcher (sticky-objective is per-
     # detachment-flag-gated, not per-stratagem-fire). No AI gate needed.
@@ -2944,14 +3703,20 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
         # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit on
         # an IRONKIN unit (Hearthkyn etc.). Fire when the unit has real
         # ranged DPA — cheap at 1 CP, no need for heavy-target gate.
+        # ST-3: don't fire when the attacker is already on 2+ to hit
+        # (hit_probability >= 5/6 = 0.83) — the +1 can't lift the roll
+        # any further so it's wasted CP. Votann over-performs by +23.5.
         attacker = ctx.get("attacker")
         if attacker is None:
             return False
         try:
             p = attacker.profile
             ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
+            hit_prob = p.hit_probability or 0.0
         except Exception:
-            ranged_dpa = 0.0
+            return False
+        if hit_prob >= 0.83:
+            return False
         return ranged_dpa >= 1.0
 
     if name == "Ancestral Sentence":
@@ -3179,6 +3944,81 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
 
     # Reinforcements! — no AI gate; dispatcher has no implementation
     # hook so should_fire return value never matters. Cataloguer-only.
+
+    # ----- ST-2 wave 3 — one stratagem per under-performing faction -----
+
+    if name == "Apoplectic Frenzy":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP melee offensive
+        # uplift for a WORLD EATERS unit. Fire when a high-DPA WE melee
+        # unit has a HEAVY-class target — same gate as other melee-uplift
+        # stratagems (Big Krumpin' / Profane Zeal pattern).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Denizens of the Warp":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP shooting hit-reroll
+        # uplift for a CHAOS DAEMONS unit. Same shape as Fire and Fade.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Empyric Channelling":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP shooting hit-reroll
+        # uplift on a GREY KNIGHTS PSYKER unit (proxy for SUSTAINED HITS 2
+        # on Psychic weapons). Same shape as Fire and Fade.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Cult Ambush":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP shooting hit-reroll
+        # uplift on a GSC unit (proxy for LETHAL HITS on ranged).
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            ranged_dpa = (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
+        except Exception:
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.5 and _is_heavy_target(target)
+
+    if name == "Profane Zeal":
+        # ctx: {"attacker": Unit, "target": Unit}. 1 CP melee +1-to-wound
+        # uplift on a CSM unit. Same shape as Apoplectic Frenzy.
+        attacker = ctx.get("attacker")
+        target = ctx.get("target")
+        if attacker is None or target is None:
+            return False
+        try:
+            p = attacker.profile
+            melee_dpa = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
+        except Exception:
+            melee_dpa = 0.0
+        return melee_dpa >= 1.5 and _is_heavy_target(target)
 
     # Unknown stratagem — let the simulator decide via its own dispatch.
     return False

@@ -1247,6 +1247,130 @@ COMBINED_ARMS_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
+# ST-2 (sim-calibration-6 wave 3) — one strong stratagem per under-performing
+# faction (World Eaters, Chaos Daemons, Grey Knights, Genestealer Cults, Chaos
+# Space Marines). Each is faction-gated and routes the offensive value through
+# an existing transient_* flag. Full Wahapedia citations live in
+# data/rule_citations.d/stratagems.json per CLAUDE.md §10.
+# ---------------------------------------------------------------------------
+
+# Berzerker Warband (World Eaters) — Apoplectic Frenzy (Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband
+# Real text: each model in a WORLD EATERS unit fights with [LETHAL HITS] until
+# end of Fight phase. Approximation: routed through transient_plus_one_to_wound_melee
+# (LETHAL HITS auto-wounds on a crit-to-hit; +1 to wound is a direction-correct
+# offensive uplift via existing flag). 1 CP.
+APOPLECTIC_FRENZY = Stratagem(
+    name="Apoplectic Frenzy",
+    cp_cost=1,
+    phase="fight",
+    trigger="own_fight_phase_world_eaters_unit",
+    effect="lethal_hits_melee_approximation",
+)
+
+BERZERKER_WARBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
+    APOPLECTIC_FRENZY,
+)
+
+
+# Daemonic Incursion (Chaos Daemons) — Denizens of the Warp (Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion
+# Real text: re-roll Hit and Wound rolls of 1 for a Daemons unit's attacks
+# vs an enemy unit within range of an Objective Marker. Approximation: routed
+# through transient_reroll_hits_shooting (the hit-1 reroll half; the wound-1
+# half and the objective-range gate are dropped — direction-correct uplift). 1 CP.
+DENIZENS_OF_THE_WARP = Stratagem(
+    name="Denizens of the Warp",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_phase_daemons_unit_targets_near_objective",
+    effect="reroll_hits_ones_approximation",
+)
+
+DAEMONIC_INCURSION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    DENIZENS_OF_THE_WARP,
+)
+
+
+# Teleport Strike Force (Grey Knights) — Empyric Channelling (Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Teleport-Strike-Force
+# Real text: a GREY KNIGHTS PSYKER unit's Psychic weapons gain [SUSTAINED HITS 2]
+# until the end of the phase. Approximation: routed through
+# transient_reroll_hits_shooting (Sustained Hits 2 is lossy on the substitute,
+# but a hit reroll is a direction-correct offensive multiplier for a GK Psyker's
+# shooting). 1 CP.
+EMPYRIC_CHANNELLING = Stratagem(
+    name="Empyric Channelling",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_phase_grey_knights_psyker_unit",
+    effect="sustained_hits_2_psychic_approximation",
+)
+
+TELEPORT_STRIKE_FORCE_STRATAGEMS: Tuple[Stratagem, ...] = (
+    EMPYRIC_CHANNELLING,
+)
+
+
+# Final Day (Genestealer Cults) — Cult Ambush (Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/#Final-Day
+# Real text: a GENESTEALER CULTS unit gains [LETHAL HITS] on a ranged attack
+# (or +1 to Wound on a melee attack — gate based on phase used). Approximation:
+# routed through transient_reroll_hits_shooting (LETHAL HITS auto-wounds on
+# crit-to-hit; a hit reroll is a direction-correct offensive multiplier for a
+# GSC shooting unit). 1 CP.
+CULT_AMBUSH = Stratagem(
+    name="Cult Ambush",
+    cp_cost=1,
+    phase="shooting",
+    trigger="own_shooting_phase_genestealer_cults_unit",
+    effect="lethal_hits_ranged_approximation",
+)
+
+FINAL_DAY_STRATAGEMS: Tuple[Stratagem, ...] = (
+    CULT_AMBUSH,
+)
+
+
+# Pactbound Zealots (Chaos Space Marines) — Profane Zeal (Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Pactbound-Zealots
+# Real text: re-roll Hit AND Wound rolls of 1 for a HERETIC ASTARTES unit's
+# melee attacks until end of phase. Approximation: routed through
+# transient_plus_one_to_wound_melee (+1 to wound is a direction-correct
+# offensive uplift; the hit-reroll half is dropped). 1 CP.
+PROFANE_ZEAL = Stratagem(
+    name="Profane Zeal",
+    cp_cost=1,
+    phase="fight",
+    trigger="own_fight_phase_csm_heretic_astartes_unit",
+    effect="reroll_hits_and_wounds_ones_melee_approximation",
+)
+
+# Eye of the Gods (Pactbound Zealots, 1 CP — Wahapedia)
+# https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Eye-of-the-Gods
+# Real text: end of Fight phase, when a CHARACTER from your army with this
+# ability has destroyed an enemy unit with a melee attack — roll D6+Wounds
+# on the Eye of the Gods table (2-5: +1 M; 6-8: +1 T; 9-12: +1 A OR +1 S;
+# 13+: +1 D melee OR pick another result). The stamped result persists for
+# the rest of the battle. APPROXIMATION: collapse the roll-and-pick table
+# to a single +1-to-wound-melee snowball on the CHARACTER, stamped
+# permanently on first qualifying melee kill. Direction-correct offensive
+# uplift that grows CSM CHARACTER lethality across rounds. 1 CP.
+EYE_OF_THE_GODS = Stratagem(
+    name="Eye of the Gods",
+    cp_cost=1,
+    phase="fight",
+    trigger="end_of_fight_phase_csm_character_destroyed_enemy_unit_melee",
+    effect="persistent_plus_one_to_wound_melee_on_character_approximation",
+)
+
+PACTBOUND_ZEALOTS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    PROFANE_ZEAL,
+    EYE_OF_THE_GODS,
+)
+
+
+# ---------------------------------------------------------------------------
 # CP economy
 # ---------------------------------------------------------------------------
 
@@ -1377,6 +1501,18 @@ __all__ = [
     "INSPIRED_COMMAND",
     "STALWART_PROTECTOR",
     "COMBINED_ARMS_STRATAGEMS",
+    # ST-2 wave 3 — one stratagem per under-performing faction
+    "APOPLECTIC_FRENZY",
+    "BERZERKER_WARBAND_STRATAGEMS",
+    "DENIZENS_OF_THE_WARP",
+    "DAEMONIC_INCURSION_STRATAGEMS",
+    "EMPYRIC_CHANNELLING",
+    "TELEPORT_STRIKE_FORCE_STRATAGEMS",
+    "CULT_AMBUSH",
+    "FINAL_DAY_STRATAGEMS",
+    "PROFANE_ZEAL",
+    "EYE_OF_THE_GODS",
+    "PACTBOUND_ZEALOTS_STRATAGEMS",
     # CP economy
     "STARTING_CP",
     "CP_PER_COMMAND_PHASE",

@@ -2,7 +2,172 @@
 
 Older iter blocks live in `AUTO_LOOP_LOG_archive.md`.
 
-## Branch claude/sim-calibration-5 (2026-05-21) — SC5 outlier-grind loop
+## Branch claude/sim-calibration-6 (2026-05-23) — noise-gated calibration + PR #31
+
+### Headline reframing
+
+The calibration target moved from a hand-curated `TOURNAMENT_TARGET` dictionary (10 real Warp Friends numbers + 12 meta-midpoint approximations) to a JSON load from `data/warpfriends_rolling.json` — a game-weighted 4-week rolling aggregate scraped by `scripts/scrape_warpfriends.py` from the public `warpfriends.wordpress.com` archive. Total games across the 4 weeks: 31,841. Faction-name normalisation map: 6 Space Marine chapters game-weight-aggregated into Adeptus Astartes; "Tau" / "Sisters of Battle" / "Genestealer Cult" normalised to the simulator's internal names; "Imperial Agents" dropped.
+
+The headline calibration metric is now noise-gated MAE: `mean(max(0, |sim - target| - noise_floor))`. Per-faction `noise_floor = max(week_to_week_stdev, binomial_95_CI_halfwidth)`. A faction inside its noise band contributes zero. Raw MAE retained as legacy headline. New `Factions inside noise band: N/22` count is the structural progress signal — the target endpoint of Stage 1 is now "all 22 inside" rather than a numeric MAE threshold.
+
+Mean per-faction noise floor across the 22 factions is 3.67pt. The old "MAE ≤ 2.0" Goal A target sat below it (chasing variance) and is superseded — `ROADMAP.md` updated.
+
+Top 4 signal-bearing target shifts:
+| Faction | Old target | Rolling | Noise | Gap |
+|---|---:|---:|---:|---:|
+| Chaos Space Marines | 46.0 | 55.63 | 2.48 | +9.63 |
+| Chaos Daemons | 47.0 | 52.60 | 3.16 | +5.60 |
+| World Eaters | 50.0 | 44.93 | 3.42 | -5.07 |
+| Aeldari | 44.4 | 41.55 | 3.10 | -2.85 |
+
+18 of 22 factions were already inside their noise band under the old approximations — hand-curated targets were closer than expected on average.
+
+### Stage 1 commits before the reframing (40 landings on sim-cal-6)
+
+AI piloting (9 waves): AI-1 Orks tarpit / AI-2A WE / AI-2B Tyranids / AI-2C Daemons / AI-3 Custodes-Drukhari-Votann objective priority / AI-4 Astartes Oath / AI-5 Aeldari Strands / AI-7 Necron Reanimation-aware (not landed — Detachment-level per-army flag couldn't model per-unit eligibility, parked pending MAP-4 infrastructure) / AI-8 transport priority / AI-9 sacrificial chaff deployment for Engage/BEL VP.
+
+Anti-keyword sweep (2): AK-1 [DEVASTATING WOUNDS] on 14 weapon profiles; AK-2 [LANCE] + [ANTI-MONSTER] + [ANTI-VEHICLE] on 12 profiles.
+
+Stratagem (3): ST-1 replaced 8 `transient_plus_one_*` proxies with real LETHAL HITS / REROLL WOUNDS; ST-2 added 5 stratagems for under-performers; ST-3 tightened over-eager AI gates on 7 stratagems.
+
+Mapper structural (6): MAP-1 multi-profile mapper generalised; MAP-2/3 prose-walk gate fix + basket-threshold keyword union with Bernoulli gating; MAP-3-FIX basket-fraction gating for partial-coverage; MAP-4 per-unit Reanimation eligibility; MAP-MULTIFIRE + VALIDATE multi-profile fire-all with mode-suffix clustering + pistol exclusivity. BS-1 per-unit battleshock state infra.
+
+Faction rules (4): MR-WE-2 Beacons of Rage / Rend and Tear; MR-WE-3 Berzerker Blood Surge; MR-CHAOS-DAEMONS-LOCUS 4 Herald leaders; MR-CK-HARBINGERS Chaos Knights Harbingers of Dread (3-Dread rotation, battleshock-keyed).
+
+Universal 10e core rules audit (6 passes): CORE-RULE-AUDIT 1..6 + CORE-RULE-FIX-1 chargers-fight-first / -2 Indirect Fire no-crit-no-Heavy / -5 unmodified-roll crit gate / -6a engagement range 1.5" → 1.0". FF-KEYWORD-1 per-unit Fights First datasheet keyword pipeline.
+
+Data corrections (5): STAT-AUDIT 7 unit-stat mapper artifacts; SK-1 8 Phobos/Pteraxii/Pathfinder Stealth surfaces; KNIGHT-STAT-AUDIT 2 Knight weapon artifacts; TYRANIDS-FIX Trygon CHARACTER strip + archetype rebalance; DET-VARIETY-1 3 alternative detachments.
+
+### Merge from origin/main + WF wire-up
+
+2026-05-23: merged Ed's 15+ commits from origin/main into sim-cal-6 (BSData Move-stat fix, equation-fit pipeline, Streamlit app changes). Three conflict resolutions: AI-9 block in code/strategy.py (additive — keep both); Stompa override in data/overrides.json (additive — keep both); evaluate_vs_meta.py rewrite to integrate noise-gated MAE on top of Ed's `price_overrides` + `save_snapshot` plumbing.
+
+WF-SCRAPE-1 (commit 4834002) + WF-WIRE-1 (commit 41c942d) landed on top. The snapshot JSON now also writes per-faction noise_floor + gated_error so the Calibration tab can surface inside-band vs outside-band status without re-running the matrix. PR #31 opened.
+
+### N=40 baseline against new Warp Friends rolling target
+
+`docs/wf_baseline_n40.log` — MAE raw 14.57, MAE gated 11.35, 4/22 inside band (DG, WE, EC, GK). 3 factions structurally parked (Chaos Knights 35.83, Imperial Knights 26.65, Custodes 14.01 — together 76.5pt of the headline, blocked on multi-profile mapper / board-control rebalance). Tractable outliers ordered: Drukhari 31.78, Tyranids 23.74, Daemons 21.58, AdMech 13.93, Sororitas 14.15.
+
+### Wave 1 (2026-05-23) — 3 parallel diag agents
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Drukhari | `54f6663` DRK-DIAG-2 | -1.91 | 3 phantom-ranged baskets zeroed (Lelith / Incubi / Succubus, same Drazhar pattern) |
+| Tyranids | `4552f34` TYRANIDS-DIAG-2 | 0 | 2 Norn FNP false-positives cleared (Norns not in archetype, rule-correctness hygiene); flagged Tyranid Warriors + Hive Tyrant basket inflation as structural carry-forward |
+| Daemons | `083c30c` DAEMONS-DIAG-2 | **-4.40** | **46 Daemonic 4+/5+ invuln saves restored** (same BSData omission pattern as DDA / Wraithguard / Chaos Knights — entire Chaos Daemons codex missing army-wide invuln) |
+
+Cumulative MAE gated 11.35 → 10.99 (-0.36pt). Inside band 4/22 → 3/22 (DG slipped out by 0.27 — well within noise).
+
+### Wave 2 (2026-05-23) — 3 parallel diag agents on next-tier outliers
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Sororitas | `095007b` SORORITAS-DIAG | -0.95 | Canoness "Beacon of Faith" leader fab dropped — citation self-admitted "invented label for reroll-1s proxy" |
+| AdMech | `e4f9a55` ADMECH-DIAG | +1.07 | 4 Crusade-Points-only Archeotech weapons stripped from Archaeopters (BSData mapped narrative campaign upgrades as standard wargear). Direction-wrong at N=40 — likely matchup-redistribution within noise. Carry-forward: structural mapper Crusade-Points filter needed |
+| Drukhari | `7a8a780` DRK-DIAG-3 | ~0 (host-key bound) | Archon "Hatred Eternal" + Succubus "Precision Blows" leader fabs dropped — both self-confessed proxies in citation text |
+
+Cumulative MAE gated 10.99 → 10.98 (-0.01pt). Inside band stayed at 3/22. Wave finding: small per-unit fab drops in already-audited factions are hitting diminishing returns; the big movers are systematic restores (Daemonic invuln 46-unit fix in W1) and stat artifacts (DRK-DIAG-2 phantom ranged in W1).
+
+### Wave 3 (2026-05-23) — carry-forward-driven dispatches
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Sororitas | `ff034bb` SORORITAS-MORTIFIER-FNP | +0.72 (noise) | 2 SC5-10 prose-walk leaks fixed (Hospitaller — FNP grants to led unit not self; Saint Celestine — Lifewards conditional on Geminae alive). Mortifier/Penitent/Repentia FNP 5+ was actually unconditional, no leak there |
+| Tyranids | `ec0197e` TYRANIDS-MULTI-LOADOUT | **-3.33** | 3 multi-loadout fixes (Tyranid Warriors attack-volume-weighted blend, Hive Tyrant + Winged Hive Tyrant exclusive-alternative cleared). Hive Tyrant did the visible work — Warriors + Winged inert until archetype-surfaced |
+| Drukhari | `bad0df2` DRK-DIAG-4 | +0.48 (noise) | Combat Drugs stacking bug fixed (was applying all 4 mutually-exclusive drugs simultaneously, collapsed to one army-wide pick per real rule). Direction-wrong at N=5 + N=40 but rule-correct; tournament data agrees Wych Cult shouldn't be as deadly as stacked-drug sim was modeling |
+
+Cumulative MAE gated 10.98 → 10.93 (-0.05pt). Inside band 3/22 → **4/22** (Death Guard rejoins).
+
+### Wave 4 (2026-05-23) — structural mapper + Greater Daemon auras + Drukhari vehicles
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Drukhari | `b29a4c9` DRK-DIAG-5 | **-4.17** | Raider / Ravager / Razorwing exclusive-loadout dual-firing fixed (Disintegrator + Dark Lance both firing per shot, should be one-or-other). Same TYRANIDS-MULTI-LOADOUT pattern, bigger impact because Skysplinter Assault is vehicle-heavy |
+| Daemons | `f4c8109` DAEMONS-DIAG-3 | -0.12 | All 4 Greater Daemons + Skarbrand were missing from leader registry (silent zero-buff bug). Wired Bloodthirster + Skarbrand Khorne auras; LoC/GUO/KoS deferred because LeaderAbility schema lacks `plus_one_strength_ranged` / `plus_one_toughness` / `plus_one_ap_melee` fields (refused to fabricate per CLAUDE.md section 10). Limited impact because Daemonic Incursion is multi-god |
+| AdMech | `1927b99` MAPPER-CRUSADE-FILTER | **-2.50** | Structural mapper fix: `_is_crusade_only_entry` helper in `code/bsdata/mapper.py` excludes weapons with `Crusade Points`-only cost AND any entry inside a `"Crusade"` container. 20 AdMech units cleaned (multiple Tech-priest variants, Sicarian Ruststalkers, Sydonian Skatros). Defensive container-name gate confirmed no other factions affected |
+| Infra | `0769e81` STATCHECK-1 | — | Playwright scraper for Stat Check Tableau viz. Cannot run in agent harness (no pip access); user must `pip install playwright && playwright install chromium && python -m scripts.scrape_statcheck` locally to populate `data/statcheck_meta.json`. Stub written with expected JSON shape |
+
+Cumulative MAE gated 10.93 → **10.73** (-0.20pt). Inside band stayed at 4/22 (DG/WE/EC/GK).
+
+### Iteration close summary (2026-05-23)
+
+**4 waves of 3 parallel agents = 12 dispatches, 11 commits landed + 1 infra commit.** Cumulative MAE gated **11.35 → 10.73 (-0.62pt headline, -5.5% relative)**, 4/22 inside noise band.
+
+Biggest wins:
+- DAEMONS-DIAG-2 (-4.40, 46-unit Daemonic invuln restore)
+- DRK-DIAG-5 (-4.17, vehicle dual-firing fix)
+- TYRANIDS-MULTI-LOADOUT (-3.33, Hive Tyrant exclusive-alternative)
+- MAPPER-CRUSADE-FILTER (-2.50, structural Crusade filter on 20 AdMech units)
+- DRK-DIAG-2 (-1.91, phantom-ranged baskets on Lelith / Incubi / Succubus)
+
+Pattern: every meaningful headline movement came from data corrections (BSData omissions, basket-composition inflation, multi-loadout dual-firing), not from rule/AI tuning. Small per-unit fab drops in already-audited factions are clean correctness hygiene but MAE-neutral.
+
+### Wave 5 (2026-05-23) — Stat Check cross-source noise floor + cleanup wave
+
+Cross-source data wire-up (separate from the loop's rule-correctness work):
+- **STATCHECK-WIRE** (`aa10639`): Stat Check's Tableau dashboard scrape now produces `data/statcheck_meta.json` (22 factions, 15,052 games from Best Coast Pairings + TourneyKeeper + Mini Headquarters). `scripts/scrape_statcheck.py` was rewritten from a heuristic walker to a precise length-prefix-framing parser that pulls win rates from the Tableau dataDictionary block. `evaluate_vs_meta.py` now computes `NOISE_FLOOR = max(within-source Warp Friends noise, |WF.wr - SC.wr|/2)`. Only Death Guard's noise floor moved (2.58 to 2.80) under this rule — every other faction's within-source noise was already wider than the cross-source disagreement, confirming that the WF rolling aggregate was already capturing the variance signal. Mean noise floor 3.67 to 3.68 pt — principled infra rather than a numeric MAE shift. Cross-source disagreements flag meta-volatile factions: Thousand Sons (gap 7.91 pt), Death Guard (5.59), Chaos Knights (5.56), Emperor's Children (4.20). User one-time Playwright setup: `py -3.13 -m pip install playwright; py -3.13 -m playwright install chromium`.
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Sororitas | `be0abca` SOROR-KEY-FIX | +0.47 | 5 dead-key overrides rekeyed `adeptus_sororitas_*` to `adepta_sororitas_*` — Morvenn Vahl, Junith Eruita, Canoness (× 2 variants), Saint Celestine had been silently saveless for who knows how many iterations. Direction-wrong for Sororitas MAE (already over) but rule-correct per `feedback-rule-correctness-not-made-up` |
+| Daemons | `66594fd` DAEMONS-DIAG-4 | +0.12 | 4 god-aligned sub-detachments (Blood Legion, Legion of Excess, Plague Legion, Scintillating Legion), all no-flag composition-only per DET-VARIETY-1 pattern. `FACTION_DETACHMENTS["Chaos Daemons"]` expanded 1 → 5 entries. Real impact lever (Locus auras for LoC/GUO/KoS) still requires LeaderAbility schema extension — carried forward |
+| Drukhari | `1f852c0` DRK-DIAG-6 | 0 | Fixed AI-3 asymmetry: `_drukhari_decisive_strike_penalty` 0.5× bias was in MOVE planner but not CHARGE planner, so Drukhari would move-reject a non-decisive target then charge it anyway. Now applied to both. N=5 moved Drukhari -0.95 but N=40 archetype matrix flat |
+
+Cumulative MAE gated 10.73 → 10.76 (+0.03 within noise). Inside band stayed at 4 of 22.
+
+### Five-wave session close (2026-05-23)
+
+**Five waves of 3 parallel agents = 15 dispatches + 1 infra. 15 commits landed + 1 cross-source data source.** Cumulative MAE gated **11.35 → 10.76 (-0.59 pt headline, -5.2% relative)**, 4 of 22 inside noise band.
+
+Top wins (in order of impact at N=40):
+- DAEMONS-DIAG-2 (-4.40, 46-unit Daemonic invuln restore)
+- DRK-DIAG-5 (-4.17, vehicle dual-firing fix)
+- TYRANIDS-MULTI-LOADOUT (-3.33, Hive Tyrant exclusive-alternative)
+- MAPPER-CRUSADE-FILTER (-2.50, structural Crusade filter on 20 AdMech units)
+- DRK-DIAG-2 (-1.91, phantom-ranged baskets on Lelith / Incubi / Succubus)
+
+Open carry-forwards for the next iteration (priority order):
+1. **LeaderAbility schema extension** — `plus_one_strength_ranged` / `plus_one_toughness` / `plus_one_ap_melee` fields + 3 simulator gates. Unblocks Lord of Change / Great Unclean One / Keeper of Secrets Locus auras (Daemons still gated 17.54).
+2. **Structurally-parked factions** (Knights pair + Custodes = 75.2 pt of headline gated MAE) need infra: multi-profile Knight mapper or Custodes scoring rebalance.
+3. **Drukhari structural residual** (still gated 26.18). Combat Drugs damage magnitude, Pain Tokens not implemented, archetype-level Raider/Venom volume audit.
+4. **Onager Dunecrawler multi-loadout** — flagged by ADMECH-DIAG but not addressed (4 mutually-exclusive main weapons fire simultaneously).
+5. **Tyranids structural** — Tyranid Warriors basket-composition (1 venom cannon + 5 deathspitters) is currently inert until archetype-surfaced.
+
+Loop paused per user direction.
+
+### Wave 6 (2026-05-23) — LeaderAbility schema + Onager multi-loadout
+
+| Faction | Commit | Move @ N=40 | Notes |
+|---|---|---:|---|
+| Daemons | `9bee471` LEADERABILITY-SCHEMA | +0.23 (noise) | Extended LeaderAbility with 3 new effect fields (`plus_one_strength_ranged`, `plus_one_toughness`, `plus_one_ap_melee`); wired Lord of Change Locus of Change, Great Unclean One Locus of Virulence, Keeper of Secrets Locus of Slaanesh with their respective god rosters. Limited N=40 movement because the Daemonic Incursion archetype matrix may not seed Tzeentch/Nurgle/Slaanesh Greater Daemons frequently enough — fix is rule-correct and will pay out on archetype diversification |
+| AdMech | `d8ad3de` ONAGER-MULTILOAD | **-0.36** | Onager Dunecrawler + Skorpius Disintegrator had multiple mutually-exclusive main weapons firing per shooting phase (Onager had ALL FIVE: Eradication beamer + Neutron laser + Phosphor blaster + Icarus array + Eradication dup; Skorpius had Ferrumite + Disruptor + Belleros). Same multi-loadout pattern as DRK-DIAG-5 and Hive Tyrant. Kataphron variants + Skorpius Dunerider + Sicarian Infiltrators audited clean |
+| Drukhari | (no-ship DRK-DIAG-7) | — | Combat Drugs implementation audited clean (magnitude correct, gating correct, persistence correct). Skysplinter archetype audited clean (vehicle-heavy, Wych-light, matches real meta). The +29pt overshoot is NOT in Combat Drugs or archetype shape. Carry-forward: Pain Tokens magnitude, Drukhari overrides still baking static FNP that SC5-8 missed, AI target-priority bias toward fast skimmers |
+
+Cumulative MAE gated 10.76 → **10.66** (-0.10pt). Inside band 4/22.
+
+### Six-wave session close (2026-05-23)
+
+**Cumulative session totals: MAE gated 11.35 → 10.66 (-0.69 pt headline, -6.1% relative). 17 rule-correctness landings + 1 cross-source data source + 1 schema extension.**
+
+Open carry-forwards for next iteration:
+1. **Drukhari Pain Tokens implementation magnitude** (DRK-DIAG-7 found no defect in Combat Drugs but Drukhari residual is still 26.18 — Pain Tokens haven't been audited)
+2. **Drukhari overrides post-SC5-8 sweep** — static FNP that SC5-8 missed (DRK-DIAG-7 carry-forward)
+3. **AdMech remaining multi-loadout chassis** — Kastelan Robots (Heavy phosphor blaster vs Incendine combustor), Sydonian Dragoons (Taser lance vs Radium Jezzail), Archaeopter Stratoraptor extras
+4. **Tyranids structural** — Tyranid Warriors basket inert until archetype-surfaced
+5. **Custodes / Knights pair structural parking** (75.2 pt of headline still parked)
+6. **Daemons archetype** may need to seed Tzeentch/Nurgle/Slaanesh Greater Daemons more often so the new LEADERABILITY-SCHEMA Locus auras can surface
+
+
+Carry-forwards for the next iteration:
+1. **Mapper-structural Crusade-Points filter** in `code/bsdata/mapper.py` + parsed.json regen — sweep all factions, exclude Crusade-Points-only weapons from default loadouts (ADMECH-DIAG carry-forward).
+2. **Mapper-structural multi-loadout generalisation** — Onager Dunecrawler (AdMech), Tyranid Warriors / Hive Tyrant alt loadouts (carry-forwards from wave 3), Knight chassis (parked structural).
+3. **5 dead-key Sororitas overrides** — `adeptus_sororitas_*` typo prefix means 5 invuln saves are silently absent (Morvenn Vahl, Junith Eruita, 2x Canoness, Saint Celestine). Rekey to `adepta_sororitas_*`. Direction-wrong for Sororitas MAE (already over-perf) but rule-correct.
+4. **DAEMONS-DIAG-3** — god-specific detachment rules (Khorne/Tzeentch/Nurgle/Slaanesh flag audit). Daemons still gated 17.54 after the invuln restore.
+5. **DRK-DIAG-5** — Drukhari Detachment.py flag audit + vehicle stat re-audit (Raiders/Ravagers). Combat Drugs reform didn't close the +30pt residual — implies structural lever elsewhere.
+6. **3 structurally-parked factions** (Knights ×2 + Custodes, 76.5pt of headline gated MAE) need infra work, not loop-style fixes.
+
+
+
 
 22-faction matrix expanded in sim-cal-4 (FX-ALL + FX-MS) created 12 new minimal-archetype outliers. Starting baseline pre-SC5 N=20: MAE 15.95 (vs pre-FX-ALL 10-faction N=40 = 5.79). User directive: "work through all the factions starting with the biggest outliers focusing on rule correct updates to bring their MAE down. then do a loop summary and feed those notes into the next loop. continue until MAE is at least as good as before we added the remaining factions or we're below our noise floor."
 

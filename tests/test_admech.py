@@ -313,5 +313,142 @@ class DoctrinaCitationTests(unittest.TestCase):
         self.assertIn("Doctrina", entry["rule_name"])
 
 
+# ---------------------------------------------------------------------------
+# BATTLELINE proximity gate (ADMECH-DIAG-2, 2026-05-24)
+# ---------------------------------------------------------------------------
+
+
+def _admech_battleline(name: str = "Skitarii Ranger") -> UnitProfile:
+    """A BATTLELINE-keyworded AdMech profile — used as the gate-source for
+    the within-6" check."""
+    return UnitProfile(
+        name=name,
+        health=1, damage=1, hit_probability=2 / 3,
+        ap=0, save=4, strength=4, toughness=3,
+        attacks=2, weapon_damage_per_shot=1.0, range_inches=30,
+        leadership=7,
+        faction="Adeptus Mechanicus",
+        unit_keywords=("INFANTRY", "BATTLELINE"),
+        melee_attacks=1, melee_damage_per_shot=1.0,
+        melee_hit_probability=0.5, melee_strength=3, melee_ap=0,
+    )
+
+
+def _admech_non_battleline(name: str = "Tech-Priest Dominus") -> UnitProfile:
+    """A non-BATTLELINE AdMech profile — used as the gate-subject for the
+    within-6" check (e.g. character, Onager, Skorpius)."""
+    return UnitProfile(
+        name=name,
+        health=4, damage=1, hit_probability=2 / 3,
+        ap=0, save=4, strength=4, toughness=5,
+        attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+        leadership=7,
+        faction="Adeptus Mechanicus",
+        unit_keywords=("INFANTRY", "CHARACTER"),
+        melee_attacks=1, melee_damage_per_shot=1.0,
+        melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
+    )
+
+
+class DoctrinaBattlelineProximityTests(unittest.TestCase):
+    """The BATTLELINE-or-within-6" proximity gate from
+    `code.units._doctrina_battleline_proximity_met`. Gate scopes the
+    Protector defensive -1 to Hit (melee) and the Conqueror +1 AP buff;
+    the +1 BS / WS portion of each imperative is unconditional."""
+
+    def _make_battle(self, attacker_profile, ally_profile=None):
+        from code.units import _doctrina_battleline_proximity_met
+        ad = Army("AdMech")
+        ad.add_unit(attacker_profile)
+        if ally_profile is not None:
+            ad.add_unit(ally_profile)
+        marines = Army("Marines")
+        marines.add_unit(_marine_profile())
+        battle = Battle(ad, marines)
+        battle._assign_uids()
+        return battle, _doctrina_battleline_proximity_met
+
+    def test_battleline_self_passes(self):
+        """A BATTLELINE-keyword AdMech unit satisfies the gate without
+        needing any nearby ally — its own keyword is sufficient."""
+        battle, gate = self._make_battle(_admech_battleline())
+        attacker = battle.a.units[0]
+        attacker.position = (50.0, 50.0)   # far from any other unit
+        self.assertTrue(gate(attacker), "BATTLELINE-keyword unit must always pass the gate")
+
+    def test_non_battleline_alone_fails(self):
+        """A non-BATTLELINE AdMech unit with no friendly BATTLELINE within
+        6" must NOT receive the gated bonus."""
+        battle, gate = self._make_battle(_admech_non_battleline())
+        attacker = battle.a.units[0]
+        attacker.position = (10.0, 10.0)
+        self.assertFalse(gate(attacker), "non-BATTLELINE unit with no ally must fail the gate")
+
+    def test_non_battleline_within_6_of_ally_passes(self):
+        """A non-BATTLELINE AdMech unit within 6" of a friendly AdMech
+        BATTLELINE unit DOES receive the gated bonus."""
+        battle, gate = self._make_battle(
+            _admech_non_battleline(), ally_profile=_admech_battleline(),
+        )
+        attacker = battle.a.units[0]
+        ally = battle.a.units[1]
+        attacker.position = (10.0, 10.0)
+        ally.position = (12.0, 10.0)   # 2" away
+        self.assertTrue(gate(attacker), "non-BATTLELINE unit within 6\" of ally must pass")
+
+    def test_non_battleline_beyond_6_of_ally_fails(self):
+        """The 6" radius is real: an ally at >6" away does NOT grant the
+        gate to a non-BATTLELINE unit."""
+        battle, gate = self._make_battle(
+            _admech_non_battleline(), ally_profile=_admech_battleline(),
+        )
+        attacker = battle.a.units[0]
+        ally = battle.a.units[1]
+        attacker.position = (0.0, 0.0)
+        ally.position = (10.0, 0.0)   # 10" — outside the 6" aura
+        self.assertFalse(gate(attacker), "non-BATTLELINE unit beyond 6\" of ally must fail")
+
+    def test_battleline_ally_must_be_admech(self):
+        """The within-6" gate requires a friendly ADEPTUS MECHANICUS
+        BATTLELINE unit specifically. A BATTLELINE ally from another
+        faction does NOT trigger the gate."""
+        non_admech_ally = UnitProfile(
+            name="Allied Battleline",
+            health=1, damage=1, hit_probability=2 / 3,
+            ap=0, save=4, strength=4, toughness=3,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Astra Militarum",   # NOT AdMech
+            unit_keywords=("INFANTRY", "BATTLELINE"),
+            melee_attacks=1, melee_damage_per_shot=1.0,
+            melee_hit_probability=0.5, melee_strength=3, melee_ap=0,
+        )
+        battle, gate = self._make_battle(
+            _admech_non_battleline(), ally_profile=non_admech_ally,
+        )
+        attacker = battle.a.units[0]
+        ally_unit = battle.a.units[1]
+        attacker.position = (10.0, 10.0)
+        ally_unit.position = (11.0, 10.0)
+        self.assertFalse(
+            gate(attacker),
+            "ally must be AdMech faction; AM BATTLELINE ally does not count",
+        )
+
+    def test_no_army_ref_fails_closed(self):
+        """A unit with no army_ref (orphan test profile) fails the gate
+        rather than silently passing. The helper fails-closed to honour
+        CLAUDE.md §13 (no silent defaults)."""
+        from code.units import _doctrina_battleline_proximity_met, Unit
+        p = _admech_non_battleline()
+        u = Unit(p)
+        u.position = (0.0, 0.0)
+        # army_ref is None by default — confirm fail-closed
+        self.assertFalse(
+            _doctrina_battleline_proximity_met(u),
+            "unit with no army_ref must fail the gate",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

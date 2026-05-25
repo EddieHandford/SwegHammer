@@ -371,5 +371,145 @@ class BloodTitheKillIntegrationTests(unittest.TestCase):
         )
 
 
+class TestBloodSurge(unittest.TestCase):
+    """MR-WE-3 — Khorne Berzerkers' Blood Surge reactive move.
+
+    Verifies that when a Berzerker unit loses at least one model to a
+    shooting attack, it advances toward the shooter via the D6+2
+    reactive move (`simulator.blood_surge`).
+    """
+
+    def _make_berzerkers(self, position):
+        """Build a Khorne Berzerkers stand-in unit. Squad of 10 @ 2W each."""
+        profile = UnitProfile(
+            name="Khorne Berzerkers",   # name gate is exact
+            health=20, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=12,
+            leadership=7,
+            faction="World Eaters",   # faction gate
+            unit_keywords=("INFANTRY",),
+            min_models=10,
+            melee_attacks=4, melee_damage_per_shot=1.0,
+            melee_hit_probability=2 / 3, melee_strength=5, melee_ap=1,
+        )
+        unit = Unit(profile)
+        unit.position = position
+        return unit
+
+    def test_blood_surge_moves_berzerkers_toward_shooter(self):
+        bz = self._make_berzerkers(position=(40.0, 30.0))
+        # Drop them to 18 HP — one model already destroyed worth before
+        # we even start the surge check. To check the helper directly,
+        # snapshot health_before = 20 and current_health = 16 (two models
+        # destroyed). Distance to the "shooter" at (10, 30) is 30 inches.
+        bz.current_health = 16.0
+        shooter_profile = UnitProfile(
+            name="Tactical Marine",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY",),
+        )
+        shooter = Unit(shooter_profile)
+        shooter.position = (10.0, 30.0)
+
+        we = Army(name="WE")
+        we.units = [bz]
+        marines = Army(name="Marines")
+        marines.units = [shooter]
+        battle = Battle(we, marines)
+
+        random.seed(0)
+        old_pos = bz.position
+        old_gap = ((old_pos[0] - shooter.position[0]) ** 2
+                   + (old_pos[1] - shooter.position[1]) ** 2) ** 0.5
+        # Directly invoke the helper: defender (bz) lost 4 HP (>= 2 wpm),
+        # attacker army is Marines.
+        battle._maybe_apply_blood_surge(
+            defender=bz, attacker_army=marines, health_before=20.0,
+        )
+        new_pos = bz.position
+        new_gap = ((new_pos[0] - shooter.position[0]) ** 2
+                   + (new_pos[1] - shooter.position[1]) ** 2) ** 0.5
+        self.assertLess(
+            new_gap, old_gap,
+            "Berzerkers should be closer to the shooter after Blood Surge",
+        )
+        # D6+2 with seed-0 is 3..8 inches; clamp check.
+        moved = old_gap - new_gap
+        self.assertGreaterEqual(moved, 3.0 - 1e-6)
+        self.assertLessEqual(moved, 8.0 + 1e-6)
+
+    def test_blood_surge_skips_non_berzerker_world_eaters(self):
+        """Eightbound (also WE) must NOT Blood Surge — name-gated."""
+        eightbound_profile = UnitProfile(
+            name="Eightbound",
+            health=18, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=5, toughness=5,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=12,
+            leadership=7,
+            faction="World Eaters",
+            unit_keywords=("INFANTRY",),
+            min_models=3,
+        )
+        eb = Unit(eightbound_profile)
+        eb.position = (40.0, 30.0)
+        eb.current_health = 12.0
+        shooter_profile = UnitProfile(
+            name="Tactical Marine",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY",),
+        )
+        shooter = Unit(shooter_profile)
+        shooter.position = (10.0, 30.0)
+        we = Army(name="WE")
+        we.units = [eb]
+        marines = Army(name="Marines")
+        marines.units = [shooter]
+        battle = Battle(we, marines)
+        random.seed(0)
+        before_pos = eb.position
+        battle._maybe_apply_blood_surge(
+            defender=eb, attacker_army=marines, health_before=18.0,
+        )
+        self.assertEqual(eb.position, before_pos,
+                         "Eightbound must NOT Blood Surge (name-gated)")
+
+    def test_blood_surge_skips_when_no_models_destroyed(self):
+        """Damage that doesn't drop a full model must NOT trigger Surge."""
+        bz = self._make_berzerkers(position=(40.0, 30.0))
+        bz.current_health = 19.0   # 1 wound taken on a 2-wound model
+        shooter_profile = UnitProfile(
+            name="Tactical Marine",
+            health=2, damage=1, hit_probability=2 / 3,
+            ap=0, save=3, strength=4, toughness=4,
+            attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+            leadership=7,
+            faction="Adeptus Astartes",
+            unit_keywords=("INFANTRY",),
+        )
+        shooter = Unit(shooter_profile)
+        shooter.position = (10.0, 30.0)
+        we = Army(name="WE")
+        we.units = [bz]
+        marines = Army(name="Marines")
+        marines.units = [shooter]
+        battle = Battle(we, marines)
+        random.seed(0)
+        before_pos = bz.position
+        battle._maybe_apply_blood_surge(
+            defender=bz, attacker_army=marines, health_before=20.0,
+        )
+        self.assertEqual(bz.position, before_pos,
+                         "No full model destroyed -> no Surge")
+
+
 if __name__ == "__main__":
     unittest.main()

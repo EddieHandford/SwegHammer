@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PARSED_PATH = REPO_ROOT / "data" / "bsdata" / "parsed.json"
@@ -71,6 +71,17 @@ class CatalogEntry:
     lance: bool = False
     precision: bool = False
     pistol: bool = False
+    # MAP-MULTIFIRE-VALIDATE — primary ranged weapon name (mapper's
+    # `primary.name`). Surfaced on UnitProfile so the multi-profile picker
+    # can group mode-alternates by stripped root name. Default "" =
+    # legacy entries that predate the field.
+    weapon: str = ""
+    # MAP-MULTIFIRE-VALIDATE — pistol flag on the SECONDARY ranged weapon
+    # profile (the primary's flag lives in `pistol` above). 10e Pistol
+    # exclusivity is enforced in the picker; this flag tells the picker
+    # whether the secondary belongs to the pistol group or the non-pistol
+    # group of this chassis.
+    secondary_pistol: bool = False
     indirect_fire: bool = False
     one_shot: bool = False
     # Phase H — Stealth (-1 to be hit)
@@ -78,6 +89,10 @@ class CatalogEntry:
     # Lone Operative (10e core ability) — can only be targeted by ranged
     # attacks from within 12". Parsed from BSData "Lone Operative" infoLinks.
     lone_operative: bool = False
+    # FIGHTS FIRST datasheet keyword — unit fights in the Fights First step
+    # of the Fight phase. Parsed from BSData "Fights First" infoLinks /
+    # inline profiles. Cited as `simulator.fights_first_keyword`.
+    fights_first: bool = False
     # Phase I — deployment abilities
     deep_strike: bool = False
     scout_distance: int = 0
@@ -98,6 +113,19 @@ class CatalogEntry:
     # does not yet parse this rule out of the cache; the override is the
     # authoritative source). Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
+    # Damage characteristic of each allocated attack (rounding up); D1
+    # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
+    # mapper does not currently extract this datasheet ability). Cited as
+    # `UnitProfile.necrodermis`.
+    necrodermis: bool = False
+    # MAP-4 — per-unit Reanimation Protocols eligibility flag. True iff the
+    # BSData datasheet carries the "Reanimation Protocols" infoLink AND lacks
+    # CHARACTER / MONSTER / VEHICLE keywords (those keywords gate the ability
+    # off per the 10e codex rule). Populated by the mapper from
+    # `extract_reanimates_with_army`. Necron-specific; non-Necron units stay
+    # False. Cited as `simulator.reanimation_protocols`.
+    reanimates_with_army: bool = False
     unit_keywords: Optional[List[str]] = None
     melee_attacks: int = 0
     melee_damage_per_shot: float = 0.0
@@ -128,6 +156,18 @@ class CatalogEntry:
     secondary_assault: bool = False
     secondary_torrent: bool = False
     secondary_blast: bool = False
+    # MAP-1: TERTIARY and beyond ranged profiles. List of dicts, each carrying
+    # the same fields as the secondary block (weapon, attacks, damage,
+    # hit_probability, ap, strength, range_inches, anti_keywords, plus the
+    # ranged keyword flags). Empty = no extras. See MappedUnit comment.
+    extra_ranged_profiles: Optional[List[Dict[str, Any]]] = None
+    # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
+    # Defaults to 1.0 preserve legacy single-weapon behaviour. Heterogeneous
+    # squads (Rubric Marines, Skyweavers, Beast Snagga Boyz) carry values
+    # < 1.0 so Unit.attack can Bernoulli-gate keyword consumption per shot.
+    devastating_wounds_basket_fraction: float = 1.0
+    lance_basket_fraction: float = 1.0
+    anti_keyword_basket_fractions: Optional[Dict[str, float]] = None
     # 10e Movement characteristic (inches). 0 = use UnitProfile default (6.0).
     # Most BSData datasheets don't expose M numerically to the mapper, so this
     # is typically set via overrides.json (e.g. Vertus Praetors M=14"). Cited
@@ -182,10 +222,13 @@ class CatalogEntry:
             lance=bool(d.get("lance", False)),
             precision=bool(d.get("precision", False)),
             pistol=bool(d.get("pistol", False)),
+            weapon=str(d.get("weapon", "")),
+            secondary_pistol=bool(d.get("secondary_pistol", False)),
             indirect_fire=bool(d.get("indirect_fire", False)),
             one_shot=bool(d.get("one_shot", False)),
             stealth=bool(d.get("stealth", False)),
             lone_operative=bool(d.get("lone_operative", False)),
+            fights_first=bool(d.get("fights_first", False)),
             deep_strike=bool(d.get("deep_strike", False)),
             scout_distance=int(d.get("scout_distance", 0)),
             infiltrator=bool(d.get("infiltrator", False)),
@@ -194,6 +237,8 @@ class CatalogEntry:
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             resolute_will=bool(d.get("resolute_will", False)),
+            necrodermis=bool(d.get("necrodermis", False)),
+            reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
             melee_attacks=int(d.get("melee_attacks", 0)),
             melee_damage_per_shot=float(d.get("melee_damage_per_shot", 0)),
@@ -221,6 +266,18 @@ class CatalogEntry:
             secondary_assault=bool(d.get("secondary_assault", False)),
             secondary_torrent=bool(d.get("secondary_torrent", False)),
             secondary_blast=bool(d.get("secondary_blast", False)),
+            # MAP-1: list of tertiary+ ranged profiles. Each is a dict mirroring
+            # the secondary_* fields. Missing key = no extras (most units).
+            extra_ranged_profiles=list(d.get("extra_ranged_profiles") or []),
+            # MAP-3-FIX — parse basket fractions. Missing key = 1.0 (legacy:
+            # any unit predating this change keeps full-keyword behaviour).
+            devastating_wounds_basket_fraction=float(
+                d.get("devastating_wounds_basket_fraction", 1.0)
+            ),
+            lance_basket_fraction=float(d.get("lance_basket_fraction", 1.0)),
+            anti_keyword_basket_fractions=dict(
+                d.get("anti_keyword_basket_fractions") or {}
+            ),
             move=float(d.get("move", 0)),
             points_override=float(d.get("points_override", 0)),
             base_shape=str(d.get("base_shape", "circle")),
@@ -315,10 +372,13 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "lance": override.get("lance", base.lance),
         "precision": override.get("precision", base.precision),
         "pistol": override.get("pistol", base.pistol),
+        "weapon": override.get("weapon", base.weapon),
+        "secondary_pistol": override.get("secondary_pistol", base.secondary_pistol),
         "indirect_fire": override.get("indirect_fire", base.indirect_fire),
         "one_shot": override.get("one_shot", base.one_shot),
         "stealth": override.get("stealth", base.stealth),
         "lone_operative": override.get("lone_operative", base.lone_operative),
+        "fights_first": override.get("fights_first", base.fights_first),
         "deep_strike": override.get("deep_strike", base.deep_strike),
         "scout_distance": override.get("scout_distance", base.scout_distance),
         "infiltrator": override.get("infiltrator", base.infiltrator),
@@ -327,6 +387,8 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "resolute_will": override.get("resolute_will", base.resolute_will),
+        "necrodermis": override.get("necrodermis", base.necrodermis),
+        "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),
         "melee_attacks": override.get("melee_attacks", base.melee_attacks),
         "melee_damage_per_shot": override.get("melee_damage_per_shot", base.melee_damage_per_shot),
@@ -354,6 +416,26 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "secondary_assault": override.get("secondary_assault", base.secondary_assault),
         "secondary_torrent": override.get("secondary_torrent", base.secondary_torrent),
         "secondary_blast": override.get("secondary_blast", base.secondary_blast),
+        # MAP-1: tertiary+ ranged profiles — override fully replaces (rare; the
+        # mapper populates these from BSData and overrides almost never touch
+        # multi-profile lists). base value defaults to [] when None.
+        "extra_ranged_profiles": override.get(
+            "extra_ranged_profiles", base.extra_ranged_profiles or []
+        ),
+        # MAP-3-FIX — basket fractions. Override path almost never sets these
+        # (the mapper computes them from BSData) but allow overrides for
+        # corner cases / hand-tuning. Default 1.0 preserves legacy behaviour.
+        "devastating_wounds_basket_fraction": override.get(
+            "devastating_wounds_basket_fraction",
+            base.devastating_wounds_basket_fraction,
+        ),
+        "lance_basket_fraction": override.get(
+            "lance_basket_fraction", base.lance_basket_fraction,
+        ),
+        "anti_keyword_basket_fractions": override.get(
+            "anti_keyword_basket_fractions",
+            base.anti_keyword_basket_fractions,
+        ),
         "move": override.get("move", base.move),
         "points_override": override.get("points_override", base.points_override),
         "base_shape": override.get("base_shape", base.base_shape),

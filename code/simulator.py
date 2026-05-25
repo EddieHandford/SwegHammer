@@ -66,6 +66,11 @@ from .stratagems import (
     # Combined Arms (Astra Militarum) — six real detachment stratagems (iter-14)
     COORDINATED_ACTION, REINFORCEMENTS, FLEXIBLE_COMMAND,
     FIELDS_OF_FIRE, INSPIRED_COMMAND, STALWART_PROTECTOR,
+    # ST-2 wave 3 — one stratagem per under-performing faction
+    APOPLECTIC_FRENZY, DENIZENS_OF_THE_WARP, EMPYRIC_CHANNELLING,
+    CULT_AMBUSH, PROFANE_ZEAL,
+    # CSM-EYE-OF-GODS — Pactbound Zealots snowball stratagem (1 CP)
+    EYE_OF_THE_GODS,
     CP_CAP, award_command_phase_cp,
 )
 
@@ -250,6 +255,14 @@ class Battle:
         # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
         # Reset each round.
         self._did_move_this_round: set = set()
+        # UIDs of units that disembarked from a TRANSPORT this round (10e
+        # core: "If a unit disembarks from a Transport in your Movement
+        # phase, it cannot make a Normal, Advance or Fall Back move that
+        # turn. The unit is then treated as having moved a distance equal
+        # to its Move characteristic this turn."). The unit may still
+        # Shoot and Charge normally. Reset each round. Cited as
+        # `simulator.disembark`.
+        self._disembarked_this_round: set = set()
         # UIDs of units that have already fired their One Shot weapon this
         # battle. Once a uid is here, the unit may not shoot again.
         # Persists for the whole battle (NOT reset per round).
@@ -427,8 +440,18 @@ class Battle:
         # destroyed CULT INFANTRY units (APPROXIMATION proxy for the
         # Resurgence/Cult Ambush marker resurrection mechanic). Cited as
         # `simulator.cult_ambush_resurgence`.
+        #
+        # GSC-DIAG bugfix: because Cult Ambush routes the ENTIRE GSC army
+        # into reserves at deployment, `army.units` is empty for the GSC
+        # side at this point. The previous gate `army.units[0].profile.
+        # faction == "Genestealer Cults"` therefore never matched, and
+        # GSC armies started every battle with 0 Resurgence — silently
+        # disabling the revival half of Cult Ambush. We now inspect
+        # reserves too, so the pool is correctly seeded for the GSC army
+        # before Round 1 begins.
         for army in (self.a, self.b):
-            if army.units and army.units[0].profile.faction == "Genestealer Cults":
+            roster = list(army.units) + list(self._reserves.get(army.name, []))
+            if roster and roster[0].profile.faction == "Genestealer Cults":
                 army.cult_ambush_resurgence_points = 10
         # Reanimation Protocols (#75): snapshot starting model counts per
         # profile per army, including reserves. End-of-round revival reads
@@ -759,10 +782,32 @@ class Battle:
         # bonus when the opponent kills it.
         b_warlord = self.b.warlord_uid
         a_warlord = self.a.warlord_uid
+        # CUSTODES-UNPARK — defender faction is whose snapshot is being
+        # scored against (i.e. whose units are dying). Pulled from the
+        # first unit's profile.faction tag (matches the convention used
+        # in `simulator._do_charge`, `_apply_reanimation` and elsewhere
+        # in this file for resolving an army's primary faction).
+        b_defender_faction = (
+            self.b.units[0].profile.faction if self.b.units else None
+        )
+        a_defender_faction = (
+            self.a.units[0].profile.faction if self.a.units else None
+        )
+        # DRK-DIAG-9 — attacker faction is the SCORING side (i.e. who is
+        # earning the VP this delta). Drukhari-attacker triggers the
+        # mobile-army damper on Cull (here) and Engage/BEL (below).
+        a_attacker_faction = (
+            self.a.units[0].profile.faction if self.a.units else None
+        )
+        b_attacker_faction = (
+            self.b.units[0].profile.faction if self.b.units else None
+        )
         if self._b_round_snapshot is not None:
             a_bid, a_np, a_cth, a_assn = score_round_delta(
                 self._b_round_snapshot, self.b.units,
                 enemy_warlord_uid=b_warlord,
+                defender_faction=b_defender_faction,
+                attacker_faction=a_attacker_faction,
             )
             a_kill_vp = a_bid + a_np + a_cth + a_assn
             self._a_vp += a_kill_vp
@@ -772,6 +817,8 @@ class Battle:
             b_bid, b_np, b_cth, b_assn = score_round_delta(
                 self._a_round_snapshot, self.a.units,
                 enemy_warlord_uid=a_warlord,
+                defender_faction=a_defender_faction,
+                attacker_faction=b_attacker_faction,
             )
             b_kill_vp = b_bid + b_np + b_cth + b_assn
             self._b_vp += b_kill_vp
@@ -786,11 +833,13 @@ class Battle:
         # alternating schedule (see `_is_tactical_secondary_active`).
         a_eng, a_bel = score_position_delta(
             self.a.units, self.map, own_is_army_a=True, round_num=round_num,
+            attacker_faction=a_attacker_faction,
         )
         self._a_vp += a_eng + a_bel
         self._a_secondary_vp += a_eng + a_bel
         b_eng, b_bel = score_position_delta(
             self.b.units, self.map, own_is_army_a=False, round_num=round_num,
+            attacker_faction=b_attacker_faction,
         )
         self._b_vp += b_eng + b_bel
         self._b_secondary_vp += b_eng + b_bel
@@ -821,6 +870,11 @@ class Battle:
             u.transient_plus_one_to_hit_shooting = False
             u.transient_halve_damage = False
             u.transient_undying_legions_pulse = 0
+            # ST-1 proper-keyword transient flags.
+            u.transient_lethal_hits = False
+            u.transient_sustained_hits = 0
+            u.transient_reroll_wounds = False
+            u.transient_reroll_wounds_ones = False
         # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
         # this round's Doombolt damage; reset every round so the boost only
         # applies the round the stratagem fires. Putrid Detonation arms the
@@ -1086,6 +1140,23 @@ class Battle:
                 self._try_inspired_command(army, opponent)
             if not self._strat_cap_reached(army) and "Stalwart Protector" in strat_names:
                 self._try_stalwart_protector(army, opponent)
+
+            # ----- ST-2 wave 3 — one stratagem per under-performing faction
+            # All five route the offensive value through an existing
+            # transient_* flag (transient_plus_one_to_wound_melee for melee,
+            # transient_reroll_hits_shooting for ranged). Faction-gated via
+            # the detachment-membership check above (strat_names already
+            # filters to the active detachment's stratagem set).
+            if not self._strat_cap_reached(army) and "Apoplectic Frenzy" in strat_names:
+                self._try_apoplectic_frenzy(army, opponent)
+            if not self._strat_cap_reached(army) and "Denizens of the Warp" in strat_names:
+                self._try_denizens_of_the_warp(army, opponent)
+            if not self._strat_cap_reached(army) and "Empyric Channelling" in strat_names:
+                self._try_empyric_channelling(army, opponent)
+            if not self._strat_cap_reached(army) and "Cult Ambush" in strat_names:
+                self._try_cult_ambush(army, opponent)
+            if not self._strat_cap_reached(army) and "Profane Zeal" in strat_names:
+                self._try_profane_zeal(army, opponent)
         finally:
             # Always drop the dispatch flag — Tank Shock / Counter-Offensive /
             # Command Re-Roll fire out-of-band via _fire_stratagem and MUST
@@ -1108,7 +1179,7 @@ class Battle:
 
     # ----- target-selection helpers used by the dispatchers --------------
 
-    def _highest_threat_enemy(self, opponent: Army):
+    def _highest_threat_enemy(self, opponent: Army, restrict_uids=None):
         """Pick the alive enemy unit with the highest role-weighted threat.
 
         Same role-weighting as `_apply_psychic_phase` so Doombolt and any
@@ -1118,6 +1189,12 @@ class Battle:
         Battle-shocked enemies are excluded — 10e core forbids using
         Stratagems to affect a Battle-shocked unit regardless of side.
         Cited as `simulator.battleshock` (task #168).
+
+        `restrict_uids` (optional set): if provided, only candidate units
+        whose uid is in this set are considered. Used by Votann's
+        Warrior Pride / Wrath of the Ancestors stratagem dispatchers to
+        require a Judgement-Token-bearing target per the codex rule
+        (VOTANN-DIAG 2026-05-23).
         """
         from .roles import classify
         ROLE_THREAT = {"HEAVY": 3.0, "SHOOTY": 2.0, "DUAL": 1.5,
@@ -1126,6 +1203,8 @@ class Battle:
             u for u in opponent.alive_units
             if u.uid not in self._battleshocked_this_round
         ]
+        if restrict_uids is not None:
+            targets = [u for u in targets if u.uid in restrict_uids]
         if not targets:
             return None
 
@@ -1440,11 +1519,13 @@ class Battle:
         """Creeping Blight (Virulent Vectorium, 1 CP): re-roll Hit AND Wound
         rolls on a DG INFANTRY unit's ranged attacks vs Afflicted enemies.
         APPROXIMATION: we don't model Afflicted enemy state, so we route the
-        effect through transient_reroll_hits_shooting on the DG INFANTRY unit
-        (re-roll hits only; the wound-reroll half + Afflicted gate are dropped).
-        Picks the highest-DPA friendly DG INFANTRY that has the gate's other
-        prerequisite (not yet shot this phase, which is implicit at round-
-        start dispatch)."""
+        effect through transient_reroll_hits_shooting AND
+        transient_reroll_wounds on the DG INFANTRY unit (the full hit+wound
+        reroll grant the codex describes; ST-1 added the wound leg via the
+        new transient_reroll_wounds flag — previously only the hit leg
+        landed). Picks the highest-DPA friendly DG INFANTRY that has the
+        gate's other prerequisite (not yet shot this phase, which is
+        implicit at round-start dispatch)."""
         candidate = None
         best_dpa = 0.0
         for u in army.alive_units:
@@ -1469,6 +1550,7 @@ class Battle:
         if not self._fire_stratagem(army, CREEPING_BLIGHT):
             return
         candidate.transient_reroll_hits_shooting = True
+        candidate.transient_reroll_wounds = True
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
         """Lightning-Fast Reactions (Warhost): +1 save on the most
@@ -1564,11 +1646,12 @@ class Battle:
         phase, when an AELDARI unit is selected to shoot — until end of
         phase its ranged weapons gain [SUSTAINED HITS 1] vs targets
         within 12" (or improve to 5+ Critical Hit if already having the
-        ability). APPROXIMATION: SwegHammer has no per-weapon SUSTAINED
-        HITS toggle exposed via a transient flag, so the round-long
-        offensive uplift is routed through `transient_plus_one_to_hit_shooting`
-        — a +1 to hit roughly delivers the same expected damage uplift
-        as Sustained Hits 1 on a 12"-range engagement. Wahapedia:
+        ability). ST-1: now routes through the proper
+        `transient_sustained_hits` accumulator (additive on top of any
+        per-weapon SUSTAINED HITS already on the profile, matching the
+        codex stacking rule). The 12" range gate and the 5+ Critical
+        Hit upgrade for weapons already carrying SUSTAINED HITS X are
+        still not modelled. Wahapedia:
         https://wahapedia.ru/wh40k10ed/factions/aeldari/#Warhost"""
         attacker = self._highest_dpa_unit(
             army, keyword="AELDARI", faction="Aeldari",
@@ -1585,7 +1668,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BLITZING_FIREPOWER):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_sustained_hits += 1
 
     def _try_webway_tunnel(self, army: Army, opponent: Army) -> None:
         """Webway Tunnel (Warhost, 1 CP). Real rule: end of opponent's
@@ -1693,9 +1776,12 @@ class Battle:
         disembarked this turn re-rolls Wound rolls against the closest
         enemy unit in its shooting. APPROXIMATION: we don't track
         'disembarked-this-turn' at stratagem-dispatch time, so the gate
-        is widened to any T'au shooter and the value is routed through
-        the existing `transient_reroll_hits_shooting` flag (the closest
-        Wound-reroll proxy SwegHammer has)."""
+        is widened to any T'au shooter. ST-1: now routes through
+        `transient_reroll_wounds` (the proper full-wound-reroll flag —
+        the citation says "re-roll the Wound roll"), replacing the
+        previous mis-mapping onto `transient_reroll_hits_shooting`
+        which lifted hit-roll re-rolls instead of wound-roll re-rolls
+        and so was the wrong stat altogether."""
         attacker = self._highest_dpa_unit(
             army, faction="T'au Empire",
         )
@@ -1711,7 +1797,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, COMBAT_DEBARKATION):
             return
-        attacker.transient_reroll_hits_shooting = True
+        attacker.transient_reroll_wounds = True
 
     def _try_pulse_onslaught(self, army: Army, opponent: Army) -> None:
         """Pulse Onslaught (2 CP). Real rule: target an enemy unit; until
@@ -1908,11 +1994,15 @@ class Battle:
         """Power Of The WAAAGH! (War Horde, 1 CP). Real rule (paraphrase):
         an ORKS unit's melee weapons gain [LETHAL HITS] for the fight phase
         (or upgrade to 5+ Critical Hit if they already carry the ability).
-        APPROXIMATION: SwegHammer has no per-round transient [LETHAL HITS]
-        flag, so the offensive uplift is routed through
-        `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
-        unit — same direction (more landed wounds in melee), comparable
-        magnitude on a 4+ wound roll.
+        ST-1: now routes through the proper `transient_lethal_hits` flag
+        (composes into `effective_lethal_hits` at the crit-to-hit branch
+        in Unit.attack). Previously proxied through
+        `transient_plus_one_to_wound_melee`, which over-modelled the buff
+        because +1 to wound averages ~25% extra landed wounds at threshold
+        flip while [LETHAL HITS] only auto-wounds on natural 6s (~17%
+        of failed-wound salvage on a 4+ wound roll). The 5+ Critical-Hit
+        upgrade leg for weapons already carrying [LETHAL HITS] is still
+        dropped.
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
         """
         attacker = self._highest_dpa_unit(
@@ -1930,7 +2020,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, POWER_OF_THE_WAAAGH):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        attacker.transient_lethal_hits = True
 
     def _try_mob_up(self, army: Army, opponent: Army) -> None:
         """Mob Up (War Horde, 1 CP). Real rule (paraphrase): an ORKS
@@ -1959,12 +2049,14 @@ class Battle:
     def _try_big_krumpin(self, army: Army, opponent: Army) -> None:
         """Big Krumpin' (War Horde, 2 CP). Real rule (paraphrase): an
         ORKS unit re-rolls Wound rolls of 1 in melee (full re-roll if
-        charging). APPROXIMATION: SwegHammer has no melee-wound-reroll
-        transient flag, so the offensive uplift is routed through
-        `transient_plus_one_to_wound_melee` on the highest-DPA Orks melee
-        unit. Strictly stronger than the codex (a +1 averages ~25%
-        extra wounds; a 1s-reroll averages ~14%); the 2 CP price gate
-        keeps the AI from over-spending.
+        charging). ST-1: now routes through `transient_reroll_wounds_ones`
+        — the correct lossy proxy for the codex (1s-only re-roll averages
+        ~14% extra landed wounds). Previously proxied through
+        `transient_plus_one_to_wound_melee`, which was strictly stronger
+        (+1 to wound ≈ 25% extra wounds vs 14% for 1s-reroll). The full-
+        reroll-when-charging leg is dropped (no charge-state hook); given
+        Big Krumpin' costs 2 CP and the AI gate is already conservative,
+        the under-fire on charge turns is acceptable.
         Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
         """
         attacker = self._highest_dpa_unit(
@@ -1982,7 +2074,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BIG_KRUMPIN):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        attacker.transient_reroll_wounds_ones = True
 
     def _try_tellyporta(self, army: Army, opponent: Army) -> None:
         """Tellyporta (War Horde, 1 CP). Real rule (paraphrase): an ORKS
@@ -2130,11 +2222,14 @@ class Battle:
         """Archaeotech Munitions (Shield Host, 1 CP, Wargear). Real rule:
         your Shooting phase, on a Custodes unit — ranged weapons gain
         [LETHAL HITS] OR [SUSTAINED HITS 1] (player's choice) for the
-        phase. APPROXIMATION: no per-round transient [LETHAL HITS] /
-        [SUSTAINED HITS] flag in SwegHammer; offensive uplift is routed
-        through `transient_plus_one_to_hit_shooting` on the highest-DPA
-        Custodes shooter. Same direction (more landed hits/damage),
-        comparable magnitude on a 4+ hit roll.
+        phase. ST-1: now routes through `transient_lethal_hits` (the
+        higher-value half of the player's choice — [LETHAL HITS] on a
+        Custodes unit's BS2+ profile typically outscores [SUSTAINED HITS
+        1] because Custodes shots are few and high-damage). Previously
+        proxied through `transient_plus_one_to_hit_shooting`, which was
+        strictly stronger because +1 to hit fires on every die above the
+        previous fail threshold whereas [LETHAL HITS] only fires on
+        natural 6s.
         """
         attacker = self._highest_dpa_unit(
             army, keyword="ADEPTUS CUSTODES", faction="Adeptus Custodes",
@@ -2151,7 +2246,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ARCHAEOTECH_MUNITIONS):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_lethal_hits = True
 
     def _try_avenge_the_fallen(self, army: Army, opponent: Army) -> None:
         """Avenge the Fallen (Shield Host, 1 CP, Strategic Ploy). Real rule:
@@ -2189,15 +2284,22 @@ class Battle:
     # dict, which already has full plumbing) and document any gap.
 
     def _try_warrior_pride(self, army: Army, opponent: Army) -> None:
-        """Warrior Pride (Oathband, 1 CP). Real rule: re-roll Wound rolls
-        for a Votann unit's attacks against a Judgement-Token-bearing enemy.
-        APPROXIMATION: routed through `transient_plus_one_to_wound_melee` +
-        `transient_plus_one_to_wound_shooting` on the highest-DPA Votann
-        unit — same direction (more landed wounds), comparable magnitude on
-        a 4+ wound roll. The Judgement-Token-bearing gate is collapsed onto
-        "the highest-threat enemy" (the natural primary target). Stacks
-        with the existing `simulator.judgement_tokens` re-roll buffs at
-        1+/3+ thresholds — the codex effect compounds rather than replaces.
+        """Warrior Pride (Oathband, 1 CP). Real rule (Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Warrior-Pride):
+        re-roll Wound rolls for a Votann unit's attacks against a
+        Judgement-Token-bearing enemy. The Judgement-Token gate is the
+        rule's actual limiter — without it the stratagem becomes an
+        unconditional army-wide wound-reroll buff that fires every round
+        on the highest-DPA Votann unit. VOTANN-DIAG (2026-05-23) adds the
+        missing token gate: the dispatcher walks `army.judgement_tokens`
+        for an enemy unit with at least one token and refuses to fire if
+        none exists. Under current 10e (Prioritised Efficiency replaced
+        the kill-based Eye of the Ancestors), tokens are only minted via
+        Ancestral Sentence (2 CP one-off), so Warrior Pride goes from
+        unconditional-per-round to functionally rare — matching codex
+        cost-gating. The wound-reroll itself still routes through
+        `transient_reroll_wounds` (full failed-wound re-roll for the
+        round).
         """
         attacker = self._highest_dpa_unit(
             army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
@@ -2206,7 +2308,17 @@ class Battle:
             attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
         if attacker is None:
             return
-        target = self._highest_threat_enemy(opponent)
+        # Token gate: the target must hold at least one Judgement Token
+        # in the Votann army's token dict. Picks the highest-threat
+        # token-bearing enemy that is still alive; falls through with no
+        # spend if none exists.
+        tokens = army.judgement_tokens
+        token_bearer_uids = {uid for uid, n in tokens.items() if n >= 1}
+        if not token_bearer_uids:
+            return
+        target = self._highest_threat_enemy(
+            opponent, restrict_uids=token_bearer_uids,
+        )
         if target is None:
             return
         ctx = {"attacker": attacker, "target": target}
@@ -2214,20 +2326,20 @@ class Battle:
             return
         if not self._fire_stratagem(army, WARRIOR_PRIDE):
             return
-        # APPROXIMATION: +1 to wound on melee AND shooting routes the wound-
-        # reroll value through the closest existing transient flag pair.
-        attacker.transient_plus_one_to_wound_melee = True
-        attacker.transient_plus_one_to_wound_shooting = True
+        attacker.transient_reroll_wounds = True
 
     def _try_wrath_of_the_ancestors(self, army: Army, opponent: Army) -> None:
-        """Wrath of the Ancestors (Oathband, 1 CP). Real rule: a Votann unit's
-        ranged attacks gain [LETHAL HITS] vs a Judgement-Token-bearing
-        target. APPROXIMATION: SwegHammer has no per-round transient
-        [LETHAL HITS] flag, so the offensive uplift is routed through
-        `transient_plus_one_to_hit_shooting` on the highest-DPA Votann
-        shooter — same direction (more landed hits/damage), comparable
-        magnitude on a 4+ hit roll. The Judgement-Token gate is collapsed
-        onto highest-threat-enemy as in Warrior Pride.
+        """Wrath of the Ancestors (Oathband, 1 CP). Real rule (Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/#Wrath-of-the-Ancestors):
+        a Votann unit's ranged attacks gain [LETHAL HITS] vs a
+        Judgement-Token-bearing target. VOTANN-DIAG (2026-05-23) adds the
+        missing token gate — see `_try_warrior_pride` for the same
+        rationale. Without the gate, this stratagem fires every shooting
+        phase on the highest-DPA shooter as an unconditional LETHAL HITS
+        grant; with the gate, it requires Ancestral Sentence (2 CP) to
+        have previously marked an enemy, matching the codex cost
+        sequence. The LETHAL HITS effect still routes through
+        `transient_lethal_hits`.
         """
         attacker = self._highest_dpa_unit(
             army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
@@ -2236,7 +2348,13 @@ class Battle:
             attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
         if attacker is None:
             return
-        target = self._highest_threat_enemy(opponent)
+        tokens = army.judgement_tokens
+        token_bearer_uids = {uid for uid, n in tokens.items() if n >= 1}
+        if not token_bearer_uids:
+            return
+        target = self._highest_threat_enemy(
+            opponent, restrict_uids=token_bearer_uids,
+        )
         if target is None:
             return
         ctx = {"attacker": attacker, "target": target}
@@ -2244,7 +2362,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, WRATH_OF_THE_ANCESTORS):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_lethal_hits = True
 
     def _try_glory_of_the_hearth(self, army: Army, opponent: Army) -> None:
         """Glory of the Hearth (Oathband, 1 CP). Real rule: a Votann VEHICLE
@@ -2447,15 +2565,14 @@ class Battle:
         """Storm of Fire (Gladius, 1 CP, Battle Tactic). Real rule: your
         Shooting phase, on an ADEPTUS ASTARTES unit — ranged weapons gain
         [SUSTAINED HITS 1] for the phase (or improve existing
-        [SUSTAINED HITS X] by 1). APPROXIMATION: SwegHammer has no per-
-        round transient [SUSTAINED HITS] flag, so the offensive uplift is
-        routed through `transient_plus_one_to_hit_shooting` on the
-        highest-RANGED-DPA Marine shooter (combined DPA picks melee
-        bricks like Bladeguard, which can't benefit from a +1-to-hit-
-        shooting flag; we pre-filter to units with actual ranged DPA).
-        Same direction (more landed hits / damage), comparable magnitude
-        on a 4+ hit roll — same lossy pattern as Shield Host's
-        Archaeotech Munitions.
+        [SUSTAINED HITS X] by 1). ST-1: now routes through
+        `transient_sustained_hits` (additive on top of any per-weapon
+        SUSTAINED HITS already on the profile, which directly matches the
+        codex stacking rule — a weapon with SUSTAINED HITS X gets X+1).
+        Previously proxied through `transient_plus_one_to_hit_shooting`,
+        which over-modelled the buff because +1-to-hit lifts every die
+        above the previous fail threshold whereas SUSTAINED HITS 1 only
+        fires on the natural 6.
         """
         candidates = self._marine_units(army)
         # Pre-filter to units with real ranged DPA — Storm of Fire only
@@ -2479,7 +2596,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, STORM_OF_FIRE):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        attacker.transient_sustained_hits += 1
 
     def _try_armour_of_contempt(self, army: Army, opponent: Army) -> None:
         """Armour of Contempt (Gladius, 1 CP, Battle Tactic). Real rule:
@@ -2678,9 +2795,25 @@ class Battle:
         `transient_plus_one_to_hit_shooting` on the highest-DPA AM
         SQUADRON (VEHICLE) — the canonical use case is extending
         Take Aim! / FRFSRF from an Infantry Squad to a Leman Russ pair.
+        AM-DIAG-4 (2026-05-24): added anti-stack guard — skip fire if the
+        SQUADRON target already holds any transient Order buff for the
+        round. The real rule "mirrors" an Order from one unit to another,
+        so re-applying the same flag the unit already has is a no-op in
+        the codex and a fab-magnitude amplifier in the proxy.
         """
         attacker = self._highest_dpa_am_squadron(army)
         if attacker is None:
+            return
+        # AM-DIAG-4: anti-stack guard. The proxy buff (+1 to hit shooting) is
+        # the same flag Take Aim! / FRFSRF set on REGIMENT targets. If the
+        # SQUADRON is already buffed (e.g. by Flexible Command + Take Aim!
+        # earlier the same round), re-firing is wasted CP at best and an
+        # unintentional double-buff at worst when the proxy is summed
+        # elsewhere. Real codex: mirroring an Order is a no-op if the
+        # destination already holds it.
+        if (attacker.transient_plus_one_to_hit_shooting
+                or attacker.transient_plus_one_to_wound_melee
+                or attacker.transient_plus_one_save):
             return
         target = self._highest_threat_enemy(opponent)
         if target is None:
@@ -2700,9 +2833,10 @@ class Battle:
         = True` for the round; `code.orders._is_order_target_eligible`
         reads the flag and widens the target pool to BATTLELINE VEHICLE.
         """
+        from .orders import _is_am_officer
         officers = [
             u for u in self._am_units(army)
-            if "CHARACTER" in (u.profile.unit_keywords or ())
+            if _is_am_officer(u)
         ]
         if not officers:
             return
@@ -2735,7 +2869,20 @@ class Battle:
         def _ranged_dpa(u):
             p = u.profile
             return (p.attacks or 0) * (p.hit_probability or 0) * (p.per_shot_damage or 0.0)
-        ranged_candidates = [u for u in candidates if _ranged_dpa(u) > 0.0]
+        # AM-DIAG-4 (2026-05-24): pick the highest-DPA AM unit that does NOT
+        # already hold a transient offensive buff. The +1-to-hit-shooting
+        # proxy is the same flag Take Aim! / FRFSRF / Coordinated Action
+        # set; re-firing on an already-buffed unit is wasted CP in the
+        # codex (the rule grants AP+1, not +1 to hit, so on a real codex
+        # build it would stack with Take Aim — but on the proxy it does
+        # not, and we don't want the dispatcher to think it accomplished
+        # anything when it didn't). Picking an un-buffed second unit also
+        # narrows the magnitude per round to a single ranged shooter.
+        ranged_candidates = [
+            u for u in candidates
+            if _ranged_dpa(u) > 0.0
+            and not u.transient_plus_one_to_hit_shooting
+        ]
         if not ranged_candidates:
             return
         attacker = max(ranged_candidates, key=_ranged_dpa)
@@ -2822,6 +2969,17 @@ class Battle:
         target = self._most_vulnerable_am_infantry(army)
         if target is None:
             return
+        # AM-DIAG-4 (2026-05-24): anti-stack guard. The proxy buff
+        # (+1 save) is the same flag Take Cover! Order sets; if the
+        # vulnerable INFANTRY target already holds Take Cover! (or any
+        # transient buff) for the round, re-firing is wasted CP in the
+        # codex (Benefit of Cover does not stack with itself) and a
+        # magnitude amplifier in the proxy. The real LoS-blocked-by-
+        # VEHICLE visibility gate is also not modelled — without the
+        # anti-stack guard the dispatcher fires every round AM has a
+        # vehicle, which over-states the rule's frequency.
+        if target.transient_plus_one_save:
+            return
         ctx = {"target": target}
         if not should_fire_stratagem(army, STALWART_PROTECTOR, ctx):
             return
@@ -2836,6 +2994,193 @@ class Battle:
     # at full strength) has no clean simulator hook (no mid-battle unit-
     # respawn / reserve-injection primitive). The dispatch loop simply
     # skips the entry, no CP spent.
+
+    # ----- ST-2 wave 3 — one stratagem per under-performing faction ----
+    # Wahapedia citations live in data/rule_citations.d/stratagems.json.
+    # Five offensive uplifts (one each for World Eaters, Chaos Daemons,
+    # Grey Knights, Genestealer Cults, Chaos Space Marines), each routed
+    # through an existing transient_* flag because the simulator has no
+    # LETHAL HITS / SUSTAINED HITS / wound-reroll transient yet (ST-1 in
+    # parallel addresses that mapping gap). Each is faction-gated via
+    # `_highest_dpa_unit(keyword=..., faction=...)` — no buffs leak onto
+    # non-matching attached allies.
+
+    def _try_apoplectic_frenzy(self, army: Army, opponent: Army) -> None:
+        """Apoplectic Frenzy (Berzerker Warband, 1 CP). Real rule: a WORLD
+        EATERS unit's melee weapons gain [LETHAL HITS] until end of Fight
+        phase. APPROXIMATION: routed through transient_plus_one_to_wound_melee
+        on the highest-DPA WE unit (LETHAL HITS auto-wounds on crit-to-hit;
+        +1 to wound is a direction-correct offensive uplift via an existing
+        transient flag). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/world-eaters/#Berzerker-Warband
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="WORLD EATERS", faction="World Eaters",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, APOPLECTIC_FRENZY, ctx):
+            return
+        if not self._fire_stratagem(army, APOPLECTIC_FRENZY):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_denizens_of_the_warp(self, army: Army, opponent: Army) -> None:
+        """Denizens of the Warp (Daemonic Incursion, 1 CP). Real rule: re-roll
+        Hit and Wound rolls of 1 for a CHAOS DAEMONS unit's attacks vs an
+        enemy unit within range of an Objective Marker. APPROXIMATION: routed
+        through transient_reroll_hits_shooting (the hit-1 reroll half; the
+        wound-1 reroll half and the objective-range gate are dropped — same
+        proxy as Fire and Fade / Creeping Blight). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonic-Incursion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="DAEMON", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, DENIZENS_OF_THE_WARP, ctx):
+            return
+        if not self._fire_stratagem(army, DENIZENS_OF_THE_WARP):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_empyric_channelling(self, army: Army, opponent: Army) -> None:
+        """Empyric Channelling (Teleport Strike Force, 1 CP). Real rule:
+        a GREY KNIGHTS PSYKER unit's Psychic weapons gain [SUSTAINED HITS 2]
+        until end of Shooting phase. APPROXIMATION: routed through
+        transient_reroll_hits_shooting (SUSTAINED HITS 2 is lossy on the
+        substitute, but a hit-reroll is a direction-correct offensive
+        multiplier for a GK Psyker's shooting). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/grey-knights/#Teleport-Strike-Force
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="PSYKER", faction="Grey Knights",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="GREY KNIGHTS", faction="Grey Knights",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, EMPYRIC_CHANNELLING, ctx):
+            return
+        if not self._fire_stratagem(army, EMPYRIC_CHANNELLING):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_cult_ambush(self, army: Army, opponent: Army) -> None:
+        """Cult Ambush (Final Day, 1 CP). Real rule: a GENESTEALER CULTS
+        unit gains [LETHAL HITS] on a ranged attack (or +1 to Wound on melee).
+        APPROXIMATION: routed through transient_reroll_hits_shooting on the
+        highest-DPA GSC unit (LETHAL HITS auto-wounds on crit-to-hit; a hit
+        reroll is a direction-correct offensive multiplier). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/#Final-Day
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="GENESTEALER CULTS", faction="Genestealer Cults",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, CULT_AMBUSH, ctx):
+            return
+        if not self._fire_stratagem(army, CULT_AMBUSH):
+            return
+        attacker.transient_reroll_hits_shooting = True
+
+    def _try_profane_zeal(self, army: Army, opponent: Army) -> None:
+        """Profane Zeal (Pactbound Zealots, 1 CP). Real rule: re-roll Hit
+        AND Wound rolls of 1 for a HERETIC ASTARTES unit's melee attacks
+        until end of phase. APPROXIMATION: routed through
+        transient_plus_one_to_wound_melee on the highest-DPA CSM melee unit
+        (+1 to wound is a direction-correct offensive uplift; the hit-reroll
+        half is dropped). Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Pactbound-Zealots
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="HERETIC ASTARTES", faction="Chaos Space Marines",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="CHAOS SPACE MARINES", faction="Chaos Space Marines",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, PROFANE_ZEAL, ctx):
+            return
+        if not self._fire_stratagem(army, PROFANE_ZEAL):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_eye_of_the_gods(self, killer, killer_army: Army) -> None:
+        """Eye of the Gods (Pactbound Zealots, 1 CP). Real rule: end of
+        Fight phase, when a CSM CHARACTER from your army has destroyed an
+        enemy unit with a melee attack — roll D6+Wounds and look up the
+        result on the Eye of the Gods table (2-5: +1 Move; 6-8: +1
+        Toughness; 9-12: +1 Attack OR +1 Strength; 13+: +1 Damage to melee
+        weapons OR pick another result). The result stamps PERMANENTLY on
+        the CHARACTER for the rest of the battle. APPROXIMATION: we
+        collapse the roll-and-pick table to a single +1-to-wound-melee
+        snowball stamped on the CHARACTER on its first qualifying melee
+        kill. Persistent (not cleared with round-start transient_* flags).
+        Fired inline at the kill site rather than via the round-start
+        detachment-stratagem dispatcher because the trigger is "destroyed
+        an enemy unit with a melee attack", which only the live fight loop
+        observes. Per-Command-phase stratagem cap is NOT incremented (the
+        cap covers round-start spends; on-kill reactive spends are out-of-
+        band, same exemption Counter-Offensive / Heroic Intervention use).
+        Wahapedia:
+        https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Eye-of-the-Gods
+        """
+        # Faction gate: CSM only.
+        if (killer.profile.faction or "") != "Chaos Space Marines":
+            return
+        # CHARACTER gate: only CSM CHARACTERs trigger the stratagem.
+        if "CHARACTER" not in set(killer.profile.unit_keywords or ()):
+            return
+        # Once-per-CHARACTER guard: stamp is permanent, so re-firing on a
+        # already-stamped CHARACTER would waste CP for no effect.
+        if killer.eye_of_the_gods_stamped:
+            return
+        # Detachment gate: the stratagem only exists in Pactbound Zealots.
+        # `stratagems_for_army` is the authoritative list; if EYE_OF_THE_GODS
+        # isn't in it, the army isn't running Pactbound Zealots.
+        from .stratagems import stratagems_for_army
+        if EYE_OF_THE_GODS not in stratagems_for_army(killer_army):
+            return
+        # CP spend + book-keeping. No target / attacker ctx needed — the
+        # decision is "always fire when a fresh CSM CHARACTER scores a
+        # melee kill", which is the highest-EV use of 1 CP under the
+        # snowball proxy.
+        if not self._fire_stratagem(killer_army, EYE_OF_THE_GODS):
+            return
+        killer.eye_of_the_gods_stamped = True
 
     # ----- Grand Coven (Thousand Sons) — six real stratagems (#193) ----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
@@ -3365,7 +3710,12 @@ class Battle:
             if target is None:
                 return
             damage = 5 if test_total >= 11 else 2
-            target.receive_damage(float(damage), bonus_fnp=target.profile.fnp)
+            # Doombolt is a Cabal of Sorcerers Ritual — a 10e [PSYCHIC]
+            # Attack. Magnus's Impossible Form excludes Psychic Attacks
+            # from its -1-damage reduction, so flag this as psychic so the
+            # `receive_damage` path skips the `transient_minus_one_damage_taken`
+            # clamp for Magnus (and any future Impossible-Form-like target).
+            target.receive_damage(float(damage), bonus_fnp=target.profile.fnp, psychic=True)
             # Death detection: if the Doombolt kills the target, fan out
             # through the same death-handling code paths as a normal kill.
             if not target.is_alive:
@@ -3489,49 +3839,60 @@ class Battle:
     # in a profile name simply means the unit doesn't get the buff, which
     # is the same as a true non-WYCH-CULT result. Cited as
     # `simulator.combat_drugs`.
-    _WYCH_CULT_DRUG_ASSIGNMENT = {
-        # name -> (extra_melee_attacks, melee_strength_bonus,
-        #          toughness_bonus, move_bonus_inches, label)
-        "Wyches":               (1, 0, 0, 0.0, "Adrenalight"),
-        "Hellions":             (0, 0, 0, 2.0, "Hypex"),
-        "Reavers":              (0, 1, 0, 0.0, "Grave Lotus"),
-        "Beastmaster [Legends]": (0, 0, 1, 0.0, "Painbringer"),
-    }
+    _WYCH_CULT_UNITS = (
+        "Wyches",
+        "Hellions",
+        "Reavers",
+        "Beastmaster [Legends]",
+    )
 
     def _apply_combat_drugs(self) -> None:
         """Drukhari Combat Drugs army rule (10e).
 
         Verbatim Wahapedia
-        (https://wahapedia.ru/wh40k10ed/factions/drukhari/): "WYCH CULT
-        models from your army are administered combat drugs that grant the
-        following abilities (you can select a different drug for each WYCH
-        CULT unit but each must select a drug)." The six drugs:
-          Adrenalight: "Add 1 to the Attacks characteristic of melee
-            weapons equipped by WYCH CULT models from your army."
-          Hypex: "Add 2\" to the Move characteristic of WYCH CULT models
-            from your army."
-          Serpentin: "Improve the Weapon Skill characteristic of melee
-            weapons equipped by WYCH CULT models from your army by 1."
-          Painbringer: "Add 1 to the Toughness characteristic of WYCH CULT
-            models from your army."
-          Grave Lotus: "Add 1 to the Strength characteristic of melee
-            weapons equipped by WYCH CULT models from your army."
-          Splintermind: "Improve the Leadership characteristic of WYCH
-            CULT models from your army by 1, and improve the Ballistic
-            Skill characteristic of ranged weapons equipped by WYCH CULT
-            models from your army by 1."
+        (https://wahapedia.ru/wh40k10ed/factions/drukhari/#Combat-Drugs):
+        "At the start of your Command phase, select which Combat Drugs
+        will be active for your army until the start of your next Command
+        phase. To do so, either select one from the list below (you
+        cannot select the same Combat Drug more than once per battle), or
+        randomly select two by rolling two D6."
 
-        SwegHammer models four of the six drugs (Adrenalight, Hypex,
-        Grave Lotus, Painbringer) — Serpentin and Splintermind are
-        APPROXIMATION: the simulator's per-unit Hit profile already
-        encodes the post-modifier hit chance for stock Drukhari loadouts
-        and there is no Leadership gate the four WYCH CULT datasheets
-        currently fail. The assignment heuristic picks the strongest
-        realistic uplift per unit role rather than rolling — at battle
-        start the Drukhari player picks each unit's drug, so a fixed
-        sensible pick is closer to real-table behaviour than randomising.
-        WYCH CULT unit allowlist hard-coded in
-        `_WYCH_CULT_DRUG_ASSIGNMENT`. Cited as `simulator.combat_drugs`.
+        The six drugs:
+          Adrenalight: "Add 1 to the Attacks characteristic of melee
+            weapons equipped by WYCH CULT models."
+          Hypex: "Add 2\" to the Move characteristic of WYCH CULT
+            models."
+          Serpentin: "Improve the Weapon Skill characteristic of melee
+            weapons equipped by WYCH CULT models by 1."
+          Painbringer: "Add 1 to the Toughness characteristic of WYCH
+            CULT models."
+          Grave Lotus: "Add 1 to the Strength characteristic of melee
+            weapons equipped by WYCH CULT models."
+          Splintermind: "Improve the Leadership characteristic of WYCH
+            CULT models by 1, and improve the Ballistic Skill
+            characteristic of ranged weapons equipped by WYCH CULT
+            models by 1."
+
+        The rule selects ONE Combat Drug at a time army-wide that applies
+        to every WYCH CULT unit until the next Command phase, and the
+        drugs are mutually exclusive (the same drug cannot be reselected
+        in the same battle if picked manually). The prior implementation
+        stacked four drugs (Adrenalight + Hypex + Grave Lotus +
+        Painbringer) simultaneously across four different WYCH CULT
+        datasheets, which is rules-illegal and produced an excess melee
+        uplift across the Wych Cult roster.
+
+        DRK-DIAG-4 collapses the stack to a single drug picked
+        army-wide. Adrenalight (+1 melee Attacks for every WYCH CULT
+        model) is the canonical tournament default — the unit roster
+        skews melee, and Adrenalight has the largest expected damage
+        uplift across the Wych Cult units modelled here. Hypex, Grave
+        Lotus, and Painbringer are intentionally NOT applied; modelling
+        the per-round re-selection over the six drugs is left to a
+        future Stage 1 iteration if tournament data calls for it.
+
+        WYCH CULT unit allowlist hard-coded in `_WYCH_CULT_UNITS`.
+        Cited as `simulator.combat_drugs`.
         """
         for army in (self.a, self.b):
             if not any(u.profile.faction == "Drukhari" for u in army.units):
@@ -3539,16 +3900,15 @@ class Battle:
             for u in army.units:
                 if u.profile.faction != "Drukhari":
                     continue
-                key = self._WYCH_CULT_DRUG_ASSIGNMENT.get(u.profile.name)
-                if key is None:
+                if u.profile.name not in self._WYCH_CULT_UNITS:
                     continue
-                xa, xs, xt, xm, label = key
-                u.combat_drug_extra_melee_attacks = xa
-                u.combat_drug_melee_strength_bonus = xs
-                u.combat_drug_toughness_bonus = xt
-                u.combat_drug_move_bonus = xm
+                # Single army-wide drug pick: Adrenalight (+1 melee A).
+                u.combat_drug_extra_melee_attacks = 1
+                u.combat_drug_melee_strength_bonus = 0
+                u.combat_drug_toughness_bonus = 0
+                u.combat_drug_move_bonus = 0.0
                 if self.verbose:
-                    print(f"  COMBAT DRUGS: {u.profile.name} -> {label}")
+                    print(f"  COMBAT DRUGS: {u.profile.name} -> Adrenalight")
 
     def _apply_blessings_of_khorne(self, round_num: int) -> None:
         """World Eaters Blessings of Khorne army rule (10e).
@@ -3699,7 +4059,13 @@ class Battle:
                 role = classify(u.profile)
                 return ROLE_THREAT.get(role, 1.0) * u.current_health
             victim = max(targets, key=_score)
-            victim.receive_damage(damage, bonus_fnp=victim.profile.fnp)
+            # `psychic_mortal_wounds_per_round` represents end-of-round
+            # mortal-wound output from psychic detachments (currently TSON
+            # Cabal proxy / GRAND_COVEN flow). These are 10e [PSYCHIC]
+            # Attacks, so flag `psychic=True` to bypass Magnus's Impossible
+            # Form -1-damage clamp (Wahapedia, Magnus the Red datasheet:
+            # "Psychic Attacks are not affected by this ability").
+            victim.receive_damage(damage, bonus_fnp=victim.profile.fnp, psychic=True)
 
     def _apply_cult_ambush_resurgence(self, army, round_num: int) -> None:
         """End-of-round Cult Ambush revival hook (Genestealer Cults army rule).
@@ -3732,17 +4098,33 @@ class Battle:
         """
         if army.cult_ambush_resurgence_points < 3:
             return
-        # Only fire for GSC armies (gate on starting Resurgence > 0 +
-        # faction tag on the first unit).
-        if not army.units or army.units[0].profile.faction != "Genestealer Cults":
+        # Only fire for GSC armies. Inspect on-board units AND reserves
+        # because the GSC roster starts the battle entirely in reserves
+        # (Cult Ambush). Checking only `army.units[0]` falsely rejects
+        # the GSC side during Round 1 before any ambush arrivals.
+        roster = list(army.units) + list(self._reserves.get(army.name, []))
+        if not roster or roster[0].profile.faction != "Genestealer Cults":
             return
 
         # Candidate pool: dead units carrying the INFANTRY keyword,
         # excluding CHARACTERs (the codex Resurgence table only lists
-        # multi-model troop blocks — no CHARACTER pricings).
+        # multi-model troop blocks — no CHARACTER pricings) and
+        # excluding units already revived this battle so the proxy
+        # doesn't ping-pong the same unit (the codex "Add a new unit"
+        # phrasing implies a per-destruction one-shot, but tracking
+        # one-revival-per-original-unit at the proxy level is enough).
+        opponent = self.b if army is self.a else self.a
+
+        # Single revival per round, as the original proxy intended.
+        # GSC-DIAG kept the loop scaffold (and the cult_ambush_revived
+        # one-shot guard) so a future calibration step can lift the
+        # cap to N>1 if needed; the once-per-round throttle is
+        # APPROXIMATION because the real rule fires per-destruction.
         candidates = []
         for u in army.units:
             if u.is_alive:
+                continue
+            if getattr(u, "cult_ambush_revived", False):
                 continue
             kw = set(u.profile.unit_keywords or ())
             if "INFANTRY" not in kw or "CHARACTER" in kw:
@@ -3755,36 +4137,24 @@ class Battle:
         candidates.sort(key=lambda u: -u.profile.points_cost)
         revived = candidates[0]
 
-        # Find a safe Deep Strike landing position > 9" from every alive
-        # enemy. Reuse the existing helper if available; otherwise fall
-        # back to the army's starting deployment edge.
-        opponent = self.b if army is self.a else self.a
-        landing_pos = None
-        if hasattr(self, "_safe_deepstrike_pos"):
-            try:
-                landing_pos = self._safe_deepstrike_pos(army, opponent)
-            except Exception:
-                landing_pos = None
+        landing_pos = self._pick_arrival_point(
+            opponent, arriving_unit=revived, round_num=round_num,
+        )
         if landing_pos is None:
-            # Fallback: place at the army's deployment-edge midline. Far
-            # from optimal but guarantees the proxy fires rather than
-            # silently dropping the revival.
-            a_y = self.map.deployment_width / 2.0
-            sign = 1.0 if army is self.a else -1.0
-            landing_pos = (self.map.length / 2.0, a_y * sign)
+            return
 
         # Spend Resurgence + restore state. The flat 3-point spend is the
-        # median across the per-unit codex table.
+        # median across the per-unit codex table (2-8 per Starting Strength).
         army.cult_ambush_resurgence_points -= 3
         revived.current_health = revived.profile.health
         revived.position = landing_pos
+        revived.cult_ambush_revived = True
         # Reset transient combat flags that may have stuck on death.
-        revived.moved_this_round = True   # skips movement sub-phase next round
+        revived.moved_this_round = True   # skips movement sub-phase
         revived.fell_back_this_round = False
-        # Re-attach via the live-unit cache invalidation path.
         army._invalidate_alive_cache()
-        # Flag as a fresh arrival so the AI scheduler treats it like a
-        # turn-1 ambush drop (no movement, can shoot/charge per Deep Strike).
+        # Flag as a fresh arrival so the AI scheduler treats it like an
+        # ambush drop (no movement, can shoot/charge per Deep Strike).
         self._fresh_arrivals.add(revived.uid)
 
     def _apply_reanimation(self) -> None:
@@ -4288,9 +4658,27 @@ class Battle:
             Cited as `simulator.mob_rule`.
           - Synapse Imperative (Tyranids, 10e): a Tyranid unit within 6"
             of any friendly SYNAPSE model auto-passes. Cited as
-            `simulator.synapse_imperative`.
-          - Shadow in the Warp (Tyranids, 10e): an enemy unit within 12"
-            of any Tyranid SYNAPSE model takes the test at -1. Cited as
+            `simulator.synapse_imperative`. Note (BS-1): a Tyranid unit
+            that auto-passes via Synapse never has its
+            `battleshocked_until_round` advanced, so
+            `is_currently_battle_shocked(round_num)` correctly returns
+            False for them — this matters once future Synapse-keyed
+            consumers (e.g. enemy Harbingers of Dread auras) start reading
+            the persistent flag.
+          - Shadow in the Warp (Tyranids, 10e Codex): the Tyranid player
+            unleashes Shadow once per battle, in either player's Command
+            phase. On the round it is unleashed, each enemy unit within 6"
+            of any friendly Tyranid SYNAPSE model takes its Battle-shock
+            test at -1. TYRANIDS-DIAG-5: was previously modelled as an
+            always-on 12" aura — over-applied the debuff every round at a
+            wider radius, contributing to Tyranids sim over-perf. Now gated
+            on `army.shadow_in_the_warp_used_round == round_num`, declared
+            from the Command-phase loop with the AI heuristic firing at
+            Round 2. The "forces a Battle-shock test on every enemy unit on
+            the battlefield on the unleashing round" half of the codex rule
+            is NOT modelled here — most at-strength enemy units (Ld 7-9)
+            pass 2D6-1 reliably, so the dominant impact comes from -1
+            applied to the existing below-half tests within 6". Cited as
             `simulator.shadow_in_the_warp`.
           - Contagions of Nurgle Round 2 Maladictive Pall (Death Guard, 10e):
             enemy units within 3" of any DG model take -1 Ld. Cited as
@@ -4316,19 +4704,42 @@ class Battle:
             own_det = army.resolve_detachment()
             ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
             ld_bonus = own_det.ld_bonus if own_det else 0
-            ork_count = sum(
-                1 for u in army.alive_units if u.profile.faction == "Orks"
+            # Mob Rule (10e): per-unit, not army-wide. Wahapedia: "Each time
+            # a Battle-shock test is taken for an ORKS unit from your army,
+            # if that unit has 10 or more models in it, that test is
+            # automatically passed." ORKS-DIAG: SwegHammer models each squad
+            # member as a separate Unit, so we proxy "the unit" by grouping
+            # alive Orks by `profile.name` (datasheet name). A 10+ Boyz mob
+            # auto-passes; a 6-strong Tankbusta squad or a lone Warboss does
+            # not. The previous army-wide gate (`ork_count >= 10`) gave Mob
+            # Rule to every Ork unit on the board whenever any single big
+            # mob was alive, inflating Ork resilience.
+            from collections import Counter as _Counter
+            mob_rule_squad_counts = _Counter(
+                u.profile.name for u in army.alive_units
+                if u.profile.faction == "Orks"
             )
-            mob_rule_active = ork_count >= 10
             own_synapse = [
                 s for s in army.alive_units
                 if "SYNAPSE" in (s.profile.unit_keywords or ())
             ]
-            shadow_sources = [
-                s for s in opponent.alive_units
-                if "SYNAPSE" in (s.profile.unit_keywords or ())
-                and s.profile.faction == "Tyranids"
-            ]
+            # Shadow in the Warp — once-per-battle (TYRANIDS-DIAG-5).
+            # The opponent's Tyranid army may have unleashed Shadow this
+            # round; the test-side debuff applies only on that round.
+            # `opponent.shadow_in_the_warp_used_round == round_num` gates
+            # the source list to empty when Shadow is dormant, so the
+            # downstream `shadow_penalty` block becomes a no-op.
+            if (
+                opponent.shadow_in_the_warp_used_round is not None
+                and opponent.shadow_in_the_warp_used_round == round_num
+            ):
+                shadow_sources = [
+                    s for s in opponent.alive_units
+                    if "SYNAPSE" in (s.profile.unit_keywords or ())
+                    and s.profile.faction == "Tyranids"
+                ]
+            else:
+                shadow_sources = []
             contagion_sources = (
                 [
                     s for s in opponent.alive_units
@@ -4354,9 +4765,29 @@ class Battle:
             if shadow_of_chaos_active:
                 cx = self.map.width / 2.0
                 cy = self.map.height / 2.0
+            # Harbingers of Dread (Chaos Knights army rule, 10e). Wahapedia
+            # verbatim Deathly Terror (always-on Dread, active from R1):
+            # "While an enemy unit is within 9\" of this model, worsen the
+            # Leadership characteristic of models in that unit by 1." Every
+            # Chaos Knights datasheet has the Harbingers of Dread rule
+            # (BSData v10.6.0 confirms the infoLink is present on every CK
+            # selectionEntry), so the aura source is "any alive Chaos
+            # Knights unit in the opposing army" rather than just CHARACTERs
+            # — Chaos Knights have very few CHARACTERs and the aura is
+            # datasheet-wide. The 9" radius is the Wahapedia-verbatim range.
+            # Same convention as Shadow in the Warp (a +1 to the test
+            # target equals a -1 to Ld). Cited as
+            # `simulator.harbingers_of_dread`.
+            harbinger_sources = [
+                s for s in opponent.alive_units
+                if (s.profile.faction or "") == "Chaos Knights"
+            ]
             for u in army.alive_units:
                 if u.current_health < u.profile.health / 2.0:
-                    if mob_rule_active and u.profile.faction == "Orks":
+                    if (
+                        u.profile.faction == "Orks"
+                        and mob_rule_squad_counts.get(u.profile.name, 0) >= 10
+                    ):
                         continue
                     if (
                         u.profile.faction == "Tyranids"
@@ -4369,8 +4800,12 @@ class Battle:
                     ):
                         continue
                     shadow_penalty = 0
+                    # TYRANIDS-DIAG-5: codex radius is 6", not the prior
+                    # always-on 12" aura. Source list is gated to the
+                    # once-per-battle declared round above; here we just
+                    # check distance.
                     if shadow_sources and any(
-                        _distance(u.position, s.position) <= 12.0
+                        _distance(u.position, s.position) <= 6.0
                         for s in shadow_sources
                     ):
                         shadow_penalty = 1
@@ -4397,6 +4832,18 @@ class Battle:
                     ):
                         shadow_of_chaos_penalty = 1
                         shadow_of_chaos_hit = True
+                    # Harbingers of Dread — Deathly Terror Ld -1 aura within
+                    # 9" of any alive enemy Chaos Knights model. Modelled as
+                    # +1 to the test target (Ld worse by 1). Gated to
+                    # non-Chaos-Knights testers, but in practice the testing
+                    # army is `army` and CK sources live on `opponent`, so a
+                    # mirror-match is already filtered structurally.
+                    harbinger_penalty = 0
+                    if harbinger_sources and any(
+                        _distance(u.position, s.position) <= 9.0
+                        for s in harbinger_sources
+                    ):
+                        harbinger_penalty = 1
                     roll = random.randint(1, 6) + random.randint(1, 6)
                     target = (
                         u.profile.leadership
@@ -4405,9 +4852,23 @@ class Battle:
                         + shadow_penalty
                         + contagion_penalty
                         + shadow_of_chaos_penalty
+                        + harbinger_penalty
                     )
                     if roll < target:
                         self._battleshocked_this_round.add(u.uid)
+                        # BS-1: persistent per-unit state. Mark the unit as
+                        # battle-shocked through the end of this round; the
+                        # next round's Battle-shock phase will overwrite or
+                        # leave the field stale (consumers read via
+                        # `is_currently_battle_shocked(round_num)`, which
+                        # checks exact-round equality, so stale values do
+                        # not bleed forward). Downstream rules that need
+                        # the persistent state (Synapse Imperative auto-pass
+                        # gating, Harbingers of Dread mortal-wound aura,
+                        # Repentia explosive death, DG plague-fear
+                        # stratagems) consume the marker rather than the
+                        # transient `_battleshocked_this_round` set.
+                        u.battleshocked_until_round = round_num
                         self._emit(BattleshockFailed(
                             unit_uid=u.uid, roll=roll, target=target,
                         ))
@@ -4435,6 +4896,22 @@ class Battle:
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
+        # Reset disembark tracking: nothing has disembarked yet this round.
+        self._disembarked_this_round = set()
+
+        # SOROR-DIAG-4 — reset each Sororitas unit's per-round Acts of Faith
+        # budget. The codex caps Acts of Faith at one per phase per unit; the
+        # simulator collapses this to one per ROUND per unit (conservative
+        # under-approximation — see Unit.aof_used_this_round docstring for the
+        # rationale). Walks both armies so defender-side resets fire too.
+        # Cited as `simulator.acts_of_faith`.
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.profile.faction == "Adepta Sororitas":
+                    u.aof_used_this_round = False
+            for u in self._reserves.get(army.name, []):
+                if u.profile.faction == "Adepta Sororitas":
+                    u.aof_used_this_round = False
 
         # SC4-A — snapshot each army's alive units at round start for the
         # 10e Pariah Nexus secondary scoring (Bring it Down + No Prisoners).
@@ -4507,6 +4984,50 @@ class Battle:
                     self._emit(WaaaghDeclared(
                         army_name=army.name, round_num=round_num,
                     ))
+        # ---- Tyranids Shadow in the Warp once-per-battle declaration
+        # (Command phase). 10e Codex Tyranids army rule (current Wahapedia):
+        # "Once per battle, in either player's Command phase, if one or more
+        # units from your army with this ability are on the battlefield, you
+        # can unleash the Shadow in the Warp. When you do, each enemy unit on
+        # the battlefield must take a Battle-shock test. Each time an enemy
+        # unit takes such a Battle-shock test, if it is within 6\" of one or
+        # more SYNAPSE units from your army, subtract 1 from that test."
+        #
+        # The previous SwegHammer implementation modelled SitW as an
+        # always-on 12" -1 Ld aura on every Battle-shock test against any
+        # below-half enemy unit — a multi-round, wider-radius over-buff vs
+        # the codex once-per-battle 6" trigger. TYRANIDS-DIAG-5 (2026-05-24)
+        # collapses to once-per-battle. AI heuristic: fire in Round 2 —
+        # earliest round when enemies have moved into range AND not yet
+        # taken meaningful casualties (Round 1 is opportunity-cost-cheaper
+        # but most enemy units may still be in their deployment zone and
+        # outside 6"). The "force a test on EVERY enemy unit" half of the
+        # rule is NOT modelled here — at-strength enemy units (Ld 7-9) pass
+        # 2D6-1 most of the time, so the dominant impact is the -1 to
+        # already-occurring below-half tests within 6". Cited as
+        # `simulator.shadow_in_the_warp`.
+        for army in (self.a, self.b):
+            if army.shadow_in_the_warp_used_round is not None:
+                continue  # already fired this battle
+            # Faction-gated to Tyranids armies with at least one alive SYNAPSE
+            # source on the battlefield (the codex prerequisite).
+            if not any(u.profile.faction == "Tyranids" for u in army.units):
+                continue
+            has_synapse_alive = any(
+                "SYNAPSE" in (u.profile.unit_keywords or ())
+                for u in army.alive_units
+            )
+            if not has_synapse_alive:
+                continue
+            # AI heuristic: declare from Round 2 onwards (first round
+            # enemies have advanced into 6" of Synapse anchors). The
+            # `is not None` early-exit above ensures this only fires once;
+            # the `>= 2` gate means a battle that only reaches Round 1
+            # leaves Shadow undeclared (acceptable: 5-round battles
+            # always reach Round 2). By Round 5 the gate is still true
+            # so the rule auto-declares as a use-it-or-lose-it fallback.
+            if round_num >= 2:
+                army.shadow_in_the_warp_used_round = round_num
         # ---- Drukhari Power From Pain (10e army rule). At the start of
         # each Command phase, every Drukhari unit Below Starting Strength
         # gains 1 Pain Token (cap of 1 per unit). While > 0, the unit's
@@ -4577,11 +5098,12 @@ class Battle:
                 army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
         # ---- Adeptus Astartes Oath of Moment (army rule, 10e). At the start
         # of each Command phase a Marine player picks one enemy unit; every
-        # Marine attack against that unit re-rolls hits AND wounds (full
-        # re-rolls, not just 1s) until the start of the next Command phase.
-        # We reset to None at the top of the round so a stale uid never
-        # leaks across rounds (the buff only fires while uid == current
-        # target). Cited as `simulator.oath_of_moment`.
+        # Marine attack against that unit re-rolls the Hit roll (full hit
+        # re-rolls, not just 1s; codex grants HIT re-rolls only — no wound
+        # re-roll) until the start of the next Command phase. We reset to
+        # None at the top of the round so a stale uid never leaks across
+        # rounds (the buff only fires while uid == current target). Cited
+        # as `simulator.oath_of_moment`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             # Snapshot prior round's target before clearing — _pick_oath_target
             # uses this to rotate off a still-alive anchor when a comparable
@@ -4945,9 +5467,92 @@ class Battle:
             # turn's Fight phase. Fights First (`_charging_this_round`) is
             # already round-scoped, so chargers from this round still get
             # the bonus when their own player's turn rolls around.
-            for unit in list(active.units):
+            #
+            # CORE-RULE-FIX-1 — sequence chargers BEFORE non-chargers within
+            # the active player's fight pass. Per Wahapedia core rules
+            # (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase):
+            # "All eligible units that have the FIGHTS FIRST ability must
+            # fight in the Fights First step. Then, in the Remaining Combats
+            # step, all other eligible units fight." A unit that made a
+            # Charge move this turn counts as having FIGHTS FIRST for the
+            # turn it charged ("each time you select an eligible unit from
+            # your army to fight with that made a Charge move this turn,
+            # that unit fights first"). Without this ordering, a non-charger
+            # whose activation_queue rank is higher could fight before the
+            # charger and waste the charge's positional / buff opportunity.
+            # Cited as `simulator.fights_first_chargers`.
+            #
+            # FF-KEYWORD-1 — extend the priority key to also tier the
+            # datasheet-level FIGHTS FIRST keyword (Wyches, Howling Banshees,
+            # Custodian Wardens, etc.) into the Fights First step alongside
+            # chargers. Per Wahapedia datasheet text the keyword applies
+            # every Fight phase, not only the turn the unit charged.
+            # Cited as `simulator.fights_first_keyword`.
+            def _fight_priority(u):
+                charging = u.uid in self._charging_this_round
+                ff_keyword = bool(getattr(u.profile, "fights_first", False))
+                return 0 if (charging or ff_keyword) else 1
+
+            ordered = sorted(list(active.units), key=_fight_priority)
+            for unit in ordered:
                 if unit.is_alive:
                     self._do_fight(unit, active, other)
+            # DAEMONS-DIAG-5: Bloodthirster "Relentless Carnage" — end-of-
+            # Fight-phase mortal-wound payload. BSData v10.6.0 Chaos Daemons
+            # Library (Bloodthirster datasheet, "Relentless Carnage" ability
+            # description) verbatim: "At the end of the Fight phase, you can
+            # select one enemy unit within Engagement Range of this model and
+            # roll eight D6: for each 4+, that enemy unit suffers 1 mortal
+            # wound." Fires once per Bloodthirster per fight pass. Picks the
+            # highest-DPA living enemy in 1" engagement range as the codex
+            # leaves the choice to the player. Cited as
+            # `simulator.relentless_carnage`. Wahapedia source:
+            # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster
+            self._apply_relentless_carnage(active, other)
+
+    def _apply_relentless_carnage(self, active: Army, other: Army) -> None:
+        """End-of-Fight-phase Bloodthirster mortal-wound payload.
+
+        For each alive Bloodthirster in `active` (the player whose Fight
+        phase just resolved), if any enemy unit is within 1" Engagement
+        Range, roll eight D6 and inflict one mortal wound per 4+ on the
+        chosen enemy. Codex leaves the target choice to the Bloodthirster's
+        player; SwegHammer picks the highest-DPA living engagement-range
+        enemy as a reasonable approximation of "the most threatening target
+        in melee".
+
+        Mortal wounds are FNP-eligible per 10e core rules; routed through
+        `receive_damage(..., bonus_fnp=victim.profile.fnp)` so any defender
+        FNP applies (matches the Shadow of Chaos failed-test mortal-wound
+        delivery convention above). Cited as `simulator.relentless_carnage`
+        in data/rule_citations.d/chaos_daemons.json.
+        """
+        for src in list(active.alive_units):
+            if src.profile.name != "Bloodthirster":
+                continue
+            in_engagement = [
+                e for e in other.alive_units
+                if _distance(src.position, e.position) <= 1.0
+            ]
+            if not in_engagement:
+                continue
+            # Pick the highest-DPA engagement-range enemy. _highest_dpa_unit
+            # is army-scoped, so we inline a lightweight DPA-on-this-unit
+            # proxy: melee damage potential (mA * mD * mhit_p) as the threat
+            # heuristic. Falls back to "first in list" if all are scoreless.
+            def _melee_dpa(u):
+                p = u.profile
+                return (
+                    max(1, int(p.melee_attacks))
+                    * float(p.melee_damage_per_shot or 0.0)
+                    * float(p.melee_hit_probability or 0.0)
+                )
+            victim = max(in_engagement, key=_melee_dpa)
+            mw = sum(1 for _ in range(8) if random.randint(1, 6) >= 4)
+            if mw > 0:
+                victim.receive_damage(
+                    float(mw), bonus_fnp=victim.profile.fnp,
+                )
 
     # ------------------------------------------------------------------
     # Sub-phases
@@ -4977,6 +5582,18 @@ class Battle:
         # is satisfied. Cited as `simulator.disembark`.
         if self._is_transport(attacker) and attacker.passengers:
             self._maybe_disembark_before_move(attacker, attacker_army, defender_army)
+
+        # Disembark lockout (10e core): "If a unit disembarks from a
+        # Transport in your Movement phase, it cannot make a Normal,
+        # Advance or Fall Back move that turn." Shoot and Charge are NOT
+        # blocked (handled separately via _do_shoot / _do_charge). Cited
+        # as `simulator.disembark`. The passenger was already placed
+        # within 3" of the transport and is treated as having moved its
+        # Move characteristic — `_did_move_this_round` / `moved_this_round`
+        # are set in `_disembark`, surfacing the move to the Heavy
+        # keyword check.
+        if attacker.uid in self._disembarked_this_round:
+            return
 
         # Strategy layer (code/strategy.py): role + objective-aware pick of
         # where this unit wants to go. The simulator USED to always march at
@@ -5177,7 +5794,7 @@ class Battle:
         kw = attacker.profile.unit_keywords or ()
         big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
-            _distance(attacker.position, e.position) < 1.5
+            _distance(attacker.position, e.position) < 1.0
             for e in defender_army.alive_units
         )
         if in_engagement:
@@ -5259,11 +5876,48 @@ class Battle:
         # Same "lower-is-better" inversion as the screen bonus — we divide
         # the score so a 1.5x bonus reads as 0.67x its raw HP, biasing
         # min() toward it.
-        from .strategy import _screen_target_bonus, _synapse_target_bonus
+        # AI-4 — Adeptus Astartes Oath-of-Moment target priority: when this
+        # attacker is a Marine unit and its army has nominated an Oath target
+        # this turn, bias the picker toward dumping fire on that target so
+        # the army's hit-1 + wound-1 re-rolls compound on a single anchor
+        # (matches real-meta Marine play). Gated faction-pure via
+        # `is_marine_faction` (excludes Grey Knights / Custodes / Sisters);
+        # the LoS+range candidates filter above means the bonus only fires
+        # when the Oath target is actually reachable for this attacker.
+        # AI-8 — Transport target priority (faction-neutral): real-meta
+        # opponents shoot TRANSPORT units first to deny the embarked unit's
+        # alpha-strike disembark. The bonus is keyword-gated on the defender
+        # (TRANSPORT in unit_keywords) and stacks multiplicatively with the
+        # screen / synapse / oath chain. Empty transports get 1.8x; loaded
+        # transports get 2.2x (priority dial-up when killing the chassis
+        # also disrupts the passengers).
+        # DRK-DIAG-11 — Drukhari fragile FLY VEHICLE target priority
+        # (defender-faction-gated, keyword-gated, defensive-stat-gated):
+        # real-meta opponents shoot Ravagers / Voidravens / Razorwings on
+        # round 1 because their alpha-strike damage scales linearly with
+        # rounds alive but they die to focused fire (no invuln / no Feel
+        # No Pain). The bonus only fires on Drukhari FLY VEHICLEs with
+        # no defensive layers; Talos / Cronos (MONSTER, FNP 5+) and
+        # non-Drukhari FLY VEHICLEs (Wave Serpent 5++, Caladius 5++)
+        # are excluded. 1.5x multiplier stacks with the transport bonus
+        # for loaded Raiders / Venoms (1.5 * 2.2 = 3.3x), and stands
+        # alone at 1.5x for Ravager / Voidraven / Razorwing (which are
+        # not transports).
+        from .strategy import (
+            _astartes_oath_target_bonus,
+            _drukhari_fragile_flyer_bonus,
+            _screen_target_bonus,
+            _synapse_target_bonus,
+            _transport_target_bonus,
+        )
         shoot_target = min(
             pool,
             key=lambda u: u.current_health / (
-                _screen_target_bonus(u) * _synapse_target_bonus(attacker, u)
+                _screen_target_bonus(u)
+                * _synapse_target_bonus(attacker, u)
+                * _astartes_oath_target_bonus(attacker, u, attacker_army)
+                * _transport_target_bonus(u)
+                * _drukhari_fragile_flyer_bonus(u)
             ),
         )
 
@@ -5287,6 +5941,10 @@ class Battle:
             attacker_keywords=attacker.profile.unit_keywords or (),
             target_keywords=shoot_target.profile.unit_keywords or (),
         )
+        # MR-WE-3 Blood Surge — snapshot pre-shot health so we can detect a
+        # model destruction event on the defender (Khorne Berzerkers only).
+        # See `simulator.blood_surge` in rule_citations.json.
+        _blood_surge_health_before = shoot_target.current_health
         dmg = attacker.attack(shoot_target, distance=distance, has_los=has_los)
         # Firing Deck X (10e core, TRANSPORT keyword). If the attacker is a
         # TRANSPORT with embarked passengers and firing_deck > 0, up to X
@@ -5335,6 +5993,21 @@ class Battle:
             # Deadly Demise (10e core): the destroyed unit may detonate.
             self._maybe_apply_deadly_demise(shoot_target)
 
+        # MR-WE-3 Blood Surge (Khorne Berzerkers). After this shot resolves,
+        # if the defender is a Khorne Berzerkers unit and lost one or more
+        # models from these attacks, it makes a free D6+2" reactive move
+        # ending as close as possible to the closest enemy unit. Cited as
+        # `simulator.blood_surge`. Faction-gated ("World Eaters") AND
+        # name-gated (profile.name == "Khorne Berzerkers") so Eightbound,
+        # Exalted Eightbound, Angron, and other WE datasheets DO NOT
+        # trigger. Fires per shot resolution so multiple Berzerker units
+        # each Surge from their respective shooters.
+        self._maybe_apply_blood_surge(
+            defender=shoot_target,
+            attacker_army=attacker_army,
+            health_before=_blood_surge_health_before,
+        )
+
         if self.verbose:
             alive_str = (
                 "killed" if not shoot_target.is_alive
@@ -5343,6 +6016,106 @@ class Battle:
             print(
                 f"  {attacker_army.name}: {attacker.profile.name}"
                 f" -> {shoot_target.profile.name} ({dmg:.2f} dmg, {alive_str})"
+            )
+
+    def _maybe_apply_blood_surge(
+        self,
+        defender,
+        attacker_army: Army,
+        health_before: float,
+    ) -> None:
+        """MR-WE-3 — Blood Surge reactive move for Khorne Berzerkers.
+
+        BSData v10.6.0 (Chaos - World Eaters.cat.gz), verbatim:
+          "In your opponent's Shooting phase, each time an enemy unit has
+          shot, if any models from this unit were destroyed as a result of
+          those attacks, this unit can make a Blood Surge move. To do so,
+          roll one D6 and add 2 to the roll: models in this unit move a
+          number of inches up to this result, but this unit must finish
+          that move as close as possible to the closest enemy unit."
+
+        Faction-gated to World Eaters AND name-gated to "Khorne Berzerkers"
+        — Eightbound, Exalted Eightbound, Angron etc. do NOT have this
+        ability. Triggered per shot resolution (the caller calls this once
+        per `_do_shoot` invocation), so multiple Berzerker units each Surge
+        in response to their respective shooters. Cited as
+        `simulator.blood_surge`. See data/rule_citations.json.
+
+        Movement model: roll D6+2, then close the gap to the nearest enemy
+        unit (the shooter's army's nearest unit, since that's "the closest
+        enemy unit" from the Berzerkers' point of view at the moment of
+        the shot). If the gap is larger than D6+2, advance D6+2 toward
+        the nearest enemy via `_move_toward`. If the gap is smaller, move
+        directly INTO engagement range (1.0" gap) so the Berzerkers
+        translate the surge into a melee threat the same turn — which is
+        the rule's intent ("finish as close as possible to the closest
+        enemy unit"). Engagement-range floor of 1.0" matches the
+        `_do_charge` post-charge placement and the 10e Engagement Range
+        of 1".
+        """
+        # Faction + datasheet gate.
+        if defender.profile.faction != "World Eaters":
+            return
+        if defender.profile.name != "Khorne Berzerkers":
+            return
+        if not defender.is_alive:
+            return  # whole unit wiped — nothing left to Surge
+
+        # "any models from this unit were destroyed" — gate on at least
+        # one full model worth of wounds lost across this shot resolution.
+        # `current_health` is total wounds across surviving models; a
+        # model is destroyed when the unit's health crosses a
+        # `wounds_per_model` boundary downward.
+        if defender.profile.min_models < 2:
+            return  # not a multi-model squad — defensive guard
+        wounds_per_model = defender.profile.health / defender.profile.min_models
+        if wounds_per_model <= 0:
+            return
+        models_before = int(health_before / wounds_per_model + 1e-9)
+        models_after = int(defender.current_health / wounds_per_model + 1e-9)
+        # Round up survivors: if you've taken any wounds into a model
+        # you've "wounded" but not "destroyed" it. Match the codex
+        # threshold: the floor of (lost_health / wpm) gives the count of
+        # destroyed models. Use floor of remaining health on both sides
+        # — if a model lost some-but-not-all wounds neither side counts
+        # that as destruction.
+        lost_health = max(0.0, health_before - defender.current_health)
+        models_destroyed = int(lost_health / wounds_per_model + 1e-9)
+        if models_destroyed < 1:
+            return
+
+        # Pick nearest enemy unit (from the shooting army — those are the
+        # "closest enemy" units from the Berzerkers' perspective at the
+        # moment of the surge). Fall through gracefully if there's no
+        # alive enemy (shouldn't happen since we just shot, but guard
+        # against off-board / embarked cases).
+        enemy_pool = [
+            u for u in attacker_army.alive_units
+            if getattr(u, "embarked_in", None) is None
+        ]
+        if not enemy_pool:
+            return
+        nearest = min(enemy_pool, key=lambda e: _distance(defender.position, e.position))
+        gap = _distance(defender.position, nearest.position)
+        if gap <= 0:
+            return  # already co-located, nothing to do
+
+        surge_roll = random.randint(1, 6) + 2   # D6 + 2
+        # "finish as close as possible" -> if we can reach engagement
+        # range (1.0"), stop at 1.0" gap. Otherwise advance the full
+        # surge distance toward the enemy.
+        if gap - surge_roll <= 1.0:
+            travel = max(0.0, gap - 1.0)
+        else:
+            travel = float(surge_roll)
+        old_pos = defender.position
+        new_pos = _move_toward(old_pos, nearest.position, travel, self.map)
+        defender.position = new_pos
+        if self.verbose:
+            print(
+                f"  [Blood Surge] {defender.profile.name} ({defender.uid}) "
+                f"surged {travel:.1f}\" toward {nearest.profile.name} "
+                f"(gap {gap:.1f}\" -> {_distance(new_pos, nearest.position):.1f}\")"
             )
 
     # ------------------------------------------------------------------
@@ -5486,7 +6259,7 @@ class Battle:
             alive_enemies,
             key=lambda e: _distance(attacker.position, e.position),
         )
-        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.5
+        pre_engaged = _distance(attacker.position, nearest_pre.position) <= 1.0
         is_charging_this_turn = attacker.uid in self._charging_this_round
         if (
             (pre_engaged or is_charging_this_turn)
@@ -5508,7 +6281,7 @@ class Battle:
         # breaks the lock rather than the closest brick.
         in_range = [
             e for e in alive_enemies
-            if _distance(attacker.position, e.position) <= 1.5
+            if _distance(attacker.position, e.position) <= 1.0
         ]
         if not in_range:
             return
@@ -5539,6 +6312,19 @@ class Battle:
                 victim=target, victim_army=defender_army,
             )
             self._maybe_apply_deadly_demise(target)
+            # CSM-EYE-OF-GODS: Eye of the Gods (Pactbound Zealots, 1 CP).
+            # End-of-Fight-phase reactive stratagem fired on the kill site.
+            # Real rule: at end of Fight phase, a CSM CHARACTER that
+            # destroyed an enemy unit in melee rolls D6+Wounds on the Eye
+            # of the Gods table for a permanent stat buff. APPROXIMATION:
+            # collapsed to a permanent +1-to-wound-melee snowball stamped
+            # on the CHARACTER. The dispatcher self-gates on faction +
+            # CHARACTER keyword + Pactbound Zealots detachment + once-per-
+            # CHARACTER + CP affordability. Cited as
+            # `Stratagem.Eye of the Gods`.
+            self._try_eye_of_the_gods(
+                killer=attacker, killer_army=attacker_army,
+            )
 
         # Universal Core Stratagem — Counter-Offensive (2 CP, defender):
         # an out-of-sequence fight for the side that just got hit. The
@@ -5719,9 +6505,10 @@ class Battle:
         Sets `army.oath_target_uid` and emits `OathTargetChosen`. No-op
         (and no event) when the opponent has no alive units left.
 
-        The buff itself (re-roll all hits AND all wounds against the
-        chosen unit) is applied in Unit.attack, gated on the attacker
-        being a Marine and `attacker_army.oath_target_uid == target.uid`.
+        The buff itself (re-roll all hits against the chosen unit — the
+        codex grants HIT re-rolls only, no wound re-roll) is applied in
+        Unit.attack, gated on the attacker being a Marine and
+        `attacker_army.oath_target_uid == target.uid`.
         """
         alive = opponent.alive_units
         if not alive:
@@ -6053,6 +6840,19 @@ class Battle:
         passenger.embarked_in = None
         if passenger in transport.passengers:
             transport.passengers.remove(passenger)
+        # 10e core Disembark: "The unit is then treated as having moved a
+        # distance equal to its Move characteristic this turn" — surface
+        # to the Heavy keyword check. The unit cannot make a Normal,
+        # Advance or Fall Back move when its own activation arrives —
+        # tracked in `_disembarked_this_round` and enforced in `_do_move`.
+        # Voluntary disembark (forced=False) fires from the transport's
+        # own Movement sub-phase, so the lockout applies for the rest of
+        # this round. Forced disembark (transport destroyed) is also a
+        # disembark for rule purposes and the same lockout applies.
+        # Wahapedia core rules: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS
+        self._did_move_this_round.add(passenger.uid)
+        passenger.moved_this_round = True
+        self._disembarked_this_round.add(passenger.uid)
         self._emit(TransportDisembarked(
             transport_uid=transport.uid,
             passenger_uid=passenger.uid,
@@ -6064,10 +6864,20 @@ class Battle:
         """Force-disembark every passenger when a TRANSPORT is destroyed (10e).
 
         For each model in the disembarking unit, roll 1D6; on a 1 that model
-        is destroyed. SwegHammer models units as one Unit instance per model,
-        so a single D6 is rolled per passenger Unit; on a 1 the passenger's
-        current_health is zeroed and a UnitKilled event is emitted. Cited as
+        is destroyed. SwegHammer's Unit instance represents a whole squad
+        whose `current_health` is the pooled wound count across surviving
+        models, so we need one D6 per live model — not one per Unit. Models
+        alive = `current_health / wounds_per_model`, where wounds_per_model
+        = `profile.health / profile.min_models`. Each model destroyed reduces
+        `current_health` by `wounds_per_model`. Cited as
         `simulator.destroyed_transport`.
+
+        Prior behaviour (DRK-AI carry-forward bug, fixed by DRK-FINAL-2):
+        rolled a single D6 per Unit and zeroed the whole squad on a 1. For a
+        10-Kabalite squad that's ~16% chance of total wipe instead of the
+        correct ~84% chance of losing 1-3 models in expectation. Under-
+        modelled the cost of Venom/Raider destruction in proportion to
+        squad size.
 
         We snapshot the passenger list because `_disembark` mutates it as it
         runs.
@@ -6077,11 +6887,27 @@ class Battle:
         survivors = list(transport.passengers)
         for passenger in survivors:
             self._disembark(passenger, transport, forced=True)
-            # Per-model D6: on a 1, the model is destroyed.
-            if random.randint(1, 6) == 1:
-                passenger.current_health = 0.0
-                if not passenger.is_alive:
-                    self._emit(UnitKilled(unit_uid=passenger.uid))
+            # Per-model D6: roll one die per surviving model and destroy
+            # that model on a 1. SwegHammer abstracts a multi-model squad
+            # as a single Unit with pooled wounds, so we compute model
+            # count from `current_health / wounds_per_model` and subtract
+            # `wounds_per_model` from `current_health` for each 1 rolled.
+            min_models = max(1, getattr(passenger.profile, "min_models", 1) or 1)
+            wounds_per_model = passenger.profile.health / min_models
+            if wounds_per_model <= 0:
+                continue
+            models_alive = max(
+                1, int(passenger.current_health / wounds_per_model + 1e-9)
+            )
+            kills = sum(
+                1 for _ in range(models_alive) if random.randint(1, 6) == 1
+            )
+            if kills <= 0:
+                continue
+            damage = kills * wounds_per_model
+            passenger.current_health = max(0.0, passenger.current_health - damage)
+            if not passenger.is_alive:
+                self._emit(UnitKilled(unit_uid=passenger.uid))
 
     def _maybe_disembark_before_move(
         self, transport: "Unit", army: Army, opponent: Army,
@@ -6339,7 +7165,7 @@ class Battle:
             u for u in loser_army.alive_units
             if u is not loser_unit
             and u.profile.melee_attacks > 0
-            and _distance(u.position, winner_unit.position) <= 1.5
+            and _distance(u.position, winner_unit.position) <= 1.0
         ]
         in_engagement = bool(candidates)
         ctx = {

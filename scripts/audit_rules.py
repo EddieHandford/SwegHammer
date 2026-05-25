@@ -187,6 +187,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Chaos Daemons opponent has any unit alive'. See
     # data/rule_citations.d/chaos_daemons.json.
     "simulator.shadow_of_chaos",
+    # Chaos Daemons EPIC HERO Bloodthirster datasheet ability (10e).
+    # "Relentless Carnage" — at the end of each Fight phase, the
+    # Bloodthirster selects one enemy unit in 1" Engagement Range and
+    # rolls 8D6; each 4+ inflicts 1 mortal wound (expected 4 per trigger,
+    # FNP-eligible). Wired in `_apply_relentless_carnage`, fired once per
+    # active player's fight pass after the regular fight ordering loop.
+    # See data/rule_citations.d/chaos_daemons.json. DAEMONS-DIAG-5 fix
+    # for the persistent -16.94pt Chaos Daemons gated under-perf at N=40
+    # — the Bloodthirster's datasheet payload was wired only as the
+    # Locus aura (+1 to hit) and was missing its end-of-phase mortal-
+    # wound output despite being the Khorne archetype anchor.
+    "simulator.relentless_carnage",
     # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
     # +1 to the armour save when an unmodified Damage-1 attack is allocated
     # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer
@@ -406,6 +418,32 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # returning the full 4-tuple.
     "simulator.secondary_cull_the_horde",
     "simulator.secondary_assassination",
+    # CUSTODES-UNPARK — elite-army defender modifier on the kill-event
+    # Pariah Nexus secondaries (Bring it Down, No Prisoners, Assassination).
+    # Faction-gated to Adeptus Custodes. Cull the Horde is excluded
+    # (Custodes never concedes Cull regardless of multiplier). Applied
+    # in `secondaries.score_round_delta` via the defender_faction param
+    # passed from `Battle._score_secondaries`.
+    "simulator.secondary_elite_army_modifier",
+    # DRK-DIAG-9 — mobile-army attacker damper on the mobility / horde-cull
+    # Pariah Nexus secondaries (Engage on All Fronts, Behind Enemy Lines,
+    # Cull the Horde). Faction-gated to Drukhari. Bring it Down / No
+    # Prisoners / Assassination are excluded (genuine offensive output,
+    # audited clean). Applied in `secondaries.score_position_delta` and
+    # `secondaries.score_round_delta` via the attacker_faction param
+    # passed from `Battle._score_secondaries`. Mirror of the CUSTODES-UNPARK
+    # defender-side uplift in the opposite direction on the attacker side.
+    "simulator.secondary_drukhari_mobile_modifier",
+    # TYRANIDS-DIAG-6 — monster-mash attacker damper on Pariah Nexus
+    # kill-event + horde-cull + mobility secondaries (Bring it Down,
+    # No Prisoners, Cull the Horde, Engage on All Fronts, Behind Enemy
+    # Lines). Faction-gated to Tyranids. Assassination is excluded
+    # (genuine CHARACTER-kill output, audited clean). Applied in
+    # `secondaries.score_round_delta` and `secondaries.score_position_delta`
+    # via the attacker_faction param passed from `Battle._score_secondaries`.
+    # Mirror of the DRK-DIAG-9 pattern with wider footprint reflecting
+    # Tyranids' monster-mash + horde-anchored profile.
+    "simulator.secondary_tyranids_monster_modifier",
     # LC-2 — Tactical Secondary Mission deck-draw mechanic. Gates
     # Engage / BEL behind a per-round alternating schedule per side
     # so each side scores at most one Tactical per round, matching

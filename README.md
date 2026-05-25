@@ -157,7 +157,8 @@ equal points implies equal expected battlefield score. See
 | `code/bsdata/audit.py` | Diff successive `parsed.json` runs, flag unmapped codices and stat drift |
 | `scripts/audit_rules.py` | Citation coverage gate — every cite-able rule has a Wahapedia source |
 | `scripts/bench_simulator.py` | Benchmark harness — reports per-battle wall time across three representative matchups |
-| `scripts/evaluate_vs_meta.py` | MAE matchup matrix vs May 2026 Warp Friends tournament aggregate |
+| `scripts/evaluate_vs_meta.py` | Sim-vs-real-meta matchup matrix; reports raw MAE + noise-gated MAE against the 4-week rolling Warp Friends aggregate in `data/warpfriends_rolling.json` |
+| `scripts/scrape_warpfriends.py` | Refresh `data/warpfriends_rolling.json` from the latest weekly posts at warpfriends.wordpress.com |
 | `scripts/sweg_balance_mc.py` | MC-driven per-faction balance pass on top win-rate residuals |
 | `scripts/cross_validate_pricing.py` | Compare Phase 5 equilibrium vs MC bisection signals |
 | `scripts/export_bsdata_csv.py` | Export UNIT_CATALOG to `data/units.csv` for spreadsheet inspection |

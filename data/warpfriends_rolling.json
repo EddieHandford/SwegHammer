@@ -1,0 +1,393 @@
+{
+  "metadata": {
+    "scraped_at": "2026-05-23",
+    "source": "warpfriends.wordpress.com",
+    "primary_upstream": "Best Coast Pairings (hand-scraped by Warp Friends)",
+    "weeks_requested": [
+      "2026-05-18",
+      "2026-05-11",
+      "2026-05-05",
+      "2026-04-27",
+      "2026-03-30"
+    ],
+    "weeks_included": [
+      "2026-05-18",
+      "2026-05-05",
+      "2026-04-27",
+      "2026-03-30"
+    ],
+    "weeks_skipped": [
+      {
+        "week": "2026-05-11",
+        "url": "https://warpfriends.wordpress.com/2026/05/13/40k-meta-stats-from-may-11-2026/",
+        "reason": "rolling-table-only (sum=41710 games > cap 12000); no single-week breakdown published in this post"
+      }
+    ],
+    "rollup_method": "game-weighted mean of weekly per-faction win rates; SM chapters aggregated into Adeptus Astartes; subfaction breakout rows (Faction*) ignored",
+    "total_games_across_weeks": 31841,
+    "unmapped_strings_surfaced": {},
+    "dropped_strings": [
+      "Imperial Agents"
+    ],
+    "weekly_games_sum_cap": 12000
+  },
+  "factions": {
+    "Adeptus Astartes": {
+      "win_rate": 46.95,
+      "total_games": 6599,
+      "weekly_win_rates": [
+        44.76,
+        43.76,
+        48.52,
+        48.52
+      ],
+      "week_to_week_stdev": 2.159,
+      "binomial_ci_95_halfwidth": 1.204,
+      "noise_floor": 2.159,
+      "rolled_from": [
+        "Black Templars",
+        "Blood Angels",
+        "Dark Angels",
+        "Deathwatch",
+        "Space Marines",
+        "Space Wolves"
+      ]
+    },
+    "Necrons": {
+      "win_rate": 53.46,
+      "total_games": 2413,
+      "weekly_win_rates": [
+        53.95,
+        49.67,
+        50.77,
+        57.95
+      ],
+      "week_to_week_stdev": 3.216,
+      "binomial_ci_95_halfwidth": 1.99,
+      "noise_floor": 3.216,
+      "rolled_from": [
+        "Necrons"
+      ]
+    },
+    "Aeldari": {
+      "win_rate": 41.55,
+      "total_games": 970,
+      "weekly_win_rates": [
+        44.07,
+        44.78,
+        36.88,
+        42.35
+      ],
+      "week_to_week_stdev": 3.097,
+      "binomial_ci_95_halfwidth": 3.101,
+      "noise_floor": 3.101,
+      "rolled_from": [
+        "Aeldari"
+      ]
+    },
+    "Tyranids": {
+      "win_rate": 46.96,
+      "total_games": 1365,
+      "weekly_win_rates": [
+        53.51,
+        46.1,
+        43.0,
+        47.24
+      ],
+      "week_to_week_stdev": 3.82,
+      "binomial_ci_95_halfwidth": 2.648,
+      "noise_floor": 3.82,
+      "rolled_from": [
+        "Tyranids"
+      ]
+    },
+    "Orks": {
+      "win_rate": 45.27,
+      "total_games": 1195,
+      "weekly_win_rates": [
+        50.55,
+        43.21,
+        43.72,
+        45.7
+      ],
+      "week_to_week_stdev": 2.899,
+      "binomial_ci_95_halfwidth": 2.822,
+      "noise_floor": 2.899,
+      "rolled_from": [
+        "Orks"
+      ]
+    },
+    "T'au Empire": {
+      "win_rate": 54.28,
+      "total_games": 2150,
+      "weekly_win_rates": [
+        55.37,
+        50.74,
+        49.56,
+        60.28
+      ],
+      "week_to_week_stdev": 4.232,
+      "binomial_ci_95_halfwidth": 2.106,
+      "noise_floor": 4.232,
+      "rolled_from": [
+        "Tau"
+      ]
+    },
+    "Death Guard": {
+      "win_rate": 47.61,
+      "total_games": 1441,
+      "weekly_win_rates": [
+        48.31,
+        50.36,
+        49.07,
+        43.63
+      ],
+      "week_to_week_stdev": 2.54,
+      "binomial_ci_95_halfwidth": 2.579,
+      "noise_floor": 2.579,
+      "rolled_from": [
+        "Death Guard"
+      ]
+    },
+    "Adeptus Custodes": {
+      "win_rate": 49.53,
+      "total_games": 1369,
+      "weekly_win_rates": [
+        46.91,
+        48.89,
+        50.0,
+        50.83
+      ],
+      "week_to_week_stdev": 1.468,
+      "binomial_ci_95_halfwidth": 2.649,
+      "noise_floor": 2.649,
+      "rolled_from": [
+        "Adeptus Custodes"
+      ]
+    },
+    "Thousand Sons": {
+      "win_rate": 53.89,
+      "total_games": 1080,
+      "weekly_win_rates": [
+        48.26,
+        62.08,
+        65.52,
+        44.97
+      ],
+      "week_to_week_stdev": 8.754,
+      "binomial_ci_95_halfwidth": 2.973,
+      "noise_floor": 8.754,
+      "rolled_from": [
+        "Thousand Sons"
+      ]
+    },
+    "Leagues of Votann": {
+      "win_rate": 48.04,
+      "total_games": 1045,
+      "weekly_win_rates": [
+        51.8,
+        47.79,
+        46.63,
+        48.02
+      ],
+      "week_to_week_stdev": 1.944,
+      "binomial_ci_95_halfwidth": 3.029,
+      "noise_floor": 3.029,
+      "rolled_from": [
+        "Leagues of Votann"
+      ]
+    },
+    "Chaos Space Marines": {
+      "win_rate": 55.63,
+      "total_games": 1979,
+      "weekly_win_rates": [
+        59.39,
+        53.53,
+        53.44,
+        56.77
+      ],
+      "week_to_week_stdev": 2.477,
+      "binomial_ci_95_halfwidth": 2.189,
+      "noise_floor": 2.477,
+      "rolled_from": [
+        "Chaos Space Marines"
+      ]
+    },
+    "World Eaters": {
+      "win_rate": 44.93,
+      "total_games": 1291,
+      "weekly_win_rates": [
+        51.7,
+        44.24,
+        44.08,
+        43.26
+      ],
+      "week_to_week_stdev": 3.417,
+      "binomial_ci_95_halfwidth": 2.713,
+      "noise_floor": 3.417,
+      "rolled_from": [
+        "World Eaters"
+      ]
+    },
+    "Emperor's Children": {
+      "win_rate": 53.32,
+      "total_games": 1234,
+      "weekly_win_rates": [
+        51.89,
+        56.83,
+        57.56,
+        43.33
+      ],
+      "week_to_week_stdev": 5.673,
+      "binomial_ci_95_halfwidth": 2.784,
+      "noise_floor": 5.673,
+      "rolled_from": [
+        "Emperor's Children"
+      ]
+    },
+    "Chaos Daemons": {
+      "win_rate": 52.6,
+      "total_games": 960,
+      "weekly_win_rates": [
+        48.43,
+        50.28,
+        53.02,
+        55.56
+      ],
+      "week_to_week_stdev": 2.705,
+      "binomial_ci_95_halfwidth": 3.159,
+      "noise_floor": 3.159,
+      "rolled_from": [
+        "Chaos Daemons"
+      ]
+    },
+    "Astra Militarum": {
+      "win_rate": 45.28,
+      "total_games": 1725,
+      "weekly_win_rates": [
+        46.9,
+        50.19,
+        41.3,
+        46.25
+      ],
+      "week_to_week_stdev": 3.179,
+      "binomial_ci_95_halfwidth": 2.349,
+      "noise_floor": 3.179,
+      "rolled_from": [
+        "Astra Militarum"
+      ]
+    },
+    "Adeptus Mechanicus": {
+      "win_rate": 44.4,
+      "total_games": 545,
+      "weekly_win_rates": [
+        43.44,
+        44.36,
+        41.49,
+        50.98
+      ],
+      "week_to_week_stdev": 3.567,
+      "binomial_ci_95_halfwidth": 4.171,
+      "noise_floor": 4.171,
+      "rolled_from": [
+        "Adeptus Mechanicus"
+      ]
+    },
+    "Adepta Sororitas": {
+      "win_rate": 50.75,
+      "total_games": 670,
+      "weekly_win_rates": [
+        52.48,
+        50.34,
+        50.56,
+        50.0
+      ],
+      "week_to_week_stdev": 0.966,
+      "binomial_ci_95_halfwidth": 3.786,
+      "noise_floor": 3.786,
+      "rolled_from": [
+        "Sisters of Battle"
+      ]
+    },
+    "Grey Knights": {
+      "win_rate": 46.74,
+      "total_games": 537,
+      "weekly_win_rates": [
+        46.23,
+        53.01,
+        48.75,
+        42.55
+      ],
+      "week_to_week_stdev": 3.807,
+      "binomial_ci_95_halfwidth": 4.22,
+      "noise_floor": 4.22,
+      "rolled_from": [
+        "Grey Knights"
+      ]
+    },
+    "Drukhari": {
+      "win_rate": 52.36,
+      "total_games": 848,
+      "weekly_win_rates": [
+        52.91,
+        48.7,
+        50.0,
+        57.02
+      ],
+      "week_to_week_stdev": 3.195,
+      "binomial_ci_95_halfwidth": 3.362,
+      "noise_floor": 3.362,
+      "rolled_from": [
+        "Drukhari"
+      ]
+    },
+    "Genestealer Cults": {
+      "win_rate": 46.68,
+      "total_games": 452,
+      "weekly_win_rates": [
+        55.32,
+        49.09,
+        45.59,
+        44.86
+      ],
+      "week_to_week_stdev": 4.135,
+      "binomial_ci_95_halfwidth": 4.599,
+      "noise_floor": 4.599,
+      "rolled_from": [
+        "Genestealer Cult"
+      ]
+    },
+    "Imperial Knights": {
+      "win_rate": 47.71,
+      "total_games": 1094,
+      "weekly_win_rates": [
+        45.2,
+        50.51,
+        50.29,
+        45.1
+      ],
+      "week_to_week_stdev": 2.628,
+      "binomial_ci_95_halfwidth": 2.96,
+      "noise_floor": 2.96,
+      "rolled_from": [
+        "Imperial Knights"
+      ]
+    },
+    "Chaos Knights": {
+      "win_rate": 44.71,
+      "total_games": 879,
+      "weekly_win_rates": [
+        45.68,
+        45.63,
+        45.67,
+        43.33
+      ],
+      "week_to_week_stdev": 1.008,
+      "binomial_ci_95_halfwidth": 3.287,
+      "noise_floor": 3.287,
+      "rolled_from": [
+        "Chaos Knights"
+      ]
+    }
+  }
+}

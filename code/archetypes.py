@@ -368,11 +368,24 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         #   - https://www.goonhammer.com/detachment-focus-subterranean-assault/
         #   - https://www.belloflostsouls.net/2026/05/warhammer-40k-the-unbeatable-list-gw-open-maastricht-2026-tyranids-take-the-crown.html
         #   - https://wahapedia.ru/wh40k10ed/factions/tyranids/
+        # TYRANIDS-FIX (2026-05-22): rebalanced toward real-meta Subterranean
+        # Assault shape — 2-3 chaff anchors (Termagants/Hormagaunts/Rippers) +
+        # 2 monsters (Carnifex/Tyrannofex) + 1 leader (Hive Tyrant) + 1
+        # Zoanthrope brood. Previous template ran 4 monsters (Hive Tyrant,
+        # Trygon, Carnifex, Tyrannofex) which let the MONSTER fill cap double
+        # the wrecker count, producing monster-heavy lists that didn't match
+        # the BLoS Maastricht 2026 winning shape (chaff-anchored OC with
+        # 2 big melee monsters and Synapse leaders). Termagants & Hormagaunts
+        # bumped to 2 each so the BATTLELINE cap (max(1, template_count))
+        # admits 2 fill squads per type → 4 total. Trygon dropped to 0:
+        # post-CHARACTER-keyword-strip (see data/overrides.json) it no longer
+        # tags as a leader-host and is redundant with Carnifex/Tyrannofex as
+        # a deep-strike wrecker. Rippers added as cheap secondary-scoring chaff.
         "Subterranean Assault": {
             "tyranids_hive_tyrant": 1,
-            "tyranids_termagants": 1,
-            "tyranids_hormagaunts": 1,
-            "tyranids_trygon": 1,
+            "tyranids_termagants": 2,
+            "tyranids_hormagaunts": 2,
+            "tyranids_ripper_swarms": 1,
             "tyranids_zoanthropes": 1,
             "tyranids_carnifexes": 1,
             "tyranids_tyrannofex": 1,
@@ -763,10 +776,21 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         # and Scourges, anti-tank from Ravager triples, melee killtile from
         # Incubi + Lelith. Archon is the standard CHARACTER anchor; Lelith
         # joins as the EPIC HERO option that leads a Wyches/Incubi bomb.
-        # Multi-copy entries (Raider=4, Kabalites=2, Wyches=2, Incubi=2,
-        # Venom=2) are deliberate — these are the spine of the archetype
-        # and the (-template_count, -squad_cost) sort guarantees they seed
-        # before single-copy support like the Cronos / Ravager.
+        #
+        # DRK-ARCH-1 (2026-05-23) rebalance: previous template ran 4 Raiders
+        # + 2 Venoms = 6 transports, which over-weighted the spine sort
+        # against the actual Warp Friends meta. Real competitive Skysplinter
+        # lists at ~52.4% win rate (Warp Friends ~848 games) run 3 Raiders +
+        # 1 Venom + 1 Ravager (5 vehicles total), with the remaining slot
+        # spent on Coven anti-elite/horde tech (Wracks) and a second melee
+        # hammer. Reducing transport spam should pull Drukhari sim% down
+        # from the +23.8pt outlier toward parity. Added Wracks for Coven
+        # representation per Wahapedia datasheet:
+        # https://wahapedia.ru/wh40k10ed/factions/drukhari/#Wracks
+        #
+        # Multi-copy entries (Raider=3, Kabalites=2, Wyches=2, Incubi=2)
+        # remain the spine; the (-template_count, -squad_cost) sort still
+        # seeds them before single-copy support.
         #
         # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
         "Skysplinter Assault": {
@@ -778,9 +802,10 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "aeldari_drukhari_mandrakes": 1,
             "aeldari_drukhari_reavers": 1,
             "aeldari_drukhari_scourges_with_shardcarbines": 1,
-            "aeldari_drukhari_raider": 4,
-            "aeldari_drukhari_venom": 2,
+            "aeldari_drukhari_raider": 3,
+            "aeldari_drukhari_venom": 1,
             "aeldari_drukhari_ravager": 1,
+            "aeldari_drukhari_wracks": 1,
             "aeldari_drukhari_cronos": 1,
         },
     },
@@ -887,25 +912,102 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
         },
     },
     "Chaos Daemons": {
-        # Balanced 4-god Daemonic Incursion shape (the all-gods detachment):
-        # one Greater Daemon per god, the four troops, plus iconic
-        # supporting daemons (Flesh Hounds, Screamers, Plague Drones, Fiends,
-        # Be'lakor). Tournament templates run 1-2 troop blocks per god plus
-        # 1-2 big monsters; this spreads the OC across all four pantheons.
-        "Daemonic Incursion": {
-            "chaos_daemons_library_bloodletters": 2,
-            "chaos_daemons_library_plaguebearers": 2,
-            "chaos_daemons_library_daemonettes": 2,
-            "chaos_daemons_library_pink_horrors": 1,
-            "chaos_daemons_library_flesh_hounds": 1,
-            "chaos_daemons_library_screamers": 1,
-            "chaos_daemons_library_plague_drones": 1,
-            "chaos_daemons_library_fiends": 1,
+        # DAEMONS-MONOGOD (iter post-VOTANN-DIAG): replaced the previous all-
+        # gods "Daemonic Incursion" template with four mono-god sub-archetypes.
+        #
+        # Why mono-god rotation. Real 10e Chaos Daemons competitive lists are
+        # typically MONO-GOD — a Khorne-only, Tzeentch-only, Nurgle-only, or
+        # Slaanesh-only army with one Greater Daemon of that god plus that
+        # god's battleline, characters, and supporting daemons. Mixed-god
+        # builds exist but are uncommon at the tournament level. The previous
+        # all-gods template seeded one Greater Daemon of every god (4 x ~280pt
+        # = 1120pt of Greater Daemons before any battleline / heralds got
+        # picked) and a thinly spread troop layer that no single Locus aura
+        # could focus on. An earlier attempt to surface the Locus auras by
+        # packing all four Greater Daemons into every build (DAEMONS-ARCHETYPE)
+        # regressed by +8pt because that crowded the rest of the army out.
+        #
+        # Approach. Four separate sub-templates — _DAEMONS_KHORNE,
+        # _DAEMONS_TZEENTCH, _DAEMONS_NURGLE, _DAEMONS_SLAANESH — each with
+        # exactly one Greater Daemon of its god, 1-2 god-aligned Heralds (so
+        # the matching Locus aura fires), 2-3 battleline of that god, and
+        # 1-2 elites / fast / vehicle slots from the same god's roster.
+        # `build_archetype_army` already uniform-randomly picks one entry per
+        # faction at build time (line ~1507 `rng.choice(list(available))`), so
+        # over many sim runs the four sub-archetypes rotate 25% / 25% / 25%
+        # / 25%. Real-meta proportions skew toward Khorne and Slaanesh, but
+        # the simulator's job is to exercise each god's rules — uniform
+        # rotation is sufficient for that without modifying the builder.
+        #
+        # Citations (real-meta rosters per god):
+        #   https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/
+        #   Each unit key below is verified against data/bsdata/parsed.json
+        #   under the "chaos_daemons_library_*" prefix.
+        #
+        # MR-CHAOS-DAEMONS-LOCUS: each Herald wired in code/leaders.py
+        # broadcasts its god's locus aura to the attached battleline squad.
+        # With a mono-god army the matching Locus fires every build instead
+        # of one-in-four.
+        "Khorne Murderhost": {
+            # Bloodthirster anchor + Bloodletters battleline + Bloodcrushers/
+            # Flesh Hounds melee fast + Skull Cannon ranged + Daemon Prince of
+            # Chaos / Karanak character flex. Khorne is the most-played mono-
+            # god list (real-meta Goonhammer/Frontline May 2026 GT lists).
             "chaos_daemons_library_bloodthirster": 1,
-            "chaos_daemons_library_great_unclean_one": 1,
-            "chaos_daemons_library_keeper_of_secrets": 1,
+            "chaos_daemons_library_bloodmaster": 1,
+            "chaos_daemons_library_skullmaster": 1,
+            "chaos_daemons_library_bloodletters": 3,
+            "chaos_daemons_library_bloodcrushers": 2,
+            "chaos_daemons_library_flesh_hounds": 1,
+            "chaos_daemons_library_skull_cannon": 1,
+            "chaos_daemons_library_karanak": 1,
+            "chaos_daemons_library_daemon_prince_of_chaos": 1,
+        },
+        "Tzeentch Manifestation": {
+            # Lord of Change anchor + Pink Horrors battleline + Flamers /
+            # Screamers fast attack + Burning Chariot vehicle + The Changeling
+            # / Fluxmaster character flex. Tzeentch is the ranged-shooting /
+            # psychic-pivot mono-god build.
             "chaos_daemons_library_lord_of_change": 1,
-            "chaos_daemons_library_be_lakor": 1,
+            "chaos_daemons_library_changecaster": 1,
+            "chaos_daemons_library_fluxmaster": 1,
+            "chaos_daemons_library_pink_horrors": 3,
+            "chaos_daemons_library_flamers": 2,
+            "chaos_daemons_library_screamers": 1,
+            "chaos_daemons_library_burning_chariot": 1,
+            "chaos_daemons_library_the_changeling": 1,
+            "chaos_daemons_library_daemon_prince_of_chaos": 1,
+        },
+        "Nurgle Pestilence": {
+            # Great Unclean One anchor + Plaguebearers battleline + Plague
+            # Drones / Beasts of Nurgle / Nurglings supporting elites +
+            # Nurgle Soul Grinder fire support + Poxbringer / Sloppity
+            # Bilepiper heralds. Nurgle is the resilience / objective-holding
+            # mono-god build.
+            "chaos_daemons_library_great_unclean_one": 1,
+            "chaos_daemons_library_poxbringer": 1,
+            "chaos_daemons_library_sloppity_bilepiper": 1,
+            "chaos_daemons_library_plaguebearers": 3,
+            "chaos_daemons_library_plague_drones": 2,
+            "chaos_daemons_library_beasts_of_nurgle": 1,
+            "chaos_daemons_library_nurglings": 1,
+            "chaos_daemons_library_nurgle_soul_grinder": 1,
+            "chaos_daemons_library_daemon_prince_of_chaos": 1,
+        },
+        "Slaanesh Excess": {
+            # Keeper of Secrets anchor + Daemonettes battleline + Seekers /
+            # Fiends fast melee + Slaanesh Soul Grinder fire support + The
+            # Masque of Slaanesh / Contorted Epitome heralds. Slaanesh is
+            # the speed / fights-first mono-god build.
+            "chaos_daemons_library_keeper_of_secrets": 1,
+            "chaos_daemons_library_contorted_epitome": 1,
+            "chaos_daemons_library_tormentbringer": 1,
+            "chaos_daemons_library_daemonettes": 3,
+            "chaos_daemons_library_seekers": 2,
+            "chaos_daemons_library_fiends": 1,
+            "chaos_daemons_library_slaanesh_soul_grinder": 1,
+            "chaos_daemons_library_the_masque_of_slaanesh": 1,
+            "chaos_daemons_library_daemon_prince_of_chaos": 1,
         },
     },
     "Astra Militarum": {
@@ -984,6 +1086,7 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
             "adepta_sororitas_seraphim_squad": 1,
             "adepta_sororitas_zephyrim_squad": 1,
             "adepta_sororitas_celestian_sacresants": 1,
+            "adepta_sororitas_celestian_insidiants": 1,
             "adepta_sororitas_retributor_squad": 1,
             "adepta_sororitas_repentia_squad": 1,
             "adepta_sororitas_arco_flagellants": 1,

@@ -19,14 +19,20 @@ from code.units import Unit, UnitProfile
 
 
 def _aeldari_profile() -> UnitProfile:
+    # weapon_damage_per_shot=2.0 (e.g. scatter laser / fusion-pistol class
+    # weapon). This matters for AI-5: the Strands of Fate spend AI gates
+    # offensive substitutions on damage>=2 so the bank isn't burned on
+    # low-stakes shuriken misses. Tests use a damage-2 profile to exercise
+    # the spend path; the gating itself is tested in
+    # `StrandsOfFateLowStakesGateTests` below.
     return UnitProfile(
         name="Aeldari Test Unit", faction="Aeldari",
         health=2, damage=1, hit_probability=2 / 3,
         ap=0, save=4, strength=4, toughness=3,
-        attacks=2, weapon_damage_per_shot=1.0, range_inches=24,
+        attacks=2, weapon_damage_per_shot=2.0, range_inches=24,
         leadership=7, unit_keywords=("INFANTRY", "AELDARI", "ASURYANI"),
         move=7.0,
-        melee_attacks=1, melee_damage_per_shot=1.0,
+        melee_attacks=1, melee_damage_per_shot=2.0,
         melee_hit_probability=1 / 2, melee_strength=3, melee_ap=0,
     )
 
@@ -222,6 +228,39 @@ class StrandsOfFateAttackHookTests(unittest.TestCase):
             attacker.attack(defender, distance=12.0, mode="ranged")
         # Pool untouched.
         self.assertEqual(marine_army.fate_dice, [6, 6, 6])
+
+
+class StrandsOfFateLowStakesGateTests(unittest.TestCase):
+    """AI-5: pop_fate_die_meeting refuses to burn a 3+ die on a low-stakes
+    roll. A 1 or 2 in the pool that already qualifies can still be spent.
+    """
+
+    def test_high_die_held_back_on_low_stakes(self):
+        a = Army("Ael")
+        a.fate_dice = [6, 5, 4, 3]   # no 1s or 2s
+        # Low-stakes hit (damage-1 weapon) needing 3+: the qualifying die
+        # is a 3, but the gate refuses to spend a 3+ die on low-stakes.
+        self.assertIsNone(
+            a.pop_fate_die_meeting(3, high_value=False),
+        )
+        # Pool unchanged.
+        self.assertEqual(a.fate_dice, [6, 5, 4, 3])
+
+    def test_low_die_spent_on_low_stakes_when_it_flips(self):
+        a = Army("Ael")
+        a.fate_dice = [6, 5, 4, 2, 1]
+        # Low-stakes roll needing 2+: qualifying low die is 2, gate allows.
+        popped = a.pop_fate_die_meeting(2, high_value=False)
+        self.assertEqual(popped, 2)
+        self.assertEqual(a.fate_dice, [6, 5, 4, 1])
+
+    def test_high_stakes_unchanged(self):
+        a = Army("Ael")
+        a.fate_dice = [6, 5, 4, 3]
+        # High-stakes roll (e.g. charge): always spend the lowest
+        # qualifying die.
+        popped = a.pop_fate_die_meeting(3, high_value=True)
+        self.assertEqual(popped, 3)
 
 
 if __name__ == "__main__":   # pragma: no cover
