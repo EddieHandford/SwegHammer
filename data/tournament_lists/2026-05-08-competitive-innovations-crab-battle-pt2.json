@@ -1,0 +1,464 @@
+{
+  "source_article": {
+    "title": "Competitive Innovations in 10th: Crab Battle pt.2",
+    "publication": "Goonhammer",
+    "author": "Lowest of Men",
+    "publication_date": "2026-05-08",
+    "url": null
+  },
+  "events": [
+    {
+      "event": {
+        "name": "The Richmond Open 40K Event Hosted by Away Games",
+        "date": "2026-05-02",
+        "size_players": 161,
+        "rounds": 5,
+        "format": null,
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "TJ Lanigan",
+          "placement": 1,
+          "record": null,
+          "faction": "Thousand Sons",
+          "detachment": "Grand Coven",
+          "warlord": "Magnus the Red",
+          "total_points": 1980,
+          "enhancements": [
+            {"name": "Incandaeum", "attached_to": "Exalted Sorcerer on Disc of Tzeentch", "points": null},
+            {"name": "Eldritch Vortex of E'Taph", "attached_to": "Infernal Master", "points": null},
+            {"name": "Umbralefic Crystal", "attached_to": "Infernal Master", "points": null}
+          ],
+          "units": [
+            {"name": "Exalted Sorcerer on Disc of Tzeentch", "model_count": 1, "points": 100, "wargear": ["Arcane Fire", "Force weapon", "Inferno bolt pistol"]},
+            {"name": "Exalted Sorcerer on Disc of Tzeentch", "model_count": 1, "points": 115, "wargear": ["Arcane Fire", "Force weapon", "Inferno bolt pistol"]},
+            {"name": "Infernal Master", "model_count": 1, "points": 130, "wargear": ["Fires of the Abyss", "Force weapon", "Inferno bolt pistol"]},
+            {"name": "Infernal Master", "model_count": 1, "points": 115, "wargear": ["Fires of the Abyss", "Force weapon", "Inferno bolt pistol"]},
+            {"name": "Infernal Master", "model_count": 1, "points": 95, "wargear": ["Fires of the Abyss", "Force weapon", "Inferno bolt pistol"]},
+            {"name": "Magnus the Red", "model_count": 1, "points": 435, "wargear": ["Blade of Magnus", "Gaze of Magnus", "Tzeentch's Firestorm"]},
+            {"name": "Sorcerer", "model_count": 1, "points": 80, "wargear": ["Force weapon", "Inferno bolt pistol", "Pandaemonic Delusion"]},
+            {"name": "Rubric Marines", "model_count": 5, "points": 100, "wargear": ["Force weapon", "Malefic Curse", "Warpflame pistol", "Icon of Flame", "Soulreaper cannon", "3x Warpflamer"]},
+            {"name": "Rubric Marines", "model_count": 5, "points": 100, "wargear": ["Force weapon", "Malefic Curse", "Warpflame pistol", "Icon of Flame", "Soulreaper cannon", "3x Warpflamer"]},
+            {"name": "Rubric Marines", "model_count": 5, "points": 100, "wargear": ["Force weapon", "Malefic Curse", "Warpflame pistol", "Icon of Flame", "Soulreaper cannon", "3x Warpflamer"]},
+            {"name": "Rubric Marines", "model_count": 5, "points": 100, "wargear": ["Force weapon", "Malefic Curse", "Warpflame pistol", "Icon of Flame", "Soulreaper cannon", "3x Warpflamer"]},
+            {"name": "Chaos Rhino", "model_count": 1, "points": 90, "wargear": ["Havoc launcher", "Inferno combi-bolter", "Inferno combi-weapon"]},
+            {"name": "Chaos Spawn", "model_count": 2, "points": 65, "wargear": []},
+            {"name": "Tzaangor Enlightened", "model_count": 3, "points": 45, "wargear": ["3x Divining spear"]},
+            {"name": "Tzaangor Enlightened", "model_count": 3, "points": 45, "wargear": ["3x Divining spear"]},
+            {"name": "Tzaangor Enlightened", "model_count": 3, "points": 45, "wargear": ["3x Divining spear"]},
+            {"name": "Tzaangor Enlightened with Fatecaster Greatbows", "model_count": 6, "points": 110, "wargear": ["6x Fatecaster greatbow"]},
+            {"name": "Tzaangor Enlightened with Fatecaster Greatbows", "model_count": 6, "points": 110, "wargear": ["6x Fatecaster greatbow"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Jeffrey Kolodner",
+          "placement": 2,
+          "record": {"wins": 5, "losses": 0, "draws": 0},
+          "faction": "Adepta Sororitas",
+          "detachment": "Hallowed Martyrs",
+          "warlord": "Morvenn Vahl",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Saintly Example", "attached_to": "Canoness", "points": 10},
+            {"name": "Through Suffering, Strength", "attached_to": "Palatine", "points": 25}
+          ],
+          "units": [
+            {"name": "Canoness", "model_count": 1, "points": 70, "wargear": ["Blessed Blade", "Condemnor Boltgun"]},
+            {"name": "Aestrid Thurga and Agatha Dolan", "model_count": 2, "points": 70, "wargear": []},
+            {"name": "Jump Pack Canoness", "model_count": 1, "points": 75, "wargear": ["Blessed Halberd"]},
+            {"name": "Junith Eruita", "model_count": 1, "points": 80, "wargear": []},
+            {"name": "Morvenn Vahl", "model_count": 1, "points": 185, "wargear": []},
+            {"name": "Palatine", "model_count": 1, "points": 75, "wargear": ["Plasma Pistol"]},
+            {"name": "Battle Sister Squad", "model_count": 10, "points": 105, "wargear": ["Multi-Melta", "Simulacrum", "Power Weapon", "Condemnor Boltgun", "Meltagun"]},
+            {"name": "Immolator", "model_count": 1, "points": 115, "wargear": ["Twin Multi-Melta", "Hunter-Killer Missile"]},
+            {"name": "Rhino", "model_count": 1, "points": 75, "wargear": ["Hunter-Killer Missile"]},
+            {"name": "Castigator", "model_count": 1, "points": 160, "wargear": ["Castigator Battle Cannon", "Hunter-Killer Missile", "Storm Bolter"]},
+            {"name": "Castigator", "model_count": 1, "points": 160, "wargear": ["Castigator Battle Cannon", "Hunter-Killer Missile", "Storm Bolter"]},
+            {"name": "Mortifier", "model_count": 1, "points": 70, "wargear": ["2x Heavy Bolter", "Twin Buzz Blade", "Anchorite Sarcophagus"]},
+            {"name": "Mortifier", "model_count": 1, "points": 70, "wargear": ["2x Heavy Bolter", "Twin Buzz Blade", "Anchorite Sarcophagus"]},
+            {"name": "Mortifier", "model_count": 1, "points": 70, "wargear": ["2x Heavy Bolter", "Twin Buzz Blade", "Anchorite Sarcophagus"]},
+            {"name": "Paragon Warsuits", "model_count": 3, "points": 210, "wargear": ["3x Multi-Melta", "Paragon Grenades", "3x Paragon War Mace"]},
+            {"name": "Celestian Sacresancts", "model_count": 5, "points": 70, "wargear": ["4x Anointed Halberd", "Spear of the Faithful", "Inferno Pistol"]},
+            {"name": "Retributors", "model_count": 5, "points": 120, "wargear": ["4x Multi-Melta", "Power Weapon", "Condemnor Boltgun"]},
+            {"name": "Retributors", "model_count": 5, "points": 120, "wargear": ["4x Multi-Melta", "Power Weapon", "Condemnor Boltgun"]},
+            {"name": "Callidus Assassin", "model_count": 1, "points": 100, "wargear": []}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Mike Robertson",
+          "placement": 3,
+          "record": {"wins": 5, "losses": 0, "draws": 0},
+          "faction": "T'au Empire",
+          "detachment": "Retaliation Cadre",
+          "warlord": "Commander Farsight",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Prototype Weapon System", "attached_to": "Commander in Coldstar Battlesuit", "points": null},
+            {"name": "Starflare Ignition System", "attached_to": "Commander in Enforcer Battlesuit", "points": null}
+          ],
+          "units": [
+            {"name": "Commander Farsight", "model_count": 1, "points": 85, "wargear": ["Dawn Blade", "High-intensity plasma rifle"]},
+            {"name": "Commander in Coldstar Battlesuit", "model_count": 1, "points": 95, "wargear": ["4x Fusion blaster", "Marker Drone", "Shield Drone"]},
+            {"name": "Commander in Coldstar Battlesuit", "model_count": 1, "points": 110, "wargear": ["2x Burst cannon", "Cyclic ion blaster", "2x Gun Drone", "High-output burst cannon"]},
+            {"name": "Commander in Enforcer Battlesuit", "model_count": 1, "points": 100, "wargear": ["2x Gun Drone", "4x Missile pod"]},
+            {"name": "The Twin Lance", "model_count": 2, "points": 185, "wargear": ["Fusion eliminator", "Ion scattercannon", "2x Shardstorm burst system", "2x MV15 Gun Drone"]},
+            {"name": "Crisis Fireknife Battlesuits", "model_count": 3, "points": 120, "wargear": ["3x Gun Drone", "2x Marker Drone", "6x Missile pod", "2x Shield Drone"]},
+            {"name": "Crisis Starscythe Battlesuits", "model_count": 3, "points": 110, "wargear": ["6x Burst cannon", "3x Gun Drone", "Marker Drone", "2x Shield Drone"]},
+            {"name": "Crisis Sunforge Battlesuits", "model_count": 3, "points": 140, "wargear": ["6x Fusion blaster", "Marker Drone", "Shield Drone", "2x Gun Drone", "2x Shield Drone"]},
+            {"name": "Crisis Sunforge Battlesuits", "model_count": 3, "points": 140, "wargear": ["6x Fusion blaster", "Marker Drone", "Shield Drone", "2x Gun Drone", "2x Shield Drone"]},
+            {"name": "Ghostkeel Battlesuit", "model_count": 1, "points": 160, "wargear": ["Battlesuit Support System", "Cyclic ion raker", "Twin fusion blaster"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Kroot carbine", "Kroot pistol", "8x Kroot rifle", "Tanglebomb launcher"]},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Pulse pistol", "Recon Drone", "Semi-automatic grenade launcher", "Shield Drone", "3x Ion rifle", "6x Pulse carbine"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile Drone", "Twin fusion blaster"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile Drone", "Twin fusion blaster"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Fusion blaster", "Gun Drone", "Marker Drone", "Pulse pistol", "3x Burst cannon", "Fusion blaster", "Homing Beacon"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Fusion blaster", "Gun Drone", "Marker Drone", "Pulse pistol", "3x Burst cannon", "Fusion blaster", "Homing Beacon"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Mark Hertel",
+          "placement": 4,
+          "record": {"wins": 5, "losses": 0, "draws": 0},
+          "faction": "Deathwatch",
+          "detachment": "Black Spear Task Force",
+          "warlord": "Captain in Gravis Armour",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Thief of Secrets", "attached_to": "Captain in Gravis Armour", "points": null},
+            {"name": "Beacon Angelis", "attached_to": "Judiciar", "points": null},
+            {"name": "The Tome of Ectoclades", "attached_to": "Watch Master", "points": null}
+          ],
+          "units": [
+            {"name": "Captain in Gravis Armour", "model_count": 1, "points": 105, "wargear": ["Boltstorm gauntlet", "Power fist", "Relic blade"]},
+            {"name": "Judiciar", "model_count": 1, "points": 95, "wargear": ["Absolvor bolt pistol", "Executioner relic blade"]},
+            {"name": "Lieutenant with Combi-weapon", "model_count": 1, "points": 85, "wargear": ["Combi-weapon", "Paired combat blades"]},
+            {"name": "Watch Master", "model_count": 1, "points": 125, "wargear": ["Vigil spear"]},
+            {"name": "Deathwatch Veterans", "model_count": 10, "points": 190, "wargear": ["Astartes shield", "Xenophase blade", "3x Astartes shield", "Black Shield blades", "4x Deathwatch thunder hammer", "Frag cannon", "3x Power weapon"]},
+            {"name": "Deathwatch Veterans", "model_count": 5, "points": 100, "wargear": ["Astartes shield", "Xenophase blade", "2x Deathwatch thunder hammer", "Frag cannon", "Infernus heavy bolter"]},
+            {"name": "Deathwatch Veterans", "model_count": 5, "points": 100, "wargear": ["Astartes shield", "Xenophase blade", "2x Deathwatch thunder hammer", "Frag cannon", "Infernus heavy bolter"]},
+            {"name": "Intercessor Squad", "model_count": 5, "points": 80, "wargear": ["Astartes grenade launcher", "Power fist", "4x Bolt rifle"]},
+            {"name": "Rhino", "model_count": 1, "points": 75, "wargear": ["Hunter-killer missile", "Storm bolter"]},
+            {"name": "Deathwatch Terminator Squad", "model_count": 5, "points": 190, "wargear": ["5x Power fist", "5x Storm bolter", "3x Cyclone missile launcher"]},
+            {"name": "Deathwatch Terminator Squad", "model_count": 5, "points": 190, "wargear": ["5x Power fist", "5x Storm bolter", "3x Cyclone missile launcher"]},
+            {"name": "Indomitor Kill Team", "model_count": 10, "points": 265, "wargear": ["2x Deathwatch heavy bolt rifle", "2x Deathwatch heavy bolter", "3x Flamestorm gauntlets", "3x Twin power fists", "2x Melta rifle", "Multi-melta"]},
+            {"name": "Indomitor Kill Team", "model_count": 10, "points": 265, "wargear": ["2x Deathwatch heavy bolt rifle", "2x Deathwatch heavy bolter", "3x Flamestorm gauntlets", "3x Twin power fists", "2x Melta rifle", "Multi-melta"]},
+            {"name": "Storm Speeder Thunderstrike", "model_count": 1, "points": 135, "wargear": ["Stormfury missiles", "Thunderstrike las-talon", "Twin Icarus rocket pod"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Jack Murphy",
+          "placement": 5,
+          "record": {"wins": 5, "losses": 0, "draws": 0},
+          "faction": "T'au Empire",
+          "detachment": "Mont'ka",
+          "warlord": "Kroot War Shaper",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Strike Swiftly", "attached_to": "Kroot War Shaper", "points": 25}
+          ],
+          "units": [
+            {"name": "Kroot War Shaper", "model_count": 1, "points": 75, "wargear": ["Kroot pistol", "Shaper's blade", "Bladestave and prey-hook"]},
+            {"name": "The Twin Lance", "model_count": 2, "points": 185, "wargear": ["Fusion eliminator", "Ion scattercannon", "2x Shardstorm burst system", "2x MV15 Gun Drone", "2x Twin pulse blaster"]},
+            {"name": "Broadside Battlesuits", "model_count": 3, "points": 270, "wargear": ["3x High-yield missile pods", "3x Twin smart missile system", "6x Missile Drone", "3x Weapon support system"]},
+            {"name": "Ghostkeel Battlesuit", "model_count": 1, "points": 160, "wargear": ["Cyclic ion raker", "Twin fusion blaster", "Battlesuit support system"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Kroot pistol", "Kroot carbine", "Tanglebomb launcher", "8x Kroot rifle"]},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": []},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": []},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Pulse pistol", "Semi-automatic grenade launcher", "Gun Drone", "Shield Drone", "Recon drone", "Drone burst cannon", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Pulse pistol", "Semi-automatic grenade launcher", "Gun Drone", "Shield Drone", "Recon drone", "Drone burst cannon", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Piranhas", "model_count": 1, "points": 60, "wargear": ["2x Twin pulse carbine", "Piranha fusion blaster", "2x Seeker missile"]},
+            {"name": "Piranhas", "model_count": 1, "points": 60, "wargear": ["2x Twin pulse carbine", "Piranha fusion blaster", "2x Seeker missile"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile pod", "Twin smart missile system"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile pod", "Twin smart missile system"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile pod", "Twin smart missile system"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Fusion blaster", "Homing beacon", "Gun Drone", "Marker Drone", "Twin pulse carbine", "3x Burst cannon", "Fusion blaster"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Fusion blaster", "Homing beacon", "Gun Drone", "Marker Drone", "Twin pulse carbine", "3x Burst cannon", "Fusion blaster"]},
+            {"name": "Vespid Stingwings", "model_count": 5, "points": 65, "wargear": ["5x Neutron blaster"]}
+          ],
+          "per_round_opponents": []
+        },
+        {"player": "Brendan Roy", "placement": 6, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Death Guard", "detachment": "Virulent Vectorium", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "John Johnston", "placement": 7, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Imperial Knights", "detachment": "Freeblade Company", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Dylan Ayers", "placement": 8, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Thousand Sons", "detachment": "Grand Coven", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Max Berlove", "placement": 9, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Necrons", "detachment": "Starshatter Arsenal", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Edward Appel", "placement": 10, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Astra Militarum", "detachment": "Hammer of the Emperor", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "John Casey", "placement": 11, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Chaos Space Marines", "detachment": "Pactbound Zealots", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Aaron moshier", "placement": 12, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Aeldari", "detachment": "Windrider Host", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Riley Morris", "placement": 13, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "T'au Empire", "detachment": "Mont'ka", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Trevor Morgan", "placement": 14, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Space Marines (Astartes)", "detachment": "Armoured Speartip", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Matt Schuchman", "placement": 15, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Aeldari", "detachment": "Aspect Host", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Connor McLean", "placement": 16, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Necrons", "detachment": "Starshatter Arsenal", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Andrew Vawter", "placement": 17, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Space Marines (Astartes)", "detachment": "Headhunter Task Force", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Truman Brody-Boyd", "placement": 18, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Deathwatch", "detachment": "Black Spear Task Force", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Liam Martin", "placement": 19, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Chaos Space Marines", "detachment": "Soulforged Warpack", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Steven Saroka", "placement": 20, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Thousand Sons", "detachment": "Grand Coven", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Dustin Zeliff", "placement": 21, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "T'au Empire", "detachment": "Mont'ka", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Brandon Truslow", "placement": 22, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Tyranids", "detachment": "Subterranean Assault", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "David Anderson", "placement": 23, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Black Templars", "detachment": "Blade of Ultramar", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Joshua Blaylock", "placement": 24, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Genestealer Cult", "detachment": "Host of Ascension", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Justin Rosko", "placement": 25, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Orks", "detachment": "Kult of Speed", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Amelia Pollard", "placement": 26, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Tyranids", "detachment": "Subterranean Assault", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Matt Neis", "placement": 27, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Necrons", "detachment": "Starshatter Arsenal", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Leah Snider", "placement": 28, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "T'au Empire", "detachment": "Mont'ka", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Ryan Schaum", "placement": 29, "record": {"wins": 4, "losses": 1, "draws": 0}, "faction": "Death Guard", "detachment": "Virulent Vectorium", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []}
+      ]
+    },
+    {
+      "event": {
+        "name": "BAJIO OPEN 2026, EL BUNKER",
+        "date": "2026-05-02",
+        "size_players": 84,
+        "rounds": 6,
+        "format": null,
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Amador Perez",
+          "placement": 1,
+          "record": null,
+          "faction": "Death Guard",
+          "detachment": "Virulent Vectorium",
+          "warlord": "Mortarion",
+          "total_points": 1990,
+          "enhancements": [
+            {"name": "Revolting Regeneration", "attached_to": "Daemon Prince of Nurgle", "points": null}
+          ],
+          "units": [
+            {"name": "Daemon Prince of Nurgle", "model_count": 1, "points": 215, "wargear": ["Hellforged weapons", "Infernal cannon"]},
+            {"name": "Mortarion", "model_count": 1, "points": 380, "wargear": ["Lantern", "Rotwind", "Silence"]},
+            {"name": "Tallyman", "model_count": 1, "points": 50, "wargear": ["Plasma pistol"]},
+            {"name": "Blightlord Terminators", "model_count": 10, "points": 370, "wargear": ["Bubotic blade", "Combi-bolter", "2x Blight launcher", "9x Bubotic blade", "3x Combi-bolter", "2x Plague spewer", "2x Reaper autocannon"]},
+            {"name": "Chaos Spawn", "model_count": 2, "points": 80, "wargear": []},
+            {"name": "Chaos Spawn", "model_count": 2, "points": 80, "wargear": []},
+            {"name": "Defiler", "model_count": 1, "points": 250, "wargear": ["2x Excruciator cannon", "Hades battle cannon", "2x Heavy reaper autocannon", "Shearing claws"]},
+            {"name": "Defiler", "model_count": 1, "points": 250, "wargear": ["2x Excruciator cannon", "Hades battle cannon", "2x Heavy reaper autocannon", "Shearing claws"]},
+            {"name": "Defiler", "model_count": 1, "points": 250, "wargear": ["2x Excruciator cannon", "Hades battle cannon", "2x Heavy reaper autocannon", "Shearing claws"]},
+            {"name": "Poxwalkers", "model_count": 10, "points": 65, "wargear": []}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Malaki Fowler",
+          "placement": 2,
+          "record": null,
+          "faction": "Thousand Sons",
+          "detachment": "Rubricae Phalanx",
+          "warlord": "Ahriman",
+          "total_points": 1995,
+          "enhancements": [
+            {"name": "Arcane Thralls (Aura)", "attached_to": "Daemon Prince of Tzeentch", "points": null},
+            {"name": "Risen Rubricae", "attached_to": "Sorcerer in Terminator Armour", "points": null}
+          ],
+          "units": [
+            {"name": "Ahriman", "model_count": 1, "points": 100, "wargear": ["Black Staff of Ahriman", "Inferno bolt pistol", "Transmogrifying Blast"]},
+            {"name": "Daemon Prince of Tzeentch", "model_count": 1, "points": 185, "wargear": ["Dark Blessing", "Hellforged weapons", "Infernal cannon"]},
+            {"name": "Sorcerer in Terminator Armour", "model_count": 1, "points": 115, "wargear": ["Force weapon", "Gaze of Hate", "Inferno combi-bolter"]},
+            {"name": "Sorcerer in Terminator Armour", "model_count": 1, "points": 85, "wargear": ["Force weapon", "Gaze of Hate", "Inferno combi-bolter"]},
+            {"name": "Sorcerer in Terminator Armour", "model_count": 1, "points": 85, "wargear": ["Force weapon", "Gaze of Hate", "Inferno combi-bolter"]},
+            {"name": "Scarab Occult Terminators", "model_count": 10, "points": 360, "wargear": ["Force weapon", "Malefic Curse", "2x Hellfyre missile rack", "7x Inferno combi-bolter", "9x Prosperine khopesh", "2x Soulreaper cannon"]},
+            {"name": "Scarab Occult Terminators", "model_count": 10, "points": 360, "wargear": ["Force weapon", "Malefic Curse", "2x Hellfyre missile rack", "7x Inferno combi-bolter", "9x Prosperine khopesh", "2x Soulreaper cannon"]},
+            {"name": "Scarab Occult Terminators", "model_count": 10, "points": 360, "wargear": ["Force weapon", "Malefic Curse", "2x Hellfyre missile rack", "7x Inferno combi-bolter", "9x Prosperine khopesh", "2x Soulreaper cannon"]},
+            {"name": "Sekhetar Robots", "model_count": 2, "points": 80, "wargear": ["2x Heavy warpflamer", "2x Hellfyre missile rack", "2x Power claw", "2x Warpflame projector"]},
+            {"name": "Sekhetar Robots", "model_count": 2, "points": 80, "wargear": ["2x Heavy warpflamer", "2x Hellfyre missile rack", "2x Power claw", "2x Warpflame projector"]},
+            {"name": "Tzaangor Enlightened", "model_count": 3, "points": 45, "wargear": ["3x Divining spear"]},
+            {"name": "Tzaangors", "model_count": 10, "points": 70, "wargear": ["10x Autopistol", "Brayhorn", "10x Chainsword", "Herd banner"]},
+            {"name": "Tzaangors", "model_count": 10, "points": 70, "wargear": ["10x Autopistol", "Brayhorn", "10x Chainsword", "Herd banner"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Asgo the Rath",
+          "placement": 3,
+          "record": null,
+          "faction": "T'au Empire",
+          "detachment": "Mont'ka",
+          "warlord": "The Twin Lance",
+          "total_points": 1995,
+          "enhancements": [
+            {"name": "Strike Swiftly", "attached_to": "Kroot War Shaper", "points": 25}
+          ],
+          "units": [
+            {"name": "Kroot War Shaper", "model_count": 1, "points": 75, "wargear": ["Kroot pistol", "Shaper's blade", "Dart-bow and tri-blade"]},
+            {"name": "The Twin Lance", "model_count": 2, "points": 185, "wargear": ["Fusion eliminator", "Ion scattercannon", "2x Twin pulse blaster", "2x Shardstorm burst system", "2x XV pulse pistol", "2x MV15 Gun Drone"]},
+            {"name": "Broadside Battlesuits", "model_count": 3, "points": 270, "wargear": ["3x High-yield missile pods", "3x Twin smart missile system", "6x Missile Drone", "3x Weapon support system"]},
+            {"name": "Kroot Carnivores", "model_count": 10, "points": 65, "wargear": ["Kroot pistol", "Kroot rifle", "9x Kroot rifle"]},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": []},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": []},
+            {"name": "Kroot Hounds", "model_count": 5, "points": 40, "wargear": []},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Pulse pistol", "Semi-automatic grenade launcher", "2x Gun Drone", "Grav-inhibitor drone", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Pulse pistol", "Semi-automatic grenade launcher", "Drone burst cannon", "2x Gun Drone", "Recon drone", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Pathfinder Team", "model_count": 10, "points": 90, "wargear": ["Pulse carbine", "Pulse pistol", "Semi-automatic grenade launcher", "Drone burst cannon", "2x Gun Drone", "Recon drone", "6x Pulse carbine", "3x Ion rifle"]},
+            {"name": "Piranhas", "model_count": 1, "points": 60, "wargear": ["2x Twin pulse carbine", "Piranha fusion blaster", "2x Seeker missile"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile pod", "Twin smart missile system"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile pod", "Twin smart missile system"]},
+            {"name": "Riptide Battlesuit", "model_count": 1, "points": 200, "wargear": ["Ion accelerator", "2x Missile pod", "Twin smart missile system"]},
+            {"name": "Sky Ray Gunship", "model_count": 1, "points": 150, "wargear": ["Seeker missile rack", "2x Smart missile system"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Pulse pistol", "Fusion blaster", "Homing beacon", "3x Burst cannon", "Fusion blaster"]},
+            {"name": "Stealth Battlesuits", "model_count": 5, "points": 100, "wargear": ["Pulse pistol", "Fusion blaster", "Homing beacon", "3x Burst cannon", "Fusion blaster"]}
+          ],
+          "per_round_opponents": []
+        },
+        {
+          "player": "Ari C",
+          "placement": 4,
+          "record": null,
+          "faction": "Drukhari",
+          "detachment": "Reaper's Wager",
+          "warlord": null,
+          "total_points": 1990,
+          "enhancements": [
+            {"name": "Archraider", "attached_to": "Archon", "points": 15},
+            {"name": "Soul Trap", "attached_to": "Archon", "points": null}
+          ],
+          "units": [
+            {"name": "Drazhar", "model_count": 1, "points": 85, "wargear": ["The Executioner's demiklaives"]},
+            {"name": "Lady Malys", "model_count": 1, "points": 100, "wargear": []},
+            {"name": "Lelith Hesperax", "model_count": 1, "points": 85, "wargear": ["Lelith's blades"]},
+            {"name": "Solitaire", "model_count": 1, "points": 115, "wargear": []},
+            {"name": "Archon", "model_count": 1, "points": 95, "wargear": ["Huskblade"]},
+            {"name": "Kabalite Warriors", "model_count": 10, "points": 115, "wargear": ["Phantasm Grenade Launcher", "Power Weapon", "Blast Pistol", "Blaster", "Dark lance", "Shredder", "Splinter cannon"]},
+            {"name": "Wyches", "model_count": 10, "points": 90, "wargear": ["Power weapon", "Blast Pistol", "3x Gladiatorial weapons"]},
+            {"name": "Incubi", "model_count": 5, "points": 90, "wargear": ["Incubi Shrine Token", "Demiklaives", "4x Klaive"]},
+            {"name": "Mandrakes", "model_count": 5, "points": 75, "wargear": ["5x Baleblast", "5x Glimmersteel Blade"]},
+            {"name": "Scourges with Heavy Weapons", "model_count": 5, "points": 130, "wargear": ["Shardcarbine", "4x Dark Lance"]},
+            {"name": "Scourges with Heavy Weapons", "model_count": 5, "points": 130, "wargear": ["Shardcarbine", "4x Dark Lance"]},
+            {"name": "Scourges with Heavy Weapons", "model_count": 5, "points": 130, "wargear": ["Shardcarbine", "4x Haywire Blaster"]},
+            {"name": "Hellions", "model_count": 5, "points": 85, "wargear": ["Phantasm Grenade Launcher", "Hellglaive", "Stunclaw", "4x Hellglaive"]},
+            {"name": "Hellions", "model_count": 5, "points": 85, "wargear": ["Phantasm Grenade Launcher", "Hellglaive", "Stunclaw", "4x Hellglaive"]},
+            {"name": "Reavers", "model_count": 3, "points": 70, "wargear": ["Heat Lance", "Grav Talon", "2x Splinter Rifle"]},
+            {"name": "Reavers", "model_count": 3, "points": 70, "wargear": ["Heat Lance", "Grav Talon", "2x Splinter Rifle"]},
+            {"name": "Cronos", "model_count": 1, "points": 55, "wargear": ["Spirit Syphon", "Spirit-leech Tentacles"]},
+            {"name": "Talos", "model_count": 2, "points": 160, "wargear": ["2x Twin Liquifier Gun", "2x Talos Gauntlet", "2x Twin Haywire Blasters"]},
+            {"name": "Raider", "model_count": 1, "points": 85, "wargear": ["Dark Lance"]},
+            {"name": "Venom", "model_count": 1, "points": 70, "wargear": ["2x Splinter Cannon"]},
+            {"name": "Venom", "model_count": 1, "points": 70, "wargear": ["2x Splinter Cannon"]}
+          ],
+          "per_round_opponents": []
+        },
+        {"player": "Ari Baez", "placement": 5, "record": {"wins": 5, "losses": 1, "draws": 0}, "faction": "Chaos Space Marines", "detachment": "Huron's Marauders", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "peter whitfield", "placement": 6, "record": {"wins": 5, "losses": 1, "draws": 0}, "faction": "Astra Militarum", "detachment": "Grizzled Company", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "PJ Brady", "placement": 7, "record": {"wins": 5, "losses": 1, "draws": 0}, "faction": "Dark Angels", "detachment": "Stormlance Task Force", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Soir Rios", "placement": 8, "record": {"wins": 5, "losses": 1, "draws": 0}, "faction": "Necrons", "detachment": "Starshatter Arsenal", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []},
+        {"player": "Axel Chazman", "placement": 9, "record": {"wins": 5, "losses": 1, "draws": 0}, "faction": "T'au Empire", "detachment": "Mont'ka", "warlord": null, "total_points": null, "partial": true, "enhancements": [], "units": [], "per_round_opponents": []}
+      ]
+    },
+    {
+      "event": {
+        "name": "Grand Onslaught 12",
+        "date": "2026-05-02",
+        "size_players": 59,
+        "rounds": 5,
+        "format": null,
+        "source_url": null
+      },
+      "lists": [
+        {
+          "player": "Tucker Rickey",
+          "placement": 1,
+          "record": null,
+          "faction": "Astra Militarum",
+          "detachment": "Recon Element",
+          "warlord": "Commissar Yarrick",
+          "total_points": 1995,
+          "enhancements": [
+            {"name": "Scare Gas Grenades", "attached_to": "Cadian Castellan", "points": 5}
+          ],
+          "units": [
+            {"name": "Cadian Castellan", "model_count": 1, "points": 55, "wargear": ["Power fist", "Plasma pistol"]},
+            {"name": "Cadian Castellan", "model_count": 1, "points": 60, "wargear": ["Power fist", "Plasma pistol"]},
+            {"name": "Cadian Command Squad", "model_count": 5, "points": 65, "wargear": ["Power fist", "Plasma pistol", "2x Plasma gun", "Plasma pistol", "2x Lasgun", "Master vox", "Medi-pack"]},
+            {"name": "Cadian Command Squad", "model_count": 5, "points": 65, "wargear": ["Power fist", "Plasma pistol", "2x Plasma gun", "Plasma pistol", "2x Lasgun", "Master vox", "Medi-pack"]},
+            {"name": "Commissar Yarrick", "model_count": 1, "points": 150, "wargear": ["Bale Eye", "Laspistol", "Power klaw", "Power sword", "Storm bolter"]},
+            {"name": "Gaunt's Ghosts", "model_count": 6, "points": 100, "wargear": ["Bolt pistol", "Gaunt's chainsword", "Bragg's autocannon", "4x Straight silver knife", "Corbec's hot-shot lascarbine", "Larkin's long-las", "Lascarbine", "Mkoll's straight silver knife", "Rawne's lascarbine"]},
+            {"name": "Militarum Tempestus Command Squad", "model_count": 5, "points": 85, "wargear": ["Tempestus dagger", "Command rod", "Hot-shot volley gun", "Meltagun", "Plasma gun", "Hot-shot lasgun", "Hot-shot laspistol", "Medi-pack"]},
+            {"name": "Ogryn Bodyguard", "model_count": 1, "points": 40, "wargear": ["Ripper gun", "Brute shield"]},
+            {"name": "Ogryn Bodyguard", "model_count": 1, "points": 40, "wargear": ["Ripper gun", "Brute shield"]},
+            {"name": "Ogryn Bodyguard", "model_count": 1, "points": 40, "wargear": ["Ripper gun", "Brute shield"]},
+            {"name": "Cadian Shock Troops", "model_count": 20, "points": 120, "wargear": ["2x Sergeant's autogun", "14x Lasgun", "2x Meltagun", "2x Plasma gun", "2x Vox-caster"]},
+            {"name": "Cadian Shock Troops", "model_count": 20, "points": 120, "wargear": ["2x Sergeant's autogun", "14x Lasgun", "2x Meltagun", "2x Plasma gun", "2x Vox-caster"]},
+            {"name": "Catachan Jungle Fighters", "model_count": 20, "points": 120, "wargear": ["2x Laspistol", "14x Lasgun", "4x Flamer", "2x Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Power weapon", "Plasma pistol", "7x Lasgun", "Meltagun", "Plasma gun", "Medi-pack", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Power weapon", "Plasma pistol", "7x Lasgun", "Meltagun", "Plasma gun", "Medi-pack", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Power weapon", "Plasma pistol", "7x Lasgun", "Meltagun", "Plasma gun", "Medi-pack", "Vox-caster"]},
+            {"name": "Death Korps of Krieg", "model_count": 10, "points": 65, "wargear": ["Power weapon", "Plasma pistol", "7x Lasgun", "Meltagun", "Plasma gun", "Medi-pack", "Vox-caster"]},
+            {"name": "Attilan Rough Riders", "model_count": 10, "points": 120, "wargear": ["Power sabre", "10x Hunting lance", "10x Lasgun", "10x Laspistol"]},
+            {"name": "Attilan Rough Riders", "model_count": 10, "points": 120, "wargear": ["Power sabre", "10x Hunting lance", "10x Lasgun", "10x Laspistol"]},
+            {"name": "Death Riders", "model_count": 5, "points": 60, "wargear": ["5x Death Rider lascarbine", "5x Frag lance", "5x Power sabre"]},
+            {"name": "Krieg Combat Engineers", "model_count": 5, "points": 60, "wargear": ["Hand flamer", "Power weapon", "2x Combat shotgun", "Flamer", "Autopistol", "Remote mine"]},
+            {"name": "Krieg Combat Engineers", "model_count": 5, "points": 60, "wargear": ["Hand flamer", "Power weapon", "2x Combat shotgun", "Flamer", "Autopistol", "Remote mine"]},
+            {"name": "Ratlings", "model_count": 5, "points": 60, "wargear": ["5x Sniper rifle"]},
+            {"name": "Scout Sentinels", "model_count": 1, "points": 55, "wargear": ["Hunter-killer missile", "Lascannon"]},
+            {"name": "Tempestus Scions", "model_count": 10, "points": 140, "wargear": ["Power fist", "Plasma pistol", "4x Hot-shot lasgun", "Hot-shot laspistol", "2x Meltagun", "2x Plasma gun", "Vox-caster"]}
+          ],
+          "per_round_opponents": [
+            {"round": null, "opponent_faction": "Thousand Sons", "opponent_detachment": "Rubricae Phalanx", "result": "win"}
+          ]
+        },
+        {
+          "player": "Mike Muzeni",
+          "placement": null,
+          "record": null,
+          "faction": "Thousand Sons",
+          "detachment": "Rubricae Phalanx",
+          "warlord": "Sorcerer in Terminator Armour",
+          "total_points": 2000,
+          "enhancements": [
+            {"name": "Risen Rubricae", "attached_to": "Sorcerer", "points": null},
+            {"name": "Lord of the Rubricae", "attached_to": "Sorcerer in Terminator Armour", "points": null},
+            {"name": "Arcane Thralls (Aura)", "attached_to": "Sorcerer in Terminator Armour", "points": null}
+          ],
+          "units": [
+            {"name": "Sorcerer", "model_count": 1, "points": 110, "wargear": ["Force weapon", "Inferno bolt pistol", "Pandaemonic Delusion", "Prosperine khopesh"]},
+            {"name": "Sorcerer in Terminator Armour", "model_count": 1, "points": 100, "wargear": ["Force weapon", "Gaze of Hate", "Inferno combi-bolter"]},
+            {"name": "Sorcerer in Terminator Armour", "model_count": 1, "points": 90, "wargear": ["Force weapon", "Gaze of Hate", "Inferno combi-bolter"]},
+            {"name": "Rubric Marines", "model_count": 5, "points": 100, "wargear": ["Force weapon", "Malefic Curse", "Warpflame pistol", "Icon of Flame", "Soulreaper cannon", "3x Warpflamer"]},
+            {"name": "Chaos Spawn", "model_count": 2, "points": 65, "wargear": []},
+            {"name": "Chaos Spawn", "model_count": 2, "points": 65, "wargear": []},
+            {"name": "Defiler", "model_count": 1, "points": 250, "wargear": ["Ectoplasma destructor", "2x Excruciator cannon", "2x Heavy reaper autocannon", "Shearing claws"]},
+            {"name": "Defiler", "model_count": 1, "points": 250, "wargear": ["Ectoplasma destructor", "2x Excruciator cannon", "2x Heavy reaper autocannon", "Shearing claws"]},
+            {"name": "Scarab Occult Terminators", "model_count": 10, "points": 360, "wargear": ["Force weapon", "Malefic Curse", "2x Hellfyre missile rack", "7x Inferno combi-bolter", "9x Prosperine khopesh", "2x Soulreaper cannon"]},
+            {"name": "Scarab Occult Terminators", "model_count": 10, "points": 360, "wargear": ["Force weapon", "Malefic Curse", "2x Hellfyre missile rack", "7x Inferno combi-bolter", "9x Prosperine khopesh", "2x Soulreaper cannon"]},
+            {"name": "Tzaangor Enlightened with Fatecaster Greatbows", "model_count": 3, "points": 55, "wargear": ["3x Fatecaster greatbow"]},
+            {"name": "Tzaangor Enlightened with Fatecaster Greatbows", "model_count": 3, "points": 55, "wargear": ["3x Fatecaster greatbow"]},
+            {"name": "Tzaangors", "model_count": 10, "points": 70, "wargear": ["Brayhorn", "Herd banner", "10x Tzaangor blades"]},
+            {"name": "Tzaangors", "model_count": 10, "points": 70, "wargear": ["Brayhorn", "Herd banner", "10x Tzaangor blades"]}
+          ],
+          "per_round_opponents": [
+            {"round": null, "opponent_faction": "Astra Militarum", "opponent_detachment": "Recon Element", "result": "loss"}
+          ]
+        },
+        {
+          "player": "Steve Trimble",
+          "placement": 2,
+          "record": {"wins": 5, "losses": 0, "draws": 0},
+          "faction": "Chaos Space Marines",
+          "detachment": "Pactbound Zealots",
+          "warlord": "Abaddon the Despoiler",
+          "total_points": 1990,
+          "partial": true,
+          "enhancements": [],
+          "units": [
+            {"name": "Abaddon the Despoiler", "model_count": 1, "points": 270, "wargear": ["Drach'nyen", "Talon of Horus"]},
+            {"name": "Cypher", "model_count": 1, "points": 90, "wargear": ["Cypher's bolt pistol", "Cypher's plasma pistol"]},
+            {"name": "Huron Blackheart", "model_count": 1, "points": 120, "wargear": ["Tyrant's Claw and exalted power weapon", "Tyrant's Claw heavy flamer"]},
+            {"name": "Cultist Mob", "model_count": 10, "points": 50, "wargear": ["Mark of Chaos: Nurgle", "10x Autopistol", "10x Brutal assault weapon"]},
+            {"name": "Chaos Rhino", "model_count": 1, "points": 75, "wargear": ["Mark of Chaos: Slaanesh", "2x Combi-bolter", "Havoc launcher"]}
+          ],
+          "per_round_opponents": []
+        }
+      ]
+    }
+  ],
+  "_extraction_notes": {
+    "truncation": "Source article was truncated mid-list during Steve Trimble's Chaos Space Marines roster (Grand Onslaught 12, 2nd place). Only the units printed before the cutoff are included; partial flag set true.",
+    "events_after_grand_onslaught_not_included": "Article preamble lists further events (Grand Tournoi 40K - Grand Clash 2026, San Diego Classic, Moscow GT by Hyper, Tyrannic Panic GT) under Part 3, but no list content for those events appeared in the supplied text.",
+    "richmond_open_1st_place_record": "TJ Lanigan's record not explicitly stated; 2nd-5th are all labelled Undefeated (5-0) at a 5-round event so 1st is implicitly also 5-0, but per the 'do not invent' rule the field is left null.",
+    "bajio_open_records": "Top-4 records not explicitly stated; the 'Best of the Rest' note for 5th-9th cites 5-1 records, so those are populated."
+  }
+}

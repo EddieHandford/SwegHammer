@@ -1,5 +1,11 @@
 # Sweghammer: Data-Driven Unit Costing for Warhammer 40K
 
+> **v1.0 — Recalibrated.** Frozen prices dataset at [`data/sweg_points_v1.json`](data/sweg_points_v1.json).
+> The Streamlit dashboard opens in **Player view** by default (sidebar toggle
+> switches to the full **Calibration view** with the simulator and
+> calibration tools). Player view tabs: Home, Unit Browser, Army Compare,
+> Faction Overview, The Equation.
+
 
 <img width="939" height="961" alt="image" src="https://github.com/user-attachments/assets/5f350602-b775-449b-a1de-a26387f56333" />
 

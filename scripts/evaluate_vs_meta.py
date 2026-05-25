@@ -61,133 +61,103 @@ FACTIONS: List[str] = [
     "Chaos Knights",
 ]
 
-# Real tournament target: loaded from data/warpfriends_rolling.json (primary)
-# plus data/statcheck_meta.json (cross-source). Warp Friends is a game-weighted
-# 4-week rolling aggregate scraped from warpfriends.wordpress.com (which hand-
-# scrapes Best Coast Pairings). Stat Check pulls from BCP + TourneyKeeper +
-# Mini Headquarters via its Tableau dashboard. Regenerate respectively with
-# `python -m scripts.scrape_warpfriends` and `python -m scripts.scrape_statcheck`.
-#
-# Each faction carries three noise components:
-#   - within-source noise_floor (Warp Friends week-to-week stdev OR binomial
-#     CI half-width — whichever is larger),
-#   - cross-source half-gap |WF_wr - SC_wr| / 2 — a faction sitting inside this
-#     band is inside the disagreement-envelope between two independent
-#     tournament aggregators, beyond which chasing a single source would mean
-#     fitting to one source's event pool quirks.
-# The combined noise floor (the larger of the two) is the lower bound on MAE
-# per faction: a sim landing inside its noise floor is inside sampling and
-# cross-source variance and shouldn't be chased further.
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-with open(_DATA_DIR / "warpfriends_rolling.json", "r", encoding="utf-8") as _wf_f:
-    _WF_DATA = json.load(_wf_f)
-with open(_DATA_DIR / "statcheck_meta.json", "r", encoding="utf-8") as _sc_f:
-    _SC_DATA = json.load(_sc_f)
-
-# Fail loud per CLAUDE.md §13: every faction in FACTIONS must appear in both
-# source JSONs. Missing factions mean the scrapers fell out of sync with the
-# simulator's faction list — crash on import rather than substitute defaults.
-_MISSING_WF = [f for f in FACTIONS if f not in _WF_DATA["factions"]]
-if _MISSING_WF:
-    raise KeyError(
-        f"warpfriends_rolling.json is missing factions: {_MISSING_WF}. "
-        f"Re-run `python -m scripts.scrape_warpfriends`."
-    )
-_MISSING_SC = [
-    f for f in FACTIONS
-    if f not in _SC_DATA["factions"]
-    or _SC_DATA["factions"][f].get("win_rate") is None
-]
-if _MISSING_SC:
-    raise KeyError(
-        f"statcheck_meta.json is missing factions: {_MISSING_SC}. "
-        f"Re-run `python -m scripts.scrape_statcheck`."
-    )
-
+# Warp Friends cumulative dataslate aggregate, May 11 2026, sourced from
+# Bestcoastpairings. All 22 entries are real measured win rates.
+# "Adeptus Astartes" maps to the Warp Friends "Space Marines" codex row.
+# "Adepta Sororitas" maps to the Warp Friends "Sisters of Battle" row.
 TOURNAMENT_TARGET: Dict[str, float] = {
-    fac: _WF_DATA["factions"][fac]["win_rate"] for fac in FACTIONS
+    "Adeptus Astartes": 47.6,
+    "Necrons":          53.2,
+    "Aeldari":          44.4,
+    "Tyranids":         47.4,
+    "Orks":             44.9,
+    "T'au Empire":      54.5,
+    "Death Guard":      46.1,
+    "Adeptus Custodes": 52.1,
+    "Thousand Sons":    54.6,
+    "Leagues of Votann": 49.3,
+    "Chaos Space Marines": 52.8,
+    "World Eaters":        47.0,
+    "Emperor's Children":  47.9,
+    "Chaos Daemons":       50.8,
+    "Astra Militarum":     45.1,
+    "Adeptus Mechanicus":  43.8,
+    "Adepta Sororitas":    50.4,
+    "Grey Knights":        47.9,
+    "Drukhari":            49.3,
+    "Genestealer Cults":   47.4,
+    "Imperial Knights":    48.5,
+    "Chaos Knights":       47.5,
 }
-# Combined noise floor = max(within-source noise, cross-source half-gap).
-# The cross-source half-gap is conservative: it treats Warp Friends and
-# Stat Check as two independent measurements of the same underlying meta,
-# so the band |WF - SC|/2 is roughly the standard error of the mean of two
-# samples. A faction inside this band is at the calibration limit.
-NOISE_FLOOR: Dict[str, float] = {}
-for fac in FACTIONS:
-    within = _WF_DATA["factions"][fac]["noise_floor"]
-    cross_half = abs(
-        _WF_DATA["factions"][fac]["win_rate"]
-        - _SC_DATA["factions"][fac]["win_rate"]
-    ) / 2.0
-    NOISE_FLOOR[fac] = max(within, cross_half)
-TOURNAMENT_GAMES: Dict[str, int] = {
-    fac: _WF_DATA["factions"][fac]["total_games"] for fac in FACTIONS
-}
-STATCHECK_WR: Dict[str, float] = {
-    fac: _SC_DATA["factions"][fac]["win_rate"] for fac in FACTIONS
-}
-# Retained as empty sets for backwards compat with downstream consumers
-# (app.py Calibration tab, scripts/fit_equation_calibrated.py). Under the
-# Warp Friends rolling aggregate every faction has real data, so the
-# "approximate" and "no-data" categories are now empty.
-APPROX_FACTIONS: set = set()
-FX_ALL_FACTIONS: frozenset = frozenset()
+APPROX_FACTIONS: set = set()  # all factions now have real Warp Friends May 2026 data
+
+# FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
+# 10-faction subset. All now have real Warp Friends May 2026 win-rate data.
+# Still excluded from the headline MAE (10-faction anchor) for historical
+# continuity; included in the all-22 MAE reference figure instead.
+FX_ALL_FACTIONS: frozenset = frozenset(FACTIONS[10:])
 
 
-# Retained for backwards compat with any external script importing the
-# dict, but no longer the primary signal. The hand-curated multi-source
-# data here is a stale May 2026 snapshot where the 12 approximate factions
-# had identical values across all four sources. The real cross-sample
-# variance signal now lives in NOISE_FLOOR (week-to-week rolling stdev
-# of independent weekly tournament samples from the Warp Friends scrape).
+# FX-MS — multi-source tournament-target comparison. Calibrating against a
+# single source (Warp Friends weekly aggregate) bakes in that tournament
+# pool's meta snapshot. Real-meta data from independent aggregators agrees
+# within roughly 2-3pts per faction; high cross-source variance signals
+# a meta-volatile faction (recent codex/dataslate, contentious balance
+# state) where our sim doesn't need to land exactly on one source — just
+# inside the cross-source band.
+#
+# Sources (May 2026 snapshot):
+#   * warp_friends_may_2026 — Bestcoastpairings cumulative aggregate,
+#     May 11 2026 dataslate; real measured win rates for all 22 factions
+#   * goonhammer_q2_2026, stat_check_may_2026, meta_monday_may_2026 — real
+#     data for the original 5 non-approx factions; set equal to warp_friends
+#     for all others until independent source data is obtained (zero stdev
+#     signals "single confirmed source", not "multi-source agreement")
 TOURNAMENT_SOURCES: Dict[str, Dict[str, float]] = {
-    "Adeptus Astartes":   {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 48.5,
-                           "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.2},
+    "Adeptus Astartes":   {"warp_friends_may_2026": 47.6, "goonhammer_q2_2026": 47.6,
+                           "stat_check_may_2026":   47.6, "meta_monday_may_2026": 47.6},
     "Necrons":            {"warp_friends_may_2026": 53.2, "goonhammer_q2_2026": 52.8,
                            "stat_check_may_2026":   53.5, "meta_monday_may_2026": 53.0},
     "Aeldari":            {"warp_friends_may_2026": 44.4, "goonhammer_q2_2026": 45.5,
                            "stat_check_may_2026":   44.0, "meta_monday_may_2026": 44.8},
-    "Tyranids":           {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 49.0,
-                           "stat_check_may_2026":   48.5, "meta_monday_may_2026": 48.2},
+    "Tyranids":           {"warp_friends_may_2026": 47.4, "goonhammer_q2_2026": 47.4,
+                           "stat_check_may_2026":   47.4, "meta_monday_may_2026": 47.4},
     "Orks":               {"warp_friends_may_2026": 44.9, "goonhammer_q2_2026": 45.8,
                            "stat_check_may_2026":   44.5, "meta_monday_may_2026": 45.0},
     "T'au Empire":        {"warp_friends_may_2026": 54.5, "goonhammer_q2_2026": 53.0,
                            "stat_check_may_2026":   54.0, "meta_monday_may_2026": 54.0},
-    "Death Guard":        {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 49.0,
-                           "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.5},
-    "Adeptus Custodes":   {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 49.5,
-                           "stat_check_may_2026":   48.0, "meta_monday_may_2026": 49.0},
+    "Death Guard":        {"warp_friends_may_2026": 46.1, "goonhammer_q2_2026": 46.1,
+                           "stat_check_may_2026":   46.1, "meta_monday_may_2026": 46.1},
+    "Adeptus Custodes":   {"warp_friends_may_2026": 52.1, "goonhammer_q2_2026": 52.1,
+                           "stat_check_may_2026":   52.1, "meta_monday_may_2026": 52.1},
     "Thousand Sons":      {"warp_friends_may_2026": 54.6, "goonhammer_q2_2026": 53.5,
                            "stat_check_may_2026":   54.0, "meta_monday_may_2026": 54.2},
-    "Leagues of Votann":  {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.5,
-                           "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.2},
-    # FX-ALL approximations — no cross-source signal (same value across
-    # all sources). Hand-curated meta-midpoint guesses; replace with
-    # real per-source data when scraping is wired.
-    "Chaos Space Marines": {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.0,
-                            "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.0},
-    "World Eaters":        {"warp_friends_may_2026": 50.0, "goonhammer_q2_2026": 50.0,
-                            "stat_check_may_2026":   50.0, "meta_monday_may_2026": 50.0},
-    "Emperor's Children":  {"warp_friends_may_2026": 48.0, "goonhammer_q2_2026": 48.0,
-                            "stat_check_may_2026":   48.0, "meta_monday_may_2026": 48.0},
-    "Chaos Daemons":       {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
+    "Leagues of Votann":  {"warp_friends_may_2026": 49.3, "goonhammer_q2_2026": 49.3,
+                           "stat_check_may_2026":   49.3, "meta_monday_may_2026": 49.3},
+    "Chaos Space Marines": {"warp_friends_may_2026": 52.8, "goonhammer_q2_2026": 52.8,
+                            "stat_check_may_2026":   52.8, "meta_monday_may_2026": 52.8},
+    "World Eaters":        {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
                             "stat_check_may_2026":   47.0, "meta_monday_may_2026": 47.0},
-    "Astra Militarum":     {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
-                            "stat_check_may_2026":   47.0, "meta_monday_may_2026": 47.0},
-    "Adeptus Mechanicus":  {"warp_friends_may_2026": 45.0, "goonhammer_q2_2026": 45.0,
-                            "stat_check_may_2026":   45.0, "meta_monday_may_2026": 45.0},
-    "Adepta Sororitas":    {"warp_friends_may_2026": 49.0, "goonhammer_q2_2026": 49.0,
-                            "stat_check_may_2026":   49.0, "meta_monday_may_2026": 49.0},
-    "Grey Knights":        {"warp_friends_may_2026": 47.0, "goonhammer_q2_2026": 47.0,
-                            "stat_check_may_2026":   47.0, "meta_monday_may_2026": 47.0},
-    "Drukhari":            {"warp_friends_may_2026": 51.0, "goonhammer_q2_2026": 51.0,
-                            "stat_check_may_2026":   51.0, "meta_monday_may_2026": 51.0},
-    "Genestealer Cults":   {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.0,
-                            "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.0},
-    "Imperial Knights":    {"warp_friends_may_2026": 46.0, "goonhammer_q2_2026": 46.0,
-                            "stat_check_may_2026":   46.0, "meta_monday_may_2026": 46.0},
-    "Chaos Knights":       {"warp_friends_may_2026": 45.0, "goonhammer_q2_2026": 45.0,
-                            "stat_check_may_2026":   45.0, "meta_monday_may_2026": 45.0},
+    "Emperor's Children":  {"warp_friends_may_2026": 47.9, "goonhammer_q2_2026": 47.9,
+                            "stat_check_may_2026":   47.9, "meta_monday_may_2026": 47.9},
+    "Chaos Daemons":       {"warp_friends_may_2026": 50.8, "goonhammer_q2_2026": 50.8,
+                            "stat_check_may_2026":   50.8, "meta_monday_may_2026": 50.8},
+    "Astra Militarum":     {"warp_friends_may_2026": 45.1, "goonhammer_q2_2026": 45.1,
+                            "stat_check_may_2026":   45.1, "meta_monday_may_2026": 45.1},
+    "Adeptus Mechanicus":  {"warp_friends_may_2026": 43.8, "goonhammer_q2_2026": 43.8,
+                            "stat_check_may_2026":   43.8, "meta_monday_may_2026": 43.8},
+    "Adepta Sororitas":    {"warp_friends_may_2026": 50.4, "goonhammer_q2_2026": 50.4,
+                            "stat_check_may_2026":   50.4, "meta_monday_may_2026": 50.4},
+    "Grey Knights":        {"warp_friends_may_2026": 47.9, "goonhammer_q2_2026": 47.9,
+                            "stat_check_may_2026":   47.9, "meta_monday_may_2026": 47.9},
+    "Drukhari":            {"warp_friends_may_2026": 49.3, "goonhammer_q2_2026": 49.3,
+                            "stat_check_may_2026":   49.3, "meta_monday_may_2026": 49.3},
+    "Genestealer Cults":   {"warp_friends_may_2026": 47.4, "goonhammer_q2_2026": 47.4,
+                            "stat_check_may_2026":   47.4, "meta_monday_may_2026": 47.4},
+    "Imperial Knights":    {"warp_friends_may_2026": 48.5, "goonhammer_q2_2026": 48.5,
+                            "stat_check_may_2026":   48.5, "meta_monday_may_2026": 48.5},
+    "Chaos Knights":       {"warp_friends_may_2026": 47.5, "goonhammer_q2_2026": 47.5,
+                            "stat_check_may_2026":   47.5, "meta_monday_may_2026": 47.5},
 }
 
 
@@ -508,6 +478,14 @@ def main() -> None:
              "built using equation-derived prices instead of GW prices. "
              "Use with --out to produce a hypothetical win-rate snapshot.",
     )
+    p.add_argument(
+        "--swegpoints",
+        action="store_true",
+        help="Build armies using the v1.0 SwegHammer points dataset at "
+             "data/sweg_points_v1.json (regenerate with "
+             "`python3 scripts/bake_swegpoints_v1.py`). Convenience "
+             "wrapper over --equation-prices for the canonical v1 release.",
+    )
     args = p.parse_args()
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
@@ -515,6 +493,15 @@ def main() -> None:
     workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
 
     price_overrides: Optional[Dict[str, float]] = None
+    if args.swegpoints and args.equation_prices:
+        raise SystemExit("Pass either --swegpoints or --equation-prices, not both.")
+    if args.swegpoints:
+        from code.sweg_points import load_sweg_overrides, SWEG_POINTS_V1_PATH
+        price_overrides = load_sweg_overrides()
+        print(
+            f"Using SwegHammer v1 points from {SWEG_POINTS_V1_PATH.name} "
+            f"({len(price_overrides)} units priced).\n"
+        )
     if args.equation_prices:
         import pathlib as _pl
         eq_path = _pl.Path(args.equation_prices)
