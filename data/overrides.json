@@ -1250,7 +1250,8 @@
     },
     "adepta_sororitas_junith_eruita": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Junith Eruita has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Junith-Eruita"
+      "notes": "T1-SOROR-NUDGE: Junith Eruita Twin Ministorum Heavy Flamer A=4 in BSData is wrong; real per Wahapedia is A=2D6 (avg 7). Override to 7. iter22 invuln long-tail sweep: Junith Eruita has 4++ invulnerable save (Rosarius) per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/#Junith-Eruita",
+      "attacks": 7
     },
     "adepta_sororitas_canoness": {
       "invuln_save": 4,
