@@ -1253,6 +1253,17 @@ SEED_FRACTION: float = 0.3
 SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Leagues of Votann": 0.4,
     "Adeptus Custodes": 0.55,
+    # KNIGHTS-DIAG-3 (wave 33): Default 0.3 = 300pt seed budget at 1000pt
+    # eval. Every Questoris-class Chaos Knight costs 355–410pt — more
+    # than the entire seed budget — so the template seed always picks
+    # War Dogs (140–150pt) and the random-fill 50% cap excludes
+    # Rampager (365pt) entirely and Abominant (355pt) in 67% of builds.
+    # Raising to 0.45 = 450pt seeds one Questoris knight per build,
+    # which is required for KNIGHTS-MULTIPROFILE-2 extra_melee_profiles
+    # work to reach the faction-level metric. Imperial Knights mirrors
+    # the same chassis cost shape so the bump applies symmetrically.
+    "Chaos Knights": 0.45,
+    "Imperial Knights": 0.45,
 }
 
 
