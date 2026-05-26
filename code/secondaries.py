@@ -358,6 +358,74 @@ DAEMONS_FACTION_TAG: str = "Chaos Daemons"
 SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
 SORORITAS_FACTION_TAG: str = "Adepta Sororitas"
 
+# ORKS-DIAG-4 — horde-melee attacker secondary damper.
+#
+# Mirror of SOROR-LAST-RESORT-DAMPER applied to Orks, reflecting the
+# same structural over-scoring pattern at comparable magnitude (+12.32pt
+# gated overshoot vs Sororitas +13-16pt). Orks in the May 2026 Warp
+# Friends tournament sits at ~44.9% gated win-rate vs simulator ~60.1%
+# (+12.32pt over-perf after 3 prior per-rule diag passes: ORKS-DIAG /
+# ORKS-DIAG-2 / ORKS-DIAG-3 plus the AI-1 tarpit heuristic, the Mob Rule
+# per-unit fix, Meganobz and Painboy feel no pain drops). Per-rule audits
+# across all those passes found no missing rule lever and no inflated stat
+# — the War Horde detachment "Get Stuck In" [SUSTAINED HITS 1] melee rule
+# is faithfully implemented, WAAAGH! +1-to-wound-melee is correctly gated
+# to one turn, and the Warboss "Might is Right" +1-to-hit-melee is the
+# correct codex mechanic. The residual is in the over-translation of
+# high-volume melee damage events to capped secondary VP, not at any
+# single rule lever.
+#
+# The behavioural asymmetry being modelled: Orks War Horde is the
+# canonical horde-melee army in 10e — two or more Boyz mobs (20 models
+# each with [SUSTAINED HITS 1] army-wide) pile into melee and reliably
+# wipe INFANTRY squads, which over-converts No Prisoners and Cull the
+# Horde in the sim's per-shot W-resolution. Real-meta Orks players don't
+# score these at the sim rate because:
+#   (a) No Prisoners — real-meta opponents screen their valuable units
+#       behind chaff; Boyz wipe the chaff first, burning a round, while
+#       the sim's greedy melee AI charges the highest-DPA target.
+#   (b) Cull the Horde — sim's sustained-hits burst over-converts on
+#       enemy horde squads; real-meta Boyz often get tied up or shot off
+#       objectives before they can trigger the full Cull chain.
+#   (c) Engage on All Fronts / Behind Enemy Lines — Boyz are the cheapest
+#       INFANTRY in the catalogue at 1 wound each; the sim spreads them
+#       freely into all four quadrants and enemy DZ because its
+#       position-scoring has no cost for splitting the mob. Real-meta
+#       Orks players keep Boyz mobs coherent to maintain the 10-model
+#       Mob Rule battle-shock immunity; splitting the mob below 10 loses
+#       the auto-pass and exposes models to cascading wipes.
+#   (d) Bring it Down — Killa Kans (the only VEHICLE in the archetype)
+#       can over-kill enemy MONSTER/VEHICLE when the sim stacks WAAAGH!
+#       +1-wound + sustained-hits melee + tarpit-charge bias.
+#
+# ORKS_ATTACKER_OFFENSIVE_VP_MULTIPLIER scales DOWN Orks' own scoring on
+# Bring it Down, No Prisoners, Assassination, Cull the Horde, Engage on
+# All Fronts, and Behind Enemy Lines at 0.85x (conservative, matching
+# Sororitas). Full secondary footprint rather than Sororitas' exclusion
+# of Assassination — Orks' Warboss in Mega Armour + Da Biggest Boss
+# stratagem create CHARACTER-kill spikes in the sim that real-meta Orks
+# don't convert as reliably against screened opposing CHARACTERs.
+#
+# Conservative 0.85x rather than 0.75x because:
+#   (a) The overshoot (+12.32pt) is closer to Sororitas (+13-16pt) than
+#       to Drukhari (+27-31pt) or Tyranids (+24.8pt pre-damper).
+#   (b) Orks' over-perform is distributed across the melee+horde
+#       secondary envelope; the damper trims the over-conversion margin
+#       rather than nulling offensive output.
+#   (c) Prior per-rule passes already corrected the largest mechanical
+#       errors (Meganobz conditional feel no pain drop, Mob Rule per-unit
+#       gate, Painboy feel no pain leak, WAAAGH! melee-only gate).
+#
+# Faction-gated (not detachment- or keyword-gated) because the
+# behavioural divergence is observed across all Orks detachments tested
+# in the calibration loop and the 3 prior per-rule diag passes already
+# cleared every faction-rule lever. Marked APPROXIMATION: same citation
+# pattern as `simulator.secondary_sororitas_attacker_damper` — this is
+# a calibration observation, not a Wahapedia rule. Cited as
+# `simulator.secondary_orks_attacker_damper`.
+ORKS_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
+ORKS_FACTION_TAG: str = "Orks"
+
 
 @dataclass
 class RoundSnapshot:
@@ -673,25 +741,42 @@ def score_round_delta(
     else:
         soror_attacker_mult = 1.0
 
+    # ORKS-DIAG-4 — attacker-side damper on all offensive and positional
+    # secondaries when the scoring side is Orks. Conservative 0.85x
+    # matching the Sororitas damper magnitude; residual (+12.32pt) is
+    # in the same range as Sororitas (+13-16pt). Three prior per-rule
+    # diag passes (ORKS-DIAG, ORKS-DIAG-2, ORKS-DIAG-3 plus AI-1 / Mob
+    # Rule / feel no pain drop passes) found no missing rule lever —
+    # structural horde-melee secondary over-scoring. Composes
+    # multiplicatively with all other multipliers. Cited as
+    # `simulator.secondary_orks_attacker_damper`.
+    if attacker_faction == ORKS_FACTION_TAG:
+        orks_attacker_mult = ORKS_ATTACKER_OFFENSIVE_VP_MULTIPLIER
+    else:
+        orks_attacker_mult = 1.0
+
     bring_it_down_vp = min(
-        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
-        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
+        int(BRING_IT_DOWN_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult * orks_attacker_mult),
+        int(len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult * orks_attacker_mult),
     )
     no_prisoners_vp = min(
-        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
-        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult),
+        int(NO_PRISONERS_CAP_PER_ROUND * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult * orks_attacker_mult),
+        int(len(units_killed) * NO_PRISONERS_VP_PER_UNIT * mult * daemons_def_mult * drk_offensive_mult * tyr_attacker_mult * soror_attacker_mult * orks_attacker_mult),
     )
     # Cull damper composes the Drukhari (mobility), Tyranids
-    # (monster-mash), Sororitas (last-resort) attacker gates and the
-    # Daemons (invuln-stacked) defender gate. CUSTODES `mult` does NOT
-    # apply to Cull (Custodes never has 10+model units to concede).
-    # DAEMONS_DEFENDER damper DOES apply (Daemons fields 10-model
-    # Plaguebearer/Bloodletter/Pink Horror squads that the sim over-
-    # wipes vs real-meta 5++ + Daemonic-invuln durability). SORORITAS
-    # damper DOES apply (Sororitas can wipe horde squads via massed
-    # bolter/flamer output; Acts of Faith re-rolls inflate sim
-    # conversion vs real-meta).
-    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult * soror_attacker_mult
+    # (monster-mash), Sororitas (last-resort), Orks (horde-melee)
+    # attacker gates and the Daemons (invuln-stacked) defender gate.
+    # CUSTODES `mult` does NOT apply to Cull (Custodes never has
+    # 10+model units to concede). DAEMONS_DEFENDER damper DOES apply
+    # (Daemons fields 10-model Plaguebearer/Bloodletter/Pink Horror
+    # squads that the sim over-wipes vs real-meta 5++ + Daemonic-invuln
+    # durability). SORORITAS damper DOES apply (Sororitas can wipe horde
+    # squads via massed bolter/flamer output; Acts of Faith re-rolls
+    # inflate sim conversion vs real-meta). ORKS damper DOES apply
+    # (Boyz sustained-hits melee wipes horde squads faster in sim than
+    # real-meta; Mob Rule coherence pressure constrains real-meta Cull
+    # conversion below sim rate).
+    cull_combined_mult = drk_attacker_mult * tyr_attacker_mult * daemons_def_mult * soror_attacker_mult * orks_attacker_mult
     cull_the_horde_vp = int(min(
         CULL_THE_HORDE_CAP_PER_ROUND * cull_combined_mult,
         len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT * cull_combined_mult,
@@ -703,10 +788,13 @@ def score_round_delta(
     # attacker damper DOES apply - Sororitas character-kill output is
     # part of the over-scoring envelope (Morvenn Vahl, Canoness, Saint
     # Celestine assassinate-CHARACTER alpha strikes inflate sim VP vs
-    # real-meta).
+    # real-meta). ORKS attacker damper DOES apply - Warboss in Mega
+    # Armour + Da Biggest Boss stratagem create CHARACTER-kill spikes
+    # in the sim that real-meta Orks don't convert as reliably against
+    # screened opposing CHARACTERs.
     assassination_vp = min(
-        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult * soror_attacker_mult),
-        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult * soror_attacker_mult),
+        int(ASSASSINATION_CAP_PER_ROUND * mult * drk_offensive_mult * soror_attacker_mult * orks_attacker_mult),
+        int(len(chars_killed) * ASSASSINATION_VP_PER_CHAR * mult * drk_offensive_mult * soror_attacker_mult * orks_attacker_mult),
     )
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
@@ -874,4 +962,16 @@ def score_position_delta(
     if attacker_faction == SORORITAS_FACTION_TAG:
         engage_vp = int(engage_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
         bel_vp = int(bel_vp * SORORITAS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
+    # ORKS-DIAG-4 — attacker-side damper on the mobility tactical
+    # secondaries when the scoring side is Orks. Real-meta Orks players
+    # keep Boyz mobs coherent to maintain the 10-model Mob Rule
+    # battle-shock auto-pass; splitting mobs below 10 loses the auto-
+    # pass and exposes models to cascading wipes. The sim spreads cheap
+    # Boyz freely into all four quadrants and enemy DZ because the
+    # position-scoring has no coherence cost. Conservative 0.85x mirror
+    # of the SOROR-LAST-RESORT-DAMPER pattern. Cited as
+    # `simulator.secondary_orks_attacker_damper`.
+    if attacker_faction == ORKS_FACTION_TAG:
+        engage_vp = int(engage_vp * ORKS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
+        bel_vp = int(bel_vp * ORKS_ATTACKER_OFFENSIVE_VP_MULTIPLIER)
     return engage_vp, bel_vp
