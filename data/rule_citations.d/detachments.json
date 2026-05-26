@@ -41,16 +41,6 @@
     "approximation": true
   },
 
-  "INVASION_FLEET.enemy_ld_penalty": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/#Shadow-in-the-Warp",
-    "rule_name": "Shadow in the Warp",
-    "quoted_text": "Each time an enemy unit takes such a Battle-shock test, if it is within 6\" of one or more SYNAPSE units from your army, subtract 1 from that test.",
-    "trigger": "any enemy Leadership/Battle-shock check",
-    "effect": "-1 to enemy Leadership (approximation of Shadow in the Warp, which actually subtracts 1 from Battle-shock tests within 6\" of a Synapse unit rather than modifying Ld army-wide)",
-    "scope": "army-wide",
-    "approximation": true
-  },
-
   "SHIELD_HOST.melee_crit_on_5_plus_hits": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
     "rule_name": "Martial Ka'tah / Martial Mastery (Crit on 5+ bullet)",

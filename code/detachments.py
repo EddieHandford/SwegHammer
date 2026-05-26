@@ -384,13 +384,32 @@ INVASION_FLEET = Detachment(
     name="Invasion Fleet",
     faction="Tyranids",
     notes=(
-        "Shadow in the Warp: enemies have -1 Ld for Battleshock. Real rule "
-        "is range-gated; we apply army-wide."
+        "TYRANIDS-DIAG-8 (2026-05-26): the previous proxy `enemy_ld_penalty=1` was "
+        "a fabrication — it mis-attributed Shadow in the Warp (the Tyranids ARMY RULE, "
+        "modelled separately as `simulator.shadow_in_the_warp`) to the Invasion Fleet "
+        "DETACHMENT rule. The real Invasion Fleet detachment rule is 'Hyper-adaptations' "
+        "(Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Invasion-Fleet): "
+        "at the start of battle round 1 the Tyranids player selects ONE of: "
+        "(A) Swarming Instincts — friendly Tyranids attacks targeting INFANTRY or SWARM "
+        "units gain [SUSTAINED HITS 1]; "
+        "(B) Hyper-aggression — friendly Tyranids attacks targeting MONSTER or VEHICLE "
+        "units gain [LETHAL HITS]; "
+        "(C) Hive Predators — friendly Tyranids Critical Hits against CHARACTER units "
+        "gain [PRECISION]. "
+        "None of these three variants map cleanly to an existing per-detachment transient "
+        "flag: SUSTAINED HITS 1 is keyword-gated-on-TARGET (SwegHammer has no per-attack "
+        "target-keyword gate outside of ANTI_X); LETHAL HITS vs MONSTER/VEHICLE is "
+        "similarly target-gated; PRECISION is a wound-allocation override with no "
+        "current simulator hook. All three are NO-OP for now, catalogued here for a "
+        "follow-up wiring pass. Shadow in the Warp continues to be modelled army-wide "
+        "via `simulator.shadow_in_the_warp`."
     ),
-    # APPROXIMATION: always-on -1 Ld passive substitutes for a once-per-battle Battleshock test.
+    # FABRICATION REMOVED (TYRANIDS-DIAG-8): enemy_ld_penalty=1 was a proxy for Shadow
+    # in the Warp (the army rule), not the real Invasion Fleet detachment rule
+    # (Hyper-adaptations). Both were firing simultaneously when Invasion Fleet was
+    # selected, double-counting the Shadow in the Warp effect. Real Hyper-adaptations
+    # variants are no-op pending target-keyword-gated flag infrastructure.
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Invasion-Fleet
-    # Real rule: Shadow in the Warp — once-per-battle army-wide Battleshock test, not a passive Ld debuff.
-    enemy_ld_penalty=1,
     preferred_composition="balanced",
 )
 
