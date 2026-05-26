@@ -85,6 +85,15 @@
     "scope": "keyword-gated"
   },
 
+  "LeaderAbility.Lord of Decapitations": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker",
+    "rule_name": "Lord of Decapitations",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [DEVASTATING WOUNDS] ability.",
+    "trigger": "Skulltaker is leading a friendly Bloodletters unit (host_keys: chaos_daemons_library_bloodletters); the led unit makes a melee attack (mode == \"melee\") and scores a Critical Wound (unmodified wound roll of 6)",
+    "effect": "Critical Wounds on melee attacks by the led Bloodletters bypass armour and invulnerable saves, dealing damage directly (same as the [DEVASTATING WOUNDS] weapon keyword). Modelled as grants_devastating_wounds_melee=True on the LeaderAbility; the mode==\"melee\" gate is enforced in the attack-resolution loop in code/units.py. Faithful direct match to the codex text — no approximation. BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz confirms the wording verbatim.",
+    "scope": "unit-led"
+  },
+
   "LeaderAbility.Rites of Battle": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Captain",
     "rule_name": "Rites of Battle",

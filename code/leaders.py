@@ -109,6 +109,15 @@ class LeaderAbility:
     plus_one_strength_ranged: bool = False  # attacker's ranged S += 1 when led/in-aura
     plus_one_toughness: bool = False         # target's T += 1 when led/in-aura
     plus_one_ap_melee: bool = False          # attacker's melee AP improves by 1 (more negative)
+    # DAEMONS-DIAG-7: Skulltaker "Lord of Decapitations" — melee weapons
+    # equipped by the led unit gain [DEVASTATING WOUNDS]. Melee-only gate
+    # enforced at the attack-resolution site in code/units.py. BSData v10.6.0
+    # Chaos - Chaos Daemons Library.cat.gz, Skulltaker profile, Lord of
+    # Decapitations ability: "While this model is leading a unit, melee
+    # weapons equipped by models in that unit have the [DEVASTATING WOUNDS]
+    # ability." The field is generic so future leaders with the same grant
+    # (if any are added) can reuse it without schema changes.
+    grants_devastating_wounds_melee: bool = False  # led unit's melee attacks gain [DEVASTATING WOUNDS]
     # Defensive modifiers (apply to DEFENDER when it's in range of this leader)
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
@@ -595,6 +604,19 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
     ("Skarbrand",          LeaderAbility(name="Rage Embodied",              aura_range=6.0, plus_one_attack=1,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
+    # Skulltaker — "Lord of Decapitations" grants [DEVASTATING WOUNDS] to
+    # melee weapons equipped by the led unit. BSData v10.6.0 Chaos - Chaos
+    # Daemons Library.cat.gz, Lord of Decapitations ability: "While this
+    # model is leading a unit, melee weapons equipped by models in that unit
+    # have the [DEVASTATING WOUNDS] ability." Host: BLOODLETTERS only (BSData
+    # Leader profile: "This model can be attached to the following unit:
+    # BLOODLETTERS"). Modelled as `grants_devastating_wounds_melee=True`; the
+    # melee-only gate is enforced in the attack-resolution loop in
+    # code/units.py (fires only when mode == "melee").
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker
+    ("Skulltaker",         LeaderAbility(name="Lord of Decapitations",       aura_range=6.0,
+                                          grants_devastating_wounds_melee=True,
+                                          host_keys=("chaos_daemons_library_bloodletters",))),
     # Only the GENERIC Greater Daemon datasheets (Lord of Change, Great
     # Unclean One, Keeper of Secrets) carry the "Daemon Lord of <god>" Locus
     # aura per BSData v10.6.0 cache. The named variants (Kairos Fateweaver,
@@ -815,6 +837,10 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "plus_one_strength_ranged": False,
     "plus_one_toughness": False,
     "plus_one_ap_melee": False,
+    # DAEMONS-DIAG-7: Skulltaker "Lord of Decapitations" — led unit's melee
+    # attacks gain [DEVASTATING WOUNDS]. Default False; only True when Skulltaker
+    # is alive and leading Bloodletters.
+    "grants_devastating_wounds_melee": False,
 }
 
 
@@ -1155,6 +1181,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_bool(buffs, ability, "plus_one_strength_ranged")
         _merge_bool(buffs, ability, "plus_one_toughness")
         _merge_bool(buffs, ability, "plus_one_ap_melee")
+        _merge_bool(buffs, ability, "grants_devastating_wounds_melee")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

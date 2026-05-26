@@ -2807,12 +2807,31 @@ class Unit:
                     # legitimately carries DW. Single-weapon units have
                     # fraction = 1.0 (legacy behaviour preserved).
                     # Cited as `simulator.basket_fraction_gating`.
-                    if (
-                        p.devastating_wounds
-                        and crit_wound
-                        and random.random() < float(
+                    #
+                    # DAEMONS-DIAG-7: Skulltaker "Lord of Decapitations" leader
+                    # aura grants [DEVASTATING WOUNDS] to the led unit's melee
+                    # weapons (mode == "melee" gate enforced here). Composed into
+                    # `effective_dw` so the save-bypass path below is shared.
+                    # Fraction gate still applies for DW from the weapon profile;
+                    # leader-granted DW fires unconditionally on every melee
+                    # critical wound (the leader-granted flag treats all shots as
+                    # fully covered — fraction = 1.0). Cited as
+                    # `LeaderAbility.Lord of Decapitations`.
+                    _leader_dw_melee = (
+                        mode == "melee"
+                        and bool(att_buffs.get("grants_devastating_wounds_melee", False))
+                    )
+                    effective_dw = p.devastating_wounds or _leader_dw_melee
+                    _dw_fraction = (
+                        1.0 if _leader_dw_melee and not p.devastating_wounds
+                        else float(
                             getattr(p, "devastating_wounds_basket_fraction", 1.0) or 1.0
                         )
+                    )
+                    if (
+                        effective_dw
+                        and crit_wound
+                        and random.random() < _dw_fraction
                     ):
                         # NECRONS-CTAN: Necrodermis halves Damage characteristic
                         # (rounding up); D1 attacks deal 0. Wahapedia C'tan
