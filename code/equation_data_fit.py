@@ -29,6 +29,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .leaders import lookup_ability
 from .units import UNIT_CATALOG, UnitProfile
 
 # Reference target for the "expected damage" utility derivatives.
@@ -102,8 +103,8 @@ def default_feature_specs() -> List[FeatureSpec]:
                     "Absolute value of ranged AP (0 = AP0, 5 = AP-5)."),
         FeatureSpec("ranged_damage_per_shot", "linear", True,
                     "Damage per ranged hit."),
-        FeatureSpec("ranged_range", "linear", False,
-                    "Weapon range in inches. Often correlated with strength; off by default."),
+        FeatureSpec("ranged_range", "linear", True,
+                    "Weapon range in inches. Long-range weapons engage from turn 1."),
 
         # Offensive melee.
         FeatureSpec("melee_attacks", "linear", True,
@@ -149,14 +150,14 @@ def default_feature_specs() -> List[FeatureSpec]:
                     "2W squad has 20 wounds to absorb, priced differently from a single "
                     "20W monster even when wounds_per_model appears equal."),
 
-        # Utility derivatives — computed from the raw stats above.
-        FeatureSpec("expected_ranged_dmg_vs_meq", "linear", False,
-                    "Expected damage per shooting phase vs MEQ baseline (T6 Sv3+). "
-                    "Correlates with raw stats but captures keyword interactions; "
-                    "off by default to avoid double-counting."),
-        FeatureSpec("expected_melee_dmg_vs_meq", "linear", False,
+        # Utility derivatives — computed from the raw stats above. Multicollinearity
+        # with the raw stats is real but R² benefits from the extra structure,
+        # and coefficient interpretability is not a goal at this stage.
+        FeatureSpec("expected_ranged_dmg_vs_meq", "linear", True,
+                    "Expected damage per shooting phase vs MEQ baseline (T6 Sv3+)."),
+        FeatureSpec("expected_melee_dmg_vs_meq", "linear", True,
                     "Expected damage per fight phase vs MEQ baseline."),
-        FeatureSpec("effective_wounds", "linear", False,
+        FeatureSpec("effective_wounds", "linear", True,
                     "Wounds × save × invuln × FNP combined survivability index."),
 
         # Big keyword classes (from unit_keywords).
@@ -164,6 +165,194 @@ def default_feature_specs() -> List[FeatureSpec]:
         FeatureSpec("is_vehicle", "linear", True, "1 if VEHICLE."),
         FeatureSpec("is_character", "linear", True, "1 if CHARACTER."),
         FeatureSpec("is_fly", "linear", True, "1 if FLY."),
+
+        # Leader aura buffs — flattened from code.leaders.LeaderAbility via
+        # lookup_ability(name). Zero for any unit not in the leader registry,
+        # so each coefficient is the log-price lift GW implicitly charges for
+        # a CHARACTER that grants that buff to its attached bodyguard squad.
+        FeatureSpec("has_aura", "linear", True,
+                    "1 if this unit is in the leader registry (grants any aura)."),
+        FeatureSpec("aura_reroll_hit_ones", "linear", True,
+                    "1 if leader aura grants re-roll hit rolls of 1."),
+        FeatureSpec("aura_reroll_wound_ones", "linear", True,
+                    "1 if leader aura grants re-roll wound rolls of 1."),
+        FeatureSpec("aura_plus_one_to_hit", "linear", True,
+                    "1 if leader aura grants +1 to hit."),
+        FeatureSpec("aura_plus_one_to_wound", "linear", True,
+                    "1 if leader aura grants +1 to wound."),
+        FeatureSpec("aura_plus_one_attack", "linear", True,
+                    "Integer N of extra attacks per weapon from leader aura."),
+        FeatureSpec("aura_plus_one_strength_ranged", "linear", True,
+                    "1 if leader aura grants +1 strength on ranged attacks."),
+        FeatureSpec("aura_plus_one_toughness", "linear", True,
+                    "1 if leader aura grants +1 toughness to the led unit."),
+        FeatureSpec("aura_plus_one_ap_melee", "linear", True,
+                    "1 if leader aura improves melee AP by 1."),
+        FeatureSpec("aura_extra_invuln_quality", "linear", True,
+                    "Quality (7 minus target) of an aura-granted invulnerable save."),
+        FeatureSpec("aura_fnp_quality", "linear", True,
+                    "Quality (7 minus target) of an aura-granted Feel No Pain."),
+        FeatureSpec("aura_heal_per_round", "linear", True,
+                    "Wounds healed each round end by leader aura."),
+        FeatureSpec("aura_revive_per_round", "linear", True,
+                    "Destroyed infantry models revived each round by leader aura."),
+        FeatureSpec("aura_cp_discount_per_round", "linear", True,
+                    "Bonus command points each command phase (Warlord-gated leader ability)."),
+        FeatureSpec("aura_cp_refund_per_battle", "linear", True,
+                    "One-shot command point refunds per battle (Warlord-gated)."),
+        FeatureSpec("aura_first_strat_free", "linear", True,
+                    "1 if first stratagem each round costs zero command points (Warlord-gated)."),
+
+        # Direct hit probabilities — were previously only fed into the
+        # off-by-default expected-damage derivative. Surfacing them as raw
+        # features gives the regression a clean signal for ballistic /
+        # weapon skill quality.
+        FeatureSpec("ranged_hit_prob", "linear", True,
+                    "Probability of landing a ranged hit (BS as 0..1)."),
+        FeatureSpec("melee_hit_prob", "linear", True,
+                    "Probability of landing a melee hit (WS as 0..1)."),
+
+        # Effective attack volume — attacks weighted by hit quality.
+        FeatureSpec("effective_ranged_shots", "linear", True,
+                    "Ranged attacks × hit probability — bakes in BS quality."),
+        FeatureSpec("effective_melee_attacks", "linear", True,
+                    "Melee attacks × hit probability — bakes in WS quality."),
+
+        # Secondary weapon profile. ~47% of the catalogue has a second
+        # weapon (sergeant fist + bolter, vehicle with two-gun crew, etc.);
+        # zeroed when the unit has no secondary attacks so the columns
+        # don't double-count the primary weapon's stats.
+        FeatureSpec("secondary_attacks", "linear", True,
+                    "Attacks on the secondary weapon profile (0 if none)."),
+        FeatureSpec("secondary_strength", "linear", True,
+                    "Strength of the secondary weapon profile."),
+        FeatureSpec("secondary_ap_abs", "linear", True,
+                    "Absolute AP of the secondary weapon profile."),
+        FeatureSpec("secondary_damage_per_shot", "linear", True,
+                    "Damage per hit on the secondary weapon profile."),
+        FeatureSpec("secondary_hit_probability", "linear", True,
+                    "Hit probability on the secondary weapon profile."),
+        FeatureSpec("secondary_pistol", "linear", True,
+                    "1 if the secondary weapon is a Pistol (can shoot in engagement)."),
+
+        # Special weapon and unit keywords. Each is a real 10e ability with
+        # a price tag — invisibility to the fit was probably costing us
+        # log-price lift on units that lean on these mechanics.
+        FeatureSpec("pistol", "linear", True,
+                    "1 if primary weapon is a Pistol (can shoot at 1.5\" while in engagement)."),
+        FeatureSpec("precision", "linear", True,
+                    "1 if PRECISION — can target attached CHARACTERs through their bodyguard squad."),
+        FeatureSpec("hazardous", "linear", True,
+                    "1 if HAZARDOUS — self-damage chance on activation."),
+        FeatureSpec("assault", "linear", True,
+                    "1 if ASSAULT — can shoot after Advancing."),
+        FeatureSpec("heavy", "linear", True,
+                    "1 if HEAVY — +1 to hit when stationary."),
+        FeatureSpec("lance", "linear", True,
+                    "1 if LANCE — +1 to wound in melee on the charge turn."),
+        FeatureSpec("indirect_fire", "linear", True,
+                    "1 if INDIRECT FIRE — ignores line of sight (-1 to hit non-visible)."),
+        FeatureSpec("one_shot", "linear", True,
+                    "1 if ONE SHOT — weapon fires once per battle."),
+        FeatureSpec("fights_first", "linear", True,
+                    "1 if FIGHTS FIRST — strikes before non-FIGHTS-FIRST in melee."),
+        FeatureSpec("melee_sustained_hits", "linear", True,
+                    "Integer N for SUSTAINED HITS N on the melee profile."),
+        FeatureSpec("firing_deck", "linear", True,
+                    "Integer N for FIRING DECK N — embarked passengers that shoot through the transport."),
+
+        # Anti-X keyword encoding.
+        FeatureSpec("n_anti_keywords", "linear", True,
+                    "Count of distinct Anti-X keywords on the weapon."),
+        FeatureSpec("best_anti_threshold_quality", "linear", True,
+                    "Quality (7 - threshold) of the best Anti-X threshold; 5 = Anti-X 2+."),
+
+        # Durability and explosion extras.
+        FeatureSpec("deadly_demise", "linear", True,
+                    "Mortal wounds dealt on explosion when destroyed (Deadly Demise X)."),
+        FeatureSpec("leadership_quality", "linear", True,
+                    "7 minus the Leadership stat. Higher = passes battleshock more easily."),
+        # Necron Reanimation Protocols at the army-pool level. Sparse (17 of
+        # 1479) but iconic Necron mechanic — keep on user request even though
+        # the coefficient will have wide error bars.
+        FeatureSpec("reanimates_with_army", "linear", True,
+                    "1 if the unit reanimates from the army-wide Necron pool."),
+
+        # Round-3 polynomial features — quadratic transforms on key stats.
+        FeatureSpec("wounds_per_model_sq", "linear", True,
+                    "Wounds per model, squared. Captures non-linear durability scaling at high W."),
+        FeatureSpec("toughness_sq", "linear", True,
+                    "Toughness squared. A T12 monster is much more than 2× as tough as T6."),
+        FeatureSpec("ranged_ap_abs_sq", "linear", True,
+                    "Ranged AP magnitude squared. AP-4 weapons gate more saves than AP-2."),
+        FeatureSpec("melee_ap_abs_sq", "linear", True,
+                    "Melee AP magnitude squared."),
+        FeatureSpec("ranged_damage_per_shot_sq", "linear", True,
+                    "Ranged damage per shot squared. Captures the spike-damage premium."),
+        FeatureSpec("melee_damage_per_shot_sq", "linear", True,
+                    "Melee damage per shot squared."),
+
+        # Round-3 interaction features — multiplicative stat combinations.
+        FeatureSpec("ranged_attacks_x_strength", "linear", True,
+                    "Ranged attacks × strength. Captures raw offensive power."),
+        FeatureSpec("melee_attacks_x_strength", "linear", True,
+                    "Melee attacks × melee strength."),
+        FeatureSpec("ranged_dmg_x_attacks", "linear", True,
+                    "Ranged attacks × damage per shot. Total expected damage potential."),
+        FeatureSpec("melee_dmg_x_attacks", "linear", True,
+                    "Melee attacks × melee damage per shot."),
+        FeatureSpec("is_vehicle_x_wounds", "linear", True,
+                    "Vehicle keyword × wounds per model. Vehicle durability premium."),
+        FeatureSpec("is_monster_x_wounds", "linear", True,
+                    "Monster keyword × wounds per model. Monster durability premium."),
+        FeatureSpec("is_character_x_wounds", "linear", True,
+                    "Character keyword × wounds per model. Character durability premium."),
+        FeatureSpec("move_x_oc", "linear", True,
+                    "Move inches × OC. Captures mobile scoring units."),
+
+        # Diminishing-returns transforms on attack volume.
+        FeatureSpec("ranged_attacks_sqrt", "linear", True,
+                    "sqrt(ranged attacks). Diminishing returns on volume vs saves."),
+        FeatureSpec("melee_attacks_sqrt", "linear", True,
+                    "sqrt(melee attacks)."),
+
+        # Squad-wide attack potential — offensive analogue of total_wounds.
+        FeatureSpec("total_ranged_attacks", "linear", True,
+                    "Attacks × min_models. Squad-wide ranged volume."),
+        FeatureSpec("total_melee_attacks", "linear", True,
+                    "Melee attacks × min_models. Squad-wide melee volume."),
+
+        # Round-4 log transforms on damage and attacks.
+        FeatureSpec("log_ranged_damage_per_shot", "linear", True,
+                    "log(1 + ranged damage). Captures diminishing marginal value of high flat damage."),
+        FeatureSpec("log_melee_damage_per_shot", "linear", True,
+                    "log(1 + melee damage)."),
+        FeatureSpec("log_ranged_attacks", "linear", True,
+                    "log(1 + ranged attacks). Diminishing marginal value of more shots."),
+        FeatureSpec("log_melee_attacks", "linear", True,
+                    "log(1 + melee attacks)."),
+
+        # Round-4 cubic toughness — captures the super-quadratic jump at T11+.
+        FeatureSpec("toughness_cubed", "linear", True,
+                    "Toughness cubed. Captures the super-quadratic value of T11+ monsters."),
+
+        # Round-4 keyword × attack-volume interactions.
+        FeatureSpec("precision_x_ranged_attacks", "linear", True,
+                    "PRECISION × ranged attacks. Precision's value scales with shot volume."),
+        FeatureSpec("pistol_x_ranged_attacks", "linear", True,
+                    "PISTOL × ranged attacks. Pistol engagement value scales with shot count."),
+        FeatureSpec("assault_x_move", "linear", True,
+                    "ASSAULT × move. Advance-and-shoot is worth more on fast units."),
+        FeatureSpec("lance_x_melee_attacks", "linear", True,
+                    "LANCE × melee attacks. Lance's +1 wound on charge scales with attack count."),
+        FeatureSpec("heavy_x_ranged_attacks", "linear", True,
+                    "HEAVY × ranged attacks. Heavy's +1 to hit scales with shot volume."),
+        FeatureSpec("fights_first_x_melee_attacks", "linear", True,
+                    "FIGHTS FIRST × melee attacks. Strike-first matters more on heavier hitters."),
+
+        # Save quality scaled by wounds — captures the tank-class durability premium.
+        FeatureSpec("save_quality_x_wounds", "linear", True,
+                    "Armour save quality × wounds. A 2+ save on 10W is much more durable than on 1W."),
     ]
 
 
@@ -227,6 +416,185 @@ def _expected_dmg_vs_ref(
     return float(attacks * hit_p * wound_p * fail_p * fnp_through * dmg_per_shot)
 
 
+def _aura_features(profile_name: str) -> Dict[str, float]:
+    """
+    Flatten a unit's LeaderAbility (if any) into a fixed-shape feature dict.
+    Returns all-zero defaults for non-leaders so the column set is uniform
+    across the catalogue. Defensive aura targets (invuln, FNP) are mapped
+    to the same 7-minus-target "quality" scale used for armour saves, so
+    "no aura" reads as 0 and a 4+ FNP reads as 3.
+    """
+    ab = lookup_ability(profile_name)
+    if ab is None:
+        return {
+            "has_aura": 0,
+            "aura_reroll_hit_ones": 0,
+            "aura_reroll_wound_ones": 0,
+            "aura_plus_one_to_hit": 0,
+            "aura_plus_one_to_wound": 0,
+            "aura_plus_one_attack": 0,
+            "aura_plus_one_strength_ranged": 0,
+            "aura_plus_one_toughness": 0,
+            "aura_plus_one_ap_melee": 0,
+            "aura_extra_invuln_quality": 0.0,
+            "aura_fnp_quality": 0.0,
+            "aura_heal_per_round": 0,
+            "aura_revive_per_round": 0,
+            "aura_cp_discount_per_round": 0,
+            "aura_cp_refund_per_battle": 0,
+            "aura_first_strat_free": 0,
+        }
+    return {
+        "has_aura": 1,
+        "aura_reroll_hit_ones": int(bool(ab.reroll_hit_ones)),
+        "aura_reroll_wound_ones": int(bool(ab.reroll_wound_ones)),
+        "aura_plus_one_to_hit": int(bool(ab.plus_one_to_hit)),
+        "aura_plus_one_to_wound": int(bool(ab.plus_one_to_wound)),
+        "aura_plus_one_attack": int(ab.plus_one_attack or 0),
+        "aura_plus_one_strength_ranged": int(bool(ab.plus_one_strength_ranged)),
+        "aura_plus_one_toughness": int(bool(ab.plus_one_toughness)),
+        "aura_plus_one_ap_melee": int(bool(ab.plus_one_ap_melee)),
+        "aura_extra_invuln_quality": _save_quality(ab.extra_invuln),
+        "aura_fnp_quality": _save_quality(ab.fnp),
+        "aura_heal_per_round": int(ab.heal_per_round or 0),
+        "aura_revive_per_round": int(ab.revive_destroyed_per_round or 0),
+        "aura_cp_discount_per_round": int(ab.cp_discount_per_round or 0),
+        "aura_cp_refund_per_battle": int(ab.cp_refund_per_battle or 0),
+        "aura_first_strat_free": int(bool(ab.first_stratagem_free_per_round)),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Feature families — grouping for display purposes (HTML / dashboard).
+# ---------------------------------------------------------------------------
+# Many features in the model are correlated (wounds, wounds², toughness×wounds
+# all measure durability) and the per-coefficient signs are arbitrary inside
+# each cluster — OLS distributes weight in mathematically valid but visually
+# confusing ways. Aggregating features into families before display sidesteps
+# the multicollinearity: the SUM of a family's contributions is interpretable
+# even when the individual coefficients aren't.
+#
+# Each feature appears in exactly one family. Used by bake_html_points.py and
+# app.py to roll per-feature contributions up to per-family bars.
+FEATURE_FAMILIES: Dict[str, List[str]] = {
+    "Durability": [
+        # Wounds, toughness, saves, FNP. Includes the per-keyword wound
+        # interactions and the explode-on-death / reanimation specials.
+        "wounds_per_model", "wounds_per_model_sq",
+        "toughness", "toughness_sq", "toughness_cubed",
+        "toughness_x_wounds", "total_wounds", "effective_wounds",
+        "save_quality", "invuln_quality", "fnp_quality",
+        "save_quality_x_wounds",
+        "is_monster_x_wounds", "is_vehicle_x_wounds", "is_character_x_wounds",
+        "deadly_demise", "reanimates_with_army",
+    ],
+    "Offense": [
+        # Ranged + melee weapon stats together — for a playtester this is one
+        # concept ("how hard the unit hits") and splitting muddies the chart.
+        "ranged_attacks", "ranged_strength", "ranged_ap_abs", "ranged_ap_abs_sq",
+        "ranged_damage_per_shot", "ranged_damage_per_shot_sq", "ranged_range",
+        "ranged_hit_prob",
+        "log_ranged_damage_per_shot", "log_ranged_attacks", "ranged_attacks_sqrt",
+        "ranged_attacks_x_strength", "ranged_dmg_x_attacks",
+        "total_ranged_attacks", "expected_ranged_dmg_vs_meq",
+        "effective_ranged_shots",
+        "secondary_attacks", "secondary_strength", "secondary_ap_abs",
+        "secondary_damage_per_shot", "secondary_hit_probability",
+        "secondary_pistol",
+        "melee_attacks", "melee_strength", "melee_ap_abs", "melee_ap_abs_sq",
+        "melee_damage_per_shot", "melee_damage_per_shot_sq",
+        "melee_hit_prob",
+        "log_melee_damage_per_shot", "log_melee_attacks", "melee_attacks_sqrt",
+        "melee_attacks_x_strength", "melee_dmg_x_attacks",
+        "total_melee_attacks", "expected_melee_dmg_vs_meq",
+        "effective_melee_attacks", "melee_sustained_hits",
+    ],
+    "Mobility": [
+        "move", "oc", "move_x_oc",
+        "deep_strike", "scout_distance", "infiltrator",
+        "lone_operative", "stealth",
+    ],
+    "Special abilities": [
+        # Weapon keywords (precision / lance / assault / heavy / anti-X / etc.)
+        # + leader aura buffs — both are "the unit does something special on
+        # top of its raw stats", which is the playtester's mental model.
+        "lethal_hits", "sustained_hits", "twin_linked", "devastating_wounds",
+        "blast", "torrent", "melta", "rapid_fire", "ignores_cover",
+        "precision", "lance", "heavy", "assault", "hazardous", "pistol",
+        "indirect_fire", "one_shot", "fights_first", "firing_deck",
+        "n_anti_keywords", "best_anti_threshold_quality",
+        "precision_x_ranged_attacks", "pistol_x_ranged_attacks",
+        "assault_x_move", "lance_x_melee_attacks",
+        "heavy_x_ranged_attacks", "fights_first_x_melee_attacks",
+        "aura_reroll_hit_ones", "aura_reroll_wound_ones",
+        "aura_plus_one_to_hit", "aura_plus_one_to_wound",
+        "aura_plus_one_attack",
+        "aura_plus_one_strength_ranged", "aura_plus_one_toughness",
+        "aura_plus_one_ap_melee",
+        "aura_extra_invuln_quality", "aura_fnp_quality",
+        "aura_heal_per_round", "aura_revive_per_round",
+        "aura_cp_discount_per_round", "aura_cp_refund_per_battle",
+        "aura_first_strat_free",
+    ],
+    # NOTE: A handful of features are deliberately NOT in any family and
+    # therefore do not show up in the playtester chart:
+    #   * min_models — the squad-size discount (negative coefficient because
+    #     bigger squads cost less per model; correct math but confusing in a
+    #     "what makes a unit cost more" chart).
+    #   * is_monster / is_vehicle / is_character / is_fly — unit-type fixed
+    #     effects that adjust the baseline price without being a stat the
+    #     player feels day-to-day.
+    #   * leadership_quality — battleshock target, low individual signal.
+    #   * has_aura — redundant with the aura_* features.
+    # These still contribute to the equation's prediction; they're just not
+    # surfaced as their own bar. compute_family_contributions skips features
+    # that don't appear in any family.
+}
+
+
+def feature_to_family() -> Dict[str, str]:
+    """Reverse FEATURE_FAMILIES into a feature -> family lookup dict."""
+    out: Dict[str, str] = {}
+    for family, features in FEATURE_FAMILIES.items():
+        for f in features:
+            out[f] = family
+    return out
+
+
+def compute_family_contributions(
+    features_df: pd.DataFrame,
+    fit_result: "FitResult",
+    specs: Sequence["FeatureSpec"],
+) -> Dict[str, np.ndarray]:
+    """Per-family signed contribution to log(price), one row per unit.
+
+    Returns ``{family_name: ndarray of shape (n_units,)}``. Each entry is the
+    sum of ``coefficient × transform(feature_value)`` across the family's
+    features for that unit. Signs are preserved — when summed inside a
+    family, the OLS noise mostly cancels and the family total reflects the
+    actual price effect.
+    """
+    f2f = feature_to_family()
+    spec_by_name = {s.name: s for s in specs}
+    coef_by_name = dict(zip(fit_result.feature_names, fit_result.coefficients))
+
+    family_arrays: Dict[str, np.ndarray] = {
+        family: np.zeros(len(features_df)) for family in FEATURE_FAMILIES
+    }
+
+    for name, coef in coef_by_name.items():
+        family = f2f.get(name)
+        if family is None:
+            continue
+        spec = spec_by_name.get(name)
+        if spec is None:
+            continue
+        transformed = spec.apply(features_df[name].to_numpy())
+        family_arrays[family] += float(coef) * transformed
+
+    return family_arrays
+
+
 def _effective_wounds(w: float, save_q: float, inv_q: float, fnp_q: float) -> float:
     """Defensive durability index. Multiplicative bonus from each save layer."""
     save_factor = 1.0 + save_q / 6.0          # +1 save quality ≈ +17% effective wounds
@@ -267,6 +635,25 @@ def extract_features(
         )
 
         unit_kw = set(k.upper() for k in (u.unit_keywords or ()))
+        aura = _aura_features(u.name)
+
+        # Secondary weapon profile — zero out the whole block when this unit
+        # has no second weapon (secondary_attacks == 0), so we don't get a
+        # spurious "S=4" signal from the dataclass default on the ~50% of
+        # the catalogue that's single-profile.
+        sec_atk = int(u.secondary_attacks or 0)
+        has_secondary = sec_atk > 0
+        sec_str = int(u.secondary_strength or 0) if has_secondary else 0
+        sec_ap = int(abs(u.secondary_ap or 0)) if has_secondary else 0
+        sec_dmg = float(u.secondary_weapon_damage_per_shot or 0) if has_secondary else 0.0
+        sec_hp = float(u.secondary_hit_probability or 0) if has_secondary else 0.0
+
+        anti_kws = u.anti_keywords or ()
+        n_anti = len(anti_kws)
+        best_anti_q = max((7 - int(threshold) for _, threshold in anti_kws), default=0)
+
+        ranged_hp = _hit_prob_from_bs(u.hit_probability)
+        melee_hp = _hit_prob_from_bs(u.melee_hit_probability)
 
         rows.append({
             "key": key,
@@ -337,6 +724,126 @@ def extract_features(
             "is_vehicle":   int("VEHICLE" in unit_kw),
             "is_character": int("CHARACTER" in unit_kw),
             "is_fly":       int("FLY" in unit_kw),
+
+            # Leader aura buffs — sourced from code.leaders._REGISTRY via
+            # lookup_ability(name). Zero for any unit not in the registry, so
+            # these columns act as a per-buff-type lift on log-price for
+            # CHARACTER units that grant auras to their attached squad. The
+            # regression decides which auras GW implicitly prices highest.
+            **aura,
+
+            # Direct hit probabilities (BS / WS). Always populated; previously
+            # only consumed via the off-by-default expected_dmg derivative.
+            "ranged_hit_prob": ranged_hp,
+            "melee_hit_prob": melee_hp,
+
+            # Effective attack volume — raw attacks × hit_prob. More honest
+            # than raw attacks alone because a BS2+ shot and a BS5+ shot
+            # don't deliver equal damage even at matched volume.
+            "effective_ranged_shots": float(int(u.attacks or 0) * ranged_hp),
+            "effective_melee_attacks": float(int(u.melee_attacks or 0) * melee_hp),
+
+            # Secondary weapon profile (zeroed when has_secondary is False).
+            "secondary_attacks": sec_atk,
+            "secondary_strength": sec_str,
+            "secondary_ap_abs": sec_ap,
+            "secondary_damage_per_shot": sec_dmg,
+            "secondary_hit_probability": sec_hp,
+            "secondary_pistol": int(bool(u.secondary_pistol)),
+
+            # Special weapon / unit keywords not previously in the fit.
+            "pistol": int(bool(u.pistol)),
+            "precision": int(bool(u.precision)),
+            "hazardous": int(bool(u.hazardous)),
+            "assault": int(bool(u.assault)),
+            "heavy": int(bool(u.heavy)),
+            "lance": int(bool(u.lance)),
+            "indirect_fire": int(bool(u.indirect_fire)),
+            "one_shot": int(bool(u.one_shot)),
+            "fights_first": int(bool(u.fights_first)),
+            "melee_sustained_hits": int(u.melee_sustained_hits or 0),
+            "firing_deck": int(u.firing_deck or 0),
+
+            # Anti-X keyword encoding. n_anti_keywords = how many Anti-X
+            # entries the weapon has; best_anti_threshold_quality = 7 minus
+            # the best (lowest) threshold across them, so Anti-VEHICLE 2+
+            # scores 5 and Anti-INFANTRY 4+ scores 3.
+            "n_anti_keywords": n_anti,
+            "best_anti_threshold_quality": best_anti_q,
+
+            # Durability and explosion extras.
+            "deadly_demise": int(u.deadly_demise or 0),
+            # Leadership quality: 7 minus Ld stat. Higher = passes battleshock
+            # more easily. Ld5 → 2, Ld6 → 1, Ld7 (default) → 0, Ld8+ → negative.
+            "leadership_quality": int(7 - int(u.leadership or 7)),
+            # Necron Reanimation Protocols at army-pool level. Sparse (17
+            # samples) but included on user request — it's the iconic Necron
+            # mechanic and ignoring it would price every Necron unit too low.
+            "reanimates_with_army": int(bool(u.reanimates_with_army)),
+
+            # Round-3 polynomial features. Quadratic transforms capture the
+            # super-linear value of high-end stats: a T12 monster is much
+            # more than 2× as tough as a T6 marine, an AP-4 weapon is much
+            # more than 2× as good as AP-2, etc.
+            "wounds_per_model_sq": float((u.health or 0) ** 2),
+            "toughness_sq": float((u.toughness or 0) ** 2),
+            "ranged_ap_abs_sq": float(abs(u.ap or 0) ** 2),
+            "melee_ap_abs_sq": float(abs(u.melee_ap or 0) ** 2),
+            "ranged_damage_per_shot_sq": float((u.weapon_damage_per_shot or 0) ** 2),
+            "melee_damage_per_shot_sq": float((u.melee_damage_per_shot or 0) ** 2),
+
+            # Round-3 interaction features. Capture stat synergies the
+            # additive model can't express on its own.
+            "ranged_attacks_x_strength": float((u.attacks or 0) * (u.strength or 0)),
+            "melee_attacks_x_strength": float((u.melee_attacks or 0) * (u.melee_strength or 0)),
+            "ranged_dmg_x_attacks": float((u.attacks or 0) * (u.weapon_damage_per_shot or 0)),
+            "melee_dmg_x_attacks": float((u.melee_attacks or 0) * (u.melee_damage_per_shot or 0)),
+            # Durability premium scoped by unit type — a Monster with 12W
+            # is priced differently from an Infantry character with 12W.
+            "is_vehicle_x_wounds": float(int("VEHICLE" in unit_kw) * (u.health or 0)),
+            "is_monster_x_wounds": float(int("MONSTER" in unit_kw) * (u.health or 0)),
+            "is_character_x_wounds": float(int("CHARACTER" in unit_kw) * (u.health or 0)),
+            # Mobile-scoring interaction — a fast objective-grabber is worth
+            # more than the additive sum of its move and OC stats.
+            "move_x_oc": float((u.move or 0) * (u.oc or 0)),
+
+            # Diminishing-returns transforms on volume features. A unit with
+            # 8 attacks isn't 8× as offensive as one with 1 attack against
+            # the same defender — wound saves cap the realised damage.
+            "ranged_attacks_sqrt": float((u.attacks or 0) ** 0.5),
+            "melee_attacks_sqrt": float((u.melee_attacks or 0) ** 0.5),
+
+            # Squad-wide attack potential — captures the offensive scaling
+            # of blob squads the way `total_wounds` captures defensive scaling.
+            "total_ranged_attacks": float((u.attacks or 0) * max(1, u.min_models or 1)),
+            "total_melee_attacks": float((u.melee_attacks or 0) * max(1, u.min_models or 1)),
+
+            # Round-4 log transforms — flat-N damage / N-attacks have
+            # diminishing marginal value, so log shape often fits GW
+            # pricing better than the linear or quadratic forms.
+            "log_ranged_damage_per_shot": float(np.log1p(max(0.0, u.weapon_damage_per_shot or 0))),
+            "log_melee_damage_per_shot": float(np.log1p(max(0.0, u.melee_damage_per_shot or 0))),
+            "log_ranged_attacks": float(np.log1p(max(0, u.attacks or 0))),
+            "log_melee_attacks": float(np.log1p(max(0, u.melee_attacks or 0))),
+
+            # Round-4 cubic toughness — T11+ monsters scale super-quadratically
+            # against most weapons because the wound table jumps in tiers.
+            "toughness_cubed": float((u.toughness or 0) ** 3),
+
+            # Round-4 keyword × volume interactions — these abilities scale
+            # with how many attacks they're attached to. PRECISION on a
+            # 1-shot sniper is worth less than on a 6-shot autorifle squad,
+            # LANCE on 1 melee attack is barely a buff vs LANCE on 6.
+            "precision_x_ranged_attacks": float(int(bool(u.precision)) * (u.attacks or 0)),
+            "pistol_x_ranged_attacks": float(int(bool(u.pistol)) * (u.attacks or 0)),
+            "assault_x_move": float(int(bool(u.assault)) * (u.move or 0)),
+            "lance_x_melee_attacks": float(int(bool(u.lance)) * (u.melee_attacks or 0)),
+            "heavy_x_ranged_attacks": float(int(bool(u.heavy)) * (u.attacks or 0)),
+            "fights_first_x_melee_attacks": float(int(bool(u.fights_first)) * (u.melee_attacks or 0)),
+
+            # Save quality scaled by wounds — a 1W marine with 2+ save is
+            # not the same as a 10W terminator with 2+ save.
+            "save_quality_x_wounds": float(save_q * (u.health or 0)),
         })
 
     return pd.DataFrame(rows)
