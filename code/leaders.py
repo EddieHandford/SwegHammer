@@ -357,11 +357,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # TYRANIDS unit is within 6" of this model, ranged weapons equipped by
     # models in that unit have the [ASSAULT] and [LETHAL HITS] abilities."
     # — broadcast aura with no led-unit gate. Use the iter22 empty-tuple
-    # convention so `effective_buffs` applies the reroll-wound-1s proxy
-    # to ANY friendly Tyranids attacker in 6", not just one bodyguard
-    # squad. Wahapedia:
-    # https://wahapedia.ru/wh40k10ed/factions/tyranids/Hive-Tyrant
-    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0, reroll_wound_ones=True)),
+    # convention.
+    #
+    # TYRANIDS-DIAG-7 (2026-05-26): dropped `reroll_wound_ones=True` proxy.
+    # The prior proxy was wrong in two ways:
+    #   1. The real Onslaught rule grants [LETHAL HITS] on RANGED weapons
+    #      only. `reroll_wound_ones` fires on both ranged AND melee attacks
+    #      inside `effective_buffs` — over-buff on every melee attack.
+    #   2. Re-roll wound 1s is the wrong mechanic: the real effect is
+    #      [LETHAL HITS] (natural 6 to hit = auto-wound on ranged) + [ASSAULT]
+    #      (shoot after Advancing). The `transient_lethal_hits` flag exists
+    #      in the simulator but the `LeaderAbility` schema has no ranged-only
+    #      lethal-hits field. Wiring it army-wide would re-introduce the
+    #      ranged+melee over-buff in a different form.
+    # Ship NO-FLAG + composition-only (same pattern as Avatar of Khaine /
+    # Autarch / Custodes Blade Champion). Will return as
+    # `lethal_hits_ranged=True` once the LeaderAbility schema gains a
+    # ranged-only lethal-hits slot.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tyranids/Hive-Tyrant
+    ("Hive Tyrant",        LeaderAbility(name="Synaptic Imperative",        aura_range=6.0)),
     # Aeldari
     # Yvraine (Ynnari EPIC HERO) — Herald of Ynnead grants Aeldari-friendly
     # re-roll of Wound rolls of 1 vs a fight-phase-marked target (we proxy

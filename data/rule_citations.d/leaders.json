@@ -171,8 +171,8 @@
     "rule_name": "Onslaught",
     "quoted_text": "While a friendly TYRANIDS unit is within 6\" of this model, ranged weapons equipped by models in that unit have the [ASSAULT] and [LETHAL HITS] abilities.",
     "trigger": "attacker's unit is a Tyranids friendly within 6\" of a Hive Tyrant (Hive Tyrant is a Monster, not a formal attached leader)",
-    "effect": "re-roll Wound rolls of 1 in aura range (approximation; the real Onslaught grants ASSAULT and LETHAL HITS to ranged weapons in aura. The simulator does not model the LETHAL HITS keyword on weapons, so reroll-wound-1s stands in as a loose offensive-aura proxy)",
-    "scope": "unit-led"
+    "effect": "NO IMPLEMENTATION. TYRANIDS-DIAG-7 (2026-05-26): dropped the prior `reroll_wound_ones=True` proxy. The real Onslaught grants [ASSAULT] and [LETHAL HITS] to RANGED weapons only. The previous proxy fired `reroll_wound_ones` in both ranged and melee attack resolutions (the `effective_buffs` merge has no mode gate), incorrectly buffing every Tyranid melee attack in range. Additionally, `reroll_wound_ones` is the wrong mechanic — the real effect is [LETHAL HITS] on ranged (natural 6 to hit auto-wounds) plus [ASSAULT] (shoot after Advancing). The `transient_lethal_hits` path exists in the simulator but the `LeaderAbility` schema has no ranged-only lethal-hits field; wiring it army-wide via the existing schema would re-introduce the ranged+melee over-buff in a different form. Ship NO-FLAG per CLAUDE.md §10 (no-flag over fabrication). Will return as `lethal_hits_ranged=True` once the LeaderAbility schema gains a ranged-only lethal-hits slot. Registry entry retained so `lookup_ability('Hive Tyrant')` resolves cleanly per CLAUDE.md §13 and the broadcast-aura convention (empty host_keys) is preserved for when the flag is added.",
+    "scope": "army-wide"
   },
 
   "LeaderAbility.Word of the Phoenix": {
