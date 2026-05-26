@@ -649,8 +649,27 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           cp_refund_per_battle=1,
                                           host_keys=("adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
-    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, reroll_hit_ones=True, heal_per_round=1,
-                                          host_keys=("adeptus_mechanicus_skitarii_vanguard",
+    # Tech-Priest Dominus: "Lord of the Machine Cult" (BSData v10.6.0 verbatim):
+    # "While this model is leading a unit, models in that unit have the Feel No
+    # Pain 5+ ability. If that unit has the ELECTRO-PRIESTS keyword, models in
+    # that unit have the Feel No Pain 4+ ability instead."
+    # ADMECH-DIAG-3 (2026-05-26): removed fabricated reroll_hit_ones + heal_per_round
+    # (no offensive aura in the codex ability; the prior heal_per_round=1 was an
+    # unanchored proxy for the Dominus's vehicle-repair flavour). Replaced with
+    # fnp=5 matching the verbatim BSData / Wahapedia ability. The ELECTRO-PRIESTS
+    # FNP 4+ branch is not implemented (LeaderAbility has no keyword-conditional
+    # fnp field); fnp=5 is the floor for non-ELECTRO-PRIESTS hosts.
+    # Host list extended to the full BSData Leader text: Corpuscarii Electro-Priests,
+    # Fulgurite Electro-Priests, Kataphron Breachers, Kataphron Destroyers,
+    # Skitarii Rangers, Skitarii Vanguard.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus
+    # Cited as LeaderAbility.Master of the Machine.
+    ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, fnp=5,
+                                          host_keys=("adeptus_mechanicus_corpuscarii_electro_priests",
+                                                     "adeptus_mechanicus_fulgurite_electro_priests",
+                                                     "adeptus_mechanicus_kataphron_breachers",
+                                                     "adeptus_mechanicus_kataphron_destroyers",
+                                                     "adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
     # Death Guard
     # Lord of Contagion: per Wahapedia datasheet

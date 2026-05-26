@@ -347,11 +347,11 @@
   },
 
   "LeaderAbility.Master of the Machine": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Tech-priest-Dominus",
+    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus",
     "rule_name": "Lord of the Machine Cult",
     "quoted_text": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability. If that unit has the ELECTRO-PRIESTS keyword, models in that unit have the Feel No Pain 4+ ability instead.",
-    "trigger": "attacker's unit is led by a Tech-Priest Dominus in aura range",
-    "effect": "re-roll Hit rolls of 1 AND restore 1 wound to the most-wounded friendly each round-end (approximation; the real Lord of the Machine Cult grants Feel No Pain 5+ — a DEFENSIVE buff, plus the unit's heal flavour comes from the Dominus's general AdMech repair role rather than this specific ability. Simulator currently mis-buckets the FNP as offensive reroll-1s; flagged for fnp=5 swap)",
+    "trigger": "target unit is led by a Tech-Priest Dominus; the unit receives damage",
+    "effect": "fnp=5 on the led unit (Feel No Pain 5+). ADMECH-DIAG-3 (2026-05-26): removed prior fabricated reroll_hit_ones=True and heal_per_round=1 (neither appear in the verbatim BSData/Wahapedia 'Lord of the Machine Cult' ability text). The ELECTRO-PRIESTS FNP 4+ branch is not implemented (LeaderAbility has no keyword-conditional fnp field); fnp=5 is applied uniformly. Host keys expanded to the full BSData Leader text: Corpuscarii Electro-Priests, Fulgurite Electro-Priests, Kataphron Breachers, Kataphron Destroyers, Skitarii Rangers, Skitarii Vanguard. Note: Electro-Priests have native fnp=5 from their own BSData infoLink; the min() merge means the leader aura is redundant for them (no double-stack). For Rangers and Vanguard (native fnp=7) this grants fnp=5 for the duration the Dominus leads them.",
     "scope": "unit-led"
   },
 
