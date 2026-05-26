@@ -527,12 +527,24 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     #
     # Sources:
     #   - Ahriman: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman
+    #     Real ability: "Master of the Rubricae (Psychic)" — while this model
+    #     leads a Rubric Marines or Scarab Occult Terminators unit, each time a
+    #     Psychic Attack made by a model in that unit targets an enemy unit, you
+    #     can re-roll the Hit roll. This is an OFFENSIVE hit-reroll (Psychic
+    #     weapons only), not a defensive invuln. TSON-DIAG-3 fix: the previous
+    #     proxy (extra_invuln=4) was a fabrication — it applied a 4++ invuln
+    #     save to Ahriman's led unit, which is Arcane Shield (Exalted Sorcerer
+    #     only). Ahriman's real contribution is offensive (hit re-rolls), not
+    #     defensive. Removing extra_invuln=4 and replacing with reroll_hit_ones
+    #     correctly models his offensive buff direction (approximation: the
+    #     re-roll applies to all hit rolls, not just Psychic Attacks, due to
+    #     SwegHammer not tagging weapons as Psychic vs non-Psychic).
     #   - Exalted Sorcerer / Sorcerer: Arcane Shield (Psychic) grants the
     #     led unit a 4+ invulnerable save. Modelled as extra_invuln=4.
     #   - Infernal Master: Malefic Maelstrom (Psychic) grants the led
     #     unit [SUSTAINED HITS 1]. Modelled as sustained_hits proxy via
     #     reroll_hit_ones (an offensive shooting buff in the same scale).
-    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, extra_invuln=4,
+    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("thousand_sons_rubric_marines",
                                                      "thousand_sons_tzaangor_enlightened"))),
     ("Exalted Sorcerer",   LeaderAbility(name="Arcane Shield",              aura_range=6.0, extra_invuln=4,

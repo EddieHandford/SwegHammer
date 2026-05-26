@@ -267,11 +267,12 @@
 
   "LeaderAbility.Arch-Sorcerer of Tzeentch": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Ahriman",
-    "rule_name": "Master of the Rubricae (Psychic) / Arcane Shield-equivalent led-unit buff",
+    "rule_name": "Master of the Rubricae (Psychic)",
     "quoted_text": "While a friendly Rubric Marines or Scarab Occult Terminators unit contains this model, each time a Psychic Attack made by a model in that unit targets an enemy unit, you can re-roll the Hit roll.",
-    "trigger": "defender's unit is led by Ahriman in aura range (proximity-gated)",
-    "effect": "4+ invulnerable save aura on Ahriman's led unit (approximation). The real Master of the Rubricae grants a Psychic-attack hit re-roll on the led unit's attacks. SwegHammer does not tag attacks as Psychic vs non-Psychic, so the offensive half is not faithfully wirable; the LeaderAbility instead proxies Ahriman as a durability aura (extra_invuln=4) — direction-correct for a 100pt EPIC HERO PSYKER who in real play makes his Rubric squad more survivable through a mix of his presence and the wider TSON psychic toolkit. iter21 adds this entry to fix TSON sim 30% vs real 54.6% (-24.6pt); previously Ahriman had no leader ability (lookup_ability returned None) and his led Rubric/Tzaangor unit received zero aura.",
-    "scope": "unit-led"
+    "trigger": "attacker's unit is led by Ahriman in aura range (proximity-gated); the led unit makes an attack with a Psychic weapon",
+    "effect": "(approximation) re-roll Hit rolls of 1 on the led unit's attacks. The real Master of the Rubricae grants a full hit re-roll on Psychic Attacks only; SwegHammer does not tag attacks as Psychic vs non-Psychic, so we proxy with reroll_hit_ones=True (same direction-correct offensive buff used for Infernal Master's Malefic Maelstrom and Changecaster's Locus — re-rolling 1s yields a smaller offensive uplift than a full re-roll but is the correct direction). TSON-DIAG-3 removes the previous fabricated extra_invuln=4 proxy: the 4++ invuln was Arcane Shield (Exalted Sorcerer only), not a rule Ahriman grants. Rubric Marines already have a native 5++ in their profile; improving it to 4++ via an Ahriman aura was wrong, contributing to TSON over-performance at 73.7% vs real 54.6%. host_keys = (thousand_sons_rubric_marines, thousand_sons_tzaangor_enlightened) per the Wahapedia Ahriman datasheet Leader section.",
+    "scope": "unit-led",
+    "approximation": true
   },
 
   "LeaderAbility.Arcane Shield": {
