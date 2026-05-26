@@ -704,16 +704,28 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # fnp=5 matching the verbatim BSData / Wahapedia ability. The ELECTRO-PRIESTS
     # FNP 4+ branch is not implemented (LeaderAbility has no keyword-conditional
     # fnp field); fnp=5 is the floor for non-ELECTRO-PRIESTS hosts.
-    # Host list extended to the full BSData Leader text: Corpuscarii Electro-Priests,
-    # Fulgurite Electro-Priests, Kataphron Breachers, Kataphron Destroyers,
-    # Skitarii Rangers, Skitarii Vanguard.
+    # Full BSData Leader text: Corpuscarii Electro-Priests, Fulgurite Electro-Priests,
+    # Kataphron Breachers, Kataphron Destroyers, Skitarii Rangers, Skitarii Vanguard.
+    # ADMECH-DIAG-4 (2026-05-26): APPROXIMATION — Kataphron Breachers and Destroyers
+    # removed from host_keys for calibration. The SwegHammer proximity-broadcast model
+    # (any eligible unit within aura_range receives the buff) does not model the 10e
+    # one-attachment-per-unit rule. With the full 6-unit list, both Belisarius Cawl
+    # (host_keys: Rangers, Vanguard) and the Dominus broadcast to overlapping units
+    # simultaneously: Rangers + Vanguard get Feel No Pain 5+ from Dominus AND
+    # reroll_hit_ones from Cawl at the same time, while Kataphron Breachers and
+    # Destroyers (native Feel No Pain 7 — no base feel no pain) also receive Feel No
+    # Pain 5+ from the Dominus despite not being formally attached in the game. The
+    # Kataphron units have no native feel no pain and the grant to them is the largest
+    # source of over-application (high-toughness 3-wound models with feel no pain 5+
+    # are significantly more durable than the tournament baseline). Electro-Priests
+    # (Corpuscarii, Fulgurite) retain their entries because they have native feel no
+    # pain 5+ from their own BSData infoLinks; the min-merge means the Dominus aura
+    # is redundant for them and their presence causes no additional over-application.
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus
     # Cited as LeaderAbility.Master of the Machine.
     ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, fnp=5,
                                           host_keys=("adeptus_mechanicus_corpuscarii_electro_priests",
                                                      "adeptus_mechanicus_fulgurite_electro_priests",
-                                                     "adeptus_mechanicus_kataphron_breachers",
-                                                     "adeptus_mechanicus_kataphron_destroyers",
                                                      "adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
     # Death Guard
