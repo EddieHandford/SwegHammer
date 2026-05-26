@@ -979,6 +979,70 @@ _DRUKHARI_LIST_INTEGRITY_PENALTY: float = 0.5
 _DRUKHARI_LIST_INTEGRITY_HP_FRAC: float = 0.5
 _VOTANN_FALLBACK_FACTIONS: tuple = ("Leagues of Votann",)
 
+# ---------------------------------------------------------------------------
+# AI-5 — Knight melee commitment heuristic (AI play-style, NOT a rule)
+# ---------------------------------------------------------------------------
+# Real tournament Imperial Knights / Chaos Knights players commit melee-focused
+# chassis aggressively into combat even at attrition cost. A Knight Gallant or
+# Knight Rampager is a pure melee monster — holding it at range forfeits most
+# of its damage output. The sim's generic AI, which scores targets on expected
+# kill-potential vs threat-back, treats Knights like heavy vehicles and keeps
+# them at range shooting. This produces the wrong play pattern: the Reaper
+# chainsword / Thunderstrike gauntlet / Balemace never fires because the Knight
+# never charges.
+#
+# The fix: a 2.5x attacker-side score multiplier applied in BOTH the MOVE
+# planner (_melee_target_score, controls which enemy the Knight closes on) and
+# the CHARGE planner (pick_charge_target, controls whether it charges this
+# activation) whenever the attacker is a melee-focused Knight chassis.
+#
+# Gate (attacker-only, mandatory): fires when ALL hold:
+#   - attacker.profile.faction in ("Imperial Knights", "Chaos Knights")
+#   - attacker.profile.extra_melee_profiles is not None and non-empty
+#     (this is the natural flag for melee-focused chassis — Gallant, Rampager,
+#     Despoiler, Abominant, Karnivore all have it set; Castellan, Valiant,
+#     Crusader, Tyrant do NOT, so ranged-platform Knights are automatically
+#     excluded without needing a hard-coded name list)
+#
+# Explicitly excluded (no extra_melee_profiles in overrides.json):
+#   - Knight Castellan, Knight Crusader, Knight Valiant (ranged platforms)
+#   - Knight Tyrant, War Dog Stalker, War Dog Brigand (ranged War Dogs)
+#
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer and
+# has no rule_citations entry. Motivation: Goonhammer meta reports on Knights
+# melee play-pattern (May 2026 tournament data).
+_KNIGHT_MELEE_COMMIT_FACTIONS: frozenset = frozenset({
+    "Imperial Knights",
+    "Chaos Knights",
+})
+_KNIGHT_MELEE_COMMIT_BONUS: float = 2.5
+
+
+def _knight_melee_commitment_bonus(attacker) -> float:
+    """Return 2.5x when `attacker` is a melee-focused Imperial Knights or
+    Chaos Knights chassis (detected via non-empty extra_melee_profiles).
+
+    - 2.5x when attacker.profile.faction is in _KNIGHT_MELEE_COMMIT_FACTIONS
+      AND attacker.profile.extra_melee_profiles is truthy.
+    - 1.0x otherwise.
+
+    Applied as an attacker-side multiplier in BOTH _melee_target_score (MOVE
+    planner) and pick_charge_target (CHARGE planner) so the Knight both closes
+    on AND charges melee targets rather than staying at range.
+
+    Ranged-platform Knights (Castellan, Valiant, Crusader, Tyrant, ranged War
+    Dogs) do not have extra_melee_profiles populated so they are never boosted.
+    """
+    profile = getattr(attacker, "profile", None)
+    if profile is None:
+        return 1.0
+    if (profile.faction or "") not in _KNIGHT_MELEE_COMMIT_FACTIONS:
+        return 1.0
+    emp = getattr(profile, "extra_melee_profiles", None)
+    if not emp:
+        return 1.0
+    return _KNIGHT_MELEE_COMMIT_BONUS
+
 
 def _is_tarpit_candidate(defender) -> bool:
     """True when `defender` is a mobile elite worth locking down.
@@ -1329,7 +1393,11 @@ def _melee_target_score(attacker, defender) -> float:
             # DRK-DIAG-12 — list-integrity gate: depleted Drukhari
             # INFANTRY squads (< 50% health) are discouraged from
             # committing to melee engagements.
-            * _drukhari_depleted_unit_penalty(attacker))
+            * _drukhari_depleted_unit_penalty(attacker)
+            # AI-5 — melee-focused Knight chassis (Gallant, Rampager,
+            # Despoiler, Abominant, Karnivore) strongly prefer committing
+            # to melee over staying at range.
+            * _knight_melee_commitment_bonus(attacker))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -1481,6 +1549,12 @@ def pick_charge_target(attacker, enemy):
         # squads (< 50% starting health) are discouraged from charging.
         # Mirrors the _melee_target_score gate so the brake is symmetric.
         drk_integrity_penalty = _drukhari_depleted_unit_penalty(attacker)
+        # AI-5 — melee-focused Knight chassis (Gallant, Rampager, Despoiler,
+        # Abominant, Karnivore) strongly prefer committing to melee. The MOVE
+        # planner gates use the same bonus so both close-on and charge
+        # decisions are aligned. Ranged Knights (Castellan, Valiant, Crusader,
+        # Tyrant) are automatically excluded because they lack extra_melee_profiles.
+        knight_melee_bonus = _knight_melee_commitment_bonus(attacker)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
@@ -1488,7 +1562,8 @@ def pick_charge_target(attacker, enemy):
                  * we_glory_bonus * tyranids_tarpit_bonus
                  * daemons_tarpit_bonus
                  * drk_decisive_penalty
-                 * drk_integrity_penalty)
+                 * drk_integrity_penalty
+                 * knight_melee_bonus)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
