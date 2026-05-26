@@ -960,6 +960,23 @@ _DAEMONS_DEEPSTRIKE_NAMES = frozenset({
 _CUSTODES_HORDE_TARGET_PENALTY: float = 0.4
 _DRUKHARI_ENGAGE_BONUS: float = 0.5
 _DRUKHARI_DECISIVE_FRAC: float = 0.5
+# DRK-DIAG-12 — list-integrity gate constants.
+# Real Skysplinter pilots protect depleted squads: a Wyches / Incubi /
+# Mandrakes unit below half starting strength is too fragile to absorb
+# a full counter-fight after charging — real players fall back or hold
+# position rather than burning the remaining models on a trade. The
+# sim's greedy melee AI charges every round regardless of squad health.
+# 0.5x multiplier applied in BOTH the MOVE planner (_melee_target_score)
+# and the CHARGE planner (pick_charge_target) when the Drukhari unit is
+# INFANTRY (not VEHICLE/MONSTER/CHARACTER) and its current_health is below
+# 50% of profile.health. Stacks multiplicatively with the existing
+# _drukhari_decisive_strike_penalty so a depleted unit facing a non-
+# decisive target gets 0.5 * 0.5 = 0.25x — strongly discouraging the
+# charge while leaving a small residual for rare forced situations.
+# This is a PLAY HEURISTIC, not a 10e rule, so it lives in the AI layer
+# and has no rule_citations entry.
+_DRUKHARI_LIST_INTEGRITY_PENALTY: float = 0.5
+_DRUKHARI_LIST_INTEGRITY_HP_FRAC: float = 0.5
 _VOTANN_FALLBACK_FACTIONS: tuple = ("Leagues of Votann",)
 
 
@@ -1212,6 +1229,48 @@ def _drukhari_decisive_strike_penalty(attacker, defender) -> float:
     return _DRUKHARI_ENGAGE_BONUS
 
 
+def _drukhari_depleted_unit_penalty(attacker) -> float:
+    """Return _DRUKHARI_LIST_INTEGRITY_PENALTY (0.5x) when `attacker` is a
+    Drukhari/Ynnari INFANTRY unit below half its starting health.
+
+    Models real-tournament list-integrity play: Skysplinter pilots protect
+    depleted Wyches / Incubi / Mandrakes rather than charging and losing the
+    remaining models to a counter-fight. A unit at full strength charges
+    freely; one at 40% starting health is pulled back.
+
+    Gates (all required):
+      - attacker.profile.faction in ("Drukhari", "Ynnari")
+      - INFANTRY in attacker.profile.unit_keywords  (no VEHICLE/MONSTER/CHARACTER)
+      - attacker.current_health < _DRUKHARI_LIST_INTEGRITY_HP_FRAC *
+        attacker.profile.health
+
+    Returns 1.0 otherwise. Applied in BOTH _melee_target_score (move planner)
+    and pick_charge_target (charge planner) so the brake is consistent.
+
+    This is a PLAY HEURISTIC, not a 10e rule — no rule_citations entry.
+    DRK-DIAG-12.
+    """
+    a_profile = getattr(attacker, "profile", None)
+    if a_profile is None:
+        return 1.0
+    if a_profile.faction not in ("Drukhari", "Ynnari"):
+        return 1.0
+    kw = getattr(a_profile, "unit_keywords", ()) or ()
+    if "INFANTRY" not in kw:
+        return 1.0
+    # Exclude CHARACTER — leaders are often single-model and don't benefit
+    # from the same herd-the-fragile logic.
+    if "CHARACTER" in kw:
+        return 1.0
+    current_hp = getattr(attacker, "current_health", None)
+    start_hp = getattr(a_profile, "health", None)
+    if current_hp is None or start_hp is None or start_hp <= 0:
+        return 1.0
+    if current_hp < _DRUKHARI_LIST_INTEGRITY_HP_FRAC * start_hp:
+        return _DRUKHARI_LIST_INTEGRITY_PENALTY
+    return 1.0
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -1266,7 +1325,11 @@ def _melee_target_score(attacker, defender) -> float:
             * _daemons_deepstrike_tarpit_bonus(attacker, defender)
             # AI-3 — elite over-performer debuffs.
             * _custodes_horde_penalty(attacker, defender)
-            * _drukhari_decisive_strike_penalty(attacker, defender))
+            * _drukhari_decisive_strike_penalty(attacker, defender)
+            # DRK-DIAG-12 — list-integrity gate: depleted Drukhari
+            # INFANTRY squads (< 50% health) are discouraged from
+            # committing to melee engagements.
+            * _drukhari_depleted_unit_penalty(attacker))
 
 
 def _kill_potential_wounds(attacker_profile, target_profile) -> float:
@@ -1414,13 +1477,18 @@ def pick_charge_target(attacker, enemy):
         # consistent across move + charge. Same 50% expected-wounds
         # threshold, same 0.5x multiplier, same Drukhari/Ynnari gate.
         drk_decisive_penalty = _drukhari_decisive_strike_penalty(attacker, e)
+        # DRK-DIAG-12 — list-integrity gate: depleted Drukhari INFANTRY
+        # squads (< 50% starting health) are discouraged from charging.
+        # Mirrors the _melee_target_score gate so the brake is symmetric.
+        drk_integrity_penalty = _drukhari_depleted_unit_penalty(attacker)
         score = (((kill_potential + 0.5 * ranged_value)
                   / (1.0 + threat_against))
                  * charge_p * gunline_bonus * support_bonus
                  * screen_bonus * synapse_bonus * tarpit_bonus
                  * we_glory_bonus * tyranids_tarpit_bonus
                  * daemons_tarpit_bonus
-                 * drk_decisive_penalty)
+                 * drk_decisive_penalty
+                 * drk_integrity_penalty)
         # #C2 (iter 2) — "won't-crack" penalty. If expected wounds inflicted
         # this round is below 20% of target's current HP, heavily downweight
         # the charge. Stops light melee attacking T8+ bricks they can't dent
