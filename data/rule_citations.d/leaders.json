@@ -338,12 +338,12 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Stoic Vigil": {
+  "LeaderAbility.Master of the Stances": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-captain",
     "rule_name": "Master of the Stances / Strategic Mastery",
     "quoted_text": "Master of the Stances: Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit, instead of only one. Strategic Mastery: Once per battle round, you can select one model from your army with this ability. That model's unit can be targeted with a Stratagem. If it does, reduce the CP cost of that use of that Stratagem by 1CP. Leader: This model can be attached to the following units: Custodian Guard, Custodian Wardens.",
-    "trigger": "attacker's unit is led by a Shield-Captain in aura range (BSData Leader text: 'Custodian Guard, Custodian Wardens')",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Shield-Captain offers Ka'tah-stance flexibility and a Stratagem CP discount, neither of which the simulator models. The reroll-1s-to-hit aura is a flavour proxy for Custodes offensive precision). iter24 expanded host_keys from Guard-only to (Guard + Wardens) per the BSData Leader text — Wardens-led squads were previously silently excluded from the aura.",
+    "trigger": "attacker's unit is led by a Shield-Captain in aura range (BSData v10.6.0 Leader text: 'Custodian Guard, Custodian Wardens')",
+    "effect": "NO IMPLEMENTATION. CUSTODES-AUDIT (claude/sim-calibration-6): removed the prior `reroll_hit_ones=True` fabricated proxy. The real Shield-Captain has no offensive hit-reroll aura — 'Master of the Stances' is a once-per-battle fight-phase stance-flexibility trigger (both Ka'tah stances active for one fight resolution) and 'Strategic Mastery' is a once-per-battle-round Stratagem CP discount, matching the same CP-discount pattern as Space Marine Captain 'Rites of Battle' (iter21 drop) and Autarch 'Path of Command' (iter21 drop). Neither ability translates to a per-attack aura in the simulator. The LeaderAbility entry is retained with no offensive flag so lookup_ability resolves cleanly per CLAUDE.md §13 and host_keys gating (Custodian Guard + Wardens) continues to verify 'led by a CHARACTER'. Previously labelled 'Stoic Vigil' — not a real codex ability name; renamed to 'Master of the Stances' per the BSData verbatim ability name.",
     "scope": "unit-led"
   },
 

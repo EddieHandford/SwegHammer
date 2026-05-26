@@ -313,16 +313,29 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Captain's now-empty entry). The fix: pin the longer keys to the
     # top of the registry. Test:
     #   tests/test_leaders.py::ExpandedRegistryTests::test_each_new_leader_resolves
-    # Adeptus Custodes Shield-Captain — per the Wahapedia / BSData v10.6.0
-    # Shield-Captain datasheet, the Leader ability lists Custodian Guard
-    # and Custodian Wardens as the only legal hosts. The previous
-    # host_keys tuple omitted Wardens, which silently blocked Stoic Vigil
-    # from firing on a Wardens-led squad — half the Custodes archetype's
-    # leader-target population. iter24 fix expands the tuple to both legal
-    # hosts (also including the Adrasite/Pyrithite spear variant of
-    # Custodian Guard, which BSData groups under the same Leader entry).
+    # Adeptus Custodes Shield-Captain — BSData v10.6.0 (`Imperium - Adeptus
+    # Custodes.cat.gz`). The Shield-Captain has two datasheet abilities:
+    #   "Master of the Stances": Once per battle, when this model's unit is
+    #   selected to fight, it can use this ability. If it does, until that
+    #   fight is resolved, both Ka'tah Stances are active for that unit,
+    #   instead of only one.
+    #   "Leader: Custodian Guard, Custodian Wardens."
+    # Additionally the Wahapedia citation lists "Strategic Mastery": once per
+    # battle round, reduce the CP cost of one Stratagem targeting this unit
+    # by 1 — a CP-economy effect the simulator does not model.
+    # "Stoic Vigil" is NOT a real codex ability name; it was an invented
+    # label used when `reroll_hit_ones=True` was placed as a flavour proxy.
+    # CUSTODES-AUDIT (claude/sim-calibration-6): removed `reroll_hit_ones=True`.
+    # The prior proxy was self-flagged in the rule citation as an
+    # "upper-bound flavour proxy" and was contributing to Custodes
+    # over-performance (sim 59.4% vs real 52.1%). Neither "Master of the
+    # Stances" nor "Strategic Mastery" translates to a per-attack hit-reroll
+    # aura. The entry is retained (host_keys intact) so lookup_ability
+    # resolves cleanly per CLAUDE.md §13 and so proximity / is_actually_led
+    # gates continue to work. Same fabrication-removal standard as SC5-3
+    # (Trajann Valoris Captain-General), iter21 (Captain / Autarch / Avatar).
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/Shield-Captain
-    ("Shield-Captain",     LeaderAbility(name="Stoic Vigil",                aura_range=6.0, reroll_hit_ones=True,
+    ("Shield-Captain",     LeaderAbility(name="Master of the Stances",      aura_range=6.0,
                                           host_keys=("adeptus_custodes_custodian_guard",
                                                      "adeptus_custodes_custodian_guard_with_adrasite_and_pyrithite_spears",
                                                      "adeptus_custodes_custodian_wardens"))),
