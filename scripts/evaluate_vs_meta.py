@@ -89,6 +89,24 @@ TOURNAMENT_TARGET: Dict[str, float] = {
     "Imperial Knights":    48.5,
     "Chaos Knights":       47.5,
 }
+
+# Per-faction noise floor — week-to-week standard deviation of independent
+# Warp Friends weekly tournament samples, plus the binomial 95% CI halfwidth
+# floor. Restored after the main merge dropped the JSON-load block (the
+# noise-gated MAE is the active calibration headline per memory
+# `project-noise-gated-mae`).
+def _load_noise_floor() -> Dict[str, float]:
+    rolling_path = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
+    if not rolling_path.exists():
+        raise FileNotFoundError(
+            f"data/warpfriends_rolling.json missing — re-run "
+            f"`python -m scripts.scrape_warpfriends` (CLAUDE.md §13: fail loud)"
+        )
+    with open(rolling_path) as f:
+        data = json.load(f)
+    return {fac: data["factions"][fac]["noise_floor"] for fac in FACTIONS}
+NOISE_FLOOR: Dict[str, float] = _load_noise_floor()
+
 APPROX_FACTIONS: set = set()  # all factions now have real Warp Friends May 2026 data
 
 # FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
