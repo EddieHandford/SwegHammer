@@ -91,6 +91,7 @@ class LeaderAbility:
     reroll_hit_ones: bool = False
     reroll_wound_ones: bool = False
     plus_one_to_hit: bool = False
+    plus_one_to_hit_melee_only: bool = False  # +1 to hit in melee attacks only (e.g. Warboss "Might is Right")
     plus_one_to_wound: bool = False
     plus_one_attack: int = 0                # +N extra attacks per weapon (Cadre Fireblade etc.)
     # Greater Daemon locus auras (LEADERABILITY-SCHEMA, claude/sim-calibration-6).
@@ -341,8 +342,16 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Chronomancer",       LeaderAbility(name="Chronometron",               aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
     ("Plasmancer",         LeaderAbility(name="Harbinger of Destruction",   aura_range=6.0, fnp=5,                 host_keys=("necrons_immortals", "necrons_necron_warriors"))),
     ("Technomancer",       LeaderAbility(name="Canoptek Cloak",             aura_range=6.0, fnp=5,                 host_keys=_NECRON_HOSTS)),
-    # Orks
-    ("Warboss",            LeaderAbility(name="Might is Right",             aura_range=6.0, plus_one_to_hit=True,   host_keys=("orks_boyz", "orks_nobz"))),
+    # Orks — "Might is Right" (Warboss, Warboss In Mega Armour). Real rule:
+    # "While this model is leading a unit, each time a model in that unit makes
+    # a melee attack, add 1 to the Hit roll." (Wahapedia:
+    # https://wahapedia.ru/wh40k10ed/factions/orks/Warboss )
+    # Melee-only: use `plus_one_to_hit_melee_only` so the buff does NOT fire
+    # in the Shooting phase. Prior implementation used `plus_one_to_hit=True`
+    # which applied to all attack modes — an over-buff vs the codex text.
+    # Cited as `WARBOSS.plus_one_to_hit_melee_only`. host_keys cover both
+    # Warboss (Boyz / Nobz) and Warboss In Mega Armour (Meganobz).
+    ("Warboss",            LeaderAbility(name="Might is Right",             aura_range=6.0, plus_one_to_hit_melee_only=True, host_keys=("orks_boyz", "orks_nobz", "orks_meganobz"))),
     # Tyranids — Hive Tyrant is a Monster with NO formal Leader/Bodyguard
     # attachment in 10e. The codex Onslaught aura reads "While a friendly
     # TYRANIDS unit is within 6" of this model, ranged weapons equipped by
@@ -779,6 +788,7 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     "reroll_hit_ones": False,
     "reroll_wound_ones": False,
     "plus_one_to_hit": False,
+    "plus_one_to_hit_melee_only": False,
     "plus_one_to_wound": False,
     "plus_one_attack": 0,
     "plus_one_save": False,
@@ -1113,6 +1123,7 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_bool(buffs, ability, "reroll_hit_ones")
         _merge_bool(buffs, ability, "reroll_wound_ones")
         _merge_bool(buffs, ability, "plus_one_to_hit")
+        _merge_bool(buffs, ability, "plus_one_to_hit_melee_only")
         _merge_bool(buffs, ability, "plus_one_to_wound")
         _merge_add(buffs, ability, "plus_one_attack")
         _merge_min(buffs, ability, "extra_invuln")

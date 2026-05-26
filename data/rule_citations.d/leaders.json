@@ -161,8 +161,8 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/Warboss",
     "rule_name": "Might is Right",
     "quoted_text": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
-    "trigger": "attacker's unit is led by an Ork Warboss in aura range",
-    "effect": "+1 to the Hit roll in aura range. The codex restricts the buff to melee attacks; SwegHammer's leader registry does not yet distinguish melee from ranged when applying offensive auras, so the implementation grants +1-to-hit on all attacks for in-aura units. Strictly stronger than the codex's melee-only effect by the ranged-attack share — known overshoot but direction-correct.",
+    "trigger": "attacker's unit is led by an Ork Warboss or Warboss In Mega Armour (host_keys: orks_boyz, orks_nobz, orks_meganobz) AND the attack is a melee attack (mode == \"melee\"); ranged attacks by the same unit are unaffected. ORKS-DIAG-3: fixed from prior `plus_one_to_hit=True` (all attack modes) to `plus_one_to_hit_melee_only=True` (melee only), matching the codex text. Also added orks_meganobz to host_keys so the Warboss In Mega Armour correctly leads Meganobz.",
+    "effect": "+1 to the Hit roll on melee attacks only",
     "scope": "unit-led"
   },
 

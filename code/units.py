@@ -1577,6 +1577,12 @@ class Unit:
             # enhancement — all merged to a single bool by leaders.effective_buffs).
             if att_buffs["plus_one_to_hit"]:
                 hit_mod_delta += 1
+            # `plus_one_to_hit_melee_only` fires only in the Fight phase (melee).
+            # Used for leader auras whose codex text reads "each time a model in
+            # that unit makes a melee attack" — e.g. Warboss "Might is Right".
+            # Cited as `WARBOSS.plus_one_to_hit_melee_only`.
+            if att_buffs.get("plus_one_to_hit_melee_only") and mode == "melee":
+                hit_mod_delta += 1
             if att_buffs["plus_one_to_wound"]:
                 wound_mod_delta += 1
 
