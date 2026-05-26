@@ -85,6 +85,15 @@
     "scope": "keyword-gated"
   },
 
+  "LeaderAbility.Prince of Darkness": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Daemon-Prince-of-Chaos",
+    "rule_name": "Prince of Darkness (Aura)",
+    "quoted_text": "While a friendly LEGIONES DAEMONICA unit is within 6\" of this model, models in that unit have the Stealth ability.",
+    "trigger": "Daemon Prince of Chaos is on the battlefield; a friendly LEGIONES DAEMONICA unit is within 6\" of the Daemon Prince and is the target of a ranged attack",
+    "effect": "-1 to the Hit roll on ranged attacks targeting the affected LEGIONES DAEMONICA unit. Modelled as grants_stealth_aura=True on the LeaderAbility; the -1 modifier is applied DEFENDER-side in code/units.py (tgt_buffs[\"grants_stealth_aura\"]) at the same location as the static target.profile.stealth check (mode != \"melee\" gate). Subject to the 10e ±1 modifier cap — stacks with heavy cover's -1 but the cap collapses the net to -1 either way. host_keys = _LEGIONES_DAEMONICA_HOSTS (union of all four god-aligned rosters plus UNDIVIDED units: Be'lakor, Daemon Prince of Chaos, Daemon Prince of Chaos with Wings). Daemon Prince is a MONSTER with no formal Leader/Bodyguard attachment; the 10e aura wording is \"friendly LEGIONES DAEMONICA unit is within 6\"\" — broadcast to all eligible units in proximity, not restricted to a led bodyguard squad. Faithful direct match to the codex text — no approximation required. BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz confirms the wording verbatim.",
+    "scope": "keyword-gated"
+  },
+
   "LeaderAbility.Lord of Decapitations": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker",
     "rule_name": "Lord of Decapitations",

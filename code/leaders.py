@@ -118,7 +118,17 @@ class LeaderAbility:
     # ability." The field is generic so future leaders with the same grant
     # (if any are added) can reuse it without schema changes.
     grants_devastating_wounds_melee: bool = False  # led unit's melee attacks gain [DEVASTATING WOUNDS]
-    # Defensive modifiers (apply to DEFENDER when it's in range of this leader)
+    # DAEMONS-DIAG-9: Daemon Prince of Chaos "Prince of Darkness" (Aura) —
+    # "While a friendly LEGIONES DAEMONICA unit is within 6\" of this model,
+    # models in that unit have the Stealth ability." (Wahapedia verbatim).
+    # Stealth imposes -1 on ranged Hit rolls targeting the unit (10e core rule,
+    # "each time a ranged attack is made against it, subtract 1 from that
+    # attack's Hit roll"). This is a DEFENDER-side buff: it fires via
+    # tgt_buffs["grants_stealth_aura"] in the attack-resolution loop in
+    # code/units.py, at the same location as the static target.profile.stealth
+    # check (line ~2024). The field is generic so future leaders whose codex
+    # grants a Stealth aura can reuse it without schema changes.
+    grants_stealth_aura: bool = False           # nearby LEGIONES DAEMONICA gain Stealth (ranged -1 to hit)
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
     # End-of-round healing: restore N HP to the nearest wounded friendly in
@@ -262,6 +272,33 @@ _SLAANESH_DAEMON_HOSTS = (
     "chaos_daemons_library_the_masque_of_slaanesh",
     "chaos_daemons_library_tormentbringer",
     "chaos_daemons_library_tranceweaver",
+)
+
+# DAEMONS-DIAG-9: ALL LEGIONES DAEMONICA units from BSData v10.6.0
+# chaos_daemons_library catalogue. The Daemon Prince of Chaos "Prince of
+# Darkness" aura reads "While a friendly LEGIONES DAEMONICA unit is within 6\"
+# of this model, models in that unit have the Stealth ability." — it covers
+# EVERY Daemon unit carrying the LEGIONES DAEMONICA faction keyword, regardless
+# of god alignment or unit type. Legends entries (_legends suffix) are excluded
+# because the auto-loop eval never seeds them. The Daemon Prince itself carries
+# LEGIONES DAEMONICA and so benefits from its own aura per the codex text
+# ("friendly" does NOT exclude the caster's own unit per Wahapedia core-rules
+# FAQ). Union of all four god-rosters (Khorne/Nurgle/Tzeentch/Slaanesh) plus
+# UNDIVIDED units (Be'lakor, Daemon Princes, Soul Grinders where not already
+# included).
+_LEGIONES_DAEMONICA_HOSTS: Tuple[str, ...] = (
+    # Khorne
+    *_KHORNE_DAEMON_HOSTS,
+    # Nurgle (Rotigus already in _NURGLE_DAEMON_HOSTS)
+    *_NURGLE_DAEMON_HOSTS,
+    # Tzeentch
+    *_TZEENTCH_DAEMON_HOSTS,
+    # Slaanesh
+    *_SLAANESH_DAEMON_HOSTS,
+    # Undivided / multi-god units (not already in the god-rosters above)
+    "chaos_daemons_library_be_lakor",
+    "chaos_daemons_library_daemon_prince_of_chaos",
+    "chaos_daemons_library_daemon_prince_of_chaos_with_wings",
 )
 
 _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
@@ -617,6 +654,32 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Skulltaker",         LeaderAbility(name="Lord of Decapitations",       aura_range=6.0,
                                           grants_devastating_wounds_melee=True,
                                           host_keys=("chaos_daemons_library_bloodletters",))),
+    # Daemon Prince of Chaos — "Prince of Darkness" (Aura). Verbatim from
+    # Wahapedia (https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Daemon-Prince-of-Chaos):
+    # "While a friendly LEGIONES DAEMONICA unit is within 6\" of this model,
+    # models in that unit have the Stealth ability."
+    # 10e Stealth rule (core rules, Wahapedia): "each time a ranged attack is
+    # made against it, subtract 1 from that attack's Hit roll."
+    # This is a DEFENDER-side buff: when the enemy targets a Daemon unit within
+    # 6\" of a friendly Daemon Prince, the attacker's Hit roll takes -1 in the
+    # Shooting phase. Modelled as grants_stealth_aura=True; the -1 modifier is
+    # applied in code/units.py at the hit-roll computation (defender side, mode
+    # != "melee" gate, reads tgt_buffs["grants_stealth_aura"]). Melee is
+    # unaffected — Stealth is a ranged defence per the 10e core rules.
+    # host_keys = _LEGIONES_DAEMONICA_HOSTS (all Legiones Daemonica units in
+    # BSData v10.6.0; see DAEMONS-DIAG-9 comment above _REGISTRY). Empty
+    # host_keys would broadcast to ALL friendly units including non-Daemon
+    # allies — the codex wording restricts to LEGIONES DAEMONICA, so
+    # non-empty host_keys is the correct gate. Daemon Prince is a MONSTER;
+    # no formal Leader/Bodyguard attachment. The DAEMONS archetype seeds it
+    # in all four Daemonic Incursion lists (Khorne Murderhost, Tzeentch
+    # Manifestation, Nurgle Pestilence, Slaanesh Excess), so the aura fires
+    # on every Daemon archetype eval run.
+    # Cited as LeaderAbility.Prince of Darkness in
+    # data/rule_citations.d/leaders.json.
+    ("Daemon Prince of Chaos", LeaderAbility(name="Prince of Darkness",      aura_range=6.0,
+                                          grants_stealth_aura=True,
+                                          host_keys=_LEGIONES_DAEMONICA_HOSTS)),
     # Only the GENERIC Greater Daemon datasheets (Lord of Change, Great
     # Unclean One, Keeper of Secrets) carry the "Daemon Lord of <god>" Locus
     # aura per BSData v10.6.0 cache. The named variants (Kairos Fateweaver,
@@ -866,6 +929,11 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     # attacks gain [DEVASTATING WOUNDS]. Default False; only True when Skulltaker
     # is alive and leading Bloodletters.
     "grants_devastating_wounds_melee": False,
+    # DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" — LEGIONES DAEMONICA
+    # units within 6\" gain the Stealth ability (-1 to ranged Hit rolls targeting
+    # them). Default False; only True when a Daemon Prince of Chaos is alive and
+    # in-range of the target unit.
+    "grants_stealth_aura": False,
 }
 
 
@@ -1207,6 +1275,10 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         _merge_bool(buffs, ability, "plus_one_toughness")
         _merge_bool(buffs, ability, "plus_one_ap_melee")
         _merge_bool(buffs, ability, "grants_devastating_wounds_melee")
+        # DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" stealth aura.
+        # Defender-side buff — callers reading tgt_buffs will see this True
+        # when a friendly Daemon Prince of Chaos is within 6\" of the target.
+        _merge_bool(buffs, ability, "grants_stealth_aura")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

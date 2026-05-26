@@ -2024,6 +2024,16 @@ class Unit:
             if mode != "melee" and target.profile.stealth:
                 hit_mod_delta -= 1
 
+            # ---- DAEMONS-DIAG-9: Daemon Prince "Prince of Darkness" aura —
+            # grants Stealth to nearby LEGIONES DAEMONICA units. Read from
+            # tgt_buffs (the target's defender-side buff dict). Same -1 ranged
+            # hit modifier as static Stealth above; the two sources collapse to
+            # a single -1 via the ±1 modifier cap below. Melee is unaffected.
+            # Cited as LeaderAbility.Prince of Darkness in
+            # data/rule_citations.d/leaders.json.
+            if mode != "melee" and tgt_buffs.get("grants_stealth_aura"):
+                hit_mod_delta -= 1
+
             # ---- Death Guard Contagions of Nurgle — Round 3+ Fulminating Plague:
             # an enemy unit (the ATTACKER here) within 3" of any DG model takes
             # -1 to its Hit rolls. We gate on `self` (the attacker) being near a
