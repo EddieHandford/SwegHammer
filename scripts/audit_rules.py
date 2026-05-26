@@ -280,6 +280,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
     # on attacker.profile.faction == "Adeptus Mechanicus".
     "simulator.doctrina_imperatives",
+    # KNIGHTS-MULTIPROFILE-2 — ADDITIVE multi-weapon melee resolution. The
+    # MUTEX counterpart `simulator.multi_profile_weapon_selection` (in
+    # data/rule_citations.json) covers RANGED alt-modes; this key covers
+    # the Fight-phase case where a datasheet carries MORE THAN ONE melee
+    # weapon (Knight Abominant Electroscourge + Balemace; Knight Rampager
+    # Reaper chainsword + Warpstrike claw) and the 10e [EXTRA ATTACKS]
+    # core keyword. UnitProfile.extra_melee_profiles populated via
+    # data/overrides.json today (BSData mapper does not yet emit it).
+    # See data/rule_citations.d/chaos_knights.json#simulator.extra_melee_profiles.
+    "simulator.extra_melee_profiles",
     # Core targeting restrictions (10e core rules). Both filter the ranged
     # candidate list inside Battle._do_shoot via code.army.can_target_for_ranged.
     # Look Out Sir gates non-MONSTER/VEHICLE CHARACTERS that have a non-CHARACTER

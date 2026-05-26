@@ -80,7 +80,18 @@
     },
     "chaos_knights_library_knight_rampager": {
       "invuln_save": 5,
-      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+      "extra_melee_profiles": [
+        {
+          "weapon": "Reaper chainsword - strike",
+          "attacks": 6,
+          "weapon_damage_per_shot": 6.0,
+          "hit_probability": 0.833,
+          "ap": -4,
+          "strength": 14,
+          "sustained_hits": 1
+        }
+      ],
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes. | KNIGHTS-MULTIPROFILE-2: Knight Rampager's datasheet equipment line lists BOTH a Reaper chainsword AND a Warpstrike claw (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-knights/Knight-Rampager), and both fire every Fight phase against the same engaged target. The BSData mapper picks only one (Warpstrike claw strike at A=6 S=20 AP=-3 D=8 [SUSTAINED HITS 1]) and stores it as the primary melee profile. Reaper chainsword strike profile (A=6 WS=2+ S=14 AP=-4 D=6 [SUSTAINED HITS 1]) is added here as an ADDITIVE extra_melee_profile so the chassis's full melee output is represented. The strike (rather than sweep) profile is the standard pick against most opposing models; the AI does not yet flex strike/sweep per target. hit_probability 0.833 = 5/6 = WS 2+."
     },
     "chaos_knights_library_knight_despoiler": {
       "invuln_save": 5,
@@ -252,7 +263,17 @@
     },
     "chaos_knights_library_knight_abominant": {
       "invuln_save": 5,
-      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes."
+      "extra_melee_profiles": [
+        {
+          "weapon": "Balemace",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8
+        }
+      ],
+      "notes": "SC5-2: 5+ Ion Shield missing from BSData Chaos Knights Library (no Invulnerable Save infoLink). See chaos_knights_library_knight_desecrator notes. | KNIGHTS-MULTIPROFILE-2: Knight Abominant carries the Balemace as a SECOND melee weapon (BSData cache: Chaos - Chaos Knights Library.cat.gz selectionEntry 'Balemace' profile A=3 WS=3+ S=8 AP=-1 D=2 Keywords='Extra Attacks'). The [EXTRA ATTACKS] core-rules keyword (Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase) means the Balemace fires IN ADDITION to the Electroscourge in the same Fight phase, not as an alternative. The BSData mapper captured only the Electroscourge as the primary melee profile (A=9 S=10 AP=-2 D=3 [SUSTAINED HITS 1]); Balemace is added here as an ADDITIVE extra_melee_profile so the Abominant's full melee output is represented. hit_probability 0.667 = 4/6 = WS 3+. Note: Balemace's [EXTRA ATTACKS] keyword is structurally what extra_melee_profiles models — every entry in this list resolves alongside the primary melee."
     },
     "chaos_knights_library_war_dog_karnivore": {
       "invuln_save": 5,

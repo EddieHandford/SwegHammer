@@ -161,6 +161,16 @@ class CatalogEntry:
     # hit_probability, ap, strength, range_inches, anti_keywords, plus the
     # ranged keyword flags). Empty = no extras. See MappedUnit comment.
     extra_ranged_profiles: Optional[List[Dict[str, Any]]] = None
+    # KNIGHTS-MULTIPROFILE-2: TERTIARY+ melee weapon profiles (Knight Abominant
+    # Balemace, Knight Rampager Reaper chainsword, etc.). List of dicts, each
+    # carrying the melee weapon-attack contract (weapon, attacks,
+    # weapon_damage_per_shot, hit_probability, ap, strength, plus per-weapon
+    # keyword flags: sustained_hits, lethal_hits, devastating_wounds,
+    # lance, precision, twin_linked, anti_keywords). Empty / missing = no
+    # extras. ADDITIVE in simulator resolution (every entry fires alongside
+    # the primary melee in the same Fight phase), as distinct from the MUTEX
+    # extra_ranged_profiles picker. Cited as `simulator.extra_melee_profiles`.
+    extra_melee_profiles: Optional[List[Dict[str, Any]]] = None
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # Defaults to 1.0 preserve legacy single-weapon behaviour. Heterogeneous
     # squads (Rubric Marines, Skyweavers, Beast Snagga Boyz) carry values
@@ -269,6 +279,11 @@ class CatalogEntry:
             # MAP-1: list of tertiary+ ranged profiles. Each is a dict mirroring
             # the secondary_* fields. Missing key = no extras (most units).
             extra_ranged_profiles=list(d.get("extra_ranged_profiles") or []),
+            # KNIGHTS-MULTIPROFILE-2: list of tertiary+ MELEE profiles. Each is
+            # a dict mirroring the melee weapon-attack contract. Missing key =
+            # no extras (most units). See CatalogEntry.extra_melee_profiles
+            # for the field-level contract.
+            extra_melee_profiles=list(d.get("extra_melee_profiles") or []),
             # MAP-3-FIX — parse basket fractions. Missing key = 1.0 (legacy:
             # any unit predating this change keeps full-keyword behaviour).
             devastating_wounds_basket_fraction=float(
@@ -421,6 +436,13 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # multi-profile lists). base value defaults to [] when None.
         "extra_ranged_profiles": override.get(
             "extra_ranged_profiles", base.extra_ranged_profiles or []
+        ),
+        # KNIGHTS-MULTIPROFILE-2: tertiary+ MELEE profiles. Same convention
+        # as extra_ranged_profiles — override fully replaces the list; base
+        # value defaults to [] when None. Cited as
+        # `simulator.extra_melee_profiles`.
+        "extra_melee_profiles": override.get(
+            "extra_melee_profiles", base.extra_melee_profiles or []
         ),
         # MAP-3-FIX — basket fractions. Override path almost never sets these
         # (the mapper computes them from BSData) but allow overrides for

@@ -483,6 +483,26 @@ class UnitProfile:
     # extra profiles (most units). Cited as
     # `simulator.multi_profile_weapon_selection`.
     extra_ranged_profiles: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # ---- KNIGHTS-MULTIPROFILE-2 — ADDITIONAL melee weapon profiles ----------
+    # Knight Abominant fires its Electroscourge AND its Balemace in the same
+    # Fight phase (balemace carries the [EXTRA ATTACKS] core-rules keyword,
+    # which means it is resolved IN ADDITION to the model's other melee
+    # attacks rather than replacing them). Knight Rampager carries BOTH a
+    # Reaper chainsword AND a Warpstrike claw as datasheet wargear; both
+    # fire in the same Fight phase. The primary melee_* block above carries
+    # ONE such weapon's profile (the one BSData picks first); this tuple
+    # carries the rest. Each entry is a tuple of (key, value) pairs (so the
+    # field stays hashable / dataclass-friendly) holding the melee weapon-
+    # attack contract: weapon, attacks, weapon_damage_per_shot,
+    # hit_probability, ap, strength, plus keyword flags (sustained_hits_1,
+    # lethal_hits, devastating_wounds, lance, anti_keywords, precision,
+    # twin_linked, extra_attacks). Empty tuple = no extras (most units).
+    # Unlike the RANGED extra_ranged_profiles list (which is MUTEX — the
+    # picker chooses one alt-mode per group), extra_melee_profiles is
+    # ADDITIVE: every entry fires alongside the primary melee attack in
+    # the same Fight phase against the same engaged target. Cited as
+    # `simulator.extra_melee_profiles`.
+    extra_melee_profiles: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # The MAP-3 UNION (any-weapon-in-basket carries the keyword) inflates
     # damage for heterogeneous squads (Rubric Marines, Skyweavers, Beast
@@ -1067,7 +1087,61 @@ class Unit:
         # the Wahapedia rule text) plus the existing
         # `simulator.multi_profile_weapon_selection`.
         _profiles_to_fire: list = [None]
-        if mode != "melee" and (
+        # KNIGHTS-MULTIPROFILE-2 — ADDITIVE melee multi-weapon resolution.
+        # Datasheets like Knight Abominant (Electroscourge + Balemace) or
+        # Knight Rampager (Reaper chainsword + Warpstrike claw) carry MORE
+        # THAN ONE melee weapon profile. The primary p.melee_* block carries
+        # whichever weapon BSData picked first; any others live on
+        # p.extra_melee_profiles. Each extra profile fires AS AN ADDITIONAL
+        # attack-resolution pass alongside the primary in the same Fight
+        # phase. This is the OPPOSITE convention from extra_ranged_profiles,
+        # which is a MUTEX picker (alt-modes of one weapon). The melee case
+        # is additive because (a) 10e Extra Attacks core rule says weapons
+        # with [EXTRA ATTACKS] resolve in addition to the model's other
+        # melee attacks, and (b) a model carrying two distinct datasheet
+        # melee weapons (Rampager) fights with both, not one. Cited as
+        # `simulator.extra_melee_profiles`.
+        if mode == "melee" and p.extra_melee_profiles:
+            # The dataclasses.replace hot-swap fires inside the existing
+            # `for _swap_profile in _profiles_to_fire` loop below — we just
+            # populate the list with the swap dicts here.
+            _melee_extras: list = []
+            for _extra in p.extra_melee_profiles:
+                _ed = dict(_extra)
+                # Translate the extra-melee dict into the dataclass field
+                # names so a single replace(_p_base, **swap) hot-swaps every
+                # melee_* attribute that the melee resolution branch reads.
+                _melee_extras.append({
+                    "melee_attacks": max(1, int(_ed.get("attacks", 1) or 1)),
+                    "melee_damage_per_shot": float(
+                        _ed.get("weapon_damage_per_shot", 1.0) or 1.0
+                    ),
+                    "melee_hit_probability": float(
+                        _ed.get("hit_probability", 0.0) or 0.0
+                    ),
+                    "melee_ap": int(_ed.get("ap", 0) or 0),
+                    "melee_strength": int(_ed.get("strength", 4) or 4),
+                    "melee_weapon": str(_ed.get("weapon", "") or ""),
+                    "melee_sustained_hits": int(
+                        _ed.get("sustained_hits", 0) or 0
+                    ),
+                    # Weapon-level keyword flags reuse the same UnitProfile
+                    # field names that Unit.attack reads in the melee branch.
+                    "lethal_hits": bool(_ed.get("lethal_hits", False)),
+                    "devastating_wounds": bool(
+                        _ed.get("devastating_wounds", False)
+                    ),
+                    "twin_linked": bool(_ed.get("twin_linked", False)),
+                    "lance": bool(_ed.get("lance", False)),
+                    "precision": bool(_ed.get("precision", False)),
+                    # anti_keywords merges into the existing primary
+                    # anti_keywords dict; the swap replaces it for the
+                    # extra's resolution pass.
+                    "anti_keywords": dict(_ed.get("anti_keywords") or {}),
+                })
+            # Primary fires first (None) then each extra fires once.
+            _profiles_to_fire = [None] + _melee_extras
+        elif mode != "melee" and (
             p.secondary_attacks > 0 or p.extra_ranged_profiles
         ):
             # Mode-suffix patterns the BSData mapper emits for
@@ -3054,6 +3128,19 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
                     for k, v in prof.items()
                 )
                 for prof in (entry.extra_ranged_profiles or ())
+            ),
+            # KNIGHTS-MULTIPROFILE-2 — additional melee weapon profiles
+            # (Knight Abominant balemace, Knight Rampager Reaper chainsword,
+            # etc.). Same flatten-to-tuples trick as extra_ranged_profiles
+            # so the UnitProfile dataclass stays HASHABLE for the lru_cache
+            # decorators in code/roles.py. Cited as
+            # `simulator.extra_melee_profiles`.
+            extra_melee_profiles=tuple(
+                tuple(
+                    (k, (tuple(sorted(v.items())) if isinstance(v, dict) else v))
+                    for k, v in prof.items()
+                )
+                for prof in (entry.extra_melee_profiles or ())
             ),
             # MAP-3-FIX — basket-fraction gating. Default 1.0 preserves legacy
             # single-weapon / non-heterogeneous behaviour; mapper sets < 1.0

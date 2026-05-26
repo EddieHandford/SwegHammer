@@ -1609,6 +1609,16 @@ class MappedUnit:
     # against the current target / range and routes accordingly.
     # Cited as `simulator.multi_profile_weapon_selection`.
     extra_ranged_profiles: List[Dict] = field(default_factory=list)
+    # ---- KNIGHTS-MULTIPROFILE-2: TERTIARY+ melee weapon profiles -----------
+    # Mirrors extra_ranged_profiles for the Fight phase. The BSData mapper
+    # does not yet populate this list from the cache (multi-weapon melee
+    # detection is a TODO — Knight Abominant's Balemace [EXTRA ATTACKS]
+    # keyword and Knight Rampager's Reaper chainsword + Warpstrike claw
+    # dual-equip pattern); the field is declared here so a future mapper
+    # extension can populate it and so a re-run of `code.bsdata.mapper`
+    # does not drop the schema column. Today the field is fed by
+    # data/overrides.json. Cited as `simulator.extra_melee_profiles`.
+    extra_melee_profiles: List[Dict] = field(default_factory=list)
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # See WeaponStats for the rationale. Defaults to 1.0 preserve legacy
     # behaviour for any single-weapon unit (the keyword either fires for every
