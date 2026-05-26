@@ -179,7 +179,7 @@ CUSTODES_FACTION_TAG: str = "Adeptus Custodes"
 # loop, not a Wahapedia rule citation. Same citation pattern as
 # `simulator.secondary_elite_army_modifier` (CUSTODES-UNPARK).
 DRUKHARI_ATTACKER_MOBILE_VP_MULTIPLIER: float = 0.75
-DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.72
+DRUKHARI_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.68
 DRUKHARI_FACTION_TAG: str = "Drukhari"
 
 # TYRANIDS-DIAG-6 — monster-mash attacker secondary damper.
