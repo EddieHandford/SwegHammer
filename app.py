@@ -1156,21 +1156,72 @@ def _render_equation_lite(sweg_data):
     fit = sweg_data.get("fit_metrics", {})
     r2 = fit.get("r_squared", "?")
     mae_log = fit.get("mae_log", "?")
+    mae_price = fit.get("mae_price", None)
+    mae_price_str = f"{mae_price:.1f}" if mae_price is not None else "?"
     feat_n = sweg_data.get("feature_count", "?")
 
+    # Headline metrics up top — these are the numbers a viewer should leave with.
+    cols = st.columns(4)
+    cols[0].metric("Units priced", f"{sweg_data.get('counts', {}).get('total_units', '?')}")
+    cols[1].metric("Stat features", f"{feat_n}")
+    cols[2].metric("R² vs GW", f"{r2}")
+    cols[3].metric("Mean error", f"{mae_price_str} pts/model")
+
     st.markdown(
-        "SwegHammer's points are produced by a small regression equation "
-        "fitted to **stat-line features** — Wounds, Toughness, Save, "
-        "Attacks, Damage, Move, OC, weapon keywords, plus a few interaction "
-        "terms like `toughness × wounds`. The equation predicts "
-        "`log(price per model)`, which is exponentiated back to a points "
-        "value and then multiplied by a **per-faction tournament-meta "
-        "correction**.\n\n"
-        f"The fit covers **{feat_n}** features and lands at **R² = {r2}** "
-        f"against the printed GW prices (mean absolute error in log space "
-        f"is **{mae_log}**, so most predicted prices land within roughly "
-        f"±20 % of GW)."
+        "Every unit is priced by one regression equation over the stat line — "
+        "wounds, toughness, save, AP, attacks, damage, hit probability, "
+        "secondary weapon profile, special weapon keywords (precision, lance, "
+        "assault, indirect fire, anti-X), leader aura buffs, even Necron "
+        "reanimation. The equation predicts `log(price per model)`, which is "
+        "exponentiated back to a points value and then multiplied by a "
+        "**per-faction tournament-meta correction**.\n\n"
+        f"The fit lands at **R² = {r2}** against GW's printed prices "
+        f"(mean absolute error **{mae_price_str} pts/model**, log-space MAE "
+        f"**{mae_log}**)."
     )
+
+    # Family rollups — group correlated features (wounds, wounds², toughness×wounds, …)
+    # into one bar per family so the signs are interpretable. Same shape the
+    # playtester HTML shows.
+    family_rollups = sweg_data.get("family_contributions_avg", {})
+    if family_rollups:
+        st.divider()
+        st.markdown("### What drives a unit's cost?")
+        st.caption(
+            "Four big buckets the equation cares about — Durability, Offense, "
+            "Mobility, Special abilities. Signed mean is the family's average "
+            "contribution to log(price) per unit; magnitude shows how much each "
+            "family moves prices around. Family rollups instead of raw "
+            "coefficients because dozens of correlated features (wounds, wounds², "
+            "toughness × wounds, …) cancel out in opposing directions individually "
+            "— sums across a whole family are stable and interpretable."
+        )
+        family_items = [
+            (family, float(stats.get("signed_mean", 0)), float(stats.get("abs_mean", 0)))
+            for family, stats in family_rollups.items()
+        ]
+        family_items.sort(key=lambda x: -x[2])
+        family_df = pd.DataFrame(
+            family_items,
+            columns=["Family", "Signed mean", "Magnitude (abs mean)"],
+        )
+        st.dataframe(
+            family_df,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Signed mean": st.column_config.NumberColumn(
+                    format="%+.3f",
+                    help="Average signed contribution per unit (gold = adds to price, red = subtracts).",
+                ),
+                "Magnitude (abs mean)": st.column_config.ProgressColumn(
+                    format="%.3f",
+                    min_value=0.0,
+                    max_value=max((m for _, _, m in family_items), default=1.0),
+                    help="Average absolute contribution per unit — how much each family moves prices around.",
+                ),
+            },
+        )
 
     st.divider()
     st.markdown("### Worked example")

@@ -465,10 +465,52 @@ run on top of. Retained as a historical record.
 
 ## Changelog
 
+- **2026-05-25** — **Equation expansion + family rollups + super-heavy
+  fallback removed.** Added ~75 new features to
+  `code/equation_data_fit.py::default_feature_specs()` across four
+  rounds: leader-aura buffs (16 features sourced from `code.leaders.
+  _REGISTRY` via `lookup_ability`), direct stats and weapon-keyword
+  features (hit probabilities, secondary weapon profile, pistol /
+  precision / hazardous / assault / heavy / lance / indirect_fire /
+  one_shot / fights_first / firing_deck / Anti-X / deadly_demise /
+  leadership / reanimates_with_army), polynomial transforms (quadratic /
+  cubic toughness, squared wounds / AP / damage), and cross-stat
+  interactions (attacks × strength, attacks × damage, save × wounds,
+  is_X × wounds for monster / vehicle / character, move × OC, keyword ×
+  volume terms, log/sqrt transforms on attacks and damage). Net: 35
+  features → 111 features, R² 0.9499 → 0.9617, mean absolute error
+  21.96 → 16.95 pts/model. Leaders-only R² 0.9033 → 0.9404. Eldrad-class
+  characters (Yvraine, Farseer, Hive Tyrant) now within 5-15 pts of GW.
+
+  Added `FEATURE_FAMILIES` mapping and `compute_family_contributions`
+  helper to `code/equation_data_fit.py` so display layers can roll
+  per-feature contributions up to per-family bars and sidestep the
+  multicollinearity that makes individual coefficients flip signs in
+  visually confusing ways (signs survive aggregation, families are
+  interpretable). `bake_swegpoints_v1.py` now writes
+  `family_contributions_avg` into the JSON payload.
+
+  Removed super-heavy fallback in `bake_swegpoints_v1.py`. Previously
+  units above 500 GW points per model fell back to GW's printed cost
+  (27 Titans / Knights / Apocalypse pieces). They now go through the
+  equation like everything else — predictions carry more uncertainty at
+  this weight class but playtesters can field cool stuff at
+  math-fitted prices. Removed `--super-heavy-threshold` CLI flag and
+  `super_heavy_threshold_pts_per_model` / `super_heavy_fallback` count
+  fields from the payload.
+
+  `docs/sweghammer_points.html` rewritten as a single-page-scroll
+  playtester handout: sticky top nav, hero with stats grid + math-only
+  v1 callout, formula display, family rollup bars, faction multipliers
+  grid, methodology section (placed above the unit table so playtesters
+  read the "how" before scanning prices), then the existing searchable
+  table. `app.py::_render_equation_lite` updated to mirror the same
+  family-rollup view in the dashboard.
+
 - **2026-05-24** — **v1.0 release: SwegHammer — Recalibrated.** Track 4
   data-driven equation frozen as a per-unit prices dataset at
   `data/sweg_points_v1.json` (1,483 units priced — 1,456 via the
-  equation, 27 super-heavy GW fallback). New `code/sweg_points.py`
+  equation, 27 super-heavy GW fallback — superseded 2026-05-25). New `code/sweg_points.py`
   loader and `--swegpoints` flag in `scripts/evaluate_vs_meta.py` swap
   the v1 prices into the catalogue. The Streamlit dashboard gained a
   sidebar **Player / Calibration** mode toggle: Player view exposes
