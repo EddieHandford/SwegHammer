@@ -426,75 +426,6 @@ SORORITAS_FACTION_TAG: str = "Adepta Sororitas"
 ORKS_ATTACKER_OFFENSIVE_VP_MULTIPLIER: float = 0.85
 ORKS_FACTION_TAG: str = "Orks"
 
-# KNIGHTS-DEFENDER-DAMPER — elite-low-model-count defender secondary damper.
-#
-# Mirror of DAEMONS-DIAG-6 pattern (defender-gated damper on kill-event
-# secondaries) applied to both Imperial Knights and Chaos Knights. Both
-# Knight rosters are structurally under-performing in the calibration
-# loop at a gated MAE deficit of ~62pt combined (Imperial Knights -24.11pt
-# + Chaos Knights -37.78pt) with the same shape as Daemons: elite low-
-# model-count armies that the per-round secondary VP caps OVER-punish in
-# the simulator. KNIGHTS-INVULN-AUDIT (commit dfd7c6e) confirmed every per-
-# rule lever is correct (save selection, damage cap, invulnerability values
-# all set), so the residual is structural board-control secondary scoring
-# rather than per-rule.
-#
-# The behavioural asymmetry being modelled: Imperial Knights and Chaos
-# Knights are the most elite low-count armies in 10e — typical 2000pt lists
-# field 3-6 Knight models (Paladin, Errant, Warden, Desecrator, Rampager,
-# War Dog). Each Knight destruction is proportionally a much larger share
-# of the army than for a horde or balanced faction. The Pariah Nexus
-# secondary envelope (Bring it Down cap 8, No Prisoners cap 5, Assassination
-# cap 4, Cull the Horde cap 3) describes a scoring envelope that under-
-# represents the real strategic asymmetry: in tournament play, opponents bias
-# secondary selection toward kill-event cards specifically because Knight
-# losses are predictable and capped on opportunity. The sim's per-round-delta
-# snapshot misses this list-selection effect exactly as it missed Custodes in
-# pre-CUSTODES-UNPARK days.
-#
-# Unlike CUSTODES-UNPARK (which scales UP the opponent's score AGAINST Custodes
-# because elite armies are UNDERPENALIZED by the caps), KNIGHTS-DEFENDER-DAMPER
-# scales DOWN the opponent's score AGAINST Knights because elite armies are
-# OVERPENALIZED by the caps relative to their real-meta value — the same
-# defensive damper logic as DAEMONS-DIAG-6 but for a different structural
-# reason (Daemons because of invulnerability stacking over-converting kills,
-# Knights because of elite low-count under-representation in the per-round caps).
-# Both need dampers to reach parity, but from opposite structural origins
-# (invuln over-durability vs raw low-model-count board control).
-#
-# KNIGHTS_DEFENDER_KILL_VP_MULTIPLIER scales DOWN opponent BiD + No Prisoners
-# + Assassination VP (and per-round caps) when the side being scored against
-# is Imperial Knights OR Chaos Knights. Cull the Horde IS scaled — Knight
-# models don't satisfy the 10+ starting-strength rule (individual Knights are
-# single-model units), so this is a no-op but consistent with DAEMONS-DIAG-6
-# structure (which scales Cull because Daemons fields 10-model squads).
-# Assassination IS scaled at 0.75x (matching the BiD/NP damper magnitude),
-# unlike DAEMONS-DIAG-6 which exempts Assassination — Knights' single-model
-# structure means every Knight model is a literal CHARACTER (every datasheet
-# carries CHARACTER keyword), so Assassination scoring piles on top of BiD +
-# NP in a way that Daemon Heralds don't. Applying the damper to all three
-# reflects the composite over-conversion across the kill-event secondary
-# envelope.
-#
-# Faction-gated (not model-count-gated or keyword-gated) because:
-#   (a) Imperial Knights and Chaos Knights are the only 10e factions where
-#       typical tournament lists run 3-6 single-model-unit armies with every
-#       model carrying CHARACTER keyword AND MONSTER/VEHICLE keyword.
-#   (b) KNIGHTS-INVULN-AUDIT confirmed no per-rule lever — the residual is
-#       structural board-control secondary scoring.
-#   (c) Both Knight sub-factions exhibit the same gated MAE profile (combined
-#       ~62pt deficit), so faction-level gating is precise.
-#
-# Marked APPROXIMATION: the "Knights under-take secondary kills in the sim
-# relative to real meta" is an observation from the KNIGHTS-INVULN-AUDIT
-# commit, not a Wahapedia rule citation. Same pattern as DAEMONS-DIAG-6
-# (`simulator.secondary_daemons_defender_damper`), inverted-direction sibling
-# to CUSTODES-UNPARK (`simulator.secondary_elite_army_modifier`). Cited as
-# `simulator.secondary_knights_defender_damper`.
-KNIGHTS_DEFENDER_KILL_VP_MULTIPLIER: float = 0.75
-IMPERIAL_KNIGHTS_FACTION_TAG: str = "Imperial Knights"
-CHAOS_KNIGHTS_FACTION_TAG: str = "Chaos Knights"
-
 
 @dataclass
 class RoundSnapshot:
@@ -762,33 +693,8 @@ def score_round_delta(
     # Assassination NOT scaled (Daemon Heralds are fragile and
     # genuinely die in real meta). Cited as
     # `simulator.secondary_daemons_defender_damper`.
-    #
-    # KNIGHTS-DEFENDER-DAMPER - defender-faction-gated VP DAMPER on the
-    # kill-event secondaries when the side being scored against is
-    # Imperial Knights OR Chaos Knights. Mirror of DAEMONS-DIAG-6 pattern
-    # (defender-gated, applied to per-kill VP and per-round cap, composes
-    # multiplicatively with the CUSTODES `mult` variable and DAEMONS
-    # `daemons_def_mult` variable above) but applied to Knight-specific
-    # elite-low-model-count board control, not invuln-stacking. Knights
-    # are the most elite armies in 10e (typical 2000pt lists 3-6 Knight
-    # models) with per-rule leverage cleared by KNIGHTS-INVULN-AUDIT
-    # (commit dfd7c6e, confirmed save selection, damage cap, invuln
-    # values all correct). The residual ~62pt combined gated MAE deficit
-    # (IK -24.11pt + CK -37.78pt) is structural board-control secondary
-    # scoring, not per-rule. Unlike Custodes which is UNDERPENALIZED by
-    # the per-round caps, Knights are OVERPENALIZED (each Knight destruction
-    # is a huge share of the army, and opponent secondary strategy biases
-    # toward kill-event cards when facing Knights). The Daemons-style
-    # damper (0.75x DOWN) applies here for the opposite structural reason.
-    # Assassination IS scaled at 0.75x (matching BiD/NP) — every Knight
-    # model is literally a CHARACTER, unlike Daemon Heralds which are
-    # fragile support units. Cull the Horde IS scaled (no-op for Knights
-    # since single-model units never satisfy the 10+ rule, but consistent
-    # with DAEMONS structure). Cited as `simulator.secondary_knights_defender_damper`.
     if defender_faction == DAEMONS_FACTION_TAG:
         daemons_def_mult = DAEMONS_DEFENDER_KILL_VP_MULTIPLIER
-    elif defender_faction == IMPERIAL_KNIGHTS_FACTION_TAG or defender_faction == CHAOS_KNIGHTS_FACTION_TAG:
-        daemons_def_mult = KNIGHTS_DEFENDER_KILL_VP_MULTIPLIER
     else:
         daemons_def_mult = 1.0
 
