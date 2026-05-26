@@ -778,7 +778,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (no offensive aura in the codex ability; the prior heal_per_round=1 was an
     # unanchored proxy for the Dominus's vehicle-repair flavour). Replaced with
     # fnp=5 matching the verbatim BSData / Wahapedia ability. The ELECTRO-PRIESTS
-    # FNP 4+ branch is not implemented (LeaderAbility has no keyword-conditional
+    # Feel No Pain 4+ branch is not implemented (LeaderAbility has no keyword-conditional
     # fnp field); fnp=5 is the floor for non-ELECTRO-PRIESTS hosts.
     # Full BSData Leader text: Corpuscarii Electro-Priests, Fulgurite Electro-Priests,
     # Kataphron Breachers, Kataphron Destroyers, Skitarii Rangers, Skitarii Vanguard.
@@ -797,13 +797,22 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (Corpuscarii, Fulgurite) retain their entries because they have native feel no
     # pain 5+ from their own BSData infoLinks; the min-merge means the Dominus aura
     # is redundant for them and their presence causes no additional over-application.
+    # ADMECH-DIAG-6 (2026-05-26): APPROXIMATION — Skitarii Rangers and Skitarii
+    # Vanguard also removed from host_keys. The archetype list carries 2x Rangers
+    # and 2x Vanguard alongside one Dominus. The proximity-broadcast model fires
+    # Feel No Pain 5+ on all four units simultaneously, but the real 10e rule grants
+    # it only to the one unit the Dominus is formally attached to. Four concurrent
+    # Feel No Pain 5+ grants on 1-wound Toughness-3 BATTLELINE squads (~33% damage
+    # reduction each) inflated AdMech effective durability well beyond tournament
+    # baseline. With only Electro-Priests remaining (native Feel No Pain 5+ already),
+    # the Dominus aura is a no-op across the full archetype — conservative and
+    # direction-correct. If/when the simulator models formal attachment (one leader
+    # per unit), a single Rangers or Vanguard unit can be re-added.
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus
     # Cited as LeaderAbility.Master of the Machine.
     ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, fnp=5,
                                           host_keys=("adeptus_mechanicus_corpuscarii_electro_priests",
-                                                     "adeptus_mechanicus_fulgurite_electro_priests",
-                                                     "adeptus_mechanicus_skitarii_vanguard",
-                                                     "adeptus_mechanicus_skitarii_rangers"))),
+                                                     "adeptus_mechanicus_fulgurite_electro_priests"))),
     # Death Guard
     # Lord of Contagion: per Wahapedia datasheet
     # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
