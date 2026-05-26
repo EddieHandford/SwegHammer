@@ -19,5 +19,15 @@
     "effect": "Roll 8D6; each 4+ inflicts 1 mortal wound (expected 4 per trigger). Mortal wounds are routed through receive_damage(..., bonus_fnp=victim.profile.fnp) so defender Feel No Pain applies per 10e core rules. SwegHammer fires once per active player's fight pass (the codex 'end of the Fight phase' is per-phase, which in the simulator's per-turn-half model collapses to once per Bloodthirster per round). Target is picked as the highest-melee-DPA living engagement-range enemy as a reasonable approximation of 'the most threatening target in melee'.",
     "scope": "character-only",
     "approximation": true
+  },
+
+  "UnitProfile.stealth_keeper_of_secrets_mesmerising_form": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Keeper-Of-Secrets",
+    "rule_name": "Mesmerising Form",
+    "quoted_text": "Each time an attack targets this model, subtract 1 from the Hit roll.",
+    "trigger": "Whenever an attack targets the Keeper of Secrets",
+    "effect": "Subtract 1 from the Hit roll. Modeled via the UnitProfile.stealth flag, which applies -1 to hit at >12\" range. The Mesmerising Form ability is range-independent; perfect fidelity is deferred pending per-unit custom-defense-ability infrastructure (iter 31-45 phase 2).",
+    "scope": "character-only",
+    "approximation": true
   }
 }

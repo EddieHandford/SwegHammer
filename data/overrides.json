@@ -1017,11 +1017,13 @@
     },
     "chaos_daemons_library_keeper_of_secrets": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Keeper of Secrets has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets"
+      "stealth": true,
+      "notes": "iter22 invuln long-tail sweep: Keeper of Secrets has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets. DAEMONS-DIAG-5 follow-up: Mesmerising Form ability imposes -1 to hit against attacks targeting the model — modeled via stealth flag (range-independent, vs stealth's >12\" range gate; perfect fidelity deferred pending per-unit custom-defense-ability infrastructure)."
     },
     "emperor_s_children_keeper_of_secrets": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Emperor's Children Keeper of Secrets cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Keeper-of-Secrets"
+      "stealth": true,
+      "notes": "iter22 invuln long-tail sweep: Emperor's Children Keeper of Secrets cross-codex has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/emperors-children/#Keeper-of-Secrets. DAEMONS-DIAG-5 follow-up: Mesmerising Form ability imposes -1 to hit against attacks targeting the model — modeled via stealth flag."
     },
     "chaos_daemons_library_lord_of_change": {
       "invuln_save": 4,
