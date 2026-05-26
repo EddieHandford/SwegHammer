@@ -600,7 +600,7 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One
     # https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Keeper-of-Secrets
-    ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit=True,
+    ("Bloodthirster",      LeaderAbility(name="Daemon Lord of Khorne",      aura_range=6.0, plus_one_to_hit_melee_only=True,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
     ("Skarbrand",          LeaderAbility(name="Rage Embodied",              aura_range=6.0, plus_one_attack=1,
                                           host_keys=_KHORNE_DAEMON_HOSTS)),
