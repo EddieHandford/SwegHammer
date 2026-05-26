@@ -3699,51 +3699,41 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # Replaces the iter-0 zero-stratagem state where Votann only fired
     # Command Re-Roll (universal Core). Gates are permissive — Votann lists
     # are typically 8-10 units with Hearthkyn / Hekaton anchors that easily
-    # clear the 80-pt threshold. The Judgement-Token-bearing gate is
-    # collapsed onto "target is heavy/shooty" since the AI doesn't track
-    # per-unit token state at gate time.
+    # clear the 80-pt threshold.
+    #
+    # VOTANN-DIAG-2 (2026-05-26): Warrior Pride, Wrath of the Ancestors,
+    # Glory of the Hearth, Ironkin Sequence, and Void-Armoured Resilience
+    # do not exist in the current 10e codex. Their gate logic is removed.
+    # Replaced with three real Needgaard Oathband stratagems below.
 
-    if name == "Warrior Pride":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-wound
-        # both modes. Fire when the Votann attacker has meaningful melee+
-        # ranged DPA AND target is heavy/expensive — same gate shape as
-        # Avenge the Fallen / Big Krumpin' on the wound-reroll axis.
-        #
-        # SC5-5 fix: real Wahapedia rule REQUIRES target to be a
-        # Judgement-Token-bearing enemy. Without this gate the stratagem
-        # was firing R1 on any heavy target before any token had been
-        # issued — a structural over-modelling of Leagues of Votann.
+    if name == "Huntr's Mark":
+        # ctx: {"attacker": Unit, "target": Unit}. Re-roll hit 1s and wound
+        # 1s (Needgaard Oathband, 1 CP). Fire when the Votann attacker has
+        # meaningful ranged DPA and target is a heavy-class enemy. Lower bar
+        # than the removed fake strats (1.0 DPA threshold) because this is
+        # the only offensive ranged strat remaining in the set.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:
-            return False
-        # Real-rule gate: target must currently bear a Judgement Token.
-        tokens = getattr(army, "judgement_tokens", {}) or {}
-        if tokens.get(target.uid, 0) <= 0:
             return False
         try:
-            cost = float(attacker.profile.points_cost)
+            p = attacker.profile
+            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
         except Exception:
-            return False
-        return cost >= 80.0 and _is_heavy_target(target)
+            ranged_dpa = 0.0
+        return ranged_dpa >= 1.0 and _is_heavy_target(target)
 
-    if name == "Wrath of the Ancestors":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit-
-        # shooting approximation for [LETHAL HITS]. Fire when the Votann
-        # attacker has real ranged DPA AND target is HEAVY-class (same gate
-        # shape as Archaeotech Munitions / Focused Fire).
-        #
-        # SC5-5 fix: real Wahapedia rule REQUIRES target to be a
-        # Judgement-Token-bearing enemy. Mirrors Warrior Pride fix above.
+    if name == "Ancestral Sentence":
+        # ctx: {"attacker": Unit, "target": Unit}. Sustained Hits 1 on a
+        # Votann ranged unit (Needgaard Oathband, 1 CP). Fire when the
+        # attacker has real ranged DPA and target is heavy-class. 1 CP is
+        # cheaper than the removed fake 2 CP token-issue version; gate
+        # accordingly.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         attacker = ctx.get("attacker")
         target = ctx.get("target")
         if attacker is None or target is None:
-            return False
-        # Real-rule gate: target must currently bear a Judgement Token.
-        tokens = getattr(army, "judgement_tokens", {}) or {}
-        if tokens.get(target.uid, 0) <= 0:
             return False
         try:
             p = attacker.profile
@@ -3752,59 +3742,12 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             ranged_dpa = 0.0
         return ranged_dpa >= 1.5 and _is_heavy_target(target)
 
-    if name == "Glory of the Hearth":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive hit-reroll on
-        # a Votann VEHICLE — only Hekaton / Sagitaur / Brokhyr Thunderkyn
-        # clear this. Fire on a heavy target to maximise value (vehicles
-        # are typically anti-tank shooters).
-        attacker = ctx.get("attacker")
-        target = ctx.get("target")
-        if attacker is None or target is None:
-            return False
-        try:
-            cost = float(attacker.profile.points_cost)
-        except Exception:
-            return False
-        return cost >= 100.0 and _is_heavy_target(target)
-
-    if name == "Ironkin Sequence":
-        # ctx: {"attacker": Unit, "target": Unit}. Offensive +1-to-hit on
-        # an IRONKIN unit (Hearthkyn etc.). Fire when the unit has real
-        # ranged DPA — cheap at 1 CP, no need for heavy-target gate.
-        # ST-3: don't fire when the attacker is already on 2+ to hit
-        # (hit_probability >= 5/6 = 0.83) — the +1 can't lift the roll
-        # any further so it's wasted CP. Votann over-performs by +23.5.
-        attacker = ctx.get("attacker")
-        if attacker is None:
-            return False
-        try:
-            p = attacker.profile
-            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
-            hit_prob = p.hit_probability or 0.0
-        except Exception:
-            return False
-        if hit_prob >= 0.83:
-            return False
-        return ranged_dpa >= 1.0
-
-    if name == "Ancestral Sentence":
-        # ctx: {"target": Unit}. Issue a Judgement Token at 2 CP — gate on
-        # target being heavy/expensive so the subsequent re-roll buffs land
-        # on a worthwhile victim. 2 CP is the most expensive Oathband
-        # stratagem; require a real heavy target.
-        target = ctx.get("target")
-        if target is None:
-            return False
-        try:
-            cost = float(target.profile.points_cost)
-        except Exception:
-            return False
-        return cost >= 100.0 and _is_heavy_target(target)
-
-    if name == "Void-Armoured Resilience":
-        # ctx: {"target": Unit}. Defensive FNP-5. Fire on a wounded high-
-        # value Votann unit — same gate shape as Lightning-Fast Reactions /
-        # Arcane Genetic Alchemy.
+    if name == "Void Hardened":
+        # ctx: {"target": Unit}. Defensive no-op (Needgaard Oathband, 1 CP).
+        # The simulator cannot model incoming-AP worsening. Register a spend
+        # only when the target is a high-value Votann unit under moderate
+        # pressure — don't waste command points on undamaged units.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
         target = ctx.get("target")
         if target is None:
             return False
@@ -3813,7 +3756,7 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
             cost = float(target.profile.points_cost)
         except Exception:
             return False
-        return hp_frac > 0.2 and cost >= 80.0
+        return hp_frac > 0.3 and cost >= 80.0
 
     # ----- Gladius Task Force (Adeptus Astartes) — six real strats (iter-12)
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force

@@ -1247,18 +1247,16 @@ OATHBAND = Detachment(
     name="Oathband",
     faction="Leagues of Votann",
     notes=(
-        "Voidsmen Oaths: previously approximated as army-wide re-roll hit 1s "
-        "because the real Eye of the Ancestors / Judgement Tokens rule was "
-        "not modelled. Removed once `simulator.judgement_tokens` (Battle's "
-        "per-army token store + Unit.attack re-roll buffs at 1+ / 3+ "
-        "thresholds) landed — keeping the blanket re-roll on top of the real "
-        "mechanic would double-stack the buff. Six real Oathband detachment "
-        "stratagems wired (iter-9 fix, Wahapedia: Warrior Pride, Wrath of "
-        "the Ancestors, Glory of the Hearth, Ironkin Sequence, Ancestral "
-        "Sentence, Void-Armoured Resilience). Replaces the iter-0 zero-"
-        "stratagem state where Votann fired Core only. iter-8 anti-DG "
-        "audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2) identified "
-        "this set as the top fix for Votann-vs-DG (~+8pt over real meta)."
+        "VOTANN-DIAG-2 (2026-05-26): the previous six stratagems (Warrior "
+        "Pride, Wrath of the Ancestors, Glory of the Hearth, Ironkin "
+        "Sequence, Ancestral Sentence at 2CP, Void-Armoured Resilience) "
+        "were confirmed absent from the current 10e codex via Wahapedia. "
+        "They were fabricated or sourced from a prior edition and were "
+        "contributing to Leagues of Votann +6.48pt over-performance. "
+        "Replaced with three real Needgaard Oathband stratagems: Huntr's "
+        "Mark (reroll hit/wound 1s), Ancestral Sentence (Sustained Hits 1), "
+        "and Void Hardened (defensive AP worsening no-op). See "
+        "data/rule_citations.d/stratagems.json for Wahapedia citations."
     ),
     stratagems=OATHBAND_STRATAGEMS,
     preferred_composition="balanced",

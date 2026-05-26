@@ -420,59 +420,13 @@
     "scope": "phase-gated",
     "approximation": true
   },
-  "Stratagem.Warrior Pride": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Warrior Pride (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on one LEAGUES OF VOTANN unit attacking an enemy unit that has one or more Judgement Tokens. Effect: until the end of the phase, models in your unit re-roll Wound rolls when targeting that Judgement-Token-bearing enemy unit.",
-    "trigger": "any phase, on a friendly Leagues of Votann unit attacking a Judgement-Token-bearing enemy",
-    "effect": "ST-1: now routes through `transient_reroll_wounds` (full failed-wound re-roll for the round; applies to both melee and shooting via the att_reroll_all_wounds path) on the highest-DPA Votann unit. Previously proxied through transient_plus_one_to_wound_{melee,shooting}, which was strictly stronger (+1 to wound averages ~25% extra wounds at threshold flip vs ~17% for reroll-wounds). SC5-5 fix: the Judgement-Token-bearing gate is ENFORCED at strategy time (`tokens.get(target.uid, 0) > 0`), not collapsed onto highest-threat. Name + CP cost (1) per iter-8 anti-DG audit (docs/AUTO_LOOP_ITER8_ANTI_DG_AUDIT.md fix #2).",
-    "scope": "phase-gated",
-    "approximation": true
-  },
-  "Stratagem.Wrath of the Ancestors": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Wrath of the Ancestors (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN unit selected to shoot. Effect: until the end of the phase, your unit's ranged weapons gain the [LETHAL HITS] ability for attacks targeting Judgement-Token-bearing enemy units.",
-    "trigger": "your Shooting phase, on a friendly Votann unit shooting a Judgement-Token-bearing enemy",
-    "effect": "ST-1: routes through `transient_lethal_hits` (the proper keyword grant — composes into `effective_lethal_hits` at the crit-to-hit branch in Unit.attack) on the highest-DPA Votann shooter. Previously proxied through `transient_plus_one_to_hit_shooting`, which over-modelled the buff (+1-to-hit lifts every die above the previous fail threshold vs [LETHAL HITS] firing only on natural 6s). SC5-5 fix: the Judgement-Token gate is ENFORCED (`tokens.get(target.uid, 0) > 0`), matching Warrior Pride. Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": true
-  },
-  "Stratagem.Glory of the Hearth": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Glory of the Hearth (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN VEHICLE unit selected to shoot. Effect: until the end of the phase, that unit re-rolls Hit rolls AND re-rolls Wound rolls when shooting.",
-    "trigger": "your Shooting phase, on a friendly Votann VEHICLE selected to shoot",
-    "effect": "(APPROXIMATION) SwegHammer routes the offensive value through `transient_reroll_hits_shooting` on the highest-DPA Votann VEHICLE — the wound-reroll leg is dropped (no transient wound-reroll flag). Strictly weaker than the codex (~half the value), direction-correct. Falls back to skip-the-spend if no Votann VEHICLE is in the army list (e.g. Hearthkyn-mono builds). Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": true
-  },
-  "Stratagem.Ironkin Sequence": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Ironkin Sequence (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: your Shooting phase, on a LEAGUES OF VOTANN IRONKIN unit selected to shoot. Effect: until the end of the phase, add 1 to the Hit rolls of attacks made by models in that unit.",
-    "trigger": "your Shooting phase, on a friendly Votann IRONKIN unit selected to shoot",
-    "effect": "Maps DIRECTLY onto `transient_plus_one_to_hit_shooting` on the highest-DPA IRONKIN unit — clean mapping, no approximation gap. Falls back to any Votann unit if no IRONKIN-keyword unit is in the list (Hearthkyn lists ARE IRONKIN, so the fallback rarely triggers). Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": false
-  },
   "Stratagem.Ancestral Sentence": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Ancestral Sentence (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Strategic Ploy, 2 CP. When: the start of any phase. Effect: select one enemy unit (other than a CHARACTER) within 18\" of your WARLORD and visible to it. That unit is issued one Judgement Token.",
-    "trigger": "start of any phase, on the friendly Votann Warlord",
-    "effect": "Maps DIRECTLY onto the existing `Army.judgement_tokens[uid]` dict — increments the token count on the highest-threat enemy unit so subsequent Votann attacks fire the existing `simulator.judgement_tokens` 1+/3+ re-roll thresholds via `_maybe_award_judgement_token`'s downstream consumers. Clean mapping, no approximation gap. Gated on `army.is_votann_army` so a non-Votann list carrying Oathband by accident skips the spend. The 18\" + line-of-sight gate from the Warlord is dropped (SwegHammer's `_highest_threat_enemy` doesn't filter on range). Name + CP cost (2) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": false
-  },
-  "Stratagem.Void-Armoured Resilience": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Void-Armoured Resilience (Oathband Stratagem)",
-    "quoted_text": "(Paraphrase from Wahapedia / Goonhammer review — WebFetch tool returned ECONNREFUSED at edit time on wahapedia.ru; source URL is the canonical reference.) Battle Tactic, 1 CP. When: any phase, on a LEAGUES OF VOTANN unit. Effect: until the end of the phase, models in that unit have a Feel No Pain 5+.",
-    "trigger": "any phase, on a friendly Leagues of Votann unit",
-    "effect": "Maps DIRECTLY onto `transient_fnp_5` on the most vulnerable Votann unit — clean mapping, no approximation gap. Real codex effect is per-phase rather than per-round; SwegHammer's round-scoped transient flag is functionally equivalent for the typical case (one defensive trigger per round). Name + CP cost (1) per iter-8 anti-DG audit.",
-    "scope": "phase-gated",
-    "approximation": false
+    "rule_name": "Ancestral Sentence (Needgaard Oathband Stratagem)",
+    "quoted_text": "Until the end of the phase, ranged weapons equipped by models in your unit have the [SUSTAINED HITS 1] ability. If you spent YP during this use of this Stratagem, until the end of the phase, those weapons have the [SUSTAINED HITS 2] ability instead.",
+    "trigger": "Votann unit selected to shoot",
+    "effect": "Ranged weapons gain [SUSTAINED HITS 1] (or [SUSTAINED HITS 2] if YP spent)",
+    "scope": "unit-led"
   },
   "Stratagem.Storm of Fire": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/#Gladius-Task-Force",
@@ -617,5 +571,21 @@
     "effect": "(APPROXIMATION — proxy explicitly tagged) Collapsed to a permanent +1-to-wound-melee snowball stamped on the CHARACTER (eye_of_the_gods_stamped flag) on the first qualifying melee kill. The D6+Wounds table roll and the choice between +M / +T / +A/+S / +D-melee are dropped — a single direction-correct melee uplift stands in for the whole table. Stacks at the wound-mod delta level with transient_plus_one_to_wound_melee (Profane Zeal) before the 10e ±1 modifier cap clamps. Fires reactively at the melee kill site (Battle._do_fight), not via the round-start dispatcher, because the trigger requires an actual melee kill. CSM-EYE-OF-GODS of sim-calibration-6 (CSM was -7.08 pts under-perf per CSM-DIAG-2). 1 CP.",
     "scope": "character-only",
     "approximation": true
+  },
+  "Stratagem.Huntr's Mark": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Huntr's Mark (Needgaard Oathband Stratagem)",
+    "quoted_text": "Re-roll Hit and Wound rolls of 1 for a selected LEAGUES OF VOTANN unit.",
+    "trigger": "Votann unit selected to shoot or fight",
+    "effect": "Re-roll hit rolls of 1 and wound rolls of 1",
+    "scope": "unit-led"
+  },
+  "Stratagem.Void Hardened": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
+    "rule_name": "Void Hardened (Needgaard Oathband Stratagem)",
+    "quoted_text": "Worsen the Armour Penetration characteristic of that attack by 1.",
+    "trigger": "Friendly LEAGUES OF VOTANN unit targeted by ranged attack",
+    "effect": "Worsen Armour Penetration of incoming attacks by 1 (defensive)",
+    "scope": "unit-led"
   }
 }
