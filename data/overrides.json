@@ -412,6 +412,7 @@
       "notes": "Screamers: 4++ invulnerable save (Tzeentch Daemon). BSData does not encode the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Screamers.html (Save 6+ / Invulnerable Save 4+ / T4 / W3)."
     },
     "thousand_sons_magnus_the_red": {
+      "invuln_save": 4,
       "weapon_damage_per_shot": 2,
       "notes": "STAT-AUDIT (sim-cal-6): BSData parsed.json had Magnus ranged A6 D3 AP-2 â€” D3 does not match any of Magnus's three ranged profiles. Tzeentchian Pyre: D6 S9 AP-2 D2; Tzeentch's Firestorm: 2D6 S6 AP-2 D2 [Devastating Wounds]. Restoring D2 to match the dominant Tzeentchian Pyre and Firestorm damage value. attacks=6 left untouched (Pyre D6 averaged to 3.5 plus Firestorm 2D6 averaged to 7 means a blended 6 is defensible). Melee Blade of Magnus (S16 AP-4 D6 Devastating) lives in the melee basket and is untouched. Source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Magnus-The-Red"
     },
