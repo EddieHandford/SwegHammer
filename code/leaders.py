@@ -687,10 +687,23 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                                      "adeptus_custodes_custodian_wardens"))),
     # Adeptus Mechanicus
     # Belisarius Cawl — entry must precede the generic Tech-Priest match so
-    # the longer name wins the substring lookup. "Master of the Forge" once-
-    # per-battle CP bonus + a baseline reroll-1s offensive aura (codex grants
-    # full hit re-rolls on Cawl's unit; reroll-1s is the loose proxy).
-    ("Belisarius Cawl",    LeaderAbility(name="Master of the Forge",        aura_range=6.0, reroll_hit_ones=True,
+    # the longer name wins the substring lookup. SUPREME COMMANDER (must be
+    # Warlord). Real ability: "Canticles of the Omnissiah" — pick ONE aura per
+    # Command phase: (a) Invocation of Machine Vengeance: select ONE enemy unit
+    # as Machine Vengeance target, re-roll Hit rolls for friendly AdMech attacks
+    # against THAT unit only; (b) Mantra of Discipline: +1 OC + battle-shock
+    # bonus; (c) Shroudpsalm: Stealth aura. The offensive Invocation is target-
+    # restricted to ONE designated enemy unit per round — the simulator has no
+    # per-target designation system, so wiring it as an unconditional aura on
+    # host_keys units would over-apply (firing against ALL targets, not one).
+    # ADMECH-DIAG-5 (2026-05-26): dropped prior reroll_hit_ones=True proxy.
+    # The prior citation incorrectly described Cawl's ability as only a CP gain,
+    # missing the Canticles entirely. Correct BSData text: see
+    # data/rule_citations.d/cp_discount_hq.json#LeaderAbility.Master of the Forge.
+    # cp_refund_per_battle=1 models the Warlord-gated once-per-battle CP gain
+    # (also part of Cawl's datasheet, separate from Canticles). Registry entry
+    # retained so lookup_ability resolves cleanly per CLAUDE.md §13.
+    ("Belisarius Cawl",    LeaderAbility(name="Master of the Forge",        aura_range=6.0,
                                           cp_refund_per_battle=1,
                                           host_keys=("adeptus_mechanicus_skitarii_vanguard",
                                                      "adeptus_mechanicus_skitarii_rangers"))),
