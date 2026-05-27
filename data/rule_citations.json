@@ -167,5 +167,13 @@
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#MAKING-ATTACKS",
     "trigger": "AI threat-score heuristic in `code/strategy.py._durability` â€” paired compensation for the iter26-S1 FNP re-land. After folding FNP into durability, opponent AI correctly diverted fire from FNP-bearing defenders to no-FNP horde armies (Orks regressed +5.7 -> +10.1 at N=20). Real play: a 10-model Boyz squad still threatens return fire after losing 4 models, because the defender allocates wounds per attack and the unit only ceases to be a threat when fully wiped. Modelling: multiply effective durability by (1.0 + max(0, sibling_count - 1) * 0.05) where sibling_count is alive same-name models in the defender's army."
+  },
+  "simulator.primary_vp_no_round_1": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-tournament-companion/#Primary-Objectives",
+    "rule_name": "Primary Objectives - Scoring Timing",
+    "quoted_text": "At the end of the Command phase, each player scores Victory Points for the primary objectives they control. Note that the Command phase in the first battle round does not score primary Victory Points.",
+    "trigger": "end of Command phase, rounds 2-5 only (not round 1)",
+    "effect": "Primary VP scored only from battle round 2 onward; round 1 scores 0 primary VP",
+    "scope": "army-wide"
   }
 }

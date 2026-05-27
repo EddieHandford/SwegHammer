@@ -506,7 +506,12 @@ class Battle:
             rounds_played = rnd
             self._emit(RoundStarted(round_num=rnd))
             self._run_round(rnd)
-            self._score_objectives()
+            # 10e: Primary VP first scores at end of Command phase 2.
+            # Rounds 2-5 score (4 opportunities × 15 VP = 60 VP max before
+            # any total cap). Round 1 is purely movement / alpha-strike.
+            # Cited as `simulator.primary_vp_no_round_1`.
+            if rnd >= 2:
+                self._score_objectives()
             self._score_secondaries(rnd)
             self._emit(RoundEnded(
                 round_num=rnd,
