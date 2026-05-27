@@ -1676,7 +1676,7 @@
       },
       "notes": "AK-2: Skyweavers' Haywire Cannon carries [ANTI-VEHICLE 4+] and Devastating Wounds (BSData 'Aeldari - Aeldari Library.cat.gz' profile name='Skyweaver Haywire Cannon' typeName='Ranged Weapons' Keywords='Anti-Vehicle 4+, Devastating Wounds'). The mapper drops it because the alternate Shuriken Cannon loadout dilutes the basket. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Skyweavers"
     },
-    "aeldari_drukhari_scourges": {
+    "aeldari_drukhari_scourges_with_heavy_weapons": {
       "anti_keywords": {
         "VEHICLE": 4
       },

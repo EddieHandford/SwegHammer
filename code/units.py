@@ -575,10 +575,13 @@ class UnitProfile:
             return float(self.points_override)
         if self.points_per_squad > 0 and self.min_models > 0:
             return max(1.0, self.points_per_squad / self.min_models)
-        return points_for(
+        # Clamp the Lanchester fallback to 1.0 like the GW branch above. A
+        # zero-cost profile would be eternally affordable in
+        # build_random_army's affordability loop, leaking memory until OOM.
+        return max(1.0, points_for(
             self.health, self.damage, self.hit_probability,
             self.ap, self.save, self.strength, self.toughness,
-        )
+        ))
 
     @property
     def score(self) -> float:

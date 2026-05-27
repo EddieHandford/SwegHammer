@@ -348,7 +348,23 @@ def _load_calibrated_overrides() -> Dict[str, Dict]:
 def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> CatalogEntry:
     """Apply an override dict to a base entry, or create a new entry from scratch."""
     if base is None:
-        # Fresh entry from overrides only — fields must be present
+        # An override with no BSData base is only legitimate when it carries
+        # the core stat fields needed to describe a unit from scratch. A
+        # partial override (e.g. anti_keywords-only) on a key that doesn't
+        # match any BSData entry is a typo'd key — silently fabricating a
+        # zero-stat ghost entry caused a 14 GB pytest leak via build_random_army
+        # (the zero-cost ghost was eternally affordable). Fail loud per
+        # CLAUDE.md rule 13.
+        required = ("name", "health", "damage")
+        missing = [f for f in required if f not in override]
+        if missing:
+            raise KeyError(
+                f"data/overrides.json key {key!r} has no matching entry in "
+                f"data/bsdata/parsed.json and the override is partial "
+                f"(missing required fields: {missing}; got: {sorted(override)}). "
+                f"Either fix the typo so it matches a BSData key, or fill in "
+                f"the missing fields to create a fresh unit from scratch."
+            )
         return CatalogEntry.from_dict({"key": key, **override})
 
     merged = {
