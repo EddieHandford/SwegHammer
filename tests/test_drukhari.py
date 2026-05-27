@@ -1,22 +1,28 @@
 """Tests for the Drukhari army rule Power From Pain (#118).
 
-Power From Pain (10e Drukhari army rule, Wahapedia):
-    "At the start of each Command phase, each Drukhari unit from your
-     army that is below its Starting Strength gains 1 Pain Token. Each
-     unit can hold a maximum of 1 Pain Token. While a Drukhari unit
-     from your army has a Pain Token, models in that unit have the
-     [LETHAL HITS] keyword and a Feel No Pain 6+ ability."
+Power From Pain (10e Drukhari codex, current Wahapedia text):
+    Pain abilities only apply to a unit while it is Empowered. The
+    Drukhari player gains Pain tokens (1 at start of own Command phase;
+    1 per enemy unit destroyed; 1 per enemy unit failing a Battle-shock
+    test) into an army-wide pool, and SPENDS them at the per-datasheet
+    Pain-ability trigger to Empower a unit until the end of the phase.
+    The rule does NOT grant a passive Lethal Hits or Feel No Pain from
+    holding a token — that was an older index version. Per-datasheet
+    Pain abilities are not catalogued in SwegHammer, so the spend half
+    of the rule has no in-sim effect yet.
 
-Implementation:
+Implementation (post DRK-PAIN-TOKENS):
     * `Unit.pain_tokens` — per-instance state on the live Unit (NOT the
-      immutable UnitProfile). Default 0.
+      immutable UnitProfile). Default 0. The accrual machinery is
+      preserved as inert state so future per-datasheet Pain abilities
+      have a hook; no Unit.attack or Unit.receive_damage branch reads
+      it for any combat effect.
     * Token award: Battle._run_round, after the WAAAGH! block. Faction
       gate on profile.faction == "Drukhari"; below-starting-strength
-      maps to current_health < profile.health; cap at 1.
-    * Lethal Hits buff: `Unit.attack` uses `effective_lethal_hits =
-      p.lethal_hits or (pain_tokens > 0 and faction == 'Drukhari')`.
-    * FNP 6+ buff: `Unit.receive_damage` lowers `effective_fnp` to
-      min(effective_fnp, 6) when the defender holds a Pain Token.
+      gate (multi-model unit AND has lost at least one whole model's
+      worth of wounds); cap at 1. (Narrower than the full codex accrual
+      list, kept because no downstream consumer reads the count yet
+      and additional accruals would be dead state.)
 
 Cited as `simulator.power_from_pain`.
 """
@@ -171,14 +177,20 @@ class PainTokenAwardTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Token effects: Lethal Hits + FNP 6+ buffs fire while pain_tokens > 0
+# Token effects: post-DRK-PAIN-TOKENS, holding a token grants NO passive
+# combat buff. Per current Wahapedia (the codex update), the buff side of
+# Power From Pain is per-datasheet Pain abilities activated by SPENDING
+# tokens to Empower a unit. SwegHammer has not catalogued any per-datasheet
+# Pain abilities, so token state is inert in combat. These tests pin the
+# inertness so a future regression that resurrects the passive-buff branch
+# (and re-introduces the +33pt Drukhari overshoot from wave 42) is caught.
 # ---------------------------------------------------------------------------
 
 class PainTokenEffectsTests(unittest.TestCase):
-    """Run head-to-head attack volleys with and without a Pain Token and
-    verify the buffed side does more damage (LETHAL HITS) and takes less
-    damage (FNP 6+). Uses deterministic random seeds so the difference is
-    measurable, not statistical luck."""
+    """Hold a Pain Token on a Drukhari attacker / defender and verify
+    Unit.attack and Unit.receive_damage produce IDENTICAL distributions
+    with and without the token — i.e. the legacy passive Lethal Hits and
+    FNP 6+ buffs have been removed and tokens have no combat effect."""
 
     def _wire_battle_round(self, attacker, defender, round_num: int = 1):
         """Minimal Battle shim — Unit.attack hits army_ref._battle_ref on
@@ -193,18 +205,19 @@ class PainTokenEffectsTests(unittest.TestCase):
         defender.army_ref._battle_ref = fb
         return fb
 
-    def test_pain_token_grants_lethal_hits(self):
-        """A Drukhari attacker with pain_tokens=1 auto-wounds on a crit-hit;
-        without the token, the same crit still has to roll to wound. Across
-        many attacks against a T8 / 3+ target (where wound rolls would
-        usually fail), Lethal Hits must produce strictly more damage."""
+    def test_pain_token_does_not_grant_lethal_hits(self):
+        """A Drukhari attacker with pain_tokens=1 must produce IDENTICAL
+        damage output to the same attacker with pain_tokens=0 against a
+        T8 target where Lethal Hits would otherwise show a large delta.
+        Pinned to catch any regression that resurrects the old passive-
+        buff branch (DRK-PAIN-TOKENS, wave 43)."""
         def _trial(with_token: bool, seed: int) -> float:
             random.seed(seed)
             kabal = Army("Kabal")
             kabal.add_unit(_drukhari_warrior())
-            # Make the wound roll hard: T8 vs S4 = wound on 6+. Crit-to-hit
-            # without Lethal Hits still has to roll a 6 to wound; with
-            # Lethal Hits, crit-to-hit auto-wounds. Big delta.
+            # T8 vs S4 = wound on 6+. If passive Lethal Hits were still
+            # firing, crit-to-hit (~1/6) would auto-wound instead of having
+            # to roll a 6, producing a large gap. We assert NO gap.
             tough_profile = UnitProfile(
                 name="Tough Target",
                 health=200, damage=1, hit_probability=2 / 3,
@@ -229,23 +242,18 @@ class PainTokenEffectsTests(unittest.TestCase):
 
         with_token = _trial(with_token=True, seed=42)
         without_token = _trial(with_token=False, seed=42)
-        # Crit-to-hit rate is ~1/6 of attacks. With S4 vs T8 the regular
-        # wound-on-6 success is 1/6; Lethal Hits converts every crit-hit
-        # to an auto-wound (success goes 1 → 1 vs 1/6, ~6x). Even after
-        # the save it must be strictly higher.
-        self.assertGreater(
+        self.assertEqual(
             with_token, without_token,
-            f"Pain Token (Lethal Hits) should out-damage no-token: "
-            f"with={with_token} without={without_token}",
+            f"Pain Token must NOT alter Unit.attack output (current "
+            f"Wahapedia text grants no passive Lethal Hits from holding "
+            f"a token): with={with_token} without={without_token}",
         )
 
-    def test_pain_token_grants_fnp_6(self):
-        """A Drukhari defender with pain_tokens=1 absorbs ~1/6 of incoming
-        damage via FNP 6+. We track the defender's `current_health` rather
-        than `attack`'s returned `total_damage` — FNP saves fire inside
-        `receive_damage` and reduce the defender's HP loss, but the return
-        value is the pre-FNP damage tally. Across many shots the
-        FNP-token defender should have strictly more HP remaining."""
+    def test_pain_token_does_not_grant_fnp_6(self):
+        """A Drukhari defender with pain_tokens=1 must take IDENTICAL HP
+        loss to the same defender with pain_tokens=0. Pinned to catch any
+        regression that resurrects the old passive FNP 6+ branch
+        (DRK-PAIN-TOKENS, wave 43)."""
         def _trial(defender_has_token: bool, seed: int) -> float:
             random.seed(seed)
             marines = Army("Marines")
@@ -265,17 +273,15 @@ class PainTokenEffectsTests(unittest.TestCase):
             self._wire_battle_round(attacker, defender)
             for _ in range(2000):
                 attacker.attack(defender, distance=6.0, mode="ranged")
-            # Return HP lost — lower = better FNP performance.
             return defender.profile.health - defender.current_health
 
         with_token = _trial(defender_has_token=True, seed=99)
         without_token = _trial(defender_has_token=False, seed=99)
-        # FNP 6+ ignores ~1/6 of damage. With 2000 shots, the HP-loss gap is
-        # large enough that any reasonable seed shows the FNP benefit.
-        self.assertLess(
+        self.assertEqual(
             with_token, without_token,
-            f"Pain Token (FNP 6+) should reduce HP lost: "
-            f"with={with_token} without={without_token}",
+            f"Pain Token must NOT alter Unit.receive_damage output "
+            f"(current Wahapedia text grants no passive FNP 6+ from "
+            f"holding a token): with={with_token} without={without_token}",
         )
 
 

@@ -972,13 +972,18 @@ class Unit:
         # above. Removed in iter 15.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/death-guard/
         # Goonhammer: https://www.goonhammer.com/hammer-of-math-new-disgustingly-resilient/
-        # Drukhari Power From Pain: while the defender holds a Pain Token,
-        # treat the unit as having FNP 6+ (lowest "active" target = best
-        # roll). Composes with any pre-existing FNP profile / leader aura
-        # by taking the lower (better) value. Faction-gated to avoid ever
-        # lighting up on a non-Drukhari unit that somehow carries a token.
-        if self.pain_tokens > 0 and self.profile.faction == "Drukhari":
-            effective_fnp = min(effective_fnp, 6)
+        # Drukhari Power From Pain (10e codex, current Wahapedia text): the
+        # army rule does NOT grant a passive FNP from holding a Pain Token.
+        # Tokens accrue into a pool and can be SPENT to Empower a unit,
+        # whereupon that unit's per-datasheet "Pain ability" takes effect
+        # until the end of the phase. Per-datasheet Pain abilities are not
+        # catalogued in SwegHammer yet, so no token-driven defensive buff
+        # fires here. The previous unconditional `min(effective_fnp, 6)`
+        # branch was a fabrication that overbuffed every multi-model
+        # Drukhari unit that had lost one model — it gave army-wide free
+        # FNP 6+ that has no basis in the current Wahapedia rule. Removed
+        # in DRK-PAIN-TOKENS. Wahapedia:
+        # https://wahapedia.ru/wh40k10ed/factions/drukhari/
         if effective_fnp < 7 and amount > 0:
             survived = 0
             for _ in range(int(round(amount))):
@@ -2310,13 +2315,20 @@ class Unit:
             if getattr(self, "transient_reroll_wounds_ones", False):
                 att_reroll_wound_ones = True
 
-            # Drukhari Power From Pain (army rule). While the attacker holds a
-            # Pain Token, treat every attack from this unit as having Lethal
-            # Hits for the duration of this resolution. Faction-gated to avoid
-            # ever lighting up if another codex has a same-named field someday.
-            effective_lethal_hits = p.lethal_hits or (
-                self.pain_tokens > 0 and p.faction == "Drukhari"
-            )
+            # Drukhari Power From Pain (10e codex, current Wahapedia text):
+            # the army rule does NOT grant passive LETHAL HITS from holding a
+            # Pain Token. Tokens accrue into a pool and can be SPENT to
+            # Empower a unit, whereupon that unit's per-datasheet "Pain
+            # ability" takes effect until the end of the phase. Per-datasheet
+            # Pain abilities are not catalogued in SwegHammer yet, so no
+            # token-driven offensive buff fires here. The previous unconditional
+            # `p.lethal_hits or (self.pain_tokens > 0 and faction == 'Drukhari')`
+            # branch was a fabrication that gave army-wide free LETHAL HITS
+            # to every multi-model Drukhari unit that had lost one model. This
+            # was the largest non-structural driver of Drukhari's +33pt sim-vs-
+            # meta overshoot in wave 42 (DRK-PAIN-TOKENS). Wahapedia:
+            # https://wahapedia.ru/wh40k10ed/factions/drukhari/
+            effective_lethal_hits = p.lethal_hits
             # ST-1: per-round transient LETHAL HITS grant from stratagems that
             # actually cite [LETHAL HITS] (Wrath of the Ancestors, Power Of The
             # WAAAGH!, Archaeotech Munitions). Composes via OR with profile and
