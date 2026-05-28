@@ -1300,6 +1300,48 @@ def _instantiate_template(
     seed_fraction = SEED_FRACTION_BY_FACTION.get(faction or "", SEED_FRACTION)
     seed_budget = points_budget * seed_fraction
 
+    # DAEMONS-FIX-1 — Chaos Daemons mono-god Greater Daemon anchor.
+    # The four Chaos Daemons mono-god sub-archetypes (Khorne Murderhost,
+    # Tzeentch Manifestation, Nurgle Pestilence, Slaanesh Excess) each
+    # name a single Greater Daemon as their centerpiece:
+    #   chaos_daemons_library_bloodthirster        (Khorne)
+    #   chaos_daemons_library_lord_of_change       (Tzeentch)
+    #   chaos_daemons_library_great_unclean_one    (Nurgle)
+    #   chaos_daemons_library_keeper_of_secrets    (Slaanesh)
+    # These four cost ~305pt each, do not carry the EPIC HERO keyword in
+    # BSData v10.6.0, and lose the (-count, -cost) walk below to the
+    # multi-copy Bloodletters / Pink Horrors / Plaguebearers / Daemonettes
+    # battleline entries (count=3) that exhaust seed_budget first. The
+    # DAEMONS-DIAG-10 audit (docs/DAEMONS_DIAG_10_findings.md) measured 80
+    # builds: Bloodthirster 1%, Lord of Change 0%, Keeper of Secrets 0%,
+    # Great Unclean One 5% — the mono-god army's anchor was almost never
+    # actually seeded.
+    #
+    # Real 10e Chaos Daemons mono-god lists are built around their Greater
+    # Daemon (Wahapedia codex restriction: 1 per army for each named
+    # Greater Daemon datasheet). Force-include it BEFORE the walking pass,
+    # reserving its cost from `running` so the rest of the seed walk
+    # accounts for it. Overflow is allowed (mirrors the EPIC HERO anchor's
+    # 1.5x rule below) — the Greater Daemon is the archetype's flagship
+    # and seeding it is more important than staying under seed_budget.
+    _MONO_GOD_GREATER_DAEMONS = (
+        "chaos_daemons_library_bloodthirster",
+        "chaos_daemons_library_lord_of_change",
+        "chaos_daemons_library_great_unclean_one",
+        "chaos_daemons_library_keeper_of_secrets",
+    )
+
+    scaled: Dict[str, int] = {}
+    running = 0.0
+
+    mono_god_anchor = next(
+        (k for k in _MONO_GOD_GREATER_DAEMONS if k in template),
+        None,
+    )
+    if mono_god_anchor is not None and mono_god_anchor in UNIT_CATALOG:
+        scaled[mono_god_anchor] = 1
+        running += _squad_cost(mono_god_anchor)
+
     # Walk the template in (-template_count, -squad_cost) order so that
     # archetype-defining units land first:
     #   * Multi-copy entries (e.g. Rubric Marines @ count=2) outrank
@@ -1320,10 +1362,10 @@ def _instantiate_template(
     def sort_key(key: str):
         return (-template.get(key, 0), -_squad_cost(key))
 
-    scaled: Dict[str, int] = {}
-    running = 0.0
-
     for key in sorted(template, key=sort_key):
+        if key in scaled:
+            # Already seeded by the mono-god anchor pre-pass.
+            continue
         cost = _squad_cost(key)
         if running + cost <= seed_budget:
             scaled[key] = 1
