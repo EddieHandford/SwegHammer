@@ -107,6 +107,14 @@ def _load_noise_floor() -> Dict[str, float]:
     return {fac: data["factions"][fac]["noise_floor"] for fac in FACTIONS}
 NOISE_FLOOR: Dict[str, float] = _load_noise_floor()
 
+
+def _load_tournament_games() -> Dict[str, int]:
+    rolling_path = Path(__file__).resolve().parent.parent / "data" / "warpfriends_rolling.json"
+    with open(rolling_path) as f:
+        data = json.load(f)
+    return {fac: int(data["factions"][fac]["total_games"]) for fac in FACTIONS}
+TOURNAMENT_GAMES: Dict[str, int] = _load_tournament_games()
+
 APPROX_FACTIONS: set = set()  # all factions now have real Warp Friends May 2026 data
 
 # FX_ALL_FACTIONS — the 12 extended-coverage factions added after the initial
