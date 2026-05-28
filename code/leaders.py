@@ -904,7 +904,25 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
                                           host_keys=("genestealer_cults_neophyte_hybrids",
                                                      "genestealer_cults_acolyte_hybrids_with_autopistols"))),
     # Leagues of Votann
-    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, plus_one_to_hit=True,
+    # VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28): downgraded the Kâhl aura from
+    # `plus_one_to_hit=True` to `reroll_hit_ones=True` on the led Hearthkyn
+    # squad. The codex rule is Kindred Hero: weapons in the led unit gain
+    # [LETHAL HITS] (Critical Hits — natural 6s on Hit — auto-wound). The
+    # simulator does not model the LETHAL HITS keyword, so a proxy is
+    # required. The previous `plus_one_to_hit` proxy was a roughly 2× over-
+    # buff: on a BS4+ shooter LETHAL HITS adds ~17% wounds (1/6 of hits
+    # auto-wound vs the baseline 50% wound roll), whereas +1 to Hit adds
+    # ~33% wounds (BS4+ → BS3+ raises hit probability from 0.5 to 0.667).
+    # `reroll_hit_ones` is a closer numerical match (~+17% hits = ~+17%
+    # wounds on a 4+ wound roll) and is strictly weaker than the codex
+    # LETHAL HITS in melee against high-T targets (where 6s already wound
+    # naturally), erring on the under-buff side per the SC5 audit standard.
+    # The Kâhl-led Hearthkyn brick is the spine of the modal Votann list
+    # (see code/archetypes.py "Oathband" template), so this single-leader
+    # change feeds through the most-played unit. Cited as
+    # `LeaderAbility.Warrior-Forged Leadership`.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/K-hl
+    ("Kâhl",               LeaderAbility(name="Warrior-Forged Leadership",  aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("leagues_of_votann_hearthkyn_warriors",))),
 )
 
