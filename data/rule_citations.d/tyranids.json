@@ -4,9 +4,9 @@
   "simulator.synapse_imperative": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/tyranids/",
     "rule_name": "Synapse Imperative",
-    "quoted_text": "While a Tyranids unit is within 6\" of one or more friendly Synapse units, the unit cannot be Battle-shocked.",
+    "quoted_text": "Each time a unit from your army that is within range of this ability takes a Battle-shock test, take that test on 3D6 instead of 2D6.",
     "trigger": "Battle-shock test for a Tyranids unit; any friendly model with the SYNAPSE keyword is within 6\" of that unit",
-    "effect": "(approximation) the unit auto-passes its Battle-shock test (no 2D6 roll). SwegHammer models each squad member as a separate Unit instance, so the canonical 6\" aura is measured from the SYNAPSE Unit's position to the testing unit's position (not model-to-model).",
+    "effect": "the unit rolls 3D6 (sum) instead of 2D6 for its Battle-shock test. Drastically reduces fail rate (~16% vs Ld 8 at 3D6 vs ~58% at 2D6) but is NOT auto-pass — distinct from the pre-September-2024 codex text 'the unit cannot be Battle-shocked' that the simulator previously modelled. TYRANIDS-SYNAPSE-3D6 (wave-44) corrected the over-buff. SwegHammer models each squad member as a separate Unit instance, so the canonical 6\" aura is measured from the SYNAPSE Unit's position to the testing unit's position (not model-to-model).",
     "scope": "keyword-gated"
   },
 

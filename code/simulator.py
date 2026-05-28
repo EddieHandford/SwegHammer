@@ -4691,7 +4691,19 @@ class Battle:
                         and mob_rule_squad_counts.get(u.profile.name, 0) >= 10
                     ):
                         continue
-                    if (
+                    # TYRANIDS-SYNAPSE-3D6 (wave-44): the prior auto-pass
+                    # (`continue` exiting the test entirely) cited pre-
+                    # September-2024 codex text "the unit cannot be
+                    # Battle-shocked". Current Wahapedia Synapse rule
+                    # (https://wahapedia.ru/wh40k10ed/factions/tyranids/) is
+                    # "Each time that unit takes a Battle-shock test, take
+                    # that test on 3D6 instead of 2D6". 0% fail (auto-pass)
+                    # versus ~16% fail (3D6 vs Ld 8) was the largest single
+                    # Tyranid over-buff per the TYRANIDS-SYNAPSE-AUDIT
+                    # findings — amplified by the per-model architecture
+                    # (a 10-model Termagant brick produces 10 separate
+                    # auto-passes).
+                    synapse_3d6 = (
                         u.profile.faction == "Tyranids"
                         and own_synapse
                         and any(
@@ -4699,8 +4711,7 @@ class Battle:
                             for s in own_synapse
                             if s.uid != u.uid
                         )
-                    ):
-                        continue
+                    )
                     shadow_penalty = 0
                     # TYRANIDS-DIAG-5: codex radius is 6", not the prior
                     # always-on 12" aura. Source list is gated to the
@@ -4746,7 +4757,12 @@ class Battle:
                         for s in harbinger_sources
                     ):
                         harbinger_penalty = 1
-                    roll = random.randint(1, 6) + random.randint(1, 6)
+                    if synapse_3d6:
+                        # Tyranid Synapse — 3D6 sum, codex-correct.
+                        roll = (random.randint(1, 6) + random.randint(1, 6)
+                                + random.randint(1, 6))
+                    else:
+                        roll = random.randint(1, 6) + random.randint(1, 6)
                     target = (
                         u.profile.leadership
                         + ld_penalty
