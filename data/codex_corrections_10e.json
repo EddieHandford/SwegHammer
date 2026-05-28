@@ -214,20 +214,6 @@
         }
       }
     },
-    "aeldari_craftworlds_ynnari_succubus": {
-      "fields": {
-        "anti_keywords": {
-          "INFANTRY": 4
-        }
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus",
-      "errata": "Mirror of Drukhari Succubus correction",
-      "bsdata_was": {
-        "anti_keywords": {
-          "INFANTRY": 3
-        }
-      }
-    },
     "death_guard_blightlord_terminators": {
       "fields": {
         "anti_keywords": {
@@ -268,6 +254,15 @@
         "death_guard_lord_of_virulence",
         "death_guard_foul_blightspawn",
         "chaos_space_marines_plague_marines"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "post-BSData-main-refresh (2026-05-28)",
+      "action": "Retired 1 correction now obsolete after BSData refresh",
+      "evidence": "BSData main updated Ynnari Succubus to clear anti_keywords (matches codex). Other 16 corrections still valid — BSData still carries the pre-errata Splinter ANTI-INFANTRY 3+ values.",
+      "retired_keys": [
+        "aeldari_craftworlds_ynnari_succubus"
       ]
     }
   ]
