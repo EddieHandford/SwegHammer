@@ -214,6 +214,89 @@
         }
       }
     },
+    "dark_angels_asmodai": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Asmodai",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Asmodai has Invulnerable Save 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Same inline-profile mapper gap as Chaos Daemons Library batch (wave-47 CODEX-STALE-DAEMONS). Affects all 8 load-bearing Dark Angels units audited."
+    },
+    "dark_angels_azrael": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Azrael",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Azrael has Invulnerable Save 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Same inline-profile mapper gap as Chaos Daemons Library batch (wave-47 CODEX-STALE-DAEMONS). BSData also records the Lion's Wrath (ANTI-INFANTRY 4+) correctly; only invuln is lagging."
+    },
+    "dark_angels_belial": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Belial",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Belial has Invulnerable Save 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "dark_angels_deathwing_knights": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Deathwing-Knights",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Deathwing Knights have Invulnerable Save 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "dark_angels_ezekiel": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Ezekiel",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Ezekiel has Invulnerable Save 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "dark_angels_lion_el_jonson": {
+      "fields": {
+        "invuln_save": 3
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Lion-El-jonson",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Lion El'Jonson has Invulnerable Save 3+ (The Emperor's Shield) in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Lion El'Jonson's invuln is notably stronger than the standard 4+ on other Dark Angels characters — the 3+ comes from The Emperor's Shield ability per Wahapedia datasheet."
+    },
+    "dark_angels_ravenwing_black_knights": {
+      "fields": {
+        "invuln_save": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Ravenwing-Black-Knights",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Ravenwing Black Knights have Invulnerable Save 5+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "dark_angels_sammael": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Sammael",
+      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Sammael has Invulnerable Save 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
     "death_guard_blightlord_terminators": {
       "fields": {
         "anti_keywords": {
@@ -324,6 +407,22 @@
     }
   },
   "_audit_log": [
+    {
+      "date": "2026-05-28",
+      "round": "CODEX-STALE-DARK-ANGELS audit (wave-47, Stage 1 calibration, Tier 2)",
+      "action": "Added 8 Dark Angels BSData-lag corrections for missing invulnerable saves",
+      "evidence": "Audited 8 load-bearing Dark Angels units (Azrael, Belial, Sammael, Asmodai, Lion El'Jonson, Deathwing Knights, Ravenwing Black Knights, Ezekiel) against Wahapedia 10e datasheets. All 8 have invuln_save=7 (no invuln) in BSData parsed.json. The Dark Angels catalogue (Imperium - Dark Angels.cat.gz) encodes invulnerable saves as inline <profile typeName=\"Abilities\"> elements with a Description characteristic — the same structural pattern as the Chaos Daemons Library batch from wave-47 CODEX-STALE-DAEMONS. mapper.extract_invuln() only walks infoLinks and entryLink chains, missing the inline-profile encoding entirely. Wahapedia confirms: Azrael 4+, Belial 4+, Sammael 4+, Asmodai 4+, Ezekiel 4+, Deathwing Knights 4+, Lion El'Jonson 3+ (The Emperor's Shield), Ravenwing Black Knights 5+. No overrides.json entries for Dark Angels exist, so no shadow-removal needed (mirrors Karanak fix is not applicable here). Wahapedia DNS resolved successfully from worktree.",
+      "added_keys": [
+        "dark_angels_asmodai",
+        "dark_angels_azrael",
+        "dark_angels_belial",
+        "dark_angels_deathwing_knights",
+        "dark_angels_ezekiel",
+        "dark_angels_lion_el_jonson",
+        "dark_angels_ravenwing_black_knights",
+        "dark_angels_sammael"
+      ]
+    },
     {
       "date": "2026-05-28",
       "round": "wave-47 Round 2 verification",
