@@ -166,6 +166,14 @@
       "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
       "errata": "Mirror of Death Guard Plague Marines correction; the CSM catalogue branch pulls from the same Plague weapon profile family",
       "bsdata_was": {"anti_keywords": {"INFANTRY": 2}}
+    },
+
+    "aeldari_craftworlds_corsair_voidscarred": {
+      "fields": {"anti_keywords": {}},
+      "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Corsair-Voidscarred",
+      "errata": "BSData mapper attributed Anti-Infantry 2+ to the wrong weapon profile. Sim's primary weapon for this unit is Shuriken Pistol (Strength 4, AP -1, Damage 1), which on the current Wahapedia datasheet has only [ASSAULT] and [PISTOL] keywords. The Anti-Infantry 2+ in the BSData parse appears to have leaked from the Executioner profile (which legitimately carries Anti-Infantry 2+) onto the Shuriken Pistol entry. Since the sim's recorded weapon name and stats match the Shuriken Pistol, the corrective action is to clear anti_keywords on that profile.",
+      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}},
+      "notes": "Verified weapons on the Wahapedia Voidscarred datasheet: Shuriken Pistol (no anti-keyword), Neuro Disruptor (Anti-Infantry 2+), Executioner (Anti-Infantry 2+, Psychic). Kharseth's Dread of the Deep Void, Troupe Master's Neuro Disruptor secondary, and Shadowseer's Neuro Disruptor all legitimately retain Anti-Infantry 2+ per current codex and need no correction."
     }
 
   }
