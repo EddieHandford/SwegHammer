@@ -115,7 +115,11 @@ def clean_worktrees(dry_run: bool, wip: str) -> int:
             if dry_run:
                 print(f"  WOULD REMOVE {wt.path}")
             else:
-                _run(["git", "worktree", "remove", "--force", wt.path], check=False)
+                # Double -f overrides Claude-agent worktree locks left behind
+                # when a parent claude.exe exited without releasing them. Single
+                # -f errors with "cannot remove a locked working tree"; the
+                # script previously printed REMOVED while git silently failed.
+                _run(["git", "worktree", "remove", "-f", "-f", wt.path], check=False)
                 _run(["git", "branch", "-D", wt.branch], check=False)
                 print(f"  REMOVED {wt.path}")
             removed += 1
