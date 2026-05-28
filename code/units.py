@@ -898,6 +898,20 @@ class Unit:
     def is_alive(self) -> bool:
         return self._current_health > 1e-9
 
+    @property
+    def is_embarked(self) -> bool:
+        """True iff this unit is currently inside a TRANSPORT (10e core).
+
+        Convenience accessor that mirrors `embarked_in is not None`. Provided
+        so call sites can read the embark state without repeating the
+        identity check, and so test code can assert on a positive boolean
+        rather than the back-pointer's identity. The two are kept
+        deliberately in sync: `is_embarked` is True iff `embarked_in` is a
+        live Unit, and falsified by `_disembark` setting `embarked_in =
+        None`. Cited as `simulator.embark`.
+        """
+        return self.embarked_in is not None
+
     def is_currently_battle_shocked(self, round_num: int) -> bool:
         """BS-1: True iff this unit failed its Battle-shock test at the
         start of `round_num`'s Command phase and the status has not yet
