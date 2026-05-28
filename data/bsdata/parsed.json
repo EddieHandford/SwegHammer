@@ -88793,8 +88793,8 @@
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "VEHICLE": 4,
-        "INFANTRY": 2
+        "INFANTRY": 2,
+        "VEHICLE": 4
       },
       "heavy": false,
       "assault": false,
@@ -88852,8 +88852,8 @@
       "devastating_wounds_basket_fraction": 0.0,
       "lance_basket_fraction": 0.0,
       "anti_keyword_basket_fractions": {
-        "VEHICLE": 0.3333333333333333,
-        "INFANTRY": 0.6666666666666666
+        "INFANTRY": 0.6666666666666666,
+        "VEHICLE": 0.3333333333333333
       },
       "base_shape": "circle",
       "base_diameter_mm": 32,
@@ -89981,8 +89981,8 @@
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "VEHICLE": 4,
-        "INFANTRY": 4
+        "INFANTRY": 4,
+        "VEHICLE": 4
       },
       "heavy": false,
       "assault": false,
@@ -90041,8 +90041,8 @@
       "devastating_wounds_basket_fraction": 0.1111111111111111,
       "lance_basket_fraction": 0.0,
       "anti_keyword_basket_fractions": {
-        "VEHICLE": 0.1111111111111111,
-        "INFANTRY": 0.6666666666666666
+        "INFANTRY": 0.6666666666666666,
+        "VEHICLE": 0.1111111111111111
       },
       "base_shape": "circle",
       "base_diameter_mm": 32,
@@ -92474,8 +92474,8 @@
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "VEHICLE": 4,
-        "INFANTRY": 4
+        "INFANTRY": 4,
+        "VEHICLE": 4
       },
       "heavy": false,
       "assault": false,
@@ -92533,8 +92533,8 @@
       "devastating_wounds_basket_fraction": 0.5,
       "lance_basket_fraction": 0.0,
       "anti_keyword_basket_fractions": {
-        "VEHICLE": 0.5,
-        "INFANTRY": 0.5
+        "INFANTRY": 0.5,
+        "VEHICLE": 0.5
       },
       "base_shape": "circle",
       "base_diameter_mm": 32,

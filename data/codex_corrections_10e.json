@@ -308,6 +308,43 @@
         "chaos_daemons_library_skarbrand",
         "chaos_daemons_library_karanak"
       ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "MAPPER-FNP-PROSE-WALK (Tier 2 mapper structural fix)",
+      "action": "Added Shape 3 to extract_fnp; corrected 2 wrong test assertions; retired 27 redundant fnp=7 overrides from overrides.json",
+      "evidence": "Investigated the two failing tests (aeldari_drukhari_wracks and space_wolves_wulfen expecting feel no pain 5). Root-cause trace: (1) BSData v10.6.0 carried direct feel no pain infoLinks on both units; BSData main removed those infoLinks in a refactoring. (2) The old extract_fnp prose walk (pre-MAP-2) found feel no pain 5 for Wracks via a false-positive path through the Drukhari Crusade entryLink into the Ascendant Lord selectionEntryGroup, and for Wulfen via the 'Lone Wolf Battle Scars' Crusade battle honour upgrade. (3) Wahapedia 10e datasheets confirm neither unit has feel no pain as a base stat: Wracks have conditional feel no pain via Power from Pain (Pain token mechanic, already modelled at runtime in code/units.py), and Wulfen's BSData v10.6.0 'Death Frenzy' ability was renamed 'Savage Frenzy' in main without re-adding the feel no pain infoLink. Tests corrected to expect fnp=7. The 27 retired overrides were all fnp=7 suppression patches added at SC5-8/SC5-10 to fix prose-walk false positives; the MAP-2 fix (1927b99) correctly pruned upgrade subtrees, making those overrides redundant where the mapper now returns 7 natively. The 6 partial retirements (fnp field removed but entry kept for base-shape or secondary-weapon data) were verified safe: all 6 show fnp=7 in post-fix parsed.json.",
+      "shape_added": "extract_fnp Shape 3: inline <profile typeName='Abilities'> on the unit whose name starts with 'feel no pain' and whose Description characteristic contains 'Feel No Pain N+'. Analogous to extract_invuln Shape 3 from MAPPER-INVULN-PROSE-WALK. No units currently use this shape in BSData; added as forward-compatibility for the encoding.",
+      "new_false_positives": "none — Shape 3 fires only on profiles named 'Feel No Pain *', which no current BSData unit carries; the old prose walk false positives for Wracks/Wulfen were from Crusade content and were already suppressed by overrides.json.",
+      "retired_overrides": [
+        "aeldari_drukhari_wyches",
+        "aeldari_drukhari_hellions",
+        "aeldari_drukhari_reavers",
+        "aeldari_drukhari_kabalite_warriors",
+        "aeldari_drukhari_mandrakes",
+        "aeldari_drukhari_scourges_with_shardcarbines",
+        "aeldari_drukhari_venom",
+        "aeldari_drukhari_voidraven_bomber",
+        "aeldari_drukhari_wracks",
+        "aeldari_drukhari_hand_of_the_archon",
+        "aeldari_drukhari_beastmaster_legends",
+        "aeldari_drukhari_tantalus_legends",
+        "aeldari_drukhari_reaper_legends",
+        "aeldari_drukhari_raven_strike_fighter_legends",
+        "tyranids_winged_tyranid_prime",
+        "tyranids_parasite_of_mortrex",
+        "tyranids_tervigon",
+        "tyranids_broodlord",
+        "tyranids_neurotyrant",
+        "tyranids_malanthrope_legends",
+        "tyranids_tyranid_prime_with_lash_whip",
+        "tyranids_hive_tyrant (fnp field only)",
+        "tyranids_winged_hive_tyrant (fnp field only)",
+        "aeldari_drukhari_raider (fnp field only)",
+        "aeldari_drukhari_ravager (fnp field only)",
+        "aeldari_drukhari_razorwing_jetfighter (fnp field only)",
+        "tyranids_trygon (fnp field only)"
+      ]
     }
   ]
 }

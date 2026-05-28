@@ -2198,11 +2198,18 @@ def extract_fnp(entry: ET.Element, reg: Registry) -> int:
     Strategy (canonical first, prose as fallback):
       1. Scan the unit's direct infoLinks for ``name="Feel No Pain"`` carrying
          a ``<modifier type="append" field="name" value="N+"/>`` — this is the
-         BSData-canonical encoding. ~107 units across 27 catalogues use this
-         shape (Poxwalkers, Wracks, Wulfen, Repentia, Death Company, etc.),
-         and they were previously dropped to FNP 7 because the linked rule
-         body says "Feel No Pain x+" with no number.
-      2. Fall back to the legacy depth-limited walk that hunts for prose
+         BSData-canonical encoding used by ~107 units across 27 catalogues
+         (Poxwalkers, Repentia, Death Company, etc.).
+      2. Scan inline ``<profile typeName="Abilities">`` directly on the unit
+         whose Description characteristic contains "Feel No Pain N+". This is
+         the shape used when BSData encodes the FNP threshold in the ability
+         prose text rather than as a separate infoLink modifier. Only profiles
+         whose name starts with "feel no pain" (case-insensitive) are matched
+         to avoid pulling conditional FNP text from unrelated abilities (e.g.
+         "This model has the Feel No Pain 5+ ability against mortal wounds
+         only" in an enhancement or army rule that merely references the
+         mechanic).
+      3. Fall back to the legacy depth-limited walk that hunts for prose
          "Feel No Pain N+" in characteristic text on linked profiles / rules.
     Returns the lowest N (best for the unit), or 7 if none.
     """
@@ -2232,7 +2239,29 @@ def extract_fnp(entry: ET.Element, reg: Registry) -> int:
     # would otherwise pull a stronger but incorrect threshold here.
     if canonical_found:
         return best
-    # (2) Legacy prose walk — catches the older shape where the threshold is
+    # (2) Inline Abilities profile on the unit whose name starts with
+    # "Feel No Pain" and whose Description characteristic contains "N+".
+    # Analogous to extract_invuln Shape 3. This covers BSData entries that
+    # encode the FNP threshold in a named Abilities profile rather than as
+    # a separate infoLink+modifier.
+    for prof in entry.findall(".//profile"):
+        if (prof.get("typeName") or "") != "Abilities":
+            continue
+        pname = (prof.get("name") or "").strip().lower()
+        if not pname.startswith("feel no pain"):
+            continue
+        for ch in prof.iter("characteristic"):
+            if ch.get("name") != "Description":
+                continue
+            m = _FNP_RE.search(ch.text or "")
+            if m is not None:
+                v = int(m.group(1))
+                if 2 <= v <= 6 and v < best:
+                    best = v
+            break
+    if best < 7:
+        return best
+    # (3) Legacy prose walk — catches the older shape where the threshold is
     # baked into an ability description ("This unit has the Feel No Pain 5+
     # ability."). Kept as a fallback for units that don't use the canonical
     # infoLink+modifier idiom.
