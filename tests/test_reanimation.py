@@ -258,11 +258,19 @@ class ReanimationProtocolsTests(unittest.TestCase):
         reanim_events = [e for e in log.events if isinstance(e, UnitReanimated)]
         self.assertEqual(reanim_events, [])
 
-    def test_revived_multiwound_model_returns_at_one_wound(self):
-        """Fix F-NEC-2 (iter 14): a destroyed multi-wound NECRONS model
-        (Wraith W3 stand-in) reanimates with current_health=1.0, NOT
-        profile.health=3.0. Verbatim Wahapedia: 'one destroyed model is
-        returned to that unit with one wound remaining'."""
+    def test_revived_multiwound_model_returns_at_full_wounds(self):
+        """A destroyed multi-wound NECRONS model (Wraith W3 stand-in)
+        reanimates at `profile.health` (full wounds), not 1 HP.
+
+        Iter 14 (`a3798e3`) originally capped revives at 1 HP citing
+        a misread of the Wahapedia text. Iter 29-NE1 (`a359520`)
+        reverted to full-HP per the verbatim rule: "...one destroyed
+        bodyguard model in that unit is returned to your army, with
+        its full wounds remaining." See
+        https://wahapedia.ru/wh40k10ed/factions/necrons/#Reanimation-Protocols
+        and the docstring of `_apply_reanimation` in
+        `code/simulator.py` (lines 4172-4186).
+        """
         random.seed(0)
 
         def _wraith_profile() -> UnitProfile:
@@ -301,8 +309,9 @@ class ReanimationProtocolsTests(unittest.TestCase):
         self.assertEqual(len(reanim_events), 1)
         revived = necrons.units[0]
         self.assertEqual(
-            revived.current_health, 1.0,
-            "Revived multi-wound model must come back at 1 wound, not full HP.",
+            revived.current_health, float(revived.profile.health),
+            "Revived multi-wound model must come back at full wounds "
+            "(iter 29-NE1 revert; see commit a359520 and Wahapedia).",
         )
         self.assertTrue(revived.is_alive)
 

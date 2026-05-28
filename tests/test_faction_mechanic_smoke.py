@@ -109,6 +109,12 @@ def _tyranid_warrior() -> UnitProfile:
 
 
 def _kabalite_warrior() -> UnitProfile:
+    # min_models=2 so the unit can be Below Starting Strength — Power From
+    # Pain's 10e gate is "lost at least one whole model", which the
+    # `_apply_power_from_pain` pass (`code/simulator.py` lines ~5036-5065,
+    # commit 15e0d66 DRK-PAIN-TOKENS) refuses to grant to single-model units.
+    # Health 2 + min_models 2 = 1 wound per model, so dropping current_health
+    # to 1.0 represents losing one whole model — exactly the codex trigger.
     return UnitProfile(
         name="Kabalite Warrior", faction="Drukhari",
         health=2, damage=1, hit_probability=2 / 3,
@@ -117,6 +123,7 @@ def _kabalite_warrior() -> UnitProfile:
         leadership=7, unit_keywords=("INFANTRY",),
         melee_attacks=1, melee_damage_per_shot=1.0,
         melee_hit_probability=2 / 3, melee_strength=4, melee_ap=0,
+        min_models=2,
     )
 
 

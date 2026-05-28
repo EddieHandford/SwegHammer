@@ -68,13 +68,20 @@ class GrandCovenWiringTests(unittest.TestCase):
         self.assertEqual(DEFAULT_BY_FACTION["Thousand Sons"], "rubricae_phalanx")
 
     def test_grand_coven_in_faction_detachments(self):
-        # iter15 added Rubricae Phalanx to FACTION_DETACHMENTS["Thousand Sons"]
-        # alongside Grand Coven — both remain available picks (composition-
-        # driven via pick_detachment_for_army). The ordering reflects the
-        # default precedence (rubricae_phalanx is first, grand_coven second).
+        # iter15 added Rubricae Phalanx alongside Grand Coven, then iter24
+        # removed Grand Coven from the auto-pick list because Kindred
+        # Sorcery is not yet implemented (its once-per-Command-phase,
+        # once-per-battle-each selectable buff doesn't reduce cleanly to a
+        # static Detachment flag and is currently a no-op). See the
+        # `FACTION_DETACHMENTS["Thousand Sons"]` comment in
+        # `code/detachments.py` — the tuple will be restored to
+        # `("rubricae_phalanx", "grand_coven")` when Kindred Sorcery is
+        # wired. Until then, Grand Coven stays in the DETACHMENTS registry
+        # (so it can be hand-picked) but the auto-picker only sees
+        # Rubricae Phalanx.
         self.assertEqual(
             FACTION_DETACHMENTS["Thousand Sons"],
-            ("rubricae_phalanx", "grand_coven"),
+            ("rubricae_phalanx",),
         )
 
     def test_grand_coven_registry(self):

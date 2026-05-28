@@ -78,12 +78,17 @@ class PileInTests(unittest.TestCase):
     """Pile-In: free 3" toward closest enemy BEFORE the fight resolves."""
 
     def test_unit_just_out_of_engagement_piles_in_then_fights(self):
-        """Attacker 1.5" away (just at engagement floor) closes to 0".
+        """After a charge, an attacker 1.5" away (just outside the 1"
+        Engagement Range gate) closes via pile-in and fights.
 
-        Without pile-in, an attacker at 1.5" wouldn't satisfy the
-        strict `<= 1.5"` engagement gate cleanly across float jitter
-        and certainly wouldn't be "in combat". The 3" pile-in must
-        snap them onto the target.
+        10e Fight phase: a unit can fight if it is in Engagement Range
+        (1") OR if it Charged this turn. Pile-in is a free 3" move
+        toward the closest enemy taken BEFORE the fight resolves and
+        is gated on that same eligibility. So an attacker that charged
+        and ended its move at 1.5" (just out of engagement) gets to
+        pile in down to 0" and then strike — verified here by adding
+        the attacker to `_charging_this_round` before calling
+        `_do_fight`.
         """
         a = _make_army("A", _melee_profile(), [(20.0, 30.0)])
         b = _make_army("B", _victim_profile(), [(21.5, 30.0)])
@@ -92,6 +97,8 @@ class PileInTests(unittest.TestCase):
 
         start_dist = _distance(attacker.position, victim.position)
         self.assertAlmostEqual(start_dist, 1.5, places=5)
+
+        battle._charging_this_round.add(attacker.uid)
 
         # Deterministic enough — pile-in is geometry only, no dice.
         random.seed(0)
