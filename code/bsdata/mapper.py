@@ -2700,15 +2700,30 @@ def _is_bare_invuln_name(name: str) -> bool:
 
 def extract_invuln(entry: ET.Element, reg: Registry) -> int:
     """
-    Find the best invulnerable save on a unit by scanning infoLinks for two shapes:
+    Find the best invulnerable save on a unit by scanning for three shapes:
 
-      1. The infoLink's own name carries the digit ("Invulnerable Save (4+*)")
+      1. An infoLink whose own name carries the digit ("Invulnerable Save (4+*)")
          — historical shape, e.g. Genestealer Cults Patriarch.
-      2. The infoLink's name is the bare "Invulnerable Save" and the digit
+      2. An infoLink whose name is the bare "Invulnerable Save" and the digit
          lives in the LINKED profile's Description characteristic — the shape
          used by Adeptus Custodes (all 31 datasheets), Adeptus Mechanicus,
          Terminator squads, Sanguinary Guard, Marneus Calgar etc. Discovered
          missing in May 2026 Phase 3 defensive audit.
+      3. An inline <profile typeName="Abilities"> directly on the selection
+         entry whose name starts with "invulnerable save" (case-insensitive,
+         covers bare and parenthesised forms like "Invulnerable Save (Yvraine)"),
+         with the digit in its Description characteristic. Used by Chaos
+         Daemons Library, Dark Angels, Library - Titans, Deathwatch, and
+         several Aeldari characters — surfaced across the wave 47 stale-faction
+         audit batches (5 catalogues, 20+ correction entries before this fix).
+
+    The Shape 3 name filter is narrower than "any profile that mentions an
+    invulnerable save in its text" because the wave-47 audits found enough
+    abilities that conditionally reference invuln digits ("...gains a 5+
+    invulnerable save when X...") that a description-only match would over-
+    grant invulns to units that don't actually have one. Anchoring on
+    "invulnerable save" as a prefix of the profile's own name keeps the
+    match high-confidence while still covering character-named forms.
 
     Returns the best (lowest) value found, or 7 if none.
     """
@@ -2740,6 +2755,21 @@ def extract_invuln(entry: ET.Element, reg: Registry) -> int:
             if target is None or target.tag != "profile":
                 continue
             for ch in target.iter("characteristic"):
+                if ch.get("name") != "Description":
+                    continue
+                v = _parse_invuln_from_description(ch.text or "")
+                if v is not None and v < best:
+                    best = v
+                break
+        # Shape 3: inline <profile typeName="Abilities"> on this entry whose
+        # name starts with "invulnerable save".
+        for prof in elem.findall(".//profile"):
+            if (prof.get("typeName") or "") != "Abilities":
+                continue
+            pname = (prof.get("name") or "").strip().lower()
+            if not pname.startswith("invulnerable save"):
+                continue
+            for ch in prof.iter("characteristic"):
                 if ch.get("name") != "Description":
                     continue
                 v = _parse_invuln_from_description(ch.text or "")

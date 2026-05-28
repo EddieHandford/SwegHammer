@@ -69,12 +69,15 @@ _EXPECTED_CUSTODES_INVULN = {
     "adeptus_custodes_ares_gunship": 5,
     "adeptus_custodes_orion_assault_dropship": 5,
     # Crucible-detachment datasheets added on BSData main (post-v10.6.0).
-    # Currently parse as invuln=7 because the mapper hasn't been extended
-    # for the Crucible XML variant; canonical values are 4 (Custodes) / 7
-    # (Sisters of Silence). Tracked as a follow-up.
-    "adeptus_custodes_kataphraktoi_exemplar_crucible": 7,
-    "adeptus_custodes_guardian_of_the_throne_crucible": 7,
-    "adeptus_custodes_null_maiden_crucible": 7,
+    # Now parsed correctly by the wave-48 mapper invuln-prose-walk fix
+    # (Shape 3 on extract_invuln). Null Maiden Crucible carries a 5+
+    # ability profile in BSData even though the standard Null Maiden has
+    # no invuln — appears to be a detachment-specific grant; Wahapedia
+    # has not indexed the Crucible detachment yet so BSData is the
+    # source of truth for now.
+    "adeptus_custodes_kataphraktoi_exemplar_crucible": 4,
+    "adeptus_custodes_guardian_of_the_throne_crucible": 4,
+    "adeptus_custodes_null_maiden_crucible": 5,
 }
 
 
@@ -213,6 +216,83 @@ class Iter20VariantInvulnTests(unittest.TestCase):
                     got,
                     expected,
                     f"{key} invuln_save={got}, expected {expected}++ per Wahapedia",
+                )
+
+
+# Wave 47/48 mapper invuln-prose-walk fix (Shape 3).
+#
+# Before this fix, BSData encoded the invuln save as an inline
+# <profile typeName="Abilities" name="Invulnerable Save"> on the selection
+# entry — with the digit in its Description characteristic — for every unit
+# in Chaos Daemons Library, Dark Angels, Library - Titans (Chaos Titans),
+# Deathwatch, and several Aeldari characters. The mapper's earlier
+# `extract_invuln` walked only infoLinks, so these all fell through to the
+# loader's default of 7 (no invuln). Wave 47 audits found 20 such entries
+# across 5 faction catalogues and patched them via
+# `data/codex_corrections_10e.json`. The wave-48 mapper fix extends
+# `extract_invuln` to also walk inline Abilities profiles whose name
+# starts with "invulnerable save", retiring all 20 corrections in one pass.
+WAVE47_SHAPE3_INVULN_EXPECTATIONS = [
+    # Dark Angels (Imperium - Dark Angels .cat).
+    ("dark_angels_azrael", 4),
+    ("dark_angels_lion_el_jonson", 3),   # The Emperor's Shield
+    ("dark_angels_belial", 4),
+    ("dark_angels_asmodai", 4),
+    ("dark_angels_sammael", 4),
+    ("dark_angels_ezekiel", 4),
+    ("dark_angels_deathwing_knights", 4),
+    ("dark_angels_ravenwing_black_knights", 5),
+    # Chaos Daemons (Chaos - Chaos Daemons Library .cat).
+    ("chaos_daemons_library_bloodthirster", 4),
+    ("chaos_daemons_library_lord_of_change", 4),
+    ("chaos_daemons_library_great_unclean_one", 4),
+    ("chaos_daemons_library_keeper_of_secrets", 4),
+    ("chaos_daemons_library_skarbrand", 4),
+    ("chaos_daemons_library_bloodletters", 5),
+    ("chaos_daemons_library_karanak", 4),
+    # Chaos Titans (Library - Titans .cat, surfaced via Titanicus Traitoris).
+    # 5+ Ion Shield against ranged attacks only — modelled globally per the
+    # mapper's "approximate but on the correct side" convention.
+    ("titanicus_traitoris_warhound_titan", 5),
+    ("titanicus_traitoris_reaver_titan", 5),
+    ("titanicus_traitoris_warbringer_nemesis_titan", 5),
+    ("titanicus_traitoris_warlord_titan", 5),
+    # Deathwatch (Imperium - Deathwatch .cat).
+    ("deathwatch_watch_master", 4),
+    # Aeldari characters with parenthesised inline profile names (e.g.
+    # "Invulnerable Save (Yvraine)"). Shape 3's name filter matches the
+    # "invulnerable save" prefix so these are picked up correctly.
+    ("aeldari_ynnari_yvraine", 4),
+    ("aeldari_ynnari_the_visarch", 4),
+    ("aeldari_craftworlds_autarch", 4),
+]
+
+
+class Wave47Shape3InvulnTests(unittest.TestCase):
+    """Pin the wave-48 mapper invuln-prose-walk fix.
+
+    Each entry below must parse with the listed invuln via the mapper
+    alone — none of these keys carry an `invuln_save` correction in
+    `data/codex_corrections_10e.json` or an `invuln_save` field in
+    `data/overrides.json` once the mapper fix has landed. A regression in
+    `extract_invuln` (e.g. Shape 3 filter narrowed too far) would surface
+    here as 7+ on the affected catalogue.
+    """
+
+    def test_wave47_shape3_invuln_extraction(self):
+        for key, expected in WAVE47_SHAPE3_INVULN_EXPECTATIONS:
+            with self.subTest(unit=key):
+                self.assertIn(
+                    key,
+                    UNIT_CATALOG,
+                    f"{key} missing from catalogue — wave-47 audit target gone",
+                )
+                got = UNIT_CATALOG[key].invuln_save
+                self.assertEqual(
+                    got,
+                    expected,
+                    f"{key} invuln_save={got}, expected {expected}+ via mapper "
+                    f"Shape 3 (inline <profile typeName='Abilities'>)",
                 )
 
 

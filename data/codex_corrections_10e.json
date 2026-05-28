@@ -72,14 +72,16 @@
       "fields": {
         "secondary_anti_keywords": {
           "INFANTRY": 4
-        }
+        },
+        "invuln_save": 4
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Archon",
-      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistol Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistol Anti-Infantry 4+ | Additional invuln fix (wave 48 mapper invuln-prose-walk): BSData ability text reads \"This unit has a 2+ invulnerable save. (See Shadowfield ability)\" reflecting the pre-10e Shadowfield wargear shape; current Wahapedia 10e datasheet codifies the Shadowfield-baked baseline as 4+ invulnerable on the unit.",
       "bsdata_was": {
         "secondary_anti_keywords": {
           "INFANTRY": 3
-        }
+        },
+        "invuln_save": 2
       }
     },
     "aeldari_drukhari_hellions": {
@@ -204,97 +206,16 @@
       "fields": {
         "secondary_anti_keywords": {
           "INFANTRY": 4
-        }
+        },
+        "invuln_save": 4
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Archon",
-      "errata": "Mirror of Drukhari Archon correction (Splinter Pistol)",
+      "errata": "Mirror of Drukhari Archon correction (Splinter Pistol) | Additional invuln fix (wave 48 mapper invuln-prose-walk): BSData ability text reads \"This unit has a 2+ invulnerable save. (See Shadowfield ability)\" reflecting the pre-10e Shadowfield wargear shape; current Wahapedia 10e datasheet codifies the Shadowfield-baked baseline as 4+ invulnerable on the unit.",
       "bsdata_was": {
         "secondary_anti_keywords": {
           "INFANTRY": 3
-        }
-      }
-    },
-    "dark_angels_asmodai": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Asmodai",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Asmodai has Invulnerable Save 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Same inline-profile mapper gap as Chaos Daemons Library batch (wave-47 CODEX-STALE-DAEMONS). Affects all 8 load-bearing Dark Angels units audited."
-    },
-    "dark_angels_azrael": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Azrael",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Azrael has Invulnerable Save 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Same inline-profile mapper gap as Chaos Daemons Library batch (wave-47 CODEX-STALE-DAEMONS). BSData also records the Lion's Wrath (ANTI-INFANTRY 4+) correctly; only invuln is lagging."
-    },
-    "dark_angels_belial": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Belial",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Belial has Invulnerable Save 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "dark_angels_deathwing_knights": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Deathwing-Knights",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Deathwing Knights have Invulnerable Save 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "dark_angels_ezekiel": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Ezekiel",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Ezekiel has Invulnerable Save 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "dark_angels_lion_el_jonson": {
-      "fields": {
-        "invuln_save": 3
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Lion-El-jonson",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Lion El'Jonson has Invulnerable Save 3+ (The Emperor's Shield) in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Lion El'Jonson's invuln is notably stronger than the standard 4+ on other Dark Angels characters \u00e2\u20ac\u201d the 3+ comes from The Emperor's Shield ability per Wahapedia datasheet."
-    },
-    "dark_angels_ravenwing_black_knights": {
-      "fields": {
-        "invuln_save": 5
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Ravenwing-Black-Knights",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Ravenwing Black Knights have Invulnerable Save 5+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "dark_angels_sammael": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/Sammael",
-      "errata": "Dark Angels catalogue encodes invulnerable save as inline <profile typeName=\"Abilities\"> on selectionEntry; mapper.extract_invuln() walks only infoLinks and entryLinks so the value is missed. Wahapedia confirms Sammael has Invulnerable Save 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
+        },
+        "invuln_save": 2
       }
     },
     "death_guard_blightlord_terminators": {
@@ -323,131 +244,6 @@
         }
       },
       "notes": "Verified weapons on the Wahapedia Voidscarred datasheet: Shuriken Pistol (no anti-keyword), Neuro Disruptor (Anti-Infantry 2+), Executioner (Anti-Infantry 2+, Psychic). Kharseth's Dread of the Deep Void, Troupe Master's Neuro Disruptor secondary, and Shadowseer's Neuro Disruptor all legitimately retain Anti-Infantry 2+ per current codex and need no correction."
-    },
-    "deathwatch_watch_master": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-agents/Watch-Master",
-      "errata": "BSData mapper failed to parse the Watch Master's 4+ invulnerable save into a structured invuln_save field. The Deathwatch catalogue file carries the invuln as an ability text profile (\"This model has a 4+ invulnerable save.\") rather than a numeric characteristic, so the parser left invuln_save at the no-invuln sentinel of 7. Wahapedia confirms Watch Master has Invulnerable Save: 4+ in current 10e codex.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Same structural mapper gap also affects deathwatch_watch_captain_artemis (also invuln 7 in parsed.json, should be 4+) and likely Chaplain Cassius / Garran Branatar in the Deathwatch catalogue. Only Watch Master is in the current audit's target list; Artemis correction left for a future sweep. Wahapedia datasheet retrieved 2026-05-28; no Deathwatch-specific faction page exists, datasheet is hosted under imperial-agents."
-    },
-    "chaos_daemons_library_bloodthirster": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Bloodthirster",
-      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "chaos_daemons_library_lord_of_change": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Lord-of-Change",
-      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "chaos_daemons_library_great_unclean_one": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Great-Unclean-One",
-      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "chaos_daemons_library_keeper_of_secrets": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Keeper-of-Secrets",
-      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "chaos_daemons_library_bloodletters": {
-      "fields": {
-        "invuln_save": 5
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Bloodletters",
-      "errata": "Chaos Daemons Library .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "chaos_daemons_library_skarbrand": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Skarbrand",
-      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "chaos_daemons_library_karanak": {
-      "fields": {
-        "invuln_save": 4
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Karanak",
-      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
-      "bsdata_was": {
-        "invuln_save": 7
-      }
-    },
-    "titanicus_traitoris_reaver_titan": {
-      "fields": {
-        "invuln_save": 5
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Reaver-Titan",
-      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only. Chaos Titanicus Traitoris uses the same Library - Titans shared entries per BSData structure; the datasheet is identical with only keywords swapped per the Titanicus Traitoris army rule.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Ion Shield encoded as text ability: \"This model has a 5+ invulnerable save against ranged attacks only.\" The ranged-only restriction is not a separate field in the UnitProfile schema; the corrected invuln_save=5 is applied globally as the closest representable value. Loyalist Adeptus Titanicus units do not appear in parsed.json (the Imperium - Adeptus Titanicus .cat uses only entryLinks into Library - Titans and produces no independent parsed entries); this correction covers the Chaos proxy keys only."
-    },
-    "titanicus_traitoris_warbringer_nemesis_titan": {
-      "fields": {
-        "invuln_save": 5
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Warbringer-Nemesis-Titan",
-      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Same structural mapper gap as the other Titan entries. Ion Shield text profile: \"This model has a 5+ invulnerable save against ranged attacks only.\""
-    },
-    "titanicus_traitoris_warhound_titan": {
-      "fields": {
-        "invuln_save": 5
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Warhound-Titan",
-      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Same structural mapper gap as the other Titan entries. Ion Shield text profile: \"This model has a 5+ invulnerable save against ranged attacks only.\""
-    },
-    "titanicus_traitoris_warlord_titan": {
-      "fields": {
-        "invuln_save": 5
-      },
-      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Warlord-Titan",
-      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only.",
-      "bsdata_was": {
-        "invuln_save": 7
-      },
-      "notes": "Same structural mapper gap as the other Titan entries. Ion Shield text profile: \"This model has a 5+ invulnerable save against ranged attacks only.\""
     }
   },
   "_audit_log": [
