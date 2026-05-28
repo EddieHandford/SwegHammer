@@ -4219,15 +4219,43 @@ class Battle:
         a_y = self.map.deployment_width / 2.0
         b_y = self.map.height - self.map.deployment_width / 2.0
 
+        # RESERVES-EMBARK-COUPLING (wave 46): pre-game embark runs BEFORE the
+        # reserves split. Previously embark ran after reserves routing, so a
+        # transport with `deep_strike=True` (Drukhari Raider / Venom, Marines
+        # Drop Pod, Aeldari Wave Serpent variants etc.) was routed to reserves
+        # while its potential passengers stayed on the board — the embark pass
+        # then saw zero transports for that faction. The Skysplinter Assault
+        # disembark-turn buff (DRK-SKYSPLINTER-DISEMBARK wave 45) was correct
+        # but inert: 40 sample battles produced zero Drukhari disembark events
+        # because no transport was ever embarked. Embarking first ensures the
+        # transport's `passengers` list is populated before we split, and the
+        # next loop co-routes passengers to reserves alongside their transport.
+        # Cited as `simulator.embark`.
+        self._embark_pregame_passengers()
+
         # Pull deep-strikers (and the whole GSC army, per Cult Ambush) out of
-        # each army into reserves.
+        # each army into reserves. Two-pass routing so embarked passengers
+        # follow their transport — first pass identifies direct routes,
+        # second pass routes passengers whose transport is being routed.
         for army in (self.a, self.b):
-            standard, reserves = [], []
+            direct_reserves_ids: set = set()
             for u in army.units:
                 is_gsc = u.profile.faction == "Genestealer Cults"
                 if is_gsc:
                     u.cult_ambush_pending = True
                 if u.profile.deep_strike or is_gsc:
+                    direct_reserves_ids.add(id(u))
+
+            standard, reserves = [], []
+            for u in army.units:
+                going_to_reserves = (
+                    id(u) in direct_reserves_ids
+                    or (
+                        u.embarked_in is not None
+                        and id(u.embarked_in) in direct_reserves_ids
+                    )
+                )
+                if going_to_reserves:
                     reserves.append(u)
                 else:
                     standard.append(u)
@@ -4235,11 +4263,15 @@ class Battle:
             self._reserves[army.name] = reserves
 
         # Split each on-board roster into infiltrators (deploy forward) and
-        # the rest (deploy on the standard line).
-        a_infil = [u for u in self.a.units if u.profile.infiltrator]
-        a_std = [u for u in self.a.units if not u.profile.infiltrator]
-        b_infil = [u for u in self.b.units if u.profile.infiltrator]
-        b_std = [u for u in self.b.units if not u.profile.infiltrator]
+        # the rest (deploy on the standard line). Embarked passengers stay
+        # off the line — their position is pinned to their transport, and
+        # the activation loop skips them via the `embarked_in` gate.
+        a_on_board = [u for u in self.a.units if u.embarked_in is None]
+        b_on_board = [u for u in self.b.units if u.embarked_in is None]
+        a_infil = [u for u in a_on_board if u.profile.infiltrator]
+        a_std = [u for u in a_on_board if not u.profile.infiltrator]
+        b_infil = [u for u in b_on_board if u.profile.infiltrator]
+        b_std = [u for u in b_on_board if not u.profile.infiltrator]
 
         self._deploy_line(a_std, a_y)
         self._deploy_line(b_std, b_y)
@@ -4258,11 +4290,15 @@ class Battle:
         for u in b_infil:
             self._emit(UnitInfiltrated(unit_uid=u.uid, position=u.position))
 
-        # Transports (10e core): after standard deployment, embark eligible
-        # INFANTRY passengers into available TRANSPORT units. Embarking removes
-        # the passenger from active gameplay (position pinned to transport,
-        # activation skipped by the embarked gate). Cited as `simulator.embark`.
-        self._embark_pregame_passengers()
+        # Synchronise embarked passenger positions to their (now deployed)
+        # transport's position. The pre-embark pass set passenger.position
+        # to the transport's pre-deploy position; after _deploy_line moves
+        # the transport, passengers need to follow so any future spatial
+        # query (line of sight, distance gates) reads the correct location.
+        for army in (self.a, self.b):
+            for u in army.units:
+                if u.embarked_in is not None:
+                    u.position = u.embarked_in.position
 
     def _deploy_line(self, units, y: float) -> None:
         if not units:
@@ -4356,7 +4392,13 @@ class Battle:
 
             still_waiting = []
             anchor_placed: list = []   # track placed positions for clustering
+            arrived_transport_ids: set = set()  # for passenger co-arrival
             for u in waiting:
+                # RESERVES-EMBARK-COUPLING (wave 46): embarked passengers
+                # ride in with their transport — skip them here, the
+                # transport's arrival branch below places them.
+                if u.embarked_in is not None:
+                    continue
                 is_ambush = getattr(u, "cult_ambush_pending", False)
                 if not is_ambush and id(u) not in ds_dropping_ids:
                     # Strategy held this unit back this round.
@@ -4383,6 +4425,23 @@ class Battle:
                 self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
                 if use_anchor is not None:
                     anchor_placed.append(pos)
+                arrived_transport_ids.add(id(u))
+                # RESERVES-EMBARK-COUPLING: when a transport arrives, place
+                # its embarked passengers at the transport's landing point.
+                # Passengers remain embarked (the disembark happens later in
+                # the owning Movement phase via _maybe_disembark_before_move);
+                # this just brings them on-board so spatial queries and the
+                # eventual disembark have a real position to work from.
+                for passenger in list(getattr(u, "passengers", [])):
+                    passenger.position = pos
+                    army._add_live_unit(passenger)
+                    self._fresh_arrivals.add(passenger.uid)
+            # Passengers whose transport stayed in reserves stay in reserves
+            # too (they got skipped in the loop above via the `embarked_in`
+            # continue). Re-collect them now.
+            for u in waiting:
+                if u.embarked_in is not None and id(u.embarked_in) not in arrived_transport_ids:
+                    still_waiting.append(u)
             self._reserves[army.name] = still_waiting
 
     def _pick_arrival_point(
