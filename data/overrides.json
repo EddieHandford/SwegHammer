@@ -2305,7 +2305,25 @@
     },
     "adeptus_mechanicus_tech_priest_dominus": {
       "fnp": 7,
-      "notes": "ADMECH-DIAG (wave 23 follow-up): BSData mapper extract_fnp prose-walk false positive (same class as SC5-10 Tyranid Enhancement-FNP, SORORITAS-MORTIFIER-FNP Hospitaller/Celestine). The Dominus carries a 'Master of the Machine Cult' leader ability whose Description string reads: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability. If that unit has the Electro-Priests keyword, models in that unit have the Feel No Pain 4+ ability instead.' This is a LED-UNIT aura granted to the bodyguard squad, NOT a static Feel No Pain on the Dominus himself. The mapper's depth-3 prose walk pulled 'Feel No Pain 5+' from the aura description into the Dominus's base fnp field, giving him an undeserved permanent FNP 5+. Reset to 7 (no static FNP). The led-unit grant should be wired through code/leaders.py with a host_keys gate; deferred here â€” this commit removes only the self-FNP false positive. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz Tech-Priest Dominus selectionEntry 'Master of the Machine Cult' Ability Description."
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0,
+      "secondary_range_inches": 0,
+      "secondary_pistol": false,
+      "secondary_sustained_hits": 0,
+      "secondary_twin_linked": false,
+      "secondary_devastating_wounds": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "secondary_torrent": false,
+      "secondary_blast": false,
+      "extra_ranged_profiles": [],
+      "notes": "ADMECH-DIAG (wave 23 follow-up): BSData mapper extract_fnp prose-walk false positive (same class as SC5-10 Tyranid Enhancement-FNP, SORORITAS-MORTIFIER-FNP Hospitaller/Celestine). The Dominus carries a 'Master of the Machine Cult' leader ability whose Description string reads: 'While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability. If that unit has the Electro-Priests keyword, models in that unit have the Feel No Pain 4+ ability instead.' This is a LED-UNIT aura granted to the bodyguard squad, NOT a static Feel No Pain on the Dominus himself. The mapper's depth-3 prose walk pulled 'Feel No Pain 5+' from the aura description into the Dominus's base fnp field, giving him an undeserved permanent FNP 5+. Reset to 7 (no static FNP). The led-unit grant should be wired through code/leaders.py with a host_keys gate; deferred here -- this commit removes only the self-FNP false positive. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz Tech-Priest Dominus selectionEntry 'Master of the Machine Cult' Ability Description. || ADMECH-WARGEAR-V1: Wahapedia Tech-Priest Dominus datasheet (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Tech-priest-Dominus) lists exclusive wargear pairs: Eradication ray (focused/dissipated) OR Volkite blaster as the main ranged weapon, and Macrostubber OR Phosphor serpenta as the pistol slot. BSData packed ALL FIVE profiles into one model: primary=Eradication ray focused (kept), secondary=Volkite blaster, extras=[Macrostubber, Phosphor serpenta, Eradication ray dissipated]. Same multi-loadout inflation pattern as ONAGER-MULTILOAD (Onager Dunecrawler / Skorpius Disintegrator) and Tech-Priest Manipulus below. Clean-cut convention: keep primary Eradication ray focused (the high-damage anti-elite mode -- A=2 BS=3+ S=6 AP=-2 D=2), clear secondary and all extras. The dropped pistol contribution is the same trade-off accepted by ONAGER-MULTILOAD; the alternate Eradication ray dissipated profile is not a separate weapon, it's the long-range mode of the SAME gun (only one mode fires per phase, not both)."
     },
     "adeptus_mechanicus_tech_priest_enginseer": {
       "fnp": 7,
@@ -2314,6 +2332,49 @@
     "adeptus_mechanicus_kastelan_robots": {
       "fnp": 7,
       "notes": "ADMECH-DIAG (wave 23 follow-up): BSData mapper extract_fnp prose-walk false positive (same class as Dominus / Enginseer above). The Kastelan Robots unit has a 'Cybernetica Datasmith' related-leader description whose text reads verbatim from BSData: 'While a Cybernetica Datasmith model is leading this unit, that model has the Feel No Pain 4+ ability.' The Feel No Pain 4+ applies to the Datasmith leader MODEL (and only while he is attached as leader), NOT to the Kastelan Robots themselves. Real Wahapedia Kastelan datasheet has no native FNP â€” their defensive layer is T9 W7 SV2+ INV5+ plus an Aegis Protocol stance that adds +1 Toughness. The mapper's depth-3 prose walk pulled 'Feel No Pain 4+' from the Datasmith aura description into the Robots' base fnp field, giving them a powerful undeserved FNP 4+ on a 7-wound T9 chassis (~33% damage reduction). Reset to 7 (no static FNP). The Datasmith-as-leader FNP grant on the Datasmith model itself can be added later if/when a per-leader-model FNP buff schema lands. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Kastelan-Robots ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz Kastelan Robots selectionEntry Ability profile."
+    },
+    "adeptus_mechanicus_tech_priest_manipulus": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0,
+      "secondary_range_inches": 0,
+      "secondary_pistol": false,
+      "secondary_sustained_hits": 0,
+      "secondary_twin_linked": false,
+      "secondary_devastating_wounds": false,
+      "secondary_rapid_fire": 0,
+      "secondary_ignores_cover": false,
+      "secondary_heavy": false,
+      "secondary_assault": false,
+      "secondary_torrent": false,
+      "secondary_blast": false,
+      "extra_ranged_profiles": [],
+      "notes": "ADMECH-WARGEAR-V1: Wahapedia Tech-Priest Manipulus datasheet (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Tech-priest-Manipulus) lists the magnarail lance and transonic cannon as MUTUALLY EXCLUSIVE options ('This model's magnarail lance can be replaced with 1 transonic cannon'). BSData (Imperium - Adeptus Mechanicus.cat.gz) packed BOTH into one model: primary=Transonic cannon (12in A=D6->4 S4 AP0 D2 TORRENT DEVASTATING WOUNDS auto-hit), secondary=Magnarail lance (36in A=1 BS=3+ S7 AP=-2 D3 HEAVY). The simulator therefore fires the Manipulus's anti-tank Magnarail lance AND his torrent-autohit Transonic cannon every Shooting phase -- a ~7.0 expected-damage stacked profile on a 60pt W=4 character. Same multi-loadout inflation pattern as ONAGER-MULTILOAD (Onager Dunecrawler / Skorpius Disintegrator) and adeptus_mechanicus_tech_priest_dominus above. Clean-cut convention: keep primary Transonic cannon (the more competitive choice -- D6 auto-hit Devastating Wounds against MEQ targets, and the default kit-supplied build), clear secondary Magnarail lance. The dropped Magnarail anti-tank contribution is the trade-off for matching the ONAGER-MULTILOAD clean-cut convention. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Tech-priest-Manipulus ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz Tech-priest Manipulus selectionEntry."
+    },
+    "adeptus_mechanicus_sicarian_infiltrators": {
+      "attacks": 3,
+      "melee_strength": 4,
+      "notes": "ADMECH-WARGEAR-V1: Wahapedia Sicarian Infiltrators datasheet (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Sicarian-Infiltrators) Stubcarbine profile is Range 12in / Attacks 3 / BS 4+ / S 4 / AP 0 / D 1 [PISTOL]. BSData (Imperium - Adeptus Mechanicus.cat.gz) parsed primary Stubcarbine with attacks=4 -- one too many -- likely a basket-average leak from the alternate Flechette blaster wargear (5 attacks). Reset attacks to 3. Also fix melee Power weapon: Wahapedia lists S=4 AP=-2 D=1; BSData parsed melee_strength=5 (off by +1). Reset melee_strength to 4. Both fixes are direct copies from the canonical datasheet -- no judgement calls. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Sicarian-Infiltrators ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz Sicarian Infiltrators selectionEntry Stubcarbine Pistol / Power weapon profile."
+    },
+    "adeptus_mechanicus_skitarii_vanguard": {
+      "attacks": 3,
+      "strength": 3,
+      "ap": 0,
+      "weapon_damage_per_shot": 1.0,
+      "anti_keywords": {"INFANTRY": 4},
+      "anti_keyword_basket_fractions": {"INFANTRY": 1.0},
+      "notes": "ADMECH-WARGEAR-V1: Wahapedia Skitarii Vanguard datasheet (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Skitarii-Vanguard) Radium carbine profile is Range 18in / Attacks 3 / BS 4+ / S 3 / AP 0 / D 1 [ANTI-INFANTRY 4+]. BSData (Imperium - Adeptus Mechanicus.cat.gz) parsed primary Radium carbine with attacks=2 / strength=5 / ap=-1 / damage=1.33 -- this is a basket-blend across the unit's heavy-weapon special options (Arc rifle S=8 AP=-1 D=D3, Plasma caliver S=7 AP=-2 D=1, Transuranic arquebus S=7 AP=-2 D=D3) being averaged into the basic carbine stats. Real datasheet: every model carries a Radium carbine; ONE model in the unit may swap its carbine for one of the special weapons. Restore the basic-carbine stats (the simulator does not model 1-in-10-model special-weapon variants per unit, and most Vanguard squads run pure carbine vs MEQ targets). Anti-Infantry 4+ keyword preserved (matches the carbine's printed wounding rule). Damage ratio per attack vs T4 Sv3+ MEQ: BSData ~0.22 per attack x 2A = 0.44; post-fix Wahapedia ~0.055 per attack x 3A = 0.165 -- ~2.7x reduction in MEQ-killing efficiency at the basic-profile level. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Skitarii-Vanguard ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
+    },
+    "adeptus_mechanicus_skitarii_rangers": {
+      "strength": 4,
+      "ap": 0,
+      "weapon_damage_per_shot": 1.0,
+      "anti_keywords": {},
+      "anti_keyword_basket_fractions": {},
+      "notes": "ADMECH-WARGEAR-V1: Wahapedia Skitarii Rangers datasheet (https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Skitarii-Rangers) Galvanic rifle profile is Range 30in / Attacks 2 / BS 4+ / S 4 / AP 0 / D 1 -- no keywords. BSData (Imperium - Adeptus Mechanicus.cat.gz) parsed primary Galvanic rifle with strength=5 / ap=-1 / damage=1.33 -- same basket-blend leak as Skitarii Vanguard above; the unit's heavy-weapon special options (Arc rifle S=8 AP=-1 D=D3, Plasma caliver S=7 AP=-2 D=1, Transuranic arquebus S=7 AP=-2 D=D3) were averaged into the basic Galvanic rifle stats. Real datasheet: every model carries a Galvanic rifle; ONE model may swap for a special weapon. Restore the basic-rifle stats (the simulator does not model 1-in-10-model special-weapon variants, and most Ranger squads run a pure 30in lasgun-equivalent gunline). Cleared anti_keywords because the Galvanic rifle has no Anti keyword on the datasheet -- the {INFANTRY: 4} that BSData carried was leaked from the alternate Arc rifle's Anti-Vehicle 4+ basket-fraction. Damage ratio per attack vs T4 Sv3+ MEQ: BSData ~0.17 per attack x 2A = 0.33; post-fix Wahapedia ~0.055 per attack x 2A = 0.11 -- ~3x reduction. Sources: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/Skitarii-Rangers ; data/bsdata/cache/Imperium - Adeptus Mechanicus.cat.gz."
     },
     "orks_stompa": {
       "attacks": 14,
