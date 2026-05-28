@@ -216,11 +216,11 @@ class ShieldHostDispatcherTests(unittest.TestCase):
         self.assertTrue(captain.transient_assault_this_round)
         self.assertEqual(a.command_points, 5)
 
-    def test_archaeotech_munitions_sets_plus_one_to_hit_shooting(self):
+    def test_archaeotech_munitions_sets_lethal_hits(self):
         battle, a, _b = self._build_battle()
         battle._try_archaeotech_munitions(a, _b)
         captain = next(u for u in a.units if u.profile.name == "Shield-Captain")
-        self.assertTrue(captain.transient_plus_one_to_hit_shooting)
+        self.assertTrue(captain.transient_lethal_hits)
         self.assertEqual(a.command_points, 5)
 
     def test_avenge_the_fallen_sets_plus_one_to_wound_melee(self):

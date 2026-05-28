@@ -251,6 +251,76 @@
         "invuln_save": 7
       },
       "notes": "Same structural mapper gap also affects deathwatch_watch_captain_artemis (also invuln 7 in parsed.json, should be 4+) and likely Chaplain Cassius / Garran Branatar in the Deathwatch catalogue. Only Watch Master is in the current audit's target list; Artemis correction left for a future sweep. Wahapedia datasheet retrieved 2026-05-28; no Deathwatch-specific faction page exists, datasheet is hosted under imperial-agents."
+    },
+    "chaos_daemons_library_bloodthirster": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Bloodthirster",
+      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "chaos_daemons_library_lord_of_change": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Lord-of-Change",
+      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "chaos_daemons_library_great_unclean_one": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Great-Unclean-One",
+      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "chaos_daemons_library_keeper_of_secrets": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Keeper-of-Secrets",
+      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "chaos_daemons_library_bloodletters": {
+      "fields": {
+        "invuln_save": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Bloodletters",
+      "errata": "Chaos Daemons Library .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "chaos_daemons_library_skarbrand": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Skarbrand",
+      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
+    },
+    "chaos_daemons_library_karanak": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/Karanak",
+      "errata": "Chaos Daemons Library .cat encodes the 4+ invulnerable save as inline <profile> on selectionEntry; mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 4+.",
+      "bsdata_was": {
+        "invuln_save": 7
+      }
     }
   },
   "_audit_log": [
@@ -283,6 +353,21 @@
       "evidence": "Audited 5 Deathwatch-unique tournament-relevant units (Watch Master, Deathwatch Veterans, Corvus Blackstar, Indomitor Kill Team, Proteus Kill Team). Proteus Kill Team only exists as a Legends entry under Agents of the Imperium and was skipped. Wahapedia hosts current Deathwatch datasheets under imperial-agents (no deathwatch faction page). Veterans, Corvus Blackstar and Indomitor Kill Team weapon stats matched Wahapedia within basket-blend tolerance. Watch Master's 4+ invulnerable save is recorded as ability text in the Deathwatch catalogue file and the mapper does not parse it, leaving invuln_save at the no-invuln sentinel of 7 in parsed.json. Wahapedia confirms 4+ invuln in current codex.",
       "added_keys": [
         "deathwatch_watch_master"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "CODEX-STALE-DAEMONS audit (parent .cat 9mo stale; Library .cat fresh 2026-05-15)",
+      "action": "Added 7 BSData-lag corrections for Chaos Daemons invulnerable saves; removed wrong Karanak override from overrides.json",
+      "evidence": "Stats / weapons / OC / Ld / M all match codex. Single BSData-side gap: invulnerable save encoded as inline <profile> not <infoLink>, mapper misses. Behavioural impact mostly zero (overrides.json hand-patched same values) except Karanak which had wrong 5+ override; corrections layer 4+ now applies after override removal.",
+      "added_keys": [
+        "chaos_daemons_library_bloodthirster",
+        "chaos_daemons_library_lord_of_change",
+        "chaos_daemons_library_great_unclean_one",
+        "chaos_daemons_library_keeper_of_secrets",
+        "chaos_daemons_library_bloodletters",
+        "chaos_daemons_library_skarbrand",
+        "chaos_daemons_library_karanak"
       ]
     }
   ]

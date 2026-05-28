@@ -73,21 +73,48 @@ class DrukhariSplinterCorrectionsTests(unittest.TestCase):
 
 
 class DeathGuardPlagueCorrectionsTests(unittest.TestCase):
+    """Death Guard Plague-weapon ANTI-INFANTRY thresholds.
+
+    Wave-47 Round 1 added a blanket "all Plague weapons -> 4+" correction
+    that was over-broad. Round 2 audit confirmed via WebFetch verification
+    against Wahapedia datasheets that most Plague weapons (Plague Sprayer,
+    Plaguespitter, Twin plague spewer, Plague spewer) genuinely carry
+    ANTI-INFANTRY 2+ in the current codex. Only Blightlord Terminators'
+    Combi-weapon is a confirmed BSData lag from 4+ to 2+. The Round 1
+    over-broad entries were reverted; this test class now pins the
+    codex-truth values rather than the Round-1 assumption.
+    """
 
     def setUp(self):
         self.catalog = load_catalog()
 
-    def test_plague_marines_anti_infantry_4(self):
+    def test_plague_marines_anti_infantry_2_codex_truth(self):
+        # Wahapedia: Plague Spewer carries ANTI-INFANTRY 2+; mapper picks
+        # the lowest threshold from the basket and attaches it to the
+        # primary slot. The 2+ is codex-correct, not lag.
         entry = self.catalog["death_guard_plague_marines"]
-        self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 4)
+        self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 2)
 
     def test_blightlord_terminators_anti_infantry_4(self):
+        # Wahapedia: Combi-weapon ANTI-INFANTRY 4+. BSData carried 2+
+        # (the only Plague-family unit with confirmed lag at 4+).
         entry = self.catalog["death_guard_blightlord_terminators"]
         self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 4)
 
-    def test_csm_plague_marines_mirror(self):
+    def test_csm_plague_marines_anti_infantry_2_codex_truth(self):
+        # Mirrors the DG Plague Marines correction reversal.
         entry = self.catalog["chaos_space_marines_plague_marines"]
-        self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 4)
+        self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 2)
+
+    def test_foul_blightspawn_anti_infantry_2_codex_truth(self):
+        # Wahapedia: Plague Sprayer ANTI-INFANTRY 2+. BSData 2+ is right.
+        entry = self.catalog["death_guard_foul_blightspawn"]
+        self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 2)
+
+    def test_lord_of_virulence_anti_infantry_2_codex_truth(self):
+        # Wahapedia: Twin plague spewer ANTI-INFANTRY 2+. BSData 2+ is right.
+        entry = self.catalog["death_guard_lord_of_virulence"]
+        self.assertEqual(dict(entry.anti_keywords or {}).get("INFANTRY"), 2)
 
 
 class CorrectionsLayerOrderTests(unittest.TestCase):

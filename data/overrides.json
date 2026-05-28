@@ -1181,10 +1181,6 @@
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Exalted Flamer of Tzeentch carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Exalted-Flamer"
     },
-    "chaos_daemons_library_karanak": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Karanak (named Flesh Hound CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Karanak"
-    },
     "chaos_daemons_library_bloodmaster": {
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Bloodmaster (Khorne Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodmaster"
