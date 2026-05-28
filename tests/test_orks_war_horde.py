@@ -196,11 +196,14 @@ class WarHordeDispatcherTests(unittest.TestCase):
         battle._current_round = 2
         return battle, a, b
 
-    def test_power_of_the_waaagh_sets_plus_one_to_wound_melee(self):
+    def test_power_of_the_waaagh_sets_lethal_hits(self):
+        # ST-1 corrected Power of the WAAAGH! from the +1-to-wound proxy to
+        # transient_lethal_hits, which matches the codex "LETHAL HITS" text
+        # (auto-wound on natural 6s only, ~17% yield vs ~25% for +1-to-wound).
         battle, a, _b = self._build_battle()
         battle._try_power_of_the_waaagh(a, _b)
         # The Boyz are the highest-DPA Orks melee unit.
-        self.assertTrue(a.units[0].transient_plus_one_to_wound_melee)
+        self.assertTrue(a.units[0].transient_lethal_hits)
         self.assertEqual(a.command_points, 5)
 
     def test_mob_up_sets_undying_legions_pulse(self):
@@ -210,11 +213,14 @@ class WarHordeDispatcherTests(unittest.TestCase):
         self.assertEqual(a.units[0].transient_undying_legions_pulse, 2)
         self.assertEqual(a.command_points, 5)
 
-    def test_big_krumpin_sets_plus_one_to_wound_melee(self):
+    def test_big_krumpin_sets_reroll_wounds_ones(self):
+        # ST-1 corrected Big Krumpin' from the +1-to-wound proxy to
+        # transient_reroll_wounds_ones (1s-only re-roll, ~14% yield vs ~25%
+        # for +1-to-wound, closer to the codex re-roll-wound-1s wording).
         battle, a, _b = self._build_battle()
         battle._try_big_krumpin(a, _b)
-        self.assertTrue(a.units[0].transient_plus_one_to_wound_melee)
-        self.assertEqual(a.command_points, 4)   # 2 CP
+        self.assertTrue(a.units[0].transient_reroll_wounds_ones)
+        self.assertEqual(a.command_points, 4)   # 2 command points
 
     def test_tellyporta_sets_plus_one_save(self):
         battle, a, _b = self._build_battle()

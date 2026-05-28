@@ -246,14 +246,22 @@ class OathRerollTests(unittest.TestCase):
         # exceed 1.5x.
         self.assertGreater(oath_dmg / max(baseline_dmg, 1.0), 1.5)
 
-    def test_oath_grants_full_wound_reroll(self):
-        """Force-hit by setting hit_probability = 1.0 so only the wound
-        re-roll matters. Confirms the wound branch fires under oath."""
+    def test_oath_grants_hit_reroll(self):
+        """Oath of Moment grants re-roll of failed Hit rolls only (codex
+        verbatim: 'you can re-roll the Hit roll'). Updated in the SC5-9 audit
+        after the prior implementation that set att_reroll_all_wounds was
+        corrected — the wound re-roll was a fabrication.
+
+        This test uses hit_probability=0.5 (3+ equivalent miss rate) so the
+        hit-reroll is meaningful: baseline hit chance 0.5, oath hit chance
+        0.75 (full re-roll of failures). With wound at 0.5 (S4 vs T4 = 4+),
+        baseline damage-per-attack is 0.25, oath is 0.375 — a 1.5x lift.
+        The test checks ratio > 1.2 (ample margin for 4 000-trial noise)."""
         a = Army("Marines", detachment=GLADIUS_TASK_FORCE)
         prof = _marine_profile()
         d = prof.__dict__.copy()
-        d["hit_probability"] = 1.0    # always hit
-        d["strength"] = 3             # S3 vs T4 = 5+ to wound (low success)
+        d["hit_probability"] = 0.5    # 3+ equivalent — miss half the time
+        d["strength"] = 4             # S4 vs T4 = 4+ to wound (50% success)
         a.add_unit(UnitProfile(**d))
         b = Army("Enemy")
         b.add_unit(_enemy_profile())
@@ -279,8 +287,10 @@ class OathRerollTests(unittest.TestCase):
             defender.current_health = defender.profile.health
             oath += attacker.attack(defender, distance=12.0, mode="ranged")
 
-        # Wound chance 1/3 -> ~5/9 under full re-roll = 1.67x lift.
-        self.assertGreater(oath / max(base, 1.0), 1.3)
+        # Hit chance 0.5 -> 0.75 under full re-roll = 1.5x hit lift.
+        # With 50% wound chance: 0.25 -> 0.375 damage-per-attack, ratio 1.5.
+        # Threshold 1.2 gives ample headroom for 4 000-trial stochastic noise.
+        self.assertGreater(oath / max(base, 1.0), 1.2)
 
     def test_oath_does_not_fire_on_non_oath_target(self):
         """Oath uid is for a different defender — no re-roll, no damage lift."""
