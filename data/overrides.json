@@ -910,9 +910,6 @@
     },
     "aeldari_drukhari_archon": {
       "invuln_save": 4,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "iter22 invuln long-tail sweep: Drukhari Archon carries a Shadow Field granting 4++ invulnerable save per Wahapedia datasheet. BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Archon"
     },
     "necrons_overlord": {
@@ -1437,9 +1434,6 @@
     },
     "aeldari_drukhari_wyches": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: BSData attaches a static Feel No Pain 5+ infoLink to every Drukhari unit alongside the Power from Pain rule. Power From Pain (10e Drukhari army rule) is conditional: a unit only gains Feel No Pain 6+ while holding a Pain Token (awarded each Command phase to units Below Starting Strength). The simulator already implements the conditional rule in code/units.py (line 668: 'if self.pain_tokens > 0 and self.profile.faction == Drukhari: effective_fnp = min(effective_fnp, 6)'). Baking fnp=5 into the static profile double-counts: it gives every Drukhari unit a permanent Feel No Pain 5+ that ignores the Pain Token gate AND is stronger than the rule actually grants (6+ vs 5+). Reset to 7 (no static Feel No Pain) and let the runtime Power From Pain handle FNP 6+ conditionally. Source: 10e Drukhari codex Power From Pain (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Power-from-Pain)."
     },
     "aeldari_drukhari_incubi": {
@@ -1449,23 +1443,14 @@
     },
     "aeldari_drukhari_hellions": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes."
     },
     "aeldari_drukhari_reavers": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes."
     },
     "aeldari_drukhari_kabalite_warriors": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes."
     },
     "aeldari_drukhari_mandrakes": {
@@ -1474,9 +1459,6 @@
     },
     "aeldari_drukhari_scourges_with_shardcarbines": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes."
     },
     "aeldari_drukhari_scourges_with_heavy_weapons": {
@@ -1499,12 +1481,6 @@
     },
     "aeldari_drukhari_venom": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
-      "secondary_anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: Venom is a VEHICLE and cannot have Feel No Pain. See aeldari_drukhari_raider notes."
     },
     "aeldari_drukhari_ravager": {
@@ -1541,9 +1517,6 @@
     },
     "aeldari_drukhari_talos": {
       "fnp": 7,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "SC5-8: Talos is a MONSTER. Static Feel No Pain 5+ baked from BSData Power from Pain infoLink. See aeldari_drukhari_wyches notes."
     },
     "aeldari_drukhari_wracks": {
@@ -2256,9 +2229,6 @@
       "attacks": 0,
       "weapon_damage_per_shot": 0,
       "precision": false,
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-DIAG-2: BSData parsed.json mapper duplicated the Succubus melee Archite glaive and agoniser profile into the ranged basket â€” `weapon = Archite glaive and agoniser` with A7 S3 AP-2 D1 [PRECISION] is identical to her melee profile. Her real datasheet has only a Splinter Pistol on the ranged side (A1 S2 AP0 D1 [PISTOL]), but the mapper substituted her melee weapon. Zeroing the phantom ranged basket rather than restoring the Splinter Pistol because the Pistol is a negligible 1-shot S2 contribution that does not warrant cluttering the override; the meaningful threat the simulator must price is her melee, which is left untouched. Same mapper bug as the Drazhar / Lelith / Incubi phantom-ranged duplications. Source: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus"
     },
     "space_marines_infiltrator_squad": {
@@ -3013,42 +2983,21 @@
       "notes": "DRK-LEGENDS-FNP: Crucible static FNP 5+ was prose-walked from enhancement effects. Not on canonical 10e codex per Wahapedia; clearing to align with active codex."
     },
     "aeldari_craftworlds_ynnari_kabalite_warriors": {
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
     },
     "aeldari_craftworlds_ynnari_wyches": {
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
     },
     "aeldari_craftworlds_ynnari_reavers": {
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
     },
     "aeldari_craftworlds_ynnari_venom": {
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
-      "secondary_anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
     },
     "aeldari_craftworlds_ynnari_archon": {
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
     },
     "aeldari_craftworlds_ynnari_succubus": {
-      "anti_keywords": {
-        "INFANTRY": 4
-      },
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
     }
   }

@@ -27,6 +27,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PARSED_PATH = REPO_ROOT / "data" / "bsdata" / "parsed.json"
 OVERRIDES_PATH = REPO_ROOT / "data" / "overrides.json"
 CALIBRATED_PATH = REPO_ROOT / "data" / "calibrated_points.json"
+# Codex corrections layer (added wave 47): per-codex-edition file that
+# corrects BSData's lag against the live errata. Distinct from
+# overrides.json because corrections are *not* SwegHammer hand-tuning —
+# they restore the canonical codex value when BSData hasn't caught up yet.
+# Filename templated by codex_version: codex_corrections_10e.json,
+# codex_corrections_11e.json (etc.) so an 11e release can be selected at
+# load time without touching overrides.json. Default is 10e.
+def _codex_corrections_path(codex_version: str) -> "Path":
+    return REPO_ROOT / "data" / f"codex_corrections_{codex_version}.json"
+DEFAULT_CODEX_VERSION = "10e"
 
 
 @dataclass
@@ -324,6 +334,49 @@ def _load_overrides() -> Dict[str, Dict]:
     return payload.get("units", {})
 
 
+def _load_codex_corrections(codex_version: str) -> Dict[str, Dict]:
+    """Load the per-codex-edition BSData-lag corrections file.
+
+    Layered into load_catalog BETWEEN the BSData base and the hand-tuning
+    overrides.json. Two reasons for keeping it separate from
+    overrides.json:
+
+      1. Auditability — when BSData updates and the lag closes, the
+         corrections entry can be retired by checking that BSData now
+         carries the field at the corrected value. Mixed with
+         hand-tuning entries in overrides.json this would be lost.
+      2. Codex version selection — when 11e (or any subsequent edition)
+         releases, a parallel codex_corrections_11e.json file pins the
+         simulator to the chosen edition without rewriting overrides.json.
+         Pass codex_version="11e" to load_catalog (or the eval CLI) to
+         flip baselines.
+
+    Each entry has the shape:
+      "unit_key": {
+        "fields": {"<field>": <value>, ...},  # applied as override
+        "source": "<wahapedia URL>",
+        "errata": "<change description>",
+        "bsdata_was": {"<field>": <stale value>}  # audit aid
+      }
+
+    Returns a flat {unit_key: fields_dict} suitable for the same
+    `_apply_override` merge path used by overrides / calibrated.
+    Metadata keys (source, errata, bsdata_was, notes) are stripped.
+    Silent no-op if the corrections file doesn't exist.
+    """
+    path = _codex_corrections_path(codex_version)
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    out: Dict[str, Dict] = {}
+    for key, record in payload.get("corrections", {}).items():
+        fields = record.get("fields") or {}
+        if not fields:
+            continue
+        out[key] = dict(fields)
+    return out
+
+
 def _load_calibrated_overrides() -> Dict[str, Dict]:
     """
     Read data/calibrated_points.json (written by code/balancer.py) and shape
@@ -491,26 +544,39 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
 def load_catalog(
     include_disabled: bool = False,
     use_calibrated: bool = False,
+    codex_version: str = DEFAULT_CODEX_VERSION,
 ) -> Dict[str, CatalogEntry]:
     """
     Build the merged catalogue. Layers, in precedence order (later wins):
 
-      1. data/bsdata/parsed.json     — BSData-derived base stats
-      2. data/overrides.json         — hand-tuned modifications
-      3. data/calibrated_points.json — balancer-derived points_override
-                                       (only applied if use_calibrated=True
-                                       AND the calibration converged)
+      1. data/bsdata/parsed.json                 — BSData-derived base stats
+      2. data/codex_corrections_<version>.json   — BSData-lag corrections
+                                                   (canonical codex values
+                                                   for the chosen edition)
+      3. data/overrides.json                     — SwegHammer hand-tuning
+      4. data/calibrated_points.json             — balancer-derived points
+                                                   (only if use_calibrated=True
+                                                   AND calibration converged)
+
+    `codex_version` selects which corrections file to layer in. Default is
+    "10e". When 11e releases, copy codex_corrections_10e.json to
+    codex_corrections_11e.json, edit the 11e entries, and pass
+    codex_version="11e" to lock the simulator to the 11e codex without
+    touching overrides.json.
     """
     base = _load_parsed()
+    corrections = _load_codex_corrections(codex_version)
     overrides = _load_overrides()
     calibrated = _load_calibrated_overrides() if use_calibrated else {}
 
     out: Dict[str, CatalogEntry] = {}
-    keys = set(base) | set(overrides) | set(calibrated)
+    keys = set(base) | set(corrections) | set(overrides) | set(calibrated)
     for key in keys:
-        # Merge overrides FIRST, then calibrated on top so balancer output
-        # wins over manual overrides for points only.
-        merged_override = dict(overrides.get(key, {}))
+        # Merge order: corrections first (canonical codex), then overrides
+        # (SwegHammer hand-tuning), then calibrated (balancer output).
+        # Each later layer wins on overlapping fields.
+        merged_override = dict(corrections.get(key, {}))
+        merged_override.update(overrides.get(key, {}))
         merged_override.update(calibrated.get(key, {}))
         entry = _apply_override(base.get(key), merged_override, key)
         if not include_disabled and not entry.enabled:
@@ -519,11 +585,13 @@ def load_catalog(
     return out
 
 
-def summary() -> str:
-    catalog = load_catalog()
+def summary(codex_version: str = DEFAULT_CODEX_VERSION) -> str:
+    catalog = load_catalog(codex_version=codex_version)
     return (
         f"{len(catalog)} units in catalogue "
-        f"({len(_load_parsed())} from BSData, {len(_load_overrides())} override entries)"
+        f"({len(_load_parsed())} from BSData, "
+        f"{len(_load_codex_corrections(codex_version))} codex_{codex_version} corrections, "
+        f"{len(_load_overrides())} override entries)"
     )
 
 
