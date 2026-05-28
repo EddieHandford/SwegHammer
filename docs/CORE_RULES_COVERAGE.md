@@ -126,7 +126,7 @@ Status legend:
 | Rule | Status | Where / gap |
 |---|---|---|
 | Primary VP (objective control) | ✓ | `simulator.py:_score_objectives`, gated rounds 2-5 per PRIMARY-VP-AUDIT |
-| **Pariah Nexus Secondary selection (pick 2 of 4 Fixed, or Tactical)** | ✗ | `secondaries.py` scores **all four** every game. Real games score only the **2 chosen**. Phase 2.5 SECONDARY-SELECTION-V1 target |
+| **Pariah Nexus Secondary selection (pick 2 of 4 Fixed, or Tactical)** | ✓ | `secondaries.pick_secondaries` picks 2 Fixed + 2 Tactical per army at battle start (heuristic on enemy MONSTER/VEHICLE count + own FLY/MOUNT count). `Army.chosen_secondaries` tuple is read by `simulator._score_secondaries` to gate `score_round_delta` / `score_position_delta` — only picked secondaries score VP. Implemented in iter 44 SECONDARY-SELECTION-V1 |
 | Sticky Objectives | ✓ | `simulator.py:293, 593, 609` |
 | Battle-shock impact on objective control | ⚠️ | Depends on OC=0-while-shocked (gap above) |
 

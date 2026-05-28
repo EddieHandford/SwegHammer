@@ -359,6 +359,21 @@ class Army:
         # Cited as `simulator.markerlights`.
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
         self.guided_enemy_uids: Set[str] = set()
+        # SECONDARY-SELECTION-V1 — Pariah Nexus Fixed + Tactical secondary
+        # choice. Real 10e tournament play picks exactly TWO Fixed
+        # Secondaries from the pool {bring_it_down, no_prisoners,
+        # cull_the_horde, assassination} OR uses the Tactical deck
+        # (drawing per round). The simulator previously scored ALL four
+        # Fixed + both Tactical (engage_on_all_fronts, behind_enemy_lines)
+        # every round for every army, systematically over-rewarding
+        # balanced kill-heavy / mobile armies (Drukhari, Aeldari,
+        # Tyranids). This tuple, populated by `secondaries.pick_secondaries`
+        # at battle start, restricts the secondary scorer to the picked
+        # subset. Defaults to () meaning "no secondaries chosen" —
+        # `Battle.__init__` should always call the picker before scoring
+        # runs. Cited as `simulator.secondary_selection` (10e Pariah Nexus
+        # mission pack: each player selects 2 Fixed or draws Tactical).
+        self.chosen_secondaries: Tuple[str, ...] = ()
         # Coordinated army-level activation plan (#161 / S3). Picked once per
         # round by the simulator's `_pick_army_plan` and consulted by both
         # `activation_queue` (to order units that align with the plan first)

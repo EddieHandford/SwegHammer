@@ -414,6 +414,16 @@ class Battle:
         self._apply_combat_drugs()
 
         self._assign_uids()
+        # SECONDARY-SELECTION-V1: pick each army's 2 Fixed + 2 Tactical
+        # Pariah Nexus secondaries BEFORE `_deploy_armies` reorganises the
+        # roster. GSC armies have their full roster moved into reserves
+        # by Cult Ambush, so the picker would otherwise see an empty
+        # `army.units` for the GSC side. Called once per battle and the
+        # picks persist on the army for the whole run.
+        # Cited as `simulator.secondary_selection`.
+        from .secondaries import pick_secondaries as _pick_secondaries
+        self.a.chosen_secondaries = _pick_secondaries(self.a, self.b)
+        self.b.chosen_secondaries = _pick_secondaries(self.b, self.a)
         self._deploy_armies()
         # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
         # Round 1 begins. Deep Strike arrivals start at Round 2.
@@ -806,12 +816,20 @@ class Battle:
         b_attacker_faction = (
             self.b.units[0].profile.faction if self.b.units else None
         )
+        # SECONDARY-SELECTION-V1: pass each army's `chosen_secondaries`
+        # tuple so the scorer only awards VP for the 2 Fixed (+ Tactical)
+        # picks this side actually brought. Without this gate the scorer
+        # awards all 4 Fixed + both Tactical to every army every game,
+        # asymmetrically over-rewarding balanced kill-heavy / mobile
+        # rosters (Drukhari, Aeldari, Tyranids).
+        # Cited as `simulator.secondary_selection`.
         if self._b_round_snapshot is not None:
             a_bid, a_np, a_cth, a_assn = score_round_delta(
                 self._b_round_snapshot, self.b.units,
                 enemy_warlord_uid=b_warlord,
                 defender_faction=b_defender_faction,
                 attacker_faction=a_attacker_faction,
+                chosen=self.a.chosen_secondaries,
             )
             a_kill_vp = a_bid + a_np + a_cth + a_assn
             self._a_vp += a_kill_vp
@@ -823,6 +841,7 @@ class Battle:
                 enemy_warlord_uid=a_warlord,
                 defender_faction=a_defender_faction,
                 attacker_faction=b_attacker_faction,
+                chosen=self.b.chosen_secondaries,
             )
             b_kill_vp = b_bid + b_np + b_cth + b_assn
             self._b_vp += b_kill_vp
@@ -835,15 +854,19 @@ class Battle:
         # LC-2: round_num gates the 2-of-9 Tactical secondary deck mechanic
         # — each side scores at most ONE of (Engage, BEL) per round on an
         # alternating schedule (see `_is_tactical_secondary_active`).
+        # SECONDARY-SELECTION-V1: `chosen` gates further on which Tactical
+        # cards the army brought.
         a_eng, a_bel = score_position_delta(
             self.a.units, self.map, own_is_army_a=True, round_num=round_num,
             attacker_faction=a_attacker_faction,
+            chosen=self.a.chosen_secondaries,
         )
         self._a_vp += a_eng + a_bel
         self._a_secondary_vp += a_eng + a_bel
         b_eng, b_bel = score_position_delta(
             self.b.units, self.map, own_is_army_a=False, round_num=round_num,
             attacker_faction=b_attacker_faction,
+            chosen=self.b.chosen_secondaries,
         )
         self._b_vp += b_eng + b_bel
         self._b_secondary_vp += b_eng + b_bel

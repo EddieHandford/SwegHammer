@@ -15,8 +15,11 @@ from code.secondaries import (
     CULL_THE_HORDE_CAP_PER_ROUND,
     CULL_THE_HORDE_VP_PER_UNIT,
     ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND,
+    FIXED_SECONDARY_KEYS,
     NO_PRISONERS_CAP_PER_ROUND,
     NO_PRISONERS_VP_PER_UNIT,
+    TACTICAL_SECONDARY_KEYS,
+    pick_secondaries,
     score_position_delta,
     score_round_delta,
     take_snapshot,
@@ -398,6 +401,176 @@ class ScorePositionDeltaTests(unittest.TestCase):
             [unit], _make_map(), own_is_army_a=True, round_num=1,
         )
         self.assertEqual(bel, 0)
+
+
+class ChosenSecondariesGateTests(unittest.TestCase):
+    """SECONDARY-SELECTION-V1: `chosen` gates score_round_delta and
+    score_position_delta to the army's picked 2 Fixed + 2 Tactical."""
+
+    def test_round_delta_chosen_none_defaults_to_all_fixed(self):
+        # Backward compatibility: passing chosen=None scores all four
+        # Fixed Secondaries (legacy callers / tests).
+        boyz = _make_unit("Boyz", alive=True,
+                          keywords=("INFANTRY", "CHARACTER"),
+                          starting_strength=10)
+        snap = take_snapshot([boyz])
+        boyz.current_health = 0.0
+        bid, np_vp, cth, ass = score_round_delta(snap, [boyz])
+        # No MV → bid=0; INFANTRY kill → np=3; 10-model → cull=3;
+        # CHARACTER → assassination=3.
+        self.assertEqual(bid, 0)
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, CULL_THE_HORDE_VP_PER_UNIT)
+        self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
+
+    def test_round_delta_chosen_empty_scores_nothing(self):
+        # An army with NO Fixed Secondary picks scores 0 across the board.
+        boyz = _make_unit("Boyz", alive=True,
+                          keywords=("INFANTRY", "CHARACTER"),
+                          starting_strength=10)
+        snap = take_snapshot([boyz])
+        boyz.current_health = 0.0
+        bid, np_vp, cth, ass = score_round_delta(snap, [boyz], chosen=())
+        self.assertEqual(bid, 0)
+        self.assertEqual(np_vp, 0)
+        self.assertEqual(cth, 0)
+        self.assertEqual(ass, 0)
+
+    def test_round_delta_chosen_no_prisoners_only(self):
+        # An army that picked only No Prisoners + Cull does NOT score
+        # Bring it Down or Assassination on a Monster+Character kill.
+        mortarion = _make_unit("Mortarion", alive=True,
+                                keywords=("MONSTER", "CHARACTER"))
+        snap = take_snapshot([mortarion])
+        mortarion.current_health = 0.0
+        bid, np_vp, cth, ass = score_round_delta(
+            snap, [mortarion],
+            chosen=("no_prisoners", "cull_the_horde"),
+        )
+        self.assertEqual(bid, 0)  # Bring it Down not picked
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, 0)  # not a horde kill (strength=1)
+        self.assertEqual(ass, 0)  # Assassination not picked
+
+    def test_round_delta_warlord_bonus_gated_on_assassination_pick(self):
+        # If Assassination is not picked, the +1 Warlord bonus is also
+        # zeroed (the bonus only stacks on top of Assassination VP).
+        warlord = _make_unit("Trajann", alive=True,
+                              keywords=("CHARACTER", "INFANTRY"))
+        snap = take_snapshot([warlord])
+        warlord.current_health = 0.0
+        _, _, _, ass = score_round_delta(
+            snap, [warlord],
+            enemy_warlord_uid=id(warlord),
+            chosen=("no_prisoners",),
+        )
+        self.assertEqual(ass, 0)
+
+    def test_position_delta_chosen_none_defaults_to_both_tactical(self):
+        # Backward compat: chosen=None scores both Engage and BEL.
+        units = [
+            _make_unit("sw", alive=True, position=(10.0, 10.0)),
+            _make_unit("nw", alive=True, position=(10.0, 40.0)),
+            _make_unit("ne", alive=True, position=(30.0, 40.0)),
+        ]
+        eng, _ = score_position_delta(
+            units, _make_map(), own_is_army_a=True, round_num=1,
+        )
+        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+
+    def test_position_delta_chosen_empty_scores_zero(self):
+        units = [
+            _make_unit("sw", alive=True, position=(10.0, 10.0)),
+            _make_unit("nw", alive=True, position=(10.0, 40.0)),
+            _make_unit("ne", alive=True, position=(30.0, 40.0)),
+        ]
+        eng, bel = score_position_delta(
+            units, _make_map(), own_is_army_a=True, round_num=1,
+            chosen=(),
+        )
+        self.assertEqual(eng, 0)
+        self.assertEqual(bel, 0)
+
+    def test_position_delta_chosen_bel_only_no_engage(self):
+        # 3-quadrant spread would normally score Engage. With chosen=BEL
+        # only, Engage is zeroed.
+        units = [
+            _make_unit("sw", alive=True, position=(10.0, 10.0)),
+            _make_unit("nw", alive=True, position=(10.0, 40.0)),
+            _make_unit("ne", alive=True, position=(30.0, 40.0)),
+        ]
+        eng, _ = score_position_delta(
+            units, _make_map(), own_is_army_a=True, round_num=1,
+            chosen=("behind_enemy_lines",),
+        )
+        self.assertEqual(eng, 0)
+
+
+class PickSecondariesTests(unittest.TestCase):
+    """SECONDARY-SELECTION-V1: `pick_secondaries` chooses 2 Fixed + 2
+    Tactical secondaries per army based on roster shape."""
+
+    def _make_army(self, units):
+        # Minimal Army stand-in: pick_secondaries reads `army.units` and
+        # each unit's profile.unit_keywords. Avoid spinning up the real
+        # Army class to keep the test free of detachment / catalogue side
+        # effects.
+        return SimpleNamespace(units=list(units))
+
+    def test_picker_returns_exactly_four_keys(self):
+        own = self._make_army([_make_unit("Marine", alive=True,
+                                            keywords=("INFANTRY",))])
+        enemy = self._make_army([_make_unit("Marine", alive=True,
+                                              keywords=("INFANTRY",))])
+        picks = pick_secondaries(own, enemy)
+        self.assertEqual(len(picks), 4)
+        # First two are Fixed, last two are Tactical.
+        for k in picks[:2]:
+            self.assertIn(k, FIXED_SECONDARY_KEYS)
+        for k in picks[2:]:
+            self.assertIn(k, TACTICAL_SECONDARY_KEYS)
+
+    def test_picker_picks_bring_it_down_vs_vehicle_heavy_enemy(self):
+        own = self._make_army([_make_unit("Marine", alive=True,
+                                            keywords=("INFANTRY",))])
+        enemy = self._make_army([
+            _make_unit(f"Tank{i}", alive=True, keywords=("VEHICLE",))
+            for i in range(3)
+        ])
+        picks = pick_secondaries(own, enemy)
+        self.assertIn("bring_it_down", picks)
+
+    def test_picker_picks_no_prisoners_vs_infantry_enemy(self):
+        own = self._make_army([_make_unit("Marine", alive=True,
+                                            keywords=("INFANTRY",))])
+        enemy = self._make_army([
+            _make_unit(f"Boyz{i}", alive=True, keywords=("INFANTRY",))
+            for i in range(5)
+        ])
+        picks = pick_secondaries(own, enemy)
+        self.assertIn("no_prisoners", picks)
+        self.assertNotIn("bring_it_down", picks)
+
+    def test_picker_picks_bel_for_mobile_army(self):
+        # 3+ FLY/MOUNT units → behind_enemy_lines comes first in tactical.
+        own = self._make_army([
+            _make_unit(f"Reaver{i}", alive=True, keywords=("FLY",))
+            for i in range(3)
+        ])
+        enemy = self._make_army([_make_unit("Marine", alive=True,
+                                              keywords=("INFANTRY",))])
+        picks = pick_secondaries(own, enemy)
+        self.assertIn("behind_enemy_lines", picks)
+        self.assertIn("engage_on_all_fronts", picks)
+
+    def test_picker_deterministic_for_same_input(self):
+        own = self._make_army([_make_unit("Marine", alive=True,
+                                            keywords=("INFANTRY",))])
+        enemy = self._make_army([_make_unit("Marine", alive=True,
+                                              keywords=("INFANTRY",))])
+        picks_a = pick_secondaries(own, enemy)
+        picks_b = pick_secondaries(own, enemy)
+        self.assertEqual(picks_a, picks_b)
 
 
 if __name__ == "__main__":

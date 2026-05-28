@@ -24,8 +24,34 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
 
 if TYPE_CHECKING:
+    from .army import Army
     from .units import Unit
     from .map import Map
+
+
+# Pool of recognised Pariah Nexus secondary keys. Used by `pick_secondaries`
+# (assigns 2 Fixed + 2 Tactical to each army at battle start) and the
+# `chosen` gate in `score_round_delta` / `score_position_delta`.
+#
+# Fixed Secondaries pool (10e Pariah Nexus, pick 2):
+#   bring_it_down       — MONSTER/VEHICLE kill credit
+#   no_prisoners        — generic unit-kill credit
+#   cull_the_horde      — kill credit for 10+model squads
+#   assassination       — CHARACTER kill credit (+1 if Warlord)
+# Tactical Secondaries (pool of 9, draw 2 per round in real play):
+#   engage_on_all_fronts — board-spread VP
+#   behind_enemy_lines   — opponent DZ VP
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+# Cited as `simulator.secondary_selection`.
+FIXED_SECONDARY_KEYS: Tuple[str, ...] = (
+    "bring_it_down", "no_prisoners", "cull_the_horde", "assassination",
+)
+TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
+    "engage_on_all_fronts", "behind_enemy_lines",
+)
+ALL_SECONDARY_KEYS: Tuple[str, ...] = (
+    FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS
+)
 
 
 # Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
@@ -177,6 +203,7 @@ def score_round_delta(
     enemy_warlord_uid: Optional[int] = None,
     defender_faction: Optional[str] = None,
     attacker_faction: Optional[str] = None,
+    chosen: Optional[Iterable[str]] = None,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -193,6 +220,15 @@ def score_round_delta(
       * cull_the_horde_vp — kill credit for units that were ≥10 models
       * assassination_vp — kill credit for enemy CHARACTERs
 
+    SECONDARY-SELECTION-V1: `chosen` is the iterable of Fixed Secondary
+    keys this side has selected (per real 10e Pariah Nexus, each player
+    picks exactly TWO from the Fixed pool or uses the Tactical deck).
+    Any of the four components NOT in `chosen` is zeroed in the return
+    tuple. Passing `chosen=None` means "score all four" — preserves
+    backward compatibility for callers / tests that don't yet thread the
+    selection through (simulator was updated to always pass the army's
+    `chosen_secondaries`). Cited as `simulator.secondary_selection`.
+
     NOTE: `defender_faction` and `attacker_faction` parameters are accepted
     for API stability (callers in code/simulator.py pass these) but are
     currently unused. The faction-gated VP multipliers that previously used
@@ -201,6 +237,10 @@ def score_round_delta(
     Secondary VP scoring is restored to the 10e core rules: fixed VP per kill,
     no per-faction scaling.
     """
+    if chosen is None:
+        chosen_set = frozenset(FIXED_SECONDARY_KEYS)
+    else:
+        chosen_set = frozenset(chosen)
     alive_now_ids = frozenset(
         id(u) for u in enemy_units_now if u.current_health > 0
     )
@@ -226,19 +266,19 @@ def score_round_delta(
     bring_it_down_vp = min(
         BRING_IT_DOWN_CAP_PER_ROUND,
         len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL,
-    )
+    ) if "bring_it_down" in chosen_set else 0
     no_prisoners_vp = min(
         NO_PRISONERS_CAP_PER_ROUND,
         len(units_killed) * NO_PRISONERS_VP_PER_UNIT,
-    )
+    ) if "no_prisoners" in chosen_set else 0
     cull_the_horde_vp = min(
         CULL_THE_HORDE_CAP_PER_ROUND,
         len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT,
-    )
+    ) if "cull_the_horde" in chosen_set else 0
     assassination_vp = min(
         ASSASSINATION_CAP_PER_ROUND,
         len(chars_killed) * ASSASSINATION_VP_PER_CHAR,
-    )
+    ) if "assassination" in chosen_set else 0
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
     # VP at the end of the battle round if one or more enemy CHARACTER
@@ -249,7 +289,11 @@ def score_round_delta(
     # alternative max, not as cap + bonus — but since our flat 3 VP
     # per CHARACTER already gets close to the 4 VP ceiling on one
     # kill, the bonus VP is small and we add it post-cap for clarity).
-    if enemy_warlord_uid is not None and enemy_warlord_uid in chars_killed:
+    if (
+        "assassination" in chosen_set
+        and enemy_warlord_uid is not None
+        and enemy_warlord_uid in chars_killed
+    ):
         assassination_vp += ASSASSINATION_WARLORD_BONUS_VP
 
     return (bring_it_down_vp, no_prisoners_vp,
@@ -299,6 +343,7 @@ def score_position_delta(
     own_is_army_a: bool,
     round_num: int = 1,
     attacker_faction: Optional[str] = None,
+    chosen: Optional[Iterable[str]] = None,
 ) -> Tuple[int, int]:
     """Compute (engage_vp, behind_enemy_lines_vp) for one side at end-of-
     round given the side's currently-alive units, the battlefield map,
@@ -326,6 +371,16 @@ def score_position_delta(
     incentive — projecting units forward / spreading across the map
     is rewarded, sticky-camping is not.
 
+    SECONDARY-SELECTION-V1: `chosen` is the iterable of Tactical
+    secondary keys this side has selected
+    ({"engage_on_all_fronts", "behind_enemy_lines"}). Engage / BEL VP is
+    zeroed when the corresponding key is absent from `chosen`. Passing
+    `chosen=None` defaults to "both Tactical secondaries active" — kept
+    for backward compatibility with tests that don't yet thread the
+    selection through. The simulator's `_score_secondaries` was updated
+    to always pass the army's `chosen_secondaries`. Cited as
+    `simulator.secondary_selection`.
+
     NOTE: `attacker_faction` parameter is accepted for API stability
     (callers in code/simulator.py pass this) but is currently unused.
     The faction-gated VP dampers that previously used this parameter
@@ -334,6 +389,10 @@ def score_position_delta(
     invent). Position secondary scoring uses fixed VP values with no
     per-faction scaling.
     """
+    if chosen is None:
+        chosen_set = frozenset(TACTICAL_SECONDARY_KEYS)
+    else:
+        chosen_set = frozenset(chosen)
     cx = map_.width / 2.0
     cy = map_.height / 2.0
     quadrants_occupied = set()
@@ -371,9 +430,14 @@ def score_position_delta(
     engage_active = _is_tactical_secondary_active(round_num, side, "engage")
     bel_active = _is_tactical_secondary_active(round_num, side,
                                                 "behind_enemy_lines")
+    # SECONDARY-SELECTION-V1: gate further on `chosen_set` — even if the
+    # LC-2 deck-draw slot is "active" this turn, the army only scores the
+    # secondary when it has actually picked that Tactical card.
+    engage_picked = "engage_on_all_fronts" in chosen_set
+    bel_picked = "behind_enemy_lines" in chosen_set
     # Engage tiered (2/3/5 VP for 2/3/4 quadrants) per real Pariah Nexus.
     engage_vp = 0
-    if engage_active:
+    if engage_active and engage_picked:
         n = len(quadrants_occupied)
         if n >= 4:
             engage_vp = ENGAGE_VP_FOUR_QUADRANTS
@@ -381,5 +445,107 @@ def score_position_delta(
             engage_vp = ENGAGE_VP_THREE_QUADRANTS
         elif n == 2:
             engage_vp = ENGAGE_VP_TWO_QUADRANTS
-    bel_vp = BEHIND_ENEMY_LINES_VP if bel_active and in_enemy_dz else 0
+    bel_vp = (
+        BEHIND_ENEMY_LINES_VP
+        if bel_active and bel_picked and in_enemy_dz
+        else 0
+    )
     return engage_vp, bel_vp
+
+
+# ---------------------------------------------------------------------------
+# SECONDARY-SELECTION-V1 — secondary picker
+# ---------------------------------------------------------------------------
+
+# Mobile-unit count threshold: an army with this many FLY-or-MOUNT units is
+# considered fast enough to bring Behind Enemy Lines as its Tactical pick.
+_BEL_MOBILE_THRESHOLD: int = 3
+# MONSTER/VEHICLE count threshold: enemy with this many qualifying targets
+# justifies bringing Bring it Down as a Fixed pick.
+_BID_TARGET_THRESHOLD: int = 3
+
+
+def _enemy_monster_vehicle_count(enemy_army: "Army") -> int:
+    """Count MONSTER/VEHICLE units in the enemy's full roster (board +
+    reserves). The picker fires at battle start, so we should look at the
+    whole list, including deep-strikers / reserves the army has but hasn't
+    deployed yet."""
+    n = 0
+    for u in enemy_army.units:
+        if _is_monster_or_vehicle(u):
+            n += 1
+    return n
+
+
+def _own_mobile_unit_count(own_army: "Army") -> int:
+    """Count units in the army with FLY or MOUNT keyword — proxy for "fast
+    enough to project into the enemy DZ for Behind Enemy Lines"."""
+    n = 0
+    for u in own_army.units:
+        kw = u.profile.unit_keywords or ()
+        if "FLY" in kw or "MOUNT" in kw:
+            n += 1
+    return n
+
+
+def pick_secondaries(
+    own_army: "Army", enemy_army: "Army",
+) -> Tuple[str, ...]:
+    """Return a tuple of 2 Fixed + up-to-2 Tactical secondary keys this
+    army has picked for the battle. Real 10e Pariah Nexus rule: each
+    player picks exactly TWO Fixed Secondaries from the four-card pool OR
+    uses the Tactical deck (drawing per round). The Tactical layer in
+    SwegHammer is simplified to a fixed 2-card pool (Engage on All
+    Fronts + Behind Enemy Lines) — we treat the army's Tactical picks as
+    a parallel choice of which of those two to "bring".
+
+    Heuristic (deterministic given (own_army, enemy_army) so N=40 eval
+    is reproducible) — picks 2 Fixed + 2 Tactical:
+      Fixed slot 1:
+        * If enemy has >= 3 MONSTER/VEHICLE units → "bring_it_down"
+        * Otherwise → "no_prisoners"
+      Fixed slot 2:
+        * If enemy has >= 2 CHARACTER units → "assassination"
+        * Otherwise → "cull_the_horde"
+      Tactical slot 1:
+        * If own mobile-unit (FLY or MOUNT) count >= 3 →
+          "behind_enemy_lines" (army is fast enough to project into
+          the enemy DZ each turn)
+        * Otherwise → "engage_on_all_fronts" (default-aware pick,
+          easier to satisfy for slower / objective-heavy lists)
+      Tactical slot 2:
+        * The other Tactical card (engage <-> BEL) — most real-meta
+          armies bring two Tactical picks, and the simulator's
+          2-card Tactical pool means this slot covers whichever
+          card the slot-1 heuristic didn't pick.
+
+    The heuristic is intentionally simple — under 30 lines. The
+    structural fix is on the Fixed side: previously ALL FOUR Fixed
+    Secondaries scored every game; now only the picked 2 do. The
+    Tactical layer keeps the same 2-card pool but each army now picks
+    its 2 (still both, given the small pool) so the
+    `chosen_secondaries` gate is consistent across Fixed and Tactical.
+
+    Cited as `simulator.secondary_selection`.
+    """
+    fixed: List[str] = []
+    enemy_mv = _enemy_monster_vehicle_count(enemy_army)
+    if enemy_mv >= _BID_TARGET_THRESHOLD:
+        fixed.append("bring_it_down")
+    else:
+        fixed.append("no_prisoners")
+    # Second Fixed pick: count enemy CHARACTERs to decide assassination
+    # vs cull_the_horde.
+    enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
+    if enemy_chars >= 2:
+        fixed.append("assassination")
+    else:
+        fixed.append("cull_the_horde")
+    # Tactical picks: mobile armies prioritise BEL; everyone else
+    # defaults to Engage. The OTHER tactical card is the second pick.
+    own_mobile = _own_mobile_unit_count(own_army)
+    if own_mobile >= _BEL_MOBILE_THRESHOLD:
+        tactical = ["behind_enemy_lines", "engage_on_all_fronts"]
+    else:
+        tactical = ["engage_on_all_fronts", "behind_enemy_lines"]
+    return tuple(fixed + tactical)

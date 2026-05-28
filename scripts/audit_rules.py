@@ -437,6 +437,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.
     "simulator.warlord_designation",
+    # SECONDARY-SELECTION-V1 — Pariah Nexus secondary selection. Real
+    # 10e rule: each player picks exactly TWO Fixed Secondaries from
+    # the four-card pool OR uses the Tactical deck (drawing per
+    # round). Implemented in `code/secondaries.py::pick_secondaries`
+    # (heuristic on enemy MV count + own FLY/MOUNT count, picks 2
+    # Fixed + 2 Tactical); persisted on `Army.chosen_secondaries`;
+    # consumed by `code/secondaries.py::score_round_delta` /
+    # `score_position_delta` via the `chosen` parameter; threaded
+    # through from `code/simulator.py::_score_secondaries`.
+    "simulator.secondary_selection",
     # Astra Militarum Voice of Command (army rule, 10e). At the start of
     # each Command phase, each AM OFFICER (CHARACTER) issues one Order to
     # an eligible BATTLELINE INFANTRY (REGIMENT) target within 6". Four
