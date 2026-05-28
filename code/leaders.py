@@ -586,16 +586,41 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # Sorcerer in Terminator Armour — TSON variant. Leader-attaches to
     # Scarab Occult Terminators (per BSData v10.6.0 Leader infoLink).
     # Datasheet ability "Marked by Fate (Psychic)" grants +1 to Hit on
-    # the Sorcerer's chosen target unit each Shooting phase — proxied
-    # here as a unit-wide plus_one_to_hit aura on the led Scarab squad
-    # (strictly stronger than codex since the codex is per-target per-
-    # phase; the aura uplift compensates for our missing target-indexed
-    # buff plumbing and lands the Scarab Occult Terminators' real
-    # offensive ceiling in vs-meta calibration). Listed AFTER plain
-    # "Sorcerer" would lose substring tie — must come BEFORE the generic
-    # CSM "Sorcerer" entry so this longer key wins lookup. Wahapedia
-    # source: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
-    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, plus_one_to_hit=True,
+    # the Sorcerer's chosen target unit each Shooting phase — quoted
+    # Wahapedia: "At the start of your Shooting phase, select one enemy
+    # unit that is visible to this PSYKER model. Until the end of the
+    # phase, each time a model in this unit makes an attack that targets
+    # that enemy unit, add 1 to the Hit roll."
+    #
+    # TSON-KOS-MESMERISING (wave-44): the prior proxy was
+    # `plus_one_to_hit=True`, which fires army-wide AND in BOTH the
+    # Shooting and Fight phases. That is a strict over-buff in three
+    # dimensions vs codex:
+    #   1. codex is shooting-only; +1-to-hit fires in melee too,
+    #   2. codex is per-Shooting-phase one-target; +1-to-hit applies to
+    #      every shooting target every round,
+    #   3. codex is per-chosen-unit; +1-to-hit applies to every enemy.
+    # Combined this is ~2x the codex magnitude on the Scarab Occult
+    # Terminators (the host unit) — a marquee elite squad whose entire
+    # role rests on its shooting + melee weight of attacks. The current
+    # +1-to-hit proxy is a leading contributor to the +12-pt TSON sim
+    # over-shoot vs the Warp Friends real meta (sim 71.5%, real 54.6%
+    # at wave-43 baseline).
+    #
+    # Wave-44 fix: replace plus_one_to_hit with reroll_hit_ones — the
+    # same proxy convention used for Ahriman's Master of the Rubricae
+    # (Psychic) hit-reroll (TSON-DIAG-3) and Infernal Master's Malefic
+    # Maelstrom [SUSTAINED HITS 1] proxy. Magnitude drops from a full
+    # +1-to-hit modifier (~+1/3 to +1/2 of all hit rolls) to a single
+    # 1-rerolled hit-roll-of-1 (~+1/6 of all hit rolls), still army-wide
+    # both phases but at a much smaller uplift per hit. Direction-
+    # correct (offensive hit-roll uplift on the Scarab squad); strictly
+    # narrower than the codex single-target per-phase +1-to-hit, but the
+    # smallest credible shrinkage given the absence of per-target
+    # hit-modifier plumbing. Listed BEFORE the generic CSM "Sorcerer"
+    # entry so this longer key wins lookup. Wahapedia source:
+    # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
+    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, reroll_hit_ones=True,
                                           host_keys=("thousand_sons_scarab_occult_terminators",))),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
