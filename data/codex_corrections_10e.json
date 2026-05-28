@@ -3,178 +3,272 @@
   "_codex_version": "10e",
   "_verified_against": "https://wahapedia.ru/wh40k10ed/ as of 2026-05-28",
   "_bsdata_snapshot": "main branch fetched 2026-05-18 (see data/bsdata/cache/ timestamps); SwegHammer DEFAULT_TAG in code/bsdata/fetch.py is currently 'main' so the snapshot is not version-locked. Pinning to a stable BSData tag is a separate piece of work (parking lot).",
-
   "corrections": {
-
     "aeldari_drukhari_kabalite_warriors": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Kabalite-Warriors",
       "errata": "Drukhari codex September 2024 errata round — ANTI-INFANTRY tightened from 3+ to 4+ on Splinter Rifle / Cannon",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}},
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      },
       "notes": "Splinter Rifle / Cannon / Pistol / Carbine all share the same Anti-Infantry 4+ profile per the current codex"
     },
-
     "aeldari_drukhari_wyches": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Wyches",
       "errata": "Drukhari codex September 2024 errata round — Splinter Pistols Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_drukhari_reavers": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Reavers",
       "errata": "Drukhari codex September 2024 errata round — Splinter weapons Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_drukhari_venom": {
       "fields": {
-        "anti_keywords": {"INFANTRY": 4},
-        "secondary_anti_keywords": {"INFANTRY": 4}
+        "anti_keywords": {
+          "INFANTRY": 4
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Venom",
       "errata": "Drukhari codex September 2024 errata round — twin Splinter Cannon mounts Anti-Infantry 4+",
       "bsdata_was": {
-        "anti_keywords": {"INFANTRY": 3},
-        "secondary_anti_keywords": {"INFANTRY": 3}
+        "anti_keywords": {
+          "INFANTRY": 3
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        }
       },
       "notes": "Both primary and secondary weapon profiles carry the same Splinter Cannon profile"
     },
-
     "aeldari_drukhari_archon": {
-      "fields": {"secondary_anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Archon",
       "errata": "Drukhari codex September 2024 errata round — Splinter Pistol Anti-Infantry 4+",
-      "bsdata_was": {"secondary_anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_drukhari_hellions": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Hellions",
       "errata": "Drukhari codex September 2024 errata round — Splinter Pods Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_drukhari_succubus": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Succubus",
       "errata": "Drukhari codex September 2024 errata round — Splinter Pistol Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_drukhari_talos": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Talos",
       "errata": "Drukhari codex September 2024 errata round — Stinger Pod Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_drukhari_scourges_with_shardcarbines": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Scourges",
       "errata": "Drukhari codex September 2024 errata round — Shardcarbine Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_craftworlds_ynnari_kabalite_warriors": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Kabalite-Warriors",
       "errata": "Mirror of Drukhari Kabalite Warriors correction; Ynnari pulls from the same Drukhari weapon profiles via catalogueLink",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_craftworlds_ynnari_wyches": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Wyches",
       "errata": "Mirror of Drukhari Wyches correction",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_craftworlds_ynnari_reavers": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Reavers",
       "errata": "Mirror of Drukhari Reavers correction",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_craftworlds_ynnari_venom": {
       "fields": {
-        "anti_keywords": {"INFANTRY": 4},
-        "secondary_anti_keywords": {"INFANTRY": 4}
+        "anti_keywords": {
+          "INFANTRY": 4
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Venom",
       "errata": "Mirror of Drukhari Venom correction (twin Splinter Cannon mounts)",
       "bsdata_was": {
-        "anti_keywords": {"INFANTRY": 3},
-        "secondary_anti_keywords": {"INFANTRY": 3}
+        "anti_keywords": {
+          "INFANTRY": 3
+        },
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        }
       }
     },
-
     "aeldari_craftworlds_ynnari_archon": {
-      "fields": {"secondary_anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Archon",
       "errata": "Mirror of Drukhari Archon correction (Splinter Pistol)",
-      "bsdata_was": {"secondary_anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "secondary_anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
     "aeldari_craftworlds_ynnari_succubus": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/#Succubus",
       "errata": "Mirror of Drukhari Succubus correction",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 3}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 3
+        }
+      }
     },
-
-    "death_guard_plague_marines": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
-      "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Plague-Marines",
-      "errata": "Death Guard codex — Plague weapons (Plague Belcher, Plague Sprayer, Plague Spewer) carry Anti-Infantry 4+ per current Wahapedia. BSData baked Anti-Infantry 2+ from an older revision",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}},
-      "notes": "Death Guard is currently at sim 46.0 percent (real 46.1 percent, inside noise band); correcting Plague weapons to the codex value drops DG sim further below 50 percent and pushes them out of the noise band. Accepted as rule-correctness over metric-positioning per CLAUDE.md section 10"
-    },
-
     "death_guard_blightlord_terminators": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
+      "fields": {
+        "anti_keywords": {
+          "INFANTRY": 4
+        }
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators",
       "errata": "Mirror of Plague Marines correction — Blightlords carry the same Plague weapon profile family",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}}
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 2
+        }
+      }
     },
-
-    "death_guard_foetid_bloat_drone": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
-      "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Foetid-Bloat-drone",
-      "errata": "Plague Sprayers (twin Plague Sprayers loadout) Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}}
-    },
-
-    "death_guard_lord_of_virulence": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
-      "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Virulence",
-      "errata": "Plague weapon Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}}
-    },
-
-    "death_guard_foul_blightspawn": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
-      "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Foul-Blightspawn",
-      "errata": "Plague Sprayer Anti-Infantry 4+",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}}
-    },
-
-    "chaos_space_marines_plague_marines": {
-      "fields": {"anti_keywords": {"INFANTRY": 4}},
-      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
-      "errata": "Mirror of Death Guard Plague Marines correction; the CSM catalogue branch pulls from the same Plague weapon profile family",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}}
-    },
-
     "aeldari_craftworlds_corsair_voidscarred": {
-      "fields": {"anti_keywords": {}},
+      "fields": {
+        "anti_keywords": {}
+      },
       "source": "https://wahapedia.ru/wh40k10ed/factions/aeldari/Corsair-Voidscarred",
       "errata": "BSData mapper attributed Anti-Infantry 2+ to the wrong weapon profile. Sim's primary weapon for this unit is Shuriken Pistol (Strength 4, AP -1, Damage 1), which on the current Wahapedia datasheet has only [ASSAULT] and [PISTOL] keywords. The Anti-Infantry 2+ in the BSData parse appears to have leaked from the Executioner profile (which legitimately carries Anti-Infantry 2+) onto the Shuriken Pistol entry. Since the sim's recorded weapon name and stats match the Shuriken Pistol, the corrective action is to clear anti_keywords on that profile.",
-      "bsdata_was": {"anti_keywords": {"INFANTRY": 2}},
+      "bsdata_was": {
+        "anti_keywords": {
+          "INFANTRY": 2
+        }
+      },
       "notes": "Verified weapons on the Wahapedia Voidscarred datasheet: Shuriken Pistol (no anti-keyword), Neuro Disruptor (Anti-Infantry 2+), Executioner (Anti-Infantry 2+, Psychic). Kharseth's Dread of the Deep Void, Troupe Master's Neuro Disruptor secondary, and Shadowseer's Neuro Disruptor all legitimately retain Anti-Infantry 2+ per current codex and need no correction."
     }
-
-  }
+  },
+  "_audit_log": [
+    {
+      "date": "2026-05-28",
+      "round": "wave-47 Round 2 verification",
+      "action": "Reverted 5 over-broad Round 1 DG/CSM Plague corrections",
+      "evidence": "WebFetch verification of Wahapedia datasheets confirmed: Plague Sprayer (Foul Blightspawn), Plaguespitter (Bloat-drone), Twin plague spewer (Lord of Virulence), Plague spewer (Plague Marines via basket) all genuinely carry ANTI-INFANTRY 2+ in current codex. Blightlord Terminators retained — Combi-weapon is ANTI-INFANTRY 4+ per codex; BSData 2+ is real lag",
+      "reverted_keys": [
+        "death_guard_plague_marines",
+        "death_guard_foetid_bloat_drone",
+        "death_guard_lord_of_virulence",
+        "death_guard_foul_blightspawn",
+        "chaos_space_marines_plague_marines"
+      ]
+    }
+  ]
 }
