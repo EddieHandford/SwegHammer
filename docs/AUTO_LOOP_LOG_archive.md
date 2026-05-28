@@ -1614,3 +1614,102 @@ Three helpers: `_fnp_resolved` (profile FNP min'd with aura FNP via `effective_b
 - Phase 4 — Verification (iters 43-45): cleanup, N=80 confirmation, Stage 2 trigger decision (threshold deferred per user).
 - User directive: "AI first; start with S1 re-land; hold off on Stage 2 trigger decision."
 
+## Waves 7-42 close (2026-05-24 → 2026-05-27)
+
+Branch `claude/sim-calibration-6`. 36 commits landed on top of wave-6 close
+`9bee471` (LEADERABILITY-SCHEMA). Top commit at wave-42 honest eval is
+`702e843`.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 6 close (`9bee471`, 2026-05-23) | 13.85 | 10.66 | 4/22 |
+| Wave 20 (`2ca72a4`, 2026-05-24) | 13.20 | 10.03 | 4/22 |
+| Wave 42 (`702e843`, 2026-05-27) | 13.03 | **9.68** | 4/22 |
+
+Cumulative −0.98 gated MAE over 36 commits across 4 days. Inside-band count
+stayed at 4 (Death Guard, World Eaters, Emperor's Children, Grey Knights).
+Stage-1 floor is clearly compressing more slowly each iter; the easy levers
+are spent.
+
+### Commit landings by faction (top 36)
+
+The pattern across waves 7-42 was bundle-of-one DIAG agents on the largest
+non-structural outliers, with periodic "TIGHTEN" passes on faction-side
+secondary scoring dampers (most of which were rolled back in the final
+SCORING-MULTIPLIERS-ROLLBACK at `e26ac0e` per CLAUDE.md §10 — faction-gated
+metric tuning is not rule-correct calibration).
+
+* **Drukhari** (`d5b1fc8` DRK-LEGENDS-FNP, `468cf4e` DRK-DIAG-12 list-integrity,
+  `e4e3ada` DRK-DIAG-11 AI fragile-fly-vehicle bias, `2ca72a4` DRK-TIGHTEN-2,
+  `2f37251` DRK-TIGHTEN-3, `6cf85c2` DRK-DIAG-9-TIGHTEN) — six landings. Dampers
+  rolled back; rule-correct landings stayed. Drukhari still +33.05 gated, the
+  single largest tractable outlier.
+* **Tyranids** (`d3c2588` TYRANIDS-DIAG-7 Hive Tyrant Onslaught fab, `818c0d5`
+  TYRANIDS-DIAG-8 Invasion Fleet Ld penalty fab). Still +18.90 gated.
+* **AdMech** (`d6e9fe9` ADMECH-DIAG FNP false positives, `1ecfdc0` ADMECH-DIAG-2
+  Doctrina BATTLELINE gate, `8c6e5bb` ADMECH-DIAG-3 Dominus correction, `0e4f243`
+  ADMECH-DIAG-4 Kataphron host_keys, `423b82f` ADMECH-DIAG-5 Cawl reroll fab,
+  `31db826` ADMECH-DIAG-6 Skitarii host_keys). Now +8.46 gated, down from ~12.
+* **Sororitas** (`bac402c` SOROR-DIAG-6 Insidiants FNP, `6f086ff` SOROR-FAB-AUDIT,
+  `43d382c` SOROR-LAST-RESORT-DAMPER, `abb4896` SOROR-NUDGE Junith flamer,
+  `978c22d` SOROR-SANCTIFIERS mapper amalgamation). Still +12.96 gated.
+* **Daemons** (`b6e9022` DAEMONS-DIAG-6 BiD/NP damper, `e145c58` DAEMONS-DIAG-7
+  Skulltaker, `7c545ae` DAEMONS-DIAG-8 Bloodthirster melee-only, `2a3a3c7`
+  DAEMONS-DIAG-9 Daemon Prince stealth). Improved from -20 to -12.52 gated by
+  PRIMARY-VP-AUDIT alone.
+* **Orks** (`cac0421` ORKS-DIAG-2 Meganobz FNP, `e52695f` ORKS-DIAG-3 Warboss
+  melee gate, `84f489b` ORKS-DIAG-4 damper). Still +10.77 gated.
+* **TSON** (`e2cc317` KOS-MESMERISING, `b50533e` TSON-FINISH Magnus invuln,
+  `7e6c970` TSON-DIAG-3 Ahriman fab). Now +7.96 gated.
+* **Aeldari** (`d27237d` AELDARI-DIAG-3 Yncarne heal). Now +4.28 gated.
+* **Votann** (`12d2f68` VOTANN-DIAG-2 real Needgaard stratagems). Now +6.84 gated.
+* **Custodes** (`7a32dc1` CUSTODES-AUDIT Shield-Captain fab). Still +15.25 gated.
+* **T'au** (`a0515fd` T-AU-DIAG-3 revert mutex artifact). Now +5.91 gated.
+* **Knights** (`8cba4a1` KNIGHTS-MULTIPROFILE-1, `4ab2103` KNIGHTS-MULTIPROFILE-2,
+  `c4b1711` KNIGHTS-MULTIPROFILE-3, `c6c1b24` KNIGHTS-AI-COMMIT, `e4da921`
+  KNIGHTS-SEED-BUMP, `d4000cf`/`0154f18` KNIGHTS-DEFENDER-DAMPER + revert). Six
+  landings, mostly multi-profile work. IK still -26.02 / CK still -34.16 gated;
+  structural mapper gap dominates.
+* **Cross-cutting structural** (`853ecbc` MAPPER-FNP-SWEEP 19 prose-walk leaks
+  across 9 factions, `e26ac0e` SCORING-MULTIPLIERS-ROLLBACK 7 faction gates,
+  `702e843` PRIMARY-VP-AUDIT round-1 gate). The biggest single mover of the
+  block: PRIMARY-VP-AUDIT shifted Daemons -16.93 → -12.52 gated by removing the
+  alpha-strike round-1 scoring bug.
+
+### Pattern observed
+
+After 36 commits, the gated MAE moves −0.98. Most individual DIAG passes
+moved their target faction by 0-1 pt at N=40 (correctness-positive but
+MAE-neutral). The two clean wins were structural: MAPPER-FNP-SWEEP (FNP
+prose-walks across 9 factions) and PRIMARY-VP-AUDIT (rounds 2-5 gating).
+Faction-gated dampers/multipliers (CUSTODES/DRK/TYR/DAEMONS/SOROR/ORKS)
+were rolled back as rule-fabricated metric tuning per CLAUDE.md §10.
+
+### Open carry-forwards into wave 43
+
+1. **Drukhari Pain Tokens magnitude** — DRK-DIAG-7 ruled out Combat Drugs;
+   Pain Tokens never opened. Highest-leverage unresolved Drukhari lever.
+2. **Tyranids Warriors basket / archetype composition** — multi-loadout fix
+   landed but archetype-realism vs Goonhammer lists not audited.
+3. **Daemons archetype Greater Daemon seeding** — LEADERABILITY-SCHEMA wired
+   but Tzeentch/Nurgle/Slaanesh Greater Daemons may not surface in templates.
+4. **Custodes board-control bias** (project-custodes-board-control memory) —
+   structurally parked; needs Stage 2.
+5. **Knights multi-profile + battleshock infra** — structurally parked;
+   accumulated 6 multi-profile commits without closing the -25/-37 gap.
+
+## Wave 43 in-flight (2026-05-27) — 3 parallel agents on top tractable outliers
+
+Dispatched against carry-forwards 1-3. Bundle-of-one, worktree isolation,
+30 tool-use cap, ~400-token prompts per `AUTO_LOOP_PROCEDURE.md` §C.
+
+| Agent | Faction | Target |
+|---|---|---|
+| DRK-PAIN-TOKENS | Drukhari +33.05 gated | Audit Power From Pain implementation magnitude vs Wahapedia |
+| DAEMONS-ARCHETYPE-LOC | Daemons -12.52 gated | Audit Greater Daemon seeding so wave-6 Locus auras have host targets |
+| TYRANIDS-WARRIORS-BASKET | Tyranids +18.90 gated | Audit archetype composition + Warriors basket realism vs Goonhammer |
+
+Each agent reset to `origin/claude/sim-calibration-6` @ `702e843` and stays
+on its worktree branch — cherry-pick into main worktree after eval.
