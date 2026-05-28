@@ -11,7 +11,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Kabalite-Warriors",
-      "errata": "Drukhari codex September 2024 errata round — ANTI-INFANTRY tightened from 3+ to 4+ on Splinter Rifle / Cannon",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d ANTI-INFANTRY tightened from 3+ to 4+ on Splinter Rifle / Cannon",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -26,7 +26,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Wyches",
-      "errata": "Drukhari codex September 2024 errata round — Splinter Pistols Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistols Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -40,7 +40,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Reavers",
-      "errata": "Drukhari codex September 2024 errata round — Splinter weapons Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter weapons Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -57,7 +57,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Venom",
-      "errata": "Drukhari codex September 2024 errata round — twin Splinter Cannon mounts Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d twin Splinter Cannon mounts Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -75,7 +75,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Archon",
-      "errata": "Drukhari codex September 2024 errata round — Splinter Pistol Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistol Anti-Infantry 4+",
       "bsdata_was": {
         "secondary_anti_keywords": {
           "INFANTRY": 3
@@ -89,7 +89,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Hellions",
-      "errata": "Drukhari codex September 2024 errata round — Splinter Pods Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pods Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -103,7 +103,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Succubus",
-      "errata": "Drukhari codex September 2024 errata round — Splinter Pistol Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Splinter Pistol Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -117,7 +117,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Talos",
-      "errata": "Drukhari codex September 2024 errata round — Stinger Pod Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Stinger Pod Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -131,7 +131,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/drukhari/#Scourges",
-      "errata": "Drukhari codex September 2024 errata round — Shardcarbine Anti-Infantry 4+",
+      "errata": "Drukhari codex September 2024 errata round \u00e2\u20ac\u201d Shardcarbine Anti-Infantry 4+",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 3
@@ -275,7 +275,7 @@
       "bsdata_was": {
         "invuln_save": 7
       },
-      "notes": "Lion El'Jonson's invuln is notably stronger than the standard 4+ on other Dark Angels characters — the 3+ comes from The Emperor's Shield ability per Wahapedia datasheet."
+      "notes": "Lion El'Jonson's invuln is notably stronger than the standard 4+ on other Dark Angels characters \u00e2\u20ac\u201d the 3+ comes from The Emperor's Shield ability per Wahapedia datasheet."
     },
     "dark_angels_ravenwing_black_knights": {
       "fields": {
@@ -304,7 +304,7 @@
         }
       },
       "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Blightlord-Terminators",
-      "errata": "Mirror of Plague Marines correction — Blightlords carry the same Plague weapon profile family",
+      "errata": "Mirror of Plague Marines correction \u00e2\u20ac\u201d Blightlords carry the same Plague weapon profile family",
       "bsdata_was": {
         "anti_keywords": {
           "INFANTRY": 2
@@ -404,6 +404,50 @@
       "bsdata_was": {
         "invuln_save": 7
       }
+    },
+    "titanicus_traitoris_reaver_titan": {
+      "fields": {
+        "invuln_save": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Reaver-Titan",
+      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only. Chaos Titanicus Traitoris uses the same Library - Titans shared entries per BSData structure; the datasheet is identical with only keywords swapped per the Titanicus Traitoris army rule.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Ion Shield encoded as text ability: \"This model has a 5+ invulnerable save against ranged attacks only.\" The ranged-only restriction is not a separate field in the UnitProfile schema; the corrected invuln_save=5 is applied globally as the closest representable value. Loyalist Adeptus Titanicus units do not appear in parsed.json (the Imperium - Adeptus Titanicus .cat uses only entryLinks into Library - Titans and produces no independent parsed entries); this correction covers the Chaos proxy keys only."
+    },
+    "titanicus_traitoris_warbringer_nemesis_titan": {
+      "fields": {
+        "invuln_save": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Warbringer-Nemesis-Titan",
+      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Same structural mapper gap as the other Titan entries. Ion Shield text profile: \"This model has a 5+ invulnerable save against ranged attacks only.\""
+    },
+    "titanicus_traitoris_warhound_titan": {
+      "fields": {
+        "invuln_save": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Warhound-Titan",
+      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Same structural mapper gap as the other Titan entries. Ion Shield text profile: \"This model has a 5+ invulnerable save against ranged attacks only.\""
+    },
+    "titanicus_traitoris_warlord_titan": {
+      "fields": {
+        "invuln_save": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-titanicus/Warlord-Titan",
+      "errata": "Library - Titans .cat encodes the 5+ invulnerable save as inline <profile> on selectionEntry (Abilities typeName); mapper.extract_invuln() walks only infoLinks so the invuln is missed. Wahapedia confirms 5+ against ranged attacks only.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Same structural mapper gap as the other Titan entries. Ion Shield text profile: \"This model has a 5+ invulnerable save against ranged attacks only.\""
     }
   },
   "_audit_log": [
@@ -411,7 +455,7 @@
       "date": "2026-05-28",
       "round": "CODEX-STALE-DARK-ANGELS audit (wave-47, Stage 1 calibration, Tier 2)",
       "action": "Added 8 Dark Angels BSData-lag corrections for missing invulnerable saves",
-      "evidence": "Audited 8 load-bearing Dark Angels units (Azrael, Belial, Sammael, Asmodai, Lion El'Jonson, Deathwing Knights, Ravenwing Black Knights, Ezekiel) against Wahapedia 10e datasheets. All 8 have invuln_save=7 (no invuln) in BSData parsed.json. The Dark Angels catalogue (Imperium - Dark Angels.cat.gz) encodes invulnerable saves as inline <profile typeName=\"Abilities\"> elements with a Description characteristic — the same structural pattern as the Chaos Daemons Library batch from wave-47 CODEX-STALE-DAEMONS. mapper.extract_invuln() only walks infoLinks and entryLink chains, missing the inline-profile encoding entirely. Wahapedia confirms: Azrael 4+, Belial 4+, Sammael 4+, Asmodai 4+, Ezekiel 4+, Deathwing Knights 4+, Lion El'Jonson 3+ (The Emperor's Shield), Ravenwing Black Knights 5+. No overrides.json entries for Dark Angels exist, so no shadow-removal needed (mirrors Karanak fix is not applicable here). Wahapedia DNS resolved successfully from worktree.",
+      "evidence": "Audited 8 load-bearing Dark Angels units (Azrael, Belial, Sammael, Asmodai, Lion El'Jonson, Deathwing Knights, Ravenwing Black Knights, Ezekiel) against Wahapedia 10e datasheets. All 8 have invuln_save=7 (no invuln) in BSData parsed.json. The Dark Angels catalogue (Imperium - Dark Angels.cat.gz) encodes invulnerable saves as inline <profile typeName=\"Abilities\"> elements with a Description characteristic \u00e2\u20ac\u201d the same structural pattern as the Chaos Daemons Library batch from wave-47 CODEX-STALE-DAEMONS. mapper.extract_invuln() only walks infoLinks and entryLink chains, missing the inline-profile encoding entirely. Wahapedia confirms: Azrael 4+, Belial 4+, Sammael 4+, Asmodai 4+, Ezekiel 4+, Deathwing Knights 4+, Lion El'Jonson 3+ (The Emperor's Shield), Ravenwing Black Knights 5+. No overrides.json entries for Dark Angels exist, so no shadow-removal needed (mirrors Karanak fix is not applicable here). Wahapedia DNS resolved successfully from worktree.",
       "added_keys": [
         "dark_angels_asmodai",
         "dark_angels_azrael",
@@ -427,7 +471,7 @@
       "date": "2026-05-28",
       "round": "wave-47 Round 2 verification",
       "action": "Reverted 5 over-broad Round 1 DG/CSM Plague corrections",
-      "evidence": "WebFetch verification of Wahapedia datasheets confirmed: Plague Sprayer (Foul Blightspawn), Plaguespitter (Bloat-drone), Twin plague spewer (Lord of Virulence), Plague spewer (Plague Marines via basket) all genuinely carry ANTI-INFANTRY 2+ in current codex. Blightlord Terminators retained — Combi-weapon is ANTI-INFANTRY 4+ per codex; BSData 2+ is real lag",
+      "evidence": "WebFetch verification of Wahapedia datasheets confirmed: Plague Sprayer (Foul Blightspawn), Plaguespitter (Bloat-drone), Twin plague spewer (Lord of Virulence), Plague spewer (Plague Marines via basket) all genuinely carry ANTI-INFANTRY 2+ in current codex. Blightlord Terminators retained \u00e2\u20ac\u201d Combi-weapon is ANTI-INFANTRY 4+ per codex; BSData 2+ is real lag",
       "reverted_keys": [
         "death_guard_plague_marines",
         "death_guard_foetid_bloat_drone",
@@ -440,7 +484,7 @@
       "date": "2026-05-28",
       "round": "post-BSData-main-refresh (2026-05-28)",
       "action": "Retired 1 correction now obsolete after BSData refresh",
-      "evidence": "BSData main updated Ynnari Succubus to clear anti_keywords (matches codex). Other 16 corrections still valid — BSData still carries the pre-errata Splinter ANTI-INFANTRY 3+ values.",
+      "evidence": "BSData main updated Ynnari Succubus to clear anti_keywords (matches codex). Other 16 corrections still valid \u00e2\u20ac\u201d BSData still carries the pre-errata Splinter ANTI-INFANTRY 3+ values.",
       "retired_keys": [
         "aeldari_craftworlds_ynnari_succubus"
       ]
