@@ -921,13 +921,26 @@ class Battle:
 
     # Iter-4 A5 (faction-neutral AI heuristic): cap the number of detachment
     # stratagems any one army may fire per Command phase. 10e core has no
-    # hard cap, but real-player CP economy averages ~1 stratagem per
+    # hard cap, but real-player CP economy averages 1-2 stratagems per
     # Command phase; without this cap, CP-rich detachments (DG Virulent
     # Vectorium, Necron Awakened Dynasty, Tau Mont'ka) stack 3-5+ buffs
-    # at round start. Setting to 1 matches the modal real-player play
-    # rate; 2 is the next tier up if 1 over-regresses any matchup.
+    # at round start.
+    #
+    # iter44 STRATAGEM-CHAIN-V1: widened from 1 to 2. The single-strat
+    # cap systematically undercounted faction power for stratagem-rich
+    # detachments where real tournament play stacks 2-3 stratagems on
+    # alpha-strike units (e.g. Drukhari Skysplinter Assault + Lightning-
+    # Fast Reactions + Fire and Fade, or Marines Storm of Fire + Adaptive
+    # Strategy). This first-stage widening permits two strats per phase
+    # per army — the full 2-3+ stack is left as parking-lot work. The
+    # `_strat_cap_reached` gate between dispatcher entries enforces the
+    # ceiling; `_fire_stratagem`'s CP-affordability check inside each
+    # `_try_X` helper means an unaffordable second slot is automatically
+    # skipped and a later cheaper strat still gets the chance to fire.
+    # Per-strat once-per-phase exclusion is implicit because each strat
+    # appears in the dispatcher exactly once.
     # Cited as `simulator.stratagem_per_command_phase_cap`.
-    DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE: int = 1
+    DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE: int = 2
 
     def _apply_detachment_stratagems(self, army: Army, opponent: Army) -> None:
         """Round-start dispatcher for detachment-specific stratagems.

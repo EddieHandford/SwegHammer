@@ -136,7 +136,7 @@ Status legend:
 |---|---|---|
 | 1 CP per Command phase | ✓ | `stratagems.py:1352`, `simulator.py` |
 | Stratagem affordability gate | ✓ | `simulator.py:6898`, `strategy.py:2844` |
-| **Multiple stratagems per phase per army** | ◐ | `_apply_detachment_stratagems` dispatches single-strat; no chain logic. Tournament play stacks 2-3 strats on a unit. Phase 4 STRATAGEM-CHAIN-V1 target |
+| **Multiple stratagems per phase per army** | ◐ | iter44 STRATAGEM-CHAIN-V1: `DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` widened from 1 to 2 in `_apply_detachment_stratagems`. Tournament play stacks 2-3 strats on alpha-strike units; the 3+ stack is still parking-lot work |
 | Once-per-phase / once-per-game limiters | ⚠️ | Verify per-stratagem state tracking |
 | Heroic Intervention (CHARACTER ability not strat) | ✓ | `simulator.py:_do_heroic_intervention` |
 
