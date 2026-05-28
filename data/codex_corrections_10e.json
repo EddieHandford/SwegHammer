@@ -240,6 +240,17 @@
         }
       },
       "notes": "Verified weapons on the Wahapedia Voidscarred datasheet: Shuriken Pistol (no anti-keyword), Neuro Disruptor (Anti-Infantry 2+), Executioner (Anti-Infantry 2+, Psychic). Kharseth's Dread of the Deep Void, Troupe Master's Neuro Disruptor secondary, and Shadowseer's Neuro Disruptor all legitimately retain Anti-Infantry 2+ per current codex and need no correction."
+    },
+    "deathwatch_watch_master": {
+      "fields": {
+        "invuln_save": 4
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-agents/Watch-Master",
+      "errata": "BSData mapper failed to parse the Watch Master's 4+ invulnerable save into a structured invuln_save field. The Deathwatch catalogue file carries the invuln as an ability text profile (\"This model has a 4+ invulnerable save.\") rather than a numeric characteristic, so the parser left invuln_save at the no-invuln sentinel of 7. Wahapedia confirms Watch Master has Invulnerable Save: 4+ in current 10e codex.",
+      "bsdata_was": {
+        "invuln_save": 7
+      },
+      "notes": "Same structural mapper gap also affects deathwatch_watch_captain_artemis (also invuln 7 in parsed.json, should be 4+) and likely Chaplain Cassius / Garran Branatar in the Deathwatch catalogue. Only Watch Master is in the current audit's target list; Artemis correction left for a future sweep. Wahapedia datasheet retrieved 2026-05-28; no Deathwatch-specific faction page exists, datasheet is hosted under imperial-agents."
     }
   },
   "_audit_log": [
@@ -263,6 +274,15 @@
       "evidence": "BSData main updated Ynnari Succubus to clear anti_keywords (matches codex). Other 16 corrections still valid — BSData still carries the pre-errata Splinter ANTI-INFANTRY 3+ values.",
       "retired_keys": [
         "aeldari_craftworlds_ynnari_succubus"
+      ]
+    },
+    {
+      "date": "2026-05-28",
+      "round": "CODEX-STALE-DEATHWATCH audit",
+      "action": "Added 1 Deathwatch correction for unparsed invulnerable save",
+      "evidence": "Audited 5 Deathwatch-unique tournament-relevant units (Watch Master, Deathwatch Veterans, Corvus Blackstar, Indomitor Kill Team, Proteus Kill Team). Proteus Kill Team only exists as a Legends entry under Agents of the Imperium and was skipped. Wahapedia hosts current Deathwatch datasheets under imperial-agents (no deathwatch faction page). Veterans, Corvus Blackstar and Indomitor Kill Team weapon stats matched Wahapedia within basket-blend tolerance. Watch Master's 4+ invulnerable save is recorded as ability text in the Deathwatch catalogue file and the mapper does not parse it, leaving invuln_save at the no-invuln sentinel of 7 in parsed.json. Wahapedia confirms 4+ invuln in current codex.",
+      "added_keys": [
+        "deathwatch_watch_master"
       ]
     }
   ]
