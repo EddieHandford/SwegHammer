@@ -342,6 +342,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.disembark",
     "simulator.firing_deck",
     "simulator.destroyed_transport",
+    # Drukhari Skysplinter Assault detachment — Rain of Cruelty. When a
+    # DRUKHARI unit disembarks from a TRANSPORT (voluntary or forced),
+    # until the end of the turn its ranged weapons gain [IGNORES COVER]
+    # and its melee weapons gain [LANCE]. Wired via transient per-unit
+    # flags (`transient_lance_this_turn`,
+    # `transient_ignores_cover_this_turn`) set in
+    # `simulator._disembark` when the passenger is Drukhari AND the
+    # army's detachment is Skysplinter Assault, cleared by the standard
+    # transient-flag reset at the next round start.
+    "simulator.skysplinter_rain_of_cruelty",
     # T'au Empire Markerlights → Guided (10e army-wide army rule). At the
     # start of each Shooting phase, MARKERLIGHT-keyword units mark enemies
     # as Guided; while the active detachment carries lethal_hits_on_guided

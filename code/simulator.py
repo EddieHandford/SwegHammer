@@ -902,6 +902,14 @@ class Battle:
             u.transient_sustained_hits = 0
             u.transient_reroll_wounds = False
             u.transient_reroll_wounds_ones = False
+            # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty disembark-turn
+            # keyword grants. Set on disembark by `_disembark` when the
+            # unit is DRUKHARI and the army's detachment is Skysplinter
+            # Assault; cleared here at the next round start to match
+            # the "until the end of the turn" rule wording. Cited as
+            # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
+            u.transient_lance_this_turn = False
+            u.transient_ignores_cover_this_turn = False
         # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
         # this round's Doombolt damage; reset every round so the boost only
         # applies the round the stratagem fires. Putrid Detonation arms the
@@ -6784,6 +6792,28 @@ class Battle:
         self._did_move_this_round.add(passenger.uid)
         passenger.moved_this_round = True
         self._disembarked_this_round.add(passenger.uid)
+        # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty — "Each time a DRUKHARI
+        # unit disembarks from a TRANSPORT, until the end of the turn its
+        # ranged weapons gain [IGNORES COVER] and its melee weapons gain
+        # [LANCE]." Set the transient per-unit flags here (cleared at the
+        # next round-start by `_clear_transient_stratagem_flags`, matching
+        # the "until the end of the turn" wording). Faction gate is on the
+        # passenger (DRUKHARI); detachment gate is on the passenger's army
+        # (Skysplinter Assault). Applies to both voluntary disembark
+        # (Movement phase) and forced disembark (destroyed transport) —
+        # the codex wording does not exclude the destroyed-transport
+        # disembark from the rule. Cited as
+        # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
+        if passenger.profile.faction == "Drukhari":
+            _own_army = getattr(passenger, "army_ref", None)
+            if _own_army is not None:
+                try:
+                    _det = _own_army.resolve_detachment()
+                except Exception:
+                    _det = None
+                if _det is not None and getattr(_det, "name", "") == "Skysplinter Assault":
+                    passenger.transient_lance_this_turn = True
+                    passenger.transient_ignores_cover_this_turn = True
         self._emit(TransportDisembarked(
             transport_uid=transport.uid,
             passenger_uid=passenger.uid,

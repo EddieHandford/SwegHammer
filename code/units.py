@@ -680,6 +680,18 @@ class Unit:
         "transient_sustained_hits",
         "transient_reroll_wounds",
         "transient_reroll_wounds_ones",
+        # Skysplinter Assault (Drukhari detachment) — Rain of Cruelty. Set
+        # True on a DRUKHARI unit when it disembarks from a TRANSPORT this
+        # turn while the army's detachment is Skysplinter Assault. Persists
+        # until the standard transient-flag reset at the next round start
+        # (rule wording: "until the end of the turn"). The LANCE flag is
+        # composed via OR with `profile.lance` at the lance eligibility
+        # gate; the IGNORES-COVER flag is composed via OR with
+        # `profile.ignores_cover` at the ranged ignore_cover gate (melee
+        # already always ignores cover). Cited as
+        # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
+        "transient_lance_this_turn",
+        "transient_ignores_cover_this_turn",
         # Drukhari Power From Pain (army rule, 10e). Awarded at the start of
         # each Command phase to any Drukhari unit below Starting Strength;
         # capped at 1 per unit. While > 0, the unit's models gain Lethal Hits
@@ -832,6 +844,15 @@ class Unit:
         self.transient_sustained_hits: int = 0
         self.transient_reroll_wounds: bool = False
         self.transient_reroll_wounds_ones: bool = False
+        # Skysplinter Assault (Drukhari detachment) Rain of Cruelty:
+        # disembark-turn LANCE on melee weapons + IGNORES COVER on ranged
+        # weapons. Set in `simulator._disembark` when the disembarking
+        # unit is Drukhari AND the army's detachment is Skysplinter
+        # Assault; cleared with the other transient flags at the next
+        # round-start by `simulator._clear_transient_stratagem_flags`.
+        # Cited as `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
+        self.transient_lance_this_turn: bool = False
+        self.transient_ignores_cover_this_turn: bool = False
         # Power From Pain (Drukhari army rule). 0 = none, 1 = active (cap).
         self.pain_tokens: int = 0
         # Cult Ambush (Genestealer Cults army rule). True means the unit is
@@ -1462,7 +1483,17 @@ class Unit:
                 hit_target = None     # set below
                 strength = p.strength
                 ap = p.ap
-                ignore_cover = p.ignores_cover
+                # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty grants transient
+                # IGNORES COVER on a DRUKHARI unit's ranged weapons "until
+                # the end of the turn" after it disembarks from a TRANSPORT
+                # (set by `simulator._disembark` and cleared by the standard
+                # transient-flag reset). Composed via OR with the per-weapon
+                # `profile.ignores_cover` keyword. Cited as
+                # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
+                ignore_cover = bool(
+                    p.ignores_cover
+                    or getattr(self, "transient_ignores_cover_this_turn", False)
+                )
                 # LEADERABILITY-SCHEMA: Lord of Change "Daemon Lord of
                 # Tzeentch" aura — +1 to the Strength characteristic of
                 # ranged attacks from any TZEENTCH Legiones Daemonica unit
@@ -2028,8 +2059,29 @@ class Unit:
             # `p.lance_basket_fraction`. Single-weapon units have fraction = 1.0
             # so the Bernoulli always fires and behaviour matches the legacy gate.
             # Cited as `simulator.basket_fraction_gating`.
-            _lance_eligible = bool(p.lance and mode == "melee" and is_charging)
-            _lance_fraction = float(getattr(p, "lance_basket_fraction", 1.0) or 1.0)
+            # DRK-SKYSPLINTER-DISEMBARK: Rain of Cruelty grants transient
+            # LANCE to a DRUKHARI unit's melee weapons "until the end of the
+            # turn" after it disembarks from a TRANSPORT (set by
+            # `simulator._disembark` and cleared by the standard
+            # transient-flag reset). Composed via OR with the per-weapon
+            # `profile.lance` keyword. The charge gate still applies —
+            # LANCE itself is "+1 to wound when this attack was made on
+            # the turn the bearer's unit declared a charge", and the
+            # transient keyword grant does not bypass that. Cited as
+            # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
+            _lance_keyword_active = bool(
+                p.lance or getattr(self, "transient_lance_this_turn", False)
+            )
+            _lance_eligible = bool(_lance_keyword_active and mode == "melee" and is_charging)
+            # Basket-fraction gating only applies to the per-weapon profile
+            # lance keyword (some specialist weapon in a heterogeneous
+            # squad). The transient detachment grant covers ALL melee
+            # weapons in the unit, so when the transient flag is the only
+            # source we use fraction = 1.0 (every shot benefits).
+            if getattr(self, "transient_lance_this_turn", False):
+                _lance_fraction = 1.0
+            else:
+                _lance_fraction = float(getattr(p, "lance_basket_fraction", 1.0) or 1.0)
 
             # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
             # the plain in_cover flag already grants below). Ranged shots only;
