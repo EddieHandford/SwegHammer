@@ -5792,7 +5792,7 @@ class Battle:
         kw = attacker.profile.unit_keywords or ()
         big_guns_eligible = "VEHICLE" in kw or "MONSTER" in kw
         in_engagement = any(
-            _distance(attacker.position, e.position) < 1.0
+            _distance(attacker.position, e.position) <= 1.0
             for e in defender_army.alive_units
         )
         if in_engagement:

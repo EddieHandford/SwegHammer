@@ -1984,7 +1984,7 @@ def pick_move_intent(
     if role in _fall_back_eligible_roles:
         enemies = enemy.alive_units
         in_engagement = any(
-            _dist(unit.position, e.position) < _ENGAGEMENT_RANGE
+            _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
             for e in enemies
         )
         if in_engagement and enemies:
