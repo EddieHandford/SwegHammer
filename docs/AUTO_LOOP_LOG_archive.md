@@ -2914,3 +2914,172 @@ landing was the cost of CLAUDE.md §10 (don't fabricate; cite
 every rule). The headline gated MAE +0.12 net hides this
 trade-off — the per-faction lens is the better signal.
 
+## Wave 53 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-52
+close `5b4ce12`. Top commit at wave-53 close is `b012139`.
+
+Wave 53 attacked the three named wave-52 carry-forwards in parallel
+(TSON Cabal economy, Daemons stratagem parity, AdMech detachment
+re-audit). All three landed clean, rule-correct commits but headline
+gated MAE stayed flat.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 52 close (`5b4ce12`, 2026-05-29) | 13.96 | 10.65 | 4/22 |
+| Wave 53 close (`b012139`, 2026-05-29) | 13.97 | **10.65** | 4/22 |
+
+**Flat at headline.** All per-faction movements within their noise
+floors. Three commits landed real rule-correctness improvements but
+the metric movement was below noise at N=40 — pattern consistent
+with waves 50 / 52. Notable per-faction shifts:
+* TSON: +22.54 → +22.30 (-0.24, slight better direction, predicted)
+* Daemons: -17.70 → -17.94 (-0.24, slight wrong direction, +5-7 predicted)
+* AdMech: +17.75 → +18.46 (+0.71, wrong direction, "substantial"
+  predicted)
+* Drukhari: +39.15 → +38.20 (-0.95, downstream of stratagem dispatcher?)
+* Votann: +15.82 → +14.99 (-0.83, no targeted work)
+
+### Third instance of the per-model amplification pattern
+
+TSON-CABAL-V1 (`ab1f4b8`) found the third instance on `claude/sim-
+calibration-6` of the codex "per unit" rule gated per-`Unit`-instance:
+- Wave 49 SOROR-ACTS-OF-FAITH-V1: AoF spend gate (3.7× amplification)
+- Wave 51 SOROR-DETACHMENT-V1: AoF generation gate (4.65×)
+- Wave 53 TSON-CABAL-V1: Cabal Ritual attempt gate (2.8×)
+
+Pre-fix TSON measurement: 18.7 PSYKER unit-objects iterated per army
+(army builder decomposes each Rubric Marines squad of 5 into 5
+PSYKER-keyword Units). Codex: "select one model from your army **with
+this ability**" — the ability lives on the Aspiring Sorcerer, one per
+squad regardless of model count. Fix: group alive PSYKER units by
+`profile.name`, yield one representative per `min_models`. Single-model
+characters (Ahriman, Sorcerer, Magnus) unaffected.
+
+Post-fix: 6.5 PSYKER squad-representatives per battle, 4.60 Doombolt
+firings (vs 5.00 pre-fix), 10.10 mortal wounds (vs 10.45). The
+per-turn `manifested_this_turn` cap (1 Doombolt/turn) was already
+bounding the damage output regardless of caster count; the real fix is
+**attrition resilience** — as units die, the squad count drops
+appropriately rather than the model count, so casting capacity
+degrades correctly over the 5-round battle. Predicted modest direction-
+correct movement; measured -0.24 (within noise 8.75).
+
+### Daemons stratagem parity — 1 → 10
+
+DAEMONS-STRATAGEMS-V1 (`2336450`) added 9 stratagems across all
+five Daemons detachments:
+- Shared (Daemonic Incursion, applies to all detachments): Draught of
+  Terror (+1 to wound shooting), Warp Surge (advance+charge), Daemonic
+  Invulnerability (4+ invuln transient).
+- Blood Legion: Blood Begets Skulls (advance+charge Khorne), Wrath
+  Undeniable (+1 to wound melee).
+- Plague Legion: Seeping Virulence (lethal hits proxy at 6+ vs codex
+  5+; acknowledged under-model), Foetid Resurgence (3-wound recovery).
+- Legion of Excess: Archagonists (+1 to wound melee, clean codex match).
+- Scintillating Legion: Flickering Reality (+1 save transient).
+
+Pre-fix: 1 stratagem dispatched (Daemonic Pact). Post-fix: 10. With
+the wave-44 STRATAGEM-CHAIN-V1 cap-2-per-phase, Daemons now fires
+2-3 stratagems per round in a typical game. All rule-correct
+magnitudes per CLAUDE.md §10 (one under-model accepted, one slight
+over-value accepted both within approximation tolerance).
+
+Predicted "several points" uplift; measured -0.24 (wrong direction,
+within noise 3.16). Possible reasons for the under-performance vs
+prediction:
+- Stratagem dispatcher's gating logic may be rejecting more often
+  than expected.
+- CP economy: Daemons' starting CP and per-round refill may be
+  consumed by other higher-priority strats before the new ones fire.
+- N=40 noise dominates.
+
+Worth a follow-up: instrument dispatcher fire counts and verify the
+new strats are actually firing in matches.
+
+### AdMech Crucible character leak
+
+ADMECH-REAUDIT-V1 (`b012139`) found 3 Crusade narrative-campaign
+characters (Cohort Commander, Ironstrider Alpha, Magos — all
+`[Crucible]`-suffixed) leaking into the matched-play unit pool.
+BSData marks them `hidden=true` via modifier, but
+`iter_unit_entries` in `code/bsdata/mapper.py` follows top-level
+entryLinks without filtering the hidden modifier. Each unit
+fires THREE independent weapon passes per activation (Twin cognis
+lascannon + Twin cognis autocannon + Torrent / DW Transonic
+cannon) at 45-80pts — 3-4× the expected damage-per-point ratio.
+Per random_fill diagnostic, together they accounted for ~24% of
+AdMech damage output.
+
+Fix: `enabled: false` on all three via overrides; removed from
+`data/sweg_points_v1.json`. Predicted "substantial" reduction;
+measured +0.71 (wrong direction). The likely cause: the archetype
+builder (used by eval per `feedback-loop-uses-archetype-eval`
+memory) doesn't actually pick these characters in archetype-shape
+AdMech lists — the 24% damage attribution was from random_fill
+diagnostic battles, NOT from the archetype-build eval path. So
+the disable was a no-op on archetype eval.
+
+**Systemic finding flagged**: 59 OTHER Crucible-suffixed units
+across all factions remain. A `hidden=true` filter in
+`iter_unit_entries` would be the structural fix and could
+affect every faction's random_fill behavior — but per the
+archetype-eval observation, the impact on the main eval path
+might also be limited unless those Crucible chars actually
+appear in archetype builds.
+
+### Open carry-forwards into wave 54
+
+1. **Drukhari structural** — still +38.20 gated, largest single
+   tractable residual. Activation count + heterogeneous squad
+   weapon-stat averaging. Hard problem, needs T3 mapper or
+   simulator-architecture work.
+2. **TSON Doombolt cap tightening** — per-turn cap (1/turn) bounds
+   damage to ~5 firings/battle × 3.5 MW = ~17 MW. Verify the
+   codex's actual cap shape (some Rituals once per game; verify
+   Doombolt's). If 1/game vs 1/turn, several wr-points down.
+3. **AdMech archetype-side audit** — Crucible disable didn't help
+   eval because archetype builder doesn't pick those. Top damage
+   contributors IN ARCHETYPE BUILDS (different from random_fill)
+   need fresh measurement.
+4. **Daemons stratagem dispatcher instrumentation** — verify the
+   9 new strats are actually firing in eval matches; the -0.24
+   movement vs predicted "several points" suggests they may not
+   be hitting the dispatcher.
+5. **Systemic Crucible filter** — `hidden=true` check in
+   `iter_unit_entries` would remove all 59 Crucible units across
+   factions; cross-faction impact unknown but rule-correct.
+6. **Tyranid over-buff search** — Zoanthrope mutex fix moved
+   Tyranids only +0.24; the +21 residual is elsewhere. Verify at
+   N=80 to separate signal from noise on the existing fix, then
+   pursue different damage contributors.
+7. **Sororitas detachment unit-side weapon profile re-verify**
+   post-recent mapper refresh.
+8. **GUO Bilesword LETHAL HITS field now wired** — confirm it
+   actually fires in melee resolution against typical targets.
+9. **Crucible composite Daemon Charioteer / Herald + Captain in
+   Gravis Armour wargear-choice-group max=1 gate** for
+   `extra_melee_profiles`.
+10. **IK -36.24 / CK -43.21 mapper-locked** — Stage 2 multi-
+    profile weapon mapper.
+
+### Process note
+
+Wave 53 reinforces a pattern from waves 50 / 52: agent prompts that
+predict large metric movement on T2-scope changes often over-predict.
+At N=40, even meaningful rule-correctness fixes commonly land within
+noise. The three signals that have consistently moved the metric:
+- Per-model representation amplification fixes (SOROR x2, TSON Cabal
+  — though TSON Cabal damage was cap-bounded so movement was small).
+- Mapper-structural population fixes (MAPPER-EXTRA-MELEE-V1 wave 52
+  on KoS).
+- Direct stat / weapon-profile corrections on dominant damage
+  contributors (DRK-NON-SKYSPLINTER Combat Drugs, Tyranid Zoanthrope
+  mutex).
+
+Stratagem additions and detachment-flag adjustments produce smaller
+movements — closer to noise floor — and need either N=80 verification
+or batched landings to register on gated MAE.
+
