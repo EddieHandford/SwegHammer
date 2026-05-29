@@ -89,23 +89,6 @@
     "trigger": "the manifesting psyker for a Cabal of Sorcerers Ritual is Magnus the Red",
     "effect": "Magnus attempts 2 Rituals per turn (the simulator's per-psyker attempt loop runs twice for Magnus instead of once), and the 2D6 Psychic test result is incremented by 2 on each of his attempts (composes with the WC threshold check AND with the 11+/10+/12+ crit thresholds for Doombolt / Temporal Surge / Twist of Fate, so a 2D6=9 roll becomes a 11 effective and triggers the Doombolt D3+3 crit). Quoted text comes from BSData v10.6.0 (Chaos - Thousand Sons.cat.gz, Magnus the Red datasheet, Abilities > Lord of the Planet of the Sorcerers (Psychic)) which mirrors the Wahapedia datasheet entry. iter20 wiring — closes the iter18/19 finding that Magnus's psychic MW output was unwired, leaving the 435pt EPIC HERO PSYKER MONSTER undervalued in the simulator (TSON sim 31.7% vs real 54.6% at 2000pt archetype eval).",
     "scope": "character-only"
-  },
-
-  "simulator.rubric_marines_bringers_of_change": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines",
-    "rule_name": "Bringers of Change",
-    "quoted_text": "Each time a model in this unit makes a ranged attack, re-roll a Wound roll of 1. If the attack targets a unit within range of an objective marker you do not control, you can re-roll the Wound roll instead.",
-    "trigger": "Rubric Marines unit makes any ranged attack",
-    "effect": "UNMODELLED APPROXIMATION. The real rule grants re-roll Wound rolls of 1 on all ranged attacks (unconditionally), upgrading to full Wound re-roll on attacks targeting an objective the attacker does not control. SwegHammer's leader-aura layer exposes reroll_wound_ones as a buff flag on LeaderAbility, but Bringers of Change is a datasheet ability (not a leader aura) with no equivalent per-unit passive flag in UnitProfile. To model this correctly, a new UnitProfile boolean field 'reroll_ranged_wound_ones' would be needed, read by Unit.attack at the wound-modifier layer. DIRECTION NOTE: implementing this would strengthen Rubric Marines ranged output (direction: increases TSON sim win rate, worsens the +20 overshoot at wave-52). Catalogued here as a known gap per CLAUDE.md §10; do not implement until the TSON overshoot is resolved by other means. Source: BSData Chaos - Thousand Sons.cat.gz, Rubric Marines Abilities > Bringers of Change.",
-    "scope": "keyword-gated"
-  },
-
-  "GRAND_COVEN.psychic_mortal_wounds_per_round": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
-    "rule_name": "Kindred Sorcery (Grand Coven Detachment Rule)",
-    "quoted_text": "In your Command phase, you can select one of the abilities listed below to take effect until the start of your next Command phase. You can only select each of these abilities once per battle. Imbued Manifestation: Add 6\" to the range characteristic of ranged Psychic weapons equipped by Thousand Sons models in your army. Psychic Maelstrom: Each time a Thousand Sons model from your army makes an attack with a Psychic weapon, add 1 to the Wound roll. Wrath of the Immaterium: Psychic weapons equipped by Thousand Sons models in your army have the [Devastating Wounds] ability.",
-    "trigger": "Thousand Sons army with the Grand Coven detachment selected; once per Command phase the player picks one of three abilities, each pickable once per battle",
-    "effect": "(approximation) the once-per-battle-each, Psychic-weapon-keyword-gated, selectable detachment rule does not reduce cleanly to a static Detachment flag. The simulator implements the army's psychic teeth via the Cabal of Sorcerers Ritual pass alone (real 2D6 Psychic test, real WC values, real Doombolt D3 / D3+3 mortals). The previous `psychic_mortal_wounds_per_round=2` baseline was zeroed in TSON-DIAG (claude/sim-calibration-6): the baseline was a fabricated unconditional 2-MW-per-round payload to the highest-threat enemy that double-counted Doombolt's already-modelled stochastic MW output, and Kindred Sorcery's real text (Imbued Manifestation / Psychic Maelstrom / Wrath of the Immaterium) does NOT grant a per-round MW payload of any kind. The actual Kindred Sorcery toggle is still NOT modelled (psychic-weapon-keyword + once-per-battle-each does not collapse to a static flag) — see GRAND_COVEN notes for the gap.",
-    "scope": "army-wide"
   }
+
 }

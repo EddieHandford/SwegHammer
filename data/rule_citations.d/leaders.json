@@ -40,6 +40,24 @@
     "approximation": true
   },
 
+  "LeaderAbility.Keep Counting!": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Spoilpox-Scrivener",
+    "rule_name": "Keep Counting!",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Spoilpox Scrivener is leading a friendly Plaguebearers unit; the led unit makes a melee attack",
+    "effect": "Led Plaguebearers' melee weapons gain [SUSTAINED HITS 1] (each unmodified Hit roll of 6 scores 1 additional hit). Modelled as sustained_hits_melee=1 with host_keys gated to chaos_daemons_library_plaguebearers per the BSData v10.6.0 Spoilpox Scrivener Leader profile (attaches to PLAGUEBEARERS). The sustained_hits_melee schema field was added in wave-50 commit 25af977 specifically so this leader could be added without a follow-up dataclass change. Second BSData ability 'Meet Your Quota!' (+1 Objective Control to the led unit) is not modelled — no oc_bonus_led_unit field exists on LeaderAbility yet.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Tormentbringer (Aura)": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Tormentbringer",
+    "rule_name": "Tormentbringer (Aura)",
+    "quoted_text": "While a friendly Slaanesh Legiones Daemonica unit is within 6\" of this model, melee weapons equipped by models in that unit have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Tormentbringer is on the battlefield; a friendly SLAANESH Legiones Daemonica unit is within 6\" and makes a melee attack",
+    "effect": "Affected Slaanesh Daemons units' melee weapons gain [SUSTAINED HITS 1]. Modelled as sustained_hits_melee=1 with host_keys gated to the SLAANESH Legiones Daemonica catalogue keys (_SLAANESH_DAEMON_HOSTS) rather than empty host_keys, so the aura does not broadcast to non-Slaanesh allies under Daemons of Chaos detachment composition. This is an army-aura within the Slaanesh sub-faction, not a Leader/Bodyguard buff. Tormentbringer's other ability 'Hysterical Frenzy' (a destroyed model in the unit fights after dying) is not modelled — no fight-phase-trigger flag exists.",
+    "scope": "keyword-gated"
+  },
+
   "LeaderAbility.Daemon Lord of Khorne": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
     "rule_name": "Daemon Lord of Khorne (Aura)",

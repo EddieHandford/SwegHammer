@@ -7,14 +7,6 @@
     "effect": "When _collect_weapons_for_model yields multiple fixed ranged weapons for one model type, only the single best (by expected_damage_through_baseline) non-[PISTOL] weapon is kept. This prevents the Autopistol/Bolt pistol secondary from diluting the basket average of the model's primary weapon in _flatten_to_basket. Pistol-only models are unaffected.",
     "scope": "weapon-keyword"
   },
-  "simulator.extra_melee_profiles": {
-    "rule_name": "Extra Attacks",
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Extra-Attacks",
-    "quoted_text": "[EXTRA ATTACKS]: Each time the bearer fights, it makes a number of attacks with this weapon equal to that weapon's Attacks characteristic in addition to the attacks it makes with its other melee weapons.",
-    "trigger": "Fight phase, any time a unit with UnitProfile.extra_melee_profiles fires its primary melee weapon. Each entry in extra_melee_profiles resolves as a second (third, ...) independent attack-resolution pass against the same target using that weapon's own A/S/AP/D values and keyword flags.",
-    "effect": "Additional melee attack-resolution passes, one per entry in UnitProfile.extra_melee_profiles, resolved in-order after the primary melee pass in Unit.attack mode==melee. Total damage = primary melee pass + sum of extra passes.",
-    "scope": "weapon-keyword"
-  },
   "AWAKENED_DYNASTY.bonus_to_hit_when_led": {
     "effect": "+1 to the Hit roll",
     "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
@@ -31,14 +23,6 @@
     "scope": "army-wide / unit-led / character-only / phase-gated / keyword-gated / weapon-keyword",
     "source": "Canonical URL (Wahapedia preferred).",
     "trigger": "Plain-English when-it-fires."
-  },
-  "simulator.doctrina_imperatives": {
-    "rule_name": "Doctrina Imperatives",
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Doctrina-Imperatives",
-    "quoted_text": "At the start of the battle round, you can select one of the Doctrina Imperatives below. Until the end of the battle round, that Doctrina Imperative is active for your army, and all units from your army that have the Doctrina Imperatives ability gain the relevant abilities shown below. PROTECTOR IMPERATIVE: Ranged weapons equipped by models in this unit have the [HEAVY] ability. Improve the Ballistic Skill characteristic of ranged weapons equipped by models in this unit by 1. Each time a melee attack targets this unit, if this unit has the Battleline keyword and/or it is within 6\" of one or more friendly Adeptus Mechanicus Battleline units, subtract 1 from the Hit roll. CONQUEROR IMPERATIVE: Ranged weapons equipped by models in this unit have the [ASSAULT] ability. Improve the Weapon Skill characteristic of melee weapons equipped by models in this unit by 1. Each time a model in this unit makes an attack, if this unit has the Battleline keyword and/or it is within 6\" of one or more friendly Adeptus Mechanicus Battleline units, improve the Armour Penetration characteristic of that attack by 1.",
-    "trigger": "At the start of each battle round, the AdMech player picks one imperative (Protector or Conqueror) via the strategy heuristic (pick_doctrina_imperative). Fires until the end of the battle round on all units with the Doctrina Imperatives ability (faction == Adeptus Mechanicus gate in Unit.attack).",
-    "effect": "Protector: +1 to hit rolls on ranged attacks (army-wide) via hit_mod_delta += 1 when mode != melee; -1 to hit on melee attacks targeting a BATTLELINE-proximate AdMech unit via hit_mod_delta -= 1 (gated on _doctrina_battleline_proximity_met). Conqueror: +1 to hit rolls on melee attacks (army-wide) via hit_mod_delta += 1 when mode == melee; +1 AP on all attacks by BATTLELINE-proximate AdMech units via effective_ap -= 1 (gated on _doctrina_battleline_proximity_met). APPROXIMATION: [HEAVY] on ranged weapons under Protector (grants +1 to hit when the model has not moved) is NOT separately implemented — its hit-roll contribution is subsumed by the +1 BS leg under the modifier cap (max net ±1 per 10e core rules). [ASSAULT] on ranged weapons under Conqueror (grants shoot-after-Advance) is NOT implemented — AdMech is currently overshooting sim vs real, so adding ASSAULT would worsen the gap (wrong direction); deferred pending faction balance convergence.",
-    "scope": "phase-gated"
   },
   "simulator.acts_of_faith": {
     "effect": "Gain 1 Miracle die at the start of each battle round (while at least one Sororitas unit is alive), plus 1 each time a friendly Sororitas codex-unit is fully destroyed (last sim-instance of that profile.name dies, non-TRANSPORT only, while at least one other Sororitas unit is still alive). Each die is a pre-rolled D6 banked in a pool (soft cap 8, no hard codex limit). Before any d6 roll a unit may perform one Act of Faith per phase (sim: one per codex-unit per round), substituting one banked die for ONE d6 of that roll. Only substitutes when the swap converts fail -> success (simulator greedy heuristic).",
@@ -112,14 +96,6 @@
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
     "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
   },
-  "simulator.disembark": {
-    "effect": "When a unit disembarks from a TRANSPORT via the voluntary `_maybe_disembark_before_move` hook or the forced `_destroyed_transport_disembark` path, the passenger is placed within 3\" of the transport, its uid is added to `_did_move_this_round` (surfacing the move to the Heavy keyword check), and its uid is added to `_disembarked_this_round`. When that passenger's own activation arrives, `_do_move` returns early after the disembark hook so it cannot make a Normal, Advance or Fall Back move that turn. The passenger can still Shoot and Charge — those are dispatched separately via `_do_shoot` / `_do_charge` and are NOT blocked by the disembark lockout. DRK-DISEMBARK (2026-05-23) added the lockout; prior code let the disembarked unit Move/Advance again on its own activation, granting an extra phase of action per disembark.",
-    "quoted_text": "If a unit disembarks from a Transport in your Movement phase, it cannot make a Normal, Advance or Fall Back move that turn. The unit is then treated as having moved a distance equal to its Move characteristic this turn.",
-    "rule_name": "Transports — Disembark",
-    "scope": "phase-gated",
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#TRANSPORTS",
-    "trigger": "a unit disembarks from a TRANSPORT in the Movement phase (voluntary hook or destroyed-transport forced disembark)"
-  },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
     "quoted_text": "All eligible units that have the FIGHTS FIRST ability must fight in the Fights First step. Then, in the Remaining Combats step, all other eligible units fight. Each time you select an eligible unit from your army to fight with that made a Charge move this turn, that unit fights first.",
@@ -151,14 +127,6 @@
     "scope": "weapon-keyword",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Shooting-Phase",
     "trigger": "datasheet carries TWO distinct ranged weapon profiles (Stormsurge Pulse Driver 72\" vs Pulse Blastcannon-focused 18\", Magnus the Red Gaze of Magnus vs Tzeentch's Firestorm, etc.); the bsdata mapper records the runner-up as `secondary_*` on UnitProfile when present"
-  },
-  "simulator.oath_of_moment": {
-    "effect": "Re-roll the Hit roll (full hit re-rolls, not just 1s; HIT only, no wound re-roll)",
-    "quoted_text": "At the start of your Command phase, select one enemy unit that is on the battlefield to be the target of the Oath of Moment. Until the start of your next Command phase, each time an attack made by a model from your army targets the unit selected as the target of the Oath of Moment, you can re-roll the Hit roll.",
-    "rule_name": "Oath of Moment",
-    "scope": "army-wide",
-    "source": "https://wahapedia.ru/wh40k10ed/factions/space-marines/",
-    "trigger": "Marine player selects one enemy unit each Command phase; while that unit is the chosen target, every attack from any model in the Marine army against it gates the buff"
   },
   "simulator.pistol_exclusivity": {
     "effect": "unit fires the Pistol set OR the non-Pistol set, not both",
@@ -207,45 +175,5 @@
     "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / no_prisoners / cull_the_horde / assassination) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`",
     "effect": "Only the picked 2 Fixed Secondaries (+ chosen Tactical cards) score VP for that army. `score_round_delta` / `score_position_delta` zero any component absent from `chosen_secondaries`. Previously all four Fixed + both Tactical scored every round for every army, asymmetrically over-rewarding balanced kill-heavy / mobile rosters.",
     "scope": "army-wide"
-  },
-  "simulator.markerlight_emission": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Markerlights",
-    "rule_name": "Markerlights",
-    "quoted_text": "In your Shooting phase, after making any Overwatch attacks but before any units from your army shoot, select one or more units from your army that are equipped with one or more Markerlight weapons. Each of those units can shoot with those Markerlight weapons (and only those weapons) at one enemy unit that is visible to it. Then, until the end of the phase, that enemy unit is said to be Marked for Destruction.",
-    "trigger": "T'au Empire Shooting phase; each codex unit (not each individual model) equipped with a Markerlight weapon shoots once at one visible enemy target; requires a successful Hit roll against the carrier's Ballistic Skill; on hit the target gains Guided status (uid added to army.guided_enemy_uids) granting Lethal Hits under Mont'ka detachment",
-    "effect": "One Markerlight firing attempt per codex squad (not per model-Unit); the simulator groups alive MARKERLIGHT keyword Unit objects by profile name, yields one representative per min_models alive models, then resolves range + line of sight + can_target_for_ranged + Ballistic Skill hit roll. TAU-MARKERLIGHTS-V1 fixed the pre-commit per-model inflation (7.0x amplification) by applying the same squad-deduplication pattern used in SOROR Acts of Faith (SOROR-ACTS-OF-FAITH-V1) and TSON Cabal Rituals (TSON-CABAL-V1).",
-    "scope": "army-wide"
-  },
-  "simulator.markerlights": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Markerlights",
-    "rule_name": "Markerlights — Guided (Lethal Hits)",
-    "quoted_text": "Marked for Destruction: Until the end of the phase, each time a T'AU EMPIRE unit from your army makes an attack that targets that enemy unit, if that attack is made with a ranged weapon, you can re-roll the Hit roll. Additionally, if your army includes any MONT'KA Enhancements, that attack has the [LETHAL HITS] ability.",
-    "trigger": "T'au Empire attacker fires at a target whose uid is in army.guided_enemy_uids (set by _run_markerlight_phase); detachment.lethal_hits_on_guided must be True (Mont'ka sets True); attack mode is ranged (not melee); round gate of rounds 1-3 applies only to the lethal_hits_on_guided detachment flag, NOT to the Guided status itself",
-    "effect": "Lethal Hits on ranged attacks against Guided targets: critical hits (natural 6 on Hit roll) auto-wound without rolling to wound. Implemented in Unit.attack ranged branch via transient_lethal_hits flag gated on army.guided_enemy_uids membership and detachment.lethal_hits_on_guided.",
-    "scope": "army-wide"
-  },
-  "simulator.waaagh": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!",
-    "rule_name": "WAAAGH!",
-    "quoted_text": "Once per battle, at the start of your Command phase, if you have at least one WAAAGH! unit on the battlefield, you can declare a WAAAGH! If you do, until the end of the turn: each time a model in a WAAAGH! unit from your army makes a melee attack, add 1 to the Wound roll; add 1 to Advance and Charge rolls made for WAAAGH! units from your army; WAAAGH! units from your army have the Fights First ability.",
-    "trigger": "Orks army declares WAAAGH! once per battle at the start of their Command phase (army.waaagh_round_unlocked is set to the current round). Buff window: the declared round only (waaagh_round == cur_round). Each Ork model making a melee attack on that round receives wound_mod_delta += 1.",
-    "effect": "+1 to wound rolls for all Ork melee attacks on the WAAAGH! declaration turn. APPROXIMATION: +1 to Advance/Charge rolls is not modelled (no Advance-and-Charge leg). WAAAGH! units gaining Fights First is not modelled.",
-    "scope": "phase-gated"
-  },
-  "WAR_HORDE.melee_sustained_hits_army_wide": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
-    "rule_name": "Get Stuck In",
-    "quoted_text": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability.",
-    "trigger": "Attacker faction == Orks AND mode == melee AND the attacker's army's resolved detachment carries melee_sustained_hits_army_wide == True (set by WAR_HORDE). Fires on every individual melee attack roll — per-attack gating matches the codex per-weapon keyword behaviour.",
-    "effect": "effective_sustained_hits += 1 for the duration of each Orks melee attack resolution. A critical hit (natural 6) generates one extra normal hit. Stacks additively with any per-weapon melee_sustained_hits already on the profile.",
-    "scope": "army-wide"
-  },
-  "WARBOSS.plus_one_to_hit_melee_only": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Warboss",
-    "rule_name": "Might is Right",
-    "quoted_text": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
-    "trigger": "An in-range Warboss or Warboss in Mega Armour (matched via substring 'Warboss' in leader profile name) is within aura_range=6 of the attacker AND the attacker's UNIT_CATALOG key is in host_keys=(orks_boyz, orks_nobz, orks_meganobz). Gate: mode == melee only.",
-    "effect": "hit_mod_delta += 1 for melee attacks by the bodyguard unit. Fires via the LeaderAbility.plus_one_to_hit_melee_only field in effective_buffs (does NOT fire for ranged attacks).",
-    "scope": "unit-led"
   }
 }

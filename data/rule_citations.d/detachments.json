@@ -41,17 +41,6 @@
     "approximation": true
   },
 
-  "SHIELD_HOST.melee_crit_on_5_plus_hits": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
-    "rule_name": "Martial Ka'tah — fabricated stance (REMOVED)",
-    "quoted_text": "NONE — this was a fabricated melee Crit-on-5+ stance with no codex counterpart. The three real Martial Ka'tah stances are: Kaptaris Ka'tah (+1 invuln vs ranged), Rendax Ka'tah (improve AP of melee weapons by 1), Dacatarai Ka'tah (Sustained Hits ranged). None grants Crit-on-5+ melee.",
-    "trigger": "REMOVED in CUSTODES-KATAH-V1 (claude/sim-calibration-6). The detachment flag is now False on all detachments; the Unit.attack block that reads it is a no-op.",
-    "effect": "REMOVED. Was: successful unmodified Hit roll of 5+ scores a Critical Hit on melee attacks. Was firing on EVEN rounds (2, 4) and inflating Custodes melee output with a non-existent ability.",
-    "scope": "army-wide",
-    "approximation": false,
-    "removed": true
-  },
-
   "SHIELD_HOST.melee_ap_plus_one": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host",
     "rule_name": "Martial Ka'tah — Rendax Ka'tah",
@@ -148,15 +137,6 @@
     "trigger": "the defender carries the RUBRICAE unit-keyword AND the incoming attack's per_shot_dmg == 1.0 AND the defender's army resolves to a detachment with `all_is_dust=True` (Rubricae Phalanx)",
     "effect": "+1 to the defender's armour saving throw at the save-modifier layer, capped at 2+. iter15 makes this the canonical detachment for TSON (DEFAULT_BY_FACTION['Thousand Sons'] = 'rubricae_phalanx'); Grand Coven retained as opt-in for psyker-heavy lists. The simulator-side gate lives in `Unit.attack` and reads `target.army_ref.resolve_detachment().all_is_dust`. Companion citation `simulator.all_is_dust` covers the Unit.attack call-site. Verbatim 'unmodified Damage characteristic of 1' wording cross-checked against 40k.app + Goonhammer + Frontline Gaming Rubricae Phalanx breakdowns (WebFetch against wahapedia.ru returned ECONNREFUSED at edit time).",
     "scope": "keyword-gated"
-  },
-
-  "RUBRICAE_PHALANX.psychic_mortal_wounds_per_round": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
-    "rule_name": "Cabal of Sorcerers (Thousand Sons Army Rule) — round-end MW fallback baseline (REMOVED)",
-    "quoted_text": "If your army Faction is Thousand Sons, at the start of your Shooting phase, one or more models from your army with this ability can attempt Rituals. To do so, select one model from your army with this ability that has not yet attempted a Ritual this turn and select one Ritual no model from your army has attempted to manifest this turn, then take a Psychic test by following the sequence below: 1. Roll 2D6 2. Optionally, roll one additional D6 (Channel the Warp). Then, if one or more doubles or triples were rolled during this test, that model's unit suffers D3 mortal wounds. 3. If that model is not destroyed, the combined total of all the dice rolled during this test is the Psychic test result. If this equals or exceeds the Warp Charge value of the Ritual being attempted, that model manifests that Ritual and you resolve its effects.",
-    "trigger": "Thousand Sons army with the Rubricae Phalanx detachment selected; baseline ZEROED in TSON-DIAG (claude/sim-calibration-6)",
-    "effect": "(FAB REMOVED) `psychic_mortal_wounds_per_round` is now 0 on Rubricae Phalanx. The previous value of 2 (matching the GRAND_COVEN baseline) was a fabrication: All Is Dust's real text (verbatim Wahapedia) grants +1 to armour saves on D1 attacks against RUBRICAE models, and the Cabal of Sorcerers army rule already produces stochastic Doombolt D3 / D3+3 MW via `_run_cabal_rituals`. The unconditional 2-MW-per-round payload double-counted Doombolt and contributed to TSON's +22pt over-perf at the Warp Friends rolling target. The Cabal of Sorcerers Rituals pass (simulator-side, `_run_cabal_rituals`) is now the SOLE source of TSON psychic MW output — real 2D6 Psychic test, real D3 / D3+3 Doombolt mortals, real per-psyker cadence (Magnus 2 attempts +2, Ahriman +1, generic +0).",
-    "scope": "army-wide",
-    "approximation": true
   }
+
 }

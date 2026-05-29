@@ -97,6 +97,15 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     # gates on this detachment flag) — see RUBRICAE_PHALANX.all_is_dust
     # in data/rule_citations.d/detachments.json.
     ("all_is_dust", False),
+    # Necrons Awakened Dynasty Command Protocol flags (AD-PR,
+    # claude/sim-calibration-4). Three rotation-gated round buffs that
+    # together cover Protocols of the Hungry Void (melee AP+1, even rounds),
+    # Vengeful Stars (ranged Sustained Hits, odd rounds), and Eternal
+    # Conquerors (+1 save, round 3 only). Citations live in
+    # data/rule_citations.d/detachments.json.
+    ("necrons_melee_ap_plus_one_army_wide", False),
+    ("necrons_ranged_sustained_hits_army_wide", False),
+    ("necrons_army_wide_plus_one_save_command_protocol", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility
@@ -477,6 +486,27 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "Order.Fix Bayonets!",
     "Order.First Rank, Fire! Second Rank, Fire!",
     "Order.Take Cover!",
+    # Live simulator rules whose citations already exist in the shards but
+    # were not previously registered in this tuple. Adding them here so the
+    # auditor can verify completeness. (A1 block — wave-60 citation audit.)
+    "simulator.acts_of_faith",
+    "simulator.basket_best_ranged_per_model",
+    "simulator.basket_fraction_gating",
+    "simulator.beacons_of_rage",
+    "simulator.benefits_of_cover",
+    "simulator.blessings_of_khorne",
+    "simulator.blood_surge",
+    "simulator.code_chivalric",
+    "simulator.combat_drugs",
+    "simulator.dark_pacts",
+    "simulator.fights_first_chargers",
+    "simulator.fights_first_keyword",
+    "simulator.harbingers_of_dread",
+    "simulator.multi_profile_weapon_selection",
+    "simulator.pistol_exclusivity",
+    "simulator.primary_vp_no_round_1",
+    "simulator.rend_and_tear",
+    "unit.necrodermis",
 )
 
 

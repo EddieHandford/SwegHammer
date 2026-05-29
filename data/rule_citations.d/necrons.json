@@ -51,7 +51,7 @@
     "approximation": true
   },
 
-  "UnitProfile.necrodermis": {
+  "unit.necrodermis": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/necrons/",
     "rule_name": "Necrodermis (C'tan datasheet ability)",
     "quoted_text": "Each time an attack is allocated to this model, halve the Damage characteristic of that attack (rounding up). Any time an attack is allocated to this model that has a Damage characteristic of 1, it has a Damage characteristic of 0 instead.",
