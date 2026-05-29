@@ -656,14 +656,24 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Poxbringer",         LeaderAbility(name="Poxbringer's Locus",         aura_range=6.0, plus_one_to_wound=True,
                                           host_keys=("chaos_daemons_library_plaguebearers",))),
     # Changecaster — codex ability grants [SUSTAINED HITS 1] to ranged weapons
-    # on the led unit (Pink Horrors / Blue Horrors). SwegHammer's LeaderAbility
-    # has no `sustained_hits` flag, so this is proxied with `reroll_hit_ones=True`
-    # — the same proxy already used for TSON Infernal Master's [SUSTAINED HITS 1]
-    # grant (see line ~347 above). Direction-correct: both expand the per-hit-
-    # roll value, just via different math (reroll-1s = +1/6 hits, sustained-1 on
-    # a 6 = +1/6 hits). Citation flagged "(approximation)".
+    # on the led unit. BSData v10.6.0 Chaos - Chaos Daemons Library.cat.gz:
+    # "While this model is leading a unit, ranged weapons equipped by models
+    # in that unit have the [SUSTAINED HITS 1] ability." Leader attachment:
+    # "PINK HORRORS, BLUE HORRORS" (both are separate UNIT_CATALOG keys —
+    # chaos_daemons_library_pink_horrors and chaos_daemons_library_blue_horrors,
+    # confirmed via UNIT_CATALOG inspection). DAEMONS-LOCUS-V1: prior entry
+    # listed only Pink Horrors; Blue Horrors was omitted because an earlier
+    # comment incorrectly claimed Blue Horrors "doesn't surface as a separate
+    # UNIT_CATALOG key" — factually wrong, now corrected. SwegHammer's
+    # LeaderAbility has no `sustained_hits_ranged` flag, so this is proxied
+    # with `reroll_hit_ones=True` — same proxy as TSON Infernal Master's
+    # [SUSTAINED HITS 1] grant (see line ~347 above). Direction-correct: both
+    # expand per-hit-roll value (+1/6 hits each). Schema gap flagged for
+    # follow-up: a `sustained_hits_ranged: int` field would give exact fidelity.
+    # Citation updated in data/rule_citations.d/leaders.json.
     ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0, reroll_hit_ones=True,
-                                          host_keys=("chaos_daemons_library_pink_horrors",))),
+                                          host_keys=("chaos_daemons_library_pink_horrors",
+                                                     "chaos_daemons_library_blue_horrors",))),
     # Contorted Epitome — Swallow Energy (Psychic) grants the led Daemonettes
     # FNP 4+ vs mortal wounds and Psychic Attacks. SwegHammer does not tag
     # attacks as PSYCHIC, so FNP 4 is applied army-wide (per the iter15
