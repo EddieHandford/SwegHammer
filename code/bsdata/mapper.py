@@ -1364,49 +1364,59 @@ def gather_squad_loadout(entry: ET.Element, reg: Registry) -> Optional[List[Mode
       - no weapons resolve on any model (the caller should fall back).
 
     The returned list's `count` fields SUM to the squad's max headcount.
-    """
-    grp = _find_main_squad_group(entry)
-    if grp is None:
-        return None
-    size = _squad_group_size(grp)
-    if size is None:
-        return None
-    _, squad_max = size
 
-    # Crisis Battlesuit-style entries split their models across two
-    # locations: a Shas'ui directly under the unit entry and a Shas'vre
-    # leader inside a nested ``selectionEntryGroup``. If the picker chose
-    # one of those locations we still need to collect the model from the
-    # OTHER one — otherwise the basket misses ~half the squad and the
-    # legacy single-best-weapon path kicks in, picking the highest-A
-    # weapon in the tree (which for many battlesuits is a leader profile
-    # with +1 A, leading to the Crisis +1 / Riptide +2 over-counts).
-    model_entries = list(grp.findall("./selectionEntries/selectionEntry"))
-    seen_names = set()
-    for me in model_entries:
-        if me.get("type") == "model" and me.get("name"):
-            seen_names.add(me.get("name"))
-    # Pull additional models from the entry's other location.
-    if grp is entry:
-        # We're walking the entry-direct slot; pick up nested-group models.
-        for sub in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
-            for me in sub.findall("./selectionEntries/selectionEntry"):
-                if me.get("type") == "model" and me.get("name") not in seen_names:
-                    model_entries.append(me)
-                    seen_names.add(me.get("name"))
-    else:
-        # We picked a nested group; pick up the entry-direct models too.
-        for me in entry.findall("./selectionEntries/selectionEntry"):
-            if me.get("type") == "model" and me.get("name") not in seen_names:
+    BSData 10e encodes squad composition across multiple selectionEntryGroup
+    nodes under a single unit entry: typically one "body" group (e.g.
+    "9-19 Boyz", "Tankbustas") plus one "leader" group ("Boss Nob",
+    "Sybarite"). The old implementation called ``_find_main_squad_group``
+    which returned the FIRST group with a size constraint — the leader group
+    when it is listed first (Tankbustas, Breaka Boyz) — causing
+    ``squad_max=1`` and an early bail-out to the legacy single-best-weapon
+    path. The fix collects model-type selectionEntries from EVERY SEG under
+    the unit entry (and from the entry itself for Guardian-Defender-style
+    squads). The authoritative squad total comes from ``extract_squad_size``
+    (already summing all SEGs).
+    """
+    # Use extract_squad_size for the total squad headcount — it already sums
+    # across all selectionEntryGroups and direct model entries.
+    min_m, max_m = extract_squad_size(entry)
+    squad_max = max_m
+    size = (min_m, max_m)
+
+    # Collect model-type selectionEntries from every source:
+    #   (a) every top-level selectionEntryGroup under the unit entry
+    #   (b) direct selectionEntry type="model" children of the unit entry
+    #       (Guardian Defender / Kabalite Warrior shape)
+    # This replaces the previous _find_main_squad_group + single-group walk
+    # that missed sibling groups (Boss Nob in Tankbustas, Sybarite in
+    # Kabalite Warriors) when the leader group was listed first.
+    model_entries: List[ET.Element] = []
+    seen_names: set = set()
+
+    # Shape (a): iterate ALL selectionEntryGroups, not just the first one.
+    for seg in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
+        if _is_crusade_only_entry(seg):
+            continue
+        for me in seg.findall("./selectionEntries/selectionEntry"):
+            name = me.get("name")
+            if me.get("type") == "model" and name not in seen_names:
                 model_entries.append(me)
-                seen_names.add(me.get("name"))
-    # Whichever shape: if the entry itself declares a wider size constraint
-    # (e.g. 1-3 Shas'ui + 1 Shas'vre = squad max 4), prefer that as the
-    # effective squad max — it captures both halves.
-    entry_size = _squad_group_size(entry)
-    if entry_size is not None and entry_size[1] >= squad_max:
-        size = entry_size
-        _, squad_max = size
+                if name:
+                    seen_names.add(name)
+
+    # Shape (b): direct model children on the entry itself (Aeldari-derived
+    # squads: Guardian Defenders, original Kabalite Warrior schema).
+    for me in entry.findall("./selectionEntries/selectionEntry"):
+        name = me.get("name")
+        if me.get("type") == "model" and name not in seen_names:
+            model_entries.append(me)
+            if name:
+                seen_names.add(name)
+
+    # If no model-type entries found at all, fall back to legacy path.
+    if not model_entries:
+        return None
+
     if squad_max <= 1:
         return None
     models: List[ModelLoadout] = []
