@@ -2845,7 +2845,24 @@ class Unit:
                         and p.faction == "Aeldari"
                     ):
                         own_army = getattr(self, "army_ref", None)
-                        if own_army is not None and own_army.has_fate_dice():
+                        if (
+                            own_army is not None
+                            and own_army.has_fate_dice()
+                            # AELDARI-AUDIT-V1: squad-level hit gate. Strands
+                            # of Fate "each time a unit is selected to make a
+                            # Hit Roll" is a UNIT-level event — one substitution
+                            # per codex unit per round (one squad = one unit).
+                            # The simulator instantiates each model as a separate
+                            # Unit; without this gate a 10-model squad with
+                            # high-damage weapons could each spend a Fate die on
+                            # their individual hit rolls, draining up to 10 dice
+                            # where the codex allows only 1. Block if this
+                            # profile.name has already spent a Fate die on a Hit
+                            # roll this round. Cited as `simulator.strands_of_fate`.
+                            # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+                            and p.name not in
+                                getattr(own_army, "_fate_hit_names_used_this_round", set())
+                        ):
                             # AI-5: gate spending by stakes. Only treat the
                             # hit as "high value" if the weapon's per-shot
                             # damage is >= 2 (a lascannon-shot miss is worth
@@ -2856,6 +2873,8 @@ class Unit:
                             )
                             if sub is not None:
                                 roll = sub
+                                if hasattr(own_army, "_fate_hit_names_used_this_round"):
+                                    own_army._fate_hit_names_used_this_round.add(p.name)
                     # Adepta Sororitas Acts of Faith — Miracle Dice
                     # substitution on a failed Hit roll. Mirrors the Strands
                     # of Fate branch above: if the attacker is a Sororitas
@@ -3086,7 +3105,23 @@ class Unit:
                             and target.profile.faction == "Aeldari"
                         ):
                             tgt_army = getattr(target, "army_ref", None)
-                            if tgt_army is not None and tgt_army.has_fate_dice():
+                            if (
+                                tgt_army is not None
+                                and tgt_army.has_fate_dice()
+                                # AELDARI-AUDIT-V1: squad-level save gate. Strands
+                                # of Fate "each time a unit makes a Saving Throw"
+                                # is a UNIT-level event — one substitution per
+                                # codex unit per round. Without this gate, a
+                                # 10-model squad (10 Unit instances) all defending
+                                # against a high-damage weapon could each spend a
+                                # Fate die on their individual save rolls, draining
+                                # up to 10 dice where the codex allows only 1.
+                                # Block if this defender profile.name has already
+                                # spent a Fate die on a Save roll this round.
+                                # Cited as `simulator.strands_of_fate`.
+                                and target.profile.name not in
+                                    getattr(tgt_army, "_fate_save_names_used_this_round", set())
+                            ):
                                 # AI-5: defensive saves are high-stakes when
                                 # the incoming attack does >=2 damage (a save
                                 # against a melta or lascannon is worth a
@@ -3100,6 +3135,10 @@ class Unit:
                                 )
                                 if sub is not None:
                                     sroll = sub
+                                    if hasattr(tgt_army, "_fate_save_names_used_this_round"):
+                                        tgt_army._fate_save_names_used_this_round.add(
+                                            target.profile.name
+                                        )
                         # Adepta Sororitas Acts of Faith — defensive Miracle
                         # Dice substitution on a failed save. Same greedy
                         # heuristic — only spend if it flips fail -> save.

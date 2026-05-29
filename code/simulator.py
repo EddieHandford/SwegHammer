@@ -5268,6 +5268,15 @@ class Battle:
             # cannot each spend their own Fate die. Cited as
             # `simulator.strands_of_fate`.
             army._fate_advance_names_used_this_round = set()
+            # AELDARI-AUDIT-V1 — reset Strands of Fate hit- and save-spend
+            # squad-level gates each round. Parallel to the advance gate above:
+            # hit substitutions are capped to one per profile.name per round
+            # (attacker), and save substitutions to one per profile.name per
+            # round (defender). Prevents a 10-model squad from spending up to
+            # 10 Fate dice where the codex allows only 1 per unit activation.
+            # Cited as `simulator.strands_of_fate`.
+            army._fate_hit_names_used_this_round = set()
+            army._fate_save_names_used_this_round = set()
             for u in army.units:
                 if u.profile.faction == "Adepta Sororitas":
                     u.aof_used_this_round = False

@@ -196,6 +196,30 @@ class Army:
         # each battle round by Battle._run_round. Empty on non-Aeldari armies.
         # Cited as `simulator.strands_of_fate`.
         self._fate_advance_names_used_this_round: set = set()
+        # AELDARI-AUDIT-V1: per-round squad-level Hit fate gate. Same pattern
+        # as the Advance gate above. Strands of Fate codex wording "each time a
+        # unit is selected to make... a Hit Roll" is a UNIT-level event — one
+        # squad makes one set of Hit rolls, and exactly ONE Fate die may
+        # substitute for one of those rolls. The simulator instantiates each
+        # model in a squad as a separate Unit; each model calls Unit.attack()
+        # independently. Without this gate, a 10-model squad with high-damage
+        # weapons (per_shot_dmg >= 2.0) could spend up to 10 Fate dice on hit
+        # rolls in one round where the codex allows only 1. This set tracks
+        # which attacker profile.names have already spent a Fate die on a Hit
+        # roll this round. Reset at the start of each battle round. Empty on
+        # non-Aeldari armies. Cited as `simulator.strands_of_fate`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        self._fate_hit_names_used_this_round: set = set()
+        # AELDARI-AUDIT-V1: per-round squad-level defensive Save fate gate.
+        # Same pattern as the Hit gate above. Strands of Fate "each time a
+        # unit... makes... a Saving Throw" is a UNIT-level event. A 10-model
+        # AELDARI squad defending against an attacker with damage >= 2 could
+        # spend up to 10 Fate dice on saves in one round where the codex allows
+        # only 1 per squad. This set tracks which defender profile.names have
+        # already spent a Fate die on a Save roll this round. Reset at round
+        # start. Empty on non-Aeldari armies. Cited as `simulator.strands_of_fate`.
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        self._fate_save_names_used_this_round: set = set()
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
