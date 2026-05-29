@@ -1573,6 +1573,7 @@
       "secondary_range_inches": 0,
       "secondary_weapon": "",
       "secondary_blast": false,
+      "extra_ranged_profiles": [],
       "notes": "TYRANIDS-MULTI-LOADOUT: BSData mapper picked the squad's single special weapon (Venom cannon: A=2 S=9 AP-2 D=2 R=36 [BLAST]) as the per-model primary, which the simulator then fires from all 6 models Ã¢â¬â a ~6x damage inflation on what should be 5 Deathspitter shooters + 1 Venom cannon special. Real datasheet: 1 model carries Venom cannon (2D6 attacks avg 7, S9 AP-2 D2 BLAST R36); 5 models carry Deathspitters (A=2 S=5 AP-1 D=1 R=24). Attack-volume-weighted blend over 6-model squad: ~14.5 squad-wide shots total, weighted S=6.24, weighted AP=-1.31, weighted D=1.31, weighted R=24 (deathspitter dominates). Conservative per-model representation: A=2 S=6 AP=-1 D=1 R=24 no-blast, with secondary cleared (the venom cannon's single-model contribution is folded into the primary blend rather than firing as a second weapon from every model). Source (Venom cannon stats): https://wahapedia.ru/wh40k10ed/factions/tyranids/#Tyranid-Warriors-with-Ranged-Bio-Weapons (Deathspitter, Venom cannon profiles). The BSData secondary_weapon='Barbed strangler' is a different special weapon variant (only one of barbed strangler / venom cannon / stranglethorn cannon is taken per squad), not a second-per-model weapon, so clearing it removes the double-counted second-special-weapon-per-model inflation."
     },
     "adeptus_custodes_venatari_custodians": {
@@ -2957,6 +2958,18 @@
       "secondary_lethal_hits": false,
       "extra_ranged_profiles": [],
       "notes": "TYRANIDS-OVERBUFF-V1: Warp blast has TWO mutually-exclusive firing modes per Wahapedia (https://wahapedia.ru/wh40k10ed/factions/tyranids/#Zoanthropes): the Warp blast fires ONE of (focused witchfire: A=1 S=12 AP-3 D=D6+1 Lethal Hits / witchfire: A=D3 S=7 AP-2 D=D3 BLAST PSYCHIC) each Shooting phase. The BSData mapper packed focused witchfire into the primary slot and witchfire into the secondary slot, so the simulator was firing BOTH profiles every Shooting phase -- 2x ranged-output inflation. Promoted focused witchfire to the sole primary. Secondary slot cleared. Same pattern as TYRANIDS-DIAG-3, TYRANIDS-MULTI-LOADOUT, TYRANID-NORN-MULTILOAD. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Zoanthropes"
+    },
+    "tyranids_harpy": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 4,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_blast": false,
+      "secondary_twin_linked": false,
+      "notes": "TYRANIDS-SYNAPSE-V1: Harpy's two ranged cannons are MUTUALLY EXCLUSIVE per Wahapedia 10e datasheet (https://wahapedia.ru/wh40k10ed/factions/tyranids/#Harpy): 'This model is equipped with: 1 twin stranglethorn cannon; Stinger salvoes; Scything wings. This model's twin stranglethorn cannon can be replaced with 1 twin heavy venom cannon.' Only ONE cannon fires per Shooting phase; Stinger salvoes are always co-fired (kept in extra_ranged_profiles). The BSData mapper packed twin stranglethorn cannon into the primary slot AND twin heavy venom cannon into the secondary slot, so the simulator was firing BOTH cannons every Shooting phase -- a 1.65x ranged-output inflation (secondary DPA 2.22 vs correct 0). Same pattern as TYRANIDS-OVERBUFF-V1, TYRANIDS-DIAG-3, TYRANIDS-MULTI-LOADOUT, TYRANID-NORN-MULTILOAD. Secondary slot cleared; primary twin stranglethorn cannon retained; Stinger salvoes remain in extra_ranged_profiles. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Harpy"
     }
   }
 }
