@@ -5139,19 +5139,26 @@ class Battle:
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each battle round the AdMech player picks ONE of
         # two imperatives — "protector" (+1 BS on ranged attacks, defensive
-        # -1 to be hit in melee against AdMech units) or "conqueror" (+1 WS
-        # on melee attacks, +1 AP on all attacks). MR-D
-        # (claude/sim-calibration-5) corrected the prior implementation
+        # -1 to be hit in melee against eligible AdMech units) or "conqueror"
+        # (+1 WS on melee attacks, +1 AP on all attacks for BATTLELINE-adjacent
+        # units). Wahapedia preamble: "all units from your army that have the
+        # Doctrina Imperatives ability gain the relevant abilities shown below."
+        # MR-D (claude/sim-calibration-5) corrected the prior implementation
         # which fabricated a -1-to-hit penalty side that does not exist in
         # the published rule. Active until the end of the battle round; we
         # reset to None first so a faction-tag flip mid-battle doesn't leak
         # stale state, then re-pick via the strategy heuristic. The
         # individual modifiers are applied in Unit.attack, faction-gated on
-        # the attacker (or target for the Protector defensive side). Cited
-        # as `simulator.doctrina_imperatives`.
+        # the attacker (or target for the Protector defensive side).
+        # ADMECH-DOCTRINA-V1: use alive_units (not army.units which includes
+        # dead models) so the pick only fires while at least one AdMech unit
+        # remains alive on the board — mirrors the SOROR-ACTS-OF-FAITH-V1
+        # pattern and prevents the imperative from being set from dead-unit
+        # faction tags after the army is wiped out. Cited as
+        # `simulator.doctrina_imperatives`.
         for army, opponent in ((self.a, self.b), (self.b, self.a)):
             army.doctrina_imperative = None
-            if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
+            if any(u.profile.faction == "Adeptus Mechanicus" for u in army.alive_units):
                 army.doctrina_imperative = pick_doctrina_imperative(army, opponent)
         # ---- Adeptus Astartes Oath of Moment (army rule, 10e). At the start
         # of each Command phase a Marine player picks one enemy unit; every

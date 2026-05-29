@@ -230,14 +230,17 @@ class Army:
         # losses). 0 until the simulator sets it.
         self.starting_points: float = 0.0
         # Adeptus Mechanicus army rule — Doctrina Imperatives. At the start
-        # of each Command phase, the AdMech player picks ONE of two
-        # imperatives, active until the start of their next Command phase:
-        #   * "protector": +1 to hit ranged, -1 to hit melee
-        #   * "conqueror": +1 to hit melee, -1 to hit ranged
+        # of each battle round, the AdMech player picks ONE of two buff-only
+        # imperatives (no penalty side — Wahapedia 10e):
+        #   * "protector": +1 BS on ranged attacks (army-wide); defensive
+        #     -1 to hit for incoming melee attacks against BATTLELINE-adjacent
+        #     AdMech units.
+        #   * "conqueror": +1 WS on melee attacks (army-wide); +1 AP on all
+        #     attacks for BATTLELINE-adjacent AdMech units.
         # Reset to None each round; re-picked by the simulator's AI based on
         # the army's role mix and engagement count. None on a non-AdMech
-        # army (the gate is faction-checked at attack-resolution time too).
-        # Cited as `simulator.doctrina_imperatives`.
+        # army (alive_units gate at round-start, faction-checked at attack-
+        # resolution time too). Cited as `simulator.doctrina_imperatives`.
         self.doctrina_imperative: Optional[str] = None
         # World Eaters army rule — Blood Tithe (10e). Codex-wide accumulator
         # incremented by 1 each time a friendly WORLD EATERS unit dies OR an
