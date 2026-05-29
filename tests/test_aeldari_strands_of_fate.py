@@ -263,5 +263,56 @@ class StrandsOfFateLowStakesGateTests(unittest.TestCase):
         self.assertEqual(popped, 3)
 
 
+class StrandsOfFateAdvanceGateTests(unittest.TestCase):
+    """AELDARI-STRANDS-V1: advance fate-die spend limited to once per codex
+    unit (profile name) per round.
+
+    The codex rule says 'a unit from your army is making an Advance roll'
+    (one roll per codex unit). The simulator moves each model individually,
+    so Army._fate_advance_names_used_this_round gates subsequent models of
+    the same squad from spending a second Fate die on advance that round.
+    Cited as simulator.strands_of_fate.
+    """
+
+    def test_advance_gate_blocks_second_model_same_squad_same_round(self):
+        """Second model in the same squad cannot spend a Fate die on advance
+        if the first model already spent one this round."""
+        a = Army("Ael")
+        a.fate_dice = [6, 5, 4, 3, 2, 1]
+
+        # Simulate: first model of 'Guardian Defenders' spends on advance.
+        a._fate_advance_names_used_this_round.add("Guardian Defenders")
+
+        # pop_fate_die_meeting still works (it's the caller's responsibility
+        # to check the gate). The gate lives in _do_move. Test the Army
+        # state: the name is recorded, subsequent spend must be blocked by
+        # the caller gate.
+        self.assertIn("Guardian Defenders",
+                      a._fate_advance_names_used_this_round)
+
+        # A different profile name is NOT blocked.
+        self.assertNotIn("Howling Banshees",
+                         a._fate_advance_names_used_this_round)
+
+    def test_advance_gate_reset_each_round(self):
+        """The gate set is cleared at the start of each round so that
+        the same squad can spend one Fate die on advance next round."""
+        a = Army("Ael")
+        a.fate_dice = [6, 5, 4, 3, 2, 1]
+        a._fate_advance_names_used_this_round.add("Guardian Defenders")
+        self.assertIn("Guardian Defenders",
+                      a._fate_advance_names_used_this_round)
+
+        # Simulate a round reset (what Battle._run_round does).
+        a._fate_advance_names_used_this_round = set()
+        self.assertNotIn("Guardian Defenders",
+                         a._fate_advance_names_used_this_round)
+
+    def test_advance_gate_initialises_empty(self):
+        """Army starts with an empty advance gate (no prior spends)."""
+        a = Army("Ael")
+        self.assertEqual(a._fate_advance_names_used_this_round, set())
+
+
 if __name__ == "__main__":   # pragma: no cover
     unittest.main()

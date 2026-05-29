@@ -183,6 +183,19 @@ class Army:
         # units never call aof_squad_available). Cited as
         # `simulator.acts_of_faith`.
         self._aof_squad_names_used_this_round: set = set()
+        # AELDARI-STRANDS-V1: per-round squad-level Advance fate gate. The
+        # codex rule "a unit from your army is making an Advance... roll"
+        # (Strands of Fate, Wahapedia) is a UNIT-level event — one squad rolls
+        # one Advance D6, not one roll per model. The simulator moves each
+        # model in a squad individually (each calls _do_move and rolls its own
+        # Advance D6), so without this gate a 10-model squad could spend up to
+        # 10 Fate dice on advance in one round where the codex allows only 1.
+        # This set tracks which profile names have already spent a Fate die on
+        # an Advance roll this round; subsequent models sharing the same
+        # profile.name are blocked from spending another. Reset at the start of
+        # each battle round by Battle._run_round. Empty on non-Aeldari armies.
+        # Cited as `simulator.strands_of_fate`.
+        self._fate_advance_names_used_this_round: set = set()
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every

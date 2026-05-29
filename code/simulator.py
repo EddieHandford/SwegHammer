@@ -5288,6 +5288,14 @@ class Battle:
         #     Faith per phase." Cited as `simulator.acts_of_faith`.
         for army in (self.a, self.b):
             army._aof_squad_names_used_this_round = set()
+            # AELDARI-STRANDS-V1 — reset Strands of Fate advance-spend gate
+            # each round. The codex "a unit is making an Advance roll" event
+            # fires once per codex unit per round; the gate set records which
+            # profile names have already spent a Fate die on advance this round
+            # so that subsequent models in the same squad (same profile.name)
+            # cannot each spend their own Fate die. Cited as
+            # `simulator.strands_of_fate`.
+            army._fate_advance_names_used_this_round = set()
             for u in army.units:
                 if u.profile.faction == "Adepta Sororitas":
                     u.aof_used_this_round = False
@@ -6082,12 +6090,25 @@ class Battle:
             advance_d6 > 0
             and attacker.profile.faction == "Aeldari"
             and attacker_army.has_fate_dice()
+            # AELDARI-STRANDS-V1: per-codex-unit gate. The codex rule is "a
+            # unit from your army is making an Advance roll" — ONE fate die per
+            # codex unit (squad) per round, not one per model. The simulator
+            # instantiates each model as a separate Unit and calls _do_move for
+            # each, so without this gate a multi-model squad could spend one
+            # Fate die per model per round. Block if this profile.name has
+            # already spent a Fate die on advance this round. Cited as
+            # `simulator.strands_of_fate`.
+            and attacker.profile.name not in
+                attacker_army._fate_advance_names_used_this_round
         ):
             need = needs_to_close - normal_move
             if advance_d6 < need and need <= 6:
                 sub = attacker_army.pop_fate_die_meeting(int(need))
                 if sub is not None:
                     advance_d6 = sub
+                    attacker_army._fate_advance_names_used_this_round.add(
+                        attacker.profile.name
+                    )
         move_distance = normal_move + advance_d6
         did_advance = advance_d6 > 0
 
