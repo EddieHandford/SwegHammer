@@ -2084,3 +2084,149 @@ one pass.
    Acts of Faith spend model unaudited, Daemons Locus magnitude unaudited,
    SECONDARY-SELECTION-V3 tier-table refinement, STRATAGEM-CHAIN-V2 cap 3).
 
+## Wave 48 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 6 commits landed on top of wave 46-47
+close `8636131`. Top commit at wave-48 close is `11210ea`.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 47 batch-2 close (`50e2601`, 2026-05-28) | 14.01 | 10.79 | 4/22 |
+| Wave 48 mapper-invuln (`9555266`, 2026-05-28) | 14.09 | 10.75 | 4/22 |
+| Wave 48 close (`11210ea`, 2026-05-29) | 14.22 | **10.83** | 4/22 |
+
+Net **+0.04 gated MAE drift** across 6 commits — flat at noise. By design.
+Wave 48 was a mixed structural / test-backlog wave: two mapper extensions
+(invuln Shape 3, FNP Shape 3) that retire correction / override entries
+without changing modelled stats, one real production bug (engagement-range
+strict-vs-inclusive), and the rest test-only synchronisation against
+prior audit landings.
+
+### Mapper structural fixes
+
+* `9555266` **[T3] MAPPER-INVULN-PROSE-WALK** — extend `extract_invuln`
+  with Shape 3: inline `<profile typeName="Abilities">` whose name starts
+  with "invulnerable save". Wave-47 audit batches landed 20 codex-corrections
+  entries patching the same bug across 5 catalogues (Chaos Daemons Library,
+  Dark Angels, Library - Titans, Deathwatch, plus parking-lot Aeldari
+  characters). The mapper fix retired all 20 in one pass. Side effects:
+  Custodes Crucible-detachment datasheets (Kataphraktoi Exemplar, Guardian
+  of the Throne, Null Maiden) now parse correctly — the "tracked as
+  follow-up" note in `_EXPECTED_CUSTODES_INVULN` is closed. Drukhari /
+  Ynnari Archon now parses at invuln 2+ from BSData's stale Shadowfield
+  ability text; both correction entries extended with `invuln_save: 4`
+  to pull the parsed value back to current Wahapedia (codex bakes
+  Shadowfield into a 4+ baseline). Eval: gated MAE 10.79 → 10.75, neutral
+  at noise.
+* `11210ea` **[T3] MAPPER-FNP-PROSE-WALK** — same shape-3 cleanup pass
+  for FNP. The original target tests (`test_wracks_have_fnp_5`,
+  `test_wulfen_have_fnp_5`) were stale against BSData refactoring: BSData
+  v10.6.0 carried `<infoLink name="Feel No Pain">` entries on both Wracks
+  and Wulfen, BSData main subsequently removed them, and current Wahapedia
+  confirms neither unit has Feel No Pain as a base stat. Tests renamed to
+  `test_wracks_have_no_fnp` / `test_wulfen_have_no_fnp` asserting fnp=7.
+  Shape 3 added to `extract_fnp` as forward-compatible infrastructure
+  (no current BSData entry matches it). 27 override entries retired
+  from `data/overrides.json`: 21 were full removals (held only the
+  pre-MAP-2 false-positive suppression `fnp: 7` field), 6 were
+  fnp-field-only removals on entries kept for other valid fields. All
+  were SC5-8 / SC5-10 suppression patches that the MAP-2 fix made
+  redundant by pruning upgrade subtrees.
+
+### Real production bug — engagement-range strict inequality
+
+* `b95c49a` **[T3] STRATAGEM-DISPATCHER-FIX** — `code/strategy.py:1987`
+  and `code/simulator.py:5795` both used a strict `< 1.0` engagement
+  check where every other engagement-range gate in the codebase uses the
+  inclusive `<= 1.0` form. Tests placing units at exactly 1.0" apart
+  (the boundary case) silently bypassed the gate, suppressing Fall Back
+  triggers and the Big Guns Never Tire flag. Two-line fix, closes 4
+  fall-back tests + 1 Big Guns smoke test.
+
+### Test-backlog sweep
+
+A pytest sweep at the top of wave 48 surfaced **33 pre-existing failures**
+unrelated to the wave-47 sweep. Triaged into 11 clusters and worked
+through cluster-by-cluster with three parallel Sonnet agents on the
+larger ones and direct main-worktree fixes on the smaller ones.
+
+* `20f3b36` **[T2] TEST-BACKLOG-SWEEP-1** — 5 stale tests + sweg_points
+  re-bake (G/I/J/H/E/K). One commit because the fixes are tightly
+  coupled to the backlog-sweep narrative:
+  - sweg_points dataset re-baked (3 Sororitas keys renamed in a recent
+    BSData refresh broke `apply_to_catalog` via LOADER-FAIL-LOUD).
+  - Reanimation 1-HP rule test flipped to assert full-wounds (iter29-NE1
+    `a359520` reverted the iter14 1-HP cap; test never updated).
+  - Grand Coven test asserted iter15 pre-removal state — code comment
+    in `detachments.py:1654` explicitly documents the iter24 removal
+    pending Kindred Sorcery wiring.
+  - Pile-in test placed attacker at 1.5" without setting charge state;
+    pile-in gate requires engagement OR charge. Test now adds attacker
+    to `_charging_this_round`.
+  - Drukhari Pain Token fixture missing `min_models=2` — 15e0d66
+    DRK-PAIN-TOKENS tightened the Below-Starting-Strength gate to
+    require multi-model units.
+  - Strategy `_FakeBattle` shim missing `.a` / `.b` (AI-9 chaff-push
+    helper now reads deployment-zone orientation from the battle ref).
+  - Strategy `_melee_target_score` test rewritten — original asserted
+    absolute ranking on stat-dissimilar profiles which broke when later
+    score multipliers swamped the SUPPORT-bonus 1.3x lift. New test
+    uses stat-identical profiles and isolates the CHARACTER-with-aura
+    differential.
+* `304eb25` **[T2] TEST-LEADERS-STALE-AUDIT-SYNC** — Sonnet agent
+  resolved 12 leader-aura tests stale against a series of leader
+  fabrication audits (Aeldari, Daemons, AdMech, Orks, TSON, Votann)
+  that removed proxy buffs from `LeaderAbility` entries. Mixed
+  resolution — five tests narrowed to assert the audited subset of buffs
+  (e.g. Warboss `plus_one_to_hit` → `plus_one_to_hit_melee_only`),
+  seven flipped to `assertFalse` regression pins against re-adding the
+  fabrication. Test file only — no production code touched.
+* `8eec997` **[T2] TEST-STRATAGEM-SETUP** — Sonnet agent realigned 5
+  stratagem dispatcher tests with the current contract. Three updated
+  to read the post-ST-1 transient flags (`transient_sustained_hits`,
+  `transient_lethal_hits`, `transient_reroll_wounds_ones`); Adaptive
+  Strategy renamed to `test_adaptive_strategy_spends_cp_no_buff`
+  reflecting the SC5-9 audit's no-op finding; Oath rebuilt around the
+  hit-reroll mechanic (audit corrected from wound-reroll to hit-reroll).
+
+### Pattern observed
+
+26 of 33 pre-existing failures were test-side staleness against landed
+audits. 4 were a real engagement-range strict-vs-inclusive bug. 2 were a
+self-diagnosed sweg_points dataset key drift. 1 was a Grand Coven
+detachment-registry comment/test mismatch (Kindred Sorcery follow-up).
+**The wave-48 sweep validates the "audit hygiene" hypothesis** that
+landing rule-correctness fixes without same-commit test alignment
+accumulates test debt rapidly — over 8 commits between waves 21 and 47,
+roughly 33 stale tests piled up.
+
+### Order-dependent flake — `_classify_cache` id-reuse
+
+Two failures remain in the full pytest sweep but pass in isolation:
+`test_equilibrium::test_role_weighting_uses_per_attacker_classify` and
+`test_strategy_improvements::AeldariShimmyTests::test_shimmy_unit_moves_to_new_cover`.
+Root cause: `code/roles.py:_classify_cache` uses `id(p)` as cache key
+on the assumption that all `UnitProfile` instances come from
+`UNIT_CATALOG` and live for the session — but tests construct transient
+profiles that get GC'd, and Python's id-reuse causes a stale cached
+classification to be returned to the wrong profile. Identity of the
+flaky tests shifts run-to-run. Not introduced by wave 48; surfaced by
+the wave-48 sweep because the wave-46-47 test additions widened the
+catalogue of transient profiles enough to make collisions reliable.
+
+### Open carry-forwards into wave 49
+
+1. **Fix `_classify_cache` id-reuse** — keyed by `id(p)`, see above.
+   Two viable rewrites: switch to a stat-tuple cache key (slower but
+   correct) or use a `WeakValueDictionary` (frozen dataclass already
+   hashable). Should also unblock removal of `-p no:randomly` workarounds
+   anywhere in CI.
+2. All wave-47 carry-forwards remain in place — N=40 plateau, the four
+   structural residuals (IK/CK mapper-bound, Drukhari Skysplinter,
+   Daemons Locus, Sororitas spend-model), and the Loyalist Adeptus
+   Titanicus cross-catalogue entryLink parser gap.
+3. All wave-45 carry-forwards remain in place (SECONDARY-SELECTION-V3,
+   STRATAGEM-CHAIN-V2 cap-3, per-weapon-keyword temporary gating infra).
+

@@ -4,6 +4,177 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 51 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-50
+close `8f34f63`. Top commit at wave-51 close is `c11a8c1`.
+
+Wave 51 attacked three of the wave-50 carry-forwards with parallel
+Sonnet agents (Daemons Greater Daemon combat profile, AdMech detachment
++ Tech-Priest sweep, Sororitas detachment + AoF dice generation). The
+discipline lesson from wave 50 ("require fresh baseline measurement as
+step 1") was wired into every prompt and produced a real headline win
+on Sororitas.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 50 close (`8f34f63`, 2026-05-29) | 14.24 | 10.81 | 4/22 |
+| Wave 51 close (`c11a8c1`, 2026-05-29) | 13.90 | **10.53** | 4/22 |
+
+**-0.28 gated MAE** across 3 commits — first substantive headline move
+since wave 49. Drove by the Sororitas finding (next section).
+
+### Sororitas -8.09 wr-points — biggest single-wave faction win on the branch
+
+Wave-49 SOROR-ACTS-OF-FAITH-V1 (`413d89b`) fixed the per-instance vs
+per-codex-unit AoF spend gate (-4.28 wr-points). Wave-51 SOROR-
+DETACHMENT-V1 (`c11a8c1`) found the matching generation-side bug, also
+amplified by SwegHammer's one-Unit-per-model representation:
+
+Agent baseline diagnostic (N=20 Sororitas vs Marines battles at the
+wave-50 HEAD):
+- Average Miracle dice generated per battle: **44.05** (codex expected ~13)
+- Average Miracle dice spent per battle: 28.55
+- Average sim-instance deaths: 41.0
+- Average codex-unit deaths: 8.5
+- Over-generation factor: **4.65×**
+
+`_maybe_award_miracle_die` fired once per `Unit` instance destroyed;
+a 25-model Repentia Squad dying model-by-model awarded 25 dice instead
+of 1. Fix: added a last-instance gate — the die is only awarded when
+no other alive sim instance with the same `profile.name` remains in
+the army. Generation drops from 44.05 to 8.70 per battle (within +/-
+of the codex 13 once other Sororitas-unit destruction is rolled in).
+
+Second finding from the same audit: Sororitas TRANSPORT units
+(Immolator, Sororitas Rhino, Repressor) don't carry the Acts of
+Faith ability per their datasheets — only INFANTRY and WALKER units
+do. The award path didn't have the TRANSPORT keyword exclusion.
+Added the gate.
+
+Sororitas eval: +19.12 → +11.03 gated. Still over noise floor 3.79
+but close enough that one more lever (AoF dice selection refinement
+or remaining detachment audit) should close into noise. **Combined
+with wave 49**, Sororitas has dropped +23.05 → +11.03 (-12.02
+wr-points across two waves) by addressing the same simulator-
+representation amplification pattern on both spend and generation
+sides.
+
+### Daemons +1.07 wr-points (improvement direction)
+
+DAEMONS-GREATER-COMBAT-V1 (`239c91d`) audited the 4 Greater Daemons +
+Skarbrand combat profiles against BSData. Only Great Unclean One
+surfaced corrections — 2 ranged attack-count fields off by 1 due to
+Python's banker rounding (`round(6.5) → 6`, `round(4.5) → 4` for the
+Putrid Vomit / Plague Flail D6+N profiles). Other 4 Greaters
+parsed cleanly. Wahapedia DNS was unavailable from the agent session
+so BSData v10.6.0 (fresh 2026-05-15) was used as the source per
+CLAUDE.md §6 fallback.
+
+Parked schema gaps (notes on the correction entry, no code change):
+- GUO Bilesword carries LETHAL HITS in BSData; `UnitProfile` has no
+  `melee_lethal_hits` field.
+- KoS Snapping Claws (A4 S6 AP-2 D3 DEVASTATING WOUNDS, EXTRA
+  ATTACKS) fires in addition to the Witstealer Sword; the
+  `extra_melee_profiles` mapper pathway exists but is not populated.
+  This is the biggest tractable Daemons lever still parked — a
+  whole melee weapon profile not simulated at all. Mapper-structural
+  follow-up, T3.
+
+### AdMech +0.72 wr-points (within noise — DW fix didn't close the gap)
+
+ADMECH-SWEEP-V1 (`d8e3391`) found **10 units with Devastating Wounds
+false positives** from the BSData mapper's basket-blend logic. None
+of these units' BSData infoLinks reference Devastating Wounds; the
+fabricated flag was inflating every crit-to-wound (~1-in-6 wound
+rolls) into a save-bypassing critical hit across the AdMech core
+roster.
+
+Fixed units (override `devastating_wounds=false, basket_fraction=0.0`):
+Skitarii Marshal, Fulgurite Electro-Priests, Cybernetica Datasmith,
+Serberys Raiders, Serberys Sulphurhounds, Sicarian Ruststalkers,
+Technoarcheologist, Tech-Priest Enginseer, Skitarii Rangers, Skitarii
+Vanguard.
+
+Predicted 4-8pt reduction in AdMech sim%; measured +0.72 (within
+noise 4.17). The DW fix is rule-correct and definitely tightening
+crit-wound math, but the residual +15.6 → +16.32 indicates other
+load-bearing levers remain unaudited. Adjacent areas confirmed clean
+by the agent:
+- Skitarii Hunter Cohort detachment (verbatim defensive, no-flag is
+  correct).
+- Cohort Cybernetica detachment (Cyber-Psalm-Programming has no
+  schema slot; no-flag is rule-correct).
+- Tech-Priest Manipulus / Dominus wargear (ADMECH-WARGEAR-V1 cleanly
+  stripped basket-blend; Transonic Cannon DW is legitimate).
+- Doctrina magnitude and modifier cap (+1 BS/WS exactly, ±1 cap
+  enforced).
+- Added missing `simulator.doctrina_imperatives` citation to
+  `data/rule_citations.json`.
+
+### Pattern observed
+
+The Sororitas win validates the wave-49 / wave-51 hypothesis that
+"once per unit per phase" codex rules gated per-`Unit`-instance in
+SwegHammer produce ~3-5× over-firing depending on squad shape. Two
+distinct sites on the same army rule (spend in wave 49, generation
+in wave 51) closed -12 wr-points together. The `[[project-one-unit-
+per-model-amplification]]` memory entry captured this pattern; it
+generalises directly to AdMech Doctrina (no-op per wave 50 audit),
+Death Guard Plague Companies, any "once per battle per unit" stratagem,
+and any on-death award path that fires per model.
+
+The AdMech DW-fix shape was different — a mapper-side fabrication
+sweep rather than a simulator-spend audit — and the per-unit
+magnitude (~1/6 wound rolls × per-crit damage delta) was small
+enough that even 10 units across the core roster only produced a
+noise-floor-bounded movement. This is consistent with the wave-48
+"FNP override sweep" experience: catalog-wide cleanup is
+rule-correctness-positive but typically MAE-neutral.
+
+### Open carry-forwards into wave 52
+
+1. **Sororitas residual +11.03 gated** — still over noise 3.79.
+   Remaining levers: AoF dice selection heuristic refinement
+   (currently spends greedy-by-die-value; codex spend-before-roll
+   gives optimal placement that the simulator can't perfectly
+   approximate); Bringers of Flame / Hallowed Martyrs detachment-
+   side audits (confirmed flag-clean by wave 51 but their unit-side
+   weapon profiles haven't been re-verified post-recent mapper
+   refresh).
+2. **KoS Snapping Claws extra_melee_profiles** — the biggest single
+   tractable Daemons lever per the wave-51 GREATER-COMBAT findings.
+   Mapper needs to populate `extra_melee_profiles` from BSData's
+   per-model multi-weapon entries; T3 mapper-structural work.
+3. **GUO Bilesword LETHAL HITS** — needs a `melee_lethal_hits` field
+   on UnitProfile. Schema gap, T2/T3.
+4. **AdMech +16.32 gated** — DW fix closed only 0.72 of the gap.
+   Other levers: re-audit Skitarii Strike Squad / Sicarian rule
+   wording (the wave-49/51 lesson re: per-unit gating may apply),
+   bionics-style FNP fabrications on Tech-Priests, Cawl / Belisarius
+   leader entries past the wave-43 fab audit.
+5. **Daemons Lever 2 — stratagem parity**. Still unaudited.
+6. **Drukhari structural carry-forwards** (activation count,
+   heterogeneous squad weapon averaging).
+7. **TSON +20.88 gated** — last audited in wave 44.
+8. **Aeldari / T'au / Votann / Orks parallel sweep** — under-audited.
+9. **Tyranids over-buff identification** — Tyranid sim is +20.93;
+   prior Norn/Tervigon/OOE findings are UNDER-modelled, so finding
+   the over-buff direction needs a different angle (maybe Synapse
+   broadcast magnitude, or detachment audit).
+10. **Add Nurgle Spoilpox Scrivener + Slaanesh Tormentbringer
+    leader entries** — `25af977` schema is ready.
+11. **IK -35.40 / CK -43.93 mapper-locked** — Stage 2 multi-profile
+    weapon mapper.
+
+### Process note
+
+Wave 51 agent prompts that required fresh baseline measurements
+produced higher-quality landings. The wave-50 lesson held. Continue
+requiring fresh baselines in wave 52 dispatches.
+
 ## Wave 50 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 4 commits landed on top of wave-49
@@ -334,150 +505,4 @@ spend models — worth a parking-lot sweep:
 * Memory entry `[[project-classify-cache-flakiness]]` retired (fix
   landed); the entry remains as historical context until the next
   memory sweep.
-
-## Wave 48 close (2026-05-29)
-
-Branch `claude/sim-calibration-6`. 6 commits landed on top of wave 46-47
-close `8636131`. Top commit at wave-48 close is `11210ea`.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 47 batch-2 close (`50e2601`, 2026-05-28) | 14.01 | 10.79 | 4/22 |
-| Wave 48 mapper-invuln (`9555266`, 2026-05-28) | 14.09 | 10.75 | 4/22 |
-| Wave 48 close (`11210ea`, 2026-05-29) | 14.22 | **10.83** | 4/22 |
-
-Net **+0.04 gated MAE drift** across 6 commits — flat at noise. By design.
-Wave 48 was a mixed structural / test-backlog wave: two mapper extensions
-(invuln Shape 3, FNP Shape 3) that retire correction / override entries
-without changing modelled stats, one real production bug (engagement-range
-strict-vs-inclusive), and the rest test-only synchronisation against
-prior audit landings.
-
-### Mapper structural fixes
-
-* `9555266` **[T3] MAPPER-INVULN-PROSE-WALK** — extend `extract_invuln`
-  with Shape 3: inline `<profile typeName="Abilities">` whose name starts
-  with "invulnerable save". Wave-47 audit batches landed 20 codex-corrections
-  entries patching the same bug across 5 catalogues (Chaos Daemons Library,
-  Dark Angels, Library - Titans, Deathwatch, plus parking-lot Aeldari
-  characters). The mapper fix retired all 20 in one pass. Side effects:
-  Custodes Crucible-detachment datasheets (Kataphraktoi Exemplar, Guardian
-  of the Throne, Null Maiden) now parse correctly — the "tracked as
-  follow-up" note in `_EXPECTED_CUSTODES_INVULN` is closed. Drukhari /
-  Ynnari Archon now parses at invuln 2+ from BSData's stale Shadowfield
-  ability text; both correction entries extended with `invuln_save: 4`
-  to pull the parsed value back to current Wahapedia (codex bakes
-  Shadowfield into a 4+ baseline). Eval: gated MAE 10.79 → 10.75, neutral
-  at noise.
-* `11210ea` **[T3] MAPPER-FNP-PROSE-WALK** — same shape-3 cleanup pass
-  for FNP. The original target tests (`test_wracks_have_fnp_5`,
-  `test_wulfen_have_fnp_5`) were stale against BSData refactoring: BSData
-  v10.6.0 carried `<infoLink name="Feel No Pain">` entries on both Wracks
-  and Wulfen, BSData main subsequently removed them, and current Wahapedia
-  confirms neither unit has Feel No Pain as a base stat. Tests renamed to
-  `test_wracks_have_no_fnp` / `test_wulfen_have_no_fnp` asserting fnp=7.
-  Shape 3 added to `extract_fnp` as forward-compatible infrastructure
-  (no current BSData entry matches it). 27 override entries retired
-  from `data/overrides.json`: 21 were full removals (held only the
-  pre-MAP-2 false-positive suppression `fnp: 7` field), 6 were
-  fnp-field-only removals on entries kept for other valid fields. All
-  were SC5-8 / SC5-10 suppression patches that the MAP-2 fix made
-  redundant by pruning upgrade subtrees.
-
-### Real production bug — engagement-range strict inequality
-
-* `b95c49a` **[T3] STRATAGEM-DISPATCHER-FIX** — `code/strategy.py:1987`
-  and `code/simulator.py:5795` both used a strict `< 1.0` engagement
-  check where every other engagement-range gate in the codebase uses the
-  inclusive `<= 1.0` form. Tests placing units at exactly 1.0" apart
-  (the boundary case) silently bypassed the gate, suppressing Fall Back
-  triggers and the Big Guns Never Tire flag. Two-line fix, closes 4
-  fall-back tests + 1 Big Guns smoke test.
-
-### Test-backlog sweep
-
-A pytest sweep at the top of wave 48 surfaced **33 pre-existing failures**
-unrelated to the wave-47 sweep. Triaged into 11 clusters and worked
-through cluster-by-cluster with three parallel Sonnet agents on the
-larger ones and direct main-worktree fixes on the smaller ones.
-
-* `20f3b36` **[T2] TEST-BACKLOG-SWEEP-1** — 5 stale tests + sweg_points
-  re-bake (G/I/J/H/E/K). One commit because the fixes are tightly
-  coupled to the backlog-sweep narrative:
-  - sweg_points dataset re-baked (3 Sororitas keys renamed in a recent
-    BSData refresh broke `apply_to_catalog` via LOADER-FAIL-LOUD).
-  - Reanimation 1-HP rule test flipped to assert full-wounds (iter29-NE1
-    `a359520` reverted the iter14 1-HP cap; test never updated).
-  - Grand Coven test asserted iter15 pre-removal state — code comment
-    in `detachments.py:1654` explicitly documents the iter24 removal
-    pending Kindred Sorcery wiring.
-  - Pile-in test placed attacker at 1.5" without setting charge state;
-    pile-in gate requires engagement OR charge. Test now adds attacker
-    to `_charging_this_round`.
-  - Drukhari Pain Token fixture missing `min_models=2` — 15e0d66
-    DRK-PAIN-TOKENS tightened the Below-Starting-Strength gate to
-    require multi-model units.
-  - Strategy `_FakeBattle` shim missing `.a` / `.b` (AI-9 chaff-push
-    helper now reads deployment-zone orientation from the battle ref).
-  - Strategy `_melee_target_score` test rewritten — original asserted
-    absolute ranking on stat-dissimilar profiles which broke when later
-    score multipliers swamped the SUPPORT-bonus 1.3x lift. New test
-    uses stat-identical profiles and isolates the CHARACTER-with-aura
-    differential.
-* `304eb25` **[T2] TEST-LEADERS-STALE-AUDIT-SYNC** — Sonnet agent
-  resolved 12 leader-aura tests stale against a series of leader
-  fabrication audits (Aeldari, Daemons, AdMech, Orks, TSON, Votann)
-  that removed proxy buffs from `LeaderAbility` entries. Mixed
-  resolution — five tests narrowed to assert the audited subset of buffs
-  (e.g. Warboss `plus_one_to_hit` → `plus_one_to_hit_melee_only`),
-  seven flipped to `assertFalse` regression pins against re-adding the
-  fabrication. Test file only — no production code touched.
-* `8eec997` **[T2] TEST-STRATAGEM-SETUP** — Sonnet agent realigned 5
-  stratagem dispatcher tests with the current contract. Three updated
-  to read the post-ST-1 transient flags (`transient_sustained_hits`,
-  `transient_lethal_hits`, `transient_reroll_wounds_ones`); Adaptive
-  Strategy renamed to `test_adaptive_strategy_spends_cp_no_buff`
-  reflecting the SC5-9 audit's no-op finding; Oath rebuilt around the
-  hit-reroll mechanic (audit corrected from wound-reroll to hit-reroll).
-
-### Pattern observed
-
-26 of 33 pre-existing failures were test-side staleness against landed
-audits. 4 were a real engagement-range strict-vs-inclusive bug. 2 were a
-self-diagnosed sweg_points dataset key drift. 1 was a Grand Coven
-detachment-registry comment/test mismatch (Kindred Sorcery follow-up).
-**The wave-48 sweep validates the "audit hygiene" hypothesis** that
-landing rule-correctness fixes without same-commit test alignment
-accumulates test debt rapidly — over 8 commits between waves 21 and 47,
-roughly 33 stale tests piled up.
-
-### Order-dependent flake — `_classify_cache` id-reuse
-
-Two failures remain in the full pytest sweep but pass in isolation:
-`test_equilibrium::test_role_weighting_uses_per_attacker_classify` and
-`test_strategy_improvements::AeldariShimmyTests::test_shimmy_unit_moves_to_new_cover`.
-Root cause: `code/roles.py:_classify_cache` uses `id(p)` as cache key
-on the assumption that all `UnitProfile` instances come from
-`UNIT_CATALOG` and live for the session — but tests construct transient
-profiles that get GC'd, and Python's id-reuse causes a stale cached
-classification to be returned to the wrong profile. Identity of the
-flaky tests shifts run-to-run. Not introduced by wave 48; surfaced by
-the wave-48 sweep because the wave-46-47 test additions widened the
-catalogue of transient profiles enough to make collisions reliable.
-
-### Open carry-forwards into wave 49
-
-1. **Fix `_classify_cache` id-reuse** — keyed by `id(p)`, see above.
-   Two viable rewrites: switch to a stat-tuple cache key (slower but
-   correct) or use a `WeakValueDictionary` (frozen dataclass already
-   hashable). Should also unblock removal of `-p no:randomly` workarounds
-   anywhere in CI.
-2. All wave-47 carry-forwards remain in place — N=40 plateau, the four
-   structural residuals (IK/CK mapper-bound, Drukhari Skysplinter,
-   Daemons Locus, Sororitas spend-model), and the Loyalist Adeptus
-   Titanicus cross-catalogue entryLink parser gap.
-3. All wave-45 carry-forwards remain in place (SECONDARY-SELECTION-V3,
-   STRATAGEM-CHAIN-V2 cap-3, per-weapon-keyword temporary gating infra).
 
