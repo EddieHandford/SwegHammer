@@ -66,8 +66,15 @@ from .stratagems import (
     COORDINATED_ACTION, REINFORCEMENTS, FLEXIBLE_COMMAND,
     FIELDS_OF_FIRE, INSPIRED_COMMAND, STALWART_PROTECTOR,
     # ST-2 wave 3 — one stratagem per under-performing faction
-    APOPLECTIC_FRENZY, DENIZENS_OF_THE_WARP, EMPYRIC_CHANNELLING,
+    APOPLECTIC_FRENZY, EMPYRIC_CHANNELLING,
     CULT_AMBUSH, PROFANE_ZEAL,
+    # DAEMONS-STRATAGEMS-V1 (wave 53) — Daemonic Incursion + per-god sets
+    DENIZENS_OF_THE_WARP, DRAUGHT_OF_TERROR, WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    BLOOD_BEGETS_SKULLS, WRATH_UNDENIABLE,
+    SEEPING_VIRULENCE, FOETID_RESURGENCE,
+    ARCHAGONISTS,
+    FLICKERING_REALITY,
     # CSM-EYE-OF-GODS — Pactbound Zealots snowball stratagem (1 CP)
     EYE_OF_THE_GODS,
     CP_CAP, award_command_phase_cp,
@@ -1210,6 +1217,35 @@ class Battle:
                 self._try_cult_ambush(army, opponent)
             if not self._strat_cap_reached(army) and "Profane Zeal" in strat_names:
                 self._try_profane_zeal(army, opponent)
+
+            # ----- DAEMONS-STRATAGEMS-V1 (wave 53) — Daemonic Incursion +
+            # per-god stratagem sets. All route through existing transient_*
+            # flags. Strat_names gate ensures only the correct detachment fires
+            # each entry (Draught of Terror / Warp Surge / Daemonic
+            # Invulnerability are in DAEMONIC_INCURSION_STRATAGEMS shared by
+            # all five Daemons detachments; Blood Begets Skulls + Wrath
+            # Undeniable are BLOOD_LEGION only; Seeping Virulence + Foetid
+            # Resurgence are PLAGUE_LEGION only; Archagonists is
+            # LEGION_OF_EXCESS only; Flickering Reality is
+            # SCINTILLATING_LEGION only).
+            if not self._strat_cap_reached(army) and "Draught of Terror" in strat_names:
+                self._try_draught_of_terror(army, opponent)
+            if not self._strat_cap_reached(army) and "Warp Surge" in strat_names:
+                self._try_warp_surge(army, opponent)
+            if not self._strat_cap_reached(army) and "Daemonic Invulnerability" in strat_names:
+                self._try_daemonic_invulnerability(army, opponent)
+            if not self._strat_cap_reached(army) and "Blood Begets Skulls" in strat_names:
+                self._try_blood_begets_skulls(army, opponent)
+            if not self._strat_cap_reached(army) and "Wrath Undeniable" in strat_names:
+                self._try_wrath_undeniable(army, opponent)
+            if not self._strat_cap_reached(army) and "Seeping Virulence" in strat_names:
+                self._try_seeping_virulence(army, opponent)
+            if not self._strat_cap_reached(army) and "Foetid Resurgence" in strat_names:
+                self._try_foetid_resurgence(army, opponent)
+            if not self._strat_cap_reached(army) and "Archagonists" in strat_names:
+                self._try_archagonists(army, opponent)
+            if not self._strat_cap_reached(army) and "Flickering Reality" in strat_names:
+                self._try_flickering_reality(army, opponent)
         finally:
             # Always drop the dispatch flag — Tank Shock / Counter-Offensive /
             # Command Re-Roll fire out-of-band via _fire_stratagem and MUST
@@ -2996,6 +3032,250 @@ class Battle:
         if not self._fire_stratagem(army, DENIZENS_OF_THE_WARP):
             return
         attacker.transient_reroll_hits_shooting = True
+
+    def _try_draught_of_terror(self, army: Army, opponent: Army) -> None:
+        """Draught of Terror (Daemonic Incursion, 1 CP). Real rule (paraphrase
+        from 40k.app): improve Armour Penetration by 1 for a CHAOS DAEMONS
+        unit's attacks and re-roll Wound rolls against Battle-shocked enemies
+        until end of phase. APPROXIMATION: AP-improvement transient not
+        modelled; routed through transient_plus_one_to_wound_shooting on the
+        highest-DPA CHAOS DAEMONS unit (direction-correct offensive uplift on
+        wound rolls). Wound-reroll-vs-battleshocked rider dropped.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="DAEMON", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, DRAUGHT_OF_TERROR, ctx):
+            return
+        if not self._fire_stratagem(army, DRAUGHT_OF_TERROR):
+            return
+        attacker.transient_plus_one_to_wound_shooting = True
+
+    def _try_warp_surge(self, army: Army, opponent: Army) -> None:
+        """Warp Surge (Daemonic Incursion, 1 CP). Real rule (paraphrase from
+        40k.app): a LEGIONES DAEMONICA unit within Shadow of Chaos is eligible
+        to declare a charge in a turn in which it Advanced. APPROXIMATION:
+        routed through transient_assault_this_round on the highest-DPA CHAOS
+        DAEMONS unit — same flag Aggressive Mobility / Feigned Retreat /
+        Multipotentiality use (advance-and-charge proxy). Shadow of Chaos gate
+        dropped.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="DAEMON", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(army)
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, WARP_SURGE, ctx):
+            return
+        if not self._fire_stratagem(army, WARP_SURGE):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_daemonic_invulnerability(self, army: Army, opponent: Army) -> None:
+        """Daemonic Invulnerability (Daemonic Incursion, 1 CP). Real rule
+        (paraphrase from 40k.app): re-roll invulnerable saving throws of 1 for
+        a LEGIONES DAEMONICA unit until end of phase. APPROXIMATION: SwegHammer
+        has no transient invuln-save-reroll flag; routed through transient_invuln_4
+        on the most vulnerable CHAOS DAEMONS unit (grants a 4+ invulnerable save
+        for the round — strictly stronger than a 1s-reroll on a typical 5+ Daemon
+        invuln, acceptable given round-start dispatcher collapses the reactive
+        trigger). Direction-correct defensive buff.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="DAEMON", faction="Chaos Daemons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(army)
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, DAEMONIC_INVULNERABILITY, ctx):
+            return
+        if not self._fire_stratagem(army, DAEMONIC_INVULNERABILITY):
+            return
+        target.transient_invuln_4 = True
+
+    def _try_blood_begets_skulls(self, army: Army, opponent: Army) -> None:
+        """Blood Begets Skulls (Blood Legion, 1 CP). Real rule (paraphrase
+        from 40k.app): a LEGIONES DAEMONICA KHORNE unit is eligible to declare
+        a charge in a turn in which it Advanced. APPROXIMATION: routed through
+        transient_assault_this_round on the highest-DPA Khorne Daemons unit
+        (same flag as Warp Surge / Aggressive Mobility). Direction-correct:
+        advance-and-charge delivery for Khorne melee units.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="KHORNE", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="DAEMON", faction="Chaos Daemons",
+            )
+        if attacker is None:
+            return
+        ctx = {"attacker": attacker}
+        if not should_fire_stratagem(army, BLOOD_BEGETS_SKULLS, ctx):
+            return
+        if not self._fire_stratagem(army, BLOOD_BEGETS_SKULLS):
+            return
+        attacker.transient_assault_this_round = True
+
+    def _try_wrath_undeniable(self, army: Army, opponent: Army) -> None:
+        """Wrath Undeniable (Blood Legion, 1 CP). Real rule (paraphrase from
+        40k.app): Fight phase. When a LEGIONES DAEMONICA KHORNE model is
+        destroyed by a melee attack and has not yet fought, roll D6: on a 4+
+        the model fights before being removed. APPROXIMATION: per-destroyed-
+        model fight-before-removal hook not modelled; routed through
+        transient_plus_one_to_wound_melee on the most vulnerable KHORNE DAEMONS
+        melee unit (same proxy as Only In Death Does Duty End / Avenge the
+        Fallen — 'one last swing from a dying unit'). Direction-correct.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="KHORNE", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="DAEMON", faction="Chaos Daemons",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, WRATH_UNDENIABLE, ctx):
+            return
+        if not self._fire_stratagem(army, WRATH_UNDENIABLE):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_seeping_virulence(self, army: Army, opponent: Army) -> None:
+        """Seeping Virulence (Plague Legion, 1 CP). Real rule (paraphrase from
+        40k.app): Fight phase. Until end of phase, each time a model in a
+        selected LEGIONES DAEMONICA NURGLE unit makes an attack, an unmodified
+        Hit roll of 5+ scores a Critical Hit (auto-wound). APPROXIMATION:
+        5+ Critical Hit is equivalent to [LETHAL HITS] on a 5+ threshold.
+        Routed through transient_lethal_hits on the highest-DPA Nurgle Daemons
+        unit. SwegHammer fires [LETHAL HITS] at 6+, so the proxy under-models
+        the codex by one pip on the crit threshold. Direction-correct.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="NURGLE", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="DAEMON", faction="Chaos Daemons",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, SEEPING_VIRULENCE, ctx):
+            return
+        if not self._fire_stratagem(army, SEEPING_VIRULENCE):
+            return
+        attacker.transient_lethal_hits = True
+
+    def _try_foetid_resurgence(self, army: Army, opponent: Army) -> None:
+        """Foetid Resurgence (Plague Legion, 2 CP). Real rule (paraphrase from
+        40k.app): Command phase. Return up to D3 destroyed BATTLELINE models
+        (or 1 non-BATTLELINE model) to a LEGIONES DAEMONICA NURGLE unit; if
+        MONSTER, regain D3+1 lost wounds. APPROXIMATION: no destroyed-model
+        bank in SwegHammer; routed through transient_undying_legions_pulse = 3
+        on the most wounded NURGLE DAEMONS unit (same plumbing as Mob Up /
+        Replenishing Swarms — restores 3 wounds via the existing mid-phase
+        reanimation pulse; D3 median = 2, D3+1 median = 3).
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="NURGLE", faction="Chaos Daemons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(
+                army, keyword="DAEMON", faction="Chaos Daemons",
+            )
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, FOETID_RESURGENCE, ctx):
+            return
+        if not self._fire_stratagem(army, FOETID_RESURGENCE):
+            return
+        target.transient_undying_legions_pulse = 3
+
+    def _try_archagonists(self, army: Army, opponent: Army) -> None:
+        """Archagonists (Legion of Excess, 1 CP). Real rule (paraphrase from
+        40k.app): Battle Tactic. Shooting or Fight phase. Until end of phase,
+        add 1 to the Wound roll for attacks made by a selected LEGIONES
+        DAEMONICA SLAANESH unit. Codex text maps cleanly to
+        transient_plus_one_to_wound_melee on the highest-DPA SLAANESH DAEMONS
+        unit (fight-phase path dominates for a Slaanesh melee list).
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/legion-of-excess
+        """
+        attacker = self._highest_dpa_unit(
+            army, keyword="SLAANESH", faction="Chaos Daemons",
+        )
+        if attacker is None:
+            attacker = self._highest_dpa_unit(
+                army, keyword="DAEMON", faction="Chaos Daemons",
+            )
+        if attacker is None:
+            return
+        target = self._highest_threat_enemy(opponent)
+        if target is None:
+            return
+        ctx = {"attacker": attacker, "target": target}
+        if not should_fire_stratagem(army, ARCHAGONISTS, ctx):
+            return
+        if not self._fire_stratagem(army, ARCHAGONISTS):
+            return
+        attacker.transient_plus_one_to_wound_melee = True
+
+    def _try_flickering_reality(self, army: Army, opponent: Army) -> None:
+        """Flickering Reality (Scintillating Legion, 1 CP). Real rule
+        (paraphrase from 40k.app): Any phase. Roll D6; until end of phase,
+        each time an attack targets a selected LEGIONES DAEMONICA TZEENTCH
+        unit, on an unmodified Hit roll matching the D6 result the attack
+        sequence ends (attack negated). APPROXIMATION: per-result attack-
+        negation transient not modelled; routed through transient_plus_one_save
+        on the most vulnerable TZEENTCH DAEMONS unit (same proxy as Lightning-
+        Fast Reactions / Skyborne Sanctuary / Webway Tunnel). Direction-correct
+        defensive buff.
+        Source: https://40k.app/factions/chaos-daemons/rules/detachment/scintillating-legion
+        """
+        target = self._most_vulnerable_unit(
+            army, keyword="TZEENTCH", faction="Chaos Daemons",
+        )
+        if target is None:
+            target = self._most_vulnerable_unit(
+                army, keyword="DAEMON", faction="Chaos Daemons",
+            )
+        if target is None:
+            return
+        ctx = {"target": target}
+        if not should_fire_stratagem(army, FLICKERING_REALITY, ctx):
+            return
+        if not self._fire_stratagem(army, FLICKERING_REALITY):
+            return
+        target.transient_plus_one_save = True
 
     def _try_empyric_channelling(self, army: Army, opponent: Army) -> None:
         """Empyric Channelling (Teleport Strike Force, 1 CP). Real rule:

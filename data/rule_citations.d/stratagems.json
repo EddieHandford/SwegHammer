@@ -587,5 +587,94 @@
     "trigger": "Friendly LEAGUES OF VOTANN unit targeted by ranged attack",
     "effect": "Worsen Armour Penetration of incoming attacks by 1 (defensive)",
     "scope": "unit-led"
+  },
+
+  "Stratagem.Draught of Terror": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
+    "rule_name": "Draught of Terror (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time; 40k.app cross-referenced per project convention.) When: your Shooting phase or Fight phase. Target: one CHAOS DAEMONS unit from your army. Effect: improve the Armour Penetration characteristic of attacks made by that unit by 1, and re-roll Wound rolls for attacks made by that unit against Battle-shocked enemy units until end of phase.",
+    "trigger": "own Shooting or Fight phase, on a friendly CHAOS DAEMONS unit selected to shoot or fight",
+    "effect": "(APPROXIMATION) SwegHammer has no transient AP-improvement flag; routed through transient_plus_one_to_wound_shooting on the highest-DPA CHAOS DAEMONS unit. Direction-correct offensive uplift on wound rolls; wound-reroll-vs-battleshocked rider dropped (no battleshock-state condition on wound rerolls). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Warp Surge": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
+    "rule_name": "Warp Surge (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Charge phase. Target: one LEGIONES DAEMONICA unit within your army's Shadow of Chaos. Effect: until the end of the phase, that unit is eligible to declare a charge in a turn in which it Advanced.",
+    "trigger": "own Charge phase, on a friendly LEGIONES DAEMONICA unit within Shadow of Chaos",
+    "effect": "(APPROXIMATION) Routed through transient_assault_this_round on the highest-DPA CHAOS DAEMONS unit. Same flag as Aggressive Mobility / Feigned Retreat / Multipotentiality — advance-and-charge proxy. Shadow of Chaos gate dropped (always-armed round-start approximation). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Daemonic Invulnerability": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
+    "rule_name": "Daemonic Invulnerability (Daemonic Incursion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: any phase, just after an invulnerable saving throw is failed for a model in a LEGIONES DAEMONICA unit from your army. Effect: re-roll that saving throw.",
+    "trigger": "any phase, after a friendly LEGIONES DAEMONICA model fails an invulnerable save",
+    "effect": "(APPROXIMATION) SwegHammer has no transient invuln-save-reroll flag; routed through transient_invuln_4 on the most vulnerable CHAOS DAEMONS unit (grants a 4+ invulnerable save for the round — strictly stronger than a failed-invuln-reroll on a typical 5+ Daemon invuln, acceptable given the round-start dispatcher collapses the reactive trigger). Direction-correct defensive buff. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Blood Begets Skulls": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion",
+    "rule_name": "Blood Begets Skulls (Blood Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Charge phase. Target: one LEGIONES DAEMONICA KHORNE unit from your army. Effect: until the end of the phase, that unit is eligible to declare a charge in a turn in which it Advanced.",
+    "trigger": "own Charge phase, on a friendly LEGIONES DAEMONICA KHORNE unit",
+    "effect": "(APPROXIMATION) Routed through transient_assault_this_round on the highest-DPA KHORNE DAEMONS unit (falls back to any DAEMON unit if none). Same proxy as Warp Surge / Aggressive Mobility. Direction-correct: advance-and-charge delivery for Khorne melee builds. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Wrath Undeniable": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion",
+    "rule_name": "Wrath Undeniable (Blood Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: the Fight phase, just after a LEGIONES DAEMONICA KHORNE model in your unit is destroyed by a melee attack. Effect: roll one D6: on a 4+, do not remove the destroyed model from play; it fights before it is removed.",
+    "trigger": "Fight phase, just after a friendly LEGIONES DAEMONICA KHORNE model is destroyed by a melee attack",
+    "effect": "(APPROXIMATION) Per-destroyed-model fight-before-removal hook not modelled; routed through transient_plus_one_to_wound_melee on the highest-DPA KHORNE DAEMONS melee unit (same proxy as Only In Death Does Duty End / Avenge the Fallen — 'one last melee swing from a dying unit'). Falls back to any DAEMON unit if no KHORNE unit found. Direction-correct. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Seeping Virulence": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion",
+    "rule_name": "Seeping Virulence (Plague Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: the Fight phase. Target: one LEGIONES DAEMONICA NURGLE unit from your army. Effect: until the end of the phase, each time a model in your unit makes an attack, an unmodified Hit roll of 5+ scores a Critical Hit.",
+    "trigger": "own Fight phase, on a friendly LEGIONES DAEMONICA NURGLE unit",
+    "effect": "(APPROXIMATION) 5+ Critical Hit is equivalent to [LETHAL HITS] on a 5+ threshold (auto-wound on any 5+ hit). Routed through transient_lethal_hits on the highest-DPA NURGLE DAEMONS unit (falls back to any DAEMON unit). SwegHammer fires [LETHAL HITS] at 6+ natural crit; this proxy under-models the codex by one pip on the crit threshold. Direction-correct offensive buff. Falls back to any DAEMON unit if no NURGLE unit found. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Foetid Resurgence": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion",
+    "rule_name": "Foetid Resurgence (Plague Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Command phase. Target: one LEGIONES DAEMONICA NURGLE unit from your army that has had models destroyed this battle. Effect: return up to 1 destroyed model (or up to D3 destroyed models if BATTLELINE) to your unit with their full wounds remaining. If a MONSTER unit, one model regains up to D3+1 lost wounds instead.",
+    "trigger": "own Command phase, on a friendly LEGIONES DAEMONICA NURGLE unit that has lost models",
+    "effect": "(APPROXIMATION) No destroyed-model bank per unit in SwegHammer; routed through transient_undying_legions_pulse = 3 on the most wounded NURGLE DAEMONS unit (same plumbing as Mob Up / Replenishing Swarms — restores 3 wounds via the mid-phase reanimation pulse; D3 median = 2, D3+1 median = 3, 3 chosen as middle estimate). Falls back to any DAEMON unit if no NURGLE unit found. DAEMONS-STRATAGEMS-V1 (wave 53). 2 CP.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
+
+  "Stratagem.Archagonists": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/legion-of-excess",
+    "rule_name": "Archagonists (Legion of Excess Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: your Shooting phase or Fight phase. Target: one LEGIONES DAEMONICA SLAANESH unit from your army. Effect: until the end of the phase, each time a model in your unit makes an attack, add 1 to the Wound roll.",
+    "trigger": "own Shooting or Fight phase, on a friendly LEGIONES DAEMONICA SLAANESH unit",
+    "effect": "Codex text maps cleanly to transient_plus_one_to_wound_melee on the highest-DPA SLAANESH DAEMONS unit (Fight phase path dominates for a Slaanesh rush list). Falls back to any DAEMON unit if no SLAANESH unit found. No APPROXIMATION qualifier — the wound-modifier matches the codex exactly via the existing +1-to-wound transient path (10e modifier cap enforced). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated"
+  },
+
+  "Stratagem.Flickering Reality": {
+    "source": "https://40k.app/factions/chaos-daemons/rules/detachment/scintillating-legion",
+    "rule_name": "Flickering Reality (Scintillating Legion Stratagem)",
+    "quoted_text": "(Paraphrase from 40k.app — Wahapedia unreachable at edit time.) When: any phase. Target: one LEGIONES DAEMONICA TZEENTCH unit from your army. Effect: roll one D6 (spend a Flux token to re-roll); until the end of the phase, each time an attack targets your unit, on an unmodified Hit roll of [that result] the attack sequence ends.",
+    "trigger": "any phase, on a friendly LEGIONES DAEMONICA TZEENTCH unit being targeted by attacks",
+    "effect": "(APPROXIMATION) Per-result attack-negation transient not modelled in SwegHammer; routed through transient_plus_one_save on the most vulnerable TZEENTCH DAEMONS unit (same proxy as Lightning-Fast Reactions / Skyborne Sanctuary / Webway Tunnel). Falls back to any DAEMON unit if no TZEENTCH unit found. Direction-correct defensive buff. DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
+    "scope": "phase-gated",
+    "approximation": true
   }
 }

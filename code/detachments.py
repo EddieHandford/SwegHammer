@@ -45,6 +45,11 @@ from .stratagems import (
     TELEPORT_STRIKE_FORCE_STRATAGEMS,
     FINAL_DAY_STRATAGEMS,
     PACTBOUND_ZEALOTS_STRATAGEMS,
+    # DAEMONS-STRATAGEMS-V1 (wave 53) — per-god Daemons detachment sets
+    BLOOD_LEGION_STRATAGEMS,
+    PLAGUE_LEGION_STRATAGEMS,
+    LEGION_OF_EXCESS_STRATAGEMS,
+    SCINTILLATING_LEGION_STRATAGEMS,
 )
 
 
@@ -1166,9 +1171,13 @@ BLOOD_LEGION = Detachment(
         "infantry composition tilt biases the picker toward Khorne "
         "infantry archetypes (Bloodletters / Bloodcrushers / Flesh "
         "Hounds), which already collect the Bloodthirster / Skarbrand "
-        "auras wired in DAEMONS-DIAG-3."
+        "auras wired in DAEMONS-DIAG-3. "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "BLOOD_LEGION_STRATAGEMS set (Blood Begets Skulls + Wrath "
+        "Undeniable) drawn from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=BLOOD_LEGION_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1187,9 +1196,12 @@ LEGION_OF_EXCESS = Detachment(
         "fabrication. Per CLAUDE.md §10 ship NO-FLAG + composition-only. "
         "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. "
         "The infantry composition tilt biases the picker toward Slaanesh "
-        "infantry archetypes (Daemonettes / Fiends / Seekers)."
+        "infantry archetypes (Daemonettes / Fiends / Seekers). "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "LEGION_OF_EXCESS_STRATAGEMS set (Archagonists) drawn from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=LEGION_OF_EXCESS_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1217,9 +1229,13 @@ PLAGUE_LEGION = Detachment(
         "ship NO-FLAG + composition-only. Wahapedia: "
         "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
         "infantry composition tilt biases the picker toward Nurgle "
-        "infantry archetypes (Plaguebearers / Nurglings / Plague Drones)."
+        "infantry archetypes (Plaguebearers / Nurglings / Plague Drones). "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "PLAGUE_LEGION_STRATAGEMS set (Seeping Virulence + Foetid "
+        "Resurgence) drawn from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=PLAGUE_LEGION_STRATAGEMS,
     preferred_composition="infantry",
 )
 
@@ -1244,9 +1260,13 @@ SCINTILLATING_LEGION = Detachment(
         "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/. The "
         "balanced composition tilt biases the picker toward Tzeentch "
         "lists that mix infantry (Pink Horrors / Flamers) with monster/"
-        "elite shooting (Burning Chariot / Lord of Change auras)."
+        "elite shooting (Burning Chariot / Lord of Change auras). "
+        "DAEMONS-STRATAGEMS-V1 (wave 53): stratagems upgraded from the "
+        "shared DAEMONIC_INCURSION_STRATAGEMS to the dedicated "
+        "SCINTILLATING_LEGION_STRATAGEMS set (Flickering Reality) drawn "
+        "from 40k.app."
     ),
-    stratagems=DAEMONIC_INCURSION_STRATAGEMS,
+    stratagems=SCINTILLATING_LEGION_STRATAGEMS,
     preferred_composition="balanced",
 )
 
