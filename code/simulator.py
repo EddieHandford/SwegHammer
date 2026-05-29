@@ -404,14 +404,16 @@ class Battle:
             army.cp_refund_remaining = wl.cp_refund_per_battle
             army._warlord_first_strat_free_enabled = wl.first_stratagem_free_per_round
 
-        # Drukhari Combat Drugs (army rule, 10e). For any army containing
-        # Drukhari WYCH CULT units, assign one drug per WYCH CULT unit at
-        # battle start; the drug persists for the entire battle. The
-        # SwegHammer assignment heuristic picks the strongest realistic uplift
-        # per unit role: Wyches -> Adrenalight (+1 melee A), Hellions -> Hypex
-        # (+2" Move), Reavers -> Grave Lotus (+1 melee S), Beastmaster ->
-        # Painbringer (+1 T). Cited as `simulator.combat_drugs`.
-        self._apply_combat_drugs()
+        # Drukhari Combat Drugs (army rule, 10e). DRK-NON-SKYSPLINTER-V1
+        # (2026-05-29): drug application moved from pre-game (battle start)
+        # to the Round 1 Command phase. The real Wahapedia rule text is:
+        # "At the start of your Command phase, select which Combat Drugs
+        # will be active for your army until the start of your next Command
+        # phase. You cannot select the same Combat Drug more than once per
+        # battle." Since only Adrenalight is modelled and it cannot repeat,
+        # the drug fires for Round 1 only. The pre-game call is removed;
+        # `_apply_combat_drugs(round_num)` is now invoked from `_run_round`
+        # at the start of the Command phase. Cited as `simulator.combat_drugs`.
 
         self._assign_uids()
         # SECONDARY-SELECTION-V1: pick each army's 2 Fixed + 2 Tactical
@@ -910,6 +912,21 @@ class Battle:
             # `SKYSPLINTER_ASSAULT.rain_of_cruelty_disembark`.
             u.transient_lance_this_turn = False
             u.transient_ignores_cover_this_turn = False
+            # DRK-NON-SKYSPLINTER-V1: Drukhari Combat Drugs — Adrenalight
+            # lasts "until the start of your next Command phase." Clear the
+            # per-round drug bonuses here so they only fire for the round in
+            # which `_apply_combat_drugs` ran (Round 1 for Adrenalight; no
+            # drug for Rounds 2+). Clearing fires before `_apply_combat_drugs`
+            # in `_run_round`, so the net effect is: drug active for 1 round.
+            # Cited as `simulator.combat_drugs`.
+            if (
+                u.profile.faction == "Drukhari"
+                and u.profile.name in self._WYCH_CULT_UNITS
+            ):
+                u.combat_drug_extra_melee_attacks = 0
+                u.combat_drug_melee_strength_bonus = 0
+                u.combat_drug_toughness_bonus = 0
+                u.combat_drug_move_bonus = 0.0
         # Per-army per-round stratagem state. Cabbalistic Empowerment boosts
         # this round's Doombolt damage; reset every round so the boost only
         # applies the round the stratagem fires. Putrid Detonation arms the
@@ -3769,7 +3786,7 @@ class Battle:
         "Beastmaster [Legends]",
     )
 
-    def _apply_combat_drugs(self) -> None:
+    def _apply_combat_drugs(self, round_num: int) -> None:
         """Drukhari Combat Drugs army rule (10e).
 
         Verbatim Wahapedia
@@ -3814,9 +3831,29 @@ class Battle:
         the per-round re-selection over the six drugs is left to a
         future Stage 1 iteration if tournament data calls for it.
 
+        DRK-NON-SKYSPLINTER-V1 (2026-05-29): the drug is now applied
+        per-Command-phase rather than once at battle start. Since only
+        Adrenalight is modelled and the codex says "cannot select the same
+        Combat Drug more than once per battle," Adrenalight fires on Round 1
+        only. The `_clear_transient_stratagem_flags` pass at each round-start
+        zeroes `combat_drug_extra_melee_attacks` on all Wych Cult units
+        (the reset runs before this function is called each round, so only
+        the current round's drug is active). Round 2+ have no active drug
+        because no other drug is implemented; this is a no-op default that
+        is strictly correct vs the codex "must pick a different drug each
+        round" rule (Rounds 2-5 would use Hypex / Serpentin / Painbringer /
+        Grave Lotus in order, but those are not modelled).
+
+        Wahapedia: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Combat-Drugs
+
         WYCH CULT unit allowlist hard-coded in `_WYCH_CULT_UNITS`.
         Cited as `simulator.combat_drugs`.
         """
+        # Only Adrenalight is modelled. It cannot be reselected per battle.
+        # Apply on Round 1 only; Rounds 2+ have no active drug (no other
+        # drugs are wired — they are no-op defaults).
+        if round_num != 1:
+            return
         for army in (self.a, self.b):
             if not any(u.profile.faction == "Drukhari" for u in army.units):
                 continue
@@ -3831,7 +3868,7 @@ class Battle:
                 u.combat_drug_toughness_bonus = 0
                 u.combat_drug_move_bonus = 0.0
                 if self.verbose:
-                    print(f"  COMBAT DRUGS: {u.profile.name} -> Adrenalight")
+                    print(f"  COMBAT DRUGS: {u.profile.name} -> Adrenalight (Round 1 only)")
 
     def _apply_blessings_of_khorne(self, round_num: int) -> None:
         """World Eaters Blessings of Khorne army rule (10e).
@@ -5165,6 +5202,17 @@ class Battle:
         # before deciding whether to spend CP on a new batch this round.
         self._clear_transient_stratagem_flags(self.a)
         self._clear_transient_stratagem_flags(self.b)
+        # ---- Drukhari Combat Drugs (army rule, 10e). Applied here at the
+        # start of each Command phase to match the codex timing: "At the
+        # start of your Command phase, select which Combat Drugs will be
+        # active for your army until the start of your next Command phase."
+        # The `_clear_transient_stratagem_flags` call above zeroed any
+        # drug bonus from the previous round first; `_apply_combat_drugs`
+        # then re-applies for the current round (Round 1 only, because
+        # only Adrenalight is modelled and it cannot repeat). Rounds 2+
+        # leave the drug bonuses at 0 (no other drugs wired yet).
+        # Cited as `simulator.combat_drugs`.
+        self._apply_combat_drugs(round_num)
         # ---- Chaos Space Marines Dark Pacts (10e army rule). At the start
         # of the round we pick at most one CSM unit to declare a Dark Pact:
         # it gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase in

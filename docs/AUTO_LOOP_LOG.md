@@ -4,6 +4,86 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 50 in-flight (2026-05-29)
+
+Branch `claude/sim-calibration-6`, top of `8e10e5b`. Task: DRK-NON-SKYSPLINTER-V1 (Stage 1 calibration, Tier 2).
+
+### Stage A diagnostic
+
+Per-detachment sim win rate vs Adeptus Astartes Gladius Strike Force at 1000 pt, N=20 pairs each
+(Drukhari Skysplinter Assault archetype template, independent seeds per detachment):
+
+| Detachment | Sim win rate | Real meta target |
+|---|---:|---:|
+| Skysplinter Assault | ~90% | 49.3% |
+| Kabalite Cartel | ~80% | 49.3% |
+
+Both detachments overshoot massively. The 10-point gap between them is Rain of Cruelty (disembark buff
+fires on damaged-transport forced-disembark and voluntary-disembark when near objective). Both at ~80-90%
+means the fix lever is in Drukhari core, not in Kabalite Cartel detachment flags.
+
+Verification of all five task-listed failure modes:
+
+- (a) Kabalite Cartel flags: NONE — detachment is a clean no-op composition shell. No fabricated flags. ✓
+- (b) Power From Pain magnitude: no Lethal Hits or feel no pain 6+ fire. Token accrual is inert. ✓
+- (c) Skysplinter carries stratagem-only flags: Skysplinter has NO detachment flags; Rain of Cruelty is wired
+  via `simulator._disembark` (name-gated to "Skysplinter Assault"). ✓
+- (d) Combat Drugs passive Lethal Hits + feel no pain 6+: already stripped in wave 46. BUT — Adrenalight
+  was applied at battle start and persisted for all 5 rounds. Real codex: "At the start of your Command
+  phase, select which Combat Drugs will be active for your army until the start of your next Command phase.
+  You cannot select the same Combat Drug more than once per battle." Adrenalight can fire ONCE per game,
+  not every round. Previous code gave Wych Cult units +1 melee attack for all 5 battle rounds — a 5x
+  magnitude error. **Bug found.**
+- (e) Skysplinter LANCE and IGNORES COVER magnitude: `transient_lance_this_turn` and
+  `transient_ignores_cover_this_turn` are cleared at round-start by `_clear_transient_stratagem_flags`.
+  LANCE gate requires `is_charging=True`. Both correctly scoped to the turn of disembark. ✓
+
+### Stage B fix
+
+**Root cause**: `_apply_combat_drugs()` was called once in `Battle.__init__` (pre-game) and set
+`combat_drug_extra_melee_attacks = 1` permanently for the entire battle. The Wahapedia rule text
+states the drug is active "until the start of your next Command phase" and "cannot select the same
+Combat Drug more than once per battle." Adrenalight should fire for ONE battle round only.
+
+**Fix** (`code/simulator.py`):
+
+1. Removed pre-game `self._apply_combat_drugs()` call from `__init__`.
+2. Modified `_apply_combat_drugs(round_num)` to accept a round number and return immediately for
+   `round_num != 1` (Adrenalight fires Round 1 only; Rounds 2-5 no drug wired).
+3. Added clearing of `combat_drug_extra_melee_attacks` (and other drug bonuses) in
+   `_clear_transient_stratagem_flags` for Drukhari Wych Cult units. Clearing runs before
+   `_apply_combat_drugs` each round, so net effect: drug active for one round only.
+4. Added `self._apply_combat_drugs(round_num)` call in `_run_round` after the transient flag clear,
+   matching the codex Command-phase timing.
+5. Updated `data/rule_citations.json` (simulator.combat_drugs effect description).
+
+**File and line**: `code/simulator.py` — `_clear_transient_stratagem_flags` (adds Wych Cult clearing),
+`_apply_combat_drugs` (adds `round_num` gate), `_run_round` (adds per-round call after transient clear).
+
+**Wahapedia citation**: https://wahapedia.ru/wh40k10ed/factions/drukhari/#Combat-Drugs
+
+**Qualitative metric prediction**: Small tightening on Drukhari — Wych Cult (Wyches, Hellions, Reavers)
+lose the Adrenalight +1 melee attack bonus for Rounds 2-5 (retaining it for Round 1 only). Wych Cult
+represents roughly 9% of the 1000-point archetype army cost, so the impact is bounded. Expect
+Drukhari sim win rate to drop 2-5 percentage points in the production N=40 eval (the drugs were contributing
+roughly 1-2 extra kills per game across 5 rounds; correcting to 1 round halves that to 0.2-0.4 extra kills).
+The remaining +33 gated gap is driven by deeper structural factors (activation-count advantage from cheap
+multi-model units, heterogeneous-loadout weapon averaging giving all models the squad's best weapon stats)
+that require larger refactors.
+
+### Open carry-forwards from wave 50
+
+1. **Drukhari structural activation count** — 49-unit Drukhari army vs 20-unit Marine army at same points.
+   Cheap multi-model squads (Kabalites min_models=10 at 12pt/model) give Drukhari 2.5x more activation
+   opportunities per round. Direction-correct fix would be a per-squad activation cap or a shift to
+   squad-aggregated unit representation for high-model-count squads. Significant refactor; parking-lot.
+2. **Drukhari weapon stats averaging** — BSData mapper averages heterogeneous squad loadouts (Splinter Rifle
+   x5 + Blaster x1 + Dark Lance x1 etc.) and applies the squad-average weapon stats to each individual model
+   instance. Each Kabalite Warrior fires 2 shots at the squad-averaged damage (2.0 per shot, AP-1), giving
+   each model the offensive output of a mixed-weapon squad rather than a basic Splinter Rifle. Direction-correct
+   fix: per-weapon-model decomposition in the mapper. Significant refactor; parking-lot.
+3. All wave-49 carry-forwards remain in place.
+
 ## Wave 49 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 4 commits landed on top of wave-48
