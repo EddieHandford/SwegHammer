@@ -4,6 +4,188 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 52 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 5 commits landed on top of wave-51
+close `d2d746c`. Top commit at wave-52 close is `db85be7`.
+
+Wave 52 attacked 4 wave-51 carry-forwards in parallel: KoS Snapping
+Claws mapper-structural extra_melee_profiles wiring, TSON broad audit,
+Tyranids over-buff diagnostic, and the orchestrator-handled
+melee_lethal_hits schema split + new Daemon leader registry entries.
+A 5th commit was a bug fix for the mapper's extra_melee dict→tuple
+shape mismatch that crashed the N=40 eval on the first attempt.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 51 close (`d2d746c`, 2026-05-29) | 13.90 | 10.53 | 4/22 |
+| Wave 52 close (`db85be7`, 2026-05-29) | 13.96 | **10.65** | 4/22 |
+
+**+0.12 gated MAE drift** — slight headline regression masking real
+per-faction wins and CLAUDE.md §10-mandated rule-correctness costs.
+Three factions moved more than 1 wr-point: Daemons +1.43 toward zero
+(closer to real meta), Custodes -1.67 closer (likely a side-effect of
+KoS extra-melee via ally-host paths), Sororitas -0.95 closer, TSON
++1.66 worse (rule-correct stat fixes pushing wrong-direction as the
+agent predicted), AdMech +1.43 worse (within noise 4.17), Drukhari
++0.95 worse, Genestealer Cults +1.67 worse (mapper extra_melee on a
+GSC unit pushed them up from -4.19 to -2.52).
+
+### Pattern observed
+
+Wave 52 is the cleanest example so far of the "rule-correct fixes
+moving the metric wrong-way" phenomenon. TSON-AUDIT-V1 explicitly
+flagged this: BSData has Magnus's ranged damage at D3 (not the prior
+override D2), and Rubric Marines' primary Inferno Boltgun at AP-2
+(not the previous mapper-picked Warpflamer at AP-1). Both fixes
+correct stat lag relative to current Wahapedia / BSData and both
+push TSON sim%-up while we're already +20 over. The simulator is
+becoming MORE rule-correct (the §3 Goal A direction) but the
+metric movement is in the gated MAE's wrong direction. Headline
+gated MAE alone is a lossy signal — it conflates "made the sim more
+correct" with "moved sim toward meta." The per-faction breakdown is
+the better lens.
+
+### Commit landings
+
+* `11c75bc` **[T3] MAPPER-EXTRA-MELEE-V1** — wire BSData →
+  `extra_melee_profiles` for the first time. Field existed on
+  `UnitProfile` (populated only by overrides) and `Unit.attack` already
+  handled it via the KNIGHTS-MULTIPROFILE-2 block (lines 1133-1186);
+  the mapper just hadn't been taught to populate it. Added
+  `parse_weapon_keywords` detection of [EXTRA ATTACKS], a post-
+  `best_melee` collection loop walking `gear.melee_weapons`, and
+  dedupe-against-primary so the chosen melee weapon isn't double-
+  counted. **135 units across 18 factions populated**. Key entries:
+  - Keeper of Secrets: Snapping Claws (A4 S6 AP-2 D3 [DEVASTATING
+    WOUNDS]) + Ritual Knife (A3 S6 AP-2 D2). ~+7 expected damage per
+    fight phase per agent estimate. Both Daemons and EC variants.
+  - Shalaxi Helbane: Snapping Claws.
+  - Lord of Change (Daemons + TSON): Baleful Sword.
+  - Great Unclean One (Daemons + DG): Bileblade.
+  - Chaos Soul Grinder (all four god variants): Warpclaw + Warpsword.
+  - Knight Abominant: Balemace.
+  Wave-52 eval shows Daemons +1.43 toward zero (concrete movement)
+  and Custodes -1.67 (Knight ally + KoS-led EC compositions). Some
+  flagged false positives — Crucible composite Daemon Charioteer /
+  Herald / Immortal Champion gained 8 extras each from BSData
+  aggregation (Crusade-only, non-matchplay); Captain in Gravis Armour
+  gained 3 because all three of its Relic-weapon wargear choices tag
+  [EXTRA ATTACKS] but only one is chosen in play. Both follow-ups
+  for a wargear-choice-group cap.
+* `15bd4e4` **[T2] TSON-AUDIT-V1** — 4 findings across 3 areas:
+  - Rubric Marines weapon override: BSData picks Warpflamer (AP-1) as
+    primary; codex standard is Inferno Boltgun (AP-2). Override now
+    sets the codex weapon.
+  - Magnus the Red ranged damage: prior override cited non-existent
+    "Tzeentchian Pyre" weapon at D2; BSData sole ranged is Gaze of
+    Magnus at D3.
+  - Ahriman host_keys citation text corrected (code was already
+    right; citation quoted_text referenced wrong host units).
+  - Bringers of Change unmodelled-ability citation gap documented.
+  All Is Dust gate verified per-attack-defensive (correct). Cabal
+  Doombolt mortals per-turn cap verified (correct, no per-game cap).
+  Detachments + leader registry confirmed clean. Net direction:
+  TSON sim ranged output rose, +1.66 wr at eval. Rule-correctness
+  win at metric cost; the +22 TSON residual now traces more clearly
+  to Cabal of Sorcerers economy (multiple Doombolt mortals per round
+  across 10+ Psyker army builds) — a wave-53 lever.
+* `ab9639f` **[T2] TYRANIDS-OVERBUFF-V1** — agent damage-breakdown
+  diagnostic identified Zoanthropes as the #3 damage contributor
+  (243 dmg / 13.5% share across N=20 mirror tests at 2000 pts). Root
+  cause: mapper packed both Warp Blast firing modes (focused
+  witchfire S12 AP-3 D=D6+1 [LETHAL HITS] + witchfire S7 AP-2 D=D3
+  [BLAST]) into primary + secondary weapon slots, firing both each
+  Shooting phase. Wahapedia: "The Warp blast can fire one of the
+  following profiles each Shooting phase" — strict mutex. Override
+  zeros the secondary slot, promoting focused witchfire as the sole
+  primary (dominant tournament pick). Same shape as TYRANIDS-DIAG-3
+  / TYRANIDS-MULTI-LOADOUT / TYRANID-NORN-MULTILOAD patterns.
+  Wave-52 eval moved Tyranids only +0.24 (within noise 3.82) —
+  smaller than the agent's predicted 3-5pt reduction; the
+  contribution magnitude may need re-checking at N=80 to separate
+  signal from noise.
+* `1c55ee3` **[T3] MELEE-LETHAL-HITS-SPLIT** — schema gap surfaced
+  by wave-51 DAEMONS-GREATER-COMBAT-V1. Pre-wave-52 the simulator
+  read `UnitProfile.lethal_hits` (populated only from the ranged
+  primary weapon) for both ranged AND melee attack resolution. This
+  leaked ranged LETHAL HITS into melee for any unit whose ranged
+  primary carried the keyword, and missed melee-only LETHAL HITS
+  like GUO's Bilesword. Added `melee_lethal_hits: bool = False` to
+  UnitProfile + `MappedUnit`; mapper populates it from `best_melee
+  .lethal_hits`; attack resolution mode-routes the field. Mirrors
+  the wave-44 iter28-MS1 split on SUSTAINED HITS. 74 units now
+  populate `melee_lethal_hits` (GUO, Plaguebearers, Nurglings,
+  Plague Drones, Epidemius, Horticulous, Lhykhis, Poxbringer, ~65
+  others). Same commit adds two leader registry entries unblocked
+  by the wave-50 `sustained_hits_melee` schema field:
+  - **Spoilpox Scrivener** (Nurgle Herald): "Keep Counting!"
+    grants melee [SUSTAINED HITS 1] to the led Plaguebearers.
+  - **Tormentbringer** (Slaanesh Herald): "Tormentbringer (Aura)"
+    grants melee [SUSTAINED HITS 1] to any friendly SLAANESH
+    LEGIONES DAEMONICA within 6". Uses `_SLAANESH_DAEMON_HOSTS`
+    rather than empty host_keys so the aura doesn't broadcast to
+    non-Slaanesh allies.
+* `db85be7` **[T2] EXTRA-MELEE-ANTI-KEYWORDS-SHAPE** — bug fix.
+  MAPPER-EXTRA-MELEE-V1 populated `anti_keywords` on the extra-melee
+  template as a dict, but `UnitProfile.anti_keywords` is
+  `Tuple[Tuple[str, int], ...]`. The dataclasses.replace swap passed
+  the dict through, and the downstream consumer at line ~2174
+  `for kw, thresh in p.anti_keywords` unpacked dict-keys (strings) as
+  2-tuples, raising ValueError. The bug only surfaced in the N=40
+  eval — no unit test exercised an extra-melee weapon with ANTI-X
+  against a target carrying the gated keyword. Fix converts the
+  dict to tuple-of-tuples in the swap template.
+
+### Open carry-forwards into wave 53
+
+1. **TSON Cabal of Sorcerers economy** — TSON-AUDIT-V1 traced the
+   +22 residual to Doombolt mortals across 10+ Psyker armies, not
+   the per-leader / per-detachment fab cleanups. Cabal point
+   generation rate, Doombolt manifest cap per battle, and the
+   per-turn / per-game cap need a follow-up audit. Wave-52 stat
+   fixes moved TSON wrong-way (+1.66) so this is the natural
+   compensating lever.
+2. **Drukhari activation count + heterogeneous squad averaging**
+   (structural). +39 gated outlier; Combat Drugs fix
+   (`6e8dfd4`) only moved 0.12. The agent's diagnostic identified
+   these as the dominant drivers.
+3. **AdMech +17.75** — DW false-positive sweep (wave 51) and
+   Doctrina alive-gate (wave 50) closed structural issues but
+   didn't tighten the metric. Likely next levers: re-audit
+   detachment flag basket vs current Wahapedia, or look at the
+   per-codex-unit-name pattern on Skitarii / Sicarian abilities.
+4. **Daemons Lever 2 — stratagem parity**. Unaudited. Wave-52
+   moved Daemons +1.43 toward zero via KoS extra-melee + melee
+   lethal hits split; stratagems would compound.
+5. **GUO Bilesword LETHAL HITS now wired**, but the Bilesword
+   itself was not the dominant GUO damage source. Its actual
+   melee weapons (Plague Flail, Doomsday Bell) carry their own
+   LETHAL HITS via the new field — verify they fire correctly.
+6. **Tyranids Zoanthrope movement smaller than predicted** —
+   verify at N=80 to separate signal from noise.
+7. **Crucible composite Daemon Charioteer / Herald / Immortal
+   Champion + Captain in Gravis Armour** — wargear-choice-group
+   max=1 gate for `extra_melee_profiles` population.
+8. **TSON +22 cabal-driven**, **Drukhari +39 structural**,
+   **AdMech +17 mixed**, **IK -35 / CK -43 mapper-locked**,
+   **Tyranids +21** — five of the largest residuals all have
+   identified follow-up shapes; the remaining 17 factions sit
+   between 4/22 inside-band + smaller outliers.
+
+### Process note
+
+Wave 52 successfully balanced "rule-correct fixes" and "metric-
+moving fixes" — Daemons +1.43 toward zero and Sororitas -0.95
+toward zero came from rule-correctness fixes (extra_melee +
+LH-split + AoF spend-side from wave 49 amplifying with the
+generation-side from wave 51). The TSON +1.66 wrong-direction
+landing was the cost of CLAUDE.md §10 (don't fabricate; cite
+every rule). The headline gated MAE +0.12 net hides this
+trade-off — the per-faction lens is the better signal.
+
 ## Wave 51 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-50
@@ -354,155 +536,4 @@ already closed.
   80-line in-flight block prematurely) was overwritten by this close.
   Agent prompts should explicitly forbid AUTO_LOOP_LOG.md edits —
   the wave close is the orchestrator's job.
-
-## Wave 49 close (2026-05-29)
-
-Branch `claude/sim-calibration-6`. 4 commits landed on top of wave-48
-close `d82fb5d`. Top commit at wave-49 close is `413d89b`.
-
-User set a session goal: drive gated MAE below per-faction noise floor
-while improving rule correctness of the sim. Wave 49 attacked the two
-highest-ROI tractable outliers (Sororitas +20.9 unaudited, Daemons
--20.3 with the named Lever B carry-forward) in parallel, plus the
-test-tooling `_classify_cache` flake from wave 48.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 48 close (`d82fb5d`, 2026-05-29) | 14.22 | 10.83 | 4/22 |
-| Wave 49 close (`413d89b`, 2026-05-29) | 14.23 | **10.81** | 4/22 |
-
-Net **-0.02 gated MAE** across 4 commits — flat at headline but masks a
-real per-faction win. Sororitas dropped 4.28 wr-points (+23.05 → +18.77
-gated, well over noise floor 3.79); the gain was offset at the headline
-by ~+0.5 cross-faction drift, all within each faction's noise floor
-and therefore not contributing to gated. The fix is rule-correct AND
-direction-correct on its target faction — this is the cleanest result
-shape we get below the structural-residual floor.
-
-### Per-faction movements above noise
-
-* **Adepta Sororitas**: 71.3% → 67.0% sim, +23.05 → +18.77 gated.
-  Sole faction moving more than its noise floor (3.79). Driven by
-  `413d89b` SOROR-ACTS-OF-FAITH-V1 — see below.
-
-All other factions stayed within 1 wr-point of their wave-48 position
-(±0.83 max delta). No regressions over the gated threshold.
-
-### Commit landings
-
-* `0e4acc2` **[T2] CLASSIFY-CACHE-HASH** — replace `code/roles.py`'s
-  manual `Dict[int, str]` cache (keyed by `id(p)`) with
-  `functools.lru_cache(maxsize=4096)`, matching the convention used by
-  the adjacent `expected_ranged_dpa` / `expected_melee_dpa` helpers.
-  Closes the order-dependent test flake documented as a wave-48
-  carry-forward: transient `UnitProfile` instances in tests get
-  garbage-collected, their `id()` slot is reused, and the cache returned
-  the previously-cached role for an unrelated profile. `UnitProfile`
-  is a frozen dataclass so it has a stable hash that doesn't collide on
-  id-reuse. Full pytest sweep now 897 passed, 0 failed (was 897 passed
-  + 2 order-dependent failures on the same HEAD pre-fix).
-* `41f8029` **[T2] DAEMONS-LOCUS-V1** — narrow Locus magnitude
-  correction surfaced by the wave-44 DAEMONS_DIAG_10 Lever B carry-
-  forward. Tzeentch Changecaster's host_keys missed Blue Horrors (a
-  separate `chaos_daemons_library_blue_horrors` catalog key); BSData
-  Leader profile lists "PINK HORRORS, BLUE HORRORS" as legal
-  attachments. Other Locus carriers reviewed without change:
-  - Khorne Bloodmaster: already correct (`plus_one_to_wound` matches
-    codex verbatim).
-  - Nurgle Poxbringer: parked — `+1 critical Hit threshold` doesn't
-    reduce to a static `LeaderAbility` flag; current `plus_one_to_wound`
-    proxy is direction-correct.
-  - Nurgle Sloppity Bilepiper: correctly absent from registry
-    (Battle-shock + movement aura, no offensive flag).
-  - Slaanesh Contorted Epitome: `fnp=4` is acceptable approximation
-    (over-broad vs codex "FNP 4+ vs mortal + psychic" but
-    direction-correct).
-  Predicted metric move: small (Blue Horrors rarely seeded as
-  battleline in current archetypes), and confirmed at eval — Daemons
-  -19.85 → -19.73 (+0.12 wr-points, well below noise 3.16). Closes
-  one of the verifiable Lever B errors; remaining Daemons deficit
-  bottlenecks on Lever 1 (Greater Daemon seeding) + Lever 2
-  (stratagem parity) per DAEMONS_DIAG_10.
-* `413d89b` **[T2] SOROR-ACTS-OF-FAITH-V1** — the real wave-49 win.
-  Acts of Faith spend gate was per-`Unit` instance, but SwegHammer's
-  one-Unit-per-model representation expands an archetype Sororitas
-  army to ~71 Unit instances (Battle Sisters x10 × 2 squads = 20,
-  Celestian Insidiants x10 = 10, Seraphim x5, etc.) where the codex
-  unit count is ~19. The army was getting **3.7× more AoF spend
-  opportunities per round** than the codex allows. Codex wording:
-  "each **unit** can perform one Act of Faith per phase" — one per
-  codex squad, not one per model.
-  Fix: added `_aof_squad_names_used_this_round: set` on Army with
-  `aof_squad_available(profile.name)` / `aof_squad_mark_used` helpers;
-  all instances sharing a `profile.name` collapse to one codex unit
-  for AoF purposes. Three spend sites in `code/units.py` (hit, wound,
-  defensive save) now gate on `aof_squad_available(p.name)`. Round
-  reset hook in `code/simulator.py:_run_round` clears the squad set.
-  Also tightened the round-start dice-generation gate from
-  `army.units` to `army.alive_units` (rule: army must have at least
-  one alive Sororitas unit to qualify), and the on-death dice award.
-  Predicted UNDER-cut on Sororitas sim%; confirmed -4.28 wr-points
-  at eval (+23.05 → +18.77 gated). First faction-targeted commit
-  this branch to move its outlier by more than its noise floor in a
-  single landing.
-
-### Pattern observed
-
-The SOROR fix is a clean example of the "simulator-representation
-amplification" failure mode — not an explicit fabrication, but the
-one-Unit-per-model abstraction silently amplified a per-codex-unit
-spend budget into a per-simulator-instance one. The same shape may
-exist on other faction army rules with "once per unit per phase"
-spend models — worth a parking-lot sweep:
-- AdMech Doctrina Imperatives (+15.4 gated; once-per-phase imperative
-  pick).
-- Necron Reanimation Protocols (already audited via `_initial_unit_
-  counts` snapshot — robust).
-- Death Guard Plague Companies stratagem cap (currently per-army).
-- Custodes Ka'tah stance (already keyword-gated, low risk).
-
-### Open carry-forwards into wave 50
-
-1. **Daemons Lever 1 — Greater Daemon seeding gap**. The wave-44 anchor
-   (`352b1b4 DAEMONS-FIX-1`) seeds Greater Daemons in mono-god templates
-   but the diagnostic surfaced under-attendance even with the anchor.
-   Predicted +5-8 wr-points if the seeding budget is fully realized.
-2. **Daemons Lever 2 — stratagem parity**. Unaudited. Predicted +3-6
-   wr-points.
-3. **Sororitas residual +18.77 gated** — AoF fix closed about 1/5 of
-   the gap. Remaining levers: Acts of Faith spend SELECTION (which die
-   gets banked to which roll), detachment-side audits (Bringers of
-   Flame / Hallowed Martyrs may carry fabricated proxy flags), Acts
-   of Faith POOL size (currently 1/round, codex grants 1 + 1 per
-   destroyed Sororitas unit — verify award fires on every Sororitas
-   destruction, not just BATTLELINE).
-4. **`LeaderAbility.sustained_hits_ranged` schema gap** — surfaced by
-   DAEMONS-LOCUS-V1 audit. Three Daemons leaders (Tzeentch Changecaster,
-   Nurgle Spoilpox Scrivener, Slaanesh Tormentbringer) need this for
-   their Locus aura proxy to be rule-correct rather than "no-op
-   approximation". Probably a follow-up `LeaderAbility` field + Unit.
-   attack wiring + 3 leader updates.
-5. **Once-per-unit-per-phase representation sweep** — see "Pattern
-   observed" above. Probably AdMech Doctrina is the highest-leverage
-   candidate.
-6. **Drukhari +38 gated** — still the largest single tractable residual.
-   Skysplinter wiring landed in wave 45 + wave 46 reserves-embark
-   coupling but the +38 includes non-Skysplinter Drukhari behaviour
-   that's never been independently audited. Bundle-of-one: separate
-   Drukhari analytics by detachment to isolate where the overshoot
-   comes from.
-7. **IK -35.5 / CK -43.6 mapper-locked** — Stage 2 multi-profile weapon
-   mapper. Long-day branch when one becomes available.
-8. All wave-48 carry-forwards remain in place.
-
-### Tooling housekeeping
-
-* `0e4acc2` CLASSIFY-CACHE-HASH unblocks deterministic test ordering
-  — future stale-test audits won't need to chase the order-dependent
-  flake first.
-* Memory entry `[[project-classify-cache-flakiness]]` retired (fix
-  landed); the entry remains as historical context until the next
-  memory sweep.
 
