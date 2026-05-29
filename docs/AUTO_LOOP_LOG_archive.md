@@ -1889,3 +1889,71 @@ the easy levers are spent.
 - `docs/CORE_RULES_COVERAGE.md` (`b4073e5`) now exists as a living audit
   matrix; expect to be updated each iter when a new rule lands or a gap
   is confirmed.
+## Wave 45 close (2026-05-28)
+
+Branch `claude/sim-calibration-6`. 1 commit landed on top of wave-44 close
+`0aaa73c`. Top commit at wave-45 close is `4b3e18d`.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 44 close (`0aaa73c`, 2026-05-28) | 13.57 | 10.22 | 5/22 |
+| Wave 45 close (`4b3e18d`, 2026-05-28) | 13.57 | **10.22** | 5/22 |
+
+Wave 45 is a no-metric-move iter. Skysplinter Assault wiring is correct
+but inert because of an upstream gap. SECONDARY-SELECTION-V2 was attempted,
+regressed, and reverted.
+
+### Landings
+
+* `4b3e18d` **[T1] DRK-SKYSPLINTER-DISEMBARK** — wire LANCE + IGNORES
+  COVER on Drukhari units the turn they disembark from a TRANSPORT,
+  closing the largest tractable outlier (Drukhari +33 gated). Added
+  `Unit.transient_lance_this_turn` + `Unit.transient_ignores_cover_this_turn`
+  flags, composed via OR with the profile flags in `Unit.attack`; set
+  by `_disembark` when the army's detachment is Skysplinter Assault; 9
+  new tests in `tests/test_skysplinter_disembark.py`.
+
+  **Eval: zero metric movement (Drukhari 86.5% to 86.5%).** Root cause:
+  the Drukhari Raider and Venom both carry `deep_strike=True` in BSData
+  (the Aeldari "Deep Strike" infoLink). `_deploy_armies` routes every
+  `deep_strike=True` unit into reserves BEFORE `_embark_pregame_passengers`
+  runs, so the pregame embark pass sees zero Drukhari transports on the
+  board. Across 40 sample battles (~17 with Skysplinter Assault), zero
+  Drukhari disembark events fire. The wiring is rule-correct and will
+  activate the day the upstream gap closes.
+
+### Failed attempt: SECONDARY-SELECTION-V2
+
+Faction-aware picker (replacing V1's uniform heuristic) was attempted
+to close the V1 +0.66 regression. Faction tiers were classified as
+ELITE / MOBILE / MID. Eval result: gated MAE 10.22 to 10.89 (+0.67,
+worse than V1).
+
+Root cause of the regression: tier table miscalibration. Adeptus Astartes
+classified as "elite" (BiD + Assassination Fixed) crashed Marines sim
+55.8% to 39.5% — Tactical Marines field 5-10 model squads and are
+mid-shape, not the 3-5 elite shape Custodes / Knights occupy. The V2
+revert spec (gated MAE > 10.6 indicates V2 isn't an improvement)
+triggered; reverted in working tree, no commit.
+
+### Open carry-forwards into wave 46
+
+1. **Upstream reserves + embark coupling** — when a TRANSPORT is routed
+   into reserves at `_deploy_armies`, route its matched INFANTRY
+   passengers into reserves alongside it (or pre-embark before reserves
+   routing). Unblocks the dormant Skysplinter wiring and probably similar
+   gaps on Marines Drop Pods / Aeldari Wave Serpents / etc.
+2. **SECONDARY-SELECTION-V3** — V2's tier table was over-aggressive on
+   elite tier. V3 should put Marines / Sororitas / GK in MID, leaving
+   only Custodes / IK / CK as ELITE. The structural V1 fix stays in
+   place; V3 is a tier-table refinement only.
+3. **Daemons Locus broadcast magnitude** — anchor (DAEMONS-FIX-1) landed
+   in wave-44 but the +0.6 wr-points was below noise. Per
+   DAEMONS-DIAG-10 findings the remaining levers are the Locus aura
+   broadcast magnitude and Greater Daemon combat profile audit.
+4. **Sororitas Acts of Faith spend model** — unaudited, gated 16.05.
+5. **STRATAGEM-CHAIN-V2** — widen cap from 2 to 3.
+6. All wave-44 carry-forwards remain in place.
+

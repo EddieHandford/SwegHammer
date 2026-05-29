@@ -4,6 +4,157 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 49 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 4 commits landed on top of wave-48
+close `d82fb5d`. Top commit at wave-49 close is `413d89b`.
+
+User set a session goal: drive gated MAE below per-faction noise floor
+while improving rule correctness of the sim. Wave 49 attacked the two
+highest-ROI tractable outliers (Sororitas +20.9 unaudited, Daemons
+-20.3 with the named Lever B carry-forward) in parallel, plus the
+test-tooling `_classify_cache` flake from wave 48.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 48 close (`d82fb5d`, 2026-05-29) | 14.22 | 10.83 | 4/22 |
+| Wave 49 close (`413d89b`, 2026-05-29) | 14.23 | **10.81** | 4/22 |
+
+Net **-0.02 gated MAE** across 4 commits — flat at headline but masks a
+real per-faction win. Sororitas dropped 4.28 wr-points (+23.05 → +18.77
+gated, well over noise floor 3.79); the gain was offset at the headline
+by ~+0.5 cross-faction drift, all within each faction's noise floor
+and therefore not contributing to gated. The fix is rule-correct AND
+direction-correct on its target faction — this is the cleanest result
+shape we get below the structural-residual floor.
+
+### Per-faction movements above noise
+
+* **Adepta Sororitas**: 71.3% → 67.0% sim, +23.05 → +18.77 gated.
+  Sole faction moving more than its noise floor (3.79). Driven by
+  `413d89b` SOROR-ACTS-OF-FAITH-V1 — see below.
+
+All other factions stayed within 1 wr-point of their wave-48 position
+(±0.83 max delta). No regressions over the gated threshold.
+
+### Commit landings
+
+* `0e4acc2` **[T2] CLASSIFY-CACHE-HASH** — replace `code/roles.py`'s
+  manual `Dict[int, str]` cache (keyed by `id(p)`) with
+  `functools.lru_cache(maxsize=4096)`, matching the convention used by
+  the adjacent `expected_ranged_dpa` / `expected_melee_dpa` helpers.
+  Closes the order-dependent test flake documented as a wave-48
+  carry-forward: transient `UnitProfile` instances in tests get
+  garbage-collected, their `id()` slot is reused, and the cache returned
+  the previously-cached role for an unrelated profile. `UnitProfile`
+  is a frozen dataclass so it has a stable hash that doesn't collide on
+  id-reuse. Full pytest sweep now 897 passed, 0 failed (was 897 passed
+  + 2 order-dependent failures on the same HEAD pre-fix).
+* `41f8029` **[T2] DAEMONS-LOCUS-V1** — narrow Locus magnitude
+  correction surfaced by the wave-44 DAEMONS_DIAG_10 Lever B carry-
+  forward. Tzeentch Changecaster's host_keys missed Blue Horrors (a
+  separate `chaos_daemons_library_blue_horrors` catalog key); BSData
+  Leader profile lists "PINK HORRORS, BLUE HORRORS" as legal
+  attachments. Other Locus carriers reviewed without change:
+  - Khorne Bloodmaster: already correct (`plus_one_to_wound` matches
+    codex verbatim).
+  - Nurgle Poxbringer: parked — `+1 critical Hit threshold` doesn't
+    reduce to a static `LeaderAbility` flag; current `plus_one_to_wound`
+    proxy is direction-correct.
+  - Nurgle Sloppity Bilepiper: correctly absent from registry
+    (Battle-shock + movement aura, no offensive flag).
+  - Slaanesh Contorted Epitome: `fnp=4` is acceptable approximation
+    (over-broad vs codex "FNP 4+ vs mortal + psychic" but
+    direction-correct).
+  Predicted metric move: small (Blue Horrors rarely seeded as
+  battleline in current archetypes), and confirmed at eval — Daemons
+  -19.85 → -19.73 (+0.12 wr-points, well below noise 3.16). Closes
+  one of the verifiable Lever B errors; remaining Daemons deficit
+  bottlenecks on Lever 1 (Greater Daemon seeding) + Lever 2
+  (stratagem parity) per DAEMONS_DIAG_10.
+* `413d89b` **[T2] SOROR-ACTS-OF-FAITH-V1** — the real wave-49 win.
+  Acts of Faith spend gate was per-`Unit` instance, but SwegHammer's
+  one-Unit-per-model representation expands an archetype Sororitas
+  army to ~71 Unit instances (Battle Sisters x10 × 2 squads = 20,
+  Celestian Insidiants x10 = 10, Seraphim x5, etc.) where the codex
+  unit count is ~19. The army was getting **3.7× more AoF spend
+  opportunities per round** than the codex allows. Codex wording:
+  "each **unit** can perform one Act of Faith per phase" — one per
+  codex squad, not one per model.
+  Fix: added `_aof_squad_names_used_this_round: set` on Army with
+  `aof_squad_available(profile.name)` / `aof_squad_mark_used` helpers;
+  all instances sharing a `profile.name` collapse to one codex unit
+  for AoF purposes. Three spend sites in `code/units.py` (hit, wound,
+  defensive save) now gate on `aof_squad_available(p.name)`. Round
+  reset hook in `code/simulator.py:_run_round` clears the squad set.
+  Also tightened the round-start dice-generation gate from
+  `army.units` to `army.alive_units` (rule: army must have at least
+  one alive Sororitas unit to qualify), and the on-death dice award.
+  Predicted UNDER-cut on Sororitas sim%; confirmed -4.28 wr-points
+  at eval (+23.05 → +18.77 gated). First faction-targeted commit
+  this branch to move its outlier by more than its noise floor in a
+  single landing.
+
+### Pattern observed
+
+The SOROR fix is a clean example of the "simulator-representation
+amplification" failure mode — not an explicit fabrication, but the
+one-Unit-per-model abstraction silently amplified a per-codex-unit
+spend budget into a per-simulator-instance one. The same shape may
+exist on other faction army rules with "once per unit per phase"
+spend models — worth a parking-lot sweep:
+- AdMech Doctrina Imperatives (+15.4 gated; once-per-phase imperative
+  pick).
+- Necron Reanimation Protocols (already audited via `_initial_unit_
+  counts` snapshot — robust).
+- Death Guard Plague Companies stratagem cap (currently per-army).
+- Custodes Ka'tah stance (already keyword-gated, low risk).
+
+### Open carry-forwards into wave 50
+
+1. **Daemons Lever 1 — Greater Daemon seeding gap**. The wave-44 anchor
+   (`352b1b4 DAEMONS-FIX-1`) seeds Greater Daemons in mono-god templates
+   but the diagnostic surfaced under-attendance even with the anchor.
+   Predicted +5-8 wr-points if the seeding budget is fully realized.
+2. **Daemons Lever 2 — stratagem parity**. Unaudited. Predicted +3-6
+   wr-points.
+3. **Sororitas residual +18.77 gated** — AoF fix closed about 1/5 of
+   the gap. Remaining levers: Acts of Faith spend SELECTION (which die
+   gets banked to which roll), detachment-side audits (Bringers of
+   Flame / Hallowed Martyrs may carry fabricated proxy flags), Acts
+   of Faith POOL size (currently 1/round, codex grants 1 + 1 per
+   destroyed Sororitas unit — verify award fires on every Sororitas
+   destruction, not just BATTLELINE).
+4. **`LeaderAbility.sustained_hits_ranged` schema gap** — surfaced by
+   DAEMONS-LOCUS-V1 audit. Three Daemons leaders (Tzeentch Changecaster,
+   Nurgle Spoilpox Scrivener, Slaanesh Tormentbringer) need this for
+   their Locus aura proxy to be rule-correct rather than "no-op
+   approximation". Probably a follow-up `LeaderAbility` field + Unit.
+   attack wiring + 3 leader updates.
+5. **Once-per-unit-per-phase representation sweep** — see "Pattern
+   observed" above. Probably AdMech Doctrina is the highest-leverage
+   candidate.
+6. **Drukhari +38 gated** — still the largest single tractable residual.
+   Skysplinter wiring landed in wave 45 + wave 46 reserves-embark
+   coupling but the +38 includes non-Skysplinter Drukhari behaviour
+   that's never been independently audited. Bundle-of-one: separate
+   Drukhari analytics by detachment to isolate where the overshoot
+   comes from.
+7. **IK -35.5 / CK -43.6 mapper-locked** — Stage 2 multi-profile weapon
+   mapper. Long-day branch when one becomes available.
+8. All wave-48 carry-forwards remain in place.
+
+### Tooling housekeeping
+
+* `0e4acc2` CLASSIFY-CACHE-HASH unblocks deterministic test ordering
+  — future stale-test audits won't need to chase the order-dependent
+  flake first.
+* Memory entry `[[project-classify-cache-flakiness]]` retired (fix
+  landed); the entry remains as historical context until the next
+  memory sweep.
+
 ## Wave 48 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 6 commits landed on top of wave 46-47
@@ -276,72 +427,4 @@ one pass.
    pending the upstream reserves coupling firing in more samples, Sororitas
    Acts of Faith spend model unaudited, Daemons Locus magnitude unaudited,
    SECONDARY-SELECTION-V3 tier-table refinement, STRATAGEM-CHAIN-V2 cap 3).
-
-## Wave 45 close (2026-05-28)
-
-Branch `claude/sim-calibration-6`. 1 commit landed on top of wave-44 close
-`0aaa73c`. Top commit at wave-45 close is `4b3e18d`.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 44 close (`0aaa73c`, 2026-05-28) | 13.57 | 10.22 | 5/22 |
-| Wave 45 close (`4b3e18d`, 2026-05-28) | 13.57 | **10.22** | 5/22 |
-
-Wave 45 is a no-metric-move iter. Skysplinter Assault wiring is correct
-but inert because of an upstream gap. SECONDARY-SELECTION-V2 was attempted,
-regressed, and reverted.
-
-### Landings
-
-* `4b3e18d` **[T1] DRK-SKYSPLINTER-DISEMBARK** — wire LANCE + IGNORES
-  COVER on Drukhari units the turn they disembark from a TRANSPORT,
-  closing the largest tractable outlier (Drukhari +33 gated). Added
-  `Unit.transient_lance_this_turn` + `Unit.transient_ignores_cover_this_turn`
-  flags, composed via OR with the profile flags in `Unit.attack`; set
-  by `_disembark` when the army's detachment is Skysplinter Assault; 9
-  new tests in `tests/test_skysplinter_disembark.py`.
-
-  **Eval: zero metric movement (Drukhari 86.5% to 86.5%).** Root cause:
-  the Drukhari Raider and Venom both carry `deep_strike=True` in BSData
-  (the Aeldari "Deep Strike" infoLink). `_deploy_armies` routes every
-  `deep_strike=True` unit into reserves BEFORE `_embark_pregame_passengers`
-  runs, so the pregame embark pass sees zero Drukhari transports on the
-  board. Across 40 sample battles (~17 with Skysplinter Assault), zero
-  Drukhari disembark events fire. The wiring is rule-correct and will
-  activate the day the upstream gap closes.
-
-### Failed attempt: SECONDARY-SELECTION-V2
-
-Faction-aware picker (replacing V1's uniform heuristic) was attempted
-to close the V1 +0.66 regression. Faction tiers were classified as
-ELITE / MOBILE / MID. Eval result: gated MAE 10.22 to 10.89 (+0.67,
-worse than V1).
-
-Root cause of the regression: tier table miscalibration. Adeptus Astartes
-classified as "elite" (BiD + Assassination Fixed) crashed Marines sim
-55.8% to 39.5% — Tactical Marines field 5-10 model squads and are
-mid-shape, not the 3-5 elite shape Custodes / Knights occupy. The V2
-revert spec (gated MAE > 10.6 indicates V2 isn't an improvement)
-triggered; reverted in working tree, no commit.
-
-### Open carry-forwards into wave 46
-
-1. **Upstream reserves + embark coupling** — when a TRANSPORT is routed
-   into reserves at `_deploy_armies`, route its matched INFANTRY
-   passengers into reserves alongside it (or pre-embark before reserves
-   routing). Unblocks the dormant Skysplinter wiring and probably similar
-   gaps on Marines Drop Pods / Aeldari Wave Serpents / etc.
-2. **SECONDARY-SELECTION-V3** — V2's tier table was over-aggressive on
-   elite tier. V3 should put Marines / Sororitas / GK in MID, leaving
-   only Custodes / IK / CK as ELITE. The structural V1 fix stays in
-   place; V3 is a tier-table refinement only.
-3. **Daemons Locus broadcast magnitude** — anchor (DAEMONS-FIX-1) landed
-   in wave-44 but the +0.6 wr-points was below noise. Per
-   DAEMONS-DIAG-10 findings the remaining levers are the Locus aura
-   broadcast magnitude and Greater Daemon combat profile audit.
-4. **Sororitas Acts of Faith spend model** — unaudited, gated 16.05.
-5. **STRATAGEM-CHAIN-V2** — widen cap from 2 to 3.
-6. All wave-44 carry-forwards remain in place.
 
