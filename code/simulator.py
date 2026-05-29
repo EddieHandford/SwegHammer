@@ -4897,13 +4897,28 @@ class Battle:
         # Reset disembark tracking: nothing has disembarked yet this round.
         self._disembarked_this_round = set()
 
-        # SOROR-DIAG-4 — reset each Sororitas unit's per-round Acts of Faith
-        # budget. The codex caps Acts of Faith at one per phase per unit; the
-        # simulator collapses this to one per ROUND per unit (conservative
-        # under-approximation — see Unit.aof_used_this_round docstring for the
-        # rationale). Walks both armies so defender-side resets fire too.
-        # Cited as `simulator.acts_of_faith`.
+        # SOROR-DIAG-4 / SOROR-ACTS-OF-FAITH-V1 — reset each Sororitas unit's
+        # per-round Acts of Faith budget. Two-level reset:
+        #
+        # (1) Per-instance flag `aof_used_this_round`: prevents a single Unit
+        #     instance from using AoF twice in the same round. Conservative
+        #     under-approximation of the codex's "one per phase" literal
+        #     (collapses to one per round). Cited as `simulator.acts_of_faith`.
+        #
+        # (2) SOROR-ACTS-OF-FAITH-V1 squad-level set
+        #     `_aof_squad_names_used_this_round`: enforces the codex "each
+        #     UNIT can perform one Act of Faith per phase" at the codex-unit
+        #     granularity. The simulator instantiates each model in a squad as
+        #     a separate Unit object (e.g. 10 Battle Sisters models = 10 Unit
+        #     instances). Without this set, each instance could independently
+        #     use AoF, giving a 10-model squad up to 10 AoF spends per round
+        #     where the codex allows only 1 (one per codex unit). Tracking by
+        #     profile.name (all instances of "Battle Sisters Squad" share one
+        #     budget) corrects this N× over-count. Wahapedia verbatim: "each
+        #     unit from your army with this ability can perform one Act of
+        #     Faith per phase." Cited as `simulator.acts_of_faith`.
         for army in (self.a, self.b):
+            army._aof_squad_names_used_this_round = set()
             for u in army.units:
                 if u.profile.faction == "Adepta Sororitas":
                     u.aof_used_this_round = False
@@ -5075,7 +5090,14 @@ class Battle:
         # `simulator.acts_of_faith`. Wahapedia:
         # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
         for army in (self.a, self.b):
-            if any(u.profile.faction == "Adepta Sororitas" for u in army.units):
+            # SOROR-ACTS-OF-FAITH-V1: use alive_units so dice are only
+            # generated while at least one Sororitas unit is alive — the
+            # codex rule "If your Army Faction is Adepta Sororitas" implies
+            # an active army. Dead units were previously included via
+            # army.units (includes destroyed models), which incorrectly
+            # awarded a die every round-start even after the last Sororitas
+            # model died. Cited as `simulator.acts_of_faith`.
+            if any(u.profile.faction == "Adepta Sororitas" for u in army.alive_units):
                 army.gain_miracle_dice(1, random)
         # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
         # At the start of each battle round the AdMech player picks ONE of
@@ -6588,7 +6610,13 @@ class Battle:
         """
         if victim.profile.faction != "Adepta Sororitas":
             return
-        if not any(u.profile.faction == "Adepta Sororitas" for u in victim_army.units):
+        # SOROR-ACTS-OF-FAITH-V1: use alive_units so the gate correctly
+        # prevents awarding a die when the last Sororitas unit just died
+        # (the victim is already excluded from alive_units at this point).
+        # The prior army.units check included the dead victim, so it always
+        # returned True even for the last dying model. Cited as
+        # `simulator.acts_of_faith`.
+        if not any(u.profile.faction == "Adepta Sororitas" for u in victim_army.alive_units):
             return
         victim_army.gain_miracle_dice(1, random)
 

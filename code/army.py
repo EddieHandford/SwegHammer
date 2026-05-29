@@ -168,6 +168,21 @@ class Army:
         # a rule. Stored sorted descending. Empty on non-Sororitas armies.
         # Cited as `simulator.acts_of_faith`.
         self.miracle_dice: List[int] = []
+        # SOROR-ACTS-OF-FAITH-V1: per-round squad-level AoF budget. The codex
+        # rule "each unit can perform one Act of Faith per phase" applies at
+        # the codex-UNIT level (one squad = one unit). The simulator
+        # instantiates each model in a squad as a separate Unit instance, so a
+        # 10-model Battle Sisters Squad becomes 10 instances, each eligible for
+        # aof_used_this_round. Without the squad-level gate those 10 instances
+        # could collectively spend 10 Miracle dice per round for a single
+        # codex unit — a 10x over-count. This set tracks which profile names
+        # have already used their squad AoF budget this round; all instances
+        # sharing a profile.name are treated as ONE codex unit for AoF
+        # purposes. Reset at the start of each battle round by
+        # Battle._run_round. Empty on non-Sororitas armies (non-Sororitas
+        # units never call aof_squad_available). Cited as
+        # `simulator.acts_of_faith`.
+        self._aof_squad_names_used_this_round: set = set()
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
@@ -524,6 +539,22 @@ class Army:
             # Trim from the tail — discard the LOWEST dice when over
             # cap, since they're the least valuable to keep.
             self.miracle_dice = self.miracle_dice[: self.MIRACLE_DICE_BANK_CAP]
+
+    def aof_squad_available(self, profile_name: str) -> bool:
+        """True iff the named profile type has NOT yet used its Acts of Faith
+        AoF budget this round. SOROR-ACTS-OF-FAITH-V1: one AoF spend per
+        unique profile.name per round, enforcing the codex 'one per unit per
+        phase' rule at the squad level (all sim instances sharing a profile
+        name = one codex unit). Cited as `simulator.acts_of_faith`.
+        """
+        return profile_name not in self._aof_squad_names_used_this_round
+
+    def aof_squad_mark_used(self, profile_name: str) -> None:
+        """Record that the named profile type has used its Acts of Faith
+        budget this round. SOROR-ACTS-OF-FAITH-V1. Cited as
+        `simulator.acts_of_faith`.
+        """
+        self._aof_squad_names_used_this_round.add(profile_name)
 
     def pop_miracle_die_meeting(self, threshold: int) -> Optional[int]:
         """Greedy spend: remove and return the LOWEST die in the pool

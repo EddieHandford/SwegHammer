@@ -2825,6 +2825,15 @@ class Unit:
                     # spends when the substitution converts miss -> hit.
                     # Cited as `simulator.acts_of_faith`. Wahapedia:
                     # https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
+                    #
+                    # SOROR-ACTS-OF-FAITH-V1: squad-level gate. The codex
+                    # rule is "each unit can perform one Act of Faith per
+                    # phase." In the simulator each model in a squad is a
+                    # separate Unit instance; without the squad gate, a
+                    # 10-model squad would get 10 independent AoF spends per
+                    # round. `own_army.aof_squad_available(p.name)` enforces
+                    # one spend per profile.name per round (= one per codex
+                    # unit). Cited as `simulator.acts_of_faith`.
                     if (
                         roll < hit_target
                         and p.faction == "Adepta Sororitas"
@@ -2832,12 +2841,17 @@ class Unit:
                         and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
                     ):
                         own_army = getattr(self, "army_ref", None)
-                        if own_army is not None and own_army.has_miracle_dice():
+                        if (
+                            own_army is not None
+                            and own_army.has_miracle_dice()
+                            and own_army.aof_squad_available(p.name)  # SOROR-ACTS-OF-FAITH-V1
+                        ):
                             sub = own_army.pop_miracle_die_meeting(hit_target)
                             if sub is not None:
                                 roll = sub
                                 attack_aof_substitution_used = True
                                 self.aof_used_this_round = True  # SOROR-DIAG-4
+                                own_army.aof_squad_mark_used(p.name)  # SOROR-ACTS-OF-FAITH-V1
                     if roll < hit_target:
                         continue   # missed
                     # Crit-to-hit threshold defaults to 6 (canonical 10e); the
@@ -2943,6 +2957,8 @@ class Unit:
                     # `simulator.acts_of_faith`. CORE-RULE-FIX-5: the
                     # substituted die is a replacement, NOT an unmodified
                     # roll, so it can succeed the wound but cannot crit.
+                    # SOROR-ACTS-OF-FAITH-V1: squad-level gate — see hit
+                    # branch above for rationale.
                     if (
                         not wound_succeeded
                         and p.faction == "Adepta Sororitas"
@@ -2950,7 +2966,11 @@ class Unit:
                         and not self.aof_used_this_round  # SOROR-DIAG-4 per-round cap
                     ):
                         own_army = getattr(self, "army_ref", None)
-                        if own_army is not None and own_army.has_miracle_dice():
+                        if (
+                            own_army is not None
+                            and own_army.has_miracle_dice()
+                            and own_army.aof_squad_available(p.name)  # SOROR-ACTS-OF-FAITH-V1
+                        ):
                             sub = own_army.pop_miracle_die_meeting(_shot_wound_target)
                             if sub is not None:
                                 wroll = sub
@@ -2958,6 +2978,7 @@ class Unit:
                                 crit_wound = False
                                 attack_aof_substitution_used = True
                                 self.aof_used_this_round = True  # SOROR-DIAG-4
+                                own_army.aof_squad_mark_used(p.name)  # SOROR-ACTS-OF-FAITH-V1
                     if not wound_succeeded:
                         continue
 
@@ -3058,6 +3079,13 @@ class Unit:
                         # spends at most one Miracle die across all attackers
                         # attacking it in a single round — across offensive
                         # AND defensive directions combined.
+                        #
+                        # SOROR-ACTS-OF-FAITH-V1: squad-level gate for the
+                        # defensive path. Same rationale as offensive hit/wound
+                        # branches — all sim instances of the same profile.name
+                        # (e.g. all "Battle Sisters Squad" models) count as ONE
+                        # codex unit for AoF purposes. Cited as
+                        # `simulator.acts_of_faith`.
                         if (
                             sroll < save_target
                             and target.profile.faction == "Adepta Sororitas"
@@ -3065,12 +3093,17 @@ class Unit:
                             and not target.aof_used_this_round  # SOROR-DIAG-4
                         ):
                             tgt_army = getattr(target, "army_ref", None)
-                            if tgt_army is not None and tgt_army.has_miracle_dice():
+                            if (
+                                tgt_army is not None
+                                and tgt_army.has_miracle_dice()
+                                and tgt_army.aof_squad_available(target.profile.name)  # SOROR-ACTS-OF-FAITH-V1
+                            ):
                                 sub = tgt_army.pop_miracle_die_meeting(save_target)
                                 if sub is not None:
                                     sroll = sub
                                     attack_aof_substitution_used = True
                                     target.aof_used_this_round = True  # SOROR-DIAG-4
+                                    tgt_army.aof_squad_mark_used(target.profile.name)  # SOROR-ACTS-OF-FAITH-V1
                         if sroll >= save_target:
                             continue   # saved
                     # NECRONS-CTAN: Necrodermis halves Damage characteristic
