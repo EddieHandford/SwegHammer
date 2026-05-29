@@ -6653,24 +6653,57 @@ class Battle:
         death. Cited as `simulator.acts_of_faith`. Wahapedia:
         https://wahapedia.ru/wh40k10ed/factions/adepta-sororitas/
 
-        Each time a Sororitas unit from a Sororitas army is destroyed,
-        that army gains 1 Miracle die (pre-rolled D6 added to its pool,
-        capped at MIRACLE_DICE_BANK_CAP). The trigger is on the VICTIM —
-        the killer's faction does not matter, only that the destroyed
-        unit had the Sororitas faction tag and the army still has at
-        least one Sororitas unit (otherwise the army-rule condition
-        "Army Faction is Adepta Sororitas" no longer holds, and the
-        gate keeps the pool from growing on a mixed-faction list whose
-        last Sororitas unit just died).
+        Codex rule (verbatim): "each time a unit from your army with this
+        ability is destroyed, you gain 1 additional Miracle die."
+
+        Two gates apply before awarding:
+
+        1. TRANSPORT exclusion: TRANSPORT units (Immolator, Sororitas Rhino)
+           do not carry the Acts of Faith ability on their datasheets — the
+           ability is on INFANTRY and WALKER units only. A TRANSPORT death
+           must not award a Miracle die. Gate: TRANSPORT in unit_keywords.
+
+        2. SOROR-DETACHMENT-V1 — per-codex-unit (last-instance) gate:
+           The codex "unit" maps to one codex-unit / squad (e.g. a 10-model
+           Battle Sisters Squad is ONE codex unit). The simulator instantiates
+           each model as a separate Unit object, so a 10-model squad produces
+           10 sim instances sharing the same profile.name. Without the last-
+           instance gate, each instance's death independently fires the trigger,
+           giving 10 dice for one codex-unit destruction instead of the
+           codex-correct 1. The gate: only award when NO other alive sim
+           instance with the SAME profile.name remains in the army (i.e.
+           the dying model is the last survivor of its codex unit). The
+           alive_units list already excludes the dying victim (current_health
+           has already been zeroed before _maybe_award_miracle_die is called).
+           Cited as `simulator.acts_of_faith`.
+
+        3. Army-alive gate: do not award when the last Sororitas unit in the
+           army just died — the army-rule condition "Army Faction is Adepta
+           Sororitas" no longer holds. SOROR-ACTS-OF-FAITH-V1 established
+           this gate; it remains unchanged here.
         """
         if victim.profile.faction != "Adepta Sororitas":
             return
-        # SOROR-ACTS-OF-FAITH-V1: use alive_units so the gate correctly
-        # prevents awarding a die when the last Sororitas unit just died
-        # (the victim is already excluded from alive_units at this point).
-        # The prior army.units check included the dead victim, so it always
-        # returned True even for the last dying model. Cited as
-        # `simulator.acts_of_faith`.
+        # Gate 1: TRANSPORT exclusion — Immolator / Sororitas Rhino / Repressor
+        # do not carry the Acts of Faith ability (infantry/walker ability only).
+        # Wahapedia Sororitas datasheets confirm Acts of Faith appears on INFANTRY
+        # and WALKER units; TRANSPORT VEHICLE datasheets do not list it.
+        if "TRANSPORT" in (victim.profile.unit_keywords or ()):
+            return
+        # Gate 2 (SOROR-DETACHMENT-V1): last-instance check — only award when
+        # this is the LAST alive sim instance sharing the victim's profile.name.
+        # All instances of the same profile.name represent a single codex unit;
+        # only the squad's total destruction should award 1 die.
+        # `alive_units` excludes the dying victim at this point (health already 0).
+        if any(
+            u.profile.name == victim.profile.name
+            for u in victim_army.alive_units
+            if u.profile.faction == "Adepta Sororitas"
+        ):
+            return  # other squad-mates still alive — codex unit not fully destroyed yet
+        # Gate 3: SOROR-ACTS-OF-FAITH-V1: use alive_units so the gate correctly
+        # prevents awarding a die when the last Sororitas unit in the army just
+        # died (the victim is already excluded from alive_units at this point).
         if not any(u.profile.faction == "Adepta Sororitas" for u in victim_army.alive_units):
             return
         victim_army.gain_miracle_dice(1, random)
