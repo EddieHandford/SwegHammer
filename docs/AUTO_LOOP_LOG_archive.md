@@ -1713,3 +1713,179 @@ Dispatched against carry-forwards 1-3. Bundle-of-one, worktree isolation,
 
 Each agent reset to `origin/claude/sim-calibration-6` @ `702e843` and stays
 on its worktree branch — cherry-pick into main worktree after eval.
+## Waves 43-44 close (2026-05-28)
+
+Branch `claude/sim-calibration-6`. 13 commits landed on top of wave-42 honest
+eval `702e843`. Top commit at wave-44 close is `207b842`.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 42 close (`702e843`, 2026-05-27) | 13.03 | **9.68** | 4/22 |
+| Wave 43 baseline post-DRK-PAIN-TOKENS + LOADER-FAIL-LOUD (`ae7eac2`, 2026-05-28) | 13.11 | 9.75 | 3/22 |
+| Wave 44 close (`207b842`, 2026-05-28) | 13.57 | **10.22** | 5/22 |
+
+Net **+0.54 gated MAE regression** across 13 commits. Inside-band count +1
+(Chaos Space Marines flipped in at 0.20 gated). Direction is the
+"correctness-positive, mean-absolute-error neutral or slightly negative"
+pattern noted in the wave 7-42 close — most individual landings moved their
+target faction 0-1 pt at N=40, with SECONDARY-SELECTION-V1 introducing
+asymmetric variance that nudged the metric up while making the simulator
+materially more rule-correct.
+
+### Single biggest win
+
+**Custodes gated 15.25 → 2.51** (a 12.7 pt compression) — driven by
+TYRANIDS-SYNAPSE-3D6 (Custodes' enemies stop auto-passing Battle-shock,
+so Custodes scoring against Battle-shocked enemies normalises) plus the
+SECONDARY-SELECTION picker no longer over-rewarding their elite low-count
+shape. Custodes effectively dropped into the noise band.
+
+### Commit landings
+
+* `b4cf249` **[T2] LOADER-FAIL-LOUD** — make `_apply_override` raise when an
+  override has no matching base entry and lacks required core stat fields
+  (name / health / damage). Caught the `aeldari_drukhari_scourges` typo
+  that had been silently fabricating a zero-stat ghost entry, causing a
+  14 GB pytest leak via `build_random_army`'s affordability loop. Pre-flight
+  scan confirmed only one orphan override key existed. Per CLAUDE.md §13
+  (fail loud when data is missing).
+* `ae7eac2` **LOOP-CLEANUP-UNLOCK** — `scripts/loop_cleanup.py` was printing
+  "REMOVED" while `git worktree remove --force` (single -f) silently failed
+  against Claude-agent lock files. Bumped to `-f -f` so locks from dead
+  parent claude.exe sessions get overridden. Tooling, no simulator impact.
+* `51726fc` **EVAL-TOURNAMENT-GAMES** — `scripts/evaluate_vs_meta.py`
+  `save_snapshot()` referenced `TOURNAMENT_GAMES[fac]` but the dict was
+  never defined; the JSON-out path crashed with NameError on every eval.
+  Added `_load_tournament_games()` alongside `_load_noise_floor()`. Tooling.
+* `b4073e5` **docs: CORE_RULES_COVERAGE.md** — coverage matrix mapping
+  Wahapedia 10e core rules to simulator state. Initially marked
+  embark / disembark as missing on the strength of stale comments at
+  `code/detachments.py:767` and `code/archetypes.py:133`; the EMBARK-V1
+  agent later discovered embark was implemented in PR #156 / `c84e4db`
+  and the comments were just out of date. Section 9 corrected in
+  EMBARK-V1's accompanying commit.
+* `8db2967` **DAEMONS-DIAG-10** — diag findings doc. Original wave-43
+  dispatch hypothesised Greater Daemon seeding was missing; verification
+  found archetypes already seed them and `code/leaders.py:618-640` wires
+  the Herald loci. The real lever (Lever 1 in the findings) is that the
+  four Greater Daemons are seeded in templates but almost never make it
+  into actual builds (Bloodthirster 1%, Lord of Change 0%, KoS 0%, Great
+  Unclean One 5% across 80 builds).
+* `352b1b4` **[T2] DAEMONS-FIX-1** — anchor Greater Daemon in mono-god
+  templates before the budget walk in `_instantiate_template`. Verified
+  presence rose to 100% across 80 builds, uniform 25% mono-god rotation.
+  Daemons gated -12.52 → -11.93 (+0.6 wr-points; below noise floor 3.16,
+  but mechanically the anchor is now wired so future per-god leverage
+  work has something to land on).
+* `f2ccf11` **[T1] EMBARK-V1** — discovered embark / disembark is already
+  fully implemented (`_embark_pregame_passengers`, `_embark`, `_disembark`,
+  `_maybe_disembark_before_move`, `_destroyed_transport_disembark`, plus
+  activation gates in all four phase methods; 12 passing tests in
+  `tests/test_transports.py`). Agent added `Unit.is_embarked` convenience
+  property, refreshed stale comments in `code/detachments.py` and
+  `code/archetypes.py`, and wrote 4 new tests in `tests/test_embark.py`.
+  Drukhari did not move (+0.0) because the +33 driver is the still-unwired
+  Skysplinter Assault disembark-turn LANCE + IGNORES-COVER buff (parking
+  lot — needs per-weapon-keyword temporary gating infrastructure).
+* `b51bb98` **[T1] SECONDARY-SELECTION-V1** — each army now picks 2 of 4
+  Fixed Pariah Nexus secondaries at battle start based on enemy shape
+  (heuristic on enemy MONSTER/VEHICLE count, own FLY/MOUNT count).
+  Previously the simulator scored all four every game, asymmetrically
+  over-rewarding balanced armies. Gated MAE 9.75 → 10.41 (+0.66
+  regression) because the picker's heuristic introduced new variance —
+  but the scoring is now rule-correct per Pariah Nexus 10e (CLAUDE.md
+  §10). The remaining gap is a V2 picker with faction-aware heuristics
+  (parking lot).
+* `6202ce1` **TYRANIDS-SYNAPSE-AUDIT** — diag findings doc. Single
+  largest over-buff named: `code/simulator.py:4694-4703` auto-passed
+  Tyranid Battle-shock within 6" of SYNAPSE, citing the
+  pre-September-2024 codex text. Current codex says 3D6 instead of 2D6,
+  not auto-pass.
+* `24d8a7e` **[T2] TSON-KOS-MESMERISING-V1** — Sorcerer in Terminator
+  Armour's "Marked by Fate" datasheet ability was proxied as
+  `plus_one_to_hit=True` on the led Scarab Occult Terminators squad —
+  a 3-dimensional over-buff (single-target → all targets, single-roll →
+  all rolls, single-phase → both phases). Replaced with
+  `reroll_hit_ones=True` (the proxy convention used by Ahriman / Infernal
+  Master). TSON sim 71.5 → 71.2 (-0.3, below noise).
+* `08b1a2d` **[T2] VOTANN-JUDGEMENT-TOKENS-V1** — Judgement Tokens
+  machinery itself is clean (re-roll buffs were retired in iter25); the
+  real over-buff was on the Kâhl leader aura. Codex "Kindred Hero" grants
+  [LETHAL HITS]; the proxy was `plus_one_to_hit=True` — a ~2× over-buff.
+  Replaced with `reroll_hit_ones=True`. Side fix: rewrote
+  `tests/test_votann_oathband.py` (ImportError-broken since
+  VOTANN-DIAG-2 removed the six fabricated stratagems it referenced).
+* `201d1f9` **[T2] ADMECH-WARGEAR-V1** — six AdMech overrides
+  added / extended in `data/overrides.json`. Skitarii Vanguard / Rangers
+  / Sicarian Infiltrators had basket-blend leaks (heavy-weapon special-
+  option stats averaged into the basic rifle profile), running at
+  ~2.7-3× the correct per-attack damage versus MEQ. Tech-Priest
+  Manipulus / Dominus had stacked exclusive weapon options firing
+  simultaneously. Data is now Wahapedia-correct; sim moved +4 (wrong
+  direction at N=40 noise floor 4.17, statistically indistinguishable
+  from baseline).
+* `5f00b3f` **[T1] TYRANIDS-SYNAPSE-3D6** — replace the auto-pass at
+  `code/simulator.py:4694` with the current-codex 3D6 sum versus 2D6.
+  ~16% fail rate at 3D6 vs Leadership 8 versus 0% under auto-pass.
+  Tyranids gated 18.78 → 15.92 (-2.9 wr-points, direction correct).
+  Custodes also benefited (-6.3 wr-points) via cleaner Battle-shock
+  landscape. Chaos Daemons widened slightly (-3.8) — Daemons score
+  No Prisoners / Cull against enemy Battle-shock fails, so reducing
+  those reduces their secondary scoring.
+* `207b842` **[T1] STRATAGEM-CHAIN-V1** — widen
+  `DETACHMENT_STRATAGEM_CAP_PER_COMMAND_PHASE` from 1 to 2. The existing
+  dispatcher already gates each `_try_X` on CP affordability and the
+  per-strat once-per-phase exclusion is implicit (each strat appears
+  exactly once in the dispatcher list). One-constant fix. Gated MAE
+  10.52 → 10.22 (-0.30, the only landing this run to move MAE in the
+  right direction by more than noise). 3-stack remains parking lot.
+
+### Pattern observed
+
+Of 13 commits, only STRATAGEM-CHAIN-V1 (-0.30) and the Custodes-side of
+TYRANIDS-SYNAPSE-3D6 (-6.3 wr-points on Custodes alone) moved the
+needle visibly at N=40. The rest were correctness-positive but
+mean-absolute-error neutral — confirming the wave 7-42 observation that
+individual rule-correctness fixes plateau into noise at this scale once
+the easy levers are spent.
+
+### Open carry-forwards into wave 45
+
+1. **Drukhari Skysplinter Assault disembark buffs unwired** — the +33
+   Drukhari gated outlier is driven almost entirely by the missing
+   per-disembark-turn LANCE + IGNORES-COVER grant on Kabalites / Wyches.
+   Needs per-weapon-keyword temporary-gating infrastructure first.
+   Probably 2-3 commits of structural work.
+2. **Sororitas Acts of Faith spend model** — still +16-20 gated post
+   wave-44. Unaudited this run.
+3. **Imperial Knights / Chaos Knights structural mapper gap** — -30
+   and -41 gated respectively. Locked structural; needs Stage 2.
+4. **Daemons follow-up beyond Greater Daemon anchor** — Locus aura
+   broadcast magnitude and Greater Daemon combat profile audit are the
+   two next levers per DAEMONS-DIAG-10 findings.
+5. **Tyranid Norn Emissary / Tervigon / Old One Eye** — under-modelled
+   per TYRANIDS-SYNAPSE-AUDIT findings (FNP override on OOE, Tervigon
+   spawn, Norn Singular Purpose). These would shift Tyranids the wrong
+   direction (sim is over-shoot), so deprioritised.
+6. **SECONDARY-SELECTION-V2** — faction-aware picker. Current uniform
+   heuristic adds noise; a V2 that maps known faction shapes to the
+   secondary-mix that real-meta lists actually pick should close the
+   +0.66 V1 regression.
+7. **Per-weapon-keyword temporary gating infrastructure** — prerequisite
+   for Skysplinter Assault (above) plus ~10 other disembark-turn /
+   round-gated detachment rules currently approximated or unwired.
+
+### Tooling housekeeping
+
+- `LOOP-CLEANUP-UNLOCK` patch (`ae7eac2`) makes `scripts/loop_cleanup.py`
+  actually remove agent worktrees instead of printing "REMOVED" while git
+  silently fails. Tested end-to-end during this run.
+- `EVAL-TOURNAMENT-GAMES` patch (`51726fc`) unblocks `--out` JSON
+  snapshots; every eval in this run produced a writable snapshot.
+- `LOADER-FAIL-LOUD` (`b4cf249`) catches the `aeldari_drukhari_scourges`
+  typo that previously caused a 14 GB pytest leak.
+- `docs/CORE_RULES_COVERAGE.md` (`b4073e5`) now exists as a living audit
+  matrix; expect to be updated each iter when a new rule lands or a gap
+  is confirmed.
