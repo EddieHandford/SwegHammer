@@ -1957,3 +1957,130 @@ triggered; reverted in working tree, no commit.
 5. **STRATAGEM-CHAIN-V2** — widen cap from 2 to 3.
 6. All wave-44 carry-forwards remain in place.
 
+## Wave 46-47 close (2026-05-28)
+
+Branch `claude/sim-calibration-6`. 10 commits landed on top of wave-45
+close `4b3e18d`. Top commit at wave-47 close is `50e2601`.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 45 close (`4b3e18d`, 2026-05-28) | 13.57 | 10.22 | 5/22 |
+| Wave 47 batch-1 close (`660a677`, 2026-05-28) | 14.01 | 10.79 | 4/22 |
+| Wave 47 batch-2 close (`50e2601`, 2026-05-28) | 14.01 | **10.79** | 4/22 |
+
+Net **+0.57 gated MAE regression** across 10 commits. The regression is
+front-loaded in wave 46: the AELDARI-SPLINTER-ANTI-INFANTRY-4 tightening
+(`5e1cc0d`) plus the BSData-refresh churn nudged the metric the wrong
+way relative to N=40 noise. Wave 47 corrections were rule-correctness-
+positive but MAE-neutral — confirming the "easy levers spent" plateau
+called out in wave 43-44.
+
+### Wave 46: embark coupling + corrections-layer foundation
+
+* `4f2cf26` **[T1] RESERVES-EMBARK-COUPLING** — pre-embark before reserves
+  routing + co-route passengers + bring passengers in with their transport.
+  Unblocks the wave-45 Skysplinter Assault wiring (passengers were never
+  embarked at deploy time because their transport was routed to reserves
+  first). Movement: Drukhari +0.0 at this N (the Skysplinter wiring is
+  small-sample-size dependent).
+* `5e1cc0d` **[T2] AELDARI-SPLINTER-ANTI-INFANTRY-4** — Drukhari and Ynnari
+  Splinter weapons (Rifle / Cannon / Pistol / Carbine) had `ANTI-INFANTRY 3+`
+  in BSData; current Wahapedia codex tightened to 4+ in the Sep 2024 errata.
+  9 unit entries across the two factions, moved as overrides initially.
+* `a5dc6fd` **[T1] CODEX-CORRECTIONS-LAYER-10E** — separate BSData-lag
+  corrections from SwegHammer hand-tuning. New file
+  `data/codex_corrections_10e.json` layered between BSData base and
+  `data/overrides.json`. Moves the 9 Splinter entries out of overrides into
+  corrections so a future BSData refresh can retire them cleanly (matching
+  the `bsdata_was` snapshot in each entry).
+
+### Wave 47: stale-faction sweep
+
+The BSData snapshot fetched 2026-05-18 left ~10 factions whose `parsed.json`
+entries had not been re-checked against current Wahapedia since the May
+errata pass. Two batches of 5 parallel Sonnet agents (per
+`feedback-tiered-model-selection`) — `[T2]` because the work is per-faction
+audit-and-correct, not novel rule code.
+
+**Batch 1 (Imperial Knights, Chaos Knights, Chaos Daemons, Ynnari, Deathwatch):**
+
+* IK, CK, Ynnari — all clean (0 corrections). IK and CK gaps are unmodeled
+  Knight rules (Harbingers, ranged-only invuln, Bloodlust, detachment
+  effects), not BSData stat lag.
+* Ynnari surfaced a parking-lot finding: Aeldari characters (Drukhari Archon,
+  Craftworlds Autarch, Yvraine, Visarch, Yncarne) systematically missing
+  their 4+ invuln save.
+* `edc06b0` **CODEX-STALE-DEATHWATCH** — 1 correction (Watch Master invuln 4+),
+  plus surfaced the systematic mapper bug: BSData encodes some invuln saves
+  as inline `<profile>` text on the selectionEntry rather than as
+  `<infoLink>`, so `mapper.extract_invuln()` misses them.
+* `660a677` **[T2] CODEX-STALE-DAEMONS + Karanak override fix** — 7 invuln
+  corrections (Bloodthirster, Lord of Change, Great Unclean One, Keeper of
+  Secrets, Skarbrand, Bloodletters, Karanak) — all same mapper bug. Karanak
+  override fix: codex value is 4+, overrides.json had it at 5+ (mis-identified
+  in DAEMONS-DIAG-2); corrections layer now carries 4+ and the shadowing
+  override field was removed.
+
+**Audit Round 2** (`90a7ab5` **[T2] CODEX-AUDIT-ROUND-2**): retrospective
+check on the May Plague-corrections found 5 over-broad DG/CSM Plague entries
+from Round 1 to be over-zealous; reverted. First batch of post-revert audits
+confirmed clean.
+
+**BSData refresh** (`61366d1` **[T1] BSDATA-REFRESH**): pulled latest BSData
+main; 1 caught-up correction retired (BSData upstream now carries the fixed
+value).
+
+**Batch 2 (Imperial Fists, Iron Hands, Dark Angels, White Scars,
+Adeptus Titanicus):**
+
+* IF, IH, White Scars — all clean (0 corrections). Chapter heroes and
+  load-bearing units all match current Wahapedia 10e.
+* `3ebb305` **[T2] CODEX-STALE-DARK-ANGELS** — 8 invuln corrections (Azrael,
+  Belial, Sammael, Asmodai, Ezekiel, Lion El'Jonson, Deathwing Knights,
+  Ravenwing Black Knights), all same mapper bug. Lion El'Jonson override
+  fix: codex is 3+ (The Emperor's Shield), overrides.json had 4+ from an old
+  sweep; corrections layer now carries 3+ and the shadowing override removed.
+* `50e2601` **[T2] CODEX-STALE-TITANICUS** — 4 invuln corrections on Chaos
+  Titans (Reaver, Warbringer Nemesis, Warhound, Warlord) for the 5+ Ion
+  Shield. Same mapper bug. Loyalist Adeptus Titanicus side produces no
+  parsed entries (the `.cat` uses only entryLinks into `Library - Titans`)
+  and is scope-parked until the mapper learns to follow cross-catalogue
+  entryLinks.
+
+### Pattern observed
+
+Every wave-47 invuln correction is the same root cause: BSData encodes
+invuln saves as inline `<profile typeName="Abilities">` text rather than
+as `<infoLink>`. The corrections file now has 20 such entries across 5
+faction catalogues (Daemons Library, Deathwatch, Dark Angels, Titans
+Library, plus the Ynnari parking-lot list still un-corrected). A
+mapper-side fix to `mapper.extract_invuln()` would retire all of them in
+one pass.
+
+### Open carry-forwards into wave 48
+
+1. **Mapper invuln-prose-walk fix** — single highest-leverage cleanup of
+   the wave-47 corrections backlog. Teach `mapper.extract_invuln()` to
+   parse inline `<profile typeName="Abilities">` text on the
+   selectionEntry. Would retire 20+ correction entries and prevent the
+   same bug appearing in every future stale-faction audit. Parking-lot
+   instances still to add: Aeldari characters (Drukhari Archon,
+   Craftworlds Autarch, Yvraine, Visarch, Yncarne) from the Ynnari audit.
+2. **Loyalist Adeptus Titanicus parser support** — Imperium - Adeptus
+   Titanicus .cat uses only entryLinks into Library - Titans and produces
+   no parsed entries. Mapper needs cross-catalogue entryLink resolution.
+3. **N=40 plateau** — gated MAE has been within 10.22-10.81 for 5
+   consecutive evals across 10+ commits. The remaining gap is
+   structurally locked (IK/CK -32/-41 mapper-bound, Drukhari +34
+   Skysplinter-bound, Daemons -17 Locus-bound, Sororitas +17 spend-
+   model bound). Without one of those four structural levers landing,
+   further per-faction rule-correctness work will continue to be
+   MAE-neutral. Recommended next pivot: mapper invuln fix (carry-forward 1)
+   to retire the backlog, then attack one structural lever.
+4. All wave-45 carry-forwards remain in place (Drukhari Skysplinter dormant
+   pending the upstream reserves coupling firing in more samples, Sororitas
+   Acts of Faith spend model unaudited, Daemons Locus magnitude unaudited,
+   SECONDARY-SELECTION-V3 tier-table refinement, STRATAGEM-CHAIN-V2 cap 3).
+
