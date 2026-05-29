@@ -89,6 +89,20 @@ class LeaderAbility:
     aura_range: float                       # inches; 0 = army-wide
     # Offensive modifiers (apply to ATTACKER when it's in range of this leader)
     reroll_hit_ones: bool = False
+    # TSON-AURA-V2 (iter60): shooting-phase-only variant of reroll_hit_ones.
+    # Used for Psychic-leader abilities whose codex text says "each time a
+    # Psychic Attack is made" or "until the end of the [Shooting] phase" —
+    # the codex explicitly restricts the re-roll to the Shooting phase.
+    # In units.py the flag is consumed with a `mode != "melee"` guard
+    # (matching the existing transient_reroll_hits_shooting gate pattern),
+    # so melee attacks from the same led unit receive no re-roll.
+    # Affects: Ahriman "Master of the Rubricae (Psychic)" (Shooting/Psychic
+    # only), Infernal Master "Malefic Maelstrom (Psychic)" (weapons in unit
+    # gain [SUSTAINED HITS 1] — codex doesn't gate by phase but the proxy
+    # is directionally correct for ranged-heavy Rubric Marines), Sorcerer
+    # in Terminator Armour "Marked by Fate (Psychic)" (explicitly "Until
+    # the end of the [Shooting] phase").
+    reroll_hit_ones_shooting_only: bool = False
     reroll_wound_ones: bool = False
     plus_one_to_hit: bool = False
     plus_one_to_hit_melee_only: bool = False  # +1 to hit in melee attacks only (e.g. Warboss "Might is Right")
@@ -569,13 +583,22 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     #     led unit a 4+ invulnerable save. Modelled as extra_invuln=4.
     #   - Infernal Master: Malefic Maelstrom (Psychic) grants the led
     #     unit [SUSTAINED HITS 1]. Modelled as sustained_hits proxy via
-    #     reroll_hit_ones (an offensive shooting buff in the same scale).
-    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, reroll_hit_ones=True,
+    #     reroll_hit_ones_shooting_only (an offensive Shooting-phase buff).
+    #     TSON-AURA-V2 (iter60): narrowed from reroll_hit_ones (all phases)
+    #     to reroll_hit_ones_shooting_only for both Ahriman and Infernal Master.
+    #     Ahriman's codex rule is explicitly "Psychic Attack" and "targets an
+    #     enemy unit" — Psychic Attacks are ranged-only in 10e; melee Rubric
+    #     Marine attacks carry no Psychic keyword. Infernal Master's Malefic
+    #     Maelstrom grant is weapons-wide, but the proxy direction (re-roll
+    #     1s) is most defensible on Shooting where Rubric Marines deal the
+    #     bulk of their damage. Narrowing to Shooting removes the melee-leak
+    #     that inflated TSON sim win-rates beyond the Warp Friends target.
+    ("Ahriman",            LeaderAbility(name="Arch-Sorcerer of Tzeentch",  aura_range=6.0, reroll_hit_ones_shooting_only=True,
                                           host_keys=("thousand_sons_rubric_marines",
                                                      "thousand_sons_tzaangor_enlightened"))),
     ("Exalted Sorcerer",   LeaderAbility(name="Arcane Shield",              aura_range=6.0, extra_invuln=4,
                                           host_keys=("thousand_sons_rubric_marines",))),
-    ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones=True,
+    ("Infernal Master",    LeaderAbility(name="Malefic Maelstrom",          aura_range=6.0, reroll_hit_ones_shooting_only=True,
                                           host_keys=("thousand_sons_rubric_marines",))),
     # Magnus the Red — EPIC HERO MONSTER PSYKER, NOT a CHARACTER leader-
     # attachment. Magnus does not formally lead a unit and does not confer
@@ -625,15 +648,19 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # (Psychic) hit-reroll (TSON-DIAG-3) and Infernal Master's Malefic
     # Maelstrom [SUSTAINED HITS 1] proxy. Magnitude drops from a full
     # +1-to-hit modifier (~+1/3 to +1/2 of all hit rolls) to a single
-    # 1-rerolled hit-roll-of-1 (~+1/6 of all hit rolls), still army-wide
-    # both phases but at a much smaller uplift per hit. Direction-
-    # correct (offensive hit-roll uplift on the Scarab squad); strictly
+    # 1-rerolled hit-roll-of-1 (~+1/6 of all hit rolls), strictly
     # narrower than the codex single-target per-phase +1-to-hit, but the
     # smallest credible shrinkage given the absence of per-target
     # hit-modifier plumbing. Listed BEFORE the generic CSM "Sorcerer"
     # entry so this longer key wins lookup. Wahapedia source:
     # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/Sorcerer-In-Terminator-Armour
-    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, reroll_hit_ones=True,
+    # TSON-AURA-V2 (iter60): narrowed from reroll_hit_ones (all phases) to
+    # reroll_hit_ones_shooting_only. The codex explicitly says "Until the
+    # end of the [Shooting] phase" — melee attacks by Scarab Occult
+    # Terminators must receive no re-roll from this ability. The prior
+    # all-phases flag incorrectly boosted melee hit rolls on a unit that
+    # does significant melee damage with Force Staves and Inferno combi-bolters.
+    ("Sorcerer in Terminator Armour", LeaderAbility(name="Marked by Fate",   aura_range=6.0, reroll_hit_ones_shooting_only=True,
                                           host_keys=("thousand_sons_scarab_occult_terminators",))),
     # Chaos Space Marines (legacy "Chaos Space Marines squad" not in 10e BSData;
     # use the closest battleline that is, otherwise let the heuristic decide.)
@@ -1037,6 +1064,9 @@ def lookup_ability(profile_name: str) -> Optional[LeaderAbility]:
 # Default buff dict: all flags off / neutral. Same shape Unit.attack consumes.
 _NEUTRAL_BUFFS: Dict[str, object] = {
     "reroll_hit_ones": False,
+    # TSON-AURA-V2: shooting-phase-only re-roll 1s (Ahriman / Infernal Master /
+    # Sorcerer in Terminator Armour). Consumed in units.py with mode != "melee" gate.
+    "reroll_hit_ones_shooting_only": False,
     "reroll_wound_ones": False,
     "plus_one_to_hit": False,
     "plus_one_to_hit_melee_only": False,
@@ -1387,6 +1417,9 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
             if not any(k in ability.host_keys for k in attacker_keys_for_host_gate):
                 continue
         _merge_bool(buffs, ability, "reroll_hit_ones")
+        # TSON-AURA-V2: shooting-only re-roll 1s grant. See LeaderAbility
+        # dataclass comment and units.py consumption site for gate detail.
+        _merge_bool(buffs, ability, "reroll_hit_ones_shooting_only")
         _merge_bool(buffs, ability, "reroll_wound_ones")
         _merge_bool(buffs, ability, "plus_one_to_hit")
         _merge_bool(buffs, ability, "plus_one_to_hit_melee_only")

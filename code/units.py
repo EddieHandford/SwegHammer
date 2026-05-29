@@ -2300,6 +2300,14 @@ class Unit:
 
             # Re-roll flags from attacker's buffs.
             att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
+            # TSON-AURA-V2 (iter60): shooting-phase-only re-roll 1s (Ahriman,
+            # Infernal Master, Sorcerer in Terminator Armour). The codex rules
+            # for these leaders restrict the hit-reroll to Psychic Attacks or
+            # to "the Shooting phase" explicitly; we approximate by blocking
+            # the buff in melee (mode == "melee"). Composes with the existing
+            # att_reroll_hit_ones path — if either flag is set, the die re-rolls.
+            if bool(att_buffs.get("reroll_hit_ones_shooting_only", False)) and mode != "melee":
+                att_reroll_hit_ones = True
             att_reroll_wound_ones = bool(att_buffs["reroll_wound_ones"])
             # "Re-roll ALL failed hits" defaults to off — only the Votann
             # Judgement Tokens path (below) and Marines Oath of Moment turn
