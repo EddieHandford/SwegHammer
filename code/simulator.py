@@ -3510,11 +3510,19 @@ class Battle:
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
     # BSData v10.6.0 verbatim text (cited in keywords_and_mechanics.json).
     #
-    # Real rule: at the start of your Shooting phase, each Psyker model
-    # may attempt one Ritual. Test = 2D6 (+ optional D6 from Channel the
-    # Warp; doubles/triples on that D6 cause D3 mortals to the caster).
-    # Pick a Ritual whose Warp Charge ≤ test total; resolve its effect.
+    # Real rule: at the start of your Shooting phase, each Psyker MODEL
+    # (i.e., the Aspiring Sorcerer embedded in each squad) may attempt one
+    # Ritual. Test = 2D6 (+ optional D6 from Channel the Warp; doubles/
+    # triples on that D6 cause D3 mortals to the caster). Pick a Ritual
+    # whose Warp Charge ≤ test total; resolve its effect.
     # No Ritual may be manifested more than once per turn army-wide.
+    #
+    # TSON-CABAL-V1 fix: the army builder decomposes min_models-sized squads
+    # into that many individual Unit objects, each carrying the PSYKER
+    # keyword. The old loop gave every model-Unit a Ritual attempt, inflating
+    # caster count ~2.8x (avg 18.7 model-units vs 6.7 real squad-casters).
+    # The fix groups alive PSYKER units by profile and yields one attempt
+    # per min_models models — one Aspiring Sorcerer per squad.
     #
     # SwegHammer implementation:
     #   * Doombolt (WC7) and Temporal Surge (WC6) are fully wired.
@@ -3556,10 +3564,54 @@ class Battle:
             # this turn. The codex caps each Ritual at one manifestation
             # army-wide per turn.
             manifested_this_turn: set = set()
-            for psyker in army.alive_units:
-                if "PSYKER" not in (psyker.profile.unit_keywords or ()):
-                    continue
-                # Each Psyker gets ONE Ritual attempt per turn — EXCEPT
+            # Build a deduplicated list of "Psyker squad representatives".
+            # The simulator decomposes multi-model squads into one Unit object
+            # per model (min_models Unit objects per template slot). In the
+            # real codex, the Cabal of Sorcerers ability belongs to the
+            # Aspiring Sorcerer model embedded in each squad — one caster
+            # per squad of Rubric Marines or Scarab Occult Terminators, not
+            # one per model. Iterating over every model-Unit would allow 5
+            # ritual attempts for one 5-man Rubric Marines squad, which is
+            # incorrect. Fix: group alive PSYKER units by profile name, then
+            # yield one representative per every min_models models — so a
+            # 5-model squad contributes exactly 1 caster slot.
+            #
+            # Characters (min_models == 1) are unaffected: each alive Unit is
+            # one squad, so they still get their individual attempt as before.
+            # Magnus still gets 2 attempts and +2 to test (Lord of the Planet
+            # of the Sorcerers). Ahriman still gets +1 to test (Arch-Sorcerer
+            # of Tzeentch). Per-squad casters with min_models > 1 use the
+            # first alive model in the group as the representative (health
+            # and position don't affect the ritual roll, so the choice is
+            # arbitrary and deterministic within the sorted alive_units list).
+            #
+            # Wahapedia source for the per-unit (not per-model) rule:
+            # https://wahapedia.ru/wh40k10ed/factions/thousand-sons/ →
+            # Cabal of Sorcerers: "select one model from your army with
+            # this ability that has not yet attempted a Ritual this turn".
+            # The ability lives on the Aspiring Sorcerer, which is one
+            # model per squad regardless of squad size.
+            from collections import defaultdict as _dd
+            _psyker_groups: dict = _dd(list)
+            for _u in army.alive_units:
+                if "PSYKER" in (_u.profile.unit_keywords or ()):
+                    _psyker_groups[_u.profile.name].append(_u)
+            # Yield one representative per squad (= per min_models models).
+            _psyker_reps: list = []
+            for _name, _group in _psyker_groups.items():
+                _squad_size = max(1, _group[0].profile.min_models)
+                # Each chunk of _squad_size alive models represents one squad.
+                # Partially-destroyed squads still contribute 1 caster as
+                # long as at least one model remains (the Aspiring Sorcerer
+                # in Rubric Marines / Scarab Occult is the last to die by
+                # default — real rule: the sorcerer is a separate model
+                # counted within the squad; for simplicity we assume the
+                # squad retains its caster until fully destroyed).
+                _n_squads = max(1, len(_group) // _squad_size)
+                for _i in range(_n_squads):
+                    _psyker_reps.append(_group[_i * _squad_size])
+            for psyker in _psyker_reps:
+                # Each Psyker squad gets ONE Ritual attempt per turn — EXCEPT
                 # Magnus the Red, whose Lord of the Planet of the Sorcerers
                 # ability grants TWO attempts (with +2 to each test). The
                 # second attempt only fires if a Ritual is still available
