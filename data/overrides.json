@@ -688,6 +688,19 @@
       "range_inches": 18,
       "notes": "Melta rifle range corrected to 18\" per Wahapedia datasheet (mapper weighted-basket-average underrated as 12\"). Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Eradicator-Squad"
     },
+    "space_marines_aggressor_squad": {
+      "weapon": "Auto Boltstorm Gauntlets",
+      "attacks": 3,
+      "hit_probability": 0.667,
+      "torrent": false,
+      "twin_linked": true,
+      "ignores_cover": false,
+      "range_inches": 18,
+      "strength": 4,
+      "ap": 0,
+      "weapon_damage_per_shot": 1.0,
+      "notes": "MARINES-AUDIT-V2: BSData mapper picked up Flamestorm Gauntlets (torrent, auto-hit, D6+1 shots avg 4.5, range 12\") as the primary ranged profile. Tournament-standard competitive loadout is Auto Boltstorm Gauntlets (18\", 3 attacks, BS 3+, S4, AP0, D1, Twin-linked) per Wahapedia datasheet. Flamestorm Gauntlets are an alternate option rarely used competitively. Torrent+auto-hit inflates per-model damage by eliminating miss losses entirely. Source: https://wahapedia.ru/wh40k10ed/factions/space-marines/#Aggressor-Squad"
+    },
     "space_marines_repulsor": {
       "points_override": 198.0,
       "extra_ranged_profiles": [
