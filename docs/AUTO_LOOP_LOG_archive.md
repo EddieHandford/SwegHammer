@@ -2381,3 +2381,183 @@ spend models — worth a parking-lot sweep:
   landed); the entry remains as historical context until the next
   memory sweep.
 
+## Wave 50 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 4 commits landed on top of wave-49
+close `8e10e5b`. Top commit at wave-50 close is `25af977`.
+
+Wave 50 attacked three named carry-forwards from wave 49 (Daemons Lever
+1 Greater-Daemon seeding, AdMech Doctrina representation audit, Drukhari
+non-Skysplinter outlier) plus the LeaderAbility sustained-hits schema
+follow-up.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 49 close (`8e10e5b`, 2026-05-29) | 14.23 | 10.81 | 4/22 |
+| Wave 50 close (`25af977`, 2026-05-29) | 14.24 | **10.81** | 4/22 |
+
+**Flat at headline.** All per-faction movements within their noise
+floors. Three landings were rule-correct fixes that targeted real bugs
+but where the magnitude impact at N=40 was below noise:
+
+* Drukhari Combat Drugs (5-round permanent grant fix): predicted -2 to
+  -5 wr-points, measured +0.12. Adrenalight's +1 melee attack only
+  applies to Wych Cult units, and the archetype-built Drukhari armies
+  in this eval are predominantly Kabal-shape; the Wych Cult subset
+  doesn't dominate enough for the 5x magnitude correction to ripple
+  to the gated metric.
+* AdMech Doctrina alive-units gate: predicted near-zero direct impact
+  per agent report. Confirmed +0.23 (within noise 4.17). The fix is
+  structurally correct but only fires after total army wipeout.
+* LeaderAbility sustained-hits schema + Changecaster swap: predicted
+  small Daemons-direction movement. Measured -0.47 (within noise 3.16,
+  wrong direction at headline). The schema is forward-compatible
+  infrastructure — its main value is unblocking Nurgle Spoilpox
+  Scrivener and Slaanesh Tormentbringer leader entries, neither of
+  which were added in this wave.
+
+### Daemons Lever 1 verified closed
+
+Agent diagnostic at the wave-49 baseline measured Greater Daemon
+presence across N=200 archetype builds:
+
+| Greater Daemon | Per-archetype presence | Overall presence |
+|---|---|---|
+| Bloodthirster (Khorne) | 100% | 29% |
+| Lord of Change (Tzeentch) | 100% | 32% |
+| Keeper of Secrets (Slaanesh) | 100% | 28% |
+| Great Unclean One (Nurgle) | 100% | 23% |
+
+The DAEMONS_DIAG_10 baseline of 1/0/0/5% was measured BEFORE commit
+`352b1b4 DAEMONS-FIX-1` (wave 44) which anchors the Greater Daemon
+in mono-god templates ahead of the budget walk. That commit closed
+Lever 1; the wave-49 carry-forward was based on stale diagnostic
+numbers. Remaining Daemons -20 deficit must come from elsewhere —
+likely the Greater Daemon combat profile audit (Lever C in
+DIAG-10) and/or stratagem parity (Lever 2).
+
+### Commit landings
+
+* `6e8dfd4` **[T2] DRK-NON-SKYSPLINTER-V1** — Combat Drugs was applied
+  once at `Battle.__init__` and the Adrenalight bonus (+1 melee attack
+  on Wych Cult units) persisted for all 5 battle rounds, a 5×
+  magnitude error. The codex rule is "at the start of your Command
+  phase select which Combat Drugs will be active for your army until
+  the start of your next Command phase. You cannot select the same
+  Combat Drug more than once per battle." Fix in `code/simulator.py`:
+  `_apply_combat_drugs(round_num)` gated to round 1 (Adrenalight is
+  the picked drug); transient `combat_drug_extra_melee_attacks` cleared
+  per round-start; called from `_run_round` after the transient clear.
+  Stage A diagnostic measured Skysplinter ~90% / Kabalite Cartel ~80%
+  pre-fix — both detachments overshoot, confirming the bug is in
+  Drukhari core not detachment flags. Cited as
+  `simulator.combat_drugs`. Side-finding from agent: Drukhari +38
+  residual is dominated by activation-count advantage (49-unit
+  Drukhari army vs ~20-unit Marine army at the same points) and
+  heterogeneous squad weapon-stat averaging — both structural
+  follow-ups for future waves.
+* `898b023` **[T2] ADMECH-DOCTRINA-V1** — two fixes:
+  - `code/simulator.py:5117` Doctrina pick used `army.units` (includes
+    dead) instead of `army.alive_units`. Same shape as the wave-49
+    SOROR fix; structural inconsistency cleaned up.
+  - `code/army.py:235-236` and `tests/test_admech.py` carried stale
+    references to the off-mode penalty rule that MR-D (claude/sim-
+    calibration-5) removed. Two tests passed against a local
+    `_effective_hit_target` helper that duplicated the OLD penalty
+    behaviour, giving false confidence the removal was complete.
+    Tests rewritten to verify the live `Unit.attack` semantics.
+  Functionally near-zero win-rate move. AdMech +15.4 gated residual
+  is NOT the Doctrina spend gate; remains an active diagnostic
+  target for a future wave.
+* `25af977` **[T3] LEADERABILITY-SUSTAINED-HITS** — schema fields
+  `sustained_hits_ranged: int = 0` and `sustained_hits_melee: int = 0`
+  added to LeaderAbility. Wired through `_NEUTRAL_BUFFS`,
+  `effective_buffs` (additive merge via `_merge_add`), and the
+  attack-resolution loop in `code/units.py` (mode-routed addition to
+  `effective_sustained_hits`). Changecaster swapped from the
+  `reroll_hit_ones=True` proxy (which doesn't compose with the
+  SUSTAINED HITS extra-hit accumulator) to the rule-correct
+  `sustained_hits_ranged=1`. Forward-compatible: Nurgle Spoilpox
+  Scrivener and Slaanesh Tormentbringer can now be added to the
+  registry without a follow-up dataclass change.
+
+### Pattern observed
+
+Three of four wave-50 commits were rule-correct fixes that targeted
+real codex / structural bugs but where the per-unit magnitude was too
+small (Combat Drugs limited to Wych Cult subset, Changecaster's
+SUSTAINED HITS 1 swap is direction-neutral vs the reroll proxy, AdMech
+alive-units gate only fires post-wipe) to ripple to the gated metric
+at N=40. The DAEMONS-GREATER-SEEDING task confirmed Lever 1 was already
+closed by a prior wave; the carry-forward was based on stale
+diagnostic numbers.
+
+**Implication for wave 51 dispatch discipline**: agent prompts that
+quote pre-existing diagnostic numbers should require the agent's first
+step to be a fresh baseline measurement before applying a fix. The
+wave-49 SOROR fix (-4.28 wr-points) succeeded because it targeted a
+freshly-measured representation amplification bug; the wave-50
+DAEMONS-GREATER-SEEDING task wasted ~430k tokens on a gap that had
+already closed.
+
+### Open carry-forwards into wave 51
+
+1. **Daemons Lever C — Greater Daemon combat profile audit**
+   (DAEMONS_DIAG_10). Greater Daemons are now seeded at 100% per
+   archetype but Daemons remain -20 gated. The combat profiles
+   (M/T/Sv/W/Inv, melee stats) may carry approximations or stale
+   BSData values. Predicted +5-10 wr-points if audit surfaces real
+   stat lag.
+2. **Daemons Lever 2 — stratagem parity**. Unaudited. Predicted +3-6
+   wr-points.
+3. **AdMech +15.6 gated residual** — Doctrina was the wrong target.
+   Candidates: detachment-side fabrications in Skitarii Hunter Cohort
+   / Cohort Cybernetica, basket-blend weapon profiles on Tech-Priest
+   variants, Doctrina buff magnitude (the +1 BS / WS modifier itself
+   may be over-stated vs codex modifier-cap interaction).
+4. **Sororitas +19.12 gated** — AoF spend gate alone closed ~1/5 of
+   the gap. Remaining levers: AoF dice selection (which die gets
+   banked to which roll), detachment-side audits (Bringers of Flame /
+   Hallowed Martyrs), dice-pool generation rate (currently 1/round,
+   codex grants 1 + 1 per destroyed Sororitas unit — verify the
+   on-death award path).
+5. **Drukhari activation-count advantage** (49-unit Drukhari vs
+   ~20-unit Marine at same points). Surfaced by DRK-NON-SKYSPLINTER-V1
+   agent. Structural — alternating activations amplify the unit-count
+   disparity. Possible mitigation: list-building heuristic that biases
+   Drukhari toward fewer, larger units; or alternating-activation
+   rule adjustment for asymmetric-shape armies.
+6. **Drukhari heterogeneous squad weapon-stat averaging** — surfaced
+   by DRK-NON-SKYSPLINTER-V1 agent. Kabalite squads carry Splinter
+   Rifle (most models) + Splinter Cannon / Blaster (1-2 models). The
+   mapper averages the weapon profiles; this dilutes the heavy
+   weapon's impact when the squad shoots together. Tractable mapper-
+   structural follow-up if a multi-profile-per-squad shape lands.
+7. **TSON +20.64 gated, noise 8.75** — under-audited recently. Last
+   audit was `24d8a7e TSON-KOS-MESMERISING-V1` (wave 44). High
+   noise floor means tractable lever may exist but at smaller gain.
+8. **Aeldari +12.62 / T'au +12.52 / Votann +15.58 / Orks +15.46** —
+   all under-audited in recent waves. Each likely carries 1-2 small
+   rule-correctness or detachment-audit levers. Candidates for a
+   parallel sweep wave.
+9. **Tyranids +20.34** — partly audited (`5f00b3f SYNAPSE-3D6`, wave
+   44 -2.9 wr-points). Wave-44 Norn/Tervigon/OOE under-modelling
+   findings still parked because fixing them would shift Tyranids the
+   wrong direction (sim already over). The over-buff side needs
+   surfacing.
+10. **Nurgle Spoilpox Scrivener + Slaanesh Tormentbringer leader
+    entries** — `25af977` schema is ready; entries themselves need
+    BSData verification + Wahapedia citation. Small predicted
+    movement but rule-correct addition.
+11. **IK -35.52 / CK -43.57 mapper-locked** — Stage 2 multi-profile
+    weapon mapper. Long-day branch.
+
+### Tooling housekeeping
+
+* Drukhari Combat Drugs side effect on AUTO_LOOP_LOG.md (agent added
+  80-line in-flight block prematurely) was overwritten by this close.
+  Agent prompts should explicitly forbid AUTO_LOOP_LOG.md edits —
+  the wave close is the orchestrator's job.
+
