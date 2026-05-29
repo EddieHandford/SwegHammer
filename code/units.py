@@ -2740,22 +2740,18 @@ class Unit:
                 if _aura_sh_r > 0:
                     effective_sustained_hits += _aura_sh_r
 
-            # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
-            # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
-            # `save_after_ap` is computed) — see the block tagged
-            # `SHIELD_HOST.melee_ap_plus_one` above. This block only sets the
-            # crit threshold that gates `crit_hit = (roll == 6)` later in the
-            # attack loop. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/
-            # adeptus-custodes/#Shield-Host.
-            # C1 (claude/sim-calibration-4): Crit-on-5+ fires on EVEN battle
-            # rounds (2, 4). AP+1 fires on ODD battle rounds (1, 3, 5). This
-            # alternation averages to one bullet active per round, matching
-            # the codex "pick one bullet at the start of each battle round"
-            # rule (prior implementation applied both always-on, strictly
-            # stronger than codex). Cited as
-            # `SHIELD_HOST.melee_crit_on_5_plus_hits`.
+            # ---- melee_crit_on_5_plus_hits gate (generic) ----
+            # CUSTODES-KATAH-V1 (claude/sim-calibration-6): no active
+            # detachment sets this flag True — it was removed from SHIELD_HOST
+            # because the "Crit-on-5+ melee" was a fabricated Ka'tah stance
+            # with no codex counterpart (the three real Martial Ka'tah stances
+            # are Kaptaris/Rendax/Dacatarai; none grants Crit-on-5+ melee).
+            # The block is retained as a no-op so any future detachment with
+            # a real codex citation for "crit-on-5+ melee" can set the flag
+            # True without new plumbing. Gate: mode=="melee" AND the
+            # attacker's detachment carries `melee_crit_on_5_plus_hits=True`.
             melee_crit_threshold = 6   # canonical 10e: nat 6 to-hit = Critical Hit
-            if mode == "melee" and p.faction == "Adeptus Custodes":
+            if mode == "melee":
                 _own_army = getattr(self, "army_ref", None)
                 if _own_army is not None:
                     try:
@@ -2770,10 +2766,6 @@ class Unit:
                             getattr(_battle_c5, "_current_round", 0)
                             if _battle_c5 is not None else 0
                         )
-                        # Even round (2, 4) -> Crit-on-5+ bullet active. Round
-                        # 0 (pre-battle / no battle ref) treated as inactive
-                        # so standalone tests without a battle round set see
-                        # no buff unless they configure the round explicitly.
                         if _round_c5 > 0 and _round_c5 % 2 == 0:
                             melee_crit_threshold = 5
 

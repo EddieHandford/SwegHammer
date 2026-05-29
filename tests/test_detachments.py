@@ -29,9 +29,11 @@ _NEW_DETACHMENTS = (
     # composition preference is retained.
     ("hallowed_martyrs",       "Adepta Sororitas",       "preferred_composition", "infantry"),
     # iter-8 fix: Shield Host swapped the defensive `plus_one_save`
-    # approximation for the real offensive Martial Ka'tah / Martial Mastery
-    # buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
-    ("shield_host",            "Adeptus Custodes",       "melee_crit_on_5_plus_hits", True),
+    # approximation for the real Rendax Ka'tah / Martial Mastery melee AP+1
+    # buff (`melee_ap_plus_one`). CUSTODES-KATAH-V1: the fabricated
+    # `melee_crit_on_5_plus_hits` stance is removed (False, no codex
+    # counterpart). Verify the Rendax AP+1 flag is True.
+    ("shield_host",            "Adeptus Custodes",       "melee_ap_plus_one", True),
     # SC5-4 (2026-05-21): Skitarii Hunter Cohort's real 'Stealth Optimisation'
     # detachment rule is defensive (Stealth + cover) — no offensive reroll.
     # The previous `reroll_hit_ones=True` proxy was a stand-in for the
@@ -154,13 +156,18 @@ class ArmyResolveDetachmentTests(unittest.TestCase):
 
     def test_custodes_army_resolves(self):
         # iter-8 fix: Shield Host's defensive `plus_one_save` approximation
-        # was replaced with the real offensive Martial Ka'tah / Martial
-        # Mastery dual buff (`melee_crit_on_5_plus_hits` + `melee_ap_plus_one`).
+        # was replaced with the real Rendax Ka'tah melee AP+1 buff
+        # (`melee_ap_plus_one`).
+        # CUSTODES-KATAH-V1: the fabricated `melee_crit_on_5_plus_hits`
+        # stance has been removed — it had no codex counterpart.
         army = Army("Custodes")
         army.add_unit(self._profile("Adeptus Custodes"))
         det = army.resolve_detachment()
         self.assertIsNotNone(det)
-        self.assertTrue(det.melee_crit_on_5_plus_hits)
+        self.assertFalse(
+            det.melee_crit_on_5_plus_hits,
+            "melee_crit_on_5_plus_hits must be False: fabricated stance removed.",
+        )
         self.assertTrue(det.melee_ap_plus_one)
         self.assertFalse(det.plus_one_save)
 

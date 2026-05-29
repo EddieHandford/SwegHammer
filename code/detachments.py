@@ -207,30 +207,30 @@ class Detachment:
     necrons_army_wide_plus_one_save_command_protocol: bool = False
 
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
-    # Martial Mastery). Wahapedia verbatim: "At the start of the battle
-    # round, you can select one of the bullet points below. If you do,
-    # until the start of the next battle round, that bullet point's
-    # effects apply: Each time an ADEPTUS CUSTODES model from your army
-    # with the Martial Ka'tah ability makes a melee attack, a successful
-    # unmodified Hit roll of 5+ scores a Critical Hit. Improve the Armour
-    # Penetration characteristic of melee weapons equipped by ADEPTUS
-    # CUSTODES models from your army with the Martial Ka'tah ability
-    # by 1." The detachment rule picks ONE bullet per round; SwegHammer's
-    # simulator has no per-round selection hook so we apply BOTH bullets
-    # army-wide for Adeptus Custodes melee attackers (offensive uplift
-    # for the whole battle). APPROXIMATION: in real play the player
-    # alternates per round between the Crit-on-5 stance and the AP+1
-    # stance; modelling both as always-on is strictly stronger than the
-    # codex but captures the dual offensive nature the iter-7 diagnostic
-    # called out as missing.
+    # Martial Mastery). The three real codex bullets are:
+    #   * Kaptaris Ka'tah — +1 to invulnerable saving throws vs ranged.
+    #   * Rendax Ka'tah   — improve AP of melee weapons by 1.
+    #   * Dacatarai Ka'tah — Sustained Hits ranged/melee bonus.
+    # The detachment rule picks ONE bullet per round.
+    # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
     #
-    # Simulator gates (both read in Unit.attack):
-    #   * melee_crit_on_5_plus_hits — when True AND mode=="melee" AND
-    #     attacker.faction == "Adeptus Custodes", a to-hit roll of 5+
-    #     scores a Critical Hit (in addition to the canonical 6+).
+    # CUSTODES-KATAH-V1 (claude/sim-calibration-6): `melee_crit_on_5_plus_hits`
+    # was a fabricated melee-crit stance with no codex counterpart. It fired
+    # on EVEN rounds (2, 4) and inflated melee output spuriously. Removed by
+    # setting the flag to False (dataclass default; retained as explicit field
+    # for auditability). Only `melee_ap_plus_one` (Rendax Ka'tah, ODD rounds
+    # 1/3/5) remains active. Kaptaris and Dacatarai are deferred (tighten
+    # direction: Custodes overshooting, not undershooting).
+    #
+    # Simulator gate (read in Unit.attack):
     #   * melee_ap_plus_one — when True AND mode=="melee" AND
-    #     attacker.faction == "Adeptus Custodes", the melee AP is
-    #     improved by 1 (e.g. AP-1 -> AP-2).
+    #     attacker.faction == "Adeptus Custodes" AND battle round is ODD,
+    #     the melee AP is improved by 1 (e.g. AP-1 -> AP-2). Cited as
+    #     `SHIELD_HOST.melee_ap_plus_one`.
+    #   * melee_crit_on_5_plus_hits — retained as a field (default False)
+    #     but no longer set True on any detachment. The Unit.attack block
+    #     that reads it is a no-op for all current detachments; retained
+    #     in case a future faction needs it with a real codex citation.
     melee_crit_on_5_plus_hits: bool = False
     melee_ap_plus_one: bool = False
 
@@ -573,37 +573,40 @@ SHIELD_HOST = Detachment(
         "Martial Ka'tah / Martial Mastery (Wahapedia verbatim): \"At the "
         "start of the battle round, you can select one of the bullet "
         "points below. If you do, until the start of the next battle "
-        "round, that bullet point's effects apply: Each time an ADEPTUS "
-        "CUSTODES model from your army with the Martial Ka'tah ability "
-        "makes a melee attack, a successful unmodified Hit roll of 5+ "
-        "scores a Critical Hit. Improve the Armour Penetration "
-        "characteristic of melee weapons equipped by ADEPTUS CUSTODES "
-        "models from your army with the Martial Ka'tah ability by 1.\" "
-        "Simulator implementation: bullets now correctly alternate per "
-        "battle round (C1 fix on claude/sim-calibration-4). The "
-        "`melee_ap_plus_one` flag fires on ODD rounds (1, 3, 5) and the "
-        "`melee_crit_on_5_plus_hits` flag fires on EVEN rounds (2, 4) — "
-        "gated inside Unit.attack via the army's `_battle_ref._current_round`. "
-        "This averages to ONE bullet active per battle round, matching the "
-        "codex pacing. Prior behaviour applied BOTH bullets always-on, "
-        "strictly stronger than codex (identified as the Custodes +22.3pt "
-        "MAE residual at N=40 archetype). Six real detachment stratagems wired (iter-8 fix, "
-        "Wahapedia: Arcane Genetic Alchemy, Unwavering Sentinels, "
-        "Multipotentiality, Vigilance Eternal, Archaeotech Munitions, "
-        "Avenge the Fallen). Replaces the iter-0 `plus_one_save` "
-        "approximation which inflated Custodes durability (defensive) "
-        "rather than melee output (offensive). iter-7 diagnostic in "
-        "docs/AUTO_LOOP_ITER7_DG_VS_CUSTODES.md identified this swap as "
-        "the top fix for DG-vs-Custodes (+19.5pt residual over real meta)."
+        "round, that bullet point's effects apply.\" The three real codex "
+        "bullets are: Kaptaris Ka'tah (+1 to invulnerable saving throws "
+        "against ranged attacks, defensive); Rendax Ka'tah (improve the "
+        "Armour Penetration of melee weapons by 1, offensive melee); "
+        "Dacatarai Ka'tah (melee weapons with the Sustained Hits ability "
+        "have that ability improved by 1, offensive melee/ranged). "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host. "
+        "CUSTODES-KATAH-V1 fix (claude/sim-calibration-6): the prior "
+        "implementation wired a fabricated 'Crit-on-5+ melee' bullet "
+        "(`melee_crit_on_5_plus_hits=True`) that has no codex counterpart. "
+        "That bullet fired on EVEN rounds (2, 4) and inflated Custodes "
+        "melee output by adding a spurious Critical Hit mechanic not "
+        "present in any of the three real stances. Root cause: when "
+        "the alternating-round model was introduced in C1 "
+        "(claude/sim-calibration-4), a fabricated second bullet was "
+        "introduced rather than mapping to the real codex stances. "
+        "Fix: `melee_crit_on_5_plus_hits` set to False on SHIELD_HOST; "
+        "only the Rendax AP+1 bullet (`melee_ap_plus_one`, ODD rounds 1/3/5) "
+        "remains active. Kaptaris (+1 invuln ranged) and Dacatarai "
+        "(Sustained Hits ranged) are not implemented as the Custodes "
+        "overshooting direction requires tightening, not expansion. "
+        "Six real detachment stratagems wired (iter-8 fix): "
+        "Arcane Genetic Alchemy, Unwavering Sentinels, Multipotentiality, "
+        "Vigilance Eternal, Archaeotech Munitions, Avenge the Fallen."
     ),
-    # Real rule: Martial Ka'tah / Martial Mastery — Crit-on-5+ OR AP+1 on
-    # melee attacks (offensive). One bullet per round in real play.
-    # C1 (claude/sim-calibration-4): both flags remain set on the
-    # detachment, but firing is now round-gated inside Unit.attack —
-    # AP+1 on ODD rounds, Crit-on-5+ on EVEN rounds. This matches the
-    # codex "pick one bullet per battle round" pacing.
+    # Real rule: Martial Ka'tah / Martial Mastery — player picks ONE of three
+    # bullets per battle round (Kaptaris defensive, Rendax melee AP+1,
+    # Dacatarai Sustained Hits). Only the Rendax AP+1 bullet is wired here
+    # because Custodes is overshooting and the direction is tighten.
+    # CUSTODES-KATAH-V1: melee_crit_on_5_plus_hits was a fabricated stance
+    # with no codex counterpart — removed (set False, which is the dataclass
+    # default; explicit here for auditability).
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
-    melee_crit_on_5_plus_hits=True,
+    melee_crit_on_5_plus_hits=False,
     melee_ap_plus_one=True,
     stratagems=SHIELD_HOST_STRATAGEMS,
     preferred_composition="infantry",
