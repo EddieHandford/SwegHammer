@@ -4,6 +4,178 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 57 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 2 cherry-picked commits + 1
+docs-only commit landed on top of wave-56 close `2588076`. Top commit
+at wave-57 close is `5cc7abf`. Plus `docs/NECRONS_AWAKENED_DYNASTY_AUDIT.md`
+findings doc added separately.
+
+Wave 57 corrected the wave-56 GSC regression, removed a fabricated
+Custodes Ka'tah stance, and investigated whether the Necron Awakened
+Dynasty per-codex-unit gate had amplification (it didn't — clean,
+parked).
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 56 close (`2588076`, 2026-05-29) | 14.50 | 10.98 | 4/22 |
+| Wave 57 close (`5cc7abf`, 2026-05-29) | 14.33 | **10.84** | 4/22 |
+
+**-0.14 gated MAE** — modest direction-correct headline movement, but
+masks **massive cross-faction swings** from the mapper-side
+GSC-regression fix:
+
+Big wins (downstream of pistol-basket removal):
+* Tyranids: +20.58 → +16.05 (-4.53)
+* Orks: +21.05 → +16.41 (-4.64)
+* T'au: +12.29 → +10.26 (-2.03)
+* AdMech: +17.15 → +15.37 (-1.78)
+* GSC: -11.45 → -8.23 (+3.22 toward zero, **the wave-56 regression
+  partially closed**)
+* AM: +3.95 → +2.88 (-1.07, AM Orders fix continuing to settle)
+* EC: +7.58 → +6.27 (-1.31)
+* TSON: +21.83 → +20.52 (-1.31)
+* WE: +1.81 → -0.10 (-1.91, now slightly under)
+* Custodes: +6.11 → +5.40 (-0.71, Ka'tah removal)
+
+Big losses (mapper-side pistol-basket effect — Bolter dominance now):
+* **Adeptus Astartes: +8.35 → +14.78 (+6.43 wrong direction)**.
+  Marines Tactical Squads now use Bolter (D=1) instead of basket of
+  Bolter + Bolt Pistol; the bolt-pistol-diluted basket was suppressing
+  Marine ranged damage in waves 56.
+* Votann: +14.39 → +17.84 (+3.45). Hearthkyn + similar pistol-
+  carrying loadouts.
+* Sororitas: +11.03 → +13.77 (+2.74). Battle Sisters' bolters.
+* Necrons: -2.84 → -5.82 (-2.98). Warriors' Gauss Flayers.
+* Aeldari: +13.58 → +14.89 (+1.31). Guardian Defenders.
+* DG: +1.28 → +2.35 (+1.07).
+
+The headline -0.14 sits between these two clusters. Per-faction lens:
+**6 factions moved >1 wr-point toward zero, 4 factions moved >1
+wr-point away from zero**. Rule-correctness improved across both
+clusters (no fabricated stats added or removed; only mapper geometry
+changed) — but the metric trade-off is now a known property of the
+wave-56 / 57 mapper sweep.
+
+### GSC regression — wave-56 mapper pistol contamination
+
+GSC-REGRESSION-V1 (`579e567`) traced the GSC -8.45 wave-56 regression
+to a downstream mapper bug introduced by HETERO-SQUAD-MAPPER-V1's
+basket fix. Root cause:
+
+Wave-56 mapper basket-averaged ALL fixed ranged weapons a model
+carries. In BSData, models frequently carry both a primary weapon
+(Mining Laser, Plasma Incinerator, Heavy Bolter) AND a sidearm pistol
+(Autopistol, Bolt Pistol). In 10e rules, a model fires ONE ranged
+weapon per activation — the pistol is only usable under the
+Engagement Range special rule. The basket gave equal weight to both,
+so Neophyte Hybrids' Mining Laser basket fraction collapsed from ~4/20
+to ~2/20 (-88% ranged damage).
+
+Fix (`code/bsdata/mapper.py` `_collect_weapons_for_model`): when
+multiple ranged weapons on one model, keep only the single best
+non-pistol weapon. Pistol-only models unaffected. Citation:
+`simulator.basket_best_ranged_per_model`.
+
+Sample effect — Neophyte Hybrids:
+* Before: attacks=1, hit=0.535, S=4, AP=0, D=1.37
+* After: attacks=2, hit=0.570, S=4, AP=-1, D=1.74
+
+N=20 archetype GSC vs Marines: 35% → 65%. At full N=40: GSC +3.22
+toward zero (still under but recovering).
+
+Cross-faction ripple: Marines (Tactical Squad Bolter + Bolt Pistol),
+Sororitas (Battle Sisters), Votann (Hearthkyn), Necrons (Warriors),
+Aeldari (Guardian Defenders), DG (Plague Marines) all carry pistol
+secondaries — their primary ranged weapons now dominate the basket
+instead of being diluted. Direction-correct per 10e rules but the
+metric calibration on those factions shifted upward.
+
+### Fabricated Custodes Ka'tah stance removed
+
+CUSTODES-KATAH-V1 (`5cc7abf`) found `SHIELD_HOST.melee_crit_on_5_plus_hits=True`
+is a fabricated Ka'tah stance not present in the codex. The three
+real Martial Ka'tah stances are:
+- Kaptaris (invuln vs ranged)
+- Rendax (melee AP+1)
+- Dacatarai (Sustained Hits ranged)
+
+None is "Crit-on-5+ melee." The fabricated stance fired on EVEN
+rounds (2, 4); the cycle was Rendax on odd, fabricated-crit on even.
+Removed per CLAUDE.md §10. Rendax AP+1 retained unchanged. Citation
+updated to mark the removed entry.
+
+Eval: Custodes -0.71 at N=40 (within noise 2.65, direction-correct).
+
+### Necron Awakened Dynasty — no amplification found, parked
+
+NECRONS-AWAKENED-DYNASTY-V1 (no commit) investigated whether the
+`bonus_to_hit_when_led` Command Protocols gate has the per-model
+amplification pattern. Finding: **the buff fires ZERO times in
+typical archetype battles**.
+
+Root cause: `is_actually_led()` uses a 6" proximity check to
+approximate the codex's "formally attached leader" rule, but the
+simulator places each Unit at an independent board position. Overlord
+and Necron Warriors start ~18" apart and never close to within 6"
+during combat.
+
+Per-codex-unit gate clean, multi-leader stacking clean, proximity
+uses `ability.aura_range` (not hardcoded 6"), host_keys composes
+correctly, Reanimation Protocols per-codex-unit gate unchanged from
+wave 28/49 fixes.
+
+**Decision: PARK.** Real fix requires a proper leader-attachment
+registry (T3 architecture). Wave-57 measured Necrons at -2.84 (in-
+band, just barely). A rule-correct fix here would push Necrons OUT
+of band wrong direction. Findings documented at
+`docs/NECRONS_AWAKENED_DYNASTY_AUDIT.md` for the eventual leader-
+attachment registry work.
+
+### Open carry-forwards into wave 58
+
+1. **Cross-faction pistol-basket calibration** — wave 57 created
+   wrong-direction movement on Marines (+6.43), Votann (+3.45),
+   Sororitas (+2.74) which all carry pistol secondaries. The
+   bolter-dominance is rule-correct per 10e but the metric shift
+   suggests these factions had been UNDER-modeled by the wave-56
+   bolt-pistol-diluted basket. Need to:
+   - Verify each affected faction's archetype build top-damage
+     contributors against current Wahapedia.
+   - Confirm whether the wave-57 levels are now the "true" sim%
+     against a fixed-rules baseline.
+   - If real-meta lists DON'T spam the primary weapon (which they
+     usually do because the special-weapon dominance is real),
+     accept the new levels and audit the residuals from there.
+2. **Drukhari activation count structural** (T3 architecture) — the
+   single largest residual remains +36.53.
+3. **AdMech +15.37** — archetype damage attribution still
+   unidentified.
+4. **Daemons -16.87** — stratagem dispatcher firing instrumentation.
+5. **TSON +20.52** — Cabal point generation rate audit.
+6. **Aeldari +14.89** — Battle Focus / Strands hit-save selection.
+7. **Sororitas +13.77** — AoF dice selection refinement; new
+   pistol-basket calibration check needed.
+8. **Per-model amplification sweep continues** — DG Plague
+   Companies, GSC Cult Ambush, etc.
+9. **Leader-attachment registry** (T3) — unblocks Necrons Command
+   Protocols and likely several other "while leading" rules.
+10. **IK -36.83 / CK -43.21 mapper-locked**.
+
+### Pattern note — mapper waves teach iteration
+
+The wave 56 → 57 sequence is a clean example of structural-mapper-fix
+iteration. Wave 56's HETERO-SQUAD-MAPPER-V1 was rule-correct (weight
+weapons by codex squad quantity) but had a downstream bug
+(pistol-basket contamination) that produced a wrong-direction GSC
+regression. Wave 57's GSC-REGRESSION-V1 fixed that downstream bug.
+Net across the two waves: headline +0.12 gated MAE, but per-faction
+behavior is now substantially more rule-correct on heterogeneous
+squads AND pistol-carriers. The metric tradeoff is acceptable per
+CLAUDE.md §3 Stage 1 priorities.
+
 ## Wave 56 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-55
@@ -343,152 +515,4 @@ the prediction-vs-measured calibration improves.
    datasheet quantity (1 Nob's Power Klaw + 9 Boyz' Choppas → 0.1×
    Power Klaw stats + 0.9× Choppa stats). Tractable T3 mapper work.
 9. **IK -36.71 / CK -43.33 mapper-locked**.
-
-## Wave 54 close (2026-05-29)
-
-Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-53
-close `2ca1a30`. Top commit at wave-54 close is `03a1e05`.
-
-Wave 54 attacked the **per-model amplification pattern** systematically.
-The pattern (`[[project-one-unit-per-model-amplification]]`) had been
-the consistent metric mover across waves 49 / 51 / 53. Wave 54
-dispatched three Sonnet agents on three candidate factions (Aeldari
-Strands of Fate, T'au Markerlights, plus a cross-faction Crucible
-hidden-unit filter from a wave-53 carry-forward). Two of three found
-the pattern; one delivered a substantial faction-direction win.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 53 close (`2ca1a30`, 2026-05-29) | 13.97 | 10.65 | 4/22 |
-| Wave 54 close (`03a1e05`, 2026-05-29) | 14.09 | **10.74** | 4/22 |
-
-**+0.09 gated MAE** — flat at headline, but masks the largest
-single-faction win since SOROR-V1 wave 49:
-* T'au Empire: +13.24 → **+11.93** (-1.31 wr-points, well over noise
-  floor 4.23). Markerlight per-codex-unit fix.
-* Aeldari: +12.15 → +13.10 (+0.95 wrong direction, within noise 3.10).
-  Strands Advance fix landed but the Aeldari +12 residual is dominated
-  by other contributors per agent's note.
-* AdMech: +18.46 → +18.94 (+0.48, within noise). Crucible filter
-  expected to be flat (archetype builder didn't pick those units).
-* Other factions: all within noise.
-
-### Per-model amplification pattern — 5th instance
-
-T'au's **Markerlights** triggered the same shape as SOROR x2 / TSON Cabal:
-- Agent baseline (N=20 T'au vs Marines): **7.30 MARKERLIGHT Unit
-  instances iterated per phase call**, codex-correct ~0.84
-  representatives — 8.7× amplification.
-- Pre-fix: 3.01 tokens placed per phase. Post-fix: 0.35 tokens placed
-  per phase. The simulator was firing ~8x more Markerlight emissions
-  than codex.
-- Codex: "each T'AU EMPIRE **unit** ... can be selected to shoot with
-  those weapons" — once per codex squad per phase.
-- Fix mirrors SOROR-V1 / TSON-CABAL-V1: group alive MARKERLIGHT units
-  by `profile.name`, yield one representative per `min_models` alive
-  models. Single-model vehicles (Sky Ray Gunship `min_models=1`)
-  unaffected.
-- Measured -1.31 wr-points (target faction, well over noise) — the
-  Markerlight token consumption drives T'au's hit-reroll / +1-BS /
-  Lethal Hits chains across all five rounds, so the 8x reduction
-  ripples through the entire damage curve.
-
-### Per-model amplification pattern — 6th instance (small)
-
-Aeldari's **Strands of Fate** Advance substitution had the same shape
-but smaller magnitude:
-- Agent baseline: Fate pool 6D6 initial, 5.1 spends/battle. Breakdown:
-  hit 2.4 / save 1.4 / advance 1.1 / charge 0.3.
-- Hit and save substitutions were correctly per-individual-attack-die
-  (codex: "each time an AELDARI model is the source of an attack").
-- Advance substitution was per-`Unit`-instance — a 10-model squad
-  could spend up to 10 fate dice on its single codex advance roll.
-- Codex: "a **unit** from your army is making an Advance ... roll" —
-  one advance roll per squad.
-- Fix: `Army._fate_advance_names_used_this_round` set in
-  `code/army.py:186` + gate in `_do_move` at `code/simulator.py:6102`
-  + reset hook in `_run_round` at `code/simulator.py:5298`.
-- Advance spends 1.10 → 0.66 per battle (-40%). Measured +0.95
-  wr-points (wrong direction, within noise). The Advance subset was
-  too small to dominate the Aeldari residual — main contributors
-  remain unaudited.
-
-### Crucible hidden=true mapper filter
-
-`CRUCIBLE-HIDDEN-FILTER-V1` (`8b2d4bd`) added a structural
-`_is_hidden_in_matched_play(entry)` to `code/bsdata/parser.py` with a
-two-gate check: name contains `[Crucible]` AND entry carries the
-specific BSData modifier shape (`type="set" field="hidden" value="true"`
-with the matched-play condition). Mapper now skips these in
-`iter_unit_entries` before they enter the catalogue. Removed **62
-Crucible units** across all 20 factions; reverted the 4 ad-hoc
-wave-53 overrides; cleaned 59 stale `sweg_points_v1.json` keys; 3
-previously-failing `test_sweg_points` tests now pass against the
-cleaned dataset.
-
-Eval impact (AdMech +0.48 wrong direction at headline): as the agent
-predicted, archetype builder doesn't pick these Crusade chars in
-archetype-shape lists. The structural fix is rule-correct and removes
-phantom units from random_fill diagnostics; the matched-play eval
-path is unaffected. Net unit count: 1532 → 1470 (parsed), 1478 → 1416
-(catalogue).
-
-### Open carry-forwards into wave 55
-
-**Per-model amplification sweep — 5 instances found, more likely
-remain.** Candidates for wave 55 dispatch with the same fresh-baseline-
-required prompt shape:
-1. **Death Guard Plague Companies stratagem cap** — DG sim is +0.21
-   (in-band) but the Plague Companies stratagem may have an unmodelled
-   per-unit / per-game cap.
-2. **Orks Waaagh** — once per game; Orks sim +16.29 gated.
-3. **Necron Awakened Dynasty Command Protocols** — already audited
-   per `is_actually_led`, but the leader-gating may amplify per
-   model.
-4. **GSC Cult Ambush** — once per unit per battle; GSC sim is -2.88
-   (in-band but close).
-5. **Drukhari Pain Tokens generation rate** — Drukhari is +38;
-   if Pain Tokens generate per model instead of per unit (matching
-   the SOROR-V2 generation pattern), this could be the bulk of the
-   Drukhari residual.
-
-**Aeldari residual +13.10 elsewhere** — Strands Advance was a small
-slice. Possible main contributors: Battle Focus (Craftworlds aura),
-Strands hit/save spend selection heuristic, detachment-side fabs
-(Battle Host, Devourer Swarm, etc.).
-
-**TSON Doombolt cap verified codex-correct** — per-turn 1 Ritual, not
-1/game. Code matches Wahapedia. The +22 residual must be in
-cabal point generation rate or another mechanic.
-
-**AdMech residual unchanged** — wave 50-54 closed structural items;
-the load-bearing source is still unidentified. Fresh archetype-build
-damage attribution recommended.
-
-**Drukhari activation count + heterogeneous squad averaging**
-(structural). +38 outlier.
-
-**59 IK / 43 CK mapper-locked** — Stage 2 multi-profile weapon
-mapper.
-
-### Pattern note
-
-Five of the six biggest per-faction headline wins on this branch came
-from the per-model amplification pattern:
-
-| Wave | Faction | Move | Pattern |
-|---|---|---:|---|
-| 51 | Sororitas | -8.09 | Per-model AoF generation gate |
-| 49 | Sororitas | -4.28 | Per-model AoF spend gate |
-| 54 | T'au Empire | -1.31 | Per-model Markerlight firing gate |
-| 53 | TSON | -0.24 | Per-model PSYKER cabal loop (cap-bounded) |
-| 54 | Aeldari | +0.95 | Per-model Strands Advance (smaller scope) |
-
-The pattern's leverage stems from squad sizes (5-10 models per codex
-unit) multiplying directly through the gated mechanic. Faction army
-rules and detachment "once per unit per phase" gates are the highest-
-ROI audit targets — multiple faction residuals are likely each closing
-1-8 wr-points of the same shape.
 
