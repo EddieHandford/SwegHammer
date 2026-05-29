@@ -6215,16 +6215,26 @@ class Battle:
                 return
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
         # is Assault — or the unit's army can spend a Battle Focus token to
-        # treat its weapons as [ASSAULT] for the turn (Aeldari rule) — or
-        # Feigned Retreat (Warhost stratagem) or Matchless Agility / Aggressive
-        # Mobility (Battle Host / Mont'ka stratagems) has been fired this round
-        # to grant transient Assault on the unit — or Mont'ka's Killing Blow
-        # detachment rule is active and we are in rounds 1-3 (army-wide
-        # [ASSAULT] grant to T'au Empire ranged weapons) — or the unit is
-        # ADEPTUS ASTARTES in a Gladius army under the active Devastator
-        # Doctrine (R1): "This unit is eligible to shoot in a turn in
-        # which it Advanced." Cited as `MONTKA.army_wide_assault_rounds_1_3`
+        # trigger the Star Engines Agile Manoeuvre (Aeldari rule, VEHICLE
+        # units only) — or Feigned Retreat (Warhost stratagem) or Matchless
+        # Agility / Aggressive Mobility (Battle Host / Mont'ka stratagems) has
+        # been fired this round to grant transient Assault on the unit — or
+        # Mont'ka's Killing Blow detachment rule is active and we are in
+        # rounds 1-3 (army-wide [ASSAULT] grant to T'au Empire ranged weapons)
+        # — or the unit is ADEPTUS ASTARTES in a Gladius army under the active
+        # Devastator Doctrine (R1): "This unit is eligible to shoot in a turn
+        # in which it Advanced." Cited as `MONTKA.army_wide_assault_rounds_1_3`
         # and `simulator.combat_doctrines`.
+        #
+        # Star Engines (Wahapedia Battle Focus): "When an ASURYANI VEHICLE
+        # unit from your army Advances, you can spend one Battle Focus token;
+        # until the end of that turn, ranged weapons equipped by models in
+        # that unit have the [ASSAULT] ability." Gate therefore requires BOTH
+        # ASURYANI AND VEHICLE keywords. Previously the gate only checked
+        # ASURYANI, incorrectly allowing Aspect Warriors, Guardian Defenders,
+        # Wraithguard, Dark Reapers etc. to shoot after Advancing — fixing
+        # Aeldari overperformance (+15 gated at wave-58 close). Cited as
+        # `simulator.battle_focus` (data/rule_citations.d/keywords_and_mechanics.json).
         if attacker.uid in self._advanced_this_round and not attacker.profile.assault:
             kw = attacker.profile.unit_keywords or ()
             det = attacker_army.resolve_detachment()
@@ -6240,7 +6250,9 @@ class Battle:
                 pass   # detachment rule grants [ASSAULT] free this round
             elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
                 pass   # Devastator Doctrine grants shoot-after-Advance, free
-            elif ("ASURYANI" in kw) and attacker_army.battle_focus_tokens > 0:
+            elif ("ASURYANI" in kw and "VEHICLE" in kw) and attacker_army.battle_focus_tokens > 0:
+                # Star Engines: ASURYANI VEHICLE units only (Wave Serpent,
+                # Falcon, Fire Prism, War Walkers, Vypers, Hemlock, etc.)
                 attacker_army.battle_focus_tokens -= 1
             else:
                 return

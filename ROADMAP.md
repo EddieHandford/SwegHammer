@@ -173,9 +173,12 @@ in real play.
   +5pt buff that wrecked the previous two attempts. Needs new approach —
   either a damped version of Oath (re-roll 1s only, not full re-roll) or
   concurrent Marine points re-calibration.
-- Aeldari Battle Focus strategy bias retry — currently the ASURYANI advance
-  branch is inert because Aeldari at +13.9 are over-strong; making them more
-  active worsens MAE. Needs to land after points re-balance.
+- Aeldari Battle Focus VEHICLE gate fixed (wave 59, AELDARI-BATTLE-FOCUS-V1):
+  the Star Engines Agile Manoeuvre token spend now correctly requires both
+  ASURYANI and VEHICLE keywords, reducing Aeldari overperformance by ~4 pts
+  (pre-fix +18.5, post-fix +14.4 vs real 44.4%). Remaining overperformance
+  driven by Strands of Fate and Yncarne/Avatar strength — further waves
+  needed to close the residual.
 - Drukhari mapper rewrite retry — parser fix shifted the Aeldari pool
   composition (+0.71 regression). Needs C1 cost rebase to absorb the
   redistribution.
