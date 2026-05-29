@@ -453,6 +453,15 @@ _TORRENT_NAME_TOKENS = (
     "heavy flamer",
 )
 
+# Plasma Incinerator and Macro Plasma Incinerator are NOT Torrent weapons —
+# they require a normal Ballistic Skill hit roll. The word "incinerator" in
+# their names would otherwise match the _TORRENT_NAME_TOKENS substring sweep,
+# incorrectly granting auto-hit to every Hellblaster / Redemptor plasma shot.
+# Wahapedia verbatim (Hellblaster Squad plasma incinerator):
+#   https://wahapedia.ru/wh40k10ed/factions/space-marines/#Hellblasters
+# Keywords field lists: "Heavy, Hazardous" — no Torrent.
+_PLASMA_INCINERATOR_RE = re.compile(r"\bplasma\b", re.IGNORECASE)
+
 
 def _torrent_from_name(name: str) -> bool:
     """True if the weapon's display name implies the Torrent keyword.
@@ -461,11 +470,24 @@ def _torrent_from_name(name: str) -> bool:
     because BSData does not tag flamer-family weapons with "Torrent"
     explicitly — the rule is implied by the weapon noun (Flamer, Burna,
     Heavy Flamer, Inferno Cannon, etc.).
+
+    Exception: "Plasma Incinerator" and "Macro Plasma Incinerator" are NOT
+    Torrent — they share the "incinerator" token with flamer-family weapons
+    but are plasma weapons that require a normal hit roll.  Guard against
+    the false positive by returning False whenever the name also contains
+    the word "plasma".
     """
     if not name:
         return False
     lowered = name.lower()
-    return any(tok in lowered for tok in _TORRENT_NAME_TOKENS)
+    if not any(tok in lowered for tok in _TORRENT_NAME_TOKENS):
+        return False
+    # Plasma Incinerator / Macro Plasma Incinerator matched "incinerator" but
+    # are not Torrent.  Any weapon name that contains "plasma" alongside a
+    # torrent token is a plasma weapon, not a flamer — exclude it.
+    if _PLASMA_INCINERATOR_RE.search(name):
+        return False
+    return True
 _HAZARDOUS_RE = re.compile(r"\bHazardous\b", re.IGNORECASE)
 _BLAST_RE = re.compile(r"\bBlast\b", re.IGNORECASE)
 # Phase F — five niche keywords. All five appear as standalone tokens in the

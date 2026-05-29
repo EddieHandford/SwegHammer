@@ -84232,8 +84232,8 @@
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "INFANTRY": 2,
-        "VEHICLE": 4
+        "VEHICLE": 4,
+        "INFANTRY": 2
       },
       "heavy": false,
       "assault": false,
@@ -84291,8 +84291,8 @@
       "devastating_wounds_basket_fraction": 0.0,
       "lance_basket_fraction": 0.0,
       "anti_keyword_basket_fractions": {
-        "INFANTRY": 0.6666666666666666,
-        "VEHICLE": 0.3333333333333333
+        "VEHICLE": 0.3333333333333333,
+        "INFANTRY": 0.6666666666666666
       },
       "base_shape": "circle",
       "base_diameter_mm": 32,
@@ -85429,8 +85429,8 @@
       "melta": 0,
       "ignores_cover": false,
       "anti_keywords": {
-        "INFANTRY": 4,
-        "VEHICLE": 4
+        "VEHICLE": 4,
+        "INFANTRY": 4
       },
       "heavy": false,
       "assault": false,
@@ -85489,8 +85489,8 @@
       "devastating_wounds_basket_fraction": 0.1,
       "lance_basket_fraction": 0.0,
       "anti_keyword_basket_fractions": {
-        "INFANTRY": 0.7,
-        "VEHICLE": 0.1
+        "VEHICLE": 0.1,
+        "INFANTRY": 0.7
       },
       "base_shape": "circle",
       "base_diameter_mm": 32,
@@ -91495,7 +91495,7 @@
       "anti_keywords": {},
       "heavy": true,
       "assault": true,
-      "torrent": true,
+      "torrent": false,
       "hazardous": true,
       "blast": false,
       "lance": false,
@@ -91585,7 +91585,7 @@
           "ignores_cover": false,
           "heavy": true,
           "assault": true,
-          "torrent": true,
+          "torrent": false,
           "blast": false,
           "pistol": false
         },
@@ -92699,7 +92699,7 @@
       "secondary_ignores_cover": false,
       "secondary_heavy": true,
       "secondary_assault": true,
-      "secondary_torrent": true,
+      "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [
         {
@@ -98480,7 +98480,7 @@
       "secondary_ignores_cover": false,
       "secondary_heavy": false,
       "secondary_assault": false,
-      "secondary_torrent": true,
+      "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [
         {
@@ -98501,7 +98501,7 @@
           "ignores_cover": false,
           "heavy": false,
           "assault": false,
-          "torrent": true,
+          "torrent": false,
           "blast": true,
           "pistol": false
         },
@@ -106052,7 +106052,7 @@
       "secondary_ignores_cover": false,
       "secondary_heavy": true,
       "secondary_assault": true,
-      "secondary_torrent": true,
+      "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [
         {
@@ -119211,7 +119211,7 @@
       "anti_keywords": {},
       "heavy": true,
       "assault": true,
-      "torrent": true,
+      "torrent": false,
       "hazardous": true,
       "blast": false,
       "lance": false,
@@ -123263,7 +123263,7 @@
       "secondary_ignores_cover": false,
       "secondary_heavy": false,
       "secondary_assault": false,
-      "secondary_torrent": true,
+      "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [
         {
@@ -123284,7 +123284,7 @@
           "ignores_cover": false,
           "heavy": false,
           "assault": false,
-          "torrent": true,
+          "torrent": false,
           "blast": true,
           "pistol": false
         },
@@ -123825,7 +123825,7 @@
       "anti_keywords": {},
       "heavy": false,
       "assault": false,
-      "torrent": true,
+      "torrent": false,
       "hazardous": true,
       "blast": true,
       "lance": false,
@@ -123873,7 +123873,7 @@
       "secondary_ignores_cover": false,
       "secondary_heavy": false,
       "secondary_assault": false,
-      "secondary_torrent": true,
+      "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [
         {
