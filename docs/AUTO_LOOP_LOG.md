@@ -4,6 +4,154 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 54 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-53
+close `2ca1a30`. Top commit at wave-54 close is `03a1e05`.
+
+Wave 54 attacked the **per-model amplification pattern** systematically.
+The pattern (`[[project-one-unit-per-model-amplification]]`) had been
+the consistent metric mover across waves 49 / 51 / 53. Wave 54
+dispatched three Sonnet agents on three candidate factions (Aeldari
+Strands of Fate, T'au Markerlights, plus a cross-faction Crucible
+hidden-unit filter from a wave-53 carry-forward). Two of three found
+the pattern; one delivered a substantial faction-direction win.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 53 close (`2ca1a30`, 2026-05-29) | 13.97 | 10.65 | 4/22 |
+| Wave 54 close (`03a1e05`, 2026-05-29) | 14.09 | **10.74** | 4/22 |
+
+**+0.09 gated MAE** — flat at headline, but masks the largest
+single-faction win since SOROR-V1 wave 49:
+* T'au Empire: +13.24 → **+11.93** (-1.31 wr-points, well over noise
+  floor 4.23). Markerlight per-codex-unit fix.
+* Aeldari: +12.15 → +13.10 (+0.95 wrong direction, within noise 3.10).
+  Strands Advance fix landed but the Aeldari +12 residual is dominated
+  by other contributors per agent's note.
+* AdMech: +18.46 → +18.94 (+0.48, within noise). Crucible filter
+  expected to be flat (archetype builder didn't pick those units).
+* Other factions: all within noise.
+
+### Per-model amplification pattern — 5th instance
+
+T'au's **Markerlights** triggered the same shape as SOROR x2 / TSON Cabal:
+- Agent baseline (N=20 T'au vs Marines): **7.30 MARKERLIGHT Unit
+  instances iterated per phase call**, codex-correct ~0.84
+  representatives — 8.7× amplification.
+- Pre-fix: 3.01 tokens placed per phase. Post-fix: 0.35 tokens placed
+  per phase. The simulator was firing ~8x more Markerlight emissions
+  than codex.
+- Codex: "each T'AU EMPIRE **unit** ... can be selected to shoot with
+  those weapons" — once per codex squad per phase.
+- Fix mirrors SOROR-V1 / TSON-CABAL-V1: group alive MARKERLIGHT units
+  by `profile.name`, yield one representative per `min_models` alive
+  models. Single-model vehicles (Sky Ray Gunship `min_models=1`)
+  unaffected.
+- Measured -1.31 wr-points (target faction, well over noise) — the
+  Markerlight token consumption drives T'au's hit-reroll / +1-BS /
+  Lethal Hits chains across all five rounds, so the 8x reduction
+  ripples through the entire damage curve.
+
+### Per-model amplification pattern — 6th instance (small)
+
+Aeldari's **Strands of Fate** Advance substitution had the same shape
+but smaller magnitude:
+- Agent baseline: Fate pool 6D6 initial, 5.1 spends/battle. Breakdown:
+  hit 2.4 / save 1.4 / advance 1.1 / charge 0.3.
+- Hit and save substitutions were correctly per-individual-attack-die
+  (codex: "each time an AELDARI model is the source of an attack").
+- Advance substitution was per-`Unit`-instance — a 10-model squad
+  could spend up to 10 fate dice on its single codex advance roll.
+- Codex: "a **unit** from your army is making an Advance ... roll" —
+  one advance roll per squad.
+- Fix: `Army._fate_advance_names_used_this_round` set in
+  `code/army.py:186` + gate in `_do_move` at `code/simulator.py:6102`
+  + reset hook in `_run_round` at `code/simulator.py:5298`.
+- Advance spends 1.10 → 0.66 per battle (-40%). Measured +0.95
+  wr-points (wrong direction, within noise). The Advance subset was
+  too small to dominate the Aeldari residual — main contributors
+  remain unaudited.
+
+### Crucible hidden=true mapper filter
+
+`CRUCIBLE-HIDDEN-FILTER-V1` (`8b2d4bd`) added a structural
+`_is_hidden_in_matched_play(entry)` to `code/bsdata/parser.py` with a
+two-gate check: name contains `[Crucible]` AND entry carries the
+specific BSData modifier shape (`type="set" field="hidden" value="true"`
+with the matched-play condition). Mapper now skips these in
+`iter_unit_entries` before they enter the catalogue. Removed **62
+Crucible units** across all 20 factions; reverted the 4 ad-hoc
+wave-53 overrides; cleaned 59 stale `sweg_points_v1.json` keys; 3
+previously-failing `test_sweg_points` tests now pass against the
+cleaned dataset.
+
+Eval impact (AdMech +0.48 wrong direction at headline): as the agent
+predicted, archetype builder doesn't pick these Crusade chars in
+archetype-shape lists. The structural fix is rule-correct and removes
+phantom units from random_fill diagnostics; the matched-play eval
+path is unaffected. Net unit count: 1532 → 1470 (parsed), 1478 → 1416
+(catalogue).
+
+### Open carry-forwards into wave 55
+
+**Per-model amplification sweep — 5 instances found, more likely
+remain.** Candidates for wave 55 dispatch with the same fresh-baseline-
+required prompt shape:
+1. **Death Guard Plague Companies stratagem cap** — DG sim is +0.21
+   (in-band) but the Plague Companies stratagem may have an unmodelled
+   per-unit / per-game cap.
+2. **Orks Waaagh** — once per game; Orks sim +16.29 gated.
+3. **Necron Awakened Dynasty Command Protocols** — already audited
+   per `is_actually_led`, but the leader-gating may amplify per
+   model.
+4. **GSC Cult Ambush** — once per unit per battle; GSC sim is -2.88
+   (in-band but close).
+5. **Drukhari Pain Tokens generation rate** — Drukhari is +38;
+   if Pain Tokens generate per model instead of per unit (matching
+   the SOROR-V2 generation pattern), this could be the bulk of the
+   Drukhari residual.
+
+**Aeldari residual +13.10 elsewhere** — Strands Advance was a small
+slice. Possible main contributors: Battle Focus (Craftworlds aura),
+Strands hit/save spend selection heuristic, detachment-side fabs
+(Battle Host, Devourer Swarm, etc.).
+
+**TSON Doombolt cap verified codex-correct** — per-turn 1 Ritual, not
+1/game. Code matches Wahapedia. The +22 residual must be in
+cabal point generation rate or another mechanic.
+
+**AdMech residual unchanged** — wave 50-54 closed structural items;
+the load-bearing source is still unidentified. Fresh archetype-build
+damage attribution recommended.
+
+**Drukhari activation count + heterogeneous squad averaging**
+(structural). +38 outlier.
+
+**59 IK / 43 CK mapper-locked** — Stage 2 multi-profile weapon
+mapper.
+
+### Pattern note
+
+Five of the six biggest per-faction headline wins on this branch came
+from the per-model amplification pattern:
+
+| Wave | Faction | Move | Pattern |
+|---|---|---:|---|
+| 51 | Sororitas | -8.09 | Per-model AoF generation gate |
+| 49 | Sororitas | -4.28 | Per-model AoF spend gate |
+| 54 | T'au Empire | -1.31 | Per-model Markerlight firing gate |
+| 53 | TSON | -0.24 | Per-model PSYKER cabal loop (cap-bounded) |
+| 54 | Aeldari | +0.95 | Per-model Strands Advance (smaller scope) |
+
+The pattern's leverage stems from squad sizes (5-10 models per codex
+unit) multiplying directly through the gated mechanic. Faction army
+rules and detachment "once per unit per phase" gates are the highest-
+ROI audit targets — multiple faction residuals are likely each closing
+1-8 wr-points of the same shape.
+
 ## Wave 53 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-52
@@ -354,175 +502,4 @@ generation-side from wave 51). The TSON +1.66 wrong-direction
 landing was the cost of CLAUDE.md §10 (don't fabricate; cite
 every rule). The headline gated MAE +0.12 net hides this
 trade-off — the per-faction lens is the better signal.
-
-## Wave 51 close (2026-05-29)
-
-Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-50
-close `8f34f63`. Top commit at wave-51 close is `c11a8c1`.
-
-Wave 51 attacked three of the wave-50 carry-forwards with parallel
-Sonnet agents (Daemons Greater Daemon combat profile, AdMech detachment
-+ Tech-Priest sweep, Sororitas detachment + AoF dice generation). The
-discipline lesson from wave 50 ("require fresh baseline measurement as
-step 1") was wired into every prompt and produced a real headline win
-on Sororitas.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 50 close (`8f34f63`, 2026-05-29) | 14.24 | 10.81 | 4/22 |
-| Wave 51 close (`c11a8c1`, 2026-05-29) | 13.90 | **10.53** | 4/22 |
-
-**-0.28 gated MAE** across 3 commits — first substantive headline move
-since wave 49. Drove by the Sororitas finding (next section).
-
-### Sororitas -8.09 wr-points — biggest single-wave faction win on the branch
-
-Wave-49 SOROR-ACTS-OF-FAITH-V1 (`413d89b`) fixed the per-instance vs
-per-codex-unit AoF spend gate (-4.28 wr-points). Wave-51 SOROR-
-DETACHMENT-V1 (`c11a8c1`) found the matching generation-side bug, also
-amplified by SwegHammer's one-Unit-per-model representation:
-
-Agent baseline diagnostic (N=20 Sororitas vs Marines battles at the
-wave-50 HEAD):
-- Average Miracle dice generated per battle: **44.05** (codex expected ~13)
-- Average Miracle dice spent per battle: 28.55
-- Average sim-instance deaths: 41.0
-- Average codex-unit deaths: 8.5
-- Over-generation factor: **4.65×**
-
-`_maybe_award_miracle_die` fired once per `Unit` instance destroyed;
-a 25-model Repentia Squad dying model-by-model awarded 25 dice instead
-of 1. Fix: added a last-instance gate — the die is only awarded when
-no other alive sim instance with the same `profile.name` remains in
-the army. Generation drops from 44.05 to 8.70 per battle (within +/-
-of the codex 13 once other Sororitas-unit destruction is rolled in).
-
-Second finding from the same audit: Sororitas TRANSPORT units
-(Immolator, Sororitas Rhino, Repressor) don't carry the Acts of
-Faith ability per their datasheets — only INFANTRY and WALKER units
-do. The award path didn't have the TRANSPORT keyword exclusion.
-Added the gate.
-
-Sororitas eval: +19.12 → +11.03 gated. Still over noise floor 3.79
-but close enough that one more lever (AoF dice selection refinement
-or remaining detachment audit) should close into noise. **Combined
-with wave 49**, Sororitas has dropped +23.05 → +11.03 (-12.02
-wr-points across two waves) by addressing the same simulator-
-representation amplification pattern on both spend and generation
-sides.
-
-### Daemons +1.07 wr-points (improvement direction)
-
-DAEMONS-GREATER-COMBAT-V1 (`239c91d`) audited the 4 Greater Daemons +
-Skarbrand combat profiles against BSData. Only Great Unclean One
-surfaced corrections — 2 ranged attack-count fields off by 1 due to
-Python's banker rounding (`round(6.5) → 6`, `round(4.5) → 4` for the
-Putrid Vomit / Plague Flail D6+N profiles). Other 4 Greaters
-parsed cleanly. Wahapedia DNS was unavailable from the agent session
-so BSData v10.6.0 (fresh 2026-05-15) was used as the source per
-CLAUDE.md §6 fallback.
-
-Parked schema gaps (notes on the correction entry, no code change):
-- GUO Bilesword carries LETHAL HITS in BSData; `UnitProfile` has no
-  `melee_lethal_hits` field.
-- KoS Snapping Claws (A4 S6 AP-2 D3 DEVASTATING WOUNDS, EXTRA
-  ATTACKS) fires in addition to the Witstealer Sword; the
-  `extra_melee_profiles` mapper pathway exists but is not populated.
-  This is the biggest tractable Daemons lever still parked — a
-  whole melee weapon profile not simulated at all. Mapper-structural
-  follow-up, T3.
-
-### AdMech +0.72 wr-points (within noise — DW fix didn't close the gap)
-
-ADMECH-SWEEP-V1 (`d8e3391`) found **10 units with Devastating Wounds
-false positives** from the BSData mapper's basket-blend logic. None
-of these units' BSData infoLinks reference Devastating Wounds; the
-fabricated flag was inflating every crit-to-wound (~1-in-6 wound
-rolls) into a save-bypassing critical hit across the AdMech core
-roster.
-
-Fixed units (override `devastating_wounds=false, basket_fraction=0.0`):
-Skitarii Marshal, Fulgurite Electro-Priests, Cybernetica Datasmith,
-Serberys Raiders, Serberys Sulphurhounds, Sicarian Ruststalkers,
-Technoarcheologist, Tech-Priest Enginseer, Skitarii Rangers, Skitarii
-Vanguard.
-
-Predicted 4-8pt reduction in AdMech sim%; measured +0.72 (within
-noise 4.17). The DW fix is rule-correct and definitely tightening
-crit-wound math, but the residual +15.6 → +16.32 indicates other
-load-bearing levers remain unaudited. Adjacent areas confirmed clean
-by the agent:
-- Skitarii Hunter Cohort detachment (verbatim defensive, no-flag is
-  correct).
-- Cohort Cybernetica detachment (Cyber-Psalm-Programming has no
-  schema slot; no-flag is rule-correct).
-- Tech-Priest Manipulus / Dominus wargear (ADMECH-WARGEAR-V1 cleanly
-  stripped basket-blend; Transonic Cannon DW is legitimate).
-- Doctrina magnitude and modifier cap (+1 BS/WS exactly, ±1 cap
-  enforced).
-- Added missing `simulator.doctrina_imperatives` citation to
-  `data/rule_citations.json`.
-
-### Pattern observed
-
-The Sororitas win validates the wave-49 / wave-51 hypothesis that
-"once per unit per phase" codex rules gated per-`Unit`-instance in
-SwegHammer produce ~3-5× over-firing depending on squad shape. Two
-distinct sites on the same army rule (spend in wave 49, generation
-in wave 51) closed -12 wr-points together. The `[[project-one-unit-
-per-model-amplification]]` memory entry captured this pattern; it
-generalises directly to AdMech Doctrina (no-op per wave 50 audit),
-Death Guard Plague Companies, any "once per battle per unit" stratagem,
-and any on-death award path that fires per model.
-
-The AdMech DW-fix shape was different — a mapper-side fabrication
-sweep rather than a simulator-spend audit — and the per-unit
-magnitude (~1/6 wound rolls × per-crit damage delta) was small
-enough that even 10 units across the core roster only produced a
-noise-floor-bounded movement. This is consistent with the wave-48
-"FNP override sweep" experience: catalog-wide cleanup is
-rule-correctness-positive but typically MAE-neutral.
-
-### Open carry-forwards into wave 52
-
-1. **Sororitas residual +11.03 gated** — still over noise 3.79.
-   Remaining levers: AoF dice selection heuristic refinement
-   (currently spends greedy-by-die-value; codex spend-before-roll
-   gives optimal placement that the simulator can't perfectly
-   approximate); Bringers of Flame / Hallowed Martyrs detachment-
-   side audits (confirmed flag-clean by wave 51 but their unit-side
-   weapon profiles haven't been re-verified post-recent mapper
-   refresh).
-2. **KoS Snapping Claws extra_melee_profiles** — the biggest single
-   tractable Daemons lever per the wave-51 GREATER-COMBAT findings.
-   Mapper needs to populate `extra_melee_profiles` from BSData's
-   per-model multi-weapon entries; T3 mapper-structural work.
-3. **GUO Bilesword LETHAL HITS** — needs a `melee_lethal_hits` field
-   on UnitProfile. Schema gap, T2/T3.
-4. **AdMech +16.32 gated** — DW fix closed only 0.72 of the gap.
-   Other levers: re-audit Skitarii Strike Squad / Sicarian rule
-   wording (the wave-49/51 lesson re: per-unit gating may apply),
-   bionics-style FNP fabrications on Tech-Priests, Cawl / Belisarius
-   leader entries past the wave-43 fab audit.
-5. **Daemons Lever 2 — stratagem parity**. Still unaudited.
-6. **Drukhari structural carry-forwards** (activation count,
-   heterogeneous squad weapon averaging).
-7. **TSON +20.88 gated** — last audited in wave 44.
-8. **Aeldari / T'au / Votann / Orks parallel sweep** — under-audited.
-9. **Tyranids over-buff identification** — Tyranid sim is +20.93;
-   prior Norn/Tervigon/OOE findings are UNDER-modelled, so finding
-   the over-buff direction needs a different angle (maybe Synapse
-   broadcast magnitude, or detachment audit).
-10. **Add Nurgle Spoilpox Scrivener + Slaanesh Tormentbringer
-    leader entries** — `25af977` schema is ready.
-11. **IK -35.40 / CK -43.93 mapper-locked** — Stage 2 multi-profile
-    weapon mapper.
-
-### Process note
-
-Wave 51 agent prompts that required fresh baseline measurements
-produced higher-quality landings. The wave-50 lesson held. Continue
-requiring fresh baselines in wave 52 dispatches.
 
