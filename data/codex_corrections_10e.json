@@ -244,9 +244,35 @@
         }
       },
       "notes": "Verified weapons on the Wahapedia Voidscarred datasheet: Shuriken Pistol (no anti-keyword), Neuro Disruptor (Anti-Infantry 2+), Executioner (Anti-Infantry 2+, Psychic). Kharseth's Dread of the Deep Void, Troupe Master's Neuro Disruptor secondary, and Shadowseer's Neuro Disruptor all legitimately retain Anti-Infantry 2+ per current codex and need no correction."
+    },
+    "chaos_daemons_library_great_unclean_one": {
+      "fields": {
+        "attacks": 7,
+        "secondary_attacks": 5
+      },
+      "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One",
+      "errata": "DAEMONS-GREATER-COMBAT-V1 (wave 51): mapper banker-rounding artifact on two variable-dice weapons. (1) Putrid vomit primary ranged: BSData A=D6+3, expected value=6.5; Python round(6.5)=6 (round-half-to-even) truncates to 6, but the correct rounded expected value is 7. (2) Plague flail secondary ranged: BSData A=D6+1, expected value=4.5; Python round(4.5)=4 truncates to 4, but the correct rounded expected value is 5. Both weapons were verified against BSData raw Chaos Daemons Library.cat.gz (fresh 2026-05-15). Wahapedia DNS unavailable from agent session; BSData is the primary source per CLAUDE.md section 6 and matches known Wahapedia stat layout for these weapons.",
+      "bsdata_was": {
+        "attacks": 6,
+        "secondary_attacks": 4
+      },
+      "notes": "Two additional schema gaps identified but cannot be corrected via fields override without new schema infrastructure: (1) Bilesword strike and Bilesword sweep both carry LETHAL HITS keyword in BSData (infoLink confirmed). UnitProfile has no melee_lethal_hits field; the existing lethal_hits field is ranged-only. Follow-up: add melee_lethal_hits bool to UnitProfile and mapper. (2) Keeper of Secrets Snapping claws carries EXTRA ATTACKS + DEVASTATING WOUNDS (BSData confirmed). Snapping claws fires in addition to Witstealer sword in the Fight phase; the extra_melee_profiles mapper pathway exists in schema but is not populated by the mapper (mapper TODO at line 1615). Follow-up: wire Snapping claws into extra_melee_profiles for Keeper of Secrets via overrides.json once mapper is extended. Both items parked per DAEMONS-GREATER-COMBAT-V1 task instructions."
     }
   },
   "_audit_log": [
+    {
+      "date": "2026-05-29",
+      "round": "DAEMONS-GREATER-COMBAT-V1 (wave 51, Stage 1 calibration, Tier 2)",
+      "action": "Added 1 correction for Great Unclean One (2 fields: Putrid vomit attacks 6->7, Plague flail attacks 4->5). Parked 2 schema-gap items as notes on the entry.",
+      "evidence": "Stage A baseline: UNIT_CATALOG loaded from parsed.json shows Great Unclean One attacks=6 (Putrid vomit primary) and secondary_attacks=4 (Plague flail). Stage B cross-check against BSData Chaos Daemons Library.cat.gz (fresh 2026-05-15, the canonical BSData source per CLAUDE.md section 6) confirms Putrid vomit A=D6+3 and Plague flail A=D6+1. Expected values are 6.5 and 4.5 respectively. Python built-in round() uses banker rounding (round-half-to-even), so round(6.5)=6 and round(4.5)=4 -- both round DOWN to the nearest even integer. Conventional simulation practice rounds 0.5 cases UP (i.e. 7 and 5). The other 4 units (Bloodthirster, Lord of Change, Keeper of Secrets, Skarbrand) show no weapon stat discrepancies against BSData. Wahapedia DNS unavailable from agent session (ECONNREFUSED); BSData used as primary source per CLAUDE.md section 6. Two schema gaps identified and parked: GUO Bilesword LETHAL HITS (no melee_lethal_hits field in UnitProfile), KoS Snapping claws EXTRA ATTACKS (no mapper population of extra_melee_profiles). All other Greater Daemon stats verified correct: M, T, Sv, W, Inv, OC, Ld, melee weapon primary profiles, ranged primary profiles, points, min_models.",
+      "added_keys": [
+        "chaos_daemons_library_great_unclean_one"
+      ],
+      "parked_schema_gaps": [
+        "chaos_daemons_library_great_unclean_one: Bilesword LETHAL HITS (melee_lethal_hits schema missing)",
+        "chaos_daemons_library_keeper_of_secrets: Snapping claws EXTRA ATTACKS + DEVASTATING WOUNDS (extra_melee_profiles not mapper-populated)"
+      ]
+    },
     {
       "date": "2026-05-28",
       "round": "CODEX-STALE-DARK-ANGELS audit (wave-47, Stage 1 calibration, Tier 2)",
