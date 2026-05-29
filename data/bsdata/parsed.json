@@ -10817,7 +10817,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Spider's Fangs",
+          "attacks": 5,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -15077,7 +15093,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Razor fan",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": 0,
+          "strength": 3,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -15519,7 +15551,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladevanes",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -15691,7 +15739,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladevanes",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -17019,7 +17083,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Coiled tentacles",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -17619,7 +17699,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Seeker tongues",
+          "attacks": 8,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -18506,7 +18602,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bileblade",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -18712,7 +18824,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lashing tongue",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -18812,7 +18940,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Acidic maw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -4,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -19238,7 +19382,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Snapping claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Ritual knife",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -19340,7 +19515,38 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Warpclaw",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Warpsword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -19467,7 +19673,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Baleful sword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -19569,7 +19791,38 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Warpclaw",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Warpsword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -20366,7 +20619,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Attendant's hellblades",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -21001,7 +21270,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Snapping claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -21395,7 +21680,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Juggernaut's bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -21593,7 +21894,38 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Warpclaw",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Warpsword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -22013,7 +22345,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Scourging whip",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -22422,7 +22770,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Seeker tongues",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -22621,7 +22985,38 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Warpclaw",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Warpsword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -22725,7 +23120,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Snapping claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -22895,7 +23306,128 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Juggernaut's bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        },
+        {
+          "weapon": "Attendant's hellblades",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Acidic maw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -4,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Foul mouthparts",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Bladed axle",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Lashing tongue",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Seeker tongues",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Screamer bites",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -23066,7 +23598,128 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Juggernaut's bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        },
+        {
+          "weapon": "Attendant's hellblades",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Acidic maw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -4,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Foul mouthparts",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Bladed axle",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Lashing tongue",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Seeker tongues",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Screamer bites",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -23237,7 +23890,128 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Juggernaut's bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        },
+        {
+          "weapon": "Attendant's hellblades",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Acidic maw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -4,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Foul mouthparts",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Bladed axle",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Lashing tongue",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Seeker tongues",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Screamer bites",
+          "attacks": 6,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -28017,7 +28791,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Balemace",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -29866,7 +30656,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Hellspear",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -3,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 2,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -30515,7 +31321,40 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed limbs",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Techno-virus injector",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -3,
+          "strength": 3,
+          "anti_keywords": {
+            "VEHICLE": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -32275,7 +33114,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Electroscourge",
+          "attacks": 5,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 2,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -32646,7 +33501,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lasher tendrils",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -34177,7 +35048,23 @@
       "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Melta array",
+          "attacks": 1,
+          "weapon_damage_per_shot": 5.5,
+          "hit_probability": 0.5,
+          "ap": -4,
+          "strength": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -38534,7 +39421,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Nurgling's claws and teeth",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.333,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -38875,7 +39778,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Nurgling's claws and teeth",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.333,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -39045,7 +39964,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -39215,7 +40150,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lashing tongue",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -39384,7 +40335,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lashing tongue",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -40589,7 +41556,40 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed limbs",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Technovirus injector",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -3,
+          "strength": 3,
+          "anti_keywords": {
+            "VEHICLE": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -40758,7 +41758,40 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed limbs",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Technovirus injector",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -3,
+          "strength": 3,
+          "anti_keywords": {
+            "VEHICLE": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -40927,7 +41960,40 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed limbs",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Technovirus injector",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -3,
+          "strength": 3,
+          "anti_keywords": {
+            "VEHICLE": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -41029,7 +42095,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-harness",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {
+            "VEHICLE": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -44486,7 +45570,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Electroscourge",
+          "attacks": 5,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 2,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -45077,7 +46177,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Nurgling's claws and teeth",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.333,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -45663,7 +46779,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Nurgling's claws and teeth",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.333,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -45962,7 +47094,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bileblade",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -47273,7 +48421,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Serpentine tail",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -47418,7 +48582,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Rapture lash",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -48818,7 +49998,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lasher tendrils",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -49160,7 +50356,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Snapping claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -49286,7 +50498,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Snapping claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Ritual knife",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -49844,7 +51087,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Rapture lash",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -50012,7 +51271,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Rapture lash",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -50180,7 +51455,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Rapture lash",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -50349,7 +51640,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Electroscourge",
+          "attacks": 5,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 2,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -51585,7 +52892,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Electroscourge",
+          "attacks": 5,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 2,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -52487,7 +53810,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lasher tendrils",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -54442,7 +55781,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Baleful sword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -56542,7 +57897,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -56842,7 +58213,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -58117,7 +59504,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Electroscourge",
+          "attacks": 7,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 12,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 2,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -58588,7 +59991,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lasher tendrils",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -60442,7 +61861,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Bladed horn",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -62483,7 +63918,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Toxin injector claw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -72468,7 +73921,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Stomping Feet",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -75982,7 +77451,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Distendible jaw",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 5,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -76082,7 +77569,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Barbed ovipositor",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 3,
+          "anti_keywords": {
+            "INFANTRY": 3
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -77476,7 +78981,23 @@
       "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Monstrous scything talons",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -77745,7 +79266,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Monstrous scything talons",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -77914,7 +79451,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Monstrous scything talons",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -78082,7 +79635,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Monstrous scything talons",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -78250,7 +79819,25 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Toxin injector claw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -78418,7 +80005,25 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Toxin injector claw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -78587,7 +80192,25 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Toxin injector claw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -79051,7 +80674,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Gaping maw",
+          "attacks": 1,
+          "weapon_damage_per_shot": 4.0,
+          "hit_probability": 0.833,
+          "ap": 0,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -83889,7 +85528,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Throne of Blame",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -87501,7 +89156,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Misericordia",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -87669,7 +89340,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Misericordia",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -87838,7 +89525,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Misericordia",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -88260,7 +89963,40 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Arc Scourge",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {
+            "VEHICLE": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Mechadendrite hive",
+          "attacks": 7,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -90652,7 +92388,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -91988,7 +93740,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -92156,7 +93924,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -92325,7 +94109,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -98367,7 +100167,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Garralisk's claws and teeth",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -98919,7 +100735,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Konstantin's hooves",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -99513,7 +101345,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -101384,7 +103232,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Savage claws",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -102011,7 +103875,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Savage claws",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -102715,7 +104595,38 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Enforcer crew",
+          "attacks": 10,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 3,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Armoured hull",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -104855,7 +106766,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Master-crafted Power Weapon",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": true,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -106879,7 +108806,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Furioso Force Halberd",
+          "attacks": 1,
+          "weapon_damage_per_shot": 6.5,
+          "hit_probability": 0.833,
+          "ap": -3,
+          "strength": 9,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -112579,7 +114522,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -116398,7 +118357,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -116568,7 +118543,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -116738,7 +118729,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -120636,7 +122643,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Medusan Manipuli",
+          "attacks": 2,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -122723,7 +124746,53 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Relic Chainsword",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Relic Blade",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Relic Fist",
+          "attacks": 1,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -130979,7 +133048,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -136830,7 +138915,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Plasma Cutter",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -138134,7 +140250,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -138303,7 +140450,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -138574,7 +140752,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Tyrnak and Fenrir",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -138675,7 +140869,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Flurry of teeth and claws",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -139470,7 +141680,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Crushing teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -139570,7 +141796,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Crushing teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -139839,7 +142081,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Crushing teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -140007,7 +142265,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Crushing teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -142772,7 +145046,38 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Crushing teeth and claws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Servo-arm",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -148277,7 +150582,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Warforge gauntlets",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -148765,7 +151086,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Impaling legs",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -151393,7 +153730,23 @@
       "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Canoptek tail blades",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -154819,7 +157172,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Blade tail and whip coils",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -155425,7 +157794,38 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Fixit's wrench",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 3,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Speeding bulk and flaming exhaust",
+          "attacks": 6,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -157693,7 +160093,41 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Butcha boyz",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {
+            "MONSTER": 4,
+            "VEHICLE": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Savage horns and hooves",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -157945,7 +160379,41 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Butcha boyz",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {
+            "MONSTER": 4,
+            "VEHICLE": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Savage horns and hooves",
+          "attacks": 4,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": true,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -158517,7 +160985,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "\u2019Urty syringe",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -159194,7 +161680,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Big Chompa\u2019s jaws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 4.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -159594,7 +162096,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "\u2019Urty syringe",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -159913,7 +162433,23 @@
           "pistol": true
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Squig jaws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -160583,7 +163119,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Attack Squig",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -162749,7 +165301,25 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "\u2019Urty syringe",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -163140,7 +165710,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Squigosaur\u2019s jaws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 3.0,
+          "hit_probability": 0.5,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": true,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -164091,7 +166677,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Grabbin' klaw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Wreckin' ball",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 10,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -164558,7 +167175,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Princess' jaws",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -165116,7 +167749,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Wreckin' ball",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 10,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Grabbin' klaw",
+          "attacks": 2,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 8,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -165682,7 +168346,55 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Squig jaws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Attack Squig",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "\u2019Urty syringe",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -165851,7 +168563,55 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Squig jaws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Attack Squig",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "\u2019Urty syringe",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -166019,7 +168779,55 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Squig jaws",
+          "attacks": 3,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Attack Squig",
+          "attacks": 2,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": 0,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "\u2019Urty syringe",
+          "attacks": 1,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": 0,
+          "strength": 2,
+          "anti_keywords": {
+            "INFANTRY": 4
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": true
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -173873,7 +176681,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Kalamandra's bite",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Rampager fists",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -174042,7 +176881,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Kalamandra's bite",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Rampager fists",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -174210,7 +177080,38 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Kalamandra's bite",
+          "attacks": 4,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.5,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        },
+        {
+          "weapon": "Rampager fists",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 6,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 1,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -174418,7 +177319,23 @@
       "secondary_torrent": false,
       "secondary_blast": true,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Monstrous scything talons",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -175874,7 +178791,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Shovelling claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 4.5,
+          "hit_probability": 0.667,
+          "ap": -2,
+          "strength": 14,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -177330,7 +180263,25 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Thorax spur",
+          "attacks": 1,
+          "weapon_damage_per_shot": 3.5,
+          "hit_probability": 0.667,
+          "ap": -3,
+          "strength": 10,
+          "anti_keywords": {
+            "FLY": 2
+          },
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -178110,7 +181061,23 @@
       "secondary_torrent": true,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lashwhip pods",
+          "attacks": 10,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.667,
+          "ap": -1,
+          "strength": 5,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -178623,7 +181590,23 @@
           "pistol": false
         }
       ],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Monstrous rending claws",
+          "attacks": 4,
+          "weapon_damage_per_shot": 2.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 7,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},
@@ -178823,7 +181806,23 @@
       "secondary_torrent": false,
       "secondary_blast": false,
       "extra_ranged_profiles": [],
-      "extra_melee_profiles": [],
+      "extra_melee_profiles": [
+        {
+          "weapon": "Lash whip",
+          "attacks": 8,
+          "weapon_damage_per_shot": 1.0,
+          "hit_probability": 0.833,
+          "ap": -2,
+          "strength": 4,
+          "anti_keywords": {},
+          "lethal_hits": false,
+          "sustained_hits": 0,
+          "twin_linked": false,
+          "devastating_wounds": false,
+          "lance": false,
+          "precision": false
+        }
+      ],
       "devastating_wounds_basket_fraction": 1.0,
       "lance_basket_fraction": 1.0,
       "anti_keyword_basket_fractions": {},

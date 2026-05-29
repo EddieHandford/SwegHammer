@@ -216,6 +216,12 @@ class WeaponStats:
     one_shot: bool = False       # once per battle
     # Phase H — Stealth (parsed but stored on UnitProfile, not weapon)
     stealth: bool = False
+    # DAEMONS-EXTRA-MELEE-MAPPER-V1 — Extra Attacks keyword. When True, this
+    # melee weapon fires IN ADDITION to the model's other melee weapons in the
+    # Fight phase (10e core rule). The mapper collects weapons with this flag
+    # into UnitProfile.extra_melee_profiles. Cited as
+    # `simulator.extra_melee_profiles`.
+    extra_attacks: bool = False
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # The MAP-3 boolean flags (lance, devastating_wounds, anti_keywords) take
     # the UNION across the basket so heterogeneous squads (Rubric Marines,
@@ -473,6 +479,16 @@ _ONE_SHOT_RE = re.compile(r"\bOne[\s-]Shot\b", re.IGNORECASE)
 # Phase H — Stealth keyword (-1 to be hit). Lives at unit level not weapon
 # but we sweep the same blob for completeness.
 _STEALTH_RE = re.compile(r"\bStealth\b", re.IGNORECASE)
+# DAEMONS-EXTRA-MELEE-MAPPER-V1 — Extra Attacks keyword. A melee weapon with
+# this keyword fires IN ADDITION to the model's other melee attacks rather than
+# replacing them (10e core rules, Fight phase: "[EXTRA ATTACKS] — Each time the
+# bearer fights, it makes a number of attacks with this weapon equal to that
+# weapon's Attacks characteristic in addition to the attacks it makes with its
+# other melee weapons."). Parsed from BSData by extract_melee_weapon and
+# carried on WeaponStats.extra_attacks so the mapper can collect these weapons
+# into UnitProfile.extra_melee_profiles instead of silently discarding them.
+# Cited as `simulator.extra_melee_profiles`.
+_EXTRA_ATTACKS_RE = re.compile(r"\bExtra\s+Attacks\b", re.IGNORECASE)
 
 
 def parse_weapon_keywords(text: str) -> Dict[str, object]:
@@ -535,6 +551,8 @@ def parse_weapon_keywords(text: str) -> Dict[str, object]:
         out["one_shot"] = True
     if _STEALTH_RE.search(s):
         out["stealth"] = True
+    if _EXTRA_ATTACKS_RE.search(s):
+        out["extra_attacks"] = True
     return out
 
 
@@ -1609,15 +1627,16 @@ class MappedUnit:
     # against the current target / range and routes accordingly.
     # Cited as `simulator.multi_profile_weapon_selection`.
     extra_ranged_profiles: List[Dict] = field(default_factory=list)
-    # ---- KNIGHTS-MULTIPROFILE-2: TERTIARY+ melee weapon profiles -----------
-    # Mirrors extra_ranged_profiles for the Fight phase. The BSData mapper
-    # does not yet populate this list from the cache (multi-weapon melee
-    # detection is a TODO — Knight Abominant's Balemace [EXTRA ATTACKS]
-    # keyword and Knight Rampager's Reaper chainsword + Warpstrike claw
-    # dual-equip pattern); the field is declared here so a future mapper
-    # extension can populate it and so a re-run of `code.bsdata.mapper`
-    # does not drop the schema column. Today the field is fed by
-    # data/overrides.json. Cited as `simulator.extra_melee_profiles`.
+    # ---- DAEMONS-EXTRA-MELEE-MAPPER-V1: ADDITIVE melee weapon profiles ------
+    # Mirrors extra_ranged_profiles for the Fight phase. Populated by the
+    # mapper for any non-heterogeneous unit whose gear.melee_weapons list
+    # contains one or more weapons tagged [EXTRA ATTACKS] in BSData (i.e.
+    # weapons that fire IN ADDITION to the primary melee weapon per the 10e
+    # core rule). Deduplication by name prevents the same weapon appearing
+    # twice when BSData lists it under multiple selection entries.
+    # Heterogeneous (squad-average) units receive an empty list here; the
+    # overrides layer (data/overrides.json) can fill them in if needed.
+    # Cited as `simulator.extra_melee_profiles`.
     extra_melee_profiles: List[Dict] = field(default_factory=list)
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # See WeaponStats for the rationale. Defaults to 1.0 preserve legacy
@@ -1816,6 +1835,28 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         best_melee = max(gear.melee_weapons, key=lambda w: w.expected_damage_through_baseline())
     else:
         best_melee = None
+    # DAEMONS-EXTRA-MELEE-MAPPER-V1 — collect EXTRA ATTACKS melee weapons.
+    # On the non-heterogeneous path (single-model units or fallback), any
+    # melee weapon in gear.melee_weapons that carries the [EXTRA ATTACKS]
+    # keyword fires IN ADDITION to the primary melee weapon in the Fight
+    # phase (10e core rule). Collect them here so the mapper can populate
+    # UnitProfile.extra_melee_profiles. Deduplication by name prevents the
+    # same profile appearing twice when BSData lists a weapon under multiple
+    # selection entries.
+    # Scope: non-heterogeneous only — the heterogeneous basket-average path
+    # already collapses all melee weapons into one synthetic profile and
+    # the EXTRA ATTACKS semantics don't apply cleanly to averaged squads.
+    # Cited as `simulator.extra_melee_profiles`.
+    extra_melee_weapons: List[WeaponStats] = []
+    if not used_heterogeneous and gear.melee_weapons and best_melee is not None:
+        _seen_melee_names: set = {best_melee.name}
+        for _w in gear.melee_weapons:
+            if not _w.extra_attacks:
+                continue
+            if _w.name in _seen_melee_names:
+                continue
+            _seen_melee_names.add(_w.name)
+            extra_melee_weapons.append(_w)
     # Recompute has_ranged/has_melee in case the basket-average returned None.
     has_ranged = best is not None
     has_melee = best_melee is not None
@@ -2028,6 +2069,34 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
                 "pistol": w.pistol,
             }
             for w in extra_weapons
+        ],
+        # DAEMONS-EXTRA-MELEE-MAPPER-V1 — ADDITIVE melee profiles for
+        # weapons tagged [EXTRA ATTACKS] in BSData. Each entry fires
+        # alongside the primary melee block in the same Fight phase.
+        # The attack-resolution contract mirrors extra_ranged_profiles
+        # minus the range_inches / ranged-only fields (pistol, assault,
+        # rapid_fire, melta, torrent, blast, ignores_cover, heavy). The
+        # field is NOT populated on the heterogeneous (squad-average) path;
+        # units on that path receive an empty list here and the overrides
+        # layer may fill it in via data/overrides.json if needed.
+        # Cited as `simulator.extra_melee_profiles`.
+        extra_melee_profiles=[
+            {
+                "weapon": w.name,
+                "attacks": max(1, int(round(w.attacks))),
+                "weapon_damage_per_shot": round(w.damage, 2),
+                "hit_probability": round(w.hit_prob, 3),
+                "ap": w.ap,
+                "strength": w.strength,
+                "anti_keywords": dict(w.anti_keywords),
+                "lethal_hits": w.lethal_hits,
+                "sustained_hits": w.sustained_hits,
+                "twin_linked": w.twin_linked,
+                "devastating_wounds": w.devastating_wounds,
+                "lance": w.lance,
+                "precision": w.precision,
+            }
+            for w in extra_melee_weapons
         ],
         base_shape=base_shape,
         base_diameter_mm=base_diameter,

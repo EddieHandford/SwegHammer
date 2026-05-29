@@ -135,8 +135,16 @@ collided with the equilibrium solver's own Phase 1–6 ladder
   for line of sight; objective markers with primary victory point scoring.
 - **Strategy layer** — units pick a per-activation intent (HOLD, CAPTURE,
   STEAL, ENGAGE, REPOSITION, FALL_BACK) based on objective state and role.
-- **Catalogue** — ~1294 units from BSData WH40k 10e (`v10.6.0`), refined
+- **Catalogue** — ~1478 units from BSData WH40k 10e (`v10.6.0`), refined
   by `data/overrides.json`.
+- **Additive melee weapon profiles** (`UnitProfile.extra_melee_profiles`) —
+  the Fight phase resolves one extra attack pass per entry in this tuple,
+  using that entry's own attacks / strength / armour penetration / damage /
+  keyword flags. Populated by the BSData mapper for every non-heterogeneous
+  unit whose gear contains a melee weapon tagged with the 10e core
+  `[EXTRA ATTACKS]` keyword (fires in addition to the model's other melee
+  weapons; distinct from the ranged `extra_ranged_profiles` picker, which
+  is mutex / pick-one per group). 135 units populated in BSData v10.6.0.
 - **Sweep coverage** — `scripts/evaluate_vs_meta.py` runs the per-faction
   matchup matrix and reports mean absolute error vs the May 2026 Warp
   Friends tournament aggregate. This is the Stage 1 success metric.

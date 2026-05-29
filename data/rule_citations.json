@@ -1,4 +1,12 @@
 {
+  "simulator.extra_melee_profiles": {
+    "rule_name": "Extra Attacks",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Extra-Attacks",
+    "quoted_text": "[EXTRA ATTACKS]: Each time the bearer fights, it makes a number of attacks with this weapon equal to that weapon's Attacks characteristic in addition to the attacks it makes with its other melee weapons.",
+    "trigger": "Fight phase, any time a unit with UnitProfile.extra_melee_profiles fires its primary melee weapon. Each entry in extra_melee_profiles resolves as a second (third, ...) independent attack-resolution pass against the same target using that weapon's own A/S/AP/D values and keyword flags.",
+    "effect": "Additional melee attack-resolution passes, one per entry in UnitProfile.extra_melee_profiles, resolved in-order after the primary melee pass in Unit.attack mode==melee. Total damage = primary melee pass + sum of extra passes.",
+    "scope": "weapon-keyword"
+  },
   "AWAKENED_DYNASTY.bonus_to_hit_when_led": {
     "effect": "+1 to the Hit roll",
     "quoted_text": "While a NECRONS CHARACTER model is leading this unit, each time a model in this unit makes an attack, add 1 to the Hit roll.",
