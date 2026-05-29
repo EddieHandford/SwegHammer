@@ -5442,12 +5442,36 @@ class Battle:
         # `wounds_per_model = profile.health / profile.min_models` (this
         # is how the catalogue builder assigns squad totals).
         # Reference: https://wahapedia.ru/wh40k10ed/factions/drukhari/
+        # DRK-PAIN-TOKENS-V2: "cap of 1 per unit" means one Pain Token
+        # per codex unit (codex squad), not one per simulator Unit
+        # instance. The simulator expands each codex squad into N
+        # individual Unit instances (one per model). Without a squad-name
+        # gate, every dead model instance satisfies the Below Starting
+        # Strength check (current_health = 0 <= profile.health -
+        # wounds_per_model), and each gets its own pain_token, producing
+        # an 11.8x token amplification vs the codex cap of 1 per squad.
+        # The fix mirrors the SOROR-V1 / TAU-MARKERLIGHTS-V1 pattern:
+        # deduplicate on profile.name so at most one Unit instance per
+        # codex squad name holds a pain_token. Note: pain_tokens are
+        # currently inert (the per-datasheet ability effects are not yet
+        # wired), so this is a correctness fix for when those abilities
+        # are added, not a direct sim-outcome change.
         for army in (self.a, self.b):
+            # Track which codex squad names already hold or have been
+            # awarded a Pain Token this command phase. One token per
+            # codex squad (profile.name) is the codex cap.
+            _pain_token_awarded: set = set()
             for u in army.units:
                 if u.profile.faction != "Drukhari":
                     continue
                 if u.pain_tokens >= 1:
-                    continue   # cap: each unit holds at most 1 token
+                    # Already holds a token from a prior round: mark
+                    # this codex squad as covered so no sibling instance
+                    # receives a duplicate token.
+                    _pain_token_awarded.add(u.profile.name)
+                    continue
+                if u.profile.name in _pain_token_awarded:
+                    continue   # codex-squad cap: one token per squad
                 # Single-model units can never be Below Starting Strength.
                 if u.profile.min_models < 2:
                     continue
@@ -5455,6 +5479,7 @@ class Battle:
                 # Below Starting Strength = lost at least one full model.
                 if u.current_health <= u.profile.health - wounds_per_model:
                     u.pain_tokens = 1
+                    _pain_token_awarded.add(u.profile.name)
         # ---- Adepta Sororitas Acts of Faith (10e army rule). At the
         # start of each battle round, every Sororitas army gains 1
         # Miracle die (an unmodifiable pre-rolled D6 value, banked in a
