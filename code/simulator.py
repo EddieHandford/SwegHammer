@@ -3860,6 +3860,37 @@ class Battle:
                 # counted within the squad; for simplicity we assume the
                 # squad retains its caster until fully destroyed).
                 _n_squads = max(1, len(_group) // _squad_size)
+                # TSON-CABAL-GEN-V1 cap: for multi-model INFANTRY squads
+                # (min_models > 1), the profile's max_models field gives the
+                # codex-maximum models per single squad instance. The number
+                # of distinct Aspiring Sorcerer casters is therefore bounded
+                # by max_models // min_models (e.g. Rubric Marines max=10,
+                # min=5 → at most 2 squad-worth Aspiring Sorcerers per unique
+                # profile type per army, since each codex datasheet can only
+                # represent a single squad of up to max_models models — but
+                # players may take multiple SEPARATE force-org slots).
+                #
+                # random_fill can generate extra squad slots for the same
+                # profile (e.g. 3 Rubric Marines squads = 15 model-units).
+                # Cap _n_squads by max_models // min_models to prevent
+                # random_fill triple-squad inflation from generating a 3rd
+                # Aspiring Sorcerer attempt that exceeds what the archetype
+                # template (count=2) intends and that is vanishingly rare in
+                # real tournament lists.
+                #
+                # Characters (min_models == 1) are NOT capped: each alive
+                # CHARACTER unit instance is a distinct codex model with its
+                # own Cabal attempt (having 2 Exalted Sorcerers = 2 separate
+                # force-org slots, each legitimately getting 1 attempt).
+                #
+                # BSData v10.6.0: Rubric Marines max_models=10, min_models=5
+                # → cap = 2. Scarab Occult Terminators: same. Tzaangor Shaman:
+                # max=1, min=1 → character path (uncapped). All characters:
+                # max=1, min=1 → uncapped.
+                if _squad_size > 1:
+                    _max_models = _group[0].profile.max_models or _squad_size
+                    _codex_cap = max(1, _max_models // _squad_size)
+                    _n_squads = min(_n_squads, _codex_cap)
                 for _i in range(_n_squads):
                     _psyker_reps.append(_group[_i * _squad_size])
             for psyker in _psyker_reps:
