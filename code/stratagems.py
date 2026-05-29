@@ -1350,6 +1350,19 @@ WRATH_UNDENIABLE = Stratagem(
 )
 
 BLOOD_LEGION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems (DAEMONS-STRAT-INSTRUMENT-V1,
+    # iter60): all five Chaos Daemons detachments carry the four universal
+    # Daemonic Incursion stratagems in addition to their own god-specific
+    # entries. The simulator comment at line 1221-1230 of simulator.py
+    # states this intent; the bug was that only DAEMONIC_INCURSION_STRATAGEMS
+    # included them, so Blood/Plague/Excess/Scintillating armies never fired
+    # Draught of Terror / Warp Surge / Daemonic Invulnerability / Denizens of
+    # the Warp (80% of Daemons army instances).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Blood Legion god-specific stratagems:
     BLOOD_BEGETS_SKULLS,
     WRATH_UNDENIABLE,
 )
@@ -1399,6 +1412,13 @@ FOETID_RESURGENCE = Stratagem(
 )
 
 PLAGUE_LEGION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems — see BLOOD_LEGION_STRATAGEMS
+    # comment above (DAEMONS-STRAT-INSTRUMENT-V1, iter60).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Plague Legion god-specific stratagems:
     SEEPING_VIRULENCE,
     FOETID_RESURGENCE,
 )
@@ -1429,6 +1449,13 @@ ARCHAGONISTS = Stratagem(
 )
 
 LEGION_OF_EXCESS_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems — see BLOOD_LEGION_STRATAGEMS
+    # comment above (DAEMONS-STRAT-INSTRUMENT-V1, iter60).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Legion of Excess god-specific stratagems:
     ARCHAGONISTS,
 )
 
@@ -1458,6 +1485,13 @@ FLICKERING_REALITY = Stratagem(
 )
 
 SCINTILLATING_LEGION_STRATAGEMS: Tuple[Stratagem, ...] = (
+    # Shared Daemonic Incursion stratagems — see BLOOD_LEGION_STRATAGEMS
+    # comment above (DAEMONS-STRAT-INSTRUMENT-V1, iter60).
+    DENIZENS_OF_THE_WARP,
+    DRAUGHT_OF_TERROR,
+    WARP_SURGE,
+    DAEMONIC_INVULNERABILITY,
+    # Scintillating Legion god-specific stratagems:
     FLICKERING_REALITY,
 )
 
