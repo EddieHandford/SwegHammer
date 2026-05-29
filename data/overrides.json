@@ -2947,6 +2947,20 @@
     },
     "aeldari_craftworlds_ynnari_succubus": {
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
+    },
+    "tyranids_zoanthropes": {
+      "secondary_weapon": "",
+      "secondary_attacks": 0,
+      "secondary_weapon_damage_per_shot": 0.0,
+      "secondary_strength": 0,
+      "secondary_ap": 0,
+      "secondary_hit_probability": 0.0,
+      "secondary_range_inches": 0,
+      "secondary_heavy": false,
+      "secondary_blast": false,
+      "secondary_lethal_hits": false,
+      "extra_ranged_profiles": [],
+      "notes": "TYRANIDS-OVERBUFF-V1: Warp blast has TWO mutually-exclusive firing modes per Wahapedia (https://wahapedia.ru/wh40k10ed/factions/tyranids/#Zoanthropes): the Warp blast fires ONE of (focused witchfire: A=1 S=12 AP-3 D=D6+1 Lethal Hits / witchfire: A=D3 S=7 AP-2 D=D3 BLAST PSYCHIC) each Shooting phase. The BSData mapper packed focused witchfire into the primary slot and witchfire into the secondary slot, so the simulator was firing BOTH profiles every Shooting phase -- 2x ranged-output inflation. Promoted focused witchfire to the sole primary. Secondary slot cleared. Same pattern as TYRANIDS-DIAG-3, TYRANIDS-MULTI-LOADOUT, TYRANID-NORN-MULTILOAD. Source: https://wahapedia.ru/wh40k10ed/factions/tyranids/#Zoanthropes"
     }
   }
 }
