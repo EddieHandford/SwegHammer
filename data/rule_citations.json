@@ -199,5 +199,21 @@
     "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / no_prisoners / cull_the_horde / assassination) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`",
     "effect": "Only the picked 2 Fixed Secondaries (+ chosen Tactical cards) score VP for that army. `score_round_delta` / `score_position_delta` zero any component absent from `chosen_secondaries`. Previously all four Fixed + both Tactical scored every round for every army, asymmetrically over-rewarding balanced kill-heavy / mobile rosters.",
     "scope": "army-wide"
+  },
+  "simulator.markerlight_emission": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Markerlights",
+    "rule_name": "Markerlights",
+    "quoted_text": "In your Shooting phase, after making any Overwatch attacks but before any units from your army shoot, select one or more units from your army that are equipped with one or more Markerlight weapons. Each of those units can shoot with those Markerlight weapons (and only those weapons) at one enemy unit that is visible to it. Then, until the end of the phase, that enemy unit is said to be Marked for Destruction.",
+    "trigger": "T'au Empire Shooting phase; each codex unit (not each individual model) equipped with a Markerlight weapon shoots once at one visible enemy target; requires a successful Hit roll against the carrier's Ballistic Skill; on hit the target gains Guided status (uid added to army.guided_enemy_uids) granting Lethal Hits under Mont'ka detachment",
+    "effect": "One Markerlight firing attempt per codex squad (not per model-Unit); the simulator groups alive MARKERLIGHT keyword Unit objects by profile name, yields one representative per min_models alive models, then resolves range + line of sight + can_target_for_ranged + Ballistic Skill hit roll. TAU-MARKERLIGHTS-V1 fixed the pre-commit per-model inflation (7.0x amplification) by applying the same squad-deduplication pattern used in SOROR Acts of Faith (SOROR-ACTS-OF-FAITH-V1) and TSON Cabal Rituals (TSON-CABAL-V1).",
+    "scope": "army-wide"
+  },
+  "simulator.markerlights": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Markerlights",
+    "rule_name": "Markerlights — Guided (Lethal Hits)",
+    "quoted_text": "Marked for Destruction: Until the end of the phase, each time a T'AU EMPIRE unit from your army makes an attack that targets that enemy unit, if that attack is made with a ranged weapon, you can re-roll the Hit roll. Additionally, if your army includes any MONT'KA Enhancements, that attack has the [LETHAL HITS] ability.",
+    "trigger": "T'au Empire attacker fires at a target whose uid is in army.guided_enemy_uids (set by _run_markerlight_phase); detachment.lethal_hits_on_guided must be True (Mont'ka sets True); attack mode is ranged (not melee); round gate of rounds 1-3 applies only to the lethal_hits_on_guided detachment flag, NOT to the Guided status itself",
+    "effect": "Lethal Hits on ranged attacks against Guided targets: critical hits (natural 6 on Hit roll) auto-wound without rolling to wound. Implemented in Unit.attack ranged branch via transient_lethal_hits flag gated on army.guided_enemy_uids membership and detachment.lethal_hits_on_guided.",
+    "scope": "army-wide"
   }
 }

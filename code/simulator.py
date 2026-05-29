@@ -6831,7 +6831,11 @@ class Battle:
             * Hit roll uses the carrier's `hit_probability` (its Ballistic
               Skill, converted via `_prob_to_target`). No modifiers are
               applied — Markerlight is the simplest possible ranged shot.
-            * One attempt per MARKERLIGHT unit; selects the highest-points
+            * One attempt per MARKERLIGHT codex squad (not per model-Unit);
+              multi-model squads (Strike Team 10, Stealth Battlesuits 5)
+              are deduplicated by profile name with one representative per
+              min_models alive models. Single-model vehicles (Sky Ray,
+              min_models=1) are unaffected. Selects the highest-points
               live enemy in range+LoS as the threat priority before
               rolling the hit.
 
@@ -6859,14 +6863,46 @@ class Battle:
         alive_enemies = opponent.alive_units
         if not alive_enemies:
             return
-        markerlight_units = [
+        _all_ml_units = [
             u for u in army.alive_units
             if "MARKERLIGHT" in (u.profile.unit_keywords or ())
         ]
-        if not markerlight_units:
+        if not _all_ml_units:
             return
         from .army import can_target_for_ranged
         from .units import _prob_to_target
+        # The simulator decomposes multi-model squads into one Unit object
+        # per model (min_models Unit objects per template slot) at
+        # archetypes.py:1650-1653. The Markerlight weapon ability belongs to
+        # the squad, not to each individual model — a 10-model Strike Team
+        # fires ONE Markerlight per Shooting phase, not ten. Iterating over
+        # every model-Unit would give 10 Markerlight attempts for one squad.
+        #
+        # Fix (mirroring the TSON Cabal deduplication at _run_cabal_rituals):
+        # group alive MARKERLIGHT units by profile name, then yield one
+        # representative per every min_models models alive in that group.
+        # Partially-destroyed squads still contribute exactly 1 attempt as
+        # long as at least one model survives (the squad's Markerlight drone
+        # or equipped model is treated as the last to be removed).
+        # Single-model MARKERLIGHT units (Sky Ray Gunship, min_models=1)
+        # are unaffected: 1 model = 1 squad = 1 attempt.
+        #
+        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/tau-empire/#Markerlights
+        # "each T'AU EMPIRE unit that is equipped with one or more
+        # Markerlight weapons can be selected to shoot with those weapons
+        # ... in your Shooting phase" — unit-level, not model-level.
+        from collections import defaultdict as _dd_ml
+        _ml_groups: dict = _dd_ml(list)
+        for _u in _all_ml_units:
+            _ml_groups[_u.profile.name].append(_u)
+        markerlight_units: list = []
+        for _ml_name, _ml_group in _ml_groups.items():
+            _ml_squad_size = max(1, _ml_group[0].profile.min_models)
+            # Each complete or partial chunk of _ml_squad_size alive models
+            # represents one codex squad that fires one Markerlight.
+            _ml_n_squads = max(1, len(_ml_group) // _ml_squad_size)
+            for _ml_i in range(_ml_n_squads):
+                markerlight_units.append(_ml_group[_ml_i * _ml_squad_size])
         # 10e core rulebook: Markerlight is a weapon ability with the
         # standard ranged-weapon profile. The basic Markerlight is 36"
         # range across every datasheet in the T'au index. We hold this
