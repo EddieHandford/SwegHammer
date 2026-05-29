@@ -215,5 +215,29 @@
     "trigger": "T'au Empire attacker fires at a target whose uid is in army.guided_enemy_uids (set by _run_markerlight_phase); detachment.lethal_hits_on_guided must be True (Mont'ka sets True); attack mode is ranged (not melee); round gate of rounds 1-3 applies only to the lethal_hits_on_guided detachment flag, NOT to the Guided status itself",
     "effect": "Lethal Hits on ranged attacks against Guided targets: critical hits (natural 6 on Hit roll) auto-wound without rolling to wound. Implemented in Unit.attack ranged branch via transient_lethal_hits flag gated on army.guided_enemy_uids membership and detachment.lethal_hits_on_guided.",
     "scope": "army-wide"
+  },
+  "simulator.waaagh": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#WAAAGH!",
+    "rule_name": "WAAAGH!",
+    "quoted_text": "Once per battle, at the start of your Command phase, if you have at least one WAAAGH! unit on the battlefield, you can declare a WAAAGH! If you do, until the end of the turn: each time a model in a WAAAGH! unit from your army makes a melee attack, add 1 to the Wound roll; add 1 to Advance and Charge rolls made for WAAAGH! units from your army; WAAAGH! units from your army have the Fights First ability.",
+    "trigger": "Orks army declares WAAAGH! once per battle at the start of their Command phase (army.waaagh_round_unlocked is set to the current round). Buff window: the declared round only (waaagh_round == cur_round). Each Ork model making a melee attack on that round receives wound_mod_delta += 1.",
+    "effect": "+1 to wound rolls for all Ork melee attacks on the WAAAGH! declaration turn. APPROXIMATION: +1 to Advance/Charge rolls is not modelled (no Advance-and-Charge leg). WAAAGH! units gaining Fights First is not modelled.",
+    "scope": "phase-gated"
+  },
+  "WAR_HORDE.melee_sustained_hits_army_wide": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
+    "rule_name": "Get Stuck In",
+    "quoted_text": "Melee weapons equipped by ORKS models from your army have the [SUSTAINED HITS 1] ability.",
+    "trigger": "Attacker faction == Orks AND mode == melee AND the attacker's army's resolved detachment carries melee_sustained_hits_army_wide == True (set by WAR_HORDE). Fires on every individual melee attack roll — per-attack gating matches the codex per-weapon keyword behaviour.",
+    "effect": "effective_sustained_hits += 1 for the duration of each Orks melee attack resolution. A critical hit (natural 6) generates one extra normal hit. Stacks additively with any per-weapon melee_sustained_hits already on the profile.",
+    "scope": "army-wide"
+  },
+  "WARBOSS.plus_one_to_hit_melee_only": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Warboss",
+    "rule_name": "Might is Right",
+    "quoted_text": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+    "trigger": "An in-range Warboss or Warboss in Mega Armour (matched via substring 'Warboss' in leader profile name) is within aura_range=6 of the attacker AND the attacker's UNIT_CATALOG key is in host_keys=(orks_boyz, orks_nobz, orks_meganobz). Gate: mode == melee only.",
+    "effect": "hit_mod_delta += 1 for melee attacks by the bodyguard unit. Fires via the LeaderAbility.plus_one_to_hit_melee_only field in effective_buffs (does NOT fire for ranged attacks).",
+    "scope": "unit-led"
   }
 }
