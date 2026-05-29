@@ -1184,10 +1184,23 @@ class Unit:
                     "twin_linked": bool(_ed.get("twin_linked", False)),
                     "lance": bool(_ed.get("lance", False)),
                     "precision": bool(_ed.get("precision", False)),
-                    # anti_keywords merges into the existing primary
-                    # anti_keywords dict; the swap replaces it for the
-                    # extra's resolution pass.
-                    "anti_keywords": dict(_ed.get("anti_keywords") or {}),
+                    # anti_keywords on an extra weapon profile replaces the
+                    # primary's anti_keywords during this extra's resolution
+                    # pass. Wave-52 MAPPER-EXTRA-MELEE-V1 populated this as
+                    # a dict in the extra dict template, but UnitProfile's
+                    # `anti_keywords` field is `Tuple[Tuple[str, int], ...]`
+                    # (tuple-of-tuples for dataclass hashability). The
+                    # downstream consumer at the attack-resolution site
+                    # (line ~2174 `for kw, thresh in p.anti_keywords`)
+                    # unpacks each element as a 2-tuple, so passing a dict
+                    # made dataclasses.replace produce a UnitProfile whose
+                    # anti_keywords iterated as keyword-strings —
+                    # ValueError: too many values to unpack. Convert to the
+                    # expected tuple-of-tuples shape here.
+                    "anti_keywords": tuple(
+                        (_ed.get("anti_keywords") or {}).items()
+                    ) if isinstance(_ed.get("anti_keywords"), dict)
+                    else tuple(_ed.get("anti_keywords") or ()),
                 })
             # Primary fires first (None) then each extra fires once.
             _profiles_to_fire = [None] + _melee_extras
