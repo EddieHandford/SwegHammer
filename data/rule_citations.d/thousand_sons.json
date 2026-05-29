@@ -91,6 +91,15 @@
     "scope": "character-only"
   },
 
+  "simulator.rubric_marines_bringers_of_change": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/#Rubric-Marines",
+    "rule_name": "Bringers of Change",
+    "quoted_text": "Each time a model in this unit makes a ranged attack, re-roll a Wound roll of 1. If the attack targets a unit within range of an objective marker you do not control, you can re-roll the Wound roll instead.",
+    "trigger": "Rubric Marines unit makes any ranged attack",
+    "effect": "UNMODELLED APPROXIMATION. The real rule grants re-roll Wound rolls of 1 on all ranged attacks (unconditionally), upgrading to full Wound re-roll on attacks targeting an objective the attacker does not control. SwegHammer's leader-aura layer exposes reroll_wound_ones as a buff flag on LeaderAbility, but Bringers of Change is a datasheet ability (not a leader aura) with no equivalent per-unit passive flag in UnitProfile. To model this correctly, a new UnitProfile boolean field 'reroll_ranged_wound_ones' would be needed, read by Unit.attack at the wound-modifier layer. DIRECTION NOTE: implementing this would strengthen Rubric Marines ranged output (direction: increases TSON sim win rate, worsens the +20 overshoot at wave-52). Catalogued here as a known gap per CLAUDE.md §10; do not implement until the TSON overshoot is resolved by other means. Source: BSData Chaos - Thousand Sons.cat.gz, Rubric Marines Abilities > Bringers of Change.",
+    "scope": "keyword-gated"
+  },
+
   "GRAND_COVEN.psychic_mortal_wounds_per_round": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/thousand-sons/",
     "rule_name": "Kindred Sorcery (Grand Coven Detachment Rule)",
