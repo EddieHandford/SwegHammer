@@ -81,6 +81,82 @@ def load_registry(files: Optional[List[Path]] = None) -> Registry:
 
 
 # ---------------------------------------------------------------------------
+# Hidden-in-matched-play filter
+# ---------------------------------------------------------------------------
+
+def _is_hidden_in_matched_play(entry: ET.Element) -> bool:
+    """Return True if this selectionEntry is a Crucible Crusade-only unit that
+    is unconditionally hidden in matched-play.
+
+    Two gates must both pass:
+
+    **Gate 1 — name suffix ``[Crucible]``.**  Every Crusade campaign character
+    in BSData 10e carries this suffix.  The name gate is essential because the
+    same modifier shape (Gate 2) appears on other entry types for unrelated
+    reasons (``[Legends]`` units, Chaos Daemons shared-library entries,
+    terrain pieces).  Without it those valid matched-play entries would be
+    filtered out of the catalogue.
+
+    **Gate 2 — matched-play hidden modifier.**  BSData marks Crucible-only
+    units with a modifier that sets ``hidden=true`` whenever fewer than 1 of
+    the entry appears on the roster::
+
+        <modifier type="set" field="hidden" value="true">
+          <conditions>
+            <condition type="lessThan" field="selections" value="1" scope="roster"/>
+          </conditions>
+        </modifier>
+
+    In a matched-play context no Crucible unit is ever on the roster, so this
+    modifier always fires and the entry is always hidden.  BattleScribe's UI
+    suppresses hidden entries from the army-builder drop-down; the mapper
+    applies the same filter to prevent Crusade-only stat-blocks from entering
+    the matched-play unit catalogue.
+
+    Conservative stance on the modifier shape — only the ``scope="roster"`` /
+    ``lessThan value="1"`` pattern is treated as the unconditional matched-play
+    hide.  The other conditions on Crucible entries (``instanceOf``,
+    ``notInstanceOf``, ``atLeast`` on specific entry IDs, scope ``"self"`` /
+    ``"parent"`` / ``"force"``) are Crusade-mode toggles that show/hide the
+    entry based on campaign state; we do not evaluate them.
+
+    BSData evidence: every ``[Crucible]``-suffixed selectionEntry in v10.6.0
+    carries exactly one modifier of this shape in addition to any Crusade-state
+    modifiers.  Confirmed across 20 faction catalogues (62 entries total).
+
+    Note: the ``[Crucible]`` name gate is essential.  Other entry types use the
+    same ``lessThan scope=roster`` modifier for unrelated purposes (``[Legends]``
+    units, Chaos Daemons shared-library entries, terrain and scenery pieces).
+    Without the name gate those entries would also be filtered, removing valid
+    matched-play units from the catalogue.
+    """
+    # Gate 1: name must contain "[Crucible]".  Crusade Crucible campaign units
+    # are the only entries in BSData 10e that combine this suffix with the
+    # matched-play hidden modifier as their primary visibility control.
+    name = entry.get("name") or ""
+    if "[Crucible]" not in name:
+        return False
+
+    # Gate 2: entry must carry the matched-play hidden modifier.
+    for mod in entry.findall("./modifiers/modifier"):
+        if mod.get("type") != "set":
+            continue
+        if mod.get("field") != "hidden":
+            continue
+        if (mod.get("value") or "").lower() != "true":
+            continue
+        for cond in mod.findall("./conditions/condition"):
+            if (
+                cond.get("type") == "lessThan"
+                and cond.get("field") == "selections"
+                and (cond.get("value") or "").strip() == "1"
+                and (cond.get("scope") or "").lower() == "roster"
+            ):
+                return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Iterators
 # ---------------------------------------------------------------------------
 
@@ -168,6 +244,15 @@ def iter_unit_entries(reg: Registry) -> Iterator[tuple[str, ET.Element]]:
         # Last resort: the first importer (typically a library).
         if not owning_codex:
             owning_codex = files[0]
+        # Skip entries that are unconditionally hidden in matched-play (e.g.
+        # all [Crucible] Crusade characters).  The hidden modifier fires via
+        # `lessThan field="selections" value="1" scope="roster"`, which is
+        # always true in a matched-play context where no Crusade unit appears
+        # on the roster.  Filtering here removes all 62 [Crucible] entries
+        # in a single structural pass, replacing the per-unit `enabled: false`
+        # override approach used before CRUCIBLE-HIDDEN-FILTER-V1.
+        if _is_hidden_in_matched_play(target):
+            continue
         yield owning_codex, target
 
 

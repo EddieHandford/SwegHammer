@@ -747,29 +747,6 @@
         ]
       ]
     },
-    "tyranids_macro_organism_crucible": {
-      "name": "Macro Organism [Crucible]",
-      "faction": "Tyranids",
-      "gw_pts_per_model": 150.0,
-      "sweg_pts_per_model": 195,
-      "delta_pct": 30.0,
-      "faction_multiplier": 0.948,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          4.1914
-        ],
-        [
-          "toughness_x_wounds",
-          -3.5061
-        ],
-        [
-          "toughness",
-          1.7001
-        ]
-      ]
-    },
     "orks_stompa": {
       "name": "Stompa",
       "faction": "Orks",
@@ -882,29 +859,6 @@
         [
           "toughness",
           1.5301
-        ]
-      ]
-    },
-    "chaos_space_marines_exalted_champion_crucible": {
-      "name": "Exalted Champion [Crucible]",
-      "faction": "Chaos Space Marines",
-      "gw_pts_per_model": 90.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": -11.11,
-      "faction_multiplier": 1.056,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -2702,29 +2656,6 @@
         ]
       ]
     },
-    "world_eaters_bloodcult_champion_crucible": {
-      "name": "Bloodcult Champion [Crucible]",
-      "faction": "World Eaters",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 40,
-      "delta_pct": -33.33,
-      "faction_multiplier": 0.94,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "aeldari_craftworlds_prince_yriel": {
       "name": "Prince Yriel",
       "faction": "Aeldari",
@@ -2745,29 +2676,6 @@
         [
           "toughness",
           0.51
-        ]
-      ]
-    },
-    "thousand_sons_brayherd_shaman_crucible": {
-      "name": "Brayherd Shaman [Crucible]",
-      "faction": "Thousand Sons",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": 8.33,
-      "faction_multiplier": 1.092,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -3231,29 +3139,6 @@
         ]
       ]
     },
-    "emperor_s_children_champion_of_excess_crucible": {
-      "name": "Champion of Excess [Crucible]",
-      "faction": "Emperor's Children",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 75,
-      "delta_pct": -6.25,
-      "faction_multiplier": 0.958,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "t_au_empire_cadre_fireblade": {
       "name": "Cadre Fireblade",
       "faction": "T'au Empire",
@@ -3507,29 +3392,6 @@
         ]
       ]
     },
-    "world_eaters_eight_blessed_lord_crucible": {
-      "name": "Eight-blessed Lord [Crucible]",
-      "faction": "World Eaters",
-      "gw_pts_per_model": 90.0,
-      "sweg_pts_per_model": 100,
-      "delta_pct": 11.11,
-      "faction_multiplier": 0.94,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.2185
-        ],
-        [
-          "toughness_x_wounds",
-          -2.6648
-        ],
-        [
-          "toughness",
-          1.0201
-        ]
-      ]
-    },
     "astra_militarum_malcador_annihilator_legends": {
       "name": "Malcador Annihilator [Legends]",
       "faction": "Astra Militarum",
@@ -3734,52 +3596,6 @@
         [
           "toughness",
           0.8501
-        ]
-      ]
-    },
-    "orks_upstart_gretchin_crucible": {
-      "name": "Upstart Gretchin [Crucible]",
-      "faction": "Orks",
-      "gw_pts_per_model": 40.0,
-      "sweg_pts_per_model": 50,
-      "delta_pct": 25.0,
-      "faction_multiplier": 0.898,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.3787
-        ],
-        [
-          "min_models",
-          -0.3677
-        ]
-      ]
-    },
-    "adepta_sororitas_reliquant_knight_crucible": {
-      "name": "Reliquant Knight [Crucible]",
-      "faction": "Adepta Sororitas",
-      "gw_pts_per_model": 100.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": -20.0,
-      "faction_multiplier": 1.008,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.3857
-        ],
-        [
-          "toughness",
-          1.1901
         ]
       ]
     },
@@ -4358,29 +4174,6 @@
         ]
       ]
     },
-    "astra_militarum_sentinel_commander_crucible": {
-      "name": "Sentinel Commander [Crucible]",
-      "faction": "Astra Militarum",
-      "gw_pts_per_model": 75.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": 6.67,
-      "faction_multiplier": 0.902,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.2185
-        ],
-        [
-          "toughness_x_wounds",
-          -2.7716
-        ],
-        [
-          "toughness",
-          1.1901
-        ]
-      ]
-    },
     "adepta_sororitas_celestian_sacresants": {
       "name": "Celestian Sacresants",
       "faction": "Adepta Sororitas",
@@ -4401,29 +4194,6 @@
         [
           "min_models",
           -0.9506
-        ]
-      ]
-    },
-    "necrons_dynastic_conqueror_crucible": {
-      "name": "Dynastic Conqueror [Crucible]",
-      "faction": "Necrons",
-      "gw_pts_per_model": 85.0,
-      "sweg_pts_per_model": 95,
-      "delta_pct": 11.76,
-      "faction_multiplier": 1.064,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.0118
-        ],
-        [
-          "toughness_x_wounds",
-          -2.4329
-        ],
-        [
-          "toughness",
-          0.8501
         ]
       ]
     },
@@ -4910,29 +4680,6 @@
         ]
       ]
     },
-    "aeldari_drukhari_flesh_crafter_crucible": {
-      "name": "Flesh Crafter [Crucible]",
-      "faction": "Drukhari",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": 8.33,
-      "faction_multiplier": 0.986,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "chaos_daemons_library_furies_legends": {
       "name": "Furies [Legends]",
       "faction": "Chaos Daemons",
@@ -4976,29 +4723,6 @@
         [
           "min_models",
           -0.9506
-        ]
-      ]
-    },
-    "orks_warphead_crucible": {
-      "name": "Warphead [Crucible]",
-      "faction": "Orks",
-      "gw_pts_per_model": 65.0,
-      "sweg_pts_per_model": 55,
-      "delta_pct": -15.38,
-      "faction_multiplier": 0.898,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.8501
         ]
       ]
     },
@@ -5853,29 +5577,6 @@
         ]
       ]
     },
-    "space_marines_librarius_adept_crucible": {
-      "name": "Librarius Adept [Crucible]",
-      "faction": "Adeptus Astartes",
-      "gw_pts_per_model": 70.0,
-      "sweg_pts_per_model": 60,
-      "delta_pct": -14.29,
-      "faction_multiplier": 0.952,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "black_templars_sword_brethren_squad": {
       "name": "Sword Brethren Squad",
       "faction": "Black Templars",
@@ -6129,29 +5830,6 @@
         ]
       ]
     },
-    "thousand_sons_magister_crucible": {
-      "name": "Magister [Crucible]",
-      "faction": "Thousand Sons",
-      "gw_pts_per_model": 105.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": -23.81,
-      "faction_multiplier": 1.092,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "chaos_space_marines_kratos_legends": {
       "name": "Kratos [Legends]",
       "faction": "Chaos Space Marines",
@@ -6172,29 +5850,6 @@
         [
           "toughness",
           2.0402
-        ]
-      ]
-    },
-    "leagues_of_votann_living_ancestor_crucible": {
-      "name": "Living Ancestor [Crucible]",
-      "faction": "Leagues of Votann",
-      "gw_pts_per_model": 70.0,
-      "sweg_pts_per_model": 70,
-      "delta_pct": 0.0,
-      "faction_multiplier": 0.986,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.8501
         ]
       ]
     },
@@ -6287,29 +5942,6 @@
         [
           "toughness",
           1.7001
-        ]
-      ]
-    },
-    "t_au_empire_battlesuit_veteran_crucible": {
-      "name": "Battlesuit Veteran [Crucible]",
-      "faction": "T'au Empire",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 95,
-      "delta_pct": 58.33,
-      "faction_multiplier": 1.09,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -6540,29 +6172,6 @@
         [
           "toughness",
           0.6801
-        ]
-      ]
-    },
-    "agents_of_the_imperium_martial_agent_crucible": {
-      "name": "Martial Agent [Crucible]",
-      "faction": "Agents of the Imperium",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 70,
-      "delta_pct": 16.67,
-      "faction_multiplier": 1.0,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -7095,29 +6704,6 @@
         ]
       ]
     },
-    "grey_knights_champion_of_titan_crucible": {
-      "name": "Champion of Titan [Crucible]",
-      "faction": "Grey Knights",
-      "gw_pts_per_model": 90.0,
-      "sweg_pts_per_model": 95,
-      "delta_pct": 5.56,
-      "faction_multiplier": 0.958,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "space_marines_invictor_tactical_warsuit": {
       "name": "Invictor Tactical Warsuit",
       "faction": "Adeptus Astartes",
@@ -7138,29 +6724,6 @@
         [
           "toughness",
           1.3601
-        ]
-      ]
-    },
-    "emperor_s_children_flawless_champion_crucible": {
-      "name": "Flawless Champion [Crucible]",
-      "faction": "Emperor's Children",
-      "gw_pts_per_model": 100.0,
-      "sweg_pts_per_model": 90,
-      "delta_pct": -10.0,
-      "faction_multiplier": 0.958,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.3083
-        ],
-        [
-          "toughness",
-          0.8501
         ]
       ]
     },
@@ -7230,29 +6793,6 @@
         [
           "toughness",
           1.3601
-        ]
-      ]
-    },
-    "tyranids_prime_organism_crucible": {
-      "name": "Prime Organism [Crucible]",
-      "faction": "Tyranids",
-      "gw_pts_per_model": 135.0,
-      "sweg_pts_per_model": 150,
-      "delta_pct": 11.11,
-      "faction_multiplier": 0.948,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.5638
-        ],
-        [
-          "toughness_x_wounds",
-          -3.1221
-        ],
-        [
-          "toughness",
-          1.5301
         ]
       ]
     },
@@ -7552,29 +7092,6 @@
         [
           "toughness",
           0.51
-        ]
-      ]
-    },
-    "necrons_triarchal_overseer_crucible": {
-      "name": "Triarchal Overseer [Crucible]",
-      "faction": "Necrons",
-      "gw_pts_per_model": 120.0,
-      "sweg_pts_per_model": 150,
-      "delta_pct": 25.0,
-      "faction_multiplier": 1.064,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.9699
-        ],
-        [
-          "toughness_x_wounds",
-          -3.2411
-        ],
-        [
-          "toughness",
-          1.3601
         ]
       ]
     },
@@ -7946,29 +7463,6 @@
         ]
       ]
     },
-    "adepta_sororitas_inspiring_devotee_crucible": {
-      "name": "Inspiring Devotee [Crucible]",
-      "faction": "Adepta Sororitas",
-      "gw_pts_per_model": 50.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": 30.0,
-      "faction_multiplier": 1.008,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
     "space_marines_land_raider_crusader": {
       "name": "Land Raider Crusader",
       "faction": "Adeptus Astartes",
@@ -8012,52 +7506,6 @@
         [
           "toughness",
           0.8501
-        ]
-      ]
-    },
-    "emperor_s_children_excruciator_crucible": {
-      "name": "Excruciator [Crucible]",
-      "faction": "Emperor's Children",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 75,
-      "delta_pct": 25.0,
-      "faction_multiplier": 0.958,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
-    "genestealer_cults_cult_insurrectionist_crucible": {
-      "name": "Cult Insurrectionist [Crucible]",
-      "faction": "Genestealer Cults",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": -18.75,
-      "faction_multiplier": 0.948,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -8311,29 +7759,6 @@
         [
           "toughness",
           1.5301
-        ]
-      ]
-    },
-    "tyranids_node_organism_crucible": {
-      "name": "Node Organism [Crucible]",
-      "faction": "Tyranids",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 85,
-      "delta_pct": 6.25,
-      "faction_multiplier": 0.948,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.0118
-        ],
-        [
-          "toughness_x_wounds",
-          -2.4329
-        ],
-        [
-          "toughness",
-          0.8501
         ]
       ]
     },
@@ -8748,29 +8173,6 @@
         [
           "toughness",
           0.8501
-        ]
-      ]
-    },
-    "chaos_space_marines_soul_forge_tyrant_crucible": {
-      "name": "Soul Forge Tyrant [Crucible]",
-      "faction": "Chaos Space Marines",
-      "gw_pts_per_model": 160.0,
-      "sweg_pts_per_model": 205,
-      "delta_pct": 28.12,
-      "faction_multiplier": 1.056,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.7113
-        ],
-        [
-          "toughness_x_wounds",
-          -3.1959
-        ],
-        [
-          "toughness",
-          1.5301
         ]
       ]
     },
@@ -9194,29 +8596,6 @@
       "gw_pts_per_model": 45.0,
       "sweg_pts_per_model": 50,
       "delta_pct": 11.11,
-      "faction_multiplier": 0.888,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
-    "aeldari_craftworlds_craftworld_warleader_crucible": {
-      "name": "Craftworld Warleader [Crucible]",
-      "faction": "Aeldari",
-      "gw_pts_per_model": 75.0,
-      "sweg_pts_per_model": 55,
-      "delta_pct": -26.67,
       "faction_multiplier": 0.888,
       "method": "equation_plus_faction_multiplier",
       "top_features": [
@@ -9691,29 +9070,6 @@
         [
           "min_models",
           -0.8538
-        ]
-      ]
-    },
-    "astra_militarum_augmented_bone_ead_crucible": {
-      "name": "Augmented Bone 'Ead [Crucible]",
-      "faction": "Astra Militarum",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 55,
-      "delta_pct": -8.33,
-      "faction_multiplier": 0.902,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -10729,29 +10085,6 @@
         ]
       ]
     },
-    "grey_knights_dreadknight_champion_crucible": {
-      "name": "Dreadknight Champion [Crucible]",
-      "faction": "Grey Knights",
-      "gw_pts_per_model": 210.0,
-      "sweg_pts_per_model": 185,
-      "delta_pct": -11.9,
-      "faction_multiplier": 0.958,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          4.0846
-        ],
-        [
-          "toughness_x_wounds",
-          -3.2973
-        ],
-        [
-          "toughness",
-          1.3601
-        ]
-      ]
-    },
     "astra_militarum_scout_sentinels": {
       "name": "Scout Sentinels",
       "faction": "Astra Militarum",
@@ -10841,29 +10174,6 @@
         [
           "toughness",
           0.51
-        ]
-      ]
-    },
-    "death_guard_tri_lobe_vectors_crucible": {
-      "name": "Tri-lobe Vectors [Crucible]",
-      "faction": "Death Guard",
-      "gw_pts_per_model": 40.0,
-      "sweg_pts_per_model": 45,
-      "delta_pct": 12.5,
-      "faction_multiplier": 0.922,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.2805
-        ],
-        [
-          "toughness",
-          1.0201
         ]
       ]
     },
@@ -12014,29 +11324,6 @@
         [
           "toughness",
           1.8701
-        ]
-      ]
-    },
-    "death_guard_plague_sorcerer_crucible": {
-      "name": "Plague Sorcerer [Crucible]",
-      "faction": "Death Guard",
-      "gw_pts_per_model": 70.0,
-      "sweg_pts_per_model": 75,
-      "delta_pct": 7.14,
-      "faction_multiplier": 0.922,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.2805
-        ],
-        [
-          "toughness",
-          1.0201
         ]
       ]
     },
@@ -13213,29 +12500,6 @@
         ]
       ]
     },
-    "aeldari_drukhari_archtormentor_crucible": {
-      "name": "Archtormentor [Crucible]",
-      "faction": "Drukhari",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 60,
-      "delta_pct": 0.0,
-      "faction_multiplier": 0.986,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
     "t_au_empire_tactical_drones_legends": {
       "name": "Tactical Drones [Legends]",
       "faction": "T'au Empire",
@@ -13972,29 +13236,6 @@
         ]
       ]
     },
-    "agents_of_the_imperium_enthroned_agent_crucible": {
-      "name": "Enthroned Agent [Crucible]",
-      "faction": "Agents of the Imperium",
-      "gw_pts_per_model": 120.0,
-      "sweg_pts_per_model": 115,
-      "delta_pct": -4.17,
-      "faction_multiplier": 1.0,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.5638
-        ],
-        [
-          "toughness_x_wounds",
-          -2.9465
-        ],
-        [
-          "toughness",
-          1.1901
-        ]
-      ]
-    },
     "chaos_space_marines_maulerfiend": {
       "name": "Maulerfiend",
       "faction": "Chaos Space Marines",
@@ -14432,29 +13673,6 @@
         ]
       ]
     },
-    "adeptus_custodes_guardian_of_the_throne_crucible": {
-      "name": "Guardian of the Throne [Crucible]",
-      "faction": "Adeptus Custodes",
-      "gw_pts_per_model": 130.0,
-      "sweg_pts_per_model": 125,
-      "delta_pct": -3.85,
-      "faction_multiplier": 1.042,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.0118
-        ],
-        [
-          "toughness_x_wounds",
-          -2.5583
-        ],
-        [
-          "toughness",
-          1.0201
-        ]
-      ]
-    },
     "world_eaters_maulerfiend": {
       "name": "Maulerfiend",
       "faction": "World Eaters",
@@ -14816,29 +14034,6 @@
         [
           "toughness_x_wounds",
           -1.6989
-        ],
-        [
-          "toughness",
-          0.8501
-        ]
-      ]
-    },
-    "orks_hordeboss_crucible": {
-      "name": "Hordeboss [Crucible]",
-      "faction": "Orks",
-      "gw_pts_per_model": 75.0,
-      "sweg_pts_per_model": 70,
-      "delta_pct": -6.67,
-      "faction_multiplier": 0.898,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.3083
         ],
         [
           "toughness",
@@ -15326,29 +14521,6 @@
         [
           "toughness",
           1.1901
-        ]
-      ]
-    },
-    "death_guard_daemonic_herald_crucible": {
-      "name": "Daemonic Herald [Crucible]",
-      "faction": "Death Guard",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 45,
-      "delta_pct": -25.0,
-      "faction_multiplier": 0.922,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -17146,29 +16318,6 @@
         ]
       ]
     },
-    "adeptus_custodes_kataphraktoi_exemplar_crucible": {
-      "name": "Kataphraktoi Exemplar [Crucible]",
-      "faction": "Adeptus Custodes",
-      "gw_pts_per_model": 150.0,
-      "sweg_pts_per_model": 165,
-      "delta_pct": 10.0,
-      "faction_multiplier": 1.042,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.4007
-        ],
-        [
-          "toughness_x_wounds",
-          -2.8644
-        ],
-        [
-          "toughness",
-          1.1901
-        ]
-      ]
-    },
     "black_templars_terminator_squad": {
       "name": "Terminator Squad",
       "faction": "Black Templars",
@@ -18615,29 +17764,6 @@
         [
           "toughness",
           0.6801
-        ]
-      ]
-    },
-    "death_guard_plague_lord_crucible": {
-      "name": "Plague Lord [Crucible]",
-      "faction": "Death Guard",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": 0.0,
-      "faction_multiplier": 0.922,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.4329
-        ],
-        [
-          "toughness",
-          1.0201
         ]
       ]
     },
@@ -20458,29 +19584,6 @@
         ]
       ]
     },
-    "t_au_empire_shas_nel_crucible": {
-      "name": "Shas'nel [Crucible]",
-      "faction": "T'au Empire",
-      "gw_pts_per_model": 50.0,
-      "sweg_pts_per_model": 60,
-      "delta_pct": 20.0,
-      "faction_multiplier": 1.09,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
     "t_au_empire_kroot_hounds": {
       "name": "Kroot Hounds",
       "faction": "T'au Empire",
@@ -20547,29 +19650,6 @@
         [
           "min_models",
           -0.7355
-        ]
-      ]
-    },
-    "necrons_hyperscientist_crucible": {
-      "name": "Hyperscientist [Crucible]",
-      "faction": "Necrons",
-      "gw_pts_per_model": 85.0,
-      "sweg_pts_per_model": 60,
-      "delta_pct": -29.41,
-      "faction_multiplier": 1.064,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -20994,29 +20074,6 @@
       "sweg_pts_per_model": 45,
       "delta_pct": -10.0,
       "faction_multiplier": 1.09,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
-    "genestealer_cults_cult_guerrilla_crucible": {
-      "name": "Cult Guerrilla [Crucible]",
-      "faction": "Genestealer Cults",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": 8.33,
-      "faction_multiplier": 0.948,
       "method": "equation_plus_faction_multiplier",
       "top_features": [
         [
@@ -22137,29 +21194,6 @@
         ]
       ]
     },
-    "leagues_of_votann_kinhost_commander_crucible": {
-      "name": "Kinhost Commander [Crucible]",
-      "faction": "Leagues of Votann",
-      "gw_pts_per_model": 65.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": 23.08,
-      "faction_multiplier": 0.986,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.8501
-        ]
-      ]
-    },
     "blood_angels_astorath": {
       "name": "Astorath",
       "faction": "Blood Angels",
@@ -22804,29 +21838,6 @@
         ]
       ]
     },
-    "world_eaters_butcherlord_crucible": {
-      "name": "Butcherlord [Crucible]",
-      "faction": "World Eaters",
-      "gw_pts_per_model": 90.0,
-      "sweg_pts_per_model": 75,
-      "delta_pct": -16.67,
-      "faction_multiplier": 0.94,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "adeptus_mechanicus_tech_priest_manipulus": {
       "name": "Tech-Priest Manipulus",
       "faction": "Adeptus Mechanicus",
@@ -22870,29 +21881,6 @@
         [
           "min_models",
           -0.8538
-        ]
-      ]
-    },
-    "chaos_space_marines_sorcerous_champion_crucible": {
-      "name": "Sorcerous Champion [Crucible]",
-      "faction": "Chaos Space Marines",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 80,
-      "delta_pct": 0.0,
-      "faction_multiplier": 1.056,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -23425,29 +22413,6 @@
         ]
       ]
     },
-    "grey_knights_venerable_daemon_slayer_crucible": {
-      "name": "Venerable Daemon Slayer [Crucible]",
-      "faction": "Grey Knights",
-      "gw_pts_per_model": 175.0,
-      "sweg_pts_per_model": 135,
-      "delta_pct": -22.86,
-      "faction_multiplier": 0.958,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.4007
-        ],
-        [
-          "toughness_x_wounds",
-          -3.0397
-        ],
-        [
-          "toughness",
-          1.5301
-        ]
-      ]
-    },
     "death_guard_chaos_spawn": {
       "name": "Chaos Spawn",
       "faction": "Death Guard",
@@ -23652,29 +22617,6 @@
         [
           "toughness",
           0.51
-        ]
-      ]
-    },
-    "death_guard_immortal_champion_crucible": {
-      "name": "Immortal Champion [Crucible]",
-      "faction": "Death Guard",
-      "gw_pts_per_model": 180.0,
-      "sweg_pts_per_model": 165,
-      "delta_pct": -8.33,
-      "faction_multiplier": 0.922,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.7113
-        ],
-        [
-          "toughness_x_wounds",
-          -3.2698
-        ],
-        [
-          "toughness",
-          1.7001
         ]
       ]
     },
@@ -24020,29 +22962,6 @@
         [
           "toughness",
           1.0201
-        ]
-      ]
-    },
-    "adepta_sororitas_militant_commander_crucible": {
-      "name": "Militant Commander [Crucible]",
-      "faction": "Adepta Sororitas",
-      "gw_pts_per_model": 75.0,
-      "sweg_pts_per_model": 75,
-      "delta_pct": 0.0,
-      "faction_multiplier": 1.008,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -25863,29 +24782,6 @@
         ]
       ]
     },
-    "aeldari_craftworlds_skyrunner_crucible": {
-      "name": "Skyrunner [Crucible]",
-      "faction": "Aeldari",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 70,
-      "delta_pct": -12.5,
-      "faction_multiplier": 0.888,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "grey_knights_grand_master_voldus": {
       "name": "Grand Master Voldus",
       "faction": "Grey Knights",
@@ -25975,29 +24871,6 @@
         [
           "toughness",
           1.0201
-        ]
-      ]
-    },
-    "aeldari_craftworlds_ghost_warrior_crucible": {
-      "name": "Ghost Warrior [Crucible]",
-      "faction": "Aeldari",
-      "gw_pts_per_model": 160.0,
-      "sweg_pts_per_model": 145,
-      "delta_pct": -9.38,
-      "faction_multiplier": 0.888,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.7113
-        ],
-        [
-          "toughness_x_wounds",
-          -3.2698
-        ],
-        [
-          "toughness",
-          1.7001
         ]
       ]
     },
@@ -29681,29 +28554,6 @@
         ]
       ]
     },
-    "agents_of_the_imperium_deathwatch_agent_crucible": {
-      "name": "Deathwatch Agent [Crucible]",
-      "faction": "Agents of the Imperium",
-      "gw_pts_per_model": 105.0,
-      "sweg_pts_per_model": 85,
-      "delta_pct": -19.05,
-      "faction_multiplier": 1.0,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.157
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "astra_militarum_voss_pattern_lightning_legends": {
       "name": "Voss-pattern Lightning [Legends]",
       "faction": "Astra Militarum",
@@ -30072,29 +28922,6 @@
         ]
       ]
     },
-    "t_au_empire_kinband_champion_crucible": {
-      "name": "Kinband Champion [Crucible]",
-      "faction": "T'au Empire",
-      "gw_pts_per_model": 55.0,
-      "sweg_pts_per_model": 55,
-      "delta_pct": 0.0,
-      "faction_multiplier": 1.09,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
     "space_marines_lieutenant_with_combi_weapon": {
       "name": "Lieutenant with Combi-weapon",
       "faction": "Adeptus Astartes",
@@ -30207,29 +29034,6 @@
         [
           "toughness",
           0.6801
-        ]
-      ]
-    },
-    "genestealer_cults_voice_of_the_patriarch_crucible": {
-      "name": "Voice of the Patriarch [Crucible]",
-      "faction": "Genestealer Cults",
-      "gw_pts_per_model": 70.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": -7.14,
-      "faction_multiplier": 0.948,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -30805,29 +29609,6 @@
         [
           "toughness",
           1.7001
-        ]
-      ]
-    },
-    "adeptus_custodes_null_maiden_crucible": {
-      "name": "Null Maiden [Crucible]",
-      "faction": "Adeptus Custodes",
-      "gw_pts_per_model": 65.0,
-      "sweg_pts_per_model": 85,
-      "delta_pct": 30.77,
-      "faction_multiplier": 1.042,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
         ]
       ]
     },
@@ -31452,29 +30233,6 @@
         ]
       ]
     },
-    "astra_militarum_front_line_commander_crucible": {
-      "name": "Front-line Commander [Crucible]",
-      "faction": "Astra Militarum",
-      "gw_pts_per_model": 55.0,
-      "sweg_pts_per_model": 55,
-      "delta_pct": 0.0,
-      "faction_multiplier": 0.902,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -1.8172
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
     "aeldari_drukhari_haemonculus": {
       "name": "Haemonculus",
       "faction": "Drukhari",
@@ -31610,29 +30368,6 @@
         [
           "toughness",
           1.8701
-        ]
-      ]
-    },
-    "thousand_sons_brayherd_chieftain_crucible": {
-      "name": "Brayherd Chieftain [Crucible]",
-      "faction": "Thousand Sons",
-      "gw_pts_per_model": 60.0,
-      "sweg_pts_per_model": 65,
-      "delta_pct": 8.33,
-      "faction_multiplier": 1.092,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -32786,29 +31521,6 @@
         ]
       ]
     },
-    "space_marines_venerable_battle_brother_crucible": {
-      "name": "Venerable Battle-Brother [Crucible]",
-      "faction": "Adeptus Astartes",
-      "gw_pts_per_model": 160.0,
-      "sweg_pts_per_model": 220,
-      "delta_pct": 37.5,
-      "faction_multiplier": 0.952,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.9699
-        ],
-        [
-          "toughness_x_wounds",
-          -3.3978
-        ],
-        [
-          "toughness",
-          1.7001
-        ]
-      ]
-    },
     "orks_big_trakk_legends": {
       "name": "Big Trakk [Legends]",
       "faction": "Orks",
@@ -32944,29 +31656,6 @@
         [
           "toughness",
           2.0402
-        ]
-      ]
-    },
-    "leagues_of_votann_steeljack_elder_crucible": {
-      "name": "Steeljack Elder [Crucible]",
-      "faction": "Leagues of Votann",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 85,
-      "delta_pct": 6.25,
-      "faction_multiplier": 0.986,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.7732
-        ],
-        [
-          "toughness_x_wounds",
-          -2.4329
-        ],
-        [
-          "toughness",
-          1.0201
         ]
       ]
     },
@@ -33706,29 +32395,6 @@
         ]
       ]
     },
-    "space_marines_champion_of_the_chapter_crucible": {
-      "name": "Champion of the Chapter [Crucible]",
-      "faction": "Adeptus Astartes",
-      "gw_pts_per_model": 70.0,
-      "sweg_pts_per_model": 70,
-      "delta_pct": 0.0,
-      "faction_multiplier": 0.952,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
-        ]
-      ]
-    },
     "astra_militarum_earthshaker_platform_legends": {
       "name": "Earthshaker Platform [Legends]",
       "faction": "Astra Militarum",
@@ -33795,29 +32461,6 @@
         [
           "toughness",
           0.51
-        ]
-      ]
-    },
-    "death_guard_daemonic_charioteer_crucible": {
-      "name": "Daemonic Charioteer [Crucible]",
-      "faction": "Death Guard",
-      "gw_pts_per_model": 120.0,
-      "sweg_pts_per_model": 90,
-      "delta_pct": -25.0,
-      "faction_multiplier": 0.922,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.4007
-        ],
-        [
-          "toughness_x_wounds",
-          -2.8644
-        ],
-        [
-          "toughness",
-          1.1901
         ]
       ]
     },

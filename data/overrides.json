@@ -2324,18 +2324,6 @@
       "devastating_wounds_basket_fraction": 0.0,
       "notes": "ADMECH-SWEEP-V1 (DW-FALSE-POS): BSData mapper set devastating_wounds=True with basket_fraction=1.0 on Technoarcheologist. Verified BSData cache: neither Mechanicus pistol nor Servo-arc claw carries a Devastating Wounds infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Technoarcheologist. Reset devastating_wounds=False."
     },
-    "adeptus_mechanicus_cohort_commander_crucible": {
-      "enabled": false,
-      "notes": "ADMECH-REAUDIT-V1 (CRUCIBLE-DISABLE): BSData entry id 7d17-4620-8dbf-4ef6 is a Crusade campaign character (type='model', carries a <modifier type='set' field='hidden' value='true'/> making it invisible in matched-play roster builders). The iter_unit_entries scanner resolves top-level entryLinks regardless of the hidden modifier, so this unit leaked into the matched-play catalog. In battle sim it fires Twin cognis lascannon + autocannon + Transonic cannon (Torrent, DW) + Plasma caliver + Eradication ray as separate weapon passes at 45pts — roughly 3-4x the expected damage-per-point for a real 45pt unit. BSData source: Imperium - Adeptus Mechanicus.cat.gz, id=7d17-4620-8dbf-4ef6, modifier hidden=true."
-    },
-    "adeptus_mechanicus_ironstrider_alpha_crucible": {
-      "enabled": false,
-      "notes": "ADMECH-REAUDIT-V1 (CRUCIBLE-DISABLE): BSData entry id 6b3e-11ad-7a9d-ca5d is a Crusade campaign character (type='model', carries a <modifier type='set' field='hidden' value='true'/> making it invisible in matched-play roster builders). Same data-contamination path as Cohort Commander [Crucible] — top-level entryLink resolved by iter_unit_entries despite hidden modifier. Fires triple ranged weapon passes (lascannon + autocannon + Transonic cannon DW) at 80pts. BSData source: Imperium - Adeptus Mechanicus.cat.gz, id=6b3e-11ad-7a9d-ca5d, modifier hidden=true."
-    },
-    "adeptus_mechanicus_magos_crucible": {
-      "enabled": false,
-      "notes": "ADMECH-REAUDIT-V1 (CRUCIBLE-DISABLE): BSData entry id 18e0-96d4-7d85-2b3b is a Crusade campaign character (type='model', carries a <modifier type='set' field='hidden' value='true'/> making it invisible in matched-play roster builders). Same data-contamination path as Cohort Commander [Crucible]. BSData source: Imperium - Adeptus Mechanicus.cat.gz, id=18e0-96d4-7d85-2b3b, modifier hidden=true."
-    },
     "orks_stompa": {
       "attacks": 14,
       "secondary_attacks": 32,
@@ -2937,10 +2925,6 @@
     "aeldari_drukhari_urien_rakarth_legends": {
       "fnp": 7,
       "notes": "DRK-LEGENDS-FNP: Legends static FNP 4+ was prose-walked from aura/legend abilities. Not on canonical 10e codex per Wahapedia; clearing to align with active codex."
-    },
-    "aeldari_drukhari_flesh_crafter_crucible": {
-      "fnp": 7,
-      "notes": "DRK-LEGENDS-FNP: Crucible static FNP 5+ was prose-walked from enhancement effects. Not on canonical 10e codex per Wahapedia; clearing to align with active codex."
     },
     "aeldari_craftworlds_ynnari_kabalite_warriors": {
       "notes": "DRK-SPLINTER-ANTI-INFANTRY-4 (wave 46): BSData parsed Anti-Infantry 3+ for all Splinter weapons; current Wahapedia Drukhari codex (post-September-2024 errata) is Anti-Infantry 4+. Override mirrors the Drukhari catalogue branch. Source: https://wahapedia.ru/wh40k10ed/factions/drukhari/"
