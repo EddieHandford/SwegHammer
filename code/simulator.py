@@ -57,8 +57,8 @@ from .stratagems import (
     # Shield Host (Adeptus Custodes) — six real detachment stratagems (iter-8)
     ARCANE_GENETIC_ALCHEMY, UNWAVERING_SENTINELS, MULTIPOTENTIALITY,
     VIGILANCE_ETERNAL, ARCHAEOTECH_MUNITIONS, AVENGE_THE_FALLEN,
-    # Needgaard Oathband (Leagues of Votann) — three real stratagems (VOTANN-DIAG-2)
-    HUNTRS_MARK, ANCESTRAL_SENTENCE, VOID_HARDENED,
+    # Needgaard Oathband (Leagues of Votann) — two verified stratagems (VOTANN-AUDIT-V1)
+    ANCESTRAL_SENTENCE, VOID_HARDENED,
     # Gladius Task Force (Adeptus Astartes) — six real detachment stratagems (iter-12)
     STORM_OF_FIRE, ARMOUR_OF_CONTEMPT, SQUAD_TACTICS,
     ONLY_IN_DEATH_DOES_DUTY_END, HONOUR_THE_CHAPTER, ADAPTIVE_STRATEGY,
@@ -1152,11 +1152,11 @@ class Battle:
             # no-op APPROXIMATION (sticky-objective mechanism is per-detachment-
             # flag-gated, not per-stratagem-fire).
 
-            # ----- Needgaard Oathband (Leagues of Votann) — three real stratagems
+            # ----- Needgaard Oathband (Leagues of Votann) — two verified stratagems
             # (VOTANN-DIAG-2: replaced five fabricated stratagems with real ones
-            # per Wahapedia https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/)
-            if not self._strat_cap_reached(army) and "Huntr's Mark" in strat_names:
-                self._try_huntrs_mark(army, opponent)
+            # per Wahapedia https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+            # VOTANN-AUDIT-V1: Huntr's Mark removed — not in BSData v10.6.0 and
+            # citation was unverifiable. Was the +7.8pt overshoot driver.)
             if not self._strat_cap_reached(army) and "Ancestral Sentence" in strat_names:
                 self._try_ancestral_sentence(army, opponent)
             if not self._strat_cap_reached(army) and "Void Hardened" in strat_names:
@@ -2372,34 +2372,6 @@ class Battle:
     # rerolls per round, Lethal Hits per round, vehicle hit-rerolls per round,
     # and +1 to hit shooting per round — all of which were contributing to
     # the +6.48pt Votann over-performance.
-
-    def _try_huntrs_mark(self, army: Army, opponent: Army) -> None:
-        """Huntr's Mark (Needgaard Oathband, 1 CP). Real rule (Wahapedia:
-        https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/):
-        "re-roll Hit and Wound rolls of 1" for a selected Votann unit.
-        Maps to transient_reroll_hits_shooting + transient_reroll_wounds_ones
-        on the highest-DPA Votann unit. Hit-1s-only is strictly weaker than
-        the removed fake full hit-reroll (Wrath of the Ancestors); wound-1s
-        is strictly weaker than the removed fake full wound-reroll (Warrior
-        Pride). Direction-correct and direction-conservatively bounded.
-        """
-        attacker = self._highest_dpa_unit(
-            army, keyword="LEAGUES OF VOTANN", faction="Leagues of Votann",
-        )
-        if attacker is None:
-            attacker = self._highest_dpa_unit(army, faction="Leagues of Votann")
-        if attacker is None:
-            return
-        target = self._highest_threat_enemy(opponent)
-        if target is None:
-            return
-        ctx = {"attacker": attacker, "target": target}
-        if not should_fire_stratagem(army, HUNTRS_MARK, ctx):
-            return
-        if not self._fire_stratagem(army, HUNTRS_MARK):
-            return
-        attacker.transient_reroll_hits_shooting = True
-        attacker.transient_reroll_wounds_ones = True
 
     def _try_ancestral_sentence(self, army: Army, opponent: Army) -> None:
         """Ancestral Sentence (Needgaard Oathband, 1 CP). Real rule (Wahapedia:

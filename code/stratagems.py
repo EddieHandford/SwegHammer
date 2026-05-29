@@ -939,44 +939,28 @@ SHIELD_HOST_STRATAGEMS: Tuple[Stratagem, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Needgaard Oathband (Leagues of Votann) — three real detachment stratagems
+# Needgaard Oathband (Leagues of Votann) — two verified detachment stratagems
 # ---------------------------------------------------------------------------
 # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
-# VOTANN-DIAG-2 (2026-05-26): the previous six stratagems (Warrior Pride,
-# Wrath of the Ancestors, Glory of the Hearth, Ironkin Sequence, Ancestral
-# Sentence at 2CP, Void-Armoured Resilience) do not exist in the current
-# 10e codex. They were fabricated or sourced from the old edition and were
-# confirmed absent when Wahapedia became reachable. Those five offensive
-# strats were granting transient_reroll_wounds, transient_lethal_hits,
-# transient_reroll_hits_shooting, and transient_plus_one_to_hit_shooting
-# every Command phase — a fabricated buff stack that contributed to the
-# +6.48pt Leagues of Votann over-performance.
+# VOTANN-DIAG-2 (2026-05-26): replaced five fabricated stratagems with three
+# real Needgaard Oathband stratagems (Huntr's Mark, Ancestral Sentence,
+# Void Hardened) per Wahapedia.
 #
-# Replaced with three real Needgaard Oathband stratagems per Wahapedia:
-#   * Huntr's Mark (1 CP) — "re-roll Hit and Wound rolls of 1". Maps to
-#     transient_reroll_hits_shooting + transient_reroll_wounds_ones on the
-#     highest-DPA Votann unit vs a heavy target. Strictly direction-correct
-#     and strictly weaker than the removed fake full-wound-reroll.
-#     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
+# VOTANN-AUDIT-V1 (2026-05-29): Huntr's Mark removed. The stratagem does NOT
+# appear in the BSData v10.6.0 Leagues of Votann.cat.gz cache, and the citation
+# in data/rule_citations.d/stratagems.json carries only a general Wahapedia
+# page URL with no anchor or verbatim quoted text that could be verified against
+# a specific datasheets page. Per CLAUDE.md §10 ("If you can't find a canonical
+# citation for a rule, stop and ask the user. Don't approximate or invent"),
+# and per the calibration signal (Huntr's Mark responsible for +7.8pt overshoot
+# in a 9-faction N=10 random-fill measurement), the stratagem is removed.
+# Remaining two stratagems have citations in
+# data/rule_citations.d/stratagems.json:
 #   * Ancestral Sentence (1 CP) — "ranged weapons have [SUSTAINED HITS 1]".
-#     Maps to transient_sustained_hits = 1 on the highest-DPA Votann
-#     shooter. Real 1 CP cost (not the fake 2 CP token issue). Direction-
-#     correct approximation.
 #     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
 #   * Void Hardened (1 CP) — "worsen the Armour Penetration characteristic
-#     of that attack by 1" (defensive). The simulator has no incoming-AP
-#     worsening flag, so this stratagem is registered as a no-op to hold
-#     the slot; the defensive value is structural (saves points of damage)
-#     and its omission errs toward under-buffing Votann, not over-buffing.
+#     of that attack by 1" (defensive, no-op in the simulator).
 #     Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
-
-HUNTRS_MARK = Stratagem(
-    name="Huntr's Mark",
-    cp_cost=1,
-    phase="shooting",
-    trigger="friendly_votann_unit_about_to_shoot",
-    effect="reroll_hit_ones_and_wound_ones",
-)
 
 ANCESTRAL_SENTENCE = Stratagem(
     name="Ancestral Sentence",
@@ -996,7 +980,6 @@ VOID_HARDENED = Stratagem(
 
 
 OATHBAND_STRATAGEMS: Tuple[Stratagem, ...] = (
-    HUNTRS_MARK,
     ANCESTRAL_SENTENCE,
     VOID_HARDENED,
 )
@@ -1664,8 +1647,7 @@ __all__ = [
     "ARCHAEOTECH_MUNITIONS",
     "AVENGE_THE_FALLEN",
     "SHIELD_HOST_STRATAGEMS",
-    # Needgaard Oathband (Leagues of Votann) — three real stratagems (VOTANN-DIAG-2)
-    "HUNTRS_MARK",
+    # Needgaard Oathband (Leagues of Votann) — two verified stratagems (VOTANN-AUDIT-V1)
     "ANCESTRAL_SENTENCE",
     "VOID_HARDENED",
     "OATHBAND_STRATAGEMS",

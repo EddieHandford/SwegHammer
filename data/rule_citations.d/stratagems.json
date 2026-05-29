@@ -572,14 +572,6 @@
     "scope": "character-only",
     "approximation": true
   },
-  "Stratagem.Huntr's Mark": {
-    "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
-    "rule_name": "Huntr's Mark (Needgaard Oathband Stratagem)",
-    "quoted_text": "Re-roll Hit and Wound rolls of 1 for a selected LEAGUES OF VOTANN unit.",
-    "trigger": "Votann unit selected to shoot or fight",
-    "effect": "Re-roll hit rolls of 1 and wound rolls of 1",
-    "scope": "unit-led"
-  },
   "Stratagem.Void Hardened": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/",
     "rule_name": "Void Hardened (Needgaard Oathband Stratagem)",
@@ -588,7 +580,6 @@
     "effect": "Worsen Armour Penetration of incoming attacks by 1 (defensive)",
     "scope": "unit-led"
   },
-
   "Stratagem.Draught of Terror": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
     "rule_name": "Draught of Terror (Daemonic Incursion Stratagem)",
@@ -598,7 +589,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Warp Surge": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
     "rule_name": "Warp Surge (Daemonic Incursion Stratagem)",
@@ -608,7 +598,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Daemonic Invulnerability": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/daemonic-incursion",
     "rule_name": "Daemonic Invulnerability (Daemonic Incursion Stratagem)",
@@ -618,7 +607,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Blood Begets Skulls": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion",
     "rule_name": "Blood Begets Skulls (Blood Legion Stratagem)",
@@ -628,7 +616,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Wrath Undeniable": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/blood-legion",
     "rule_name": "Wrath Undeniable (Blood Legion Stratagem)",
@@ -638,7 +625,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Seeping Virulence": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion",
     "rule_name": "Seeping Virulence (Plague Legion Stratagem)",
@@ -648,7 +634,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Foetid Resurgence": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/plague-legion",
     "rule_name": "Foetid Resurgence (Plague Legion Stratagem)",
@@ -658,7 +643,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "Stratagem.Archagonists": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/legion-of-excess",
     "rule_name": "Archagonists (Legion of Excess Stratagem)",
@@ -667,7 +651,6 @@
     "effect": "Codex text maps cleanly to transient_plus_one_to_wound_melee on the highest-DPA SLAANESH DAEMONS unit (Fight phase path dominates for a Slaanesh rush list). Falls back to any DAEMON unit if no SLAANESH unit found. No APPROXIMATION qualifier — the wound-modifier matches the codex exactly via the existing +1-to-wound transient path (10e modifier cap enforced). DAEMONS-STRATAGEMS-V1 (wave 53). 1 CP.",
     "scope": "phase-gated"
   },
-
   "Stratagem.Flickering Reality": {
     "source": "https://40k.app/factions/chaos-daemons/rules/detachment/scintillating-legion",
     "rule_name": "Flickering Reality (Scintillating Legion Stratagem)",

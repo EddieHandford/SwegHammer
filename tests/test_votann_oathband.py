@@ -5,19 +5,25 @@ Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
 
 VOTANN-DIAG-2 (2026-05-26) replaced the previous six-stratagem fabrication
 (Warrior Pride, Wrath of the Ancestors, Glory of the Hearth, Ironkin
-Sequence, Ancestral Sentence at 2 CP, Void-Armoured Resilience) with three
-real Needgaard Oathband stratagems per Wahapedia:
-    * Huntr's Mark (1 CP) — re-roll Hit and Wound rolls of 1
-    * Ancestral Sentence (1 CP) — ranged [SUSTAINED HITS 1] for the phase
-    * Void Hardened (1 CP) — defensive AP-worsen no-op (held slot)
+Sequence, Ancestral Sentence at 2 command points, Void-Armoured Resilience)
+with three real Needgaard Oathband stratagems per Wahapedia:
+    * Huntr's Mark (1 command point) — re-roll Hit and Wound rolls of 1
+    * Ancestral Sentence (1 command point) — ranged [SUSTAINED HITS 1] for the phase
+    * Void Hardened (1 command point) — defensive AP-worsen no-op (held slot)
+
+VOTANN-AUDIT-V1 (2026-05-29) removed Huntr's Mark: the stratagem is absent
+from BSData v10.6.0 (Leagues of Votann.cat.gz), the citation in
+data/rule_citations.d/stratagems.json had only a general Wahapedia page URL
+with no verifiable anchor text, and it was the dominant contributor to the
++7.8 point Leagues of Votann win-rate overshoot in a 9-faction measurement.
 
 Coverage:
     * Registry: OATHBAND still wired into DETACHMENTS, DEFAULT_BY_FACTION,
       FACTION_DETACHMENTS for Leagues of Votann.
-    * Three real Oathband stratagems exposed via OATHBAND.stratagems with
-      the codex CP costs.
-    * Each `_try_*` dispatcher consumes CP and sets the right transient
-      flag on a green-lit AI gate.
+    * Two verified Oathband stratagems exposed via OATHBAND.stratagems with
+      the codex command-point costs.
+    * Each _try_* dispatcher consumes command points and sets the right
+      transient flag on a green-lit AI gate.
 """
 
 from __future__ import annotations
@@ -31,7 +37,7 @@ from code.detachments import (
 )
 from code.simulator import Battle
 from code.stratagems import (
-    ANCESTRAL_SENTENCE, HUNTRS_MARK, OATHBAND_STRATAGEMS, VOID_HARDENED,
+    ANCESTRAL_SENTENCE, OATHBAND_STRATAGEMS, VOID_HARDENED,
 )
 from code.units import UnitProfile
 
@@ -43,7 +49,7 @@ from code.units import UnitProfile
 
 def _hearthkyn_profile() -> UnitProfile:
     """A Hearthkyn Warriors brick — Votann INFANTRY, the typical Oathband
-    chassis. Cost above the AI gate threshold for the 1-CP Oathband
+    chassis. Cost above the AI gate threshold for the 1-command-point Oathband
     stratagems."""
     return UnitProfile(
         name="Hearthkyn Warriors", faction="Leagues of Votann",
@@ -59,8 +65,9 @@ def _hearthkyn_profile() -> UnitProfile:
 
 
 def _hekaton_profile() -> UnitProfile:
-    """A Hekaton Land Fortress — Votann VEHICLE with high DPA, the
-    expected highest-DPA pick for the Oathband stratagem dispatchers."""
+    """A Hekaton Land Fortress — Votann VEHICLE with high damage per
+    activation, the expected highest-damage-per-activation pick for the
+    Oathband stratagem dispatchers."""
     return UnitProfile(
         name="Hekaton Land Fortress", faction="Leagues of Votann",
         health=18, damage=3, hit_probability=2 / 3,
@@ -107,35 +114,47 @@ class OathbandRegistryTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Stratagem CP costs + names
+# Stratagem command-point costs + names
 # ---------------------------------------------------------------------------
 
 
 class OathbandStratagemsTests(unittest.TestCase):
-    """The three real Needgaard Oathband stratagems must be attached to
-    the detachment by canonical name + CP cost, and exposed via
-    OATHBAND.stratagems."""
+    """The two verified Needgaard Oathband stratagems must be attached to
+    the detachment by canonical name + command-point cost, and exposed via
+    OATHBAND.stratagems.
+
+    Huntr's Mark was present in VOTANN-DIAG-2 but removed in VOTANN-AUDIT-V1
+    because it is absent from BSData v10.6.0 and the prior citation was not
+    verifiable. The stratagem constant HUNTRS_MARK no longer exists.
+    """
 
     EXPECTED = (
-        ("Huntr's Mark", 1),
         ("Ancestral Sentence", 1),
         ("Void Hardened", 1),
     )
 
-    def test_three_stratagems_attached_to_detachment(self):
+    def test_two_stratagems_attached_to_detachment(self):
         attached = {s.name: s.cp_cost for s in OATHBAND.stratagems}
         for name, cp in self.EXPECTED:
             self.assertIn(name, attached, f"{name} missing from OATHBAND.stratagems")
             self.assertEqual(
                 attached[name], cp,
-                f"{name} expected {cp} CP, got {attached[name]}",
+                f"{name} expected {cp} command points, got {attached[name]}",
             )
+
+    def test_huntrs_mark_removed(self):
+        """Huntr's Mark was removed in VOTANN-AUDIT-V1 — not in BSData,
+        citation unverifiable, +7.8 point overshoot driver."""
+        attached_names = {s.name for s in OATHBAND.stratagems}
+        self.assertNotIn(
+            "Huntr's Mark", attached_names,
+            "Huntr's Mark should have been removed in VOTANN-AUDIT-V1",
+        )
 
     def test_oathband_stratagems_tuple_matches_attached(self):
         self.assertEqual(OATHBAND.stratagems, OATHBAND_STRATAGEMS)
 
     def test_constants_exist_and_named_correctly(self):
-        self.assertEqual(HUNTRS_MARK.name, "Huntr's Mark")
         self.assertEqual(ANCESTRAL_SENTENCE.name, "Ancestral Sentence")
         self.assertEqual(VOID_HARDENED.name, "Void Hardened")
 
@@ -146,8 +165,8 @@ class OathbandStratagemsTests(unittest.TestCase):
 
 
 class OathbandDispatcherTests(unittest.TestCase):
-    """The simulator's `_try_*` dispatchers each consume CP and set the
-    right transient flag on a green-lit AI gate."""
+    """The simulator's _try_* dispatchers each consume command points and set
+    the right transient flag on a green-lit AI gate."""
 
     def _build_battle(self, cp: int = 6, with_vehicle: bool = True):
         a = Army("Leagues of Votann")
@@ -161,40 +180,26 @@ class OathbandDispatcherTests(unittest.TestCase):
         battle._assign_uids()
         a.command_points = cp
         # Wound the Hearthkyn so vulnerability gates clear.
-        a.units[0].current_health = 10.0   # 50% HP loss on 20 max
+        a.units[0].current_health = 10.0   # 50% health loss on 20 maximum
         battle._current_round = 2
         return battle, a, b
-
-    def test_huntrs_mark_sets_reroll_hits_and_wound_ones(self):
-        """Huntr's Mark routes the "re-roll hit/wound 1s" effect through
-        transient_reroll_hits_shooting + transient_reroll_wounds_ones on
-        the highest-DPA Votann unit (Hekaton)."""
-        battle, a, _b = self._build_battle()
-        battle._try_huntrs_mark(a, _b)
-        # Find which unit got the buff — should be the highest-DPA Votann.
-        buffed = [
-            u for u in a.units
-            if u.transient_reroll_hits_shooting and u.transient_reroll_wounds_ones
-        ]
-        self.assertEqual(len(buffed), 1, "Exactly one Votann unit should be buffed.")
-        self.assertEqual(a.command_points, 5)   # 1 CP spent
 
     def test_ancestral_sentence_sets_sustained_hits(self):
         """Ancestral Sentence (current 10e codex) maps to
         transient_sustained_hits = 1 on the highest-DPA Votann shooter.
-        The launch-day "issue a Judgement Token" effect is retired in the
+        The launch-day 'issue a Judgement Token' effect is retired in the
         current codex; the dispatcher no longer increments
-        `judgement_tokens` for this stratagem."""
+        judgement_tokens for this stratagem."""
         battle, a, _b = self._build_battle()
         battle._try_ancestral_sentence(a, _b)
         buffed = [u for u in a.units if getattr(u, "transient_sustained_hits", 0) >= 1]
         self.assertEqual(len(buffed), 1)
-        self.assertEqual(a.command_points, 5)   # 1 CP spent (not the fabricated 2 CP)
+        self.assertEqual(a.command_points, 5)   # 1 command point spent (not the fabricated 2)
 
     def test_void_hardened_spends_cp_with_no_offensive_effect(self):
         """Void Hardened is a defensive AP-worsen for a phase — the
         simulator has no incoming-AP worsening transient flag, so this
-        dispatcher is a documented no-op that still consumes the CP
+        dispatcher is a documented no-op that still consumes the command-point
         spend. Verifies no Votann unit picks up an offensive transient
         as a side effect."""
         battle, a, _b = self._build_battle()
@@ -211,8 +216,9 @@ class OathbandDispatcherTests(unittest.TestCase):
 
 
 class OathbandStratagemsForArmyTests(unittest.TestCase):
-    """A Votann army wired with Oathband must expose the three Oathband
-    stratagems plus the three Core universals via `stratagems_for_army`."""
+    """A Votann army wired with Oathband must expose the two verified Oathband
+    stratagems plus the three Core universals via stratagems_for_army.
+    Huntr's Mark must NOT appear (removed in VOTANN-AUDIT-V1)."""
 
     def test_votann_army_exposes_oathband_stratagems(self):
         from code.stratagems import stratagems_for_army
@@ -220,12 +226,14 @@ class OathbandStratagemsForArmyTests(unittest.TestCase):
         a = Army("Leagues of Votann")
         a.add_unit(_hearthkyn_profile())
         names = {s.name for s in stratagems_for_army(a)}
-        for n in ("Huntr's Mark", "Ancestral Sentence", "Void Hardened"):
+        for n in ("Ancestral Sentence", "Void Hardened"):
             self.assertIn(n, names, f"{n} missing from stratagems_for_army")
         # And the three Core universals.
         for n in ("Command Re-Roll", "Counter-Offensive", "Tank Shock"):
             self.assertIn(n, names)
         self.assertNotIn("Heroic Intervention", names)
+        # Huntr's Mark removed in VOTANN-AUDIT-V1.
+        self.assertNotIn("Huntr's Mark", names)
 
 
 if __name__ == "__main__":

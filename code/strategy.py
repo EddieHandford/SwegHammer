@@ -3781,23 +3781,9 @@ def should_fire_stratagem(army, strat, ctx: Optional[dict] = None) -> bool:
     # do not exist in the current 10e codex. Their gate logic is removed.
     # Replaced with three real Needgaard Oathband stratagems below.
 
-    if name == "Huntr's Mark":
-        # ctx: {"attacker": Unit, "target": Unit}. Re-roll hit 1s and wound
-        # 1s (Needgaard Oathband, 1 CP). Fire when the Votann attacker has
-        # meaningful ranged DPA and target is a heavy-class enemy. Lower bar
-        # than the removed fake strats (1.0 DPA threshold) because this is
-        # the only offensive ranged strat remaining in the set.
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
-        attacker = ctx.get("attacker")
-        target = ctx.get("target")
-        if attacker is None or target is None:
-            return False
-        try:
-            p = attacker.profile
-            ranged_dpa = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
-        except Exception:
-            ranged_dpa = 0.0
-        return ranged_dpa >= 1.0 and _is_heavy_target(target)
+    # "Huntr's Mark" gate removed — VOTANN-AUDIT-V1 (2026-05-29): stratagem
+    # absent from BSData v10.6.0, citation unverifiable, responsible for
+    # +7.8pt overshoot. Stratagem definition deleted from stratagems.py.
 
     if name == "Ancestral Sentence":
         # ctx: {"attacker": Unit, "target": Unit}. Sustained Hits 1 on a

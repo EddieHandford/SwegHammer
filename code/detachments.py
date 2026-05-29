@@ -1306,9 +1306,13 @@ OATHBAND = Detachment(
         "They were fabricated or sourced from a prior edition and were "
         "contributing to Leagues of Votann +6.48pt over-performance. "
         "Replaced with three real Needgaard Oathband stratagems: Huntr's "
-        "Mark (reroll hit/wound 1s), Ancestral Sentence (Sustained Hits 1), "
-        "and Void Hardened (defensive AP worsening no-op). See "
-        "data/rule_citations.d/stratagems.json for Wahapedia citations."
+        "Mark, Ancestral Sentence, Void Hardened. "
+        "VOTANN-AUDIT-V1 (2026-05-29): Huntr's Mark removed — absent from "
+        "BSData v10.6.0 (Leagues of Votann.cat.gz), no verifiable Wahapedia "
+        "anchor citation per CLAUDE.md s10, and responsible for +7.8pt sim "
+        "overshoot in 9-faction N=10 measurement. Two stratagems remain: "
+        "Ancestral Sentence (Sustained Hits 1) and Void Hardened (defensive "
+        "AP worsening no-op). See data/rule_citations.d/stratagems.json."
     ),
     stratagems=OATHBAND_STRATAGEMS,
     preferred_composition="balanced",
