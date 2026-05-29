@@ -129,6 +129,19 @@ class LeaderAbility:
     # check (line ~2024). The field is generic so future leaders whose codex
     # grants a Stealth aura can reuse it without schema changes.
     grants_stealth_aura: bool = False           # nearby LEGIONES DAEMONICA gain Stealth (ranged -1 to hit)
+    # DAEMONS-LOCUS-V1 follow-up — [SUSTAINED HITS N] aura granted by the
+    # leader to the led unit's attacks. Integer fields so multiple sources
+    # stack additively, matching the per-weapon / detachment / transient
+    # SUSTAINED HITS stacking convention already in code/units.py.
+    #   - sustained_hits_ranged: Locus of Change (Tzeentch Changecaster, BSData
+    #     "ranged weapons equipped by models in that unit have the [SUSTAINED
+    #     HITS 1] ability"). Replaces the prior reroll_hit_ones proxy.
+    #   - sustained_hits_melee: Locus of Putrescence (Nurgle Spoilpox Scrivener
+    #     on Plaguebearers melee) and Locus of Slaanesh (Slaanesh Tormentbringer
+    #     on Slaanesh units melee). Schema-ready for these leaders to be added
+    #     to the registry without a follow-up dataclass change.
+    sustained_hits_ranged: int = 0
+    sustained_hits_melee: int = 0
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
     # End-of-round healing: restore N HP to the nearest wounded friendly in
@@ -661,17 +674,17 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # in that unit have the [SUSTAINED HITS 1] ability." Leader attachment:
     # "PINK HORRORS, BLUE HORRORS" (both are separate UNIT_CATALOG keys —
     # chaos_daemons_library_pink_horrors and chaos_daemons_library_blue_horrors,
-    # confirmed via UNIT_CATALOG inspection). DAEMONS-LOCUS-V1: prior entry
-    # listed only Pink Horrors; Blue Horrors was omitted because an earlier
-    # comment incorrectly claimed Blue Horrors "doesn't surface as a separate
-    # UNIT_CATALOG key" — factually wrong, now corrected. SwegHammer's
-    # LeaderAbility has no `sustained_hits_ranged` flag, so this is proxied
-    # with `reroll_hit_ones=True` — same proxy as TSON Infernal Master's
-    # [SUSTAINED HITS 1] grant (see line ~347 above). Direction-correct: both
-    # expand per-hit-roll value (+1/6 hits each). Schema gap flagged for
-    # follow-up: a `sustained_hits_ranged: int` field would give exact fidelity.
-    # Citation updated in data/rule_citations.d/leaders.json.
-    ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0, reroll_hit_ones=True,
+    # confirmed via UNIT_CATALOG inspection). DAEMONS-LOCUS-V1 added Blue
+    # Horrors to host_keys (prior entry's claim that they didn't surface as a
+    # separate catalog key was factually wrong). LEADERABILITY-SUSTAINED-HITS
+    # (this wave): the prior `reroll_hit_ones=True` proxy is replaced with the
+    # rule-correct `sustained_hits_ranged=1` field now that the LeaderAbility
+    # schema carries it. Same direction (+1/6 hits per shot) but exact codex
+    # fidelity; the SUSTAINED HITS extra-hit accumulator in Unit.attack also
+    # composes correctly with detachment / stratagem / per-weapon
+    # SUSTAINED HITS sources whereas the reroll_hit_ones proxy did not.
+    ("Changecaster",       LeaderAbility(name="Changecaster's Locus",       aura_range=6.0,
+                                          sustained_hits_ranged=1,
                                           host_keys=("chaos_daemons_library_pink_horrors",
                                                      "chaos_daemons_library_blue_horrors",))),
     # Contorted Epitome — Swallow Energy (Psychic) grants the led Daemonettes
@@ -1021,6 +1034,12 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     # them). Default False; only True when a Daemon Prince of Chaos is alive and
     # in-range of the target unit.
     "grants_stealth_aura": False,
+    # DAEMONS-LOCUS-V1 follow-up — Locus-granted [SUSTAINED HITS N]. See
+    # LeaderAbility for derivation. Integer because multiple aura sources
+    # stack additively, matching the existing per-weapon / detachment /
+    # transient SUSTAINED HITS stacking convention in code/units.py.
+    "sustained_hits_ranged": 0,
+    "sustained_hits_melee": 0,
 }
 
 
@@ -1366,6 +1385,12 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # Defender-side buff — callers reading tgt_buffs will see this True
         # when a friendly Daemon Prince of Chaos is within 6\" of the target.
         _merge_bool(buffs, ability, "grants_stealth_aura")
+        # DAEMONS-LOCUS-V1 follow-up — SUSTAINED HITS aura magnitudes.
+        # Additive: multiple Locus carriers within range stack their grants
+        # (rare in practice — most armies field at most one Locus-bearing
+        # Herald per god).
+        _merge_add(buffs, ability, "sustained_hits_ranged")
+        _merge_add(buffs, ability, "sustained_hits_melee")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

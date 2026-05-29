@@ -2693,6 +2693,21 @@ class Unit:
             if _ts_h > 0:
                 effective_sustained_hits += _ts_h
 
+            # DAEMONS-LOCUS-V1 follow-up — leader aura SUSTAINED HITS grants
+            # (Locus of Change / Locus of Putrescence / Locus of Slaanesh).
+            # `att_buffs` is populated by `effective_buffs` (code/leaders.py)
+            # when an attacker is within aura range of a friendly Locus-bearing
+            # Herald and the host_keys gate passes. Mode-routed so the ranged
+            # Locus doesn't leak into melee resolution and vice versa.
+            if mode == "melee":
+                _aura_sh_m = int(att_buffs.get("sustained_hits_melee", 0) or 0)
+                if _aura_sh_m > 0:
+                    effective_sustained_hits += _aura_sh_m
+            else:
+                _aura_sh_r = int(att_buffs.get("sustained_hits_ranged", 0) or 0)
+                if _aura_sh_r > 0:
+                    effective_sustained_hits += _aura_sh_r
+
             # ---- Adeptus Custodes Shield Host — Martial Ka'tah / Martial Mastery:
             # Crit-on-5+ portion. The AP+1 portion is applied EARLIER (before
             # `save_after_ap` is computed) — see the block tagged
