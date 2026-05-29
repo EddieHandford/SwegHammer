@@ -10937,7 +10937,7 @@
       ]
     },
     "leagues_of_votann_br_khyr_iron_master": {
-      "name": "Br\u00f4khyr Iron-master",
+      "name": "Brôkhyr Iron-master",
       "faction": "Leagues of Votann",
       "gw_pts_per_model": 15.0,
       "sweg_pts_per_model": 20,
@@ -10956,29 +10956,6 @@
         [
           "min_models",
           -0.9506
-        ]
-      ]
-    },
-    "adeptus_mechanicus_magos_crucible": {
-      "name": "Magos [Crucible]",
-      "faction": "Adeptus Mechanicus",
-      "gw_pts_per_model": 70.0,
-      "sweg_pts_per_model": 75,
-      "delta_pct": 7.14,
-      "faction_multiplier": 0.876,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.491
-        ],
-        [
-          "toughness_x_wounds",
-          -2.0073
-        ],
-        [
-          "toughness",
-          0.6801
         ]
       ]
     },
@@ -17837,7 +17814,7 @@
       ]
     },
     "astra_militarum_iron_hand_straken_legends": {
-      "name": "\u2018Iron Hand\u2019 Straken [Legends]",
+      "name": "‘Iron Hand’ Straken [Legends]",
       "faction": "Astra Militarum",
       "gw_pts_per_model": 55.0,
       "sweg_pts_per_model": 65,
@@ -20551,7 +20528,7 @@
       ]
     },
     "astra_militarum_regimental_attach_s_legends": {
-      "name": "Regimental Attach\u00e9s [Legends]",
+      "name": "Regimental Attachés [Legends]",
       "faction": "Astra Militarum",
       "gw_pts_per_model": 13.33,
       "sweg_pts_per_model": 15,
@@ -22598,7 +22575,7 @@
       ]
     },
     "astra_militarum_gaunt_s_ghosts": {
-      "name": "Gaunt\u2019s Ghosts",
+      "name": "Gaunt’s Ghosts",
       "faction": "Astra Militarum",
       "gw_pts_per_model": 16.67,
       "sweg_pts_per_model": 20,
@@ -23196,7 +23173,7 @@
       ]
     },
     "leagues_of_votann_br_khyr_thunderkyn": {
-      "name": "Br\u00f4khyr Thunderkyn",
+      "name": "Brôkhyr Thunderkyn",
       "faction": "Leagues of Votann",
       "gw_pts_per_model": 26.67,
       "sweg_pts_per_model": 25,
@@ -23955,7 +23932,7 @@
       ]
     },
     "leagues_of_votann_thar_the_destined": {
-      "name": "\u00dbthar the Destined",
+      "name": "Ûthar the Destined",
       "faction": "Leagues of Votann",
       "gw_pts_per_model": 95.0,
       "sweg_pts_per_model": 75,
@@ -25679,29 +25656,6 @@
         ]
       ]
     },
-    "adeptus_mechanicus_cohort_commander_crucible": {
-      "name": "Cohort Commander [Crucible]",
-      "faction": "Adeptus Mechanicus",
-      "gw_pts_per_model": 45.0,
-      "sweg_pts_per_model": 55,
-      "delta_pct": 22.22,
-      "faction_multiplier": 0.876,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          2.1456
-        ],
-        [
-          "toughness_x_wounds",
-          -1.6314
-        ],
-        [
-          "toughness",
-          0.51
-        ]
-      ]
-    },
     "astra_militarum_valdor_legends": {
       "name": "Valdor [Legends]",
       "faction": "Astra Militarum",
@@ -25998,29 +25952,6 @@
         [
           "toughness",
           1.3601
-        ]
-      ]
-    },
-    "adeptus_mechanicus_ironstrider_alpha_crucible": {
-      "name": "Ironstrider Alpha [Crucible]",
-      "faction": "Adeptus Mechanicus",
-      "gw_pts_per_model": 80.0,
-      "sweg_pts_per_model": 95,
-      "delta_pct": 18.75,
-      "faction_multiplier": 0.876,
-      "method": "equation_plus_faction_multiplier",
-      "top_features": [
-        [
-          "wounds_per_model",
-          3.2185
-        ],
-        [
-          "toughness_x_wounds",
-          -2.7716
-        ],
-        [
-          "toughness",
-          1.1901
         ]
       ]
     },
@@ -28256,7 +28187,7 @@
       ]
     },
     "world_eaters_kh_rn_the_betrayer": {
-      "name": "Kh\u00e2rn the Betrayer",
+      "name": "Khârn the Betrayer",
       "faction": "World Eaters",
       "gw_pts_per_model": 100.0,
       "sweg_pts_per_model": 80,
@@ -30510,7 +30441,7 @@
       ]
     },
     "leagues_of_votann_berehk_stornbr_w": {
-      "name": "Berehk Stornbr\u00f6w",
+      "name": "Berehk Stornbröw",
       "faction": "Leagues of Votann",
       "gw_pts_per_model": 95.0,
       "sweg_pts_per_model": 75,
@@ -31085,7 +31016,7 @@
       ]
     },
     "leagues_of_votann_k_hl": {
-      "name": "K\u00e2hl",
+      "name": "Kâhl",
       "faction": "Leagues of Votann",
       "gw_pts_per_model": 65.0,
       "sweg_pts_per_model": 65,

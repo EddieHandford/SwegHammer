@@ -1,6 +1,15 @@
 {
   "_comment": "Adeptus Mechanicus army-rule citations (10e). Doctrina Imperatives — the Command-phase pick that picks one of two pure-buff stances (Protector ranged, Conqueror melee). The 10e rule is buff-only; no penalty side. SwegHammer collapses 'until next Command phase' to 'for this round' since the round boundary aligns with both Command phases. Each imperative has an army-wide ranged/melee BS/WS bonus AND a sub-effect (Protector defensive -1 Hit melee, Conqueror +1 AP) that is gated on the BATTLELINE-or-within-6\"-of-BATTLELINE proximity check — only 2 of 42 AdMech datasheets carry BATTLELINE (Skitarii Vanguard / Rangers), so the gated sub-effects fire on a much smaller subset of the army than the BS/WS portion.",
 
+  "catalog.admech_crucible_disable": {
+    "source": "https://github.com/BSData/wh40k-10e/blob/main/Imperium%20-%20Adeptus%20Mechanicus.cat",
+    "rule_name": "BSData hidden modifier — Crusade campaign characters excluded from matched play",
+    "quoted_text": "<modifier type='set' field='hidden' value='true'/> present on Cohort Commander [Crucible] (id 7d17-4620-8dbf-4ef6), Ironstrider Alpha [Crucible] (id 6b3e-11ad-7a9d-ca5d), and Magos [Crucible] (id 18e0-96d4-7d85-2b3b). These are Crusade narrative campaign characters not legal in matched-play armies. BattleScribe's roster builder hides them via this modifier. The SwegHammer iter_unit_entries scanner follows top-level entryLinks without filtering for the hidden modifier, so all three leaked into the matched-play unit catalog. Each fires triple ranged-weapon passes (Twin cognis lascannon + Twin cognis autocannon + Torrent Devastating Wounds Transonic cannon) at 45-80pts, producing 3-4x the expected damage-per-point and inflating Adeptus Mechanicus calibration win rate.",
+    "trigger": "catalog build — adeptus_mechanicus_cohort_commander_crucible, adeptus_mechanicus_ironstrider_alpha_crucible, adeptus_mechanicus_magos_crucible set to enabled=false in data/overrides.json",
+    "effect": "removes three Crusade campaign characters from the matched-play unit pool; reduces Adeptus Mechanicus random-fill army quality toward tournament baseline",
+    "scope": "keyword-gated"
+  },
+
   "simulator.doctrina_imperatives": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/",
     "rule_name": "Doctrina Imperatives",
