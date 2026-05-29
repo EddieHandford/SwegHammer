@@ -1270,6 +1270,46 @@ def _collect_weapons_for_model(
             best_m = max(candidates_melee, key=lambda w: w.expected_damage_through_baseline())
             melee_picks.append(best_m)
 
+    # GSC-REGRESSION-V1 / HETERO-SQUAD-MAPPER-V2: keep only the BEST single
+    # ranged weapon per model when the model carries multiple fixed ranged weapons.
+    #
+    # 10e core rule (Wahapedia "Shooting phase"): each model makes attacks with
+    # ONE of its ranged weapons per activation. Models are never compelled to
+    # split fire across multiple weapons in the same shooting phase. A model
+    # carrying both a Mining laser (S10 AP-3 D=4.5) and an Autopistol (S3 AP0
+    # D=1) will ALWAYS fire the mining laser in the Shooting phase; the
+    # autopistol is only fired in PISTOL range during the Fight phase (10e core:
+    # "[PISTOL] … can be shot while within Engagement Range of one or more
+    # enemy units").
+    #
+    # The previous behaviour (_flatten_to_basket splits count / len(weapons))
+    # gave equal basket weight to every fixed ranged weapon on the model —
+    # treating the Autopistol as if it fired 50% of the time alongside the
+    # Mining laser. This diluted Neophyte Hybrids' Mining laser contribution
+    # from its correct ~4/20 basket share down to ~2/20 (half-weighted against
+    # the Autopistol secondary), and similarly diluted Hellblasters' plasma
+    # incinerators against their bolt pistols.
+    #
+    # Fix: if a model ends up with more than one fixed ranged weapon, keep
+    # only the best by expected_damage_through_baseline. Option-group weapons
+    # (from selectionEntryGroups above) are already deduplicated to one best
+    # per group and are not affected.
+    #
+    # Pistol-only exception: if ALL ranged picks are [PISTOL] weapons
+    # (i.e. the model has no primary ranged weapon and exclusively fires
+    # pistols in Engagement Range), keep all of them rather than dropping
+    # to a single pistol arbitrarily. This is rare but covers models like
+    # the Genestealers who only carry a Rending Claws profile and no ranged.
+    # Cited as `simulator.basket_best_ranged_per_model`.
+    if len(ranged_picks) > 1:
+        non_pistol = [w for w in ranged_picks if not w.pistol]
+        if non_pistol:
+            # Keep only the single best non-pistol (primary) ranged weapon.
+            ranged_picks = [
+                max(non_pistol, key=lambda w: w.expected_damage_through_baseline())
+            ]
+        # else: all weapons are [PISTOL]; keep all (pistol-only model).
+
     return ranged_picks, melee_picks
 
 

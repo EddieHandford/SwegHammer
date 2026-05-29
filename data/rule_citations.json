@@ -1,4 +1,12 @@
 {
+  "simulator.basket_best_ranged_per_model": {
+    "rule_name": "Shooting Phase — one ranged weapon per model",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Shooting-Phase",
+    "quoted_text": "Select one ranged weapon that model is equipped with and make attacks with it. … [PISTOL]: … each time a model makes an attack with this weapon, if the attacking unit is within Engagement Range of one or more enemy units, that attack can only target one of those enemy units.",
+    "trigger": "Any time the heterogeneous-squad mapper collects fixed ranged weapons for a single model type and the model carries more than one fixed ranged weapon (e.g. Mining laser + Autopistol, Plasma incinerator + Bolt pistol). A model will always elect to fire its highest-damage weapon in the Shooting phase; the Autopistol/Bolt pistol secondary is only usable during the Fight phase under the [PISTOL] rule.",
+    "effect": "When _collect_weapons_for_model yields multiple fixed ranged weapons for one model type, only the single best (by expected_damage_through_baseline) non-[PISTOL] weapon is kept. This prevents the Autopistol/Bolt pistol secondary from diluting the basket average of the model's primary weapon in _flatten_to_basket. Pistol-only models are unaffected.",
+    "scope": "weapon-keyword"
+  },
   "simulator.extra_melee_profiles": {
     "rule_name": "Extra Attacks",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Extra-Attacks",
