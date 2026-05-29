@@ -3231,3 +3231,178 @@ rules and detachment "once per unit per phase" gates are the highest-
 ROI audit targets — multiple faction residuals are likely each closing
 1-8 wr-points of the same shape.
 
+## Wave 55 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 3 commits landed on top of wave-54
+close `8cefd3e`. Top commit at wave-55 close is `b872506`.
+
+Wave 55 continued the per-model amplification sweep across the three
+biggest OVERSHOOTING factions: Drukhari (+38), Tyranids (+21), Orks
+(+16). All three agents found real rule-correctness bugs and committed
+clean fixes. Headline gated MAE moved only -0.02 — agents' predicted
+metric movement consistently over-shot at N=40, a pattern worth
+naming for wave-56 planning.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 54 close (`8cefd3e`, 2026-05-29) | 14.09 | 10.74 | 4/22 |
+| Wave 55 close (`b872506`, 2026-05-29) | 14.15 | **10.72** | 4/22 |
+
+**-0.02 gated MAE drift** — flat at noise. Per-faction movements
+within noise on the three target factions:
+* Drukhari: +38.20 → +38.32 (+0.12, predicted no movement — Pain
+  Tokens are inert post-wave-43, confirmed).
+* Tyranids: +20.81 → +20.34 (-0.47, predicted -12 to -18 wr-points).
+* Orks: +16.29 → +17.84 (**+1.55 wrong direction**, predicted -3
+  to -7).
+
+Best cross-faction moves (no targeted work this wave):
+* AdMech: +18.94 → +18.22 (-0.72)
+* Astra Militarum: +9.30 → +8.59 (-0.71)
+* T'au: +11.93 → +11.33 (-0.60, Markerlight fix from wave 54
+  continuing to ripple)
+
+### 6th instance of per-model amplification — Drukhari Pain Tokens
+
+DRK-PAIN-TOKENS-V2 (`528f46b`) found the same pattern as
+SOROR x2 / TSON Cabal / T'au Markerlights / Aeldari Strands. Agent
+baseline measurements:
+
+| Round | tokens_holding | alive_unique_names | Amplification |
+|---|---:|---:|---:|
+| 1 | 0.00 | 8.40 | 0.00× |
+| 2 | 1.80 | 12.15 | 0.15× |
+| 3 | 15.80 | 10.75 | 1.47× |
+| 4 | 29.75 | 9.70 | 3.07× |
+| 5 | 38.85 | 8.85 | **4.39×** |
+
+Starting expansion: 71 multi-model Unit instances / 6 unique codex
+squad names = **11.8×**. The gate at `code/simulator.py:5446` iterated
+`army.units` per-instance; dead model instances satisfy the
+Below-Starting-Strength check independently. Each sibling instance
+awarded its own Pain Token; the per-instance `pain_tokens >= 1` cap
+only blocked double-award within ONE instance, not across siblings.
+
+Fix mirrors SOROR-V1: `_pain_token_awarded` set per-army per-Command-
+phase + dedupe by `profile.name`. Post-fix ratio: 0.45× overall.
+
+**Critically**: Pain Tokens were stripped of per-datasheet abilities
+in wave-43 DRK-PAIN-TOKENS (`15e0d66`). They currently accrue into a
+pool but have no offensive effect, so the fix is correctness-only —
+no metric movement expected, and Drukhari +0.12 at eval confirmed this.
+
+The agent's important **diagnostic finding**: Drukhari's +38 residual
+lives in the **activation count structural issue**. Drukhari fields
+81-90 Unit instances at 2000pts vs 39-53 for Marines — a 1.5-2×
+activation advantage. Each Unit instance gets independent move /
+shoot / charge / fight activations per round. Resolution requires
+squad-level activation grouping (T3 architecture) or per-squad damage
+scaling. Same shape as the wave-50 Drukhari agent's structural carry-
+forward; this wave confirms it via direct measurement.
+
+### Tyranids — Harpy + Warriors with Ranged Bio-Weapons
+
+TYRANIDS-SYNAPSE-V1 (`d646f8c`) found two units firing multiple
+mutex weapon profiles simultaneously:
+
+1. **Harpy** (14% archetype frequency): codex "twin stranglethorn
+   cannon OR twin heavy venom cannon" — mutual exclusion. BSData
+   packed both into primary + secondary; simulator fired both each
+   Shooting phase. 1.65× ranged inflation. Override clears secondary
+   slot.
+2. **Tyranid Warriors with Ranged Bio-Weapons** (10% archetype
+   frequency): the wave-44 TYRANIDS-MULTI-LOADOUT override blended the
+   primary correctly but left `extra_ranged_profiles` containing three
+   BSData loadout alternatives (Devourer, Deathspitter, Spinefists)
+   firing on top of the blended primary. 3.75× DPA inflation. Override
+   clears `extra_ranged_profiles`.
+
+Same shape as wave-52 TYRANIDS-OVERBUFF-V1 (Zoanthrope Warp Blast
+mutex), wave-43 TYRANIDS-DIAG-3, and TYRANIDS-MULTI-LOADOUT. Agent's
+N=20 patched runtime test: 50% (target 47.4%, within noise). Predicted
+12-18pt reduction at N=40; measured -0.47.
+
+The predicted-vs-measured gap on Tyranids and Orks (next section)
+warrants a wave-56 process note (below).
+
+### Orks — Tankbustas heterogeneous-squad weapon averaging
+
+ORKS-AMPLIFICATION-V1 (`b872506`) found the **same heterogeneous-
+squad-weapon-averaging pattern** the wave-50 Drukhari agent flagged
+as structural:
+
+Tankbustas: 6-model squad where ONE model (the Nob) carries the
+Smash Hammer (S6 AP-2 D3) and the other 5 carry Choppas (S5 AP-1 D1).
+BSData picks the "best legal melee weapon" without weighting by
+quantity, so all 6 models inherit the Nob's Smash Hammer stats.
+2.26× per-model melee damage amplification. Secondary effect: inflated
+`melee_dpa=4.0` exceeded `ranged_dpa=2.0`, making the AI charge with a
+nominally-shooty unit instead of letting it shoot.
+
+Override: weighted average melee profile (5× Choppa + 1× Smash
+Hammer = S5 AP-1 D1.33). Post-fix `melee_dpa=1.77 < ranged_dpa=2.0`,
+restoring shoot-first behavior.
+
+Plus 3 missing citations added: `simulator.waaagh`,
+`WAR_HORDE.melee_sustained_hits_army_wide`,
+`WARBOSS.plus_one_to_hit_melee_only`. Waaagh activation count
+verified exactly 1.00/battle (correct).
+
+Predicted -3 to -7 wr-points; measured **+1.55 wrong direction**.
+
+### Pattern note — agent metric predictions
+
+Across waves 50 / 52 / 53 / 55, agent predictions based on per-unit
+damage attribution (random_fill or local DPP measurements) have
+consistently over-shot the measured archetype-eval movement:
+
+| Wave | Faction | Predicted | Measured |
+|---|---|---:|---:|
+| 50 | Drukhari Combat Drugs | -2 to -5 | +0.12 |
+| 52 | KoS extra_melee | Daemons +2-4 | +1.43 |
+| 53 | AdMech Crucible | "substantial" | +0.71 |
+| 53 | Daemons stratagems | "several pts" | -0.24 |
+| 55 | Orks Tankbustas | -3 to -7 | **+1.55** |
+| 55 | Tyranids Harpy+Warriors | -12 to -18 | -0.47 |
+
+The successful predictions on archetype eval came from per-model
+amplification fixes on rules that drive damage curves directly:
+SOROR AoF (substitutes hit/wound/save rolls), T'au Markerlights
+(drives every T'au shot for 5 rounds). The over-predictions are
+mostly per-unit weapon profile or stratagem fixes where the affected
+unit's archetype-build presence is smaller than its random_fill
+damage attribution suggested.
+
+**Wave-56 dispatch implication**: predict conservatively. Agents
+should report N=20 archetype eval delta (not random_fill DPP) as the
+prediction basis. Or: only predict direction, not magnitude, until
+the prediction-vs-measured calibration improves.
+
+### Open carry-forwards into wave 56
+
+1. **Drukhari activation count structural** (T3 architecture).
+   Confirmed via wave-55 measurement: 81-90 Drukhari Unit instances
+   vs 39-53 Marines at 2000pts. Largest single tractable residual
+   would close substantially with squad-level activation grouping.
+2. **TSON +22.54** still uncloseed — Cabal point generation rate
+   (not Doombolt cap) likely the remaining lever.
+3. **AdMech +18.22** — archetype-build damage attribution diagnostic
+   needed (not random_fill).
+4. **Daemons +17.94** — Lever 2 stratagem additions landed but
+   didn't move metric; dispatcher firing instrumentation suggested.
+5. **Aeldari +13.10** — Strands Advance was a small slice.
+   Battle Focus / detachment audits remain.
+6. **Sororitas +10.55** — close to noise but still over. AoF dice
+   selection refinement.
+7. **Per-model amplification sweep continues** — candidates left:
+   GSC Cult Ambush (UNDER), DG Plague Companies (in-band),
+   Necron Awakened Dynasty (UNDER), Custodes Ka'tah (close to band).
+8. **Heterogeneous-squad-weapon-averaging mapper fix** — wave-55
+   Tankbusta override fix is the band-aid for a cross-faction
+   structural bug. Mapper should pick weapons weighted by codex
+   datasheet quantity (1 Nob's Power Klaw + 9 Boyz' Choppas → 0.1×
+   Power Klaw stats + 0.9× Choppa stats). Tractable T3 mapper work.
+9. **IK -36.71 / CK -43.33 mapper-locked**.
+

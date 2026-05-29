@@ -1,6 +1,6 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 58 in-flight (2026-05-29)
+**Last updated:** Wave 58 close (2026-05-29), top commit `74f06ac`
 
 This file is the fast-pickup point for any new orchestrator session
 continuing the auto-loop. Read this first; everything else is context.
@@ -20,25 +20,23 @@ keeping rule correctness primary per CLAUDE.md §3 / §10.
 | Eval | MAE_raw | MAE_gated | Inside band |
 |---|---:|---:|---:|
 | Branch start (wave 48 close, `d82fb5d`) | 14.22 | 10.83 | 4/22 |
-| Wave 57 close (`0fdacd8`) | 14.33 | **10.84** | 4/22 |
-| Wave 58 in-flight | TBD | TBD | TBD |
+| Wave 57 close (`0fdacd8`) | 14.33 | 10.84 | 4/22 |
+| Wave 58 close (`74f06ac`) | 14.38 | **10.82** | 4/22 |
 
 Headline has been flat in the 10.5-10.9 range for ~10 waves, but
 **per-faction wins compound**. The per-model amplification pattern
 catalogue has 7 instances across 6 factions moving -17.59 wr-points
 total (-16.99 from SOROR×2 + AM alone).
 
-## In-flight wave-58 cherry-picks (now on main, eval running)
+## Wave 58 commits landed + measured
 
-| Commit | Faction | Predicted N=40 move |
-|---|---|---|
-| `4eb490d` Marines plasma-Torrent fix | Adeptus Astartes | **-10ish** (big) |
-| `b26c181` Aeldari Strands hit+save gate | Aeldari | -0.7 |
-| `74f06ac` TSON Cabal-gen cap | Thousand Sons | negligible |
+| Commit | Faction | Predicted N=40 | Measured N=40 |
+|---|---|---|---|
+| `4eb490d` Marines plasma-Torrent fix | Adeptus Astartes | -10ish | **-2.14** |
+| `b26c181` Aeldari Strands hit+save gate | Aeldari | -0.7 | +0.11 |
+| `74f06ac` TSON Cabal-gen cap | Thousand Sons | negligible | -0.12 |
 
-Eval task ID at time of writing: `bwzw231j2` (background). Once it
-finishes: cherry-picks already on main, run diff, write the wave-58
-close block, push.
+Wave 58 is closed and pushed. Continue with wave 59 dispatch.
 
 ## Next 3 ranked levers (wave 59+)
 
