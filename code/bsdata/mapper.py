@@ -1513,6 +1513,11 @@ class MappedUnit:
     # SUSTAINED HITS N would leak into melee resolution — the exact failure
     # mode that fabricated SUSTAINED HITS on Orks Choppa profiles in iter27.
     melee_sustained_hits: int = 0
+    # Same shape as melee_sustained_hits for [LETHAL HITS] on melee weapons.
+    # Wave-52 schema gap fix surfaced by DAEMONS-GREATER-COMBAT-V1: GUO's
+    # Bilesword carries [LETHAL HITS] in BSData but the prior single
+    # `lethal_hits` field read from the ranged primary only.
+    melee_lethal_hits: bool = False
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7    # parsed from "Invulnerable Save (X+*)" infoLinks in the tree
@@ -1931,6 +1936,13 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         # that case. For mixed units (ranged + melee) the two fields diverge
         # — exactly the bug iter28-MS1 fixes.
         melee_sustained_hits=(best_melee.sustained_hits if best_melee is not None else 0),
+        # Same shape as melee_sustained_hits — source melee LETHAL HITS from
+        # the chosen melee weapon when one exists. Wave-52 schema gap fix:
+        # the prior single `lethal_hits` field read from the ranged primary
+        # would leak ranged LETHAL HITS into melee resolution (and miss
+        # melee-only LETHAL HITS like GUO's Bilesword). Mode-routed at the
+        # attack-resolution site in code/units.py.
+        melee_lethal_hits=(best_melee.lethal_hits if best_melee is not None else False),
         twin_linked=primary.twin_linked,
         devastating_wounds=primary.devastating_wounds,
         invuln_save=invuln,

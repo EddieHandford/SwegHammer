@@ -695,6 +695,33 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # opponent-Shooting-phase ritual with no aura-flag plumbing; skipped.
     ("Contorted Epitome",  LeaderAbility(name="Swallow Energy",             aura_range=6.0, fnp=4,
                                           host_keys=("chaos_daemons_library_daemonettes",))),
+    # Spoilpox Scrivener — "Keep Counting!" grants melee [SUSTAINED HITS 1]
+    # to the led Plaguebearers. BSData v10.6.0 Chaos - Chaos Daemons
+    # Library.cat.gz verbatim: "While this model is leading a unit, melee
+    # weapons equipped by models in that unit have the [SUSTAINED HITS 1]
+    # ability." Leader attachment: PLAGUE BEARERS. Schema field
+    # `sustained_hits_melee` added in wave-50 commit `25af977`
+    # (LEADERABILITY-SUSTAINED-HITS) precisely so this leader could be
+    # added without a follow-up dataclass change. Second BSData ability
+    # "Meet Your Quota!" (+1 OC to the led unit) is parking-lot: no
+    # `oc_bonus_led_unit` field exists in LeaderAbility yet.
+    ("Spoilpox Scrivener", LeaderAbility(name="Keep Counting!",             aura_range=6.0,
+                                          sustained_hits_melee=1,
+                                          host_keys=("chaos_daemons_library_plaguebearers",))),
+    # Tormentbringer — Aura (NOT led-unit gated) grants melee [SUSTAINED
+    # HITS 1] to any friendly SLAANESH LEGIONES DAEMONICA within 6". BSData
+    # v10.6.0: "While a friendly Slaanesh Legions Daemonica unit is within
+    # 6\" of this model, melee weapons in that unit have the [SUSTAINED
+    # HITS 1] ability." `host_keys` is the full _SLAANESH_DAEMON_HOSTS
+    # tuple — this is an army-aura within the Slaanesh sub-faction, NOT
+    # a Leader/Bodyguard buff. Empty `host_keys=()` would broadcast to
+    # ALL friendlies (including non-Slaanesh allies via Daemons of Chaos
+    # detachment composition), which is wrong. Tormentbringer's other
+    # ability "Hysterical Frenzy" (destroyed model fights after) requires
+    # a fight-phase-trigger flag that doesn't exist; parking-lot.
+    ("Tormentbringer",     LeaderAbility(name="Tormentbringer (Aura)",      aura_range=6.0,
+                                          sustained_hits_melee=1,
+                                          host_keys=_SLAANESH_DAEMON_HOSTS)),
     # Chaos Daemons Greater Daemons — per-god aura carriers. Bloodthirster
     # and Skarbrand (DAEMONS-DIAG-3, claude/sim-calibration-6) wire Khorne;
     # LEADERABILITY-SCHEMA (this iteration) extends to the three remaining

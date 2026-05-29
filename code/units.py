@@ -340,6 +340,13 @@ class UnitProfile:
     # melee weapon's keywords. Read by Unit.attack when `mode == "melee"` so
     # a ranged-only SUSTAINED HITS N does not leak into melee resolution.
     melee_sustained_hits: int = 0
+    # Melee-side [LETHAL HITS] — parallel split to melee_sustained_hits.
+    # Wave-51 DAEMONS-GREATER-COMBAT-V1 surfaced this schema gap: Great
+    # Unclean One's Bilesword carries [LETHAL HITS] in BSData but the field
+    # `lethal_hits` was previously read from the RANGED primary weapon only.
+    # Mode-routed in Unit.attack so a ranged-only LETHAL HITS doesn't leak
+    # into melee resolution and vice versa.
+    melee_lethal_hits: bool = False
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
@@ -2397,7 +2404,19 @@ class Unit:
             # was the largest non-structural driver of Drukhari's +33pt sim-vs-
             # meta overshoot in wave 42 (DRK-PAIN-TOKENS). Wahapedia:
             # https://wahapedia.ru/wh40k10ed/factions/drukhari/
-            effective_lethal_hits = p.lethal_hits
+            # Route the per-weapon LETHAL HITS value by attack mode, matching
+            # the SUSTAINED HITS mode-routing convention above. Pre-wave-52
+            # the simulator read `p.lethal_hits` unconditionally, but that
+            # field is populated from the RANGED primary weapon (see
+            # `code/bsdata/mapper.py`). Reading it in melee mode fabricated
+            # ranged LETHAL HITS onto every melee weapon for any unit whose
+            # ranged primary carried [LETHAL HITS]. `p.melee_lethal_hits`
+            # is sourced from the melee weapon and defaults to False —
+            # mirrors the wave-44 iter28-MS1 melee_sustained_hits split.
+            if mode == "melee":
+                effective_lethal_hits = bool(p.melee_lethal_hits)
+            else:
+                effective_lethal_hits = bool(p.lethal_hits)
             # ST-1: per-round transient LETHAL HITS grant from stratagems that
             # actually cite [LETHAL HITS] (Wrath of the Ancestors, Power Of The
             # WAAAGH!, Archaeotech Munitions). Composes via OR with profile and
