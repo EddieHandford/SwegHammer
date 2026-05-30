@@ -6088,13 +6088,18 @@ class Battle:
                     to_pos=new_pos,
                 ))
             attacker.fell_back_this_round = True
-            # Desperate Escape: 1D6 per model — SwegHammer is one Unit per
-            # model, so a single d6; on a 1 the model is destroyed.
-            if random.randint(1, 6) == 1:
-                attacker.current_health = 0.0
-                if not attacker.is_alive:
-                    self._emit(UnitKilled(unit_uid=attacker.uid))
-                    self._maybe_apply_deadly_demise(attacker)
+            # Desperate Escape test (10e core): roll 1D6 per model in the
+            # Falling Back unit; each roll of 1-2 destroys one model.
+            # TITANIC and FLY units are entirely exempt from this test.
+            # SwegHammer models units as one Unit per model, so a single
+            # D6 is rolled. Cited as `simulator.desperate_escape`.
+            _p = attacker.profile
+            if not (_p.titanic or _p.fly):
+                if random.randint(1, 6) <= 2:
+                    attacker.current_health = 0.0
+                    if not attacker.is_alive:
+                        self._emit(UnitKilled(unit_uid=attacker.uid))
+                        self._maybe_apply_deadly_demise(attacker)
             return
 
         dist = _distance(attacker.position, target_pos)

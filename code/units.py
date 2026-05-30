@@ -548,6 +548,15 @@ class UnitProfile:
         return "FLY" in (self.unit_keywords or ())
 
     @property
+    def titanic(self) -> bool:
+        """True if this unit has the TITANIC keyword (10e). Derived from
+        ``unit_keywords``. TITANIC units are exempt from the Desperate
+        Escape test when Falling Back, per core rules. Cited as
+        ``simulator.desperate_escape``.
+        """
+        return "TITANIC" in (self.unit_keywords or ())
+
+    @property
     def avg_damage_per_action(self) -> float:
         """Expected damage dealt per activation against a baseline Marine."""
         wound_p = wound_probability(self.strength, BASELINE_TOUGHNESS)
