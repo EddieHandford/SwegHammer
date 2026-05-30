@@ -298,6 +298,156 @@ checklist with a step to update itself.
 9. **Daemons -16.51** — stratagem dispatcher instrumentation.
 10. **IK -36.83 / CK -43.69 mapper-locked** — Stage 2.
 
+## Wave 59 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 2 commits landed on top of wave-58
+close `f1d8aaf`. Top commit at wave-59 close is `f1c2825`. Third
+agent (Sororitas) was killed mid-investigation by the user for a
+clean session handoff before structural work.
+
+Wave 59 attacked three persistent over-shooting factions with
+targeted archetype-build audits + Wahapedia verbatim refresh on
+Aeldari. **Aeldari Battle Focus fix was the biggest single-wave
+faction win since SOROR-V1 wave 51 (-5.23).**
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 58 close (`f1d8aaf`, 2026-05-29) | 14.38 | 10.82 | 4/22 |
+| Wave 59 close (`f1c2825`, 2026-05-29) | 14.28 | **10.73** | 4/22 |
+
+**-0.09 gated MAE** — modest direction-correct headline, dominated
+by Aeldari -5.23 and AdMech +1.54 (wrong direction). Other small
+shifts within noise.
+
+### Aeldari Battle Focus — wrong-keyword gate
+
+AELDARI-BATTLE-FOCUS-V1 (`04895fe`) found a single-line keyword
+gate bug. The current 10e codex Battle Focus rule (per fresh
+Wahapedia fetch) reads:
+
+> Star Engines: when an **ASURYANI VEHICLE** unit from your army
+> Advances, you can spend one Battle Focus token; until the end of
+> that turn, ranged weapons equipped by models in that unit have
+> the [ASSAULT] ability.
+
+The simulator at `code/simulator.py:6243` checked `"ASURYANI" in kw`
+only — missing the VEHICLE requirement. **54 ASURYANI non-VEHICLE
+units** (Wraithguard, Dark Reapers, Dire Avengers, Guardian
+Defenders, Striking Scorpions, etc.) were getting free
+shoot-after-Advance every turn they advanced. Only the 20 ASURYANI
+VEHICLE units (Wave Serpent, Falcon, Fire Prism, War Walkers, etc.)
+should qualify.
+
+Single-line fix: `"ASURYANI" in kw and "VEHICLE" in kw`.
+
+Agent N=20 prediction (62.9% → 58.8%, -4.1pt). **Measured N=40:
+-5.23**. The N=20 prediction discipline UNDER-shot here — the full
+22-faction matrix amplifies the effect because Aeldari infantry
+running shoot-after-Advance is heavily over-represented across many
+opponent matchups.
+
+Aeldari now sits at +9.77 gated, the closest the faction has been
+to in-band since wave 49.
+
+### AdMech Kataphron heterogeneous AP averaging
+
+ADMECH-ARCHETYPE-V1 (`f1c2825`) found Kataphron Destroyers'
+heterogeneous loadout was mapper-averaged: 2 models with Heavy
+Grav-Cannon (AP-1, D=2) + 2 models with Plasma Culverin Standard
+(AP-2, D=1). The mapper averaged to AP=round(-1.5)=-2, D=1.5 — but
+competitive Skitarii Hunter Cohort lists run ALL-grav per Wahapedia
+(per Goonhammer 10e May 2026 Detachment Focus).
+
+Fix: per-unit override `adeptus_mechanicus_kataphron_destroyers` →
+ap=-1, weapon_damage_per_shot=2.0, anti_keyword_basket_fractions
+{VEHICLE: 1.0}. Direction-correct per CLAUDE.md §10 — overriding to
+the tournament-meta loadout that real GSC-style players choose,
+within codex datasheet rules.
+
+Agent N=20 prediction (62.1% → 57.2%, -4.9pt). **Measured N=40:
++1.54 wrong direction**. The N=40 22-faction matrix flipped the
+sign of this fix. Likely because the AP-1 D2 grav profile is
+stronger against tougher targets (Marines, Custodes) than the
+basket average was against everything mixed. The agent's N=20
+sample didn't capture this matchup-dependent effect.
+
+### Sororitas agent killed mid-investigation (intentional)
+
+SORORITAS-RECAL-V1 was stopped by the user before completing for a
+clean session handoff. The agent's interrupted trace surfaced a
+useful **diagnostic finding** worth carrying forward:
+
+> Morvenn Vahl at 185pt is the most consistent top damage dealer in
+> archetype builds (338 damage / 20 battles = 16.9 avg). Exorcist
+> at 210pt: 6.7 damage / battle. Morvenn appears genuinely
+> over-efficient at her current points cost.
+
+This is a **Stage 2 (points equation) issue**, NOT Stage 1
+(simulator accuracy). The Sororitas residual likely cannot be
+closed by simulator-rule fixes alone — Morvenn's stat block matches
+codex but the points cost may be the leverage point. Park for
+Stage 2 work.
+
+### N=20 prediction discipline — 6 datapoints, accuracy mixed
+
+| Wave | Agent | N=20 predicted | N=40 measured |
+|---|---|---:|---:|
+| 54 | T'au Markerlights | "substantial" | -1.31 |
+| 55 | Drukhari Pain Tokens | no movement (inert) | +0.12 |
+| 55 | Orks Tankbustas | -3 to -7 | +1.55 (wrong) |
+| 55 | Tyranids Harpy+Warriors | -12 to -18 | -0.47 |
+| 56 | AM Orders | 25%→40% pre/post vs Marines | **-4.64** (matched) |
+| 56 | Votann Huntr's Mark | random_fill -7.8pt | -0.83 |
+| 58 | Marines plasma Torrent | "-10ish" | -2.14 |
+| 58 | Aeldari Strands hit/save | -0.7 | +0.11 |
+| 58 | TSON cabal cap | negligible | -0.12 (matched) |
+| 59 | Aeldari Battle Focus | -4.1pt | **-5.23** (under-shot, beat target) |
+| 59 | AdMech Kataphron | -4.9pt | +1.54 (wrong sign) |
+
+Pattern: predictions are **direction-correct ~70% of the time** but
+magnitude is unreliable. Stratagem / unit-profile fixes especially
+prone to wrong-sign outcomes at full-matrix N=40 due to matchup
+asymmetries.
+
+### Open carry-forwards into wave 60
+
+1. **Drukhari activation count structural** (T3 architecture). Still
+   +36.53 gated, largest residual. Multi-day branch — the user is
+   pausing this session to do structural work via another agent,
+   likely this lever.
+2. **Sororitas Morvenn Vahl Stage 2 pricing audit** — surfaced by
+   wave-59 killed agent. Park until Stage 2 work begins.
+3. **TSON +20.64** — Cabal generation cap didn't move the needle.
+   Magnus / Ahriman leader-aura tier may still be over-modeled.
+   Top damage contributor: Rubric Marines (Bringers of Change
+   parking-lot ability is "reroll wound 1s on ranged", currently
+   unmodelled — adding it would worsen overshoot).
+4. **AdMech +16.91** — Kataphron fix moved wrong way. Belisarius
+   Cawl or Hastarii Fusiliers (S12 anti-tank at low cost) may be
+   load-bearing. Agent flagged both as candidates.
+5. **Sororitas +14.00** — pistol-basket ripple from wave 57. AoF
+   selection refinement remains.
+6. **Votann +18.08** — pistol-basket ripple from wave 57. Hearthkyn
+   profile re-verify.
+7. **Marines +13.00** — Plasma Incinerator fix landed -2.14. Top
+   damage contributors past Hellblasters need profile verification.
+8. **Per-model amplification sweep**: DG Plague Companies, GSC Cult
+   Ambush, Custodes Ka'tah remaining.
+9. **Daemons -16.40** — stratagem dispatcher firing instrumentation
+   to verify wave-53 stratagem additions actually fire.
+10. **IK -36.83 / CK -43.69 mapper-locked** — Stage 2 multi-profile
+    weapon mapper. The user's structural-work pause may attack this
+    instead of Drukhari activation count.
+
+### Session handoff
+
+User pausing this session for structural work via another agent.
+`docs/CURRENT_STATE.md` updated with the new headline + the
+structural lever ranking. Next session can resume cleanly by
+reading that file first.
+
 # Auto-calibration loop log
 
 Started 2026-05-16. Hands-off iteration toward MAE-vs-real-meta ≤ 1.0pt
