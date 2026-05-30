@@ -1,13 +1,14 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 63 close (2026-05-30), top fix commit `96fd68e`
+**Last updated:** Wave 64 close (2026-05-30), top fix commit `3203e35`
 (docs/close commit on top).
 
-**Status:** Headline gated MAE now **9.27** (was 10.71 five waves ago). Wave 61
-was the breakthrough (systemic AI fall-back fix, -1.35). Wave 62 removed the
-Custodes AURIC_CHAMPIONS fabrication; wave 63 fixed World Eaters Blood Tithe
-over-accrual (per-model → per-unit, -0.12). Both later waves clean and rules-
-correct. Strong queue of follow-ups below.
+**Status:** Headline gated MAE **9.27** (was 10.71). Now running the
+AI-TACTICS-IMPLEMENTATION CAMPAIGN: a 16-tactic audit (tasks #12-16, memory
+`project-ai-tactical-gaps`) found the AI does NONE of 16 competitive 10e
+tactics fully; implementing them in order, then re-running the research→verify
+loop until convergence. Wave 64 landed #14 (consolidate-onto-objective,
+rules-correct, MAE-neutral). Next: #16, #15, #13, #12.
 
 This file is the fast-pickup point for any session continuing the loop.
 
@@ -24,7 +25,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 60 close (`e1f3f53`+docs) | 14.27 | 10.71 | 2/22 |
 | Wave 61 close (`c4d6da6`+docs) | 12.89 | 9.36 | 2/22 |
 | Wave 62 close (`e1346a1`+docs) | 12.90 | 9.39 | 2/22 |
-| **Wave 63 close (`96fd68e`+docs)** | **12.80** | **9.27** | **2/22** |
+| Wave 63 close (`96fd68e`+docs) | 12.80 | 9.27 | 2/22 |
+| **Wave 64 close (`3203e35`+docs)** | **12.80** | **9.27** | **2/22** |
 
 The headline sat at 10.5-10.9 for 12 waves, then dropped 1.35 in one wave.
 The lever was **AI piloting**, not rules or stats — the strategist review's

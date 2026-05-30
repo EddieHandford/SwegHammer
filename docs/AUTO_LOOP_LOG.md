@@ -4,6 +4,31 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 64 close (2026-05-30)
+
+Branch `claude/sim-calibration-6`. First wave of the AI-tactics-implementation
+campaign — a 16-tactic audit (research real competitive 10e tactics, verify
+each against the sim AI) found the AI can organically do NONE fully (11 CANNOT,
+5 PARTIAL); the gaps became tasks #12-16. This wave lands the first: a
+rules-correct AI capability, consolidate-onto-objective.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 63 close (`96fd68e`+docs) | 12.80 | 9.27 | 2/22 |
+| Wave 64 close (`3203e35`+docs) | 12.80 | 9.27 | 2/22 |
+
+**FIGHT-AI-CONSOLIDATE-OBJECTIVE** (`3203e35`): the 10e Consolidate move now
+goes up to 3" onto the nearest objective marker when combat clears (no enemy
+reachable) — previously a no-op in that case. Audit 278/278 (new
+`simulator.consolidate_objective` key + citation). Headline UNCHANGED — the
+trigger (combat fully cleared with an objective within 3") is low-frequency,
+below the N=40 noise floor; the effect surfaces at higher N. Rules-correct,
+zero regression, pytest 912 → landed.
+
+Campaign progress: #14 done. Next #16 (Heroic Intervention already-engaged
+gate + Counter-Offensive firing), #15 (target priority by VP-plan), #13
+(repulsion/denial positioning), #12 (plan-level + lookahead objective function).
+
 ## Wave 63 close (2026-05-30)
 
 Branch `claude/sim-calibration-6`. One rules-correct fix: World Eaters Blood
@@ -115,77 +140,3 @@ averages to ~-0.03 across 22 factions.
 3. **Detachment citation/comment fixes** (task #10) — low-risk.
 4. **Strategy roadmap #1** (task #6 review) — a plan-level objective function;
    the big systemic lever, like the wave-61 fall-back fix.
-
-## Wave 61 close (2026-05-30)
-
-Branch `claude/sim-calibration-6`. The Knight-residual investigation (the
-user's structural-lever pick) reversed its own premise — the multi-profile
-weapon mapper was already done, so the residual was diagnosed as RULES +
-AI-piloting, not firepower. Three fixes landed, and the combined effect is
-the **largest single-wave headline move in the project's history**.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 60 close (`e1f3f53`+docs) | 14.27 | 10.71 | 2/22 |
-| Wave 61 close (`c4d6da6`+docs) | 12.89 | **9.36** | 2/22 |
-
-**-1.35 gated MAE.** The headline had been pinned at 10.5-10.9 for 12
-waves; it broke on a systemic AI mis-pilot fix.
-
-### The three fixes
-
-- **KNIGHTS-TITANIC-ESCAPE** (`31e477c`): TITANIC/FLY units exempt from
-  Desperate Escape per 10e core (verbatim Wahapedia); threshold also
-  corrected 1→1-2. Knights were illegally dying 1-in-6 on every Fall Back.
-- **KNIGHTS-DEMISE-D6PLUS2** (`d141a69`): mapper `_parse_demise_value`
-  lacked a D6+2 case → 11 Knight chassis (Castellan/Valiant/Cerastus IK,
-  Tyrant/Chaos Cerastus CK) carried Deadly Demise 1 instead of 5. Parser
-  fix + overrides.
-- **KNIGHTS-AI-FALLBACK** (`c4d6da6`): the dominant lever. `strategy.py`
-  `pick_move_intent` let melee-primary HEAVY units (melee Knights,
-  Carnifex, Hive Tyrant, Daemon Prince) Fall Back from melee — forfeiting
-  their main weapon and dying to Desperate Escape. Gated on
-  `not _is_melee_class`; pure ranged platforms still break off.
-
-### Per-faction (sim_pct, wave60 → wave61)
-
-- **Imperial Knights +10.1** (11.6→21.7, gated 34.0→23.9). Chaos Knights
-  gated 40.4→37.8 — still the single largest residual; the gate helped IK
-  far more than CK (CK is War-Dog/Armiger heavy, fewer TITANIC chassis).
-- The fall-back gate corrected OVER-shooters down toward target: Votann
-  -6.0, AdMech -5.1, Orks -4.4, Marines -4.4, AstraMil -3.9 (all gated
-  errors improved). One AI fix touched many factions — that is why the
-  headline moved so far.
-- New over-shoots introduced: **World Eaters +7.1** (gated 0→6.0) and CSM
-  (slightly over) — melee units now correctly staying engaged. Carry-forward.
-
-### Process
-
-- Driven by two rounds of parallel agents (2 fixes + 3 reviews, then a
-  second fan-out: faction-multiplier check + keyword-gap verify +
-  detachment-fab sweep). pytest 912 passed; audit 278/278; eval
-  `data/wf_wave61_n40.json`.
-- Verify-first repeatedly corrected agent/memory claims: the mapper premise
-  (already shipped), a phantom "Canis Rex duplicate" (legal 2-model
-  datasheet), and the faction-multiplier concern (already fixed in `e26ac0e`,
-  `secondaries.py`, not `strategy.py`).
-- Keyword-gap verify: the flagged core-rule "gaps" were mostly already
-  fixed — Battle-shock R1 (iter-13), Pile-In/Consolidate (implemented),
-  modifier-cap ±1 (clean delta-clamp). AIRCRAFT is genuinely unmodelled but
-  no aircraft appear in any archetype → zero current MAE impact. Parked.
-
-### Open carry-forwards into wave 62
-
-1. **AURIC_CHAMPIONS fabrication** (task #8): the default Custodes eval
-   detachment grants army-wide melee Sustained Hits 1; real "Assemblage of
-   Might" is +1 wound for CHARACTER units vs one designated target. Custodes
-   over-shoots → fixing it is rules-correct AND MAE-positive. Clean next win.
-2. **World Eaters / CSM new over-shoot** from the fall-back gate — re-tune.
-3. **Necrons detachment fabrications** (task #9): AD command-protocol
-   passives + ANNIHILATION_LEGION reroll_wound_ones are fabrications, but
-   Necrons UNDER-shoots, so fixing them is MAE-negative — handle with care.
-4. **Strategy roadmap #1** (task #6 review): a plan-level objective function
-   (next-turn reachable Objective Control per marker) is the big structural
-   lever — would move many factions at once, like the fall-back fix did.
