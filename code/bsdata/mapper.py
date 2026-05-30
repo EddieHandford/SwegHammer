@@ -2608,12 +2608,19 @@ def _parse_demise_value(s: str) -> int:
     """Map a 'Deadly Demise N' suffix string to its expected-value integer.
 
     Canonical forms seen in BSData 10e infoLink modifiers:
-       "1", "2", "3", "D3", "D6", "D3+3"
+       "1", "2", "3", "D3", "D6", "D3+3", "D6+2", "D6+3"
     Returns 0 if unrecognised. Mapping:
        integer N -> N
        "D3"      -> 2   (expected value)
        "D6"      -> 3   (expected value, rounded down from 3.5)
        "D3+3"    -> 5   (E[D3] + 3 = 2 + 3)
+       "D6+2"    -> 5   (E[D6] + 2 = 3.5 + 2 = 5.5, rounded down to 5)
+       "D6+3"    -> 6   (E[D6] + 3 = 3.5 + 3 = 6.5, rounded down to 6)
+
+    Note: "D6+2" was previously unhandled and fell through to 0, then to the
+    no-suffix fallback (returns 1). Affects Knight Castellan, Knight Valiant,
+    all Cerastus Knights (IK/CK), Knight Tyrant, Baneblade-class super-heavies,
+    Stormsurge, Khorne Lord of Skulls, and others. Fixed 2026-05-30.
     """
     s = (s or "").strip()
     if not s:
@@ -2624,6 +2631,8 @@ def _parse_demise_value(s: str) -> int:
     if su == "D6":
         return 3
     if su == "D3+3":
+        return 5
+    if su == "D6+2":
         return 5
     if su == "D6+3":
         return 6
