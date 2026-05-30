@@ -174,6 +174,130 @@ behavior is now substantially more rule-correct on heterogeneous
 squads AND pistol-carriers. The metric tradeoff is acceptable per
 CLAUDE.md §3 Stage 1 priorities.
 
+## Wave 58 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 4 commits landed on top of wave-57
+close `0fdacd8`. Top commit at wave-58 close is `74f06ac`.
+
+Wave 58 attacked the wave-57 Marines regression (now the largest
+non-IK/CK residual after the pistol-basket fix) plus TSON Cabal
+generation and a deeper Aeldari Strands extension. Plus a session-
+resume protection commit (`26de965` `docs/CURRENT_STATE.md`).
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 57 close (`0fdacd8`, 2026-05-29) | 14.33 | 10.84 | 4/22 |
+| Wave 58 close (`74f06ac`, 2026-05-29) | 14.38 | **10.82** | 4/22 |
+
+**-0.02 gated MAE** — flat at headline. Marines moved -2.14 toward
+zero (Plasma Incinerator Torrent fix), but other small drift offset
+it.
+
+### Marines plasma-Torrent fix
+
+MARINES-AUDIT-V1 (`4eb490d`) found a substring fab in the BSData
+mapper: `_TORRENT_NAME_TOKENS` contained `"incinerator"`, which
+matched "Plasma Incinerator" and "Macro Plasma Incinerator" — both
+are Heavy plasma weapons with normal 3+ hit, NOT Torrent auto-hit.
+This wrongly set `torrent=True` on three units (Hellblaster Squad,
+Redemptor Dreadnought, Fortis Kill Team), making their plasma shots
+skip the hit roll. ~50% damage inflation on Hellblasters.
+
+Fix: added `_PLASMA_INCINERATOR_RE` guard in `_torrent_from_name()` —
+if the weapon name contains "plasma" alongside any torrent token,
+returns False. Regenerated `parsed.json`.
+
+Agent's N=20 archetype eval was very optimistic (Marines 69.2% →
+52.5% combined vs Marines target 47.6%); measured at N=40 archetype
+was **-2.14** (Marines +14.78 → +12.64). Still direction-correct
+and the second-biggest single-faction win this run after AM-AUDIT-V1
+last wave. The over-prediction at N=20 vs measured N=40 may be
+because the agent's N=20 sample focused on matchups where Marines
+heavily relied on Hellblasters; full N=40 averages across 22
+opponents where Marines win-rate is dominated by other unit
+contributions too.
+
+### Aeldari Strands hit + save gate (per-codex-unit extension)
+
+AELDARI-AUDIT-V1 (`b26c181`) extended the wave-54 per-codex-unit
+gate from Advance-only to also cover Hit and Save substitutions.
+Strands of Fate codex wording: "each time a unit is selected to make
+a Hit Roll" — a unit-level event (one substitution per squad per
+roll sequence), not per-Unit-instance.
+
+New gates: `Army._fate_hit_names_used_this_round` and
+`Army._fate_save_names_used_this_round`. Reset in `_run_round`.
+
+Pre-fix Strands distribution (agent N=20): Hit 2.6, Save 1.4,
+Advance 0.7, Charge 0.3 per battle. Total ~5/6 pool. Pool depletes
+quickly regardless of per-squad gating.
+
+Agent N=20: Aeldari 59.3% → 58.6% (-0.7pt). Measured N=40: **+0.11**
+(within noise 3.10). The -0.7 didn't transfer.
+
+### TSON Cabal-gen squad cap
+
+TSON-CABAL-GEN-V1 (`74f06ac`) added a per-squad cap to the wave-53
+deduplication. Random_fill can seat 3 Rubric Marines squads (15
+model-units → 15//5 = 3 attempts), but BSData v10.6.0 says
+Rubric Marines `max_models=10 min_models=5`, so a single datasheet
+supports at most `10 // 5 = 2` squad instances. Fix:
+`min(_n_squads, max_models // min_models)` for multi-model squads.
+
+Characters (`min_models == 1`) remain uncapped — each separate
+force-org slot legitimately gets its own attempt.
+
+Agent N=20: TSON 70% → 70% (negligible movement; the 3-squad case
+appears in ~4/20 seeds). Measured N=40: **-0.12** (within noise
+8.75).
+
+### Pattern note — N=20 prediction calibration is uneven
+
+Three wave-58 agents applied the wave-55 prediction discipline
+(N=20 archetype eval before/after). Of the three:
+- TSON-CABAL-GEN-V1: predicted negligible, measured negligible. **Held.**
+- AELDARI-AUDIT-V1: predicted -0.7, measured +0.11. Under-shot.
+- MARINES-AUDIT-V1: predicted -10ish (from combined N=20), measured
+  -2.14. Massive over-shot.
+
+The Marines over-prediction suggests N=20-mixed-matchup is still
+noisier than the full N=40 22-faction matrix. The standing
+discipline ("N=20 archetype eval before/after as prediction basis")
+is more reliable than random_fill DPP but should be treated as
+**direction-correct with wide magnitude bounds**.
+
+### Session-resume protection
+
+`26de965` added `docs/CURRENT_STATE.md` as a fast-pickup point for
+any continuation session (e.g. after a usage-limit auto-cut). It
+carries the current wave #, headline metric, in-flight cherry-picks,
+next 3 ranked levers, standing operational rules, and a wave-close
+checklist with a step to update itself.
+
+### Open carry-forwards into wave 59
+
+1. **Drukhari activation count structural** (T3 architecture).
+   +36.30 gated, largest single residual. Multi-day branch.
+2. **AdMech +15.37** unchanged across wave-58 (no AdMech work).
+   Archetype damage attribution diagnostic recommended.
+3. **Sororitas +14.24** — drifted up. The pistol-basket wave-57
+   ripple. AoF dice selection refinement remains a named lever.
+4. **TSON +20.40** — Cabal generation cap fix small. Magnus / Ahriman
+   leader-aura tier may still be over-modeled.
+5. **Aeldari +15.00** — Strands hit-save extension didn't move the
+   needle. Battle Focus pick magnitude is the next named candidate.
+6. **Votann +18.08** — drifted up from pistol-basket ripple.
+   Hearthkyn weapon profile re-verify.
+7. **Marines +12.64** — Plasma Incinerator fix landed -2.14. Top
+   damage contributors past Hellblasters: Eradicators, Heavy
+   Intercessors — verify their profiles.
+8. **Per-model amplification sweep continues** — DG Plague
+   Companies, GSC Cult Ambush remain on the list.
+9. **Daemons -16.51** — stratagem dispatcher instrumentation.
+10. **IK -36.83 / CK -43.69 mapper-locked** — Stage 2.
+
 # Auto-calibration loop log
 
 Started 2026-05-16. Hands-off iteration toward MAE-vs-real-meta ≤ 1.0pt
