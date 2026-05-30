@@ -448,6 +448,78 @@ User pausing this session for structural work via another agent.
 structural lever ranking. Next session can resume cleanly by
 reading that file first.
 
+## Wave 60 close (2026-05-30)
+
+Branch `claude/sim-calibration-6`. 3 cherry-picked fix commits landed on
+top of wave-59 close `f1c2825` (via citation-cleanup commit `32e11aa`).
+Top fix commit `e1f3f53`; this docs/close commit sits on top.
+
+Wave 60 ran three parallel rule-correctness audits on persistent
+over/under-shooters. All three found and fixed real bugs, and all three
+moved their target faction in the correct direction — but sub-noise at the
+headline. Net gated MAE essentially flat; the headline stays pinned by the
+unfixed structural residuals (CK -43.7, IK -37.0, Drukhari +37.0) that
+these non-structural waves don't touch.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 59 close (`f1c2825`) | 14.28 | 10.73 | 3/22 |
+| Wave 60 close (`e1f3f53`+docs) | 14.27 | **10.71** | 2/22 |
+
+-0.02 gated MAE. Band 3->2 is boundary noise (Necrons / Astra Militarum
+hovering at the band edge), not a regression from the fixes.
+
+### The three fixes — all direction-correct, combined -2.03 faction gated
+
+- **MARINES-AUDIT-V2** (`d057c3c`): the BSData mapper picked Aggressor
+  Squad's Flamestorm Gauntlets (torrent / auto-hit) as the primary weapon;
+  corrected via `data/overrides.json` to the tournament-standard Auto
+  Boltstorm Gauntlets (3x twin-linked, ballistic skill 3+, 18", no torrent).
+  Marines gated 10.84 -> 10.00 (-0.84). Eradicators / Bladeguard verified
+  clean. Same mapper-loadout-fab shape as MARINES-AUDIT-V1.
+- **TSON-AURA-V2** (`1f1b3c5`): Ahriman / Infernal Master / Sorcerer in
+  Terminator Armour `reroll_hit_ones` leaked into the Fight phase; the codex
+  restricts these to Psychic Attacks (ranged) or the Shooting phase. Added a
+  `reroll_hit_ones_shooting_only` LeaderAbility field gated `mode != melee`
+  in `code/units.py`. 3 citations updated, audit 278/278. TSON gated 11.88
+  -> 11.41 (-0.47), muted by the faction's 8.75 noise floor.
+- **DAEMONS-STRAT-INSTRUMENT-V1** (`e1f3f53`): the 4 shared Daemonic
+  Incursion stratagems were missing from all 4 god sub-detachment tuples
+  (only `DAEMONIC_INCURSION_STRATAGEMS` carried them), so 80% of Daemons
+  armies never fired Draught of Terror / Warp Surge / Daemonic
+  Invulnerability / Denizens of the Warp. Added to all 4 tuples. Daemons
+  gated 13.24 -> 12.52 (-0.72). The per-round stratagem cap means it swaps
+  which 2 fire; the -15.7 residual is structural, not stratagem-count.
+
+### Process notes
+
+- Citation backlog cleared pre-wave (`32e11aa`): audit 278/278, exit 0, and
+  `BLOCK_ON_MISSING_CITATIONS` flipped True (guard now enforcing). The guard
+  lives in gitignored `.claude/hooks/`, so enforcement is machine-local.
+- **Eval segfault** cost real time: `scripts/evaluate_vs_meta.py:28-30`
+  re-execs via `os.execvpe` to force `PYTHONHASHSEED=0`, which throws a
+  Windows access violation on this Python 3.9 box, masked as silent exit 0
+  when piped. Workaround: always prefix `PYTHONHASHSEED=0` (memory
+  `project-eval-pythonhashseed-segfault`). Diagnosed via `PYTHONFAULTHANDLER=1`.
+- N=20 agent predictions vs N=40 truth: 3/3 direction-correct, magnitude
+  sub-noise as predicted — consistent with the standing pattern that
+  stratagem / aura fixes land sub-noise while direct-stat fixes move more.
+
+### Open carry-forwards into wave 61
+
+1. **Marines +12.2** — still the top non-structural over-shooter. Audit
+   remaining contributors past Aggressors (Eradicators clean; check
+   Sternguard, Devastators, Marine vehicle ranged profiles).
+2. **TSON +20.2** — the melee-leak fix was small; the overshoot is broader.
+   Rubric Marines durability (All Is Dust) or Cabal ritual magnitudes next.
+3. **Votann +18.8 / AdMech +16.8** — untouched this wave, now the cleanest
+   mid-size over-shooters; weapon-profile audits on archetype contributors.
+
+Structural track (separate, not wave-by-wave): CK -43.7 / IK -37.0
+multi-profile weapon mapper; Drukhari +37.0 activation-count grouping.
+
 # Auto-calibration loop log
 
 Started 2026-05-16. Hands-off iteration toward MAE-vs-real-meta ≤ 1.0pt

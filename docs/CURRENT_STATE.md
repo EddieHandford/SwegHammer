@@ -1,13 +1,13 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 62 close (2026-05-30), top fix commit `e1346a1`
+**Last updated:** Wave 63 close (2026-05-30), top fix commit `96fd68e`
 (docs/close commit on top).
 
-**Status:** Wave 61 was the largest single-wave headline move in the
-project's history — gated MAE 10.71 → **9.36** — by fixing a systemic AI
-mis-pilot. Wave 62 added one rules-correctness fix (Custodes AURIC_CHAMPIONS
-fabrication removed → Custodes now near in-band; headline flat at 9.39).
-Strong queue of follow-ups below.
+**Status:** Headline gated MAE now **9.27** (was 10.71 five waves ago). Wave 61
+was the breakthrough (systemic AI fall-back fix, -1.35). Wave 62 removed the
+Custodes AURIC_CHAMPIONS fabrication; wave 63 fixed World Eaters Blood Tithe
+over-accrual (per-model → per-unit, -0.12). Both later waves clean and rules-
+correct. Strong queue of follow-ups below.
 
 This file is the fast-pickup point for any session continuing the loop.
 
@@ -23,7 +23,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 59 close (`f1c2825`) | 14.28 | 10.73 | 3/22 |
 | Wave 60 close (`e1f3f53`+docs) | 14.27 | 10.71 | 2/22 |
 | Wave 61 close (`c4d6da6`+docs) | 12.89 | 9.36 | 2/22 |
-| **Wave 62 close (`e1346a1`+docs)** | **12.90** | **9.39** | **2/22** |
+| Wave 62 close (`e1346a1`+docs) | 12.90 | 9.39 | 2/22 |
+| **Wave 63 close (`96fd68e`+docs)** | **12.80** | **9.27** | **2/22** |
 
 The headline sat at 10.5-10.9 for 12 waves, then dropped 1.35 in one wave.
 The lever was **AI piloting**, not rules or stats — the strategist review's
@@ -46,16 +47,22 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 63
+## Next ranked levers for wave 64
 
-1. **World Eaters / CSM over-shoot** (introduced by the wave-61 fall-back
-   gate — melee units now correctly stay in combat) — re-tune their melee
-   engagement. Top non-structural lever.
+The clean rules-correct + MAE-positive wins are now largely captured. Remaining
+non-structural work is lower-value or has a correctness/metric tension:
+
+1. **Detachment citation/comment fixes + Grey Knights deep-strike gate**
+   (task #10) — low-risk rules-hygiene, roughly headline-neutral.
 2. **Necrons detachment fabrications** (task #9) — rules-correct but
-   MAE-negative (Necrons under-shoots); handle with care, don't blind-remove.
-3. **Detachment citation/comment fixes** (task #10) — low-risk.
-4. **AURIC_CHAMPIONS done** (wave 62, `e1346a1`): Custodes fabrication
-   removed; faction now near in-band (gated 2.39 → 1.80).
+   MAE-negative (Necrons under-shoots); fixing fabrications here worsens the
+   headline. Handle with care / pair with compensating work.
+3. **TOWERING line-of-sight + cover** (task #3) — ambiguous direction; measure.
+
+Done: WE Blood Tithe (wave 63, gated 6.01→4.46); AURIC_CHAMPIONS (wave 62).
+The CSM under-shoot from the wave-61 gate is matchup-driven, not a clean fix
+(the rejected wounded-fallback gate confirmed a faction-neutral gate over-
+corrects the horde factions).
 
 ## Structural track (owns the remaining headline)
 

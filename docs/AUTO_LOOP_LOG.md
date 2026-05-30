@@ -4,6 +4,68 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 63 close (2026-05-30)
+
+Branch `claude/sim-calibration-6`. One rules-correct fix: World Eaters Blood
+Tithe was over-accruing. Notable as a verify-first save and as the second
+rejected→corrected attempt at the WE over-shoot.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 62 close (`e1346a1`+docs) | 12.90 | 9.39 | 2/22 |
+| Wave 63 close (`96fd68e`+docs) | 12.80 | **9.27** | 2/22 |
+
+-0.12 gated. Clean: World Eaters down toward target, ZERO cross-faction
+regression (only WE accrual touched).
+
+### WE-BLOODTITHE-PERUNIT (`96fd68e`)
+
+World Eaters over-shot (sim 56.4, target 47.0, gated 6.01) — a wave-61
+fall-back-gate side effect that turned out to expose a real bug.
+`_maybe_award_blood_tithe` awarded +1 Blood Tithe on every `UnitKilled`, but
+in the one-Unit-per-model representation that fires per MODEL, while the codex
+awards per UNIT destroyed. A WE squad wiping a 10-model enemy unit over-accrued
++10 BT instead of +1 — the **8th catalogued instance of
+`project-one-unit-per-model-amplification`**. Fixed with the standard
+last-living-model dedup (award only when no sibling sharing the victim's
+profile.name survives in its army).
+
+Result (N=40): WE gated 6.01 → 4.46 (-1.55, toward target); Emperor's Children
+-0.48 and Marines -0.48 (collateral improvement — WE's opponents win their
+matchups more); NO regressions. Headline 9.39 → 9.27.
+
+### Verify-first save
+
+The read-only WE diagnostic proposed a much larger "fix": add a D6 3+ accrual
+gate, remove the friendly-WE-death trigger, and rewrite the spend table —
+claiming Blood Tithe is a Khorne Daemonkin *detachment* rule. ALL THREE
+contradict the sim's own cited Wahapedia rule (`world_eaters.json`): the WE
+**army** rule awards on friendly death AND enemy kill, with NO dice roll, and
+the spend table the sim implements (4 = Lethal Hits, 3 = +1 Command point) is
+correct. The agent conflated two different rules. Checking the proposed change
+against the existing citation before applying caught it — only the narrow
+per-model amplification was real.
+
+### Process — a rejected attempt first
+
+The first wave-63 attempt (a "critically-wounded melee units may Fall Back
+below 35% HP" gate, commit `88c4920`) was REJECTED: it helped WE (-1.90) and
+Emperor's Children (-1.19) but regressed exactly the horde/monster factions
+wave 61 had calibrated (GSC +1.91, Tyranids +1.19, Orks +0.95), net headline
+9.39 → 9.52. Lesson: a faction-neutral AI gate ripples across every melee
+faction; run the full per-faction gated diff before landing, not just the
+headline. pytest 912 passed; audit well-formed. Eval `data/wf_wave63_n40.json`.
+
+### Open carry-forwards into wave 64
+
+1. **Necrons detachment fabrications** (task #9) — rules-correct but
+   MAE-negative (Necrons under-shoots); handle with care.
+2. **Detachment citation/comment fixes + Grey Knights deep-strike gate** (#10).
+3. **Strategy roadmap #1** (task #6 review) — a plan-level objective function;
+   the next big systemic lever, like the wave-61 fall-back fix.
+
 ## Wave 62 close (2026-05-30)
 
 Branch `claude/sim-calibration-6`. One fix — the first item from the
@@ -127,75 +189,3 @@ waves; it broke on a systemic AI mis-pilot fix.
 4. **Strategy roadmap #1** (task #6 review): a plan-level objective function
    (next-turn reachable Objective Control per marker) is the big structural
    lever — would move many factions at once, like the fall-back fix did.
-
-## Wave 60 close (2026-05-30)
-
-Branch `claude/sim-calibration-6`. 3 cherry-picked fix commits landed on
-top of wave-59 close `f1c2825` (via citation-cleanup commit `32e11aa`).
-Top fix commit `e1f3f53`; this docs/close commit sits on top.
-
-Wave 60 ran three parallel rule-correctness audits on persistent
-over/under-shooters. All three found and fixed real bugs, and all three
-moved their target faction in the correct direction — but sub-noise at the
-headline. Net gated MAE essentially flat; the headline stays pinned by the
-unfixed structural residuals (CK -43.7, IK -37.0, Drukhari +37.0) that
-these non-structural waves don't touch.
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 59 close (`f1c2825`) | 14.28 | 10.73 | 3/22 |
-| Wave 60 close (`e1f3f53`+docs) | 14.27 | **10.71** | 2/22 |
-
--0.02 gated MAE. Band 3->2 is boundary noise (Necrons / Astra Militarum
-hovering at the band edge), not a regression from the fixes.
-
-### The three fixes — all direction-correct, combined -2.03 faction gated
-
-- **MARINES-AUDIT-V2** (`d057c3c`): the BSData mapper picked Aggressor
-  Squad's Flamestorm Gauntlets (torrent / auto-hit) as the primary weapon;
-  corrected via `data/overrides.json` to the tournament-standard Auto
-  Boltstorm Gauntlets (3x twin-linked, ballistic skill 3+, 18", no torrent).
-  Marines gated 10.84 -> 10.00 (-0.84). Eradicators / Bladeguard verified
-  clean. Same mapper-loadout-fab shape as MARINES-AUDIT-V1.
-- **TSON-AURA-V2** (`1f1b3c5`): Ahriman / Infernal Master / Sorcerer in
-  Terminator Armour `reroll_hit_ones` leaked into the Fight phase; the codex
-  restricts these to Psychic Attacks (ranged) or the Shooting phase. Added a
-  `reroll_hit_ones_shooting_only` LeaderAbility field gated `mode != melee`
-  in `code/units.py`. 3 citations updated, audit 278/278. TSON gated 11.88
-  -> 11.41 (-0.47), muted by the faction's 8.75 noise floor.
-- **DAEMONS-STRAT-INSTRUMENT-V1** (`e1f3f53`): the 4 shared Daemonic
-  Incursion stratagems were missing from all 4 god sub-detachment tuples
-  (only `DAEMONIC_INCURSION_STRATAGEMS` carried them), so 80% of Daemons
-  armies never fired Draught of Terror / Warp Surge / Daemonic
-  Invulnerability / Denizens of the Warp. Added to all 4 tuples. Daemons
-  gated 13.24 -> 12.52 (-0.72). The per-round stratagem cap means it swaps
-  which 2 fire; the -15.7 residual is structural, not stratagem-count.
-
-### Process notes
-
-- Citation backlog cleared pre-wave (`32e11aa`): audit 278/278, exit 0, and
-  `BLOCK_ON_MISSING_CITATIONS` flipped True (guard now enforcing). The guard
-  lives in gitignored `.claude/hooks/`, so enforcement is machine-local.
-- **Eval segfault** cost real time: `scripts/evaluate_vs_meta.py:28-30`
-  re-execs via `os.execvpe` to force `PYTHONHASHSEED=0`, which throws a
-  Windows access violation on this Python 3.9 box, masked as silent exit 0
-  when piped. Workaround: always prefix `PYTHONHASHSEED=0` (memory
-  `project-eval-pythonhashseed-segfault`). Diagnosed via `PYTHONFAULTHANDLER=1`.
-- N=20 agent predictions vs N=40 truth: 3/3 direction-correct, magnitude
-  sub-noise as predicted — consistent with the standing pattern that
-  stratagem / aura fixes land sub-noise while direct-stat fixes move more.
-
-### Open carry-forwards into wave 61
-
-1. **Marines +12.2** — still the top non-structural over-shooter. Audit
-   remaining contributors past Aggressors (Eradicators clean; check
-   Sternguard, Devastators, Marine vehicle ranged profiles).
-2. **TSON +20.2** — the melee-leak fix was small; the overshoot is broader.
-   Rubric Marines durability (All Is Dust) or Cabal ritual magnitudes next.
-3. **Votann +18.8 / AdMech +16.8** — untouched this wave, now the cleanest
-   mid-size over-shooters; weapon-profile audits on archetype contributors.
-
-Structural track (separate, not wave-by-wave): CK -43.7 / IK -37.0
-multi-profile weapon mapper; Drukhari +37.0 activation-count grouping.
