@@ -6821,14 +6821,21 @@ class Battle:
             )
 
         # --- Consolidate (10e core): free 3" move taken AFTER the fight.
-        # Moves toward the closest enemy OR keeps the unit in engagement
-        # with units it was engaged with at the start of the move. We
-        # collapse to "move 3" toward closest enemy" — if the previous
-        # target survived this still sticks to it; if it died, the next
-        # closest enemy is chased. Cited as `simulator.consolidate`.
+        # Primary path: move up to 3" toward the closest surviving enemy.
+        # Objective path (10e core, cited as `simulator.consolidate_objective`):
+        # when NO enemies survive at all (combat cleared), the unit may
+        # instead move up to 3" toward the nearest objective marker,
+        # provided the move ends within the marker's contest radius
+        # (control_radius, standard 3"). This mirrors the skilled-play
+        # pattern of clearing a combat specifically to consolidate onto a
+        # primary objective. The "no enemies within 3" of the end position"
+        # condition in the 10e rule text is trivially satisfied when the
+        # entire defending force has been destroyed.
         if attacker.is_alive and not self.map.is_blocked(attacker.position):
             remaining = defender_army.alive_units
             if remaining:
+                # Normal path: enemies still alive — consolidate toward the
+                # nearest surviving enemy (mandatory per 10e core rule).
                 nearest_post = min(
                     remaining,
                     key=lambda e: _distance(attacker.position, e.position),
@@ -6838,6 +6845,24 @@ class Battle:
                 )
                 if not self.map.is_blocked(new_pos):
                     attacker.position = new_pos
+            elif self.map.objectives:
+                # Objective path: combat cleared, no surviving enemies —
+                # move toward nearest objective marker if the move would
+                # bring the unit onto (within control_radius of) that marker.
+                nearest_obj = min(
+                    self.map.objectives,
+                    key=lambda o: _distance(attacker.position, (o.x, o.y)),
+                )
+                obj_pos = (nearest_obj.x, nearest_obj.y)
+                # Only move if the end point lands within contest radius.
+                move_end = _move_toward(
+                    attacker.position, obj_pos, 3.0, self.map,
+                )
+                if (
+                    not self.map.is_blocked(move_end)
+                    and _distance(move_end, obj_pos) <= nearest_obj.control_radius
+                ):
+                    attacker.position = move_end
 
     # ------------------------------------------------------------------
     # Helpers

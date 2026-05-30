@@ -417,9 +417,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.heroic_intervention_core",
     # 10e core Fight phase: each unit makes a free Pile-In (3" toward
     # closest enemy) BEFORE it fights and a free Consolidate (3" toward
-    # closest enemy / staying in engagement) AFTER it fights.
+    # closest enemy / staying in engagement) AFTER it fights. When no
+    # enemy is reachable within 3", the unit may instead consolidate
+    # onto the nearest objective marker (simulator.consolidate_objective).
     "simulator.pile_in",
     "simulator.consolidate",
+    "simulator.consolidate_objective",
     # 10e Leviathan Tournament Companion primary scoring cap: each army
     # scores at most 15 Primary VP per battle round (i.e. counts at most
     # 3 controlled objectives at 5 VP each). Applied in

@@ -17,5 +17,14 @@
     "trigger": "owner's Fight phase, immediately after a unit resolves its melee attacks",
     "effect": "each model in the unit makes a free move of up to 3\" toward the closest enemy model (or to stay in engagement with the unit it was just engaged with). SwegHammer collapses this to a single Unit move of up to 3\" toward the closest alive enemy unit after _do_fight resolves attacks (including Counter-Offensive).",
     "scope": "army-wide"
+  },
+
+  "simulator.consolidate_objective": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FIGHT-PHASE",
+    "rule_name": "Consolidate (objective path)",
+    "quoted_text": "After a unit fights, each model in that unit can make a Consolidation move of up to 3\". If there are no enemy units within 3\" of the end of any model's Consolidation move, that model can instead move toward the nearest objective marker it could contest.",
+    "trigger": "owner's Fight phase, immediately after a unit resolves its melee attacks, when no enemy units survive (combat cleared) so the 'no enemies within 3\" of the end position' condition is trivially satisfied",
+    "effect": "when the combat has been cleared entirely (no surviving enemy units), the unit may instead move up to 3\" toward the nearest objective marker, provided the move end-point falls within the marker's contest radius (control_radius, standard 3\"). Models the skilled-play pattern of clearing combat specifically to consolidate onto a primary objective.",
+    "scope": "army-wide"
   }
 }
