@@ -7083,7 +7083,27 @@ class Battle:
         for the death AND killer's army gets +1 for the kill — that's the
         codex behaviour). Non-WE armies are left at 0. Cited as
         `simulator.blood_tithe`.
+
+        PER-UNIT DEDUP (BLOOD-TITHE-AMPLIFICATION fix): the codex awards 1 BT
+        "each time a UNIT is destroyed", but SwegHammer's one-Unit-per-model
+        representation calls this hook on every MODEL death — so a WE squad
+        wiping a 10-model enemy unit would over-accrue +10 BT instead of +1.
+        Award only when the victim is the LAST living model of its codex unit
+        (no surviving sibling shares its profile.name in its own army). This
+        is the standard project-one-unit-per-model-amplification template.
+        Known limitation of the profile.name key: two separate codex units of
+        the same datasheet count as one (under-counts in that rare case) —
+        accepted, far better than the per-model over-count.
         """
+        def _victim_unit_destroyed() -> bool:
+            return not any(
+                s is not victim
+                and s.is_alive
+                and s.profile.name == victim.profile.name
+                for s in victim_army.units
+            )
+        if not _victim_unit_destroyed():
+            return
         if victim.profile.faction == "World Eaters":
             victim_army.blood_tithe += 1
         if killer.profile.faction == "World Eaters":
