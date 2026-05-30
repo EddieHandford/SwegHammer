@@ -2,6 +2,178 @@
 
 Archived iter blocks from `AUTO_LOOP_LOG.md`. The live log keeps only the most recent two iter closes.
 
+## Wave 57 close (2026-05-29)
+
+Branch `claude/sim-calibration-6`. 2 cherry-picked commits + 1
+docs-only commit landed on top of wave-56 close `2588076`. Top commit
+at wave-57 close is `5cc7abf`. Plus `docs/NECRONS_AWAKENED_DYNASTY_AUDIT.md`
+findings doc added separately.
+
+Wave 57 corrected the wave-56 GSC regression, removed a fabricated
+Custodes Ka'tah stance, and investigated whether the Necron Awakened
+Dynasty per-codex-unit gate had amplification (it didn't — clean,
+parked).
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 56 close (`2588076`, 2026-05-29) | 14.50 | 10.98 | 4/22 |
+| Wave 57 close (`5cc7abf`, 2026-05-29) | 14.33 | **10.84** | 4/22 |
+
+**-0.14 gated MAE** — modest direction-correct headline movement, but
+masks **massive cross-faction swings** from the mapper-side
+GSC-regression fix:
+
+Big wins (downstream of pistol-basket removal):
+* Tyranids: +20.58 → +16.05 (-4.53)
+* Orks: +21.05 → +16.41 (-4.64)
+* T'au: +12.29 → +10.26 (-2.03)
+* AdMech: +17.15 → +15.37 (-1.78)
+* GSC: -11.45 → -8.23 (+3.22 toward zero, **the wave-56 regression
+  partially closed**)
+* AM: +3.95 → +2.88 (-1.07, AM Orders fix continuing to settle)
+* EC: +7.58 → +6.27 (-1.31)
+* TSON: +21.83 → +20.52 (-1.31)
+* WE: +1.81 → -0.10 (-1.91, now slightly under)
+* Custodes: +6.11 → +5.40 (-0.71, Ka'tah removal)
+
+Big losses (mapper-side pistol-basket effect — Bolter dominance now):
+* **Adeptus Astartes: +8.35 → +14.78 (+6.43 wrong direction)**.
+  Marines Tactical Squads now use Bolter (D=1) instead of basket of
+  Bolter + Bolt Pistol; the bolt-pistol-diluted basket was suppressing
+  Marine ranged damage in waves 56.
+* Votann: +14.39 → +17.84 (+3.45). Hearthkyn + similar pistol-
+  carrying loadouts.
+* Sororitas: +11.03 → +13.77 (+2.74). Battle Sisters' bolters.
+* Necrons: -2.84 → -5.82 (-2.98). Warriors' Gauss Flayers.
+* Aeldari: +13.58 → +14.89 (+1.31). Guardian Defenders.
+* DG: +1.28 → +2.35 (+1.07).
+
+The headline -0.14 sits between these two clusters. Per-faction lens:
+**6 factions moved >1 wr-point toward zero, 4 factions moved >1
+wr-point away from zero**. Rule-correctness improved across both
+clusters (no fabricated stats added or removed; only mapper geometry
+changed) — but the metric trade-off is now a known property of the
+wave-56 / 57 mapper sweep.
+
+### GSC regression — wave-56 mapper pistol contamination
+
+GSC-REGRESSION-V1 (`579e567`) traced the GSC -8.45 wave-56 regression
+to a downstream mapper bug introduced by HETERO-SQUAD-MAPPER-V1's
+basket fix. Root cause:
+
+Wave-56 mapper basket-averaged ALL fixed ranged weapons a model
+carries. In BSData, models frequently carry both a primary weapon
+(Mining Laser, Plasma Incinerator, Heavy Bolter) AND a sidearm pistol
+(Autopistol, Bolt Pistol). In 10e rules, a model fires ONE ranged
+weapon per activation — the pistol is only usable under the
+Engagement Range special rule. The basket gave equal weight to both,
+so Neophyte Hybrids' Mining Laser basket fraction collapsed from ~4/20
+to ~2/20 (-88% ranged damage).
+
+Fix (`code/bsdata/mapper.py` `_collect_weapons_for_model`): when
+multiple ranged weapons on one model, keep only the single best
+non-pistol weapon. Pistol-only models unaffected. Citation:
+`simulator.basket_best_ranged_per_model`.
+
+Sample effect — Neophyte Hybrids:
+* Before: attacks=1, hit=0.535, S=4, AP=0, D=1.37
+* After: attacks=2, hit=0.570, S=4, AP=-1, D=1.74
+
+N=20 archetype GSC vs Marines: 35% → 65%. At full N=40: GSC +3.22
+toward zero (still under but recovering).
+
+Cross-faction ripple: Marines (Tactical Squad Bolter + Bolt Pistol),
+Sororitas (Battle Sisters), Votann (Hearthkyn), Necrons (Warriors),
+Aeldari (Guardian Defenders), DG (Plague Marines) all carry pistol
+secondaries — their primary ranged weapons now dominate the basket
+instead of being diluted. Direction-correct per 10e rules but the
+metric calibration on those factions shifted upward.
+
+### Fabricated Custodes Ka'tah stance removed
+
+CUSTODES-KATAH-V1 (`5cc7abf`) found `SHIELD_HOST.melee_crit_on_5_plus_hits=True`
+is a fabricated Ka'tah stance not present in the codex. The three
+real Martial Ka'tah stances are:
+- Kaptaris (invuln vs ranged)
+- Rendax (melee AP+1)
+- Dacatarai (Sustained Hits ranged)
+
+None is "Crit-on-5+ melee." The fabricated stance fired on EVEN
+rounds (2, 4); the cycle was Rendax on odd, fabricated-crit on even.
+Removed per CLAUDE.md §10. Rendax AP+1 retained unchanged. Citation
+updated to mark the removed entry.
+
+Eval: Custodes -0.71 at N=40 (within noise 2.65, direction-correct).
+
+### Necron Awakened Dynasty — no amplification found, parked
+
+NECRONS-AWAKENED-DYNASTY-V1 (no commit) investigated whether the
+`bonus_to_hit_when_led` Command Protocols gate has the per-model
+amplification pattern. Finding: **the buff fires ZERO times in
+typical archetype battles**.
+
+Root cause: `is_actually_led()` uses a 6" proximity check to
+approximate the codex's "formally attached leader" rule, but the
+simulator places each Unit at an independent board position. Overlord
+and Necron Warriors start ~18" apart and never close to within 6"
+during combat.
+
+Per-codex-unit gate clean, multi-leader stacking clean, proximity
+uses `ability.aura_range` (not hardcoded 6"), host_keys composes
+correctly, Reanimation Protocols per-codex-unit gate unchanged from
+wave 28/49 fixes.
+
+**Decision: PARK.** Real fix requires a proper leader-attachment
+registry (T3 architecture). Wave-57 measured Necrons at -2.84 (in-
+band, just barely). A rule-correct fix here would push Necrons OUT
+of band wrong direction. Findings documented at
+`docs/NECRONS_AWAKENED_DYNASTY_AUDIT.md` for the eventual leader-
+attachment registry work.
+
+### Open carry-forwards into wave 58
+
+1. **Cross-faction pistol-basket calibration** — wave 57 created
+   wrong-direction movement on Marines (+6.43), Votann (+3.45),
+   Sororitas (+2.74) which all carry pistol secondaries. The
+   bolter-dominance is rule-correct per 10e but the metric shift
+   suggests these factions had been UNDER-modeled by the wave-56
+   bolt-pistol-diluted basket. Need to:
+   - Verify each affected faction's archetype build top-damage
+     contributors against current Wahapedia.
+   - Confirm whether the wave-57 levels are now the "true" sim%
+     against a fixed-rules baseline.
+   - If real-meta lists DON'T spam the primary weapon (which they
+     usually do because the special-weapon dominance is real),
+     accept the new levels and audit the residuals from there.
+2. **Drukhari activation count structural** (T3 architecture) — the
+   single largest residual remains +36.53.
+3. **AdMech +15.37** — archetype damage attribution still
+   unidentified.
+4. **Daemons -16.87** — stratagem dispatcher firing instrumentation.
+5. **TSON +20.52** — Cabal point generation rate audit.
+6. **Aeldari +14.89** — Battle Focus / Strands hit-save selection.
+7. **Sororitas +13.77** — AoF dice selection refinement; new
+   pistol-basket calibration check needed.
+8. **Per-model amplification sweep continues** — DG Plague
+   Companies, GSC Cult Ambush, etc.
+9. **Leader-attachment registry** (T3) — unblocks Necrons Command
+   Protocols and likely several other "while leading" rules.
+10. **IK -36.83 / CK -43.21 mapper-locked**.
+
+### Pattern note — mapper waves teach iteration
+
+The wave 56 → 57 sequence is a clean example of structural-mapper-fix
+iteration. Wave 56's HETERO-SQUAD-MAPPER-V1 was rule-correct (weight
+weapons by codex squad quantity) but had a downstream bug
+(pistol-basket contamination) that produced a wrong-direction GSC
+regression. Wave 57's GSC-REGRESSION-V1 fixed that downstream bug.
+Net across the two waves: headline +0.12 gated MAE, but per-faction
+behavior is now substantially more rule-correct on heterogeneous
+squads AND pistol-carriers. The metric tradeoff is acceptable per
+CLAUDE.md §3 Stage 1 priorities.
+
 # Auto-calibration loop log
 
 Started 2026-05-16. Hands-off iteration toward MAE-vs-real-meta ≤ 1.0pt

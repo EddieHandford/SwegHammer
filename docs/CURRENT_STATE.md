@@ -1,9 +1,11 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 59 close (2026-05-29), top commit `f1c2825`
+**Last updated:** Wave 60 close (2026-05-30), top fix commit `e1f3f53`
+(docs/close commit on top).
 
-**Status:** Session paused intentionally by the user for structural work in
-another agent. **Read the "Handoff context" section below before resuming.**
+**Status:** Wave 60 closed cleanly. Citation backlog cleared and the
+citation guard is now enforcing. Ready to continue wave-by-wave from
+wave 61, or pivot to the structural track.
 
 This file is the fast-pickup point for any new orchestrator session
 continuing the auto-loop. Read this first; everything else is context.
@@ -13,104 +15,87 @@ continuing the auto-loop. Read this first; everything else is context.
 > Reduce gated MAE below per-faction noise floor while improving the
 > rules correctness of the sim.
 
-Session-scoped `/goal` directive. May need re-applying mentally if stop
-hooks didn't survive across the session boundary. Drive gated MAE down via
-rule-correct fixes, keeping rule correctness primary per CLAUDE.md §3 / §10.
+Drive gated MAE down via rule-correct fixes, keeping rule correctness
+primary per CLAUDE.md §3 / §10.
 
 ## Where the metric stands
 
 | Eval | MAE_raw | MAE_gated | Inside band |
 |---|---:|---:|---:|
-| Branch start (wave 48 close, `d82fb5d`) | 14.22 | 10.83 | 4/22 |
 | Wave 58 close (`f1d8aaf`) | 14.38 | 10.82 | 4/22 |
-| **Wave 59 close (`f1c2825`)** | **14.28** | **10.73** | **4/22** |
+| Wave 59 close (`f1c2825`) | 14.28 | 10.73 | 3/22 |
+| **Wave 60 close (`e1f3f53`+docs)** | **14.27** | **10.71** | **2/22** |
 
-Headline has trended 10.5-10.9 across 11 waves; per-faction wins
-compound. The per-model amplification pattern catalogue stands at **7
-instances across 6 factions, -17.59 wr-points total** (memory entry
-`[[project-one-unit-per-model-amplification]]`).
+Headline has trended 10.5-10.9 across 12 waves. The non-structural
+levers reliably move their target faction sub-noise but cannot move the
+headline while three structural residuals dominate it: **Chaos Knights
+-43.7, Imperial Knights -37.0, Drukhari +37.0**. Closing the headline
+needs the structural track, not more wave-by-wave audits.
 
-## Handoff context — wave 59 close
+## Handoff context — wave 60 close
 
-Wave 59 closed cleanly. Aeldari Battle Focus VEHICLE-gate fix moved
-**-5.23 wr-points** (the biggest single-wave faction win since SOROR-V1
-wave 51). AdMech Kataphron Destroyers fix landed but moved +1.54 wrong
-direction at full-matrix N=40 — N=20 sample missed matchup asymmetry.
+Wave 60 ran three parallel rule-correctness audits. All three found real
+bugs and moved their faction in the correct direction (combined -2.03
+faction gated error), but each was sub-noise at the headline:
 
-Sororitas agent was killed mid-investigation. Its interrupted trace
-surfaced a Stage 2 finding: Morvenn Vahl at 185pt produces 16.9 avg
-damage per battle vs Exorcist at 210pt producing 6.7 — likely a points
-pricing issue, not a simulator bug. **Park for Stage 2.**
+- **MARINES-AUDIT-V2** (`d057c3c`): Aggressor Squad Flamestorm-Gauntlets
+  torrent fab → Auto Boltstorm Gauntlets. Marines gated 10.84→10.00.
+- **TSON-AURA-V2** (`1f1b3c5`): Ahriman/Infernal Master/Sorcerer in Term.
+  Armour hit-reroll leaked into melee → new `reroll_hit_ones_shooting_only`
+  field. TSON gated 11.88→11.41.
+- **DAEMONS-STRAT-INSTRUMENT-V1** (`e1f3f53`): 4 shared Daemonic Incursion
+  stratagems missing from all 4 god sub-detachments → added. Daemons gated
+  13.24→12.52.
 
-The user is pausing this session to do structural work in another
-agent. Likely candidates for that work:
+Two process items also landed this session (before the wave):
+- Citation backlog cleared (`32e11aa`): audit 278/278, exit 0;
+  `BLOCK_ON_MISSING_CITATIONS=True` (guard enforcing, machine-local in
+  gitignored `.claude/hooks/`).
+- **Eval gotcha**: always run `PYTHONHASHSEED=0 python -m
+  scripts.evaluate_vs_meta ...` — the script's `os.execvpe` re-exec
+  segfaults on this Windows box otherwise. Memory
+  `project-eval-pythonhashseed-segfault`.
 
-- **Drukhari activation count structural** (the largest residual,
-  +36.53; squad-level activation grouping; T3 architecture).
-- **Stage 2 multi-profile weapon mapper** (IK -36.83 / CK -43.69
-  mapper-locked).
+## Next 3 ranked levers for wave 61 (non-structural)
 
-After structural work lands, resume from wave 60 with the
-non-structural carry-forwards below.
+1. **Marines +12.2** — still top non-structural over-shooter. Past
+   Aggressors (Eradicators clean): audit Sternguard, Devastators, Marine
+   vehicle ranged profiles for mapper loadout fabs. Per Wahapedia.
+2. **TSON +20.2** — melee-leak fix was small; overshoot is broader. Next:
+   Rubric Marines durability (All Is Dust) or Cabal ritual magnitudes.
+3. **Votann +18.8 / AdMech +16.8** — untouched this wave, cleanest
+   mid-size over-shooters. Weapon-profile audits on archetype contributors
+   (Votann Hearthkyn post pistol-basket; AdMech Cawl / Hastarii Fusiliers).
 
-## Next 3 ranked levers for wave 60 (non-structural)
+## Structural track (separate from wave-by-wave; owns the headline)
 
-If continuing wave-by-wave audits in parallel with the structural work:
+- **Drukhari +37.0** — squad-level activation-count grouping. T3 architecture.
+- **Imperial Knights -37.0 / Chaos Knights -43.7** — Stage 2 multi-profile
+  weapon mapper (BSData mapper captures only 2 ranged profiles).
 
-1. **Marines +13.00** — Hellblasters fixed. Verify top damage
-   contributors past them: Eradicators, Heavy Intercessors,
-   Bladeguard Veterans. Per Wahapedia. Same shape as MARINES-AUDIT-V1
-   (look for mapper substring matches like the `incinerator` → torrent
-   fab).
-2. **TSON +20.64** — Magnus / Ahriman leader-aura magnitudes. Last
-   audited wave 53 / 58. Top contributor in archetype: Rubric Marines.
-3. **Daemons -16.40** — stratagem dispatcher firing instrumentation.
-   Wave-53 added 9 stratagems but didn't move metric; verify they're
-   actually firing.
-
-Lower priority but viable:
-4. **Per-model amplification sweep**: DG Plague Companies, GSC Cult
-   Ambush, Custodes Ka'tah remaining.
-5. **Votann +18.08** — Hearthkyn weapon profile re-verify post pistol-
-   basket ripple.
-6. **AdMech +16.91** — Belisarius Cawl or Hastarii Fusiliers per agent.
-
-## Patterns / lessons that pay off
-
-Per `[[project-one-unit-per-model-amplification]]` memory:
-
-- The pattern has 7 confirmed instances. Standard fix:
-  `Army._<rule>_squad_names_used_this_round: set` + dedupe by
-  `profile.name` + reset hook.
-- Agent prediction discipline: require **N=20 archetype eval delta**
-  as prediction basis, not random_fill DPP. Direction-correct ~70% of
-  the time; magnitude unreliable. Treat as wide bounds.
-- Mapper structural fixes (wave 48 invuln Shape 3, wave 52 extra_melee
-  _profiles, wave 56 hetero-squad weighting, wave 57 pistol-basket)
-  retire override sweeps but have wide cross-faction ripple.
-- Stratagem and detachment-flag fixes typically sub-noise at N=40.
-  Direct stat / weapon-profile fixes on archetype-build dominant
-  damage contributors are more reliable.
+These three are ~half the total gated MAE between them; until they move,
+wave-by-wave audits will keep landing sub-noise at the headline even when
+each is individually rule-correct.
 
 ## Standing operational rules
 
 - Per CLAUDE.md §5: git identity via `-c user.email=jknight96@live.co.uk -c user.name=Allknight96` one-shot. Never edit config.
-- Per CLAUDE.md §3: never push without explicit "go" — user has authorized push at each wave close in this session.
-- Per CLAUDE.md §10: every rule fix needs verifiable Wahapedia / BSData citation. No fabrications.
-- Per `feedback-tiered-model-selection`: Agent dispatches set `model="sonnet"` for T2 audit work, never inherit Opus.
-- Per `feedback-parallelism-preference`: default to 3 parallel agents per wave when fixes are file-disjoint.
+- Per CLAUDE.md §3: never push without explicit "go".
+- Per CLAUDE.md §10: every rule fix needs a verifiable Wahapedia / BSData citation. The citation audit is now ENFORCING on commit (no missing/malformed citations on rule-bearing files).
+- Per global `~/.claude/CLAUDE.md` (model tiering): Agent dispatches set `model="sonnet"` for T2 audit work, never inherit Opus.
+- Per global `~/.claude/CLAUDE.md` (parallelise): default to 3 parallel agents per wave when fixes are file-disjoint.
 - Per `feedback-loop-uses-archetype-eval`: eval calibration uses `--use-archetype`, not random_fill.
-- Per wave-50 / wave-55 process notes: cwd-leak into agent worktrees after parallel dispatch is recurring — explicitly `cd /c/Users/Jake/Claude/code/SwegHammer && pwd` after agent waits before `git` operations.
+- **Always** prefix the eval with `PYTHONHASHSEED=0` and use the `-m scripts.evaluate_vs_meta` module form (segfault workaround).
+- cwd-leak into agent worktrees after parallel dispatch is recurring — `cd` back to the main worktree and confirm `pwd` before any `git` op.
 
 ## Wave close checklist
 
-Each wave ends with:
-
-1. Cherry-pick agent commits to `claude/sim-calibration-6` from main worktree (check cwd).
-2. Run full pytest sweep + N=40 eval (background, ~2 min).
-3. Compute per-faction diff vs prior eval.
-4. Archive oldest wave close block from `docs/AUTO_LOOP_LOG.md` to `docs/AUTO_LOOP_LOG_archive.md` (keep ~3 most recent visible).
-5. Write new wave close block at top of AUTO_LOOP_LOG.md.
-6. **Update this file (CURRENT_STATE.md) with the new headline + next 3 levers.**
-7. Commit + push.
-8. Dispatch next wave's 3 agents.
+1. Cherry-pick agent commits to `claude/sim-calibration-6` from the main worktree (check cwd).
+2. Run full pytest sweep + N=40 eval (`PYTHONHASHSEED=0`, `--use-archetype`).
+3. Compute per-faction diff vs prior eval JSON.
+4. Archive oldest wave-close block from `docs/AUTO_LOOP_LOG.md` to `docs/AUTO_LOOP_LOG_archive.md` (keep ~3 recent visible).
+5. Write new wave-close block at top of `AUTO_LOOP_LOG.md`.
+6. Update this file (CURRENT_STATE.md) with the new headline + next 3 levers.
+7. `python scripts/loop_cleanup.py` (opt-in cleanup).
+8. Commit + push (push only on explicit user "go").
+9. Dispatch next wave's agents.

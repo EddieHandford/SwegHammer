@@ -4,6 +4,78 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 60 close (2026-05-30)
+
+Branch `claude/sim-calibration-6`. 3 cherry-picked fix commits landed on
+top of wave-59 close `f1c2825` (via citation-cleanup commit `32e11aa`).
+Top fix commit `e1f3f53`; this docs/close commit sits on top.
+
+Wave 60 ran three parallel rule-correctness audits on persistent
+over/under-shooters. All three found and fixed real bugs, and all three
+moved their target faction in the correct direction — but sub-noise at the
+headline. Net gated MAE essentially flat; the headline stays pinned by the
+unfixed structural residuals (CK -43.7, IK -37.0, Drukhari +37.0) that
+these non-structural waves don't touch.
+
+### Headline
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 59 close (`f1c2825`) | 14.28 | 10.73 | 3/22 |
+| Wave 60 close (`e1f3f53`+docs) | 14.27 | **10.71** | 2/22 |
+
+-0.02 gated MAE. Band 3->2 is boundary noise (Necrons / Astra Militarum
+hovering at the band edge), not a regression from the fixes.
+
+### The three fixes — all direction-correct, combined -2.03 faction gated
+
+- **MARINES-AUDIT-V2** (`d057c3c`): the BSData mapper picked Aggressor
+  Squad's Flamestorm Gauntlets (torrent / auto-hit) as the primary weapon;
+  corrected via `data/overrides.json` to the tournament-standard Auto
+  Boltstorm Gauntlets (3x twin-linked, ballistic skill 3+, 18", no torrent).
+  Marines gated 10.84 -> 10.00 (-0.84). Eradicators / Bladeguard verified
+  clean. Same mapper-loadout-fab shape as MARINES-AUDIT-V1.
+- **TSON-AURA-V2** (`1f1b3c5`): Ahriman / Infernal Master / Sorcerer in
+  Terminator Armour `reroll_hit_ones` leaked into the Fight phase; the codex
+  restricts these to Psychic Attacks (ranged) or the Shooting phase. Added a
+  `reroll_hit_ones_shooting_only` LeaderAbility field gated `mode != melee`
+  in `code/units.py`. 3 citations updated, audit 278/278. TSON gated 11.88
+  -> 11.41 (-0.47), muted by the faction's 8.75 noise floor.
+- **DAEMONS-STRAT-INSTRUMENT-V1** (`e1f3f53`): the 4 shared Daemonic
+  Incursion stratagems were missing from all 4 god sub-detachment tuples
+  (only `DAEMONIC_INCURSION_STRATAGEMS` carried them), so 80% of Daemons
+  armies never fired Draught of Terror / Warp Surge / Daemonic
+  Invulnerability / Denizens of the Warp. Added to all 4 tuples. Daemons
+  gated 13.24 -> 12.52 (-0.72). The per-round stratagem cap means it swaps
+  which 2 fire; the -15.7 residual is structural, not stratagem-count.
+
+### Process notes
+
+- Citation backlog cleared pre-wave (`32e11aa`): audit 278/278, exit 0, and
+  `BLOCK_ON_MISSING_CITATIONS` flipped True (guard now enforcing). The guard
+  lives in gitignored `.claude/hooks/`, so enforcement is machine-local.
+- **Eval segfault** cost real time: `scripts/evaluate_vs_meta.py:28-30`
+  re-execs via `os.execvpe` to force `PYTHONHASHSEED=0`, which throws a
+  Windows access violation on this Python 3.9 box, masked as silent exit 0
+  when piped. Workaround: always prefix `PYTHONHASHSEED=0` (memory
+  `project-eval-pythonhashseed-segfault`). Diagnosed via `PYTHONFAULTHANDLER=1`.
+- N=20 agent predictions vs N=40 truth: 3/3 direction-correct, magnitude
+  sub-noise as predicted — consistent with the standing pattern that
+  stratagem / aura fixes land sub-noise while direct-stat fixes move more.
+
+### Open carry-forwards into wave 61
+
+1. **Marines +12.2** — still the top non-structural over-shooter. Audit
+   remaining contributors past Aggressors (Eradicators clean; check
+   Sternguard, Devastators, Marine vehicle ranged profiles).
+2. **TSON +20.2** — the melee-leak fix was small; the overshoot is broader.
+   Rubric Marines durability (All Is Dust) or Cabal ritual magnitudes next.
+3. **Votann +18.8 / AdMech +16.8** — untouched this wave, now the cleanest
+   mid-size over-shooters; weapon-profile audits on archetype contributors.
+
+Structural track (separate, not wave-by-wave): CK -43.7 / IK -37.0
+multi-profile weapon mapper; Drukhari +37.0 activation-count grouping.
+
 ## Wave 59 close (2026-05-29)
 
 Branch `claude/sim-calibration-6`. 2 commits landed on top of wave-58
@@ -277,176 +349,3 @@ checklist with a step to update itself.
    Companies, GSC Cult Ambush remain on the list.
 9. **Daemons -16.51** — stratagem dispatcher instrumentation.
 10. **IK -36.83 / CK -43.69 mapper-locked** — Stage 2.
-
-## Wave 57 close (2026-05-29)
-
-Branch `claude/sim-calibration-6`. 2 cherry-picked commits + 1
-docs-only commit landed on top of wave-56 close `2588076`. Top commit
-at wave-57 close is `5cc7abf`. Plus `docs/NECRONS_AWAKENED_DYNASTY_AUDIT.md`
-findings doc added separately.
-
-Wave 57 corrected the wave-56 GSC regression, removed a fabricated
-Custodes Ka'tah stance, and investigated whether the Necron Awakened
-Dynasty per-codex-unit gate had amplification (it didn't — clean,
-parked).
-
-### Headline
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 56 close (`2588076`, 2026-05-29) | 14.50 | 10.98 | 4/22 |
-| Wave 57 close (`5cc7abf`, 2026-05-29) | 14.33 | **10.84** | 4/22 |
-
-**-0.14 gated MAE** — modest direction-correct headline movement, but
-masks **massive cross-faction swings** from the mapper-side
-GSC-regression fix:
-
-Big wins (downstream of pistol-basket removal):
-* Tyranids: +20.58 → +16.05 (-4.53)
-* Orks: +21.05 → +16.41 (-4.64)
-* T'au: +12.29 → +10.26 (-2.03)
-* AdMech: +17.15 → +15.37 (-1.78)
-* GSC: -11.45 → -8.23 (+3.22 toward zero, **the wave-56 regression
-  partially closed**)
-* AM: +3.95 → +2.88 (-1.07, AM Orders fix continuing to settle)
-* EC: +7.58 → +6.27 (-1.31)
-* TSON: +21.83 → +20.52 (-1.31)
-* WE: +1.81 → -0.10 (-1.91, now slightly under)
-* Custodes: +6.11 → +5.40 (-0.71, Ka'tah removal)
-
-Big losses (mapper-side pistol-basket effect — Bolter dominance now):
-* **Adeptus Astartes: +8.35 → +14.78 (+6.43 wrong direction)**.
-  Marines Tactical Squads now use Bolter (D=1) instead of basket of
-  Bolter + Bolt Pistol; the bolt-pistol-diluted basket was suppressing
-  Marine ranged damage in waves 56.
-* Votann: +14.39 → +17.84 (+3.45). Hearthkyn + similar pistol-
-  carrying loadouts.
-* Sororitas: +11.03 → +13.77 (+2.74). Battle Sisters' bolters.
-* Necrons: -2.84 → -5.82 (-2.98). Warriors' Gauss Flayers.
-* Aeldari: +13.58 → +14.89 (+1.31). Guardian Defenders.
-* DG: +1.28 → +2.35 (+1.07).
-
-The headline -0.14 sits between these two clusters. Per-faction lens:
-**6 factions moved >1 wr-point toward zero, 4 factions moved >1
-wr-point away from zero**. Rule-correctness improved across both
-clusters (no fabricated stats added or removed; only mapper geometry
-changed) — but the metric trade-off is now a known property of the
-wave-56 / 57 mapper sweep.
-
-### GSC regression — wave-56 mapper pistol contamination
-
-GSC-REGRESSION-V1 (`579e567`) traced the GSC -8.45 wave-56 regression
-to a downstream mapper bug introduced by HETERO-SQUAD-MAPPER-V1's
-basket fix. Root cause:
-
-Wave-56 mapper basket-averaged ALL fixed ranged weapons a model
-carries. In BSData, models frequently carry both a primary weapon
-(Mining Laser, Plasma Incinerator, Heavy Bolter) AND a sidearm pistol
-(Autopistol, Bolt Pistol). In 10e rules, a model fires ONE ranged
-weapon per activation — the pistol is only usable under the
-Engagement Range special rule. The basket gave equal weight to both,
-so Neophyte Hybrids' Mining Laser basket fraction collapsed from ~4/20
-to ~2/20 (-88% ranged damage).
-
-Fix (`code/bsdata/mapper.py` `_collect_weapons_for_model`): when
-multiple ranged weapons on one model, keep only the single best
-non-pistol weapon. Pistol-only models unaffected. Citation:
-`simulator.basket_best_ranged_per_model`.
-
-Sample effect — Neophyte Hybrids:
-* Before: attacks=1, hit=0.535, S=4, AP=0, D=1.37
-* After: attacks=2, hit=0.570, S=4, AP=-1, D=1.74
-
-N=20 archetype GSC vs Marines: 35% → 65%. At full N=40: GSC +3.22
-toward zero (still under but recovering).
-
-Cross-faction ripple: Marines (Tactical Squad Bolter + Bolt Pistol),
-Sororitas (Battle Sisters), Votann (Hearthkyn), Necrons (Warriors),
-Aeldari (Guardian Defenders), DG (Plague Marines) all carry pistol
-secondaries — their primary ranged weapons now dominate the basket
-instead of being diluted. Direction-correct per 10e rules but the
-metric calibration on those factions shifted upward.
-
-### Fabricated Custodes Ka'tah stance removed
-
-CUSTODES-KATAH-V1 (`5cc7abf`) found `SHIELD_HOST.melee_crit_on_5_plus_hits=True`
-is a fabricated Ka'tah stance not present in the codex. The three
-real Martial Ka'tah stances are:
-- Kaptaris (invuln vs ranged)
-- Rendax (melee AP+1)
-- Dacatarai (Sustained Hits ranged)
-
-None is "Crit-on-5+ melee." The fabricated stance fired on EVEN
-rounds (2, 4); the cycle was Rendax on odd, fabricated-crit on even.
-Removed per CLAUDE.md §10. Rendax AP+1 retained unchanged. Citation
-updated to mark the removed entry.
-
-Eval: Custodes -0.71 at N=40 (within noise 2.65, direction-correct).
-
-### Necron Awakened Dynasty — no amplification found, parked
-
-NECRONS-AWAKENED-DYNASTY-V1 (no commit) investigated whether the
-`bonus_to_hit_when_led` Command Protocols gate has the per-model
-amplification pattern. Finding: **the buff fires ZERO times in
-typical archetype battles**.
-
-Root cause: `is_actually_led()` uses a 6" proximity check to
-approximate the codex's "formally attached leader" rule, but the
-simulator places each Unit at an independent board position. Overlord
-and Necron Warriors start ~18" apart and never close to within 6"
-during combat.
-
-Per-codex-unit gate clean, multi-leader stacking clean, proximity
-uses `ability.aura_range` (not hardcoded 6"), host_keys composes
-correctly, Reanimation Protocols per-codex-unit gate unchanged from
-wave 28/49 fixes.
-
-**Decision: PARK.** Real fix requires a proper leader-attachment
-registry (T3 architecture). Wave-57 measured Necrons at -2.84 (in-
-band, just barely). A rule-correct fix here would push Necrons OUT
-of band wrong direction. Findings documented at
-`docs/NECRONS_AWAKENED_DYNASTY_AUDIT.md` for the eventual leader-
-attachment registry work.
-
-### Open carry-forwards into wave 58
-
-1. **Cross-faction pistol-basket calibration** — wave 57 created
-   wrong-direction movement on Marines (+6.43), Votann (+3.45),
-   Sororitas (+2.74) which all carry pistol secondaries. The
-   bolter-dominance is rule-correct per 10e but the metric shift
-   suggests these factions had been UNDER-modeled by the wave-56
-   bolt-pistol-diluted basket. Need to:
-   - Verify each affected faction's archetype build top-damage
-     contributors against current Wahapedia.
-   - Confirm whether the wave-57 levels are now the "true" sim%
-     against a fixed-rules baseline.
-   - If real-meta lists DON'T spam the primary weapon (which they
-     usually do because the special-weapon dominance is real),
-     accept the new levels and audit the residuals from there.
-2. **Drukhari activation count structural** (T3 architecture) — the
-   single largest residual remains +36.53.
-3. **AdMech +15.37** — archetype damage attribution still
-   unidentified.
-4. **Daemons -16.87** — stratagem dispatcher firing instrumentation.
-5. **TSON +20.52** — Cabal point generation rate audit.
-6. **Aeldari +14.89** — Battle Focus / Strands hit-save selection.
-7. **Sororitas +13.77** — AoF dice selection refinement; new
-   pistol-basket calibration check needed.
-8. **Per-model amplification sweep continues** — DG Plague
-   Companies, GSC Cult Ambush, etc.
-9. **Leader-attachment registry** (T3) — unblocks Necrons Command
-   Protocols and likely several other "while leading" rules.
-10. **IK -36.83 / CK -43.21 mapper-locked**.
-
-### Pattern note — mapper waves teach iteration
-
-The wave 56 → 57 sequence is a clean example of structural-mapper-fix
-iteration. Wave 56's HETERO-SQUAD-MAPPER-V1 was rule-correct (weight
-weapons by codex squad quantity) but had a downstream bug
-(pistol-basket contamination) that produced a wrong-direction GSC
-regression. Wave 57's GSC-REGRESSION-V1 fixed that downstream bug.
-Net across the two waves: headline +0.12 gated MAE, but per-faction
-behavior is now substantially more rule-correct on heterogeneous
-squads AND pistol-carriers. The metric tradeoff is acceptable per
-CLAUDE.md §3 Stage 1 priorities.
-
