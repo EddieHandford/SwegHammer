@@ -70,12 +70,23 @@ Two process items also landed this session (before the wave):
 ## Structural track (separate from wave-by-wave; owns the headline)
 
 - **Drukhari +37.0** — squad-level activation-count grouping. T3 architecture.
-- **Imperial Knights -37.0 / Chaos Knights -43.7** — Stage 2 multi-profile
-  weapon mapper (BSData mapper captures only 2 ranged profiles).
+- **Imperial Knights -37.0 / Chaos Knights -43.7** — NOT a mapper problem.
+  The multi-profile ranged weapon mapper already shipped (`MAP-1` /
+  `MAP-MULTIFIRE` / `KNIGHTS-MAPPER`); Knights fire all their guns
+  (verified wave 60: Castellan/Paladin carry 3 `extra_ranged_profiles`
+  each). The eval armies are also legal and realistic (~2000pts, normal
+  datasheet spread; the "2x Canis Rex" is the legal 2-model Knight+pilot
+  datasheet, not a duplicate). The residual is an IN-BATTLE problem —
+  candidates: low-model fragility (9-10 models, lose 3 and the army
+  collapses), objective spread, AI piloting of a few huge models, or
+  unimplemented core rules for TITANIC/TOWERING units. Needs a battle-level
+  diagnostic (tabled vs out-scored vs mispiloted) + a 10e core-rules
+  coverage review before any fix. See memory
+  `project-knights-multiprofile-weapons` (updated 2026-05-30).
 
-These three are ~half the total gated MAE between them; until they move,
-wave-by-wave audits will keep landing sub-noise at the headline even when
-each is individually rule-correct.
+These residuals are ~half the total gated MAE between them; until they
+move, wave-by-wave audits will keep landing sub-noise at the headline even
+when each is individually rule-correct.
 
 ## Standing operational rules
 

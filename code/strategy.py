@@ -1981,7 +1981,16 @@ def pick_move_intent(
     _fall_back_eligible_roles = ("SHOOTY", "HEAVY")
     if unit.profile.faction in _VOTANN_FALLBACK_FACTIONS:
         _fall_back_eligible_roles = ("SHOOTY", "HEAVY", "DUAL")
-    if role in _fall_back_eligible_roles:
+    # AI-MISPILOT-FALLBACK (task #7): a melee-PRIMARY unit caught in
+    # engagement should STAY and fight, not Fall Back. Falling Back forfeits
+    # its main (melee) weapon system for the turn, and for non-TITANIC units
+    # risks a Desperate Escape casualty — a competent player never Falls Back
+    # a melee Knight (Gallant/Rampager), Carnifex, Hive Tyrant or Daemon
+    # Prince. `_is_melee_class` (melee DPA >= ranged DPA) keeps pure ranged
+    # platforms (Knight Castellan/Valiant, gunline tanks, Votann Hearthkyn)
+    # eligible to break off and free their guns. Stage-1 AI heuristic only —
+    # no rule citation, this is play-style modelling.
+    if role in _fall_back_eligible_roles and not _is_melee_class(unit.profile):
         enemies = enemy.alive_units
         in_engagement = any(
             _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
