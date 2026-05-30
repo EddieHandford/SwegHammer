@@ -159,7 +159,11 @@ class Detachment:
     # (matches how per-weapon sustained_hits already composes). Army-wide
     # passive — no proximity / keyword filter beyond the Orks faction tag.
     # LC1-A generalised the gate so any faction-detachment pairing can set
-    # the flag (Custodes Auric Champions also re-uses it).
+    # the flag. Currently only WAR_HORDE (Orks) sets it. CUSTODES-AURIC-
+    # CHAMPIONS (claude/sim-calibration-6): AURIC_CHAMPIONS previously set
+    # this flag as a fabrication; removed — the real rule is 'Assemblage of
+    # Might' (CHARACTER-only + single designated enemy target per round),
+    # which is not faithfully proxied by an army-wide SUSTAINED HITS 1 flag.
     melee_sustained_hits_army_wide: bool = False
 
     # Necrons Awakened Dynasty Command Protocols rotation (AD-PR, branch
@@ -536,33 +540,33 @@ AURIC_CHAMPIONS = Detachment(
     name="Auric Champions",
     faction="Adeptus Custodes",
     notes=(
-        "Trail of Glory (Wahapedia verbatim): \"At the start of the "
-        "battle round, you can select one of the bullet points below. "
-        "If you do, until the start of the next battle round, that "
-        "bullet point's effects apply: Each time an ADEPTUS CUSTODES "
-        "model from your army makes an attack, an unmodified Hit roll "
-        "of 6 scores 1 additional hit. Each time an ADEPTUS CUSTODES "
-        "model from your army makes an attack, if that attack scores a "
-        "Critical Wound, until the attack sequence ends, that attack "
-        "has the [DEVASTATING WOUNDS] ability.\" Simulator: only the "
-        "first bullet (SUSTAINED HITS 1 on melee) is wired via "
-        "`melee_sustained_hits_army_wide` (re-using the same plumbing "
-        "as Orks War Horde, gated to faction=='Adeptus Custodes' in "
-        "Unit.attack). The DEVASTATING WOUNDS bullet is left out — "
-        "weapon-level DEVASTATING WOUNDS is already wired per-unit "
-        "(see iter34-K1 audit), and an army-wide layer would compound "
-        "with per-weapon flags on Custodes weapons that already carry "
-        "it. APPROXIMATION: SUSTAINED HITS 1 only, both round-bullets "
-        "rolled into one always-on offensive layer, weaker than Shield "
-        "Host's stacked Crit-5+ + AP+1 (per LC-1 goal: introduce a "
-        "milder Custodes detachment variant so the detachment picker "
-        "has a real choice rather than always-pick-Shield-Host)."
+        "CUSTODES-AURIC-CHAMPIONS (claude/sim-calibration-6): prior "
+        "implementation carried `melee_sustained_hits_army_wide=True`, "
+        "citing 'Trail of Glory' — a fabrication. The real Auric Champions "
+        "detachment rule is 'Assemblage of Might' (Wahapedia verbatim): "
+        "\"At the start of your Command phase, select one unit from your "
+        "opponent's army. Until the start of your next Command phase, each "
+        "time a model in an ADEPTUS CUSTODES CHARACTER unit from your army "
+        "makes an attack that targets that enemy unit, add 1 to the Wound "
+        "roll.\" The real rule has two axes the Detachment schema cannot "
+        "faithfully proxy: (1) it requires designating a single enemy unit "
+        "at the start of the Command phase — the sim has no 'pick one target "
+        "for a round-long debuff' mechanic; (2) the buff applies only to "
+        "ADEPTUS CUSTODES CHARACTER unit models, not all Custodes units. "
+        "The closest available flag (`plus_one_to_wound`) would apply to "
+        "all Custodes units against all enemies — wrong scope and wrong "
+        "target. A no-op is more rules-correct than a fabrication. "
+        "Custodes OVER-shoots the tournament target (~+5 gated), so "
+        "removing the fabricated buff is MAE-positive. "
+        "Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Auric-Champions."
     ),
-    melee_sustained_hits_army_wide=True,
+    # melee_sustained_hits_army_wide intentionally NOT set — see notes above.
+    # The real 'Assemblage of Might' cannot be proxied by any existing
+    # Detachment flag without fabrication (CHARACTER-only + single designated
+    # target). No-op ships until a bespoke flag is added.
     stratagems=SHIELD_HOST_STRATAGEMS,  # share stratagems for now —
     # real Auric Champions has its own 6-stratagem pool that we'd need
-    # to wire individually. For LC-1 the detachment rule alone is the
-    # MAE lever; per-stratagem differences are smaller and follow-up.
+    # to wire individually. Per-stratagem differences are smaller and follow-up.
     preferred_composition="infantry",
 )
 

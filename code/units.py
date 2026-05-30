@@ -2651,12 +2651,15 @@ class Unit:
                 effective_sustained_hits = int(p.sustained_hits or 0)
             # LC1-A — generalised gate: any faction whose detachment carries
             # the `melee_sustained_hits_army_wide` flag triggers SUSTAINED
-            # HITS 1 on melee. Previously Orks-only; widened so Adeptus
-            # Custodes Auric Champions (alt to Shield Host) can re-use the
-            # same plumbing. The detachment IS the faction-specific gate —
-            # only WAR_HORDE (Orks) and AURIC_CHAMPIONS (Custodes) set the
-            # flag; the gate verifies the attacker's army's resolved
-            # detachment matches the attacker's faction.
+            # HITS 1 on melee. Currently only WAR_HORDE (Orks) sets this
+            # flag. CUSTODES-AURIC-CHAMPIONS (claude/sim-calibration-6):
+            # AURIC_CHAMPIONS previously set this flag as a fabricated proxy
+            # for 'Trail of Glory'; removed — the real detachment rule is
+            # 'Assemblage of Might' (CHARACTER-only + single designated
+            # enemy target), which cannot be proxied by this army-wide flag
+            # without fabrication. The gate remains generic so any future
+            # detachment can use it once a canonical army-wide SUSTAINED
+            # HITS 1 melee rule is found.
             if mode == "melee":
                 _own_army = getattr(self, "army_ref", None)
                 if _own_army is not None:
