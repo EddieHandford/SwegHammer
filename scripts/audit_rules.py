@@ -135,6 +135,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "unit.stealth",
     "unit.fnp",
     # Simulator-side gates (terrain, deployment, faction army rules, phases)
+    # Core 10e damage allocation: each unsaved wound is allocated to one model
+    # (finishing a wounded model first); a destroyed model's excess damage is
+    # lost, so kills are bounded by unsaved-wound count. Implemented as the
+    # squad-spillover allocation pointer in Unit.attack. See
+    # data/rule_citations.d/core_damage_allocation.json.
+    "simulator.damage_allocation_spillover",
     "simulator.big_guns_never_tire",
     "simulator.cover_light",
     "simulator.cover_heavy",

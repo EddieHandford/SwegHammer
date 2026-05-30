@@ -48,6 +48,27 @@ Deterministic average-case damage was used in the foundational 2025
 prototype; the current engine has been stochastic since the Phase 1.5
 foundation work (see `ROADMAP.md` "Foundation work").
 
+### Damage Allocation (squad spillover)
+
+The engine represents one `Unit` object per physical model, so a codex unit
+of N models is N `Unit` instances that share a build-time `squad_id` (assigned
+by `Army.add_squad`). When one attacker fires into such a unit, its whole
+attack sequence is resolved against that unit, and damage is allocated per the
+10e core rule: each unsaved wound is allocated to one model, which loses wounds
+equal to the Damage characteristic; a wounded model must keep receiving further
+attacks until it is destroyed before allocation moves on; and when a model is
+destroyed, **the killing attack's excess damage is lost** — it does not carry
+to another model. The allocation pointer in `Unit.attack` advances to the next
+surviving same-`squad_id` model only after the current one dies, so the number
+of models destroyed is bounded by the number of unsaved wounds, never by the
+damage total (three unsaved wounds of Damage 6 destroy at most three one-wound
+models). Devastating Wounds is treated as a save-bypassing normal hit under the
+same rule (excess lost, no cross-model carry), not as a mortal wound. Cited as
+`simulator.damage_allocation_spillover`. Before this rule landed, every shot in
+a volley was dumped into a single model and the overkill was wasted, which
+heavily under-rated high-volume anti-horde firepower (Knights) and over-rated
+multi-model armies (Drukhari, Tyranids).
+
 ### Activation Sequence
 
 Each battle round proceeds as follows:

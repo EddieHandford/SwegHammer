@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 65 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. The biggest fidelity fix in many waves, found
+by a user question about how a Knight's shots resolve into a multi-model unit:
+**damage-allocation spillover**. The engine was dumping a whole volley into ONE
+model of the target unit and wasting the overkill — so a high-volume anti-horde
+gun killed one model and the rest was lost. Now `Unit.attack` allocates each
+unsaved wound to the next surviving same-`squad_id` model (10e core rule), with a
+destroyed model's excess damage lost; kills are bounded by unsaved-wound count,
+not damage total. Built on the same-session P1 `squad_id` infrastructure
+(behaviour-neutral). The contained activation-overlay experiment (P3) was a wash
+(+0.03) and was reverted — the firepower/allocation rule was the real lever, as
+the wash predicted. Devastating Wounds is correctly treated as normal allocation,
+NOT a mortal wound (per user correction).
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 64 close (`3203e35`+docs) | 12.80 | 9.27 | 2/22 |
+| **Wave 65 close (spillover+docs)** | **11.15** | **7.78** | **2/22** |
+
+Moved exactly the structural-residual factions: Tyranids +16.8→+6.4 (−10.4),
+Imperial Knights −27.1→−19.1 (+8.0), Orks +12.5→+5.3, Drukhari +36.2→+29.0,
+Chaos Knights −41.3→−36.5, AdMech +11.9→+7.3. Second-order: elite/MEQ armies
+(Custodes, Marines, Thousand Sons, Aeldari) drifted further over — re-fit
+candidates. 912 tests green; citation audit 279/279 (new
+`simulator.damage_allocation_spillover`). Eval artifact
+`data/wf_wave65_spillover_n40.json`.
+
+Next: archetype-list re-fit for the new elite over-shoots; mortal-wound spillover
+(separate rule, not yet done); per-kill trigger emission under spillover.
+
 ## Wave 64 close (2026-05-30)
 
 Branch `claude/sim-calibration-6`. First wave of the AI-tactics-implementation

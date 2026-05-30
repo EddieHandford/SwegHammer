@@ -626,7 +626,14 @@ class Unit:
 
     __slots__ = (
         "profile", "_current_health", "in_cover", "in_heavy_cover", "uid", "position",
-        "army_ref", "moved_this_round", "on_objective", "shooting_in_engagement",
+        "army_ref",
+        # SQUAD-ACTIVATION (Lever 1, P1): stable per-squad id assigned at army-
+        # build time. All model-Units of one instantiated codex squad share an
+        # id (distinct even for two squads of the same datasheet). -1 = unassigned
+        # / lone model. Consumed by the squad-level activation loop (P3) and the
+        # squad-keyed dedup gates (P4). No behaviour change in P1.
+        "squad_id",
+        "moved_this_round", "on_objective", "shooting_in_engagement",
         # Set by Battle._do_move when the unit elects the FALL_BACK intent.
         # While True, _do_shoot and _do_charge refuse to fire the unit unless
         # its profile has the FLY keyword. Cleared at the top of each round.
@@ -823,6 +830,9 @@ class Unit:
         # Unit.attack() resolve the army-wide detachment + check squad size
         # for keywords like Blast.
         self.army_ref = None
+        # SQUAD-ACTIVATION (Lever 1, P1): per-squad id, stamped by
+        # Army.add_squad at build time; -1 = lone/unassigned. See __slots__.
+        self.squad_id: int = -1
         # Set by Battle each round: True iff this unit moved during the
         # current round's movement sub-phase. Drives the Heavy keyword
         # (+1 to hit if attacker did NOT move).
@@ -2789,6 +2799,53 @@ class Unit:
                         if _round_c5 > 0 and _round_c5 % 2 == 0:
                             melee_crit_threshold = 5
 
+            # SQUAD-ACTIVATION (Lever 1) — damage-allocation spillover. In 10e a
+            # destroyed model's excess damage is LOST ("If a model is destroyed
+            # by an attack, any excess damage inflicted by that attack is lost"),
+            # but the NEXT unsaved wound is allocated to the next alive model of
+            # the same unit ("if a model has already lost wounds during this
+            # phase, that model must have any further wounds allocated to it").
+            # So kills are bounded by the number of unsaved wounds, never the
+            # damage total: 3 unsaved wounds of Damage 6 kill at most 3 one-wound
+            # models. We model one Unit per model, so the target's same-squad_id
+            # siblings ARE the rest of the codex unit. `_alloc_model` is the
+            # current model receiving wounds; it advances only when the current
+            # model dies. Lone models (squad_id < 0) have no siblings, so excess
+            # is simply lost — identical to the prior behaviour. The hit/wound/
+            # save rolls are still computed against `target` (all squad members
+            # share one profile, so saves are identical); only the destination of
+            # the damage moves. Cited as `simulator.damage_allocation_spillover`.
+            # NOTE: this is NORMAL damage allocation and so it also governs
+            # [DEVASTATING WOUNDS] (current 10e: a save-bypassing normal hit, NOT
+            # a mortal wound — excess still lost, no cross-model spill). True
+            # mortal wounds (which DO carry over) are a separate mechanic and are
+            # not routed through this pointer.
+            _alloc_model = target
+            _alloc_siblings = None  # built lazily on first model death
+
+            def _alloc_target():
+                """Return the model the next unsaved wound is allocated to, or
+                None if the whole target unit is already destroyed."""
+                nonlocal _alloc_model, _alloc_siblings
+                if _alloc_model is not None and _alloc_model.is_alive:
+                    return _alloc_model
+                sid = getattr(target, "squad_id", -1)
+                if sid is None or sid < 0:
+                    return None  # lone model already dead — no spill, excess lost
+                if _alloc_siblings is None:
+                    tgt_army = getattr(target, "army_ref", None)
+                    _alloc_siblings = (
+                        [u for u in tgt_army.units
+                         if getattr(u, "squad_id", -1) == sid
+                         and getattr(u, "embarked_in", None) is None]
+                        if tgt_army is not None else []
+                    )
+                for u in _alloc_siblings:
+                    if u.is_alive:
+                        _alloc_model = u
+                        return u
+                return None  # whole unit destroyed — remaining damage lost
+
             for _ in range(n_attacks):
                 # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
                 # weapon keywords. Lance and Anti-X resolve their per-shot value
@@ -3107,8 +3164,10 @@ class Unit:
                             else:
                                 _dw_dmg = math.ceil(_dw_dmg / 2.0)
                             _dw_dmg = max(0.0, _dw_dmg)
-                        target.receive_damage(_dw_dmg, bonus_fnp=tgt_fnp_buff)
-                        total_damage += _dw_dmg
+                        _dw_m = _alloc_target()
+                        if _dw_m is not None:
+                            _dw_m.receive_damage(_dw_dmg, bonus_fnp=tgt_fnp_buff)
+                            total_damage += _dw_dmg
                         continue
 
                     if save_target <= 6:
@@ -3214,8 +3273,10 @@ class Unit:
                         else:
                             _alloc_dmg = math.ceil(_alloc_dmg / 2.0)
                         _alloc_dmg = max(0.0, _alloc_dmg)
-                    target.receive_damage(_alloc_dmg, bonus_fnp=tgt_fnp_buff)
-                    total_damage += _alloc_dmg
+                    _alloc_m = _alloc_target()
+                    if _alloc_m is not None:
+                        _alloc_m.receive_damage(_alloc_dmg, bonus_fnp=tgt_fnp_buff)
+                        total_damage += _alloc_dmg
 
         # ---- Hazardous: d6 after firing; on a 1, take 3 mortal wounds ----
         if p.hazardous:

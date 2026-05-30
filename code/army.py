@@ -121,6 +121,9 @@ class Army:
         # _add_live_unit(). Rebuilt lazily on next alive_units access.
         self._alive_cache: Optional[List[Unit]] = None
         self._squad_count_cache: Optional[Dict[str, int]] = None
+        # SQUAD-ACTIVATION (Lever 1, P1): monotonic counter handing out a unique
+        # squad_id to each instantiated codex squad via add_squad(). Starts at 0.
+        self._next_squad_id: int = 0
         # 10e Strike Force standard: each side starts with 3 CP. Battle then
         # drips +1/round via stratagems.award_command_phase_cp (capped at 6).
         self.command_points: int = STARTING_CP
@@ -629,10 +632,38 @@ class Army:
     # ------------------------------------------------------------------
 
     def add_unit(self, profile: UnitProfile) -> None:
-        unit = Unit(profile, in_cover=self.in_cover)
-        unit.army_ref = self
-        self.units.append(unit)
+        # Back-compat: a lone unit is a one-model squad with its own squad_id.
+        self.add_squad(profile, 1)
+
+    def add_squad(self, profile: UnitProfile, size: int = 1) -> None:
+        """SQUAD-ACTIVATION (Lever 1, P1): instantiate `size` model-Units that
+        all share one freshly-allocated squad_id, so the squad-level activation
+        loop (P3) can treat them as a single unit. Two squads of the same
+        datasheet receive distinct ids (fixing the profile.name-merge issue).
+        No behaviour change in P1 — nothing reads squad_id yet.
+        """
+        sid = self._next_squad_id
+        self._next_squad_id += 1
+        for _ in range(max(1, int(size))):
+            unit = Unit(profile, in_cover=self.in_cover)
+            unit.army_ref = self
+            unit.squad_id = sid
+            self.units.append(unit)
         self._invalidate_alive_cache()
+
+    def squads(self):
+        """SQUAD-ACTIVATION (Lever 1): alive units grouped by squad_id in
+        first-seen order. Units with squad_id < 0 (lone / never-assigned, e.g.
+        a legacy direct construction) each form their own singleton group so
+        they never merge. Returns OrderedDict[key, List[Unit]]. (Not consumed
+        until P3; provided here as P1 infrastructure.)
+        """
+        from collections import OrderedDict
+        groups = OrderedDict()
+        for u in self.alive_units:
+            key = u.squad_id if u.squad_id >= 0 else ("lone", id(u))
+            groups.setdefault(key, []).append(u)
+        return groups
 
     def _add_live_unit(self, unit: "Unit") -> None:
         """Attach a pre-existing live Unit to this army (used for deepstrike arrivals).

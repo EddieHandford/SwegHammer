@@ -1,14 +1,22 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 64 close (2026-05-30), top fix commit `3203e35`
-(docs/close commit on top).
+**Last updated:** Wave 65 close (2026-05-31), damage-allocation spillover.
 
-**Status:** Headline gated MAE **9.27** (was 10.71). Now running the
-AI-TACTICS-IMPLEMENTATION CAMPAIGN: a 16-tactic audit (tasks #12-16, memory
-`project-ai-tactical-gaps`) found the AI does NONE of 16 competitive 10e
-tactics fully; implementing them in order, then re-running the research→verify
-loop until convergence. Wave 64 landed #14 (consolidate-onto-objective,
-rules-correct, MAE-neutral). Next: #16, #15, #13, #12.
+**Status:** Headline gated MAE **7.78** (was 9.27). Wave 65 landed the biggest
+fidelity fix in many waves: **damage-allocation spillover**
+(`simulator.damage_allocation_spillover`). The sim previously dumped a whole
+volley into ONE model of a multi-model unit and wasted the overkill; now each
+unsaved wound allocates to the next surviving same-`squad_id` model, with a
+destroyed model's excess damage lost (kills bounded by unsaved-wound count, not
+damage total — the actual 10e rule). This was the real "Lever 1" win: it moved
+exactly the structural-residual factions (Tyranids −10.4, Imperial Knights +8.0,
+Orks −7.2, Drukhari −7.2, Chaos Knights +4.8, AdMech −4.6). Built on the P1
+`squad_id` infrastructure (behaviour-neutral) added the same session. See
+`docs/RULE_ACCURATE_FIX_DESIGN.md` and memory `project-squad-activation-contained-wash`.
+
+Second-order effect to chase next: elite/MEQ armies (Custodes +9.9, Marines
++10.3, Thousand Sons +21.7, Aeldari +13.5) now clear chaff more efficiently and
+drifted further over — candidates for an archetype-list re-fit.
 
 This file is the fast-pickup point for any session continuing the loop.
 
@@ -26,12 +34,14 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 61 close (`c4d6da6`+docs) | 12.89 | 9.36 | 2/22 |
 | Wave 62 close (`e1346a1`+docs) | 12.90 | 9.39 | 2/22 |
 | Wave 63 close (`96fd68e`+docs) | 12.80 | 9.27 | 2/22 |
-| **Wave 64 close (`3203e35`+docs)** | **12.80** | **9.27** | **2/22** |
+| Wave 64 close (`3203e35`+docs) | 12.80 | 9.27 | 2/22 |
+| **Wave 65 close (spillover+docs)** | **11.15** | **7.78** | **2/22** |
 
-The headline sat at 10.5-10.9 for 12 waves, then dropped 1.35 in one wave.
-The lever was **AI piloting**, not rules or stats — the strategist review's
-thesis (AI mis-piloting is a dominant cross-faction error source) is now
-empirically confirmed.
+Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
+stats — confirming the `project-faction-residual-rootcause` thesis that the big
+residuals are structural representation bugs, not tuning. In-band count is flat
+at 2/22 but the error *magnitude* dropped sharply (gated −1.49); the improved
+factions are still outside their noise floors but much closer.
 
 ## Handoff context — wave 61 close
 
@@ -49,36 +59,39 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 64
+## Next ranked levers for wave 66
 
-The clean rules-correct + MAE-positive wins are now largely captured. Remaining
-non-structural work is lower-value or has a correctness/metric tension:
+Spillover reshaped the residual landscape. Current biggest gated errors:
+Chaos Knights −36.5 (33.3), Drukhari +29.0 (25.7), Imperial Knights −19.1
+(16.1), Chaos Daemons −14.5 (11.3), Thousand Sons +21.7 (13.0).
 
-1. **Detachment citation/comment fixes + Grey Knights deep-strike gate**
-   (task #10) — low-risk rules-hygiene, roughly headline-neutral.
-2. **Necrons detachment fabrications** (task #9) — rules-correct but
-   MAE-negative (Necrons under-shoots); fixing fabrications here worsens the
-   headline. Handle with care / pair with compensating work.
-3. **TOWERING line-of-sight + cover** (task #3) — ambiguous direction; measure.
-
-Done: WE Blood Tithe (wave 63, gated 6.01→4.46); AURIC_CHAMPIONS (wave 62).
-The CSM under-shoot from the wave-61 gate is matchup-driven, not a clean fix
-(the rejected wounded-fallback gate confirmed a faction-neutral gate over-
-corrects the horde factions).
+1. **Archetype-list re-fit for the new elite over-shoots** — Custodes (+9.9),
+   Marines (+10.3), Thousand Sons (+21.7), Aeldari (+13.5) drifted further over
+   now that they clear chaff efficiently. These are list-composition tunable
+   (see memory `project-calibration-surface`); the fidelity layer is now more
+   correct, so re-fitting the lists against it is the natural follow-up.
+2. **Mortal-wound spillover** — the spillover pointer covers normal + Devastating
+   Wounds; true mortal wounds (Doombolt, Deadly Demise, Bloodthirster) still dump
+   into one model and SHOULD carry over per the separate 10e rule. A second,
+   smaller fidelity fix (likely TSON/Daemons-relevant).
+3. **Per-kill trigger emission under spillover** — `_do_shoot`/`_do_fight` emit
+   UnitKilled + per-kill awards (Votann Judgement, WE Blood Tithe) only for the
+   primary target, so spilled-kill siblings under-fire those triggers. Low-risk
+   accuracy refinement.
+4. **Detachment citation/comment fixes** (task #10), **Necrons fabrications**
+   (task #9, MAE-negative — care), **TOWERING** (task #3, measure).
 
 ## Structural track (owns the remaining headline)
 
-- **Chaos Knights -37.8 gated** — now the single largest residual. The
-  fall-back gate helped Imperial Knights far more (CK is War-Dog/Armiger
-  heavy, fewer TITANIC chassis). Needs its own diagnostic.
-- **Drukhari +37.0** — squad-level activation-count grouping. T3.
-- **Strategy roadmap #1 (the big lever, task #6 review)** — a plan-level
-  objective function: estimate each side's next-turn reachable Objective
-  Control per marker and feed it into intent + activation order. The
-  strategist argues this is the highest-leverage change for the WHOLE
-  calibration (replaces ~15 per-faction heuristic patches with one
-  principled term). Wave 61 proved an AI fix can move many factions at
-  once — this is the next, bigger one. Structural / high cost.
+- **Chaos Knights −36.5 gated** — still the single largest residual; spillover
+  only moved it +4.8 (CK is War-Dog/Armiger heavy — fewer big anti-horde guns
+  benefiting from spillover than Imperial Knights, which moved +8.0). Needs its
+  own diagnostic (likely board-control / objective play, not firepower).
+- **Drukhari +29.0** — came down −7.2 from spillover but still the #2 residual;
+  the remaining gap is activation-count / fragility-tax, not damage allocation.
+- **Strategy roadmap #1 (task #12)** — plan-level objective function (next-turn
+  reachable Objective Control into intent + activation order). Highest-leverage
+  remaining AI lever; addresses the positional under-shooters (Daemons, Knights).
 
 NOTE: the IK/CK multi-profile weapon mapper is DONE (shipped pre-wave-60);
 do not re-implement it. See memory `project-knights-multiprofile-weapons`.

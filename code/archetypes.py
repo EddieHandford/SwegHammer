@@ -1648,9 +1648,11 @@ def build_archetype_army(
     for key, count in counts.items():
         profile: UnitProfile = UNIT_CATALOG[key]
         squad_size = max(1, profile.min_models)
+        # SQUAD-ACTIVATION (Lever 1, P1): each instantiated squad gets its own
+        # squad_id so P3 activates it once. Same Units / order as the previous
+        # per-model add_unit loop — behaviour-neutral until P3 reads squad_id.
         for _ in range(count):
-            for _ in range(squad_size):
-                army.add_unit(profile)
+            army.add_squad(profile, squad_size)
 
     # Fill the remaining budget with random same-faction picks. Keeps the
     # archetype's flavour seed but lets the total cost converge to the
