@@ -28,13 +28,20 @@ from code.secondaries import (
 
 def _make_unit(name: str, alive: bool, keywords: tuple = (),
                position: tuple = None,
-               starting_strength: int = 1) -> SimpleNamespace:
+               starting_strength: int = 1,
+               squad_id: int = -1) -> SimpleNamespace:
     """Minimal Unit stand-in for the secondary scorer. The scorer reads
     `current_health > 0`, `profile.unit_keywords`, optionally `position`
-    (position-tracking secondaries), and `profile.starting_strength`
-    (Cull the Horde gate)."""
+    (position-tracking secondaries), `profile.starting_strength`
+    (Cull the Horde gate), and `squad_id` (per-unit kill tracking).
+
+    `squad_id` defaults to -1 (lone model) so existing tests are unchanged.
+    Pass a non-negative integer to simulate squad members sharing the same
+    codex unit — a kill is only credited when ALL members are destroyed.
+    """
     ns = SimpleNamespace(
         current_health=1.0 if alive else 0.0,
+        squad_id=squad_id,
         profile=SimpleNamespace(
             unit_keywords=keywords,
             starting_strength=starting_strength,
@@ -274,6 +281,132 @@ class ScoreRoundDeltaTests(unittest.TestCase):
             snap, [warlord, lieutenant], enemy_warlord_uid=id(warlord)
         )
         self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
+
+
+class PerUnitSecondaryTests(unittest.TestCase):
+    """Per-unit kill counting for No Prisoners and Cull the Horde.
+
+    The codex rules score VP per codex UNIT destroyed, not per model.
+    Killing 2 of a 10-model Boyz squad should score 0 No Prisoners VP
+    (the unit survives). Only when the LAST model of a squad_id dies is
+    the unit considered destroyed.
+    """
+
+    def test_partial_squad_kill_scores_no_no_prisoners(self):
+        # 5 Boyz models in one squad (squad_id=7). Only 3 are killed this
+        # round; 2 survive. The codex unit is NOT destroyed — 0 VP.
+        survivors = [
+            _make_unit(f"Boyz{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=10, squad_id=7)
+            for i in range(2)
+        ]
+        killed = [
+            _make_unit(f"Boyz{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=10, squad_id=7)
+            for i in range(3)
+        ]
+        all_models = survivors + killed
+        snap = take_snapshot(all_models)
+        # Kill 3 models but leave 2 alive.
+        for u in killed:
+            u.current_health = 0.0
+        _, np_vp, cth, _ = score_round_delta(snap, all_models)
+        self.assertEqual(np_vp, 0, "partial squad kill must not score No Prisoners")
+        self.assertEqual(cth, 0, "partial squad kill must not score Cull the Horde")
+
+    def test_full_squad_wipeout_scores_one_no_prisoners(self):
+        # 5 Boyz models in one squad (squad_id=7), all killed this round.
+        # The codex unit IS destroyed — 1 unit kill = 3 No Prisoners VP.
+        squad = [
+            _make_unit(f"Boyz{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=10, squad_id=7)
+            for i in range(5)
+        ]
+        snap = take_snapshot(squad)
+        for u in squad:
+            u.current_health = 0.0
+        _, np_vp, cth, _ = score_round_delta(snap, squad)
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT,
+                         "full squad wipeout must score exactly 1 No Prisoners unit")
+
+    def test_full_horde_squad_wipeout_scores_cull(self):
+        # 10-model Boyz squad (squad_id=3, starting_strength=10), all killed.
+        # Scores No Prisoners AND Cull the Horde (both 3 VP each).
+        squad = [
+            _make_unit(f"Boy{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=10, squad_id=3)
+            for i in range(10)
+        ]
+        snap = take_snapshot(squad)
+        for u in squad:
+            u.current_health = 0.0
+        _, np_vp, cth, _ = score_round_delta(snap, squad)
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
+        self.assertEqual(cth, CULL_THE_HORDE_VP_PER_UNIT)
+
+    def test_partial_horde_squad_kill_scores_no_cull(self):
+        # 20-model Boyz squad (squad_id=5), only 10 killed. Unit survives.
+        survivors = [
+            _make_unit(f"Boy{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=20, squad_id=5)
+            for i in range(10)
+        ]
+        killed = [
+            _make_unit(f"Boy{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=20, squad_id=5)
+            for i in range(10)
+        ]
+        all_models = survivors + killed
+        snap = take_snapshot(all_models)
+        for u in killed:
+            u.current_health = 0.0
+        _, np_vp, cth, _ = score_round_delta(snap, all_models)
+        self.assertEqual(np_vp, 0, "surviving squad members keep unit alive for No Prisoners")
+        self.assertEqual(cth, 0, "surviving squad members keep unit alive for Cull")
+
+    def test_two_squads_both_wiped_scores_two_units(self):
+        # Two separate squads (squad_id=1 and squad_id=2) both fully wiped.
+        # Should score 2 unit kills for No Prisoners. 2 × 3 VP = 6, but the
+        # per-round cap is NO_PRISONERS_CAP_PER_ROUND (5), so result is 5.
+        squad_a = [
+            _make_unit(f"Ork{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=5, squad_id=1)
+            for i in range(3)
+        ]
+        squad_b = [
+            _make_unit(f"Grot{i}", alive=True, keywords=("INFANTRY",),
+                       starting_strength=5, squad_id=2)
+            for i in range(3)
+        ]
+        all_models = squad_a + squad_b
+        snap = take_snapshot(all_models)
+        for u in all_models:
+            u.current_health = 0.0
+        _, np_vp, _, _ = score_round_delta(snap, all_models)
+        # 2 units destroyed × 3 VP = 6, capped to NO_PRISONERS_CAP_PER_ROUND.
+        self.assertEqual(np_vp, min(NO_PRISONERS_CAP_PER_ROUND,
+                                    2 * NO_PRISONERS_VP_PER_UNIT))
+
+    def test_one_squad_wiped_one_squad_partial_scores_one_unit(self):
+        # Squad A (squad_id=10) fully wiped; Squad B (squad_id=11) has 1
+        # survivor. Only Squad A counts as destroyed.
+        squad_a = [
+            _make_unit(f"Ma{i}", alive=True, keywords=("INFANTRY",),
+                       squad_id=10)
+            for i in range(3)
+        ]
+        squad_b_survivor = _make_unit("Mb0", alive=True,
+                                      keywords=("INFANTRY",), squad_id=11)
+        squad_b_killed = _make_unit("Mb1", alive=True,
+                                    keywords=("INFANTRY",), squad_id=11)
+        all_models = squad_a + [squad_b_survivor, squad_b_killed]
+        snap = take_snapshot(all_models)
+        for u in squad_a:
+            u.current_health = 0.0
+        squad_b_killed.current_health = 0.0
+        _, np_vp, _, _ = score_round_delta(snap, all_models)
+        self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT,
+                         "only fully wiped squad counts as a unit kill")
 
 
 class ScorePositionDeltaTests(unittest.TestCase):

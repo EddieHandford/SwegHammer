@@ -116,11 +116,26 @@ class RoundSnapshot:
     starting-strength-≥10 squad — for Cull the Horde) and
     `character_ids_alive` (units carrying CHARACTER keyword — for
     Assassination).
+
+    Per-unit secondary fix (No Prisoners / Cull the Horde):
+    `alive_squad_ids` is the set of squad_id values (int >= 0) that had at
+    least one alive model at snapshot time. A codex unit is considered
+    destroyed this round only when ALL models sharing that squad_id have
+    died — i.e. the squad_id is absent from the current alive set. Lone
+    models (squad_id < 0) are already single-model units; their kills are
+    tracked via `lone_unit_ids_alive` (id-based, unchanged semantics).
+    `horde_squad_ids` is the subset of `alive_squad_ids` whose starting
+    model count was >= CULL_THE_HORDE_MIN_MODELS (checked on any member).
     """
     unit_ids_alive: frozenset
     monster_vehicle_ids_alive: frozenset
     horde_unit_ids_alive: frozenset = frozenset()
     character_ids_alive: frozenset = frozenset()
+    # Per-unit secondary fix fields:
+    alive_squad_ids: frozenset = frozenset()    # squad_id values >= 0 alive at snapshot
+    horde_squad_ids: frozenset = frozenset()    # subset of alive_squad_ids that are horde
+    lone_unit_ids_alive: frozenset = frozenset()  # id(u) for lone models (squad_id < 0)
+    horde_lone_ids_alive: frozenset = frozenset()  # lone ids that also qualify as horde
 
 
 def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
@@ -139,11 +154,36 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
         id(u) for u in alive
         if _is_character(u)
     )
+    # Per-unit secondary fix: track squad-level alive state for No Prisoners
+    # and Cull the Horde. A codex unit is only destroyed when its LAST model
+    # dies (all models sharing the same squad_id must be gone). Lone models
+    # (squad_id < 0) are single-model units, tracked by object id separately.
+    squad_alive: set = set()
+    horde_squads: set = set()
+    lone_ids: set = set()
+    horde_lone_ids: set = set()
+    for u in alive:
+        sid = getattr(u, "squad_id", -1)
+        if sid >= 0:
+            squad_alive.add(sid)
+            if _is_horde_unit(u):
+                horde_squads.add(sid)
+        else:
+            lone_ids.add(id(u))
+            # Lone models are single-model units and essentially never qualify
+            # as horde (starting_strength=1 in the real catalogue). Track
+            # anyway so synthetic / edge-case callers are handled correctly.
+            if _is_horde_unit(u):
+                horde_lone_ids.add(id(u))
     return RoundSnapshot(
         unit_ids_alive=unit_ids,
         monster_vehicle_ids_alive=mv_ids,
         horde_unit_ids_alive=horde_ids,
         character_ids_alive=char_ids,
+        alive_squad_ids=frozenset(squad_alive),
+        horde_squad_ids=frozenset(horde_squads),
+        lone_unit_ids_alive=frozenset(lone_ids),
+        horde_lone_ids_alive=frozenset(horde_lone_ids),
     )
 
 
@@ -248,20 +288,46 @@ def score_round_delta(
         id(u) for u in enemy_units_now
         if u.current_health > 0 and _is_monster_or_vehicle(u)
     )
-    horde_alive_now_ids = frozenset(
-        id(u) for u in enemy_units_now
-        if u.current_health > 0 and _is_horde_unit(u)
-    )
     char_alive_now_ids = frozenset(
         id(u) for u in enemy_units_now
         if u.current_health > 0 and _is_character(u)
     )
 
-    # Killed-this-round = was alive at round start, dead now.
-    units_killed = snapshot.unit_ids_alive - alive_now_ids
+    # Killed-this-round for model-based secondaries (Bring it Down,
+    # Assassination): still id-based — these score per model kill.
     mv_killed = snapshot.monster_vehicle_ids_alive - mv_alive_now_ids
-    horde_killed = snapshot.horde_unit_ids_alive - horde_alive_now_ids
     chars_killed = snapshot.character_ids_alive - char_alive_now_ids
+
+    # Per-unit secondary fix (No Prisoners, Cull the Horde): a codex unit
+    # is destroyed only when ALL its models are gone. Count distinct destroyed
+    # squad_ids (not individual model ids). Lone models (squad_id < 0) are
+    # already single-model units and are tracked separately by object id.
+    #
+    # Build current alive squad_ids and lone ids from end-of-round state.
+    alive_squad_ids_now: set = set()
+    alive_lone_ids_now: set = set()
+    for u in enemy_units_now:
+        if u.current_health <= 0:
+            continue
+        sid = getattr(u, "squad_id", -1)
+        if sid >= 0:
+            alive_squad_ids_now.add(sid)
+        else:
+            alive_lone_ids_now.add(id(u))
+
+    # Squad units destroyed = squad_id was alive at snapshot, no surviving
+    # model carries that squad_id now.
+    destroyed_squads = snapshot.alive_squad_ids - alive_squad_ids_now
+    destroyed_horde_squads = snapshot.horde_squad_ids - alive_squad_ids_now
+    # Lone units destroyed (single-model units — still id-based, unchanged).
+    destroyed_lones = snapshot.lone_unit_ids_alive - alive_lone_ids_now
+    destroyed_horde_lones = snapshot.horde_lone_ids_alive - alive_lone_ids_now
+
+    # Total destroyed codex units for No Prisoners = squad kills + lone kills.
+    units_killed_count = len(destroyed_squads) + len(destroyed_lones)
+    # Cull the Horde counts horde squads + any lone-model units that somehow
+    # qualify as horde (rare in the real catalogue, but handled for correctness).
+    horde_killed_count = len(destroyed_horde_squads) + len(destroyed_horde_lones)
 
     bring_it_down_vp = min(
         BRING_IT_DOWN_CAP_PER_ROUND,
@@ -269,11 +335,11 @@ def score_round_delta(
     ) if "bring_it_down" in chosen_set else 0
     no_prisoners_vp = min(
         NO_PRISONERS_CAP_PER_ROUND,
-        len(units_killed) * NO_PRISONERS_VP_PER_UNIT,
+        units_killed_count * NO_PRISONERS_VP_PER_UNIT,
     ) if "no_prisoners" in chosen_set else 0
     cull_the_horde_vp = min(
         CULL_THE_HORDE_CAP_PER_ROUND,
-        len(horde_killed) * CULL_THE_HORDE_VP_PER_UNIT,
+        horde_killed_count * CULL_THE_HORDE_VP_PER_UNIT,
     ) if "cull_the_horde" in chosen_set else 0
     assassination_vp = min(
         ASSASSINATION_CAP_PER_ROUND,
