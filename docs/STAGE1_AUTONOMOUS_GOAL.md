@@ -83,6 +83,61 @@ on it; if you set a fallback in case it hangs, make it long (1200 seconds or mor
 The 60-second minimum is specifically for the between-waves restart, where nothing is
 pending and the only thing between you and wave N+1 is the wakeup itself.
 
+## Do not tunnel: take the structural lever when narrow fixes stall
+
+Watch for this failure mode, because the loop has already fallen into it: you correctly
+diagnose that the headline is structural (the over/under split is single-rooted), you
+even name the root cause — and then you spend the wave on a safe, narrow, 0.05-point
+faithful nerf instead of the structural fix you just identified. Three waves stuck near
+gated 5.9, two of them on one faction's invulnerable-save mechanics, is the symptom.
+
+Standing corrections:
+
+- **When you have identified a structural root cause and not yet acted on it, do not
+  spend a wave on a narrow fix that moves the headline less than ~0.1.** Take the
+  structural lever instead, even though it is bigger and riskier. A 0.05-point wave that
+  dodges the known root cause is the stall, not a step toward avoiding it.
+- **Retire "audit the over-shooters for things to nerf."** Hunting only the armies that
+  are over, looking only for mechanics to reduce, is metric-driven selection — motivated
+  reasoning that reaches a nerf and then finds a citation for it. Fidelity audits must be
+  applied **evenly across all factions**, and you keep a correction only because it is the
+  faithful reading of the rule, never because of which direction it moves a residual.
+- **"Faithful" does not mean "only small, individually-citeable nerfs."** The largest
+  fidelity gaps are structural: whether the scoring, mission, representation, and
+  artificial-intelligence machinery actually models how real games are won. Modelling that
+  correctly IS the rules-accurate fix this mission asks for.
+- **Verify that the existing machinery is actually wired up — do not assume elaborate,
+  cited, tuned code functions.** The biggest lever found so far was a dead-store bug: the
+  entire Pariah Nexus secondary-objective scoring layer (`code/secondaries.py`) is computed
+  every round into `_a_secondary_vp` / `_b_secondary_vp` and then **never read** — the
+  winner (`Battle._decide_winner`) is decided on primary objective VP only. Real 10e decides
+  on primary **plus** secondary combined, so durable objective-campers are over-rated and
+  the board-control / killy armies whose real currency is secondaries are under-rated — the
+  exact over/under split. That is the kind of thing narrow nerf-grinding can never find.
+
+### The named first structural lever (verified, do this before more narrow waves)
+
+Wire the accumulated secondary VP into the win condition: in `Battle._decide_winner`
+(and the `BattleResult`), compare `_a_vp + _a_secondary_vp` against
+`_b_vp + _b_secondary_vp`, per the real Pariah Nexus primary-plus-secondary win
+condition. Expect a large, faithful swing across many factions. Then **re-check the
+secondary per-round caps** in `code/secondaries.py` (their comment says they were tuned
+on 2026-05-20 when secondaries appear to have still counted, so they may have drifted
+while disconnected) and re-evaluate. This is a structural wave: confirm with a full N=40
+eval and the pytest sweep, and write up the swing honestly — it will move everything.
+
+### The wider structural rotation (when narrow levers stall, pick from here, not nerf-hunts)
+
+- **Scoring/representation wiring** — the secondary-VP fix above; then whether the
+  artificial intelligence actually *plays toward* the scored secondaries (board spread for
+  Engage on All Fronts, entering the enemy deployment zone for Behind Enemy Lines), and
+  completing the tactical-secondary pool (only 2 of 9 are implemented).
+- **Denial / repulsion positioning (#13)** — distinct from the *target* AI that regressed;
+  this is movement that lets under-shooters contest and take objectives *from* durable
+  holders, which the loop itself identified as the bottleneck.
+- **Per-model activation tax** — low-model durable armies are not punished for low body
+  count; **terrain density** — sparse boards over-rate gunlines.
+
 ## The toolbox — every mechanism used so far; keep them all in play
 
 Pick what the residual calls for; do not marry one approach.
