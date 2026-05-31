@@ -4,6 +4,44 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap (gated 5.35 → 5.11)
+
+Branch `claude/sim-calibration-6`. Continued the proven action-economy lever (watchdog
+confirmed option (a) in `LOOP_QA.md` Q3). Two faithful changes, env-gated A/B then landed.
+
+LANDED — **40-VP total-secondary cap** (`_decide_winner` now decides on primary +
+min(secondary, 40)). Real Pariah Nexus caps secondary VP at 40/game; the sim's mixed
+`_a_vp` totals never enforced it, so secondary-heavy shapes ran past it (Custodes ~39/game).
+A faithful correctness fix AND the prerequisite that keeps further secondaries bounded.
+Cited `simulator.secondary_vp_cap_40`. **Sabotage** (Pariah Nexus action secondary, card
+text web-verified): a surplus chaff unit OUTSIDE its own DZ performs the action (shoot/charge
+lockout) — 3 VP in No Man's Land, 6 VP in the enemy DZ, scored if it survives forward; capped
+at one completion (6 VP)/round. Rewards deep forward push (deepstrike/infiltrate
+under-shooters), which a durable low-model camper cannot do. Cited `simulator.secondary_sabotage`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 74 close (Cleanse + Cull-fix) | 8.74 | 5.35 | 6→5/22 |
+| **Wave 75 close (Sabotage + 40-cap)** | **8.50** | **5.11** | **5/22** |
+
+DENTS THE #1 RESIDUAL: Imperial Knights +23.3 → +18.0 (−5.3, opponents sabotage/cleanse into
+its zone, which it cannot reciprocate); Custodes +9.3 → +6.1 (the 40-cap biting its high
+secondary); Tyranids into band; Astra / AdMech / Necrons / Marines / World Eaters all better.
+
+HONEST COLLATERAL (over-correction of low-model armies): CSM −9.7 → −16.6, Chaos Knights
+−6.1 → −12.9, Grey Knights +1.6 → −6.6; Votann / Orks further over. The DIRECTION is faithful
+(low-model armies genuinely struggle with the secondary game), but the MAGNITUDE is amplified
+because cleanse/sabotage are NOT yet rotation-gated like Engage/BEL — they score every round
+vs the real draw-1-2/turn cadence, so they over-score. Tempering that (rotation-gating the
+tactical layer) is a LATER secondary wave; per the watchdog it must NOT pre-empt wave 76.
+926 tests pass; citation audit 292/292. Eval `data/wf_wave75_sabotage_cap_n40.json`.
+
+WAVE 76 (watchdog-directed, firm): the per-model durability / activation tax — the genuine
+root cause of Imperial Knights +18.0 (still #1) that the secondaries only chip at. Design it
+as a FAITHFUL mechanic (real action-economy / objective-count / coherency effects), NOT a
+metric-driven penalty on low-model armies. The watchdog will flag "one more bounded secondary"
+as shying away.
+
 ## Wave 74 close (2026-05-31) — action-economy secondaries: Cleanse + Cull-fix (gated 5.89 → 5.35)
 
 Branch `claude/sim-calibration-6`. Built the wave-73 structural lever: the action-economy
@@ -84,60 +122,4 @@ Deliverables: `docs/SECONDARY_SCORING_ANALYSIS.md` (evidence) + `docs/ACTION_SEC
 selection, scoring, picker/caps, env-gated N=40 A/B, risk assessment). User direction:
 plan first (this wave), build next wave. Also stood up the watchdog-mediated `LOOP_QA.md`
 question channel (worker no longer asks the user directly).
-
-## Wave 72 close (2026-05-31)
-
-Branch `claude/sim-calibration-6`. Pursued the #1 ranked lever (the systemic
-threat-priority target AI) but it FAILED the A/B and a faithful stat-fidelity fix
-was landed in its place. Two hard findings drove the wave.
-
-FINDING 1 — the under-shooters lose on VICTORY POINTS WHILE STILL ALIVE, not by
-being tabled. Chaos Daemons (the −20 #2 residual) lose 6-9 of every 10 with
-survivors on the board (0-1 tabled). So per-faction COMBAT buffs (per-god rules,
-Astra Orders) do not address the actual loss — it is the same objective/durability
-complex as the Imperial Knights over-rate, from the under side. Per-faction combat
-levers for the under-shooters are mostly mis-targeted.
-
-FINDING 2 — improving the target AI REGRESSES the headline (second confirmation
-this session of `project-ai-frozen-under-mae-first`). A value-based shooting-target
-picker (kill-efficiency × target-value, mirroring `_melee_target_score`, so
-anti-armour concentrates on durable threats instead of mopping the lowest-health
-chaff — faithful real-10e weapon-target matching) was prototyped and A/B'd at N=40:
-it made things WORSE (gated 5.97 → 6.11, Imperial Knights +29 → +32.9). Reason:
-better targeting helps the killy over-shooters' OWN offence more than it helps their
-victims, and Knights stay un-killable so concentrated anti-tank is still wasted while
-the over-shooters' guns get sharper. Reverted. (The min-HP picker genuinely cannot
-express threat-priority via a bonus — a full-Wounds W26 Knight scores ~26 vs ~2 for
-chaff, so any bonus large enough to redirect fire distorts everything; a real fix
-needs a value-based objective, which regresses while stats stay over-tuned.)
-
-LANDED — Ion Shield ranged-only (a faithful stat-fidelity fix, the one metric-positive
-lever found). BSData v10.6.0 verbatim: Imperial Knight Ion Shield is "a 5+ invulnerable
-save against ranged attacks only" — big Imperial Knights have NO invulnerable save in
-melee, only their 3+ armour. The sim applied invuln flat (melee + ranged). Added an
-`invuln_ranged_only` profile flag (plumbed loader → UnitProfile), set on the 12
-confirmed standard-codex Imperial Knights/Armigers via overrides.json (Forge World
-Acastus/Magaera/Styrix excluded — unverified Ion Aegis, none fielded; Chaos Knights
-left flat since their Ion Shield is ranged AND melee). Suppresses the datasheet invuln
-for melee attacks. Cited `simulator.ion_shield_ranged_only`.
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 71 close (Code Chivalric fidelity fix) | 9.38 | 5.97 | 6/22 |
-| **Wave 72 close (Ion Shield ranged-only)** | **9.28** | **5.89** | **6/22** |
-
-Imperial Knights +29.0 → +27.9 (gated 26.04 → 24.97); melee under-shooters edge up
-(Chaos Daemons −20.0 → −19.7, Chaos Space Marines −7.7 → −7.3, Necrons −9.5 → −9.2);
-no regressions. Modest (the melee invuln only matters in the minority of matchups
-where an opponent reaches combat with a Knight) but faithful and net-positive. 926
-tests pass; citation audit 289/289. Eval `data/wf_wave72_ionshield_n40.json`.
-
-NEXT-LEVER NOTE: the headline is now firmly AI/structure-gated. Two AI levers have
-regressed this session (objgreedy wave 71, value-targeting wave 72), both confirming
-that AI improvements expose the over-tuned over-shooter stats/lists. The remaining
-faithful levers are (a) more stat-fidelity audits like Ion Shield (durability/rule
-corrections that nerf over-shooters or buff under-shooters without touching AI), and
-(b) the re-calibration the goal doc restricts. A pure target-AI redesign will not
-reduce the headline until the over-shooters are re-fitted. Approaching the mission's
-"2-3 wave stall → report the structural finding" condition.
 

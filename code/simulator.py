@@ -615,9 +615,17 @@ class Battle:
             return self.b.name
         if b_surv == 0:
             return self.a.name
-        if self._a_vp > self._b_vp:
+        # Real Pariah Nexus caps total Secondary VP at 40 per game. The running
+        # `_a_vp`/`_b_vp` totals mix primary + secondary and never enforced that
+        # ceiling, so secondary-heavy shapes (e.g. Custodes ~39/game) could run
+        # past it. Decide on primary + min(secondary, 40), using the per-side
+        # `_a_secondary_vp` tally. Landed permanently wave 75 (A/B validated:
+        # gated 5.35 → 5.11). Cited as `simulator.secondary_vp_cap_40`.
+        a_vp = (self._a_vp - self._a_secondary_vp) + min(self._a_secondary_vp, 40)
+        b_vp = (self._b_vp - self._b_secondary_vp) + min(self._b_secondary_vp, 40)
+        if a_vp > b_vp:
             return self.a.name
-        if self._b_vp > self._a_vp:
+        if b_vp > a_vp:
             return self.b.name
         # VP tied — fall back to remaining points
         if a_pts > b_pts * 1.10:
@@ -936,6 +944,76 @@ class Battle:
                 cleansed += 1
         return min(cleansed, 2) * 2
 
+    def _sabotage_enabled(self) -> bool:
+        """Wave-75 Sabotage action secondary. Landed ON after the env-gated A/B
+        validated the package (gated 5.35 → 5.11). Kept as a method so a future
+        A/B can re-gate it via a one-line edit. NOTE follow-up: cleanse/sabotage
+        are not yet rotation-gated like Engage/BEL, so they score every round
+        rather than the real draw-1-2/turn cadence — this over-scores them and
+        amplifies the (faithful-direction) over-correction of low-model armies
+        (CSM/Chaos Knights/Grey Knights). Tempering it = a later secondary wave,
+        AFTER the per-model durability tax (wave 76)."""
+        return self._cleanse_enabled()
+
+    def _unit_in_enemy_dz(self, u, own_is_army_a: bool) -> bool:
+        dz = self.map.deployment_width
+        if own_is_army_a:
+            return u.position[1] >= self.map.height - dz
+        return u.position[1] <= dz
+
+    def _assign_sabotage_actions(self, active, other) -> None:
+        """Pariah Nexus Sabotage (wave 75). After Movement, flag up to two
+        surplus chaff units that are OUTSIDE their own deployment zone (in No
+        Man's Land or the enemy deployment zone) to perform the Sabotage action
+        — locked out of shooting/charging like Cleanse. It rewards pushing
+        expendable bodies FORWARD (3 VP in No Man's Land, 6 VP in the enemy DZ),
+        which a deepstrike / infiltrate under-shooter does and a durable camper
+        does not. Runs AFTER cleanse assignment, so a chaff unit already
+        cleansing a held objective is not also tagged. Cited as
+        `simulator.secondary_sabotage`."""
+        if not self._sabotage_enabled():
+            return
+        if "sabotage" not in (getattr(active, "chosen_secondaries", ()) or ()):
+            return
+        from .strategy import _is_chaff_unit
+        own_is_a = active is self.a
+        dz = self.map.deployment_width
+        h = self.map.height
+        SABOTAGE_CAP = 2
+        n = 0
+        for u in active.alive_units:
+            if n >= SABOTAGE_CAP:
+                break
+            if u.action_this_round is not None:
+                continue
+            if not _is_chaff_unit(u):
+                continue
+            y = u.position[1]
+            if own_is_a and y <= dz:
+                continue   # still in own (low-y) DZ
+            if (not own_is_a) and y >= h - dz:
+                continue   # still in own (high-y) DZ
+            u.action_this_round = "sabotage"
+            n += 1
+
+    def _score_sabotage(self, army, own_is_army_a: bool) -> int:
+        """End-of-round Sabotage scoring (wave 75): the best surviving Sabotage
+        action completes for 6 VP in the enemy deployment zone or 3 VP in No
+        Man's Land, capped at one completion (6 VP) per round. The survival gate
+        (the chaff must still be alive forward at end of round, after the
+        opponent's turn) is what makes deep Sabotage genuinely risky and bounds
+        it. Cited as `simulator.secondary_sabotage`."""
+        if not self._sabotage_enabled():
+            return 0
+        if "sabotage" not in (getattr(army, "chosen_secondaries", ()) or ()):
+            return 0
+        best = 0
+        for u in army.alive_units:
+            if u.action_this_round != "sabotage":
+                continue
+            best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
+        return best
+
     def _score_secondaries(self, round_num: int) -> None:
         """End-of-round secondary VP scoring (Bring it Down + No Prisoners).
 
@@ -1066,6 +1144,14 @@ class Battle:
         b_cleanse = self._score_cleanse(self.b, self.a, own_is_army_a=False)
         self._b_vp += b_cleanse
         self._b_secondary_vp += b_cleanse
+
+        # Pariah Nexus Sabotage action secondary (wave 75, env-gated SWEG_S2).
+        a_sabotage = self._score_sabotage(self.a, own_is_army_a=True)
+        self._a_vp += a_sabotage
+        self._a_secondary_vp += a_sabotage
+        b_sabotage = self._score_sabotage(self.b, own_is_army_a=False)
+        self._b_vp += b_sabotage
+        self._b_secondary_vp += b_sabotage
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
@@ -6364,9 +6450,11 @@ class Battle:
                     self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
             # Pariah Nexus actions are declared after the Movement phase: a
             # surplus unit on a controlled forward objective may perform Cleanse
-            # instead of shooting (wave 74). Flagged units are skipped by
-            # _do_shoot / _do_charge below.
+            # (wave 74), or a surplus unit pushed into No Man's Land / the enemy
+            # DZ may perform Sabotage (wave 75), instead of shooting. Flagged
+            # units are skipped by _do_shoot / _do_charge below.
             self._assign_cleanse_actions(active, other)
+            self._assign_sabotage_actions(active, other)
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:

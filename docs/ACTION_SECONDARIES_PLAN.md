@@ -1,9 +1,10 @@
 # Implementation plan — action-economy secondaries (wave 74 build)
 
-**Status:** Cleanse vertical slice + Cull-fix **DONE (wave 74)** — gated MAE 5.89 → 5.35,
-validated by env-gated N=40 A/B and landed. Remaining (Sabotage, Recover Assets, AI
-forward-projection, alternating-mode wiring) are the wave-75+ follow-ups. Companion to
-`docs/SECONDARY_SCORING_ANALYSIS.md`, which established the verified rationale.
+**Status:** Cleanse + Cull-fix **DONE (wave 74)** (5.89 → 5.35); Sabotage + the 40-VP
+secondary cap **DONE (wave 75)** (5.35 → 5.11). Remaining: Recover Assets, rotation-gating
+the tactical layer (to temper the over-correction of low-model armies — see wave-75 log),
+AI forward-projection, alternating-mode wiring — all LATER, after the wave-76 per-model
+durability tax (watchdog-mandated). Companion to `docs/SECONDARY_SCORING_ANALYSIS.md`.
 
 ## Goal
 

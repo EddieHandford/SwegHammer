@@ -53,6 +53,10 @@ TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     # _assign_cleanse_actions, env-gated SWEG_ACTIONS); registering the key here
     # lets `pick_secondaries` add it to an army's chosen tuple.
     "cleanse",
+    # Wave 75: Sabotage — action in No Man's Land (3 VP) or the enemy DZ (6 VP).
+    # Scoring + assignment in code/simulator.py (Battle._score_sabotage /
+    # _assign_sabotage_actions, env-gated SWEG_S2).
+    "sabotage",
 )
 ALL_SECONDARY_KEYS: Tuple[str, ...] = (
     FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS
@@ -635,6 +639,11 @@ def pick_secondaries(
     # Inert unless SWEG_ACTIONS is set (the simulator gates the scoring).
     if _own_chaff_count(own_army) >= 2:
         tactical.append("cleanse")
+        # Wave 75: an army with spare cheap bodies can also bring Sabotage
+        # (push a body forward into No Man's Land / the enemy DZ for the action).
+        # Inert unless SWEG_S2 is set (the simulator gates the scoring + the
+        # 40-VP secondary cap that keeps total secondary VP faithful).
+        tactical.append("sabotage")
     return tuple(fixed + tactical)
 
 

@@ -1,8 +1,28 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 74 close (2026-05-31) — action-economy secondaries
-(Cleanse) landed: gated MAE **5.35** (raw 8.74), the biggest single-wave move in
-many waves.
+**Last updated:** Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap:
+gated MAE **5.11** (raw 8.50). Wave 76 is the per-model tax (watchdog-directed).
+
+**Wave 75 extended the proven action-secondary lever (watchdog confirmed).** Two
+faithful changes: the real **40-VP total-secondary cap** (the sim never enforced it;
+secondary-heavy shapes like Custodes ran past it) and **Sabotage** (a chaff unit
+pushed forward performs an action — 3 VP in No Man's Land, 6 in the enemy DZ — with
+the shoot/charge lockout). Gated 5.35 → **5.11**, and it dents the #1 residual:
+Imperial Knights +23.3 → +18.0 (opponents score forward actions it can't reciprocate);
+Custodes, Tyranids, Astra, AdMech, Necrons, Marines all better. **Honest collateral:**
+the low-model armies that can't reciprocate over-corrected (CSM −16.6, Chaos Knights
+−12.9, Grey Knights −6.6) — faithful in DIRECTION (low-model armies do struggle with
+the secondary game) but amplified because cleanse/sabotage aren't rotation-gated yet
+(they over-score vs the real draw-1-2/turn cadence). Tempering = a LATER secondary
+wave, not wave 76.
+
+**WAVE 76 IS FIRMLY THE PER-MODEL DURABILITY / ACTIVATION TAX** (watchdog-directed,
+`LOOP_QA.md` Q3) — the genuine root cause of Imperial Knights +18.0 (still #1) that the
+secondaries only chip at. It must be a FAITHFUL mechanic (real action-economy /
+objective-count / coherency effects), NOT a metric-driven penalty on low-model armies.
+"One more bounded secondary" instead = shying away (the watchdog will flag it).
+
+### Earlier — wave 74 (Cleanse action secondary, gated 5.89 → 5.35)
 
 **Wave 74 built the wave-73 structural lever and it worked.** The
 action-economy secondary **Cleanse** (a real Pariah Nexus secondary that was
@@ -209,7 +229,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 71 close (Code Chivalric fidelity fix) | 9.38 | 5.97 | 6/22 |
 | Wave 72 close (Ion Shield ranged-only) | 9.28 | 5.89 | 6/22 |
 | Wave 73 (investigation only, no code change) | 9.28 | 5.89 | 6/22 |
-| **Wave 74 close (Cleanse action secondary + Cull-fix)** | **8.74** | **5.35** | **5/22** |
+| Wave 74 close (Cleanse action secondary + Cull-fix) | 8.74 | 5.35 | 6→5/22 |
+| **Wave 75 close (Sabotage + 40-VP secondary cap)** | **8.50** | **5.11** | **5/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
@@ -233,33 +254,29 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 75
+## Next ranked levers for wave 76
 
-Current biggest gated errors (wave 74 eval `data/wf_wave74_cleanse_n40.json`):
-Imperial Knights +23.3 (20.3), Chaos Daemons −18.1 (14.9), Drukhari +16.2
-(12.8), World Eaters +12.5 (9.1), Astra Militarum −10.6 (7.4), CSM −9.7 (7.2).
+Current biggest gated errors (wave 75 eval `data/wf_wave75_sabotage_cap_n40.json`):
+Imperial Knights +18.0 (15.1), Chaos Daemons −17.8 (14.7), Drukhari +16.4 (13.1),
+CSM −16.6 (14.1), Votann +14.7 (11.7), Chaos Knights −12.9 (9.6).
 
-**Cleanse (wave 74) confirmed the action-economy thesis — keep building it out, it is
-the faithful structural lever that moves the metric the right way.**
-
-1. **More action-economy secondaries (the proven lever).** Cleanse alone took gated
-   5.89 → 5.35. Add the other action-based tacticals per `docs/ACTION_SECONDARIES_PLAN.md`
-   — **Sabotage** (action on terrain in enemy territory) and **Recover Assets** (action
-   on no-man's-land / enemy objectives) — verified vs the GW pack / Goonhammer, env-gated
-   A/B, same surplus-chaff selection. Each gives the under-shooters more board-control
-   scoring paths and taxes the durable campers further. Also: wire cleanse into
-   `_run_round_alternating` for mode-consistency.
-2. **AI plays toward secondaries.** The action selection is "surplus chaff on a
-   controlled forward objective"; sharpen it (deliberately push chaff onto contested
-   midfield/enemy objectives to cleanse, not just whoever's already there) and complete
-   the Engage/BEL forward-projection intent. Distinct from the *target* AI that regressed.
-3. **Structural representation (still owns the residual tail).** Imperial Knights are
-   still +23.3 — the per-model activation tax (low-model durable armies aren't punished
-   for body count) is the deeper root (`project-faction-residual-rootcause`). Drukhari
-   +16.2 (fragility-tax under-modelled). Dedicated structural waves.
-4. **Re-fit candidates EXPOSED by Cleanse (handle with the archetype-list care rules):**
-   Orks over-shot to +8.6 (Gretchin cleanse — faithful), Chaos Knights −6.1, Custodes
-   +9.3. Re-measure after the next action secondaries before any list touch.
+1. **THE PER-MODEL DURABILITY / ACTIVATION TAX (wave 76, watchdog-mandated).** Imperial
+   Knights +18.0 is still #1 and the secondaries only chip at it — the genuine root cause
+   is the one-Unit-per-model representation: low-model durable armies are not punished for
+   their low body count (they get full value from every model with none of the real
+   friction). Design a FAITHFUL mechanic — real action-economy / objective-count /
+   coherency / unit-count effects, NOT a metric-driven penalty on low-model armies. This
+   is the biggest/riskiest structural change; it earns a clean fresh-context wave.
+   The watchdog will flag "one more bounded secondary" as shying away. See
+   `project-faction-residual-rootcause` + `project-one-unit-per-model-amplification`.
+2. **Rotation-gate the tactical secondaries (LATER, not wave 76).** cleanse/sabotage
+   score every round; the real tactical deck draws ~1-2/turn. Gating them (like Engage/BEL
+   via LC-2) would temper the over-correction of low-model armies (CSM −16.6, Chaos
+   Knights −12.9, Grey Knights −6.6) — a fidelity fix, but it is more secondary work and
+   must not pre-empt the per-model tax.
+3. **Re-fit candidates exposed (handle with archetype-list care rules):** Orks +10.3,
+   Votann +14.7, Sororitas +5.0 over (cheap-unit cleansing/sabotage); CSM / Chaos Knights /
+   Grey Knights under (low-model, over-corrected). Re-measure after the per-model tax.
 
 ## Structural track (owns the remaining headline)
 

@@ -10,6 +10,24 @@
     "scope": "phase-gated"
   },
 
+  "simulator.secondary_sabotage": {
+    "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
+    "rule_name": "Sabotage (Pariah Nexus Tactical Secondary Mission — action-based)",
+    "quoted_text": "Sabotage: one of your units outside your deployment zone can start this action in the Shooting phase, which finishes at the end of your opponent's next turn or the end of the battle. You complete the action in No Man's Land for 3 VP or in your opponent's deployment zone for 6 VP. (Wahapedia DNS unreachable; verified via the Goonhammer Pariah Nexus mission review and a corroborating web search of the GW pack.)",
+    "trigger": "After the Movement phase, a surplus chaff unit (per strategy._is_chaff_unit) that is OUTSIDE its own deployment zone (in No Man's Land or the enemy deployment zone) performs the Sabotage action; it cannot shoot or charge that turn (the action-vs-fight tradeoff). At end of round the action scores if the unit survived forward (an approximation of 'completes at end of opponent's next turn'); a unit shot off mid-round scores nothing.",
+    "effect": "The best surviving Sabotage completes for 6 VP in the enemy deployment zone or 3 VP in No Man's Land, capped at one completion (6 VP) per round (SwegHammer simplification — a conservative cap on a deliberately risky deep-push action). Rewards pushing expendable bodies forward, which a deepstrike / infiltrate under-shooter does and a durable low-model camper cannot. Implemented in Battle._assign_sabotage_actions / _score_sabotage.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_vp_cap_40": {
+    "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
+    "rule_name": "Secondary Mission victory-point ceiling (Pariah Nexus)",
+    "quoted_text": "Players add up their points from Secondary Missions and can score a maximum of 40 VP from these. If a player is using Fixed Missions they can score a maximum of 20 VP from each one of the missions.",
+    "trigger": "End of game, when deciding the winner. SwegHammer's running _a_vp/_b_vp totals mix primary and secondary VP and never enforced the 40-VP secondary ceiling, so secondary-heavy shapes (Custodes ~39 secondary VP/game) could exceed it.",
+    "effect": "The win condition (Battle._decide_winner) decides on primary VP plus min(secondary VP, 40), enforcing the real 40-VP total-secondary ceiling. Uses the per-side _a_secondary_vp / _b_secondary_vp tally (otherwise a reporting accumulator). Env-gated SWEG_S2 for the wave-75 A/B.",
+    "scope": "phase-gated"
+  },
+
   "simulator.secondary_bring_it_down": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",
