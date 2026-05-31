@@ -1,29 +1,35 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 70 close (2026-05-31), objective-aware AI (#12).
+**Last updated:** Wave 71 close (2026-05-31), Code Chivalric fidelity fix +
+Imperial Knights over-rate root-cause diagnosis.
 
-**Status:** Headline gated MAE **5.98** (raw 9.47) — the lowest of the whole
-fidelity campaign (started 9.27). Wave 70 landed the **plan-level objective AI**
-(#12): a SHOOTY/HEAVY unit that can still shoot from an objective moves ONTO it
-(scoring VP while firing) instead of holding in open ground — gated out for the
-tuned gunline postures (Aeldari shimmy / T'au alpha-strike). This is the clean
-version of the reverted blunt "durable units camp" experiment: melee-primary units
-never reach the branch (they keep charging), so the melee-monster mis-camp is gone.
+**Status:** Headline gated MAE **5.97** (raw 9.38), **6/22 in band** — gated
+magnitude flat vs wave 70 (5.98) but the best in-band count of the campaign
+(Death Guard and Chaos Knights newly into band). Wave 71 fixed the one genuine
+fidelity defect behind the Imperial Knights over-rate and, more importantly,
+**proved the rest of that over-rate is a compensating error, not a rule defect**
+— closing out the "audit the wave-69 IK buffs" lever.
 
-It fully confirmed the AI-positional thesis: **Chaos Knights −38.7 → −3.3** (nearly
-fixed), and it pulled the kill-centric over-shooters toward 50% because their
-opponents now contest objectives (**Sororitas +18.3→+2.1, Aeldari +15.8→+2.6, T'au
-+10.0→+2.6** all into band; Drukhari +27.7→+17.1, Thousand Sons +20.4→+13.1).
+**Code Chivalric** (Imperial Knights army rule) was re-rolling EVERY natural 1
+army-wide; the real rule is "re-roll ONE Hit and ONE Wound roll" per activation.
+Reroll-all-1s over-scales with shot volume (a 20-shot Knight gun got ~3-4
+effective re-rolls vs the rule's one). Now a single per-activation re-roll budget
+(`code/units.py` `_chiv_hit_reroll`/`_chiv_wound_reroll`), faithful to the
+one-Unit-per-model representation. Metric-neutral (the rule existing is the swing,
+not the over-scaling) but correct.
 
-**A RE-FIT IS NOW MANDATORY (task #22 = top priority).** #12 redistributed win
-rates and exposed double-buffed / mis-calibrated lists:
-- **Imperial Knights overshot to +27.8 (76%)** — gun-heavy archetype + the wave-69
-  Bondsman/Valourstrike buffs now STACK on the AI objective-hold. Trim IK.
-- **Astra Militarum −15.0, Chaos Daemons −19.5, AdMech −8.3, Tyranids −7.5** swung
-  under. Lift these.
-The sim is now substantially rules-faithful (per-model representation, core rules,
-faction rules, and AI all corrected); the archetype-list re-fit converts that
-fidelity into a low, well-distributed headline.
+**The Imperial Knights +29 over-rate is NOT a rule/stat defect — it is a
+compensating error in the opponents' AI.** Everything was verified faithful:
+Bold Gallantry (real Valourstrike Lance detachment, ~21pt, correctly gated on
+Advance, charge-after-advance correctly blocked), Bondsman/Paladin's Duty (real,
+~2.4pt), all Knight stats (OC 10/6, T 11/12, W 26/28 — match BSData), and the
+maps (5-objective Leviathan quincunx). IK wins by **VP/objective-holding, not
+tabling**. The root cause: the shooting-target AI is a min-HP "finish the weakest"
+picker, so opponents shoot the W14 Armigers and chaff first and **never
+concentrate fire on a big W26 Knight** — durable Knights sit on objectives
+untouched all game. Under-shooters holding objectives better (tested via an
+objective-greedy AI tweak — a wash, reverted) doesn't help, because they can't
+take objectives FROM the un-killed Knights.
 
 ### Earlier — wave 69 (under-performer faction buffs, gated 8.74 → 8.29)
 
@@ -142,7 +148,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 67 close (per-unit batch ×6) | 11.11 | 7.80 | 5/22 |
 | Wave 68 close (core-rules batch, fidelity) | 12.05 | 8.74 | 5/22 |
 | Wave 69 close (under-performer faction buffs) | 11.57 | 8.29 | 5/22 |
-| **Wave 70 close (objective-aware AI #12)** | **9.47** | **5.98** | **4/22** |
+| Wave 70 close (objective-aware AI #12) | 9.47 | 5.98 | 4/22 |
+| **Wave 71 close (Code Chivalric fidelity fix)** | **9.38** | **5.97** | **6/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
@@ -166,39 +173,48 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 66
+## Next ranked levers for wave 72
 
-Spillover reshaped the residual landscape. Current biggest gated errors:
-Chaos Knights −36.5 (33.3), Drukhari +29.0 (25.7), Imperial Knights −19.1
-(16.1), Chaos Daemons −14.5 (11.3), Thousand Sons +21.7 (13.0).
+Current biggest gated errors (wave 71 eval `data/wf_wave71_chivalric_n40.json`):
+Imperial Knights +29.0 (26.0), Chaos Daemons −20.0 (16.8), Drukhari +16.9
+(13.5), World Eaters +16.5 (13.0), Astra Militarum −15.5 (12.3).
 
-1. **Archetype-list re-fit for the new elite over-shoots** — Custodes (+9.9),
-   Marines (+10.3), Thousand Sons (+21.7), Aeldari (+13.5) drifted further over
-   now that they clear chaff efficiently. These are list-composition tunable
-   (see memory `project-calibration-surface`); the fidelity layer is now more
-   correct, so re-fitting the lists against it is the natural follow-up.
-2. **Mortal-wound spillover** — the spillover pointer covers normal + Devastating
-   Wounds; true mortal wounds (Doombolt, Deadly Demise, Bloodthirster) still dump
-   into one model and SHOULD carry over per the separate 10e rule. A second,
-   smaller fidelity fix (likely TSON/Daemons-relevant).
-3. **Per-kill trigger emission under spillover** — `_do_shoot`/`_do_fight` emit
-   UnitKilled + per-kill awards (Votann Judgement, WE Blood Tithe) only for the
-   primary target, so spilled-kill siblings under-fire those triggers. Low-risk
-   accuracy refinement.
-4. **Detachment citation/comment fixes** (task #10), **Necrons fabrications**
-   (task #9, MAE-negative — care), **TOWERING** (task #3, measure).
+1. **THREAT-PRIORITY TARGET AI (the systemic lever that owns IK + the whole
+   over/under split).** The shooting-target picker is min-HP "finish the weakest"
+   (`code/simulator.py:6835`, `min(pool, key=current_health/bonuses)`). It never
+   concentrates fire on a high-HP threat, so durable Knights/monsters are never
+   removed and sit on objectives all game, while the picker mops the chaff. Real
+   players focus anti-tank on the big threat. A value/threat target-priority bonus
+   (points or damage-output × durability, especially for objective-holders) would
+   pull down EVERY elite over-shooter (IK +29, WE +16.5, Custodes +10, Marines
+   +8.6, TSON, Drukhari) and let the board-control under-shooters recover
+   objectives — the single highest-leverage faithful fix left. **High-risk,
+   army-wide; design it carefully (Plan agent), prototype env-gated, A/B at N=40.**
+   This is the real form of task #12's successor and supersedes "re-fit task #22":
+   the lists/stats/rules are faithful (wave 71 verified IK end-to-end), so the
+   headline is gated by AI, not by list composition.
+2. **Chaos Daemons −20.0** — the largest under-shooter. Per-god rules + the missing
+   Be'lakor datasheet (add via overrides). Concrete, additive, faithful.
+3. **Astra Militarum −15.5** — Orders not modelled; cheap troops also over-sent on
+   sacrificial chaff runs (14/31 in a sample) instead of holding objectives
+   (the chaff over-fire is real but disabling it was a win-rate wash vs Knights —
+   the bottleneck is lever #1, not chaff).
+4. **AdMech −8.7 / Tyranids −7.2 / GSC −7.5 / Necrons −9.5** — board-control
+   under-shooters that all recover once lever #1 lets them contest the durable
+   over-shooters. Re-measure each after lever #1 before per-faction patches.
 
 ## Structural track (owns the remaining headline)
 
-- **Chaos Knights −36.5 gated** — still the single largest residual; spillover
-  only moved it +4.8 (CK is War-Dog/Armiger heavy — fewer big anti-horde guns
-  benefiting from spillover than Imperial Knights, which moved +8.0). Needs its
-  own diagnostic (likely board-control / objective play, not firepower).
-- **Drukhari +29.0** — came down −7.2 from spillover but still the #2 residual;
-  the remaining gap is activation-count / fragility-tax, not damage allocation.
-- **Strategy roadmap #1 (task #12)** — plan-level objective function (next-turn
-  reachable Objective Control into intent + activation order). Highest-leverage
-  remaining AI lever; addresses the positional under-shooters (Daemons, Knights).
+- **The over/under split is now understood and single-rooted.** Over-shooters are
+  killy/durable elite armies (IK +29, WE +16.5, Drukhari +16.9, TSON +12.8,
+  Custodes +10.0, Marines +8.6, Votann +9.0); under-shooters are board-control
+  armies (Daemons −20, Astra −15.5, Necrons −9.5, AdMech −8.7, GSC −7.5,
+  Tyranids −7.2). Wave 71 proved this is NOT rules/stats/lists (IK verified
+  faithful end-to-end) — it is the min-HP target AI never removing durable
+  objective-holders. Lever #1 above is the fix.
+- The objective-greedy AI tweak (gunline troops claim reachable objectives) was
+  tested and shelved as a wash — confirms holding-better is not the bottleneck;
+  taking-from-durable-holders is.
 
 NOTE: the IK/CK multi-profile weapon mapper is DONE (shipped pre-wave-60);
 do not re-implement it. See memory `project-knights-multiprofile-weapons`.

@@ -2523,12 +2523,23 @@ class Unit:
             # implemented separately above and in simulator._run_battleshock_phase)
             # is untouched.
             # Cited as `simulator.code_chivalric`.
-            if (
+            #
+            # WAVE 71 FIDELITY FIX: the rule is "Each time this model is selected
+            # to shoot or fight, you can re-roll ONE Hit roll and ONE Wound roll"
+            # — a SINGLE re-roll of each per activation. Because SwegHammer is
+            # one-Unit-per-model, "each time this model is selected" maps exactly
+            # onto one re-roll per Unit activation. The previous implementation set
+            # att_reroll_hit_ones / att_reroll_wound_ones (re-roll EVERY natural 1),
+            # which over-scales with shot volume: a Knight gun firing 20+ shots got
+            # ~3-4 effective re-rolls instead of the rule's one, inflating Imperial
+            # Knights' damage on the high-volume platforms. We now grant a single
+            # per-activation re-roll budget, spent on the first failed die (the
+            # optimal use of a "re-roll one of your choice").
+            _chiv_hit_reroll = bool(
                 own_army is not None
                 and (p.faction or "") == "Imperial Knights"
-            ):
-                att_reroll_hit_ones = True
-                att_reroll_wound_ones = True
+            )
+            _chiv_wound_reroll = _chiv_hit_reroll
 
             # Fire and Fade (Aeldari Warhost stratagem) — transient
             # re-roll hit rolls of 1 on shooting attacks for the round.
@@ -3016,6 +3027,12 @@ class Unit:
                     elif att_reroll_hit_ones and roll == 1:
                         roll = random.randint(1, 6)
                         unmodified_roll = roll
+                    elif _chiv_hit_reroll and roll < hit_target:
+                        # Code Chivalric: spend the single per-activation Hit
+                        # re-roll on the first failed die of this activation.
+                        roll = random.randint(1, 6)
+                        unmodified_roll = roll
+                        _chiv_hit_reroll = False
                     # Fire and Fade (Warhost) — transient re-roll natural 1s
                     # to hit on shooting attacks. Compose with reroll_hit_ones
                     # above but never re-roll the same die twice — both flags
@@ -3185,6 +3202,13 @@ class Unit:
                             wroll = random.randint(1, 6)
                             unmodified_wroll = wroll
                             rerolled = True
+                        elif _chiv_wound_reroll and wroll < _shot_wound_target:
+                            # Code Chivalric: spend the single per-activation
+                            # Wound re-roll on the first failed die.
+                            wroll = random.randint(1, 6)
+                            unmodified_wroll = wroll
+                            rerolled = True
+                            _chiv_wound_reroll = False
                         wound_succeeded = (wroll >= _shot_wound_target)
                         if not wound_succeeded and p.twin_linked and not rerolled:
                             wroll = random.randint(1, 6)
