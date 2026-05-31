@@ -68,6 +68,7 @@ class CatalogEntry:
     twin_linked: bool = False
     devastating_wounds: bool = False
     invuln_save: int = 7
+    invuln_ranged_only: bool = False
     rapid_fire: int = 0
     melta: int = 0
     ignores_cover: bool = False
@@ -242,6 +243,7 @@ class CatalogEntry:
             twin_linked=bool(d.get("twin_linked", False)),
             devastating_wounds=bool(d.get("devastating_wounds", False)),
             invuln_save=int(d.get("invuln_save", 7)),
+            invuln_ranged_only=bool(d.get("invuln_ranged_only", False)),
             rapid_fire=int(d.get("rapid_fire", 0)),
             melta=int(d.get("melta", 0)),
             ignores_cover=bool(d.get("ignores_cover", False)),
@@ -458,6 +460,7 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "twin_linked": override.get("twin_linked", base.twin_linked),
         "devastating_wounds": override.get("devastating_wounds", base.devastating_wounds),
         "invuln_save": override.get("invuln_save", base.invuln_save),
+        "invuln_ranged_only": override.get("invuln_ranged_only", base.invuln_ranged_only),
         "rapid_fire": override.get("rapid_fire", base.rapid_fire),
         "melta": override.get("melta", base.melta),
         "ignores_cover": override.get("ignores_cover", base.ignores_cover),

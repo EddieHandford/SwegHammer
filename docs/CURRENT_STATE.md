@@ -1,14 +1,35 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 71 close (2026-05-31), Code Chivalric fidelity fix +
-Imperial Knights over-rate root-cause diagnosis.
+**Last updated:** Wave 72 close (2026-05-31), Ion Shield ranged-only fix; the
+headline is now confirmed AI/structure-gated.
 
-**Status:** Headline gated MAE **5.97** (raw 9.38), **6/22 in band** — gated
-magnitude flat vs wave 70 (5.98) but the best in-band count of the campaign
-(Death Guard and Chaos Knights newly into band). Wave 71 fixed the one genuine
-fidelity defect behind the Imperial Knights over-rate and, more importantly,
-**proved the rest of that over-rate is a compensating error, not a rule defect**
-— closing out the "audit the wave-69 IK buffs" lever.
+**Status:** Headline gated MAE **5.89** (raw 9.28), **6/22 in band**. Wave 72
+landed a faithful Imperial Knight durability fix (Ion Shield is "5+ invulnerable
+**against ranged attacks only**" per BSData — big Knights have no melee invuln; the
+sim applied it flat). Imperial Knights +29.0 → +27.9; melee under-shooters edge up.
+Modest but the one metric-positive faithful lever found this wave.
+
+**The headline is now firmly AI/structure-gated — TWO findings nail this down.**
+(1) The under-shooters lose on VICTORY POINTS WHILE STILL ALIVE (Chaos Daemons lose
+6-9/10 with survivors on the board, 0-1 tabled) — so per-faction COMBAT buffs do not
+address their loss; it is the same objective/durability complex as the Knights
+over-rate, from the under side. (2) Improving the target AI REGRESSES the headline:
+a faithful value-based shooting-target picker (anti-armour concentrates on durable
+threats, real weapon-target matching) was A/B'd and made it WORSE (5.97 → 6.11, IK
++29 → +32.9) because better targeting sharpens the killy over-shooters' own offence
+more than it helps their victims remove un-killable Knights. This is the SECOND AI
+lever to regress this session (objgreedy was the first, wave 71), both confirming
+`project-ai-frozen-under-mae-first`: AI improvements expose over-tuned over-shooter
+stats/lists. **A target-AI redesign will not reduce the headline until the
+over-shooters are re-fitted.**
+
+### Earlier — wave 71 (Code Chivalric fidelity fix, gated 5.98 → 5.97)
+
+Wave 71 fixed the one genuine fidelity defect behind the Imperial Knights over-rate
+(Code Chivalric was re-rolling all natural 1s; the real rule is one re-roll per
+activation) and **proved the rest of that over-rate is a compensating error, not a
+rule defect** — Bold Gallantry, Bondsman, all Knight stats and the maps verified
+faithful end to end.
 
 **Code Chivalric** (Imperial Knights army rule) was re-rolling EVERY natural 1
 army-wide; the real rule is "re-roll ONE Hit and ONE Wound roll" per activation.
@@ -149,7 +170,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 68 close (core-rules batch, fidelity) | 12.05 | 8.74 | 5/22 |
 | Wave 69 close (under-performer faction buffs) | 11.57 | 8.29 | 5/22 |
 | Wave 70 close (objective-aware AI #12) | 9.47 | 5.98 | 4/22 |
-| **Wave 71 close (Code Chivalric fidelity fix)** | **9.38** | **5.97** | **6/22** |
+| Wave 71 close (Code Chivalric fidelity fix) | 9.38 | 5.97 | 6/22 |
+| **Wave 72 close (Ion Shield ranged-only)** | **9.28** | **5.89** | **6/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
@@ -173,35 +195,41 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 72
+## Next ranked levers for wave 73
 
-Current biggest gated errors (wave 71 eval `data/wf_wave71_chivalric_n40.json`):
-Imperial Knights +29.0 (26.0), Chaos Daemons −20.0 (16.8), Drukhari +16.9
+Current biggest gated errors (wave 72 eval `data/wf_wave72_ionshield_n40.json`):
+Imperial Knights +27.9 (25.0), Chaos Daemons −19.7 (16.6), Drukhari +16.9
 (13.5), World Eaters +16.5 (13.0), Astra Militarum −15.5 (12.3).
 
-1. **THREAT-PRIORITY TARGET AI (the systemic lever that owns IK + the whole
-   over/under split).** The shooting-target picker is min-HP "finish the weakest"
-   (`code/simulator.py:6835`, `min(pool, key=current_health/bonuses)`). It never
-   concentrates fire on a high-HP threat, so durable Knights/monsters are never
-   removed and sit on objectives all game, while the picker mops the chaff. Real
-   players focus anti-tank on the big threat. A value/threat target-priority bonus
-   (points or damage-output × durability, especially for objective-holders) would
-   pull down EVERY elite over-shooter (IK +29, WE +16.5, Custodes +10, Marines
-   +8.6, TSON, Drukhari) and let the board-control under-shooters recover
-   objectives — the single highest-leverage faithful fix left. **High-risk,
-   army-wide; design it carefully (Plan agent), prototype env-gated, A/B at N=40.**
-   This is the real form of task #12's successor and supersedes "re-fit task #22":
-   the lists/stats/rules are faithful (wave 71 verified IK end-to-end), so the
-   headline is gated by AI, not by list composition.
-2. **Chaos Daemons −20.0** — the largest under-shooter. Per-god rules + the missing
-   Be'lakor datasheet (add via overrides). Concrete, additive, faithful.
-3. **Astra Militarum −15.5** — Orders not modelled; cheap troops also over-sent on
-   sacrificial chaff runs (14/31 in a sample) instead of holding objectives
-   (the chaff over-fire is real but disabling it was a win-rate wash vs Knights —
-   the bottleneck is lever #1, not chaff).
-4. **AdMech −8.7 / Tyranids −7.2 / GSC −7.5 / Necrons −9.5** — board-control
-   under-shooters that all recover once lever #1 lets them contest the durable
-   over-shooters. Re-measure each after lever #1 before per-faction patches.
+**Read this first:** two AI levers have now regressed the headline this session
+(objgreedy wave 71, value-targeting wave 72) — AI improvements expose the over-tuned
+over-shooter stats/lists, so a target-AI redesign will NOT lower the headline until
+the over-shooters are re-fitted (`project-ai-frozen-under-mae-first`). The
+under-shooters lose on victory points WHILE ALIVE, so per-faction combat buffs are
+mis-targeted. The remaining FAITHFUL, metric-positive levers are stat/rule fidelity
+corrections that nerf over-shooters or buff under-shooters WITHOUT touching AI — the
+Ion Shield fix (wave 72) is the template.
+
+1. **More durability/rule fidelity audits in the Ion-Shield vein.** Hunt over-shooters
+   for sim-over-modelled defence or offence vs BSData: do their invulns/FNP/saves
+   apply too broadly (melee vs ranged, ability gating)? Are their weapons/abilities
+   over-scoped? Each verified correction nerfs an over-shooter without the AI trap.
+   Candidates: Drukhari (+16.9, fragility-tax under-modelled — they should die to
+   focused fire), World Eaters (+16.5), Custodes (+10.3), Thousand Sons (+12.8,
+   unconstrained Cabal rituals per `project-faction-residual-rootcause`).
+2. **Structural representation (owns the real headline, big/risky).** Per-model
+   activation under-taxes low-model durable armies (they aren't punished for low body
+   count) and over-rates hordes; kill-vs-VP scoring balance. These are the genuine
+   root causes (`project-faction-residual-rootcause`) — a dedicated structural wave,
+   not a quick lever.
+3. **Then (and only then) the target-AI redesign + re-fit together.** A value-based
+   shooting picker is built and works mechanically (see wave-72 log) but regresses
+   solo. It becomes net-positive only paired with an over-shooter re-fit. Sequence:
+   re-fit first (or structural fix), THEN re-enable better AI.
+4. **STALL WATCH.** Wave 71 (+0.01 gated) and wave 72 (+0.08) moved the headline very
+   little via the available faithful levers. If wave 73 also finds no faithful lever
+   that meaningfully reduces gated MAE, that is the mission's 2-3-wave stall — REPORT
+   the residual factions + structural causes rather than reaching for a fudge.
 
 ## Structural track (owns the remaining headline)
 

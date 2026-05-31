@@ -1692,7 +1692,8 @@
       "secondary_anti_keywords": {
         "VEHICLE": 2
       },
-      "notes": "AK-2: Armiger Moirax already shows primary anti_keywords={'VEHICLE':2} from its Lightning Lock / Volkite combo. Mirror the secondary tag so the unit's swappable Graviton-Pulsar / Siege Claw loadout (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton pulsar' Keywords='Anti-Vehicle 2+, Blast') keeps anti-VEHICLE coverage when the simulator selects the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Moirax"
+      "notes": "AK-2: Armiger Moirax already shows primary anti_keywords={'VEHICLE':2} from its Lightning Lock / Volkite combo. Mirror the secondary tag so the unit's swappable Graviton-Pulsar / Siege Claw loadout (BSData 'Imperium - Imperial Knights - Library.cat.gz' profile name='Graviton pulsar' Keywords='Anti-Vehicle 2+, Blast') keeps anti-VEHICLE coverage when the simulator selects the secondary basket. Source: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Moirax",
+      "invuln_ranged_only": true
     },
     "chaos_space_marines_heldrake": {
       "devastating_wounds": true,
@@ -1849,7 +1850,8 @@
         }
       ],
       "notes": "AK-1 + KNIGHT-STAT-AUDIT + KNIGHTS-MAPPER: Shieldbreaker missile launcher carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+] per BSData v10.6.0 (Range=72\"). KNIGHT-STAT-AUDIT dropped the 'Plasma decimator - standard' duplicate (supercharge in secondary_weapon) and added the missing Twin siegebreaker cannon. KNIGHTS-MAPPER: Castellan datasheet 'equipped with' explicitly lists '2 shieldbreaker missile launchers; 2 twin meltaguns; twin siegebreaker cannon' so the chassis fires TWO of each missile launcher and meltagun every shooting phase. Adding the second copy of each as separate extra_ranged_profiles so MAP-MULTIFIRE doubles their contribution per the datasheet. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan (verbatim: 'This model is equipped with: plasma decimator; 2 shieldbreaker missile launchers; 2 twin meltaguns; twin siegebreaker cannon; volcano lance; titanic feet.').",
-      "deadly_demise": 5
+      "deadly_demise": 5,
+      "invuln_ranged_only": true
     },
     "imperial_knights_library_knight_valiant": {
       "extra_ranged_profiles": [
@@ -1969,7 +1971,8 @@
         }
       ],
       "notes": "KNIGHTS-MAPPER: Knight Valiant datasheet 'equipped with' explicitly lists '2 shieldbreaker missile launchers; 2 twin meltaguns; twin siegebreaker cannon' on top of the Thundercoil harpoon (primary) and Conflagration cannon (secondary) already wired. BSData mapper only picked the Thundercoil + Conflagration into primary/secondary slots and dropped all five utility guns. KNIGHTS-MAPPER replaces extra_ranged_profiles with the full 5-weapon kit (2x Shieldbreaker, 2x Twin meltagun, 1x Twin siegebreaker) â Shieldbreaker carries [DEVASTATING WOUNDS, ANTI-TITANIC 4+], Twin meltagun is [MELTA 2, TWIN-LINKED], Twin siegebreaker is [BLAST, TWIN-LINKED]. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Valiant (verbatim: 'conflagration cannon; 2 shieldbreaker missile launchers; thundercoil harpoon; 2 twin meltaguns; twin siegebreaker cannon; titanic feet').",
-      "deadly_demise": 5
+      "deadly_demise": 5,
+      "invuln_ranged_only": true
     },
     "imperial_knights_library_knight_crusader": {
       "extra_ranged_profiles": [
@@ -2040,7 +2043,8 @@
           "pistol": false
         }
       ],
-      "notes": "KNIGHTS-MAPPER + KNIGHTS-MULTIPROFILE-1: Knight Crusader datasheet 'equipped with' explicitly lists 'avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'. BSData mapper picked Avenger gatling into primary and Thermal cannon into secondary but dropped the Heavy flamer and Meltagun (close-range utility) and instead populated extra_ranged_profiles with three wargear options (Rapid-fire battle cannon, Stormspear rocket pod, Icarus autocannons) that are NOT in the base 'equipped with' kit. KNIGHTS-MAPPER replaced extras with the two missing default-loadout guns; KNIGHTS-MULTIPROFILE-1 adds back ONE carapace mount (Stormspear rocket pod) per the Crusader's wargear options â every tournament-built Crusader takes one of {ironstorm, stormspear, twin Icarus}, and Stormspear is the most common pick. Heavy flamer is [IGNORES COVER, TORRENT] D6 hits S5 AP-1 D1; Meltagun is [MELTA 2] 1 shot S9 AP-4 D6; Stormspear rocket pod is 48-inch A=3 S=8 AP-2 D=D6 (no keywords). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Crusader (verbatim 'this model is equipped with: avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'; wargear option: 'The model can be equipped with one of the following: 1 ironstorm missile pod; 1 stormspear rocket pod; 1 twin Icarus autocannon')."
+      "notes": "KNIGHTS-MAPPER + KNIGHTS-MULTIPROFILE-1: Knight Crusader datasheet 'equipped with' explicitly lists 'avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'. BSData mapper picked Avenger gatling into primary and Thermal cannon into secondary but dropped the Heavy flamer and Meltagun (close-range utility) and instead populated extra_ranged_profiles with three wargear options (Rapid-fire battle cannon, Stormspear rocket pod, Icarus autocannons) that are NOT in the base 'equipped with' kit. KNIGHTS-MAPPER replaced extras with the two missing default-loadout guns; KNIGHTS-MULTIPROFILE-1 adds back ONE carapace mount (Stormspear rocket pod) per the Crusader's wargear options â every tournament-built Crusader takes one of {ironstorm, stormspear, twin Icarus}, and Stormspear is the most common pick. Heavy flamer is [IGNORES COVER, TORRENT] D6 hits S5 AP-1 D1; Meltagun is [MELTA 2] 1 shot S9 AP-4 D6; Stormspear rocket pod is 48-inch A=3 S=8 AP-2 D=D6 (no keywords). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Crusader (verbatim 'this model is equipped with: avenger gatling cannon; heavy flamer; meltagun; thermal cannon; titanic feet'; wargear option: 'The model can be equipped with one of the following: 1 ironstorm missile pod; 1 stormspear rocket pod; 1 twin Icarus autocannon').",
+      "invuln_ranged_only": true
     },
     "imperial_knights_library_knight_paladin": {
       "extra_ranged_profiles": [
@@ -2089,7 +2093,8 @@
           "pistol": false
         }
       ],
-      "notes": "KNIGHTS-MAPPER: Knight Paladin datasheet 'equipped with' is 'meltagun; Questoris heavy stubber; rapid-fire battle cannon; reaper chainsword'. BSData mapper put Rapid-fire battle cannon as primary and Stormspear rocket pod (wargear option, NOT in the default kit) as secondary, with extras [Icarus, Meltagun, Ironstorm]. KNIGHTS-MAPPER replaces extras with the two default-kit guns the mapper omitted: Questoris heavy stubber (S4 AP-1 D1 RAPID FIRE 3, R=36') and Meltagun (S9 AP-4 D6 MELTA 2, R=12'). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Paladin (verbatim 'this model is equipped with: meltagun; Questoris heavy stubber; rapid-fire battle cannon; reaper chainsword')."
+      "notes": "KNIGHTS-MAPPER: Knight Paladin datasheet 'equipped with' is 'meltagun; Questoris heavy stubber; rapid-fire battle cannon; reaper chainsword'. BSData mapper put Rapid-fire battle cannon as primary and Stormspear rocket pod (wargear option, NOT in the default kit) as secondary, with extras [Icarus, Meltagun, Ironstorm]. KNIGHTS-MAPPER replaces extras with the two default-kit guns the mapper omitted: Questoris heavy stubber (S4 AP-1 D1 RAPID FIRE 3, R=36') and Meltagun (S9 AP-4 D6 MELTA 2, R=12'). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Paladin (verbatim 'this model is equipped with: meltagun; Questoris heavy stubber; rapid-fire battle cannon; reaper chainsword').",
+      "invuln_ranged_only": true
     },
     "imperial_knights_library_knight_gallant": {
       "extra_melee_profiles": [
@@ -2103,7 +2108,8 @@
           "devastating_wounds": true
         }
       ],
-      "notes": "KNIGHTS-MULTIPROFILE-3: Knight Gallant is the only Imperial Knight Questoris-class chassis that wields BOTH a Reaper chainsword AND a Thunderstrike gauntlet simultaneously (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/Knight-Gallant â 'This model is equipped with: meltagun; thunderstrike gauntlet; reaper chainsword'; the only wargear swaps allowed are the meltagun and one carapace-mounted heavy weapon). Paladin/Errant/Warden/Preceptor allow Reaper chainsword to be REPLACED by a Thunderstrike gauntlet (single melee weapon at a time, no extras needed for those chassis). BSData mapper picks Thunderstrike gauntlet strike (A=6 WS2+ S20 AP-3 D8 [DEVASTATING WOUNDS]) as the primary melee profile for the Gallant; Reaper chainsword strike profile (A=6 WS2+ S14 AP-4 D6 [DEVASTATING WOUNDS], BSData cache: Imperium - Imperial Knights - Library.cat.gz selectionEntry 'Reaper chainsword' WS2+ strike) is added here as an ADDITIVE extra_melee_profile so the Gallant's full Fight-phase output is represented. hit_probability 0.833 = 5/6 = WS 2+. Strike (not sweep) is the standard pick against the Towering / Monster / Vehicle targets the Gallant prefers to engage at this strength tier; the AI does not yet flex strike/sweep per target."
+      "notes": "KNIGHTS-MULTIPROFILE-3: Knight Gallant is the only Imperial Knight Questoris-class chassis that wields BOTH a Reaper chainsword AND a Thunderstrike gauntlet simultaneously (Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/Knight-Gallant â 'This model is equipped with: meltagun; thunderstrike gauntlet; reaper chainsword'; the only wargear swaps allowed are the meltagun and one carapace-mounted heavy weapon). Paladin/Errant/Warden/Preceptor allow Reaper chainsword to be REPLACED by a Thunderstrike gauntlet (single melee weapon at a time, no extras needed for those chassis). BSData mapper picks Thunderstrike gauntlet strike (A=6 WS2+ S20 AP-3 D8 [DEVASTATING WOUNDS]) as the primary melee profile for the Gallant; Reaper chainsword strike profile (A=6 WS2+ S14 AP-4 D6 [DEVASTATING WOUNDS], BSData cache: Imperium - Imperial Knights - Library.cat.gz selectionEntry 'Reaper chainsword' WS2+ strike) is added here as an ADDITIVE extra_melee_profile so the Gallant's full Fight-phase output is represented. hit_probability 0.833 = 5/6 = WS 2+. Strike (not sweep) is the standard pick against the Towering / Monster / Vehicle targets the Gallant prefers to engage at this strength tier; the AI does not yet flex strike/sweep per target.",
+      "invuln_ranged_only": true
     },
     "imperial_knights_library_knight_preceptor": {
       "extra_ranged_profiles": [
@@ -2130,7 +2136,8 @@
           "pistol": false
         }
       ],
-      "notes": "KNIGHTS-MAPPER: Knight Preceptor datasheet 'equipped with' is 'las-impulsor; Preceptor multi-laser; reaper chainsword'. BSData mapper picked Las-impulsor high-intensity as primary, Stormspear rocket pod (wargear option, NOT in default kit) as secondary, with extras [Las-impulsor low-intensity, Icarus, Meltagun]. The Preceptor multi-laser (called 'Questoris multi-laser' on the weapons table â same stat block) is the chassis's second default gun and was dropped entirely. KNIGHTS-MAPPER adds it: A=4 S=6 AP=0 D=1 R=36'. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Preceptor (verbatim 'this model is equipped with: las-impulsor; Preceptor multi-laser; reaper chainsword'; Questoris multi-laser stats from same datasheet weapons table)."
+      "notes": "KNIGHTS-MAPPER: Knight Preceptor datasheet 'equipped with' is 'las-impulsor; Preceptor multi-laser; reaper chainsword'. BSData mapper picked Las-impulsor high-intensity as primary, Stormspear rocket pod (wargear option, NOT in default kit) as secondary, with extras [Las-impulsor low-intensity, Icarus, Meltagun]. The Preceptor multi-laser (called 'Questoris multi-laser' on the weapons table â same stat block) is the chassis's second default gun and was dropped entirely. KNIGHTS-MAPPER adds it: A=4 S=6 AP=0 D=1 R=36'. Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Preceptor (verbatim 'this model is equipped with: las-impulsor; Preceptor multi-laser; reaper chainsword'; Questoris multi-laser stats from same datasheet weapons table).",
+      "invuln_ranged_only": true
     },
     "imperial_knights_library_armiger_helverin": {
       "extra_ranged_profiles": [
@@ -2179,7 +2186,8 @@
           "pistol": false
         }
       ],
-      "notes": "KNIGHTS-MAPPER: Armiger Helverin datasheet 'equipped with' is '2 Armiger autocannons; Questoris heavy stubber; armoured feet'. The chassis carries TWO Armiger autocannons (twin-shoulder pair) but BSData mapper only wired one into primary_weapon. Adding the second Armiger autocannon as an extra profile so MAP-MULTIFIRE fires both per turn. Existing primary='Armiger autocannon' (A=4 S=9 AP-1 D=3 R=48'). The Questoris heavy stubber is already in extras via the mapper but re-asserting it here so the override is the single source of truth; secondary_weapon='Meltagun' is left in place (it is an optional wargear swap for the stubber, NOT a default kit item â keeping it surfaced gives the simulator a melta option, which the Helverin can field). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Helverin (verbatim 'this model is equipped with: 2 Armiger autocannons; Questoris heavy stubber; armoured feet')."
+      "notes": "KNIGHTS-MAPPER: Armiger Helverin datasheet 'equipped with' is '2 Armiger autocannons; Questoris heavy stubber; armoured feet'. The chassis carries TWO Armiger autocannons (twin-shoulder pair) but BSData mapper only wired one into primary_weapon. Adding the second Armiger autocannon as an extra profile so MAP-MULTIFIRE fires both per turn. Existing primary='Armiger autocannon' (A=4 S=9 AP-1 D=3 R=48'). The Questoris heavy stubber is already in extras via the mapper but re-asserting it here so the override is the single source of truth; secondary_weapon='Meltagun' is left in place (it is an optional wargear swap for the stubber, NOT a default kit item â keeping it surfaced gives the simulator a melta option, which the Helverin can field). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Armiger-Helverin (verbatim 'this model is equipped with: 2 Armiger autocannons; Questoris heavy stubber; armoured feet').",
+      "invuln_ranged_only": true
     },
     "aeldari_drukhari_lelith_hesperax": {
       "attacks": 0,
@@ -3062,6 +3070,22 @@
     "chaos_knights_library_chaos_cerastus_knight_atrapos": {
       "deadly_demise": 5,
       "notes": "KNIGHTS-DEMISE-D6PLUS2: BSData infoLink modifier value \"D6+2\" was not handled by _parse_demise_value; it fell through to the integer regex (returning 0) then to the no-modifier fallback (returning 1). Correct value is E[D6]+2 = 3.5+2 = 5.5 rounded down to 5, matching the rounding convention used for D6->3, D6+3->6. Source: BSData Imperium - Imperial Knights - Library.cat.gz / Chaos - Chaos Knights Library.cat.gz (infoLink modifier field=\"name\" type=\"append\" value=\"D6+2\"). Wahapedia: https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Knight-Castellan (Knights Castellan), https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Knight-Tyrant (Knight Tyrant). Parser fixed in code/bsdata/mapper.py _parse_demise_value; override provides correct value immediately without requiring full parsed.json regen."
+    },
+    "imperial_knights_library_armiger_warglaive": {
+      "invuln_ranged_only": true,
+      "notes": "WAVE 72 fidelity fix: Imperial Knight Ion Shield is a 5+ invulnerable save AGAINST RANGED ATTACKS ONLY (BSData v10.6.0 'Imperium - Imperial Knights - Library.cat.gz': \"This model has a 5+ invulnerable save against ranged attacks only.\"). Big Imperial Knights have NO invulnerable save in melee - only their 3+ armour. invuln_ranged_only=True suppresses the datasheet invuln for melee attacks (code/units.py save resolution). Chaos Knights' Ion Shield is ranged AND melee, so this flag is Imperial-only. Cited as simulator.ion_shield_ranged_only."
+    },
+    "imperial_knights_library_canis_rex": {
+      "invuln_ranged_only": true,
+      "notes": "WAVE 72 fidelity fix: Imperial Knight Ion Shield is a 5+ invulnerable save AGAINST RANGED ATTACKS ONLY (BSData v10.6.0 'Imperium - Imperial Knights - Library.cat.gz': \"This model has a 5+ invulnerable save against ranged attacks only.\"). Big Imperial Knights have NO invulnerable save in melee - only their 3+ armour. invuln_ranged_only=True suppresses the datasheet invuln for melee attacks (code/units.py save resolution). Chaos Knights' Ion Shield is ranged AND melee, so this flag is Imperial-only. Cited as simulator.ion_shield_ranged_only."
+    },
+    "imperial_knights_library_knight_errant": {
+      "invuln_ranged_only": true,
+      "notes": "WAVE 72 fidelity fix: Imperial Knight Ion Shield is a 5+ invulnerable save AGAINST RANGED ATTACKS ONLY (BSData v10.6.0 'Imperium - Imperial Knights - Library.cat.gz': \"This model has a 5+ invulnerable save against ranged attacks only.\"). Big Imperial Knights have NO invulnerable save in melee - only their 3+ armour. invuln_ranged_only=True suppresses the datasheet invuln for melee attacks (code/units.py save resolution). Chaos Knights' Ion Shield is ranged AND melee, so this flag is Imperial-only. Cited as simulator.ion_shield_ranged_only."
+    },
+    "imperial_knights_library_knight_warden": {
+      "invuln_ranged_only": true,
+      "notes": "WAVE 72 fidelity fix: Imperial Knight Ion Shield is a 5+ invulnerable save AGAINST RANGED ATTACKS ONLY (BSData v10.6.0 'Imperium - Imperial Knights - Library.cat.gz': \"This model has a 5+ invulnerable save against ranged attacks only.\"). Big Imperial Knights have NO invulnerable save in melee - only their 3+ armour. invuln_ranged_only=True suppresses the datasheet invuln for melee attacks (code/units.py save resolution). Chaos Knights' Ion Shield is ranged AND melee, so this flag is Imperial-only. Cited as simulator.ion_shield_ranged_only."
     }
   }
 }

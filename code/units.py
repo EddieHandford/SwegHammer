@@ -350,6 +350,7 @@ class UnitProfile:
     twin_linked: bool = False                  # re-roll failed wound rolls
     devastating_wounds: bool = False           # critical wound (6 to wound) bypasses saves
     invuln_save: int = 7                       # invulnerable save (7 = none); use better of save-after-AP or invuln
+    invuln_ranged_only: bool = False           # 10e Imperial Knight Ion Shield: invuln applies vs ranged attacks only (no invuln in melee)
     leadership: int = 7                        # Ld target for Battleshock tests (10e: 2D6 >= Ld passes)
     oc: int = 1                                # Objective Control characteristic (10e)
     # Phase A2 + A3 weapon keywords (carried from the unit's chosen ranged weapon)
@@ -2417,6 +2418,14 @@ class Unit:
                 # remains as a hard armour-save floor independent of the cap.
                 save_after_ap = max(2, save_after_ap - 1)
             invuln = target.profile.invuln_save
+            # Imperial Knight Ion Shield (10e): "This model has a 5+ invulnerable
+            # save against ranged attacks only." Big Imperial Knights have NO
+            # invulnerable save in melee — only their 3+ armour. Suppress the
+            # datasheet invuln for melee attacks when invuln_ranged_only is set.
+            # (Chaos Knights' Ion Shield is ranged AND melee, so their flag stays
+            # False.) Cited as `simulator.ion_shield_ranged_only`.
+            if mode == "melee" and target.profile.invuln_ranged_only:
+                invuln = 7
             # ---- Target's buffs: army-wide invuln. Only overrides if better
             # (lower number) than what the target already has. 7 = unset.
             tgt_invuln_buff = int(tgt_buffs["extra_invuln"])
@@ -3513,6 +3522,7 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             twin_linked=entry.twin_linked,
             devastating_wounds=entry.devastating_wounds,
             invuln_save=entry.invuln_save,
+            invuln_ranged_only=entry.invuln_ranged_only,
             rapid_fire=entry.rapid_fire,
             melta=entry.melta,
             ignores_cover=entry.ignores_cover,

@@ -1,4 +1,12 @@
 {
+  "simulator.ion_shield_ranged_only": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/",
+    "rule_name": "Ion Shield",
+    "quoted_text": "This model has a 5+ invulnerable save against ranged attacks only.",
+    "trigger": "A melee attack is resolved against an Imperial Knights model whose profile has invuln_ranged_only=True (set via data/overrides.json on the standard-codex Questoris/Dominus Knights and Armigers, which carry the shared BSData 5+* Ion Shield profile 'Imperium - Imperial Knights - Library.cat.gz' targetId 8552-862d-6a49-4879).",
+    "effect": "The datasheet invulnerable save is suppressed (set to none) for melee attacks, so a big Imperial Knight defends melee with only its 3+ armour save. Against ranged attacks the 5+ invulnerable still applies. Implemented in code/units.py save resolution (mode == 'melee' and target.profile.invuln_ranged_only). Chaos Knights' Ion Shield is ranged AND melee per the Chaos Knights codex, so invuln_ranged_only is left False for them; Forge World Acastus / Questoris Magaera-Styrix variants are not flagged (their Ion Aegis shields are unverified and none are fielded in the archetype lists).",
+    "scope": "keyword-gated"
+  },
   "simulator.code_chivalric": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/",
     "rule_name": "Code Chivalric (Oath of Honour — martial-valour Quality)",

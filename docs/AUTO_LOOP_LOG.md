@@ -4,6 +4,62 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 72 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. Pursued the #1 ranked lever (the systemic
+threat-priority target AI) but it FAILED the A/B and a faithful stat-fidelity fix
+was landed in its place. Two hard findings drove the wave.
+
+FINDING 1 — the under-shooters lose on VICTORY POINTS WHILE STILL ALIVE, not by
+being tabled. Chaos Daemons (the −20 #2 residual) lose 6-9 of every 10 with
+survivors on the board (0-1 tabled). So per-faction COMBAT buffs (per-god rules,
+Astra Orders) do not address the actual loss — it is the same objective/durability
+complex as the Imperial Knights over-rate, from the under side. Per-faction combat
+levers for the under-shooters are mostly mis-targeted.
+
+FINDING 2 — improving the target AI REGRESSES the headline (second confirmation
+this session of `project-ai-frozen-under-mae-first`). A value-based shooting-target
+picker (kill-efficiency × target-value, mirroring `_melee_target_score`, so
+anti-armour concentrates on durable threats instead of mopping the lowest-health
+chaff — faithful real-10e weapon-target matching) was prototyped and A/B'd at N=40:
+it made things WORSE (gated 5.97 → 6.11, Imperial Knights +29 → +32.9). Reason:
+better targeting helps the killy over-shooters' OWN offence more than it helps their
+victims, and Knights stay un-killable so concentrated anti-tank is still wasted while
+the over-shooters' guns get sharper. Reverted. (The min-HP picker genuinely cannot
+express threat-priority via a bonus — a full-Wounds W26 Knight scores ~26 vs ~2 for
+chaff, so any bonus large enough to redirect fire distorts everything; a real fix
+needs a value-based objective, which regresses while stats stay over-tuned.)
+
+LANDED — Ion Shield ranged-only (a faithful stat-fidelity fix, the one metric-positive
+lever found). BSData v10.6.0 verbatim: Imperial Knight Ion Shield is "a 5+ invulnerable
+save against ranged attacks only" — big Imperial Knights have NO invulnerable save in
+melee, only their 3+ armour. The sim applied invuln flat (melee + ranged). Added an
+`invuln_ranged_only` profile flag (plumbed loader → UnitProfile), set on the 12
+confirmed standard-codex Imperial Knights/Armigers via overrides.json (Forge World
+Acastus/Magaera/Styrix excluded — unverified Ion Aegis, none fielded; Chaos Knights
+left flat since their Ion Shield is ranged AND melee). Suppresses the datasheet invuln
+for melee attacks. Cited `simulator.ion_shield_ranged_only`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 71 close (Code Chivalric fidelity fix) | 9.38 | 5.97 | 6/22 |
+| **Wave 72 close (Ion Shield ranged-only)** | **9.28** | **5.89** | **6/22** |
+
+Imperial Knights +29.0 → +27.9 (gated 26.04 → 24.97); melee under-shooters edge up
+(Chaos Daemons −20.0 → −19.7, Chaos Space Marines −7.7 → −7.3, Necrons −9.5 → −9.2);
+no regressions. Modest (the melee invuln only matters in the minority of matchups
+where an opponent reaches combat with a Knight) but faithful and net-positive. 926
+tests pass; citation audit 289/289. Eval `data/wf_wave72_ionshield_n40.json`.
+
+NEXT-LEVER NOTE: the headline is now firmly AI/structure-gated. Two AI levers have
+regressed this session (objgreedy wave 71, value-targeting wave 72), both confirming
+that AI improvements expose the over-tuned over-shooter stats/lists. The remaining
+faithful levers are (a) more stat-fidelity audits like Ion Shield (durability/rule
+corrections that nerf over-shooters or buff under-shooters without touching AI), and
+(b) the re-calibration the goal doc restricts. A pure target-AI redesign will not
+reduce the headline until the over-shooters are re-fitted. Approaching the mission's
+"2-3 wave stall → report the structural finding" condition.
+
 ## Wave 71 close (2026-05-31)
 
 Branch `claude/sim-calibration-6`. A targeted Imperial Knights over-rate
@@ -89,38 +145,4 @@ Thousand Sons +20.4->+13.1). Collateral → re-fit (task #22) now mandatory: Imp
 Knights OVERSHOT to +27.8 (gun-heavy archetype + wave-69 Bondsman/Valourstrike buffs
 STACK on the AI objective-hold); Astra -15.0, Chaos Daemons -19.5, AdMech -8.3,
 Tyranids -7.5 swung under. Eval `data/wf_obj_ai_n40.json`.
-
-## Wave 69 close (2026-05-31)
-
-Branch `claude/sim-calibration-6`. The win-win under-performer track: a 6-agent
-faction-rules deep-dive (5 under-performers + an over-performer over-buff audit),
-then implement each under-performer's missing rules — all verify-first against
-Wahapedia/BSData (the over-performer audit's "phantom Aeldari Aspect-Warrior invuln"
-claim was DEBUNKED on verification: Dark Reapers genuinely have a 5++). Five worktree
-agents implemented, cherry-picked clean.
-
-LANDED (gated 8.74 → 8.29):
-- **Imperial Knights −21.8 → −16.0** (+5.8): real Valourstrike Lance detachment
-  (Bold Gallantry advance→assault) + Bondsman abilities (Questoris buff Armigers each
-  Command phase). Remapped off the empty Imperial-Knights `noble_lance`.
-- **Chaos Daemons −19.0 → −14.6** (+4.4): per-god datasheet buffs — Tzeentch 4++
-  correction (only the genuine ones, 5++ units left alone), Murderer's Cowl
-  (advance+charge), Penumbral Puppetry (-1 to hit), Gloam Rot (-1 wound vs S>T).
-- **TOWERING line-of-sight** (cross-faction): Obscuring/Ruins don't block LoS for
-  TOWERING models — helps Knights/Wraithknight guns.
-- **Chaos Knights** real Iconoclast Fiefdom detachment (Dread Tyrants aura) + **GSC**
-  Patriarch/Primus leaders + Aberrant FNP.
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 68 close (core-rules batch) | 12.05 | 8.74 | 5/22 |
-| **Wave 69 close (faction buffs)** | **11.57** | **8.29** | **5/22** |
-
-CAUGHT + REVERTED: **CSM Dark Pacts per-unit** auto-gamble crashed CSM 45.8→24.8%
-(self-inflicted D3 mortal wounds on every squad every round outweigh the buff; real
-players are selective — task #36). **Chaos Knights** barely moved from the detachment
-alone (+0.5) — its −38 is AI-positional (the reverted durable-objective diagnostic
-moved CK −38→−8.8), so CK needs the objective AI (#12). GSC's small −2.1 is
-redistribution from the IK/Daemons buffs (verified-correct, not a bug). 926 tests
-green; audit 288/288. Eval `data/wf_wave69b_n40.json`.
 
