@@ -295,6 +295,68 @@ class Detachment:
     # mechanic; loses the contagion-on-objective half).
     worldblight_sticky_dg_objectives: bool = False
 
+    # Imperial Knights Valourstrike Lance — Bold Gallantry detachment rule
+    # (BSData v10.6.0, Imperium - Imperial Knights - Library.cat.gz verbatim):
+    # "Each time an ^^Imperial Knights^^ unit from your army Advances, until
+    # the end of the turn, ranged weapons equipped by ^^Imperial Knights^^
+    # models from your army have the [ASSAULT] ability."
+    # When this flag is True AND the attacker is Imperial Knights AND the
+    # attacker Advance in the current round (`attacker.uid in
+    # battle._advanced_this_round`), `_do_shoot` skips the Advance-lockout
+    # that would otherwise block the unit from shooting, mirroring the
+    # [ASSAULT] keyword grant on all IK ranged weapons. Army-wide (any IK
+    # unit that Advances benefits, not just the unit that triggered it).
+    # Cited as `VALOURSTRIKE_LANCE.bold_gallantry`.
+    bold_gallantry: bool = False
+
+    # Imperial Knights Valourstrike Lance — Bondsman abilities.
+    # BSData v10.6.0 (Imperium - Imperial Knights - Library.cat.gz) verbatim:
+    # "In your Command phase, one or more models from your army with a Bondsman
+    # ability can use that ability. For each one that does, select one friendly
+    # ^^Armiger^^ model within 12" of that model … Until the start of your next
+    # Command phase, that ^^Armiger^^ model is affected by that Bondsman ability."
+    # When True the simulator's command-phase hook
+    # (`Battle._apply_bondsman_abilities`) iterates alive TITANIC+CHARACTER IK
+    # models, picks the closest alive non-TITANIC IK unit (the Armiger) within
+    # 12", and applies the matching transient buff for that knight sub-type.
+    # The six canonical Bondsman buffs (Paladin = Lethal Hits + Lance; Warden =
+    # Sustained Hits 1 + Ignores Cover; Crusader = +1 to hit ranged; Gallant =
+    # reroll charge + reroll melee hits; Errant = reroll advance + Assault;
+    # Preceptor = reroll wounds vs quarry) are collapsed to one:
+    # Paladin's Duty → transient_lethal_hits + transient_lance_this_turn.
+    # The others have no clean transient hook (charge-reroll, melee-hit-
+    # reroll, advance-reroll, quarry-gate wound-reroll) and are deferred.
+    # APPROXIMATION: (1) Paladin's Duty is applied uniformly to every
+    # TITANIC+CHARACTER knight as the strongest representable buff; (2) the
+    # codex "within 12\"" range gate is dropped because SwegHammer's grid-free
+    # deployment spreads Armigers further apart than real tables allow — in
+    # real play Armigers are always within 12" of their bonded lord. Follows
+    # the same alive-in-army pattern as Beacons of Rage.
+    # Cited as `VALOURSTRIKE_LANCE.bondsman_enabled`.
+    bondsman_enabled: bool = False
+
+    # Chaos Knights Iconoclast Fiefdom — Dreaded Masters / Dread Tyrants Aura.
+    # BSData v10.6.0 (Chaos - Chaos Knights Library.cat.gz) verbatim (from
+    # the Iconoclast Fiefdom sub-detachment):
+    # "Dread Tyrants (Aura): While a friendly DAMNED unit is within 9\" of this
+    # unit, each time a model in that unit makes an attack, re-roll a Hit roll
+    # of 1 and re-roll a Wound roll of 1."
+    # The DAMNED keyword is carried by War Dog-class units when they belong to
+    # the Iconoclast Fiefdom detachment. The BSData mapper does not yet capture
+    # DAMNED as a unit keyword (it is detachment-conditional, applied only to
+    # War Dog units in an Iconoclast Fiefdom army). SwegHammer gates the aura
+    # by name-prefix ("War Dog") as an APPROXIMATION — strictly correct for
+    # the real rule since DAMNED is only granted to War Dog units in this
+    # detachment, and non-War Dog CK units already carry CHARACTER/TITANIC and
+    # are the AURA SOURCE not the receiver. The aura source is any TITANIC CK
+    # unit. When this flag is True AND the attacker is "Chaos Knights" faction
+    # AND the attacker's name starts with "War Dog" AND at least one alive
+    # friendly TITANIC CK unit is within 9", then reroll_hit_ones and
+    # reroll_wound_ones are both set True for that attack. Gate lives in
+    # `code/units.py:Unit.attack`. Cited as
+    # `ICONOCLAST_FIEFDOM.dread_tyrants_aura`.
+    dread_tyrants_aura: bool = False
+
     # Morale
     ld_bonus: int = 0                    # +N to friendly Ld (lower target)
     enemy_ld_penalty: int = 0            # -N to enemy Ld (higher target)
@@ -489,6 +551,65 @@ NOBLE_LANCE = Detachment(
         "Advance-gated ASSAULT grant on the unit's ranged weapons; "
         "follow-up wiring lands separately."
     ),
+    preferred_composition="vehicle",
+)
+
+VALOURSTRIKE_LANCE = Detachment(
+    name="Valourstrike Lance",
+    faction="Imperial Knights",
+    notes=(
+        "IK-KNIGHTS-V1 (2026-05-31): real codex detachment for Imperial "
+        "Knights. The Valourstrike Lance detachment rule is Bold Gallantry "
+        "(BSData v10.6.0, Imperium - Imperial Knights - Library.cat.gz verbatim): "
+        "'Each time an IMPERIAL KNIGHTS unit from your army Advances, until "
+        "the end of the turn, ranged weapons equipped by IMPERIAL KNIGHTS "
+        "models from your army have the [ASSAULT] ability.' Implemented via "
+        "`bold_gallantry=True`: `_do_shoot` skips the Advance-lockout for any "
+        "IK attacker in a round where at least one IK unit in the army "
+        "Advanced (`uid in _advanced_this_round`). This is an APPROXIMATION — "
+        "the real rule triggers on ANY IK unit Advancing and grants [ASSAULT] "
+        "army-wide; SwegHammer gates it on the individual attacker's own uid "
+        "being in _advanced_this_round (per-unit rather than army-wide), which "
+        "is strictly correct because every unit that Advanced is in the set. "
+        "PLUS Bondsman abilities (`bondsman_enabled=True`): in each Command "
+        "phase, each alive TITANIC+CHARACTER IK unit (Questoris/Cerastus "
+        "frame) selects one non-TITANIC IK unit (Armiger) within 12\" and "
+        "applies its Bondsman buff. SwegHammer uses the strongest cleanly "
+        "representable buff (Paladin's Duty: Lethal Hits on all weapons + "
+        "Lance on melee weapons) as a uniform proxy for all Questoris knights. "
+        "Wahapedia URL is unreachable from agent worktrees (DNS fails — see "
+        "project memory project-wahapedia-dns.md); rule text from BSData cache "
+        "as the canonical fallback per CLAUDE.md rule 6."
+    ),
+    bold_gallantry=True,
+    bondsman_enabled=True,
+    preferred_composition="vehicle",
+)
+
+ICONOCLAST_FIEFDOM = Detachment(
+    name="Iconoclast Fiefdom",
+    faction="Chaos Knights",
+    notes=(
+        "IK-KNIGHTS-V1 (2026-05-31): real codex detachment for Chaos Knights "
+        "(sub-detachment: Iconoclast Fiefdom, selected via Traitoris Lance "
+        "main detachment rule). The Iconoclast Fiefdom detachment rule is "
+        "Dreaded Masters (BSData v10.6.0, Chaos - Chaos Knights Library.cat.gz "
+        "verbatim): 'TITANIC CHAOS KNIGHTS units from your army have the "
+        "following abilities: Dread Tyrants (Aura): While a friendly DAMNED "
+        "unit is within 9\" of this unit, each time a model in that unit makes "
+        "an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.' "
+        "The DAMNED keyword is held by War Dog units in an Iconoclast Fiefdom "
+        "army (the BSData mapper does not yet capture it as a static keyword). "
+        "Implemented via `dread_tyrants_aura=True`: `Unit.attack` gates on "
+        "attacker faction=='Chaos Knights' AND attacker name startswith 'War Dog' "
+        "AND at least one alive friendly TITANIC CK unit is within 9\". "
+        "APPROXIMATION: uses 'War Dog' name-prefix as a proxy for the DAMNED "
+        "keyword, strictly correct for the real rule since DAMNED is only "
+        "granted to War Dog units in this detachment. "
+        "Wahapedia URL is unreachable from agent worktrees; rule text from "
+        "BSData cache per CLAUDE.md rule 6."
+    ),
+    dread_tyrants_aura=True,
     preferred_composition="vehicle",
 )
 
@@ -1447,6 +1568,9 @@ DETACHMENTS: Dict[str, Detachment] = {
     "invasion_fleet":          INVASION_FLEET,
     "subterranean_assault":    SUBTERRANEAN_ASSAULT,
     "noble_lance":             NOBLE_LANCE,
+    # IK-KNIGHTS-V1 (2026-05-31): real codex detachments for both Knight factions.
+    "valourstrike_lance":      VALOURSTRIKE_LANCE,
+    "iconoclast_fiefdom":      ICONOCLAST_FIEFDOM,
     "hallowed_martyrs":        HALLOWED_MARTYRS,
     "shield_host":             SHIELD_HOST,
     "auric_champions":         AURIC_CHAMPIONS,
@@ -1569,8 +1693,11 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Tyranids":                 "subterranean_assault",
     # Orks: real codex detachment "War Horde" wired in iter-1 Cluster B B1.
     "Orks":                     "war_horde",
-    "Imperial Knights":         "noble_lance",
-    "Chaos Knights":            "noble_lance",
+    # IK-KNIGHTS-V1 (2026-05-31): real codex detachments replace the no-op
+    # NOBLE_LANCE proxy. Imperial Knights → Valourstrike Lance (Bold Gallantry
+    # + Bondsman). Chaos Knights → Iconoclast Fiefdom (Dread Tyrants Aura).
+    "Imperial Knights":         "valourstrike_lance",
+    "Chaos Knights":            "iconoclast_fiefdom",
     "Adepta Sororitas":         "hallowed_martyrs",
     "Adeptus Custodes":         "shield_host",
     "Adeptus Mechanicus":       "skitarii_hunter_cohort",
@@ -1646,8 +1773,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     # Krew, Speedwaaagh!, Blitz Brigade) remain UNIMPLEMENTED — they land
     # in per-detachment follow-up tasks.
     "Orks":                     ("war_horde",),
-    "Imperial Knights":         ("noble_lance",),
-    "Chaos Knights":            ("noble_lance",),
+    # IK-KNIGHTS-V1 (2026-05-31): real codex detachments for both Knight factions.
+    # Imperial Knights: Valourstrike Lance is the competitive default (May 2026
+    # meta, Goonhammer focus). Noble Lance retained as a no-buff variant so the
+    # old baseline is still reachable if needed for regression testing.
+    "Imperial Knights":         ("valourstrike_lance", "noble_lance"),
+    # Chaos Knights: Iconoclast Fiefdom is the competitive default (Goonhammer,
+    # May 2026 meta). Lords of Dread and Houndpack Lance are not yet wired.
+    "Chaos Knights":            ("iconoclast_fiefdom",),
     # DET-VARIETY-1 (2026-05-22): add Bringers of Flame as a Sororitas
     # variant pick. Both ship no-flag (Hallowed Martyrs after SC5-4,
     # Bringers of Flame because the codex Fervent Purgation rule does

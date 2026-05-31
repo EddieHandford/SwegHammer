@@ -7,5 +7,22 @@
     "effect": "(APPROXIMATION) Re-roll natural 1s on the Hit roll and on the Wound roll for every attack the unit makes. The codex grants 're-roll one die of choice' per attack sequence; SwegHammer maps that to 're-roll natural 1s', which is strictly weaker (~+0.17 expected vs +0.5 expected on a 3+/4+ swing) and so under-buffs rather than over-buffs Imperial Knights. The implementation lives in code/units.py:Unit.attack, faction-gated to 'Imperial Knights' so the Chaos Knights army rule (Harbingers of Dread, a battle-shock aura that requires per-unit battleshock state the sim does not yet track) is untouched.",
     "scope": "army-wide",
     "approximation": true
+  },
+  "VALOURSTRIKE_LANCE.bold_gallantry": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Valourstrike-Lance",
+    "rule_name": "Bold Gallantry (Valourstrike Lance detachment rule)",
+    "quoted_text": "Each time an ^^Imperial Knights^^ unit from your army Advances, until the end of the turn, ranged weapons equipped by ^^Imperial Knights^^ models from your army have the [ASSAULT] ability.",
+    "trigger": "Any Imperial Knights unit Advances (attacker.uid in Battle._advanced_this_round) AND the army's detachment carries bold_gallantry=True AND attacker.profile.faction == 'Imperial Knights'.",
+    "effect": "The Advance-lockout in Battle._do_shoot is skipped for the advancing IK unit, mirroring the [ASSAULT] keyword grant on all IK ranged weapons. Army-wide: any IK unit that Advances individually benefits (each is independently in _advanced_this_round).",
+    "scope": "army-wide"
+  },
+  "VALOURSTRIKE_LANCE.bondsman_enabled": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/#Bondsman",
+    "rule_name": "Bondsman abilities (Valourstrike Lance detachment — Paladin's Duty proxy)",
+    "quoted_text": "In your Command phase, one or more models from your army with a Bondsman ability can use that ability. For each one that does, select one friendly ^^Armiger^^ model within 12\" of that model (you cannot select an ^^Armiger^^ model that is already being affected by a Bondsman ability). Until the start of your next Command phase, that ^^Armiger^^ model is affected by that Bondsman ability. [Paladin's Duty (Bondsman): While a model is affected by this ability, weapons equipped by that model have the [LETHAL HITS] ability, and melee weapons equipped by that model have the [LANCE] ability.]",
+    "trigger": "Start of each Command phase, for each alive TITANIC+CHARACTER Imperial Knights unit ('giver'), the first alive non-TITANIC IK unit ('Armiger receiver') anywhere in the army receives the Paladin's Duty buff. The codex '12\" range' gate is dropped (APPROXIMATION) because SwegHammer's grid-free deployment spreads Armigers further apart than real tables allow — in real games Armigers always deploy within 12\" of their bonded lord. Each Armiger can only be buffed once per round.",
+    "effect": "(APPROXIMATION) Paladin's Duty is applied as a proxy for all Questoris/Cerastus class Bondsman abilities. Real rule has 6+ distinct Bondsman variants per knight sub-type (Paladin, Warden, Crusader, Gallant, Errant, Preceptor). SwegHammer applies Paladin's Duty (transient_lethal_hits + transient_lance_this_turn) uniformly — the strongest cleanly representable Bondsman buff. Warden's Duty (Sustained Hits 1 + Ignores Cover) and Crusader's Duty (+1 to hit ranged) are deferred.",
+    "scope": "unit-led",
+    "approximation": true
   }
 }

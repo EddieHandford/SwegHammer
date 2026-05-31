@@ -1,4 +1,12 @@
 {
+  "ICONOCLAST_FIEFDOM.dread_tyrants_aura": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-knights/#Iconoclast-Fiefdom",
+    "rule_name": "Dread Tyrants (Aura) — Dreaded Masters / Iconoclast Fiefdom detachment rule",
+    "quoted_text": "TITANIC CHAOS KNIGHTS units from your army have the following abilities: Dread Tyrants (Aura): While a friendly DAMNED unit is within 9\" of this unit, each time a model in that unit makes an attack, re-roll a Hit roll of 1 and re-roll a Wound roll of 1.",
+    "trigger": "Attacker is a Chaos Knights unit whose name starts with 'War Dog' (proxy for the DAMNED keyword, which BSData does not yet capture as a static unit keyword) AND the army's detachment carries dread_tyrants_aura=True AND at least one alive friendly TITANIC Chaos Knights unit is within 9\" of the attacker.",
+    "effect": "att_reroll_hit_ones and att_reroll_wound_ones are both set True for that attack in Unit.attack. APPROXIMATION: uses 'War Dog' name-prefix as proxy for the DAMNED keyword; strictly correct because DAMNED is only held by War Dog units in an Iconoclast Fiefdom army.",
+    "scope": "phase-gated"
+  },
   "simulator.extra_melee_profiles": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Fight-Phase",
     "rule_name": "Multi-melee-weapon Fight phase resolution and [Extra Attacks] core keyword",

@@ -1811,6 +1811,48 @@ class Unit:
             ):
                 wound_mod_delta += 1
 
+            # ---- Chaos Knights Iconoclast Fiefdom — Dread Tyrants Aura (10e).
+            # BSData v10.6.0 (Chaos - Chaos Knights Library.cat.gz) verbatim
+            # (Iconoclast Fiefdom, Dreaded Masters rule): "Dread Tyrants (Aura):
+            # While a friendly DAMNED unit is within 9\" of this unit, each
+            # time a model in that unit makes an attack, re-roll a Hit roll of
+            # 1 and re-roll a Wound roll of 1."
+            # DAMNED units = War Dogs (Armiger-class Chaos Knights). The DAMNED
+            # keyword is not captured by the BSData mapper; SwegHammer proxies
+            # it by checking if the attacker's name starts with "War Dog".
+            # The aura source is any TITANIC Chaos Knights unit within 9".
+            # Cited as `ICONOCLAST_FIEFDOM.dread_tyrants_aura`.
+            if (
+                (p.faction or "") == "Chaos Knights"
+                and (p.name or "").startswith("War Dog")
+            ):
+                _dta_army = getattr(self, "army_ref", None)
+                if _dta_army is not None:
+                    _dta_det = _dta_army.resolve_detachment()
+                    if _dta_det is not None and getattr(
+                        _dta_det, "dread_tyrants_aura", False
+                    ):
+                        _dta_x, _dta_y = self.position
+                        _dta_r2 = 9.0 * 9.0
+                        _dta_aura_present = False
+                        for _dta_u in _dta_army.alive_units:
+                            _dta_kw = set(
+                                getattr(_dta_u.profile, "unit_keywords", ()) or ()
+                            )
+                            if "TITANIC" not in _dta_kw:
+                                continue
+                            if getattr(_dta_u.profile, "faction", "") != "Chaos Knights":
+                                continue
+                            _dta_ux, _dta_uy = _dta_u.position
+                            _dx = _dta_ux - _dta_x
+                            _dy = _dta_uy - _dta_y
+                            if _dx * _dx + _dy * _dy <= _dta_r2:
+                                _dta_aura_present = True
+                                break
+                        if _dta_aura_present:
+                            att_reroll_hit_ones = True
+                            att_reroll_wound_ones = True
+
             # ---- World Eaters Eightbound — Beacons of Rage (datasheet aura,
             # BSData v10.6.0 verbatim): "While a friendly World Eaters unit is
             # within 6\" of this unit, each time a model in that unit makes a

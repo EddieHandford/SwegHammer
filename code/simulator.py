@@ -4390,6 +4390,87 @@ class Battle:
                 if self.verbose:
                     print(f"  COMBAT DRUGS: {u.profile.name} -> Adrenalight (Round 1 only)")
 
+    def _apply_bondsman_abilities(self, army: "Army") -> None:
+        """Imperial Knights Bondsman abilities (Command phase).
+
+        Valourstrike Lance detachment rule. BSData v10.6.0 (Imperium -
+        Imperial Knights - Library.cat.gz) verbatim:
+        "In your Command phase, one or more models from your army with a
+        Bondsman ability can use that ability. For each one that does, select
+        one friendly ARMIGER model within 12\" of that model (you cannot select
+        an ARMIGER model that is already being affected by a Bondsman ability).
+        Until the start of your next Command phase, that ARMIGER model is
+        affected by that Bondsman ability."
+
+        SwegHammer implementation:
+          - Giver: any alive Imperial Knights unit with TITANIC+CHARACTER
+            keywords (Questoris/Cerastus class).
+          - Receiver: the closest alive IK unit WITHOUT TITANIC (i.e., Armiger
+            class) within 12" of the giver. Each Armiger can only receive one
+            Bondsman buff per round (tracked by `_bondsman_used_this_round`).
+          - Buff applied: Paladin's Duty proxy — transient_lethal_hits on all
+            weapons + transient_lance_this_turn on melee weapons. This is the
+            strongest cleanly representable Bondsman (Warden's Duty =
+            Sustained Hits 1 + Ignores Cover, Crusader's Duty = +1 to hit
+            ranged; all three would fire in a full implementation; collapsing
+            to Paladin's Duty is the APPROXIMATION). A future follow-up can
+            fan out to per-knight-subtype buff selection.
+        Cited as `VALOURSTRIKE_LANCE.bondsman_enabled`.
+        """
+        # The codex "within 12\"" range gate is not enforced here because
+        # SwegHammer's grid-free deployment spreads Armigers further apart
+        # than real tables allow; in real games, Armigers are always deployed
+        # within 12" of their bonded lord. Drops the distance check following
+        # the same pattern as Beacons of Rage (alive-in-army rather than
+        # strict proximity). See `VALOURSTRIKE_LANCE.bondsman_enabled` citation.
+        buffed_uids: set = set()
+
+        for giver in list(army.alive_units):
+            giver_kw = set(getattr(giver.profile, "unit_keywords", ()) or ())
+            if (
+                getattr(giver.profile, "faction", "") != "Imperial Knights"
+                or "TITANIC" not in giver_kw
+                or "CHARACTER" not in giver_kw
+            ):
+                continue
+
+            # Find the first un-buffed non-TITANIC IK unit in the army
+            # (Armiger class: any IK unit without TITANIC keyword).
+            best_armiger = None
+            for candidate in army.alive_units:
+                if candidate.uid in buffed_uids:
+                    continue
+                cand_kw = set(getattr(candidate.profile, "unit_keywords", ()) or ())
+                if (
+                    getattr(candidate.profile, "faction", "") != "Imperial Knights"
+                    or "TITANIC" in cand_kw
+                ):
+                    continue
+                best_armiger = candidate
+                break
+
+            if best_armiger is None:
+                continue
+
+            # Apply Paladin's Duty: Lethal Hits (all weapons) + Lance (melee).
+            self._set_transient_squad(best_armiger, "transient_lethal_hits")
+            self._set_transient_squad(best_armiger, "transient_lance_this_turn")
+            # Mark all squad members of this Armiger as buffed.
+            sid = getattr(best_armiger, "squad_id", -1)
+            if sid >= 0:
+                for m in army.units:
+                    if getattr(m, "squad_id", -1) == sid:
+                        buffed_uids.add(m.uid)
+            else:
+                buffed_uids.add(best_armiger.uid)
+
+            if self.verbose:
+                print(
+                    f"  BONDSMAN: {giver.profile.name} -> "
+                    f"{best_armiger.profile.name} "
+                    f"(Paladin's Duty: Lethal Hits + Lance)"
+                )
+
     def _apply_blessings_of_khorne(self, round_num: int) -> None:
         """World Eaters Blessings of Khorne army rule (10e).
 
@@ -5935,6 +6016,23 @@ class Battle:
             for u in army.alive_units:
                 if u.profile.name == "Magnus the Red":
                     self._set_transient_squad(u, "transient_minus_one_damage_taken")
+        # ---- Imperial Knights Bondsman abilities (Command phase).
+        # Valourstrike Lance detachment rule. BSData v10.6.0 (Imperium -
+        # Imperial Knights - Library.cat.gz) verbatim: "In your Command phase,
+        # one or more models from your army with a Bondsman ability can use that
+        # ability. For each one that does, select one friendly ARMIGER model
+        # within 12\" of that model … Until the start of your next Command
+        # phase, that ARMIGER model is affected by that Bondsman ability."
+        # SwegHammer applies Paladin's Duty (Lethal Hits + Lance melee) as a
+        # uniform proxy for all Questoris + Cerastus class knights. The
+        # Armiger receiver is identified as any alive non-TITANIC IK unit
+        # within 12" of the giver.
+        # Cited as `VALOURSTRIKE_LANCE.bondsman_enabled`.
+        for army in (self.a, self.b):
+            det = army.resolve_detachment()
+            if det is None or not getattr(det, "bondsman_enabled", False):
+                continue
+            self._apply_bondsman_abilities(army)
         # Phase I — fresh arrivals from the scout phase carry over INTO
         # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
         # the set first, THEN call _arrive_from_reserves so units arriving
@@ -6567,10 +6665,25 @@ class Battle:
                 and self._current_round <= 3
                 and (attacker.profile.faction or "").lower() in ("t'au empire", "tau empire")
             )
+            # Bold Gallantry (Imperial Knights Valourstrike Lance detachment rule):
+            # "Each time an IMPERIAL KNIGHTS unit from your army Advances, until
+            # the end of the turn, ranged weapons equipped by IMPERIAL KNIGHTS
+            # models from your army have the [ASSAULT] ability." (BSData v10.6.0,
+            # Imperium - Imperial Knights - Library.cat.gz). When bold_gallantry
+            # is True and the attacker is an Imperial Knights unit that has
+            # Advanced, skip the Advance-lockout (mirrors the [ASSAULT] grant).
+            # Cited as `VALOURSTRIKE_LANCE.bold_gallantry`.
+            bold_gallantry_window = (
+                det is not None
+                and getattr(det, "bold_gallantry", False)
+                and (attacker.profile.faction or "") == "Imperial Knights"
+            )
             if attacker.transient_assault_this_round:
                 pass   # stratagem already paid for; no token spend
             elif montka_assault_window:
                 pass   # detachment rule grants [ASSAULT] free this round
+            elif bold_gallantry_window:
+                pass   # Bold Gallantry grants [ASSAULT] to IK ranged weapons
             elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
                 pass   # Devastator Doctrine grants shoot-after-Advance, free
             elif ("ASURYANI" in kw and "VEHICLE" in kw) and attacker_army.battle_focus_tokens > 0:

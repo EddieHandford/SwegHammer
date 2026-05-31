@@ -106,6 +106,15 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("necrons_melee_ap_plus_one_army_wide", False),
     ("necrons_ranged_sustained_hits_army_wide", False),
     ("necrons_army_wide_plus_one_save_command_protocol", False),
+    # IK-KNIGHTS-V1 (2026-05-31): Imperial Knights Valourstrike Lance
+    # detachment rules. Bold Gallantry grants [ASSAULT] to IK ranged weapons
+    # on Advance. Bondsman abilities buff Armigers each Command phase.
+    ("bold_gallantry", False),
+    ("bondsman_enabled", False),
+    # IK-KNIGHTS-V1 (2026-05-31): Chaos Knights Iconoclast Fiefdom detachment
+    # rule. Dread Tyrants Aura grants reroll-hit-ones + reroll-wound-ones to
+    # War Dogs within 9" of a friendly TITANIC CK unit.
+    ("dread_tyrants_aura", False),
 )
 
 # Simulator-side gates that aren't keyed off a Detachment / LeaderAbility

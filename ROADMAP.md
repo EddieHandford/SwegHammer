@@ -143,6 +143,8 @@ in real play.
   - Death Guard: Disgustingly Resilient (FNP 5+ army-wide) + Contagions of Nurgle (escalating -1 T / -1 Ld / -1 hit aura)
   - Thousand Sons: All Is Dust (Rubricae Phalanx detachment, +1 save vs unmodified D1 on RUBRICAE units) + Rites of Coalescence (Scarab Occult Terminators datasheet ability, -1 to wound on any-D attacks while a PSYKER is present)
   - Necrons: Reanimation Protocols + Awakened Dynasty buffs
+  - Imperial Knights: Code Chivalric army rule (re-roll natural 1s to hit and wound for all IK units) + Valourstrike Lance detachment: Bold Gallantry ([ASSAULT] on IK ranged weapons when any IK unit Advances) + Bondsman abilities (each TITANIC+CHARACTER IK knight buffs one Armiger per Command phase with Paladin's Duty: Lethal Hits + Lance)
+  - Chaos Knights: Harbingers of Dread army rule (Deathly Terror Battle-shock aura + Doom wound-roll bonus vs Battle-shocked targets) + Iconoclast Fiefdom detachment: Dread Tyrants Aura (War Dog units re-roll hit and wound 1s while a friendly TITANIC Chaos Knights unit is within 9")
   - Adeptus Astartes: **[pending — needs retry]** Oath of Moment + Combat Doctrines
 - **Core 10e mechanics**: Hit/Wound/Save w/ crits, AP+invuln+FNP, 18 weapon
   keywords, Cover (light/heavy/obscuring), Big Guns Never Tire,
