@@ -226,6 +226,17 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # Locus aura (+1 to hit) and was missing its end-of-phase mortal-
     # wound output despite being the Khorne archetype anchor.
     "simulator.relentless_carnage",
+    # Chaos Daemons per-god army rules (10e). Murderer's Cowl (Khorne):
+    # advance-and-charge eligibility; exempts the unit from the advance-
+    # lockout-on-charge gate in _do_charge. Gloam Rot (Nurgle): -1 to wound
+    # when attacker Strength > defender Toughness. Penumbral Puppetry
+    # (Tzeentch): APPROXIMATION modelled via stealth (ranged-only), real rule
+    # applies to all attacks. All three verified from BSData XML, Wahapedia
+    # unreachable at implementation time. Cited in
+    # data/rule_citations.d/chaos_daemons.json.
+    "simulator.murderers_cowl",
+    "simulator.gloam_rot",
+    "simulator.penumbral_puppetry_approx",
     # Thousand Sons Rubricae Phalanx detachment rule (10e current codex).
     # +1 to the armour save when an unmodified Damage-1 attack is allocated
     # to a RUBRICAE-keyword model. APPROXIMATION (iter14): SwegHammer

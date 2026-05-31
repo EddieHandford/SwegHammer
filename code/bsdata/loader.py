@@ -123,6 +123,18 @@ class CatalogEntry:
     # does not yet parse this rule out of the cache; the override is the
     # authoritative source). Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # CHAOS DAEMONS — Murderer's Cowl (Khorne army rule). BSData verbatim:
+    # "This unit is eligible to shoot and declare a charge in a turn in
+    # which it Advanced." Set per-unit via overrides.json. Enables the
+    # charge-after-Advance exemption in simulator._do_charge.
+    # Cited as `simulator.murderers_cowl`.
+    murderers_cowl: bool = False
+    # CHAOS DAEMONS — Gloam Rot (Nurgle army rule). BSData verbatim:
+    # "Each time an attack targets this unit, if the Strength characteristic
+    # of that attack is greater than this unit's Toughness characteristic,
+    # subtract 1 from the Wound roll." Set per-unit via overrides.json.
+    # Cited as `simulator.gloam_rot`.
+    gloam_rot: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Halves the
     # Damage characteristic of each allocated attack (rounding up); D1
     # attacks deal 0 damage. Set per-unit via overrides.json (the BSData
@@ -257,6 +269,8 @@ class CatalogEntry:
             fnp=int(d.get("fnp", 7)),
             sticky_objective=bool(d.get("sticky_objective", False)),
             resolute_will=bool(d.get("resolute_will", False)),
+            murderers_cowl=bool(d.get("murderers_cowl", False)),
+            gloam_rot=bool(d.get("gloam_rot", False)),
             necrodermis=bool(d.get("necrodermis", False)),
             reanimates_with_army=bool(d.get("reanimates_with_army", False)),
             unit_keywords=list(d.get("unit_keywords") or []),
@@ -471,6 +485,8 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         "fnp": override.get("fnp", base.fnp),
         "sticky_objective": override.get("sticky_objective", base.sticky_objective),
         "resolute_will": override.get("resolute_will", base.resolute_will),
+        "murderers_cowl": override.get("murderers_cowl", base.murderers_cowl),
+        "gloam_rot": override.get("gloam_rot", base.gloam_rot),
         "necrodermis": override.get("necrodermis", base.necrodermis),
         "reanimates_with_army": override.get("reanimates_with_army", base.reanimates_with_army),
         "unit_keywords": override.get("unit_keywords", base.unit_keywords),

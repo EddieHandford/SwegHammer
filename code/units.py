@@ -419,6 +419,22 @@ class UnitProfile:
     # leaders.is_actually_led), (c) attack.strength > defender.toughness.
     # Cited as `simulator.resolute_will`.
     resolute_will: bool = False
+    # CHAOS DAEMONS — Murderer's Cowl (Khorne army rule, 10e). BSData verbatim:
+    # "This unit is eligible to shoot and declare a charge in a turn in which it
+    # Advanced." Grants advance-and-charge eligibility. Wired in simulator._do_charge
+    # as an exemption from the _advanced_this_round lockout (parallel to Gladius
+    # Assault Doctrine). The shoot-after-Advance half is covered separately by
+    # profile.assault. Set per-unit via overrides.json.
+    # Cited as `simulator.murderers_cowl`.
+    murderers_cowl: bool = False
+    # CHAOS DAEMONS — Gloam Rot (Nurgle army rule, 10e). BSData verbatim:
+    # "Each time an attack targets this unit, if the Strength characteristic of that
+    # attack is greater than this unit's Toughness characteristic, subtract 1 from
+    # the Wound roll." Wired in Unit.attack as a defender-side wound_mod_delta -1
+    # gated by: (a) defender carries this flag, (b) attacker Strength > defender
+    # Toughness. No leader-attachment gate (the rule is unconditional). Set per-unit
+    # via overrides.json. Cited as `simulator.gloam_rot`.
+    gloam_rot: bool = False
     # NECRONS-CTAN — Necrodermis (C'tan datasheet ability). Each time an
     # attack is allocated to this model, halve the Damage characteristic
     # (rounding up); D1 attacks deal 0 damage. Wahapedia:
@@ -2037,6 +2053,18 @@ class Unit:
                 except Exception:
                     pass
 
+            # ---- Gloam Rot (Chaos Daemons — Nurgle army rule, 10e). BSData
+            # verbatim: "Each time an attack targets this unit, if the Strength
+            # characteristic of that attack is greater than this unit's Toughness
+            # characteristic, subtract 1 from the Wound roll." Two-way gate:
+            #   1. defender carries the `gloam_rot` flag (set per-unit via
+            #      overrides.json on Nurgle Daemon datasheets),
+            #   2. attacker Strength > defender effective Toughness.
+            # No leader-attachment gate — the rule is unconditional on all
+            # qualifying datasheets. Cited as `simulator.gloam_rot`.
+            if target.profile.gloam_rot and strength > _effective_toughness:
+                wound_mod_delta -= 1
+
             # ---- Adeptus Mechanicus Doctrina Imperatives (10e army rule).
             # MR-D (claude/sim-calibration-5): rewritten to match the published
             # rule. The 10e rule is BUFF-ONLY — there is no -1-to-hit penalty
@@ -3446,6 +3474,8 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             firing_deck=entry.firing_deck,
             sticky_objective=entry.sticky_objective,
             resolute_will=entry.resolute_will,
+            murderers_cowl=entry.murderers_cowl,
+            gloam_rot=entry.gloam_rot,
             necrodermis=entry.necrodermis,
             reanimates_with_army=entry.reanimates_with_army,
             unit_keywords=tuple(entry.unit_keywords or []),

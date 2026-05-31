@@ -6993,8 +6993,15 @@ class Battle:
         # this lockout for ADEPTUS ASTARTES units in a Gladius army: "This
         # unit is eligible to declare a charge in a turn in which it
         # Advanced." Cited as `simulator.combat_doctrines`.
+        # Murderer's Cowl (Chaos Daemons — Khorne army rule, 10e) also lifts
+        # the lockout for all qualifying Khorne Daemon datasheets. BSData
+        # verbatim: "This unit is eligible to shoot and declare a charge in a
+        # turn in which it Advanced." Cited as `simulator.murderers_cowl`.
         if attacker.uid in self._advanced_this_round:
-            if self._gladius_active_doctrine(attacker, attacker_army) != "Assault":
+            if (
+                self._gladius_active_doctrine(attacker, attacker_army) != "Assault"
+                and not attacker.profile.murderers_cowl
+            ):
                 return
         # Fall Back lockout (10e core): a unit that Fell Back this turn can
         # only charge if it has the FLY keyword. Tactical Doctrine (Gladius,

@@ -1066,7 +1066,8 @@
     },
     "chaos_daemons_library_bloodthirster": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Bloodthirster has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster"
+      "murderers_cowl": true,
+      "notes": "iter22 invuln long-tail sweep: Bloodthirster has 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Bloodthirster ('This unit is eligible to shoot and declare a charge in a turn in which it Advanced.'). Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "world_eaters_bloodthirster": {
       "invuln_save": 4,
@@ -1074,7 +1075,8 @@
     },
     "chaos_daemons_library_great_unclean_one": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Great Unclean One has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One"
+      "gloam_rot": true,
+      "notes": "iter22 invuln long-tail sweep: Great Unclean One has 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Great-Unclean-One. GLOAM-ROT: BSData XML confirms Gloam Rot on Great Unclean One ('if the Strength characteristic of that attack is greater than this unit's Toughness characteristic, subtract 1 from the Wound roll.'). Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_keeper_of_secrets": {
       "invuln_save": 4,
@@ -1088,7 +1090,8 @@
     },
     "chaos_daemons_library_lord_of_change": {
       "invuln_save": 4,
-      "notes": "iter22 invuln long-tail sweep: Lord of Change has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change"
+      "stealth": true,
+      "notes": "iter22 invuln long-tail sweep: Lord of Change has 4++ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Lord-of-Change. PENUMBRAL-PUPPETRY: BSData XML confirms Penumbral Puppetry on Lord of Change; stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_kairos_fateweaver": {
       "invuln_save": 4,
@@ -1113,43 +1116,51 @@
     },
     "chaos_daemons_library_bloodletters": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Bloodletters carry the Daemonic 5+ invulnerable save (army rule). BSData v10.6.0 Chaos Daemons Library omits every Invulnerable-Save infoLink (same omission pattern as SC5-2 chaos_knights / aeldari_wraithguard / necrons_doomsday_ark). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodletters"
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2: Bloodletters carry the Daemonic 5+ invulnerable save (army rule). BSData v10.6.0 Chaos Daemons Library omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodletters. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Bloodletters. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_plaguebearers": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Plaguebearers carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plaguebearers"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Plaguebearers carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plaguebearers. GLOAM-ROT: BSData XML confirms Gloam Rot on Plaguebearers. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_daemonettes": {
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Daemonettes carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Daemonettes"
     },
     "chaos_daemons_library_pink_horrors": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Pink Horrors carry the Daemonic 5+ invulnerable save (army rule). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Pink-Horrors"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'Models in this unit have a 4+ invulnerable save.' (Shape 3 inline Abilities profile, typeId 9cc3-6d83-4dd3-9b64). DAEMONS-DIAG-2 was wrong to set 5++. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: BSData XML confirms Penumbral Puppetry ability ('Each time an attack targets this unit, subtract 1 from the Hit roll.'); stealth flag applies the ranged-only approximation. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_blue_horrors": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Blue Horrors (Split! spawn from Pink Horrors) carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Pink-Horrors"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'Models in this unit have a 4+ invulnerable save.' (Shape 3 inline Abilities profile). DAEMONS-DIAG-2 was wrong to set 5++. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Blue Horrors carry Penumbral Puppetry ('subtract 1 from the Hit roll') per BSData XML containment analysis. Stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_nurglings": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Nurglings carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Nurglings"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Nurglings carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Nurglings. GLOAM-ROT: BSData XML confirms Gloam Rot on Nurglings. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_flesh_hounds": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Flesh Hounds carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Flesh-Hounds"
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2: Flesh Hounds carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Flesh-Hounds. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Flesh Hounds. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_seekers": {
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Seekers carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Seekers"
     },
     "chaos_daemons_library_flamers": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Flamers of Tzeentch carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Flamers"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'Models in this unit have a 4+ invulnerable save.' (Shape 3 inline Abilities profile). Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Flamers carry Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_screamers": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Screamers of Tzeentch carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Screamers"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'Models in this unit have a 4+ invulnerable save.' (Shape 3 inline Abilities profile). Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Screamers carry Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_fiends": {
       "invuln_save": 5,
@@ -1157,15 +1168,18 @@
     },
     "chaos_daemons_library_bloodcrushers": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Bloodcrushers carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodcrushers"
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2: Bloodcrushers carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodcrushers. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Bloodcrushers. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_plague_drones": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Plague Drones carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plague-Drones"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Plague Drones carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Plague-Drones. GLOAM-ROT: BSData XML confirms Gloam Rot on Plague Drones. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_beasts_of_nurgle": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Beasts of Nurgle carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Beasts-of-Nurgle"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Beasts of Nurgle carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Beasts-of-Nurgle. GLOAM-ROT: BSData XML confirms Gloam Rot on Beasts of Nurgle. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_furies_legends": {
       "invuln_save": 5,
@@ -1176,48 +1190,58 @@
       "notes": "DAEMONS-DIAG-2: Hellflayer chariots carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Hellflayer"
     },
     "chaos_daemons_library_skull_cannon": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Skull Cannon carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skull-Cannon"
+      "invuln_save": 4,
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Skull Cannon. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_burning_chariot": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Burning Chariot of Tzeentch carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Burning-Chariot"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Burning Chariot carries Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_feculent_gnarlmaw": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Feculent Gnarlmaw (terrain monster) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Feculent-Gnarlmaw"
+      "invuln_save": 4,
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' BSData mapper produced 7 (mapper bug — gnarlmaw uses a non-standard entry structure). Override to 4++ per raw XML. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. GLOAM-ROT: BSData XML confirms Gloam Rot on Feculent Gnarlmaw. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_skull_altar": {
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Skull Altar carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skull-Altar"
     },
     "chaos_daemons_library_exalted_flamer": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Exalted Flamer of Tzeentch carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Exalted-Flamer"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Exalted Flamer carries Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_bloodmaster": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Bloodmaster (Khorne Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodmaster"
+      "invuln_save": 4,
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Bloodmaster. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_skullmaster": {
       "invuln_save": 4,
-      "notes": "DAEMONS-DIAG-2: Skullmaster (Khorne Herald on Juggernaut, CHARACTER MOUNT) carries the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skullmaster"
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2: Skullmaster (Khorne Herald on Juggernaut) carries the Daemonic 4+ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skullmaster. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Skullmaster. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_skulltaker": {
       "invuln_save": 4,
-      "notes": "DAEMONS-DIAG-2: Skulltaker (named Khorne CHARACTER) carries the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker"
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2: Skulltaker (named Khorne CHARACTER) carries the Daemonic 4+ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Skulltaker. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Skulltaker (via Khorne entry containment). Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_poxbringer": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Poxbringer (Nurgle Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Poxbringer"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Poxbringer (Nurgle Herald) carries the Daemonic 5+ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Poxbringer. GLOAM-ROT: BSData XML confirms Gloam Rot on Poxbringer. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_sloppity_bilepiper": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Sloppity Bilepiper carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Sloppity-Bilepiper"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Sloppity Bilepiper carries the Daemonic 5+ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Sloppity-Bilepiper. GLOAM-ROT: BSData XML confirms Gloam Rot on Sloppity Bilepiper. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_spoilpox_scrivener": {
       "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Spoilpox Scrivener carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Spoilpox-Scrivener"
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2: Spoilpox Scrivener carries the Daemonic 5+ invulnerable save. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Spoilpox-Scrivener. GLOAM-ROT: BSData XML confirms Gloam Rot on Spoilpox Scrivener. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_epidemius": {
       "invuln_save": 5,
@@ -1228,68 +1252,75 @@
       "notes": "DAEMONS-DIAG-2: Horticulous Slimux (named Nurgle CHARACTER MONSTER on mount) carries the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Horticulous-Slimux"
     },
     "chaos_daemons_library_changecaster": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Changecaster (Tzeentch Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Changecaster"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Changecaster carries Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_fluxmaster": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Fluxmaster (Tzeentch Herald on disc) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Fluxmaster"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Fluxmaster carries Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_fateskimmer": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Fateskimmer (Tzeentch Herald on Burning Chariot) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Fateskimmer"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Fateskimmer carries Penumbral Puppetry ('subtract 1 from the Hit roll'); stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_the_blue_scribes": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: The Blue Scribes (named Tzeentch CHARACTER) carry the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Blue-Scribes"
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_the_changeling": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: The Changeling (named Tzeentch CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#The-Changeling"
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_infernal_enrapturess": {
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Infernal Enrapturess (Slaanesh CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Infernal-Enrapturess"
     },
     "chaos_daemons_library_tormentbringer": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Tormentbringer (Slaanesh Herald on Hellflayer) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Tormentbringer"
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_tranceweaver": {
       "invuln_save": 5,
       "notes": "DAEMONS-DIAG-2: Tranceweaver (Slaanesh Herald) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Tranceweaver"
     },
     "chaos_daemons_library_the_masque_of_slaanesh": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: The Masque of Slaanesh (named CHARACTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#The-Masque-of-Slaanesh"
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_rendmaster_on_blood_throne": {
       "invuln_save": 4,
-      "notes": "DAEMONS-DIAG-2: Rendmaster on Blood Throne (Khorne CHARACTER MOUNT) carries the Daemonic 4+ invulnerable save (CHARACTER+MOUNT tier). BSData omits the Invulnerable-Save infoLink. Source: 10e Chaos Daemons codex datasheet."
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2: Rendmaster on Blood Throne (Khorne CHARACTER MOUNT) carries the Daemonic 4+ invulnerable save. Source: 10e Chaos Daemons codex datasheet. MURDERERS-COWL: BSData XML confirms Murderer's Cowl on Rendmaster on Blood Throne. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_syll_esske": {
       "invuln_save": 4,
       "notes": "DAEMONS-DIAG-2: Syll'Esske, the Vengeful Allegiance (named Slaanesh CHARACTER MONSTER pair) carry the Daemonic 4+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Syll-Esske"
     },
     "chaos_daemons_library_khorne_soul_grinder": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Khorne Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save (Soul Grinder datasheet specifies 5+ not 4+). BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+      "invuln_save": 4,
+      "murderers_cowl": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' (Shape 3 inline Abilities profile). Prior note claiming 5+ was incorrect. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. MURDERERS-COWL: BSData XML confirms Murderer's Cowl ability ('This unit is eligible to shoot and declare a charge in a turn in which it Advanced.') on Khorne Soul Grinder. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_nurgle_soul_grinder": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Nurgle Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+      "invuln_save": 4,
+      "gloam_rot": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. GLOAM-ROT: BSData XML confirms Gloam Rot ability ('if the Strength characteristic of that attack is greater than this unit's Toughness characteristic, subtract 1 from the Wound roll.') on Nurgle Soul Grinder. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_tzeentch_soul_grinder": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Tzeentch Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+      "invuln_save": 4,
+      "stealth": true,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz. PENUMBRAL-PUPPETRY: Tzeentch Soul Grinder carries Penumbral Puppetry; stealth flag approximates ranged-only. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_slaanesh_soul_grinder": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: Slaanesh Soul Grinder (MONSTER) carries the Daemonic 5+ invulnerable save. BSData omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Soul-Grinder"
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML explicitly states 'This model has a 4+ invulnerable save.' Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "chaos_daemons_library_contorted_epitome": {
-      "invuln_save": 5,
-      "notes": "DAEMONS-DIAG-2: The Contorted Epitome (named Slaanesh CHARACTER on chariot) carries the Daemonic 5+ invulnerable save (matches BSData base value 5 Ã¢â¬â written explicitly so the audit trail records the Daemonic source). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Contorted-Epitome"
+      "invuln_save": 4,
+      "notes": "DAEMONS-DIAG-2-CORRECTED: BSData XML and parsed.json both confirm 4+ invulnerable save for Contorted Epitome. Prior note was wrong to force 5++. Source: data/bsdata/cache/Chaos - Chaos Daemons Library.cat.gz"
     },
     "emperor_s_children_shalaxi_helbane": {
       "invuln_save": 4,
