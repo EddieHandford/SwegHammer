@@ -10,6 +10,24 @@
     "scope": "army-wide"
   },
 
+  "unit.fnp.genestealer_cults_aberrants": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Aberrants",
+    "rule_name": "Feel No Pain 5+",
+    "quoted_text": "This unit has a 5+ Feel No Pain",
+    "trigger": "Aberrants unit receives damage from any source",
+    "effect": "each time a wound is allocated to a model in this unit, on a 5+ that wound is ignored. Implemented via profile.fnp=5 in data/overrides.json (BSData mapper bug drops unit-level FNP from the prose-walk). Source: BSData v10.6.0 Genestealer Cults.cat.gz, Aberrants unit abilities profile confirmed.",
+    "scope": "keyword-gated"
+  },
+
+  "unit.fnp.genestealer_cults_abominant": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Abominant",
+    "rule_name": "Feel No Pain 5+",
+    "quoted_text": "This model has a 5+ Feel No Pain",
+    "trigger": "Abominant model receives damage from any source",
+    "effect": "each time a wound is allocated to this model, on a 5+ that wound is ignored. Implemented via profile.fnp=5 in data/overrides.json. Source: BSData v10.6.0 Genestealer Cults.cat.gz, Abominant model abilities profile confirmed.",
+    "scope": "keyword-gated"
+  },
+
   "simulator.cult_ambush_resurgence": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/",
     "rule_name": "Cult Ambush (Resurgence points / unit revival half)",

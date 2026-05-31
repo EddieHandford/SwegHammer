@@ -448,12 +448,21 @@
     "scope": "unit-led"
   },
 
-  "LeaderAbility.Meticulous Uprising": {
+  "LeaderAbility.Might From Beyond": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Patriarch",
+    "rule_name": "Might From Beyond",
+    "quoted_text": "While this model is leading a unit, melee weapons equipped by models in that unit have the [DEVASTATING WOUNDS] ability.",
+    "trigger": "Patriarch is leading a friendly Purestrain Genestealers unit; the led unit makes a melee attack",
+    "effect": "led Purestrain Genestealers' melee attacks gain [DEVASTATING WOUNDS] — critical wounds (unmodified Wound roll of 6) deal mortal wounds equal to the weapon's Damage characteristic and the attack sequence ends. Modelled as grants_devastating_wounds_melee=True; the melee-only gate is enforced in the attack-resolution loop in code/units.py (fires only when mode == 'melee'). Identical mechanism to Skulltaker's Lord of Decapitations. BSData v10.6.0 Genestealer Cults.cat.gz confirmed; no Wahapedia fetch needed.",
+    "scope": "unit-led"
+  },
+
+  "LeaderAbility.Cult Demagogue": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/genestealer-cults/Primus",
     "rule_name": "Cult Demagogue",
     "quoted_text": "While this model is leading a unit, each time a model in that unit makes an attack, you can add 1 to the Hit roll.",
     "trigger": "attacker's unit is led by a Genestealer Cults Primus in aura range",
-    "effect": "re-roll Hit rolls of 1 in aura range (approximation; the real Cult Demagogue grants a full +1 to Hit on every attack — strictly stronger than reroll-1s. The simulator's reroll-1s-to-hit is a weaker offensive proxy; flagged for swap to plus_one_to_hit)",
+    "effect": "+1 to the Hit roll on every attack made by the led unit. Corrected from the prior reroll_hit_ones proxy (named 'Meticulous Uprising', a fabrication). The codex ability is named 'Cult Demagogue' and grants a full unconditional +1-to-Hit — strictly stronger than re-rolling 1s; plus_one_to_hit=True is the accurate implementation. Hosts expanded from the prior two variants to all four codex-legal bodyguard units: Acolyte Hybrids (both loadout variants), Hybrid Metamorphs, and Neophyte Hybrids. BSData v10.6.0 Genestealer Cults.cat.gz confirmed.",
     "scope": "unit-led"
   },
 

@@ -329,6 +329,14 @@
       "invuln_save": 4,
       "notes": "DDA diag (sim-cal-4): Canoptek Doomstalker carries a 4+ invulnerable save on its datasheet but the BSData mapper missed it for the same reason as necrons_doomsday_ark Ã¢â¬â local Abilities profile, not an infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/necrons/#Canoptek-Doomstalker (Invulnerable Save 4+). Stats T8 W12 Sv3+ and Doomsday Blaster profile 48\" D6+1 shots S14 AP-3 D3 Blast Heavy match BSData."
     },
+    "genestealer_cults_aberrants": {
+      "fnp": 5,
+      "notes": "Aberrants carry Feel No Pain 5+ per their 10e datasheet (BSData v10.6.0 Genestealer Cults.cat.gz, Aberrants unit, Abilities: 'This unit has a 5+ Feel No Pain'). The BSData mapper bug (extract_fnp pulling Enhancement FNP into base stats) means the mapper does not set fnp=5 from the prose-walk; override here restores the correct value. Source: BSData v10.6.0 Genestealer Cults.cat.gz confirmed."
+    },
+    "genestealer_cults_abominant": {
+      "fnp": 5,
+      "notes": "Abominant carries Feel No Pain 5+ per its 10e datasheet (BSData v10.6.0 Genestealer Cults.cat.gz, Abominant model, Abilities: 'This model has a 5+ Feel No Pain'). Same mapper-bug bypass as genestealer_cults_aberrants. Source: BSData v10.6.0 Genestealer Cults.cat.gz confirmed."
+    },
     "genestealer_cults_acolyte_hybrids_with_hand_flamers": {
       "sticky_objective": true,
       "notes": "10e GSC Acolyte Hybrids have Cult Ambush which keeps objective control after the unit leaves. Sourced from wahapedia.ru Genestealer Cults datasheet."

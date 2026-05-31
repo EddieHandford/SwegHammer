@@ -977,9 +977,40 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     ("Succubus",           LeaderAbility(name="Precision Blows",            aura_range=6.0,
                                           host_keys=("aeldari_drukhari_wyches",))),
     # Genestealer Cults
-    ("Primus",             LeaderAbility(name="Meticulous Uprising",       aura_range=6.0, reroll_hit_ones=True,
+    # PATRIARCH — "Might From Beyond": while leading a unit, melee weapons
+    # equipped by models in that unit have the [DEVASTATING WOUNDS] ability.
+    # BSData v10.6.0 Genestealer Cults.cat.gz, Patriarch profile, Might From
+    # Beyond ability: "While this model is leading a unit, melee weapons
+    # equipped by models in that unit have the [DEVASTATING WOUNDS] ability."
+    # Host: PURESTRAIN GENESTEALERS only (BSData Leader profile: "This model
+    # can be attached to the following units: PURESTRAIN GENESTEALERS").
+    # Catalogue key verified: genestealer_cults_purestrain_genestealers.
+    # Pattern identical to Skulltaker's "Lord of Decapitations" (same BSData
+    # verbatim text, same grants_devastating_wounds_melee field). The field is
+    # already wired in code/units.py (melee-only gate, fires only when
+    # mode == "melee"). No Wahapedia fallback needed — BSData confirms the text.
+    ("Patriarch",          LeaderAbility(name="Might From Beyond",         aura_range=6.0,
+                                          grants_devastating_wounds_melee=True,
+                                          host_keys=("genestealer_cults_purestrain_genestealers",))),
+    # PRIMUS — "Cult Demagogue": while leading a unit, each time a model in
+    # that unit makes an attack, add 1 to the Hit roll. BSData v10.6.0
+    # Genestealer Cults.cat.gz, Primus profile, Cult Demagogue ability:
+    # "While this model is leading a unit, each time a model in that unit
+    # makes an attack, you can add 1 to the Hit roll." Corrected from the
+    # prior `reroll_hit_ones` approximation (the prior name "Meticulous
+    # Uprising" was a fabrication — the codex ability is named "Cult
+    # Demagogue"). The codex grants a full unconditional +1-to-Hit on every
+    # attack — strictly stronger than re-rolling 1s; `plus_one_to_hit=True`
+    # is the accurate modelling. Hosts: Acolyte Hybrids (both loadout
+    # variants), Hybrid Metamorphs, and Neophyte Hybrids — BSData Leader
+    # profile: "This model can be attached to the following units: ACOLYTE
+    # HYBRIDS, HYBRID METAMORPHS, NEOPHYTE HYBRIDS."
+    ("Primus",             LeaderAbility(name="Cult Demagogue",            aura_range=6.0,
+                                          plus_one_to_hit=True,
                                           host_keys=("genestealer_cults_neophyte_hybrids",
-                                                     "genestealer_cults_acolyte_hybrids_with_autopistols"))),
+                                                     "genestealer_cults_acolyte_hybrids_with_autopistols",
+                                                     "genestealer_cults_acolyte_hybrids_with_hand_flamers",
+                                                     "genestealer_cults_hybrid_metamorphs"))),
     # Leagues of Votann
     # VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28): downgraded the Kâhl aura from
     # `plus_one_to_hit=True` to `reroll_hit_ones=True` on the led Hearthkyn

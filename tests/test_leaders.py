@@ -243,7 +243,15 @@ class ExpandedRegistryTests(unittest.TestCase):
         ("Archon",                  "aura_range"),
         ("Succubus",                "aura_range"),
         # Genestealer Cults
-        ("Primus",                  "reroll_hit_ones"),
+        # GSC-BUFF-V1 (2026-05-31): Patriarch "Might From Beyond" grants
+        # [DEVASTATING WOUNDS] to melee weapons of the led Purestrain
+        # Genestealers unit. BSData v10.6.0 confirmed.
+        ("Patriarch",               "grants_devastating_wounds_melee"),
+        # GSC-BUFF-V1 (2026-05-31): Primus Cult Demagogue corrected from
+        # reroll_hit_ones (prior fabricated "Meticulous Uprising" proxy) to
+        # plus_one_to_hit (codex-accurate: "add 1 to the Hit roll").
+        # BSData v10.6.0 Genestealer Cults.cat.gz confirmed.
+        ("Primus",                  "plus_one_to_hit"),
         # Leagues of Votann
         # VOTANN-JUDGEMENT-TOKENS-V1 (2026-05-28): Kâhl's aura was downgraded
         # from plus_one_to_hit to reroll_hit_ones. The codex rule grants
