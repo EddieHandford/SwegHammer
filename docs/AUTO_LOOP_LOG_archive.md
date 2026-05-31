@@ -1,3 +1,48 @@
+<!-- Archived from AUTO_LOOP_LOG.md at wave 79 close (wave 76) -->
+
+## Wave 76 close (2026-05-31) — per-squad charge roll: the per-model activation tax (gated 5.11 → 4.91)
+
+Branch `claude/sim-calibration-6`. The watchdog-mandated per-model durability/activation
+tax (`LOOP_QA.md` Q3) — and verify-first found the concrete, faithful mechanism the prior
+washes missed.
+
+DIAGNOSIS (verify-first, because the decision-overlay washed): the per-model over-rate is
+NOT spread/coherency (Drukhari squads spread across 2+ quarters only ~1% of the time — they
+cluster), and the over-shooters win on VP not tabling. The real per-model bug is in the
+CHARGE phase: SwegHammer rolls 2D6 **per model**, so an 11-model Ork mob got 11 independent
+charge attempts (152 of 288 squad-rounds had >1 roll). Real 10e: a unit makes ONE charge
+roll — an 11-model mob makes a 9" charge ~97% of the time in the sim vs the real ~28%. A
+massive melee-reliability over-rate.
+
+LANDED — **per-squad charge roll**: a codex squad (models sharing a `squad_id`) shares ONE
+2D6 charge roll per round (cached in `Battle._squad_charge_roll`); lone models keep their
+own. This is the activation-economy half of the per-model tax that the decision-overlay
+could not reach — it works *because it cuts the horde's effective melee output*, not just
+its decisions (the exact reason the overlay washed, per
+`project-squad-activation-contained-wash`). Core-rule correctness fix; cited
+`simulator.charge_per_unit`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 75 close (Sabotage + 40-cap) | 8.50 | 5.11 | 5/22 |
+| **Wave 76 close (per-squad charge)** | **8.16** | **4.91** | **5/22** |
+
+Brings down the melee over-shooters (Orks +10.3 → +8.1, Votann +14.7 → +12.4) and pulls
+Grey Knights back toward band (−6.6 → −2.7); Custodes, Thousand Sons, Emperor's Children,
+Necrons, Aeldari all better. Collateral the other way (re-fit territory, not reasons to
+reject a core-rule fix): Drukhari +16.4 → +18.7 and T'au / Sororitas up — their melee
+*opponents* now charge less reliably, so these (more shooty) armies survive better. 926
+tests pass; citation audit 293/293. Eval `data/wf_wave76_squadcharge_n40.json`.
+
+NEXT: the residual is now Imperial Knights +19.6 (durable primary-camper — NOT a per-model
+issue; it has 1-model units, unaffected by per-squad charge), Drukhari +18.7, Chaos Daemons
+−17.0, CSM −17.3. Candidate faithful levers: (1) rotation-gate the tactical secondaries
+(would temper the wave-75 over-correction of CSM/CK and the cheap-unit over-scoring of
+Votann/Sororitas — a fidelity fix); (2) more per-model activation-economy taxes in the
+charge-vein (other per-model rolls that should be per-unit — overwatch, desperate escape,
+battleshock counts); (3) IK's durable-camp over-rate (its own diagnostic — likely the
+opponents not contesting, which the AI-targeting fix regressed on).
+
 <!-- Archived from AUTO_LOOP_LOG.md at wave 78 close (wave 75) -->
 
 ## Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap (gated 5.35 → 5.11)

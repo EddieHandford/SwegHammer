@@ -4,6 +4,40 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 79 close (2026-05-31) — army focus fire built + tested (env-gated, regresses solo); diagnosis → Armiger re-fit + contest/deny next
+
+Branch `claude/sim-calibration-6`. Built redesign step #1 of the faithful AI track (army-level
+focus fire) per `docs/MATCHUP_FIDELITY_ANALYSIS.md`. It regresses solo, exactly the
+accept-regression-then-re-fit scenario the user described. Committed env-gated OFF — baseline
+gated 4.95 unchanged.
+
+BUILT (env-gated `SWEG_FOCUS`): `Battle._nominate_focus_target` + a `_do_shoot` override. The
+army nominates the most valuable durable enemy threat it can hurt (Knight/Monster/Vehicle or
+8+ wound model, preferring one on an objective), and its ANTI-ARMOUR weapons only
+(`_is_antiarmour_weapon`: damage≥3 / AP≤-2 / Anti-MONSTER-VEHICLE-TITANIC) concentrate on it —
+weapon-target matched, so bolters keep clearing chaff. Smoke-confirmed: Chaos Space Marines
+focus-fire the Knight Castellan and win a matchup they normally lose 0%.
+
+| Eval | MAE_gated | note |
+|---|---:|---|
+| Wave 78 baseline | 4.95 | focus fire OFF |
+| Focus fire ON (A/B) | **5.41** | regressed +0.46 |
+
+Per-faction: Drukhari +18.6 → +14.2 (HELPED, −4.4 — its fragile Ravagers/Talos get
+focus-removed) but Imperial Knights +19.1 → +25.9 (WORSE, +6.8), GSC −5.4 → −15.9, T'au up.
+
+DIAGNOSIS (the user's diagnose-the-over-shoot step): focus fire is the right tool for FRAGILE
+high-value threats (Drukhari) but WRONG for the durable Imperial Knights — a Knight cannot be
+shot off (T11/W26/5++), so the victims' fire is wasted while IK's own anti-armour sharpens on
+the opponents' vehicles/dreadnoughts. Third confirmation (after wave-72 value-targeting) that
+better SHOOTING AI sharpens the durable over-shooters. The faithful next steps the regression
+exposes: (1) **IK list-realism re-fit** — the sim's big-Knight archetype is OVER-GUNNED vs the
+real Armiger-heavy tournament list; rebuild it toward the real list (Armigers are T9/W14, so
+focus fire would REMOVE them → IK down). Test: Armiger re-fit PAIRED with focus fire. (2)
+**Contest/deny (#2)** — the real IK lever is denying its primary VP (contest the objectives it
+is not on; body it off), not killing the Knight. 926 tests pass; audit 294/294. Focus fire
+committed env-gated OFF, pending those.
+
 ## Wave 78 close (2026-05-31) — matchup-fidelity diagnosis + faithful-AI plan (no code change)
 
 Branch `claude/sim-calibration-6`. First wave of the user-chosen phase (Q4 ruling): the
@@ -68,47 +102,4 @@ watchdog escalated the call: (b) take the target-AI redesign PAIRED with a re-fi
 restricts this — needs the user's go), vs (c) bank Stage 1 at ~4.9. **Watchdog ruling: do NOT
 start the AI-redesign+re-fit until the user rules; meanwhile keep taking small clean faithful
 fixes** (e.g. the missing Be'lakor datasheet for Chaos Daemons, option d). Next wave does that.
-
-## Wave 76 close (2026-05-31) — per-squad charge roll: the per-model activation tax (gated 5.11 → 4.91)
-
-Branch `claude/sim-calibration-6`. The watchdog-mandated per-model durability/activation
-tax (`LOOP_QA.md` Q3) — and verify-first found the concrete, faithful mechanism the prior
-washes missed.
-
-DIAGNOSIS (verify-first, because the decision-overlay washed): the per-model over-rate is
-NOT spread/coherency (Drukhari squads spread across 2+ quarters only ~1% of the time — they
-cluster), and the over-shooters win on VP not tabling. The real per-model bug is in the
-CHARGE phase: SwegHammer rolls 2D6 **per model**, so an 11-model Ork mob got 11 independent
-charge attempts (152 of 288 squad-rounds had >1 roll). Real 10e: a unit makes ONE charge
-roll — an 11-model mob makes a 9" charge ~97% of the time in the sim vs the real ~28%. A
-massive melee-reliability over-rate.
-
-LANDED — **per-squad charge roll**: a codex squad (models sharing a `squad_id`) shares ONE
-2D6 charge roll per round (cached in `Battle._squad_charge_roll`); lone models keep their
-own. This is the activation-economy half of the per-model tax that the decision-overlay
-could not reach — it works *because it cuts the horde's effective melee output*, not just
-its decisions (the exact reason the overlay washed, per
-`project-squad-activation-contained-wash`). Core-rule correctness fix; cited
-`simulator.charge_per_unit`.
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 75 close (Sabotage + 40-cap) | 8.50 | 5.11 | 5/22 |
-| **Wave 76 close (per-squad charge)** | **8.16** | **4.91** | **5/22** |
-
-Brings down the melee over-shooters (Orks +10.3 → +8.1, Votann +14.7 → +12.4) and pulls
-Grey Knights back toward band (−6.6 → −2.7); Custodes, Thousand Sons, Emperor's Children,
-Necrons, Aeldari all better. Collateral the other way (re-fit territory, not reasons to
-reject a core-rule fix): Drukhari +16.4 → +18.7 and T'au / Sororitas up — their melee
-*opponents* now charge less reliably, so these (more shooty) armies survive better. 926
-tests pass; citation audit 293/293. Eval `data/wf_wave76_squadcharge_n40.json`.
-
-NEXT: the residual is now Imperial Knights +19.6 (durable primary-camper — NOT a per-model
-issue; it has 1-model units, unaffected by per-squad charge), Drukhari +18.7, Chaos Daemons
-−17.0, CSM −17.3. Candidate faithful levers: (1) rotation-gate the tactical secondaries
-(would temper the wave-75 over-correction of CSM/CK and the cheap-unit over-scoring of
-Votann/Sororitas — a fidelity fix); (2) more per-model activation-economy taxes in the
-charge-vein (other per-model rolls that should be per-unit — overwatch, desperate escape,
-battleshock counts); (3) IK's durable-camp over-rate (its own diagnostic — likely the
-opponents not contesting, which the AI-targeting fix regressed on).
 

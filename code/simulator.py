@@ -6469,6 +6469,11 @@ class Battle:
             # units are skipped by _do_shoot / _do_charge below.
             self._assign_cleanse_actions(active, other)
             self._assign_sabotage_actions(active, other)
+            # Wave 79: army-level focus fire — nominate the single most valuable
+            # durable enemy threat the army can hurt, so its anti-armour
+            # concentrates to REMOVE it (how a real list deletes a Knight),
+            # instead of every unit independently picking the lowest-HP target.
+            self._nominate_focus_target(active, other)
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
@@ -6840,6 +6845,64 @@ class Battle:
             return "Assault"
         return ""
 
+    @staticmethod
+    def _is_antiarmour_weapon(p) -> bool:
+        """Wave 79: a weapon worth concentrating on a durable threat (a Knight /
+        Monster / Vehicle) rather than on chaff — multi-damage, high AP, or with
+        an Anti-MONSTER/VEHICLE/TITANIC keyword. Bolter-class guns (D1, AP0) are
+        NOT anti-armour and keep clearing infantry."""
+        if (getattr(p, "weapon_damage_per_shot", 0) or 0) >= 3:
+            return True
+        if (getattr(p, "ap", 0) or 0) <= -2:
+            return True
+        ak = dict(getattr(p, "anti_keywords", ()) or ())
+        return any(k in ak for k in ("MONSTER", "VEHICLE", "TITANIC"))
+
+    @staticmethod
+    def _is_durable_threat(u) -> bool:
+        """Wave 79: an enemy unit worth focus-firing to remove — a big single
+        model (a Knight, a Monster, a Vehicle, or any 8+ wound model)."""
+        kw = u.profile.unit_keywords or ()
+        if "MONSTER" in kw or "VEHICLE" in kw or "TITANIC" in kw:
+            return True
+        return (u.profile.health or 0) >= 8
+
+    def _nominate_focus_target(self, army, opponent) -> None:
+        """Wave 79 — army-level focus fire (env-gated SWEG_FOCUS). Once per turn,
+        nominate the single most valuable durable enemy threat the army can hurt,
+        preferring one sitting on an objective (removing the camper frees the
+        marker). The army's anti-armour weapons then concentrate on it in
+        `_do_shoot`. Asymmetric by construction: an army facing a Knight gets a
+        focus target; an army whose opponent has no durable threat does not, so
+        this does NOT sharpen the over-shooters' own offence the way the wave-72
+        per-unit value picker did. Cited as `simulator.army_focus_fire`."""
+        army._focus_target_uid = None
+        if __import__("os").environ.get("SWEG_FOCUS") != "1":
+            return
+        candidates = [u for u in opponent.alive_units if self._is_durable_threat(u)]
+        if not candidates:
+            return
+        # The army must actually carry anti-armour, else focusing is futile.
+        if not any(self._is_antiarmour_weapon(u.profile) for u in army.alive_units):
+            return
+
+        def _on_objective(u) -> bool:
+            for obj in self.map.objectives:
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy <= obj.control_radius * obj.control_radius:
+                    return True
+            return False
+
+        best = None
+        best_score = -1.0
+        for c in candidates:
+            score = (c.profile.points_cost or 0.0) * (1.5 if _on_objective(c) else 1.0)
+            if score > best_score:
+                best_score = score
+                best = c
+        army._focus_target_uid = best.uid if best is not None else None
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action (e.g. Cleanse) cannot shoot this turn. Cited as
@@ -7067,16 +7130,30 @@ class Battle:
             _synapse_target_bonus,
             _transport_target_bonus,
         )
-        shoot_target = min(
-            pool,
-            key=lambda u: u.current_health / (
-                _screen_target_bonus(u)
-                * _synapse_target_bonus(attacker, u)
-                * _astartes_oath_target_bonus(attacker, u, attacker_army)
-                * _transport_target_bonus(u)
-                * _drukhari_fragile_flyer_bonus(u)
-            ),
-        )
+        # Wave 79: army-level focus fire. If the army has nominated a focus
+        # target (the most valuable durable enemy threat it can hurt) and THIS
+        # attacker is an anti-armour weapon that can meaningfully hurt it, and
+        # the target is reachable this activation, concentrate fire on it.
+        # Anti-infantry weapons fall through to the normal lowest-HP pick, so
+        # bolters keep clearing chaff (weapon-target matched). Cited as
+        # `simulator.army_focus_fire`.
+        _focus_uid = getattr(attacker_army, "_focus_target_uid", None)
+        _focus_target = None
+        if _focus_uid is not None and self._is_antiarmour_weapon(attacker.profile):
+            _focus_target = next((u for u in pool if u.uid == _focus_uid), None)
+        if _focus_target is not None:
+            shoot_target = _focus_target
+        else:
+            shoot_target = min(
+                pool,
+                key=lambda u: u.current_health / (
+                    _screen_target_bonus(u)
+                    * _synapse_target_bonus(attacker, u)
+                    * _astartes_oath_target_bonus(attacker, u, attacker_army)
+                    * _transport_target_bonus(u)
+                    * _drukhari_fragile_flyer_bonus(u)
+                ),
+            )
 
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. HEAVY cover

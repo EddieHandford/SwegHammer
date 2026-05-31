@@ -1,7 +1,23 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 78 close (2026-05-31) — matchup-fidelity diagnosis +
-faithful-AI plan (the user-chosen phase). Headline gated **4.95**.
+**Last updated:** Wave 79 close (2026-05-31) — army focus fire built + tested
+(env-gated, regresses solo). Headline gated **4.95** (focus fire OFF).
+
+**Wave 79 built redesign step #1 (army-level focus fire) of the faithful AI track.**
+Env-gated `SWEG_FOCUS`: the army nominates the most valuable durable enemy threat it
+can hurt and its anti-armour weapons concentrate on it. It regresses solo (4.95 →
+5.41): it HELPS the fragile over-shooter Drukhari (+18.6 → +14.2, its Ravagers get
+focus-removed) but WORSENS the durable Imperial Knights (+19.1 → +25.9 — a Knight
+can't be shot off, so the victims' fire is wasted while IK's own anti-armour sharpens
+on the opponents' vehicles). Third confirmation that better SHOOTING AI sharpens the
+durable over-shooters. **Next (the user's AI+re-fit path):** (1) rebuild the IK
+archetype toward the real Armiger-heavy tournament list (the sim's big-Knight list is
+over-gunned; Armigers are fragile so focus fire would remove them → IK down) — test the
+re-fit PAIRED with focus fire; (2) build step #2 contest/deny (the real IK lever — deny
+its primary VP, don't kill the Knight). Committed env-gated OFF; baseline unchanged.
+Full detail: `docs/MATCHUP_FIDELITY_ANALYSIS.md`.
+
+### Earlier — wave 78 (matchup-fidelity diagnosis + faithful-AI plan)
 
 **Wave 78 opened the user-chosen phase (Q4 ruling): the faithful target/positioning
 AI track + matchup-fidelity diagnosis.** A diagnosis+plan wave. Drilling per-matchup

@@ -84,3 +84,34 @@ Sequence: build #1 (army focus fire) first as the clearest matchup gap, env-gate
 diagnose the over-shoots it exposes (faithful re-calibration toward real lists / diagnosed
 causes, now permitted); then #2 (contest/deny) and #3 (action allocation). Each wave: drill
 the driving matchups (sim win% per cell) before AND after, not just the aggregate.
+
+## Wave 79 result — #1 army focus fire BUILT + TESTED (env-gated `SWEG_FOCUS`); regresses solo
+
+Built `Battle._nominate_focus_target` + the `_do_shoot` override: the army nominates the
+most valuable durable enemy threat it can hurt (preferring one on an objective) and its
+**anti-armour weapons only** (`_is_antiarmour_weapon`: D≥3 / AP≤-2 / Anti-MONSTER-VEHICLE-
+TITANIC) concentrate on it. Smoke-confirmed (Chaos Space Marines focus-fire the Knight
+Castellan and beat Imperial Knights in a matchup they normally lose). N=40 A/B: gated
+**4.95 → 5.41 (REGRESSED +0.46)**. Per-faction:
+- **Drukhari +18.6 → +14.2** (−4.4, HELPED — its fragile Ravagers/Talos get focus-removed).
+- **Imperial Knights +19.1 → +25.9** (+6.8, WORSE), **GSC −5.4 → −15.9**, T'au up.
+
+**Diagnosis (the user's "diagnose the over-shoot" step):** focus fire is the right tool for
+FRAGILE high-value threats (Drukhari) but the WRONG tool for the DURABLE over-shooter Imperial
+Knights — a Knight cannot be shot off (T11/W26/5++), so the victims' concentrated fire is
+wasted, while IK's OWN anti-armour sharpens on the opponents' vehicles/dreadnoughts (its MEQ
+opponents DO carry durable targets, contrary to the pre-build assumption). This is the third
+confirmation (after wave-72 value-targeting) that better SHOOTING AI sharpens the durable
+over-shooters. The faithful causes the regression exposes, per bucket:
+1. **List-realism (bucket b):** the simulator's Imperial Knights archetype is big-Knight-heavy
+   and OVER-GUNNED versus the real tournament-winning list (Armiger-heavy — ~12 Armigers +
+   characters). With focus fire that over-gunning is what sharpens. The faithful re-fit (now
+   permitted) is to rebuild the IK archetype toward the real Armiger-heavy list; Armigers are
+   fragile (T9/W14) so focus fire would REMOVE them — IK should then come down. **This is the
+   next test: IK Armiger re-fit PAIRED with focus fire.**
+2. **AI (bucket a) — the real IK lever is CONTEST/DENY (#2), not shooting.** IK is beaten in
+   real play by denying its primary VP (contest the objectives it is not on; body it off),
+   not by killing the Knight. Build #2 next.
+
+Focus fire is committed env-gated OFF (baseline 4.95 unchanged) as the AI half, pending the
+paired re-fit (#1 cause above) and #2.
