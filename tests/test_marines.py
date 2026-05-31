@@ -150,11 +150,17 @@ class OathTargetPickerTests(unittest.TestCase):
         b.add_unit(_enemy_profile(name="Expensive", points=300))
         battle = Battle(a, b)
         battle._assign_uids()
+        # Capture the highest-points enemy uid BEFORE running the round.
+        # Dark Pacts Leadership tests (which fire at Command-phase start for
+        # every CHAOS SPACE MARINES squad, including Army B's test units) can
+        # deal mortal wounds on a failure, potentially killing the Expensive
+        # unit during the round. Oath of Moment picks the target at Command-
+        # phase start on the highest-points alive unit at that moment — which
+        # is the correct unit to compare against, not whoever survives to the
+        # end of the round.
+        expensive_uid = max(b.units, key=lambda u: u.profile.points_cost).uid
         battle._run_round(1)
-        # The expensive enemy is uid #1 in army b; either way the picked
-        # uid must match the highest-points alive enemy.
-        expensive = max(b.alive_units, key=lambda u: u.profile.points_cost)
-        self.assertEqual(battle.a.oath_target_uid, expensive.uid)
+        self.assertEqual(battle.a.oath_target_uid, expensive_uid)
 
     def test_oath_target_repicked_each_round(self):
         """The oath_target_uid resets at the start of every Command phase —
