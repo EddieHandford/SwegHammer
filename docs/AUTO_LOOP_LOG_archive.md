@@ -1,3 +1,40 @@
+<!-- Archived from AUTO_LOOP_LOG.md at wave 80 close (wave 77) -->
+
+## Wave 77 close (2026-05-31) — per-unit Advance roll (correctness, metric-neutral); clean levers exhausting → strategic fork escalated
+
+Branch `claude/sim-calibration-6`. A consolidation wave: the clean impactful faithful levers
+are now largely exhausted, so this wave landed one small core-rule correctness fix and
+escalated the strategic direction to the user (via the watchdog).
+
+TESTED + REJECTED — rotation-gating the tactical secondaries. The deferred fidelity idea
+(cleanse/sabotage score every round vs the real ~1-2/turn deck cadence) was checked by an
+isolation A/B: **Sabotage OFF is gated 5.15 vs 4.91 ON**, i.e. the "over-scoring" is actually
+NET-POSITIVE, so reducing it would regress the headline for an ambiguous fidelity gain. Not
+done.
+
+LANDED — **per-unit Advance roll**. Real 10e makes ONE Advance roll (one D6) per unit; the sim
+rolled per model (same one-Unit-per-model bug class as the wave-76 charge fix). A codex squad
+now shares one Advance D6 per round (`_squad_advance_roll` cache). Lower-impact than charge
+(Advance adds distance, not a binary-success multiplier), so it is **metric-neutral**: gated
+4.91 → 4.95 (within N=40 noise) but in-band 5 → 6. A faithful correctness fix, kept on its
+correctness (like Code Chivalric, wave 71). Cited `simulator.advance_per_unit`. 926 tests pass;
+citation audit 294/294. Eval `data/wf_wave77_advance_n40.json`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 76 close (per-squad charge) | 8.16 | 4.91 | 5/22 |
+| **Wave 77 close (per-unit Advance)** | **8.29** | **4.95** | **6/22** |
+
+STRATEGIC FORK — ESCALATED TO THE USER (`LOOP_QA.md` Q4). The headline is gated 4.95 (down from
+5.98 this session). The clean faithful levers are exhausted: rotation-gating is net-negative;
+the per-model→per-unit vein's big hit (charge) is done; the two biggest residuals — Imperial
+Knights +19.1 (durable primary-camper) and Drukhari +18.6 (fragile, should die to focused fire)
+— both need the OPPONENT target/positioning AI, which REGRESSED when tried (wave 72). The
+watchdog escalated the call: (b) take the target-AI redesign PAIRED with a re-fit (the goal doc
+restricts this — needs the user's go), vs (c) bank Stage 1 at ~4.9. **Watchdog ruling: do NOT
+start the AI-redesign+re-fit until the user rules; meanwhile keep taking small clean faithful
+fixes** (e.g. the missing Be'lakor datasheet for Chaos Daemons, option d). Next wave does that.
+
 <!-- Archived from AUTO_LOOP_LOG.md at wave 79 close (wave 76) -->
 
 ## Wave 76 close (2026-05-31) — per-squad charge roll: the per-model activation tax (gated 5.11 → 4.91)

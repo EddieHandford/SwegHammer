@@ -1,7 +1,21 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 79 close (2026-05-31) — army focus fire built + tested
-(env-gated, regresses solo). Headline gated **4.95** (focus fire OFF).
+**Last updated:** Wave 80 close (2026-05-31) — IK Armiger re-fit tested + reverted;
+the AI+re-fit shooting/list routes fail for Imperial Knights. Headline gated **4.95**.
+
+**Wave 80 ran the user's AI+re-fit hypothesis on the #1 residual (Imperial Knights)
+and it failed.** The faithful re-fit toward the real Armiger-heavy tournament list made
+IK WORSE — alone (gated 4.95 → 5.66, the efficient Armigers over-perform more in the sim)
+and paired with focus fire (5.90, IK +39.5 / 88%). Reverted. **Firm diagnosis:** the IK
+over-rate is the objective-HOLDING (the sim over-rates a durable camper because opponents
+do not DENY its primary VP) — NOT the list (both shapes over-perform), the stats (current),
+the rules (verified), or the shooting AI (a Knight can't be shot off — better targeting
+only sharpens IK's own offence, confirmed 3×). The remaining faithful lever is **contest/deny
+positioning (step #2)** — sacrifice cheap bodies onto the objectives IK is NOT on to deny
+its primary VP. If that too fails, IK is a structural VP-vs-durability scoring residual, not
+AI-fixable (the finding to report). `LOOP_QA.md` Q5; `docs/MATCHUP_FIDELITY_ANALYSIS.md`.
+
+### Earlier — wave 79 (army focus fire built + tested, env-gated, regresses solo)
 
 **Wave 79 built redesign step #1 (army-level focus fire) of the faithful AI track.**
 Env-gated `SWEG_FOCUS`: the army nominates the most valuable durable enemy threat it

@@ -4,6 +4,36 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 80 close (2026-05-31) — IK Armiger re-fit tested + REVERTED; the AI+re-fit shooting/list routes fail for Imperial Knights (no net code change)
+
+Branch `claude/sim-calibration-6`. Ran the user's AI+re-fit hypothesis on the #1 residual
+(Imperial Knights): the faithful list-realism re-fit toward the real Armiger-heavy
+tournament-winning list, alone and paired with the wave-79 focus fire. BOTH regress; IK
+climbs. Reverted. Headline unchanged at gated 4.95. The finding is the deliverable.
+
+THE TEST. Re-fit the IK archetype from big-Knight-heavy to the real Armiger-heavy list (6
+Helverin / 6 Warglaive / Moirax / Canis Rex anchor — the proven competitive shape per the
+Goonhammer / Sprues & Brews 2025 reviews). The builder produced a correct ~13-Armiger,
+~1970pt list.
+- Re-fit ALONE (focus fire off): gated 4.95 → **5.66** — IK UP. The efficient Armigers
+  over-perform MORE in the sim (their real-world fragility tax is not modelled).
+- Re-fit PAIRED with focus fire: gated **5.90**, **Imperial Knights +39.5 / 88%** — the
+  fragile Armigers get focus-removed but they are cheap and many, and both lists' offence
+  sharpens. Worst IK result yet.
+
+DIAGNOSIS (firm now): the Imperial Knights over-rate is NOT the list — both the big-Knight
+and the Armiger shapes over-perform in the sim (the Armiger one more). It is not the stats
+(T11/W26 already current), not the rules (verified 71-72), and not the shooting AI (a Knight
+cannot be shot off, so better targeting only sharpens IK's OWN offence — confirmed a 3rd
+time). The over-rate is the **objective-HOLDING**: the sim over-rates a durable camper
+because opponents do not **deny its primary VP**. Reverted the re-fit (both shapes are
+realistic, so the regressing swap is not a clear fidelity win). The remaining faithful lever
+is **contest/deny positioning (step #2)** — opponents sacrifice cheap bodies onto the
+objectives IK is NOT on / contested ones to deny its primary VP, the real way Knights are
+beaten. Logged `LOOP_QA.md` Q5; building step #2 next, env-gated, drilling IK's objective
+holding before/after. If it too fails, IK is a structural scoring residual (VP-vs-durability),
+not AI-fixable — and that is the finding to report.
+
 ## Wave 79 close (2026-05-31) — army focus fire built + tested (env-gated, regresses solo); diagnosis → Armiger re-fit + contest/deny next
 
 Branch `claude/sim-calibration-6`. Built redesign step #1 of the faithful AI track (army-level
@@ -67,39 +97,4 @@ contest/deny objectives (#13 positioning — body the camper off the VP); (3) ac
 allocation = spare-and-survivable only. Each env-gated A/B, and when the better AI exposes
 an over-shoot, DIAGNOSE the faithful cause (re-calibration toward real lists now permitted)
 — never a nerf. Build in the next waves, drilling the driving matchup cells before/after.
-
-## Wave 77 close (2026-05-31) — per-unit Advance roll (correctness, metric-neutral); clean levers exhausting → strategic fork escalated
-
-Branch `claude/sim-calibration-6`. A consolidation wave: the clean impactful faithful levers
-are now largely exhausted, so this wave landed one small core-rule correctness fix and
-escalated the strategic direction to the user (via the watchdog).
-
-TESTED + REJECTED — rotation-gating the tactical secondaries. The deferred fidelity idea
-(cleanse/sabotage score every round vs the real ~1-2/turn deck cadence) was checked by an
-isolation A/B: **Sabotage OFF is gated 5.15 vs 4.91 ON**, i.e. the "over-scoring" is actually
-NET-POSITIVE, so reducing it would regress the headline for an ambiguous fidelity gain. Not
-done.
-
-LANDED — **per-unit Advance roll**. Real 10e makes ONE Advance roll (one D6) per unit; the sim
-rolled per model (same one-Unit-per-model bug class as the wave-76 charge fix). A codex squad
-now shares one Advance D6 per round (`_squad_advance_roll` cache). Lower-impact than charge
-(Advance adds distance, not a binary-success multiplier), so it is **metric-neutral**: gated
-4.91 → 4.95 (within N=40 noise) but in-band 5 → 6. A faithful correctness fix, kept on its
-correctness (like Code Chivalric, wave 71). Cited `simulator.advance_per_unit`. 926 tests pass;
-citation audit 294/294. Eval `data/wf_wave77_advance_n40.json`.
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 76 close (per-squad charge) | 8.16 | 4.91 | 5/22 |
-| **Wave 77 close (per-unit Advance)** | **8.29** | **4.95** | **6/22** |
-
-STRATEGIC FORK — ESCALATED TO THE USER (`LOOP_QA.md` Q4). The headline is gated 4.95 (down from
-5.98 this session). The clean faithful levers are exhausted: rotation-gating is net-negative;
-the per-model→per-unit vein's big hit (charge) is done; the two biggest residuals — Imperial
-Knights +19.1 (durable primary-camper) and Drukhari +18.6 (fragile, should die to focused fire)
-— both need the OPPONENT target/positioning AI, which REGRESSED when tried (wave 72). The
-watchdog escalated the call: (b) take the target-AI redesign PAIRED with a re-fit (the goal doc
-restricts this — needs the user's go), vs (c) bank Stage 1 at ~4.9. **Watchdog ruling: do NOT
-start the AI-redesign+re-fit until the user rules; meanwhile keep taking small clean faithful
-fixes** (e.g. the missing Be'lakor datasheet for Chaos Daemons, option d). Next wave does that.
 
