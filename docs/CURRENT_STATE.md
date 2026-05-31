@@ -1,7 +1,23 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 77 close (2026-05-31) — per-unit Advance (correctness,
-metric-neutral); clean levers exhausting, strategic direction escalated to the user.
+**Last updated:** Wave 78 close (2026-05-31) — matchup-fidelity diagnosis +
+faithful-AI plan (the user-chosen phase). Headline gated **4.95**.
+
+**Wave 78 opened the user-chosen phase (Q4 ruling): the faithful target/positioning
+AI track + matchup-fidelity diagnosis.** A diagnosis+plan wave. Drilling per-matchup
+(not aggregate) shows the residuals are driven by impossible-in-real-play lopsided
+cells: Imperial Knights beat CSM/AdMech/Marines **100%**, Drukhari beat
+Tyranids/CSM/AdMech **90%**; CSM loses **0%** to Emperor's Children, Daemons **0%** to
+AdMech/Drukhari/TSON. Compared to real May-2026 play, the gap is almost entirely
+**bucket (a), the opponent AI** — it does not focus-fire the durable/key threat, contest
+and deny the camper's objectives, or allocate units to actions sensibly. Stats/rules
+verified faithful (Knight T11/W26 already reflects the Dec-2025 update); one list note
+(real winning Knights list is Armiger-heavy — flagged, not pulled). Full diagnosis + the
+faithful-AI redesign plan: `docs/MATCHUP_FIDELITY_ANALYSIS.md`. The AI build executes in
+the next waves (env-gated A/B; when it exposes an over-shoot, diagnose the faithful cause
+— re-fit toward real lists now permitted — never a nerf).
+
+### Earlier — wave 77 (per-unit Advance, metric-neutral; clean levers exhausting)
 
 **Wave 77 was a consolidation wave.** Rotation-gating the tactical secondaries was
 tested and REJECTED (Sabotage-off is gated 5.15 vs 4.91 on — the over-scoring is

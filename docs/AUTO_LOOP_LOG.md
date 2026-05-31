@@ -4,6 +4,36 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 78 close (2026-05-31) — matchup-fidelity diagnosis + faithful-AI plan (no code change)
+
+Branch `claude/sim-calibration-6`. First wave of the user-chosen phase (Q4 ruling): the
+faithful target/positioning AI track + matchup-fidelity diagnosis. A diagnosis+plan wave
+(like wave 73 → 74), because the AI redesign is big/risky and warrants clean context.
+Headline unchanged at gated 4.95.
+
+MATCHUP DIAGNOSIS (drilled per-cell, not aggregate). The over-shooters crush specific
+victims: Imperial Knights beat CSM / AdMech / Marines **100%**, Drukhari beat Tyranids /
+CSM / AdMech **90%**. The under-shooters get crushed: CSM loses **0%** to Emperor's
+Children (10% to Sororitas/Votann); Chaos Daemons lose **0%** to AdMech / Drukhari / TSON.
+These are impossible in real competitive play (~even). Compared to real May-2026 play, the
+gap sorts almost entirely into **bucket (a) — the opponent AI**: it does not (1) focus-fire
+the durable/key threat with concentrated anti-armour (the way a real list deletes a Knight
+or a Ravager), (2) contest/deny the durable camper's objectives, or (3) allocate units to
+actions sensibly (CSM/Daemons suicide spare units on Sabotage). Verified NOT a stat gap —
+the sim's Knight stats (Questoris T11/W26) already reflect the December-2025 toughness
+update, and the rules were verified faithful in waves 71-72. One list note (bucket b): the
+real winning Knights list is Armiger-heavy vs the sim's big-Knight build — flagged, not
+pulled (uncertain direction).
+
+DELIVERABLE: `docs/MATCHUP_FIDELITY_ANALYSIS.md` — the per-cell findings, the real-play
+comparison, the 3-bucket sort, and the faithful-AI redesign plan: (1) ARMY-LEVEL focus fire
+on the highest-value reachable threat (weapon-target-matched — the per-UNIT value-picker
+regressed in wave 72 because it sharpened the over-shooters' own offence symmetrically); (2)
+contest/deny objectives (#13 positioning — body the camper off the VP); (3) action
+allocation = spare-and-survivable only. Each env-gated A/B, and when the better AI exposes
+an over-shoot, DIAGNOSE the faithful cause (re-calibration toward real lists now permitted)
+— never a nerf. Build in the next waves, drilling the driving matchup cells before/after.
+
 ## Wave 77 close (2026-05-31) — per-unit Advance roll (correctness, metric-neutral); clean levers exhausting → strategic fork escalated
 
 Branch `claude/sim-calibration-6`. A consolidation wave: the clean impactful faithful levers
@@ -81,42 +111,4 @@ Votann/Sororitas — a fidelity fix); (2) more per-model activation-economy taxe
 charge-vein (other per-model rolls that should be per-unit — overwatch, desperate escape,
 battleshock counts); (3) IK's durable-camp over-rate (its own diagnostic — likely the
 opponents not contesting, which the AI-targeting fix regressed on).
-
-## Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap (gated 5.35 → 5.11)
-
-Branch `claude/sim-calibration-6`. Continued the proven action-economy lever (watchdog
-confirmed option (a) in `LOOP_QA.md` Q3). Two faithful changes, env-gated A/B then landed.
-
-LANDED — **40-VP total-secondary cap** (`_decide_winner` now decides on primary +
-min(secondary, 40)). Real Pariah Nexus caps secondary VP at 40/game; the sim's mixed
-`_a_vp` totals never enforced it, so secondary-heavy shapes ran past it (Custodes ~39/game).
-A faithful correctness fix AND the prerequisite that keeps further secondaries bounded.
-Cited `simulator.secondary_vp_cap_40`. **Sabotage** (Pariah Nexus action secondary, card
-text web-verified): a surplus chaff unit OUTSIDE its own DZ performs the action (shoot/charge
-lockout) — 3 VP in No Man's Land, 6 VP in the enemy DZ, scored if it survives forward; capped
-at one completion (6 VP)/round. Rewards deep forward push (deepstrike/infiltrate
-under-shooters), which a durable low-model camper cannot do. Cited `simulator.secondary_sabotage`.
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 74 close (Cleanse + Cull-fix) | 8.74 | 5.35 | 6→5/22 |
-| **Wave 75 close (Sabotage + 40-cap)** | **8.50** | **5.11** | **5/22** |
-
-DENTS THE #1 RESIDUAL: Imperial Knights +23.3 → +18.0 (−5.3, opponents sabotage/cleanse into
-its zone, which it cannot reciprocate); Custodes +9.3 → +6.1 (the 40-cap biting its high
-secondary); Tyranids into band; Astra / AdMech / Necrons / Marines / World Eaters all better.
-
-HONEST COLLATERAL (over-correction of low-model armies): CSM −9.7 → −16.6, Chaos Knights
-−6.1 → −12.9, Grey Knights +1.6 → −6.6; Votann / Orks further over. The DIRECTION is faithful
-(low-model armies genuinely struggle with the secondary game), but the MAGNITUDE is amplified
-because cleanse/sabotage are NOT yet rotation-gated like Engage/BEL — they score every round
-vs the real draw-1-2/turn cadence, so they over-score. Tempering that (rotation-gating the
-tactical layer) is a LATER secondary wave; per the watchdog it must NOT pre-empt wave 76.
-926 tests pass; citation audit 292/292. Eval `data/wf_wave75_sabotage_cap_n40.json`.
-
-WAVE 76 (watchdog-directed, firm): the per-model durability / activation tax — the genuine
-root cause of Imperial Knights +18.0 (still #1) that the secondaries only chip at. Design it
-as a FAITHFUL mechanic (real action-economy / objective-count / coherency effects), NOT a
-metric-driven penalty on low-model armies. The watchdog will flag "one more bounded secondary"
-as shying away.
 

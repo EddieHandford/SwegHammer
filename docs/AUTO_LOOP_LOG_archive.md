@@ -1,3 +1,43 @@
+<!-- Archived from AUTO_LOOP_LOG.md at wave 78 close (wave 75) -->
+
+## Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap (gated 5.35 → 5.11)
+
+Branch `claude/sim-calibration-6`. Continued the proven action-economy lever (watchdog
+confirmed option (a) in `LOOP_QA.md` Q3). Two faithful changes, env-gated A/B then landed.
+
+LANDED — **40-VP total-secondary cap** (`_decide_winner` now decides on primary +
+min(secondary, 40)). Real Pariah Nexus caps secondary VP at 40/game; the sim's mixed
+`_a_vp` totals never enforced it, so secondary-heavy shapes ran past it (Custodes ~39/game).
+A faithful correctness fix AND the prerequisite that keeps further secondaries bounded.
+Cited `simulator.secondary_vp_cap_40`. **Sabotage** (Pariah Nexus action secondary, card
+text web-verified): a surplus chaff unit OUTSIDE its own DZ performs the action (shoot/charge
+lockout) — 3 VP in No Man's Land, 6 VP in the enemy DZ, scored if it survives forward; capped
+at one completion (6 VP)/round. Rewards deep forward push (deepstrike/infiltrate
+under-shooters), which a durable low-model camper cannot do. Cited `simulator.secondary_sabotage`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 74 close (Cleanse + Cull-fix) | 8.74 | 5.35 | 6→5/22 |
+| **Wave 75 close (Sabotage + 40-cap)** | **8.50** | **5.11** | **5/22** |
+
+DENTS THE #1 RESIDUAL: Imperial Knights +23.3 → +18.0 (−5.3, opponents sabotage/cleanse into
+its zone, which it cannot reciprocate); Custodes +9.3 → +6.1 (the 40-cap biting its high
+secondary); Tyranids into band; Astra / AdMech / Necrons / Marines / World Eaters all better.
+
+HONEST COLLATERAL (over-correction of low-model armies): CSM −9.7 → −16.6, Chaos Knights
+−6.1 → −12.9, Grey Knights +1.6 → −6.6; Votann / Orks further over. The DIRECTION is faithful
+(low-model armies genuinely struggle with the secondary game), but the MAGNITUDE is amplified
+because cleanse/sabotage are NOT yet rotation-gated like Engage/BEL — they score every round
+vs the real draw-1-2/turn cadence, so they over-score. Tempering that (rotation-gating the
+tactical layer) is a LATER secondary wave; per the watchdog it must NOT pre-empt wave 76.
+926 tests pass; citation audit 292/292. Eval `data/wf_wave75_sabotage_cap_n40.json`.
+
+WAVE 76 (watchdog-directed, firm): the per-model durability / activation tax — the genuine
+root cause of Imperial Knights +18.0 (still #1) that the secondaries only chip at. Design it
+as a FAITHFUL mechanic (real action-economy / objective-count / coherency effects), NOT a
+metric-driven penalty on low-model armies. The watchdog will flag "one more bounded secondary"
+as shying away.
+
 <!-- Archived from AUTO_LOOP_LOG.md at wave 77 close (wave 74) -->
 
 ## Wave 74 close (2026-05-31) — action-economy secondaries: Cleanse + Cull-fix (gated 5.89 → 5.35)
