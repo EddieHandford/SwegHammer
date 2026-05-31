@@ -83,6 +83,28 @@ on it; if you set a fallback in case it hangs, make it long (1200 seconds or mor
 The 60-second minimum is specifically for the between-waves restart, where nothing is
 pending and the only thing between you and wave N+1 is the wakeup itself.
 
+## Asking questions — route to the watchdog, never interrupt the user
+
+A supervising watchdog session reviews your output between waves and answers your
+questions. When you reach a question you would otherwise put to the user:
+
+- **Do not call `AskUserQuestion` or otherwise ping the user.** The user has asked that
+  your questions route through the watchdog instead.
+- **Append the question to `LOOP_QA.md`** (repository root; it is gitignored — a live
+  scratch channel, do not commit it), using the block format documented at the top of
+  that file: question, context, options, your most-faithful default, and whether it is
+  blocking.
+- **Then keep moving.** Default to non-blocking: pick the most faithful,
+  prime-directive-compliant interpretation, proceed with it, and let the watchdog confirm
+  or correct it later. Only park a lever (mark it blocking) if proceeding would risk
+  fabricating or metric-tuning — then move to a different lever rather than stalling.
+- **Read `LOOP_QA.md` at the start of every wave** and apply any answers the watchdog has
+  written (`[ANSWERED]`); revisit a parked lever once its question is answered.
+
+The watchdog answers what it can from the prime directive, `CLAUDE.md`, and the
+established methodology, and escalates only genuine steering forks to the user — so a
+question costs you no stall and the user no interruption.
+
 ## Do not tunnel: take the structural lever when narrow fixes stall
 
 Watch for this failure mode, because the loop has already fallen into it: you correctly

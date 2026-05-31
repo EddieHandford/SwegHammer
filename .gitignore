@@ -25,3 +25,6 @@ build/
 
 # Rust build artifacts
 target/
+
+# Live worker-loop question/answer channel (watchdog-mediated, not history)
+LOOP_QA.md
