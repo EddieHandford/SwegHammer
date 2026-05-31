@@ -6191,10 +6191,19 @@ class Battle:
             # chargers. Per Wahapedia datasheet text the keyword applies
             # every Fight phase, not only the turn the unit charged.
             # Cited as `simulator.fights_first_keyword`.
+            # CORE-RULES-AUDIT (2026-05-31): a Battle-shocked unit must be
+            # selected to fight at the START of the Remaining Combats step
+            # (after Fights First, before other units). Tier it between the
+            # Fights First group (0) and normal units (2). See
+            # docs/CORE_RULES_AUDIT.md #10.
             def _fight_priority(u):
                 charging = u.uid in self._charging_this_round
                 ff_keyword = bool(getattr(u.profile, "fights_first", False))
-                return 0 if (charging or ff_keyword) else 1
+                if charging or ff_keyword:
+                    return 0
+                if u.uid in self._battleshocked_this_round:
+                    return 1
+                return 2
 
             ordered = sorted(list(active.units), key=_fight_priority)
             for unit in ordered:
@@ -6260,6 +6269,35 @@ class Battle:
     # ------------------------------------------------------------------
     # Sub-phases
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fall_back_crosses_enemy(old_pos, new_pos, defender_army) -> bool:
+        """Approximate the 10e "a model moves over/through an enemy model" half
+        of the Desperate Escape trigger. Returns True if any enemy model lies
+        within Engagement Range (1") of the fall-back path segment old_pos ->
+        new_pos AND is more than 1" from old_pos — i.e. an enemy AHEAD in the
+        path, not the one the unit is disengaging from at the start. Used by the
+        Fall Back branch of `_do_move`. See docs/CORE_RULES_AUDIT.md #2."""
+        ox, oy = old_pos
+        nx, ny = new_pos
+        dx, dy = nx - ox, ny - oy
+        seg_len_sq = dx * dx + dy * dy
+        if seg_len_sq <= 1e-9:
+            return False
+        for e in defender_army.alive_units:
+            if getattr(e, "embarked_in", None) is not None:
+                continue
+            ex, ey = e.position
+            # Skip the enemy being disengaged from (within 1" of the start).
+            if (ex - ox) ** 2 + (ey - oy) ** 2 <= 1.0:
+                continue
+            # Point-to-segment distance from the enemy to the fall-back path.
+            t = ((ex - ox) * dx + (ey - oy) * dy) / seg_len_sq
+            t = max(0.0, min(1.0, t))
+            px, py = ox + t * dx, oy + t * dy
+            if (ex - px) ** 2 + (ey - py) ** 2 <= 1.0:
+                return True
+        return False
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
                  _phase_their_oc=None) -> None:
@@ -6340,13 +6378,27 @@ class Battle:
                 ))
             attacker.fell_back_this_round = True
             # Desperate Escape test (10e core): roll 1D6 per model in the
-            # Falling Back unit; each roll of 1-2 destroys one model.
-            # TITANIC and FLY units are entirely exempt from this test.
-            # SwegHammer models units as one Unit per model, so a single
-            # D6 is rolled. Cited as `simulator.desperate_escape`.
+            # Falling Back unit; each roll of 1-2 destroys one model. TITANIC
+            # and FLY units are exempt. SwegHammer models one Unit per model,
+            # so a single D6 is rolled.
+            #
+            # CORE-RULES-AUDIT (2026-05-31): the test is NOT unconditional. Per
+            # 10e it is taken only when the Falling Back unit is Battle-shocked
+            # OR one or more of its models moves over/through an enemy model
+            # during the move. A clean Fall Back into open space takes NO test.
+            # We approximate "moves over an enemy" as an enemy lying within
+            # Engagement Range (1") of the fall-back path segment AHEAD of the
+            # unit (excluding the enemy it is disengaging from at the start).
+            # Previously the test fired on every Fall Back, destroying ~1/3 of
+            # models each time and heavily over-taxing disengagement. Cited as
+            # `simulator.desperate_escape`. See docs/CORE_RULES_AUDIT.md #2.
             _p = attacker.profile
-            if not (_p.titanic or _p.fly):
-                if random.randint(1, 6) <= 2:
+            if not (_p.titanic or _p.fly) and new_pos != old_pos:
+                _shocked = attacker.is_currently_battle_shocked(self._current_round)
+                _crosses = self._fall_back_crosses_enemy(
+                    old_pos, new_pos, defender_army,
+                )
+                if (_shocked or _crosses) and random.randint(1, 6) <= 2:
                     attacker.current_health = 0.0
                     if not attacker.is_alive:
                         self._emit(UnitKilled(unit_uid=attacker.uid))
@@ -6584,6 +6636,23 @@ class Battle:
             u for u in candidates
             if can_target_for_ranged(attacker, u, defender_alive)
         ]
+        # CORE-RULES-AUDIT (2026-05-31): a unit shooting while within Engagement
+        # Range (Pistols, or Big Guns Never Tire Monsters/Vehicles) may ONLY
+        # target enemy units it is itself within Engagement Range of. Previously
+        # an in-engagement shooter could pick any target in range. See
+        # docs/CORE_RULES_AUDIT.md #4.
+        if in_engagement:
+            candidates = [
+                u for u in candidates
+                if _distance(attacker.position, u.position) <= 1.0
+            ]
+        # CORE-RULES-AUDIT (2026-05-31): a Blast weapon cannot target a unit
+        # that is within Engagement Range of the bearer. See #5.
+        if attacker.profile.blast:
+            candidates = [
+                u for u in candidates
+                if _distance(attacker.position, u.position) > 1.0
+            ]
         if not candidates:
             return
 
@@ -6981,14 +7050,12 @@ class Battle:
         # * Tank Shock (1 CP, attacker) — VEHICLE chargers deal D3 mortal
         #   wounds.
         self._try_tank_shock(attacker, target, attacker_army)
-        # Heroic Intervention (10e core, FREE — NOT a stratagem). After the
-        # charger has ended its move, every friendly defender CHARACTER
-        # within 6" of the charger may make a normal move of up to 6"
-        # (3" if WALKER) ending in engagement range with that charger.
-        # Cited as `simulator.heroic_intervention_core`. Fires after Tank
-        # Shock so the character intervenes against whatever's still
-        # standing.
-        self._do_heroic_intervention(attacker, defender_army)
+        # CORE-RULES-AUDIT (2026-05-31): Heroic Intervention has been REMOVED.
+        # It is not a 10th-edition rule — it was a 9e mechanic deleted when 10e
+        # launched, and the Wahapedia 10e core rules contain no such rule. The
+        # prior implementation fired free for every defending CHARACTER within
+        # 6" of a charger (a fabricated free 6"/3" move into engagement), over-
+        # rating every melee-Character army. See docs/CORE_RULES_AUDIT.md #1.
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1").
@@ -7740,10 +7807,25 @@ class Battle:
             (cx + 1.0, cy), (cx, cy + 1.0),
         ]
         placed = None
+        # CORE-RULES-AUDIT (2026-05-31): a disembarking unit must be set up NOT
+        # within Engagement Range (1") of any enemy model. Previously only
+        # impassable terrain was checked, so a unit could be placed adjacent to
+        # an enemy and fight for free. See docs/CORE_RULES_AUDIT.md #9.
+        _own = getattr(passenger, "army_ref", None)
+        _enemy_army = (self.b if _own is self.a else self.a) if _own is not None else None
+        _enemies = _enemy_army.alive_units if _enemy_army is not None else []
+
+        def _clear_of_enemies(x, y):
+            return all(
+                (x - e.position[0]) ** 2 + (y - e.position[1]) ** 2 > 1.0
+                for e in _enemies
+                if getattr(e, "embarked_in", None) is None
+            )
+
         for pt in candidates:
             x = max(0.0, min(self.map.width, pt[0]))
             y = max(0.0, min(self.map.height, pt[1]))
-            if not self.map.is_blocked((x, y)):
+            if not self.map.is_blocked((x, y)) and _clear_of_enemies(x, y):
                 placed = (x, y)
                 break
         if placed is None:
@@ -8044,41 +8126,12 @@ class Battle:
             )
             self._maybe_apply_deadly_demise(_m)
 
-    def _do_heroic_intervention(
-        self, charger: "Unit", defender_army: Army,
-    ) -> None:
-        """Free core CHARACTER ability — 10e Charge phase.
-
-        Per Wahapedia (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
-        #CHARGE-PHASE): "After the opposing player has resolved their
-        charges, you can select any of your CHARACTER models that are
-        within 6\" of any enemy units. Each of those models can move up
-        to 6\" (3\" if WALKER) — they must end the move within Engagement
-        Range of one of those enemy units."
-
-        This is NOT a stratagem and costs no CP. It fires automatically
-        for every eligible defender CHARACTER after a successful charge
-        by `charger` against `charger`'s target. Each such CHARACTER
-        within 6" of the charger is moved up to 6" (3" if WALKER) toward
-        the charger, landing inside 1" engagement range when reachable.
-
-        Cited as `simulator.heroic_intervention_core`.
-        """
-        for u in list(defender_army.alive_units):
-            kw = u.profile.unit_keywords or ()
-            if "CHARACTER" not in kw:
-                continue
-            d = _distance(u.position, charger.position)
-            if d > 6.0:
-                continue
-            max_move = 3.0 if "WALKER" in kw else 6.0
-            old_pos = u.position
-            new_pos = _move_toward(old_pos, charger.position, max_move, self.map)
-            if new_pos != old_pos:
-                u.position = new_pos
-                self._emit(UnitMoved(
-                    unit_uid=u.uid, from_pos=old_pos, to_pos=new_pos,
-                ))
+    # CORE-RULES-AUDIT (2026-05-31): _do_heroic_intervention REMOVED. Heroic
+    # Intervention is not a 10th-edition rule (it was a 9e mechanic, deleted at
+    # the 10e launch). The Wahapedia 10e core rules contain no such rule; the
+    # old docstring quoted 9e text. The method fired free for every defending
+    # CHARACTER within 6" of a charger, a fabricated free move into engagement.
+    # See docs/CORE_RULES_AUDIT.md #1.
 
     def _try_counter_offensive(
         self,

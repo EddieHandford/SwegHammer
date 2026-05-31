@@ -25,15 +25,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-  "simulator.heroic_intervention_core": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE",
-    "rule_name": "Heroic Intervention (core CHARACTER ability, 10e)",
-    "quoted_text": "Heroic Intervention: After the opposing player has resolved their charges, you can select any of your CHARACTER models that are within 6\" of any enemy units. Each of those models can move up to 6\" (3\" if WALKER) — they must end the move within Engagement Range of one of those enemy units.",
-    "trigger": "opponent's charge phase, after an enemy unit has resolved its charge move within 6\" of any friendly CHARACTER",
-    "effect": "each eligible friendly CHARACTER may make a free 6\" move (3\" if WALKER) toward the charger and must end the move within engagement range of that charger; no CP is spent (approximation: SwegHammer aims the move directly at the charger and lands inside 1\" engagement when reachable; the 'WALKER' gate is keyed off the WALKER unit keyword)",
-    "scope": "keyword-gated",
-    "approximation": true
-  },
   "Stratagem.Disgustingly Resilient": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/death-guard/#Virulent-Vectorium",
     "rule_name": "Disgustingly Resilient (Virulent Vectorium Stratagem)",

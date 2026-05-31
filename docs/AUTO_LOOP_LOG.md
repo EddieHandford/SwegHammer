@@ -4,6 +4,38 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 68 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. Fidelity-first wave from the full 10e core-rules
+audit (`docs/CORE_RULES_AUDIT.md`). Rule correctness prioritised over the headline.
+
+- **Heroic Intervention REMOVED** (`simulator.py` `_do_heroic_intervention` + call
+  + citation + audit key + test file): not a 10e rule (9e mechanic deleted at 10e
+  launch). It fired free for every defending CHARACTER within 6" of a charger.
+- **Fall Back Desperate Escape gated**: only when the unit is Battle-shocked OR its
+  path crosses an enemy model (new `_fall_back_crosses_enemy` point-to-segment
+  helper); a clean disengage now takes no test (was ~1/3 model loss every time).
+- **Indirect Fire**: added the unmodified-1-3-always-fails and the auto-Benefit-of-
+  Cover (was only applying the -1 to hit).
+- **In-engagement + Blast targeting**: a Pistol/Big-Guns shooter in engagement may
+  only target units it is engaged with; Blast can't target a unit within ER of the
+  bearer.
+- **Unmodified Hit 6 always hits** (was missing under -1 on a 6+ profile; wound side
+  already correct). **Disembark** skips points within 1" of an enemy. **Battle-shocked
+  units** fight at the start of Remaining Combats.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 67 close (per-unit batch ×6) | 11.11 | 7.80 | 5/22 |
+| **Wave 68 close (core-rules batch)** | **12.05** | **8.74** | **5/22** |
+
+Headline rose +0.94 (deliberate fidelity-first): Chaos Daemons −13.7→−19.0 (HI
+removal correctly weakened a Character-heavy melee army the fabrication propped up),
+Aeldari/Sororitas further over (Fall Back fix lets them disengage + keep firing).
+919 tests green; audit 280/280. The archetype re-fit (task #22) is the gating next
+step. Eval `data/wf_wave68_corerules_n40.json`. CP economy (3-start/6-cap) and
+movement coherency left as open audit items (#7, #8).
+
 ## Wave 67 close (2026-05-31)
 
 Branch `claude/sim-calibration-6`. Six per-unit-mechanics fixes from the wave-66

@@ -429,10 +429,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # applying at most one -1 to save_after_ap. AP is NOT a modifier and
     # stacks freely with the capped +1.
     "simulator.save_modifier_cap_plus_minus_one",
-    # 10e core Charge phase: Heroic Intervention is a FREE core ability
-    # for CHARACTER models (not a stratagem). Implemented in
-    # `Battle._do_heroic_intervention`.
-    "simulator.heroic_intervention_core",
+    # CORE-RULES-AUDIT (2026-05-31): simulator.heroic_intervention_core REMOVED
+    # — Heroic Intervention is not a 10e rule (9e mechanic deleted at 10e
+    # launch). See docs/CORE_RULES_AUDIT.md #1.
     # 10e core Fight phase: each unit makes a free Pile-In (3" toward
     # closest enemy) BEFORE it fights and a free Consolidate (3" toward
     # closest enemy / staying in engagement) AFTER it fights. When no

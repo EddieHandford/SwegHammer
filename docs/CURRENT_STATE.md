@@ -1,8 +1,29 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 67 close (2026-05-31), per-unit-mechanics batch (6 fixes).
+**Last updated:** Wave 68 close (2026-05-31), core-rules-correctness batch.
 
-**Status:** Headline gated MAE **7.80** (raw 11.11), **in-band 5/22** (was 3/22).
+**Status:** Headline gated MAE **8.74** (raw 12.05), in-band 5/22. Wave 68 was a
+deliberate **fidelity-first** wave from the full 10e core-rules audit
+(`docs/CORE_RULES_AUDIT.md`): removed the **Heroic Intervention fabrication** (not a
+10e rule — was a free defensive move for every Character) and fixed five real bugs —
+Fall Back no longer always rolls Desperate Escape (only when battle-shocked or
+crossing enemies); Indirect Fire now applies its unmodified-1-3-auto-fail + Benefit
+of Cover; in-engagement (Pistol/Big Guns) and Blast target restrictions; unmodified-6
+always hits; disembark can't place within Engagement Range; battle-shocked units
+fight first in Remaining Combats. 919 tests green (deleted the HI test file), audit
+280/280.
+
+The headline rose +0.94 (7.80 → 8.74) — expected: the fixes move factions away from
+a calibration fitted on the old wrong rules. Concentrated on **Chaos Daemons
+−13.7 → −19.0** (HI removal correctly weakened a Character-heavy melee army that the
+fabrication propped up) and the shooty over-shooters **Aeldari/Sororitas** (Fall Back
+fix lets them disengage and keep firing). The **archetype-list re-fit (task #22)** is
+now the gating next step and must lift Daemons + Knights while trimming
+Aeldari/Sororitas/Thousand Sons.
+
+### Earlier — wave 67 (per-unit-mechanics batch, gated 7.56 → 7.80, in-band 3 → 5)
+
+Headline gated MAE was **7.80** (raw 11.11), **in-band 5/22** (was 3/22).
 Wave 67 landed all six top findings from the per-unit-mechanics audit in parallel
 (one worktree agent each, cherry-picked to `ba2a8b4`): unit coherency (cluster
 squads at deployment + objective control credited per unit), per-unit secondary
@@ -73,7 +94,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 64 close (`3203e35`+docs) | 12.80 | 9.27 | 2/22 |
 | Wave 65 close (spillover+docs) | 11.15 | 7.78 | 2/22 |
 | Wave 66 close (mortal+demise+blast) | 11.08 | 7.56 | 3/22 |
-| **Wave 67 close (per-unit batch ×6)** | **11.11** | **7.80** | **5/22** |
+| Wave 67 close (per-unit batch ×6) | 11.11 | 7.80 | 5/22 |
+| **Wave 68 close (core-rules batch, fidelity)** | **12.05** | **8.74** | **5/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big

@@ -2261,9 +2261,14 @@ class Unit:
             # mounted models lack the 3+ cap (only the universal 2+ floor
             # applies). Wahapedia core rules — Terrain Features / Benefits
             # of Cover. Cited as `simulator.benefits_of_cover`.
+            # CORE-RULES-AUDIT (2026-05-31): an Indirect Fire attack made at a
+            # target the bearer cannot see grants that target the Benefit of
+            # Cover for this attack, regardless of terrain (the +1 save here;
+            # the separate heavy-cover -1-to-hit does not apply). Previously
+            # only the -1 to Hit was modelled. See docs/CORE_RULES_AUDIT.md #3.
             if (
                 mode != "melee"
-                and target.in_cover
+                and (target.in_cover or indirect_fire_attack)
                 and not ignore_cover
                 and not precision_pierces_cover
             ):
@@ -3041,7 +3046,20 @@ class Unit:
                                 attack_aof_substitution_used = True
                                 self.aof_used_this_round = True  # SOROR-DIAG-4
                                 own_army.aof_squad_mark_used(p.name, getattr(self, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
-                    if roll < hit_target:
+                    # CORE-RULES-AUDIT (2026-05-31): Indirect Fire — when firing
+                    # at a target the bearer cannot see, an unmodified Hit roll
+                    # of 1-3 ALWAYS fails (in addition to the -1 to Hit). Applied
+                    # on the unmodified physical die (post-reroll). Previously
+                    # only the -1 was modelled, over-rating indirect/artillery.
+                    # See docs/CORE_RULES_AUDIT.md #3.
+                    if indirect_fire_attack and unmodified_roll <= 3:
+                        continue   # indirect 1-3 auto-fail
+                    # CORE-RULES-AUDIT (2026-05-31): an unmodified Hit roll of 6
+                    # is ALWAYS a hit (a Critical Hit), even when modifiers push
+                    # the to-hit target to 7+ (a base 6+ profile under -1).
+                    # Previously `roll < hit_target` with hit_target clamped at 7
+                    # made a natural 6 miss. See docs/CORE_RULES_AUDIT.md #6.
+                    if unmodified_roll != 6 and roll < hit_target:
                         continue   # missed
                     # Crit-to-hit threshold defaults to 6 (canonical 10e); the
                     # Shield Host Martial Ka'tah Crit-on-5+ branch lowers it to
