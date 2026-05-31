@@ -193,10 +193,10 @@ class Army:
         # model in a squad individually (each calls _do_move and rolls its own
         # Advance D6), so without this gate a 10-model squad could spend up to
         # 10 Fate dice on advance in one round where the codex allows only 1.
-        # This set tracks which profile names have already spent a Fate die on
-        # an Advance roll this round; subsequent models sharing the same
-        # profile.name are blocked from spending another. Reset at the start of
-        # each battle round by Battle._run_round. Empty on non-Aeldari armies.
+        # task #28 squad_id re-key: key on squad_id (int) when >= 0, fall back
+        # to profile.name (str) for lone models. This set stores either int or
+        # str depending on the unit. Reset at the start of each battle round by
+        # Battle._run_round. Empty on non-Aeldari armies.
         # Cited as `simulator.strands_of_fate`.
         self._fate_advance_names_used_this_round: set = set()
         # AELDARI-AUDIT-V1: per-round squad-level Hit fate gate. Same pattern
@@ -583,21 +583,26 @@ class Army:
             # cap, since they're the least valuable to keep.
             self.miracle_dice = self.miracle_dice[: self.MIRACLE_DICE_BANK_CAP]
 
-    def aof_squad_available(self, profile_name: str) -> bool:
-        """True iff the named profile type has NOT yet used its Acts of Faith
-        AoF budget this round. SOROR-ACTS-OF-FAITH-V1: one AoF spend per
-        unique profile.name per round, enforcing the codex 'one per unit per
-        phase' rule at the squad level (all sim instances sharing a profile
-        name = one codex unit). Cited as `simulator.acts_of_faith`.
+    def aof_squad_available(self, profile_name: str, squad_id: int = -1) -> bool:
+        """True iff the squad has NOT yet used its Acts of Faith budget this
+        round. SOROR-ACTS-OF-FAITH-V1 / task #28 squad_id re-key: key on
+        squad_id when the unit has a valid squad_id (>= 0), otherwise fall
+        back to profile_name. This prevents two different squads that share
+        the same datasheet name (e.g. two separate Battle Sisters Squad units
+        on the table) from being throttled by each other's AoF spend.
+        One AoF spend per codex unit per phase — codex wording enforced at
+        the correct granularity. Cited as `simulator.acts_of_faith`.
         """
-        return profile_name not in self._aof_squad_names_used_this_round
+        key = squad_id if squad_id >= 0 else profile_name
+        return key not in self._aof_squad_names_used_this_round
 
-    def aof_squad_mark_used(self, profile_name: str) -> None:
-        """Record that the named profile type has used its Acts of Faith
-        budget this round. SOROR-ACTS-OF-FAITH-V1. Cited as
+    def aof_squad_mark_used(self, profile_name: str, squad_id: int = -1) -> None:
+        """Record that the squad has used its Acts of Faith budget this round.
+        SOROR-ACTS-OF-FAITH-V1 / task #28 squad_id re-key. Cited as
         `simulator.acts_of_faith`.
         """
-        self._aof_squad_names_used_this_round.add(profile_name)
+        key = squad_id if squad_id >= 0 else profile_name
+        self._aof_squad_names_used_this_round.add(key)
 
     def pop_miracle_die_meeting(self, threshold: int) -> Optional[int]:
         """Greedy spend: remove and return the LOWEST die in the pool

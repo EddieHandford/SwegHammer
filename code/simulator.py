@@ -5511,19 +5511,21 @@ class Battle:
         #     unit from your army with this ability can perform one Act of
         #     Faith per phase." Cited as `simulator.acts_of_faith`.
         for army in (self.a, self.b):
+            # task #28 squad_id re-key: these sets store squad_id (int) when
+            # the unit has squad_id >= 0, else profile.name (str). The mixed
+            # type is intentional — int and str keys cannot collide.
             army._aof_squad_names_used_this_round = set()
             # AELDARI-STRANDS-V1 — reset Strands of Fate advance-spend gate
             # each round. The codex "a unit is making an Advance roll" event
             # fires once per codex unit per round; the gate set records which
-            # profile names have already spent a Fate die on advance this round
-            # so that subsequent models in the same squad (same profile.name)
-            # cannot each spend their own Fate die. Cited as
-            # `simulator.strands_of_fate`.
+            # squad keys have already spent a Fate die on advance this round
+            # so that subsequent models in the same squad cannot each spend
+            # their own Fate die. Cited as `simulator.strands_of_fate`.
             army._fate_advance_names_used_this_round = set()
             # AELDARI-AUDIT-V1 — reset Strands of Fate hit- and save-spend
             # squad-level gates each round. Parallel to the advance gate above:
-            # hit substitutions are capped to one per profile.name per round
-            # (attacker), and save substitutions to one per profile.name per
+            # hit substitutions are capped to one per squad key per round
+            # (attacker), and save substitutions to one per squad key per
             # round (defender). Prevents a 10-model squad from spending up to
             # 10 Fate dice where the codex allows only 1 per unit activation.
             # Cited as `simulator.strands_of_fate`.
@@ -6358,20 +6360,27 @@ class Battle:
             # codex unit (squad) per round, not one per model. The simulator
             # instantiates each model as a separate Unit and calls _do_move for
             # each, so without this gate a multi-model squad could spend one
-            # Fate die per model per round. Block if this profile.name has
-            # already spent a Fate die on advance this round. Cited as
-            # `simulator.strands_of_fate`.
-            and attacker.profile.name not in
-                attacker_army._fate_advance_names_used_this_round
+            # Fate die per model per round. Block if this squad has already
+            # spent a Fate die on advance this round.
+            # task #28 squad_id re-key: use squad_id as the set key when >= 0.
+            # Cited as `simulator.strands_of_fate`.
+            and (
+                (lambda _sid, _nm: _sid if _sid >= 0 else _nm)(
+                    getattr(attacker, "squad_id", -1), attacker.profile.name
+                ) not in attacker_army._fate_advance_names_used_this_round
+            )
         ):
             need = needs_to_close - normal_move
             if advance_d6 < need and need <= 6:
                 sub = attacker_army.pop_fate_die_meeting(int(need))
                 if sub is not None:
                     advance_d6 = sub
-                    attacker_army._fate_advance_names_used_this_round.add(
-                        attacker.profile.name
+                    _fate_adv_key = (
+                        getattr(attacker, "squad_id", -1)
+                        if getattr(attacker, "squad_id", -1) >= 0
+                        else attacker.profile.name
                     )
+                    attacker_army._fate_advance_names_used_this_round.add(_fate_adv_key)
         move_distance = normal_move + advance_d6
         did_advance = advance_d6 > 0
 
@@ -6787,6 +6796,20 @@ class Battle:
         if models_destroyed < 1:
             return
 
+        # task #28 squad_id re-key: collect ALL alive squad siblings so they
+        # all surge together (the codex rule says "this unit" makes the Blood
+        # Surge move — the whole squad moves, not just the model that was shot).
+        _defender_squad_id = getattr(defender, "squad_id", -1)
+        _defender_army = getattr(defender, "army_ref", None)
+        if _defender_army is not None and _defender_squad_id >= 0:
+            _surge_squad = [
+                u for u in _defender_army.alive_units
+                if getattr(u, "squad_id", -1) == _defender_squad_id
+            ]
+        else:
+            # Lone model or no army reference — move only the targeted model.
+            _surge_squad = [defender]
+
         # Pick nearest enemy unit (from the shooting army — those are the
         # "closest enemy" units from the Berzerkers' perspective at the
         # moment of the surge). Fall through gracefully if there's no
@@ -6798,8 +6821,12 @@ class Battle:
         ]
         if not enemy_pool:
             return
-        nearest = min(enemy_pool, key=lambda e: _distance(defender.position, e.position))
-        gap = _distance(defender.position, nearest.position)
+        # Use the first squad member's position as the squad's reference point
+        # for finding the nearest enemy (consistent regardless of straggler
+        # positions after coherency drift).
+        ref_pos = _surge_squad[0].position if _surge_squad else defender.position
+        nearest = min(enemy_pool, key=lambda e: _distance(ref_pos, e.position))
+        gap = _distance(ref_pos, nearest.position)
         if gap <= 0:
             return  # already co-located, nothing to do
 
@@ -6811,15 +6838,18 @@ class Battle:
             travel = max(0.0, gap - 1.0)
         else:
             travel = float(surge_roll)
-        old_pos = defender.position
-        new_pos = _move_toward(old_pos, nearest.position, travel, self.map)
-        defender.position = new_pos
-        if self.verbose:
-            print(
-                f"  [Blood Surge] {defender.profile.name} ({defender.uid}) "
-                f"surged {travel:.1f}\" toward {nearest.profile.name} "
-                f"(gap {gap:.1f}\" -> {_distance(new_pos, nearest.position):.1f}\")"
-            )
+
+        # Move every model in the surge squad toward the same nearest enemy.
+        for _surging_model in _surge_squad:
+            old_pos = _surging_model.position
+            new_pos = _move_toward(old_pos, nearest.position, travel, self.map)
+            _surging_model.position = new_pos
+            if self.verbose:
+                print(
+                    f"  [Blood Surge] {_surging_model.profile.name} ({_surging_model.uid}) "
+                    f"surged {travel:.1f}\" toward {nearest.profile.name} "
+                    f"(gap {_distance(old_pos, nearest.position):.1f}\" -> {_distance(new_pos, nearest.position):.1f}\")"
+                )
 
     # ------------------------------------------------------------------
     # Charge + Fight (Phase B)
@@ -7191,12 +7221,20 @@ class Battle:
         # "each T'AU EMPIRE unit that is equipped with one or more
         # Markerlight weapons can be selected to shoot with those weapons
         # ... in your Shooting phase" — unit-level, not model-level.
+        # task #28 squad_id re-key: group Markerlight carriers by squad_id
+        # (when >= 0) rather than profile.name so that two separate squads of
+        # the same datasheet each get their own Markerlight attempt instead of
+        # being merged into one group and then chunked by min_models.
         from collections import defaultdict as _dd_ml
         _ml_groups: dict = _dd_ml(list)
         for _u in _all_ml_units:
-            _ml_groups[_u.profile.name].append(_u)
+            _ml_key = getattr(_u, "squad_id", -1)
+            if _ml_key < 0:
+                # Lone model (no squad_id) — use profile.name as before.
+                _ml_key = _u.profile.name
+            _ml_groups[_ml_key].append(_u)
         markerlight_units: list = []
-        for _ml_name, _ml_group in _ml_groups.items():
+        for _ml_key, _ml_group in _ml_groups.items():
             _ml_squad_size = max(1, _ml_group[0].profile.min_models)
             # Each complete or partial chunk of _ml_squad_size alive models
             # represents one codex squad that fires one Markerlight.
@@ -7307,6 +7345,10 @@ class Battle:
                 target = runner_up
 
         army.oath_target_uid = target.uid
+        # squad_id re-key (task #28): store the squad identity alongside the
+        # uid so the gate in Unit.attack can match ALL models in the nominated
+        # unit, not just the single model whose uid was recorded here.
+        army.oath_target_squad_id = getattr(target, "squad_id", -1)
         self._emit(OathTargetChosen(
             army_name=army.name,
             round_num=round_num,
@@ -7400,12 +7442,20 @@ class Battle:
         if "TRANSPORT" in (victim.profile.unit_keywords or ()):
             return
         # Gate 2 (SOROR-DETACHMENT-V1): last-instance check — only award when
-        # this is the LAST alive sim instance sharing the victim's profile.name.
-        # All instances of the same profile.name represent a single codex unit;
-        # only the squad's total destruction should award 1 die.
-        # `alive_units` excludes the dying victim at this point (health already 0).
+        # this is the LAST alive sim instance in the victim's squad.
+        # task #28 squad_id re-key: match by squad_id when both victim and the
+        # candidate squad-mate have squad_id >= 0; fall back to profile.name for
+        # lone models (squad_id < 0). All instances of the same squad represent
+        # a single codex unit; only the squad's total destruction should award
+        # 1 die. `alive_units` excludes the dying victim at this point.
+        _victim_squad_id = getattr(victim, "squad_id", -1)
         if any(
-            u.profile.name == victim.profile.name
+            (
+                (getattr(u, "squad_id", -1) >= 0 and _victim_squad_id >= 0
+                 and getattr(u, "squad_id", -1) == _victim_squad_id)
+                or
+                (_victim_squad_id < 0 and u.profile.name == victim.profile.name)
+            )
             for u in victim_army.alive_units
             if u.profile.faction == "Adepta Sororitas"
         ):

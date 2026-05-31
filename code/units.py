@@ -1822,8 +1822,30 @@ class Unit:
                         )
                         if _eb_present:
                             hit_mod_delta += 1
-                            _tgt_hp_bor = float(target.profile.health) or 1.0
-                            if target.current_health < _tgt_hp_bor / 2.0:
+                            # task #28 squad_id re-key: below-half-strength is a
+                            # MODEL COUNT check for multi-model squads (10e core:
+                            # "below Half-strength" = fewer models than half the
+                            # unit's Starting Strength). Use alive model count vs
+                            # profile.min_models as a starting-count proxy.
+                            # For lone models (squad_id < 0) fall back to wounds.
+                            _tgt_squad_id_bor = getattr(target, "squad_id", -1)
+                            _tgt_army_bor = getattr(target, "army_ref", None)
+                            if (
+                                _tgt_squad_id_bor >= 0
+                                and _tgt_army_bor is not None
+                                and target.profile.min_models >= 2
+                            ):
+                                _alive_count = sum(
+                                    1 for u in _tgt_army_bor.alive_units
+                                    if getattr(u, "squad_id", -1) == _tgt_squad_id_bor
+                                )
+                                _start_count = float(target.profile.min_models)
+                                _bor_below_half = _alive_count < _start_count / 2.0
+                            else:
+                                # Lone model or no army ref — use wound fraction.
+                                _tgt_hp_bor = float(target.profile.health) or 1.0
+                                _bor_below_half = target.current_health < _tgt_hp_bor / 2.0
+                            if _bor_below_half:
                                 wound_mod_delta += 1
 
             # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
@@ -2394,12 +2416,20 @@ class Unit:
             # `att_reroll_all_hits` branch takes priority in the loop below
             # (one re-roll per die — never stacks). Cited as
             # `simulator.oath_of_moment`.
-            if (
-                own_army is not None
-                and is_marine_faction(p.faction)
-                and getattr(own_army, "oath_target_uid", None) == target.uid
-            ):
-                att_reroll_all_hits = True
+            if own_army is not None and is_marine_faction(p.faction):
+                # squad_id re-key (task #28): if the nominated target has a
+                # valid squad_id (>= 0), match any model in the same squad so
+                # all attacks against any squad-mate benefit from the re-roll,
+                # not just attacks against the exact model whose uid was stored.
+                # Fall back to uid equality for lone models (squad_id < 0).
+                _oath_squad_id = getattr(own_army, "oath_target_squad_id", -1)
+                _target_squad_id = getattr(target, "squad_id", -1)
+                if (
+                    _oath_squad_id >= 0
+                    and _target_squad_id >= 0
+                    and _oath_squad_id == _target_squad_id
+                ) or getattr(own_army, "oath_target_uid", None) == target.uid:
+                    att_reroll_all_hits = True
 
             # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
             # rule lets the controller pick one Quality at battle start; the
@@ -2948,12 +2978,15 @@ class Unit:
                             # Unit; without this gate a 10-model squad with
                             # high-damage weapons could each spend a Fate die on
                             # their individual hit rolls, draining up to 10 dice
-                            # where the codex allows only 1. Block if this
-                            # profile.name has already spent a Fate die on a Hit
-                            # roll this round. Cited as `simulator.strands_of_fate`.
+                            # where the codex allows only 1. Block if this squad
+                            # has already spent a Fate die on a Hit roll this round.
+                            # task #28 squad_id re-key: key on squad_id when >= 0.
+                            # Cited as `simulator.strands_of_fate`.
                             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
-                            and p.name not in
-                                getattr(own_army, "_fate_hit_names_used_this_round", set())
+                            and (
+                                (getattr(self, "squad_id", -1) if getattr(self, "squad_id", -1) >= 0 else p.name)
+                                not in getattr(own_army, "_fate_hit_names_used_this_round", set())
+                            )
                         ):
                             # AI-5: gate spending by stakes. Only treat the
                             # hit as "high value" if the weapon's per-shot
@@ -2966,7 +2999,12 @@ class Unit:
                             if sub is not None:
                                 roll = sub
                                 if hasattr(own_army, "_fate_hit_names_used_this_round"):
-                                    own_army._fate_hit_names_used_this_round.add(p.name)
+                                    _fate_hit_key = (
+                                        getattr(self, "squad_id", -1)
+                                        if getattr(self, "squad_id", -1) >= 0
+                                        else p.name
+                                    )
+                                    own_army._fate_hit_names_used_this_round.add(_fate_hit_key)
                     # Adepta Sororitas Acts of Faith — Miracle Dice
                     # substitution on a failed Hit roll. Mirrors the Strands
                     # of Fate branch above: if the attacker is a Sororitas
@@ -2994,14 +3032,15 @@ class Unit:
                         if (
                             own_army is not None
                             and own_army.has_miracle_dice()
-                            and own_army.aof_squad_available(p.name)  # SOROR-ACTS-OF-FAITH-V1
+                            # SOROR-ACTS-OF-FAITH-V1 / task #28: squad_id re-key
+                            and own_army.aof_squad_available(p.name, getattr(self, "squad_id", -1))
                         ):
                             sub = own_army.pop_miracle_die_meeting(hit_target)
                             if sub is not None:
                                 roll = sub
                                 attack_aof_substitution_used = True
                                 self.aof_used_this_round = True  # SOROR-DIAG-4
-                                own_army.aof_squad_mark_used(p.name)  # SOROR-ACTS-OF-FAITH-V1
+                                own_army.aof_squad_mark_used(p.name, getattr(self, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                     if roll < hit_target:
                         continue   # missed
                     # Crit-to-hit threshold defaults to 6 (canonical 10e); the
@@ -3119,7 +3158,8 @@ class Unit:
                         if (
                             own_army is not None
                             and own_army.has_miracle_dice()
-                            and own_army.aof_squad_available(p.name)  # SOROR-ACTS-OF-FAITH-V1
+                            # SOROR-ACTS-OF-FAITH-V1 / task #28: squad_id re-key
+                            and own_army.aof_squad_available(p.name, getattr(self, "squad_id", -1))
                         ):
                             sub = own_army.pop_miracle_die_meeting(_shot_wound_target)
                             if sub is not None:
@@ -3128,7 +3168,7 @@ class Unit:
                                 crit_wound = False
                                 attack_aof_substitution_used = True
                                 self.aof_used_this_round = True  # SOROR-DIAG-4
-                                own_army.aof_squad_mark_used(p.name)  # SOROR-ACTS-OF-FAITH-V1
+                                own_army.aof_squad_mark_used(p.name, getattr(self, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                     if not wound_succeeded:
                         continue
 
@@ -3210,11 +3250,12 @@ class Unit:
                                 # against a high-damage weapon could each spend a
                                 # Fate die on their individual save rolls, draining
                                 # up to 10 dice where the codex allows only 1.
-                                # Block if this defender profile.name has already
-                                # spent a Fate die on a Save roll this round.
+                                # task #28 squad_id re-key: key on squad_id when >= 0.
                                 # Cited as `simulator.strands_of_fate`.
-                                and target.profile.name not in
-                                    getattr(tgt_army, "_fate_save_names_used_this_round", set())
+                                and (
+                                    (getattr(target, "squad_id", -1) if getattr(target, "squad_id", -1) >= 0 else target.profile.name)
+                                    not in getattr(tgt_army, "_fate_save_names_used_this_round", set())
+                                )
                             ):
                                 # AI-5: defensive saves are high-stakes when
                                 # the incoming attack does >=2 damage (a save
@@ -3230,9 +3271,12 @@ class Unit:
                                 if sub is not None:
                                     sroll = sub
                                     if hasattr(tgt_army, "_fate_save_names_used_this_round"):
-                                        tgt_army._fate_save_names_used_this_round.add(
-                                            target.profile.name
+                                        _fate_save_key = (
+                                            getattr(target, "squad_id", -1)
+                                            if getattr(target, "squad_id", -1) >= 0
+                                            else target.profile.name
                                         )
+                                        tgt_army._fate_save_names_used_this_round.add(_fate_save_key)
                         # Adepta Sororitas Acts of Faith — defensive Miracle
                         # Dice substitution on a failed save. Same greedy
                         # heuristic — only spend if it flips fail -> save.
@@ -3268,14 +3312,15 @@ class Unit:
                             if (
                                 tgt_army is not None
                                 and tgt_army.has_miracle_dice()
-                                and tgt_army.aof_squad_available(target.profile.name)  # SOROR-ACTS-OF-FAITH-V1
+                                # SOROR-ACTS-OF-FAITH-V1 / task #28: squad_id re-key
+                                and tgt_army.aof_squad_available(target.profile.name, getattr(target, "squad_id", -1))
                             ):
                                 sub = tgt_army.pop_miracle_die_meeting(save_target)
                                 if sub is not None:
                                     sroll = sub
                                     attack_aof_substitution_used = True
                                     target.aof_used_this_round = True  # SOROR-DIAG-4
-                                    tgt_army.aof_squad_mark_used(target.profile.name)  # SOROR-ACTS-OF-FAITH-V1
+                                    tgt_army.aof_squad_mark_used(target.profile.name, getattr(target, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
                         if sroll >= save_target:
                             continue   # saved
                     # NECRONS-CTAN: Necrodermis halves Damage characteristic
