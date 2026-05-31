@@ -200,7 +200,12 @@ def launch_gui() -> None:
 
 
 if __name__ == "__main__":
-    if "--cli" in sys.argv:
+    # GUI only when run interactively. A redirected / automated invocation
+    # (the calibration loop's pre-push smoke test) has no attached terminal,
+    # so fall back to the headless CLI demo rather than blocking forever on
+    # launch_gui()'s root.mainloop(). `--cli` forces the headless path too.
+    headless = not sys.stdout.isatty()
+    if "--cli" in sys.argv or headless:
         from code.main import main as cli_main
         cli_main()
     else:

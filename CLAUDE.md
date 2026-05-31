@@ -68,16 +68,23 @@ until the user signals Stage 1 convergence.
 
 ## 1. Test before pushing
 
-Before `git push`, run `python run.py` and confirm it exits cleanly. If the demo
-battle crashes or the calibration suite errors out, the branch is not ready to
+Before `git push`, run `python run.py --cli` and confirm it exits cleanly. If the
+demo battle crashes or the calibration suite errors out, the branch is not ready to
 upload — fix it first.
+
+Use the `--cli` flag, not bare `python run.py`. Bare `python run.py` launches the
+Tkinter GUI menu (`launch_gui` → `root.mainloop()`), which blocks until the window
+is closed and so never returns in a headless or automated run — it will hang the
+autonomous loop. `--cli` runs the demo battle and exits. (`run.py` also falls back
+to the CLI automatically when it is not attached to an interactive terminal, but
+pass `--cli` explicitly so the intent is unambiguous.)
 
 The Streamlit app (`streamlit run app.py`) can't be tested headlessly, so smoke
 test by importing the catalogue (`python -c "from code.units import UNIT_CATALOG; print(len(UNIT_CATALOG))"`)
 and spot-checking that every key referenced by `app.py` resolves. If you've
 changed the catalogue, every preset's `a_key` and `b_key` must exist.
 
-Windows console note: `PYTHONIOENCODING=utf-8 python run.py` — without this,
+Windows console note: `PYTHONIOENCODING=utf-8 python run.py --cli` — without this,
 the `→` arrow in `simulator.py` crashes cp1252.
 
 ## 2. Update docs in the same PR as the code that invalidates them
