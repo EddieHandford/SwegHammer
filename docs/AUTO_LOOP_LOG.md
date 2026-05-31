@@ -4,6 +4,44 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 73 close (2026-05-31) — investigation + plan, no code change
+
+Branch `claude/sim-calibration-6`. A pure investigation wave (the user steered the loop
+off narrow nerf-grinding toward structural levers and named a "first structural lever":
+the Pariah Nexus secondary VP is "computed every round into `_a_secondary_vp` and never
+read, so `_decide_winner` uses primary VP only"). Verify-first overturned the premise and
+found the real driver. No code changed (per the "report first" directive). Headline
+unchanged at gated 5.89.
+
+FINDING 0 — the named premise is WRONG. Secondaries ARE counted: they are added to
+`_a_vp`/`_b_vp` (what `_decide_winner` reads) at `simulator.py:925`/`:954`, wired
+2026-05-20 (`54e41427`, `dc07dc39`); `_a_secondary_vp` is a redundant UNREAD tracker.
+Empirically `_a_vp`=61 = primary 35 + secondary 26. The literal fix would DOUBLE-COUNT.
+(A clean example of "verify the machinery is wired up before assuming.")
+
+FINDING 1 (the real driver) — the KILL-secondary asymmetry. Decomposing IK's secondary
+VP: the over-credit is entirely kill-based (vs Tyranids IK scores 18.5 No Prisoners,
+Tyranids score 0 back — they can't destroy a single durable Knight AS A UNIT under
+per-model representation; vs Astra IK scores 12.8 Bring It Down + 7.2 Assassinate vs
+4.0/0.5). Position secondaries (Engage/BEL) are even or favour the opponent. So the
+secondary layer AMPLIFIES the kill-centric bias instead of counterbalancing it.
+
+FINDING 2 — the missing counterbalance is the ACTION-economy secondary family. The sim
+implements 2 of 9 tacticals (Engage, BEL) and NO action mechanic at all. The action
+secondaries (Cleanse, Sabotage, Recover Assets…) reward unit availability / board
+control over kills and impose an action-vs-fight tradeoff a 9-model durable camper
+cannot afford but a horde can — the faithful, even-handed fix for the asymmetry.
+
+FINDING 3 (dead mechanic) — Cull the Horde never fires: `_is_horde_unit` reads
+`starting_strength`/`squad_size`/`count` (all None); the real field is `max_models`.
+Scores 0 for everyone. Fix it only WITH the action work (alone it feeds the asymmetry).
+
+Deliverables: `docs/SECONDARY_SCORING_ANALYSIS.md` (evidence) + `docs/ACTION_SECONDARIES_PLAN.md`
+(wave-74 build plan: action-state mechanic, Cleanse vertical slice, AI surplus-unit
+selection, scoring, picker/caps, env-gated N=40 A/B, risk assessment). User direction:
+plan first (this wave), build next wave. Also stood up the watchdog-mediated `LOOP_QA.md`
+question channel (worker no longer asks the user directly).
+
 ## Wave 72 close (2026-05-31)
 
 Branch `claude/sim-calibration-6`. Pursued the #1 ranked lever (the systemic
@@ -118,31 +156,4 @@ under-shooters can't recover the objectives. A threat/value target-priority leve
 (focus-fire high-value durable objective-holders) is the highest-leverage systemic
 faithful fix left, but it is army-wide and high-risk — it needs its own dedicated
 wave with a design pass, not a rushed env-gate. Eval `data/wf_wave71_chivalric_n40.json`.
-
-## Wave 70 close (2026-05-31)
-
-Branch `claude/sim-calibration-6`. The plan-level objective AI (#12, "the big
-lever") — the clean version of the reverted blunt durable-camp experiment.
-
-`code/strategy.py` `pick_move_intent`: a SHOOTY/HEAVY unit that can still shoot from
-an objective now moves ONTO the best-scoring objective (scoring VP while firing)
-instead of holding in open ground. Melee-primary units never reach this branch (they
-keep charging — so the melee-monster mis-camp that sank the blunt version is gone),
-and it is gated OUT for the tuned aggressive gunline postures (shimmy / alpha_strike
-/ fast_strike) so the Aeldari/T'au over-shooters are not pushed further over. Internal
-AI heuristic — no rule citation (an activation/intent scheduler, not a 10e mechanic).
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 69 close (faction buffs) | 11.57 | 8.29 | 5/22 |
-| **Wave 70 close (objective AI #12)** | **9.47** | **5.98** | **4/22** |
-
-Biggest single-change move of the campaign (gated -2.31). Confirmed the AI-positional
-thesis: Chaos Knights -38.7 -> -3.3 (nearly fixed). Pulled the kill-centric
-over-shooters toward 50% because their opponents now contest objectives (Sororitas
-+18.3->+2.1, Aeldari +15.8->+2.6, T'au +10.0->+2.6 into band; Drukhari +27.7->+17.1,
-Thousand Sons +20.4->+13.1). Collateral → re-fit (task #22) now mandatory: Imperial
-Knights OVERSHOT to +27.8 (gun-heavy archetype + wave-69 Bondsman/Valourstrike buffs
-STACK on the AI objective-hold); Astra -15.0, Chaos Daemons -19.5, AdMech -8.3,
-Tyranids -7.5 swung under. Eval `data/wf_obj_ai_n40.json`.
 

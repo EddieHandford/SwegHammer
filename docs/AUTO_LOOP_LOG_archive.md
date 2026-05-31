@@ -1,3 +1,32 @@
+<!-- Archived from AUTO_LOOP_LOG.md at wave 73 close (wave 70) -->
+
+## Wave 70 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. The plan-level objective AI (#12, "the big
+lever") — the clean version of the reverted blunt durable-camp experiment.
+
+`code/strategy.py` `pick_move_intent`: a SHOOTY/HEAVY unit that can still shoot from
+an objective now moves ONTO the best-scoring objective (scoring VP while firing)
+instead of holding in open ground. Melee-primary units never reach this branch (they
+keep charging — so the melee-monster mis-camp that sank the blunt version is gone),
+and it is gated OUT for the tuned aggressive gunline postures (shimmy / alpha_strike
+/ fast_strike) so the Aeldari/T'au over-shooters are not pushed further over. Internal
+AI heuristic — no rule citation (an activation/intent scheduler, not a 10e mechanic).
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 69 close (faction buffs) | 11.57 | 8.29 | 5/22 |
+| **Wave 70 close (objective AI #12)** | **9.47** | **5.98** | **4/22** |
+
+Biggest single-change move of the campaign (gated -2.31). Confirmed the AI-positional
+thesis: Chaos Knights -38.7 -> -3.3 (nearly fixed). Pulled the kill-centric
+over-shooters toward 50% because their opponents now contest objectives (Sororitas
++18.3->+2.1, Aeldari +15.8->+2.6, T'au +10.0->+2.6 into band; Drukhari +27.7->+17.1,
+Thousand Sons +20.4->+13.1). Collateral → re-fit (task #22) now mandatory: Imperial
+Knights OVERSHOT to +27.8 (gun-heavy archetype + wave-69 Bondsman/Valourstrike buffs
+STACK on the AI objective-hold); Astra -15.0, Chaos Daemons -19.5, AdMech -8.3,
+Tyranids -7.5 swung under. Eval `data/wf_obj_ai_n40.json`.
+
 <!-- Archived from AUTO_LOOP_LOG.md at wave 72 close (wave 69) -->
 
 ## Wave 69 close (2026-05-31)

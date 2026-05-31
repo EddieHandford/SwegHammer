@@ -1,7 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 72 close (2026-05-31), Ion Shield ranged-only fix; the
-headline is now confirmed AI/structure-gated.
+**Last updated:** Wave 73 close (2026-05-31) — investigation: the over/under split
+is the kill-secondary asymmetry; wave 74 builds action-economy secondaries.
+
+**Wave 73 (investigation, no code change, headline unchanged at gated 5.89).** The
+user steered the loop off narrow nerf-grinding toward structural levers. Verify-first
+overturned the named lever ("secondaries never read") — they ARE counted (added to
+`_a_vp`/`_b_vp` since 2026-05-20; `_a_secondary_vp` is a redundant unread tracker; the
+literal fix would double-count). The real over/under driver is the **kill-secondary
+asymmetry**: durable killers score Bring It Down / No Prisoners / Assassinate against
+victims who score ~0 back (a horde scores 0 No Prisoners vs IK — they can't destroy a
+durable Knight AS A UNIT under per-model representation). The missing counterbalance is
+the **action-economy secondary family** (the sim models NO actions; only 2 of 9
+tacticals) — the faithful, even-handed fix that rewards board-control under-shooters
+and taxes low-model campers with an action-vs-fight tradeoff. Evidence in
+`docs/SECONDARY_SCORING_ANALYSIS.md`; build plan in `docs/ACTION_SECONDARIES_PLAN.md`.
+**Wave 74 = build the Cleanse vertical slice per that plan** (+ fix the dead Cull the
+Horde mechanic: `_is_horde_unit` reads `starting_strength`/None, should read `max_models`).
+Worker questions now route to the gitignored `LOOP_QA.md` watchdog channel, not the user.
+
+### Earlier — wave 72 (Ion Shield ranged-only, gated 5.97 → 5.89)
 
 **Status:** Headline gated MAE **5.89** (raw 9.28), **6/22 in band**. Wave 72
 landed a faithful Imperial Knight durability fix (Ion Shield is "5+ invulnerable
@@ -171,7 +189,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 69 close (under-performer faction buffs) | 11.57 | 8.29 | 5/22 |
 | Wave 70 close (objective-aware AI #12) | 9.47 | 5.98 | 4/22 |
 | Wave 71 close (Code Chivalric fidelity fix) | 9.38 | 5.97 | 6/22 |
-| **Wave 72 close (Ion Shield ranged-only)** | **9.28** | **5.89** | **6/22** |
+| Wave 72 close (Ion Shield ranged-only) | 9.28 | 5.89 | 6/22 |
+| **Wave 73 (investigation only, no code change)** | **9.28** | **5.89** | **6/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
