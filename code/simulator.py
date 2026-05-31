@@ -969,6 +969,34 @@ class Battle:
     # Detachment-specific stratagem dispatch (round-start)
     # ------------------------------------------------------------------
 
+    def _set_transient_squad(self, unit: "Unit", attr: str) -> None:
+        """Set a boolean transient flag on every alive model in *unit*'s squad.
+
+        10e stratagems target "a unit" (all models), not a single model.
+        Because each model is its own Unit instance sharing `squad_id`, a
+        bare ``unit.transient_X = True`` only buffs the representative model
+        picked by the stratagem dispatcher, leaving the other N-1 squad
+        members unbuffed.
+
+        This helper fixes that: when ``squad_id >= 0`` it fans the flag out to
+        every alive sibling; lone models (``squad_id == -1``) receive the flag
+        directly (equivalent to the old single-model set).
+
+        Guards:
+        - If ``unit.army_ref`` is None the unit has no army context; fall back
+          to setting on ``unit`` only.
+        - Only alive models receive the flag (dead models cannot benefit and
+          may not have the attribute).
+        """
+        squad_id = getattr(unit, "squad_id", -1)
+        army_ref = getattr(unit, "army_ref", None)
+        if squad_id >= 0 and army_ref is not None:
+            for m in army_ref.units:
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive:
+                    setattr(m, attr, True)
+        else:
+            setattr(unit, attr, True)
+
     def _clear_transient_stratagem_flags(self, army: Army) -> None:
         """Reset the per-round stratagem flags on every unit in `army`.
 
@@ -1509,7 +1537,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DISGUSTINGLY_RESILIENT):
             return
-        target.transient_minus_one_damage_taken = True
+        self._set_transient_squad(target, "transient_minus_one_damage_taken")
 
     def _try_putrid_detonation(self, army: Army, opponent: Army) -> None:
         """Putrid Detonation (Virulent Vectorium, 1 CP): auto-success on the
@@ -1733,7 +1761,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, OVERWHELMING_GENEROSITY):
             return
-        candidate.transient_reroll_hits_shooting = True
+        self._set_transient_squad(candidate, "transient_reroll_hits_shooting")
 
     def _try_creeping_blight(self, army: Army, opponent: Army) -> None:
         """Creeping Blight (Virulent Vectorium, 1 CP): re-roll Hit AND Wound
@@ -1769,8 +1797,8 @@ class Battle:
             return
         if not self._fire_stratagem(army, CREEPING_BLIGHT):
             return
-        candidate.transient_reroll_hits_shooting = True
-        candidate.transient_reroll_wounds = True
+        self._set_transient_squad(candidate, "transient_reroll_hits_shooting")
+        self._set_transient_squad(candidate, "transient_reroll_wounds")
 
     def _try_lightning_fast_reactions(self, army: Army, opponent: Army) -> None:
         """Lightning-Fast Reactions (Warhost): +1 save on the most
@@ -1788,7 +1816,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, LIGHTNING_FAST_REACTIONS):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _try_fire_and_fade(self, army: Army, opponent: Army) -> None:
         """Fire and Fade (Warhost): re-roll failed hits on a friendly
@@ -1810,7 +1838,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, FIRE_AND_FADE):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_skyborne_sanctuary(self, army: Army, opponent: Army) -> None:
         """Skyborne Sanctuary (Warhost, 1 CP). Real rule: end of Fight
@@ -1835,7 +1863,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, SKYBORNE_SANCTUARY):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _try_feigned_retreat(self, army: Army, opponent: Army) -> None:
         """Feigned Retreat (Warhost, 1 CP). Real rule: your Movement
@@ -1859,7 +1887,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, FEIGNED_RETREAT):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_blitzing_firepower(self, army: Army, opponent: Army) -> None:
         """Blitzing Firepower (Warhost, 1 CP). Real rule: your Shooting
@@ -1912,7 +1940,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, WEBWAY_TUNNEL):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     # ----- Mont'ka (T'au Empire) per-stratagem dispatchers (#196) --------
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Montka
@@ -1940,7 +1968,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, PINPOINT_COUNTER_OFFENSIVE):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_aggressive_mobility(self, army: Army, opponent: Army) -> None:
         """Aggressive Mobility (1 CP). Real rule: in your Movement phase,
@@ -1962,7 +1990,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, AGGRESSIVE_MOBILITY):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_focused_fire(self, army: Army, opponent: Army) -> None:
         """Focused Fire (1 CP). Real rule: in your Shooting phase, two T'au
@@ -1989,7 +2017,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, FOCUSED_FIRE):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
 
     def _try_combat_debarkation(self, army: Army, opponent: Army) -> None:
         """Combat Debarkation (1 CP). Real rule: a T'au unit that
@@ -2017,7 +2045,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, COMBAT_DEBARKATION):
             return
-        attacker.transient_reroll_wounds = True
+        self._set_transient_squad(attacker, "transient_reroll_wounds")
 
     def _try_pulse_onslaught(self, army: Army, opponent: Army) -> None:
         """Pulse Onslaught (2 CP). Real rule: target an enemy unit; until
@@ -2043,7 +2071,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, PULSE_ONSLAUGHT):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
 
     def _try_counterfire_defence_systems(self, army: Army, opponent: Army) -> None:
         """Counterfire Defence Systems (2 CP). Real rule: in your
@@ -2064,7 +2092,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, COUNTERFIRE_DEFENCE_SYSTEMS):
             return
-        target.transient_minus_one_damage_taken = True
+        self._set_transient_squad(target, "transient_minus_one_damage_taken")
 
     # ----- Awakened Dynasty (Necrons) protocol dispatchers ---------------
     # Six real Protocol stratagems (#194). Wahapedia:
@@ -2150,7 +2178,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, PROTOCOL_OF_THE_HUNGRY_VOID):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
     def _try_protocol_sudden_storm(self, army: Army, opponent: Army) -> None:
         """Protocol of the Sudden Storm (Awakened Dynasty, 1 CP): ranged
@@ -2172,7 +2200,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, PROTOCOL_OF_THE_SUDDEN_STORM):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_protocol_conquering_tyrant(self, army: Army, opponent: Army) -> None:
         """Protocol of the Conquering Tyrant (Awakened Dynasty, 1 CP):
@@ -2200,7 +2228,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, PROTOCOL_OF_THE_CONQUERING_TYRANT):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     # ----- War Horde (Orks) per-stratagem dispatchers (iter-1 B1) --------
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde
@@ -2240,7 +2268,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, POWER_OF_THE_WAAAGH):
             return
-        attacker.transient_lethal_hits = True
+        self._set_transient_squad(attacker, "transient_lethal_hits")
 
     def _try_mob_up(self, army: Army, opponent: Army) -> None:
         """Mob Up (War Horde, 1 CP). Real rule (paraphrase): an ORKS
@@ -2294,7 +2322,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BIG_KRUMPIN):
             return
-        attacker.transient_reroll_wounds_ones = True
+        self._set_transient_squad(attacker, "transient_reroll_wounds_ones")
 
     def _try_tellyporta(self, army: Army, opponent: Army) -> None:
         """Tellyporta (War Horde, 1 CP). Real rule (paraphrase): an ORKS
@@ -2318,7 +2346,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, TELLYPORTA):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _try_da_biggest_boss(self, army: Army, opponent: Army) -> None:
         """Da Biggest Boss (War Horde, 1 CP). Real rule (paraphrase):
@@ -2355,7 +2383,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DA_BIGGEST_BOSS):
             return
-        warlord.transient_assault_this_round = True
+        self._set_transient_squad(warlord, "transient_assault_this_round")
 
     # ----- Shield Host (Adeptus Custodes) — six real stratagems (iter-8 fix)
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/adeptus-custodes/#Shield-Host
@@ -2390,7 +2418,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ARCANE_GENETIC_ALCHEMY):
             return
-        target.transient_fnp_5 = True
+        self._set_transient_squad(target, "transient_fnp_5")
 
     def _try_unwavering_sentinels(self, army: Army, opponent: Army) -> None:
         """Unwavering Sentinels (Shield Host, 1 CP, Strategic Ploy). Real
@@ -2414,7 +2442,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, UNWAVERING_SENTINELS):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _try_multipotentiality(self, army: Army, opponent: Army) -> None:
         """Multipotentiality (Shield Host, 1 CP, Strategic Ploy). Real rule:
@@ -2436,7 +2464,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, MULTIPOTENTIALITY):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_archaeotech_munitions(self, army: Army, opponent: Army) -> None:
         """Archaeotech Munitions (Shield Host, 1 CP, Wargear). Real rule:
@@ -2466,7 +2494,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ARCHAEOTECH_MUNITIONS):
             return
-        attacker.transient_lethal_hits = True
+        self._set_transient_squad(attacker, "transient_lethal_hits")
 
     def _try_avenge_the_fallen(self, army: Army, opponent: Army) -> None:
         """Avenge the Fallen (Shield Host, 1 CP, Strategic Ploy). Real rule:
@@ -2490,7 +2518,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, AVENGE_THE_FALLEN):
             return
-        target.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(target, "transient_plus_one_to_wound_melee")
 
     # ----- Needgaard Oathband (Leagues of Votann) — three real stratagems -----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/leagues-of-votann/
@@ -2697,7 +2725,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ARMOUR_OF_CONTEMPT):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _try_squad_tactics(self, army: Army, opponent: Army) -> None:
         """Squad Tactics (Gladius, 1 CP, Strategic Ploy). Real rule: your
@@ -2720,7 +2748,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, SQUAD_TACTICS):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_only_in_death_does_duty_end(self, army: Army, opponent: Army) -> None:
         """Only In Death Does Duty End (Gladius, 1 CP, Strategic Ploy).
@@ -2744,7 +2772,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ONLY_IN_DEATH_DOES_DUTY_END):
             return
-        target.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(target, "transient_plus_one_to_wound_melee")
 
     def _try_honour_the_chapter(self, army: Army, opponent: Army) -> None:
         """Honour the Chapter (Gladius, 2 CP, Battle Tactic). Real rule:
@@ -2768,7 +2796,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, HONOUR_THE_CHAPTER):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_adaptive_strategy(self, army: Army, opponent: Army) -> None:
         """Adaptive Strategy (Gladius, 1 CP, Strategic Ploy). Real rule:
@@ -2902,7 +2930,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, COORDINATED_ACTION):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
 
     def _try_flexible_command(self, army: Army, opponent: Army) -> None:
         """Flexible Command (Combined Arms, 2 CP, Strategic Ploy). Real
@@ -2973,7 +3001,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, FIELDS_OF_FIRE):
             return
-        attacker.transient_plus_one_to_hit_shooting = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
 
     def _try_inspired_command(self, army: Army, opponent: Army) -> None:
         """Inspired Command (Combined Arms, 1 CP, Epic Deed). Real rule:
@@ -3064,7 +3092,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, STALWART_PROTECTOR):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     # Reinforcements! — catalogued in COMBINED_ARMS_STRATAGEMS for the
     # auditor + stratagems_for_army listing, but no `_try_reinforcements`
@@ -3108,7 +3136,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, APOPLECTIC_FRENZY):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
     def _try_denizens_of_the_warp(self, army: Army, opponent: Army) -> None:
         """Denizens of the Warp (Daemonic Incursion, 1 CP). Real rule: re-roll
@@ -3134,7 +3162,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DENIZENS_OF_THE_WARP):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_draught_of_terror(self, army: Army, opponent: Army) -> None:
         """Draught of Terror (Daemonic Incursion, 1 CP). Real rule (paraphrase
@@ -3161,7 +3189,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DRAUGHT_OF_TERROR):
             return
-        attacker.transient_plus_one_to_wound_shooting = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_shooting")
 
     def _try_warp_surge(self, army: Army, opponent: Army) -> None:
         """Warp Surge (Daemonic Incursion, 1 CP). Real rule (paraphrase from
@@ -3185,7 +3213,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, WARP_SURGE):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_daemonic_invulnerability(self, army: Army, opponent: Army) -> None:
         """Daemonic Invulnerability (Daemonic Incursion, 1 CP). Real rule
@@ -3210,7 +3238,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DAEMONIC_INVULNERABILITY):
             return
-        target.transient_invuln_4 = True
+        self._set_transient_squad(target, "transient_invuln_4")
 
     def _try_blood_begets_skulls(self, army: Army, opponent: Army) -> None:
         """Blood Begets Skulls (Blood Legion, 1 CP). Real rule (paraphrase
@@ -3235,7 +3263,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, BLOOD_BEGETS_SKULLS):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_wrath_undeniable(self, army: Army, opponent: Army) -> None:
         """Wrath Undeniable (Blood Legion, 1 CP). Real rule (paraphrase from
@@ -3265,7 +3293,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, WRATH_UNDENIABLE):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
     def _try_seeping_virulence(self, army: Army, opponent: Army) -> None:
         """Seeping Virulence (Plague Legion, 1 CP). Real rule (paraphrase from
@@ -3295,7 +3323,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, SEEPING_VIRULENCE):
             return
-        attacker.transient_lethal_hits = True
+        self._set_transient_squad(attacker, "transient_lethal_hits")
 
     def _try_foetid_resurgence(self, army: Army, opponent: Army) -> None:
         """Foetid Resurgence (Plague Legion, 2 CP). Real rule (paraphrase from
@@ -3350,7 +3378,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, ARCHAGONISTS):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
     def _try_flickering_reality(self, army: Army, opponent: Army) -> None:
         """Flickering Reality (Scintillating Legion, 1 CP). Real rule
@@ -3378,7 +3406,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, FLICKERING_REALITY):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _try_empyric_channelling(self, army: Army, opponent: Army) -> None:
         """Empyric Channelling (Teleport Strike Force, 1 CP). Real rule:
@@ -3406,7 +3434,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, EMPYRIC_CHANNELLING):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_cult_ambush(self, army: Army, opponent: Army) -> None:
         """Cult Ambush (Final Day, 1 CP). Real rule: a GENESTEALER CULTS
@@ -3431,7 +3459,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, CULT_AMBUSH):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     def _try_profane_zeal(self, army: Army, opponent: Army) -> None:
         """Profane Zeal (Pactbound Zealots, 1 CP). Real rule: re-roll Hit
@@ -3459,7 +3487,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, PROFANE_ZEAL):
             return
-        attacker.transient_plus_one_to_wound_melee = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
     def _try_eye_of_the_gods(self, killer, killer_army: Army) -> None:
         """Eye of the Gods (Pactbound Zealots, 1 CP). Real rule: end of
@@ -3539,7 +3567,7 @@ class Battle:
         # transient flag; we don't have transient_fnp_4 so we reuse the
         # 5+ flag — that's a STRICTLY-WEAKER effect than the codex 4+,
         # again can't overshoot. Real rule grants FNP 4+ vs Psychic.
-        target.transient_fnp_5 = True
+        self._set_transient_squad(target, "transient_fnp_5")
 
     def _try_destined_by_fate(self, army: Army, opponent: Army) -> None:
         """Destined by Fate (Grand Coven, 1 CP). Real rule: after a Thousand
@@ -3562,7 +3590,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DESTINED_BY_FATE):
             return
-        target.transient_minus_one_damage_taken = True
+        self._set_transient_squad(target, "transient_minus_one_damage_taken")
 
     def _try_egotistical_power(self, army: Army, opponent: Army) -> None:
         """Egotistical Power (Grand Coven, 1 CP). Real rule: re-applies one
@@ -3650,7 +3678,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, DEVASTATING_SORCERY):
             return
-        attacker.transient_reroll_hits_shooting = True
+        self._set_transient_squad(attacker, "transient_reroll_hits_shooting")
 
     # ----- Rubricae Phalanx (Thousand Sons) — six stratagems (iter15) -----
     # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/thousand-sons/
@@ -3697,7 +3725,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, INEXORABLE_ADVANCE):
             return
-        attacker.transient_assault_this_round = True
+        self._set_transient_squad(attacker, "transient_assault_this_round")
 
     def _try_infernal_fusillade(self, army: Army, opponent: Army) -> None:
         """Infernal Fusillade (Rubricae Phalanx, 2 CP). Real rule: a
@@ -3725,7 +3753,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, INFERNAL_FUSILLADE):
             return
-        attacker.transient_plus_one_to_wound_shooting = True
+        self._set_transient_squad(attacker, "transient_plus_one_to_wound_shooting")
 
     def _try_revenge_of_the_rubricae(self, army: Army, opponent: Army) -> None:
         """Revenge of the Rubricae (Rubricae Phalanx, 1 CP). Real rule:
@@ -3767,7 +3795,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, IMPLACABLE_GUARDIANS):
             return
-        target.transient_minus_one_damage_taken = True
+        self._set_transient_squad(target, "transient_minus_one_damage_taken")
 
     def _try_unwavering_phalanx(self, army: Army, opponent: Army) -> None:
         """Unwavering Phalanx (Rubricae Phalanx, 1 CP). Real rule: after
@@ -3793,7 +3821,7 @@ class Battle:
             return
         if not self._fire_stratagem(army, UNWAVERING_PHALANX):
             return
-        target.transient_plus_one_save = True
+        self._set_transient_squad(target, "transient_plus_one_save")
 
     def _apply_undying_legions_pulse(self) -> None:
         """Mid-round reanimation pulse for Protocol of the Undying Legions.
@@ -4160,7 +4188,7 @@ class Battle:
             )
             if beneficiary is None:
                 return
-            beneficiary.transient_assault_this_round = True
+            self._set_transient_squad(beneficiary, "transient_assault_this_round")
         elif name == "Destiny's Ruin":
             # APPROXIMATION: per-target hit-reroll-of-1 (or full reroll on
             # 10+) doesn't have a transient flag indexed per target unit.
@@ -4227,8 +4255,8 @@ class Battle:
             # Grant the offensive uplift regardless of pass/fail (the
             # codex wording resolves the keyword grant whether or not
             # the Ld test passes; the test gates only the MW penalty).
-            attacker.transient_plus_one_to_hit_shooting = True
-            attacker.transient_plus_one_to_wound_melee = True
+            self._set_transient_squad(attacker, "transient_plus_one_to_hit_shooting")
+            self._set_transient_squad(attacker, "transient_plus_one_to_wound_melee")
 
             if not passed:
                 # D3 mortal wounds on the pact bearer. Mortals bypass
@@ -5898,7 +5926,7 @@ class Battle:
         for army in (self.a, self.b):
             for u in army.alive_units:
                 if u.profile.name == "Magnus the Red":
-                    u.transient_minus_one_damage_taken = True
+                    self._set_transient_squad(u, "transient_minus_one_damage_taken")
         # Phase I — fresh arrivals from the scout phase carry over INTO
         # Round 1 (set by _run_scout_phase). From Round 2 onwards we reset
         # the set first, THEN call _arrive_from_reserves so units arriving
@@ -7757,8 +7785,8 @@ class Battle:
                 except Exception:
                     _det = None
                 if _det is not None and getattr(_det, "name", "") == "Skysplinter Assault":
-                    passenger.transient_lance_this_turn = True
-                    passenger.transient_ignores_cover_this_turn = True
+                    self._set_transient_squad(passenger, "transient_lance_this_turn")
+                    self._set_transient_squad(passenger, "transient_ignores_cover_this_turn")
         self._emit(TransportDisembarked(
             transport_uid=transport.uid,
             passenger_uid=passenger.uid,
