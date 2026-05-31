@@ -31,6 +31,53 @@ absolute error is a thermometer, not a steering wheel — you lower it by curing
 simulator's fevers (wrong rules, wrong stats, wrong artificial-intelligence
 piloting), never by holding a match to the bulb.
 
+## Current phase (decided 2026-05-31 by the user): the faithful AI track + matchup-fidelity diagnosis
+
+The clean rule-level structural levers are largely exhausted (gated MAE ~4.9; trajectory
+5.98 → 4.9 this session, all faithful). The user chose the next direction:
+
+**1. Push the faithful target/positioning AI — diagnose, do not nerf.** The remaining big
+residuals (Imperial Knights, Drukhari over; Chaos Daemons, Chaos Space Marines, Chaos
+Knights under) are artificial-intelligence-quality problems: opponents do not focus fire
+durable / key threats, do not contest and deny objectives, and mis-allocate units to
+actions. Redesign the artificial intelligence to play like a real tournament player —
+focus the highest-value reachable threat, contest and deny objectives, screen, commit only
+genuinely spare units to actions — all real 10th-edition tactics. This regressed before
+(wave 72) because the unit statistics are co-adapted to the weak artificial intelligence
+(the frozen-under-headline problem, memory `project-ai-frozen-under-mae-first`). When the
+better artificial intelligence exposes an over-shoot, **treat it as a DIAGNOSIS problem —
+find the faithful simulator cause (a mis-modelled rule, a statistic wrong versus BSData, an
+unrealistic list) and fix THAT — never a metric-driven nerf.** Use an environment-gated A/B
+so the change is measured cleanly, and accept a temporary headline regression that a
+faithful re-calibration then recovers.
+
+**2. Matchup-fidelity diagnosis — compare the simulator to real tournament play.** Do not
+work only from aggregate per-faction win rates. For each big residual, drill into the
+specific matchups driving it (which factions does the simulator have LOSING to Imperial
+Knights or Drukhari; which factions is Chaos Daemons losing to). Then compare against how
+those factions actually play that matchup in real May-2026 tournaments — their real lists
+and real strategy (anti-tank focus fire, objective play, screening, the specific stratagems
+and counters competitive players use). Sources: Goonhammer faction / matchup guides and
+detachment focuses, Bell of Lost Souls / Stat Check tournament reports (Wahapedia domain
+name resolution may be down — fall back to BSData and cached competitive write-ups; do not
+invent). The gap between simulator and real play is the fix, and it sorts into exactly
+three faithful buckets:
+   - the faction uses a real tactic the simulator's artificial intelligence cannot execute
+     → an artificial-intelligence fix;
+   - the real competitive list runs a counter the simulator's archetype lacks → a
+     list-realism fix, toward the real tournament list (see the relaxed re-fit rule below);
+   - the simulator mis-models a rule or statistic in that matchup → a simulator/stat fix.
+   Never a win-rate nerf in any bucket — the matchup data tells you WHAT is unfaithful; you
+   fix the unfaithful thing.
+
+**Re-fit is now permitted, but only as a FAITHFUL re-calibration.** The earlier blanket
+"archetype lists are lowest priority, do not touch" is relaxed for this phase: a list MAY
+be edited toward a real May-2026 tournament list when the matchup diagnosis shows the
+simulator's list is unrealistic (missing a counter the real list runs, wrong unit ratios, a
+unit that did not exist when the archetype was written). It may NEVER be edited to hit a
+win-rate target. The test is unchanged — would this edit be correct even if it moved the
+metric the wrong way? If the only argument is the residual direction, it is a nerf; reject it.
+
 ## Each iteration (one wave; mechanics per `docs/AUTO_LOOP_PROCEDURE.md` + the `sweg-wave` skill)
 
 1. Read `docs/CURRENT_STATE.md` for live residuals and ranked levers.
