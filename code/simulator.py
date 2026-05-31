@@ -337,6 +337,27 @@ class Battle:
         # stratagem cap. (Heroic Intervention is a free core CHARACTER
         # ability, not a stratagem at all — see _do_heroic_intervention.)
         self._dispatching_detachment_stratagems: bool = False
+        # Per-squad battleshock (task #27): snapshot of starting model count
+        # per squad_id, taken once at __init__ time, keyed as
+        # (army.name, squad_id) to avoid collisions between the two armies
+        # (both reset squad_id from 0 so a plain squad_id key would merge
+        # army A's squad 0 with army B's squad 0).  Used by
+        # `_run_battleshock_phase` to determine whether a squad is Below
+        # Half-Strength by surviving model count (10e core: "a unit is Below
+        # Half-strength if the number of models in it is below half its
+        # Starting Strength").  Squads of size 1 (single-model units) keep
+        # the per-model wound-based test as described in the task brief and
+        # consistent with the 10e intent — a lone model is tested on wounds,
+        # not on model count (1 < 0.5 is never true).
+        from collections import Counter as _C
+        self._squad_start_count: dict = {}
+        for _army in (self.a, self.b):
+            counts = dict(_C(
+                u.squad_id for u in _army.units
+                if u.squad_id >= 0
+            ))
+            for _sid, _cnt in counts.items():
+                self._squad_start_count[(_army.name, _sid)] = _cnt
 
     # ------------------------------------------------------------------
     # Public interface
@@ -5188,7 +5209,9 @@ class Battle:
         (easier pass); opponent's enemy_ld_penalty RAISES it (harder pass).
 
         Faction-rule short-circuits:
-          - Mob Rule (Orks, 10e): 10+ alive Ork models army-wide → auto-pass.
+          - Mob Rule (Orks, 10e): if the testing squad has 10+ alive models
+            in it, the test is automatically passed. Re-keyed on squad_id
+            (task #27): two separate 5-model Boyz squads do NOT pool.
             Cited as `simulator.mob_rule`.
           - Synapse Imperative (Tyranids, 10e): a Tyranid unit within 6"
             of any friendly SYNAPSE model auto-passes. Cited as
@@ -5238,21 +5261,6 @@ class Battle:
             own_det = army.resolve_detachment()
             ld_penalty = opponent_det.enemy_ld_penalty if opponent_det else 0
             ld_bonus = own_det.ld_bonus if own_det else 0
-            # Mob Rule (10e): per-unit, not army-wide. Wahapedia: "Each time
-            # a Battle-shock test is taken for an ORKS unit from your army,
-            # if that unit has 10 or more models in it, that test is
-            # automatically passed." ORKS-DIAG: SwegHammer models each squad
-            # member as a separate Unit, so we proxy "the unit" by grouping
-            # alive Orks by `profile.name` (datasheet name). A 10+ Boyz mob
-            # auto-passes; a 6-strong Tankbusta squad or a lone Warboss does
-            # not. The previous army-wide gate (`ork_count >= 10`) gave Mob
-            # Rule to every Ork unit on the board whenever any single big
-            # mob was alive, inflating Ork resilience.
-            from collections import Counter as _Counter
-            mob_rule_squad_counts = _Counter(
-                u.profile.name for u in army.alive_units
-                if u.profile.faction == "Orks"
-            )
             own_synapse = [
                 s for s in army.alive_units
                 if "SYNAPSE" in (s.profile.unit_keywords or ())
@@ -5316,95 +5324,122 @@ class Battle:
                 s for s in opponent.alive_units
                 if (s.profile.faction or "") == "Chaos Knights"
             ]
-            for u in army.alive_units:
-                if u.current_health < u.profile.health / 2.0:
-                    if (
-                        u.profile.faction == "Orks"
-                        and mob_rule_squad_counts.get(u.profile.name, 0) >= 10
-                    ):
-                        continue
-                    # TYRANIDS-SYNAPSE-3D6 (wave-44): the prior auto-pass
-                    # (`continue` exiting the test entirely) cited pre-
-                    # September-2024 codex text "the unit cannot be
-                    # Battle-shocked". Current Wahapedia Synapse rule
-                    # (https://wahapedia.ru/wh40k10ed/factions/tyranids/) is
-                    # "Each time that unit takes a Battle-shock test, take
-                    # that test on 3D6 instead of 2D6". 0% fail (auto-pass)
-                    # versus ~16% fail (3D6 vs Ld 8) was the largest single
-                    # Tyranid over-buff per the TYRANIDS-SYNAPSE-AUDIT
-                    # findings — amplified by the per-model architecture
-                    # (a 10-model Termagant brick produces 10 separate
-                    # auto-passes).
-                    synapse_3d6 = (
-                        u.profile.faction == "Tyranids"
-                        and own_synapse
-                        and any(
-                            _distance(u.position, s.position) <= 6.0
-                            for s in own_synapse
-                            if s.uid != u.uid
-                        )
+
+            # --- PER-SQUAD battleshock loop (task #27) ---
+            # 10e core: "a unit is Below Half-strength if the number of
+            # models in it is below half its Starting Strength."  We run
+            # ONE test per codex-unit (squad_id group) and mark ALL models
+            # in the squad on a failure.  Lone single-model squads
+            # (start_count == 1) keep the wound-based below-half test for
+            # fidelity with how 10e treats vehicle / hero wound degradation.
+            squads = army.squads()  # OrderedDict[squad_key, List[Unit]]
+            for squad_key, members in squads.items():
+                sid = members[0].squad_id
+                start_count = self._squad_start_count.get(
+                    (army.name, sid), 1
+                )
+
+                # --- Below-half-strength gate ---
+                if start_count > 1:
+                    # Multi-model squad: gate on surviving model count.
+                    alive_count = len(members)
+                    if alive_count >= start_count / 2.0:
+                        continue   # not below half-strength — no test
+                else:
+                    # Single-model unit (vehicle, character, lone model):
+                    # retain the wound-based below-half test.
+                    u0 = members[0]
+                    if u0.current_health >= u0.profile.health / 2.0:
+                        continue   # not below half-strength — no test
+
+                # Representative model for position/faction/leadership checks.
+                # Use the first alive member (squads() only contains alive units).
+                rep = members[0]
+
+                # --- Mob Rule (10e, re-keyed on squad_id) ---
+                # Wahapedia: "Each time a Battle-shock test is taken for an
+                # ORKS unit from your army, if that unit has 10 or more
+                # models in it, that test is automatically passed."
+                # Re-keyed from profile.name to squad_id (task #27): alive
+                # members in THIS squad must number >= 10.  Two separate
+                # 5-model Boyz squads do NOT pool.
+                if (
+                    rep.profile.faction == "Orks"
+                    and len(members) >= 10
+                ):
+                    continue   # Mob Rule auto-pass
+
+                # --- TYRANIDS-SYNAPSE-3D6 (wave-44) ---
+                # Use representative model's position for the Synapse
+                # radius check; a squad is either inside or outside the
+                # aura as a unit.
+                synapse_3d6 = (
+                    rep.profile.faction == "Tyranids"
+                    and own_synapse
+                    and any(
+                        _distance(rep.position, s.position) <= 6.0
+                        for s in own_synapse
+                        if s.uid != rep.uid
                     )
-                    shadow_penalty = 0
-                    # TYRANIDS-DIAG-5: codex radius is 6", not the prior
-                    # always-on 12" aura. Source list is gated to the
-                    # once-per-battle declared round above; here we just
-                    # check distance.
-                    if shadow_sources and any(
-                        _distance(u.position, s.position) <= 6.0
-                        for s in shadow_sources
-                    ):
-                        shadow_penalty = 1
-                    contagion_penalty = 0
-                    if (
-                        contagion_sources
-                        and u.profile.faction != "Death Guard"
-                        and any(
-                            _distance(u.position, s.position) <= 3.0
-                            for s in contagion_sources
-                        )
-                    ):
-                        contagion_penalty = 1
-                    # Shadow of Chaos: -1 to Battle-shock (modelled as +1 to
-                    # test target — same convention as Shadow in the Warp).
-                    # Only fires when the opponent is Chaos Daemons and the
-                    # testing unit is itself not Chaos Daemons.
-                    shadow_of_chaos_penalty = 0
-                    shadow_of_chaos_hit = False
-                    if (
-                        shadow_of_chaos_active
-                        and u.profile.faction != "Chaos Daemons"
-                        and _distance(u.position, (cx, cy)) <= 18.0
-                    ):
-                        shadow_of_chaos_penalty = 1
-                        shadow_of_chaos_hit = True
-                    # Harbingers of Dread — Deathly Terror Ld -1 aura within
-                    # 9" of any alive enemy Chaos Knights model. Modelled as
-                    # +1 to the test target (Ld worse by 1). Gated to
-                    # non-Chaos-Knights testers, but in practice the testing
-                    # army is `army` and CK sources live on `opponent`, so a
-                    # mirror-match is already filtered structurally.
-                    harbinger_penalty = 0
-                    if harbinger_sources and any(
-                        _distance(u.position, s.position) <= 9.0
-                        for s in harbinger_sources
-                    ):
-                        harbinger_penalty = 1
-                    if synapse_3d6:
-                        # Tyranid Synapse — 3D6 sum, codex-correct.
-                        roll = (random.randint(1, 6) + random.randint(1, 6)
-                                + random.randint(1, 6))
-                    else:
-                        roll = random.randint(1, 6) + random.randint(1, 6)
-                    target = (
-                        u.profile.leadership
-                        + ld_penalty
-                        - ld_bonus
-                        + shadow_penalty
-                        + contagion_penalty
-                        + shadow_of_chaos_penalty
-                        + harbinger_penalty
+                )
+
+                # --- Environmental penalties (use representative position) ---
+                shadow_penalty = 0
+                # TYRANIDS-DIAG-5: codex radius is 6".
+                if shadow_sources and any(
+                    _distance(rep.position, s.position) <= 6.0
+                    for s in shadow_sources
+                ):
+                    shadow_penalty = 1
+                contagion_penalty = 0
+                if (
+                    contagion_sources
+                    and rep.profile.faction != "Death Guard"
+                    and any(
+                        _distance(rep.position, s.position) <= 3.0
+                        for s in contagion_sources
                     )
-                    if roll < target:
+                ):
+                    contagion_penalty = 1
+                # Shadow of Chaos: -1 to Battle-shock (modelled as +1 to
+                # test target — same convention as Shadow in the Warp).
+                shadow_of_chaos_penalty = 0
+                shadow_of_chaos_hit = False
+                if (
+                    shadow_of_chaos_active
+                    and rep.profile.faction != "Chaos Daemons"
+                    and _distance(rep.position, (cx, cy)) <= 18.0
+                ):
+                    shadow_of_chaos_penalty = 1
+                    shadow_of_chaos_hit = True
+                # Harbingers of Dread — Deathly Terror Ld -1 aura within
+                # 9" of any alive enemy Chaos Knights model.
+                harbinger_penalty = 0
+                if harbinger_sources and any(
+                    _distance(rep.position, s.position) <= 9.0
+                    for s in harbinger_sources
+                ):
+                    harbinger_penalty = 1
+
+                # --- One roll per squad ---
+                if synapse_3d6:
+                    # Tyranid Synapse — 3D6 sum, codex-correct.
+                    roll = (random.randint(1, 6) + random.randint(1, 6)
+                            + random.randint(1, 6))
+                else:
+                    roll = random.randint(1, 6) + random.randint(1, 6)
+                target = (
+                    rep.profile.leadership
+                    + ld_penalty
+                    - ld_bonus
+                    + shadow_penalty
+                    + contagion_penalty
+                    + shadow_of_chaos_penalty
+                    + harbinger_penalty
+                )
+                if roll < target:
+                    # Mark ALL models in the squad as Battle-shocked.
+                    for u in members:
                         self._battleshocked_this_round.add(u.uid)
                         # BS-1: persistent per-unit state. Mark the unit as
                         # battle-shocked through the end of this round; the
@@ -5419,16 +5454,22 @@ class Battle:
                         # stratagems) consume the marker rather than the
                         # transient `_battleshocked_this_round` set.
                         u.battleshocked_until_round = round_num
-                        self._emit(BattleshockFailed(
-                            unit_uid=u.uid, roll=roll, target=target,
-                        ))
-                        # Shadow of Chaos: failed test inside the Shadow
-                        # also inflicts D3 mortal wounds on the testing
-                        # enemy unit (Wahapedia Chaos Daemons faction
-                        # rule). Cited as `simulator.shadow_of_chaos`.
-                        if shadow_of_chaos_hit:
-                            mw = random.randint(1, 3)
-                            u.current_health = max(0, u.current_health - mw)
+                    # Emit one BattleshockFailed event keyed to the
+                    # representative model (callers that display events see
+                    # the squad rep rather than an avalanche of per-model
+                    # events for large squads).
+                    self._emit(BattleshockFailed(
+                        unit_uid=rep.uid, roll=roll, target=target,
+                    ))
+                    # Shadow of Chaos: failed test inside the Shadow also
+                    # inflicts D3 mortal wounds on ONE model in the squad
+                    # (per the rule's wording "that unit suffers D3 mortal
+                    # wounds", applied to the squad rep as the closest model
+                    # to the Chaos centre). Cited as
+                    # `simulator.shadow_of_chaos`.
+                    if shadow_of_chaos_hit:
+                        mw = random.randint(1, 3)
+                        rep.current_health = max(0, rep.current_health - mw)
 
     def _run_round(self, round_num: int) -> None:
         if self.verbose:

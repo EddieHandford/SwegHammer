@@ -70,10 +70,22 @@ class MobRuleTests(unittest.TestCase):
     10+-model army. The test bypasses Battle.run() and drives _run_round
     directly so we control the wounded-below-half-strength state."""
 
-    def _make_battle(self, n_orks: int, n_marines: int = 1) -> Battle:
+    def _make_battle(self, n_orks: int, n_marines: int = 1,
+                     ork_as_squad: bool = False) -> Battle:
+        """Build a minimal battle for Mob Rule tests.
+
+        `ork_as_squad=True` places all `n_orks` models into a single squad
+        (via `add_squad`) so the squad-id-keyed Mob Rule gate fires as a real
+        codex unit.  When False (default), each Ork is its own lone unit —
+        matching the old `add_unit` behaviour and used by tests that verify
+        the gate does NOT fire for fragmented squads.
+        """
         orks = Army("Orks")
-        for i in range(n_orks):
-            orks.add_unit(_ork_boy_profile())
+        if ork_as_squad:
+            orks.add_squad(_ork_boy_profile(), n_orks)
+        else:
+            for i in range(n_orks):
+                orks.add_unit(_ork_boy_profile())
         marines = Army("Marines")
         for i in range(n_marines):
             marines.add_unit(_marine_profile())
@@ -82,53 +94,97 @@ class MobRuleTests(unittest.TestCase):
         return battle
 
     def test_orks_auto_pass_battleshock_with_10_models(self):
+        """A 10-model Ork squad above half-strength (by model count) is never
+        tested — so no models land in _battleshocked_this_round.
+
+        Updated for task #27 (per-squad battleshock): below-half-strength is
+        now determined by surviving MODEL COUNT vs starting model count, not
+        by per-model wound levels.  A 10-model squad with all 10 alive is
+        above half-strength (10 >= 5) regardless of wound state, so no test
+        fires and Mob Rule is not even needed to prevent battleshock.
+
+        We also verify via test_orks_mob_rule_fires_for_large_surviving_squad
+        that Mob Rule itself fires correctly when a large squad IS below half
+        strength by model count but has >= 10 survivors.
+        """
         random.seed(0)
-        battle = self._make_battle(n_orks=10)
-        # Wound every Ork below half so they would otherwise need to test.
-        # health=1, so current_health=0.4 < 0.5 = half-strength.
+        battle = self._make_battle(n_orks=10, ork_as_squad=True)
+        # All 10 models alive (health=1 each); wound them but do not kill them.
+        # start_count=10, alive=10, 10 >= 5 → NOT below half-strength → no test.
         for u in battle.a.units:
             u.current_health = 0.4
-        # Drive Round 2 manually — _run_round consults round_num > 1 for
-        # Battle-shock and then applies the Mob Rule fast-path.
-        battle._current_round = 2
-        # Force the roll path to fail if it ever runs: leadership=7 means a
-        # 2D6 < 7 fails. random.seed(0) yields a 5 as the first 2D6 — proving
-        # the auto-pass actually skips the roll (not just gets lucky).
         battle._battleshocked_this_round = set()
-        # Invoke the battleshock segment by calling _run_round (it also runs
-        # CP awards / scout etc. which are harmless for this scenario).
-        # Easier: replicate the relevant block. We just trust the code path
-        # by running _run_round itself.
         battle._run_round(2)
-        # No Ork should have failed: Mob Rule auto-passed everyone.
         self.assertEqual(
             len(battle._battleshocked_this_round), 0,
-            f"Mob Rule should auto-pass; got {battle._battleshocked_this_round}",
+            f"Full-strength 10-model Ork squad should not be battle-shock tested "
+            f"(above half strength by model count); "
+            f"got {battle._battleshocked_this_round}",
+        )
+
+    def test_orks_mob_rule_fires_for_large_surviving_squad(self):
+        """Mob Rule auto-passes when the surviving squad still has >= 10 models.
+
+        Build a 20-model Ork squad, kill 5 (15 survive, > 10), wound all
+        survivors below individual health, force a would-be-failing roll, and
+        assert no battleshock fires.  This is the canonical Mob Rule trigger:
+        15 alive models in the squad, below half-strength (15 < 20/2=10 is
+        FALSE — 15 >= 10).  So actually a 20-model squad needs > 10 killed
+        to be below half-strength.  Build 20, kill 11 (9 survive), then kill
+        1 more to get 9 < 10.  With 9 < 10 Mob Rule does NOT fire.  Instead
+        build 20, kill 9 (11 survive > 10): NOT below half-strength (11 >= 10),
+        so no test fires.  The real Mob Rule scenario: kill 12 so 8 survive
+        (below half), but 8 < 10 so Mob Rule does not fire either.
+
+        The correct test: build 25, kill 12 so 13 survive (below half of 25 =
+        12.5, so 13 > 12.5 means NOT below half).  Build 25, kill 13 so 12
+        survive (12 < 12.5 → below half-strength AND 12 >= 10 → Mob Rule
+        fires).
+        """
+        random.seed(0)
+        orks = Army("Orks")
+        orks.add_squad(_ork_boy_profile(), 25)
+        marines = Army("Marines")
+        marines.add_unit(_marine_profile())
+        battle = Battle(orks, marines)
+        battle._assign_uids()
+        # Kill 13 of 25: 12 survive.  12 < 12.5 → below half.  12 >= 10 → Mob Rule.
+        for u in battle.a.units[:13]:
+            u.current_health = 0.0
+        battle._battleshocked_this_round = set()
+        battle._run_round(2)
+        ork_uids = {u.uid for u in battle.a.units[13:]}
+        shocked = ork_uids & battle._battleshocked_this_round
+        self.assertEqual(
+            shocked, set(),
+            f"Mob Rule should auto-pass a 12-model surviving squad (>= 10); "
+            f"got {shocked}",
         )
 
     def test_orks_below_10_models_must_roll(self):
-        """Mob Rule requires the army to have 10+ Ork models. With only 5
-        wounded models the rule does NOT fire — the unit rolls and may
-        fail (we don't assert on the outcome, just that the roll path
-        runs and can produce a failure)."""
+        """Mob Rule requires the TESTING SQUAD to have 10+ alive models.  With
+        a 5-model squad (below half-strength after losses) the rule does NOT
+        fire — the squad rolls and may fail.  Updated for task #27: build the 5
+        Orks as a single squad so the squad_id-keyed gate is exercised."""
         # Seed for a known low 2D6 (combined < 7) so the roll fails.
         random.seed(42)
-        battle = self._make_battle(n_orks=5)
-        for u in battle.a.units:
-            u.current_health = 0.4   # below half-strength
+        orks = Army("Orks")
+        orks.add_squad(_ork_boy_profile(), 5)
+        marines = Army("Marines")
+        marines.add_unit(_marine_profile())
+        battle = Battle(orks, marines)
+        battle._assign_uids()
+        # Kill 3 of 5: 2 survive.  2 < 2.5 → below half-strength.  2 < 10 → must roll.
+        for u in battle.a.units[:3]:
+            u.current_health = 0.0
         battle._current_round = 2
         battle._run_round(2)
         # We don't pin the exact count (RNG-dependent) — only that the roll
-        # path was exercised. If Mob Rule erroneously fired at 5 models,
-        # zero would fail. With seed 42 and Ld 7 some at least roll low.
-        # Allow either 0 or non-zero: this test is about NOT crashing and
-        # NOT auto-passing all 5 silently. The Ld=7 + 5-model scenario
-        # statistically yields at least one fail under seed 42.
-        # Run more rounds if our seed happened to roll high.
-        # Practical assertion: roll path was reached (no auto-pass guard).
+        # path was exercised.  If Mob Rule erroneously fired, zero would fail.
         # Verify by checking the Mob Rule predicate directly.
-        ork_count = sum(1 for u in battle.a.alive_units if u.profile.faction == "Orks")
-        self.assertLess(ork_count, 10)
+        alive_in_squad = sum(1 for u in battle.a.alive_units
+                             if u.profile.faction == "Orks")
+        self.assertLess(alive_in_squad, 10)
 
 
 # ---------------------------------------------------------------------------

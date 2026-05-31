@@ -258,23 +258,27 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         )
 
     def test_orks_mob_rule_autopass(self):
-        """An Ork army of 10+ models must auto-pass Battle-shock; the
-        wounded models are NOT added to _battleshocked_this_round even
-        when the d6 roll would have failed. Cites: simulator.mob_rule."""
+        """A single Ork squad whose surviving model count is below half-strength
+        but still >= 10 must auto-pass Battle-shock via Mob Rule.  Updated for
+        task #27 (per-squad battleshock re-key on squad_id): Mob Rule gates on
+        the alive models in THE TESTING SQUAD, not on a profile-name army-wide
+        count.  We build 25 Orks as one squad (add_squad), kill 13 so 12
+        survive: 12 < 12.5 (below half) AND 12 >= 10 (Mob Rule fires).
+        Cites: simulator.mob_rule."""
         random.seed(0)
         orks = Army("Orks")
-        for _ in range(10):
-            orks.add_unit(_ork_boy())
+        orks.add_squad(_ork_boy(), 25)
         marines = Army("Marines")
         marines.add_unit(_marine())
         battle = Battle(orks, marines)
         battle._assign_uids()
-        # Wound every Ork below half so Battle-shock would otherwise trigger.
-        for u in orks.units:
-            u.current_health = 0.4
+        # Kill 13 of 25: 12 survivors, below half-strength (12 < 12.5), but
+        # >= 10 alive so Mob Rule auto-passes.
+        for u in orks.units[:13]:
+            u.current_health = 0.0
         battle._current_round = 2
         battle._run_round(2)
-        ork_uids = {u.uid for u in orks.units}
+        ork_uids = {u.uid for u in orks.units[13:]}
         battle_shocked_orks = ork_uids & battle._battleshocked_this_round
         self.assertEqual(
             battle_shocked_orks, set(),
