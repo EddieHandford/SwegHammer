@@ -2181,6 +2181,34 @@ def pick_move_intent(
                 )
                 repo_pos = _best_nearby_cover_point(map_, step_to, search_radius=4.0)
                 return repo_pos, _REPOSITION_INTENT
+            # #12 OBJECTIVE-AWARE REPOSITION (2026-05-31): a ranged unit that
+            # can still shoot from an objective should move ONTO the best-scoring
+            # objective — scoring VP while continuing to fire — rather than
+            # holding in open ground. This is the board-control play durable
+            # gunline bricks (Imperial / Chaos Knights, gun tanks) win with; the
+            # kill-centric in-place reposition under-credited it, which is the
+            # dominant source of the Knights' AI-positional residual (the blunt
+            # "durable units always camp" experiment moved Chaos Knights
+            # -38 -> -8.8 / Imperial Knights -21.8 -> +5.2 but over-buffed
+            # gunlines and made melee monsters mis-camp). This is the clean
+            # version: only SHOOTY/HEAVY units reach here (melee-primary units
+            # never do, so they keep charging), it is gated OUT for the tuned
+            # aggressive gunline postures (shimmy / alpha_strike / fast_strike —
+            # Aeldari / T'au keep their fire-lane play, so the over-shooters are
+            # not pushed further over), and it only diverts when an enemy is
+            # still within firing range from the objective (the unit keeps its
+            # shot — board control AND damage, not camping out of range).
+            if (
+                posture not in ("shimmy", "alpha_strike", "fast_strike")
+                and best is not None and best[0] > 0.2
+            ):
+                _, _obj_intent, _obj, _ = best
+                _obj_pos = (_obj.x, _obj.y)
+                if any(_dist(_obj_pos, e.position) <= rng for e in enemy_alive):
+                    _obj_snap = _best_nearby_cover_point(
+                        map_, _obj_pos, search_radius=3.0,
+                    )
+                    return _obj_snap, _obj_intent
             # In range — don't drift around. But snap to nearby cover when
             # available so we get the defensive uplift.
             repo_pos = _best_nearby_cover_point(map_, unit.position, search_radius=3.0)

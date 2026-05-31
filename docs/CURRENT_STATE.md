@@ -1,8 +1,33 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 69 close (2026-05-31), under-performer faction-rule buffs.
+**Last updated:** Wave 70 close (2026-05-31), objective-aware AI (#12).
 
-**Status:** Headline gated MAE **8.29** (raw 11.57), in-band 5/22. Wave 69 = the
+**Status:** Headline gated MAE **5.98** (raw 9.47) — the lowest of the whole
+fidelity campaign (started 9.27). Wave 70 landed the **plan-level objective AI**
+(#12): a SHOOTY/HEAVY unit that can still shoot from an objective moves ONTO it
+(scoring VP while firing) instead of holding in open ground — gated out for the
+tuned gunline postures (Aeldari shimmy / T'au alpha-strike). This is the clean
+version of the reverted blunt "durable units camp" experiment: melee-primary units
+never reach the branch (they keep charging), so the melee-monster mis-camp is gone.
+
+It fully confirmed the AI-positional thesis: **Chaos Knights −38.7 → −3.3** (nearly
+fixed), and it pulled the kill-centric over-shooters toward 50% because their
+opponents now contest objectives (**Sororitas +18.3→+2.1, Aeldari +15.8→+2.6, T'au
++10.0→+2.6** all into band; Drukhari +27.7→+17.1, Thousand Sons +20.4→+13.1).
+
+**A RE-FIT IS NOW MANDATORY (task #22 = top priority).** #12 redistributed win
+rates and exposed double-buffed / mis-calibrated lists:
+- **Imperial Knights overshot to +27.8 (76%)** — gun-heavy archetype + the wave-69
+  Bondsman/Valourstrike buffs now STACK on the AI objective-hold. Trim IK.
+- **Astra Militarum −15.0, Chaos Daemons −19.5, AdMech −8.3, Tyranids −7.5** swung
+  under. Lift these.
+The sim is now substantially rules-faithful (per-model representation, core rules,
+faction rules, and AI all corrected); the archetype-list re-fit converts that
+fidelity into a low, well-distributed headline.
+
+### Earlier — wave 69 (under-performer faction buffs, gated 8.74 → 8.29)
+
+Headline gated MAE was **8.29** (raw 11.57), in-band 5/22. Wave 69 = the
 win-win under-performer track: a 6-faction rules deep-dive (5 under-performers + an
 over-performer over-buff audit) → implement each under-performer's missing rules
 (verify-first against Wahapedia/BSData). Landed (gated 8.74→8.29): **Imperial Knights
@@ -116,7 +141,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 66 close (mortal+demise+blast) | 11.08 | 7.56 | 3/22 |
 | Wave 67 close (per-unit batch ×6) | 11.11 | 7.80 | 5/22 |
 | Wave 68 close (core-rules batch, fidelity) | 12.05 | 8.74 | 5/22 |
-| **Wave 69 close (under-performer faction buffs)** | **11.57** | **8.29** | **5/22** |
+| Wave 69 close (under-performer faction buffs) | 11.57 | 8.29 | 5/22 |
+| **Wave 70 close (objective-aware AI #12)** | **9.47** | **5.98** | **4/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
