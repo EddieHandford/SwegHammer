@@ -840,6 +840,102 @@ class Battle:
     # SC4-A — 10e Pariah Nexus secondary objective scoring
     # ------------------------------------------------------------------
 
+    def _cleanse_enabled(self) -> bool:
+        """Pariah Nexus Cleanse action secondary (wave 74). Landed ON after the
+        env-gated N=40 A/B validated it: gated MAE 5.89 → 5.35, with the durable
+        over-shooters easing down (Imperial Knights +27.9 → +23.3, World Eaters
+        +16.5 → +12.5) and the board-control under-shooters rising (Astra
+        −15.5 → −10.6) — the faithful, even-handed mechanism doing exactly what
+        the kill-secondary-asymmetry analysis predicted. Kept as a method (rather
+        than inlined True) so a future A/B can re-gate it via a one-line edit."""
+        return True
+
+    def _obj_outside_own_dz(self, obj, own_is_army_a: bool) -> bool:
+        """Cleanse only scores on objectives NOT in the scoring side's own
+        deployment zone (real Pariah Nexus rule). Army A deploys low-y, B high-y."""
+        dz = self.map.deployment_width
+        if own_is_army_a:
+            return obj.y > dz
+        return obj.y < (self.map.height - dz)
+
+    def _oc_within(self, army, obj) -> int:
+        """Summed Objective Control of `army`'s alive units within an objective's
+        control radius (battleshocked models count 0, matching _score_objectives)."""
+        r2 = obj.control_radius * obj.control_radius
+        total = 0
+        for u in army.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy <= r2:
+                total += getattr(u.profile, "oc", 1) or 1
+        return total
+
+    def _assign_cleanse_actions(self, active, other) -> None:
+        """Pariah Nexus Cleanse (wave 74). After the Movement phase, flag up to
+        two SURPLUS units (cheap chaff — per `strategy._is_chaff_unit`) that sit
+        on an objective their army CONTROLS and that is OUTSIDE their own
+        deployment zone, to perform the Cleanse action. The flag locks the unit
+        out of shooting and charging (handled in _do_shoot / _do_charge), which
+        is the real action-vs-fight tradeoff: a low-model durable army has no
+        chaff to spare and never reaches this branch; a horde / MSU army does.
+        Even-handed — the asymmetry falls out of unit cost, not faction.
+        Cited as `simulator.secondary_cleanse`."""
+        if not self._cleanse_enabled():
+            return
+        if "cleanse" not in (getattr(active, "chosen_secondaries", ()) or ()):
+            return
+        from .strategy import _is_chaff_unit
+        own_is_a = active is self.a
+        CLEANSE_CAP = 2   # 2 VP for one objective, 4 for two (real-rule cap)
+        cleansed = 0
+        for obj in self.map.objectives:
+            if cleansed >= CLEANSE_CAP:
+                break
+            if not self._obj_outside_own_dz(obj, own_is_a):
+                continue
+            if self._oc_within(active, obj) <= self._oc_within(other, obj):
+                continue   # must control the objective
+            r2 = obj.control_radius * obj.control_radius
+            for u in active.alive_units:
+                if u.action_this_round is not None:
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy > r2:
+                    continue
+                if _is_chaff_unit(u):
+                    u.action_this_round = "cleanse"
+                    cleansed += 1
+                    break
+
+    def _score_cleanse(self, army, opponent, own_is_army_a: bool) -> int:
+        """End-of-turn Cleanse scoring (wave 74): 2 VP per objective that is
+        outside the army's own deployment zone, still controlled by the army,
+        and carries a surviving Cleanse-action unit — capped at two objectives
+        (4 VP), per the real Pariah Nexus rule. Each unit cleanses one marker.
+        Cited as `simulator.secondary_cleanse`."""
+        if not self._cleanse_enabled():
+            return 0
+        if "cleanse" not in (getattr(army, "chosen_secondaries", ()) or ()):
+            return 0
+        cleansed = 0
+        for obj in self.map.objectives:
+            if not self._obj_outside_own_dz(obj, own_is_army_a):
+                continue
+            r2 = obj.control_radius * obj.control_radius
+            has_cleanser = any(
+                u.action_this_round == "cleanse"
+                and (u.position[0] - obj.x) ** 2 + (u.position[1] - obj.y) ** 2 <= r2
+                for u in army.alive_units
+            )
+            if not has_cleanser:
+                continue
+            if self._oc_within(army, obj) > self._oc_within(opponent, obj):
+                cleansed += 1
+        return min(cleansed, 2) * 2
+
     def _score_secondaries(self, round_num: int) -> None:
         """End-of-round secondary VP scoring (Bring it Down + No Prisoners).
 
@@ -960,6 +1056,16 @@ class Battle:
         )
         self._b_vp += b_eng + b_bel
         self._b_secondary_vp += b_eng + b_bel
+
+        # Pariah Nexus Cleanse action secondary (wave 74, env-gated). Scored like
+        # the other secondaries: added to BOTH the live total (_a_vp/_b_vp, what
+        # _decide_winner reads) and the reporting tracker (_a_secondary_vp).
+        a_cleanse = self._score_cleanse(self.a, self.b, own_is_army_a=True)
+        self._a_vp += a_cleanse
+        self._a_secondary_vp += a_cleanse
+        b_cleanse = self._score_cleanse(self.b, self.a, own_is_army_a=False)
+        self._b_vp += b_cleanse
+        self._b_secondary_vp += b_cleanse
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
@@ -6047,6 +6153,10 @@ class Battle:
                 # the turn the unit fell back, so clear it at the top of
                 # every round before the new Movement phase runs.
                 u.fell_back_this_round = False
+                # Pariah Nexus action state (wave 74): clear last round's
+                # action so the unit is free to shoot/charge again this round
+                # unless it elects an action afresh.
+                u.action_this_round = None
 
         # Pre-compute on-objective state for the round so Unit.attack() can
         # cheaply apply detachment buffs gated on objective control (Awakened
@@ -6252,6 +6362,11 @@ class Battle:
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
+            # Pariah Nexus actions are declared after the Movement phase: a
+            # surplus unit on a controlled forward objective may perform Cleanse
+            # instead of shooting (wave 74). Flagged units are skipped by
+            # _do_shoot / _do_charge below.
+            self._assign_cleanse_actions(active, other)
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
@@ -6611,6 +6726,11 @@ class Battle:
         return ""
 
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
+        # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
+        # action (e.g. Cleanse) cannot shoot this turn. Cited as
+        # `simulator.secondary_cleanse`.
+        if attacker.action_this_round is not None:
+            return
         # Embarked passengers cannot shoot on their own activation (10e core).
         # Their fire is folded into the transport's via Firing Deck X. Cited
         # as `simulator.embark`.
@@ -7088,6 +7208,11 @@ class Battle:
         units, which is closer to real tournament melee play and brings the
         sim's over-rating of T'au / Astartes / Votann shooty factions down.
         """
+        # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
+        # action cannot declare a charge this turn. Cited as
+        # `simulator.secondary_cleanse`.
+        if attacker.action_this_round is not None:
+            return
         # Embarked passengers cannot charge (10e core). Cited as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return

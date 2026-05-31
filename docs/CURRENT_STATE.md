@@ -1,7 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 73 close (2026-05-31) — investigation: the over/under split
-is the kill-secondary asymmetry; wave 74 builds action-economy secondaries.
+**Last updated:** Wave 74 close (2026-05-31) — action-economy secondaries
+(Cleanse) landed: gated MAE **5.35** (raw 8.74), the biggest single-wave move in
+many waves.
+
+**Wave 74 built the wave-73 structural lever and it worked.** The
+action-economy secondary **Cleanse** (a real Pariah Nexus secondary that was
+missing) now counterbalances the kill-secondary asymmetry: a unit performs the
+Cleanse action on a controlled objective OUTSIDE its own deployment zone and
+cannot shoot/charge that turn (the real action-vs-fight tradeoff), scoring 2 VP
+for one / 4 for two. The asymmetry is even-handed — it falls out of unit cost
+(`_is_chaff_unit`, <15 pts/model surplus bodies): Imperial Knights (no chaff)
+score 0; hordes / MSU and elites with cheap aux score it. Gated MAE 5.89 → **5.35**
+with exactly the predicted moves — durable over-shooters ease down (Imperial
+Knights +27.9 → +23.3, World Eaters +16.5 → +12.5) and board-control under-shooters
+rise (Astra −15.5 → −10.6; AdMech / Daemons / Tyranids / Necrons toward band). Also
+fixed the dead Cull the Horde mechanic. In-band dipped 6 → 5 (small margins). This
+is a faithful structural fix that moves the metric the right way by being more
+correct — the first real win after three small/investigation waves.
+
+### Earlier — wave 73 (investigation: the over/under split is the kill-secondary asymmetry)
 
 **Wave 73 (investigation, no code change, headline unchanged at gated 5.89).** The
 user steered the loop off narrow nerf-grinding toward structural levers. Verify-first
@@ -190,7 +208,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 70 close (objective-aware AI #12) | 9.47 | 5.98 | 4/22 |
 | Wave 71 close (Code Chivalric fidelity fix) | 9.38 | 5.97 | 6/22 |
 | Wave 72 close (Ion Shield ranged-only) | 9.28 | 5.89 | 6/22 |
-| **Wave 73 (investigation only, no code change)** | **9.28** | **5.89** | **6/22** |
+| Wave 73 (investigation only, no code change) | 9.28 | 5.89 | 6/22 |
+| **Wave 74 close (Cleanse action secondary + Cull-fix)** | **8.74** | **5.35** | **5/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
@@ -214,41 +233,33 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 73
+## Next ranked levers for wave 75
 
-Current biggest gated errors (wave 72 eval `data/wf_wave72_ionshield_n40.json`):
-Imperial Knights +27.9 (25.0), Chaos Daemons −19.7 (16.6), Drukhari +16.9
-(13.5), World Eaters +16.5 (13.0), Astra Militarum −15.5 (12.3).
+Current biggest gated errors (wave 74 eval `data/wf_wave74_cleanse_n40.json`):
+Imperial Knights +23.3 (20.3), Chaos Daemons −18.1 (14.9), Drukhari +16.2
+(12.8), World Eaters +12.5 (9.1), Astra Militarum −10.6 (7.4), CSM −9.7 (7.2).
 
-**Read this first:** two AI levers have now regressed the headline this session
-(objgreedy wave 71, value-targeting wave 72) — AI improvements expose the over-tuned
-over-shooter stats/lists, so a target-AI redesign will NOT lower the headline until
-the over-shooters are re-fitted (`project-ai-frozen-under-mae-first`). The
-under-shooters lose on victory points WHILE ALIVE, so per-faction combat buffs are
-mis-targeted. The remaining FAITHFUL, metric-positive levers are stat/rule fidelity
-corrections that nerf over-shooters or buff under-shooters WITHOUT touching AI — the
-Ion Shield fix (wave 72) is the template.
+**Cleanse (wave 74) confirmed the action-economy thesis — keep building it out, it is
+the faithful structural lever that moves the metric the right way.**
 
-1. **More durability/rule fidelity audits in the Ion-Shield vein.** Hunt over-shooters
-   for sim-over-modelled defence or offence vs BSData: do their invulns/FNP/saves
-   apply too broadly (melee vs ranged, ability gating)? Are their weapons/abilities
-   over-scoped? Each verified correction nerfs an over-shooter without the AI trap.
-   Candidates: Drukhari (+16.9, fragility-tax under-modelled — they should die to
-   focused fire), World Eaters (+16.5), Custodes (+10.3), Thousand Sons (+12.8,
-   unconstrained Cabal rituals per `project-faction-residual-rootcause`).
-2. **Structural representation (owns the real headline, big/risky).** Per-model
-   activation under-taxes low-model durable armies (they aren't punished for low body
-   count) and over-rates hordes; kill-vs-VP scoring balance. These are the genuine
-   root causes (`project-faction-residual-rootcause`) — a dedicated structural wave,
-   not a quick lever.
-3. **Then (and only then) the target-AI redesign + re-fit together.** A value-based
-   shooting picker is built and works mechanically (see wave-72 log) but regresses
-   solo. It becomes net-positive only paired with an over-shooter re-fit. Sequence:
-   re-fit first (or structural fix), THEN re-enable better AI.
-4. **STALL WATCH.** Wave 71 (+0.01 gated) and wave 72 (+0.08) moved the headline very
-   little via the available faithful levers. If wave 73 also finds no faithful lever
-   that meaningfully reduces gated MAE, that is the mission's 2-3-wave stall — REPORT
-   the residual factions + structural causes rather than reaching for a fudge.
+1. **More action-economy secondaries (the proven lever).** Cleanse alone took gated
+   5.89 → 5.35. Add the other action-based tacticals per `docs/ACTION_SECONDARIES_PLAN.md`
+   — **Sabotage** (action on terrain in enemy territory) and **Recover Assets** (action
+   on no-man's-land / enemy objectives) — verified vs the GW pack / Goonhammer, env-gated
+   A/B, same surplus-chaff selection. Each gives the under-shooters more board-control
+   scoring paths and taxes the durable campers further. Also: wire cleanse into
+   `_run_round_alternating` for mode-consistency.
+2. **AI plays toward secondaries.** The action selection is "surplus chaff on a
+   controlled forward objective"; sharpen it (deliberately push chaff onto contested
+   midfield/enemy objectives to cleanse, not just whoever's already there) and complete
+   the Engage/BEL forward-projection intent. Distinct from the *target* AI that regressed.
+3. **Structural representation (still owns the residual tail).** Imperial Knights are
+   still +23.3 — the per-model activation tax (low-model durable armies aren't punished
+   for body count) is the deeper root (`project-faction-residual-rootcause`). Drukhari
+   +16.2 (fragility-tax under-modelled). Dedicated structural waves.
+4. **Re-fit candidates EXPOSED by Cleanse (handle with the archetype-list care rules):**
+   Orks over-shot to +8.6 (Gretchin cleanse — faithful), Chaos Knights −6.1, Custodes
+   +9.3. Re-measure after the next action secondaries before any list touch.
 
 ## Structural track (owns the remaining headline)
 

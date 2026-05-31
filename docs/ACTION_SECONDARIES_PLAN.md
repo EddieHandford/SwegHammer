@@ -1,7 +1,9 @@
 # Implementation plan — action-economy secondaries (wave 74 build)
 
-**Status:** plan/scope only (wave 73). Approved direction: build next wave. Companion
-to `docs/SECONDARY_SCORING_ANALYSIS.md`, which established the verified rationale.
+**Status:** Cleanse vertical slice + Cull-fix **DONE (wave 74)** — gated MAE 5.89 → 5.35,
+validated by env-gated N=40 A/B and landed. Remaining (Sabotage, Recover Assets, AI
+forward-projection, alternating-mode wiring) are the wave-75+ follow-ups. Companion to
+`docs/SECONDARY_SCORING_ANALYSIS.md`, which established the verified rationale.
 
 ## Goal
 

@@ -1,6 +1,15 @@
 {
   "_comment": "10e Pariah Nexus tournament-pack Fixed Secondary Missions. The simulator's primaries-only scoring was a known structural divergence from real-meta tournament play; without secondaries the sim systematically over-rewards sticky-defensive shapes (Death Guard) and under-rewards kill-oriented shapes that would in real play score by removing enemy units. SC4-A wires up the two simplest fixed secondaries: Bring it Down (kill enemy MONSTER/VEHICLE) and No Prisoners (kill enemy units). Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
 
+  "simulator.secondary_cleanse": {
+    "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
+    "rule_name": "Cleanse (Pariah Nexus Tactical/Fixed Secondary Mission — action-based)",
+    "quoted_text": "Cleanse scores 2 VP if you cleanse (Action) one objective marker outside your deployment zone, and 4 VP if you cleanse two. The action requires one or more units in range of different objective markers not in your deployment zone, and it completes at the end of your turn. Each unit cleanses a single objective marker. (Wahapedia DNS was unreachable from this environment; verified via the Goonhammer Pariah Nexus mission review and a corroborating web search of the GW pack.)",
+    "trigger": "After the Movement phase, a surplus unit (cheap, spare-able 'chaff' per strategy._is_chaff_unit) sitting on an objective its army CONTROLS that is OUTSIDE its own deployment zone performs the Cleanse action. While performing it the unit cannot shoot or declare a charge (lockout in Battle._do_shoot / _do_charge). At end of turn the action scores if the unit survived and the army still controls that objective.",
+    "effect": "2 VP per cleansed objective marker (outside the scoring army's deployment zone, controlled, with a surviving Cleanse unit), capped at two objectives (4 VP per turn). The shoot/charge lockout is the action-vs-fight tradeoff: a low-model durable army has no chaff to spare and never satisfies it, while a horde / MSU army does — an even-handed counterbalance to the kill-secondary asymmetry that falls out of unit cost, not faction. Implemented in Battle._assign_cleanse_actions / _score_cleanse.",
+    "scope": "phase-gated"
+  },
+
   "simulator.secondary_bring_it_down": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",

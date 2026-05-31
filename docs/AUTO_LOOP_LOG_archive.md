@@ -1,3 +1,64 @@
+<!-- Archived from AUTO_LOOP_LOG.md at wave 74 close (wave 71) -->
+
+## Wave 71 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. A targeted Imperial Knights over-rate
+investigation (task #22 / the +27.8 outlier) that turned into a deep fidelity
+audit. The directed lever ("audit the wave-69 Bold Gallantry / Bondsman buffs
+for over-rating — do they match the real detachment text?") was followed to
+conclusion and the answer is: **the buffs are faithful; the over-rate is a
+compensating error, not a rule defect.**
+
+What was verified faithful (all confirmed against BSData v10.6.0 / the live
+code, win-rate-attributed with env-gated A/B probes across all 21 opponents):
+- **Bold Gallantry** (Valourstrike Lance detachment rule, ~21pt of IK's win
+  rate): real detachment (BSData has "Valourstrike Lance" + "Bold Gallantry"),
+  text verbatim ("Advance → IK ranged weapons gain [ASSAULT]"), correctly gated
+  on the unit having actually Advanced, and the sim correctly blocks
+  charge-after-advance. Faithful — NOT reverted.
+- **Bondsman / Paladin's Duty** (~2.4pt): real datasheet mechanic, text verbatim
+  ([LETHAL HITS] + melee [LANCE]); mild over-application (12" gate dropped,
+  strongest variant applied uniformly) but low-impact.
+- **Knight stats**: OC 10 (Questoris) / 6 (Armiger), T 11/12, W 26/28, Sv 3+ all
+  match BSData exactly. **Maps**: 5-objective Leviathan quincunx — faithful.
+- IK wins almost entirely by **VP (objective-holding), not tabling** (0/8 tabled
+  vs Astra; wins 7-8/8 on VP) — so the residual is positional, not lethality.
+
+The one genuine fidelity DEFECT found and FIXED:
+- **Code Chivalric** re-rolled EVERY natural 1 on every die army-wide. The real
+  rule is "re-roll ONE Hit roll and ONE Wound roll" per activation. Reroll-all-1s
+  over-scales with shot volume (a 20-shot Knight gun got ~3-4 effective re-rolls
+  vs the rule's one). Because SwegHammer is one-Unit-per-model, "each time this
+  model is selected" maps exactly onto one re-roll per Unit activation — now
+  implemented via a per-activation `_chiv_hit_reroll` / `_chiv_wound_reroll`
+  budget spent on the first failed die. Citation `simulator.code_chivalric`
+  updated (was wrongly described as an under-buff). **Metric-neutral** on gated
+  magnitude (the rule existing at all is the ~10pt swing, not the over-scaling),
+  but more faithful, and it nudged Death Guard and Chaos Knights into band.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 70 close (objective AI #12) | 9.47 | 5.98 | 4/22 |
+| **Wave 71 close (Code Chivalric fidelity fix)** | **9.38** | **5.97** | **6/22** |
+
+TESTED + SHELVED: an objective-greedy AI tweak (gunline troops step onto a
+reachable objective instead of camping in open ground — faithful, addresses the
+empirically-confirmed "30 Astra bodies sit OFF every objective at round 2" gap)
+was a wash at N=40 (5.97→5.98) and knocked Chaos Knights back out of band,
+because under-shooters holding objectives *better* still can't take them FROM
+durable Knights. Reverted; the finding stands.
+
+ROOT-CAUSE FINDING (the real next lever): the shooting-target AI is a min-HP
+"finish off the weakest" picker (`simulator.py:6835`, `min(pool, key=current_health/bonuses)`).
+Against Knights (all at full W26) it shoots the W14 Armigers and chaff first and
+**never concentrates fire on a big Knight**, so durable Knights sit on objectives
+untouched all game — the opposite of real play, where opponents focus anti-tank
+on the big threat. This is why IK over-holds and why the board-control
+under-shooters can't recover the objectives. A threat/value target-priority lever
+(focus-fire high-value durable objective-holders) is the highest-leverage systemic
+faithful fix left, but it is army-wide and high-risk — it needs its own dedicated
+wave with a design pass, not a rushed env-gate. Eval `data/wf_wave71_chivalric_n40.json`.
+
 <!-- Archived from AUTO_LOOP_LOG.md at wave 73 close (wave 70) -->
 
 ## Wave 70 close (2026-05-31)

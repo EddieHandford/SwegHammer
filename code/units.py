@@ -651,6 +651,12 @@ class Unit:
         # squad-keyed dedup gates (P4). No behaviour change in P1.
         "squad_id",
         "moved_this_round", "on_objective", "shooting_in_engagement",
+        # Pariah Nexus action state (wave 74). Set to an action name (e.g.
+        # "cleanse") by Battle._assign_cleanse_actions when the unit performs a
+        # 10e action this round; while set, _do_shoot and _do_charge refuse to
+        # fire the unit (a unit performing an action cannot shoot or charge).
+        # Cleared at the top of each round. Cited as `simulator.secondary_cleanse`.
+        "action_this_round",
         # Set by Battle._do_move when the unit elects the FALL_BACK intent.
         # While True, _do_shoot and _do_charge refuse to fire the unit unless
         # its profile has the FLY keyword. Cleared at the top of each round.
@@ -854,6 +860,9 @@ class Unit:
         # current round's movement sub-phase. Drives the Heavy keyword
         # (+1 to hit if attacker did NOT move).
         self.moved_this_round: bool = False
+        # Pariah Nexus action state (wave 74): action name while performing a
+        # 10e action this round, else None. See __slots__ note above.
+        self.action_this_round: Optional[str] = None
         # Set per round by Battle._run_round: True if the unit's position
         # is within control range of any objective marker. Read by
         # Unit.attack() to gate detachment buffs like Awakened Dynasty's

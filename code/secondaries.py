@@ -48,6 +48,11 @@ FIXED_SECONDARY_KEYS: Tuple[str, ...] = (
 )
 TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     "engage_on_all_fronts", "behind_enemy_lines",
+    # Wave 74: Cleanse is an action-based tactical secondary. Its scoring +
+    # action assignment live in code/simulator.py (Battle._score_cleanse /
+    # _assign_cleanse_actions, env-gated SWEG_ACTIONS); registering the key here
+    # lets `pick_secondaries` add it to an army's chosen tuple.
+    "cleanse",
 )
 ALL_SECONDARY_KEYS: Tuple[str, ...] = (
     FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS
@@ -215,13 +220,22 @@ def _is_horde_unit(unit: "Unit") -> bool:
     inflating the secondary.
     """
     profile = unit.profile
-    # Prefer explicit field if the mapper populates it.
-    starting = getattr(profile, "starting_strength", None)
-    if starting is None:
+    # WAVE 74 FIX: the populated field on UnitProfile is `max_models` (the
+    # datasheet's maximum squad size — Termagants 20, Boyz 20, Poxwalkers 20,
+    # Cadians 10). The previous code read `starting_strength` / `squad_size` /
+    # `count`, all of which are None in the live catalogue, so this returned
+    # False for every unit and Cull the Horde scored 0 for everyone (a dead
+    # mechanic). A unit whose datasheet allows >= 10 models is horde-capable;
+    # tournament hordes field them at or near max. Fall back to the legacy
+    # fields if a synthetic caller populates them instead.
+    starting = getattr(profile, "max_models", None)
+    if not starting:
+        starting = getattr(profile, "starting_strength", None)
+    if not starting:
         starting = getattr(profile, "squad_size", None)
-    if starting is None:
+    if not starting:
         starting = getattr(profile, "count", None)
-    if starting is None:
+    if not starting:
         starting = 1
     return starting >= CULL_THE_HORDE_MIN_MODELS
 
@@ -614,4 +628,27 @@ def pick_secondaries(
         tactical = ["behind_enemy_lines", "engage_on_all_fronts"]
     else:
         tactical = ["engage_on_all_fronts", "behind_enemy_lines"]
+    # Wave 74: an army with spare cheap bodies can also bring the Cleanse action
+    # secondary (it can afford to take a unit out of the firefight to perform the
+    # action). Low-model elite armies have no chaff to spare and never satisfy it,
+    # so the asymmetry is even-handed — it falls out of unit cost, not faction.
+    # Inert unless SWEG_ACTIONS is set (the simulator gates the scoring).
+    if _own_chaff_count(own_army) >= 2:
+        tactical.append("cleanse")
     return tuple(fixed + tactical)
+
+
+def _own_chaff_count(own_army: "Army") -> int:
+    """Count cheap, spare-able units (per-model points under 15, no CHARACTER)
+    — the same chaff definition as `strategy._is_chaff_unit`. Proxy for "has a
+    body it can take out of the firefight to perform an action"."""
+    n = 0
+    for u in own_army.units:
+        p = u.profile
+        pts = float(getattr(p, "points_cost", 0.0) or 0.0)
+        if pts <= 0.0 or pts >= 15.0:
+            continue
+        if "CHARACTER" in (p.unit_keywords or ()):
+            continue
+        n += 1
+    return n
