@@ -639,37 +639,97 @@ class Battle:
             and getattr(b_det, "worldblight_sticky_dg_objectives", False)
         )
 
-        for obj_idx, obj in enumerate(self.map.objectives):
-            obj_pos = (obj.x, obj.y)
-            r2 = obj.control_radius * obj.control_radius
-            a_oc = 0
-            b_oc = 0
-            a_sticky_present = False
-            b_sticky_present = False
-            a_has_dg_unit = False
-            b_has_dg_unit = False
-            for u in self.a.alive_units:
-                if u.uid in self._battleshocked_this_round:
-                    continue   # Battleshocked = OC 0
-                dx = u.position[0] - obj_pos[0]
-                dy = u.position[1] - obj_pos[1]
-                if dx * dx + dy * dy <= r2:
-                    a_oc += getattr(u.profile, "oc", 1) or 1
-                    if getattr(u.profile, "sticky_objective", False):
-                        a_sticky_present = True
-                    if (u.profile.faction or "") == "Death Guard":
-                        a_has_dg_unit = True
-            for u in self.b.alive_units:
-                if u.uid in self._battleshocked_this_round:
+        # Unit Coherency for Objective Control (10e core rules, cited as
+        # `simulator.unit_coherency`). A coherent unit sits on roughly one
+        # objective marker, so it may contribute its Objective Control to AT
+        # MOST ONE objective per round — never contest several at once. We
+        # model one Unit-object per model and a codex unit as the Units sharing
+        # a squad_id, so for each squad we find the single objective on which
+        # the MOST of its models sit (within that objective's control_radius)
+        # and credit that squad's summed Objective Control to only that
+        # objective. Ties are broken by the smallest centroid distance.
+        # Battleshocked models (uid in self._battleshocked_this_round) count 0.
+        # Sticky-objective and Death Guard worldblight presence are tracked on
+        # the chosen objective only, so the existing sticky / worldblight logic
+        # below sees the squad exactly where it scores.
+        #
+        # Returns three dicts keyed by obj_idx:
+        #   oc[obj_idx]            -> summed Objective Control credited there
+        #   sticky_present[obj_idx] -> True if any crediting squad is sticky
+        #   dg_present[obj_idx]     -> True if any crediting squad is Death Guard
+        def _assign_army_oc(army):
+            oc_by_obj: dict = {}
+            sticky_by_obj: dict = {}
+            dg_by_obj: dict = {}
+            for members in army.squads().values():
+                # Per-objective tally for THIS squad: model count + summed OC.
+                best_idx = None
+                best_count = 0
+                best_dist2 = None
+                best_oc = 0
+                for obj_idx2, obj2 in enumerate(self.map.objectives):
+                    r2b = obj2.control_radius * obj2.control_radius
+                    count = 0
+                    oc_sum = 0
+                    sum_dx = 0.0
+                    sum_dy = 0.0
+                    for u in members:
+                        if u.uid in self._battleshocked_this_round:
+                            continue   # Battleshocked = OC 0
+                        dx = u.position[0] - obj2.x
+                        dy = u.position[1] - obj2.y
+                        if dx * dx + dy * dy <= r2b:
+                            count += 1
+                            oc_sum += getattr(u.profile, "oc", 1) or 1
+                            sum_dx += dx
+                            sum_dy += dy
+                    if count == 0:
+                        continue
+                    # Centroid-of-on-objective-models distance for tie-break.
+                    cx = sum_dx / count
+                    cy = sum_dy / count
+                    dist2 = cx * cx + cy * cy
+                    if (
+                        best_idx is None
+                        or count > best_count
+                        or (count == best_count and dist2 < best_dist2)
+                    ):
+                        best_idx = obj_idx2
+                        best_count = count
+                        best_dist2 = dist2
+                        best_oc = oc_sum
+                if best_idx is None or best_oc <= 0:
                     continue
-                dx = u.position[0] - obj_pos[0]
-                dy = u.position[1] - obj_pos[1]
-                if dx * dx + dy * dy <= r2:
-                    b_oc += getattr(u.profile, "oc", 1) or 1
-                    if getattr(u.profile, "sticky_objective", False):
-                        b_sticky_present = True
-                    if (u.profile.faction or "") == "Death Guard":
-                        b_has_dg_unit = True
+                oc_by_obj[best_idx] = oc_by_obj.get(best_idx, 0) + best_oc
+                # A squad is sticky / DG if its profile says so (all members of
+                # a squad share a profile, so checking the first crediting
+                # member is sufficient; use any() to be safe for mixed lists).
+                if any(
+                    getattr(u.profile, "sticky_objective", False)
+                    for u in members
+                ):
+                    sticky_by_obj[best_idx] = True
+                if any(
+                    (u.profile.faction or "") == "Death Guard"
+                    for u in members
+                ):
+                    dg_by_obj[best_idx] = True
+            return oc_by_obj, sticky_by_obj, dg_by_obj
+
+        a_oc_by_obj, a_sticky_by_obj, a_dg_by_obj = _assign_army_oc(self.a)
+        b_oc_by_obj, b_sticky_by_obj, b_dg_by_obj = _assign_army_oc(self.b)
+
+        for obj_idx, obj in enumerate(self.map.objectives):
+            # Per-unit Objective Control (cited as `simulator.unit_coherency`):
+            # read the per-squad assignments computed above. Each squad has
+            # already been credited to at most one objective, so a scattered
+            # squad can no longer contest several markers at once.
+            a_oc = a_oc_by_obj.get(obj_idx, 0)
+            b_oc = b_oc_by_obj.get(obj_idx, 0)
+            a_sticky_present = a_sticky_by_obj.get(obj_idx, False)
+            b_sticky_present = b_sticky_by_obj.get(obj_idx, False)
+            a_has_dg_unit = a_dg_by_obj.get(obj_idx, False)
+            b_has_dg_unit = b_dg_by_obj.get(obj_idx, False)
 
             # iter24-D3 — Worldblight strict gate. Per Wahapedia
             # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#STRATAGEMS
@@ -4730,13 +4790,45 @@ class Battle:
                     u.position = u.embarked_in.position
 
     def _deploy_line(self, units, y: float) -> None:
+        """Deploy `units` along the line at height `y`, clustering each squad.
+
+        Unit Coherency (10e core rules, cited as `simulator.unit_coherency`):
+        a unit's models must be set up within 2" horizontally of at least one
+        other model in their unit. We model one Unit-object per physical model,
+        so a codex squad is the set of Units sharing a `squad_id`. The even
+        board-width spacing therefore allocates one slot PER SQUAD (not per
+        model); each squad's models are then placed in a tight cluster
+        (~1.25" apart) around that squad's anchor x. Lone units (squad_id < 0)
+        are one slot each. Without this, a 10-model squad spread ~44" across
+        the board and violated coherency from turn zero.
+        """
         if not units:
             return
+        # Group the passed units by squad_id, preserving first-seen order.
+        # Lone / unassigned models (squad_id < 0) each form their own group so
+        # they never merge with another squad.
+        from collections import OrderedDict
+        groups = OrderedDict()
+        for u in units:
+            sid = getattr(u, "squad_id", -1)
+            key = sid if sid is not None and sid >= 0 else ("lone", id(u))
+            groups.setdefault(key, []).append(u)
+
         usable = self.map.width - 4.0   # leave 2" margin each side
-        spacing = usable / (len(units) + 1)
-        for i, u in enumerate(units):
-            x = 2.0 + spacing * (i + 1)
-            u.position = (x, y)
+        slot_spacing = usable / (len(groups) + 1)
+        cluster_step = 1.25  # inches between adjacent models in a squad (< 2")
+
+        for slot_idx, members in enumerate(groups.values()):
+            anchor_x = 2.0 + slot_spacing * (slot_idx + 1)
+            n = len(members)
+            # Centre the cluster on the anchor so the squad straddles its slot.
+            start_x = anchor_x - cluster_step * (n - 1) / 2.0
+            for j, u in enumerate(members):
+                x = start_x + cluster_step * j
+                # Clamp inside the 2" board margins so a large squad near the
+                # edge does not spill off-table.
+                x = min(max(x, 2.0), self.map.width - 2.0)
+                u.position = (x, y)
 
     # ------------------------------------------------------------------
     # Phase I — Scout phase + Deep Strike arrivals

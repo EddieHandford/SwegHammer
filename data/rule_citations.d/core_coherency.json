@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the Unit Coherency core rule (10e). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Unit-Coherency",
+
+  "simulator.unit_coherency": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Unit-Coherency",
+    "rule_name": "Unit Coherency",
+    "quoted_text": "Whenever a unit is set up or moves, all of its models must be placed/moved so that the unit is in Unit Coherency. A unit is in Unit Coherency if every model in that unit is within 2\" horizontally ... of at least one other model in their unit.",
+    "trigger": "a unit is deployed or scores Objective Control",
+    "effect": "models of a unit stay clustered; the unit contributes Objective Control to a single objective",
+    "scope": "army-wide"
+  }
+}

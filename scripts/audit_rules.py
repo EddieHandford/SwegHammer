@@ -141,6 +141,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # squad-spillover allocation pointer in Unit.attack. See
     # data/rule_citations.d/core_damage_allocation.json.
     "simulator.damage_allocation_spillover",
+    # Core 10e Unit Coherency: a unit's models must stay within 2" of another
+    # model in their unit, so a coherent unit sits on ~one objective. Drives
+    # squad-clustered deployment (Battle._deploy_line) and per-unit Objective
+    # Control (Battle._score_objectives credits each squad to one objective).
+    # See data/rule_citations.d/core_coherency.json.
+    "simulator.unit_coherency",
     # Core 10e mortal wounds: unlike normal damage, excess mortal wounds carry
     # over to the next model of the same unit until all are allocated or the
     # unit is destroyed. Implemented as Battle._apply_mortal_wounds and routed
