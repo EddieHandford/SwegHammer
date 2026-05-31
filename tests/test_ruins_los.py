@@ -183,6 +183,108 @@ class RuinLosTests(unittest.TestCase):
         )
 
 
+class ToweringLosTests(unittest.TestCase):
+    """TOWERING keyword: either endpoint TOWERING ignores Obscuring and Ruin
+    walls for line-of-sight (10e core Terrain Glossary).
+
+    Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary
+    "When a model with the TOWERING keyword draws a line of sight, or when an
+    enemy model draws a line of sight to a model with the TOWERING keyword,
+    the line of sight can be drawn as if intervening terrain features with the
+    Obscuring or Dense Cover terrain trait were not there."
+    """
+
+    A = (15.0, 30.0)
+    B = (45.0, 30.0)
+
+    TOWERING = ("TOWERING",)
+    VEHICLE = ("VEHICLE",)
+    INFANTRY = ("INFANTRY",)
+
+    # ---- TOWERING attacker vs Obscuring ----------------------------------------
+
+    def test_towering_attacker_ignores_obscuring(self):
+        m = _obscuring_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.TOWERING,
+                target_keywords=self.VEHICLE,
+            ),
+            "TOWERING attacker must ignore Obscuring terrain for line of sight.",
+        )
+
+    def test_towering_target_ignores_obscuring(self):
+        m = _obscuring_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.VEHICLE,
+                target_keywords=self.TOWERING,
+            ),
+            "TOWERING target must ignore Obscuring terrain for line of sight.",
+        )
+
+    def test_both_towering_ignores_obscuring(self):
+        m = _obscuring_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.TOWERING,
+                target_keywords=self.TOWERING,
+            ),
+        )
+
+    def test_non_towering_still_blocked_by_obscuring(self):
+        """Confirm the existing non-TOWERING path is not broken."""
+        m = _obscuring_in_the_middle()
+        self.assertFalse(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.VEHICLE,
+                target_keywords=self.VEHICLE,
+            ),
+            "Non-TOWERING models must still be blocked by Obscuring terrain.",
+        )
+
+    # ---- TOWERING attacker vs Ruin wall ----------------------------------------
+
+    def test_towering_attacker_ignores_ruin(self):
+        m = _ruin_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.TOWERING,
+                target_keywords=self.VEHICLE,
+            ),
+            "TOWERING attacker must ignore Ruin wall line-of-sight block.",
+        )
+
+    def test_towering_target_ignores_ruin(self):
+        m = _ruin_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.VEHICLE,
+                target_keywords=self.TOWERING,
+            ),
+            "TOWERING target must ignore Ruin wall line-of-sight block.",
+        )
+
+    def test_towering_overrides_non_infantry_ruin_block(self):
+        """A non-INFANTRY unit is normally blocked by a Ruin wall.
+        When the opponent is TOWERING, the block is lifted."""
+        m = _ruin_in_the_middle()
+        # Without TOWERING this would be blocked (VEHICLE vs VEHICLE).
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.VEHICLE,
+                target_keywords=self.TOWERING,
+            ),
+        )
+
+
 class RuinCoverTests(unittest.TestCase):
     """A model standing inside a RUIN rectangle gets Heavy Cover-grade
     benefits (+1 save, -1 to hit) — same combat effect as HEAVY_COVER."""

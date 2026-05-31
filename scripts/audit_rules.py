@@ -407,6 +407,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # template-instantiated units so the random topup can't duplicate a
     # hero the archetype already drafted).
     "simulator.epic_hero_one_per_army",
+    # 10e core TOWERING keyword terrain rule. When either the firing model or
+    # the target model has the TOWERING keyword, OBSCURING terrain and RUIN
+    # walls do not block the line of sight. TOWERING models are physically
+    # massive (Knights, Wraithknight, Daemon Primarchs) and can see over
+    # intervening terrain. Wired in code.map._has_towering +
+    # code.map._los_query (towering flag forces ruin_pass=True and skips
+    # the OBSCURING block entirely). See
+    # data/rule_citations.d/core_terrain_towering.json.
+    "simulator.towering_los",
     # 10e Ruins terrain core rule. A Ruin acts as Heavy Cover (+1 save,
     # -1 to hit) and its walls block line of sight EXCEPT when both the
     # firing model and the target model have the INFANTRY, BEAST or SWARM

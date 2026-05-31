@@ -167,6 +167,11 @@ collided with the equilibrium solver's own Phase 1–6 ladder
 - **2D map and terrain** — continuous-coordinate map with Light /
   Heavy / Obscuring / Impassable terrain; Liang-Barsky parametric clipping
   for line of sight; objective markers with primary victory point scoring.
+  Ruins block line of sight except when both endpoints carry an INFANTRY,
+  BEAST, or SWARM keyword (10e core Ruins rule). When either endpoint carries
+  the TOWERING keyword (Knights, Wraithknight, Daemon Primarchs, Titans),
+  both Obscuring terrain and Ruin walls are bypassed for line-of-sight
+  purposes (10e core TOWERING keyword rule).
 - **Strategy layer** — units pick a per-activation intent (HOLD, CAPTURE,
   STEAL, ENGAGE, REPOSITION, FALL_BACK) based on objective state and role.
 - **Catalogue** — ~1478 units from BSData WH40k 10e (`v10.6.0`), refined
@@ -206,8 +211,8 @@ roughly 32 ms (73% reduction, measured by `scripts/bench_simulator.py` on a
 - **Line-of-sight cache** (`_los_cache` in `code/map.py`). Keyed by a
   terrain-epoch integer (assigned per unique terrain tuple to avoid garbage-
   collector identifier reuse), the 0.5-inch-grid-discretised endpoint pair,
-  and the ruin-pass boolean. ~46 000 distinct entries per 90 battles, ~40%
-  hit rate, ~1.6× speedup vs uncached. Tier 3.
+  the ruin-pass boolean, and the towering boolean. ~46 000 distinct entries
+  per 90 battles, ~40% hit rate, ~1.6× speedup vs uncached. Tier 3.
 - **Cover-priority cache** (`_cover_prio_cache` in `code/strategy.py`). Keyed
   by terrain epoch and 0.5-inch-grid position; reused by both
   `_shimmy_target` and `_best_nearby_cover_point`. ~1 300 entries per 90

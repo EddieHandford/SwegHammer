@@ -21,6 +21,15 @@ from typing import Dict, Iterable, Optional, Tuple
 # `terrain.ruin_infantry_los` in scripts/audit_rules.py.
 _RUIN_LOS_PASS_KEYWORDS = frozenset({"INFANTRY", "BEAST", "SWARM"})
 
+# 10e core TOWERING keyword rule
+# (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary):
+# "When a model with the TOWERING keyword draws a line of sight, or when an
+# enemy model draws a line of sight to a model with the TOWERING keyword,
+# the line of sight can be drawn as if intervening terrain features with the
+# Obscuring or Dense Cover terrain trait were not there."
+# Cited as `simulator.towering_los` in scripts/audit_rules.py.
+_TOWERING_KEYWORD = "TOWERING"
+
 
 class TerrainType(Enum):
     OPEN = "open"
@@ -116,19 +125,35 @@ class Map:
 
         OBSCURING terrain always blocks LoS unless either endpoint stands
         inside the rectangle (the "see in / see out" allowance — fine for
-        woods, blast walls, smoke).
+        woods, blast walls, smoke). Exception: when either the attacker or
+        the target has the TOWERING keyword, OBSCURING terrain does not
+        block the line of sight (10e core TOWERING rule).
 
         RUIN walls block LoS UNLESS both the attacker and the target carry
         the INFANTRY, BEAST, or SWARM keyword (10e core Ruins rule). When
         keyword tuples are not supplied (older call-sites), RUIN is
         treated as a full LoS blocker to stay safely conservative.
+        Exception: when either endpoint has the TOWERING keyword, RUIN
+        walls do not block the line of sight (same 10e core TOWERING rule
+        — TOWERING models can see over intervening terrain features).
 
         Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins
         > "Models can shoot through walls of a Ruin so long as both the
         > firing model and the target model have the INFANTRY, BEAST or
         > SWARM keyword. In all other cases, a wall blocks line of sight."
+
+        Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary
+        > "When a model with the TOWERING keyword draws a line of sight, or
+        > when an enemy model draws a line of sight to a model with the
+        > TOWERING keyword, the line of sight can be drawn as if intervening
+        > terrain features with the Obscuring or Dense Cover terrain trait
+        > were not there."
         """
-        ruin_pass = (
+        towering = (
+            _has_towering(attacker_keywords)
+            or _has_towering(target_keywords)
+        )
+        ruin_pass = towering or (
             _has_ruin_pass(attacker_keywords)
             and _has_ruin_pass(target_keywords)
         )
@@ -137,6 +162,7 @@ class Map:
             round(attacker[0] * 2), round(attacker[1] * 2),
             round(target[0] * 2), round(target[1] * 2),
             ruin_pass,
+            towering,
         )
 
 
@@ -184,7 +210,7 @@ def _segment_rect_intersects(
 # ---------------------------------------------------------------------------
 # Line-of-sight cache
 # ---------------------------------------------------------------------------
-# Keyed by (terrain_epoch, ax, ay, tx, ty, ruin_pass).
+# Keyed by (terrain_epoch, ax, ay, tx, ty, ruin_pass, towering).
 # `terrain_epoch` is a cheap stable integer assigned per unique terrain tuple
 # the first time it is seen.  Storing the tuple in `_terrain_live` prevents
 # Python from garbage-collecting it and reusing its id for a different tuple,
@@ -219,14 +245,30 @@ def _has_ruin_pass(kw_iter: Optional[Iterable[str]]) -> bool:
     return False
 
 
+def _has_towering(kw_iter: Optional[Iterable[str]]) -> bool:
+    """True if any keyword in kw_iter is TOWERING."""
+    if not kw_iter:
+        return False
+    for k in kw_iter:
+        if k == _TOWERING_KEYWORD:
+            return True
+    return False
+
+
 def _los_query(
     map_: "Map",
     ax: int, ay: int,
     tx: int, ty: int,
     ruin_pass: bool,
+    towering: bool = False,
 ) -> bool:
-    """Line-of-sight check on a 0.5-inch grid, with per-map caching."""
-    key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass)
+    """Line-of-sight check on a 0.5-inch grid, with per-map caching.
+
+    When ``towering`` is True (either endpoint carries the TOWERING keyword),
+    OBSCURING terrain is ignored entirely and RUIN walls are treated the same
+    as if ``ruin_pass`` were True — i.e. TOWERING models always see over them.
+    """
+    key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass, towering)
     try:
         return _los_cache[key]
     except KeyError:
@@ -236,6 +278,8 @@ def _los_query(
     result = True
     for terrain in map_.terrain:
         if terrain.type is TerrainType.OBSCURING:
+            if towering:
+                continue   # TOWERING ignores Obscuring terrain for LoS
             if terrain.contains(a) or terrain.contains(t):
                 continue
             if _segment_rect_intersects(a, t, terrain):
