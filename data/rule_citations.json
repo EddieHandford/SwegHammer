@@ -89,12 +89,12 @@
     "trigger": "Drukhari army; one Combat Drug active army-wide at a time on every WYCH CULT unit"
   },
   "simulator.dark_pacts": {
-    "effect": "on a passed 2D6>=Ld test the unit gains [LETHAL HITS] (approximated via transient_lethal_hits) for the phase; on a failed test the unit suffers D3 mortal wounds and gains no keyword. Every non-battle-shocked CHAOS SPACE MARINES squad declares independently (per-unit, not once-per-army).",
+    "effect": "unit gains [LETHAL HITS] OR [SUSTAINED HITS 1] for the phase; on failed 2D6>=Ld test the unit suffers D3 mortal wounds",
     "quoted_text": "Each time a unit with this ability is selected to shoot or fight, it can make a Dark Pact. If it does, it must first take a Leadership test before any effects of that Dark Pact are resolved; if that test is failed, that unit suffers D3 mortal wounds.",
     "rule_name": "Dark Pacts",
     "scope": "army-wide",
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/",
-    "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack; each squad rolls independently"
+    "trigger": "attacker unit has CHAOS SPACE MARINES army-rule keyword AND is selected to attack"
   },
   "simulator.fights_first_chargers": {
     "effect": "Within the active player's Fight phase pass (`_run_round_vanilla_turns`), units that charged this turn (uid in `_charging_this_round`) fight before units that did not. Implemented as a stable sort with key `0 if charging else 1` so non-charger relative order is preserved.",
