@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 67 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. Six per-unit-mechanics fixes from the wave-66
+audit, built in parallel (one worktree agent each) and cherry-picked to `ba2a8b4`:
+
+- **Unit coherency** (`971348d`): `_deploy_line` clusters each squad at one slot;
+  `_score_objectives` credits each squad's Objective Control to a single objective
+  (was per-model multi-objective). New `simulator.unit_coherency` citation.
+- **Per-unit secondaries** (`c068f47`): No Prisoners / Cull the Horde count
+  destroyed UNITS via squad_id last-model, not models.
+- **Reanimation / Undying Legions** (`a4d091d`): group alive/dead by squad_id; a
+  wiped squad can't revive off a same-name squad.
+- **Stratagem transient buffs** (`2d07062`): `_set_transient_squad` fans the buff
+  to the whole squad (60 sites) instead of one model.
+- **Per-squad battleshock + Mob Rule** (`c2bdc96`): one test per squad,
+  below-half-strength by squad model count, Mob Rule by squad_id.
+- **Once-per-unit gate re-keys** (`f5f8834`): Oath, Acts of Faith, Strands,
+  Miracle die, Markerlight, Blood Surge, Beacons → squad_id.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 66 close (mortal+demise+blast) | 11.08 | 7.56 | 3/22 |
+| **Wave 67 close (per-unit batch)** | **11.11** | **7.80** | **5/22** |
+
+Rules-correct; 922 tests green; citation 281/281. Gated +0.24 but in-band 3→5;
+Necrons +4.2→−1.3 (reanimation), Drukhari +30.1→+27.8 (coherency). The headline
+rise is one faction — **Adepta Sororitas +10.1→+17.2** (gated 6.3→13.4): stratagem
++ Acts-of-Faith now correctly buff the whole squad, past a list tuned on the old
+bugs. Next: archetype-list re-fit (task #22), Sororitas first. Eval
+`data/wf_wave67_perunit_n40.json`.
+
 ## Wave 66 close (2026-05-31)
 
 Branch `claude/sim-calibration-6`. The mortal-wound half of the damage-allocation

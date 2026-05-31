@@ -1,9 +1,29 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 66 close (2026-05-31), mortal-wound spillover + per-unit
-Deadly Demise + Blast scoping + the per-unit-mechanics audit.
+**Last updated:** Wave 67 close (2026-05-31), per-unit-mechanics batch (6 fixes).
 
-**Status:** Headline gated MAE **7.56** (was 7.78 → 9.27 two waves ago). Wave 66
+**Status:** Headline gated MAE **7.80** (raw 11.11), **in-band 5/22** (was 3/22).
+Wave 67 landed all six top findings from the per-unit-mechanics audit in parallel
+(one worktree agent each, cherry-picked to `ba2a8b4`): unit coherency (cluster
+squads at deployment + objective control credited per unit), per-unit secondary
+scoring (No Prisoners / Cull count destroyed units), Reanimation/Undying Legions
+grouped by `squad_id`, stratagem transient buffs applied to the whole squad (60
+sites), per-squad battleshock + Mob Rule by squad_id, and the once-per-unit gate
+re-keys (Oath, Acts of Faith, Strands, Miracle die, Markerlight, Blood Surge,
+Beacons). All rules-correct; 922 tests green; citation 281/281 (new
+`simulator.unit_coherency`).
+
+The gated headline rose +0.24 (7.56 → 7.80) even though in-band improved 3→5 and
+big structural fixes landed (Necrons +4.2→−1.3 from reanimation; Drukhari
++30.1→+27.8 from coherency). The regression is one faction: **Adepta Sororitas
++10.1→+17.2** (gated 6.3→13.4) — stratagem-buff propagation + the Acts-of-Faith
+squad re-key correctly made Sororitas stronger, past a list tuned around the old
+bugs. This is the fidelity-then-refit pattern: the sim is now more correct, so the
+**archetype-list re-fit (task #22)** is the immediate next step, Sororitas first.
+
+### Earlier — wave 66 (mortal-wound spillover + Deadly Demise + Blast, gated 7.78→7.56)
+
+Wave 66
 landed the mortal-wound half of the allocation rule (`Battle._apply_mortal_wounds`:
 excess mortal wounds carry to the next model of the unit, unlike normal damage),
 fixed **Deadly Demise** to hit each *unit* once (was per-model), and scoped **Blast**
@@ -52,7 +72,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 63 close (`96fd68e`+docs) | 12.80 | 9.27 | 2/22 |
 | Wave 64 close (`3203e35`+docs) | 12.80 | 9.27 | 2/22 |
 | Wave 65 close (spillover+docs) | 11.15 | 7.78 | 2/22 |
-| **Wave 66 close (mortal+demise+blast)** | **11.08** | **7.56** | **3/22** |
+| Wave 66 close (mortal+demise+blast) | 11.08 | 7.56 | 3/22 |
+| **Wave 67 close (per-unit batch ×6)** | **11.11** | **7.80** | **5/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
