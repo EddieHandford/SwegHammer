@@ -299,7 +299,8 @@ def run_matrix(n: int, rules: RulesConfig = None, use_archetype: bool = False,
     # not affect the per-pair Counter because each pair_seed is unique.
     pair_winners: Dict[Tuple[str, str], Counter] = {}
     if max_workers is None:
-        max_workers = max(1, (os.cpu_count() or 2) - 1)
+        # Reserve ~30% of cores for the user's other work — use ~70%.
+        max_workers = max(1, int((os.cpu_count() or 2) * 0.7))
 
     if max_workers <= 1:
         # Serial fallback — useful for debugging / reproducibility checks
@@ -486,8 +487,8 @@ def main() -> None:
         type=int,
         default=None,
         help="Number of worker processes for the battle matrix. Default is "
-             "os.cpu_count() - 1 (leaves one core for OS / parent). Pass 1 "
-             "to force the serial code path (debugging / reproducibility).",
+             "about 70 percent of cores (reserves ~30 percent for the user's "
+             "other work). Pass 1 to force the serial code path (debugging).",
     )
     p.add_argument(
         "--out",
@@ -516,7 +517,8 @@ def main() -> None:
     rules = RulesConfig.sweghammer() if args.sweghammer else None
     mode = "sweghammer" if args.sweghammer else "vanilla"
     list_mode = "tourney-archetype" if args.use_archetype else "random_fill"
-    workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 2) - 1)
+    # Default reserves ~30% of cores for the user's other work; override with --workers.
+    workers = args.workers if args.workers is not None else max(1, int((os.cpu_count() or 2) * 0.7))
 
     price_overrides: Optional[Dict[str, float]] = None
     if args.swegpoints and args.equation_prices:
