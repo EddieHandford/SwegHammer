@@ -4,6 +4,40 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 69 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. The win-win under-performer track: a 6-agent
+faction-rules deep-dive (5 under-performers + an over-performer over-buff audit),
+then implement each under-performer's missing rules — all verify-first against
+Wahapedia/BSData (the over-performer audit's "phantom Aeldari Aspect-Warrior invuln"
+claim was DEBUNKED on verification: Dark Reapers genuinely have a 5++). Five worktree
+agents implemented, cherry-picked clean.
+
+LANDED (gated 8.74 → 8.29):
+- **Imperial Knights −21.8 → −16.0** (+5.8): real Valourstrike Lance detachment
+  (Bold Gallantry advance→assault) + Bondsman abilities (Questoris buff Armigers each
+  Command phase). Remapped off the empty Imperial-Knights `noble_lance`.
+- **Chaos Daemons −19.0 → −14.6** (+4.4): per-god datasheet buffs — Tzeentch 4++
+  correction (only the genuine ones, 5++ units left alone), Murderer's Cowl
+  (advance+charge), Penumbral Puppetry (-1 to hit), Gloam Rot (-1 wound vs S>T).
+- **TOWERING line-of-sight** (cross-faction): Obscuring/Ruins don't block LoS for
+  TOWERING models — helps Knights/Wraithknight guns.
+- **Chaos Knights** real Iconoclast Fiefdom detachment (Dread Tyrants aura) + **GSC**
+  Patriarch/Primus leaders + Aberrant FNP.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 68 close (core-rules batch) | 12.05 | 8.74 | 5/22 |
+| **Wave 69 close (faction buffs)** | **11.57** | **8.29** | **5/22** |
+
+CAUGHT + REVERTED: **CSM Dark Pacts per-unit** auto-gamble crashed CSM 45.8→24.8%
+(self-inflicted D3 mortal wounds on every squad every round outweigh the buff; real
+players are selective — task #36). **Chaos Knights** barely moved from the detachment
+alone (+0.5) — its −38 is AI-positional (the reverted durable-objective diagnostic
+moved CK −38→−8.8), so CK needs the objective AI (#12). GSC's small −2.1 is
+redistribution from the IK/Daemons buffs (verified-correct, not a bug). 926 tests
+green; audit 288/288. Eval `data/wf_wave69b_n40.json`.
+
 ## Wave 68 close (2026-05-31)
 
 Branch `claude/sim-calibration-6`. Fidelity-first wave from the full 10e core-rules

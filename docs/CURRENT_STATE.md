@@ -1,8 +1,28 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 68 close (2026-05-31), core-rules-correctness batch.
+**Last updated:** Wave 69 close (2026-05-31), under-performer faction-rule buffs.
 
-**Status:** Headline gated MAE **8.74** (raw 12.05), in-band 5/22. Wave 68 was a
+**Status:** Headline gated MAE **8.29** (raw 11.57), in-band 5/22. Wave 69 = the
+win-win under-performer track: a 6-faction rules deep-dive (5 under-performers + an
+over-performer over-buff audit) → implement each under-performer's missing rules
+(verify-first against Wahapedia/BSData). Landed (gated 8.74→8.29): **Imperial Knights
+−21.8→−16.0** (real Valourstrike Lance detachment + Bold Gallantry + Bondsman
+abilities), **Chaos Daemons −19.0→−14.6** (per-god datasheet buffs — Tzeentch 4++
+correction, Murderer's Cowl, Penumbral Puppetry/Gloam Rot), plus TOWERING
+line-of-sight (cross-faction), Chaos Knights real Iconoclast Fiefdom detachment, and
+GSC Patriarch/Primus leaders + Aberrant FNP. All verify-first (the over-performer
+audit's "phantom Aeldari invuln" claim was DEBUNKED — Dark Reapers really have a
+5++; the Daemons agent correctly corrected only the genuine Tzeentch 4++).
+
+CAUGHT + REVERTED: CSM Dark Pacts per-unit auto-gamble crashed CSM 45.8→24.8% (the
+self-inflicted D3 mortal wounds on every squad every round outweigh the buff — real
+players are selective; task #36). Chaos Knights barely moved from the detachment
+alone — its −38 is dominated by the AI-positional gap (the durable-objective
+diagnostic moved CK −38→−8.8), so CK needs the objective AI (#12), not just rules.
+
+### Earlier — wave 68 (core-rules-correctness batch, gated 7.80 → 8.74)
+
+Headline gated MAE was **8.74** (raw 12.05), in-band 5/22. Wave 68 was a
 deliberate **fidelity-first** wave from the full 10e core-rules audit
 (`docs/CORE_RULES_AUDIT.md`): removed the **Heroic Intervention fabrication** (not a
 10e rule — was a free defensive move for every Character) and fixed five real bugs —
@@ -95,7 +115,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 65 close (spillover+docs) | 11.15 | 7.78 | 2/22 |
 | Wave 66 close (mortal+demise+blast) | 11.08 | 7.56 | 3/22 |
 | Wave 67 close (per-unit batch ×6) | 11.11 | 7.80 | 5/22 |
-| **Wave 68 close (core-rules batch, fidelity)** | **12.05** | **8.74** | **5/22** |
+| Wave 68 close (core-rules batch, fidelity) | 12.05 | 8.74 | 5/22 |
+| **Wave 69 close (under-performer faction buffs)** | **11.57** | **8.29** | **5/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big

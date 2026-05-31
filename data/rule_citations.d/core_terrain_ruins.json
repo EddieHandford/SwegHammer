@@ -8,5 +8,14 @@
     "trigger": "a shooting attack's line-of-sight segment crosses a Ruin terrain rectangle whose interior contains neither the attacker nor the target",
     "effect": "line of sight passes through the Ruin wall iff both the attacker's unit and the target's unit carry the INFANTRY, BEAST or SWARM keyword; otherwise the wall blocks line of sight. Implemented in code.map.Map.has_line_of_sight; the keyword tuples are threaded from Battle._do_shoot (and _apply_firing_deck, _try_*_stratagem candidate scans) so the firing model's own keywords decide passage even when a TRANSPORT carries the firing position. RUIN terrain also confers Heavy Cover (+1 save, -1 to hit) via Battle._do_shoot — same combat effect as TerrainType.HEAVY_COVER, separate LoS rule.",
     "scope": "keyword-gated"
+  },
+
+  "simulator.towering_los": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary",
+    "rule_name": "Towering (Line of Sight)",
+    "quoted_text": "When a model with the TOWERING keyword draws a line of sight, or when an enemy model draws a line of sight to a model with the TOWERING keyword, the line of sight can be drawn as if intervening terrain features with the Obscuring or Dense Cover terrain trait were not there.",
+    "trigger": "a line-of-sight segment in which the firing model or the target model has the TOWERING keyword crosses Obscuring (or Ruin-wall) terrain",
+    "effect": "Obscuring and Ruin-wall terrain does not block line of sight when either endpoint is a TOWERING model (it can see over, and be seen over, such terrain). Implemented in code.map.Map.has_line_of_sight / _los_query via the attacker/target keyword tuples already threaded from Battle._do_shoot. Helps the under-rated big-model factions (Imperial & Chaos Knights, Wraithknight) shoot freely with their long-range guns.",
+    "scope": "keyword-gated"
   }
 }
