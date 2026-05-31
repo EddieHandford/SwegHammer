@@ -4,6 +4,41 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 77 close (2026-05-31) — per-unit Advance roll (correctness, metric-neutral); clean levers exhausting → strategic fork escalated
+
+Branch `claude/sim-calibration-6`. A consolidation wave: the clean impactful faithful levers
+are now largely exhausted, so this wave landed one small core-rule correctness fix and
+escalated the strategic direction to the user (via the watchdog).
+
+TESTED + REJECTED — rotation-gating the tactical secondaries. The deferred fidelity idea
+(cleanse/sabotage score every round vs the real ~1-2/turn deck cadence) was checked by an
+isolation A/B: **Sabotage OFF is gated 5.15 vs 4.91 ON**, i.e. the "over-scoring" is actually
+NET-POSITIVE, so reducing it would regress the headline for an ambiguous fidelity gain. Not
+done.
+
+LANDED — **per-unit Advance roll**. Real 10e makes ONE Advance roll (one D6) per unit; the sim
+rolled per model (same one-Unit-per-model bug class as the wave-76 charge fix). A codex squad
+now shares one Advance D6 per round (`_squad_advance_roll` cache). Lower-impact than charge
+(Advance adds distance, not a binary-success multiplier), so it is **metric-neutral**: gated
+4.91 → 4.95 (within N=40 noise) but in-band 5 → 6. A faithful correctness fix, kept on its
+correctness (like Code Chivalric, wave 71). Cited `simulator.advance_per_unit`. 926 tests pass;
+citation audit 294/294. Eval `data/wf_wave77_advance_n40.json`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 76 close (per-squad charge) | 8.16 | 4.91 | 5/22 |
+| **Wave 77 close (per-unit Advance)** | **8.29** | **4.95** | **6/22** |
+
+STRATEGIC FORK — ESCALATED TO THE USER (`LOOP_QA.md` Q4). The headline is gated 4.95 (down from
+5.98 this session). The clean faithful levers are exhausted: rotation-gating is net-negative;
+the per-model→per-unit vein's big hit (charge) is done; the two biggest residuals — Imperial
+Knights +19.1 (durable primary-camper) and Drukhari +18.6 (fragile, should die to focused fire)
+— both need the OPPONENT target/positioning AI, which REGRESSED when tried (wave 72). The
+watchdog escalated the call: (b) take the target-AI redesign PAIRED with a re-fit (the goal doc
+restricts this — needs the user's go), vs (c) bank Stage 1 at ~4.9. **Watchdog ruling: do NOT
+start the AI-redesign+re-fit until the user rules; meanwhile keep taking small clean faithful
+fixes** (e.g. the missing Be'lakor datasheet for Chaos Daemons, option d). Next wave does that.
+
 ## Wave 76 close (2026-05-31) — per-squad charge roll: the per-model activation tax (gated 5.11 → 4.91)
 
 Branch `claude/sim-calibration-6`. The watchdog-mandated per-model durability/activation
@@ -84,47 +119,4 @@ root cause of Imperial Knights +18.0 (still #1) that the secondaries only chip a
 as a FAITHFUL mechanic (real action-economy / objective-count / coherency effects), NOT a
 metric-driven penalty on low-model armies. The watchdog will flag "one more bounded secondary"
 as shying away.
-
-## Wave 74 close (2026-05-31) — action-economy secondaries: Cleanse + Cull-fix (gated 5.89 → 5.35)
-
-Branch `claude/sim-calibration-6`. Built the wave-73 structural lever: the action-economy
-secondary family that counterbalances the kill-secondary asymmetry. Biggest single-wave
-headline move in many waves, and a FAITHFUL one (a real Pariah Nexus secondary that was
-missing). The user ratified the diagnosis (`098e8c0`) before the build.
-
-WHAT LANDED — **Cleanse** (Pariah Nexus action secondary). Verified the card text via
-web search (Wahapedia DNS down): a unit performs the Cleanse action while in range of an
-objective marker OUTSIDE its own deployment zone that its army controls; each unit
-cleanses one marker; 2 VP for one, 4 VP for two (cap); completes end of turn if still
-controlled. New `Unit.action_this_round` state + a shoot/charge lockout (`_do_shoot` /
-`_do_charge`): a unit performing the action cannot shoot or charge — the real
-action-vs-fight tradeoff. `Battle._assign_cleanse_actions` (after Movement) flags up to 2
-SURPLUS chaff units (per `strategy._is_chaff_unit`, <15 pts/model) on controlled forward
-objectives; `_score_cleanse` awards the VP at end of round. The asymmetry falls out of
-unit cost, EVEN-HANDEDLY: Imperial Knights (no chaff) score 0; hordes / MSU and elites
-with cheap aux (Custodes' Sisters of Silence) score it. Cited `simulator.secondary_cleanse`.
-Also fixed the dead **Cull the Horde** mechanic (`_is_horde_unit` read all-None
-`starting_strength`; now reads `max_models`).
-
-| Eval | MAE_raw | MAE_gated | Inside band |
-|---|---:|---:|---:|
-| Wave 72 close (Ion Shield) | 9.28 | 5.89 | 6/22 |
-| Cull-fix only (A/B isolation) | 9.28 | 5.92 | 6/22 |
-| **Wave 74 close (Cleanse + Cull-fix)** | **8.74** | **5.35** | **5/22** |
-
-The per-faction moves are exactly the predicted mechanism: durable over-shooters ease
-down (Imperial Knights +27.9 → +23.3, World Eaters +16.5 → +12.5 — opponents cleanse
-forward objectives the camper can't contest back) and board-control under-shooters rise
-(Astra −15.5 → −10.6; AdMech, Daemons, Tyranids, Necrons, Emperor's Children all toward
-band). The Cull fix alone regressed +0.03 (it rewards killing hordes, feeding the
-asymmetry — as predicted); Cleanse more than counterbalanced it (−0.57 from there).
-In-band dipped 6 → 5 (Aeldari 0.36 and Chaos Knights 2.78 fell just out by small margins;
-Orks over-shot to +8.6 — Gretchin cleanse, faithful — a re-fit candidate, not a reason to
-reject a correct structural fix). 926 tests pass; citation audit 290/290. Eval
-`data/wf_wave74_cleanse_n40.json`.
-
-FOLLOW-UPS (queued): the other action secondaries (Sabotage, Recover Assets); cleanse is
-wired into the vanilla turn loop only (`_run_round_alternating` doesn't assign it — the
-eval/balancer use vanilla, so no current impact); and the now-exposed re-fit candidates
-(Orks, Chaos Knights, Custodes) once the structural layer settles.
 

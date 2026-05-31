@@ -1,7 +1,22 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 76 close (2026-05-31) — per-squad charge roll (the
-per-model activation tax): gated MAE **4.91** (raw 8.16).
+**Last updated:** Wave 77 close (2026-05-31) — per-unit Advance (correctness,
+metric-neutral); clean levers exhausting, strategic direction escalated to the user.
+
+**Wave 77 was a consolidation wave.** Rotation-gating the tactical secondaries was
+tested and REJECTED (Sabotage-off is gated 5.15 vs 4.91 on — the over-scoring is
+net-positive, so reducing it regresses). Landed the per-unit Advance roll (real 10e:
+one Advance roll per unit, not per model — the same bug class as the wave-76 charge
+fix), a faithful correctness fix that is metric-neutral: gated 4.91 → **4.95** (within
+N=40 noise) but in-band 5 → 6. **The clean impactful faithful levers are now exhausted**
+— the two biggest residuals (Imperial Knights +19.1 durable camper, Drukhari +18.6
+fragile) both need the opponent target/positioning AI, which regressed when tried
+(wave 72). The strategic fork — take the AI-redesign + re-fit (goal-doc-restricted) vs
+bank Stage 1 at ~4.9 — is **escalated to the user** (`LOOP_QA.md` Q4). The watchdog
+ruled: do NOT start the AI-redesign + re-fit until the user rules; keep taking small
+clean faithful fixes meanwhile (next: the missing Be'lakor datasheet for Chaos Daemons).
+
+### Earlier — wave 76 (per-squad charge roll, gated 5.11 → 4.91)
 
 **Wave 76 landed the per-model activation tax the watchdog mandated — as a
 concrete core-rule fix.** Verify-first found the mechanism the prior washes
@@ -245,7 +260,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 73 (investigation only, no code change) | 9.28 | 5.89 | 6/22 |
 | Wave 74 close (Cleanse action secondary + Cull-fix) | 8.74 | 5.35 | 6→5/22 |
 | Wave 75 close (Sabotage + 40-VP secondary cap) | 8.50 | 5.11 | 5/22 |
-| **Wave 76 close (per-squad charge roll)** | **8.16** | **4.91** | **5/22** |
+| Wave 76 close (per-squad charge roll) | 8.16 | 4.91 | 5/22 |
+| **Wave 77 close (per-unit Advance — metric-neutral)** | **8.29** | **4.95** | **6/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big

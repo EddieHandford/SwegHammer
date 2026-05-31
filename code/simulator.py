@@ -258,6 +258,10 @@ class Battle:
         # ~28%). Sharing one roll per squad per round caps melee hordes at the
         # faithful single-roll reliability. Cited as `simulator.charge_per_unit`.
         self._squad_charge_roll: dict = {}
+        # Wave 77: per-squad Advance roll cache (squad_id -> d6). Real 10e makes
+        # ONE Advance roll per unit; SwegHammer rolled per model. Same per-unit
+        # correctness pattern as the charge roll. Cited `simulator.advance_per_unit`.
+        self._squad_advance_roll: dict = {}
         # UIDs of units that failed their Battleshock test this round — OC 0
         # so they don't contribute to objective control. Reset per round.
         self._battleshocked_this_round: set = set()
@@ -958,8 +962,9 @@ class Battle:
         are not yet rotation-gated like Engage/BEL, so they score every round
         rather than the real draw-1-2/turn cadence — this over-scores them and
         amplifies the (faithful-direction) over-correction of low-model armies
-        (CSM/Chaos Knights/Grey Knights). Tempering it = a later secondary wave,
-        AFTER the per-model durability tax (wave 76)."""
+        (CSM/Chaos Knights/Grey Knights). Wave 77 isolation A/B showed Sabotage is
+        net-POSITIVE (off = gated 5.15 vs on = 4.91), so it stays; rotation-gating
+        would reduce a net-positive effect for an ambiguous fidelity gain."""
         return self._cleanse_enabled()
 
     def _unit_in_enemy_dz(self, u, own_is_army_a: bool) -> bool:
@@ -5792,6 +5797,7 @@ class Battle:
         # New round = no unit has Advanced yet, no battleshock yet, no charges.
         self._advanced_this_round = set()
         self._squad_charge_roll = {}   # wave 76: per-squad charge roll, fresh each round
+        self._squad_advance_roll = {}  # wave 77: per-squad advance roll, fresh each round
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
@@ -6731,7 +6737,20 @@ class Battle:
         else:
             range_threshold = 3.0   # objective control radius
         needs_to_close = dist - range_threshold
-        advance_d6 = random.randint(1, 6) if needs_to_close > normal_move else 0
+        # Per-squad Advance roll (wave 77, env-gated SWEG_SQUADADV). Real 10e: a
+        # unit makes ONE Advance roll (one D6) applied to every model; SwegHammer
+        # rolled per model. Same per-unit correctness pattern as the charge roll.
+        # Cited as `simulator.advance_per_unit`.
+        if needs_to_close > normal_move:
+            _sid = getattr(attacker, "squad_id", -1)
+            if _sid >= 0 and _sid in self._squad_advance_roll:
+                advance_d6 = self._squad_advance_roll[_sid]
+            else:
+                advance_d6 = random.randint(1, 6)
+                if _sid >= 0:
+                    self._squad_advance_roll[_sid] = advance_d6
+        else:
+            advance_d6 = 0
         # Strands of Fate (Aeldari army rule, 10e) — substitute the
         # Advance d6 with a higher Fate die when doing so would clear
         # the remaining distance (the unit Advances *into* range that a
