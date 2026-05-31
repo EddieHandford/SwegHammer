@@ -128,32 +128,40 @@ Standing corrections:
   fidelity gaps are structural: whether the scoring, mission, representation, and
   artificial-intelligence machinery actually models how real games are won. Modelling that
   correctly IS the rules-accurate fix this mission asks for.
-- **Verify that the existing machinery is actually wired up — do not assume elaborate,
-  cited, tuned code functions.** The biggest lever found so far was a dead-store bug: the
-  entire Pariah Nexus secondary-objective scoring layer (`code/secondaries.py`) is computed
-  every round into `_a_secondary_vp` / `_b_secondary_vp` and then **never read** — the
-  winner (`Battle._decide_winner`) is decided on primary objective VP only. Real 10e decides
-  on primary **plus** secondary combined, so durable objective-campers are over-rated and
-  the board-control / killy armies whose real currency is secondaries are under-rated — the
-  exact over/under split. That is the kind of thing narrow nerf-grinding can never find.
+- **Verify that the existing machinery is actually wired up — do not assume it is broken,
+  and do not assume it works; check.** Two cautionary examples from this loop, in opposite
+  directions: (1) the watchdog briefly believed the Pariah Nexus secondary VP was a dead
+  store — it is NOT. `Battle._score_secondaries` adds it straight into `_a_vp` / `_b_vp`
+  (lines ~925/937/954/961), the very totals `_decide_winner` compares, so the win already
+  counts primary plus secondary; the `_a_secondary_vp` accumulator is only a parallel
+  reporting tally. Wave 73 verified this and correctly refused a "fix" that would have
+  double-counted. (2) Cull the Horde, by contrast, IS a real dead mechanic:
+  `secondaries._is_horde_unit` reads `starting_strength` / `squad_size` / `count`, all None,
+  so it should read `max_models` — today it scores 0 for everyone. Read the code before
+  building on either assumption.
 
-### The named first structural lever (verified, do this before more narrow waves)
+### The named structural lever (verified — kill-secondary asymmetry → action secondaries)
 
-Wire the accumulated secondary VP into the win condition: in `Battle._decide_winner`
-(and the `BattleResult`), compare `_a_vp + _a_secondary_vp` against
-`_b_vp + _b_secondary_vp`, per the real Pariah Nexus primary-plus-secondary win
-condition. Expect a large, faithful swing across many factions. Then **re-check the
-secondary per-round caps** in `code/secondaries.py` (their comment says they were tuned
-on 2026-05-20 when secondaries appear to have still counted, so they may have drifted
-while disconnected) and re-evaluate. This is a structural wave: confirm with a full N=40
-eval and the pytest sweep, and write up the swing honestly — it will move everything.
+The secondary layer is already wired into the win condition (verified above), so the win
+counts primary plus secondary. The real structural driver is the **kill-secondary
+asymmetry**: the implemented secondaries are kill-heavy (Bring It Down, No Prisoners, Cull,
+Assassination) plus two position tacticals (Engage, Behind Enemy Lines) — only 2 of the 9
+real Tactical secondaries — so durable killers bank secondary VP for killing while their
+victims and board-control armies have little path back. The faithful counterbalance is the
+missing **action-economy secondary family** (Cleanse, Sabotage, Recover Assets): a unit
+performing a 10e action gives up shooting and charging that round, which a low-model durable
+army cannot spare a body for and a horde / MSU army can — an even-handed tax that falls out
+of unit count, not a per-faction knob. The scoped build is in
+`docs/ACTION_SECONDARIES_PLAN.md` (Cleanse vertical slice first, env-gated A/B); land the
+`_is_horde_unit` correctness fix in the same wave. Verify the card text first (Wahapedia DNS
+is down — use the GW Pariah Nexus pack / Goonhammer) and cite each per rule 10.
 
 ### The wider structural rotation (when narrow levers stall, pick from here, not nerf-hunts)
 
-- **Scoring/representation wiring** — the secondary-VP fix above; then whether the
+- **Scoring/representation** — the action-secondary family above; then whether the
   artificial intelligence actually *plays toward* the scored secondaries (board spread for
   Engage on All Fronts, entering the enemy deployment zone for Behind Enemy Lines), and
-  completing the tactical-secondary pool (only 2 of 9 are implemented).
+  completing the rest of the tactical-secondary pool (only 2 of 9 are implemented).
 - **Denial / repulsion positioning (#13)** — distinct from the *target* AI that regressed;
   this is movement that lets under-shooters contest and take objectives *from* durable
   holders, which the loop itself identified as the bottleneck.
