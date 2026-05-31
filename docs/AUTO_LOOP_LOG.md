@@ -4,6 +4,39 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 66 close (2026-05-31)
+
+Branch `claude/sim-calibration-6`. The mortal-wound half of the damage-allocation
+rule, plus two per-unit fixes a user question surfaced, plus a full per-unit
+mechanics audit.
+
+- **Mortal-wound spillover** (`Battle._apply_mortal_wounds`, cited
+  `simulator.mortal_wound_spillover`): unlike normal damage (excess lost),
+  mortal wounds carry to the next model of the unit until spent or the unit dies
+  (Feel No Pain per wound). Routed Doombolt, psychic-detachment payload,
+  Bloodthirster, Tank Shock, Dark Pact, Leechspore.
+- **Deadly Demise per-unit**: "each unit within 6\" suffers X" was being dealt to
+  each MODEL (over-dealing by squad size). Now grouped by `squad_id`, dealt once
+  per unit.
+- **Blast scoping**: counts models in the targeted UNIT via `squad_id`, not every
+  same-`profile.name` model across the army.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 65 close (spillover+docs) | 11.15 | 7.78 | 2/22 |
+| **Wave 66 close (mortal+demise+blast)** | **11.08** | **7.56** | **3/22** |
+
+Small, rules-correct net positive. 912 tests green; citation 280/280 (new
+`simulator.mortal_wound_spillover`). Eval `data/wf_wave66_mortal_n40.json`.
+
+**Per-unit-mechanics audit** (`docs/PER_UNIT_MECHANICS_AUDIT.md`, four parallel
+read-only agents): the one-Unit-per-model representation mis-applies many per-unit
+10e rules; `squad_id` is the fix key. Top open items → tasks #23-28: coherency wave
+(deployment clustering + OC-per-unit, likely the remaining horde-overshoot lever),
+per-unit secondary scoring (No Prisoners / Cull count models not units), Reanimation
+profile.name→squad_id pooling (over-revives wiped Necron squads — Necrons drifted
++0.6→+4.2 this wave), stratagem transient-buff propagation, per-squad battleshock.
+
 ## Wave 65 close (2026-05-31)
 
 Branch `claude/sim-calibration-6`. The biggest fidelity fix in many waves, found

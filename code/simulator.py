@@ -1480,6 +1480,55 @@ class Battle:
             return
         army.plaguesurge_active = True
 
+    def _apply_mortal_wounds(self, target, count, psychic=False):
+        """Allocate `count` mortal wounds to ``target``'s unit, carrying excess
+        across models per 10e core. Unlike normal attack damage (where a
+        destroyed model's excess is lost), mortal wounds keep allocating to the
+        next model of the same unit until all are spent or the unit is
+        destroyed: "Excess damage from mortal wounds is not lost if the damage
+        can be allocated to another model. Instead, keep allocating damage to
+        another model in the target unit until either all the damage has been
+        allocated or the target unit is destroyed." SwegHammer models one Unit
+        per model, so the rest of the codex unit is the target's same-`squad_id`
+        siblings. Feel No Pain is rolled per mortal wound (`receive_damage(1.0)`
+        applies one FNP roll), matching the per-point loop the prior single-call
+        `receive_damage(count)` used — only the destination now moves across
+        models. ``psychic`` is plumbed through so Magnus's Impossible Form -1
+        damage clamp is correctly skipped for [PSYCHIC] mortal wounds. Returns
+        the list of models destroyed (in allocation order) so callers can fan
+        out kill handling. A lone model (squad_id < 0) takes the wounds with no
+        spill (excess simply ends with the model's death). Cited as
+        `simulator.mortal_wound_spillover`.
+        """
+        remaining = int(round(count))
+        killed: List["Unit"] = []
+        if remaining <= 0 or target is None:
+            return killed
+        model = target
+        sid = getattr(target, "squad_id", -1)
+        siblings = None
+        while remaining > 0:
+            if model is None or not model.is_alive:
+                if sid is None or sid < 0:
+                    break  # lone model already dead — nothing to carry to
+                if siblings is None:
+                    army = getattr(target, "army_ref", None)
+                    siblings = (
+                        [u for u in army.units
+                         if getattr(u, "squad_id", -1) == sid
+                         and getattr(u, "embarked_in", None) is None]
+                        if army is not None else []
+                    )
+                model = next((u for u in siblings if u.is_alive), None)
+                if model is None:
+                    break  # whole unit destroyed — remaining mortals lost
+            was_alive = model.is_alive
+            model.receive_damage(1.0, bonus_fnp=model.profile.fnp, psychic=psychic)
+            remaining -= 1
+            if was_alive and not model.is_alive:
+                killed.append(model)
+        return killed
+
     def _try_leechspore_eruption(self, army: Army, opponent: Army) -> None:
         """Leechspore Eruption (Virulent Vectorium, 1 CP): roll D6-per-wound-
         lost on a damaged DG model; each 5+ deals 1 MW to a nearby enemy
@@ -1521,9 +1570,10 @@ class Battle:
         mortals = min(6, int(round(wounds_lost * 2.0 / 6.0)))
         heal = mortals  # cap 6 already enforced
         if mortals > 0:
-            nearest.receive_damage(float(mortals), bonus_fnp=nearest.profile.fnp)
-            if not nearest.is_alive:
-                self._emit(UnitKilled(unit_uid=nearest.uid))
+            # Mortal wounds spill across the target unit's models (10e core);
+            # see _apply_mortal_wounds. Cited as simulator.mortal_wound_spillover.
+            for _m in self._apply_mortal_wounds(nearest, mortals):
+                self._emit(UnitKilled(unit_uid=_m.uid))
         if heal > 0:
             target.current_health = min(
                 target.profile.health, target.current_health + float(heal),
@@ -3990,17 +4040,19 @@ class Battle:
             # from its -1-damage reduction, so flag this as psychic so the
             # `receive_damage` path skips the `transient_minus_one_damage_taken`
             # clamp for Magnus (and any future Impossible-Form-like target).
-            target.receive_damage(float(damage), bonus_fnp=target.profile.fnp, psychic=True)
-            # Death detection: if the Doombolt kills the target, fan out
-            # through the same death-handling code paths as a normal kill.
-            if not target.is_alive:
-                self._emit(UnitKilled(unit_uid=target.uid))
-                self._maybe_apply_deadly_demise(target)
+            # Doombolt's mortal wounds spill across the target unit's models
+            # (10e core, see _apply_mortal_wounds); psychic=True so Magnus's
+            # Impossible Form -1-damage clamp is skipped. Each model the spill
+            # destroys fans out through the same death-handling paths as a
+            # normal kill. Cited as simulator.mortal_wound_spillover.
+            for _m in self._apply_mortal_wounds(target, damage, psychic=True):
+                self._emit(UnitKilled(unit_uid=_m.uid))
+                self._maybe_apply_deadly_demise(_m)
                 # Eye of the Ancestors token award: the casting Psyker
                 # counts as the killer. Signature is (killer, killer_army,
                 # victim, victim_army) — opponent is the victim's army.
                 self._maybe_award_judgement_token(
-                    psyker, army, target, opponent,
+                    psyker, army, _m, opponent,
                 )
         elif name == "Temporal Surge":
             # Wahapedia: "That unit can make a Normal move of up to D6\". If
@@ -4091,9 +4143,11 @@ class Battle:
 
             if not passed:
                 # D3 mortal wounds on the pact bearer. Mortals bypass
-                # armour/invuln but FNP applies via receive_damage.
+                # armour/invuln but FNP applies via receive_damage, and spill
+                # across the pacting unit's models (10e core,
+                # _apply_mortal_wounds). Cited as simulator.mortal_wound_spillover.
                 d3 = random.randint(1, 3)
-                attacker.receive_damage(d3, bonus_fnp=attacker.profile.fnp)
+                self._apply_mortal_wounds(attacker, d3)
                 if self.verbose:
                     print(
                         f"  DARK PACT: {attacker.profile.name} failed Ld "
@@ -4360,7 +4414,10 @@ class Battle:
             # Attacks, so flag `psychic=True` to bypass Magnus's Impossible
             # Form -1-damage clamp (Wahapedia, Magnus the Red datasheet:
             # "Psychic Attacks are not affected by this ability").
-            victim.receive_damage(damage, bonus_fnp=victim.profile.fnp, psychic=True)
+            # Mortal wounds spill across the victim unit's models (10e core,
+            # _apply_mortal_wounds); psychic=True per the Impossible Form note
+            # above. Cited as simulator.mortal_wound_spillover.
+            self._apply_mortal_wounds(victim, damage, psychic=True)
 
     def _apply_cult_ambush_resurgence(self, army, round_num: int) -> None:
         """End-of-round Cult Ambush revival hook (Genestealer Cults army rule).
@@ -6002,9 +6059,9 @@ class Battle:
             victim = max(in_engagement, key=_melee_dpa)
             mw = sum(1 for _ in range(8) if random.randint(1, 6) >= 4)
             if mw > 0:
-                victim.receive_damage(
-                    float(mw), bonus_fnp=victim.profile.fnp,
-                )
+                # Mortal wounds spill across the victim unit's models (10e core,
+                # _apply_mortal_wounds). Cited as simulator.mortal_wound_spillover.
+                self._apply_mortal_wounds(victim, mw)
 
     # ------------------------------------------------------------------
     # Sub-phases
@@ -7279,9 +7336,19 @@ class Battle:
         # so no special-casing is required.
         victim_pos = victim.position
         victims_hit: List[str] = []
+        # Deadly Demise hits each UNIT within 6" once — "each unit within 6\"
+        # suffers X mortal wounds" — NOT each model. Because SwegHammer models
+        # one Unit per model, we group the nearby models by squad_id and deal X
+        # a single time per distinct unit, spilling across that unit's models via
+        # _apply_mortal_wounds (mortal wounds carry over per 10e). Before this
+        # fix the per-model loop dealt X to every model of a unit, inflating the
+        # blast by roughly the unit's model count. squad_id < 0 (lone models /
+        # single-model units) are each their own unit. Cited as
+        # `simulator.deadly_demise` + `simulator.mortal_wound_spillover`.
+        seen_squads = set()
         for army in (self.a, self.b):
-            for u in army.alive_units:
-                if u is victim:
+            for u in list(army.alive_units):
+                if u is victim or not u.is_alive:
                     continue
                 # Embarked passengers are off-board — they don't take demise
                 # mortals from blasts that go off near their transport. Cited
@@ -7290,16 +7357,17 @@ class Battle:
                     continue
                 if _distance(u.position, victim_pos) > 6.0:
                     continue
-                # Mortal wounds: route through receive_damage so FNP / DG's
-                # army-wide Disgustingly Resilient apply consistently with
-                # other mortal-wound paths (Tank Shock, Doombolt).
-                u.receive_damage(float(x), bonus_fnp=u.profile.fnp)
+                sid = getattr(u, "squad_id", -1)
+                squad_key = sid if (sid is not None and sid >= 0) else ("lone", id(u))
+                if squad_key in seen_squads:
+                    continue   # this unit already took its X mortals
+                seen_squads.add(squad_key)
                 victims_hit.append(u.uid)
                 # A demise that kills another unit does NOT cascade — the
                 # canonical rule rolls the secondary victim's own demise at
                 # its own death event in a subsequent activation, not here.
-                if not u.is_alive:
-                    self._emit(UnitKilled(unit_uid=u.uid))
+                for _m in self._apply_mortal_wounds(u, x):
+                    self._emit(UnitKilled(unit_uid=_m.uid))
         self._emit(DeadlyDemiseExploded(
             unit_uid=victim.uid,
             mortals=int(x),
@@ -7712,26 +7780,27 @@ class Battle:
             return
         if not self._fire_stratagem(charger_army, TANK_SHOCK):
             return
-        # Mortal wounds bypass armour/invuln; honour FNP via receive_damage.
-        target.receive_damage(2.0, bonus_fnp=target.profile.fnp)
-        alive_after = target.is_alive
-        if not alive_after:
-            self._emit(UnitKilled(unit_uid=target.uid))
+        # Mortal wounds bypass armour/invuln; honour FNP via receive_damage and
+        # spill across the target unit's models (10e core, _apply_mortal_wounds).
+        # Each model the spill finishes triggers the kill-award fan-out. Cited as
+        # simulator.mortal_wound_spillover.
+        target_army = self.b if charger_army is self.a else self.a
+        for _m in self._apply_mortal_wounds(target, 2):
+            self._emit(UnitKilled(unit_uid=_m.uid))
             # Tank Shock that finishes a Votann model still triggers the
             # Judgement Token award — the killer's army is the charger's army.
-            target_army = self.b if charger_army is self.a else self.a
             self._maybe_award_judgement_token(
                 killer=charger, killer_army=charger_army,
-                victim=target, victim_army=target_army,
+                victim=_m, victim_army=target_army,
             )
             self._maybe_award_blood_tithe(
                 killer=charger, killer_army=charger_army,
-                victim=target, victim_army=target_army,
+                victim=_m, victim_army=target_army,
             )
             self._maybe_award_miracle_die(
-                victim=target, victim_army=target_army,
+                victim=_m, victim_army=target_army,
             )
-            self._maybe_apply_deadly_demise(target)
+            self._maybe_apply_deadly_demise(_m)
 
     def _do_heroic_intervention(
         self, charger: "Unit", defender_army: Army,

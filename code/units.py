@@ -1683,11 +1683,26 @@ class Unit:
 
             # ---- Blast: +1 attack per 5 enemy models in the target unit ----
             if p.blast and target.profile.blast is not None:  # always true; null-guard
+                # Blast adds 1 attack per 5 models in the TARGET UNIT (10e). Use
+                # squad_id so two separate squads of the same datasheet are not
+                # merged — the old profile.name count summed across every
+                # same-name unit in the army, over-counting Blast badly against
+                # armies running multiple identical squads. Fall back to the
+                # profile.name count only for unassigned models (squad_id < 0).
                 try:
-                    same_squad = sum(
-                        1 for u in target.army_ref.alive_units
-                        if u.profile.name == target.profile.name
-                    ) if target.army_ref is not None else 1
+                    _tsid = getattr(target, "squad_id", -1)
+                    if target.army_ref is None:
+                        same_squad = 1
+                    elif _tsid is not None and _tsid >= 0:
+                        same_squad = sum(
+                            1 for u in target.army_ref.alive_units
+                            if getattr(u, "squad_id", -1) == _tsid
+                        )
+                    else:
+                        same_squad = sum(
+                            1 for u in target.army_ref.alive_units
+                            if u.profile.name == target.profile.name
+                        )
                 except Exception:
                     same_squad = 1
                 n_attacks += same_squad // 5

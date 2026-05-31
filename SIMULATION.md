@@ -69,6 +69,19 @@ a volley was dumped into a single model and the overkill was wasted, which
 heavily under-rated high-volume anti-horde firepower (Knights) and over-rated
 multi-model armies (Drukhari, Tyranids).
 
+**Mortal wounds** follow the opposite spill rule and are handled separately by
+`Battle._apply_mortal_wounds`: excess mortal-wound damage is **not** lost on a
+model's death — it keeps allocating to the next model of the same unit until all
+mortal wounds are spent or the unit is destroyed (Feel No Pain rolled per mortal
+wound). Every "a unit suffers X mortal wounds" effect routes through it (Doombolt,
+the psychic-detachment payload, Bloodthirster, Tank Shock, Dark Pact, Leechspore).
+Cited as `simulator.mortal_wound_spillover`. Devastating Wounds is *not* a mortal
+wound in the current edition — it is a save-bypassing normal hit and follows the
+normal (excess-lost) allocation above. **Deadly Demise** hits each *unit* within
+6″ once (not each model): nearby models are grouped by `squad_id` and the unit
+takes its X mortal wounds a single time. **Blast** likewise counts the models in
+the *targeted unit* (by `squad_id`), not every same-name model in the army.
+
 ### Activation Sequence
 
 Each battle round proceeds as follows:

@@ -8,5 +8,14 @@
     "trigger": "an unsaved wound (or a save-bypassing Devastating Wound) is allocated to a model in a multi-model target unit",
     "effect": "the allocated model loses wounds equal to the Damage characteristic; if it is destroyed the excess damage is lost, and the next unsaved wound is allocated to the next surviving model of the same unit, so total models destroyed is bounded by the number of unsaved wounds, not the damage total",
     "scope": "army-wide"
+  },
+
+  "simulator.mortal_wound_spillover": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Mortal-Wounds",
+    "rule_name": "Mortal Wounds",
+    "quoted_text": "Excess damage from mortal wounds is not lost if the damage can be allocated to another model. Instead, keep allocating damage to another model in the target unit until either all the damage has been allocated or the target unit is destroyed.",
+    "trigger": "a unit suffers a number of mortal wounds (Doombolt, Deadly Demise, Tank Shock, Bloodthirster Relentless Carnage, psychic-detachment payload, Dark Pact, Leechspore Eruption)",
+    "effect": "mortal wounds are allocated one at a time with Feel No Pain per wound; when a model is destroyed the remaining mortal wounds carry over to the next model of the same unit until all are allocated or the unit is destroyed (unlike normal attack damage, which loses excess on a kill)",
+    "scope": "army-wide"
   }
 }

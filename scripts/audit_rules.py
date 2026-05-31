@@ -141,6 +141,12 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # squad-spillover allocation pointer in Unit.attack. See
     # data/rule_citations.d/core_damage_allocation.json.
     "simulator.damage_allocation_spillover",
+    # Core 10e mortal wounds: unlike normal damage, excess mortal wounds carry
+    # over to the next model of the same unit until all are allocated or the
+    # unit is destroyed. Implemented as Battle._apply_mortal_wounds and routed
+    # through every "unit suffers X mortal wounds" site. See
+    # data/rule_citations.d/core_damage_allocation.json.
+    "simulator.mortal_wound_spillover",
     "simulator.big_guns_never_tire",
     "simulator.cover_light",
     "simulator.cover_heavy",

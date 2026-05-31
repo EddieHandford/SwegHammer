@@ -1,9 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 65 close (2026-05-31), damage-allocation spillover.
+**Last updated:** Wave 66 close (2026-05-31), mortal-wound spillover + per-unit
+Deadly Demise + Blast scoping + the per-unit-mechanics audit.
 
-**Status:** Headline gated MAE **7.78** (was 9.27). Wave 65 landed the biggest
-fidelity fix in many waves: **damage-allocation spillover**
+**Status:** Headline gated MAE **7.56** (was 7.78 → 9.27 two waves ago). Wave 66
+landed the mortal-wound half of the allocation rule (`Battle._apply_mortal_wounds`:
+excess mortal wounds carry to the next model of the unit, unlike normal damage),
+fixed **Deadly Demise** to hit each *unit* once (was per-model), and scoped **Blast**
+to the targeted unit via `squad_id`. Eval 7.78 → 7.56 (small, rules-correct).
+
+A user question about per-model vs per-unit framing then triggered a four-agent
+**per-unit-mechanics audit** (`docs/PER_UNIT_MECHANICS_AUDIT.md`): the per-model
+representation pervades the codebase and `squad_id` is the fix key. Top open items
+(tasks #23-28): coherency wave (deployment clustering + OC-per-unit — the likely
+remaining lever on horde over-shoot), per-unit secondary scoring (No Prisoners /
+Cull count models not units), Reanimation profile.name→squad_id pooling, stratagem
+transient-buff propagation to squad siblings, per-squad battleshock.
+
+### Earlier this session — wave 65 (damage-allocation spillover, gated 9.27→7.78)
+
+Wave 65 landed the biggest fidelity fix in many waves: **damage-allocation spillover**
 (`simulator.damage_allocation_spillover`). The sim previously dumped a whole
 volley into ONE model of a multi-model unit and wasted the overkill; now each
 unsaved wound allocates to the next surviving same-`squad_id` model, with a
@@ -35,7 +51,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 62 close (`e1346a1`+docs) | 12.90 | 9.39 | 2/22 |
 | Wave 63 close (`96fd68e`+docs) | 12.80 | 9.27 | 2/22 |
 | Wave 64 close (`3203e35`+docs) | 12.80 | 9.27 | 2/22 |
-| **Wave 65 close (spillover+docs)** | **11.15** | **7.78** | **2/22** |
+| Wave 65 close (spillover+docs) | 11.15 | 7.78 | 2/22 |
+| **Wave 66 close (mortal+demise+blast)** | **11.08** | **7.56** | **3/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
