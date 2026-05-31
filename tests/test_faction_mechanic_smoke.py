@@ -619,8 +619,12 @@ class FactionMechanicSmokeTests(unittest.TestCase):
         reanimate hook)."""
         random.seed(0)
         necrons = Army("Necrons", detachment=AWAKENED_DYNASTY)
-        for _ in range(5):
-            necrons.add_unit(_necron_warrior())
+        # Use add_squad so all 5 Warriors share one squad_id — required since
+        # the squad_id-keyed revival pool only has alive peers when models
+        # belong to the same codex squad. (Updated from the old add_unit loop
+        # that gave each model its own squad_id, causing the wipeout gate to
+        # fire on every dead model's one-model squad.)
+        necrons.add_squad(_necron_warrior(), 5)
         marines = Army("Marines")
         marines.add_unit(_marine())
         log = EventLog()

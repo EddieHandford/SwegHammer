@@ -3802,23 +3802,31 @@ class Battle:
             if not pulsing:
                 continue
 
-            # Group by profile name like _apply_reanimation does.
-            dead_by_profile: Dict[str, List] = {}
-            alive_by_profile: Dict[str, List] = {}
+            # Group by squad_id (not profile name) so two squads of the same
+            # datasheet do not share a revival pool. Mirrors the fix applied
+            # to _apply_reanimation. Composite key for lone/legacy models.
+            dead_by_squad: Dict[object, List] = {}
+            alive_by_squad: Dict[object, List] = {}
+            unit_squad_key: Dict[int, object] = {}  # id(u) → squad_key
             for u in army.units:
-                bucket = (alive_by_profile if u.is_alive else dead_by_profile)
-                bucket.setdefault(u.profile.name, []).append(u)
+                sid = getattr(u, "squad_id", -1)
+                squad_key = sid if sid >= 0 else ("lone", id(u))
+                bucket = (alive_by_squad if u.is_alive else dead_by_squad)
+                bucket.setdefault(squad_key, []).append(u)
+                unit_squad_key[id(u)] = squad_key
 
             for unit in pulsing:
                 wounds = unit.transient_undying_legions_pulse
                 unit.transient_undying_legions_pulse = 0
                 if wounds <= 0:
                     continue
-                profile_name = unit.profile.name
-                dead_pool = dead_by_profile.get(profile_name, [])
-                alive_peers = alive_by_profile.get(profile_name, [])
+                squad_key = unit_squad_key[id(unit)]
+                dead_pool = dead_by_squad.get(squad_key, [])
+                alive_peers = alive_by_squad.get(squad_key, [])
                 if not alive_peers:
-                    # Squad wiped — Reanimation rules say nothing happens.
+                    # This squad is fully wiped — Reanimation rules say
+                    # nothing happens. A different same-name squad being
+                    # alive must NOT provide the anchor.
                     continue
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
@@ -3862,9 +3870,9 @@ class Battle:
                     budget -= 1
                     revived_count += 1
                 # Move just-revived models out of the dead pool for any
-                # subsequent pulse iteration in this loop.
-                dead_by_profile[profile_name] = dead_pool[revived_count:]
-                alive_by_profile.setdefault(profile_name, []).extend(
+                # subsequent pulse iteration in this loop (same squad).
+                dead_by_squad[squad_key] = dead_pool[revived_count:]
+                alive_by_squad.setdefault(squad_key, []).extend(
                     dead_pool[:revived_count]
                 )
 
@@ -4608,13 +4616,23 @@ class Battle:
             if not initial:
                 continue
             round_start = self._round_start_alive_counts.get(army.name, {})
-            # Group dead instances by profile name. Reserves are not yet
-            # placed and can't be revived (they're not "destroyed").
-            dead_by_profile: Dict[str, List] = {}
-            alive_by_profile: Dict[str, List] = {}
+            # Group dead/alive instances by squad rather than by profile name.
+            # Two codex squads of the same datasheet must NEVER share a
+            # revival pool — a wiped squad must not borrow survivors from a
+            # same-name squad that is still alive, and vice-versa.
+            # Key: squad_id when >= 0 (always the case for units built via
+            # add_squad / add_unit); ("lone", id(u)) for any legacy unit that
+            # was constructed directly and never assigned a squad_id.
+            # Reserves are not yet placed and can't be revived.
+            dead_by_squad: Dict[object, List] = {}
+            alive_by_squad: Dict[object, List] = {}
+            squad_profile: Dict[object, str] = {}  # squad_key → profile_name
             for u in army.units:
-                bucket = (alive_by_profile if u.is_alive else dead_by_profile)
-                bucket.setdefault(u.profile.name, []).append(u)
+                sid = getattr(u, "squad_id", -1)
+                squad_key = sid if sid >= 0 else ("lone", id(u))
+                bucket = (alive_by_squad if u.is_alive else dead_by_squad)
+                bucket.setdefault(squad_key, []).append(u)
+                squad_profile.setdefault(squad_key, u.profile.name)
             # Deployment edge for fallback positioning. Army A deploys low-y,
             # Army B high-y (mirrors _deploy_armies).
             edge_y = (
@@ -4623,38 +4641,51 @@ class Battle:
             )
             edge_x = self.map.width / 2.0
 
-            for profile_name, initial_count in initial.items():
-                alive_now = len(alive_by_profile.get(profile_name, []))
-                destroyed = initial_count - alive_now
-                if destroyed <= 0:
+            # Collect all squads that have at least one dead model (the dead
+            # pool is what we might revive from). Squads with no dead models
+            # need no processing.
+            for squad_key, dead_pool in dead_by_squad.items():
+                profile_name = squad_profile[squad_key]
+                initial_count = initial.get(profile_name, 0)
+                # Profile not tracked → not an RP-eligible datasheet.
+                if initial_count <= 0:
                     continue
-                # 10e: once the entire squad is destroyed, Reanimation
-                # Protocols no longer apply — there's no surviving model
-                # left for the rule to attach to.
-                if alive_now <= 0:
+                alive_peers = alive_by_squad.get(squad_key, [])
+                alive_now_squad = len(alive_peers)
+                # 10e: once this specific squad is entirely destroyed,
+                # Reanimation Protocols no longer apply — there is no
+                # surviving model from that squad for the rule to attach to.
+                # A different same-name squad being alive must NOT provide
+                # the anchor; that is a separate codex unit.
+                if alive_now_squad <= 0:
                     continue
-                # Fix F-NEC-1: gate on "lost a model THIS round". If the
-                # squad had N alive at round start and still has N alive
-                # now, no model died this round — skip. Round-start
-                # snapshot was only populated for RP-eligible armies, so
-                # absence of the profile means it was at zero at round
-                # start (the squad was already wiped before; the
-                # alive_now > 0 check above also covers this) OR the
-                # snapshot wasn't taken (shouldn't happen for an RP army).
-                prev_alive = round_start.get(profile_name, alive_now)
-                deaths_this_round = prev_alive - alive_now
+                # Fix F-NEC-1: gate on "lost a model THIS round". Use the
+                # profile-level round-start snapshot (keyed by profile.name)
+                # as a conservative guard: if the profile as a whole lost
+                # zero models this round, no individual squad of that profile
+                # can have lost a model either, so skip early. When the
+                # profile DID lose models, we accept that this squad's dead
+                # pool is fresh enough (the squad has dead models AND at
+                # least one alive peer, which is the necessary condition for
+                # the rule to fire). This matches the spirit of F-NEC-1
+                # (prevent infinite endurance on stable squads) without
+                # requiring a per-squad round-start snapshot.
+                alive_now_profile = sum(
+                    len(alive_by_squad.get(k, []))
+                    for k, pn in squad_profile.items() if pn == profile_name
+                )
+                prev_alive = round_start.get(profile_name, alive_now_profile)
+                deaths_this_round = prev_alive - alive_now_profile
                 if deaths_this_round <= 0:
                     continue
-                # APPROXIMATION: cap revives at 1 per profile per round.
+                # APPROXIMATION: cap revives at 1 per squad per round.
                 # Verbatim Wahapedia text is "restore one destroyed
                 # bodyguard model"; the previous median-D3=2 behaviour
                 # over-fired in stable-line matchups (see iter-1 cluster
                 # A diagnostic, RP firing 5-6 revives/battle).
-                to_revive = min(destroyed, deaths_this_round, 1)
-                dead_pool = dead_by_profile.get(profile_name, [])
-                # Anchor at the first alive peer (squad still has at least
-                # one model since the wipe-out short-circuit above).
-                alive_peers = alive_by_profile[profile_name]
+                to_revive = min(len(dead_pool), deaths_this_round, 1)
+                # Anchor at the first alive peer of THIS squad (not any same-
+                # name squad). alive_now_squad > 0 guaranteed by the gate above.
                 anchor_pos: Tuple[float, float] = alive_peers[0].position
                 if self.map.is_blocked(anchor_pos):
                     anchor_pos = (edge_x, edge_y)
