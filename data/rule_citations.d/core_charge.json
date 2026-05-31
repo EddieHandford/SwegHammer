@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e Charge Phase core rule that a unit makes ONE charge roll. Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Charge-Phase",
+
+  "simulator.charge_per_unit": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Charge-Phase",
+    "rule_name": "Charge Roll (one per unit)",
+    "quoted_text": "Make a Charge roll for the charging unit by rolling 2D6. This is the maximum number of inches that each model in the charging unit can move when making its charge move.",
+    "trigger": "a multi-model codex unit (models sharing a squad_id) declares a charge; the first model to roll caches the 2D6 result for the squad for that round and the rest reuse it",
+    "effect": "the whole squad shares ONE 2D6 charge roll per round, instead of SwegHammer's one-Unit-per-model representation rolling a separate 2D6 for every model (which gave an N-model squad N independent attempts and massively over-rated melee charge reliability). Lone models (squad_id < 0) keep their own roll. Implemented in Battle._do_charge via the per-round _squad_charge_roll cache.",
+    "scope": "army-wide"
+  }
+}

@@ -1,7 +1,21 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap:
-gated MAE **5.11** (raw 8.50). Wave 76 is the per-model tax (watchdog-directed).
+**Last updated:** Wave 76 close (2026-05-31) — per-squad charge roll (the
+per-model activation tax): gated MAE **4.91** (raw 8.16).
+
+**Wave 76 landed the per-model activation tax the watchdog mandated — as a
+concrete core-rule fix.** Verify-first found the mechanism the prior washes
+missed: the per-model over-rate is NOT spread/coherency (hordes cluster), it is the
+CHARGE phase — SwegHammer rolled 2D6 *per model*, so an 11-model mob got 11 charge
+attempts (~97% to make a 9" charge vs the real ~28%). Real 10e: a unit makes ONE
+charge roll. A codex squad now shares one roll per round. Gated 5.11 → **4.91**,
+bringing down the melee over-shooters (Orks +10.3→+8.1, Votann +14.7→+12.4) and
+pulling Grey Knights back toward band. It works *because it cuts the horde's
+effective melee output* — the exact thing the decision-overlay wash could not reach.
+A clear core-rule correctness fix. Collateral (re-fit territory): Drukhari / T'au /
+Sororitas up (their melee opponents now charge less reliably).
+
+### Earlier — wave 75 (Sabotage + 40-VP secondary cap, gated 5.35 → 5.11)
 
 **Wave 75 extended the proven action-secondary lever (watchdog confirmed).** Two
 faithful changes: the real **40-VP total-secondary cap** (the sim never enforced it;
@@ -230,7 +244,8 @@ This file is the fast-pickup point for any session continuing the loop.
 | Wave 72 close (Ion Shield ranged-only) | 9.28 | 5.89 | 6/22 |
 | Wave 73 (investigation only, no code change) | 9.28 | 5.89 | 6/22 |
 | Wave 74 close (Cleanse action secondary + Cull-fix) | 8.74 | 5.35 | 6→5/22 |
-| **Wave 75 close (Sabotage + 40-VP secondary cap)** | **8.50** | **5.11** | **5/22** |
+| Wave 75 close (Sabotage + 40-VP secondary cap) | 8.50 | 5.11 | 5/22 |
+| **Wave 76 close (per-squad charge roll)** | **8.16** | **4.91** | **5/22** |
 
 Wave 65's lever was a **core-rule fidelity fix** (damage allocation), not AI or
 stats — confirming the `project-faction-residual-rootcause` thesis that the big
@@ -254,29 +269,29 @@ Three fixes landed (all on `claude/sim-calibration-6`, pushed through
 New over-shoots introduced by the gate (melee units now staying engaged):
 **World Eaters +7.1, CSM slightly over** — top carry-forward to re-tune.
 
-## Next ranked levers for wave 76
+## Next ranked levers for wave 77
 
-Current biggest gated errors (wave 75 eval `data/wf_wave75_sabotage_cap_n40.json`):
-Imperial Knights +18.0 (15.1), Chaos Daemons −17.8 (14.7), Drukhari +16.4 (13.1),
-CSM −16.6 (14.1), Votann +14.7 (11.7), Chaos Knights −12.9 (9.6).
+Current biggest gated errors (wave 76 eval `data/wf_wave76_squadcharge_n40.json`):
+Imperial Knights +19.6 (16.6), Drukhari +18.7 (15.3), Chaos Daemons −17.0 (13.8),
+CSM −17.3 (14.9), Votann +12.4 (9.3), Chaos Knights −12.4 (9.1).
 
-1. **THE PER-MODEL DURABILITY / ACTIVATION TAX (wave 76, watchdog-mandated).** Imperial
-   Knights +18.0 is still #1 and the secondaries only chip at it — the genuine root cause
-   is the one-Unit-per-model representation: low-model durable armies are not punished for
-   their low body count (they get full value from every model with none of the real
-   friction). Design a FAITHFUL mechanic — real action-economy / objective-count /
-   coherency / unit-count effects, NOT a metric-driven penalty on low-model armies. This
-   is the biggest/riskiest structural change; it earns a clean fresh-context wave.
-   The watchdog will flag "one more bounded secondary" as shying away. See
-   `project-faction-residual-rootcause` + `project-one-unit-per-model-amplification`.
-2. **Rotation-gate the tactical secondaries (LATER, not wave 76).** cleanse/sabotage
-   score every round; the real tactical deck draws ~1-2/turn. Gating them (like Engage/BEL
-   via LC-2) would temper the over-correction of low-model armies (CSM −16.6, Chaos
-   Knights −12.9, Grey Knights −6.6) — a fidelity fix, but it is more secondary work and
-   must not pre-empt the per-model tax.
-3. **Re-fit candidates exposed (handle with archetype-list care rules):** Orks +10.3,
-   Votann +14.7, Sororitas +5.0 over (cheap-unit cleansing/sabotage); CSM / Chaos Knights /
-   Grey Knights under (low-model, over-corrected). Re-measure after the per-model tax.
+1. **MORE per-model activation-economy taxes in the charge-vein (the proven wave-76
+   pattern).** Per-squad charge (5.11 → 4.91) confirms: find other per-model rolls/events
+   that should be per-UNIT in real 10e and fix them. Candidates to verify-first: Desperate
+   Escape tests (per model vs per unit), Battle-shock tests, overwatch, any "roll for the
+   unit" event the sim does per model. Each is a core-rule correctness fix that cuts
+   per-model over-rating.
+2. **Rotation-gate the tactical secondaries (the deferred fidelity fix is now due).**
+   cleanse/sabotage score every round; the real tactical deck draws ~1-2/turn. Gating them
+   (like Engage/BEL via LC-2) would temper the wave-75 over-correction of the low-model
+   armies (CSM −17.3, Chaos Knights −12.4) and the cheap-unit over-scoring (Votann,
+   Sororitas) — a genuine fidelity fix, no longer pre-empting the per-model tax.
+3. **Imperial Knights +19.6 (still #1) is NOT per-model** (1-model units, unaffected by
+   per-squad charge) — it is the durable primary-camper over-rate. Its own diagnostic:
+   likely the opponents not contesting it off objectives (the AI-targeting fix regressed,
+   wave 72) or a durability/scoring angle. Drukhari +18.7 rose this wave (its melee
+   opponents charge less reliably) — re-diagnose now that the melee layer changed.
+4. **Re-fit candidates (archetype-list care rules):** re-measure after the above.
 
 ## Structural track (owns the remaining headline)
 

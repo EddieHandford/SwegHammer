@@ -1,3 +1,43 @@
+<!-- Archived from AUTO_LOOP_LOG.md at wave 76 close (wave 73) -->
+
+## Wave 73 close (2026-05-31) — investigation + plan, no code change
+
+Branch `claude/sim-calibration-6`. A pure investigation wave (the user steered the loop
+off narrow nerf-grinding toward structural levers and named a "first structural lever":
+the Pariah Nexus secondary VP is "computed every round into `_a_secondary_vp` and never
+read, so `_decide_winner` uses primary VP only"). Verify-first overturned the premise and
+found the real driver. No code changed (per the "report first" directive). Headline
+unchanged at gated 5.89.
+
+FINDING 0 — the named premise is WRONG. Secondaries ARE counted: they are added to
+`_a_vp`/`_b_vp` (what `_decide_winner` reads) at `simulator.py:925`/`:954`, wired
+2026-05-20 (`54e41427`, `dc07dc39`); `_a_secondary_vp` is a redundant UNREAD tracker.
+Empirically `_a_vp`=61 = primary 35 + secondary 26. The literal fix would DOUBLE-COUNT.
+(A clean example of "verify the machinery is wired up before assuming.")
+
+FINDING 1 (the real driver) — the KILL-secondary asymmetry. Decomposing IK's secondary
+VP: the over-credit is entirely kill-based (vs Tyranids IK scores 18.5 No Prisoners,
+Tyranids score 0 back — they can't destroy a single durable Knight AS A UNIT under
+per-model representation; vs Astra IK scores 12.8 Bring It Down + 7.2 Assassinate vs
+4.0/0.5). Position secondaries (Engage/BEL) are even or favour the opponent. So the
+secondary layer AMPLIFIES the kill-centric bias instead of counterbalancing it.
+
+FINDING 2 — the missing counterbalance is the ACTION-economy secondary family. The sim
+implements 2 of 9 tacticals (Engage, BEL) and NO action mechanic at all. The action
+secondaries (Cleanse, Sabotage, Recover Assets…) reward unit availability / board
+control over kills and impose an action-vs-fight tradeoff a 9-model durable camper
+cannot afford but a horde can — the faithful, even-handed fix for the asymmetry.
+
+FINDING 3 (dead mechanic) — Cull the Horde never fires: `_is_horde_unit` reads
+`starting_strength`/`squad_size`/`count` (all None); the real field is `max_models`.
+Scores 0 for everyone. Fix it only WITH the action work (alone it feeds the asymmetry).
+
+Deliverables: `docs/SECONDARY_SCORING_ANALYSIS.md` (evidence) + `docs/ACTION_SECONDARIES_PLAN.md`
+(wave-74 build plan: action-state mechanic, Cleanse vertical slice, AI surplus-unit
+selection, scoring, picker/caps, env-gated N=40 A/B, risk assessment). User direction:
+plan first (this wave), build next wave. Also stood up the watchdog-mediated `LOOP_QA.md`
+question channel (worker no longer asks the user directly).
+
 <!-- Archived from AUTO_LOOP_LOG.md at wave 75 close (wave 72) -->
 
 ## Wave 72 close (2026-05-31)

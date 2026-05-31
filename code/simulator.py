@@ -251,6 +251,13 @@ class Battle:
         # UIDs of units that Advanced in the current round — they skip shooting.
         # Reset at the start of each round.
         self._advanced_this_round: set = set()
+        # Wave 76: per-squad charge roll cache (squad_id -> (d1, d2)). A codex
+        # unit makes ONE 2D6 charge roll in real 10e, but SwegHammer's
+        # one-Unit-per-model representation rolled once per MODEL — an 11-model
+        # mob got 11 independent attempts (~97% to make a 9" charge vs the real
+        # ~28%). Sharing one roll per squad per round caps melee hordes at the
+        # faithful single-roll reliability. Cited as `simulator.charge_per_unit`.
+        self._squad_charge_roll: dict = {}
         # UIDs of units that failed their Battleshock test this round — OC 0
         # so they don't contribute to objective control. Reset per round.
         self._battleshocked_this_round: set = set()
@@ -5784,6 +5791,7 @@ class Battle:
 
         # New round = no unit has Advanced yet, no battleshock yet, no charges.
         self._advanced_this_round = set()
+        self._squad_charge_roll = {}   # wave 76: per-squad charge roll, fresh each round
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
@@ -7335,8 +7343,24 @@ class Battle:
         if target is None:
             return
 
-        d1 = random.randint(1, 6)
-        d2 = random.randint(1, 6)
+        # Per-squad charge roll (wave 76). Real 10e: a unit makes ONE 2D6 charge
+        # roll; SwegHammer's one-Unit-per-model representation rolled per MODEL,
+        # so an N-model squad got N independent attempts — a huge melee-reliability
+        # over-rate (an 11-model mob made a 9" charge ~97% of the time vs the real
+        # ~28%). Share one 2D6 per squad per round so the squad charges (or fails)
+        # as a unit. Lone models (squad_id < 0) keep their own roll. Landed after
+        # the env-gated A/B validated it (gated 5.11 → 4.91). This is the
+        # activation-economy half of the per-model tax that the decision-overlay
+        # could not reach — it works because it CUTS the horde's effective melee
+        # output, not just its decisions. Cited as `simulator.charge_per_unit`.
+        sid = getattr(attacker, "squad_id", -1)
+        if sid >= 0 and sid in self._squad_charge_roll:
+            d1, d2 = self._squad_charge_roll[sid]
+        else:
+            d1 = random.randint(1, 6)
+            d2 = random.randint(1, 6)
+            if sid >= 0:
+                self._squad_charge_roll[sid] = (d1, d2)
         roll = d1 + d2
         # Strands of Fate (Aeldari army rule, 10e) — substitute one of
         # the 2D6 with a Fate die when the natural total would fail the

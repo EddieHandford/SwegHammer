@@ -4,6 +4,49 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 76 close (2026-05-31) — per-squad charge roll: the per-model activation tax (gated 5.11 → 4.91)
+
+Branch `claude/sim-calibration-6`. The watchdog-mandated per-model durability/activation
+tax (`LOOP_QA.md` Q3) — and verify-first found the concrete, faithful mechanism the prior
+washes missed.
+
+DIAGNOSIS (verify-first, because the decision-overlay washed): the per-model over-rate is
+NOT spread/coherency (Drukhari squads spread across 2+ quarters only ~1% of the time — they
+cluster), and the over-shooters win on VP not tabling. The real per-model bug is in the
+CHARGE phase: SwegHammer rolls 2D6 **per model**, so an 11-model Ork mob got 11 independent
+charge attempts (152 of 288 squad-rounds had >1 roll). Real 10e: a unit makes ONE charge
+roll — an 11-model mob makes a 9" charge ~97% of the time in the sim vs the real ~28%. A
+massive melee-reliability over-rate.
+
+LANDED — **per-squad charge roll**: a codex squad (models sharing a `squad_id`) shares ONE
+2D6 charge roll per round (cached in `Battle._squad_charge_roll`); lone models keep their
+own. This is the activation-economy half of the per-model tax that the decision-overlay
+could not reach — it works *because it cuts the horde's effective melee output*, not just
+its decisions (the exact reason the overlay washed, per
+`project-squad-activation-contained-wash`). Core-rule correctness fix; cited
+`simulator.charge_per_unit`.
+
+| Eval | MAE_raw | MAE_gated | Inside band |
+|---|---:|---:|---:|
+| Wave 75 close (Sabotage + 40-cap) | 8.50 | 5.11 | 5/22 |
+| **Wave 76 close (per-squad charge)** | **8.16** | **4.91** | **5/22** |
+
+Brings down the melee over-shooters (Orks +10.3 → +8.1, Votann +14.7 → +12.4) and pulls
+Grey Knights back toward band (−6.6 → −2.7); Custodes, Thousand Sons, Emperor's Children,
+Necrons, Aeldari all better. Collateral the other way (re-fit territory, not reasons to
+reject a core-rule fix): Drukhari +16.4 → +18.7 and T'au / Sororitas up — their melee
+*opponents* now charge less reliably, so these (more shooty) armies survive better. 926
+tests pass; citation audit 293/293. Eval `data/wf_wave76_squadcharge_n40.json`.
+
+NEXT: the residual is now Imperial Knights +19.6 (durable primary-camper — NOT a per-model
+issue; it has 1-model units, unaffected by per-squad charge), Drukhari +18.7, Chaos Daemons
+−17.0, CSM −17.3. Candidate faithful levers: (1) rotation-gate the tactical secondaries
+(would temper the wave-75 over-correction of CSM/CK and the cheap-unit over-scoring of
+Votann/Sororitas — a fidelity fix); (2) more per-model activation-economy taxes in the
+charge-vein (other per-model rolls that should be per-unit — overwatch, desperate escape,
+battleshock counts); (3) IK's durable-camp over-rate (its own diagnostic — likely the
+opponents not contesting, which the AI-targeting fix regressed on).
+
 ## Wave 75 close (2026-05-31) — Sabotage + 40-VP secondary cap (gated 5.35 → 5.11)
 
 Branch `claude/sim-calibration-6`. Continued the proven action-economy lever (watchdog
@@ -84,42 +127,4 @@ FOLLOW-UPS (queued): the other action secondaries (Sabotage, Recover Assets); cl
 wired into the vanilla turn loop only (`_run_round_alternating` doesn't assign it — the
 eval/balancer use vanilla, so no current impact); and the now-exposed re-fit candidates
 (Orks, Chaos Knights, Custodes) once the structural layer settles.
-
-## Wave 73 close (2026-05-31) — investigation + plan, no code change
-
-Branch `claude/sim-calibration-6`. A pure investigation wave (the user steered the loop
-off narrow nerf-grinding toward structural levers and named a "first structural lever":
-the Pariah Nexus secondary VP is "computed every round into `_a_secondary_vp` and never
-read, so `_decide_winner` uses primary VP only"). Verify-first overturned the premise and
-found the real driver. No code changed (per the "report first" directive). Headline
-unchanged at gated 5.89.
-
-FINDING 0 — the named premise is WRONG. Secondaries ARE counted: they are added to
-`_a_vp`/`_b_vp` (what `_decide_winner` reads) at `simulator.py:925`/`:954`, wired
-2026-05-20 (`54e41427`, `dc07dc39`); `_a_secondary_vp` is a redundant UNREAD tracker.
-Empirically `_a_vp`=61 = primary 35 + secondary 26. The literal fix would DOUBLE-COUNT.
-(A clean example of "verify the machinery is wired up before assuming.")
-
-FINDING 1 (the real driver) — the KILL-secondary asymmetry. Decomposing IK's secondary
-VP: the over-credit is entirely kill-based (vs Tyranids IK scores 18.5 No Prisoners,
-Tyranids score 0 back — they can't destroy a single durable Knight AS A UNIT under
-per-model representation; vs Astra IK scores 12.8 Bring It Down + 7.2 Assassinate vs
-4.0/0.5). Position secondaries (Engage/BEL) are even or favour the opponent. So the
-secondary layer AMPLIFIES the kill-centric bias instead of counterbalancing it.
-
-FINDING 2 — the missing counterbalance is the ACTION-economy secondary family. The sim
-implements 2 of 9 tacticals (Engage, BEL) and NO action mechanic at all. The action
-secondaries (Cleanse, Sabotage, Recover Assets…) reward unit availability / board
-control over kills and impose an action-vs-fight tradeoff a 9-model durable camper
-cannot afford but a horde can — the faithful, even-handed fix for the asymmetry.
-
-FINDING 3 (dead mechanic) — Cull the Horde never fires: `_is_horde_unit` reads
-`starting_strength`/`squad_size`/`count` (all None); the real field is `max_models`.
-Scores 0 for everyone. Fix it only WITH the action work (alone it feeds the asymmetry).
-
-Deliverables: `docs/SECONDARY_SCORING_ANALYSIS.md` (evidence) + `docs/ACTION_SECONDARIES_PLAN.md`
-(wave-74 build plan: action-state mechanic, Cleanse vertical slice, AI surplus-unit
-selection, scoring, picker/caps, env-gated N=40 A/B, risk assessment). User direction:
-plan first (this wave), build next wave. Also stood up the watchdog-mediated `LOOP_QA.md`
-question channel (worker no longer asks the user directly).
 
