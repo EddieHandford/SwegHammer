@@ -4,6 +4,41 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 98 close (2026-06-01) — Per-model weapon loadouts, STAGE 1 of 5: the mapper preserves per-model loadouts + raw damage dice (DATA ONLY, additive, metric 4.13 unchanged); single-model weapon OVER-COLLECTION diagnosed + fixed in the data
+
+Branch `claude/sim-calibration-6`. The user redirected the per-shot-damage-roll task into a fuller, faithful
+re-architecture: move combat from one *averaged* weapon per squad to **per-model weapon loadouts** — each
+model fires its own weapons with real damage dice rolled per shot, and loses that weapon when it dies; a
+pistol can fire (weakly) at engagement range. The approved plan stages this across five env-gated steps
+(`SWEG_PERMODEL`), each of which must keep the OFF eval at the 4.13 baseline; the aggregate
+(`weighted_basket_average`) profile is kept unchanged so the whole AI / pricing / test blast radius keeps
+working (additive dual representation).
+
+STAGE 1 (data only, nothing reads the new data yet): `code/bsdata/mapper.py` now preserves a structured
+`model_loadouts` per unit (each model type: name, count, and its ranged / melee weapons, each carrying the
+raw Attacks / Damage **dice strings** alongside the existing means). Crucially, **single-model units now use
+the same option-per-choice-group picker that multi-model squads already used** — they previously fell to a
+legacy flat weapon-walk that collected EVERY weapon option, including mutually-exclusive arm weapons. The
+aggregate is untouched; 1344 units gained `model_loadouts`.
+
+KEY DIAGNOSTIC — this validates the user's Imperial-Knights over-rate hypothesis. **523 of 907 single-model
+units were over-collecting weapons.** The Wraithknight dropped from five firing weapons (including BOTH
+alternative arm cannons, Suncannon AND Heavy Wraithcannon) to its actual loadout (one arm cannon); the Knight
+Castellan / Paladin / Errant shed their mutually-exclusive carapace options. So Knights have been firing guns
+they cannot simultaneously equip — the suspected driver of the +27 over-rate the artificial-intelligence and
+terrain tracks could not reach. This correction goes LIVE when firing reads the loadout (Stage 3).
+
+The necessary parsed.json regeneration also synced a stale `deadly_demise` field (1 → 5 on 55 large chassis):
+the committed parsed.json predated a prior "Deadly Demise D6+2" mapper fix and was never regenerated. Kept
+per rule 7 (parsed.json must equal the mapper's output, not a hand-preserved stale value); it is
+metric-neutral (4.13 with either value at N=40) and a constant across every per-model A/B, so it does not
+confound the staging.
+
+Verification: OFF N=40 gated MAE = **4.13 exactly** (unchanged — proves data-only), Imperial Knights +27.3
+unchanged; 933 tests pass (the only failures are the pre-existing Stage-2 equilibrium-solver timing tests),
+new `tests/test_model_loadouts.py` green, citation audit clean, `run.py --cli` exits cleanly. Next: Stage 2
+(plumb `model_loadouts` onto `UnitProfile`, gate-inert).
+
 ## Wave 97 close (2026-06-01) — terrain rebuilt to the competitive Pariah Nexus density (Stream C, P1); FAITHFUL but REGRESSED gated 3.59 → 4.13 and REFUTED the sparse-terrain hypothesis (Imperial Knights got WORSE)
 
 Branch `claude/sim-calibration-6`. Unparked Stream C with the watchdog's supplied competitive-terrain

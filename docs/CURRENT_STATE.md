@@ -1,26 +1,32 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 97 close (2026-06-01) — terrain rebuilt to the competitive Pariah Nexus density
-(Stream C, P1): FAITHFUL but REGRESSED gated **3.59 → 4.13**, and REFUTED the sparse-terrain hypothesis —
-Imperial Knights got WORSE (+25.9 → +27.3), not better. Kept per the prime directive (the May-2026 target
-was played on realistic terrain). Session headline gated 5.98 → 4.13 — the honest number on realistic terrain.
+**Last updated:** Wave 98 close (2026-06-01) — Per-model weapon loadouts STAGE 1 of 5 (mapper preserves
+per-model loadouts + raw dice; DATA ONLY, additive, gated **4.13** unchanged). The user redirected the
+per-shot-damage-roll task into a fuller faithful re-architecture: combat moves from one *averaged* weapon
+per squad to **per-model weapon loadouts** (each model fires its own weapons with real dice rolled, lost on
+death; pistols fire weakly in melee), staged across five env-gated steps (`SWEG_PERMODEL`), aggregate kept
+unchanged so the blast radius (AI / pricing / tests) survives. Session headline gated 5.98 → 4.13.
 
-**Wave 97 rebuilt every stock map's terrain to the competitive Pariah Nexus density** (`code/maps.
-_competitive_terrain`): ~11 large line-of-sight-blocking ruins + ~6 scatter pieces per map, ~19% coverage
-(up from ~8%), 180-degree rotationally symmetric (even-handed), no clean cross-table sightline; objectives
-left in place; cited to the Games Workshop Pariah Nexus Tournament Companion + Goonhammer review. N=40:
-gated 3.59 → **4.13** (regressed +0.54), in band 7 → 6. **The watchdog's hypothesis is REFUTED** — it
-ranked terrain P1-HIGHEST expecting it to crack the Imperial Knights over-hold, but IK got WORSE (+25.9 →
-+27.3). Chaos Daemons improved slightly (+1.1, cover helps melee advance), but the dominant effect is that
-realistic terrain HELPS the durable / melee over-shooters (it shields the unkillable Knight from return fire
-more than it limits its own now-ruin-blocked shooting; World Eaters +6.2 → +9.8, Orks +2.7 → +7.7).
-DIAGNOSIS: the IK over-hold is durability-as-objective-holder, NOT table-wide shooting; terrain AMPLIFIES
-it. **Terrain is NOT the IK lever.** KEPT regardless of the regression (prime directive + watchdog Q12):
-reverting to sparse boards to protect 3.59 would be choosing a known infidelity to flatter the metric. The
-+0.54 is fidelity-versus-metric debt feeding the planned re-calibration (Q13: terrain + per-shot damage roll
-land, then re-fit toward real data and land the held Stream A). 927 tests pass; audit clean; run.py OK.
-Finding logged (LOOP_QA Q14). The only faithful IK levers left are the scoring model + the re-calibration.
-**Next: P1.5 (per-shot damage roll), the other fidelity change that shifts the Knight numbers.**
+**Wave 98 / Stage 1 (data only):** `code/bsdata/mapper.py` now preserves `model_loadouts` per unit (each
+model type's ranged/melee weapons with raw Attacks/Damage dice strings), and **single-model units now use the
+option-per-choice-group picker** instead of a legacy flat weapon-walk. KEY DIAGNOSTIC validating the
+Imperial-Knights over-rate hypothesis: **523 of 907 single-model units were over-collecting weapons** — the
+Wraithknight dropped from five firing weapons (both alternative arm cannons) to one arm cannon; Knights shed
+mutually-exclusive carapace options. Knights have been firing guns they cannot simultaneously equip; this is
+the suspected +27 driver, and it goes LIVE when firing reads the loadout (Stage 3). The regen also synced a
+stale `deadly_demise` field (1→5 on 55 chassis; metric-neutral, kept per rule 7). OFF N=40 = 4.13 exactly
+(data-only confirmed), 933 tests pass, audit clean, run.py OK. NEXT: Stage 2 (plumb `model_loadouts` onto
+`UnitProfile`, gate-inert), then Stage 3 (firing reads the loadout — the IK over-count correction goes live).
+
+### Earlier — wave 97 (terrain rebuilt to competitive density, gated 3.59 → 4.13, refuted as the IK lever)
+
+**Wave 97 rebuilt all stock maps to competitive Pariah Nexus terrain density** (`_competitive_terrain`: ~11
+line-of-sight-blocking ruins + scatter, ~19% area, 180-degree even-handed, no clean cross-table sightline;
+cited). N=40 gated 3.59 → 4.13 (regressed), and REFUTED the hypothesis: Imperial Knights got WORSE (+25.9 →
++27.3) — realistic terrain shields the durable Knight from return fire more than it limits its shooting, and
+helps melee close. KEPT per the prime directive (the May-2026 target was played on realistic terrain;
+reverting to sparse would be metric-tuning). Terrain is NOT the IK lever; the over-hold is durability
+(LOOP_QA Q14).
 
 ### Earlier — wave 96 (core-rules quick-fix batch, gated 3.76 → 3.59)
 
