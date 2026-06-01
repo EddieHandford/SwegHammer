@@ -87,41 +87,49 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # event with smaller per-round caps. This brings total secondary VP
 # per game to ~40 (vs ~75 primary), matching the real-meta ratio.
 BRING_IT_DOWN_CAP_PER_ROUND: int = 8
-NO_PRISONERS_CAP_PER_ROUND: int = 5
+NO_PRISONERS_CAP_PER_ROUND: int = 5    # CA-2025-26: 2 VP/unit "up to 5 VP" — matches
 ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND: int = 3
-BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 3
-CULL_THE_HORDE_CAP_PER_ROUND: int = 3
+BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 4   # CA-2025-26 BEL tops out at 4 VP (2+ units)
+CULL_THE_HORDE_CAP_PER_ROUND: int = 15  # CA-2025-26 Cull has NO per-round cap; 15 = effectively unbounded in practice, still under the 40-VP secondary total cap
 ASSASSINATION_CAP_PER_ROUND: int = 4
 
-# VP per qualifying kill (matches real Pariah Nexus rule magnitudes).
-BRING_IT_DOWN_VP_PER_KILL: int = 3    # 3 VP per enemy MONSTER/VEHICLE destroyed
-NO_PRISONERS_VP_PER_UNIT: int = 3     # 3 VP per enemy UNIT destroyed
-CULL_THE_HORDE_VP_PER_UNIT: int = 3   # 3 VP per enemy horde-unit destroyed
-ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP per enemy CHARACTER destroyed
-ASSASSINATION_WARLORD_BONUS_VP: int = 1  # +1 VP if enemy Warlord destroyed (real Pariah Nexus rule)
+# VP per qualifying kill. Re-aligned to the CHAPTER APPROVED 2025-26 deck (wave 91,
+# the deck the May-2026 calibration target was played under). No Prisoners 2 VP/unit
+# (was 3) and Cull the Horde 5 VP/unit (was 3) are CA-2025-26 values, ≥2-source-verified
+# (wahapedia chapter-approved-2025-26 + Goonhammer CA-2025 review + GW Tournament Companion).
+BRING_IT_DOWN_VP_PER_KILL: int = 3    # FLAT proxy; CA-2025-26 Fixed is 2 +2(15+W) +2(20+W), wave-92 bracket build
+NO_PRISONERS_VP_PER_UNIT: int = 2     # CA-2025-26: 2 VP per enemy UNIT destroyed (up to 5/turn)
+CULL_THE_HORDE_VP_PER_UNIT: int = 5   # CA-2025-26: 5 VP per qualifying INFANTRY unit destroyed
+ASSASSINATION_VP_PER_CHAR: int = 3    # unchanged this wave; CA-2025-26 Fixed = 4 (4+ wound) / 3 (<4) + no Warlord bonus — deferred to the wave-92 wound-tier build
+ASSASSINATION_WARLORD_BONUS_VP: int = 1  # unchanged this wave (CA-2025-26 removes it; folded into the wave-92 Assassination re-align)
 
-# SC4-B — position-tracking secondary thresholds.
-# Real Pariah Nexus Engage on All Fronts (Wahapedia):
-#   "Score 2 VP if you have one or more units from your army wholly within
-#    two table quarters. Score 3 VP instead if you have one or more units
-#    from your army wholly within three different table quarters. Score 5 VP
-#    instead if you have one or more units from your army wholly within all
-#    four table quarters."
-# Real Pariah Nexus Behind Enemy Lines: "Score 4 VP if you have one or more
-# qualifying units in your opponent's deployment zone at the end of your
-# Command phase."
-# Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+# SC4-B — position-tracking secondary thresholds. Re-aligned to CHAPTER APPROVED
+# 2025-26 (wave 91; ≥2-source-verified: wahapedia chapter-approved-2025-26 +
+# Goonhammer CA-2025 review + Bell of Lost Souls).
+# CA-2025-26 Engage on All Fronts: "1 VP for units wholly within two table
+#   quarters, 2 VP for three quarters, 4 VP for all four quarters." (Was Pariah
+#   Nexus 2/3/5 at 2/3/4 — CA-2025-26 adds a 1-VP floor at 2 quarters and lowers
+#   the 3/4-quarter tiers.)
+# CA-2025-26 Behind Enemy Lines (UNCHANGED from Pariah Nexus): "3 VP if one
+#   non-AIRCRAFT unit is wholly within the opponent's deployment zone, 4 VP if
+#   two or more are." (Was modelled as a flat 4 — now tiered 3 / 4.)
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # Cited as `simulator.secondary_engage_on_all_fronts` and
 # `simulator.secondary_behind_enemy_lines`.
 ENGAGE_QUADRANTS_REQUIRED: int = 2    # minimum quadrants to score any Engage VP
-ENGAGE_VP_TWO_QUADRANTS: int = 2      # 2 VP for 2 quadrants
-ENGAGE_VP_THREE_QUADRANTS: int = 3    # 3 VP for 3 quadrants
-ENGAGE_VP_FOUR_QUADRANTS: int = 5     # 5 VP for all 4 quadrants
-BEHIND_ENEMY_LINES_VP: int = 4        # 4 VP if any alive unit in enemy DZ (real rule)
-ENGAGE_ON_ALL_FRONTS_VP: int = 3      # legacy alias (still used by tests); equals 3-quadrant tier
+ENGAGE_VP_TWO_QUADRANTS: int = 1      # CA-2025-26: 1 VP for 2 quadrants
+ENGAGE_VP_THREE_QUADRANTS: int = 2    # CA-2025-26: 2 VP for 3 quadrants
+ENGAGE_VP_FOUR_QUADRANTS: int = 4     # CA-2025-26: 4 VP for all 4 quadrants
+BEHIND_ENEMY_LINES_VP: int = 4        # CA-2025-26: 4 VP if TWO+ units in enemy DZ
+BEHIND_ENEMY_LINES_VP_SINGLE: int = 3  # CA-2025-26: 3 VP if ONE unit in enemy DZ
+ENGAGE_ON_ALL_FRONTS_VP: int = 2      # legacy alias (still used by tests); equals the 3-quadrant tier
 
 # SC4-C — horde-threshold + character-flag.
-CULL_THE_HORDE_MIN_MODELS: int = 10   # unit counts as "horde" if started 10+ strong
+# CA-2025-26 Cull the Horde: qualifying = INFANTRY unit Starting Strength 13+
+# (including attached Leaders). The sim uses the squad's starting model count as
+# the proxy (attached-Leader inclusion not separately modelled). Was Pariah Nexus
+# 20+ models / 25+ wounds; the sim previously used 10.
+CULL_THE_HORDE_MIN_MODELS: int = 13   # CA-2025-26: started 13+ models
 
 
 @dataclass
@@ -493,7 +501,7 @@ def score_position_delta(
     cx = map_.width / 2.0
     cy = map_.height / 2.0
     quadrants_occupied = set()
-    in_enemy_dz = False
+    enemy_dz_count = 0   # CA-2025-26 BEL: 3 VP for one unit in the enemy DZ, 4 for two+
 
     if own_is_army_a:
         # Army A's enemy DZ is the high-y strip.
@@ -516,9 +524,9 @@ def score_position_delta(
         qx = 0 if ux < cx else 1
         qy = 0 if uy < cy else 1
         quadrants_occupied.add((qx, qy))
-        # Enemy DZ check.
+        # Enemy DZ check (count units for the CA-2025-26 BEL 1-vs-2+ tier).
         if enemy_dz_lo <= uy <= enemy_dz_hi:
-            in_enemy_dz = True
+            enemy_dz_count += 1
 
     # LC-2: gate Engage / BEL behind the per-round tactical-secondary
     # draw. Each side scores AT MOST ONE per round (the secondary that's
@@ -542,11 +550,13 @@ def score_position_delta(
             engage_vp = ENGAGE_VP_THREE_QUADRANTS
         elif n == 2:
             engage_vp = ENGAGE_VP_TWO_QUADRANTS
-    bel_vp = (
-        BEHIND_ENEMY_LINES_VP
-        if bel_active and bel_picked and in_enemy_dz
-        else 0
-    )
+    bel_vp = 0
+    if bel_active and bel_picked and enemy_dz_count >= 1:
+        # CA-2025-26: 3 VP for one unit wholly in the enemy DZ, 4 VP for two or more.
+        bel_vp = (
+            BEHIND_ENEMY_LINES_VP if enemy_dz_count >= 2
+            else BEHIND_ENEMY_LINES_VP_SINGLE
+        )
     return engage_vp, bel_vp
 
 

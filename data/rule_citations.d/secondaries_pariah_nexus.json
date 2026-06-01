@@ -1,6 +1,5 @@
 {
   "_comment": "10e Pariah Nexus tournament-pack Fixed Secondary Missions. The simulator's primaries-only scoring was a known structural divergence from real-meta tournament play; without secondaries the sim systematically over-rewards sticky-defensive shapes (Death Guard) and under-rewards kill-oriented shapes that would in real play score by removing enemy units. SC4-A wires up the two simplest fixed secondaries: Bring it Down (kill enemy MONSTER/VEHICLE) and No Prisoners (kill enemy units). Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-
   "simulator.secondary_cleanse": {
     "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
     "rule_name": "Cleanse (Pariah Nexus Tactical/Fixed Secondary Mission — action-based)",
@@ -9,7 +8,6 @@
     "effect": "2 VP per cleansed objective marker (outside the scoring army's deployment zone, controlled, with a surviving Cleanse unit), capped at two objectives (4 VP per turn). The shoot/charge lockout is the action-vs-fight tradeoff: a low-model durable army has no chaff to spare and never satisfies it, while a horde / MSU army does — an even-handed counterbalance to the kill-secondary asymmetry that falls out of unit cost, not faction. Implemented in Battle._assign_cleanse_actions / _score_cleanse.",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_sabotage": {
     "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
     "rule_name": "Sabotage (Pariah Nexus Tactical Secondary Mission — action-based)",
@@ -18,7 +16,6 @@
     "effect": "The best surviving Sabotage completes for 6 VP in the enemy deployment zone or 3 VP in No Man's Land, capped at one completion (6 VP) per round (SwegHammer simplification — a conservative cap on a deliberately risky deep-push action). Rewards pushing expendable bodies forward, which a deepstrike / infiltrate under-shooter does and a durable low-model camper cannot. Implemented in Battle._assign_sabotage_actions / _score_sabotage.",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_vp_cap_40": {
     "source": "https://www.goonhammer.com/goonhammer-reviews-the-warhammer-40k-pariah-nexus-missions/",
     "rule_name": "Secondary Mission victory-point ceiling (Pariah Nexus)",
@@ -27,7 +24,6 @@
     "effect": "The win condition (Battle._decide_winner) decides on primary VP plus min(secondary VP, 40), enforcing the real 40-VP total-secondary ceiling. Uses the per-side _a_secondary_vp / _b_secondary_vp tally (otherwise a reporting accumulator). Env-gated SWEG_S2 for the wave-75 A/B.",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_bring_it_down": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",
@@ -36,43 +32,38 @@
     "effect": "the opposing army gains 5 VP per destroyed MONSTER/VEHICLE model this round, capped at 15 VP per round",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_no_prisoners": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "No Prisoners (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "Score 2 VP at the end of the battle round if any enemy units were destroyed this battle round, plus 1 VP for each enemy unit destroyed this battle round, to a maximum of 5 VP per battle round. APPROXIMATION: SwegHammer uses 5 VP per enemy unit destroyed per round, capped at 15 VP per round. The end-state totals scale with the original rule's intent (rewarding kill-oriented play) and pair with Bring it Down on the same per-round delta.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "No Prisoners (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Each time an enemy unit is destroyed, score 2VP (up to a maximum of 5VP per turn). [Fixed version narrows to Bodyguard / non-CHARACTER units and is banned as a Fixed pick in tournament play; the simulator scores the per-unit 2 VP form.]",
     "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed units against the opponent's round-start snapshot",
-    "effect": "the opposing army gains 5 VP per destroyed enemy unit this round, capped at 15 VP per round",
+    "effect": "the opposing army gains 2 VP per destroyed enemy unit this round, capped at 5 VP per round (CA-2025-26 value; was a stale 5/15 in the citation and 3/5 in code).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_engage_on_all_fronts": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Engage on All Fronts (Pariah Nexus Tactical Secondary Mission)",
-    "quoted_text": "Score 2 VP at the end of your turn if your army has one or more units within two table quarters. Score 3 VP if three table quarters, 5 VP if all four. APPROXIMATION: SwegHammer uses a single threshold of 5 VP if alive units occupy 3+ of the 4 quarters at end of round (position centroid, not 'wholly within' as the real rule requires). Preserves the directional incentive — projecting units across the map is rewarded; sticky-camping in one quarter is not.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Engage on All Fronts (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Score 1VP if you have one or more units wholly within two table quarters; 2VP instead for three different table quarters; 4VP instead for all four table quarters.",
     "trigger": "end of each battle round, evaluating each side's alive-unit quadrant coverage",
-    "effect": "the side scores 5 VP if their alive units' positions occupy at least 3 of the 4 table quarters (cx=width/2, cy=height/2 split)",
+    "effect": "1 / 2 / 4 VP for alive units occupying 2 / 3 / 4 of the table quarters (CA-2025-26; was Pariah Nexus 2/3/5 — CA-2025-26 adds a 1-VP floor at 2 quarters and lowers the 3/4-quarter tiers).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_behind_enemy_lines": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Behind Enemy Lines (Pariah Nexus Tactical Secondary Mission)",
-    "quoted_text": "Score 4 VP at the end of your turn if one or more units from your army are wholly within your opponent's deployment zone. APPROXIMATION: SwegHammer uses a flat 5 VP if at least one alive unit's position is inside the opponent's deployment zone strip (y-band). 'Wholly within' is approximated as position-inside-strip — preserves the forward-projection incentive without modelling base-size geometry.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Behind Enemy Lines (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Score 3VP if one non-AIRCRAFT unit from your army is wholly within your opponent's deployment zone; score 4VP instead if two or more are. [Unchanged from Pariah Nexus.]",
     "trigger": "end of each battle round, evaluating each side's alive-unit positions against the opponent's deployment-zone strip",
-    "effect": "the side scores 5 VP if any alive unit's position is within the opponent's deployment zone (Army A enemy DZ = high-y strip width=map.deployment_width; Army B enemy DZ = low-y strip)",
+    "effect": "3 VP if exactly one alive unit is within the opponent's deployment zone, 4 VP if two or more (CA-2025-26; the sim previously modelled a flat 4).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_cull_the_horde": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Cull the Horde (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "If one or more enemy units that contained 11 or more models at the start of the battle were destroyed this battle round, score 3 VP. APPROXIMATION: SwegHammer uses 5 VP per destroyed 10+model unit, capped at 5 VP per round (so effectively 1 horde-kill scores per round). Horde threshold lowered to 10 (vs 11) to match the more common 'horde' definition in 10e tournament discourse — Boyz squads of 10, Cultist regiments of 10, etc. all qualify; Termagant broods of 30 obviously do.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Cull the Horde (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Each time an enemy INFANTRY unit with a Starting Strength of 13 or more (including any attached units) is destroyed, score 5VP. [No per-turn cap.]",
     "trigger": "end of each battle round, when an enemy unit whose starting strength was 10+ was destroyed this round",
-    "effect": "the opposing army gains 5 VP per qualifying horde-unit destroyed this round, capped at 5 VP per round",
+    "effect": "5 VP per qualifying INFANTRY unit destroyed whose Starting Strength was 13+ (CA-2025-26; was Pariah Nexus 20+/25-wounds, sim previously 10+ at 3 VP). No per-round cap (the sim's 15 ceiling does not bind in practice; the 40-VP secondary total cap bounds it). The 'including attached Leaders' clause is approximated by the squad's starting model count.",
     "scope": "phase-gated"
   },
-
   "simulator.warlord_designation": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
     "rule_name": "Warlord designation + Pariah Nexus Assassination bonus",
@@ -82,7 +73,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "simulator.tactical_secondary_deck_draw": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Tactical Secondary Mission deck mechanic",
@@ -92,7 +82,6 @@
     "scope": "phase-gated",
     "approximation": true
   },
-
   "simulator.secondary_assassination": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Assassination (Pariah Nexus Fixed Secondary Mission)",
@@ -101,7 +90,6 @@
     "effect": "the opposing army gains 5 VP per destroyed enemy CHARACTER this round, capped at 10 VP per round",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_secure_no_mans_land": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
     "rule_name": "Secure No Man's Land (Pariah Nexus Secondary Mission)",
@@ -110,7 +98,6 @@
     "effect": "2 VP for one controlled No Man's Land objective, 5 VP for two or more. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Rewards a body army that can spread across the midboard, which a low-model durable camper cannot — even-handed (same pool + scoring both sides; the asymmetry is in completion, bounded by the 40-VP secondary cap).",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_defend_stronghold": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
     "rule_name": "Defend Stronghold (Pariah Nexus Secondary Mission)",
@@ -119,16 +106,14 @@
     "effect": "3 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Available to every army (a camper holding its home objective scores it too) — even-handed.",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_extend_battle_lines": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
-    "rule_name": "Extend Battle Lines (Pariah Nexus Secondary Mission)",
-    "quoted_text": "Extend Battle Lines: 5VP if controlling one or more objective markers in your deployment zone AND one or more in No Man's Land; or 2VP if you have only one unit on the battlefield controlling an objective marker in No Man's Land. APPROXIMATION: SwegHammer implements the 5 VP clause only (control one+ own-deployment-zone objective AND one+ No Man's Land objective); the fringe single-unit 2 VP alternate is not modelled.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
+    "rule_name": "Extend Battle Lines (Chapter Approved 2025-26 Secondary Mission)",
+    "quoted_text": "Control one or more objective markers in your deployment zone AND one or more in No Man's Land: score 4VP. (CA-2025-26 reduced the top tier from the Pariah Nexus 5 VP to 4 VP.)",
     "trigger": "end of each battle round, when the scoring army controls at least one objective in its own deployment zone AND at least one in No Man's Land",
-    "effect": "5 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Rewards spreading across own-zone and midboard, which needs more bodies than a low-model camper has — even-handed.",
+    "effect": "4 VP for controlling one+ own-deployment-zone objective AND one+ No Man's Land objective (CA-2025-26; reduced from the Pariah Nexus 5). Implemented in Battle._score_board_secondaries.",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_storm_hostile_objective": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
     "rule_name": "Storm Hostile Objective (Pariah Nexus Secondary Mission)",
@@ -137,7 +122,6 @@
     "effect": "4 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). This is the scoring REWARD for taking a durable camper's objectives — the anti-camper play that wave-81 contest/deny lacked because the model only DENIED the camper's primary, never scored the taker. Even-handed.",
     "scope": "phase-gated"
   },
-
   "simulator.secondary_area_denial": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
     "rule_name": "Area Denial (Pariah Nexus Secondary Mission)",
@@ -146,5 +130,4 @@
     "effect": "Requires one of your units within 3\" of centre; then 5 VP if no enemy unit within 6\" of centre, else 2 VP if no enemy unit within 3\" of centre, else 0. Implemented in Battle._score_area_denial (env-gated SWEG_TIER_A). Even-handed centre-control reward.",
     "scope": "phase-gated"
   }
-
 }

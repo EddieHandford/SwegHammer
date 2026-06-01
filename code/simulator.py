@@ -1183,7 +1183,7 @@ class Battle:
         if "defend_stronghold" in chosen and own_dz_controlled >= 1:
             total += 3
         if "extend_battle_lines" in chosen and own_dz_controlled >= 1 and nml_controlled >= 1:
-            total += 5
+            total += 4   # CA-2025-26: Extend Battle Lines top tier reduced from 5 VP to 4 VP
         if "storm_hostile_objective" in chosen and stormed >= 1:
             total += 4
         if "area_denial" in chosen:

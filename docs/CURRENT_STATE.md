@@ -1,19 +1,28 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 90 close (2026-06-01) — Chaos Daemons re-diagnosed POSITIONAL (primary-VP), not
-combat/attrition; secondary is a cap-wash; the residual is ONE structural axis → gated **4.08** is a
-structural floor. Strategic checkpoint escalated (Q11). Tier B still parked (Q10 deck ruling open).
+**Last updated:** Wave 91 close (2026-06-01) — user ruled Q10/Q11; started the Chapter Approved 2025-26
+secondary re-alignment (part 1/2, 5 cards) — faithful, metric-flat as predicted (gated **4.10**, was
+4.08). Next: part 2 (Bring It Down / Assassination wound-plumbing), then the Q11 positional re-model.
 
-**Wave 90 re-diagnosed the Chaos Daemons residual** (combat vs positional, via a survival + VP-split
-drill). Two structural findings consolidate the whole picture: (1) Daemons SURVIVE 40-75% of their units
-but LOSE THE PRIMARY race — positional/objective-massing, NOT combat or attrition; (2) secondary VP is a
-CAP-WASH (both sides generate 80-115 raw, all clamped to 40, so secondary no longer differentiates —
-PRIMARY decides). **The dominant remaining residual is ONE axis — primary-VP / objective control:
-Imperial Knights +27 over-holds the markers, Chaos Daemons −22 under-holds them** (the one-Unit-per-model
-positional gap, opposite ends, ≈ half the gated MAE). The faithful AI levers for it are exhausted (regress/
-wash, confirmed 5+ times), so **gated 4.08 is a structural floor on the faithful track.** Remaining clean
-lever: the secondary deck re-alignment (Q10, pending; likely small per the cap-wash). Strategic checkpoint
-`LOOP_QA.md` Q11 (rule Q10 + assess convergence vs the hard positional work). No code change.
+**The user ruled the structural-floor checkpoint** (commit 0541e23): **Q10 = Chapter Approved 2025-26**
+(re-align secondaries + Tier A to CA-2025-26, ≥2 CA sources); **Q11 = (c)** authorise the hard
+positional-representation re-model (diagnose-not-nerf, faithful/even-handed/plan-first, NOT a per-faction
+objective-control→primary-VP knob). Sequence: deck re-align first, then the re-model.
+
+**Wave 91 did CA-2025-26 re-alignment part 1** (5 cards, ≥2-CA-source-verified): No Prisoners 3→2; Cull
+10/3→13/5 (no cap); Engage 2/3/5→1/2/4; Behind Enemy Lines flat-4→3/4; Extend Battle Lines 5→4. Five
+Tier-A board cards confirmed UNCHANGED from Pariah Nexus. Citations rewritten to CA-2025-26; 8 tests
+updated; 926 tests pass. N=40: gated 4.08 → **4.10** (flat, within noise) — the wave-90 cap-wash
+prediction (both sides max the 40-VP secondary cap). KEPT as the faithful match to the target deck
+(fidelity, not metric). Next: wave 92 = the 2 wound-plumbing cards (Bring It Down brackets, Assassination
+wound-tier); wave 93+ = plan+build the Q11 positional re-model.
+
+### Earlier — wave 90 (Daemons re-diagnosed positional; secondary cap-wash; structural floor)
+
+**Wave 90 re-diagnosed Chaos Daemons** as POSITIONAL (they survive 40-75% but lose the primary race),
+not combat/attrition; found secondary is a CAP-WASH (both sides max 40, primary decides); consolidated
+the dominant residual as ONE axis (primary/objective control: IK +27 over, Daemons −22 under). Gated 4.08
+identified as a structural floor on the faithful track → escalated as Q11 (ruled this wave).
 
 ### Earlier — wave 89 (over-shooter detachments swept clean; over-rates are structural)
 

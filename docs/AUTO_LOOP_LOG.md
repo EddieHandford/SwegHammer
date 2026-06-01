@@ -4,6 +4,39 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 91 close (2026-06-01) — Chapter Approved 2025-26 secondary re-alignment, part 1/2 (5 cards) — faithful, metric-flat as predicted (4.08 → 4.10, within noise); user Q10/Q11 ruled
+
+Branch `claude/sim-calibration-6`. The user ruled the structural-floor checkpoint (commit 0541e23):
+**Q10 = Chapter Approved 2025-26** (re-align the secondary model + re-check Tier A to CA-2025-26,
+sourced from ≥2 CA sources, never 40k.app); **Q11 = (c)** authorise the hard positional-representation
+re-model (diagnose-not-nerf, faithful/even-handed/plan-first, not a per-faction OC→VP knob). Sequence:
+deck re-align first, then the re-model. This wave did part 1 of the deck re-align.
+
+VERIFICATION (the user's ≥2-CA-source requirement). A research agent confirmed the current CA-2025-26
+values against wahapedia chapter-approved-2025-26 + the GW Tournament Companion PDF + Goonhammer's CA-2025
+review (NOT 40k.app). Five cards changed value, five Tier-A board cards are UNCHANGED from Pariah Nexus
+(Storm Hostile Objective, Secure No Man's Land, Area Denial, Defend Stronghold = no action; Extend
+Battle Lines dropped 5→4).
+
+BUILT (5 cards, direct value/logic changes — these are the faithful target-deck values, not env-gated):
+No Prisoners 3→**2** VP/unit; Cull the Horde 10-model/3 VP → **13-model / 5 VP** (no per-round cap);
+Engage on All Fronts 2/3/5 → **1/2/4** at 2/3/4 quarters; Behind Enemy Lines flat-4 → **3** (one unit) /
+**4** (two+); Extend Battle Lines 5 → **4**. 5 citations rewritten to CA-2025-26 verbatim text + sources;
+8 tests updated; 926 tests pass; audit clean; run.py OK.
+
+| Eval (N=40) | MAE_gated | in band |
+|---|---:|---:|
+| Wave 90 baseline | 4.08 | 8/22 |
+| **CA-2025-26 part 1** | **4.10** | 8/22 |
+
+Metric-FLAT (+0.02, within noise) — exactly the wave-90 cap-wash prediction (both sides max the 40-VP
+secondary cap, so secondary-value changes barely move the headline). KEPT because it is the faithful
+match to the deck the May-2026 target was played under (fidelity, not metric — the user's explicit
+framing). DEFERRED to wave 92 (need destroyed-unit wound-data plumbing in the round snapshot): Bring It
+Down flat-3 → **2 +2(15+ wounds) +2(20+ wounds)** per unit; Assassination 3/char → **4** (4+ wound
+character) / **3** (<4) + remove the Warlord bonus. THEN (wave 93+): plan + build the Q11 positional
+re-model.
+
 ## Wave 90 close (2026-06-01) — Chaos Daemons re-diagnosed: POSITIONAL (primary-VP / objective-massing), not combat or attrition; secondary is a CAP-WASH; the residual floor is one structural axis. Strategic checkpoint escalated (no code change)
 
 Branch `claude/sim-calibration-6`. Re-diagnosed the Daemons residual (attrition ruled out wave 88) with a

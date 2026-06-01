@@ -10,7 +10,9 @@ from code.secondaries import (
     ASSASSINATION_CAP_PER_ROUND,
     ASSASSINATION_VP_PER_CHAR,
     BEHIND_ENEMY_LINES_VP,
+    BEHIND_ENEMY_LINES_VP_SINGLE,
     BOARD_SECONDARY_KEYS,
+    ENGAGE_VP_THREE_QUADRANTS,
     BRING_IT_DOWN_CAP_PER_ROUND,
     BRING_IT_DOWN_VP_PER_KILL,
     CULL_THE_HORDE_CAP_PER_ROUND,
@@ -184,10 +186,10 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         self.assertEqual(cth, 0)
         self.assertEqual(ass, 0)
 
-    def test_cull_the_horde_fires_on_10plus_squad_kill(self):
-        # 10-model Boyz squad destroyed this round → Cull scores.
+    def test_cull_the_horde_fires_on_13plus_squad_kill(self):
+        # CA-2025-26: a 13+-model INFANTRY squad destroyed this round → Cull scores 5.
         boyz = _make_unit("Boyz", alive=True, keywords=("INFANTRY",),
-                          starting_strength=10)
+                          starting_strength=20)
         snap = take_snapshot([boyz])
         boyz.current_health = 0.0
         _, np_vp, cth, _ = score_round_delta(snap, [boyz])
@@ -205,18 +207,19 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
         self.assertEqual(cth, 0)
 
-    def test_cull_caps_at_5_per_round(self):
-        # Two 10+ squads killed = 10 VP raw, capped to 5.
+    def test_cull_two_kills_no_per_round_cap(self):
+        # CA-2025-26 Cull has NO per-round cap: two 13+ squads killed = 2 x 5 = 10 VP
+        # (under the effectively-unbounded 15 cap and the 40-VP secondary total cap).
         squads = [
             _make_unit(f"Boyz {i}", alive=True, keywords=("INFANTRY",),
-                       starting_strength=10)
+                       starting_strength=20)
             for i in range(2)
         ]
         snap = take_snapshot(squads)
         for u in squads:
             u.current_health = 0.0
         _, _, cth, _ = score_round_delta(snap, squads)
-        self.assertEqual(cth, CULL_THE_HORDE_CAP_PER_ROUND)
+        self.assertEqual(cth, 2 * CULL_THE_HORDE_VP_PER_UNIT)
 
     def test_assassination_fires_on_character_kill(self):
         ahriman = _make_unit("Ahriman", alive=True,
@@ -331,11 +334,11 @@ class PerUnitSecondaryTests(unittest.TestCase):
                          "full squad wipeout must score exactly 1 No Prisoners unit")
 
     def test_full_horde_squad_wipeout_scores_cull(self):
-        # 10-model Boyz squad (squad_id=3, starting_strength=10), all killed.
-        # Scores No Prisoners AND Cull the Horde (both 3 VP each).
+        # CA-2025-26: a 13+-strength Boyz squad (squad_id=3), all killed →
+        # No Prisoners (2 VP) AND Cull the Horde (5 VP).
         squad = [
             _make_unit(f"Boy{i}", alive=True, keywords=("INFANTRY",),
-                       starting_strength=10, squad_id=3)
+                       starting_strength=20, squad_id=3)
             for i in range(10)
         ]
         snap = take_snapshot(squad)
@@ -447,7 +450,7 @@ class ScorePositionDeltaTests(unittest.TestCase):
         ]
         eng, _ = score_position_delta(units, _make_map(), own_is_army_a=True,
                                        round_num=1)
-        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+        self.assertEqual(eng, ENGAGE_VP_THREE_QUADRANTS)   # CA-2025-26: 2 VP for 3 quarters
 
     def test_engage_four_quadrants_scores_top_tier_vp(self):
         # All four quadrants — score the top-tier 5 VP per real Pariah Nexus
@@ -482,7 +485,7 @@ class ScorePositionDeltaTests(unittest.TestCase):
         _, bel = score_position_delta(
             [unit], _make_map(), own_is_army_a=True, round_num=2,
         )
-        self.assertEqual(bel, BEHIND_ENEMY_LINES_VP)
+        self.assertEqual(bel, BEHIND_ENEMY_LINES_VP_SINGLE)   # CA-2025-26: 3 VP for ONE unit
 
     def test_behind_enemy_lines_army_b_perspective(self):
         # Army B's enemy DZ is the low-y strip (y <= deployment_width = 12).
@@ -492,7 +495,7 @@ class ScorePositionDeltaTests(unittest.TestCase):
         _, bel = score_position_delta(
             [unit], _make_map(), own_is_army_a=False, round_num=1,
         )
-        self.assertEqual(bel, BEHIND_ENEMY_LINES_VP)
+        self.assertEqual(bel, BEHIND_ENEMY_LINES_VP_SINGLE)   # CA-2025-26: 3 VP for ONE unit
 
     def test_behind_enemy_lines_own_dz_doesnt_score(self):
         # Army A unit at y=5 is in OWN DZ, not enemy DZ.
@@ -546,12 +549,12 @@ class ChosenSecondariesGateTests(unittest.TestCase):
         # Fixed Secondaries (legacy callers / tests).
         boyz = _make_unit("Boyz", alive=True,
                           keywords=("INFANTRY", "CHARACTER"),
-                          starting_strength=10)
+                          starting_strength=20)
         snap = take_snapshot([boyz])
         boyz.current_health = 0.0
         bid, np_vp, cth, ass = score_round_delta(snap, [boyz])
-        # No MV → bid=0; INFANTRY kill → np=3; 10-model → cull=3;
-        # CHARACTER → assassination=3.
+        # No MV → bid=0; INFANTRY kill → No Prisoners; 20-model → Cull (CA-2025-26 13+);
+        # CHARACTER → Assassination.
         self.assertEqual(bid, 0)
         self.assertEqual(np_vp, NO_PRISONERS_VP_PER_UNIT)
         self.assertEqual(cth, CULL_THE_HORDE_VP_PER_UNIT)
@@ -610,7 +613,7 @@ class ChosenSecondariesGateTests(unittest.TestCase):
         eng, _ = score_position_delta(
             units, _make_map(), own_is_army_a=True, round_num=1,
         )
-        self.assertEqual(eng, ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND)
+        self.assertEqual(eng, ENGAGE_VP_THREE_QUADRANTS)   # CA-2025-26: 2 VP for 3 quarters
 
     def test_position_delta_chosen_empty_scores_zero(self):
         units = [
