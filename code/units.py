@@ -676,6 +676,13 @@ class Unit:
         # / lone model. Consumed by the squad-level activation loop (P3) and the
         # squad-keyed dedup gates (P4). No behaviour change in P1.
         "squad_id",
+        # PER-MODEL-LOADOUTS (Stage 3): the original aggregate squad UnitProfile
+        # this model-Unit was expanded from, when SWEG_PERMODEL split the squad
+        # into one Unit per model with its own narrowed weapon block. Unit-level
+        # consumers that need the squad-wide view (AI scoring in a later stage)
+        # read this; the firing path reads the per-model `profile`. None for
+        # legacy / shared-profile units. Cited as `simulator.per_model_loadouts`.
+        "squad_profile_ref",
         "moved_this_round", "on_objective", "shooting_in_engagement",
         # Pariah Nexus action state (wave 74). Set to an action name (e.g.
         # "cleanse") by Battle._assign_cleanse_actions when the unit performs a
@@ -885,6 +892,9 @@ class Unit:
         # SQUAD-ACTIVATION (Lever 1, P1): per-squad id, stamped by
         # Army.add_squad at build time; -1 = lone/unassigned. See __slots__.
         self.squad_id: int = -1
+        # PER-MODEL-LOADOUTS (Stage 3): aggregate squad profile when this Unit
+        # was expanded per-model (SWEG_PERMODEL); None otherwise. See __slots__.
+        self.squad_profile_ref: Optional[UnitProfile] = None
         # Set by Battle each round: True iff this unit moved during the
         # current round's movement sub-phase. Drives the Heavy keyword
         # (+1 to hit if attacker did NOT move).
@@ -3623,6 +3633,273 @@ def _unflatten_model_loadouts(
 
 
 # ---------------------------------------------------------------------------
+# PER-MODEL-LOADOUTS (Stage 3) — loadout weapon-dicts → UnitProfile fields
+# ---------------------------------------------------------------------------
+#
+# Stage 3 fires each model's OWN loadout. `add_squad` instantiates one Unit per
+# model and replaces only the weapon fields of the shared aggregate profile with
+# that model's real weapons. These helpers do the conversion:
+#
+#   _flatten_extra_profiles(list_of_dicts) — flatten a list of weapon-dicts into
+#       the exact hashable tuple-of-(key, value) shape that
+#       `extra_ranged_profiles` / `extra_melee_profiles` use on UnitProfile. This
+#       is the SAME flatten the catalogue builder applies to the mapper's extra
+#       profiles; both call sites share it so the loadout-derived extras are
+#       byte-identical to mapper-derived ones (the `_profiles_to_fire` picker and
+#       the additive-melee loop read them with `dict(extra)`).
+#
+#   _loadout_entry_to_weapon_fields(entry) — turn ONE per-model loadout entry
+#       ({name, count, ranged:[wdict], melee:[wdict]}) into the dict of
+#       `dataclasses.replace(profile, **fields)` keyword arguments that re-point
+#       a model-Unit at its real weapons: the best ranged weapon by expected
+#       value becomes the primary block, every other ranged weapon becomes an
+#       `extra_ranged_profiles` entry (the picker groups them by weapon root, so
+#       mutually-exclusive alt-modes still fire one mode); the best melee weapon
+#       becomes the primary melee block, the rest become additive
+#       `extra_melee_profiles`. Damage stays at the MEAN this stage (no dice are
+#       rolled), so the structural firing change is measured in isolation.
+#
+#   _distribute_squad_slots(loadouts, size) — map the per-model loadout entries
+#       (whose counts are for the MAX squad) onto `size` model slots via the
+#       largest-remainder (Hamilton) method.
+
+# Primary RANGED weapon fields written by _loadout_entry_to_weapon_fields. Every
+# secondary_* field is cleared (set empty / zero) because a per-model profile
+# carries its full weapon list in the primary + extra_ranged_profiles; the
+# legacy secondary block is the aggregate-squad two-profile picker, which a
+# single model never uses.
+_PERMODEL_SECONDARY_RANGED_RESET: Dict[str, Any] = {
+    "secondary_attacks": 0,
+    "secondary_weapon_damage_per_shot": 0.0,
+    "secondary_hit_probability": 0.0,
+    "secondary_ap": 0,
+    "secondary_strength": 4,
+    "secondary_range_inches": 0,
+    "secondary_weapon": "",
+    "secondary_anti_keywords": (),
+    "secondary_lethal_hits": False,
+    "secondary_sustained_hits": 0,
+    "secondary_twin_linked": False,
+    "secondary_devastating_wounds": False,
+    "secondary_rapid_fire": 0,
+    "secondary_melta": 0,
+    "secondary_ignores_cover": False,
+    "secondary_heavy": False,
+    "secondary_assault": False,
+    "secondary_torrent": False,
+    "secondary_blast": False,
+    "secondary_pistol": False,
+}
+
+
+def _flatten_extra_profiles(
+    list_of_dicts: Optional[List[Dict[str, Any]]],
+) -> Tuple[Tuple[Tuple[str, Any], ...], ...]:
+    """Flatten a list of weapon-dicts into the hashable tuple-of-(key, value)
+    shape carried by `extra_ranged_profiles` / `extra_melee_profiles`.
+
+    Mirrors the exact flatten the catalogue builder applies to the mapper's
+    extra profiles (any dict-valued field, e.g. anti_keywords, becomes a tuple
+    of its sorted items; every other value is carried verbatim). `_build_catalog`
+    and the Stage-3 loadout path both call this so a loadout-derived extra is
+    indistinguishable from a mapper-derived one downstream.
+    """
+    return tuple(
+        tuple(
+            (k, (tuple(sorted(v.items())) if isinstance(v, dict) else v))
+            for k, v in prof.items()
+        )
+        for prof in (list_of_dicts or ())
+    )
+
+
+def _ranged_weapon_ev(w: Dict[str, Any]) -> float:
+    """Expected-value proxy for ranking a model's ranged weapons: attacks ×
+    damage-per-shot × hit-probability (means; no dice rolled this stage)."""
+    return (
+        max(0.0, float(w.get("attacks", 0) or 0))
+        * max(0.0, float(w.get("weapon_damage_per_shot", 0.0) or 0.0))
+        * max(0.0, float(w.get("hit_probability", 0.0) or 0.0))
+    )
+
+
+def _melee_weapon_ev(w: Dict[str, Any]) -> float:
+    """Expected-value proxy for ranking a model's melee weapons — same shape as
+    the ranged proxy (the loadout melee dicts carry attacks/damage/hit too)."""
+    return _ranged_weapon_ev(w)
+
+
+def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert ONE per-model loadout entry to the weapon-only field overrides for
+    `dataclasses.replace(profile, **fields)`.
+
+    The best ranged weapon (highest expected value) becomes the primary ranged
+    block; the rest become `extra_ranged_profiles`. The best melee weapon becomes
+    the primary melee block; the rest become additive `extra_melee_profiles`.
+    No ranged weapons → `attacks=0` (and range 0, so the model finds no shooting
+    target). No melee weapons → `melee_attacks=0`. Damage stays at the MEAN.
+    """
+    fields: Dict[str, Any] = {}
+
+    # ---- RANGED -------------------------------------------------------------
+    ranged = list(entry.get("ranged") or [])
+    # Stable sort by descending expected value; ties keep loadout order so the
+    # result is deterministic under PYTHONHASHSEED=0.
+    ranged_ranked = sorted(ranged, key=_ranged_weapon_ev, reverse=True)
+    fields.update(_PERMODEL_SECONDARY_RANGED_RESET)
+    if ranged_ranked:
+        best = ranged_ranked[0]
+        ak = best.get("anti_keywords")
+        fields.update({
+            "weapon": str(best.get("weapon", "") or ""),
+            "attacks": max(1, int(round(best.get("attacks", 1) or 1))),
+            "weapon_damage_per_shot": float(
+                best.get("weapon_damage_per_shot", 0.0) or 0.0
+            ),
+            "hit_probability": float(best.get("hit_probability", 0.0) or 0.0),
+            "ap": int(best.get("ap", 0) or 0),
+            "strength": int(best.get("strength", BASELINE_STRENGTH)
+                            or BASELINE_STRENGTH),
+            "range_inches": int(best.get("range_inches", 0) or 0),
+            "lethal_hits": bool(best.get("lethal_hits", False)),
+            "sustained_hits": int(best.get("sustained_hits", 0) or 0),
+            "twin_linked": bool(best.get("twin_linked", False)),
+            "devastating_wounds": bool(best.get("devastating_wounds", False)),
+            "rapid_fire": int(best.get("rapid_fire", 0) or 0),
+            "melta": int(best.get("melta", 0) or 0),
+            "ignores_cover": bool(best.get("ignores_cover", False)),
+            "heavy": bool(best.get("heavy", False)),
+            "assault": bool(best.get("assault", False)),
+            "torrent": bool(best.get("torrent", False)),
+            "blast": bool(best.get("blast", False)),
+            "pistol": bool(best.get("pistol", False)),
+            "anti_keywords": (
+                tuple(ak.items()) if isinstance(ak, dict) else tuple(ak or ())
+            ),
+            "extra_ranged_profiles": _flatten_extra_profiles(ranged_ranked[1:]),
+        })
+    else:
+        # No ranged weapon on this model: zero shots, zero range so the
+        # shooting-target search never selects it. weapon_damage_per_shot 0 too
+        # so `per_shot_damage` derives 0 even if a shot were forced.
+        fields.update({
+            "weapon": "",
+            "attacks": 0,
+            "weapon_damage_per_shot": 0.0,
+            "hit_probability": 0.0,
+            "range_inches": 0,
+            "extra_ranged_profiles": (),
+        })
+
+    # ---- MELEE --------------------------------------------------------------
+    melee = list(entry.get("melee") or [])
+    melee_ranked = sorted(melee, key=_melee_weapon_ev, reverse=True)
+    if melee_ranked:
+        best_m = melee_ranked[0]
+        fields.update({
+            "melee_weapon": str(best_m.get("weapon", "") or ""),
+            "melee_attacks": max(1, int(round(best_m.get("attacks", 1) or 1))),
+            "melee_damage_per_shot": float(
+                best_m.get("weapon_damage_per_shot", 0.0) or 0.0
+            ),
+            "melee_hit_probability": float(
+                best_m.get("hit_probability", 0.0) or 0.0
+            ),
+            "melee_strength": int(best_m.get("strength", BASELINE_STRENGTH)
+                                  or BASELINE_STRENGTH),
+            "melee_ap": int(best_m.get("ap", 0) or 0),
+            "melee_sustained_hits": int(best_m.get("sustained_hits", 0) or 0),
+            "melee_lethal_hits": bool(best_m.get("lethal_hits", False)),
+            "extra_melee_profiles": _flatten_extra_profiles(melee_ranked[1:]),
+        })
+    else:
+        fields.update({
+            "melee_weapon": "",
+            "melee_attacks": 0,
+            "melee_damage_per_shot": 0.0,
+            "melee_hit_probability": 0.0,
+            "extra_melee_profiles": (),
+        })
+
+    return fields
+
+
+def _distribute_squad_slots(
+    loadouts: List[Dict[str, Any]],
+    size: int,
+) -> List[Dict[str, Any]]:
+    """Map per-model loadout entries (counts for the MAX squad) onto `size`
+    model slots via the largest-remainder (Hamilton) method.
+
+    Returns a list of exactly `size` loadout-entry references (one per model
+    slot to instantiate). Deterministic under PYTHONHASHSEED=0: leftover slots
+    go by largest fractional remainder, ties broken by entry name ascending.
+
+    Rules:
+      - leaders = entries whose rounded count == 1; instantiate exactly one of
+        each (loadout order), capped so leaders never exceed `size`.
+      - the remaining slots are distributed across the body entries in
+        proportion to their counts (floor each share, hand out leftovers by
+        largest remainder); if still short, pad with the largest-count body
+        entry; truncate to exactly `size`.
+    """
+    size = max(1, int(size))
+    leaders = [e for e in loadouts if int(round(e.get("count", 0) or 0)) == 1]
+    body = [e for e in loadouts if int(round(e.get("count", 0) or 0)) != 1]
+
+    slots: List[Dict[str, Any]] = []
+    # One of each leader, in loadout order, capped at `size`.
+    for e in leaders:
+        if len(slots) >= size:
+            break
+        slots.append(e)
+
+    remaining = size - len(slots)
+    if remaining > 0 and body:
+        total_body = sum(max(0.0, float(e.get("count", 0) or 0)) for e in body)
+        if total_body <= 0:
+            # Degenerate: body counts all zero — spread evenly by repeating.
+            i = 0
+            while len(slots) < size:
+                slots.append(body[i % len(body)])
+                i += 1
+        else:
+            shares = [
+                remaining * max(0.0, float(e.get("count", 0) or 0)) / total_body
+                for e in body
+            ]
+            floors = [int(math.floor(s)) for s in shares]
+            assigned = sum(floors)
+            leftover = remaining - assigned
+            # Largest fractional remainder; tie-break by entry name ascending.
+            order = sorted(
+                range(len(body)),
+                key=lambda i: (-(shares[i] - floors[i]),
+                               str(body[i].get("name", ""))),
+            )
+            counts = list(floors)
+            for i in order[:max(0, leftover)]:
+                counts[i] += 1
+            for e, n in zip(body, counts):
+                slots.extend([e] * n)
+    elif remaining > 0 and not body and leaders:
+        # No body entries (e.g. an all-character loadout): pad with the
+        # largest-count leader so we still reach `size`.
+        pad = max(leaders, key=lambda e: float(e.get("count", 0) or 0))
+        while len(slots) < size:
+            slots.append(pad)
+
+    # Pad any shortfall with the largest-count body (or any) entry; truncate
+    # overshoot to exactly `size`.
+    if len(slots) < size and loadouts:
+        pad_pool = body or loadouts
+        pad = max(pad_pool, key=lambda e: float(e.get("count", 0) or 0))
+        while len(slots) < size:
+            slots.append(pad)
+    return slots[:size]
+
+
+# ---------------------------------------------------------------------------
 # Unit catalogue
 # ---------------------------------------------------------------------------
 #
@@ -3740,13 +4017,11 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # flatten into a tuple-of-(key, value) pairs so the UnitProfile
             # dataclass stays HASHABLE (required by functools.lru_cache on
             # roles.expected_ranged_dpa et al). Any nested dict value (like
-            # anti_keywords) is itself converted to a tuple of items.
-            extra_ranged_profiles=tuple(
-                tuple(
-                    (k, (tuple(sorted(v.items())) if isinstance(v, dict) else v))
-                    for k, v in prof.items()
-                )
-                for prof in (entry.extra_ranged_profiles or ())
+            # anti_keywords) is itself converted to a tuple of items. The
+            # Stage-3 per-model loadout path reuses the SAME flattener so a
+            # loadout-derived extra is byte-identical to a mapper-derived one.
+            extra_ranged_profiles=_flatten_extra_profiles(
+                entry.extra_ranged_profiles
             ),
             # KNIGHTS-MULTIPROFILE-2 — additional melee weapon profiles
             # (Knight Abominant balemace, Knight Rampager Reaper chainsword,
@@ -3754,12 +4029,8 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # so the UnitProfile dataclass stays HASHABLE for the lru_cache
             # decorators in code/roles.py. Cited as
             # `simulator.extra_melee_profiles`.
-            extra_melee_profiles=tuple(
-                tuple(
-                    (k, (tuple(sorted(v.items())) if isinstance(v, dict) else v))
-                    for k, v in prof.items()
-                )
-                for prof in (entry.extra_melee_profiles or ())
+            extra_melee_profiles=_flatten_extra_profiles(
+                entry.extra_melee_profiles
             ),
             # PER-MODEL-LOADOUTS (Stage 2 plumbing — GATE-INERT). Carry the
             # mapper's per-model loadout list onto the frozen UnitProfile,

@@ -1,0 +1,12 @@
+{
+  "_comment": "PER-MODEL-LOADOUTS (Stage 3). 10e core: every model in a unit is equipped with its own wargear (weapons), and a model can only make attacks with weapons it is equipped with. A unit's models may carry different weapons (a squad's special-weapon model, a sergeant's pistol-and-power-fist, a single-model Knight's specific gun rack). When a model is destroyed it is removed and can no longer make any attacks, so its weapons are lost from the unit's firepower. SwegHammer historically collapsed a whole squad into ONE averaged synthetic weapon shared by every model-Unit, and single-model units historically over-collected mutually-exclusive weapon options and fired them all. Stage 3 (env-gated SWEG_PERMODEL) instantiates one Unit per model from the BSData per-model loadout, so each model fires only the weapons it actually carries, a special weapon is lost when its model dies, and a single-model unit fires only its real equipped weapons (alt-mode mutual exclusivity and pistol exclusivity are still enforced by the existing simulator.multi_profile_weapon_selection / simulator.pistol_exclusivity picker). Damage stays at the expected-value mean at this stage; per-weapon dice rolling is a later stage. This is a faithful representation change, not a new buff: the per-model fields are the same BSData stats already carried on the aggregate, just attributed to the model that owns them.",
+
+  "simulator.per_model_loadouts": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Weapons",
+    "rule_name": "Weapons / Making Attacks",
+    "quoted_text": "Each time a model makes an attack, you must use one of the weapons it is equipped with. ... A weapon's profile tells you ... Each model is equipped with the weapons shown on its unit's datasheet.",
+    "trigger": "a model in a unit makes an attack, or a model is destroyed",
+    "effect": "each model uses only the weapons it is equipped with, so a unit's distinct model types fire their own real loadouts (special-weapon model, sergeant, single-model gun rack) rather than one shared squad average, and a destroyed model's weapons are removed from the unit's firepower; alt-mode and pistol exclusivity are still enforced per the existing multi-profile picker",
+    "scope": "army-wide"
+  }
+}

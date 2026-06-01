@@ -24,8 +24,11 @@ missing), mirroring the convention in tests/test_mapper.py.
 
 from __future__ import annotations
 
+import dataclasses
 import json
+import os
 import unittest
+from collections import Counter
 from pathlib import Path
 
 from code.bsdata.mapper import PARSED_PATH, parse_dice_expr
@@ -290,6 +293,192 @@ class ModelLoadoutStage2PlumbingTests(unittest.TestCase):
         prof = UNIT_CATALOG[key]
         rebuilt = _unflatten_model_loadouts(prof.model_loadouts)
         self.assertEqual(rebuilt, self.units[key]["model_loadouts"])
+
+
+class ModelLoadoutStage3FiringTests(unittest.TestCase):
+    """PER-MODEL-LOADOUTS STAGE 3 — `Army.add_squad` instantiates one Unit per
+    model from the per-model loadout, each firing its OWN weapons, when the
+    `SWEG_PERMODEL` env gate is set. OFF (gate unset) reproduces the legacy
+    shared-profile behaviour exactly.
+
+    These tests drive the real catalogue UnitProfiles (the Devastator squad's
+    Boltgun / Multi-melta / Sergeant split is a known, stable shape) so they
+    exercise the count→size Hamilton mapping, the loadout→weapon-field
+    conversion, weapon-loss-on-death, and single-model expansion end to end.
+    """
+
+    def setUp(self):
+        # Imported lazily so the OFF-path identity assertion can run with the
+        # gate genuinely unset (the monkeypatch in the ON tests sets it per
+        # test via os.environ directly).
+        from code.units import UNIT_CATALOG, _unflatten_model_loadouts
+        from code.army import Army
+        self.UNIT_CATALOG = UNIT_CATALOG
+        self._unflatten = _unflatten_model_loadouts
+        self.Army = Army
+        # Ensure a clean gate state before each test; tests that need it ON set
+        # it explicitly and the tearDown restores.
+        self._saved_env = os.environ.get("SWEG_PERMODEL")
+        os.environ.pop("SWEG_PERMODEL", None)
+
+    def tearDown(self):
+        if self._saved_env is None:
+            os.environ.pop("SWEG_PERMODEL", None)
+        else:
+            os.environ["SWEG_PERMODEL"] = self._saved_env
+
+    def _build(self, key, size):
+        army = self.Army(name="test")
+        army.add_squad(self.UNIT_CATALOG[key], size)
+        return army
+
+    # (1) mixed squad at MAX size — per-model weapon split -------------------
+    def test_devastator_max_size_weapon_split(self):
+        """At size == max_models the Devastator squad expands to one
+        Multi-melta Unit per Heavy-Weapon model, one Boltgun Unit per
+        Boltgun model, and one Sergeant Unit — matching the loadout counts."""
+        os.environ["SWEG_PERMODEL"] = "1"
+        prof = self.UNIT_CATALOG["space_marines_devastator_squad"]
+        army = self._build("space_marines_devastator_squad", prof.max_models)
+        self.assertEqual(len(army.units), prof.max_models)
+        weapons = Counter(u.profile.weapon for u in army.units)
+        # Loadout: 5 Boltgun + 4 Multi-melta + 1 Sergeant (Plasma pistol).
+        self.assertEqual(weapons["Boltgun"], 5)
+        self.assertEqual(weapons["Multi-melta"], 4)
+        # The sergeant model carries the plasma pistol (exactly one).
+        sergeant = [u for u in army.units if "Plasma pistol" in u.profile.weapon]
+        self.assertEqual(len(sergeant), 1)
+        # Heavy-weapon models carry the Multi-melta damage-per-shot mean (3.5),
+        # bolter models the bolter mean (1.0) — proves the per-model primary
+        # block was re-pointed from the loadout, not the squad average.
+        mm = [u for u in army.units if u.profile.weapon == "Multi-melta"]
+        self.assertTrue(all(abs(u.profile.weapon_damage_per_shot - 3.5) < 1e-6
+                            for u in mm))
+        bolt = [u for u in army.units if u.profile.weapon == "Boltgun"]
+        self.assertTrue(all(abs(u.profile.weapon_damage_per_shot - 1.0) < 1e-6
+                            for u in bolt))
+
+    # (2) reduced size — Hamilton scaling + determinism ---------------------
+    def test_devastator_size_five_scaled_and_deterministic(self):
+        """At size 5 the squad is exactly 5 Units, exactly one leader
+        (Sergeant), the body scaled by largest-remainder, and the expansion is
+        deterministic across two builds (PYTHONHASHSEED=0)."""
+        os.environ["SWEG_PERMODEL"] = "1"
+        army = self._build("space_marines_devastator_squad", 5)
+        self.assertEqual(len(army.units), 5)
+        sergeants = [u for u in army.units if "Plasma pistol" in u.profile.weapon]
+        self.assertEqual(len(sergeants), 1, "expected exactly one leader at size 5")
+        # 4 body slots split 5:4 (Boltgun:Multi-melta) → 2:2 by largest remainder.
+        weapons = Counter(u.profile.weapon for u in army.units)
+        self.assertEqual(weapons["Boltgun"], 2)
+        self.assertEqual(weapons["Multi-melta"], 2)
+        # Determinism: a second build produces the identical weapon sequence.
+        army2 = self._build("space_marines_devastator_squad", 5)
+        self.assertEqual(
+            [u.profile.weapon for u in army.units],
+            [u.profile.weapon for u in army2.units],
+        )
+
+    # (3) size == 1 — single slot, no crash ---------------------------------
+    def test_size_one_yields_one_unit(self):
+        """A size-1 build of a multi-model datasheet yields exactly one Unit
+        and does not crash (the leader takes the single slot)."""
+        os.environ["SWEG_PERMODEL"] = "1"
+        army = self._build("space_marines_devastator_squad", 1)
+        self.assertEqual(len(army.units), 1)
+
+    # (4) weapon-loss on death ----------------------------------------------
+    def test_heavy_weapon_lost_when_its_model_dies(self):
+        """Killing the Multi-melta Units removes their firepower: the squad's
+        mean shooting output drops sharply (to roughly bolter-only level),
+        because each model's weapons live on its own Unit and a dead Unit is
+        skipped by the firing path — no special weapon-loss code needed."""
+        import random
+        from code.units import Unit, UnitProfile
+
+        os.environ["SWEG_PERMODEL"] = "1"
+        army = self._build("space_marines_devastator_squad", 10)
+
+        # A fat dummy target so neither configuration one-shots it (we measure
+        # raw output, not kills). T8, Sv5+, lots of health.
+        def fresh_target():
+            t = Unit(UnitProfile(
+                name="Dummy", health=200.0, damage=0.0, hit_probability=0.0,
+                save=5, toughness=8, range_inches=0, attacks=0,
+            ))
+            t.position = (6.0, 0.0)
+            return t
+
+        def squad_output(units):
+            total = 0.0
+            random.seed(1234)
+            for _ in range(200):
+                tgt = fresh_target()
+                for u in units:
+                    if u.is_alive:
+                        total += u.attack(tgt, distance=6.0)
+            return total
+
+        alive = [u for u in army.units]
+        full = squad_output(alive)
+
+        # Kill the Multi-melta models.
+        for u in army.units:
+            if u.profile.weapon == "Multi-melta":
+                u.current_health = 0
+        self.assertTrue(any(not u.is_alive for u in army.units))
+        reduced = squad_output([u for u in army.units])
+
+        self.assertLess(
+            reduced, full,
+            "removing the Multi-melta models should cut the squad's output",
+        )
+        # The drop should be large — Multi-meltas (S9 D6 AP-2, melta) are the
+        # bulk of the squad's damage. Expect at least a 30% reduction.
+        self.assertLess(
+            reduced, full * 0.7,
+            f"expected a sharp drop after losing the heavy weapons; "
+            f"full={full:.1f} reduced={reduced:.1f}",
+        )
+
+    # (5) single-model unit fires its real loadout, not every option --------
+    def test_single_model_unit_fires_one_arm_cannon(self):
+        """A Wraithknight built with the gate ON fires ONE arm cannon group
+        (Suncannon), NOT both Suncannon and the mutually-exclusive Heavy
+        Wraithcannon — the per-model profile carries only the loadout's real
+        equipped arm cannon."""
+        os.environ["SWEG_PERMODEL"] = "1"
+        army = self._build("aeldari_craftworlds_wraithknight", 1)
+        self.assertEqual(len(army.units), 1)
+        u = army.units[0]
+        carried = [u.profile.weapon] + [
+            dict(e).get("weapon") for e in u.profile.extra_ranged_profiles
+        ]
+        self.assertIn("Suncannon", carried)
+        self.assertNotIn("Heavy Wraithcannon", carried)
+
+    # (6) OFF path — identity (today's behaviour) ---------------------------
+    def test_off_path_shares_input_profile_identity(self):
+        """With the gate UNSET, add_squad yields `n` Units that all share the
+        input profile object (identity) and carry no squad_profile_ref —
+        byte-for-byte the legacy behaviour."""
+        os.environ.pop("SWEG_PERMODEL", None)
+        prof = self.UNIT_CATALOG["space_marines_devastator_squad"]
+        army = self._build("space_marines_devastator_squad", 7)
+        self.assertEqual(len(army.units), 7)
+        self.assertTrue(all(u.profile is prof for u in army.units))
+        self.assertTrue(all(u.squad_profile_ref is None for u in army.units))
+
+    def test_off_path_unaffected_when_profile_has_no_loadout(self):
+        """Even with the gate ON, a profile with an empty model_loadouts falls
+        through to the legacy shared path (defensive: no crash, identity)."""
+        os.environ["SWEG_PERMODEL"] = "1"
+        prof = self.UNIT_CATALOG["space_marines_devastator_squad"]
+        bare = dataclasses.replace(prof, model_loadouts=())
+        army = self.Army(name="test")
+        army.add_squad(bare, 5)
+        self.assertEqual(len(army.units), 5)
+        self.assertTrue(all(u.profile is bare for u in army.units))
 
 
 if __name__ == "__main__":

@@ -553,6 +553,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.fights_first_keyword",
     "simulator.harbingers_of_dread",
     "simulator.multi_profile_weapon_selection",
+    # PER-MODEL-LOADOUTS (Stage 3, env-gated SWEG_PERMODEL). One Unit per model,
+    # each firing its OWN BSData loadout, so a special-weapon model loses its
+    # weapon when it dies and a single-model unit fires only its real gun rack.
+    # Faithful representation change (same stats, attributed per model); alt-mode
+    # and pistol exclusivity still enforced by the existing picker. See
+    # data/rule_citations.d/core_per_model_loadouts.json.
+    "simulator.per_model_loadouts",
     "simulator.pistol_exclusivity",
     "simulator.primary_vp_no_round_1",
     "simulator.rend_and_tear",

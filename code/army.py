@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import dataclasses
+import os
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from .detachments import Detachment, default_detachment_for_faction
 from .stratagems import STARTING_CP
-from .units import Unit, UnitProfile
+from .units import (
+    Unit,
+    UnitProfile,
+    _distribute_squad_slots,
+    _loadout_entry_to_weapon_fields,
+    _unflatten_model_loadouts,
+)
 
 
 # Engagement distance (in inches) inside which Look Out Sir / Lone Operative
@@ -645,16 +653,59 @@ class Army:
         all share one freshly-allocated squad_id, so the squad-level activation
         loop (P3) can treat them as a single unit. Two squads of the same
         datasheet receive distinct ids (fixing the profile.name-merge issue).
-        No behaviour change in P1 — nothing reads squad_id yet.
+
+        PER-MODEL-LOADOUTS (Stage 3, env-gated `SWEG_PERMODEL`): when the gate
+        is set AND the profile carries a per-model loadout, each model-Unit is
+        built from its OWN weapons (a Knight fires only its equipped guns; a
+        squad's special-weapon model carries its special weapon, lost when that
+        model dies). When the gate is unset the legacy path runs verbatim —
+        `size` Units sharing the one input `profile` object — so the simulator's
+        output is byte-for-byte unchanged (no extra RNG, OFF == baseline).
+        Cited as `simulator.per_model_loadouts`.
         """
         sid = self._next_squad_id
         self._next_squad_id += 1
-        for _ in range(max(1, int(size))):
-            unit = Unit(profile, in_cover=self.in_cover)
+        if os.environ.get("SWEG_PERMODEL") and profile.model_loadouts:
+            self._add_squad_per_model(profile, size, sid)
+        else:
+            # Legacy path — byte-identical to the pre-Stage-3 loop (no extra
+            # RNG, no profile rebuild), so SWEG_PERMODEL unset reproduces the
+            # baseline exactly.
+            for _ in range(max(1, int(size))):
+                unit = Unit(profile, in_cover=self.in_cover)
+                unit.army_ref = self
+                unit.squad_id = sid
+                self.units.append(unit)
+        self._invalidate_alive_cache()
+
+    def _add_squad_per_model(
+        self, profile: UnitProfile, size: int, sid: int
+    ) -> None:
+        """PER-MODEL-LOADOUTS (Stage 3) — instantiate one Unit per model, each
+        re-pointed at that model's real weapons.
+
+        The loadout entries carry counts for the MAX squad; map them onto the
+        actual `size` model slots via the largest-remainder (Hamilton) method
+        (`_distribute_squad_slots`), then for each slot build a per-model
+        `UnitProfile` (replace only the weapon fields via
+        `_loadout_entry_to_weapon_fields`) and a `Unit`. Each Unit keeps a
+        reference to the original aggregate profile (`squad_profile_ref`) so
+        unit-level consumers (which read squad-wide stats) still see the
+        aggregate; the firing path reads the per-model `Unit.profile`.
+        """
+        loadouts = _unflatten_model_loadouts(profile.model_loadouts)
+        slots = _distribute_squad_slots(loadouts, size)
+        for entry in slots:
+            weapon_fields = _loadout_entry_to_weapon_fields(entry)
+            model_profile = dataclasses.replace(profile, **weapon_fields)
+            unit = Unit(model_profile, in_cover=self.in_cover)
             unit.army_ref = self
             unit.squad_id = sid
+            # The original aggregate profile — unit-level consumers (squad-wide
+            # stats, AI scoring in a later stage) read this rather than the
+            # narrowed per-model weapon block.
+            unit.squad_profile_ref = profile
             self.units.append(unit)
-        self._invalidate_alive_cache()
 
     def squads(self):
         """SQUAD-ACTIVATION (Lever 1): alive units grouped by squad_id in
