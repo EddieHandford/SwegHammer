@@ -93,13 +93,14 @@ fact that it also helps the Imperial Knights over-control residual is a happy ca
 rule and the metric agree — keep it because it is real, regardless.
 
 REMAINING WORK (faithful refinement, NOT removal):
-- Use the current CODEX values: Armiger −3 (Objective Control 6 → 3) at 1-5 wounds; Questoris −4
-  (Objective Control 10 → 6) at 1-9 wounds. The worker's −5 was the OLD INDEX value — note **40k.app
-  serves INDEX data, not the codex**, so it is NOT reliable for current values and is why it returned
-  −5; do not source live values from it. Confirm both by cleanly extracting the Knight damage-table
-  rows from `data/bsdata/cache/` (the canonical, codex-tagged source: Knight is T11/W26) and cite
-  that; a codex web source (Goonhammer codex review / GW datasheet) is the rule-6 fallback if the
-  cache row is genuinely absent — 40k.app is not.
+- VALUE — RESOLVED (2026-06-01) from the canonical BSData cache, extracted VERBATIM (the
+  authoritative read; this supersedes the watchdog's earlier "−4" guess): Armiger / War Dog **−3**
+  (Objective Control 6 → 3) at 1-5 wounds; Questoris **−5** (Objective Control 10 → 5) at 1-9 wounds;
+  Dominus **−5** at 1-10 wounds. The worker implemented exactly this and cited it verbatim — CORRECT.
+  The watchdog's "codex is −4" came from an unreliable web summary; rule 6 (BSData first) governs, so
+  the cache −5 is authoritative (and the ±1 vs the web summary is metric-negligible). 40k.app is INDEX
+  data and is never a live-value source. Floored at 0. (Worker's Q10 discrepancy flag is resolved: use
+  the cache −5.)
 - Add the `data/rule_citations.d/` entry with verbatim datasheet text (the audit requires it).
 - Keep the floor at 0 (the current `max(0, …)` is correct); never a negative Objective Control.
 - Land it on the normal environment-gated A/B + per-matchup evidence like any change.
