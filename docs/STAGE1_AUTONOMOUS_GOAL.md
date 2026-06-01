@@ -78,8 +78,14 @@ worker's 40k.app, plus Goonhammer's codex review and the 1d6chan tactics page, c
 search 2026-06-01) agree that a 10e Knight loses Objective Control on its damage bracket: a
 Questoris-class Knight (Objective Control 10) subtracts Objective Control while it has 1-9 wounds
 remaining, and an Armiger (Objective Control 6) has its Objective Control halved to 3 while it has
-1-5 wounds remaining. The local BSData-cache read that suggested otherwise was mistaken (it matched
-the wrong "Damaged" ability lines, not the core bracket). So `_effective_oc` is FAITHFUL — **KEEP it.**
+1-5 wounds remaining. BOTH the worker's AND the watchdog's BSData-cache reads that suggested
+otherwise were flawed greps that hit the wrong "Damaged" ability lines / a neighbouring unit's
+profile, NOT the Knight's damage-table rows — neither of us actually read the bracket. The project's
+BSData IS the current codex (Knight T11/W26), and the codex review states a Knight "loses 4 Objective
+Control instead of 5" when bracketed, so the reduction is real and almost certainly present in
+BSData; extract the damage-table rows properly to confirm. So `_effective_oc` is FAITHFUL —
+**RE-ADD it** (the worker removed it on that bad read; its "Objective Control does not bracket" memory
+is WRONG and should be corrected).
 
 It is NOT metric-tuning: it is a real per-datasheet rule that only Knights have, so gating it to
 Imperial / Chaos Knights is the correct faithful implementation, not a per-faction fudge. And the
@@ -87,10 +93,10 @@ fact that it also helps the Imperial Knights over-control residual is a happy ca
 rule and the metric agree — keep it because it is real, regardless.
 
 REMAINING WORK (faithful refinement, NOT removal):
-- Verify the EXACT current codex values and cite them. The Armiger halving to 3 (−3 at ≤5 wounds)
-  is confirmed. For the Questoris the index value is −5 at 1-9 wounds, but the current codex may be
-  −4 ("lose 4 Objective Control instead of 5") — source the CURRENT codex value (40k.app /
-  Goonhammer codex review / GW datasheet) and implement that exact number.
+- Use the current CODEX values: Armiger −3 (Objective Control 6 → 3) at 1-5 wounds; Questoris −4
+  (Objective Control 10 → 6) at 1-9 wounds. The worker's −5 was the OLD INDEX value. Confirm both by
+  cleanly extracting the Knight damage-table rows from `data/bsdata/cache/` (the canonical source) and
+  cite that; if the cache row is somehow absent, the web codex value is the rule-6 fallback.
 - Add the `data/rule_citations.d/` entry with verbatim datasheet text (the audit requires it).
 - Keep the floor at 0 (the current `max(0, …)` is correct); never a negative Objective Control.
 - Land it on the normal environment-gated A/B + per-matchup evidence like any change.
