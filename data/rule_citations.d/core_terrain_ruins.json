@@ -17,5 +17,14 @@
     "trigger": "a line-of-sight segment in which the firing model or the target model has the TOWERING keyword crosses Woods / OBSCURING terrain",
     "effect": "Woods / OBSCURING terrain does not block line of sight when either endpoint is a TOWERING (or AIRCRAFT) model - it can see over, and be seen over, such terrain. TOWERING does NOT grant a blanket see-over for Ruins, unlike Woods: per the Ruins rule a TOWERING model only sees out of a Ruin when it is itself within that Ruin (handled by the endpoint-contained allowance), and AIRCRAFT is the only blanket Ruin exception. Implemented in code.map.Map.has_line_of_sight / _los_query: the towering flag skips the OBSCURING block only; the ruin_pass flag is AIRCRAFT-only. Helps the big-model factions (Imperial & Chaos Knights, Wraithknight) shoot over Woods with their long-range guns while keeping Ruins as true line-of-sight blockers.",
     "scope": "keyword-gated"
+  },
+
+  "terrain.competitive_pariah_nexus_layout": {
+    "source": "https://www.goonhammer.com/the-pariah-nexus-tournament-companion-the-goonhammer-review/",
+    "rule_name": "Pariah Nexus competitive terrain layout (Games Workshop Pariah Nexus Tournament Companion)",
+    "quoted_text": "The Pariah Nexus Tournament Companion provides eight terrain layouts for a 44 by 60 inch board, built from a dense set of large two-storey ruins (which block line of sight) plus smaller area-terrain and barricade pieces, arranged as a central terrain mass with flanking ruins so that there are no clean firing lanes from one deployment zone to the other.",
+    "trigger": "a stock SwegHammer battle map is built",
+    "effect": "Stock maps reproduce the published competitive terrain density rather than the old sparse three-to-seven-piece layouts: roughly eleven large RUIN rectangles (about five-to-six inch footprints that block line of sight under the current 10e Ruins rule) plus a handful of Woods (Obscuring) and barricade (light cover) pieces, placed with 180-degree rotational symmetry about the board centre so the layout is even-handed (neither deployment zone is favoured) and there is no clean cross-table sightline. Terrain is faction-neutral and is NOT tuned to any faction; objectives are left where each mission places them. Built by code.maps._competitive_terrain.",
+    "scope": "army-wide"
   }
 }

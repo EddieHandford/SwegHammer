@@ -4,6 +4,46 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 97 close (2026-06-01) — terrain rebuilt to the competitive Pariah Nexus density (Stream C, P1); FAITHFUL but REGRESSED gated 3.59 → 4.13 and REFUTED the sparse-terrain hypothesis (Imperial Knights got WORSE)
+
+Branch `claude/sim-calibration-6`. Unparked Stream C with the watchdog's supplied competitive-terrain
+reference (Q12) and rebuilt every stock map's terrain to the published Pariah Nexus density. KEPT despite
+the regression — realistic terrain is faithful by construction (the May-2026 target was played on it), and
+the result is an important DIAGNOSIS, not a lever to chase.
+
+BUILT: `code/maps._competitive_terrain(width, height)` — mirrors a seed set of ruins / woods / barricades
+through 180-degree rotation about the board centre (EVEN-HANDED by construction, neither deployment zone
+favoured), producing ~11 large line-of-sight-blocking RUIN rectangles (about five-to-six inch footprints) +
+~6 scatter pieces per map, ~19% coverage (up from the old sparse ~8%), with no clean cross-table sightline
+(10% of deployment-zone-to-deployment-zone lines remain clear). Applied to all nine stock maps (the
+five-map eval rotation plus four others); objectives left exactly where each mission places them. Cited
+`terrain.competitive_pariah_nexus_layout` (Games Workshop Pariah Nexus Tournament Companion + Goonhammer
+review).
+
+| Eval (N=40) | MAE_gated | in band | Imperial Knights | Chaos Daemons | World Eaters | Orks |
+|---|---:|---:|---:|---:|---:|---:|
+| Baseline (wave 96, sparse terrain) | 3.59 | 7/22 | +25.9 | −15.6 | +6.2 | +2.7 |
+| **Competitive terrain (LANDED)** | **4.13** | 6/22 | **+27.3** | **−14.5** | +9.8 | +7.7 |
+
+THE HYPOTHESIS IS REFUTED. The watchdog ranked terrain P1-HIGHEST expecting it to crack the Imperial
+Knights over-hold (sparse boards letting Knights shoot across the table). The opposite happened: Imperial
+Knights got WORSE (+25.9 → +27.3). Chaos Daemons improved slightly as predicted (+1.1 — cover helps melee
+advance), but the dominant effect is that realistic terrain HELPS the durable / melee over-shooters: it
+shields the unkillable Knight objective-holder from return fire MORE than it limits the Knight's own (now
+ruin-blocked) shooting, and it lets melee close (World Eaters, Orks). DIAGNOSIS: the IK over-hold is
+durability-as-objective-holder, NOT table-wide shooting; realistic terrain AMPLIFIES it. Terrain is NOT the
+IK lever (re-ranked).
+
+KEPT per the prime directive + the watchdog's Q12 ("keep the realism even if it moves the metric the wrong
+way"): reverting to sparse boards to protect 3.59 would be choosing a KNOWN INFIDELITY to flatter the
+metric. The 3.59-on-sparse figure was a partly-spurious fit on the wrong board; 4.13-on-realistic is the
+honest current fidelity. The regression is fidelity-versus-metric debt feeding the planned re-calibration
+(Q13: terrain plus the per-shot damage roll land, then re-fit toward real data and land the held
+artificial-intelligence Objective-Control fix). 927 tests pass (the Marines-mirror smoke test passes in
+isolation; only the pre-existing Stage-2 solver timing test fails), citation audit clean, `run.py --cli`
+exits cleanly. Finding logged (LOOP_QA Q14). Session headline gated 5.98 → 4.13 — the honest number on
+realistic terrain. Next: P1.5 (per-shot damage roll).
+
 ## Wave 96 close (2026-06-01) — core-rules audit quick-fix batch (three parallel worktree streams); LANDED Stream D+E rules-correctness (gated 3.76 → 3.59); HELD Stream A AI-fidelity (frozen-under)
 
 Branch `claude/sim-calibration-6`. Ran the watchdog's core-rules-audit quick-fix batch (per the user's

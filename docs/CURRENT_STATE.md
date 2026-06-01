@@ -1,26 +1,36 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 96 close (2026-06-01) — core-rules audit quick-fix batch: LANDED Stream D+E
-rules-correctness (cover / line of sight / Fall Back), gated **3.76 → 3.59**, in band 9 → 7; HELD Stream A
-artificial-intelligence Objective-Control fidelity (frozen-under regression). Session headline gated
-5.98 → 3.59, all faithful.
+**Last updated:** Wave 97 close (2026-06-01) — terrain rebuilt to the competitive Pariah Nexus density
+(Stream C, P1): FAITHFUL but REGRESSED gated **3.59 → 4.13**, and REFUTED the sparse-terrain hypothesis —
+Imperial Knights got WORSE (+25.9 → +27.3), not better. Kept per the prime directive (the May-2026 target
+was played on realistic terrain). Session headline gated 5.98 → 4.13 — the honest number on realistic terrain.
 
-**Wave 96 ran the watchdog's core-rules-audit quick-fix batch** as three file-disjoint concurrent worktree
-streams. LANDED — Stream D+E (rules-correctness, `map.py` / `units.py` / `simulator.py`): single Benefit of
-Cover (stale 9th-edition −1-to-hit and the Light/Heavy split removed), current-10e Ruins / Woods line of
-sight (TOWERING no longer sees through ruins — only AIRCRAFT; infantry "shoot through walls" removed as
-movement-only), Benefit-of-Cover Armour-Penetration-0 / Save-3+ exception for ALL models, Fall Back FLY
-exemption removed (no shooting or charging after a Fall Back). Gated 3.76 → **3.59** (−0.17), driven by
-Imperial Knights +27.0 → **+25.9** and Drukhari +6.4 → **+4.7** (the watchdog's ruin-line-of-sight + no-FLY-
-shoot hypotheses landed); Chaos Daemons marginally worse (−0.9, its separate residual). Plus Stream B1
-(Counter-Offensive citation fix). HELD — Stream A (the planner's Objective-Control view aligned with the
-scorer: damaged-Knight bracket + battle-shock) is faithful but REGRESSED (frozen-under — it reversed the
-Stream D+E Imperial-Knights / Drukhari gains): preserved on branch `held/stream-a-ai-oc-fidelity`
-(`452ce81`), keep-versus-hold escalated to the watchdog (`LOOP_QA.md` Q13). DEFERRED — Stream B2 universal
-Insane Bravery (registered + cited but mechanically inert; P2 build to wire the Command-Point spend policy)
-and Stream C terrain density (parked on the watchdog supplying citable real Pariah Nexus layouts, `LOOP_QA`
-Q12; sequences after Stream D's line of sight, now landed). P1.5 roll-damage is now unblocked. 928 tests
-pass (2 pre-existing Stage-2 solver timing failures), audit clean, `run.py --cli` OK.
+**Wave 97 rebuilt every stock map's terrain to the competitive Pariah Nexus density** (`code/maps.
+_competitive_terrain`): ~11 large line-of-sight-blocking ruins + ~6 scatter pieces per map, ~19% coverage
+(up from ~8%), 180-degree rotationally symmetric (even-handed), no clean cross-table sightline; objectives
+left in place; cited to the Games Workshop Pariah Nexus Tournament Companion + Goonhammer review. N=40:
+gated 3.59 → **4.13** (regressed +0.54), in band 7 → 6. **The watchdog's hypothesis is REFUTED** — it
+ranked terrain P1-HIGHEST expecting it to crack the Imperial Knights over-hold, but IK got WORSE (+25.9 →
++27.3). Chaos Daemons improved slightly (+1.1, cover helps melee advance), but the dominant effect is that
+realistic terrain HELPS the durable / melee over-shooters (it shields the unkillable Knight from return fire
+more than it limits its own now-ruin-blocked shooting; World Eaters +6.2 → +9.8, Orks +2.7 → +7.7).
+DIAGNOSIS: the IK over-hold is durability-as-objective-holder, NOT table-wide shooting; terrain AMPLIFIES
+it. **Terrain is NOT the IK lever.** KEPT regardless of the regression (prime directive + watchdog Q12):
+reverting to sparse boards to protect 3.59 would be choosing a known infidelity to flatter the metric. The
++0.54 is fidelity-versus-metric debt feeding the planned re-calibration (Q13: terrain + per-shot damage roll
+land, then re-fit toward real data and land the held Stream A). 927 tests pass; audit clean; run.py OK.
+Finding logged (LOOP_QA Q14). The only faithful IK levers left are the scoring model + the re-calibration.
+**Next: P1.5 (per-shot damage roll), the other fidelity change that shifts the Knight numbers.**
+
+### Earlier — wave 96 (core-rules quick-fix batch, gated 3.76 → 3.59)
+
+**Wave 96 ran the core-rules-audit quick-fix batch** as three parallel worktree streams. LANDED Stream D+E
+(rules-correctness): single Benefit of Cover (stale −1-to-hit removed), current-10e Ruins/Woods line of
+sight (TOWERING no longer sees through ruins), Benefit-of-Cover AP0/Save-3+ exception for all models, Fall
+Back FLY exemption removed. Gated 3.76 → 3.59, driven by Imperial Knights +27.0 → +25.9 and Drukhari +6.4 →
++4.7. Plus Stream B1 (Counter-Offensive citation). HELD Stream A (AI Objective-Control fidelity — faithful
+but frozen-under regression) on `held/stream-a-ai-oc-fidelity` (`452ce81`), to land at the re-calibration
+(Q13). DEFERRED Stream B2 (Insane Bravery registered but inert; P2 build) and unblocked P1.5 roll-damage.
 
 ### Earlier — wave 95 (positional re-model Candidate B landed, gated 4.15 → 3.76)
 
