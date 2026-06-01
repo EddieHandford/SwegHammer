@@ -1,19 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 88 close (2026-06-01) — built Daemonic Manifestation (a real missing Chaos
-Daemons rule), but it is METRIC-NEUTRAL — it does NOT fix the Daemons −22 residual. Headline gated
-**4.08**. Tier B still parked pending the deck ruling (Q10 open).
+**Last updated:** Wave 89 close (2026-06-01) — detachment-fabrication sweep on the over-shooters:
+NEGATIVE finding — they are already clean; the over-rates are structural. Headline gated **4.08**.
+Tier B still parked pending the deck ruling (Q10 open). The clean faithful levers are thinning.
 
-**Wave 88 built the wave-87-planned fix** — Daemonic Manifestation, the missing friendly half of the
-Chaos Daemons army rule (in `_run_battleshock_phase`: +1 to a Daemons unit's Battle-shock test in its
-Shadow, and on a pass return D3 destroyed models / D3 wounds via the existing reanimation pulse; cited
-verbatim from BSData, faction-gated, default-on). **N=40 A/B: gated 4.08 → 4.08, Chaos Daemons
-−22.2 → −22.5 (within noise) — metric-neutral.** Verified it is NOT a silent no-op (the pulse fires for
-Daemons). The wave-87 diagnostic over-attributed: the rule is real (kept default-on for fidelity, the
-damaged-OC precedent), but it does not explain the −22. Likely because aggressive Daemons push past
-their own Shadow into enemy territory (rarely in-Shadow when dying), and more fundamentally the residual
-is combat-power / positional, not attrition. **The Chaos Daemons residual needs RE-DIAGNOSIS.** 926
-tests pass. Memory `project-daemons-manifestation-missing`.
+**Wave 89 audited the over-shooter detachments for fabricated buffs** (a deck-independent lever while
+Tier B is parked). BSData-verified result: the over-shooters (Votann, Drukhari, Custodes, World Eaters,
+Sororitas, T'au, Thousand Sons) are LARGELY CLEAN — the fabricated always-on buffs were already swept in
+prior waves. So **the over-shooter over-rates are STRUCTURAL (positioning / scoring / representation),
+not fabricated detachment buffs.** Two minor deferred flags (Custodes Shield Host crit-on-5+, an
+edition-uncertain + metric-negative fidelity item; Inquisition Task Force, a zero-metric Agents fix). No
+code change. STRATEGIC STATE: the clean faithful levers are thinning at gated 4.08; the residual mass is
+IK +27 (positioning, reported not faithfully fixable) and Daemons −22 (combat/positional, hard); the
+biggest remaining clean lever is the secondary deck-re-alignment, blocked on the Q10 deck ruling. Memory
+`project-detachment-fabrication-pattern`.
+
+### Earlier — wave 88 (Daemonic Manifestation built, real but metric-neutral)
+
+**Wave 88 built Daemonic Manifestation** (the missing friendly half of the Chaos Daemons Shadow of Chaos
+army rule) — real, cited, faction-gated, default-on — but the N=40 A/B was metric-neutral (Daemons
+−22.2 → −22.5). The wave-87 diagnosis over-attributed; the Daemons residual needs re-diagnosis.
 
 ### Earlier — wave 87 (diagnosed Chaos Daemons −22; build planned)
 

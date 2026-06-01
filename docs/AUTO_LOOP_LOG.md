@@ -4,6 +4,38 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 89 close (2026-06-01) — detachment-fabrication sweep on the over-shooters: NEGATIVE finding — they are already clean; the over-rates are structural, not fabricated buffs (no code change)
+
+Branch `claude/sim-calibration-6`. With Tier B parked (Q10 deck ruling still OPEN) and the Daemons
+attrition lever spent, took a different clean deck-independent angle: a detachment-fabrication audit on
+the over-shooter factions (memory `project-detachment-fabrication-pattern` — removing a fabricated
+always-on buff is faithful AND reduces an over-shoot). Negative-but-useful result; no code change.
+Headline unchanged at gated 4.08.
+
+THE FINDING. The over-shooter detachments (Leagues of Votann, Drukhari, Adeptus Custodes, World Eaters,
+Adepta Sororitas, T'au, Thousand Sons) are LARGELY CLEAN — the fabricated always-on attack buffs were
+already swept in prior waves (Invasion Fleet enemy-Ld, Pactbound reroll-wounds, Sororitas plus-wound,
+World Eaters plus-hit, Grand Coven psychic mortals, etc. — all already removed). The audit (BSData-
+verified, not just grep) found NO active unconditional fabricated buff on any over-shooter. So the
+over-shooter over-rates are STRUCTURAL (positioning / scoring / representation), NOT fabricated
+detachment buffs — a useful negative that focuses future work away from this lever.
+
+Two minor flags (neither a clean metric-positive fix, both deferred):
+- **Custodes Shield Host `melee_crit_on_5_plus_hits`** was removed earlier citing a Wahapedia 3-bullet
+  Martial Mastery; BSData v10.6.0 has it as a real 2-bullet "pick one at battle-round start" rule (crit-
+  on-5+ AND AP+1), so the removal cited the wrong source. BUT this is edition-uncertain (BSData 2-bullet
+  vs Wahapedia 3-bullet — possible stale-BSData), restoring it WORSENS Custodes (an over-shooter), and it
+  needs an even-round-alternation build. Deferred to a careful fidelity pass; not a clean win.
+- **Inquisition Task Force `reroll_hit_ones`** (Agents of the Imperium) is a real name+scope fabrication
+  (army-wide vs the real CHARACTER-gated Daemon Hunters rule), but Agents is not one of the 22 evaluated
+  factions, so it is zero-metric correctness cleanup — deferred.
+
+STRATEGIC STATE. The clean faithful levers are thinning at gated 4.08 (down from 5.98 this session). The
+residual mass is now IK +27 (positioning/structural, reported not faithfully fixable) and Daemons −22
+(attrition neutral; combat/positional, hard); the biggest remaining clean lever is the secondary
+deck-re-alignment, BLOCKED on the Q10 deck ruling. Memory `project-detachment-fabrication-pattern`
+updated (over-shooters swept clean).
+
 ## Wave 88 close (2026-06-01) — DAEMONIC MANIFESTATION built + landed (real rule, cited), but METRIC-NEUTRAL — it does NOT fix the Chaos Daemons residual; the wave-87 diagnosis over-attributed
 
 Branch `claude/sim-calibration-6`. Built the wave-87-planned fix — the missing friendly half of the
