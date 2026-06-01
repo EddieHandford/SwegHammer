@@ -340,6 +340,11 @@ class Battle:
         self._b_round_snapshot = None  # snapshot of B's units at round start
         self._a_secondary_vp: int = 0  # cumulative secondary VP for side A
         self._b_secondary_vp: int = 0  # cumulative secondary VP for side B
+        # Wave 83 Tier A: which side ('a'/'b'/None) controlled each objective
+        # at the START of the current round — consumed by Storm Hostile
+        # Objective ("control an objective the opponent controlled at the start
+        # of the turn"). Refreshed in the round-start snapshot.
+        self._obj_controller_at_round_start: dict = {}
         # Iter-4 A5: flag set TRUE while inside `_apply_detachment_stratagems`
         # so `_fire_stratagem` knows whether to increment the per-army
         # per-Command-phase counter. Always False outside that scope —
@@ -1026,6 +1031,132 @@ class Battle:
             best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
         return best
 
+    # ------------------------------------------------------------------
+    # Wave 83 Tier A — objective-holding / board-control secondaries
+    #
+    # The real Pariah Nexus secondary deck contains a family of take-and-hold
+    # cards the simulator did not model; they are exactly the scoring paths a
+    # body army uses to out-score a durable camper (you cannot kill a Knight,
+    # so you take/contest the objectives it cannot be on). Every army may bring
+    # the whole package — the asymmetry is purely in COMPLETION (a low-model
+    # army controls few objectives across zones), bounded by the existing 40-VP
+    # secondary total cap (`_decide_winner`) and by each card's natural ≤20-VP
+    # ceiling over the four scoring rounds (the real per-Fixed-mission 20-VP cap,
+    # honoured by construction — no card here exceeds 5 VP/round × 4 = 20). No
+    # per-faction weight and no count gate: identical pool + identical scoring
+    # for both sides. Env-gated SWEG_TIER_A for the A/B; inert (returns 0) when
+    # off, so the chosen-secondary tuples may always include these keys.
+    # Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/
+    # ------------------------------------------------------------------
+
+    def _tier_a_enabled(self) -> bool:
+        # Landed ON in wave 83 after the env-gated N=40 A/B validated it as a
+        # clear fidelity win: gated MAE 4.95 → 4.17, factions in the noise band
+        # 6 → 9, with most over-shooters easing (Drukhari +18.6 → +9.7, Custodes
+        # +7.4 → +2.7, Adepta Sororitas +8.4 → +2.8, T'au +5.9 → +0.6) and the
+        # board-control under-shooters rising (Chaos Space Marines −19.2 → −11.3,
+        # Chaos Knights −12.3 → −1.1). It did NOT fix Imperial Knights (+19.1 →
+        # +29.2) — the take-and-hold cards reward objective CONTROL, and a durable
+        # Knight over-controls objectives, so it scores them itself; that sharpens
+        # the IK diagnosis to objective-over-control, addressed by a later lever,
+        # not a reason to withhold a faithful aggregate win. Default ON; set
+        # SWEG_TIER_A=0 to re-gate for a future isolation A/B.
+        return __import__("os").environ.get("SWEG_TIER_A", "1") != "0"
+
+    def _obj_in_own_dz(self, obj, own_is_army_a: bool) -> bool:
+        """True if the objective sits in the scoring side's own deployment zone.
+        Army A deploys low-y, B high-y."""
+        dz = self.map.deployment_width
+        if own_is_army_a:
+            return obj.y <= dz
+        return obj.y >= (self.map.height - dz)
+
+    def _obj_in_nml(self, obj) -> bool:
+        """True if the objective is in No Man's Land (outside both deployment
+        zones) — symmetric, so it needs no side argument."""
+        dz = self.map.deployment_width
+        return dz < obj.y < (self.map.height - dz)
+
+    def _objective_controllers(self) -> dict:
+        """Map obj_idx -> 'a' / 'b' / None for whoever currently has strictly
+        greater Objective Control within each marker's radius. Used to snapshot
+        round-start control for Storm Hostile Objective."""
+        out: dict = {}
+        for idx, obj in enumerate(self.map.objectives):
+            a = self._oc_within(self.a, obj)
+            b = self._oc_within(self.b, obj)
+            out[idx] = "a" if a > b else ("b" if b > a else None)
+        return out
+
+    def _score_area_denial(self, army, opponent) -> int:
+        """Area Denial: 5 VP if one+ of your units is within 3" of the
+        battlefield centre AND no enemy unit is within 6" of it; 2 VP instead if
+        no enemy unit is within 3" of it. Cited `simulator.secondary_area_denial`."""
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+
+        def any_within(units, r: float) -> bool:
+            r2 = r * r
+            for u in units:
+                dx = u.position[0] - cx
+                dy = u.position[1] - cy
+                if dx * dx + dy * dy <= r2:
+                    return True
+            return False
+
+        if not any_within(army.alive_units, 3.0):
+            return 0
+        if not any_within(opponent.alive_units, 6.0):
+            return 5
+        if not any_within(opponent.alive_units, 3.0):
+            return 2
+        return 0
+
+    def _score_board_secondaries(self, army, opponent, own_is_army_a: bool) -> int:
+        """End-of-round scoring for the Tier-A take-and-hold secondaries an army
+        chose. Control of a marker = strictly greater Objective Control than the
+        opponent (same test as Cleanse). Env-gated; returns 0 when off.
+
+        * Secure No Man's Land — 2 VP one / 5 VP two+ No Man's Land objectives
+          controlled. Cited `simulator.secondary_secure_no_mans_land`.
+        * Defend Stronghold — 3 VP controlling one+ objective in your own
+          deployment zone. Cited `simulator.secondary_defend_stronghold`.
+        * Extend Battle Lines — 5 VP controlling one+ in your zone AND one+ in
+          No Man's Land. Cited `simulator.secondary_extend_battle_lines`.
+        * Storm Hostile Objective — 4 VP controlling one+ objective the opponent
+          controlled at the start of the round.
+          Cited `simulator.secondary_storm_hostile_objective`.
+        * Area Denial — see `_score_area_denial`.
+        """
+        if not self._tier_a_enabled():
+            return 0
+        chosen = getattr(army, "chosen_secondaries", ()) or ()
+        opp_tag = "b" if own_is_army_a else "a"
+        nml_controlled = 0
+        own_dz_controlled = 0
+        stormed = 0
+        for idx, obj in enumerate(self.map.objectives):
+            if self._oc_within(army, obj) <= self._oc_within(opponent, obj):
+                continue   # not controlled by this side
+            if self._obj_in_own_dz(obj, own_is_army_a):
+                own_dz_controlled += 1
+            elif self._obj_in_nml(obj):
+                nml_controlled += 1
+            if self._obj_controller_at_round_start.get(idx) == opp_tag:
+                stormed += 1
+        total = 0
+        if "secure_no_mans_land" in chosen:
+            total += 5 if nml_controlled >= 2 else (2 if nml_controlled >= 1 else 0)
+        if "defend_stronghold" in chosen and own_dz_controlled >= 1:
+            total += 3
+        if "extend_battle_lines" in chosen and own_dz_controlled >= 1 and nml_controlled >= 1:
+            total += 5
+        if "storm_hostile_objective" in chosen and stormed >= 1:
+            total += 4
+        if "area_denial" in chosen:
+            total += self._score_area_denial(army, opponent)
+        return total
+
     def _score_secondaries(self, round_num: int) -> None:
         """End-of-round secondary VP scoring (Bring it Down + No Prisoners).
 
@@ -1164,6 +1295,17 @@ class Battle:
         b_sabotage = self._score_sabotage(self.b, own_is_army_a=False)
         self._b_vp += b_sabotage
         self._b_secondary_vp += b_sabotage
+
+        # Wave 83 Tier A — objective-holding / board-control secondaries
+        # (env-gated SWEG_TIER_A). Added to the live total (_a_vp/_b_vp) and the
+        # reporting tracker (_a_secondary_vp), exactly like Cleanse/Sabotage; the
+        # 40-VP secondary cap in `_decide_winner` bounds the sum.
+        a_board = self._score_board_secondaries(self.a, self.b, own_is_army_a=True)
+        self._a_vp += a_board
+        self._a_secondary_vp += a_board
+        b_board = self._score_board_secondaries(self.b, self.a, own_is_army_a=False)
+        self._b_vp += b_board
+        self._b_secondary_vp += b_board
 
     # ------------------------------------------------------------------
     # Reanimation Protocols (issue #75)
@@ -5863,6 +6005,9 @@ class Battle:
         from .secondaries import take_snapshot as _take_snapshot
         self._a_round_snapshot = _take_snapshot(self.a.units)
         self._b_round_snapshot = _take_snapshot(self.b.units)
+        # Wave 83 Tier A: record who controls each objective at round start, so
+        # Storm Hostile Objective can score taking one the opponent held.
+        self._obj_controller_at_round_start = self._objective_controllers()
 
         # Fix F-NEC-1: snapshot per-profile alive counts AT ROUND START for
         # any army with Reanimation Protocols. End-of-round `_apply_reanimation`

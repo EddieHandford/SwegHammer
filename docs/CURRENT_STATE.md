@@ -1,23 +1,37 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 82 close (2026-06-01) — the scoring / victory-point model overhaul is
-SCOPED (user Q6 ruling). Headline gated **4.95**. Plan wave, no code change. Next: build it.
+**Last updated:** Wave 83 close (2026-06-01) — Tier A board-control secondaries BUILT + LANDED.
+Headline gated **4.17** (down from 4.95), in band **9/22** (up from 6). The scoring overhaul's
+first build is a clear faithful aggregate win — but it made Imperial Knights WORSE, sharpening
+that residual to objective-over-control.
 
-**Wave 82 scoped the user-authorised scoring-model overhaul** (`LOOP_QA.md` Q6 RESOLVED: the
-user chose option (a) — build the scoring/victory-point overhaul, diagnose-don't-nerf,
-plan-first). Deliverable `docs/SCORING_MODEL_OVERHAUL_PLAN.md`. The diagnosis: primary scoring
-is faithful; the gap is the SECONDARY economy — the sim models only 4 tactical secondaries of
-the real ~12-card Pariah Nexus pool, and the **missing cards are exactly the objective-holding /
-board-control family** (Storm Hostile Objective, Secure No Man's Land, Area Denial, Defend
-Stronghold, Extend Battle Lines, Overwhelming Force) — the scoring paths a body army uses to
-out-score a durable camper, which a 9-model Imperial Knights army cannot complete as well. This
-also explains the wave-81 contest/deny failure: taking a Knight's objective only denied 5 primary
-in the sim, but in real play also SCORES 4 (Storm Hostile Objective) — the reward for the
-anti-camper play was missing. Build sequence: wave 83 = Tier A (add the take-and-hold secondaries
-+ per-Fixed 20-cap, the targeted lever); wave 84 = Tier B (formula corrections to the 4 modelled
-cards); wave 85 = Tier C (primary-economy correctness — sticky control on ties, flagged as
-RAISING Imperial Knights, so implemented because-it-is-the-real-rule, never for direction). Hard
-rails: cited, even-handed, no per-faction weights, would-it-be-correct-if-it-moved-metric-wrong.
+**Wave 83 built + landed Tier A** (the five real Pariah Nexus objective-holding / board-control
+secondaries the sim was missing: Secure No Man's Land, Defend Stronghold, Extend Battle Lines,
+Storm Hostile Objective, Area Denial). Every army brings the package (even-handed; the asymmetry
+is purely in completion), bounded by the 40-VP secondary cap. N=40: gated **4.95 → 4.17 (−0.78)**,
+in band **6 → 9** — most over-shooters eased (Drukhari +18.6 → +9.7, Custodes +7.4 → +2.7, Adepta
+Sororitas +8.4 → +2.8, T'au +5.9 → +0.6) and board-control under-shooters rose (Chaos Space
+Marines −19.2 → −11.3, Chaos Knights into band). LANDED (clear fidelity win), env-gate kept for
+re-A/B (`SWEG_TIER_A=0`). Five citations added; 926 tests pass; audit clean.
+
+**THE SHARPENED IMPERIAL KNIGHTS FINDING.** Tier A made Imperial Knights WORSE (+19.1 → +29.2) —
+the watchdog's Q7 pre-authorised scenario. The card family rewards objective CONTROL, and a durable
+Knight over-controls objectives, so it banks the new board secondaries itself (the +10 IK jump the
+instant objective-based scoring was added is the proof). This **falsifies "missing scoring paths"
+for IK** and sharpens the residual to **objective-OVER-CONTROL** (a durable, high-Objective-Control,
+low-unit-count army holds the board uncontested — consistent with the wave-81 contest/deny failure):
+a model-count / Objective-Control-representation problem, NOT a scoring gap, NOT a nerf. **Next IK
+lever: objective-takeability / the Objective-Control contest** — does a body army correctly
+out-Objective-Control a Knight on a shared marker? Reported `LOOP_QA.md` Q8. Tiers B (kill-card
+formula corrections) and C (sticky control) remain queued correctness fixes but are no longer the
+expected IK lever. Plan + full result: `docs/SCORING_MODEL_OVERHAUL_PLAN.md`.
+
+### Earlier — wave 82 (scoring overhaul scoped)
+
+**Wave 82 scoped the user-authorised scoring-model overhaul** (`LOOP_QA.md` Q6: build the
+scoring/victory-point overhaul, diagnose-don't-nerf, plan-first). Deliverable
+`docs/SCORING_MODEL_OVERHAUL_PLAN.md`: primary scoring is faithful; the gap was the SECONDARY
+economy (only 4 of ~12 tactical secondaries modelled). Wave 83 built Tier A from this plan.
 
 ### Earlier — wave 81 (contest/deny tested + reverted; the AI track concluded)
 

@@ -10,6 +10,7 @@ from code.secondaries import (
     ASSASSINATION_CAP_PER_ROUND,
     ASSASSINATION_VP_PER_CHAR,
     BEHIND_ENEMY_LINES_VP,
+    BOARD_SECONDARY_KEYS,
     BRING_IT_DOWN_CAP_PER_ROUND,
     BRING_IT_DOWN_VP_PER_KILL,
     CULL_THE_HORDE_CAP_PER_ROUND,
@@ -650,18 +651,23 @@ class PickSecondariesTests(unittest.TestCase):
         # effects.
         return SimpleNamespace(units=list(units))
 
-    def test_picker_returns_exactly_four_keys(self):
+    def test_picker_returns_fixed_tactical_and_board_keys(self):
         own = self._make_army([_make_unit("Marine", alive=True,
                                             keywords=("INFANTRY",))])
         enemy = self._make_army([_make_unit("Marine", alive=True,
                                               keywords=("INFANTRY",))])
         picks = pick_secondaries(own, enemy)
-        self.assertEqual(len(picks), 4)
-        # First two are Fixed, last two are Tactical.
+        # First two are Fixed, next two are Tactical (Engage/BEL). A single
+        # non-chaff unit adds no Cleanse/Sabotage. Wave 83: the objective-
+        # holding / board-control package is always appended (inert unless
+        # SWEG_TIER_A is on at scoring time).
+        self.assertEqual(len(picks), 2 + 2 + len(BOARD_SECONDARY_KEYS))
         for k in picks[:2]:
             self.assertIn(k, FIXED_SECONDARY_KEYS)
-        for k in picks[2:]:
-            self.assertIn(k, TACTICAL_SECONDARY_KEYS)
+        self.assertIn("engage_on_all_fronts", picks)
+        self.assertIn("behind_enemy_lines", picks)
+        for k in BOARD_SECONDARY_KEYS:
+            self.assertIn(k, picks)
 
     def test_picker_picks_bring_it_down_vs_vehicle_heavy_enemy(self):
         own = self._make_army([_make_unit("Marine", alive=True,

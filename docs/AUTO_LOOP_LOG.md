@@ -4,6 +4,47 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 83 close (2026-06-01) — Tier A board-control secondaries BUILT + LANDED (gated 4.95 → 4.17, in-band 6 → 9); sharpens the Imperial Knights finding to objective-over-control
+
+Branch `claude/sim-calibration-6`. First BUILD wave of the scoring-model overhaul (plan Tier A;
+watchdog Q7 approved). Added the five real Pariah Nexus objective-holding / board-control
+secondaries the sim was missing. Validated as a clear fidelity win and LANDED ON (default-on,
+`SWEG_TIER_A=0` to re-gate). Biggest single-wave headline move in a while.
+
+BUILT: `Battle._score_board_secondaries` + `_score_area_denial` + zone helpers (`_obj_in_own_dz`,
+`_obj_in_nml`, `_objective_controllers`) + a round-start objective-controller snapshot (for Storm
+Hostile Objective). Five cards, scored per the verbatim real text, control = strictly-greater
+Objective Control (same test as Cleanse): **Secure No Man's Land** (2/5), **Defend Stronghold**
+(3), **Extend Battle Lines** (5), **Storm Hostile Objective** (4 — take an objective the opponent
+held), **Area Denial** (2/5 centre). Every army brings the whole package (identical pool + scoring
+both sides — even-handed; the asymmetry is purely in COMPLETION), bounded by the existing 40-VP
+secondary cap and each card's natural ≤20-VP/game ceiling (the real per-Fixed-mission 20-cap,
+honoured by construction). Five citations added to `secondaries_pariah_nexus.json` (audit 288/288).
+
+| Eval (N=40) | MAE_gated | in band | Imperial Knights | note |
+|---|---:|---:|---:|---|
+| Tier A OFF | 4.95 | 6/22 | +19.1 | baseline (identical to wave 82 — inert keys don't perturb) |
+| **Tier A ON** | **4.17** | **9/22** | **+29.2** | **−0.78 headline; IK WORSE** |
+
+Most over-shooters eased hard (Drukhari +18.6 → +9.7, Custodes +7.4 → +2.7, Adepta Sororitas
++8.4 → +2.8, T'au +5.9 → +0.6, World Eaters +7.9 → +1.8, Emperor's Children +5.7 → +2.2) and the
+board-control under-shooters rose (Chaos Space Marines −19.2 → −11.3, Chaos Knights −12.3 → −1.1
+into band). A few under-shooters worsened (Chaos Daemons −18.3 → −22.2, Necrons, Adeptus Mechanicus,
+Genestealer Cults) — they lose the board so their opponents bank the new board VP; their own
+positional/AI weakness is a separate diagnosis.
+
+THE SHARPENED IK FINDING (watchdog Q7 pre-authorised this exact scenario — "if Tier A doesn't move
+campers, report it as a primary-economy / model-count finding; don't nerf"). Tier A made Imperial
+Knights WORSE (+19.1 → +29.2). Mechanism, proven by the delta itself: the only thing Tier A adds is
+objective-CONTROL-based scoring, and IK's win rate jumped +10 the moment it was added — so IK
+out-controls objectives relative to its opponents and banks the new board secondaries ITSELF. The
+IK residual is therefore **objective-OVER-CONTROL** (a durable, high-Objective-Control 9-to-13-unit
+army holds the board uncontested — consistent with the wave-81 finding that opponents cannot contest
+it off), NOT missing scoring paths. The next IK lever re-aims at objective-takeability / the
+Objective-Control contest (does a body army correctly out-Objective-Control a Knight on a shared
+marker?), a model-count/representation question — NOT more scoring and NOT a nerf. Tier A kept (clear
+faithful aggregate win); IK finding reported to the watchdog (`LOOP_QA.md` Q8). 926 tests pass.
+
 ## Wave 82 close (2026-06-01) — scoring / victory-point model overhaul SCOPED (user Q6 ruling); plan wave, no code change
 
 Branch `claude/sim-calibration-6`. First wave of the user-authorised scoring-model phase (Q6

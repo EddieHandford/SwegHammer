@@ -100,6 +100,51 @@
     "trigger": "end of each battle round, when an enemy CHARACTER-keyword unit was destroyed this round",
     "effect": "the opposing army gains 5 VP per destroyed enemy CHARACTER this round, capped at 10 VP per round",
     "scope": "phase-gated"
+  },
+
+  "simulator.secondary_secure_no_mans_land": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Secure No Man's Land (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Secure No Man's Land: 2VP if controlling one objective marker in No Man's Land; or 5VP if controlling two or more objective markers in No Man's Land.",
+    "trigger": "end of each battle round, counting the No Man's Land objective markers (outside both deployment zones) the scoring army controls (strictly greater Objective Control than the opponent within the marker's radius)",
+    "effect": "2 VP for one controlled No Man's Land objective, 5 VP for two or more. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Rewards a body army that can spread across the midboard, which a low-model durable camper cannot — even-handed (same pool + scoring both sides; the asymmetry is in completion, bounded by the 40-VP secondary cap).",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_defend_stronghold": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Defend Stronghold (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Defend Stronghold: 3VP if controlling one or more objective markers in your deployment zone.",
+    "trigger": "end of each battle round, when the scoring army controls one or more objective markers in its own deployment zone",
+    "effect": "3 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Available to every army (a camper holding its home objective scores it too) — even-handed.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_extend_battle_lines": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Extend Battle Lines (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Extend Battle Lines: 5VP if controlling one or more objective markers in your deployment zone AND one or more in No Man's Land; or 2VP if you have only one unit on the battlefield controlling an objective marker in No Man's Land. APPROXIMATION: SwegHammer implements the 5 VP clause only (control one+ own-deployment-zone objective AND one+ No Man's Land objective); the fringe single-unit 2 VP alternate is not modelled.",
+    "trigger": "end of each battle round, when the scoring army controls at least one objective in its own deployment zone AND at least one in No Man's Land",
+    "effect": "5 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). Rewards spreading across own-zone and midboard, which needs more bodies than a low-model camper has — even-handed.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_storm_hostile_objective": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Storm Hostile Objective (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Storm Hostile Objective: 4VP if controlling one or more objective markers your opponent controlled at the start of your turn; or (from the second battle round) 4VP if your opponent controlled no objective markers at the start of your turn and you control one or more that you did not control at the start of your turn. APPROXIMATION: SwegHammer scores the first clause — control at round end one or more markers the opponent controlled at round start (captured in _obj_controller_at_round_start); the second alternate clause is not modelled.",
+    "trigger": "end of each battle round, when the scoring army controls one or more objective markers that the opponent controlled at the start of the round",
+    "effect": "4 VP. Implemented in Battle._score_board_secondaries (env-gated SWEG_TIER_A). This is the scoring REWARD for taking a durable camper's objectives — the anti-camper play that wave-81 contest/deny lacked because the model only DENIED the camper's primary, never scored the taker. Even-handed.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.secondary_area_denial": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/",
+    "rule_name": "Area Denial (Pariah Nexus Secondary Mission)",
+    "quoted_text": "Area Denial: 2VP if one or more units from your army are within 3\" of the centre of the battlefield and there are no enemy units within 3\" of the centre; or 5VP if one or more of your units are within 3\" of the centre and there are no enemy units within 6\" of the centre.",
+    "trigger": "end of each battle round, evaluating the scoring army's and the opponent's unit positions relative to the battlefield centre (width/2, height/2)",
+    "effect": "Requires one of your units within 3\" of centre; then 5 VP if no enemy unit within 6\" of centre, else 2 VP if no enemy unit within 3\" of centre, else 0. Implemented in Battle._score_area_denial (env-gated SWEG_TIER_A). Even-handed centre-control reward.",
+    "scope": "phase-gated"
   }
 
 }

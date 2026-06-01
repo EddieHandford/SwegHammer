@@ -58,8 +58,21 @@ TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     # _assign_sabotage_actions, env-gated SWEG_S2).
     "sabotage",
 )
+# Wave 83 Tier A: the objective-holding / board-control secondaries. Scoring +
+# zone classification live in code/simulator.py (Battle._score_board_secondaries,
+# env-gated SWEG_TIER_A); registering the keys here lets `pick_secondaries` add
+# them to an army's chosen tuple. The real Pariah Nexus take-and-hold cards — the
+# scoring paths a body army uses to out-score a durable camper. Source:
+# https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-battles/
+BOARD_SECONDARY_KEYS: Tuple[str, ...] = (
+    "secure_no_mans_land",
+    "defend_stronghold",
+    "extend_battle_lines",
+    "storm_hostile_objective",
+    "area_denial",
+)
 ALL_SECONDARY_KEYS: Tuple[str, ...] = (
-    FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS
+    FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS + BOARD_SECONDARY_KEYS
 )
 
 
@@ -644,7 +657,14 @@ def pick_secondaries(
         # Inert unless SWEG_S2 is set (the simulator gates the scoring + the
         # 40-VP secondary cap that keeps total secondary VP faithful).
         tactical.append("sabotage")
-    return tuple(fixed + tactical)
+    # Wave 83 Tier A: every army brings the full objective-holding / board-control
+    # package. The asymmetry is purely in COMPLETION (a low-model durable army
+    # controls few objectives across zones and scores ~0 on the spread cards),
+    # not in the pick — identical for both sides, so even-handed. Inert unless
+    # SWEG_TIER_A is set (the simulator gates the scoring), and bounded by the
+    # 40-VP secondary total cap plus each card's natural ≤20-VP/game ceiling.
+    board = list(BOARD_SECONDARY_KEYS)
+    return tuple(fixed + tactical + board)
 
 
 def _own_chaff_count(own_army: "Army") -> int:

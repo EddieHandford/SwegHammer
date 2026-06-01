@@ -162,6 +162,28 @@ correctness / datasheet fixes can land in any wave alongside.
   itself a finding — it would mean the residual is in the PRIMARY economy or the model-count
   representation, and the next escalation names that. Report it; do not nerf.
 
+## Wave 83 result — Tier A BUILT + LANDED (gated 4.95 → 4.17, in-band 6 → 9); IK finding sharpened to objective-over-control
+
+Built the five take-and-hold secondaries (`Battle._score_board_secondaries`, env-gated, landed
+default-ON after the A/B). Result (N=40): gated mean absolute error **4.95 → 4.17 (−0.78)**,
+factions in band **6 → 9** — a clear faithful aggregate win, so kept. Most over-shooters eased
+(Drukhari +18.6 → +9.7, Custodes +7.4 → +2.7, Adepta Sororitas +8.4 → +2.8, T'au +5.9 → +0.6,
+World Eaters / Emperor's Children down) and the board-control under-shooters rose (Chaos Space
+Marines −19.2 → −11.3, Chaos Knights into band).
+
+**But Tier A made Imperial Knights WORSE: +19.1 → +29.2.** The card family rewards objective
+CONTROL, and a durable Knight over-controls objectives, so it banks the new board secondaries
+itself — the +10 IK jump the instant objective-based scoring was added IS the proof. This
+**falsifies the "missing scoring paths" hypothesis for IK** and sharpens the diagnosis: the IK
+residual is **objective-OVER-CONTROL** (a durable, high-Objective-Control, low-unit-count army
+holds the board uncontested — consistent with wave-81's contest/deny failure), a model-count /
+Objective-Control-representation problem, NOT a scoring-economy gap. Per the watchdog's Q7
+pre-authorisation this is reported, not nerfed. The next IK lever (supersedes Tier C as the IK
+priority) is **objective-takeability / the Objective-Control contest** — verify whether a body
+army correctly out-Objective-Controls a Knight on a shared marker, and whether opponents can ever
+wrest / block a Knight off objectives. Tiers B (kill-card formula corrections) and C (sticky
+control) remain as queued correctness fixes but are no longer expected to be the IK lever.
+
 ## 6. Hard-rails self-check (apply before each build wave commits)
 
 For every scoring change, the build wave must be able to answer YES to all:
