@@ -1,13 +1,22 @@
 """Tests for the 10e Ruins line-of-sight rule.
 
-10e core: "Models can shoot through walls of a Ruin so long as both the
-firing model and the target model have the INFANTRY, BEAST or SWARM
-keyword. In all other cases, a wall blocks line of sight."
-https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins
+Current 10e core (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins):
+"Models cannot see over or through this terrain feature. AIRCRAFT models are
+exceptions to this ... Models can see into this terrain feature normally, and
+models that are wholly within this terrain feature can see out of it normally.
+... TOWERING models that are within this terrain feature can also see out of it
+normally."
+
+So Ruin walls block line of sight for everyone except AIRCRAFT; a model wholly
+within the Ruin can see out (which also covers a TOWERING model standing inside
+it). The INFANTRY/BEAST exception is MOVEMENT ONLY in current 10e and grants no
+line of sight — the old "INFANTRY/BEAST/SWARM may shoot through Ruin walls"
+line-of-sight pass has been removed. TOWERING does NOT get a blanket see-over
+for Ruins (unlike Woods/Obscuring).
 
 Implemented in `code.map.Map.has_line_of_sight` via the
 `attacker_keywords` / `target_keywords` kwargs; cited as
-`terrain.ruin_infantry_los`.
+`terrain.ruin_infantry_los` and `simulator.towering_los`.
 """
 
 import unittest
@@ -58,19 +67,23 @@ class RuinLosTests(unittest.TestCase):
     VEHICLE = ("VEHICLE",)
     BEAST = ("BEAST",)
     SWARM = ("SWARM",)
+    AIRCRAFT = ("AIRCRAFT",)
     NONE = ()
 
-    # ---- Ruin: keyword asymmetry ----------------------------------------
+    # ---- Ruin: walls block everyone except AIRCRAFT ---------------------
 
-    def test_infantry_to_infantry_passes_through_ruin(self):
+    def test_infantry_to_infantry_blocked_by_ruin(self):
+        """Current 10e: the INFANTRY/BEAST/SWARM shoot-through-walls
+        line-of-sight pass was removed (that exception is movement-only now).
+        INFANTRY firing at INFANTRY through a Ruin wall is BLOCKED."""
         m = _ruin_in_the_middle()
-        self.assertTrue(
+        self.assertFalse(
             m.has_line_of_sight(
                 self.A, self.B,
                 attacker_keywords=self.INFANTRY,
                 target_keywords=self.INFANTRY,
             ),
-            "INFANTRY firing at INFANTRY through a Ruin wall must see (10e core).",
+            "INFANTRY no longer shoots through Ruin walls in current 10e.",
         )
 
     def test_vehicle_to_vehicle_blocked_by_ruin(self):
@@ -84,37 +97,41 @@ class RuinLosTests(unittest.TestCase):
             "VEHICLE shooting at VEHICLE through a Ruin wall must be blocked.",
         )
 
-    def test_infantry_to_vehicle_blocked_by_ruin(self):
+    def test_beast_to_swarm_blocked_by_ruin(self):
+        """BEAST and SWARM no longer get a line-of-sight pass through Ruin
+        walls either — the keyword exception is movement-only in current 10e."""
         m = _ruin_in_the_middle()
         self.assertFalse(
-            m.has_line_of_sight(
-                self.A, self.B,
-                attacker_keywords=self.INFANTRY,
-                target_keywords=self.VEHICLE,
-            ),
-            "10e Ruins requires BOTH endpoints to be INFANTRY/BEAST/SWARM.",
-        )
-
-    def test_vehicle_to_infantry_blocked_by_ruin(self):
-        m = _ruin_in_the_middle()
-        self.assertFalse(
-            m.has_line_of_sight(
-                self.A, self.B,
-                attacker_keywords=self.VEHICLE,
-                target_keywords=self.INFANTRY,
-            ),
-            "10e Ruins requires BOTH endpoints to be INFANTRY/BEAST/SWARM.",
-        )
-
-    def test_beast_to_swarm_passes_through_ruin(self):
-        """BEAST and SWARM share the INFANTRY exception in 10e core."""
-        m = _ruin_in_the_middle()
-        self.assertTrue(
             m.has_line_of_sight(
                 self.A, self.B,
                 attacker_keywords=self.BEAST,
                 target_keywords=self.SWARM,
             ),
+            "BEAST/SWARM no longer shoots through Ruin walls in current 10e.",
+        )
+
+    def test_aircraft_attacker_sees_through_ruin(self):
+        """AIRCRAFT is the only blanket exception — visibility to/from an
+        AIRCRAFT model is determined normally even through a Ruin wall."""
+        m = _ruin_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.AIRCRAFT,
+                target_keywords=self.VEHICLE,
+            ),
+            "AIRCRAFT attacker must see through a Ruin wall (10e core).",
+        )
+
+    def test_aircraft_target_seen_through_ruin(self):
+        m = _ruin_in_the_middle()
+        self.assertTrue(
+            m.has_line_of_sight(
+                self.A, self.B,
+                attacker_keywords=self.VEHICLE,
+                target_keywords=self.AIRCRAFT,
+            ),
+            "An AIRCRAFT target must be seen through a Ruin wall (10e core).",
         )
 
     def test_no_keywords_blocked_by_ruin(self):
@@ -184,14 +201,16 @@ class RuinLosTests(unittest.TestCase):
 
 
 class ToweringLosTests(unittest.TestCase):
-    """TOWERING keyword: either endpoint TOWERING ignores Obscuring and Ruin
-    walls for line-of-sight (10e core Terrain Glossary).
+    """TOWERING keyword: either endpoint TOWERING ignores Woods / OBSCURING
+    terrain for line of sight (10e core Woods rule). TOWERING does NOT get a
+    blanket see-over for RUINS — per the Ruins rule a TOWERING model only sees
+    out of a Ruin when it is itself within that Ruin; from OUTSIDE a Ruin it is
+    blocked like anyone else.
 
-    Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary
-    "When a model with the TOWERING keyword draws a line of sight, or when an
-    enemy model draws a line of sight to a model with the TOWERING keyword,
-    the line of sight can be drawn as if intervening terrain features with the
-    Obscuring or Dense Cover terrain trait were not there."
+    Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Woods
+    "AIRCRAFT and TOWERING models are exceptions to this — visibility to and
+    from such models is determined normally, even if this terrain feature is
+    wholly in between them and the observing model."
     """
 
     A = (15.0, 30.0)
@@ -247,49 +266,55 @@ class ToweringLosTests(unittest.TestCase):
             "Non-TOWERING models must still be blocked by Obscuring terrain.",
         )
 
-    # ---- TOWERING attacker vs Ruin wall ----------------------------------------
+    # ---- TOWERING vs Ruin wall: blocked from OUTSIDE, sees out from INSIDE --
 
-    def test_towering_attacker_ignores_ruin(self):
+    def test_towering_attacker_blocked_by_ruin_from_outside(self):
+        """A TOWERING model OUTSIDE a Ruin is blocked by the wall like anyone
+        else — TOWERING is not a blanket Ruin see-over (only AIRCRAFT is)."""
         m = _ruin_in_the_middle()
-        self.assertTrue(
+        self.assertFalse(
             m.has_line_of_sight(
                 self.A, self.B,
                 attacker_keywords=self.TOWERING,
                 target_keywords=self.VEHICLE,
             ),
-            "TOWERING attacker must ignore Ruin wall line-of-sight block.",
+            "TOWERING does not see through Ruin walls from outside the Ruin.",
         )
 
-    def test_towering_target_ignores_ruin(self):
+    def test_towering_target_blocked_by_ruin_from_outside(self):
         m = _ruin_in_the_middle()
-        self.assertTrue(
+        self.assertFalse(
             m.has_line_of_sight(
                 self.A, self.B,
                 attacker_keywords=self.VEHICLE,
                 target_keywords=self.TOWERING,
             ),
-            "TOWERING target must ignore Ruin wall line-of-sight block.",
+            "A TOWERING target outside a Ruin is blocked by the wall.",
         )
 
-    def test_towering_overrides_non_infantry_ruin_block(self):
-        """A non-INFANTRY unit is normally blocked by a Ruin wall.
-        When the opponent is TOWERING, the block is lifted."""
+    def test_towering_within_ruin_sees_out(self):
+        """A TOWERING model standing WITHIN the Ruin can see out of it
+        normally (per the Ruins rule). The endpoint-contained allowance in
+        _los_query covers this."""
         m = _ruin_in_the_middle()
-        # Without TOWERING this would be blocked (VEHICLE vs VEHICLE).
+        inside = (30.0, 30.0)
         self.assertTrue(
             m.has_line_of_sight(
-                self.A, self.B,
-                attacker_keywords=self.VEHICLE,
-                target_keywords=self.TOWERING,
+                inside, self.B,
+                attacker_keywords=self.TOWERING,
+                target_keywords=self.VEHICLE,
             ),
+            "A TOWERING model within the Ruin must see out of it.",
         )
 
 
 class RuinCoverTests(unittest.TestCase):
-    """A model standing inside a RUIN rectangle gets Heavy Cover-grade
-    benefits (+1 save, -1 to hit) — same combat effect as HEAVY_COVER."""
+    """A model standing inside a RUIN rectangle gets the single Benefit of
+    Cover (+1 save) — the same combat effect as LIGHT_COVER and HEAVY_COVER in
+    current 10e. There is no terrain -1-to-hit any more. `cover_at` still
+    reports the RUIN member so callers can tell the terrain kind apart."""
 
-    def test_ruin_grants_heavy_cover(self):
+    def test_ruin_reports_cover(self):
         m = _ruin_in_the_middle()
         cover_inside = m.cover_at((30.0, 30.0))
         self.assertEqual(cover_inside, TerrainType.RUIN)

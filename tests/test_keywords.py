@@ -158,9 +158,12 @@ class RapidFireBehaviourTests(unittest.TestCase):
 
 
 class HeavyCoverHitPenaltyTests(unittest.TestCase):
-    """Phase H: HEAVY_COVER gives both +1 to save AND -1 to hit, so damage
-    should drop strictly more than LIGHT cover (save bonus only) against
-    the same attacker / target combo.
+    """Current 10e: cover grants ONLY the single Benefit of Cover (+1 to the
+    armour saving throw). There is no terrain -1-to-hit and no Light/Heavy
+    cover split — HEAVY_COVER (and RUIN) give exactly the same effect as
+    LIGHT_COVER. These tests confirm (a) heavy cover does nothing extra over a
+    plain in_cover save bonus, and (b) with a no-save target (save=7) cover
+    changes nothing at all (the stale -1-to-hit is gone).
     """
 
     def _attacker(self):
@@ -169,40 +172,83 @@ class HeavyCoverHitPenaltyTests(unittest.TestCase):
             name="CoverShooter", health=1, damage=0,
             hit_probability=0.5, attacks=8, weapon_damage_per_shot=1.0,
             strength=10,                # auto-wound vs T4 (5/6)
+            ap=-1,                      # AP-1 so the +1 save can actually bite
             range_inches=24,
         )
 
-    def _target(self):
-        # No save -> isolating the hit-roll effect from the save effect.
-        # We toggle in_cover / in_heavy_cover on the Unit instance, not
-        # the profile, so the same profile suffices.
+    def _no_save_target(self):
+        # No save -> isolates the (now-removed) hit-roll effect from the save
+        # effect. We toggle in_cover / in_heavy_cover on the Unit instance.
         return UnitProfile(
-            name="Tgt", health=1e9, damage=0, hit_probability=0,
+            name="NoSaveTgt", health=1e9, damage=0, hit_probability=0,
             toughness=4, save=7,
         )
 
-    def test_heavy_cover_target_takes_strictly_less_damage_than_open(self):
-        n_trials = 400
-        attacker_p = self._attacker()
-        target_p = self._target()
+    def _saved_target(self):
+        # A 4+ save so the Benefit of Cover (+1 save) measurably reduces damage.
+        return UnitProfile(
+            name="SaveTgt", health=1e9, damage=0, hit_probability=0,
+            toughness=4, save=4, unit_keywords=("INFANTRY",),
+        )
 
-        random.seed(101)
-        open_total = 0.0
-        for _ in range(n_trials):
-            tgt = Unit(target_p)
-            open_total += Unit(attacker_p).attack(tgt, distance=12.0)
-
-        random.seed(101)
-        heavy_total = 0.0
+    def _avg_damage(self, attacker_p, target_p, n_trials, seed, heavy):
+        random.seed(seed)
+        total = 0.0
         for _ in range(n_trials):
             tgt = Unit(target_p)
             tgt.in_cover = True
-            tgt.in_heavy_cover = True
-            heavy_total += Unit(attacker_p).attack(tgt, distance=12.0)
+            if heavy:
+                tgt.in_heavy_cover = True
+            total += Unit(attacker_p).attack(tgt, distance=12.0)
+        return total
 
-        # With save=7 the save-bonus part of cover does nothing; isolating
-        # the -1 to hit. 4+ → 5+ drops expected hits by 33%.
-        self.assertGreater(open_total, heavy_total * 1.2)
+    def test_no_save_target_unaffected_by_cover(self):
+        """With save=7 the +1 save does nothing, and there is no longer a
+        -1-to-hit, so a target in HEAVY cover takes the SAME damage as in the
+        open (the stale 9th-edition Heavy-Cover to-hit penalty was removed)."""
+        n_trials = 400
+        attacker_p = self._attacker()
+        target_p = self._no_save_target()
+
+        random.seed(101)
+        open_total = sum(
+            Unit(attacker_p).attack(Unit(target_p), distance=12.0)
+            for _ in range(n_trials)
+        )
+        heavy_total = self._avg_damage(attacker_p, target_p, n_trials, 101, heavy=True)
+
+        # No save bonus that bites and no to-hit penalty => identical damage.
+        self.assertEqual(open_total, heavy_total)
+
+    def test_heavy_cover_equals_light_cover(self):
+        """HEAVY_COVER must give exactly the same combat effect as LIGHT_COVER
+        in current 10e (the single Benefit of Cover, +1 save)."""
+        n_trials = 400
+        attacker_p = self._attacker()
+        target_p = self._saved_target()
+
+        light_total = self._avg_damage(attacker_p, target_p, n_trials, 202, heavy=False)
+        heavy_total = self._avg_damage(attacker_p, target_p, n_trials, 202, heavy=True)
+
+        self.assertEqual(
+            light_total, heavy_total,
+            "HEAVY cover must equal LIGHT cover — no extra -1-to-hit in 10e.",
+        )
+
+    def test_cover_save_bonus_still_reduces_damage(self):
+        """Sanity: the Benefit of Cover (+1 save) does still reduce damage
+        against a saveable target hit by an AP-bearing attack."""
+        n_trials = 400
+        attacker_p = self._attacker()
+        target_p = self._saved_target()
+
+        random.seed(303)
+        open_total = sum(
+            Unit(attacker_p).attack(Unit(target_p), distance=12.0)
+            for _ in range(n_trials)
+        )
+        cover_total = self._avg_damage(attacker_p, target_p, n_trials, 303, heavy=False)
+        self.assertGreater(open_total, cover_total)
 
 
 class StealthTargetTests(unittest.TestCase):

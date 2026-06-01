@@ -7136,14 +7136,17 @@ class Battle:
         # as `simulator.embark`.
         if getattr(attacker, "embarked_in", None) is not None:
             return
-        # Fall Back lockout (10e core): a unit that Fell Back this turn can
-        # only shoot if it has the FLY keyword. Cited as
-        # `simulator.fall_back`. Tactical Doctrine (Gladius Task Force, R2)
-        # explicitly lifts this lockout for ADEPTUS ASTARTES units in a
-        # Gladius army: "This unit is eligible to shoot and declare a
+        # Fall Back lockout (10e core): a unit that Fell Back this turn cannot
+        # shoot for the rest of the turn — there is NO FLY exception (the stale
+        # 9th-edition "may shoot/charge if it can FLY" carve-out was removed).
+        # FLY only lets the unit move over other models during the Fall Back
+        # and skip Desperate Escape tests; it does not lift the shoot lockout.
+        # Cited as `simulator.fall_back`. Tactical Doctrine (Gladius Task
+        # Force, R2) explicitly lifts this lockout for ADEPTUS ASTARTES units
+        # in a Gladius army: "This unit is eligible to shoot and declare a
         # charge in a turn in which it Fell Back." Cited as
         # `simulator.combat_doctrines`.
-        if attacker.fell_back_this_round and not attacker.profile.fly:
+        if attacker.fell_back_this_round:
             if self._gladius_active_doctrine(attacker, attacker_army) != "Tactical":
                 return
         # 10e: a unit that Advanced this turn cannot shoot, unless its weapon
@@ -7378,9 +7381,12 @@ class Battle:
             )
 
         # Terrain-aware cover: target counts as in cover if it stands inside
-        # cover terrain, OR if the army-wide cover flag is set. HEAVY cover
-        # also imposes -1 to hit on the attacker (handled in Unit.attack via
-        # the in_heavy_cover flag).
+        # cover terrain, OR if the army-wide cover flag is set. In 10e all
+        # cover terrain (LIGHT_COVER, HEAVY_COVER, RUIN) grants the same single
+        # Benefit of Cover (+1 to the armour save, applied in Unit.attack via
+        # the in_cover flag). There is no terrain -1-to-hit any more; the
+        # in_heavy_cover flag is retained for compatibility but no longer
+        # changes the Hit roll.
         saved_cover = shoot_target.in_cover
         saved_heavy = shoot_target.in_heavy_cover
         cover_type = self.map.cover_at(shoot_target.position)
@@ -7647,12 +7653,14 @@ class Battle:
                 and not attacker.profile.murderers_cowl
             ):
                 return
-        # Fall Back lockout (10e core): a unit that Fell Back this turn can
-        # only charge if it has the FLY keyword. Tactical Doctrine (Gladius,
-        # R2) also lifts this lockout: "This unit is eligible to shoot and
-        # declare a charge in a turn in which it Fell Back." Cited as
-        # `simulator.fall_back` and `simulator.combat_doctrines`.
-        if attacker.fell_back_this_round and not attacker.profile.fly:
+        # Fall Back lockout (10e core): a unit that Fell Back this turn cannot
+        # declare a charge for the rest of the turn — there is NO FLY exception
+        # (the stale 9th-edition carve-out was removed; FLY only grants the
+        # move-over and the Desperate Escape skip during the Fall Back move).
+        # Tactical Doctrine (Gladius, R2) also lifts this lockout: "This unit
+        # is eligible to shoot and declare a charge in a turn in which it Fell
+        # Back." Cited as `simulator.fall_back` and `simulator.combat_doctrines`.
+        if attacker.fell_back_this_round:
             if self._gladius_active_doctrine(attacker, attacker_army) != "Tactical":
                 return
 

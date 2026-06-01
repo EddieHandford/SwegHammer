@@ -364,8 +364,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # wounds. Mapper parses the X from BSData infoLink modifiers.
     "simulator.deadly_demise",
     # Fall Back move (10e core). A unit within Engagement Range may move
-    # up to M\" in the Movement phase and pass through enemy models; it
-    # cannot shoot or charge that turn unless it has the FLY keyword.
+    # up to M\" in the Movement phase and pass through enemy models; until the
+    # end of the turn it cannot shoot or declare a charge - there is NO FLY
+    # exception (FLY only grants the move-over and the Desperate Escape skip).
     "simulator.fall_back",
     # Desperate Escape test (10e core). After a Fall Back that passed
     # through enemy models, roll 1D6 per model; each 1 destroys one model.
@@ -428,22 +429,22 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # hero the archetype already drafted).
     "simulator.epic_hero_one_per_army",
     # 10e core TOWERING keyword terrain rule. When either the firing model or
-    # the target model has the TOWERING keyword, OBSCURING terrain and RUIN
-    # walls do not block the line of sight. TOWERING models are physically
-    # massive (Knights, Wraithknight, Daemon Primarchs) and can see over
-    # intervening terrain. Wired in code.map._has_towering +
-    # code.map._los_query (towering flag forces ruin_pass=True and skips
-    # the OBSCURING block entirely). See
-    # data/rule_citations.d/core_terrain_towering.json.
+    # the target model has the TOWERING (or AIRCRAFT) keyword, Woods / OBSCURING
+    # terrain does not block the line of sight. TOWERING does NOT see over RUIN
+    # walls (unlike Woods) - only AIRCRAFT gets a blanket Ruin pass, and a
+    # TOWERING model sees out of a Ruin only when it is itself within it. Wired
+    # in code.map._has_towering + code.map._los_query (towering flag skips the
+    # OBSCURING block; ruin_pass is AIRCRAFT-only). See
+    # data/rule_citations.d/core_terrain_ruins.json.
     "simulator.towering_los",
-    # 10e Ruins terrain core rule. A Ruin acts as Heavy Cover (+1 save,
-    # -1 to hit) and its walls block line of sight EXCEPT when both the
-    # firing model and the target model have the INFANTRY, BEAST or SWARM
-    # keyword. Wired through code.map.Map.has_line_of_sight via
-    # attacker_keywords / target_keywords arguments threaded from the
-    # simulator's _do_shoot / _apply_firing_deck call sites. Cover
-    # promotion handled alongside TerrainType.HEAVY_COVER in
-    # Battle._do_shoot.
+    # 10e Ruins terrain core rule. A Ruin grants the single Benefit of Cover
+    # (+1 save - same as LIGHT/HEAVY cover; no terrain -1-to-hit in 10e) and its
+    # walls block line of sight for everyone EXCEPT AIRCRAFT (and a model wholly
+    # within the Ruin can see out). The INFANTRY/BEAST Ruin exception is
+    # MOVEMENT ONLY now and grants no line of sight (the stale 9th-edition
+    # shoot-through-walls pass was removed). Wired through
+    # code.map.Map.has_line_of_sight via attacker_keywords / target_keywords
+    # threaded from the simulator's _do_shoot / _apply_firing_deck call sites.
     "terrain.ruin_infantry_los",
     # 10e core-rules cap: "Hit roll modifiers are cumulative, but the Hit
     # roll for an attack can never be modified by more than -1 or +1." Same

@@ -1,21 +1,21 @@
 {
-  "_comment": "Citation for the 10e core Ruins terrain rule (INFANTRY/BEAST/SWARM may shoot through Ruin walls; all other models are blocked).",
+  "_comment": "Citations for the 10e core Ruins / Woods terrain visibility rules. Current 10e: Ruin walls block line of sight for everyone except AIRCRAFT (and a model wholly within a Ruin can see out); the INFANTRY/BEAST Ruin exception is movement-only and grants no line of sight. TOWERING sees over Woods/Obscuring but NOT over Ruins.",
 
   "terrain.ruin_infantry_los": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins",
-    "rule_name": "Ruins (Defensible / Line of Sight)",
-    "quoted_text": "Models can shoot through walls of a Ruin so long as both the firing model and the target model have the INFANTRY, BEAST or SWARM keyword. In all other cases, a wall blocks line of sight.",
+    "rule_name": "Ruins (Line of Sight)",
+    "quoted_text": "Models cannot see over or through this terrain feature. AIRCRAFT models are exceptions to this - visibility to and from such models is determined normally, even if this terrain feature is wholly in between them and the observing model. Models can see into this terrain feature normally, and models that are wholly within this terrain feature can see out of it normally. Models that are within this terrain feature can be seen normally and TOWERING models that are within this terrain feature can also see out of it normally. INFANTRY, BEASTS, IMPERIUM PRIMARCH, and BELISARIUS CAWL models can move through this terrain feature's walls, floors and ceilings as if they were not there.",
     "trigger": "a shooting attack's line-of-sight segment crosses a Ruin terrain rectangle whose interior contains neither the attacker nor the target",
-    "effect": "line of sight passes through the Ruin wall iff both the attacker's unit and the target's unit carry the INFANTRY, BEAST or SWARM keyword; otherwise the wall blocks line of sight. Implemented in code.map.Map.has_line_of_sight; the keyword tuples are threaded from Battle._do_shoot (and _apply_firing_deck, _try_*_stratagem candidate scans) so the firing model's own keywords decide passage even when a TRANSPORT carries the firing position. RUIN terrain also confers Heavy Cover (+1 save, -1 to hit) via Battle._do_shoot — same combat effect as TerrainType.HEAVY_COVER, separate LoS rule.",
+    "effect": "Ruin walls block line of sight for everyone. The only blanket exception is AIRCRAFT (visibility to/from an AIRCRAFT model is determined normally even through a Ruin wall). A model wholly within the Ruin can see out, and be seen, regardless of keyword - this also covers a TOWERING model that is within the Ruin. The INFANTRY/BEAST/IMPERIUM PRIMARCH/BELISARIUS CAWL Ruin exception is MOVEMENT ONLY (they move through walls as if not there) and grants NO line of sight; the stale 9th-edition 'INFANTRY/BEAST/SWARM may shoot through Ruin walls' line-of-sight pass has been removed. Implemented in code.map.Map.has_line_of_sight (ruin_pass = either endpoint is AIRCRAFT) and code.map._los_query (endpoint-contained allowance handles wholly-within and within-for-TOWERING).",
     "scope": "keyword-gated"
   },
 
   "simulator.towering_los": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary",
-    "rule_name": "Towering (Line of Sight)",
-    "quoted_text": "When a model with the TOWERING keyword draws a line of sight, or when an enemy model draws a line of sight to a model with the TOWERING keyword, the line of sight can be drawn as if intervening terrain features with the Obscuring or Dense Cover terrain trait were not there.",
-    "trigger": "a line-of-sight segment in which the firing model or the target model has the TOWERING keyword crosses Obscuring (or Ruin-wall) terrain",
-    "effect": "Obscuring and Ruin-wall terrain does not block line of sight when either endpoint is a TOWERING model (it can see over, and be seen over, such terrain). Implemented in code.map.Map.has_line_of_sight / _los_query via the attacker/target keyword tuples already threaded from Battle._do_shoot. Helps the under-rated big-model factions (Imperial & Chaos Knights, Wraithknight) shoot freely with their long-range guns.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Woods",
+    "rule_name": "Woods / Obscuring (Line of Sight) - TOWERING and AIRCRAFT exception",
+    "quoted_text": "Models cannot see over or through this terrain feature. AIRCRAFT and TOWERING models are exceptions to this - visibility to and from such models is determined normally, even if this terrain feature is wholly in between them and the observing model.",
+    "trigger": "a line-of-sight segment in which the firing model or the target model has the TOWERING keyword crosses Woods / OBSCURING terrain",
+    "effect": "Woods / OBSCURING terrain does not block line of sight when either endpoint is a TOWERING (or AIRCRAFT) model - it can see over, and be seen over, such terrain. TOWERING does NOT grant a blanket see-over for Ruins, unlike Woods: per the Ruins rule a TOWERING model only sees out of a Ruin when it is itself within that Ruin (handled by the endpoint-contained allowance), and AIRCRAFT is the only blanket Ruin exception. Implemented in code.map.Map.has_line_of_sight / _los_query: the towering flag skips the OBSCURING block only; the ruin_pass flag is AIRCRAFT-only. Helps the big-model factions (Imperial & Chaos Knights, Wraithknight) shoot over Woods with their long-range guns while keeping Ruins as true line-of-sight blockers.",
     "scope": "keyword-gated"
   }
 }

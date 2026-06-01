@@ -193,18 +193,18 @@
   "simulator.cover_light": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
     "rule_name": "Benefit of Cover",
-    "quoted_text": "Each time an attack is allocated to a model, if that model has the Benefit of Cover against that attack, add 1 to that attack's saving throw. Models with a Save characteristic of 3+ or better do not receive the Benefit of Cover against ranged attacks made with weapons that have an Armour Penetration characteristic of 0.",
-    "trigger": "target model stands in LIGHT_COVER terrain (or HEAVY_COVER - both grant standard cover)",
-    "effect": "(approximation) +1 to the armour save (capped at 2+). SwegHammer does not enforce the 'Save 3+ vs AP 0 ranged attacks ignore cover' exception, so 3+-save models incorrectly benefit from cover against AP 0.",
+    "quoted_text": "Until the end of the phase, each time a ranged attack is allocated to a model in this unit while it is receiving the Benefit of Cover, add 1 to the armour saving throw made against that attack. If a model has a Save characteristic of 3+ or better, that model cannot have the Benefit of Cover against attacks made with weapons that have an Armour Penetration characteristic of 0.",
+    "trigger": "target model stands in LIGHT_COVER terrain (LIGHT_COVER, HEAVY_COVER and RUIN are all equivalent in 10e - each grants the same single Benefit of Cover)",
+    "effect": "+1 to the armour save (the single-pip Benefit of Cover; universal 2+ floor applies). The AP0 / 3+-save exception is now enforced for ALL models: a target whose base Save is 3+ or better gets no cover against an AP0 attack. Implemented in code.units.Unit.attack (cover_blocked_by_ap0_exception gate).",
     "scope": "phase-gated"
   },
 
   "simulator.cover_heavy": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
-    "rule_name": "Ruins (Heavy Cover)",
-    "quoted_text": "Each time a ranged attack is made against a unit that has the Benefit of Cover and that is receiving the Benefit of Cover from a Ruin terrain feature, subtract 1 from that attack's Hit roll.",
-    "trigger": "target is in HEAVY_COVER terrain (Ruins) and the attack is ranged",
-    "effect": "(approximation) -1 to the attacker's Hit roll, on top of the standard cover +1 save. SwegHammer treats this as a flat modifier on any HEAVY_COVER terrain rather than checking the canonical 'INFANTRY/BEAST/SWARM wholly within Ruins' eligibility.",
+    "rule_name": "Ruins / Heavy Cover (Benefit of Cover)",
+    "quoted_text": "Until the end of the phase, each time a ranged attack is allocated to a model in this unit while it is receiving the Benefit of Cover, add 1 to the armour saving throw made against that attack.",
+    "trigger": "target stands in HEAVY_COVER or RUIN terrain and the attack is ranged",
+    "effect": "+1 to the armour save - the SAME single Benefit of Cover as LIGHT_COVER. There is no terrain -1-to-hit in current 10e (the stale 9th-edition Heavy-Cover / Dense-Cover -1-to-hit was removed): HEAVY_COVER and RUIN no longer differ from LIGHT_COVER for the combat effect. The in_heavy_cover flag is still toggled by Battle._do_shoot but no longer changes the Hit roll.",
     "scope": "phase-gated"
   },
 

@@ -15,31 +15,49 @@ from typing import Dict, Iterable, Optional, Tuple
 
 
 # 10e Ruins core rule (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins):
-# "Models can shoot through walls of a Ruin so long as both the firing model
-# and the target model have the INFANTRY, BEAST or SWARM keyword. In all
-# other cases, a wall blocks line of sight." Cited as
-# `terrain.ruin_infantry_los` in scripts/audit_rules.py.
-_RUIN_LOS_PASS_KEYWORDS = frozenset({"INFANTRY", "BEAST", "SWARM"})
+# "Models cannot see over or through this terrain feature. AIRCRAFT models are
+# exceptions to this — visibility to and from such models is determined
+# normally, even if this terrain feature is wholly in between them and the
+# observing model. Models can see into this terrain feature normally, and
+# models that are wholly within this terrain feature can see out of it
+# normally." There is NO blanket INFANTRY/BEAST/SWARM see-through any more —
+# in current 10e the INFANTRY/BEAST exception for Ruins is MOVEMENT ONLY
+# ("can move through this terrain feature's walls, floors and ceilings"); it
+# does not grant line of sight. Cited as `terrain.ruin_infantry_los` in
+# scripts/audit_rules.py.
+#
+# AIRCRAFT is the only blanket line-of-sight exception for Ruins; a TOWERING
+# model only sees OUT of a Ruin when it is itself within the Ruin (covered by
+# the "endpoint contained" allowance in _los_query — TOWERING is not special
+# for Ruins beyond that). Cited as `simulator.towering_los`.
+_RUIN_LOS_BLANKET_KEYWORD = "AIRCRAFT"
 
-# 10e core TOWERING keyword rule
-# (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary):
-# "When a model with the TOWERING keyword draws a line of sight, or when an
-# enemy model draws a line of sight to a model with the TOWERING keyword,
-# the line of sight can be drawn as if intervening terrain features with the
-# Obscuring or Dense Cover terrain trait were not there."
+# 10e core TOWERING keyword rule, as applied to Woods / the sim's OBSCURING
+# terrain type (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Woods):
+# "AIRCRAFT and TOWERING models are exceptions to this — visibility to and
+# from such models is determined normally, even if this terrain feature is
+# wholly in between them and the observing model." TOWERING (and AIRCRAFT) can
+# therefore see over Obscuring/Woods terrain. TOWERING does NOT grant a
+# blanket see-over for Ruins (see _RUIN_LOS_BLANKET_KEYWORD above).
 # Cited as `simulator.towering_los` in scripts/audit_rules.py.
 _TOWERING_KEYWORD = "TOWERING"
 
 
 class TerrainType(Enum):
+    # 10e has a single Benefit of Cover (+1 to the armour saving throw); there
+    # is no Light/Heavy cover split and no terrain -1-to-hit any more. The
+    # LIGHT_COVER / HEAVY_COVER members are retained because other modules
+    # (maps.py, strategy.py) reference them by name, but they now grant the
+    # SAME single Benefit of Cover as each other and as a Ruin.
     OPEN = "open"
-    LIGHT_COVER = "light_cover"     # +1 save vs ranged
-    HEAVY_COVER = "heavy_cover"     # +1 save and -1 to hit
-    OBSCURING = "obscuring"         # blocks line of sight
+    LIGHT_COVER = "light_cover"     # Benefit of Cover (+1 save vs ranged)
+    HEAVY_COVER = "heavy_cover"     # Benefit of Cover (+1 save vs ranged) — same as LIGHT_COVER in 10e
+    OBSCURING = "obscuring"         # Woods/Obscuring: blocks line of sight (AIRCRAFT/TOWERING see over)
     IMPASSABLE = "impassable"       # blocks movement
-    RUIN = "ruin"                   # 10e Ruin: +1 save and -1 to hit (Heavy Cover),
-                                    # blocks LoS through its walls UNLESS both shooter and
-                                    # target are INFANTRY / BEAST / SWARM (10e core).
+    RUIN = "ruin"                   # 10e Ruin: Benefit of Cover (+1 save vs ranged); its walls
+                                    # block line of sight for everyone except AIRCRAFT, and a
+                                    # model wholly within the Ruin can see out (10e core). The
+                                    # INFANTRY/BEAST Ruin exception is MOVEMENT only, not sight.
 
 
 @dataclass(frozen=True)
@@ -97,9 +115,12 @@ class Map:
     def cover_at(self, point: Tuple[float, float]) -> TerrainType:
         """Return the strongest cover the point sits inside, OPEN if none.
 
-        RUIN counts as Heavy Cover for the save / -1-to-hit bonus (10e
-        treats a Ruin as Heavy Cover terrain); the through-walls LoS
-        asymmetry is resolved separately in `has_line_of_sight`."""
+        In 10e every cover terrain grants the same single Benefit of Cover
+        (+1 to the armour saving throw): LIGHT_COVER, HEAVY_COVER and RUIN are
+        equivalent for the combat effect. The distinct members are retained
+        only because other modules reference them by name. The Ruin
+        block-line-of-sight asymmetry is resolved separately in
+        `has_line_of_sight`."""
         result = TerrainType.OPEN
         priority = {
             TerrainType.OPEN: 0,
@@ -123,39 +144,46 @@ class Map:
     ) -> bool:
         """True if a straight line from attacker to target is not blocked.
 
-        OBSCURING terrain always blocks LoS unless either endpoint stands
-        inside the rectangle (the "see in / see out" allowance — fine for
-        woods, blast walls, smoke). Exception: when either the attacker or
-        the target has the TOWERING keyword, OBSCURING terrain does not
-        block the line of sight (10e core TOWERING rule).
+        OBSCURING terrain (Woods) always blocks LoS unless either endpoint
+        stands inside the rectangle (the "see in / see out" allowance — fine
+        for woods, blast walls, smoke). Exception: when either the attacker or
+        the target has the TOWERING or AIRCRAFT keyword, OBSCURING terrain
+        does not block the line of sight (10e core Woods rule).
 
-        RUIN walls block LoS UNLESS both the attacker and the target carry
-        the INFANTRY, BEAST, or SWARM keyword (10e core Ruins rule). When
-        keyword tuples are not supplied (older call-sites), RUIN is
+        RUIN walls block LoS for everyone, with two narrow exceptions:
+          * a model wholly within the Ruin can see out, and can be seen
+            (handled by the "endpoint contained" check in _los_query — this
+            also covers a TOWERING model that is within the Ruin); and
+          * AIRCRAFT is the only blanket exception — visibility to and from an
+            AIRCRAFT model is determined normally even through Ruin walls.
+        TOWERING does NOT grant a blanket see-over for Ruins (unlike Woods).
+        When keyword tuples are not supplied (older call-sites), RUIN is
         treated as a full LoS blocker to stay safely conservative.
-        Exception: when either endpoint has the TOWERING keyword, RUIN
-        walls do not block the line of sight (same 10e core TOWERING rule
-        — TOWERING models can see over intervening terrain features).
 
         Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Ruins
-        > "Models can shoot through walls of a Ruin so long as both the
-        > firing model and the target model have the INFANTRY, BEAST or
-        > SWARM keyword. In all other cases, a wall blocks line of sight."
+        > "Models cannot see over or through this terrain feature. AIRCRAFT
+        > models are exceptions to this — visibility to and from such models
+        > is determined normally, even if this terrain feature is wholly in
+        > between them and the observing model. Models can see into this
+        > terrain feature normally, and models that are wholly within this
+        > terrain feature can see out of it normally. ... TOWERING models that
+        > are within this terrain feature can also see out of it normally."
 
-        Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Glossary
-        > "When a model with the TOWERING keyword draws a line of sight, or
-        > when an enemy model draws a line of sight to a model with the
-        > TOWERING keyword, the line of sight can be drawn as if intervening
-        > terrain features with the Obscuring or Dense Cover terrain trait
-        > were not there."
+        Wahapedia: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Woods
+        > "AIRCRAFT and TOWERING models are exceptions to this — visibility to
+        > and from such models is determined normally, even if this terrain
+        > feature is wholly in between them and the observing model."
         """
         towering = (
             _has_towering(attacker_keywords)
             or _has_towering(target_keywords)
         )
-        ruin_pass = towering or (
-            _has_ruin_pass(attacker_keywords)
-            and _has_ruin_pass(target_keywords)
+        # Only AIRCRAFT gets a blanket see-through for Ruin walls. A TOWERING
+        # model that is within the Ruin is handled by the endpoint-contained
+        # allowance in _los_query, not by this flag.
+        ruin_pass = (
+            _has_aircraft(attacker_keywords)
+            or _has_aircraft(target_keywords)
         )
         return _los_query(
             self,
@@ -235,12 +263,17 @@ def _terrain_epoch(terrain) -> int:
         return epoch
 
 
-def _has_ruin_pass(kw_iter: Optional[Iterable[str]]) -> bool:
-    """True if any keyword in kw_iter is in _RUIN_LOS_PASS_KEYWORDS."""
+def _has_aircraft(kw_iter: Optional[Iterable[str]]) -> bool:
+    """True if any keyword in kw_iter is AIRCRAFT.
+
+    AIRCRAFT is the only model type that gets a blanket line-of-sight pass
+    through Ruin walls in current 10e (the old INFANTRY/BEAST/SWARM
+    shoot-through-walls line-of-sight pass was removed — that keyword
+    exception is movement-only now)."""
     if not kw_iter:
         return False
     for k in kw_iter:
-        if k in _RUIN_LOS_PASS_KEYWORDS:
+        if k == _RUIN_LOS_BLANKET_KEYWORD:
             return True
     return False
 
@@ -265,8 +298,11 @@ def _los_query(
     """Line-of-sight check on a 0.5-inch grid, with per-map caching.
 
     When ``towering`` is True (either endpoint carries the TOWERING keyword),
-    OBSCURING terrain is ignored entirely and RUIN walls are treated the same
-    as if ``ruin_pass`` were True — i.e. TOWERING models always see over them.
+    OBSCURING (Woods) terrain is ignored entirely — TOWERING models see over
+    it (as do AIRCRAFT). TOWERING does NOT see through RUIN walls, however:
+    only ``ruin_pass`` (set when either endpoint is AIRCRAFT) lifts the Ruin
+    block, plus the per-terrain "endpoint contained" allowance below which lets
+    any model wholly within the Ruin (including a TOWERING one) see out.
     """
     key = (_terrain_epoch(map_.terrain), ax, ay, tx, ty, ruin_pass, towering)
     try:

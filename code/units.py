@@ -843,9 +843,12 @@ class Unit:
         self.profile = profile
         self._current_health: float = profile.health
         self.in_cover: bool = in_cover
-        # Set by Battle._do_shoot when the target stands in HEAVY_COVER terrain.
-        # Drives the -1-to-hit penalty (in addition to the +1-to-save the
-        # plain in_cover flag already grants). Restored to False after shot.
+        # Set by Battle._do_shoot when the target stands in HEAVY_COVER / RUIN
+        # terrain. In 10e this no longer changes the Hit roll (the stale
+        # 9th-edition Heavy-Cover -1-to-hit was removed); HEAVY_COVER and RUIN
+        # grant the same single Benefit of Cover (+1 save) as LIGHT_COVER, via
+        # the in_cover flag. The flag is retained for compatibility with
+        # call-sites that still toggle it. Restored to False after shot.
         self.in_heavy_cover: bool = False
         self.uid: str = ""                              # assigned by Battle at start
         self.position: tuple = (0.0, 0.0)               # (x, y) in inches
@@ -2239,15 +2242,15 @@ class Unit:
             else:
                 _lance_fraction = float(getattr(p, "lance_basket_fraction", 1.0) or 1.0)
 
-            # ---- Heavy cover: -1 to hit (in addition to the +1 to save which
-            # the plain in_cover flag already grants below). Ranged shots only;
-            # melee always ignores cover. Ignores Cover bypasses both effects.
-            if (
-                mode != "melee"
-                and target.in_heavy_cover
-                and not ignore_cover
-            ):
-                hit_mod_delta -= 1
+            # ---- Cover and the Hit roll (10e). Current 10e cover grants ONLY
+            # the Benefit of Cover (+1 to the armour saving throw, applied
+            # below via the in_cover flag). There is no terrain -1-to-hit and
+            # no Light/Heavy cover split in the core rules — the stale
+            # 9th-edition "Heavy Cover / Ruins impose -1 to hit" modifier has
+            # been removed. The in_heavy_cover flag is therefore no longer read
+            # here; HEAVY_COVER and RUIN grant the same single Benefit of Cover
+            # as LIGHT_COVER. Cited as `simulator.benefits_of_cover` /
+            # `simulator.cover_heavy`.
 
             # ---- Stealth keyword: shooters take -1 to hit against the target.
             # Melee is unaffected (Stealth is a ranged defence).
@@ -2334,32 +2337,40 @@ class Unit:
                 and mode != "melee"
                 and "CHARACTER" in (target.profile.unit_keywords or ())
             )
-            # ---- Benefits of Cover (10e core rule). Ranged-only: melee
+            # ---- Benefit of Cover (10e core rule). Ranged-only: melee
             # attacks never benefit from cover. +1 to the armour save (one
-            # pip better). INFANTRY models cannot improve their save to
-            # better than 3+ by virtue of this rule; vehicles / monsters /
-            # mounted models lack the 3+ cap (only the universal 2+ floor
-            # applies). Wahapedia core rules — Terrain Features / Benefits
-            # of Cover. Cited as `simulator.benefits_of_cover`.
+            # pip better; cover can never improve a save by more than 1).
+            # AP0 / 3+-save exception (applies to ALL models, not just
+            # INFANTRY): "If a model has a Save characteristic of 3+ or
+            # better, that model cannot have the Benefit of Cover against
+            # attacks made with weapons that have an Armour Penetration
+            # characteristic of 0." So a 3+-or-better model in cover gains
+            # nothing against an AP0 attack — but still gains the +1 save
+            # against an attack with any AP. Wahapedia core rules — Terrain
+            # Features / Benefit of Cover. Cited as `simulator.benefits_of_cover`
+            # and `simulator.cover_light`.
             # CORE-RULES-AUDIT (2026-05-31): an Indirect Fire attack made at a
             # target the bearer cannot see grants that target the Benefit of
-            # Cover for this attack, regardless of terrain (the +1 save here;
-            # the separate heavy-cover -1-to-hit does not apply). Previously
-            # only the -1 to Hit was modelled. See docs/CORE_RULES_AUDIT.md #3.
+            # Cover for this attack, regardless of terrain (the +1 save here).
+            # See docs/CORE_RULES_AUDIT.md #3.
+            cover_blocked_by_ap0_exception = (
+                # `ap` is the attack's Armour Penetration as a non-positive
+                # int (0, -1, -2, …); ap == 0 is the AP0 case. The model's
+                # base Save characteristic is target.profile.save (3 means
+                # 3+; a lower number is a better save).
+                ap == 0 and target.profile.save <= 3
+            )
             if (
                 mode != "melee"
                 and (target.in_cover or indirect_fire_attack)
                 and not ignore_cover
                 and not precision_pierces_cover
+                and not cover_blocked_by_ap0_exception
             ):
                 improved = save_after_ap - 1
-                target_is_infantry = "INFANTRY" in (target.profile.unit_keywords or ())
-                if target_is_infantry:
-                    # INFANTRY cannot improve their save below 3+ by virtue
-                    # of cover; if already 3+ or better, cover does nothing.
-                    improved = max(improved, 3)
                 improved = max(2, improved)  # universal 2+ armour floor
-                # Cover never makes a save worse than it already was.
+                # Cover never makes a save worse than it already was, and the
+                # +1 it grants here is already the single-pip cap.
                 save_after_ap = min(save_after_ap, improved)
             # ---- Target's buffs: +1 to armour save ----
             # 10e core rule (Wahapedia core rules, "Modifiers"): the modified

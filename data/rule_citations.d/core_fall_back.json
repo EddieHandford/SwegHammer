@@ -4,9 +4,9 @@
   "simulator.fall_back": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Fall-Back",
     "rule_name": "Fall Back",
-    "quoted_text": "A unit can make a Fall Back move in your Movement phase if it is within Engagement Range of one or more enemy units. The unit can move up to its Move characteristic in inches and can move through enemy models when doing so. A unit that Falls Back can shoot or charge only if it has the FLY keyword.",
-    "trigger": "owning player's Movement phase; unit is within Engagement Range (1.5\" in SwegHammer's continuous model) of one or more enemy units",
-    "effect": "unit moves up to M\" away, may move through enemy models, and is barred from shooting and charging this turn unless it has the FLY keyword. SwegHammer sets a per-round fell_back_this_round flag on the unit and gates _do_shoot / _do_charge on (flag and not FLY).",
+    "quoted_text": "If you make a Fall Back move with a unit, then until the end of the turn that unit's models cannot shoot or declare a charge.",
+    "trigger": "owning player's Movement phase; unit is within Engagement Range (1.5\" in SwegHammer's continuous model) of one or more enemy units and makes a Fall Back move",
+    "effect": "unit moves up to M\" away, may move through enemy models, and until the end of the turn cannot shoot or declare a charge - there is NO FLY exception (the 9th-edition 'may shoot/charge if it can FLY' carve-out was removed; current 10e locks out EVERY unit that Falls Back). FLY only affects HOW the Fall Back move is made: per the FLY keyword (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#FLY-keyword) 'If a model can FLY, when it makes a Fall Back move it can move over other models (excluding TITANIC models) as if they were not there, and when it Falls Back it does not have to take Desperate Escape tests' - it does not lift the shoot/charge lockout (see simulator.desperate_escape for the FLY/TITANIC Desperate Escape exemption). SwegHammer sets a per-round fell_back_this_round flag on the unit and gates _do_shoot / _do_charge on the flag alone (no FLY check).",
     "scope": "army-wide"
   },
 

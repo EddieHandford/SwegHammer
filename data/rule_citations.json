@@ -49,12 +49,12 @@
     "trigger": "attacker is a World Eaters unit; a friendly Eightbound or Exalted Eightbound unit is alive (sim does not track 6\" aura ranges precisely, see leaders.effective_buffs for the same approximation); attack is melee; target lacks MONSTER and VEHICLE keywords"
   },
   "simulator.benefits_of_cover": {
-    "effect": "+1 to the armour save (one pip better). INFANTRY models cap at 3+ (a 3+ Marine in cover stays at 3+). Vehicles / monsters / mounted models do not share the 3+ cap. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely.",
-    "quoted_text": "When you make an armour saving throw for a model that has the Benefits of Cover, add 1 to that saving throw. INFANTRY models cannot improve their Save characteristic to better than 3+ by virtue of this rule.",
-    "rule_name": "Benefits of Cover",
+    "effect": "+1 to the armour save (one pip better; cover never improves a save by more than 1). AP0 / 3+-save exception applied to ALL models (not just INFANTRY): a model with a Save characteristic of 3+ or better gets NO Benefit of Cover against an attack whose Armour Penetration is 0; it still gains the +1 save against any attack with AP. The universal 2+ armour-save floor still applies. Melee attacks ignore cover entirely. The stale 9th-edition terrain -1-to-hit and the 'INFANTRY cap at 3+' approximation have been removed.",
+    "quoted_text": "Until the end of the phase, each time a ranged attack is allocated to a model in this unit while it is receiving the Benefit of Cover, add 1 to the armour saving throw made against that attack. If a model has a Save characteristic of 3+ or better, that model cannot have the Benefit of Cover against attacks made with weapons that have an Armour Penetration characteristic of 0.",
+    "rule_name": "Benefit of Cover",
     "scope": "phase-gated",
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Terrain-Features",
-    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this"
+    "trigger": "ranged attack resolves against a defender whose `in_cover` flag is set (inside terrain that grants cover, or the army's blanket cover flag); precision against CHARACTER and Ignores Cover bypass this; the AP0 / 3+-save exception suppresses cover when the attack's AP is 0 and the target's base Save is 3+ or better"
   },
   "simulator.big_guns_never_tire": {
     "effect": "permitted to shoot; -1 to all hit rolls this activation",

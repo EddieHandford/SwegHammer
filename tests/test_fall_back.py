@@ -1,8 +1,11 @@
 """Tests for the Fall Back move and Desperate Escape test (10e core rules).
 
 A unit within Engagement Range of one or more enemy units may, in its
-Movement phase, Fall Back: move up to M" away (through enemy models). It
-cannot shoot or charge that turn unless it has the FLY keyword.
+Movement phase, Fall Back: move up to M" away (through enemy models). Until
+the end of the turn it cannot shoot or declare a charge — there is NO FLY
+exception in current 10e. FLY only changes HOW the Fall Back move is made (it
+can move over other models and skips the Desperate Escape test); it does NOT
+let the unit shoot or charge after Falling Back.
 
 After a Fall Back that passed through enemy models, roll 1D6 per model in
 the unit; each result of 1-2 destroys one model. SwegHammer is one Unit
@@ -102,7 +105,8 @@ class FallBackStrategyTests(unittest.TestCase):
 
 
 class FallBackSimulatorTests(unittest.TestCase):
-    """Simulator-side: Fall Back blocks shoot/charge for non-FLY; FLY exempt."""
+    """Simulator-side: Fall Back blocks shoot/charge for EVERY unit that Fell
+    Back, FLY included — current 10e has no FLY shoot/charge exception."""
 
     def _build_battle(self, fly: bool) -> tuple[Battle, Unit, Unit]:
         a = _make_army("A", _shooty_profile(fly=fly), [(20.0, 30.0)])
@@ -118,7 +122,9 @@ class FallBackSimulatorTests(unittest.TestCase):
         battle._do_shoot(gunner, battle.a, battle.b)
         self.assertEqual(brawler.current_health, starting_hp)
 
-    def test_fly_unit_can_shoot_after_fall_back(self):
+    def test_fly_unit_cannot_shoot_after_fall_back(self):
+        """Current 10e: a FLY unit that Fell Back is ALSO locked out of
+        shooting — the 9th-edition FLY exception was removed."""
         battle, gunner, brawler = self._build_battle(fly=True)
         self.assertTrue(gunner.profile.fly)
         gunner.fell_back_this_round = True
@@ -127,12 +133,15 @@ class FallBackSimulatorTests(unittest.TestCase):
         gunner.position = (5.0, 30.0)
         brawler.position = (10.0, 30.0)
         starting_hp = brawler.current_health
-        # Force the attack rolls to land for a deterministic damage tick.
+        # Even with the dice forced to land, the Fall Back lockout must stop
+        # the shot before any damage is dealt.
         with mock.patch("random.random", return_value=0.0), \
                 mock.patch("random.randint", return_value=6):
             battle._do_shoot(gunner, battle.a, battle.b)
-        # A FLY unit must be able to shoot after Falling Back — damage > 0.
-        self.assertLess(brawler.current_health, starting_hp)
+        self.assertEqual(
+            brawler.current_health, starting_hp,
+            "A FLY unit must NOT shoot after Falling Back in current 10e.",
+        )
 
     def test_fall_back_blocks_charging_for_non_fly(self):
         battle, gunner, brawler = self._build_battle(fly=False)
@@ -143,6 +152,20 @@ class FallBackSimulatorTests(unittest.TestCase):
         # The charge attempt must early-return — no _charging_this_round entry.
         battle._do_charge(gunner, battle.a, battle.b)
         self.assertNotIn(gunner.uid, battle._charging_this_round)
+
+    def test_fly_unit_cannot_charge_after_fall_back(self):
+        """Current 10e: a FLY unit that Fell Back is ALSO locked out of
+        declaring a charge — no FLY exception."""
+        battle, gunner, brawler = self._build_battle(fly=True)
+        self.assertTrue(gunner.profile.fly)
+        gunner.position = (20.0, 30.0)
+        brawler.position = (24.0, 30.0)
+        gunner.fell_back_this_round = True
+        battle._do_charge(gunner, battle.a, battle.b)
+        self.assertNotIn(
+            gunner.uid, battle._charging_this_round,
+            "A FLY unit must NOT declare a charge after Falling Back in 10e.",
+        )
 
 
 class DesperateEscapeTests(unittest.TestCase):
