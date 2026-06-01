@@ -136,7 +136,7 @@ class WarHordeStratagemsTests(unittest.TestCase):
     by canonical name + CP cost, and exposed via WAR_HORDE.stratagems."""
 
     EXPECTED = (
-        ("Insane Bravery", 1),
+        ("Insane Bravery (War Horde)", 1),
         ("Power Of The WAAAGH!", 1),
         ("Mob Up", 1),
         ("Big Krumpin'", 2),
@@ -161,7 +161,7 @@ class WarHordeStratagemsTests(unittest.TestCase):
     def test_constants_exist_and_named_correctly(self):
         # Each constant carries the canonical name (matches what the
         # dispatcher in _apply_detachment_stratagems looks for).
-        self.assertEqual(INSANE_BRAVERY.name, "Insane Bravery")
+        self.assertEqual(INSANE_BRAVERY.name, "Insane Bravery (War Horde)")
         self.assertEqual(POWER_OF_THE_WAAAGH.name, "Power Of The WAAAGH!")
         self.assertEqual(MOB_UP.name, "Mob Up")
         self.assertEqual(BIG_KRUMPIN.name, "Big Krumpin'")

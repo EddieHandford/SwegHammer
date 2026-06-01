@@ -92,6 +92,37 @@ TANK_SHOCK = Stratagem(
     effect="d3_mortal_wounds_to_charge_target",
 )
 
+# Universal Insane Bravery (1 Command Point, Epic Deed — 10e core). Just
+# before a Battle-shock test for a unit from your army, that test is
+# automatically passed. May not be used more than once per battle.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Insane-Bravery
+#
+# IMPORTANT: the Orks War Horde detachment also carries a faction variant
+# named "Insane Bravery (War Horde)" (see WAR_HORDE_STRATAGEMS below).
+# The two are distinct: the core universal is available to every army, once
+# per battle; the Orks variant carries Orks-specific restrictions. The
+# registry names are kept distinct to avoid a citation-key clash.
+#
+# Hook status: NO-OP PENDING SIMULATOR PLUMBING. The 10e Battle-shock step
+# in Battle._run_battleshock_phase executes before the round-start stratagem
+# dispatcher (_apply_detachment_stratagems), so a pre-test auto-pass requires
+# an in-phase hook that the current dispatcher does not expose. The stratagem
+# is registered here so:
+#   (a) the citation auditor enforces the Wahapedia citation (CLAUDE.md §10),
+#   (b) the stratagems_for_army table surfaces it for display / event logging,
+#   (c) the once_per_battle flag is already encoded so the future dispatcher
+#       hook can simply call _fire_stratagem and the spent-once gate works.
+# When the in-phase hook lands, update the effect string to "auto_pass_battleshock"
+# and add a test in tests/test_stratagems.py.
+UNIVERSAL_INSANE_BRAVERY = Stratagem(
+    name="Insane Bravery",
+    cp_cost=1,
+    phase="command",
+    trigger="friendly_unit_about_to_take_battleshock_test",
+    effect="auto_pass_battleshock_no_op_pending_in_phase_hook",
+    once_per_battle=True,
+)
+
 # NOTE: Heroic Intervention is NOT a stratagem. Per Wahapedia 10e core
 # rules (https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#CHARGE-PHASE)
 # it is a free core ability for CHARACTER models — after the opposing
@@ -108,6 +139,7 @@ UNIVERSAL_STRATAGEMS: Tuple[Stratagem, ...] = (
     COMMAND_RE_ROLL,
     COUNTER_OFFENSIVE,
     TANK_SHOCK,
+    UNIVERSAL_INSANE_BRAVERY,
 )
 
 
@@ -775,7 +807,7 @@ SUBTERRANEAN_ASSAULT_STRATAGEMS: Tuple[Stratagem, ...] = (
 #     shoot" offensive payoff.
 
 INSANE_BRAVERY = Stratagem(
-    name="Insane Bravery",
+    name="Insane Bravery (War Horde)",
     cp_cost=1,
     phase="command",
     trigger="friendly_orks_infantry_battleshock_test_about_to_fail",

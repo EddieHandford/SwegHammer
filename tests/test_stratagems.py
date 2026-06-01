@@ -17,7 +17,7 @@ from code.army import Army
 from code.events import StratagemFired
 from code.simulator import Battle
 from code.stratagems import (
-    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK,
+    COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK, UNIVERSAL_INSANE_BRAVERY,
     CP_CAP, CP_PER_COMMAND_PHASE, STARTING_CP, Stratagem,
     UNIVERSAL_STRATAGEMS, award_command_phase_cp, stratagems_for_army,
 )
@@ -97,21 +97,29 @@ class StratagemDataclassTests(unittest.TestCase):
     def test_universal_stratagem_count_and_costs(self):
         # #iter12: Heroic Intervention removed from the universal core
         # stratagems tuple — it is a free core CHARACTER ability per
-        # Wahapedia 10e core rules, not a 1 CP stratagem. The three
-        # remaining universals are Command Re-Roll, Counter-Offensive,
-        # and Tank Shock.
-        self.assertEqual(len(UNIVERSAL_STRATAGEMS), 3)
+        # Wahapedia 10e core rules, not a 1 CP stratagem. The four
+        # current universals are Command Re-Roll, Counter-Offensive,
+        # Tank Shock, and Insane Bravery (added as the universal core
+        # version; the Orks War Horde variant is a separate faction entry).
+        self.assertEqual(len(UNIVERSAL_STRATAGEMS), 4)
         names = {s.name for s in UNIVERSAL_STRATAGEMS}
         self.assertNotIn("Heroic Intervention", names)
-        # Spot-check the canonical CP costs.
+        self.assertIn("Insane Bravery", names)
+        # Spot-check the canonical Command Point costs.
         self.assertEqual(COMMAND_RE_ROLL.cp_cost, 1)
         self.assertEqual(COUNTER_OFFENSIVE.cp_cost, 2)
         self.assertEqual(TANK_SHOCK.cp_cost, 1)
+        self.assertEqual(UNIVERSAL_INSANE_BRAVERY.cp_cost, 1)
+        # Insane Bravery is once-per-battle; the other three universals are not.
+        self.assertTrue(UNIVERSAL_INSANE_BRAVERY.once_per_battle)
+        self.assertFalse(COMMAND_RE_ROLL.once_per_battle)
+        self.assertFalse(COUNTER_OFFENSIVE.once_per_battle)
+        self.assertFalse(TANK_SHOCK.once_per_battle)
 
     def test_stratagem_is_frozen_and_hashable(self):
         # Frozen dataclass — instances belong in sets / tuple fields.
-        s = {COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK}
-        self.assertEqual(len(s), 3)
+        s = {COMMAND_RE_ROLL, COUNTER_OFFENSIVE, TANK_SHOCK, UNIVERSAL_INSANE_BRAVERY}
+        self.assertEqual(len(s), 4)
 
 
 class CpEconomyTests(unittest.TestCase):
@@ -160,9 +168,11 @@ class CpEconomyTests(unittest.TestCase):
 
 class StratagemsForArmyTests(unittest.TestCase):
 
-    def test_every_army_gets_the_three_universals(self):
+    def test_every_army_gets_the_four_universals(self):
         # #iter12: Heroic Intervention removed from the universal core
         # stratagems — it is a free core CHARACTER ability now.
+        # Stream B: Insane Bravery (core universal) added alongside the
+        # existing three; the Orks War Horde variant is separate.
         army = Army("Test")
         army.add_unit(_marine_profile())
         strats = stratagems_for_army(army)
@@ -170,6 +180,7 @@ class StratagemsForArmyTests(unittest.TestCase):
         self.assertIn("Command Re-Roll", names)
         self.assertIn("Counter-Offensive", names)
         self.assertIn("Tank Shock", names)
+        self.assertIn("Insane Bravery", names)
         self.assertNotIn("Heroic Intervention", names)
 
 

@@ -9,11 +9,11 @@
     "scope": "army-wide"
   },
   "Stratagem.Counter-Offensive": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Core-Stratagems",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Counter-Offensive",
     "rule_name": "Counter-Offensive",
-    "quoted_text": "USE THIS STRATAGEM IN THE FIGHT PHASE, JUST AFTER AN ENEMY UNIT HAS FOUGHT. ONE FRIENDLY UNIT FROM YOUR ARMY THAT IS WITHIN ENGAGEMENT RANGE OF ONE OR MORE ENEMY UNITS CAN BE SELECTED TO FIGHT NEXT, EVEN IF IT HAS ALREADY FOUGHT THIS PHASE.",
-    "trigger": "fight phase, immediately after an enemy unit has fought",
-    "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations)",
+    "quoted_text": "Use this Stratagem in your opponent's Fight phase, just after an enemy unit has fought. Target: One unit from your army that is within Engagement Range of one or more enemy units and that has not already been selected to fight this phase. Effect: Your unit is eligible to fight this phase, and you can select it to fight next.",
+    "trigger": "fight phase, immediately after an enemy unit has fought, targeting a friendly unit in engagement range that has NOT already fought this phase",
+    "effect": "a friendly unit in engagement range fights out-of-sequence — strikes the enemy that just fought before activation continues (simulator gates the heuristic on the enemy having killed a model so we spend the 2 CP on real swings, not free retaliations); the 'has not already been selected to fight this phase' restriction is incidentally satisfied under this sim's non-alternating fight model",
     "scope": "phase-gated"
   },
   "Stratagem.Tank Shock": {
@@ -304,6 +304,14 @@
     "scope": "army-wide"
   },
   "Stratagem.Insane Bravery": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Insane-Bravery",
+    "rule_name": "Insane Bravery",
+    "quoted_text": "Use this Stratagem in your Command phase, in the Battle-shock step, just before you take a Battle-shock test for a unit from your army. That Battle-shock test is automatically passed. You cannot use this Stratagem more than once per battle.",
+    "trigger": "own Command phase, Battle-shock step, just before a Battle-shock test for a friendly unit; once per battle",
+    "effect": "(NO-OP, PENDING IN-PHASE HOOK) the 10e Battle-shock step in Battle._run_battleshock_phase executes before the round-start stratagem dispatcher, so the pre-test auto-pass requires an in-phase hook the current dispatcher does not expose. The stratagem is registered in UNIVERSAL_STRATAGEMS for auditor + stratagems_for_army completeness; the once_per_battle flag is already encoded so the future dispatcher can simply call _fire_stratagem and the spent-once gate works. 1 Command Point, Epic Deed.",
+    "scope": "army-wide"
+  },
+  "Stratagem.Insane Bravery (War Horde)": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#War-Horde",
     "rule_name": "Insane Bravery (War Horde Stratagem)",
     "quoted_text": "(Paraphrase from Wahapedia — WebFetch tool returned ECONNREFUSED at edit time; source URL is the canonical reference.) When: your Command phase, or just before a Battle-shock test is taken for an ORKS INFANTRY unit from your army. Effect: that unit automatically passes any Battle-shock tests it is required to take this turn.",
