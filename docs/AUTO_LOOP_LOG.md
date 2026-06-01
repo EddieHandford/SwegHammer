@@ -4,6 +4,52 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 96 close (2026-06-01) — core-rules audit quick-fix batch (three parallel worktree streams); LANDED Stream D+E rules-correctness (gated 3.76 → 3.59); HELD Stream A AI-fidelity (frozen-under)
+
+Branch `claude/sim-calibration-6`. Ran the watchdog's core-rules-audit quick-fix batch (per the user's
+2026-06-01 parallel-fan-out directive) as THREE file-disjoint concurrent worktree agents, then merged the
+faithful winners and held the frozen-under regressor. This wave's value is in the clean split between
+rules-correctness (helps the headline) and artificial-intelligence-planning fidelity (regresses it).
+
+LANDED:
+- **Stream D+E (rules-correctness — `map.py` / `units.py` / `simulator.py`).** Collapsed cover to a single
+  Benefit of Cover (removed the stale 9th-edition −1-to-hit and the Light/Heavy split); corrected Ruins /
+  Woods line of sight to current 10e (TOWERING no longer sees through ruins — only AIRCRAFT does; removed
+  the stale infantry "shoot through ruin walls" pass, which is movement-only in 10e); added the
+  Benefit-of-Cover Armour-Penetration-0 / Save-3+ exception for ALL models (was mis-gated to infantry);
+  removed the stale Fall Back FLY exemption (a unit that Fell Back cannot shoot or declare a charge — no
+  FLY exception). All re-cited verbatim to the current 10e core rules. Tests rewritten to the new rules,
+  not weakened.
+- **Stream B1.** Counter-Offensive citation `quoted_text` corrected to current 10e ("has not already been
+  selected to fight this phase").
+
+HELD / DEFERRED (honestly, not discarded):
+- **Stream A (artificial-intelligence Objective-Control fidelity).** Aligned the planner's Objective-
+  Control view with the scorer (the damaged-Knight bracket + battle-shock Objective-Control = 0; plus my
+  enemy-snapshot symmetry + `SWEG_DMGOC` gate completions). Genuinely faithful, but it REGRESSED the
+  headline and reversed Stream D+E's Imperial-Knights / Drukhari gains — the frozen-under signature. HELD
+  in full on branch `held/stream-a-ai-oc-fidelity` (commit `452ce81`), re-queued, and the keep-versus-hold
+  fork escalated to the watchdog (`LOOP_QA.md` Q13). Did not bank a headline regression; nothing is lost.
+- **Stream B2 (universal Insane Bravery).** Registered + cited but mechanically INERT — the auto-pass needs
+  an in-phase hook + a Command-Point spend policy in `_run_battleshock_phase`. Re-queued as a P2 build, NOT
+  landed as a live-but-fake rule.
+- **Stream C (terrain density).** Parked on the watchdog supplying citable real Pariah Nexus layouts
+  (`LOOP_QA.md` Q12); it also correctly sequences after Stream D's line-of-sight fixes, which just landed.
+
+| Eval (N=40) | MAE_gated | in band | Imperial Knights | Drukhari | Chaos Daemons |
+|---|---:|---:|---:|---:|---:|
+| Baseline (wave 95) | 3.76 | 9/22 | +27.0 | +6.4 | −14.7 |
+| Stream A combined (HELD) | 3.89 | 5/22 | +27.8 | +5.7 | −15.3 |
+| **Stream D+E + B (LANDED)** | **3.59** | 7/22 | **+25.9** | **+4.7** | −15.6 |
+
+Result: gated 3.76 → **3.59** (−0.17), driven by the two factions the watchdog's D2 (ruin line of sight)
+and E1 (no shooting after Fall Back) hypotheses targeted — Imperial Knights and Drukhari. Chaos Daemons
+marginally worse (−0.9, its separate combat/positional residual). In band 9 → 7 (the cover / line-of-sight
+changes nudged a couple of borderline factions) but the gated mean absolute error — the primary signal —
+improved. 928 tests pass (2 pre-existing Stage-2 equilibrium-solver timing failures, unrelated), citation
+audit clean, `run.py --cli` exits cleanly. Also unblocked: P1.5 (roll damage per shot) now that Stream D's
+`units.py` work landed. Session headline gated 5.98 → 3.59, all faithful.
+
 ## Wave 95 close (2026-06-01) — positional re-model Candidate B (idle-unit objective massing) LANDED — gated 4.15 → 3.76, the first positional candidate to work; Chaos Daemons −22.7 → −14.7
 
 Branch `claude/sim-calibration-6`. Built the plan's Candidate B (the move AI massing body-army units

@@ -367,6 +367,132 @@ Pick what the residual calls for; do not marry one approach.
   exists. "With some variation" means there is no single canonical list, so swapping
   one realistic list for another to move a win rate is metric-tuning.
 
+## WATCHDOG-MANAGED TASK QUEUE (prioritized by estimated impact — user-authorized 2026-06-01)
+
+The user authorized the watchdog to review, add, and **prioritize tasks by estimated impact**.
+Work this queue top-down. Estimated impact is on the headline gated mean absolute error, weighted by
+the dominant residual (the positional axis: Imperial Knights +27 over-hold / Chaos Daemons −22
+under-hold ≈ half the gated MAE).
+
+**HOW TO EXECUTE THE FIX BATCH — MULTIPLE PARALLEL AGENTS (user directive, 2026-06-01).** Work the
+core-rules audit findings as a fan-out of CONCURRENT worktree-isolated fix agents (sweg-wave skill;
+CLAUDE.md §8 base-reset dance in every worktree agent's prompt — push WIP, reset the worktree to it,
+confirm HEAD), NOT one finding per serial wave. Group by the MERGE-SAFE streams in
+`docs/CORE_RULES_AUDIT_FINDINGS_2026-06-01.md`: Streams **A** (`strategy.py`), **B** (`stratagems.py` +
+`stratagems.json`), **C** (`maps.py` density) are file-disjoint → run in parallel. Stream **D+E**
+(cover / line-of-sight / terrain RULES + Fall Back gates) shares `map.py`/`units.py`/`simulator.py`
+hot functions → ONE coherent agent, and sequence it AFTER Candidate B lands (P0 also edits
+`simulator.py` — do not run them concurrently or the diffs won't merge). Each agent: re-verify its
+finding against `data/reference/wahapedia_core_rules_2026-06-01.txt`, fix, CITE (audit enforces), run
+the pytest sweep + N=40 A/B; keep faithful fixes regardless of metric direction but measure + report.
+This batch SUBSUMES the standalone P1 terrain task below (Stream C = its density build, Stream D = its
+cover/line-of-sight rules).
+
+**P0 — IN FLIGHT (finish, then report; do not abandon mid-measurement).**
+Candidate B (`SWEG_MASS`, the move AI massing units onto markers). Finish the env-gated A/B vs 4.15,
+per-matchup on the IK + Daemons cells. **Even-handed** — a general objective-seeking move-AI
+improvement for ALL factions; body armies benefiting more must be EMERGENT (more bodies), NOT a coded
+body-army / under-shooter / per-archetype massing preference (that is the forbidden knob). Real movement
+only — NO objective-control counting / coherency-buffer change (that is the reverted A2 by the back
+door). Expect a likely wash (the frozen-under / w81 class); **if it washes, REPORT it** — do not force,
+do not reach for A2 or any knob. (Watchdog estimate: low-to-moderate; likely wash, but cheap to finish
+and the result is informative for the terrain hypothesis below.)
+
+**P1 — HIGHEST estimated impact (NEW, user-authorized): TERRAIN-REALISM REVIEW.**
+Hypothesis (watchdog, data-backed): the positional residual is substantially driven by SPARSE terrain.
+Our 10 calibration maps average ~8–10% terrain area / ~7–8% line-of-sight-blocking coverage with small
+scattered pieces; real competitive Pariah Nexus layouts are far denser (~25–30% area with large central
+line-of-sight-blocking ruins). Sparse, open boards systematically favour shooting + TOWERING (Imperial
+Knights shoot across the table and over-hold) and starve melee / board armies of cover to advance (Chaos
+Daemons get shot off the board before reaching markers → under-hold) — the exact residual shape. This
+may root-cause the axis the AI-positioning levers cannot move (a perfect massing AI still can't get
+Daemons onto markers if they're killed crossing open ground). Sub-tasks:
+- **(a) Audit.** Quantify each map's terrain area %, line-of-sight-blocking %, piece sizes and placement
+  (is there a central line-of-sight spine, or only scattered small pieces?) versus the ACTUAL May-2026
+  Pariah Nexus competitive terrain layouts. Source the real layouts from a citable reference (Games
+  Workshop Pariah Nexus tournament companion / World Team Championship layouts / Goonhammer terrain
+  articles). **The worker's web access is unreliable (Wahapedia DNS fails in agents) — if you cannot
+  source the real layouts, the WATCHDOG will provide the reference data via LOOP_QA before this task is
+  picked up; flag it there rather than guessing.**
+- **(b) Build.** Raise our maps' terrain density and add central line-of-sight-blocking ruins to MATCH
+  the real competitive layouts. FAITHFUL BY CONSTRUCTION: reproduce real terrain, cite the layouts in
+  `data/rule_citations.d/`. EVEN-HANDED — terrain is faction-neutral; do NOT gerrymander terrain or
+  objective placement to favour or disfavour any faction. Prime-directive test: would this terrain be
+  correct if it moved the metric the WRONG way? Yes, iff it matches the real layouts — so match them,
+  do not tune them.
+- **(c) Measure.** Before/after N=40 eval; report the IK + Daemons residual and the over/under-shooters.
+  Because matching real terrain is faithful regardless of metric direction, KEEP the realism upgrade as
+  fidelity even if metric-neutral — but never adjust terrain to chase the metric. If it moves the axis,
+  that is the root-cause finding; if it washes, report that the axis survives realistic terrain too.
+  (Watchdog estimate: HIGH — directly addresses the dominant residual via a faithful, even-handed lever
+  the AI track structurally cannot reach.)
+- **(d) Terrain-RULES-fidelity fixes — CONFIRMED against the PRIMARY current core rules (Wahapedia, Core
+  Rules 1.8 Oct 2025 + Balance Dataslate 3.4 Mar 2026; full verbatim text captured 2026-06-01).** The
+  terrain layer is framed on the deprecated 9th-edition "terrain traits" vocabulary; CURRENT 10e uses
+  terrain CATEGORIES (Ruins, Woods, Hills, Craters & Rubble, Barricades, Battlefield Debris) — VERIFIED:
+  "Dense/Light/Heavy Cover", "terrain trait", "Difficult Ground", "Scaleable" each appear ZERO times in
+  the core rules. Do these fixes (suggest BEFORE the density rework so the line-of-sight measurement is
+  clean), each cited to the captured verbatim text:
+  - **(i) CONFIRMED BUG — TOWERING is NOT a blanket see-over for RUINS (it is for WOODS).** `code/map.py`
+    `has_line_of_sight` sets `ruin_pass = towering OR …`, so a Knight (TOWERING) shoots through EVERY ruin
+    from anywhere. The two area-terrain types differ:
+    - RUINS (verbatim): *"Models cannot see over or through this terrain feature … AIRCRAFT models are
+      exceptions to this — visibility to and from such models is determined normally, even if this terrain
+      feature is wholly in between them and the observing model. Models can see into this terrain feature
+      normally, and models that are wholly within this terrain feature can see out of it normally. Models
+      that are within this terrain feature can be seen normally and TOWERING models that are within this
+      terrain feature can also see out of it normally."* → ONLY AIRCRAFT is a blanket exception; TOWERING
+      only sees OUT when WITHIN the ruin; a TOWERING model OUTSIDE a ruin is blocked like anyone else.
+    - WOODS (verbatim): *"AIRCRAFT and TOWERING models are exceptions to this — visibility to and from such
+      models is determined normally, even if this terrain feature is wholly in between them…"* → here
+      TOWERING DOES get the blanket see-over.
+    FIX (surgical): KEEP towering ignoring the woods/obscuring type (that is correct); STOP towering from
+    forcing `ruin_pass`. For ruins: blanket pass for AIRCRAFT only; add the "endpoint within a ruin → can
+    see out" allowance (covers wholly-within for all + within for TOWERING); otherwise ruins block. Re-cite
+    `simulator.towering_los` to the two verbatim passages above (drop the 9e "Obscuring or Dense Cover
+    trait" quote). **Metric hypothesis (measure, don't assume): plausibly reduces the Imperial Knights
+    over-hold (+27) — the sim currently gives Knights table-wide sightlines real ruins would block — and
+    compounds with the density rework.** Faithful regardless of metric direction.
+  - **(ii) CONFIRMED stale — remove the INFANTRY/BEAST/SWARM "shoot through ruin walls" line-of-sight pass**
+    (`_has_ruin_pass`). In current ruins the INFANTRY/BEAST exception is MOVEMENT ONLY (verbatim: *"INFANTRY,
+    IMPERIUM, PRIMARCH, BELISARIUS CAWL, and BEAST models can move through this terrain feature (walls,
+    floors, ceilings…) as if it were not there"*); "shoot through" / "through the wall" appear ZERO times.
+    Ruins fully block line of sight. Remove the shoot-through-walls LoS exception (keep movement-through if
+    modelled).
+  - **(iii) CONFIRMED — collapse cover to a single Benefit of Cover (+1 save), drop `HEAVY_COVER = -1 to
+    hit`.** 10e grants only the Benefit of Cover against ranged attacks (verbatim: *"that model has the
+    Benefit of Cover against that attack"*) = +1 to the saving throw (with the standard "cannot improve a
+    3+-or-better save vs AP0" caveat — verify). There is no -1-to-hit and no Light/Heavy split in the core
+    rules. Re-cite accordingly.
+  - Re-frame the `TerrainType` model on the 10e categories. (Watchdog now has live Wahapedia access via the
+    user's VPN; the verbatim rule text is captured in the oversight log + LOOP_QA if access drops.)
+    Cross-check the PRIMARY rule text — a web search SUMMARY described the outdated launch TOWERING and was
+    wrong (the OC-bracket / primary-source-first lesson). Even-handed.
+
+**P2 — BUILD-NEW MECHANICS from the coverage sweep (bigger than the quick-fix batch; see
+`docs/CORE_RULES_AUDIT_FINDINGS_2026-06-01.md` coverage section).** Ranked by impact: (1) Fire Overwatch
+core stratagem (out-of-phase reaction shooting — melee-vs-gunline balance); (2) Go To Ground / Smokescreen
+defensive core stratagems (fragile-infantry over-kill); (3) Strategic Reserves board-edge arrival + Rapid
+Ingress; (4) mid-game voluntary embark (Drukhari Skysplinter); (5) AIRCRAFT special rules (only if aircraft
+units are in the archetype lists); (6) surge-move primitive. Each is faithful + cited; A/B each.
+
+**P1.5 — ROLL DAMAGE (USER-APPROVED 2026-06-01; structural; high value).** Replace the expected-value
+damage shortcut (`parse_dice_expr` collapsing D6/D3+N to mean at load) with a per-shot runtime damage
+ROLL. Rationale (faithful + two payoffs): (a) restores damage variance + correct overkill/threshold
+behaviour against multi-wound models — plausibly trims the big-gun / Imperial Knights over-rate; (b)
+**ENABLES a whole class of abilities that are currently DEAD under expected-value** — "re-roll the Damage
+roll", "re-roll Damage rolls of 1", minimum-damage floors (the user flagged Space Marines specifically,
+which have built-in optional damage re-rolls that benefit enormously). So this task is TWO parts: (1) roll
+variable damage per shot at runtime; (2) audit the catalogue/BSData for damage-reroll + damage-floor
+abilities that were inert under expected-value and wire them (cited). Caveats: it touches the `units.py`
+damage hot-path, so SEQUENCE it after the quick-fix batch's `units.py`/Stream-D work (do not edit
+`units.py` concurrently); and rolled damage WIDENS variance, so re-check the per-faction noise floor and
+whether N=40 still gives stable gated MAE (raise N or note the wider noise band if needed). A/B vs the
+current baseline; keep regardless of metric direction (faithful), but measure + report the big-gun/Knight
+delta.
+
+**P3 — backlog (revisit after the positional axis; re-rank by residual each wave).**
+
 ## Known work queue (starting points; re-rank by residual each wave)
 
 - **Imperial Knights, +27.8 over** — audit the wave-69 Bold Gallantry / Bondsman

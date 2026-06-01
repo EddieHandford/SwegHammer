@@ -28,3 +28,6 @@ target/
 
 # Live worker-loop question/answer channel (watchdog-mediated, not history)
 LOOP_QA.md
+
+# Cached primary-source rule text for reference (copyright GW/Wahapedia; not for commit)
+data/reference/

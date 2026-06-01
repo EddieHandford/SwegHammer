@@ -1,25 +1,40 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 95 close (2026-06-01) — positional re-model Candidate B (idle-unit objective
-massing) LANDED: gated **4.15 → 3.76**, in band 8 → 9, Chaos Daemons −22.7 → −14.7. The first positional
-candidate to work. Session headline now gated 5.98 → 3.76, all faithful.
+**Last updated:** Wave 96 close (2026-06-01) — core-rules audit quick-fix batch: LANDED Stream D+E
+rules-correctness (cover / line of sight / Fall Back), gated **3.76 → 3.59**, in band 9 → 7; HELD Stream A
+artificial-intelligence Objective-Control fidelity (frozen-under regression). Session headline gated
+5.98 → 3.59, all faithful.
 
-**Wave 95 LANDED the Q11 positional re-model** (Candidate B). The move AI now masses a unit that holds
-no objective AND is out of its own firing range onto the best holdable objective (arrive-in-cover) — the
-faithful "idle units play the objectives" tactic, the dominant sub-cause (body armies' OC not near
-markers). An aggressive all-units version regressed to 6.50 (pulled shooters off fire-lanes) but a
-refinement gated to OUT-of-range units landed: gated 4.15 → **3.76**, in band 8 → **9**, the dominant
-under-shooter **Chaos Daemons −22.7 → −14.7** (+8.0, its idle Daemons reach the markers); Drukhari/T'au/
-Custodes also eased. Imperial Knights unchanged at +27 (the over-shooter half can't be shot off — no
-representation fix; the UNDER-shooter half cracked, the bigger residual). Faithful + even-handed + no
-knob + no scoring conversion; passes every hard rail. Default-ON (`SWEG_MASS=0` re-gates). 927 tests pass.
+**Wave 96 ran the watchdog's core-rules-audit quick-fix batch** as three file-disjoint concurrent worktree
+streams. LANDED — Stream D+E (rules-correctness, `map.py` / `units.py` / `simulator.py`): single Benefit of
+Cover (stale 9th-edition −1-to-hit and the Light/Heavy split removed), current-10e Ruins / Woods line of
+sight (TOWERING no longer sees through ruins — only AIRCRAFT; infantry "shoot through walls" removed as
+movement-only), Benefit-of-Cover Armour-Penetration-0 / Save-3+ exception for ALL models, Fall Back FLY
+exemption removed (no shooting or charging after a Fall Back). Gated 3.76 → **3.59** (−0.17), driven by
+Imperial Knights +27.0 → **+25.9** and Drukhari +6.4 → **+4.7** (the watchdog's ruin-line-of-sight + no-FLY-
+shoot hypotheses landed); Chaos Daemons marginally worse (−0.9, its separate residual). Plus Stream B1
+(Counter-Offensive citation fix). HELD — Stream A (the planner's Objective-Control view aligned with the
+scorer: damaged-Knight bracket + battle-shock) is faithful but REGRESSED (frozen-under — it reversed the
+Stream D+E Imperial-Knights / Drukhari gains): preserved on branch `held/stream-a-ai-oc-fidelity`
+(`452ce81`), keep-versus-hold escalated to the watchdog (`LOOP_QA.md` Q13). DEFERRED — Stream B2 universal
+Insane Bravery (registered + cited but mechanically inert; P2 build to wire the Command-Point spend policy)
+and Stream C terrain density (parked on the watchdog supplying citable real Pariah Nexus layouts, `LOOP_QA`
+Q12; sequences after Stream D's line of sight, now landed). P1.5 roll-damage is now unblocked. 928 tests
+pass (2 pre-existing Stage-2 solver timing failures), audit clean, `run.py --cli` OK.
+
+### Earlier — wave 95 (positional re-model Candidate B landed, gated 4.15 → 3.76)
+
+**Wave 95 LANDED the Q11 positional re-model** (Candidate B): the move AI masses a unit holding no
+objective AND out of its own firing range onto the best holdable objective (arrive-in-cover) — the faithful
+"idle units play the objectives" tactic, the dominant sub-cause. Gated 4.15 → 3.76, in band 8 → 9, Chaos
+Daemons −22.7 → −14.7; Imperial Knights unchanged (+27, the over-shooter half can't be shot off).
+Default-ON (`SWEG_MASS=0` re-gates).
 
 ### Earlier — wave 94 (geometry candidate regressed, reverted)
 
-**Wave 94 built + tested the geometry/clustering candidate** (a unit on an objective credits OC over a
-coherency-extended footprint) → REGRESSED 4.15 → 4.30 (frozen-under: helped already-holding over-shooters,
-not the under-shooters who don't reach markers). Reverted. The read pointed to Candidate B (massing the
-non-reachers), which then landed.
+**Wave 94** built the geometry/clustering candidate (a unit on an objective credits Objective Control over
+a coherency-extended footprint) → REGRESSED 4.15 → 4.30 (frozen-under: helped already-holding over-shooters,
+not the under-shooters who don't reach markers). Reverted; pointed to Candidate B, which landed wave 95.
 
 ### Earlier — wave 93 (Q11 positional re-model scoped)
 
