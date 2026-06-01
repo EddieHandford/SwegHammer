@@ -1,21 +1,23 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 91 close (2026-06-01) — user ruled Q10/Q11; started the Chapter Approved 2025-26
-secondary re-alignment (part 1/2, 5 cards) — faithful, metric-flat as predicted (gated **4.10**, was
-4.08). Next: part 2 (Bring It Down / Assassination wound-plumbing), then the Q11 positional re-model.
+**Last updated:** Wave 92 close (2026-06-01) — Chapter Approved 2025-26 secondary re-alignment COMPLETE
+(part 2: Bring It Down + Assassination wound-tiers) — faithful, metric-flat as predicted (gated **4.15**,
+was 4.08 at the floor). Deck re-align done. **Next: plan + build the Q11 positional re-model.**
 
-**The user ruled the structural-floor checkpoint** (commit 0541e23): **Q10 = Chapter Approved 2025-26**
-(re-align secondaries + Tier A to CA-2025-26, ≥2 CA sources); **Q11 = (c)** authorise the hard
-positional-representation re-model (diagnose-not-nerf, faithful/even-handed/plan-first, NOT a per-faction
-objective-control→primary-VP knob). Sequence: deck re-align first, then the re-model.
+**Wave 92 completed the CA-2025-26 deck re-alignment** — Bring It Down flat-3 → 2+2(15+W)+2(20+W) max
+6/no-cap; Assassination flat-3 → 4(4+W)/3(<4)/no-Warlord-bonus. Threaded destroyed-unit Wounds data
+through the round snapshot (3 new bracket id-sets). 3 citations rewritten to CA-2025-26; 927 tests pass.
+N=40: gated 4.10 → **4.15** (flat across both parts, +0.07 total — the cap-wash). KEPT as fidelity (the
+deck the May-2026 target used). DECK RE-ALIGNMENT COMPLETE (7 cards re-valued; 5 board cards confirmed
+unchanged). Next (wave 93): plan + build the Q11 positional re-model — the one structural axis (Imperial
+Knights over-holds / Chaos Daemons under-holds the markers), diagnose-not-nerf, faithful/even-handed/
+plan-first, NOT a per-faction objective-control→primary-VP knob, high-risk (may wash — report honestly).
 
-**Wave 91 did CA-2025-26 re-alignment part 1** (5 cards, ≥2-CA-source-verified): No Prisoners 3→2; Cull
-10/3→13/5 (no cap); Engage 2/3/5→1/2/4; Behind Enemy Lines flat-4→3/4; Extend Battle Lines 5→4. Five
-Tier-A board cards confirmed UNCHANGED from Pariah Nexus. Citations rewritten to CA-2025-26; 8 tests
-updated; 926 tests pass. N=40: gated 4.08 → **4.10** (flat, within noise) — the wave-90 cap-wash
-prediction (both sides max the 40-VP secondary cap). KEPT as the faithful match to the target deck
-(fidelity, not metric). Next: wave 92 = the 2 wound-plumbing cards (Bring It Down brackets, Assassination
-wound-tier); wave 93+ = plan+build the Q11 positional re-model.
+### Earlier — wave 91 (CA-2025-26 re-alignment part 1, 5 cards, metric-flat)
+
+**Wave 91 did CA-2025-26 re-alignment part 1** (5 cards: No Prisoners 3→2, Cull 10/3→13/5, Engage
+2/3/5→1/2/4, Behind Enemy Lines flat-4→3/4, Extend 5→4), ≥2-CA-source-verified; metric-flat (4.08→4.10,
+cap-wash). The user ruled Q10 = Chapter Approved 2025-26 + Q11 = (c) the positional re-model.
 
 ### Earlier — wave 90 (Daemons re-diagnosed positional; secondary cap-wash; structural floor)
 

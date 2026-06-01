@@ -86,22 +86,29 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # Tuned to match real Pariah Nexus magnitudes: ~3 VP per qualifying
 # event with smaller per-round caps. This brings total secondary VP
 # per game to ~40 (vs ~75 primary), matching the real-meta ratio.
-BRING_IT_DOWN_CAP_PER_ROUND: int = 8
+BRING_IT_DOWN_CAP_PER_ROUND: int = 18  # CA-2025-26 has NO per-round cap; 18 = effectively unbounded (under the 40-VP secondary total cap)
 NO_PRISONERS_CAP_PER_ROUND: int = 5    # CA-2025-26: 2 VP/unit "up to 5 VP" — matches
 ENGAGE_ON_ALL_FRONTS_CAP_PER_ROUND: int = 3
 BEHIND_ENEMY_LINES_CAP_PER_ROUND: int = 4   # CA-2025-26 BEL tops out at 4 VP (2+ units)
 CULL_THE_HORDE_CAP_PER_ROUND: int = 15  # CA-2025-26 Cull has NO per-round cap; 15 = effectively unbounded in practice, still under the 40-VP secondary total cap
-ASSASSINATION_CAP_PER_ROUND: int = 4
+ASSASSINATION_CAP_PER_ROUND: int = 12  # CA-2025-26 has NO per-round cap; 12 = effectively unbounded (under the 40-VP secondary total cap)
 
 # VP per qualifying kill. Re-aligned to the CHAPTER APPROVED 2025-26 deck (wave 91,
 # the deck the May-2026 calibration target was played under). No Prisoners 2 VP/unit
 # (was 3) and Cull the Horde 5 VP/unit (was 3) are CA-2025-26 values, ≥2-source-verified
 # (wahapedia chapter-approved-2025-26 + Goonhammer CA-2025 review + GW Tournament Companion).
-BRING_IT_DOWN_VP_PER_KILL: int = 3    # FLAT proxy; CA-2025-26 Fixed is 2 +2(15+W) +2(20+W), wave-92 bracket build
+# CA-2025-26 Bring It Down (Fixed): 2 VP base, +2 if the destroyed unit's total
+# Wounds characteristic is 15+, +2 if 20+, to a maximum of 6 VP per unit.
+BRING_IT_DOWN_VP_PER_KILL: int = 2    # base 2 VP per destroyed MONSTER/VEHICLE
+BRING_IT_DOWN_VP_BONUS: int = 2       # +2 at 15+ total wounds, +2 again at 20+
+BRING_IT_DOWN_VP_MAX_PER_UNIT: int = 6
 NO_PRISONERS_VP_PER_UNIT: int = 2     # CA-2025-26: 2 VP per enemy UNIT destroyed (up to 5/turn)
 CULL_THE_HORDE_VP_PER_UNIT: int = 5   # CA-2025-26: 5 VP per qualifying INFANTRY unit destroyed
-ASSASSINATION_VP_PER_CHAR: int = 3    # unchanged this wave; CA-2025-26 Fixed = 4 (4+ wound) / 3 (<4) + no Warlord bonus — deferred to the wave-92 wound-tier build
-ASSASSINATION_WARLORD_BONUS_VP: int = 1  # unchanged this wave (CA-2025-26 removes it; folded into the wave-92 Assassination re-align)
+# CA-2025-26 Assassination (Fixed): 4 VP for a destroyed CHARACTER with 4+ Wounds,
+# 3 VP for one with fewer than 4 Wounds. NO Warlord bonus (removed in CA-2025-26).
+ASSASSINATION_VP_PER_CHAR: int = 3    # 3 VP for a <4-wound CHARACTER
+ASSASSINATION_VP_4PLUS_WOUNDS: int = 4  # 4 VP for a 4+-wound CHARACTER
+ASSASSINATION_WARLORD_BONUS_VP: int = 0  # CA-2025-26: no Warlord bonus
 
 # SC4-B — position-tracking secondary thresholds. Re-aligned to CHAPTER APPROVED
 # 2025-26 (wave 91; ≥2-source-verified: wahapedia chapter-approved-2025-26 +
@@ -166,6 +173,12 @@ class RoundSnapshot:
     horde_squad_ids: frozenset = frozenset()    # subset of alive_squad_ids that are horde
     lone_unit_ids_alive: frozenset = frozenset()  # id(u) for lone models (squad_id < 0)
     horde_lone_ids_alive: frozenset = frozenset()  # lone ids that also qualify as horde
+    # CA-2025-26 wound-bracket fields (wave 92): MONSTER/VEHICLE ids whose Wounds
+    # characteristic is 15+/20+ (for Bring It Down's 2 +2 +2 brackets), and
+    # CHARACTER ids with 4+ Wounds (for Assassination's 4-vs-3 split).
+    mv_ids_15plus: frozenset = frozenset()
+    mv_ids_20plus: frozenset = frozenset()
+    char_ids_4plus: frozenset = frozenset()
 
 
 def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
@@ -183,6 +196,22 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
     char_ids = frozenset(
         id(u) for u in alive
         if _is_character(u)
+    )
+    # CA-2025-26 wound brackets. Uses the model's Wounds CHARACTERISTIC
+    # (profile.health = the datasheet max), not current wounds. Single-model
+    # MONSTER/VEHICLE (most of them) -> per-model wounds == the unit's total;
+    # multi-model vehicle squadrons under-count (rare, accepted approximation).
+    mv_ids_15plus = frozenset(
+        id(u) for u in alive
+        if _is_monster_or_vehicle(u) and (getattr(u.profile, "health", 0) or 0) >= 15
+    )
+    mv_ids_20plus = frozenset(
+        id(u) for u in alive
+        if _is_monster_or_vehicle(u) and (getattr(u.profile, "health", 0) or 0) >= 20
+    )
+    char_ids_4plus = frozenset(
+        id(u) for u in alive
+        if _is_character(u) and (getattr(u.profile, "health", 0) or 0) >= 4
     )
     # Per-unit secondary fix: track squad-level alive state for No Prisoners
     # and Cull the Horde. A codex unit is only destroyed when its LAST model
@@ -214,6 +243,9 @@ def take_snapshot(units: Iterable["Unit"]) -> RoundSnapshot:
         horde_squad_ids=frozenset(horde_squads),
         lone_unit_ids_alive=frozenset(lone_ids),
         horde_lone_ids_alive=frozenset(horde_lone_ids),
+        mv_ids_15plus=mv_ids_15plus,
+        mv_ids_20plus=mv_ids_20plus,
+        char_ids_4plus=char_ids_4plus,
     )
 
 
@@ -368,10 +400,19 @@ def score_round_delta(
     # qualify as horde (rare in the real catalogue, but handled for correctness).
     horde_killed_count = len(destroyed_horde_squads) + len(destroyed_horde_lones)
 
-    bring_it_down_vp = min(
-        BRING_IT_DOWN_CAP_PER_ROUND,
-        len(mv_killed) * BRING_IT_DOWN_VP_PER_KILL,
-    ) if "bring_it_down" in chosen_set else 0
+    # CA-2025-26 Bring It Down: per destroyed MONSTER/VEHICLE, 2 VP + 2 (15+ total
+    # wounds) + 2 (20+), capped at 6 per unit; no per-round cap (the 18 ceiling is
+    # effectively unbounded, under the 40-VP secondary total cap).
+    bring_it_down_vp = 0
+    if "bring_it_down" in chosen_set:
+        for mid in mv_killed:
+            vp = BRING_IT_DOWN_VP_PER_KILL
+            if mid in snapshot.mv_ids_15plus:
+                vp += BRING_IT_DOWN_VP_BONUS
+            if mid in snapshot.mv_ids_20plus:
+                vp += BRING_IT_DOWN_VP_BONUS
+            bring_it_down_vp += min(vp, BRING_IT_DOWN_VP_MAX_PER_UNIT)
+        bring_it_down_vp = min(bring_it_down_vp, BRING_IT_DOWN_CAP_PER_ROUND)
     no_prisoners_vp = min(
         NO_PRISONERS_CAP_PER_ROUND,
         units_killed_count * NO_PRISONERS_VP_PER_UNIT,
@@ -380,10 +421,17 @@ def score_round_delta(
         CULL_THE_HORDE_CAP_PER_ROUND,
         horde_killed_count * CULL_THE_HORDE_VP_PER_UNIT,
     ) if "cull_the_horde" in chosen_set else 0
-    assassination_vp = min(
-        ASSASSINATION_CAP_PER_ROUND,
-        len(chars_killed) * ASSASSINATION_VP_PER_CHAR,
-    ) if "assassination" in chosen_set else 0
+    # CA-2025-26 Assassination: 4 VP per destroyed CHARACTER with 4+ Wounds, 3 VP
+    # for one with fewer than 4; no per-round cap (12 ceiling, under the 40 total).
+    assassination_vp = 0
+    if "assassination" in chosen_set:
+        for cid in chars_killed:
+            assassination_vp += (
+                ASSASSINATION_VP_4PLUS_WOUNDS
+                if cid in snapshot.char_ids_4plus
+                else ASSASSINATION_VP_PER_CHAR
+            )
+        assassination_vp = min(assassination_vp, ASSASSINATION_CAP_PER_ROUND)
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
     # VP at the end of the battle round if one or more enemy CHARACTER

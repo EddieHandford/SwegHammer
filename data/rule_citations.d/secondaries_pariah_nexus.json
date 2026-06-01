@@ -25,11 +25,11 @@
     "scope": "phase-gated"
   },
   "simulator.secondary_bring_it_down": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Bring it Down (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "If one or more enemy MONSTER or VEHICLE models have been destroyed this battle round, score 2 VP plus 1 VP for each enemy MONSTER or VEHICLE model destroyed this battle round, to a maximum of 8 VP. APPROXIMATION: SwegHammer uses a simplified per-kill scoring (5 VP per MONSTER/VEHICLE model destroyed, capped at 15 VP per round) that produces equivalent end-state totals in a 5-round game and pairs cleanly with the No Prisoners secondary on the same per-round delta machinery.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
+    "rule_name": "Bring It Down (Chapter Approved 2025-26 Secondary Mission, Fixed)",
+    "quoted_text": "Each time an enemy MONSTER or VEHICLE unit is destroyed, score 2VP. If the total Wounds characteristic of that unit was 15 or more, score an extra 2VP. If 20 or more, score a further 2VP. Maximum 6VP per unit. [No per-turn cap.]",
     "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed MONSTER/VEHICLE units against the opponent's round-start snapshot",
-    "effect": "the opposing army gains 5 VP per destroyed MONSTER/VEHICLE model this round, capped at 15 VP per round",
+    "effect": "2 VP base + 2 (15+ total wounds) + 2 (20+) per destroyed MONSTER/VEHICLE, capped at 6 per unit (CA-2025-26 Fixed; was modelled as a flat 3 per model). No per-round cap (the 18 ceiling does not bind; the 40-VP secondary total cap bounds it). Uses the destroyed model's Wounds characteristic (profile.health) — for single-model MONSTER/VEHICLE (most) this equals the unit total; multi-model squadrons under-count (rare, accepted).",
     "scope": "phase-gated"
   },
   "simulator.secondary_no_prisoners": {
@@ -65,11 +65,11 @@
     "scope": "phase-gated"
   },
   "simulator.warlord_designation": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
     "rule_name": "Warlord designation + Pariah Nexus Assassination bonus",
     "quoted_text": "Each player must select one CHARACTER model in their army to be their Warlord. Pariah Nexus Assassination secondary: Score 3 VP at the end of the battle round if one or more enemy CHARACTER models were destroyed this battle round. Score 4 VP instead if the enemy WARLORD was among those models.",
     "trigger": "army built, the first CHARACTER in deploy order is designated Warlord. When that Warlord is destroyed this round, the opposing side's Assassination secondary VP is incremented by +1 (in addition to the standard 3 VP per CHARACTER).",
-    "effect": "Army.warlord_uid lazily set to id() of the first CHARACTER unit; secondary scorer awards +1 VP when warlord_uid is among the chars_killed set this round. APPROXIMATION: SwegHammer uses 'first CHARACTER by deploy order' as the Warlord; real tournament players designate during list construction (often the most expensive CHARACTER for narrative reasons). The deploy-order heuristic is faction-neutral and deterministic.",
+    "effect": "Army.warlord_uid is lazily set to the first CHARACTER unit in deploy order (faction-neutral, deterministic). CHAPTER APPROVED 2025-26 UPDATE: Assassination no longer grants a Warlord bonus (the +1 was removed), so ASSASSINATION_WARLORD_BONUS_VP is 0 and the Warlord designation no longer affects Assassination scoring; the designation is retained for API stability and any future Warlord-keyed rule.",
     "scope": "phase-gated",
     "approximation": true
   },
@@ -83,11 +83,11 @@
     "approximation": true
   },
   "simulator.secondary_assassination": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
-    "rule_name": "Assassination (Pariah Nexus Fixed Secondary Mission)",
-    "quoted_text": "Score 3 VP at the end of the battle round if one or more enemy CHARACTER models were destroyed this battle round. Score 4 VP instead if the enemy WARLORD was among those models. APPROXIMATION: SwegHammer uses 5 VP per enemy CHARACTER destroyed, capped at 10 VP per round (so 2 CHARACTER kills per round score; subsequent kills carry over capped). WARLORD bonus not yet differentiated; CHARACTER-flag is the gate. Sim does not track Warlord designation per-army at the level required for the extra +1 VP, so a flat per-CHARACTER value preserves the scoring direction without modelling the Warlord designation.",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
+    "rule_name": "Assassination (Chapter Approved 2025-26 Secondary Mission, Fixed)",
+    "quoted_text": "Each time an enemy CHARACTER model is destroyed, score 4VP if that CHARACTER had a Wounds characteristic of 4 or more, or 3VP if it had fewer than 4. [No per-turn cap; CA-2025-26 has no Warlord bonus.]",
     "trigger": "end of each battle round, when an enemy CHARACTER-keyword unit was destroyed this round",
-    "effect": "the opposing army gains 5 VP per destroyed enemy CHARACTER this round, capped at 10 VP per round",
+    "effect": "4 VP per destroyed CHARACTER with 4+ Wounds, 3 VP for one with fewer than 4 (CA-2025-26 wound-tier; was a flat 3 per CHARACTER). No per-round cap (12 ceiling, under the 40-VP total). The Pariah Nexus Warlord bonus is removed (set to 0).",
     "scope": "phase-gated"
   },
   "simulator.secondary_secure_no_mans_land": {

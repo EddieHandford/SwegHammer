@@ -32,7 +32,8 @@ from code.secondaries import (
 def _make_unit(name: str, alive: bool, keywords: tuple = (),
                position: tuple = None,
                starting_strength: int = 1,
-               squad_id: int = -1) -> SimpleNamespace:
+               squad_id: int = -1,
+               health: float = 1.0) -> SimpleNamespace:
     """Minimal Unit stand-in for the secondary scorer. The scorer reads
     `current_health > 0`, `profile.unit_keywords`, optionally `position`
     (position-tracking secondaries), `profile.starting_strength`
@@ -48,6 +49,7 @@ def _make_unit(name: str, alive: bool, keywords: tuple = (),
         profile=SimpleNamespace(
             unit_keywords=keywords,
             starting_strength=starting_strength,
+            health=health,
         ),
     )
     if position is not None:
@@ -132,8 +134,10 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         self.assertEqual(cth, 0)
         self.assertEqual(ass, ASSASSINATION_VP_PER_CHAR)
 
-    def test_bring_it_down_caps_at_15_per_round(self):
-        # Six MONSTER kills in one round = 30 VP raw, capped to 15.
+    def test_bring_it_down_no_per_round_cap_six_base_kills(self):
+        # CA-2025-26 Bring It Down has NO per-round cap. Six MONSTER models with
+        # under 15 wounds each (the test helper sets no health) score the 2-VP base
+        # each = 12 VP, under the effectively-unbounded 18 ceiling.
         units = [
             _make_unit(f"Carnifex {i}", alive=True, keywords=("MONSTER",))
             for i in range(6)
@@ -142,7 +146,20 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         for u in units:
             u.current_health = 0.0
         bid, *_ = score_round_delta(snap, units)
-        self.assertEqual(bid, BRING_IT_DOWN_CAP_PER_ROUND)
+        self.assertEqual(bid, 6 * BRING_IT_DOWN_VP_PER_KILL)
+
+    def test_bring_it_down_wound_brackets(self):
+        # CA-2025-26: 2 VP base, +2 at 15+ total wounds, +2 at 20+, max 6 per unit.
+        from code.secondaries import BRING_IT_DOWN_VP_MAX_PER_UNIT
+        knight = _make_unit("Knight Paladin", alive=True,
+                            keywords=("VEHICLE", "TITANIC"), health=26)
+        rhino = _make_unit("Rhino", alive=True, keywords=("VEHICLE",), health=10)
+        snap = take_snapshot([knight, rhino])
+        knight.current_health = 0.0
+        rhino.current_health = 0.0
+        bid, *_ = score_round_delta(snap, [knight, rhino])
+        # Knight (26 W) = 6 (capped); Rhino (10 W) = base 2 → 8 total.
+        self.assertEqual(bid, BRING_IT_DOWN_VP_MAX_PER_UNIT + BRING_IT_DOWN_VP_PER_KILL)
 
     def test_no_prisoners_caps_at_15_per_round(self):
         # Six unit kills = 30 VP raw, capped to 15.
@@ -238,18 +255,20 @@ class ScoreRoundDeltaTests(unittest.TestCase):
         _, _, _, ass = score_round_delta(snap, [squad])
         self.assertEqual(ass, 0)
 
-    def test_assassination_caps_at_10_per_round(self):
-        # Three CHARACTER kills = 15 VP raw, capped to 10.
-        characters = [
-            _make_unit(f"Captain {i}", alive=True,
-                       keywords=("CHARACTER", "INFANTRY"))
-            for i in range(3)
-        ]
+    def test_assassination_no_per_round_cap_and_wound_tier(self):
+        # CA-2025-26: 4 VP for a 4+-wound CHARACTER, 3 for under 4; no per-round cap.
+        from code.secondaries import ASSASSINATION_VP_4PLUS_WOUNDS
+        big = _make_unit("Warlord", alive=True,
+                         keywords=("CHARACTER", "INFANTRY"), health=6)
+        small = _make_unit("Tech-Priest", alive=True,
+                           keywords=("CHARACTER", "INFANTRY"), health=3)
+        characters = [big, small]
         snap = take_snapshot(characters)
         for u in characters:
             u.current_health = 0.0
         _, _, _, ass = score_round_delta(snap, characters)
-        self.assertEqual(ass, ASSASSINATION_CAP_PER_ROUND)
+        # 6-wound = 4 VP, 3-wound = 3 VP → 7 total, under the 12 ceiling (no cap).
+        self.assertEqual(ass, ASSASSINATION_VP_4PLUS_WOUNDS + ASSASSINATION_VP_PER_CHAR)
 
     def test_lc5_warlord_kill_grants_bonus_vp(self):
         # LC-5: killing the enemy Warlord adds +1 VP on top of the

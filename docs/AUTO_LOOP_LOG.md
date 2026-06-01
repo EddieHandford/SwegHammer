@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 92 close (2026-06-01) — Chapter Approved 2025-26 secondary re-alignment COMPLETE (part 2/2: Bring It Down + Assassination wound-tiers) — metric-flat as predicted (4.10 → 4.15); deck re-align done, positional re-model next
+
+Branch `claude/sim-calibration-6`. Completed the CA-2025-26 deck re-alignment (the user's Q10 ruling)
+with the two wound-data cards deferred from wave 91. Metric-flat (cap-wash), kept as the faithful match
+to the target deck. Headline gated 4.15 (was 4.10 after part 1 / 4.08 at the floor — all within the
+deterministic noise of the secondary cap-wash). The deck re-alignment is now COMPLETE.
+
+BUILT (part 2): threaded destroyed-unit Wounds-characteristic data through the round snapshot (three new
+`RoundSnapshot` frozensets: MONSTER/VEHICLE ids at 15+ and 20+ wounds, CHARACTER ids at 4+ wounds — from
+`profile.health`, the datasheet max). Then: **Bring It Down** flat-3 → CA-2025-26 **2 +2(15+ total
+wounds) +2(20+), max 6/unit, no per-round cap** (a Knight = 6 VP, a Rhino = 2); **Assassination**
+flat-3/char → CA-2025-26 **4 VP (4+ wound CHARACTER) / 3 (<4), no per-round cap, no Warlord bonus** (the
+Pariah Nexus +1 removed). Three citations rewritten to CA-2025-26 verbatim (Bring It Down, Assassination,
+Warlord designation); 3 tests updated + 2 new wound-bracket tests; 927 tests pass; audit clean; run.py OK.
+
+| Eval (N=40) | MAE_gated | in band |
+|---|---:|---:|
+| Floor (wave 90) | 4.08 | 8/22 |
+| CA-2025-26 part 1 (wave 91) | 4.10 | 8/22 |
+| **CA-2025-26 part 2 (complete)** | **4.15** | 8/22 |
+
+Metric-flat across both parts (+0.07 total, deterministic but tiny) — the wave-90 cap-wash prediction
+holds: both armies max the 40-VP secondary cap, so secondary-value changes barely move the headline.
+KEPT as the faithful match to the deck the May-2026 calibration target was played under (fidelity, not
+metric — the user's explicit framing). DECK RE-ALIGNMENT COMPLETE (7 cards re-valued: No Prisoners, Cull,
+Engage, Behind Enemy Lines, Extend Battle Lines, Bring It Down, Assassination; the 5 board cards — Storm
+Hostile Objective, Secure No Man's Land, Area Denial, Defend Stronghold + Extend — confirmed unchanged).
+NEXT (wave 93): plan + build the Q11 positional re-model (the one structural axis — IK over-holds /
+Daemons under-holds the markers; diagnose-not-nerf, faithful/even-handed/plan-first, NOT a per-faction
+objective-control→primary-VP knob; high-risk, may wash — report honestly if so).
+
 ## Wave 91 close (2026-06-01) — Chapter Approved 2025-26 secondary re-alignment, part 1/2 (5 cards) — faithful, metric-flat as predicted (4.08 → 4.10, within noise); user Q10/Q11 ruled
 
 Branch `claude/sim-calibration-6`. The user ruled the structural-floor checkpoint (commit 0541e23):
