@@ -31,7 +31,47 @@ absolute error is a thermometer, not a steering wheel — you lower it by curing
 simulator's fevers (wrong rules, wrong stats, wrong artificial-intelligence
 piloting), never by holding a match to the bulb.
 
-## Current phase (decided 2026-05-31 by the user): the faithful AI track + matchup-fidelity diagnosis
+## Current phase — UPDATED 2026-06-01 (user ruling on Q6): the scoring / victory-point model overhaul
+
+**The faithful AI track below is CONCLUDED — structurally blocked for the durable
+over-shooters.** All four levers (value-targeting w72, focus fire w79, the sourced Armiger
+list re-fit w80, contest/deny w81) regressed and were reverted with no nerf — confirming 3×
+the frozen-under law: a faithful artificial-intelligence improvement helps whoever has the
+better army, and the over-shooters HAVE the better armies, so sharper play widens the
+headline. The leftover Imperial Knights over-rate (and the durable over-shooters generally)
+is a structural VP-vs-durability SCORING residual: a durable camper converts objective-holding
+into held primary victory points, and the simulator under-models how real tournaments deny
+that primary through the full secondary economy and board tempo.
+
+**The user chose to BUILD THE SCORING / VICTORY-POINT MODEL OVERHAUL (Q6 option a) — diagnose,
+do not nerf.** This is the genuine root-cause lever. Scope:
+
+- **Goal:** make a durable camper's objective-holding stop OVER-converting into primary
+  victory points, by modelling the real 10th-edition Pariah Nexus scoring economy MORE
+  COMPLETELY — never by reducing scoring for armies "because they over-shoot."
+- **Faithful candidates** (pick what the matchup diagnosis supports; verify each against the
+  real Pariah Nexus mission pack / Leviathan Tournament Companion; cite per rule 10):
+  complete the tactical-secondary pool (the sim models ~2 of 9 action/board tacticals) so
+  board-control opponents have the real scoring paths they use to out-score a camper; model
+  the real primary-scoring mechanic more faithfully (per-round cap, hold-versus-contest
+  dynamics, mission/primary variety) so monopolising a few objectives does not run away; any
+  other real scoring-economy element the diagnosis shows is missing.
+- **THIS IS THE SHARPEST METRIC-TUNING SURFACE IN THE PROJECT — guard hardest.** A scoring
+  change is the easiest place to fudge (re-weight to move win rates). Every scoring change
+  MUST be a faithful model of a REAL 10th-edition rule, CITED, applied even-handedly across
+  ALL factions. The test is unchanged: would it be correct even if it moved the metric the
+  wrong way? A scoring tweak whose only justification is the residual direction is
+  metric-tuning — reject it. NO per-faction scoring weights, NO durability/camper penalties.
+- **Method:** scope/plan FIRST (a dedicated plan wave, mirroring the successful wave-73→74
+  plan→build), then build environment-gated, with PER-MATCHUP win% before/after on the
+  durable-camper matchups specifically. Accept a temporary regression that the completed
+  faithful model recovers.
+- The approved interim — small clean NON-regressing under-shooter correctness / datasheet
+  fixes — stays available alongside.
+
+---
+
+## Earlier phase (2026-05-31): the faithful AI track + matchup-fidelity diagnosis (now concluded — see above)
 
 The clean rule-level structural levers are largely exhausted (gated MAE ~4.9; trajectory
 5.98 → 4.9 this session, all faithful). The user chose the next direction:
