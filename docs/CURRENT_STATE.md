@@ -1,21 +1,28 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 85 close (2026-06-01) — Knights damaged-objective-control bracket RE-ADDED
-as a real rule (the wave-84 "fabrication" verdict was itself wrong). Headline gated **4.08** (down
-from 4.17). Leftover Imperial Knights +27.2 is the positioning finding.
+**Last updated:** Wave 86 close (2026-06-01) — Tier B verification surfaced a MISSION-DECK fork
+(Pariah Nexus 2024 vs Chapter Approved 2025-26); escalated, Tier B parked. Headline gated **4.08**
+(no code change).
 
-**Wave 85 re-added the Knights' damaged-objective-control bracket** after the user/watchdog reversed
-the wave-84 removal (commits f72a100 / 6135a62). It is a REAL 10e datasheet rule: I cleanly extracted
-the BSData damage-table rows — Questoris "1-9 wounds remaining, subtract 5 from Objective Control",
-Armiger "1-5 wounds, subtract 3", Dominus "1-10, subtract 5". (The directive expected codex −4 for the
-Questoris; watchdog RESOLVED to use the canonical cache −5 — BSData rule-6 governs.) `Battle._effective_oc`,
-Knights-faction-gated (correct — only Knights have this), floored at 0, cited verbatim, env-gated
-SWEG_DMGOC default-on. N=40: gated **4.17 → 4.08**, Imperial Knights +29.2 → +27.2 (−2.0; small because
-Knights are durable and rarely bracket while contested), Chaos Knights −1.1 → −4.3 (also lose OC when
-damaged — the real rule, even-handed). KEPT because it is real and net-positive; 926 tests pass.
-Lesson: `feedback-verify-stats-against-bsdata` (cross-check ≥2 sources + read the rows before calling a
-cited rule fabricated; 40k.app is index, not codex). The leftover IK +27.2 re-confirms the wave-84
-positioning finding (`project-oc-contest-faithful`). Next: Tier B (kill-card formula corrections).
+**Wave 86: verifying Tier B's secondary-card values (the wave-84/85 lesson) surfaced that the sim
+targets the wrong mission deck.** The secondary-mission values were updated between **Pariah Nexus
+2024** (the sim's current approximate values) and **Chapter Approved 2025-26** (the current tournament
+standard since March 2025). **The May-2026 Warp Friends calibration target was played under CA 2025-26,
+not Pariah Nexus 2024** — so the canonical secondary values for matching that data are CA-2025-26's, but
+the sim and the landed Tier A board secondaries were built from Pariah-Nexus-2024 values. Confirmed
+deltas (Cull 13+ not 20+/10+; Engage 1/2/4 with a 2-quarter tier; Assassination wound-tiered 4/3; plus
+deck-independent Bring It Down / No Prisoners / Behind Enemy Lines corrections). Escalated as a
+project-scope fork (`LOOP_QA.md` Q10, memory `project-mission-deck-ca-2025`): which deck is canonical
+(recommended: CA-2025-26), and whether to re-align the landed Tier A. **Tier B PARKED** for a single
+unified deck-aligned re-alignment after the ruling — cleaner and lower-edition-risk than piecemeal
+edits. No code change.
+
+### Earlier — wave 85 (Knights damaged-objective-control bracket re-added, real, gated 4.17 → 4.08)
+
+**Wave 85 re-added the Knights' damaged-objective-control bracket** after the user reversed the wave-84
+removal — it is a REAL 10e datasheet rule (BSData verbatim: Questoris −5 at ≤9 wounds, Armiger −3 at
+≤5), cited, Knights-faction-gated, floored at 0. Gated 4.17 → 4.08; Imperial Knights +29.2 → +27.2.
+Leftover IK +27.2 is the positioning finding. Lesson: `feedback-verify-stats-against-bsdata`.
 
 ### Earlier — wave 84 (OC contest verified faithful; damaged-OC removal later reversed)
 

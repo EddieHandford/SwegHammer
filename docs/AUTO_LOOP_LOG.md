@@ -4,6 +4,33 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 86 close (2026-06-01) — Tier B verification surfaced a MISSION-DECK fork (Pariah Nexus 2024 vs Chapter Approved 2025-26); escalated, Tier B parked (no code change)
+
+Branch `claude/sim-calibration-6`. Opening Tier B (kill-card formula corrections), I applied the
+wave-84/85 lesson — verify the real values against ≥2 sources before changing — via a Sonnet research
+agent. It surfaced a fork I did not know about, which is the wave's deliverable. Headline unchanged at
+gated 4.08. Escalated `LOOP_QA.md` Q10; no code change (parking Tier B for a unified pass).
+
+THE FINDING. The 10e secondary-mission values were UPDATED between two decks: **Pariah Nexus (2024)**
+(the project's namesake; the sim's current values approximate it plus some Leviathan-era values) and
+**Chapter Approved 2025-26** (debuted Adepticon March 2025, the CURRENT tournament standard for all
+competitive play since). **The May-2026 Warp Friends calibration target was played under Chapter
+Approved 2025-26, not Pariah Nexus 2024** — so the canonical secondary values for matching that data
+are arguably the CA-2025-26 ones, but the sim AND the landed Tier A board secondaries (wave 83) were
+built from Pariah-Nexus-2024 values. Confirmed deltas (≥2 sources each — Goonhammer Pariah Nexus review
++ Goonhammer Chapter-Approved-2025 review + Bell of Lost Souls):
+- Cull the Horde: PN 20+ models / 25+ wounds → CA-2025 **13+ models incl. attached**, both 5 VP (sim: 10+ models, 3 VP — wrong vs both).
+- Engage on All Fronts: PN 2/4 @ 3q/4q (no 2q tier) → CA-2025 **1/2/4 @ 2q/3q/4q** (sim: 2/3/5 @ 2/3/4, Leviathan-ish).
+- Assassination: PN 4 VP/character → CA-2025 **4 VP (4+ wound char) / 3 VP (<4 wound)** (sim: 3 VP/char cap 4).
+- Bring It Down / No Prisoners / Behind Enemy Lines: identical in BOTH decks (BID 2+2+2 max 6; No Prisoners 2+1×units max 5; BEL 3/4) — the sim's flat values are wrong vs both (deck-independent).
+
+WHY ESCALATED, NOT FIXED. Which deck is canonical is a genuine project-scope call: it touches the
+landed Tier A and the project's Pariah-Nexus identity, and the calibration data is CA-2025-26. The
+sim's current values are a stale Leviathan/Pariah-Nexus mix with per-card wording subtleties, so a
+single UNIFIED deck-aligned re-alignment after the ruling is cleaner and lower-risk than piecemeal
+edits (and avoids another edition error of the wave-84/85 kind). Recommended (a) align to CA-2025-26;
+parked Tier B pending the user's deck ruling. Finding recorded `project-mission-deck-ca-2025`.
+
 ## Wave 85 close (2026-06-01) — Knights damaged-OC bracket RE-ADDED as a real rule (gated 4.17 → 4.08); the wave-84 "fabrication" verdict was itself wrong
 
 Branch `claude/sim-calibration-6`. The wave-84 conclusion that the damaged-Objective-Control bracket
