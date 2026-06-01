@@ -1,30 +1,33 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 83 close (2026-06-01) — Tier A board-control secondaries BUILT + LANDED.
-Headline gated **4.17** (down from 4.95), in band **9/22** (up from 6). The scoring overhaul's
-first build is a clear faithful aggregate win — but it made Imperial Knights WORSE, sharpening
-that residual to objective-over-control.
+**Last updated:** Wave 84 close (2026-06-01) — objective-control contest verified FAITHFUL; a
+fabricated "damaged-OC" lever was caught + reverted. Headline gated **4.17** (no code change).
+The Imperial Knights over-control is body-army positioning, not an objective-control bug.
+
+**Wave 84 investigated the re-aimed Imperial Knights lever** (the objective-control contest). Two
+things to record. (1) MISSTEP: mid-wave I built a "damaged Knight loses Objective Control" rule on
+a wrong web-source reading; the watchdog caught it as a fabricated, faction-gated metric-tuning
+penalty (commit 9f599c0) and I reverted it — 10e Objective Control does NOT change on the damage
+bracket (BSData: Knight Paladin OC 10 / Armiger 6 in every profile; the "Damaged" ability gives
+Lethal Hits / Lance / +1 to hit, unchanged OC). Lesson: `feedback-verify-stats-against-bsdata`.
+(2) The faithful diagnostic: drilled the summed-objective-control contest in IK vs Astra / Tyranids,
+comparing credited `a_oc`/`b_oc` to the raw per-model objective control within 3". **credited == raw
+everywhere — the contest is FAITHFUL.** The Knight over-controls because body armies have huge TOTAL
+objective control (Tyranids ~159 across 111 models) but get almost none onto markers (0–15) while a
+Knight parks concentrated objective-control-10 — a positioning / one-Unit-per-model representation
+gap, NOT an objective-control-math bug and NOT a Knight penalty. Reported (`LOOP_QA.md` Q9);
+memories `project-oc-contest-faithful`, `project-oc-does-not-bracket`. The leftover IK spike is the
+positional core; the scoring overhaul (Tier A) already cut the headline to 4.17.
+
+### Earlier — wave 83 (Tier A board-control secondaries built + landed)
 
 **Wave 83 built + landed Tier A** (the five real Pariah Nexus objective-holding / board-control
-secondaries the sim was missing: Secure No Man's Land, Defend Stronghold, Extend Battle Lines,
-Storm Hostile Objective, Area Denial). Every army brings the package (even-handed; the asymmetry
-is purely in completion), bounded by the 40-VP secondary cap. N=40: gated **4.95 → 4.17 (−0.78)**,
-in band **6 → 9** — most over-shooters eased (Drukhari +18.6 → +9.7, Custodes +7.4 → +2.7, Adepta
-Sororitas +8.4 → +2.8, T'au +5.9 → +0.6) and board-control under-shooters rose (Chaos Space
-Marines −19.2 → −11.3, Chaos Knights into band). LANDED (clear fidelity win), env-gate kept for
-re-A/B (`SWEG_TIER_A=0`). Five citations added; 926 tests pass; audit clean.
-
-**THE SHARPENED IMPERIAL KNIGHTS FINDING.** Tier A made Imperial Knights WORSE (+19.1 → +29.2) —
-the watchdog's Q7 pre-authorised scenario. The card family rewards objective CONTROL, and a durable
-Knight over-controls objectives, so it banks the new board secondaries itself (the +10 IK jump the
-instant objective-based scoring was added is the proof). This **falsifies "missing scoring paths"
-for IK** and sharpens the residual to **objective-OVER-CONTROL** (a durable, high-Objective-Control,
-low-unit-count army holds the board uncontested — consistent with the wave-81 contest/deny failure):
-a model-count / Objective-Control-representation problem, NOT a scoring gap, NOT a nerf. **Next IK
-lever: objective-takeability / the Objective-Control contest** — does a body army correctly
-out-Objective-Control a Knight on a shared marker? Reported `LOOP_QA.md` Q8. Tiers B (kill-card
-formula corrections) and C (sticky control) remain queued correctness fixes but are no longer the
-expected IK lever. Plan + full result: `docs/SCORING_MODEL_OVERHAUL_PLAN.md`.
+secondaries). N=40: gated **4.95 → 4.17 (−0.78)**, in band **6 → 9** — a clear faithful aggregate
+win. Most over-shooters eased (Drukhari +18.6 → +9.7, Custodes/Sororitas/T'au down); board-control
+under-shooters rose (Chaos Space Marines −19.2 → −11.3, Chaos Knights into band). It made Imperial
+Knights WORSE (+19.1 → +29.2) because a durable Knight over-controls objectives and banks the new
+board secondaries itself — which is what wave 84 then diagnosed. Full result + the sharpened
+finding: `docs/SCORING_MODEL_OVERHAUL_PLAN.md`.
 
 ### Earlier — wave 82 (scoring overhaul scoped)
 

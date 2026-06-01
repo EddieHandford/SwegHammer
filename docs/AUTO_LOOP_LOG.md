@@ -4,6 +4,42 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 84 close (2026-06-01) — objective-control contest verified FAITHFUL; a fabricated "damaged-OC" lever was caught + reverted; IK over-control is body-army positioning (no code change)
+
+Branch `claude/sim-calibration-6`. Investigated the re-aimed Imperial Knights lever (Q8:
+objective-takeability / the objective-control contest). A mid-wave MISSTEP and the watchdog
+correction are part of this record. Headline unchanged at gated 4.17.
+
+THE MISSTEP (caught + corrected). Mid-wave I built `Battle._effective_oc` — a "damaged Knight
+loses Objective Control" rule (Armiger −3 at ≤5 wounds, Questoris −5 at ≤9), gated on the Knight
+factions, on the strength of a 40k.app datasheet reading. **This was a fabrication / metric-tuning**
+(a faction-gated penalty on the #1 over-shooter, moving the metric the convenient way) and the
+watchdog caught it (commit 9f599c0). In real 10e, Objective Control does NOT change on the damage
+bracket — BSData (canonical) shows Knight Paladin Objective Control 10 / Armiger 6 in EVERY profile;
+the Knights' "Damaged: 1-9 Wounds Remaining" ability grants Lethal Hits / Lance / re-rolls / +1 to
+Hit (a damaged Knight gets MORE dangerous, unchanged Objective Control). Reverted entirely (not even
+gated-off, no citation). Lesson recorded: `feedback-verify-stats-against-bsdata` — verify stat/rule
+claims against BSData before building, and treat "faction-gated AND conveniently moves a residual"
+as a hard stop for self-review.
+
+THE FAITHFUL DIAGNOSTIC (the real deliverable). Drilled the summed-Objective-Control contest in
+Imperial Knights vs body armies (Astra Militarum, Tyranids), comparing the credited `a_oc`/`b_oc`
+(the one-objective-per-squad `_assign_army_oc`) to the RAW summed Objective Control of every alive
+model within 3" (the real 10e per-model rule). **Result: credited == raw in every case — the
+contest is FAITHFUL.** Each model within 3" contributes its Objective Control; the
+one-objective-per-squad modelling does not under-count the body army; a body army that gets bodies
+onto a marker DOES out-control a Knight (Tyranids took a marker raw 15 vs the Knight's 6).
+
+THE FINDING (per the watchdog's "if the contest is faithful, report it" branch). The Knight
+over-controls because body armies have huge TOTAL Objective Control (Astra ~77 / 49 units,
+Tyranids ~159 / 111) but get almost NONE onto the markers (on-marker Objective Control 0–15, often
+0 in round 2) while each Knight parks concentrated Objective Control 10 on a marker. The residual is
+the body army not MASSING bodies onto objectives — a positioning / one-Unit-per-model representation
+gap, NOT an Objective-Control-math bug, NOT a Knight penalty. This is the AI-positioning class that
+has historically regressed/washed (wave-81 contest/deny), so it is REPORTED, not chased blindly.
+`LOOP_QA.md` Q9; memories `project-oc-contest-faithful`, `project-oc-does-not-bracket`. The scoring
+overhaul (wave 83) already cut the headline to 4.17; the leftover IK spike is this positional core.
+
 ## Wave 83 close (2026-06-01) — Tier A board-control secondaries BUILT + LANDED (gated 4.95 → 4.17, in-band 6 → 9); sharpens the Imperial Knights finding to objective-over-control
 
 Branch `claude/sim-calibration-6`. First BUILD wave of the scoring-model overhaul (plan Tier A;
