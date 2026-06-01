@@ -1,21 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 94 close (2026-06-01) — positional re-model Candidate A (geometry/clustering)
-built + A/B'd → REGRESSED (frozen-under), reverted. Headline gated **4.15** (no net code change). Next:
-Candidate B (AI massing — the dominant sub-cause).
+**Last updated:** Wave 95 close (2026-06-01) — positional re-model Candidate B (idle-unit objective
+massing) LANDED: gated **4.15 → 3.76**, in band 8 → 9, Chaos Daemons −22.7 → −14.7. The first positional
+candidate to work. Session headline now gated 5.98 → 3.76, all faithful.
 
-**Wave 94 built + tested the plan's lead candidate** (the geometry/clustering correction: a unit ON an
-objective credits its OC over a coherency-extended footprint). N=40: gated 4.15 → **4.30** (REGRESSED).
-The frozen-under signature: Imperial Knights unchanged (1-model, correctly unaffected), Chaos Daemons
-unchanged (the fix can't reach them — their models aren't near markers, the dominant AI-not-massing
-sub-cause), and the OVER-shooters got worse (Custodes/Votann hold markers more) — the clustering boost
-helps whoever ALREADY holds markers, not the under-shooters who don't reach them. Reverted (per the
-user's "if it washes, report honestly — no knob, no nerf"). The read: A fixed the SECONDARY sub-cause
-and helped the wrong factions; Candidate B (the AI massing body-army units ONTO markers, the DOMINANT
-sub-cause) pushes the opposite direction (help non-reachers = under-shooters) and is genuinely distinct —
-worth trying despite being the contest/deny class. Next (wave 95): build Candidate B (`SWEG_MASS`),
-env-gated, expect a likely wash — if it washes, REPORT the axis as a one-Unit-per-model representation
-limit and stop chasing it.
+**Wave 95 LANDED the Q11 positional re-model** (Candidate B). The move AI now masses a unit that holds
+no objective AND is out of its own firing range onto the best holdable objective (arrive-in-cover) — the
+faithful "idle units play the objectives" tactic, the dominant sub-cause (body armies' OC not near
+markers). An aggressive all-units version regressed to 6.50 (pulled shooters off fire-lanes) but a
+refinement gated to OUT-of-range units landed: gated 4.15 → **3.76**, in band 8 → **9**, the dominant
+under-shooter **Chaos Daemons −22.7 → −14.7** (+8.0, its idle Daemons reach the markers); Drukhari/T'au/
+Custodes also eased. Imperial Knights unchanged at +27 (the over-shooter half can't be shot off — no
+representation fix; the UNDER-shooter half cracked, the bigger residual). Faithful + even-handed + no
+knob + no scoring conversion; passes every hard rail. Default-ON (`SWEG_MASS=0` re-gates). 927 tests pass.
+
+### Earlier — wave 94 (geometry candidate regressed, reverted)
+
+**Wave 94 built + tested the geometry/clustering candidate** (a unit on an objective credits OC over a
+coherency-extended footprint) → REGRESSED 4.15 → 4.30 (frozen-under: helped already-holding over-shooters,
+not the under-shooters who don't reach markers). Reverted. The read pointed to Candidate B (massing the
+non-reachers), which then landed.
 
 ### Earlier — wave 93 (Q11 positional re-model scoped)
 

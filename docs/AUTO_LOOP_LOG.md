@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 95 close (2026-06-01) — positional re-model Candidate B (idle-unit objective massing) LANDED — gated 4.15 → 3.76, the first positional candidate to work; Chaos Daemons −22.7 → −14.7
+
+Branch `claude/sim-calibration-6`. Built the plan's Candidate B (the move AI massing body-army units
+onto markers, the DOMINANT sub-cause). A first aggressive version regressed; a faithful refinement
+LANDED. The Q11 positional axis is finally moving — the dominant under-shooter cracked.
+
+THE PROGRESSION (env-gated A/B, SWEG_MASS):
+- Aggressive (ALL non-holding units mass, abandoning shooting): gated 4.15 → **6.50** — REGRESSED
+  chaotically (T'au +0.9 → +26.7, etc.) because it pulled in-range shooters off their fire-lanes. BUT it
+  moved the target axis the RIGHT way (IK +27 → +18.4, Daemons −22.7 → −13.3) — the first candidate to do
+  so (geometry w94 helped the wrong factions).
+- Faithful refinement (only units OUT of their own firing range mass; in-range shooters keep shooting) +
+  arrive-in-cover snap: gated 4.15 → **3.76** — LANDED. In band 8 → 9.
+
+| Eval (N=40) | MAE_gated | in band | Chaos Daemons | Imperial Knights |
+|---|---:|---:|---:|---:|
+| Baseline (wave 92-94) | 4.15 | 8/22 | −22.7 | +27.0 |
+| **Candidate B (landed)** | **3.76** | **9/22** | **−14.7** | +27.0 |
+
+LANDED default-ON (`SWEG_MASS=0` to re-gate). The dominant under-shooter Chaos Daemons improved
+−22.7 → −14.7 (+8.0 — its idle Daemons now reach the markers), and Drukhari (+11 → +6.4), T'au, Custodes
+eased; a few armies regressed (Astra −4.9 → −8.9, Adeptus Mechanicus, Chaos Space Marines — their idle
+units massing is net-negative for them) but the headline NET improved. Imperial Knights unchanged at +27
+— the over-shooter half of the axis did NOT move (a Knight can't be shot off and there is no
+representation fix for its durability), but the UNDER-shooter half cracked, which is the bigger residual
+mass. Faithful: idle out-of-range units play the objectives and take cover — a real tactic, even-handed
+across all factions, NOT a per-faction or per-model-count knob, NOT a scoring conversion. Passes every
+§5 hard-rail. 927 tests pass; audit clean; run.py OK. Memory `project-ai-frozen-under-mae-first` (the
+exception: a faithful AI fix that LANDED because it helps the non-reachers, not the already-strong).
+Session headline now gated 5.98 → 3.76, all faithful.
+
 ## Wave 94 close (2026-06-01) — positional re-model Candidate A (geometry/clustering) BUILT + A/B'd → REGRESSED (frozen-under), reverted. Candidate B (AI massing, the dominant sub-cause) next
 
 Branch `claude/sim-calibration-6`. Built the plan's lead candidate — the geometry/clustering

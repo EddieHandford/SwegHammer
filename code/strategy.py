@@ -2135,6 +2135,39 @@ def pick_move_intent(
             nearest_enemy_dist = d
             nearest_enemy = e
 
+    # Q11 positional re-model — Candidate B (wave 95, env-gated SWEG_MASS). A unit
+    # that holds NO objective AND is OUT of its own firing range of the nearest
+    # enemy (it is idle / advancing, not a shooter holding a fire-lane) masses onto
+    # the best holdable objective instead of drifting toward the enemy — the real
+    # "play the objectives" tactic, addressing the DOMINANT sub-cause (wave 93: a
+    # body army's Objective Control is nowhere near the markers). Gated on
+    # out-of-range so it does NOT pull in-range shooters off their lanes (the
+    # aggressive all-units version wrecked gunlines). Even-handed across factions;
+    # NOT a per-faction or per-model-count knob — a low-model durable army simply
+    # has few idle bodies to mass. LANDED wave 95 (default ON; SWEG_MASS=0 to
+    # re-gate) after the env-gated N=40 A/B: gated MAE 4.15 → 3.81, the first
+    # positional candidate to land — the dominant under-shooter Chaos Daemons
+    # −22.7 → −16.4 (its idle Daemons reach the markers) and Imperial Knights
+    # +27.0 → +25.5 (its opponents contest), with no gunline chaos (the aggressive
+    # all-units version regressed to 6.50). The geometry candidate (w94) regressed
+    # because it helped whoever already holds markers; this helps the non-reachers
+    # reach them — the faithful "play the objectives" tactic.
+    if (
+        __import__("os").environ.get("SWEG_MASS", "1") != "0"
+        and not unit_on_obj_ids
+        and best is not None
+        and best[1] in (_CAPTURE_INTENT, _STEAL_INTENT)
+        and nearest_enemy_dist > (unit.profile.range_inches or 24)
+    ):
+        _bobj = best[2]
+        # Snap to cover within the marker's control radius so the unit massing
+        # onto the objective still arrives in cover (mirrors the CAPTURE
+        # cover-snap below), not on bare ground.
+        _mass_pos = _best_nearby_cover_point(
+            map_, (_bobj.x, _bobj.y), search_radius=_bobj.control_radius,
+        )
+        return _mass_pos, best[1]
+
     # Aeldari Battle Focus — ASURYANI units bias toward advancing when:
     #   (a) the unit has a Battle Focus token available
     #   (b) the unit is OUT of weapon range of the nearest enemy
