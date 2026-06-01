@@ -1,19 +1,27 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 93 close (2026-06-01) — the Q11 positional re-model is SCOPED
-(`docs/POSITIONAL_REMODEL_PLAN.md`). Headline gated **4.15**. Plan wave, no code. Next: build Candidate
-A1 (the geometry/clustering correction) env-gated.
+**Last updated:** Wave 94 close (2026-06-01) — positional re-model Candidate A (geometry/clustering)
+built + A/B'd → REGRESSED (frozen-under), reverted. Headline gated **4.15** (no net code change). Next:
+Candidate B (AI massing — the dominant sub-cause).
 
-**Wave 93 scoped the Q11 positional re-model** (plan-first, the high-risk sharpest surface). A new
-within-3"-vs-within-6" drill pins the body-army on-marker objective-control gap to TWO sub-causes:
-(1) GEOMETRY/SPREAD (secondary, the cleaner/lead lever) — half a body army's NEAR-marker objective
-control sits in the 3"–6" band outside the 3" scoring radius (units near a marker are spread by the
-one-Unit-per-model placement; real units cluster on the marker); (2) AI-NOT-MASSING (dominant) — most
-of the army is nowhere near a marker (the regress-prone AI class). The within-3" body OC (4.5–7.7) loses
-to a Knight's ~10. Plan: Candidate A (clustering geometry correction, even-handed, the user's authorised
-category) first, then Candidate B (AI massing) only if needed; env-gated, per-matchup measured, kept only
-as a clear faithful axis-win, REPORTED honestly if it washes (no knob, no nerf). Plan §5 hard-rails
-self-check. Next (wave 94): build Candidate A1.
+**Wave 94 built + tested the plan's lead candidate** (the geometry/clustering correction: a unit ON an
+objective credits its OC over a coherency-extended footprint). N=40: gated 4.15 → **4.30** (REGRESSED).
+The frozen-under signature: Imperial Knights unchanged (1-model, correctly unaffected), Chaos Daemons
+unchanged (the fix can't reach them — their models aren't near markers, the dominant AI-not-massing
+sub-cause), and the OVER-shooters got worse (Custodes/Votann hold markers more) — the clustering boost
+helps whoever ALREADY holds markers, not the under-shooters who don't reach them. Reverted (per the
+user's "if it washes, report honestly — no knob, no nerf"). The read: A fixed the SECONDARY sub-cause
+and helped the wrong factions; Candidate B (the AI massing body-army units ONTO markers, the DOMINANT
+sub-cause) pushes the opposite direction (help non-reachers = under-shooters) and is genuinely distinct —
+worth trying despite being the contest/deny class. Next (wave 95): build Candidate B (`SWEG_MASS`),
+env-gated, expect a likely wash — if it washes, REPORT the axis as a one-Unit-per-model representation
+limit and stop chasing it.
+
+### Earlier — wave 93 (Q11 positional re-model scoped)
+
+**Wave 93 scoped the Q11 positional re-model** (`docs/POSITIONAL_REMODEL_PLAN.md`). A within-3"-vs-6"
+drill pinned the body-army on-marker OC gap to geometry/spread (secondary) + AI-not-massing (dominant).
+Plan = `docs/POSITIONAL_REMODEL_PLAN.md` (Candidate A geometry first, then B AI-massing).
 
 ### Earlier — wave 92 (CA-2025-26 deck re-alignment complete)
 

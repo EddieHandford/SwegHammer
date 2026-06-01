@@ -4,6 +4,42 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 94 close (2026-06-01) — positional re-model Candidate A (geometry/clustering) BUILT + A/B'd → REGRESSED (frozen-under), reverted. Candidate B (AI massing, the dominant sub-cause) next
+
+Branch `claude/sim-calibration-6`. Built the plan's lead candidate — the geometry/clustering
+correction (`SWEG_CLUSTER`) — A/B'd it, and it REGRESSED. Reverted per the user's "if it washes,
+report honestly — do not force, no knob" rule. The result is informative for Candidate B. No net code
+change; headline back at gated 4.15.
+
+BUILT (env-gated, reverted): in `Battle._assign_army_oc`, a squad genuinely ON an objective (≥1 model
+within the true 3" radius) credited its Objective Control over models within a coherency-extended
+footprint (3" + 2" Unit Coherency), modelling that a real unit holding a marker clusters on it rather
+than the sim's one-Unit-per-model spread (wave-93: near-marker OC within 6" ≈ 2× within 3"). Even-handed
+(a 1-model Knight counts only itself). Cited `simulator.objective_control_clustering` (representation
+correction). 927 tests pass, audit clean.
+
+| Eval (N=40) | MAE_gated | in band | IK | Daemons |
+|---|---:|---:|---:|---:|
+| Cluster OFF | 4.15 | 8/22 | +27.0 | −22.7 |
+| **Cluster ON** | **4.30** | 8/22 | +27.0 | −22.7 |
+
+REGRESSED (+0.15) — the FROZEN-UNDER signature. IK unchanged (1-model Knight, correctly unaffected) and
+Daemons unchanged (the geometry fix can't reach them — their models are not near markers at all, the
+DOMINANT AI-not-massing sub-cause). The worsening came from the OVER-shooters (Custodes +3.1→+4.3, Votann
++11.9→+12.6) — the clustering boost helps multi-model units ALREADY HOLDING markers, which are the
+over-shooters, while the under-shooters (Astra −4.9→−5.9) did not benefit. So the geometry fix is
+faithful-ish but the WRONG lever: it amplifies whoever already holds markers (the over-shooters), not the
+under-shooters whose problem is they do not REACH markers.
+
+THE READ FOR CANDIDATE B. A addressed the SECONDARY sub-cause (near-marker spread) and helped the
+already-holders. The DOMINANT sub-cause is AI-not-massing (under-shooters' models are nowhere near
+markers). Candidate B (the move AI massing body-army units ONTO markers) pushes the OPPOSITE direction —
+it would help the non-reachers (the under-shooters) reach markers, NOT the over-shooters who already
+reach. So B is genuinely distinct from A's failure and worth trying, even though it is the contest/deny
+class (w81) that washed once. Next (wave 95): build Candidate B (`SWEG_MASS`), env-gated, per-matchup
+measured on the IK + Daemons cells; expect a likely wash (the plan's stance) — if it washes, REPORT the
+axis as a one-Unit-per-model representation limit that resists faithful fixes, and stop chasing it.
+
 ## Wave 93 close (2026-06-01) — positional re-model SCOPED (Q11 plan wave): the body-army on-marker OC gap is geometry/spread (secondary) + AI-not-massing (dominant); plan-first, no code
 
 Branch `claude/sim-calibration-6`. The deck re-alignment is done, so per the user's sequence this wave
