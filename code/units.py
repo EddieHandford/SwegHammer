@@ -6,7 +6,7 @@ import functools
 import math
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .factions import is_marine_faction
 
@@ -527,6 +527,32 @@ class UnitProfile:
     # the same Fight phase against the same engaged target. Cited as
     # `simulator.extra_melee_profiles`.
     extra_melee_profiles: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # ---- PER-MODEL-LOADOUTS (Stage 2 plumbing — GATE-INERT) -----------------
+    # The unit's actual per-model-type weapon loadout, carried verbatim from
+    # the BSData mapper (CatalogEntry.model_loadouts). Where the aggregate
+    # primary / secondary / extra_* blocks above collapse the whole squad into
+    # one synthetic averaged weapon, THIS preserves who-carries-what: one entry
+    # per distinct model type, each with that model's real equipped ranged /
+    # melee weapons (including the raw `attacks_dice` / `damage_dice` strings).
+    # A later stage will fire each model's real loadout from this field; in
+    # Stage 2 NOTHING reads it for behaviour — it is purely carried so the
+    # simulator's output is byte-for-byte unchanged.
+    #
+    # Stored as a RECURSIVELY (key, value)-flattened tuple so the frozen
+    # dataclass stays HASHABLE (required by functools.lru_cache on the role /
+    # damage helpers that key on UnitProfile). The nested shape mirrors the
+    # extra_ranged_profiles flatten trick, one level deeper:
+    #   model_loadouts  = ( per_model_tuple, ... )
+    #   per_model_tuple = sorted (key, value) pairs of {name, count, ranged,
+    #                     melee}, where the `ranged` / `melee` values are each a
+    #                     tuple of flattened-weapon-dict tuples, and each
+    #                     weapon-dict tuple is sorted (key, value) pairs with any
+    #                     dict-valued field (anti_keywords) itself a tuple of
+    #                     sorted items.
+    # `_flatten_model_loadouts` builds this; `_unflatten_model_loadouts`
+    # reverses it exactly (round-trips to the original list-of-dicts).
+    # Empty tuple = no per-model loadout recorded (legacy entries).
+    model_loadouts: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # The MAP-3 UNION (any-weapon-in-basket carries the keyword) inflates
     # damage for heterogeneous squads (Rubric Marines, Skyweavers, Beast
@@ -3491,6 +3517,112 @@ class Unit:
 
 
 # ---------------------------------------------------------------------------
+# PER-MODEL-LOADOUTS (Stage 2) — hashable flatten / inverse unflatten
+# ---------------------------------------------------------------------------
+#
+# UnitProfile is a frozen dataclass used as an lru_cache key, so every field
+# must be hashable — a list-of-dicts cannot be carried directly. The mapper's
+# `model_loadouts` is a list of per-model dicts shaped
+#   {"name": str, "count": float, "ranged": [wdict, ...], "melee": [wdict, ...]}
+# where each `wdict` is a flat dict of scalar weapon fields plus the nested
+# dict-valued `anti_keywords`. `_flatten_model_loadouts` turns that into a
+# tuple-of-tuples (mirroring the extra_ranged_profiles flatten trick, one level
+# deeper) so it can live on the frozen dataclass; `_unflatten_model_loadouts`
+# is the exact inverse Stage 3 will call to rebuild the list-of-dicts and fire
+# each model's real loadout. The round-trip is lossless: ints stay ints, floats
+# stay floats, the empty anti_keywords dict comes back as `{}`.
+#
+# The two model-level list fields ("ranged", "melee") are recursed into; every
+# OTHER model-level value (name, count) and every weapon-dict value is carried
+# as-is, except a dict value (anti_keywords) which is flattened to a tuple of
+# its sorted items and reconstructed by name on the way back.
+
+# Weapon-dict keys whose value is itself a dict (so it must be flattened to a
+# tuple of items for hashability and rebuilt to a dict on unflatten). Only
+# `anti_keywords` qualifies in the current mapper output; listing it explicitly
+# keeps the round-trip unambiguous rather than guessing from value shape.
+_MODEL_LOADOUT_DICT_WEAPON_FIELDS = ("anti_keywords",)
+# Model-level keys whose value is a LIST of weapon dicts (recursed into).
+_MODEL_LOADOUT_WEAPON_LISTS = ("ranged", "melee")
+
+
+def _flatten_weapon_dict(wdict: Dict[str, Any]) -> Tuple[Tuple[str, Any], ...]:
+    """Flatten one weapon dict to a sorted tuple of (key, value) pairs.
+
+    Any dict-valued field (anti_keywords) becomes a tuple of its sorted items
+    so the result is fully hashable. All other (scalar) values are carried
+    verbatim, preserving their type (int vs float vs str vs bool).
+    """
+    out = []
+    for k in sorted(wdict):
+        v = wdict[k]
+        if isinstance(v, dict):
+            out.append((k, tuple(sorted(v.items()))))
+        else:
+            out.append((k, v))
+    return tuple(out)
+
+
+def _unflatten_weapon_dict(flat: Tuple[Tuple[str, Any], ...]) -> Dict[str, Any]:
+    """Inverse of `_flatten_weapon_dict` — rebuild the original weapon dict.
+
+    Fields listed in `_MODEL_LOADOUT_DICT_WEAPON_FIELDS` (anti_keywords) are
+    rebuilt from their tuple-of-items back into a dict; everything else is
+    carried verbatim.
+    """
+    out: Dict[str, Any] = {}
+    for k, v in flat:
+        if k in _MODEL_LOADOUT_DICT_WEAPON_FIELDS:
+            out[k] = {ik: iv for ik, iv in v}
+        else:
+            out[k] = v
+    return out
+
+
+def _flatten_model_loadouts(
+    list_of_dicts: Optional[List[Dict[str, Any]]],
+) -> Tuple[Tuple[Tuple[str, Any], ...], ...]:
+    """Flatten a `model_loadouts` list-of-dicts into a hashable tuple-of-tuples.
+
+    Each per-model dict {name, count, ranged:[...], melee:[...]} becomes a
+    sorted tuple of (key, value) pairs; the `ranged` / `melee` weapon-dict
+    lists become tuples of flattened-weapon-dict tuples. `None` / empty → ().
+    """
+    out = []
+    for model in (list_of_dicts or ()):
+        pairs = []
+        for k in sorted(model):
+            v = model[k]
+            if k in _MODEL_LOADOUT_WEAPON_LISTS:
+                pairs.append((k, tuple(_flatten_weapon_dict(w) for w in (v or ()))))
+            else:
+                pairs.append((k, v))
+        out.append(tuple(pairs))
+    return tuple(out)
+
+
+def _unflatten_model_loadouts(
+    flattened: Tuple[Tuple[Tuple[str, Any], ...], ...],
+) -> List[Dict[str, Any]]:
+    """Inverse of `_flatten_model_loadouts` — rebuild the list-of-dicts.
+
+    Exact round-trip: `_unflatten_model_loadouts(_flatten_model_loadouts(x))`
+    reproduces `x` (same keys, same value types, same nested shape). Stage 3
+    calls this to read a unit's real per-model loadout off the UnitProfile.
+    """
+    out: List[Dict[str, Any]] = []
+    for model in (flattened or ()):
+        d: Dict[str, Any] = {}
+        for k, v in model:
+            if k in _MODEL_LOADOUT_WEAPON_LISTS:
+                d[k] = [_unflatten_weapon_dict(w) for w in v]
+            else:
+                d[k] = v
+        out.append(d)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Unit catalogue
 # ---------------------------------------------------------------------------
 #
@@ -3629,6 +3761,14 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
                 )
                 for prof in (entry.extra_melee_profiles or ())
             ),
+            # PER-MODEL-LOADOUTS (Stage 2 plumbing — GATE-INERT). Carry the
+            # mapper's per-model loadout list onto the frozen UnitProfile,
+            # flattened to a hashable nested tuple via _flatten_model_loadouts.
+            # Nothing reads this for behaviour in Stage 2; it is purely carried
+            # so a later stage can rebuild it with _unflatten_model_loadouts and
+            # fire each model's real loadout. Empty entry → () (no per-model
+            # loadout recorded).
+            model_loadouts=_flatten_model_loadouts(entry.model_loadouts),
             # MAP-3-FIX — basket-fraction gating. Default 1.0 preserves legacy
             # single-weapon / non-heterogeneous behaviour; mapper sets < 1.0
             # for heterogeneous squads. Anti-keywords dict flattened to a

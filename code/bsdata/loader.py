@@ -194,6 +194,21 @@ class CatalogEntry:
     # the primary melee in the same Fight phase), as distinct from the MUTEX
     # extra_ranged_profiles picker. Cited as `simulator.extra_melee_profiles`.
     extra_melee_profiles: Optional[List[Dict[str, Any]]] = None
+    # PER-MODEL-LOADOUTS (Stage 1 mapper / Stage 2 plumbing) — the actual
+    # per-model-type weapon loadout for this unit. List of dicts, one per
+    # distinct model type in the squad, each shaped
+    #   {"name": str, "count": float, "ranged": [wdict, ...], "melee": [wdict, ...]}
+    # where each `wdict` carries the same scalar weapon fields as the
+    # extra_ranged_profiles dicts (weapon, attacks, weapon_damage_per_shot,
+    # hit_probability, ap, strength, range_inches, anti_keywords, the ranged /
+    # melee keyword flags) PLUS the raw dice strings `attacks_dice` and
+    # `damage_dice`. Distinct from the aggregate synthetic primary/secondary/
+    # extra_* weapon blocks above (which collapse the whole squad into one
+    # averaged weapon): this field preserves who-carries-what so a later stage
+    # can fire each model's real loadout. GATE-INERT in Stage 2 — nothing reads
+    # it for behaviour yet; it is purely carried from parsed.json → UnitProfile.
+    # Empty / missing = no per-model loadout recorded (legacy entries).
+    model_loadouts: Optional[List[Dict[str, Any]]] = None
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # Defaults to 1.0 preserve legacy single-weapon behaviour. Heterogeneous
     # squads (Rubric Marines, Skyweavers, Beast Snagga Boyz) carry values
@@ -310,6 +325,12 @@ class CatalogEntry:
             # no extras (most units). See CatalogEntry.extra_melee_profiles
             # for the field-level contract.
             extra_melee_profiles=list(d.get("extra_melee_profiles") or []),
+            # PER-MODEL-LOADOUTS: list of per-model-type loadout dicts. Missing
+            # key = no per-model loadout recorded. Mirrors the
+            # extra_ranged_profiles read convention (carried verbatim; the
+            # nested ranged/melee weapon dicts are not flattened until the
+            # UnitProfile build in code.units._build_catalog).
+            model_loadouts=list(d.get("model_loadouts") or []),
             # MAP-3-FIX — parse basket fractions. Missing key = 1.0 (legacy:
             # any unit predating this change keeps full-keyword behaviour).
             devastating_wounds_basket_fraction=float(
@@ -531,6 +552,14 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # `simulator.extra_melee_profiles`.
         "extra_melee_profiles": override.get(
             "extra_melee_profiles", base.extra_melee_profiles or []
+        ),
+        # PER-MODEL-LOADOUTS: per-model-type loadout list. Same full-replacement
+        # convention as extra_ranged_profiles / extra_melee_profiles — an
+        # override key replaces the whole list (overrides almost never touch it;
+        # the mapper populates it from BSData). base value defaults to [] when
+        # None.
+        "model_loadouts": override.get(
+            "model_loadouts", base.model_loadouts or []
         ),
         # MAP-3-FIX — basket fractions. Override path almost never sets these
         # (the mapper computes them from BSData) but allow overrides for

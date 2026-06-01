@@ -29,6 +29,11 @@ import unittest
 from pathlib import Path
 
 from code.bsdata.mapper import PARSED_PATH, parse_dice_expr
+from code.units import (
+    UNIT_CATALOG,
+    _flatten_model_loadouts,
+    _unflatten_model_loadouts,
+)
 
 
 def _parsed() -> dict:
@@ -169,6 +174,122 @@ class ModelLoadoutShapeTests(unittest.TestCase):
             msg=f"Wraithknight should carry exactly one arm cannon, got "
             f"{ranged_names}",
         )
+
+
+class ModelLoadoutStage2PlumbingTests(unittest.TestCase):
+    """PER-MODEL-LOADOUTS STAGE 2 — the field is plumbed parsed.json →
+    CatalogEntry → UnitProfile as a hashable flattened tuple, and the
+    flatten / unflatten helpers round-trip exactly. Stage 2 is GATE-INERT:
+    nothing reads the field for behaviour, so these tests assert only that the
+    data is carried losslessly and that a UnitProfile carrying it stays
+    hashable under the frozen dataclass / lru_cache.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        data = _parsed()
+        cls.records = data["units"]
+        cls.units = {u["key"]: u for u in cls.records}
+
+    # (a) hashability ------------------------------------------------------
+    def test_unit_profile_with_loadouts_is_hashable(self):
+        """A catalogue UnitProfile that carries a non-empty model_loadouts
+        must hash (the dataclass is frozen and used as an lru_cache key)."""
+        prof = UNIT_CATALOG.get("space_marines_devastator_squad")
+        self.assertIsNotNone(prof, "Devastator squad missing from UNIT_CATALOG")
+        self.assertTrue(
+            prof.model_loadouts,
+            "Devastator squad UnitProfile carries an empty model_loadouts",
+        )
+        # Must not raise — proves the flattened nested tuple is hashable.
+        self.assertIsInstance(hash(prof), int)
+        # And it must be usable as a dict / set key (the lru_cache contract).
+        self.assertIn(prof, {prof: 1})
+
+    def test_every_catalogue_profile_is_hashable(self):
+        """No UnitProfile in the whole catalogue is unhashable because of the
+        new field (catches any unit whose loadout flattened to a list)."""
+        for key, prof in UNIT_CATALOG.items():
+            try:
+                hash(prof)
+            except TypeError as exc:  # pragma: no cover - failure path
+                self.fail(f"UnitProfile {key!r} is not hashable: {exc}")
+
+    # (b) round-trip -------------------------------------------------------
+    def test_flatten_unflatten_round_trips_for_representative_unit(self):
+        """_unflatten_model_loadouts(_flatten_model_loadouts(x)) == x for a
+        representative parsed model_loadouts value — exact shape and types
+        (counts stay float, ap stays int, anti_keywords stays a dict)."""
+        for key in (
+            "space_marines_devastator_squad",   # multi-model, dice weapons
+            "aeldari_craftworlds_corsair_voidreavers",  # non-empty anti_keywords
+            "aeldari_craftworlds_wraithknight",  # single model
+        ):
+            orig = self.units.get(key, {}).get("model_loadouts")
+            if not orig:
+                self.skipTest(f"{key} has no model_loadouts in parsed.json")
+            rt = _unflatten_model_loadouts(_flatten_model_loadouts(orig))
+            self.assertEqual(rt, orig, msg=f"{key}: round-trip not exact")
+
+    def test_round_trip_preserves_value_types(self):
+        """The round-trip must preserve int / float / str / bool / dict value
+        types exactly, not just equality (1 == 1.0 in Python)."""
+        orig = self.units["aeldari_craftworlds_corsair_voidreavers"][
+            "model_loadouts"
+        ]
+        rt = _unflatten_model_loadouts(_flatten_model_loadouts(orig))
+        for m in rt:
+            self.assertIsInstance(m["count"], float)
+            self.assertIsInstance(m["name"], str)
+            for w in m.get("ranged", []) + m.get("melee", []):
+                self.assertIsInstance(w["ap"], int)
+                self.assertIsInstance(w["weapon_damage_per_shot"], float)
+                self.assertIsInstance(w["anti_keywords"], dict)
+
+    def test_flatten_unflatten_round_trips_for_every_unit(self):
+        """The round-trip is lossless for EVERY unit's model_loadouts (catches
+        any nested shape the spot-checks miss)."""
+        checked = 0
+        for u in self.records:
+            ml = u.get("model_loadouts")
+            if not ml:
+                continue
+            rt = _unflatten_model_loadouts(_flatten_model_loadouts(ml))
+            self.assertEqual(rt, ml, msg=f"{u['key']}: round-trip not exact")
+            checked += 1
+        self.assertGreater(checked, 100, "expected many units to round-trip")
+
+    def test_empty_loadouts_round_trip_to_empty(self):
+        """None / empty flatten to () and unflatten back to an empty list."""
+        self.assertEqual(_flatten_model_loadouts(None), ())
+        self.assertEqual(_flatten_model_loadouts([]), ())
+        self.assertEqual(_unflatten_model_loadouts(()), [])
+
+    # (c) built-catalogue carriage ----------------------------------------
+    def test_multi_and_single_model_units_carry_loadouts_in_catalog(self):
+        """A built UnitProfile for a multi-model squad and for a single-model
+        unit both carry a non-empty model_loadouts after _build_catalog."""
+        multi = UNIT_CATALOG.get("space_marines_intercessor_squad")
+        single = UNIT_CATALOG.get("aeldari_craftworlds_wraithknight")
+        self.assertIsNotNone(multi, "Intercessor squad missing from catalogue")
+        self.assertIsNotNone(single, "Wraithknight missing from catalogue")
+        self.assertTrue(
+            multi.model_loadouts,
+            "multi-model Intercessor squad carries empty model_loadouts",
+        )
+        self.assertTrue(
+            single.model_loadouts,
+            "single-model Wraithknight carries empty model_loadouts",
+        )
+
+    def test_catalog_loadout_unflattens_to_parsed_shape(self):
+        """The flattened model_loadouts stamped on a catalogue UnitProfile,
+        when unflattened, reproduces the parsed.json list-of-dicts — proving
+        the build-time flatten and the inverse helper agree end to end."""
+        key = "space_marines_devastator_squad"
+        prof = UNIT_CATALOG[key]
+        rebuilt = _unflatten_model_loadouts(prof.model_loadouts)
+        self.assertEqual(rebuilt, self.units[key]["model_loadouts"])
 
 
 if __name__ == "__main__":
