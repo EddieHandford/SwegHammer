@@ -1,4 +1,34 @@
-<!-- Archived from AUTO_LOOP_LOG.md at wave 80 close (wave 77) -->
+<!-- Archived from AUTO_LOOP_LOG.md at wave 81 close (waves 77-78) -->
+
+## Wave 78 close (2026-05-31) — matchup-fidelity diagnosis + faithful-AI plan (no code change)
+
+Branch `claude/sim-calibration-6`. First wave of the user-chosen phase (Q4 ruling): the
+faithful target/positioning AI track + matchup-fidelity diagnosis. A diagnosis+plan wave
+(like wave 73 → 74), because the AI redesign is big/risky and warrants clean context.
+Headline unchanged at gated 4.95.
+
+MATCHUP DIAGNOSIS (drilled per-cell, not aggregate). The over-shooters crush specific
+victims: Imperial Knights beat CSM / AdMech / Marines **100%**, Drukhari beat Tyranids /
+CSM / AdMech **90%**. The under-shooters get crushed: CSM loses **0%** to Emperor's
+Children (10% to Sororitas/Votann); Chaos Daemons lose **0%** to AdMech / Drukhari / TSON.
+These are impossible in real competitive play (~even). Compared to real May-2026 play, the
+gap sorts almost entirely into **bucket (a) — the opponent AI**: it does not (1) focus-fire
+the durable/key threat with concentrated anti-armour (the way a real list deletes a Knight
+or a Ravager), (2) contest/deny the durable camper's objectives, or (3) allocate units to
+actions sensibly (CSM/Daemons suicide spare units on Sabotage). Verified NOT a stat gap —
+the sim's Knight stats (Questoris T11/W26) already reflect the December-2025 toughness
+update, and the rules were verified faithful in waves 71-72. One list note (bucket b): the
+real winning Knights list is Armiger-heavy vs the sim's big-Knight build — flagged, not
+pulled (uncertain direction).
+
+DELIVERABLE: `docs/MATCHUP_FIDELITY_ANALYSIS.md` — the per-cell findings, the real-play
+comparison, the 3-bucket sort, and the faithful-AI redesign plan: (1) ARMY-LEVEL focus fire
+on the highest-value reachable threat (weapon-target-matched — the per-UNIT value-picker
+regressed in wave 72 because it sharpened the over-shooters' own offence symmetrically); (2)
+contest/deny objectives (#13 positioning — body the camper off the VP); (3) action
+allocation = spare-and-survivable only. Each env-gated A/B, and when the better AI exposes
+an over-shoot, DIAGNOSE the faithful cause (re-calibration toward real lists now permitted)
+— never a nerf. Build in the next waves, drilling the driving matchup cells before/after.
 
 ## Wave 77 close (2026-05-31) — per-unit Advance roll (correctness, metric-neutral); clean levers exhausting → strategic fork escalated
 

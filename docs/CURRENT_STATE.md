@@ -1,7 +1,34 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 80 close (2026-05-31) — IK Armiger re-fit tested + reverted;
-the AI+re-fit shooting/list routes fail for Imperial Knights. Headline gated **4.95**.
+**Last updated:** Wave 81 close (2026-06-01) — contest/deny tested + reverted; the LAST
+faithful AI lever for Imperial Knights fails. Headline gated **4.95**. **A mission fork is
+escalated (`LOOP_QA.md` Q6) — the faithful AI track is structurally blocked.**
+
+**Wave 81 built + tested redesign step #2 (contest/deny positioning) and it failed — the
+diagnosis-predicted outcome.** Env-gated `SWEG_CONTEST`: a cheap chaff unit not on an
+objective moves to CONTEST the nearest reachable enemy-controlled objective, to deny the
+durable camper (Imperial Knights) its primary VP (the real way Knights are beaten; naturally
+asymmetric — IK carries no chaff). N=40 A/B vs 4.95: gated **4.95 → 5.14 (REGRESSED +0.19)**,
+**Imperial Knights +19.1 → +18.2 (only −0.9, still grossly over-rated)**, while the OTHER
+over-shooters got worse (Drukhari +18.6 → +20.6, Votann +13.4 → +14.9). Reverted.
+
+**THE STRUCTURAL FINDING (escalated, `LOOP_QA.md` Q6).** Contest/deny was the last faithful AI
+lever the diagnosis pointed at for IK, and — like wave-72 value-targeting and wave-79 focus
+fire before it — it failed. **The structural law (3rd confirmation): every generic, faithful
+AI improvement helps whoever has the better army; the over-shooters HAVE the better armies; so
+sharper play WIDENS the headline** (memory `project-ai-frozen-under-mae-first`). Mechanism for
+IK: opponents do contest, but a Knight is durable enough to hold/retake, so its durability
+converts to held primary VP — the sim's kill-centric scoring under-models how real tournaments
+deny primary through the full secondary economy + board tempo. **Imperial Knights (and the
+durable over-shooters generally) is a structural VP-vs-durability SCORING residual, not
+AI-fixable.** Per the watchdog's Q5 ruling this is reported, not nerfed. **Escalated mission
+fork (Q6):** (a) build the scoring/VP-model lever (the real root cause — make held primary VP
+harder to monopolise, model the real secondary mix; `project-faction-residual-rootcause`); (b)
+bank ~4.95 and declare Stage 1 substantially converged; (c) keep small clean UNDER-shooter
+additive fixes meanwhile (don't trigger the over-shooter-sharpening law). Worker default: (c)
+now + recommend (a). `docs/MATCHUP_FIDELITY_ANALYSIS.md`.
+
+### Earlier — wave 80 (IK Armiger re-fit tested + reverted)
 
 **Wave 80 ran the user's AI+re-fit hypothesis on the #1 residual (Imperial Knights)
 and it failed.** The faithful re-fit toward the real Armiger-heavy tournament list made
@@ -10,10 +37,7 @@ and paired with focus fire (5.90, IK +39.5 / 88%). Reverted. **Firm diagnosis:**
 over-rate is the objective-HOLDING (the sim over-rates a durable camper because opponents
 do not DENY its primary VP) — NOT the list (both shapes over-perform), the stats (current),
 the rules (verified), or the shooting AI (a Knight can't be shot off — better targeting
-only sharpens IK's own offence, confirmed 3×). The remaining faithful lever is **contest/deny
-positioning (step #2)** — sacrifice cheap bodies onto the objectives IK is NOT on to deny
-its primary VP. If that too fails, IK is a structural VP-vs-durability scoring residual, not
-AI-fixable (the finding to report). `LOOP_QA.md` Q5; `docs/MATCHUP_FIDELITY_ANALYSIS.md`.
+only sharpens IK's own offence, confirmed 3×).
 
 ### Earlier — wave 79 (army focus fire built + tested, env-gated, regresses solo)
 

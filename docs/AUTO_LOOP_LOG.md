@@ -4,6 +4,36 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 81 close (2026-06-01) — contest/deny built + tested + REVERTED; the LAST faithful AI lever for Imperial Knights fails → escalated the structural scoring-residual finding (no net code change)
+
+Branch `claude/sim-calibration-6`. Built redesign step #2 (contest/deny positioning) of the
+faithful AI track per `docs/MATCHUP_FIDELITY_ANALYSIS.md` and the watchdog's Q5 confirmation.
+It barely moved the #1 residual and regressed the headline — the diagnosis-predicted failure.
+Reverted. Headline unchanged at gated 4.95. The finding is the deliverable and is escalated.
+
+THE TEST (env-gated `SWEG_CONTEST`). A cheap chaff unit not on an objective moves to CONTEST
+the nearest reachable enemy-CONTROLLED objective (deny the durable camper its primary VP),
+prioritised over the AI-9 sacrificial enemy-DZ run. Naturally asymmetric: Imperial Knights
+carry no chaff, so only their victims gain the contest. N=40 A/B vs baseline 4.95:
+- gated **4.95 → 5.14 (REGRESSED +0.19)**; in-band 6/22 → 5/22.
+- **Imperial Knights +19.1 → +18.2 (only −0.9; still grossly over-rated at +18.2).**
+- The other over-shooters got WORSE: Drukhari +18.6 → +20.6, Votann +13.4 → +14.9, Orks +1.3.
+
+THE FINDING (escalation-grade, `LOOP_QA.md` Q6). Contest/deny was the last faithful AI lever
+the diagnosis pointed at for Imperial Knights, and it FAILED. This is the THIRD confirmation
+(after wave-72 value-targeting, wave-79 focus fire) of one structural law: **every generic,
+faithful AI improvement helps whoever has the better army; the over-shooters HAVE the better
+armies; so sharper play WIDENS the headline** (memory `project-ai-frozen-under-mae-first`).
+Mechanism for IK: opponents do contest, but a Knight is durable enough to hold/retake, so its
+durability converts to held primary VP — the sim's kill-centric scoring under-models how real
+tournaments deny primary through the full secondary economy + board tempo. **Imperial Knights
+(and the durable over-shooters generally) is a structural VP-vs-durability SCORING residual,
+not AI-fixable.** Per the watchdog's Q5 ruling: reported, not nerfed; escalated to the user as
+a mission call (Q6: (a) build the scoring/VP-model lever — the real root cause; (b) bank ~4.95
+and declare substantial convergence; (c) keep small clean UNDER-shooter fixes meanwhile). My
+non-blocking default: (c) now + recommend (a). 926 tests / audit 294/294 expected green
+(no net code change — revert restored `code/strategy.py` to baseline).
+
 ## Wave 80 close (2026-05-31) — IK Armiger re-fit tested + REVERTED; the AI+re-fit shooting/list routes fail for Imperial Knights (no net code change)
 
 Branch `claude/sim-calibration-6`. Ran the user's AI+re-fit hypothesis on the #1 residual
@@ -67,34 +97,4 @@ focus fire would REMOVE them → IK down). Test: Armiger re-fit PAIRED with focu
 **Contest/deny (#2)** — the real IK lever is denying its primary VP (contest the objectives it
 is not on; body it off), not killing the Knight. 926 tests pass; audit 294/294. Focus fire
 committed env-gated OFF, pending those.
-
-## Wave 78 close (2026-05-31) — matchup-fidelity diagnosis + faithful-AI plan (no code change)
-
-Branch `claude/sim-calibration-6`. First wave of the user-chosen phase (Q4 ruling): the
-faithful target/positioning AI track + matchup-fidelity diagnosis. A diagnosis+plan wave
-(like wave 73 → 74), because the AI redesign is big/risky and warrants clean context.
-Headline unchanged at gated 4.95.
-
-MATCHUP DIAGNOSIS (drilled per-cell, not aggregate). The over-shooters crush specific
-victims: Imperial Knights beat CSM / AdMech / Marines **100%**, Drukhari beat Tyranids /
-CSM / AdMech **90%**. The under-shooters get crushed: CSM loses **0%** to Emperor's
-Children (10% to Sororitas/Votann); Chaos Daemons lose **0%** to AdMech / Drukhari / TSON.
-These are impossible in real competitive play (~even). Compared to real May-2026 play, the
-gap sorts almost entirely into **bucket (a) — the opponent AI**: it does not (1) focus-fire
-the durable/key threat with concentrated anti-armour (the way a real list deletes a Knight
-or a Ravager), (2) contest/deny the durable camper's objectives, or (3) allocate units to
-actions sensibly (CSM/Daemons suicide spare units on Sabotage). Verified NOT a stat gap —
-the sim's Knight stats (Questoris T11/W26) already reflect the December-2025 toughness
-update, and the rules were verified faithful in waves 71-72. One list note (bucket b): the
-real winning Knights list is Armiger-heavy vs the sim's big-Knight build — flagged, not
-pulled (uncertain direction).
-
-DELIVERABLE: `docs/MATCHUP_FIDELITY_ANALYSIS.md` — the per-cell findings, the real-play
-comparison, the 3-bucket sort, and the faithful-AI redesign plan: (1) ARMY-LEVEL focus fire
-on the highest-value reachable threat (weapon-target-matched — the per-UNIT value-picker
-regressed in wave 72 because it sharpened the over-shooters' own offence symmetrically); (2)
-contest/deny objectives (#13 positioning — body the camper off the VP); (3) action
-allocation = spare-and-survivable only. Each env-gated A/B, and when the better AI exposes
-an over-shoot, DIAGNOSE the faithful cause (re-calibration toward real lists now permitted)
-— never a nerf. Build in the next waves, drilling the driving matchup cells before/after.
 

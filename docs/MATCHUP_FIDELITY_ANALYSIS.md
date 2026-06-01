@@ -115,3 +115,40 @@ over-shooters. The faithful causes the regression exposes, per bucket:
 
 Focus fire is committed env-gated OFF (baseline 4.95 unchanged) as the AI half, pending the
 paired re-fit (#1 cause above) and #2.
+
+## Wave 81 result — #2 contest/deny BUILT + TESTED (env-gated `SWEG_CONTEST`); barely moves IK, regresses headline → the structural finding
+
+Built the contest/deny branch in `pick_move_intent`: a cheap chaff unit not already on an
+objective moves to CONTEST the nearest reachable enemy-CONTROLLED objective (deny the durable
+camper its primary VP), prioritised over the AI-9 sacrificial enemy-DZ run. Naturally
+asymmetric — a low-model durable army (Imperial Knights) carries no chaff, so its own
+behaviour is unchanged; only its victims gain the contest. N=40 A/B vs baseline 4.95:
+
+| Eval | MAE_gated | Imperial Knights | note |
+|---|---:|---:|---|
+| Wave 80 baseline | 4.95 | +19.1 (67.6%) | contest off |
+| Contest ON (A/B) | **5.14** | **+18.2 (66.7%)** | regressed +0.19; IK only −0.9 |
+
+Per-faction: Imperial Knights barely moved (+19.1 → +18.2, **still grossly over-rated at
++18.2**), while the OTHER over-shooters got WORSE — **Drukhari +18.6 → +20.6** (+2.0),
+**Leagues of Votann +13.4 → +14.9** (+1.5), Orks +1.3, Chaos Knights −1.0 worse. In-band
+6/22 → 5/22. Reverted (not a clear fidelity win — it unconditionally overrides AI-9's real
+enemy-DZ tactic — and it fails its purpose while regressing the metric).
+
+**THE FINDING (escalation-grade).** Contest/deny is the *last* faithful AI lever the diagnosis
+pointed at for Imperial Knights, and it FAILED to bring IK down (−0.9; still +18.2). The
+signature is identical to wave-79 focus fire and wave-72 value-targeting: **a generic, faithful
+AI improvement applied symmetrically helps whoever has the better army — and the over-shooters
+HAVE the better armies — so sharper play widens the residual instead of closing it.** This is
+exactly memory `project-ai-frozen-under-mae-first` ("almost ALL AI improvements regress the
+headline because stats are over-tuned and the bad AI compensates").
+
+Mechanistically for IK: opponents *do* contest (the wave-71/81 per-round drills showed CSM
+contesting and winning when it happened), but a Knight is durable enough that the contesters
+get pushed off or die, so contesting fails to deny its primary VP. The over-rate is therefore
+**IK's durability converting to held primary VP** — the sim's kill-centric scoring under-models
+how real tournaments deny primary through the full secondary economy and board tempo (memory
+`project-faction-residual-rootcause`: kill-centric, not VP/positional scoring). **IK is a
+structural VP-vs-durability SCORING residual, not AI-fixable.** Per the watchdog's Q5 ruling
+this is reported, not nerfed — escalated as `LOOP_QA.md` Q6 for the user's mission call (next
+faithful lever = the scoring/VP model itself; or bank ~4.95 / declare substantial convergence).
