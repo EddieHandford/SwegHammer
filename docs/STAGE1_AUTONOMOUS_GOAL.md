@@ -69,6 +69,30 @@ do not nerf.** This is the genuine root-cause lever. Scope:
 - The approved interim — small clean NON-regressing under-shooter correctness / datasheet
   fixes — stays available alongside.
 
+### Watchdog correction (2026-06-01) — the "damaged Objective Control bracket" is FABRICATED; remove it
+
+A wave-84 work-in-progress method `Battle._effective_oc` (cited as
+`simulator.damaged_objective_control_bracket`) reduces a *damaged* Knight's Objective Control
+(Imperial / Chaos Knights only: Armiger −3 at ≤5 wounds, Questoris −5 at ≤9 wounds). **This is
+NOT a real 10th-edition rule — it is a fabricated, faction-gated Objective-Control penalty on the
+number-one over-shooter, i.e. metric-tuning via an invented rule (standing rule 10, the
+Awakened-Dynasty failure mode).** Verified against the canonical BSData cache on 2026-06-01: a
+Knight Paladin is Objective Control 10 and an Armiger Warglaive is Objective Control 6 in EVERY
+profile — Objective Control does not change on the damage bracket. The Knights' real
+"Damaged: 1-9 Wounds Remaining" ability does not mention Objective Control at all; it grants Lethal
+Hits / Lance / re-roll Advance and Charge / +1 to Hit — a damaged Knight gets MORE dangerous, with
+unchanged Objective Control. The method's "verified 40k.app" docstring claim is incorrect.
+
+**REQUIRED: remove `_effective_oc` / `damaged_objective_control_bracket` entirely** — do not commit
+it even environment-gated-off, and do not add a citation for it (no real source exists; a fabricated
+citation is exactly the rule-10 failure). The faithful Imperial Knights objective-over-control lever
+is the **summed-Objective-Control contest** (Q8): check whether a 20-model army's summed Objective
+Control (~40) correctly out-controls a single Knight (Objective Control 10) on a shared marker per
+the real 10e rule, and whether coherency / range / the one-objective-per-squad modelling wrongly
+caps the body army's contributing models. Fix THAT faithfully. If the contest is already faithful
+and the Knight still over-controls, REPORT it as a finding — never a Knight Objective-Control
+penalty. (Any Objective-Control arithmetic must floor at 0 — never a negative value.)
+
 ---
 
 ## Earlier phase (2026-05-31): the faithful AI track + matchup-fidelity diagnosis (now concluded — see above)
