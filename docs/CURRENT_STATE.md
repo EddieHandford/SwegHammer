@@ -1,21 +1,27 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 86 close (2026-06-01) — Tier B verification surfaced a MISSION-DECK fork
-(Pariah Nexus 2024 vs Chapter Approved 2025-26); escalated, Tier B parked. Headline gated **4.08**
-(no code change).
+**Last updated:** Wave 87 close (2026-06-01) — diagnosed the #1 residual (Chaos Daemons −22.2): a
+real missing rule, DAEMONIC MANIFESTATION; build planned for next wave. Headline gated **4.08** (no
+code change). Tier B still parked pending the deck ruling (Q10 open).
 
-**Wave 86: verifying Tier B's secondary-card values (the wave-84/85 lesson) surfaced that the sim
-targets the wrong mission deck.** The secondary-mission values were updated between **Pariah Nexus
-2024** (the sim's current approximate values) and **Chapter Approved 2025-26** (the current tournament
-standard since March 2025). **The May-2026 Warp Friends calibration target was played under CA 2025-26,
-not Pariah Nexus 2024** — so the canonical secondary values for matching that data are CA-2025-26's, but
-the sim and the landed Tier A board secondaries were built from Pariah-Nexus-2024 values. Confirmed
-deltas (Cull 13+ not 20+/10+; Engage 1/2/4 with a 2-quarter tier; Assassination wound-tiered 4/3; plus
-deck-independent Bring It Down / No Prisoners / Behind Enemy Lines corrections). Escalated as a
-project-scope fork (`LOOP_QA.md` Q10, memory `project-mission-deck-ca-2025`): which deck is canonical
-(recommended: CA-2025-26), and whether to re-align the landed Tier A. **Tier B PARKED** for a single
-unified deck-aligned re-alignment after the ruling — cleaner and lower-edition-risk than piecemeal
-edits. No code change.
+**Wave 87: diagnosed the largest residual, Chaos Daemons (sim 28.6% vs real 50.8%, −22.2)** — a clean
+non-secondary lever while Tier B is parked. BSData-verified finding: the sim implements only HALF of
+the Chaos Daemons army rule "The Shadow of Chaos" — DAEMONIC TERROR (the enemy debuff) is present, but
+**DAEMONIC MANIFESTATION** (the friendly attrition half: +1 to Battle-shock tests and return D3
+models/wounds on a pass while in the Shadow) is entirely missing. Daemons' fragile battleline (T3-5,
+Sv7+, 5++) is the bulk of every archetype; without this rule it evaporates under fire and cannot hold
+objectives — mechanically why Daemons got WORSE (−18.3 → −22.2) when board secondaries landed. BSData
+rule id a312-a2f1-e1c0-30ed. Build planned next wave (in `_run_battleshock_phase`, reusing the Necron
+reanimation revival path for the D3 model return) — deferred from this wave because model-revival is a
+substantial build best done with clean context, not a tail-of-session rush. Memory
+`project-daemons-manifestation-missing`.
+
+### Earlier — wave 86 (mission-deck fork escalated; Tier B parked)
+
+**Wave 86: verifying Tier B's secondary-card values surfaced that the sim targets the wrong mission
+deck** — Pariah Nexus 2024 (what the sim approximates) vs Chapter Approved 2025-26 (the current standard
+the May-2026 calibration target used). Escalated as a project-scope fork (`LOOP_QA.md` Q10, memory
+`project-mission-deck-ca-2025`); Tier B parked for a unified deck-aligned re-alignment after the ruling.
 
 ### Earlier — wave 85 (Knights damaged-objective-control bracket re-added, real, gated 4.17 → 4.08)
 

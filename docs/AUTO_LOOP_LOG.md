@@ -4,6 +4,44 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 87 close (2026-06-01) — diagnosed the #1 residual (Chaos Daemons −22.2): a real missing rule, DAEMONIC MANIFESTATION; build planned for next wave (no code change)
+
+Branch `claude/sim-calibration-6`. With Tier B parked pending the deck ruling (Q10 still OPEN), did
+the clean non-secondary work I committed to: diagnosed the largest residual, Chaos Daemons (sim 28.6%
+vs real 50.8%, −22.2). High-confidence, faithful, non-secondary, deck-independent finding. Headline
+unchanged at gated 4.08. Build planned for next wave (clean context — it needs a model-revival path,
+not a tail-of-session rush; the wave-84/85 lesson).
+
+THE FINDING (BSData-verified myself, not just the sub-agent). The simulator implements only HALF of
+the Chaos Daemons army rule "The Shadow of Chaos". The enemy-debuff half, **DAEMONIC TERROR** (enemy
+units in the Shadow take Battle-shock at −1 and D3 mortal wounds on a fail), IS implemented
+(`_run_battleshock_phase`, cited `simulator.shadow_of_chaos`, proxied as "enemy within 18\" of board
+centre while a Daemons army opposes"). The friendly-attrition half, **DAEMONIC MANIFESTATION, is
+entirely missing** — grep returns zero hits. BSData cache (`Chaos - Chaos Daemons Library.cat.gz`,
+rule id `a312-a2f1-e1c0-30ed`) verbatim: "While a LEGIONES DAEMONICA unit from your army is within
+your army's Shadow of Chaos, each time that unit takes a Battle-shock test, add 1 to that test and, if
+that test is passed, one model in that unit regains up to D3 lost wounds (if that unit is a BATTLELINE
+unit and that test is passed, up to D3 destroyed models can be returned to that unit instead)." The
+Shadow itself (verbatim): "Your deployment zone is always within your army's Shadow of Chaos" + No
+Man's Land / opponent's zone if Daemons control ≥half the objectives there.
+
+WHY IT IS THE CAUSE. Daemons' battleline (Bloodletters / Plaguebearers / Daemonettes / Pink Horrors —
+T3–T5, Sv7+, 5++) is the bulk of every mono-god archetype and is extremely fragile. Daemonic
+Manifestation is their core attrition mechanic — it returns D3 models per round a battleline unit
+passes Battle-shock in the Shadow, keeping them on objectives. Without it they evaporate under fire 2–3
+rounds early and cannot hold the board; this is mechanically why Daemons got WORSE (−18.3 → −22.2) when
+board-control secondaries landed (wave 83), and why the residual has been stable since wave 10.
+
+BUILD PLAN (next wave). In `_run_battleshock_phase`: (1) compute `in_daemons_shadow` for a Chaos
+Daemons rep — faithful proxy = its OWN deployment zone (the rule GUARANTEES the DZ is in Shadow; clean
+y-band like cleanse/sabotage) OR within 18\" of centre (parity with the existing Terror proxy, covering
+the forward/objective-holding case); (2) +1 to the test for Daemons units in Shadow (a Ld bonus, same
+convention as the existing modifiers); (3) on PASS, for BATTLELINE return up to D3 destroyed models via
+the Necron reanimation revival path (`_apply_reanimation` is the model to reuse), else restore D3 lost
+wounds to one model. Env-gated A/B, cited `simulator.daemonic_manifestation` from the BSData rule id
+above; even-handed (the real Daemons faction rule, applied only to Daemons, like the Knights damaged-OC
+bracket). Recorded `project-daemons-manifestation-missing`.
+
 ## Wave 86 close (2026-06-01) — Tier B verification surfaced a MISSION-DECK fork (Pariah Nexus 2024 vs Chapter Approved 2025-26); escalated, Tier B parked (no code change)
 
 Branch `claude/sim-calibration-6`. Opening Tier B (kill-card formula corrections), I applied the
