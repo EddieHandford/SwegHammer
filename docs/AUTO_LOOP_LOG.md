@@ -4,6 +4,32 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 93 close (2026-06-01) — positional re-model SCOPED (Q11 plan wave): the body-army on-marker OC gap is geometry/spread (secondary) + AI-not-massing (dominant); plan-first, no code
+
+Branch `claude/sim-calibration-6`. The deck re-alignment is done, so per the user's sequence this wave
+plans the Q11 positional re-model (the user mandated plan-first for this high-risk, sharpest-surface
+change). Deliverable `docs/POSITIONAL_REMODEL_PLAN.md`. Headline unchanged at gated 4.15.
+
+NEW DIAGNOSTIC (pins the sub-cause). A within-3"-vs-within-6" drill (Imperial Knights vs Chaos Daemons /
+Astra / Tyranids) shows the body army's per-marker objective control within 6" is ~2× the within-3":
+Daemons 5.8 / 9.4, Astra 4.5 / 8.4, Tyranids 7.7 / 15.6 (army totals ~111 / ~95 / ~185). Two sub-causes:
+(1) GEOMETRY/SPREAD (secondary, cleaner lever) — half a body army's NEAR-marker objective control sits in
+the 3"–6" band outside the 3" scoring radius (units near a marker are spread by the one-Unit-per-model +
+coherency placement; real units cluster on the marker); (2) AI-NOT-MASSING (dominant) — even the within-6"
+figure is a tiny fraction of the army total, so most of the army is nowhere near a marker (the regress-prone
+AI-positioning class). The within-3" body-army OC (4.5–7.7) is BELOW a big Knight's ~10, so the body army
+loses the contest at the marker — a geometry fix recovering the 3"–6" band would roughly DOUBLE on-marker
+OC and let body armies out-control a Knight.
+
+PLAN. Candidate A (LEAD, the user's authorised geometry category, least like the washed AI lever): a
+clustering correction so a unit on an objective has its models within the 3" scoring radius (A1 real
+placement / A2 representation, even-handed, Knight unaffected). Candidate B (the dominant sub-cause but
+the washed class): AI massing body-army units onto objectives — build only if A is insufficient, expect a
+likely wash. Build env-gated (SWEG_CLUSTER / SWEG_MASS), per-matchup measured (IK + Daemons holding cells,
+watch Drukhari/Votann for the frozen-under signature), keep only a clear faithful axis-win; if it washes,
+REPORT it as a one-Unit-per-model representation limit — do NOT force, do NOT reach for a knob, do NOT nerf.
+Hard-rails self-check in the plan §5. Next (wave 94): build Candidate A1 env-gated.
+
 ## Wave 92 close (2026-06-01) — Chapter Approved 2025-26 secondary re-alignment COMPLETE (part 2/2: Bring It Down + Assassination wound-tiers) — metric-flat as predicted (4.10 → 4.15); deck re-align done, positional re-model next
 
 Branch `claude/sim-calibration-6`. Completed the CA-2025-26 deck re-alignment (the user's Q10 ruling)

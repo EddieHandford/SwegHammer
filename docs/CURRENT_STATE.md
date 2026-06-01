@@ -1,17 +1,26 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 92 close (2026-06-01) — Chapter Approved 2025-26 secondary re-alignment COMPLETE
-(part 2: Bring It Down + Assassination wound-tiers) — faithful, metric-flat as predicted (gated **4.15**,
-was 4.08 at the floor). Deck re-align done. **Next: plan + build the Q11 positional re-model.**
+**Last updated:** Wave 93 close (2026-06-01) — the Q11 positional re-model is SCOPED
+(`docs/POSITIONAL_REMODEL_PLAN.md`). Headline gated **4.15**. Plan wave, no code. Next: build Candidate
+A1 (the geometry/clustering correction) env-gated.
 
-**Wave 92 completed the CA-2025-26 deck re-alignment** — Bring It Down flat-3 → 2+2(15+W)+2(20+W) max
-6/no-cap; Assassination flat-3 → 4(4+W)/3(<4)/no-Warlord-bonus. Threaded destroyed-unit Wounds data
-through the round snapshot (3 new bracket id-sets). 3 citations rewritten to CA-2025-26; 927 tests pass.
-N=40: gated 4.10 → **4.15** (flat across both parts, +0.07 total — the cap-wash). KEPT as fidelity (the
-deck the May-2026 target used). DECK RE-ALIGNMENT COMPLETE (7 cards re-valued; 5 board cards confirmed
-unchanged). Next (wave 93): plan + build the Q11 positional re-model — the one structural axis (Imperial
-Knights over-holds / Chaos Daemons under-holds the markers), diagnose-not-nerf, faithful/even-handed/
-plan-first, NOT a per-faction objective-control→primary-VP knob, high-risk (may wash — report honestly).
+**Wave 93 scoped the Q11 positional re-model** (plan-first, the high-risk sharpest surface). A new
+within-3"-vs-within-6" drill pins the body-army on-marker objective-control gap to TWO sub-causes:
+(1) GEOMETRY/SPREAD (secondary, the cleaner/lead lever) — half a body army's NEAR-marker objective
+control sits in the 3"–6" band outside the 3" scoring radius (units near a marker are spread by the
+one-Unit-per-model placement; real units cluster on the marker); (2) AI-NOT-MASSING (dominant) — most
+of the army is nowhere near a marker (the regress-prone AI class). The within-3" body OC (4.5–7.7) loses
+to a Knight's ~10. Plan: Candidate A (clustering geometry correction, even-handed, the user's authorised
+category) first, then Candidate B (AI massing) only if needed; env-gated, per-matchup measured, kept only
+as a clear faithful axis-win, REPORTED honestly if it washes (no knob, no nerf). Plan §5 hard-rails
+self-check. Next (wave 94): build Candidate A1.
+
+### Earlier — wave 92 (CA-2025-26 deck re-alignment complete)
+
+**Wave 92 completed the CA-2025-26 secondary re-alignment** (Bring It Down 2+2(15+W)+2(20+W) max 6;
+Assassination 4(4+W)/3(<4), no Warlord bonus; via destroyed-unit wound data in the snapshot). Across both
+parts the deck re-alignment moved the headline 4.08 → **4.15** (cap-wash, flat), kept as fidelity. 7
+cards re-valued, 5 board cards confirmed unchanged.
 
 ### Earlier — wave 91 (CA-2025-26 re-alignment part 1, 5 cards, metric-flat)
 
