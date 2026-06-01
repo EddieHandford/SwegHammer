@@ -31,5 +31,13 @@
     "effect": "(APPROXIMATION) Paladin's Duty is applied as a proxy for all Questoris/Cerastus class Bondsman abilities. Real rule has 6+ distinct Bondsman variants per knight sub-type (Paladin, Warden, Crusader, Gallant, Errant, Preceptor). SwegHammer applies Paladin's Duty (transient_lethal_hits + transient_lance_this_turn) uniformly — the strongest cleanly representable Bondsman buff. Warden's Duty (Sustained Hits 1 + Ignores Cover) and Crusader's Duty (+1 to hit ranged) are deferred.",
     "scope": "unit-led",
     "approximation": true
+  },
+  "simulator.damaged_objective_control_bracket": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/imperial-knights/ (datasheet 'Damaged' ability); verbatim text below extracted from the canonical BSData cache 'Imperium - Imperial Knights.cat.gz' / 'Chaos - Chaos Knights.cat.gz' (codex-tagged, Knight T11/W26) on 2026-06-01",
+    "rule_name": "Damaged: Wounds Remaining — Objective Control reduction (Imperial / Chaos Knights datasheets)",
+    "quoted_text": "While this model has 1-9 wounds remaining, subtract 5 from this model's Objective Control characteristic and each time this model makes an attack, subtract 1 from the Hit roll. [Armiger / War Dog variant: While this model has 1-5 wounds remaining, subtract 3 from this model's Objective Control characteristic ...; Dominus-class variant: While this model has 1-10 wounds remaining, subtract 5 ...]",
+    "trigger": "An Imperial Knights or Chaos Knights model is on its Damaged bracket (current wounds <= the chassis threshold: Armiger/War Dog 5, Questoris 9, Dominus 10) when its Objective Control is summed for objective scoring (Battle._effective_oc, called from _oc_within and _assign_army_oc).",
+    "effect": "The model's Objective Control is reduced by the datasheet amount (Armiger/War Dog −3, Questoris/Dominus −5), floored at 0, so a chipped Knight controls objectives less strongly — opponents that shoot a Knight down can then contest it off a marker. Only the Knight factions carry this datasheet rule, so the faction gate is the faithful per-datasheet implementation. ONLY the Objective-Control half of the Damaged ability is modelled here; the −1-to-Hit half is the existing damage-bracket handling. NOTE: a Goonhammer codex review suggested the current-codex Questoris value might be −4 (Objective Control 10 → 6); RESOLVED (watchdog Q9) to use the canonical BSData cache value −5 — BSData rule-6 governs, and the −4 came from an unreliable web summary. The ±1 is metric-negligible either way.",
+    "scope": "keyword-gated"
   }
 }

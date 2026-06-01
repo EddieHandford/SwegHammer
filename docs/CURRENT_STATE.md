@@ -1,23 +1,29 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 84 close (2026-06-01) — objective-control contest verified FAITHFUL; a
-fabricated "damaged-OC" lever was caught + reverted. Headline gated **4.17** (no code change).
-The Imperial Knights over-control is body-army positioning, not an objective-control bug.
+**Last updated:** Wave 85 close (2026-06-01) — Knights damaged-objective-control bracket RE-ADDED
+as a real rule (the wave-84 "fabrication" verdict was itself wrong). Headline gated **4.08** (down
+from 4.17). Leftover Imperial Knights +27.2 is the positioning finding.
 
-**Wave 84 investigated the re-aimed Imperial Knights lever** (the objective-control contest). Two
-things to record. (1) MISSTEP: mid-wave I built a "damaged Knight loses Objective Control" rule on
-a wrong web-source reading; the watchdog caught it as a fabricated, faction-gated metric-tuning
-penalty (commit 9f599c0) and I reverted it — 10e Objective Control does NOT change on the damage
-bracket (BSData: Knight Paladin OC 10 / Armiger 6 in every profile; the "Damaged" ability gives
-Lethal Hits / Lance / +1 to hit, unchanged OC). Lesson: `feedback-verify-stats-against-bsdata`.
-(2) The faithful diagnostic: drilled the summed-objective-control contest in IK vs Astra / Tyranids,
-comparing credited `a_oc`/`b_oc` to the raw per-model objective control within 3". **credited == raw
-everywhere — the contest is FAITHFUL.** The Knight over-controls because body armies have huge TOTAL
-objective control (Tyranids ~159 across 111 models) but get almost none onto markers (0–15) while a
-Knight parks concentrated objective-control-10 — a positioning / one-Unit-per-model representation
-gap, NOT an objective-control-math bug and NOT a Knight penalty. Reported (`LOOP_QA.md` Q9);
-memories `project-oc-contest-faithful`, `project-oc-does-not-bracket`. The leftover IK spike is the
-positional core; the scoring overhaul (Tier A) already cut the headline to 4.17.
+**Wave 85 re-added the Knights' damaged-objective-control bracket** after the user/watchdog reversed
+the wave-84 removal (commits f72a100 / 6135a62). It is a REAL 10e datasheet rule: I cleanly extracted
+the BSData damage-table rows — Questoris "1-9 wounds remaining, subtract 5 from Objective Control",
+Armiger "1-5 wounds, subtract 3", Dominus "1-10, subtract 5". (The directive expected codex −4 for the
+Questoris; watchdog RESOLVED to use the canonical cache −5 — BSData rule-6 governs.) `Battle._effective_oc`,
+Knights-faction-gated (correct — only Knights have this), floored at 0, cited verbatim, env-gated
+SWEG_DMGOC default-on. N=40: gated **4.17 → 4.08**, Imperial Knights +29.2 → +27.2 (−2.0; small because
+Knights are durable and rarely bracket while contested), Chaos Knights −1.1 → −4.3 (also lose OC when
+damaged — the real rule, even-handed). KEPT because it is real and net-positive; 926 tests pass.
+Lesson: `feedback-verify-stats-against-bsdata` (cross-check ≥2 sources + read the rows before calling a
+cited rule fabricated; 40k.app is index, not codex). The leftover IK +27.2 re-confirms the wave-84
+positioning finding (`project-oc-contest-faithful`). Next: Tier B (kill-card formula corrections).
+
+### Earlier — wave 84 (OC contest verified faithful; damaged-OC removal later reversed)
+
+**Wave 84 verified the summed-objective-control contest is FAITHFUL** (credited == raw per-model within
+3"); the Knight over-controls because body armies have huge total objective control but get almost none
+onto markers — a positioning / one-Unit-per-model representation gap. (Wave 84 also REMOVED the
+damaged-OC bracket on a flawed read; that was wrong and wave 85 re-added it.) Reported
+`project-oc-contest-faithful`.
 
 ### Earlier — wave 83 (Tier A board-control secondaries built + landed)
 

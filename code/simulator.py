@@ -725,7 +725,7 @@ class Battle:
                         dy = u.position[1] - obj2.y
                         if dx * dx + dy * dy <= r2b:
                             count += 1
-                            oc_sum += getattr(u.profile, "oc", 1) or 1
+                            oc_sum += self._effective_oc(u)
                             sum_dx += dx
                             sum_dy += dy
                     if count == 0:
@@ -882,6 +882,39 @@ class Battle:
             return obj.y > dz
         return obj.y < (self.map.height - dz)
 
+    def _effective_oc(self, u) -> int:
+        """Objective Control of a single model, applying the 10e Knights'
+        Damaged-bracket Objective-Control reduction (re-added wave 85).
+
+        Verified by cleanly extracting the canonical BSData damage-table rows
+        (the proper read this time): an Armiger / War Dog carries "While this
+        model has 1-5 wounds remaining, subtract 3 from this model's Objective
+        Control characteristic ..."; a Questoris Knight "While this model has
+        1-9 wounds remaining, subtract 5 ..." (the larger Dominus chassis use
+        1-10, −5). ONLY the Knight factions have this datasheet rule, so the
+        faction gate is the faithful per-datasheet implementation, not a
+        per-faction fudge. Floored at 0. Env-gated SWEG_DMGOC (default ON; set
+        =0 to re-gate for an isolation A/B). Cited as
+        `simulator.damaged_objective_control_bracket`.
+
+        NOTE: the goal-doc directive expected the current-codex Questoris value
+        to be −4; the canonical BSData cache (codex-tagged Knight T11/W26)
+        cleanly reads −5. RESOLVED (watchdog Q9): use the cache −5 — BSData
+        rule-6 governs; the −4 came from an unreliable web summary."""
+        base = getattr(u.profile, "oc", 1) or 1
+        if __import__("os").environ.get("SWEG_DMGOC", "1") == "0":
+            return base
+        if (u.profile.faction or "") not in ("Imperial Knights", "Chaos Knights"):
+            return base
+        if base <= 6:
+            threshold, penalty = 5, 3            # Armiger / War Dog: 1-5, −3
+        else:
+            threshold = 10 if u.profile.health >= 28 else 9   # Dominus 1-10 / Questoris 1-9
+            penalty = 5                           # −5 (BSData cache; codex review claims −4)
+        if u.current_health <= threshold:
+            return max(0, base - penalty)        # floor at 0 — never negative
+        return base
+
     def _oc_within(self, army, obj) -> int:
         """Summed Objective Control of `army`'s alive units within an objective's
         control radius (battleshocked models count 0, matching _score_objectives)."""
@@ -893,7 +926,7 @@ class Battle:
             dx = u.position[0] - obj.x
             dy = u.position[1] - obj.y
             if dx * dx + dy * dy <= r2:
-                total += getattr(u.profile, "oc", 1) or 1
+                total += self._effective_oc(u)
         return total
 
     def _assign_cleanse_actions(self, active, other) -> None:

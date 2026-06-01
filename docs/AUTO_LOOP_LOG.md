@@ -4,7 +4,49 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
-## Wave 84 close (2026-06-01) — objective-control contest verified FAITHFUL; a fabricated "damaged-OC" lever was caught + reverted; IK over-control is body-army positioning (no code change)
+## Wave 85 close (2026-06-01) — Knights damaged-OC bracket RE-ADDED as a real rule (gated 4.17 → 4.08); the wave-84 "fabrication" verdict was itself wrong
+
+Branch `claude/sim-calibration-6`. The wave-84 conclusion that the damaged-Objective-Control bracket
+was fabricated was REVERSED by the user/watchdog (commits f72a100 / 6135a62 / 6dcccbc): it is a REAL
+10e datasheet rule and was re-added this wave, properly sourced and cited. Headline gated 4.17 → 4.08.
+
+THE CORRECTION CHAIN. Wave 84 removed `_effective_oc` after a flawed read suggested Objective Control
+does not change on the damage bracket. That read was wrong — both the worker's AND the watchdog's
+"BSData shows constant OC" greps hit the wrong lines and never read the damage-table rows. This wave I
+extracted the rows CLEANLY from the canonical BSData cache (the proper way): a Questoris Knight carries
+"While this model has 1-9 wounds remaining, subtract 5 from this model's Objective Control characteristic
+..."; an Armiger / War Dog "1-5 wounds remaining, subtract 3 ..."; Dominus chassis "1-10, subtract 5".
+So the rule is real and my original −5/−3 values were correct. (The goal-doc directive expected a codex
+−4 for the Questoris; RESOLVED by the watchdog to use the canonical cache −5 — BSData rule-6 governs;
+the −4 was an unreliable web summary. ±1 is metric-negligible.) Lesson: `feedback-verify-stats-against-bsdata`
+— cross-check ≥2 sources and actually READ the rows before declaring a cited rule fabricated OR building
+one; 40k.app serves INDEX data, not codex.
+
+RE-ADDED: `Battle._effective_oc` — Knights-faction-gated (correct: only Knights have this datasheet
+rule), reduces a chipped Knight's Objective Control (Armiger −3 at ≤5 wounds, Questoris −5 at ≤9,
+Dominus −5 at ≤10), floored at 0, applied in `_oc_within` and `_assign_army_oc`. Env-gated SWEG_DMGOC
+(default ON). Cited `simulator.damaged_objective_control_bracket` with the verbatim BSData text (audit
+288/288).
+
+| Eval (N=40) | MAE_gated | in band | Imperial Knights | note |
+|---|---:|---:|---:|---|
+| DMGOC OFF (=0) | 4.17 | 9/22 | +29.2 | identical to wave-83 baseline |
+| **DMGOC ON** | **4.08** | 8/22 | **+27.2** | −0.09 headline; IK −2.0 |
+
+Marginal net-positive (a chipped Knight loses Objective Control → easier to contest off a marker), but
+small because Knights are durable and rarely enter the bracket while still contested. Chaos Knights
+worsen (−1.1 → −4.3) — they ALSO lose Objective Control when damaged, the real rule applied even-handedly
+(NOT gated to help the metric). KEPT because it is real (the directive: "keep it because it is real,
+regardless"), and it is also net-positive. 926 tests pass; run.py clean. The leftover Imperial Knights
++27.2 re-confirms the wave-84 positioning finding (`project-oc-contest-faithful`): even with the faithful
+Objective-Control bracket, the Knight over-controls because body armies do not mass bodies onto markers.
+Next: Tier B (kill-card formula corrections), then Tier C / clean under-shooter fixes.
+
+## Wave 84 close (2026-06-01) — objective-control contest verified FAITHFUL; IK over-control is body-army positioning (no code change)
+
+> **PARTIALLY SUPERSEDED by wave 85 (above):** the "damaged-OC bracket is fabricated" conclusion in
+> this wave was WRONG — it is a real 10e rule, re-added in wave 85. The summed-OC-contest-is-faithful
+> finding below still stands.
 
 Branch `claude/sim-calibration-6`. Investigated the re-aimed Imperial Knights lever (Q8:
 objective-takeability / the objective-control contest). A mid-wave MISSTEP and the watchdog
