@@ -1,19 +1,26 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 89 close (2026-06-01) — detachment-fabrication sweep on the over-shooters:
-NEGATIVE finding — they are already clean; the over-rates are structural. Headline gated **4.08**.
-Tier B still parked pending the deck ruling (Q10 open). The clean faithful levers are thinning.
+**Last updated:** Wave 90 close (2026-06-01) — Chaos Daemons re-diagnosed POSITIONAL (primary-VP), not
+combat/attrition; secondary is a cap-wash; the residual is ONE structural axis → gated **4.08** is a
+structural floor. Strategic checkpoint escalated (Q11). Tier B still parked (Q10 deck ruling open).
 
-**Wave 89 audited the over-shooter detachments for fabricated buffs** (a deck-independent lever while
-Tier B is parked). BSData-verified result: the over-shooters (Votann, Drukhari, Custodes, World Eaters,
-Sororitas, T'au, Thousand Sons) are LARGELY CLEAN — the fabricated always-on buffs were already swept in
-prior waves. So **the over-shooter over-rates are STRUCTURAL (positioning / scoring / representation),
-not fabricated detachment buffs.** Two minor deferred flags (Custodes Shield Host crit-on-5+, an
-edition-uncertain + metric-negative fidelity item; Inquisition Task Force, a zero-metric Agents fix). No
-code change. STRATEGIC STATE: the clean faithful levers are thinning at gated 4.08; the residual mass is
-IK +27 (positioning, reported not faithfully fixable) and Daemons −22 (combat/positional, hard); the
-biggest remaining clean lever is the secondary deck-re-alignment, blocked on the Q10 deck ruling. Memory
-`project-detachment-fabrication-pattern`.
+**Wave 90 re-diagnosed the Chaos Daemons residual** (combat vs positional, via a survival + VP-split
+drill). Two structural findings consolidate the whole picture: (1) Daemons SURVIVE 40-75% of their units
+but LOSE THE PRIMARY race — positional/objective-massing, NOT combat or attrition; (2) secondary VP is a
+CAP-WASH (both sides generate 80-115 raw, all clamped to 40, so secondary no longer differentiates —
+PRIMARY decides). **The dominant remaining residual is ONE axis — primary-VP / objective control:
+Imperial Knights +27 over-holds the markers, Chaos Daemons −22 under-holds them** (the one-Unit-per-model
+positional gap, opposite ends, ≈ half the gated MAE). The faithful AI levers for it are exhausted (regress/
+wash, confirmed 5+ times), so **gated 4.08 is a structural floor on the faithful track.** Remaining clean
+lever: the secondary deck re-alignment (Q10, pending; likely small per the cap-wash). Strategic checkpoint
+`LOOP_QA.md` Q11 (rule Q10 + assess convergence vs the hard positional work). No code change.
+
+### Earlier — wave 89 (over-shooter detachments swept clean; over-rates are structural)
+
+**Wave 89 audited the over-shooter detachments for fabricated buffs** — BSData-verified NEGATIVE finding:
+they are already clean (fabrications swept in prior waves), so the over-shooter over-rates are structural,
+not fabricated buffs. Two minor deferred flags (Custodes crit-on-5+ edition-conflict; a zero-metric Agents
+fix). No code change. Memory `project-detachment-fabrication-pattern`.
 
 ### Earlier — wave 88 (Daemonic Manifestation built, real but metric-neutral)
 

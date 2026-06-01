@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 90 close (2026-06-01) — Chaos Daemons re-diagnosed: POSITIONAL (primary-VP / objective-massing), not combat or attrition; secondary is a CAP-WASH; the residual floor is one structural axis. Strategic checkpoint escalated (no code change)
+
+Branch `claude/sim-calibration-6`. Re-diagnosed the Daemons residual (attrition ruled out wave 88) with a
+combat-vs-positional drill (Daemons vs AdMech / Drukhari / Thousand Sons / Astra, survival + primary/
+secondary VP split). Two structural findings consolidate the whole remaining residual picture. No code
+change; headline gated 4.08. Strategic checkpoint logged `LOOP_QA.md` Q11.
+
+FINDING 1 — Daemons is POSITIONAL, not combat/attrition. Daemons SURVIVE (40–75% of units alive at game
+end; not tabled, except vs Drukhari) but LOSE THE PRIMARY race: their primary VP (15–50) trails the
+opponent's (20–50) in the losses, while their secondary is capped (see finding 2). So their surviving
+bodies do NOT translate to objective control — the same "body army has total Objective Control but does
+not mass it onto the markers" gap diagnosed for the under-shooters generally (`project-oc-contest-faithful`).
+NOT combat-power (they live), NOT attrition (wave 88 was neutral).
+
+FINDING 2 — secondary VP is a CAP-WASH after Tier A. Both sides generate 80–115 RAW secondary VP, all
+clamped to the real 40-VP cap (`_decide_winner`), so secondary contributes ~40 to BOTH and no longer
+DIFFERENTIATES — the winner is decided on PRIMARY VP (objectives). Tier A helped (4.95→4.17) by lifting
+under-scorers toward the cap, but the secondary layer is now saturated; further secondary work has
+diminishing returns because both armies already max it.
+
+THE CONSOLIDATED PICTURE. The dominant remaining residual is ONE structural axis — PRIMARY VP /
+objective control: Imperial Knights +27 OVER-holds the markers (durable, uncontestable), Chaos Daemons
+−22 UNDER-holds them (survives but does not mass on objectives). Together ≈ half the gated MAE. This is
+the one-Unit-per-model positional/representation gap, and the faithful AI levers for it have been
+exhausted and REGRESS/WASH (value-targeting w72, focus fire w79, contest/deny w81; the contest is
+faithful w84; per `project-ai-frozen-under-mae-first`). So the headline ~4.08 is a STRUCTURAL FLOOR on
+the faithful track. The remaining clean lever is the secondary deck re-alignment (Q10, blocked on the
+user's ruling, and likely small per finding 2). Strategic checkpoint Q11: rule on Q10 for the small
+deck win, and assess whether 4.08 is "substantially converged" vs investing in the hard positional-
+representation work (high-risk). Memory `project-faction-residual-rootcause` updated.
+
 ## Wave 89 close (2026-06-01) — detachment-fabrication sweep on the over-shooters: NEGATIVE finding — they are already clean; the over-rates are structural, not fabricated buffs (no code change)
 
 Branch `claude/sim-calibration-6`. With Tier B parked (Q10 deck ruling still OPEN) and the Daemons
