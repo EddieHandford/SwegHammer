@@ -5909,6 +5909,38 @@ class Battle:
                 ):
                     harbinger_penalty = 1
 
+                # --- Daemonic Manifestation (Chaos Daemons, the friendly half
+                # of The Shadow of Chaos — wave 88, BSData rule a312-a2f1-e1c0-30ed).
+                # While a LEGIONES DAEMONICA unit is within its army's Shadow of
+                # Chaos it adds 1 to its Battle-shock test AND, on a PASS, returns
+                # up to D3 destroyed models (BATTLELINE) or D3 lost wounds
+                # (otherwise). The Shadow is the Daemons' own deployment zone
+                # (ALWAYS) plus contested No Man's Land; proxied here as own-DZ OR
+                # within 18" of board centre (parity with the Daemonic Terror
+                # proxy above; objective-count not tracked). The model/wound
+                # return reuses the existing reanimation pulse
+                # (transient_undying_legions_pulse — the same plumbing as Foetid
+                # Resurgence / Mob Up; consumed end-of-round by
+                # _apply_undying_legions_pulse, which heals wounds then returns
+                # destroyed models). Cited `simulator.daemonic_manifestation`.
+                # Env-gated SWEG_DAEMONIC (default ON; =0 re-gates for an A/B).
+                daemonic_manifest = False
+                if (
+                    rep.profile.faction == "Chaos Daemons"
+                    and __import__("os").environ.get("SWEG_DAEMONIC", "1") != "0"
+                ):
+                    _dz = self.map.deployment_width
+                    _own_a = army is self.a
+                    _in_own_dz = (
+                        rep.position[1] <= _dz if _own_a
+                        else rep.position[1] >= self.map.height - _dz
+                    )
+                    if _in_own_dz or _distance(
+                        rep.position,
+                        (self.map.width / 2.0, self.map.height / 2.0),
+                    ) <= 18.0:
+                        daemonic_manifest = True
+
                 # --- One roll per squad ---
                 if synapse_3d6:
                     # Tyranid Synapse — 3D6 sum, codex-correct.
@@ -5924,6 +5956,7 @@ class Battle:
                     + contagion_penalty
                     + shadow_of_chaos_penalty
                     + harbinger_penalty
+                    - (1 if daemonic_manifest else 0)   # Daemonic Manifestation: +1 to the test
                 )
                 if roll < target:
                     # Mark ALL models in the squad as Battle-shocked.
@@ -5958,6 +5991,17 @@ class Battle:
                     if shadow_of_chaos_hit:
                         mw = random.randint(1, 3)
                         rep.current_health = max(0, rep.current_health - mw)
+                elif daemonic_manifest:
+                    # PASS inside the Shadow — Daemonic Manifestation returns up
+                    # to D3 destroyed models (BATTLELINE) / D3 lost wounds via the
+                    # reanimation pulse, applied end-of-round by
+                    # _apply_undying_legions_pulse (heals wounds, then returns
+                    # destroyed models — matching the rule's BATTLELINE-vs-other
+                    # split). Set on the squad representative; the pulse consumer
+                    # groups by squad_id and revives that squad's dead peers.
+                    rep.transient_undying_legions_pulse = max(
+                        rep.transient_undying_legions_pulse, random.randint(1, 3)
+                    )
 
     def _run_round(self, round_num: int) -> None:
         if self.verbose:

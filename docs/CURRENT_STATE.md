@@ -1,20 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 87 close (2026-06-01) — diagnosed the #1 residual (Chaos Daemons −22.2): a
-real missing rule, DAEMONIC MANIFESTATION; build planned for next wave. Headline gated **4.08** (no
-code change). Tier B still parked pending the deck ruling (Q10 open).
+**Last updated:** Wave 88 close (2026-06-01) — built Daemonic Manifestation (a real missing Chaos
+Daemons rule), but it is METRIC-NEUTRAL — it does NOT fix the Daemons −22 residual. Headline gated
+**4.08**. Tier B still parked pending the deck ruling (Q10 open).
 
-**Wave 87: diagnosed the largest residual, Chaos Daemons (sim 28.6% vs real 50.8%, −22.2)** — a clean
-non-secondary lever while Tier B is parked. BSData-verified finding: the sim implements only HALF of
-the Chaos Daemons army rule "The Shadow of Chaos" — DAEMONIC TERROR (the enemy debuff) is present, but
-**DAEMONIC MANIFESTATION** (the friendly attrition half: +1 to Battle-shock tests and return D3
-models/wounds on a pass while in the Shadow) is entirely missing. Daemons' fragile battleline (T3-5,
-Sv7+, 5++) is the bulk of every archetype; without this rule it evaporates under fire and cannot hold
-objectives — mechanically why Daemons got WORSE (−18.3 → −22.2) when board secondaries landed. BSData
-rule id a312-a2f1-e1c0-30ed. Build planned next wave (in `_run_battleshock_phase`, reusing the Necron
-reanimation revival path for the D3 model return) — deferred from this wave because model-revival is a
-substantial build best done with clean context, not a tail-of-session rush. Memory
-`project-daemons-manifestation-missing`.
+**Wave 88 built the wave-87-planned fix** — Daemonic Manifestation, the missing friendly half of the
+Chaos Daemons army rule (in `_run_battleshock_phase`: +1 to a Daemons unit's Battle-shock test in its
+Shadow, and on a pass return D3 destroyed models / D3 wounds via the existing reanimation pulse; cited
+verbatim from BSData, faction-gated, default-on). **N=40 A/B: gated 4.08 → 4.08, Chaos Daemons
+−22.2 → −22.5 (within noise) — metric-neutral.** Verified it is NOT a silent no-op (the pulse fires for
+Daemons). The wave-87 diagnostic over-attributed: the rule is real (kept default-on for fidelity, the
+damaged-OC precedent), but it does not explain the −22. Likely because aggressive Daemons push past
+their own Shadow into enemy territory (rarely in-Shadow when dying), and more fundamentally the residual
+is combat-power / positional, not attrition. **The Chaos Daemons residual needs RE-DIAGNOSIS.** 926
+tests pass. Memory `project-daemons-manifestation-missing`.
+
+### Earlier — wave 87 (diagnosed Chaos Daemons −22; build planned)
+
+**Wave 87 diagnosed the largest residual, Chaos Daemons (−22.2)** to the missing Daemonic Manifestation
+rule and planned the build — which wave 88 then built and found metric-neutral (see above), so the
+diagnosis over-attributed and the Daemons residual remains open.
 
 ### Earlier — wave 86 (mission-deck fork escalated; Tier B parked)
 

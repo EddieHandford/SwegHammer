@@ -11,6 +11,16 @@
     "approximation": true
   },
 
+  "simulator.daemonic_manifestation": {
+    "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/ (verbatim text below from the canonical BSData cache 'Chaos - Chaos Daemons Library.cat.gz', rule id a312-a2f1-e1c0-30ed, extracted 2026-06-01)",
+    "rule_name": "Daemonic Manifestation (the friendly half of The Shadow of Chaos)",
+    "quoted_text": "While a LEGIONES DAEMONICA unit from your army is within your army's Shadow of Chaos, each time that unit takes a Battle-shock test, add 1 to that test and, if that test is passed, one model in that unit regains up to D3 lost wounds (if that unit is a BATTLELINE unit and that test is passed, up to D3 destroyed models can be returned to that unit instead).",
+    "trigger": "A Chaos Daemons unit (any below-half-strength unit that takes a Battle-shock test) is inside its army's Shadow of Chaos. The Shadow is the Daemons' own deployment zone (ALWAYS) plus No Man's Land / the opponent's zone when they control at least half the objectives there; proxied in _run_battleshock_phase as the unit's own deployment-zone y-band OR within 18\" of board centre (parity with the simulator.shadow_of_chaos enemy-side proxy; per-zone objective control not tracked). Env-gated SWEG_DAEMONIC.",
+    "effect": "+1 to the Battle-shock test (modelled as -1 to the 2D6 test target, same convention as the Terror half) AND, on a PASS, returns up to D3 destroyed models (BATTLELINE) or restores up to D3 lost wounds (otherwise). The model/wound return reuses the existing reanimation pulse (transient_undying_legions_pulse, applied end-of-round by _apply_undying_legions_pulse, which spends the pulse wound-by-wound: heal wounded models first, then return destroyed models — matching the rule's BATTLELINE-vs-other split). This is the friendly attrition half of the army rule that keeps the Daemons' fragile battleline on the board; only the enemy-debuff half (simulator.shadow_of_chaos) was previously modelled.",
+    "scope": "army-wide",
+    "approximation": true
+  },
+
   "simulator.relentless_carnage": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/chaos-daemons/#Bloodthirster",
     "rule_name": "Relentless Carnage",

@@ -4,6 +4,38 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 88 close (2026-06-01) — DAEMONIC MANIFESTATION built + landed (real rule, cited), but METRIC-NEUTRAL — it does NOT fix the Chaos Daemons residual; the wave-87 diagnosis over-attributed
+
+Branch `claude/sim-calibration-6`. Built the wave-87-planned fix — the missing friendly half of the
+Chaos Daemons army rule. It is a real rule, correctly implemented and cited, and it is KEPT (fidelity),
+but the N=40 A/B shows it is **metric-neutral**: it does NOT account for the Daemons −22 residual. An
+honest negative result — the wave-87 diagnostic was over-confident.
+
+BUILT: Daemonic Manifestation in `_run_battleshock_phase` (cited `simulator.daemonic_manifestation`,
+verbatim BSData text, rule id a312-a2f1-e1c0-30ed). While a Chaos Daemons unit is in its Shadow of
+Chaos (proxied as own deployment zone OR within 18" of centre — parity with the existing Daemonic
+Terror proxy) it gets +1 to its Battle-shock test, and ON A PASS returns up to D3 destroyed models
+(BATTLELINE) / D3 lost wounds via the existing reanimation pulse (`transient_undying_legions_pulse`,
+the same plumbing Foetid Resurgence uses; consumed end-of-round by `_apply_undying_legions_pulse`).
+Faction-gated to Chaos Daemons (correct — only they have it). Env-gated SWEG_DAEMONIC (default ON).
+
+| Eval (N=40) | MAE_gated | in band | Chaos Daemons |
+|---|---:|---:|---:|
+| DAEMONIC OFF (=0) | 4.08 | 8/22 | −22.2 (28.6%) |
+| **DAEMONIC ON** | **4.08** | 8/22 | **−22.5 (28.3%)** |
+
+Within noise — no real movement. Verified the implementation is NOT a silent no-op (faction matches the
+existing Terror check; `_initial_unit_counts` is populated for ALL armies so the revival pulse fires for
+Daemons; the pulse is not clobbered between Command-phase set and end-of-round consume). So the rule
+genuinely fires but is marginal for the metric. Likely reasons: (1) aggressive Daemons push PAST their
+own Shadow into enemy territory, so they are rarely in-Shadow when dying (the own-DZ + 18"-centre proxy
+excludes the enemy zone, where the real rule WOULD apply if they hold ≥half the objectives there); (2)
+more fundamentally, the −22 residual is not the attrition rule — Daemons lose the firefight / get tabled
+before attrition resistance matters, or it is the broader positional/VP-while-alive class. KEPT default-ON
+(a real rule the sim was missing — fidelity, metric-neutral, no regression; the damaged-OC precedent),
+but the Chaos Daemons residual needs RE-DIAGNOSIS (combat-power / positional, not this rule). 926 tests
+pass; audit clean. Memory `project-daemons-manifestation-missing` updated with the negative result.
+
 ## Wave 87 close (2026-06-01) — diagnosed the #1 residual (Chaos Daemons −22.2): a real missing rule, DAEMONIC MANIFESTATION; build planned for next wave (no code change)
 
 Branch `claude/sim-calibration-6`. With Tier B parked pending the deck ruling (Q10 still OPEN), did
