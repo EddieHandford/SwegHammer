@@ -69,29 +69,37 @@ do not nerf.** This is the genuine root-cause lever. Scope:
 - The approved interim — small clean NON-regressing under-shooter correctness / datasheet
   fixes — stays available alongside.
 
-### Watchdog correction (2026-06-01) — the "damaged Objective Control bracket" is FABRICATED; remove it
+### Watchdog correction REVERSED (2026-06-01) — the damaged-Objective-Control bracket IS REAL; KEEP it
 
-A wave-84 work-in-progress method `Battle._effective_oc` (cited as
-`simulator.damaged_objective_control_bracket`) reduces a *damaged* Knight's Objective Control
-(Imperial / Chaos Knights only: Armiger −3 at ≤5 wounds, Questoris −5 at ≤9 wounds). **This is
-NOT a real 10th-edition rule — it is a fabricated, faction-gated Objective-Control penalty on the
-number-one over-shooter, i.e. metric-tuning via an invented rule (standing rule 10, the
-Awakened-Dynasty failure mode).** Verified against the canonical BSData cache on 2026-06-01: a
-Knight Paladin is Objective Control 10 and an Armiger Warglaive is Objective Control 6 in EVERY
-profile — Objective Control does not change on the damage bracket. The Knights' real
-"Damaged: 1-9 Wounds Remaining" ability does not mention Objective Control at all; it grants Lethal
-Hits / Lance / re-roll Advance and Charge / +1 to Hit — a damaged Knight gets MORE dangerous, with
-unchanged Objective Control. The method's "verified 40k.app" docstring claim is incorrect.
+An earlier watchdog directive wrongly called `Battle._effective_oc` /
+`simulator.damaged_objective_control_bracket` a fabrication and ordered its removal. **That was the
+WATCHDOG'S error — the rule is REAL and the worker was right.** Multiple independent sources (the
+worker's 40k.app, plus Goonhammer's codex review and the 1d6chan tactics page, confirmed by web
+search 2026-06-01) agree that a 10e Knight loses Objective Control on its damage bracket: a
+Questoris-class Knight (Objective Control 10) subtracts Objective Control while it has 1-9 wounds
+remaining, and an Armiger (Objective Control 6) has its Objective Control halved to 3 while it has
+1-5 wounds remaining. The local BSData-cache read that suggested otherwise was mistaken (it matched
+the wrong "Damaged" ability lines, not the core bracket). So `_effective_oc` is FAITHFUL — **KEEP it.**
 
-**REQUIRED: remove `_effective_oc` / `damaged_objective_control_bracket` entirely** — do not commit
-it even environment-gated-off, and do not add a citation for it (no real source exists; a fabricated
-citation is exactly the rule-10 failure). The faithful Imperial Knights objective-over-control lever
-is the **summed-Objective-Control contest** (Q8): check whether a 20-model army's summed Objective
-Control (~40) correctly out-controls a single Knight (Objective Control 10) on a shared marker per
-the real 10e rule, and whether coherency / range / the one-objective-per-squad modelling wrongly
-caps the body army's contributing models. Fix THAT faithfully. If the contest is already faithful
-and the Knight still over-controls, REPORT it as a finding — never a Knight Objective-Control
-penalty. (Any Objective-Control arithmetic must floor at 0 — never a negative value.)
+It is NOT metric-tuning: it is a real per-datasheet rule that only Knights have, so gating it to
+Imperial / Chaos Knights is the correct faithful implementation, not a per-faction fudge. And the
+fact that it also helps the Imperial Knights over-control residual is a happy case where the real
+rule and the metric agree — keep it because it is real, regardless.
+
+REMAINING WORK (faithful refinement, NOT removal):
+- Verify the EXACT current codex values and cite them. The Armiger halving to 3 (−3 at ≤5 wounds)
+  is confirmed. For the Questoris the index value is −5 at 1-9 wounds, but the current codex may be
+  −4 ("lose 4 Objective Control instead of 5") — source the CURRENT codex value (40k.app /
+  Goonhammer codex review / GW datasheet) and implement that exact number.
+- Add the `data/rule_citations.d/` entry with verbatim datasheet text (the audit requires it).
+- Keep the floor at 0 (the current `max(0, …)` is correct); never a negative Objective Control.
+- Land it on the normal environment-gated A/B + per-matchup evidence like any change.
+
+The separate summed-Objective-Control contest (Q8 — does a body blob correctly out-control a Knight)
+remains a valid faithful question to check alongside this.
+
+**Watchdog lesson:** do NOT declare a worker's CITED rule a fabrication on the strength of one local
+read — check the actual cited source (or several) first. Verify-first applies to accusations too.
 
 ---
 
