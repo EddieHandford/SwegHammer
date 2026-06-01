@@ -194,6 +194,16 @@ class WeaponStats:
     strength: int = 4
     range: str = ""
     keywords: str = ""
+    # PER-MODEL-LOADOUTS STAGE 1 — raw BSData dice strings for the Attacks and
+    # Damage characteristics (e.g. "2D6", "D6+1"). `attacks` / `damage` above
+    # keep the expected-value MEAN as today (via parse_dice_expr); these two
+    # fields preserve the unrolled dice expression so a later stage can roll
+    # real damage dice per shot. They default to "" and are NOT read by
+    # `weighted_basket_average` (which constructs the synthetic aggregate
+    # weapon from numeric means + flags only), so the aggregate stays
+    # byte-identical and the dice strings never leak into it.
+    attacks_dice: str = ""
+    damage_dice: str = ""
     # Parsed keyword effects (populated by extract_ranged_weapon)
     lethal_hits: bool = False
     sustained_hits: int = 0
@@ -604,6 +614,13 @@ def extract_melee_weapon(profile: ET.Element) -> Optional[WeaponStats]:
         strength=s_int if s_int is not None else 4,
         range="melee",
         keywords=keywords,
+        # PER-MODEL-LOADOUTS STAGE 1 — preserve the RAW dice expressions
+        # alongside the parsed means. `a`/`d` above are already the
+        # expected values; these strip-only copies keep the dice for a
+        # later per-shot rolling stage. ranged-side mirror is in
+        # extract_ranged_weapon.
+        attacks_dice=(chars.get("A", "") or "").strip(),
+        damage_dice=(chars.get("D", "") or "").strip(),
         **abilities,
     )
 
@@ -647,6 +664,10 @@ def extract_ranged_weapon(profile: ET.Element) -> Optional[WeaponStats]:
         strength=s_int if s_int is not None else 4,
         range=chars.get("Range", ""),
         keywords=keywords,
+        # PER-MODEL-LOADOUTS STAGE 1 — preserve the RAW dice expressions
+        # alongside the parsed means (see WeaponStats / extract_melee_weapon).
+        attacks_dice=(chars.get("A", "") or "").strip(),
+        damage_dice=(chars.get("D", "") or "").strip(),
         **abilities,
     )
 
@@ -1547,6 +1568,382 @@ def _flatten_to_basket(
 
 
 # ---------------------------------------------------------------------------
+# PER-MODEL-LOADOUTS STAGE 1 — single-model loadout collection
+# ---------------------------------------------------------------------------
+#
+# Single-model units (Knights, Wraithknights, most CHARACTERs and vehicles)
+# encode their weapons differently from multi-model squads: instead of one
+# flat "Weapon 1 / Weapon 2" choice group per model, a titanic/vehicle chassis
+# wraps its weapons inside a "Wargear" CONTAINER group whose members are EITHER
+#   - fixed weapons that fire simultaneously (a Knight Paladin's Rapid-fire
+#     battle cannon AND Questoris heavy stubber), OR
+#   - nested CHOICE groups (Left Arm / Right Arm / Carapace-mounted Weapon)
+#     from which the player picks one.
+#
+# The signal that distinguishes the two: a CHOICE group carries a `max`
+# selections constraint (pick at most N). A CONTAINER (the "Wargear" wrapper)
+# carries no `max` selections constraint — its direct weapon leaves are
+# simultaneous and its sub-groups are each independent choices. We walk the
+# tree recursively, picking the single best option per choice group and
+# collecting every fixed weapon, exactly mirroring the option-per-group logic
+# `_collect_weapons_for_model` already applies to multi-model squads. This
+# avoids the legacy flat weapon-walk that collected ALL of a chassis's
+# mutually-exclusive arm-weapon options (Suncannon AND Heavy Wraithcannon).
+
+
+def _seg_max_selections(grp: ET.Element) -> Optional[int]:
+    """Return the `max` selections constraint on a group (or its linked
+    target), or None when the group carries no such constraint. A real
+    weapon-choice group ("Left Arm", "Carapace-mounted Weapon") always has a
+    `max`; a wrapper container ("Wargear") does not. The `-1` BSData
+    "unlimited" sentinel is treated as no cap (None)."""
+    for cons in grp.findall("./constraints/constraint"):
+        if cons.get("field") != "selections":
+            continue
+        if cons.get("type") != "max":
+            continue
+        try:
+            value = int(cons.get("value") or 0)
+        except ValueError:
+            continue
+        if value < 0:
+            continue
+        return value
+    return None
+
+
+def _best_candidate(
+    candidates: List[WeaponStats],
+) -> Optional[WeaponStats]:
+    """Pick the single highest expected-damage weapon from a choice group's
+    candidate list (the player's one pick from that group)."""
+    if not candidates:
+        return None
+    return max(candidates, key=lambda w: w.expected_damage_through_baseline())
+
+
+def _collect_single_model_weapons(
+    node: ET.Element,
+    reg: Registry,
+    _seen: Optional[set] = None,
+) -> tuple[List[WeaponStats], List[WeaponStats]]:
+    """Recursively collect ONE single model's actual weapon loadout.
+
+    Walks the weapon tree under `node` (a model entry or the unit entry of a
+    single-model unit), reusing the same option-picking the multi-model path
+    uses:
+
+      - Fixed weapons (entryLinks / inline selectionEntries with min>=1, or
+        no selection constraint at all) fire together — collect every one.
+      - A CHOICE group (selectionEntryGroup, or an entryLink resolving to one,
+        that carries a `max` selections constraint) contributes ONE best
+        option, chosen by expected damage.
+      - A CONTAINER group ("Wargear" wrapper, no `max` constraint) is
+        transparent: descend into it and classify each of its members the
+        same way.
+
+    Returns (ranged_picks, melee_picks). Unlike `_collect_weapons_for_model`,
+    this does NOT collapse multiple fixed ranged weapons to a single best —
+    a titanic chassis really does fire all of its weapons at once."""
+    if _seen is None:
+        _seen = set()
+    node_id = id(node)
+    if node_id in _seen:
+        return [], []
+    _seen.add(node_id)
+
+    ranged_picks: List[WeaponStats] = []
+    melee_picks: List[WeaponStats] = []
+    # Choice-group candidate lists accumulate here and are resolved (with
+    # overlap-clustering, below) AFTER every group at this node is seen. Each
+    # entry is (candidates_ranged, candidates_melee) for one choice group.
+    choice_groups: List[tuple[List[WeaponStats], List[WeaponStats]]] = []
+
+    def _add_group(grp: ET.Element) -> None:
+        """Classify a resolved selectionEntryGroup as choice vs container."""
+        if _is_crusade_only_entry(grp):
+            return
+        if _seg_max_selections(grp) is not None:
+            # CHOICE group — record its candidate leaves; the pick happens
+            # after clustering so sibling arm groups that share a weapon
+            # (Left Arm / Right Arm both offering Heavy Wraithcannon) collapse
+            # to a single coherent pick instead of mixing two builds.
+            cand_r, cand_m = _gather_group_candidates(grp, reg)
+            if cand_r or cand_m:
+                choice_groups.append((cand_r, cand_m))
+        else:
+            # CONTAINER — its direct weapon leaves are simultaneous fixed
+            # weapons and its sub-groups are independent choices. Recurse.
+            sub_r, sub_m = _collect_single_model_weapons(grp, reg, _seen)
+            ranged_picks.extend(sub_r)
+            melee_picks.extend(sub_m)
+
+    # 1. entryLink children. Each can resolve to a weapon (selectionEntry) or
+    #    to a choice/container group (selectionEntryGroup).
+    for el in node.findall("./entryLinks/entryLink"):
+        if _is_crusade_only_entry(el):
+            continue
+        link_type = el.get("type")
+        target_id = el.get("targetId") or ""
+        resolved = reg.resolve(target_id)
+        if resolved is not None and _is_crusade_only_entry(resolved):
+            continue
+        if link_type == "selectionEntryGroup" or (
+            resolved is not None and resolved.tag == "selectionEntryGroup"
+        ):
+            if resolved is not None:
+                _add_group(resolved)
+            continue
+        if link_type != "selectionEntry":
+            continue
+        # selectionEntry link — a fixed weapon unless it is an OPTIONAL upgrade
+        # (min < 1). Mirror _collect_weapons_for_model's fixed-weapon gate:
+        # absence of a selection constraint means "carried by default".
+        has_selection_constraint = False
+        min_val = 0
+        for cons in el.findall("./constraints/constraint"):
+            if cons.get("field") != "selections":
+                continue
+            has_selection_constraint = True
+            if cons.get("type") == "min":
+                try:
+                    min_val = int(cons.get("value") or 0)
+                except ValueError:
+                    pass
+        if not has_selection_constraint:
+            min_val = 1
+        if min_val < 1:
+            continue
+        r, m = _resolve_weapon_target(target_id, reg)
+        if r is not None:
+            ranged_picks.append(r)
+        if m is not None:
+            melee_picks.append(m)
+
+    # 2. inline selectionEntry children carrying their own weapon profiles
+    #    (min>=1 == fixed). Multiple profile modes on one entry (Plasma
+    #    standard / supercharge) collapse to the best mode.
+    for child in node.findall("./selectionEntries/selectionEntry"):
+        if _is_crusade_only_entry(child):
+            continue
+        if child.get("type") == "model":
+            # A nested model entry — its weapons belong to that model, which
+            # the caller handles separately. Skip to avoid double-counting.
+            continue
+        min_val = 0
+        has_constraint = False
+        for cons in child.findall("./constraints/constraint"):
+            if cons.get("field") != "selections":
+                continue
+            has_constraint = True
+            if cons.get("type") == "min":
+                try:
+                    min_val = int(cons.get("value") or 0)
+                except ValueError:
+                    pass
+        if not has_constraint:
+            min_val = 1
+        if min_val < 1:
+            continue
+        r_modes: List[WeaponStats] = []
+        m_modes: List[WeaponStats] = []
+        for prof in child.findall(".//profile"):
+            tn = prof.get("typeName") or ""
+            if "Ranged" in tn:
+                w = extract_ranged_weapon(prof)
+                if w is not None:
+                    r_modes.append(w)
+            elif "Melee" in tn:
+                w = extract_melee_weapon(prof)
+                if w is not None:
+                    m_modes.append(w)
+        best_r = _best_candidate(r_modes)
+        best_m = _best_candidate(m_modes)
+        if best_r is not None:
+            ranged_picks.append(best_r)
+        if best_m is not None:
+            melee_picks.append(best_m)
+
+    # 3. direct selectionEntryGroup children — classify each.
+    for grp in node.findall("./selectionEntryGroups/selectionEntryGroup"):
+        _add_group(grp)
+
+    # Resolve the accumulated choice groups. Cluster groups that share at
+    # least one candidate weapon NAME (transitively) and pick ONE best across
+    # each cluster's union — this collapses the classic Left Arm / Right Arm
+    # pattern (both offering Heavy Wraithcannon) into a single arm-weapon pick,
+    # so a Wraithknight ends with ONE of {Suncannon, Heavy Wraithcannon}, not
+    # both. Genuinely independent groups (Knight Paladin's Carapace / Meltagun
+    # / Reaper groups, which share no weapons) stay separate and each
+    # contribute their own pick. Ranged and melee are clustered independently.
+    for select in ("ranged", "melee"):
+        groups = [
+            (g[0] if select == "ranged" else g[1]) for g in choice_groups
+        ]
+        groups = [g for g in groups if g]
+        # Union-find over groups by shared weapon name.
+        parent = list(range(len(groups)))
+
+        def _find(i: int) -> int:
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        def _union(i: int, j: int) -> None:
+            ri, rj = _find(i), _find(j)
+            if ri != rj:
+                parent[max(ri, rj)] = min(ri, rj)
+
+        names_per_group = [set(w.name for w in g) for g in groups]
+        for i in range(len(groups)):
+            for j in range(i + 1, len(groups)):
+                if names_per_group[i] & names_per_group[j]:
+                    _union(i, j)
+        clusters: Dict[int, List[WeaponStats]] = {}
+        for i, g in enumerate(groups):
+            clusters.setdefault(_find(i), []).extend(g)
+        for root in sorted(clusters):
+            best = _best_candidate(clusters[root])
+            if best is not None:
+                if select == "ranged":
+                    ranged_picks.append(best)
+                else:
+                    melee_picks.append(best)
+
+    return ranged_picks, melee_picks
+
+
+def _find_single_model_node(entry: ET.Element) -> ET.Element:
+    """Locate the node that carries a single-model unit's weapons. When the
+    unit has exactly one model-type child entry, that child is the model;
+    otherwise the unit entry itself is the model (Knights / many vehicles are
+    `type="model"` and hold their weapons directly on the unit entry)."""
+    model_children: List[ET.Element] = []
+    for seg in entry.findall("./selectionEntryGroups/selectionEntryGroup"):
+        for me in seg.findall("./selectionEntries/selectionEntry"):
+            if me.get("type") == "model":
+                model_children.append(me)
+    for me in entry.findall("./selectionEntries/selectionEntry"):
+        if me.get("type") == "model":
+            model_children.append(me)
+    if len(model_children) == 1:
+        return model_children[0]
+    return entry
+
+
+def _build_single_model_loadout(
+    entry: ET.Element,
+    reg: Registry,
+    fallback_weapons: Optional[tuple[List[WeaponStats], List[WeaponStats]]] = None,
+) -> Optional[List[ModelLoadout]]:
+    """Build the one-model loadout for a single-model unit.
+
+    Returns a list of exactly one ModelLoadout with `count == 1.0` carrying
+    the model's ACTUAL equipped weapons, picked with the same
+    option-per-choice-group logic the multi-model squad path uses (so a
+    Knight's loadout has one weapon per choice group, not every alternative).
+
+    If the option-picker resolves no weapon (rare datasheet shapes with no
+    model entry / unusual wargear nesting), synthesize the loadout from the
+    unit's already-resolved best weapons in `fallback_weapons` so every firing
+    unit still ends with >=1 model entry holding >=1 weapon with a real
+    `damage_dice`. Returns None only when there is genuinely nothing to fire."""
+    node = _find_single_model_node(entry)
+    ranged_picks, melee_picks = _collect_single_model_weapons(node, reg)
+    name = node.get("name") or entry.get("name") or "?"
+    if not ranged_picks and not melee_picks and fallback_weapons is not None:
+        # Synthesis fallback — use the unit's resolved best weapons so the
+        # loadout is never empty for a unit that can actually fire.
+        ranged_picks, melee_picks = fallback_weapons
+        ranged_picks = list(ranged_picks)
+        melee_picks = list(melee_picks)
+    if not ranged_picks and not melee_picks:
+        return None
+    return [ModelLoadout(name=name, count=1.0, ranged=ranged_picks, melee=melee_picks)]
+
+
+def _build_model_loadouts(
+    entry: ET.Element,
+    reg: Registry,
+    squad_models: Optional[List[ModelLoadout]],
+    fallback_weapons: tuple[List[WeaponStats], List[WeaponStats]],
+) -> List[ModelLoadout]:
+    """Resolve the per-model loadouts for ANY unit, kept entirely separate
+    from the aggregate-weapon path so it can never alter the synthetic
+    averaged weapon (Stage 1 is additive-only).
+
+      - Multi-model squads already have their per-model loadouts in
+        `squad_models` (built by `gather_squad_loadout`) — reuse them.
+      - Single-model units get a fresh one-model loadout from the
+        option-per-choice-group picker, with a synthesis fallback from the
+        unit's resolved best weapons.
+
+    Returns [] only when nothing resolves (a unit with no firing weapons)."""
+    if squad_models is not None:
+        return squad_models
+    single = _build_single_model_loadout(entry, reg, fallback_weapons=fallback_weapons)
+    return single or []
+
+
+def _weapon_to_dict(w: WeaponStats, include_dice: bool = False) -> Dict:
+    """Serialize a WeaponStats to the flat dict shape used by
+    `extra_ranged_profiles` (and, with `include_dice=True`, by the new
+    per-model `model_loadouts`).
+
+    With `include_dice=False` the output is byte-for-byte the historical
+    `extra_ranged_profiles` entry — that path MUST stay identical so the
+    regenerated parsed.json changes additively (only the new `model_loadouts`
+    key appears). With `include_dice=True` two extra keys carry the raw BSData
+    Attacks / Damage dice strings (`attacks_dice` / `damage_dice`) for a later
+    per-shot rolling stage; `attacks` / `weapon_damage_per_shot` stay the
+    rounded MEANS (the mean is the fallback when nothing rolls dice yet)."""
+    d: Dict = {
+        "weapon": w.name,
+        "attacks": max(1, int(round(w.attacks))),
+        "weapon_damage_per_shot": round(w.damage, 2),
+        "hit_probability": round(w.hit_prob, 3),
+        "ap": w.ap,
+        "strength": w.strength,
+        "range_inches": (
+            int(re.search(r"(\d+)", w.range or "").group(1))
+            if re.search(r"(\d+)", w.range or "") else 0
+        ),
+        "anti_keywords": dict(w.anti_keywords),
+        "lethal_hits": w.lethal_hits,
+        "sustained_hits": w.sustained_hits,
+        "twin_linked": w.twin_linked,
+        "devastating_wounds": w.devastating_wounds,
+        "rapid_fire": w.rapid_fire,
+        "melta": w.melta,
+        "ignores_cover": w.ignores_cover,
+        "heavy": w.heavy,
+        "assault": w.assault,
+        "torrent": w.torrent,
+        "blast": w.blast,
+        # MAP-MULTIFIRE-VALIDATE — Pistol exclusivity per profile (10e core
+        # rule). The picker partitions extras into pistol/non-pistol groups.
+        "pistol": w.pistol,
+    }
+    if include_dice:
+        d["attacks_dice"] = w.attacks_dice
+        d["damage_dice"] = w.damage_dice
+    return d
+
+
+def _model_loadout_to_dict(ml: ModelLoadout) -> Dict:
+    """Serialize one ModelLoadout to the dict stored in
+    `MappedUnit.model_loadouts`. Each weapon carries the full
+    `extra_ranged_profiles` stat shape PLUS the raw dice strings."""
+    return {
+        "name": ml.name,
+        "count": ml.count,
+        "ranged": [_weapon_to_dict(w, include_dice=True) for w in ml.ranged],
+        "melee": [_weapon_to_dict(w, include_dice=True) for w in ml.melee],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Mapping to SwegHammer
 # ---------------------------------------------------------------------------
 
@@ -1738,6 +2135,18 @@ class MappedUnit:
     notes: str = ""
     enabled: bool = True
     skip_reason: str = ""
+    # PER-MODEL-LOADOUTS STAGE 1 — per-model weapon loadouts (each model type's
+    # actual equipped weapons, with raw dice strings preserved). This is the
+    # ADDITIVE data the later per-model firing stage reads; nothing reads it
+    # yet, so populating it does NOT change the simulator, the aggregate weapon,
+    # or the eval. Serialized as a list of
+    #   {"name": str, "count": float,
+    #    "ranged": [weapon-dict...], "melee": [weapon-dict...]}
+    # where each weapon-dict is the `extra_ranged_profiles` shape plus
+    # `attacks_dice` / `damage_dice`. Declared LAST so `asdict` appends
+    # `model_loadouts` after every pre-existing key (preserving key order so
+    # the regenerated parsed.json differs only by this new key).
+    model_loadouts: List[Dict] = field(default_factory=list)
 
 
 def _derive_base_footprint(unit_keywords: List[str]) -> tuple:
@@ -1980,6 +2389,20 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     # unparseable → 0, which is the "missing-data" signal for the loader.
     _move_match = _INT_RE.search(stats.movement or "")
     move_inches = int(_move_match.group(0)) if _move_match else 0
+    # PER-MODEL-LOADOUTS STAGE 1 — resolve the per-model loadouts. Kept fully
+    # separate from the aggregate path above (it never touches `best` /
+    # `best_melee` / the synthetic averaged weapon), so populating it is
+    # additive-only. Multi-model squads reuse `squad_models`; single-model
+    # units get the option-per-choice-group loadout, with a synthesis fallback
+    # from the unit's resolved best weapons so a firing unit is never empty.
+    _fallback_loadout_weapons = (
+        [best] if best is not None else [],
+        [best_melee] if best_melee is not None else [],
+    )
+    model_loadout_objs = _build_model_loadouts(
+        entry, reg, squad_models, _fallback_loadout_weapons
+    )
+    model_loadouts_dicts = [_model_loadout_to_dict(ml) for ml in model_loadout_objs]
     return MappedUnit(
         key=key,
         name=name,
@@ -2123,36 +2546,12 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         # one dict per profile, in expected-damage-descending order so the
         # picker sees them in priority order. Empty list = no extras.
         # Cited as `simulator.multi_profile_weapon_selection`.
+        # PER-MODEL-LOADOUTS STAGE 1 — the per-weapon dict shape is now built
+        # by `_weapon_to_dict` (shared with `model_loadouts`). With
+        # include_dice=False the output is byte-identical to the prior inline
+        # builder, keeping this field unchanged in the regenerated parsed.json.
         extra_ranged_profiles=[
-            {
-                "weapon": w.name,
-                "attacks": max(1, int(round(w.attacks))),
-                "weapon_damage_per_shot": round(w.damage, 2),
-                "hit_probability": round(w.hit_prob, 3),
-                "ap": w.ap,
-                "strength": w.strength,
-                "range_inches": (
-                    int(re.search(r"(\d+)", w.range or "").group(1))
-                    if re.search(r"(\d+)", w.range or "") else 0
-                ),
-                "anti_keywords": dict(w.anti_keywords),
-                "lethal_hits": w.lethal_hits,
-                "sustained_hits": w.sustained_hits,
-                "twin_linked": w.twin_linked,
-                "devastating_wounds": w.devastating_wounds,
-                "rapid_fire": w.rapid_fire,
-                "melta": w.melta,
-                "ignores_cover": w.ignores_cover,
-                "heavy": w.heavy,
-                "assault": w.assault,
-                "torrent": w.torrent,
-                "blast": w.blast,
-                # MAP-MULTIFIRE-VALIDATE — Pistol exclusivity per
-                # profile (10e core rule). The picker partitions
-                # extras into pistol/non-pistol groups.
-                "pistol": w.pistol,
-            }
-            for w in extra_weapons
+            _weapon_to_dict(w, include_dice=False) for w in extra_weapons
         ],
         # DAEMONS-EXTRA-MELEE-MAPPER-V1 — ADDITIVE melee profiles for
         # weapons tagged [EXTRA ATTACKS] in BSData. Each entry fires
@@ -2195,6 +2594,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
             f"ranged={'yes' if has_ranged else 'no'} "
             f"loadout={'heterogeneous' if used_heterogeneous else 'all-best'}"
         ),
+        model_loadouts=model_loadouts_dicts,
     )
 
 
