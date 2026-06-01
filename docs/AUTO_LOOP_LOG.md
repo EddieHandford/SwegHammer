@@ -4,6 +4,36 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 82 close (2026-06-01) — scoring / victory-point model overhaul SCOPED (user Q6 ruling); plan wave, no code change
+
+Branch `claude/sim-calibration-6`. First wave of the user-authorised scoring-model phase (Q6
+RESOLVED: build the scoring/victory-point overhaul, diagnose-don't-nerf, plan-first). A
+diagnosis+plan wave (mirroring wave 73→74 and 78), because the scoring layer is the sharpest
+metric-tuning surface in the project and warrants a scoped plan before any code. Headline
+unchanged at gated 4.95.
+
+DELIVERABLE: `docs/SCORING_MODEL_OVERHAUL_PLAN.md`. Mapped the current scoring model from the
+code (verified): primary is faithful (5/objective, 15/round cap, rounds 2–5, strictly-greater
+control); the GAP is the SECONDARY economy — the sim models only 4 tactical secondaries (Engage,
+Behind Enemy Lines, Cleanse, Sabotage) of the real ~12-card pool. THE KEY FINDING: the missing
+cards are exactly the OBJECTIVE-HOLDING / BOARD-CONTROL family (Storm Hostile Objective, Secure
+No Man's Land, Area Denial, Defend Stronghold, Extend Battle Lines, Overwhelming Force) — the
+scoring paths a body army uses to out-score a durable camper, which a 9-model Imperial Knights
+army physically cannot complete as well. This ALSO explains why wave-81 contest/deny failed:
+taking a Knight's objective only denied 5 primary in the sim, but in real play also SCORES 4
+(Storm Hostile Objective) — the reward for the anti-camper play was missing from the model.
+Real card text sourced + verified against wahapedia pariah-nexus-battles (cross-checked vs the
+Goonhammer review); each card a build wave implements gets a verbatim `rule_citations.d` entry.
+
+BUILD SEQUENCE (env-gated, per-matchup Imperial Knights cells + per-faction + headline
+before/after, citation before commit): wave 83 = Tier A (add the take-and-hold secondaries +
+per-Fixed 20-cap — the targeted lever the ruling named first); wave 84 = Tier B (formula
+corrections to the 4 modelled cards — Engage/Behind-Enemy-Lines/Bring-It-Down/No-Prisoners/Cull/
+Assassination, correctness, direction mixed); wave 85 = Tier C (primary-economy correctness:
+sticky control on ties at any control level — flagged as RAISING Imperial Knights, so isolated +
+implemented because-it-is-the-real-rule, never for direction). Hard rails restated in the plan:
+cited, even-handed, no per-faction weights, would-it-be-correct-if-it-moved-the-metric-wrong.
+
 ## Wave 81 close (2026-06-01) — contest/deny built + tested + REVERTED; the LAST faithful AI lever for Imperial Knights fails → escalated the structural scoring-residual finding (no net code change)
 
 Branch `claude/sim-calibration-6`. Built redesign step #2 (contest/deny positioning) of the

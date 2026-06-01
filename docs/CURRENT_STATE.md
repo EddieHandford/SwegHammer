@@ -1,32 +1,37 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 81 close (2026-06-01) — contest/deny tested + reverted; the LAST
-faithful AI lever for Imperial Knights fails. Headline gated **4.95**. **A mission fork is
-escalated (`LOOP_QA.md` Q6) — the faithful AI track is structurally blocked.**
+**Last updated:** Wave 82 close (2026-06-01) — the scoring / victory-point model overhaul is
+SCOPED (user Q6 ruling). Headline gated **4.95**. Plan wave, no code change. Next: build it.
+
+**Wave 82 scoped the user-authorised scoring-model overhaul** (`LOOP_QA.md` Q6 RESOLVED: the
+user chose option (a) — build the scoring/victory-point overhaul, diagnose-don't-nerf,
+plan-first). Deliverable `docs/SCORING_MODEL_OVERHAUL_PLAN.md`. The diagnosis: primary scoring
+is faithful; the gap is the SECONDARY economy — the sim models only 4 tactical secondaries of
+the real ~12-card Pariah Nexus pool, and the **missing cards are exactly the objective-holding /
+board-control family** (Storm Hostile Objective, Secure No Man's Land, Area Denial, Defend
+Stronghold, Extend Battle Lines, Overwhelming Force) — the scoring paths a body army uses to
+out-score a durable camper, which a 9-model Imperial Knights army cannot complete as well. This
+also explains the wave-81 contest/deny failure: taking a Knight's objective only denied 5 primary
+in the sim, but in real play also SCORES 4 (Storm Hostile Objective) — the reward for the
+anti-camper play was missing. Build sequence: wave 83 = Tier A (add the take-and-hold secondaries
++ per-Fixed 20-cap, the targeted lever); wave 84 = Tier B (formula corrections to the 4 modelled
+cards); wave 85 = Tier C (primary-economy correctness — sticky control on ties, flagged as
+RAISING Imperial Knights, so implemented because-it-is-the-real-rule, never for direction). Hard
+rails: cited, even-handed, no per-faction weights, would-it-be-correct-if-it-moved-metric-wrong.
+
+### Earlier — wave 81 (contest/deny tested + reverted; the AI track concluded)
 
 **Wave 81 built + tested redesign step #2 (contest/deny positioning) and it failed — the
 diagnosis-predicted outcome.** Env-gated `SWEG_CONTEST`: a cheap chaff unit not on an
 objective moves to CONTEST the nearest reachable enemy-controlled objective, to deny the
-durable camper (Imperial Knights) its primary VP (the real way Knights are beaten; naturally
-asymmetric — IK carries no chaff). N=40 A/B vs 4.95: gated **4.95 → 5.14 (REGRESSED +0.19)**,
-**Imperial Knights +19.1 → +18.2 (only −0.9, still grossly over-rated)**, while the OTHER
-over-shooters got worse (Drukhari +18.6 → +20.6, Votann +13.4 → +14.9). Reverted.
-
-**THE STRUCTURAL FINDING (escalated, `LOOP_QA.md` Q6).** Contest/deny was the last faithful AI
-lever the diagnosis pointed at for IK, and — like wave-72 value-targeting and wave-79 focus
-fire before it — it failed. **The structural law (3rd confirmation): every generic, faithful
-AI improvement helps whoever has the better army; the over-shooters HAVE the better armies; so
-sharper play WIDENS the headline** (memory `project-ai-frozen-under-mae-first`). Mechanism for
-IK: opponents do contest, but a Knight is durable enough to hold/retake, so its durability
-converts to held primary VP — the sim's kill-centric scoring under-models how real tournaments
-deny primary through the full secondary economy + board tempo. **Imperial Knights (and the
-durable over-shooters generally) is a structural VP-vs-durability SCORING residual, not
-AI-fixable.** Per the watchdog's Q5 ruling this is reported, not nerfed. **Escalated mission
-fork (Q6):** (a) build the scoring/VP-model lever (the real root cause — make held primary VP
-harder to monopolise, model the real secondary mix; `project-faction-residual-rootcause`); (b)
-bank ~4.95 and declare Stage 1 substantially converged; (c) keep small clean UNDER-shooter
-additive fixes meanwhile (don't trigger the over-shooter-sharpening law). Worker default: (c)
-now + recommend (a). `docs/MATCHUP_FIDELITY_ANALYSIS.md`.
+durable camper (Imperial Knights) its primary VP (naturally asymmetric — IK carries no chaff).
+N=40 A/B vs 4.95: gated **4.95 → 5.14 (REGRESSED +0.19)**, **Imperial Knights +19.1 → +18.2
+(only −0.9, still grossly over-rated)**, while the OTHER over-shooters got worse (Drukhari
++18.6 → +20.6, Votann +13.4 → +14.9). Reverted. The structural law (3rd confirmation): every
+generic faithful AI improvement helps whoever has the better army, and the over-shooters HAVE
+the better armies, so sharper play WIDENS the headline. Imperial Knights is a structural
+VP-vs-durability SCORING residual, not AI-fixable → escalated as Q6 → user chose the scoring
+overhaul (see above).
 
 ### Earlier — wave 80 (IK Armiger re-fit tested + reverted)
 
