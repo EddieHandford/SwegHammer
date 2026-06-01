@@ -31,7 +31,46 @@ absolute error is a thermometer, not a steering wheel — you lower it by curing
 simulator's fevers (wrong rules, wrong stats, wrong artificial-intelligence
 piloting), never by holding a match to the bulb.
 
-## Current phase — UPDATED 2026-06-01 (user ruling on Q6): the scoring / victory-point model overhaul
+## Current phase — UPDATED 2026-06-01 (Q11 ruling): the positional re-model + Chapter Approved 2025-26 deck
+
+The faithful scoring/secondary track drove gated MAE 5.98 → **4.08** (Tier A board secondaries +
+the real Knights damaged-OC bracket) and then hit a STRUCTURAL FLOOR (waves 86-90). The residual is
+now ONE axis: **primary victory points / objective control** — Imperial Knights +27 over-hold the
+markers, Chaos Daemons −22 under-hold them; the same one-Unit-per-model positioning/representation gap
+at opposite ends. The faithful AI levers for it are exhausted (washed 5+ times); the secondary layer is
+a cap-wash; the over-shooter detachments are clean. The user ruled the strategic checkpoint:
+
+**1. Mission deck = CHAPTER APPROVED 2025-26 (Q10).** The May-2026 calibration target was played under
+the CA-2025-26 deck, not Pariah Nexus 2024. Do the unified secondary deck re-alignment to CA-2025-26
+values (Cull 13+ models / 5 VP; Engage 1/2/4 at 2/3/4 quarters; Assassination 4 VP for 4+-wound /
+3 VP otherwise; plus the deck-independent corrections Bring It Down bracketed 2+2+2, No Prisoners 2,
+Behind Enemy Lines 3/4) AND re-check the landed Tier A cards against CA-2025-26. Source/cite from ≥2
+CA-2025-26 sources (BSData / Goonhammer CA review — NEVER 40k.app, which is index data). Likely a small
+headline move (the cap-wash), but it is the faithful match to the target data.
+
+**2. Authorise the hard POSITIONAL-REPRESENTATION RE-MODEL (Q11 = c) — diagnose, do not nerf.** Re-model
+the real mechanic of how a body army's surviving Objective Control gets onto and massed on markers (the
+one-Unit-per-model gap: body armies have huge total Objective Control but get almost none within range of
+markers). This is the ONLY faithful path to the IK-over / Daemons-under axis, and it is HIGH-RISK — the
+AI-positioning class has washed/regressed every prior attempt. **Hard rails (this is the sharpest
+metric-tuning surface in the project):**
+- It MUST be a faithful representation / positioning fix — e.g. the AI actually moving body-army models
+  onto and massing on objectives (a real tactic), or a real coherency / range / geometry correction to
+  how models contribute Objective Control on a marker. Cited if it implements a rule; EVEN-HANDED across
+  all factions.
+- It must NOT be a per-faction or per-model-count Objective-Control→primary-VP conversion knob, a
+  body-army primary boost, or a Knight primary penalty. The test is unchanged: would it be correct if it
+  moved the metric the wrong way? A conversion factor tuned to lift Daemons / lower Knights = metric-tuning.
+- Plan-FIRST (the proven wave-73→74 / wave-82 plan→build pattern), env-gated A/B, per-matchup before/after
+  on the IK and Daemons objective-holding cells. Expect a possible regression/wash; if it washes, REPORT
+  it honestly — do NOT force it or reach for a knob.
+
+Sequence: the CA-2025-26 deck re-alignment first (bounded, faithful), then plan + build the positional
+re-model. Clean non-regressing under-shooter fixes remain available alongside.
+
+---
+
+## Earlier phase — UPDATED 2026-06-01 (user ruling on Q6): the scoring / victory-point model overhaul (Tier A landed; floor reached — see above)
 
 **The faithful AI track below is CONCLUDED — structurally blocked for the durable
 over-shooters.** All four levers (value-targeting w72, focus fire w79, the sourced Armiger
