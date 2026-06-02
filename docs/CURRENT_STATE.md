@@ -1,12 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 99 close (2026-06-02) — Per-model weapon loadouts STAGES 2 + 3 LANDED (gated
-`SWEG_PERMODEL`): firing now reads each model's own weapons. **The Knight weapon over-count hypothesis is
-REFUTED at the metric** — per-model is headline-neutral within noise and does NOT reduce the Imperial
-Knights over-rate. The re-architecture (5 env-gated stages, plan `graceful-kindling-forest.md`) moves combat
-from one averaged weapon per squad to per-model loadouts (each model fires its own weapons, lost on death;
-pistols fire in melee); aggregate kept so the AI/pricing/test blast radius survives. Session headline 4.13
-(OFF baseline; ON within noise of it). DECISION on continuing to Stages 4-5 pending the user.
+**Last updated:** Wave 100 close (2026-06-02) — Per-model weapon loadouts STAGE 4 (per-weapon Damage-dice
+ROLLING, gated `SWEG_ROLLDMG`). **BOTH halves of the Knight hypothesis are now REFUTED** — neither the
+weapon over-count (Stage 3) nor the mean-damage overkill (Stage 4) reduces the Imperial Knights over-rate.
+N=80 three-cell A/B: OFF 3.52 → per-model-mean 3.79 → per-model+dice **4.17**; Imperial Knights +27.0 →
++28.3 → +28.8 (flat/worse throughout), the strong elite armies (Votann +7→+13, Chaos Knights +2→+7) got
+WORSE (frozen-under), and dice variance hurt the low-model elites (Custodes −3.8→−6.1). The IK over-rate is
+durability/objective-holding, **triangulated THREE ways** (terrain + per-model structure + per-weapon dice)
+— nothing about a Knight's guns moves its win rate. The re-architecture is a genuine FIDELITY win (each
+model fires its real weapons with real dice, special weapons lost on death) but REGRESSES the headline
+3.52 → 4.17 because per-faction stats are tuned to the OLD averaged sim — the fidelity-first debt the
+deferred re-calibration (Q13) absorbs. Committed + GATED (default OFF). The real IK lever remains durability
+/ objective scoring, NOT firepower. NEXT (pending user): Stage 5 + the re-calibration, vs pivoting to the
+durability lever.
+
+### Earlier — wave 99 (per-model Stages 2-3: firing reads each model's weapons; over-count refuted as the IK lever)
+
+**Stages 2-3 (gated `SWEG_PERMODEL`):** plumbed `model_loadouts` onto `UnitProfile` and made `add_squad`
+build one Unit per model from the loadout (each fires its own weapons, lost on death; pistols in melee;
+single-model units stop over-collecting). The over-count fix went live but did NOT move Imperial Knights
+(+27 flat) — it helped the strong elite armies over-shoot more (frozen-under). Faithful, kept, gated.
 
 **Wave 99 / Stages 2-3:** Stage 2 plumbed `model_loadouts` onto `UnitProfile` (gate-inert, 4.13 unchanged).
 Stage 3 made `add_squad` build one `Unit` per model from the loadout (`SWEG_PERMODEL`); single-model units

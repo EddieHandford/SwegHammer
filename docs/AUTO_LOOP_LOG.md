@@ -4,6 +4,43 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 100 close (2026-06-02) — Per-model weapon loadouts, STAGE 4: per-weapon Damage-dice ROLLING (gated `SWEG_ROLLDMG`). The OVERKILL half of the hypothesis is REFUTED too — rolling each weapon's real dice does NOT trim the big-gun / elite over-shooters; the Imperial Knights over-rate is durability, triangulated THREE ways
+
+Branch `claude/sim-calibration-6`. Stage 4 of the per-model re-architecture (plan
+`graceful-kindling-forest.md`). Now that per-model weapons are in place (Stage 3), Stage 4 rolls EACH
+weapon's REAL Damage dice per shot instead of the mean (a Knight's anti-tank gun rolls its big dice, its
+anti-horde gun its small dice — no averaging, no mean-overkill). Behind a SEPARATE env gate `SWEG_ROLLDMG`
+so the dice effect is isolable from the per-model-structure effect; `roll_damage(dice, mean)` returns the
+mean and draws NOTHING when the gate is unset or the weapon has no dice, so OFF and per-model-mean RNG
+streams are byte-identical. Cited `simulator.rolled_damage` (10e Inflict Damage). 960 tests pass, audit
+clean, run.py OK in all three gate states.
+
+THE THREE-CELL A/B (N=80 — per-model variance needs N≥80):
+
+| N=80 | gated MAE | Imperial Knights | Chaos Knights | Leagues of Votann | Adeptus Custodes |
+|---|---:|---:|---:|---:|---:|
+| OFF (legacy) | 3.52 | +27.0 | +2.0 | +7.4 | −3.8 |
+| per-model, MEAN | 3.79 | +28.3 | +6.1 | +13.4 | −4.4 |
+| per-model + DICE | 4.17 | +28.8 | +7.6 | +13.5 | −6.1 |
+
+THE OVERKILL HALF IS REFUTED. Rolling each weapon's real dice (cell 3 vs cell 2) did NOT trim the big-gun /
+elite over-shooters — Imperial Knights +28.3 → +28.8, Chaos Knights +6.1 → +7.6, Votann flat — and it
+WIDENED the headline 3.79 → 4.17, mostly by adding variance that hurts the low-model elite armies (Custodes
+−4.4 → −6.1). So NEITHER half of the user's hypothesis was the lever: not the weapon over-count (Stage 3),
+not the mean-overkill (Stage 4). The Imperial Knights over-rate is now triangulated THREE ways (terrain
+wave 97 + per-model structure + per-weapon dice) as durability / objective-holding — nothing about a
+Knight's GUNS (count, dice, or overkill) moves its win rate, because it wins by sitting on a marker it
+cannot be shot off.
+
+What the re-architecture DID deliver is genuine FIDELITY — each model now fires its actual weapons with real
+dice, special weapons lost on death, no over-collection, no mean-overkill. But it REGRESSES the headline
+3.52 → 4.17 because the per-faction stats are still tuned to the OLD averaged-weapon sim — the expected
+fidelity-first debt that the deferred re-calibration (LOOP_QA Q13) absorbs. The re-architecture is committed
+and GATED (default OFF); Stage 5 (artificial-intelligence aggregate-isolation) completes it. The real
+Imperial-Knights lever remains durability / objective scoring (threat-priority target AI or the
+victory-point model), NOT firepower. DECISION on Stage 5 + the re-calibration vs pivoting to the durability
+lever is pending the user.
+
 ## Wave 99 close (2026-06-02) — Per-model weapon loadouts, STAGES 2 + 3: firing now reads each model's own weapons (gated `SWEG_PERMODEL`). The Knight weapon over-count hypothesis is REFUTED at the metric — per-model is headline-neutral (within noise) and does NOT reduce the Imperial Knights over-rate
 
 Branch `claude/sim-calibration-6`. Two stages of the per-model weapon re-architecture (plan
