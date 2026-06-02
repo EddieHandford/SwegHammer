@@ -4,6 +4,39 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 101 close (2026-06-02) — army-level FOCUS-FIRE targeting (gated `SWEG_FOCUSFIRE`), the watchdog's #1 Imperial-Knights lever: it IMPROVES the headline but makes Imperial Knights WORSE — even focus-fire is frozen-under
+
+Branch `claude/sim-calibration-6`. Built the watchdog's #1 lever for the Imperial Knights +27 (the DEFENCE
+half, after the per-model work refuted the offence over-count). Watchdog + user instrumented the root cause:
+the per-unit target picker's "won't-crack penalty" makes every unit AVOID a 22-26-wound Knight (no single
+unit cracks it) and shoot killable chaff, so opponents kill **0.00** big Knights/game despite carrying the
+anti-tank to do it. FIX (`code/simulator.py`, env-gated `SWEG_FOCUSFIRE`): once per Shooting phase the army
+nominates the most dangerous enemy brick it can crack COLLECTIVELY this phase (summed expected wounds ≥ 0.85
+of its wounds, ≥2 contributing units), and every unit that can wound it concentrates fire. Only nominates a
+collectively-crackable brick (no wasted fire on an unkillable target — the wave-79 pathology); a unit that
+cannot wound the brick is never redirected. Faithful + even-handed (real tactic, all factions, any brick),
+cited `simulator.focus_fire`. 12 tests pass (fixed an unseeded-RNG flake in the agent's harness), audit clean.
+
+THE A/B (N=40 — the N=80 ON run was abnormally slow, ~2× normal, and was killed; the N=40 pattern is clear):
+
+| Eval | gated MAE | Imperial Knights |
+|---|---:|---:|
+| OFF (baseline) | 4.13 | +27.3 |
+| ON (`SWEG_FOCUSFIRE=1`) | **3.85** | **+29.0** |
+
+The headline IMPROVED (4.13 → 3.85, −0.28) but Imperial Knights got WORSE (+27.3 → +29.0). The lever did NOT
+crack the Knights — it is the **frozen-under pattern a 4th time**: even-handed focus-fire helps whoever has
+the biggest guns, and the Knights HAVE the biggest guns, so a Knight army benefits from focusing ITS targets
+more than its opponents benefit from finally focusing the Knight. The headline gain comes from OTHER matchups
+(many armies now coordinate fire onto bricks). So: faithful + headline-positive, but NOT the IK lever — every
+simulator-side lever tried (terrain, per-model structure, per-weapon dice, now focus-fire) leaves or worsens
+IK +27. KEPT gated (faithful, real tactic) — the watchdog decides flip-default-ON vs keep-gated (the headline
+gain is within the eval noise band, it worsens the #1 residual, and it carries a ~2× eval-time perf cost;
+recommend pairing the flip with the re-calibration). The IK +27 is now structurally confirmed to need the
+RE-CALIBRATION (re-fit stats to the faithful sim) or the SCORING / victory-point model — NOT any AI/firepower
+lever. Logged to the watchdog (LOOP_QA). NEXT: continue the watchdog queue (#2 deployment/screening) and/or
+the re-calibration inflection.
+
 ## Wave 100 close (2026-06-02) — Per-model weapon loadouts, STAGE 4: per-weapon Damage-dice ROLLING (gated `SWEG_ROLLDMG`). The OVERKILL half of the hypothesis is REFUTED too — rolling each weapon's real dice does NOT trim the big-gun / elite over-shooters; the Imperial Knights over-rate is durability, triangulated THREE ways
 
 Branch `claude/sim-calibration-6`. Stage 4 of the per-model re-architecture (plan

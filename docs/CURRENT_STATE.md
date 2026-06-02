@@ -1,8 +1,20 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 100 close (2026-06-02) — Per-model weapon loadouts STAGE 4 (per-weapon Damage-dice
-ROLLING, gated `SWEG_ROLLDMG`). **BOTH halves of the Knight hypothesis are now REFUTED** — neither the
-weapon over-count (Stage 3) nor the mean-damage overkill (Stage 4) reduces the Imperial Knights over-rate.
+**Last updated:** Wave 101 close (2026-06-02) — army-level FOCUS-FIRE targeting (gated `SWEG_FOCUSFIRE`), the
+watchdog's #1 Imperial-Knights lever. The won't-crack penalty made opponents kill 0.00 big Knights/game;
+focus-fire (concentrate when the army can collectively crack a brick) IMPROVES the headline (N=40 4.13 →
+**3.85**) but makes Imperial Knights WORSE (+27.3 → **+29.0**) — even focus-fire is FROZEN-UNDER (even-handed
+focus-fire helps the Knights' own big guns more than opponents killing the Knight). So FOUR simulator-side
+levers (terrain, per-model structure, per-weapon dice, focus-fire) all leave/worsen IK +27: it is
+structurally confirmed to need the RE-CALIBRATION or the SCORING model, NOT any AI/firepower lever. Faithful
++ headline-positive → KEPT gated (watchdog decides flip-default-ON; ~2× eval-time perf cost noted). Logged to
+watchdog. NEXT: watchdog queue #2 (deployment/screening) and/or the re-calibration inflection.
+
+### Earlier — wave 100 (per-model Stage 4: per-weapon dice; both halves of the Knight hypothesis refuted)
+
+**Per-model loadouts STAGE 4 (per-weapon Damage-dice rolling, gated `SWEG_ROLLDMG`).** BOTH halves of the
+Knight hypothesis REFUTED — neither the weapon over-count (Stage 3) nor the mean-damage overkill (Stage 4)
+reduces the Imperial Knights over-rate.
 N=80 three-cell A/B: OFF 3.52 → per-model-mean 3.79 → per-model+dice **4.17**; Imperial Knights +27.0 →
 +28.3 → +28.8 (flat/worse throughout), the strong elite armies (Votann +7→+13, Chaos Knights +2→+7) got
 WORSE (frozen-under), and dice variance hurt the low-model elites (Custodes −3.8→−6.1). The IK over-rate is
