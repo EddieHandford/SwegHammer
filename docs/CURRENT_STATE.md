@@ -1,6 +1,13 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 114 (2026-06-02) — CONVERGENCE: diagnosed Necrons + spot-checked CSM / World Eaters /
+**Last updated:** Wave 115 (2026-06-02) — CONVERGENCE UNIVERSALLY CONFIRMED: batch-checked the 8 remaining
+out-of-band factions; across ALL 14 diagnosed factions the primary-VP delta tracks the win rate one-to-one
+(Leagues of Votann +13.8 / Sororitas +11.1 over-hold and over-shoot; Astra Militarum / Grey Knights / AdMech
+−2.7/−3.0 under-hold and under-shoot; tabling negligible, secondary a capped wash everywhere). **The whole
+per-faction residual is ONE axis — primary board-control — and the single faithful lever is the user-gated (iii)
+un-interleaving. The headline is genuinely blocked on the user's (iii) decision.** `docs/RESIDUAL_CONVERGENCE_2026-06-02.md`.
+
+**Wave 114** — CONVERGENCE: diagnosed Necrons + spot-checked CSM / World Eaters /
 Thousand Sons; the WHOLE per-faction residual reduces to ONE axis — primary board-control / mission fidelity.
 ALL never tabled, secondary always a 40-cap wash, primary the whole differential. Durable elites OVER-hold
 (Imperial Knights +27, Thousand Sons +9); mobile-melee + out-massed holders UNDER-hold (Daemons, World Eaters,

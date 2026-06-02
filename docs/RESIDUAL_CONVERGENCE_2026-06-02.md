@@ -54,3 +54,27 @@ user-gated structural fix (iii). It is genuinely blocked on the user's decision.
 The remaining buildable-now work is faithful hygiene (one-sided data corrections
 like the wave-113 Skorpius restore, which helped Adeptus Mechanicus the right
 direction). Reported to the watchdog (LOOP_QA wave-114).
+
+## Universal confirmation (wave 115) — the primary-VP delta predicts EVERY faction's win rate
+
+Batch-checked the eight remaining out-of-band factions (15 games × ~5 strong
+opponents each). The pattern is total — tabling negligible (0–3 of 90), secondary
+a capped wash, and the **primary-VP delta tracks the win rate one-to-one**:
+
+| faction | win | primary (self − opp) | reading |
+|---|---|---|---|
+| Leagues of Votann | 62/90 | **+13.8** | durable elite OVER-holds |
+| Adepta Sororitas | 61/90 | **+11.1** | OVER-holds |
+| Genestealer Cults | 56/90 | +7.2 | OVER-holds |
+| Orks | 53/90 | +5.7 | OVER-holds |
+| Adeptus Custodes | 45/90 | +0.6 | ≈even |
+| Adeptus Mechanicus | 39/90 | −3.0 | UNDER-holds |
+| Grey Knights | 38/90 | −3.0 | UNDER-holds |
+| Astra Militarum | 36/90 | −2.7 | UNDER-holds |
+
+Across ALL FOURTEEN factions now diagnosed (the six above plus these eight), the
+win is decided on primary board control: durable / elite armies over-hold the
+markers and over-shoot; mobile-melee and out-massed armies under-hold and
+under-shoot. Combat (tabling) and secondary (capped wash) never differentiate.
+**The convergence is universal. The single faithful lever for the entire headline
+residual is (iii) un-interleaving, and it is the user's decision.**
