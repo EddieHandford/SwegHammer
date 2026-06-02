@@ -99,8 +99,17 @@ class PursuitGateTests(unittest.TestCase):
         battle = _make_battle(_broad_army("A"), _broad_army("B"))
         self.assertFalse(battle._tac_pursue_enabled())
 
-    def test_deck_on_pursue_default_on(self):
+    def test_deck_on_pursue_default_off(self):
+        # Wave 122: pursuit decoupled to explicit opt-in (it was ineffective +
+        # net-neutral at N=80). Deck ON alone leaves pursuit OFF.
         os.environ["SWEG_TAC_DECK"] = "1"
+        os.environ.pop("SWEG_TAC_PURSUE", None)
+        battle = _make_battle(_broad_army("A"), _broad_army("B"))
+        self.assertFalse(battle._tac_pursue_enabled())
+
+    def test_deck_on_pursue_explicit_on(self):
+        os.environ["SWEG_TAC_DECK"] = "1"
+        os.environ["SWEG_TAC_PURSUE"] = "1"
         battle = _make_battle(_broad_army("A"), _broad_army("B"))
         self.assertTrue(battle._tac_pursue_enabled())
 
@@ -127,6 +136,7 @@ class BELPursuitTests(unittest.TestCase):
 
     def setUp(self):
         os.environ["SWEG_TAC_DECK"] = "1"
+        os.environ["SWEG_TAC_PURSUE"] = "1"   # wave 122: pursuit now opt-in
 
     def tearDown(self):
         os.environ.pop("SWEG_TAC_DECK", None)
@@ -265,9 +275,11 @@ class CleansePursuitTests(unittest.TestCase):
 
     def setUp(self):
         os.environ["SWEG_TAC_DECK"] = "1"
+        os.environ["SWEG_TAC_PURSUE"] = "1"   # wave 122: pursuit now opt-in
 
     def tearDown(self):
         os.environ.pop("SWEG_TAC_DECK", None)
+        os.environ.pop("SWEG_TAC_PURSUE", None)
 
     def _arm_cleanse(self, army):
         army.secondary_track = "TACTICAL"

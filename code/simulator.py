@@ -1166,15 +1166,26 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _tac_pursue_enabled(self) -> bool:
-        """Sub-gate for the AI card-pursuit layer (wave 121). Returns True only
-        when SWEG_TAC_DECK is ON AND SWEG_TAC_PURSUE is not explicitly set to
-        "0".  Default: pursuit is ON whenever the deck is on. To A/B deck-only
-        vs deck+pursuit, run with SWEG_TAC_DECK=1 SWEG_TAC_PURSUE=0 (deck only)
-        versus SWEG_TAC_DECK=1 (deck+pursuit).  AI heuristic only — no 10e rule
-        citation required."""
+        """Sub-gate for the AI card-pursuit layer (wave 121-122). DEFAULT-OFF:
+        returns True only when SWEG_TAC_DECK is ON AND SWEG_TAC_PURSUE is
+        EXPLICITLY "1".
+
+        Wave-122 A/B (N=80, deck-only vs deck+pursuit): the layer is INEFFECTIVE
+        — it did NOT raise Behind Enemy Lines / Cleanse achievement (35%→34% /
+        27%→24%, unchanged), because the redirected spare chaff cannot reach or
+        hold those targets (the enemy deployment zone is far and lethal; a
+        forward objective is not controlled). Its small N=40 headline move
+        (−0.17) was noise + a COMBAT-COST artifact (diverting chaff weakens the
+        pursuing army) and washed at N=80 (deck-only 3.62 → deck+pursuit 3.60,
+        −0.02). So it is decoupled from the deck (explicit opt-in only); the deck
+        (M2) runs deck-only by default. The card-achievement stall is the
+        one-Unit-per-model REPRESENTATION gap (fragile distributed bodies cannot
+        reach/hold targets), the same root as the Imperial Knights primary
+        over-hold — that is M4, not the pursuit AI. AI heuristic only — no 10e
+        rule citation required."""
         if not self._tac_deck_enabled():
             return False
-        return __import__("os").environ.get("SWEG_TAC_PURSUE", "1") != "0"
+        return __import__("os").environ.get("SWEG_TAC_PURSUE", "0") == "1"
 
     def _assign_card_pursuit(self, active, other) -> None:
         """Wave 121 — AI card-pursuit pre-movement hook.  Sets `pursue_target`

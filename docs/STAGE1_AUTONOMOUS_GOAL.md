@@ -31,7 +31,38 @@ absolute error is a thermometer, not a steering wheel — you lower it by curing
 simulator's fevers (wrong rules, wrong stats, wrong artificial-intelligence
 piloting), never by holding a match to the bulb.
 
-## Current phase — UPDATED 2026-06-01 (Q11 ruling): the positional re-model + Chapter Approved 2025-26 deck
+## Current phase — UPDATED 2026-06-02 (USER RULING): the win-rate gap is SIM-FIDELITY, NOT a stats re-fit
+
+**The "re-calibration / re-fit stats" conclusion is KILLED (user, 2026-06-02).** The tournaments use the SAME
+GW stats and the SAME points as us. So the per-faction win-rate gap (Imperial Knights ~76% sim vs ~48% real,
+the +27) CANNOT be the stats — they are identical inputs on both sides. It is therefore a SIMULATION-FIDELITY
+gap: the sim is missing or mis-weighting something about how the game is actually PLAYED and WON. Re-fitting
+per-faction stats / overrides / lists to force the win rate would be (a) the metric-tuning the prime directive
+forbids — fudging GW's real values — and (b) poison for Stage 2, which prices units FROM those real stats.
+**DO NOT re-fit stats/data to chase win rates. This is the Stage-1 premise: fix the SIMULATOR, not the stats.**
+
+**Reframe the 7 frozen-under levers:** six were combat/firepower, which help the stronger combat army
+(Knights) → frozen-under. The PATTERN is the diagnosis — the sim decides games too much on COMBAT, too little
+on the MISSION. In reality 40k is won on VICTORY POINTS, and a Knight army (few models, no cheap action-doers,
+no screens, low total Objective Control) LOSES the VP/mission game despite great combat stats. The sim
+under-models that. The missing fidelity is in **HOW THE GAME IS WON — the mission / primary-VP / secondary /
+board-control layer, and possibly the one-Unit-per-model representation that over-weights elite combat power
+and under-weights model-count board control** — NOT combat, NOT stats.
+
+**The path (Stage-1-faithful): DIAGNOSE then FIX the missing simulation mechanic, no stat-fudge.** Diagnostic
+questions: why don't Knights LOSE the VP game in the sim like they do in reality? — Are they out-scored on
+PRIMARY (a broad army holds more of the markers)? Do they hold objectives a broad army should be CONTESTING
+BACK (a Knight parks on a marker uncontested — is the summed-OC contest / model-count board-control faithful)?
+Do they dodge the SECONDARY game (no action-doers — does the sim model that they can't score actions / cards a
+broad army can)? Is the one-Unit-per-model representation over-rating the Knight's combat and under-rating the
+board control of model count? Find the SPECIFIC missing mechanic, build it faithful + cited + even-handed,
+measure. (This resolves the old re-calibration-vs-scoring fork toward the SCORING/MISSION/POSITIONAL fidelity —
+a faithful simulator fix — and away from the stat re-fit.) The earlier "re-calibration is the next step"
+note below is SUPERSEDED by this.
+
+---
+
+## Earlier — UPDATED 2026-06-01 (Q11 ruling): the positional re-model + Chapter Approved 2025-26 deck
 
 The faithful scoring/secondary track drove gated MAE 5.98 → **4.08** (Tier A board secondaries +
 the real Knights damaged-OC bracket) and then hit a STRUCTURAL FLOOR (waves 86-90). The residual is
@@ -273,6 +304,22 @@ The watchdog answers what it can from the prime directive, `CLAUDE.md`, and the
 established methodology, and escalates only genuine steering forks to the user — so a
 question costs you no stall and the user no interruption.
 
+**NEVER HALT THE LOOP (re-primed 2026-06-02 — the user's standing instruction after two stalls).**
+You stalled twice on the night of 2026-06-01/02: each time you committed a wave cleanly and then the
+loop simply stopped, leaving queued work idle until the user relaunched. **Do not do this.** After every
+wave, self-pace straight into the next one — pick the next lever from the WATCHDOG-MANAGED TASK QUEUE and
+keep going until the mission goal (gated mean absolute error below the per-faction noise floor) is met.
+- **Never stop to ask, never end the session, never wait.** If you reach a question, a fork, a wash, a
+  thing you can't resolve, or anything that tempts you to halt: write it to `LOOP_QA.md` (Blocking: no),
+  pick the most-faithful interpretation OR move to a different queued lever, and CONTINUE. The watchdog
+  session is awake and reviewing between every wave — it will confirm, correct, or escalate; you lose
+  nothing by proceeding.
+- **The only legitimate stop** is the one in "When to stop and surface to the user" below (true floor /
+  no faithful lever left for 2-3 waves) — and even then you REPORT (write the finding + log it) and keep
+  the loop alive on the next-best lever; you do not silently end.
+- If you ever find yourself about to output a "loop complete / awaiting input / I'll continue next time"
+  message after a commit — that is the stall. Instead, immediately begin the next wave.
+
 ## Do not tunnel: take the structural lever when narrow fixes stall
 
 Watch for this failure mode, because the loop has already fallen into it: you correctly
@@ -492,6 +539,55 @@ current baseline; keep regardless of metric direction (faithful), but measure + 
 delta.
 
 **P3 — backlog (revisit after the positional axis; re-rank by residual each wave).**
+- **Drukhari anti-tank reads 0 (watchdog-flagged 2026-06-02, user asked to queue).** A watchdog tally of
+  per-archetype anti-tank (weapons with Strength ≥9 + multi-damage, ranged or melee) found the Drukhari
+  archetype scoring ZERO anti-tank — which is wrong (real Drukhari run dark lances / disintegrators /
+  haywire). Investigate whether (a) the Drukhari archetype LIST genuinely lacks its anti-tank units
+  (Ravagers / Kabalite dark lances / Scourges — if so, add them, cited) or (b) the per-model loadout data
+  / weapon read under-detects Drukhari weapons. Either way it under-states the Drukhari list's threat to
+  vehicles/Knights. Low priority but a real data gap.
+- **Threat-priority / focus-fire target AI (watchdog diagnostic 2026-06-02).** An instrumented N=16
+  Adeptus Astartes vs Imperial Knights run (current live sim) showed Astartes win 6%, kill 0.00 big
+  Knights/game (only ~1.8 Armigers), deal ~38% of the Knights' total wounds, and only 39% of that damage
+  comes from anti-tank units. The list HAS adequate anti-tank (~880 equiv; ~4 Lancers should kill a
+  Paladin) — the failure is the AI shooting the lowest-wound target (Armigers) and never FOCUSING anti-tank
+  onto a single big Knight to cross its wound threshold. This is the DEFENCE half of the IK +27 (distinct
+  from the per-model offence over-count): wants a threat-priority / focus-fire target AI (per
+  `project-faction-residual-rootcause`). Also suspect: dense terrain blocks the non-TOWERING enemy
+  anti-tank's line of sight to Knights (would also explain wave-97 terrain making IK worse).
+  **ROOT CAUSE FOUND + ELEVATED (2026-06-02 — wave 99 REFUTED the per-model offence over-count at the metric,
+  so this defence/AI lever is now the PRIME suspect for IK +27).** Watchdog reviewed the AI vs the real
+  counter-Knight playbook (Goonhammer IK faction focus + Start Competing; 1d6chan): the `code/strategy.py`
+  shooting/charge target score applies a "WON'T-CRACK PENALTY" — if a unit's expected wounds
+  `< WONT_CRACK_HP_FRAC × target.current_health`, its score is slashed. Against a 22-26-wound Knight NO single
+  unit can crack it, so EVERY unit individually avoids the big Knight and shoots a killable Armiger/chaff;
+  nothing coordinates multiple units' fire onto one Knight. That is the exact inverse of the #1 real
+  counter-Knight tactic (focus fire to bring one Knight low). Verified in-sim: Astartes kill 0 big
+  Knights/game, win 6%. The AI does ~NONE of the damage-side counter-Knight tactics. FIX: an ARMY-LEVEL
+  focus-fire layer that, when the army COLLECTIVELY can crack a Knight, overrides the per-unit won't-crack
+  penalty and concentrates fire to finish it (and values removing a high-threat brick even if no single unit
+  solos it). FAITHFUL (real tactic), EVEN-HANDED (army-level focus-fire for ALL factions, NOT a Knight nerf).
+  Likely frozen-under-adjacent → measure vs IK +27 and pair with re-calibration.
+- **Advanced-tactics AI review (watchdog, 2026-06-02; sources: Goonhammer faction focuses, 1d6chan 10e
+  Tactics, Grimhammer deployment guide, Vanguard Tactics).** Audited the move/target AI vs the competitive
+  10e playbook. The AI does objective play PARTIALLY (its one real competency) and ~NONE of the rest. Ranked
+  gaps to build (all faithful real tactics, even-handed across factions; each frozen-under-adjacent so
+  measure + pair with re-calibration):
+  1. **Focus-fire / threat-priority targeting** — see the note above; the #1 lever (IK +27 defence half).
+  2. **Intelligent deployment + SCREENING** — the sim line-deploys (`_deploy_line`) with no screen-first /
+     hold-threats-back logic and no screening to deny the 9" deep-strike bubble or block charges. Real play
+     deploys chaff first to control mid-board + deny reserves. Affects deep-strike / alpha-strike matchups
+     and lets under-shooters get bled. (Medium-high; ties to the coverage-audit "deployment is PARTIAL".)
+  3. **Reactive fire — Fire Overwatch** (already P2 coverage build): punishes chargers / arriving reserves;
+     its absence over-rewards melee/aggression vs gunlines.
+  4. **Trading-up / bait + efficient sacrifice** — no deliberate baiting or expendable-chaff trading; the
+     won't-crack/DPA score is only a crude proxy. (Lower.)
+  5. **Combined-arms concentration of force** — units act independently with no concentration onto a flank /
+     a target priority shared army-wide (focus-fire above is the shooting half of this). (Lower.)
+  6. **Pile-in / consolidate positioning** (the user's "combat shenanigans") — charge stops at 1", no
+     overshoot, consolidate only drifts 3" toward nearest; under-rates mobile-melee threat range. (Lower;
+     partly bounded by the one-Unit-per-model representation.)
+  Build top-down; #1 (focus-fire) and #2 (deployment/screening) are the high-impact, residual-relevant ones.
 
 ## Known work queue (starting points; re-rank by residual each wave)
 

@@ -1,6 +1,27 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 121 (2026-06-02) — AI-PURSUIT PLAN written (`docs/AI_PURSUIT_PLAN.md`) for the M2
+**Last updated:** Wave 122 (2026-06-02) — AI-PURSUIT LAYER BUILT + measured INEFFECTIVE → decoupled to
+default-OFF. The watchdog-prescribed layer (`_assign_card_pursuit`: send ≤2 spare chaff toward a held card's goal
+— enemy deployment zone for Behind Enemy Lines, forward objective for Cleanse — via a `pursue_target` honoured by
+`pick_move_intent`; even-handed by capability, a Knight has no chaff) was built (cherry-picked `b98b460`, 20
+tests). **The 3-way A/B settles it: N=40 deck+pursuit 3.96 (−0.17) WASHED at N=80 (deck-only 3.62 → deck+pursuit
+3.60, −0.02), and the achieve-rate instrumentation is decisive — pursuit did NOT raise Behind Enemy Lines /
+Cleanse achievement (35%→34% / 27%→24%, UNCHANGED).** The redirected chaff cannot reach the lethal enemy
+deployment zone or hold an uncontrolled forward objective, so the small N=40 move was noise + a combat-cost
+artifact (diverting chaff weakened the pursuer). **Not a faithful recovery → pursuit decoupled to explicit opt-in
+(`SWEG_TAC_PURSUE` default-OFF); the deck (M2) runs deck-only by default.**
+
+**CONVERGENT CONCLUSION (the headline of the whole mission-layer arc): the ENTIRE mission-scoring layer — M1
+primary 50-cap (real rule, inert), M2 tactical deck (net-neutral), M3 per-Command-phase scoring (net-neutral),
+the AI-pursuit layer (net-neutral) — is GATED by the one-Unit-per-model board-control REPRESENTATION (M4).**
+Fragile distributed bodies cannot reach/hold objectives → they under-hold PRIMARY (the Imperial Knights +27
+mirror) AND cannot achieve board-control OR action/position secondary cards. **M4 is the SINGLE remaining root for
+the whole per-faction residual.** Per the watchdog it is an ARCHITECTURAL change (how Objective Control / board
+control is represented), warranting **plan-first + a watchdog/user check** (its size + the Stage-2 tie-in), NEVER
+a per-faction OC knob. M2 + pursuit kept gated default-OFF (faithful mechanics, net-neutral, defeated by the
+representation). **M4 is the next big lever — surfacing for the user's go before the build.** LOOP_QA wave-122.
+
+**Wave 121** — AI-PURSUIT PLAN written (`docs/AI_PURSUIT_PLAN.md`) for the M2
 artifact, with a key strategic fork. The pursuit layer (move a SPARE unit to pursue a held Tactical card — into
 the enemy DZ for Behind Enemy Lines 37%, onto a forward objective for Cleanse 28%; Engage 89% already pursued) is
 a faithful, even-handed, ONE-SIDED secondary lever (broad armies have spare bodies, Knights don't). **BUT its

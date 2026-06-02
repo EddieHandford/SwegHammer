@@ -4,6 +4,32 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 121-122 close (2026-06-02) — AI-pursuit layer BUILT (gated `SWEG_TAC_PURSUE`) + measured: INEFFECTIVE / net-neutral at N=80 — decoupled to default-OFF. The whole MISSION-SCORING layer is gated by the one-Unit-per-model REPRESENTATION (M4) — the single remaining root for BOTH the IK primary over-hold and the secondary stall
+
+Branch `claude/sim-calibration-6`. Built the watchdog-prescribed AI-pursuit layer via a Sonnet agent (cherry-picked
+`b98b460`): `_assign_card_pursuit` sends up to 2 SPARE chaff units toward a held card's goal (enemy DZ for Behind
+Enemy Lines, a forward objective for Cleanse) via a `pursue_target` that `pick_move_intent` honours; even-handed
+by capability (a Knight has no chaff → no pursuit, faithful); achievement still flows through the real scorers.
+20 tests, suite green.
+
+**The 3-way A/B (OFF / deck-only / deck+pursuit), N=40 then N=80, shows the pursuit is INEFFECTIVE and
+net-neutral.** N=40 deck+pursuit 3.96 (−0.17 vs deck-only) looked promising but **washed at N=80 (deck-only 3.62
+→ deck+pursuit 3.60, −0.02)**. And the achieve-rate instrumentation is decisive: pursuit did NOT raise Behind
+Enemy Lines / Cleanse achievement (35%→34% / 27%→24%, UNCHANGED) — the redirected chaff cannot reach the lethal
+enemy DZ or hold an uncontrolled forward objective. So the small N=40 move was noise + a COMBAT-COST artifact
+(diverting chaff weakens the pursuing army — which hurt the under-shooters Daemons −1.7 / Astra −0.7 and pulled
+over-shooters down). NOT a faithful recovery → **decoupled the pursuit to explicit opt-in (`SWEG_TAC_PURSUE`
+default-OFF); the deck (M2) runs deck-only by default.**
+
+**CONVERGENT CONCLUSION: the ENTIRE mission-scoring layer (M1 50-cap inert, M2 deck net-neutral, M3 timing
+net-neutral, pursuit net-neutral) is gated by the one-Unit-per-model REPRESENTATION gap.** Fragile distributed
+bodies cannot reach/hold objectives — so they under-hold PRIMARY (the IK +27 mirror) AND cannot achieve the
+board-control OR even the action/position secondary cards. The representation (M4) is the SINGLE remaining root
+for the whole residual. Per the watchdog it is an ARCHITECTURAL change (how Objective Control / board control is
+represented), warranting **plan-first + a watchdog/user check** (its size + the Stage-2 tie-in), NEVER a
+per-faction OC knob. M2 + pursuit kept gated default-OFF (faithful mechanics, net-neutral, defeated by the
+representation). LOOP_QA wave-122. **M4 is the next big lever — surfacing for the user's go before the build.**
+
 ## Wave 120 close (2026-06-02) — M2 at N=80 + the hold-vs-achieve instrumentation (watchdog steer): the N=40 −0.28 was NOISE (N=80 −0.07, neutral); the AI-PURSUIT ARTIFACT is CONFIRMED and is the dominant blocker — the AI-pursuit layer is the next build
 
 Branch `claude/sim-calibration-6`. Ran the watchdog's two follow-ups on M2.
