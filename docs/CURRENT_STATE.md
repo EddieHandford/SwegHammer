@@ -1,7 +1,19 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 105 close (2026-06-02) — Fire Overwatch core stratagem (gated `SWEG_OVERWATCH`), and
-the session's STRUCTURAL FLOOR. Fire Overwatch (out-of-phase shooting at chargers/reserves, hits on 6s, 1
+**Last updated:** Wave 106 (2026-06-02) — DIAGNOSTIC (no code change): the watchdog's post-floor hygiene #1
+("Drukhari zero anti-tank") is a SYSTEMIC mapper option-picker bias — it scores weapon CHOICE groups by
+expected damage vs a baseline Marine, so anti-tank options lose to anti-infantry options (the Drukhari
+Ravager fires Disintegrators S6, not Dark Lances S12). SYSTEMIC: opponents under-threaten vehicles/Knights.
+**This is a candidate FIRST NON-FROZEN-UNDER lever on the IK +27** — a one-sided data-fidelity fix that raises
+the Knight's opponents' anti-tank threat WITHOUT helping the Knight (its own loadout has no such mis-pick) —
+and essential pre-re-calibration hygiene. Memory `project-antitank-picker-bias`; LOOP_QA Q18 (recommended fix
+(a): keep both role-distinct weapon options as fire-able profiles, reusing the per-model loadout machinery).
+NEXT: build the option-picker fix + measure vs IK +27 — the most promising IK angle of the session. The IK
+re-calibration / scoring model remains the user's go.
+
+### Earlier — wave 105 (Fire Overwatch + the STRUCTURAL FLOOR)
+
+**Fire Overwatch (gated `SWEG_OVERWATCH`), and the session's STRUCTURAL FLOOR.** Fire Overwatch (out-of-phase shooting at chargers/reserves, hits on 6s, 1
 Command Point) is faithful but REGRESSES at N=80 (OFF 3.52 → ON 3.69) — driven by Imperial Knights +27.0 →
 +30.4 (its big guns overwatch effectively); frozen-under, kept gated, not flipped. **SIX simulator-side
 levers now (terrain, per-model structure, per-weapon dice, focus-fire, deployment, Fire Overwatch) are ALL

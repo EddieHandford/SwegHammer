@@ -4,6 +4,28 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 106 (2026-06-02) — diagnostic (no code change): the "Drukhari zero anti-tank" gap (watchdog hygiene #1) is a SYSTEMIC mapper option-picker bias — and a candidate FIRST non-frozen-under Imperial-Knights lever
+
+Branch `claude/sim-calibration-6`. Per the watchdog's post-floor hygiene re-rank, investigated #1 (Drukhari
+anti-tank). The cause is NOT the Strength≥9 tally threshold (the Dark Lance is S12). It is the BSData mapper's
+weapon option-picker (`_collect_weapons_for_model`): it resolves a unit's weapon CHOICE groups by highest
+expected damage **versus a baseline Marine** (anti-infantry), so anti-tank options lose to high-volume
+anti-infantry options. Verified: the Drukhari Ravager — the archetype's literal "anti-tank from Ravager
+triples" platform — is catalogued firing a Disintegrator Cannon (S6 D2), NOT a Dark Lance (S12 D6). SYSTEMIC,
+not Drukhari-only: across all factions, choice-group units get mis-loadout'd onto anti-infantry guns, so
+opponents UNDER-THREATEN vehicles / Monsters / KNIGHTS.
+
+WHY THIS IS POTENTIALLY BIG: it is a candidate FIRST NON-FROZEN-UNDER lever on the IK +27. Unlike the six
+even-handed levers (all helped the Knight too), this is a ONE-SIDED data-fidelity correction — giving the
+Knight's OPPONENTS their real anti-tank loadouts raises their threat to the Knight WITHOUT helping the Knight
+(its own single-model loadout has no such mis-pick). So it could lower IK without the frozen-under offset. It
+is ALSO essential pre-re-calibration hygiene (cannot re-fit on lists with silently-absent anti-tank). Recorded
+as memory `project-antitank-picker-bias`, surfaced as LOOP_QA Q18 (recommended fix (a): keep BOTH role-distinct
+weapon options as fire-able profiles so the per-shot multi-profile picker chooses Dark Lance vs the Knight,
+Disintegrator vs infantry — reuses the per-model loadout machinery). NOT band-aided (the systemic fix beats a
+one-unit override). NEXT: build the option-picker fix and measure vs IK +27 — the most promising IK angle of
+the session.
+
 ## Wave 105 close (2026-06-02) — Fire Overwatch core stratagem (gated `SWEG_OVERWATCH`), watchdog queue #3: faithful but REGRESSES at N=80 (frozen-under via Imperial Knights). SIXTH lever → the simulator-AI track is at its FLOOR; the IK +27 needs the RE-CALIBRATION (user's go)
 
 Branch `claude/sim-calibration-6`. Built the missing 10e core Fire Overwatch stratagem (env-gated
