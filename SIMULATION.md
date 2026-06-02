@@ -48,6 +48,22 @@ Deterministic average-case damage was used in the foundational 2025
 prototype; the current engine has been stochastic since the Phase 1.5
 foundation work (see `ROADMAP.md` "Foundation work").
 
+One characteristic stayed deterministic after that work: a weapon's random
+Damage characteristic (`D6`, `D3+3`, `2D6`, …) was applied at its
+expected-value mean (a `D6` weapon always inflicted a flat 3.5). The
+per-model weapon-loadout staging adds an opt-in gate, `SWEG_ROLLDMG`, that
+rolls each weapon's real Damage dice once per shot instead (`code.units.roll_damage`).
+Unset (the default) keeps the mean and draws no extra dice, so the engine's
+output is byte-for-byte unchanged; set, it rolls the dice on the per-model
+firing path (the profiles that carry a raw `damage_dice` string). Rolling
+follows the 10e ordering — roll the Damage, then apply per-allocation
+modifiers (Necrodermis halving, Rend and Tear, Melta) to the rolled value.
+The rolled distribution's mean equals the legacy expected-value field, so the
+change is a faithful variance model rather than a re-pricing: it tests whether
+expected-value overkill on big single-shot guns (a `D6` "reliably" destroying
+a 3-wound model where a real roll destroys it about two-thirds of the time)
+inflates the elite / big-gun factions. Cited as `simulator.rolled_damage`.
+
 ### Damage Allocation (squad spillover)
 
 The engine represents one `Unit` object per physical model, so a codex unit
