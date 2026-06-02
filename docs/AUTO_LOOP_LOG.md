@@ -4,6 +4,32 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 108 close (2026-06-02) — Go To Ground core stratagem (gated `SWEG_GTG`), watchdog queue P2.2: faithful but the 8th FROZEN-UNDER lever (metric-neutral; refuted the "helps under-shooters" hypothesis)
+
+Branch `claude/sim-calibration-6`. Built the Go To Ground 10e universal core Battle Tactic stratagem
+(env-gated `SWEG_GTG`, default-OFF): just after an enemy unit selects a friendly INFANTRY unit as a shooting
+target, the defender may spend 1 Command Point to give that unit a **6+ invulnerable save + Benefit of Cover**
+until end of phase. Reuses the proven `transient_invuln_4` machinery (new per-Unit `go_to_ground_active` flag,
+6++ at the save branch in `Unit.attack`, +1 save via `in_cover` in `_do_shoot`, cleared per round). The
+defender heuristic (`Battle._maybe_go_to_ground`) is EVEN-HANDED — INFANTRY keyword + squad model-count +
+incoming-threat + Command-Point pool only, NO faction awareness; the Command-Point economy (~1/round) is the
+throttle. Verbatim-cited from the captured primary core-rules reference (`simulator.go_to_ground`,
+`data/rule_citations.d/core_go_to_ground.json`). Caught + fixed a one-Unit-per-model representation bug in the
+build (an absolute per-model wounds floor would have blocked all infantry → switched to a squad model-count
+gate). 6 new tests; full suite green (994 passed); audit clean; OFF smoke clean.
+
+**Clean N=40 A/B: OFF gated 4.48 == the wave-107 baseline (zero drift confirmed); ON gated 4.56 (+0.08, within
+noise) — METRIC-NEUTRAL.** The hypothesis that an even-handed defensive stratagem would help the fragile
+under-shooters (Chaos Daemons get shot off the board crossing to markers) is **REFUTED**: Chaos Daemons got
+WORSE (−14.7 → −16.2). The frozen-under law in a defensive form — an even-handed save buff helps whoever
+fields fragile infantry UNDER FIRE best (shooty-infantry gunlines), not the specific under-shooters; Daemons,
+a melee aggressor, benefit less than their gunline opponents. Per-faction scatter (Genestealer Cults +4.4,
+Adeptus Mechanicus +2.9, Chaos Daemons −1.5) is mostly N=40 noise around a neutral headline. **8th faithful
+simulator lever to land frozen-under** (terrain, per-model structure, per-weapon dice, focus-fire, deployment,
+Fire Overwatch, the anti-tank loadout pin, and now Go To Ground). Kept gated default-OFF (live baseline holds
+at 4.48); not flipped (no gain to flip on). Surfaced to the watchdog as LOOP_QA wave-108. The
+stats/scoring re-calibration remains THE high-leverage next step (user-gated).
+
 ## Wave 107 close (2026-06-02) — built the wave-106 anti-tank fix (watchdog Q18): the diagnosis was wrong on two counts; the IK hypothesis is REFUTED (7th frozen-under lever). Kept the one clear faithful pin (Ravager → Dark Lance), reverted the over-reach (Raider)
 
 Branch `claude/sim-calibration-6`. Built the watchdog's Q18 anti-tank fix and the result materially refined

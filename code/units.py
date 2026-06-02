@@ -852,6 +852,14 @@ class Unit:
         "transient_sustained_hits",
         "transient_reroll_wounds",
         "transient_reroll_wounds_ones",
+        # Go To Ground (10e core Battle Tactic Stratagem, 1CP, env-gated
+        # SWEG_GTG). Defender buff: a targeted INFANTRY unit gains a 6+
+        # invulnerable save AND the Benefit of Cover until the end of the
+        # opponent's Shooting phase. Set by Battle._maybe_go_to_ground, read at
+        # the save-resolution branch (6++) and the cover application (+1 save),
+        # cleared per round with the other transient stratagem flags. Cited as
+        # `simulator.go_to_ground`.
+        "go_to_ground_active",
         # Skysplinter Assault (Drukhari detachment) — Rain of Cruelty. Set
         # True on a DRUKHARI unit when it disembarks from a TRANSPORT this
         # turn while the army's detachment is Skysplinter Assault. Persists
@@ -1028,6 +1036,9 @@ class Unit:
         self.transient_sustained_hits: int = 0
         self.transient_reroll_wounds: bool = False
         self.transient_reroll_wounds_ones: bool = False
+        # Go To Ground (10e core stratagem). 6++ invuln + Benefit of Cover on a
+        # targeted INFANTRY unit until end of the opponent's Shooting phase.
+        self.go_to_ground_active: bool = False
         # Skysplinter Assault (Drukhari detachment) Rain of Cruelty:
         # disembark-turn LANCE on melee weapons + IGNORES COVER on ranged
         # weapons. Set in `simulator._disembark` when the disembarking
@@ -2650,6 +2661,13 @@ class Unit:
             # target unit for the round. Same "only override if better" rule.
             if target.transient_invuln_4 and invuln > 4:
                 invuln = 4
+            # Go To Ground (10e core stratagem) — transient 6++ invuln on the
+            # targeted INFANTRY unit until end of the opponent's Shooting phase.
+            # The accompanying Benefit of Cover (+1 save) is applied via the
+            # in_cover flag in Battle._do_shoot. Same "only override if better"
+            # rule. Cited as `simulator.go_to_ground`.
+            if getattr(target, "go_to_ground_active", False) and invuln > 6:
+                invuln = 6
             effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
             save_target = effective_save  # 7 = no save
 

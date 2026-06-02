@@ -1399,6 +1399,11 @@ class Battle:
             u.transient_plus_one_save = False
             u.transient_reroll_hits_shooting = False
             u.transient_assault_this_round = False
+            # Go To Ground lasts "until the end of the phase"; clearing it with
+            # the other per-round transient flags is a faithful approximation
+            # (the 6++/cover buff is only read while the unit is shot, which
+            # happens in the opponent's one Shooting phase per round).
+            u.go_to_ground_active = False
             u.transient_fnp_5 = False
             u.transient_plus_one_to_hit_shooting = False
             u.transient_halve_damage = False
@@ -7730,6 +7735,12 @@ class Battle:
                 ),
             )
 
+        # Go To Ground (10e core stratagem, env-gated SWEG_GTG): the defender may
+        # spend 1 Command Point, just after this target was selected, to give the
+        # targeted INFANTRY unit a 6++ invuln + Benefit of Cover until end of
+        # phase. No-op when the gate is unset, so the OFF path is unchanged.
+        self._maybe_go_to_ground(defender_army, shoot_target, attacker)
+
         # Terrain-aware cover: target counts as in cover if it stands inside
         # cover terrain, OR if the army-wide cover flag is set. In 10e all
         # cover terrain (LIGHT_COVER, HEAVY_COVER, RUIN) grants the same single
@@ -7746,6 +7757,10 @@ class Battle:
             shoot_target.in_cover = True
         if cover_type in (TerrainType.HEAVY_COVER, TerrainType.RUIN):
             shoot_target.in_heavy_cover = True
+        # Go To Ground grants the Benefit of Cover (+1 save) on every attack while
+        # the buff is active, independent of terrain.
+        if getattr(shoot_target, "go_to_ground_active", False):
+            shoot_target.in_cover = True
 
         distance = _distance(attacker.position, shoot_target.position)
         has_los = self.map.has_line_of_sight(
@@ -7979,6 +7994,90 @@ class Battle:
     # output on 6s rounds to nothing (a handful of bolter shots into a Knight)
     # holds its Command Point.
     _OVERWATCH_MIN_EXPECTED_WOUNDS = 0.5
+
+    # Go To Ground (10e core Battle Tactic Stratagem, env-gated SWEG_GTG).
+    _GTG_CP_COST = 1
+    # Only Go To Ground when the incoming attack threatens a meaningful share of
+    # the targeted MODEL's remaining wounds — a real player saves the Command
+    # Point for serious fire, not a stray shot. Fraction of the targeted model's
+    # current health that the attacker's expected wounds must reach. This scales
+    # correctly in the one-Unit-per-model representation (a 1-wound model needs
+    # >= 0.5 expected wounds; a 3-wound model needs >= 1.5).
+    _GTG_THREAT_FRACTION = 0.5
+    # Worth-protecting gate (representation-correct). A multi-model squad must
+    # still have at least this many models alive (do not burn a Command Point on
+    # a near-dead remnant); a single-model INFANTRY unit (e.g. a Character) must
+    # itself have at least _GTG_MIN_SOLO_HEALTH wounds.
+    _GTG_MIN_MODELS = 3
+    _GTG_MIN_SOLO_HEALTH = 4.0
+
+    def _maybe_go_to_ground(self, defending_army: Army, shoot_target, attacker) -> None:
+        """Go To Ground (10e universal core stratagem, env-gated SWEG_GTG).
+
+        Trigger: the opponent's Shooting phase, just after an enemy unit has
+        selected `shoot_target` as the target of one or more attacks.
+        `defending_army` may spend 1 Command Point so that, until the end of the
+        phase, all models in the targeted INFANTRY unit have a 6+ invulnerable
+        save and the Benefit of Cover (10e core: "all models in your unit have a
+        6+ invulnerable save and have the Benefit of Cover"). Cited as
+        `simulator.go_to_ground`.
+
+        Even-handed by construction: the only gates are the INFANTRY keyword, the
+        unit's remaining wounds, the incoming threat, and the Command Point pool
+        — no faction awareness. Fragile board-control armies benefit more only
+        because they field more INFANTRY taking heavy fire (emergent, not coded).
+
+        Gate unset (or not "1") → no-op: no Command Point spent, no flag set, no
+        random draws, so the OFF path is byte-identical to the baseline.
+        """
+        # Env gate — unset / not "1" reproduces the baseline exactly. Checked
+        # first so the OFF path does no work at all.
+        if __import__("os").environ.get("SWEG_GTG") != "1":
+            return
+        if shoot_target is None or not getattr(shoot_target, "is_alive", False):
+            return
+        # Already gone to ground this phase (the buff persists), or not INFANTRY,
+        # or not worth a Command Point → nothing to do.
+        if getattr(shoot_target, "go_to_ground_active", False):
+            return
+        if "INFANTRY" not in (shoot_target.profile.unit_keywords or ()):
+            return
+        if defending_army.command_points < self._GTG_CP_COST:
+            return
+        # Worth-protecting gate, representation-correct: a multi-model squad must
+        # still field _GTG_MIN_MODELS alive models; a single-model unit must have
+        # real wounds. Do not spend a Command Point on a near-dead remnant.
+        squad_id = getattr(shoot_target, "squad_id", -1)
+        if squad_id >= 0:
+            alive_models = sum(
+                1 for m in defending_army.units
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive
+            )
+            if alive_models < self._GTG_MIN_MODELS:
+                return
+        elif shoot_target.current_health < self._GTG_MIN_SOLO_HEALTH:
+            return
+
+        # Only react to genuinely threatening fire (a real player holds the
+        # Command Point against a stray shot).
+        if attacker is None:
+            return
+        threat = self._ranged_expected_wounds(attacker.profile, shoot_target)
+        if threat < self._GTG_THREAT_FRACTION * shoot_target.current_health:
+            return
+
+        # Pay 1 Command Point and set the buff on the whole targeted unit (every
+        # model sharing its squad id). The flag grants the 6++ at the save branch
+        # in Unit.attack and the Benefit of Cover at the cover application in
+        # _do_shoot; it clears with the other per-round transient flags.
+        defending_army.command_points -= self._GTG_CP_COST
+        squad_id = getattr(shoot_target, "squad_id", -1)
+        if squad_id >= 0:
+            for m in defending_army.units:
+                if getattr(m, "squad_id", -1) == squad_id and m.is_alive:
+                    m.go_to_ground_active = True
+        else:
+            shoot_target.go_to_ground_active = True
 
     def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:
         """Fire Overwatch (10e universal core stratagem, env-gated
