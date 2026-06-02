@@ -567,15 +567,40 @@ class Battle:
 
         round_history = [(a_start, b_start)]
         rounds_played = 0
+        # ENTER-SCORE (wave 111, option ii, env-gated SWEG_ENTERSCORE). 10e
+        # scores Primary VP at each player's Command phase: a unit holds an
+        # objective from when it takes it until an enemy takes it away, and it
+        # scores at its Command phase even if the objective is contested away
+        # later that battle round. The alternating-activation round model
+        # collapses both players' turns into one interleaved sequence and
+        # scores Primary only ONCE, at end of round AFTER all combat — which
+        # credits only the post-combat survivor (the durable holder) and erases
+        # the transient board control a fragile broad army floods then loses.
+        # Wave-110 instrumentation: 52% of the broad army's entering-round
+        # marker control was stripped by in-round combat before the end-of-round
+        # score. ENTER-SCORE faithfully credits the control state ENTERING the
+        # round (before this round's combat) instead. Even-handed: it credits
+        # whoever holds entering the round, Knight or horde. Scoring at the
+        # START of rounds 2-5 = the post-combat states of rounds 1-4 = the four
+        # real per-Command-phase scoring moments (no round-1 score, no
+        # post-round-5 score), exactly matching the count the OFF path scores.
+        # Gate unset → score at end of round as before; OFF path byte-identical.
+        # Cited as `simulator.primary_vp_entering_round`.
+        enter_score = __import__("os").environ.get("SWEG_ENTERSCORE") == "1"
         for rnd in range(1, MAX_ROUNDS + 1):
             rounds_played = rnd
             self._emit(RoundStarted(round_num=rnd))
-            self._run_round(rnd)
             # 10e: Primary VP first scores at end of Command phase 2.
             # Rounds 2-5 score (4 opportunities × 15 VP = 60 VP max before
             # any total cap). Round 1 is purely movement / alpha-strike.
             # Cited as `simulator.primary_vp_no_round_1`.
-            if rnd >= 2:
+            if enter_score and rnd >= 2:
+                # Score on control ENTERING the round (= end of the previous
+                # round), before this round's combat strips transient holders.
+                self._score_objectives()
+            self._run_round(rnd)
+            if not enter_score and rnd >= 2:
+                # Baseline: score on post-combat (round-end) survivor control.
                 self._score_objectives()
             self._score_secondaries(rnd)
             self._emit(RoundEnded(

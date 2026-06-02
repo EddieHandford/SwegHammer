@@ -1,6 +1,22 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 109 (2026-06-02) — VP-FIDELITY DIAGNOSTIC (user ruling: the re-fit path is KILLED; the
+**Last updated:** Wave 111 (2026-06-02) — entering-round primary scoring (option ii, watchdog-approved, gated
+`SWEG_ENTERSCORE` default-OFF): score Primary on control ENTERING each of rounds 2-5 (before that round's
+combat) vs the baseline end-of-round-after-combat snapshot — a faithful approximation of 10e per-Command-phase
+scoring, even-handed, cited `simulator.primary_vp_entering_round`. **Clean N=40 A/B REFUTES it as the IK lever:
+OFF gated 4.48 == baseline (zero drift); ON 4.61 (+0.13, ~neutral) but Imperial Knights +26.6 → +27.5 (it
+RAISED the Knight), Chaos Daemons −14.7 → −24.3 (COLLAPSED).** Pattern: entering-round scoring favours STATIC
+HOLDERS (gunlines that hold entering the round — Astra Militarum −6.3 → −0.2, AdMech −11.3 → −5.6, Necrons
+−13.9 → −11.4 all improved) and punishes MOBILE TAKERS (melee armies that charge onto markers DURING the round,
+esp. their round-5 charges which entering-scoring drops). A single-snapshot timing fix in the
+alternating-activation model is fundamentally biased — it collapses 10e's TWO per-player-Command-phase scorings
+into one. **The clean fix REQUIRES (iii) un-interleaving to real per-player turns — FOUNDATIONAL + USER-ESCALATED
+(do NOT build without the user's go); the (ii) experiment strengthens the case for it.** Kept `SWEG_ENTERSCORE`
+gated default-OFF (live baseline 4.48 holds), not flipped. Full suite green (997), audit clean. LOOP_QA wave-111.
+
+### Earlier — wave 109-110: the VP-fidelity diagnostic that led here
+
+VP-FIDELITY DIAGNOSTIC (user ruling: the re-fit path is KILLED; the
 +27 is a SIM-FIDELITY gap in how the game is WON — tournaments use the SAME stats, so a win-rate gap cannot be
 the stats). Instrumented IK vs 7 broad armies (`scripts/diag_ik_vp_wave109.py`; writeup
 `docs/IK_VP_FIDELITY_DIAGNOSIS_2026-06-02.md`). FINDINGS: (1) **the Knight wins on VICTORY POINTS, NOT

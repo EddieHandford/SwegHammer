@@ -8,5 +8,14 @@
     "trigger": "end of each battle round, when totalling Primary VP for an army",
     "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each)",
     "scope": "phase-gated"
+  },
+
+  "simulator.primary_vp_entering_round": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission scoring is at the Command phase (per-turn), not a single post-combat snapshot",
+    "quoted_text": "The player going first can score VP for guarding an objective marker they control at the end of their opponent's first, second, third, fourth and fifth turn. The player going second can score VP for guarding an objective marker they control at the end of their opponent's second, third, fourth and fifth turn.",
+    "trigger": "each player scores Primary VP at its own Command-phase / turn boundary, on the objective markers it controls AT THAT MOMENT — i.e. a unit holds an objective from when it takes it until an enemy takes it away, and scores even if the objective is contested away later that battle round",
+    "effect": "env-gated SWEG_ENTERSCORE (wave 111). The alternating-activation round model collapses both players' turns into one interleaved sequence and the baseline scores Primary only once, at end of round AFTER all combat, which credits only the post-combat survivor and erases a fragile army's transient board control (wave-110 instrumentation: 52% of a broad army's entering-round marker control was stripped by in-round combat before the end-of-round score). When set, Primary is scored on the control state ENTERING each of battle rounds 2-5 (before that round's combat) instead — faithfully approximating the per-Command-phase scoring moment. Even-handed: credits whoever holds entering the round, Knight or horde. Same four scoring opportunities (rounds 2-5) and per-round 15 VP cap as the baseline. Gate unset reproduces the end-of-round baseline byte-for-byte.",
+    "scope": "phase-gated"
   }
 }

@@ -4,6 +4,32 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 111 close (2026-06-02) — entering-round primary scoring (option ii, watchdog-approved, gated `SWEG_ENTERSCORE`): REFUTED as the lever, but the bias pattern REINFORCES the (iii) un-interleaving escalation
+
+Branch `claude/sim-calibration-6`. Built the watchdog's approved option (ii): score Primary VP on the control
+state ENTERING each of battle rounds 2-5 (before that round's combat) instead of the baseline's
+end-of-round-after-combat snapshot — faithfully approximating 10e's per-Command-phase scoring (a unit holds an
+objective from when it takes it until an enemy takes it). Env-gated `SWEG_ENTERSCORE` (default-OFF), even-handed
+(round-loop order flip in `Battle.run`; same four scoring rounds + 15 VP/round cap), verbatim-cited
+`simulator.primary_vp_entering_round`. 3 call-order tests; full suite green (997); audit clean.
+
+**Clean N=40 A/B: OFF gated 4.48 == baseline (zero drift); ON gated 4.61 (+0.13, ~neutral) with BIG per-faction
+swings that REFUTE it as the IK lever:** Imperial Knights +26.6 → +27.5 (it did NOT lower the Knight, it slightly
+RAISED it); Chaos Daemons −14.7 → **−24.3 (−9.6, collapsed)**; but it HELPED static gunlines (Astra Militarum
+−6.3 → −0.2, Adeptus Mechanicus −11.3 → −5.6, Necrons −13.9 → −11.4). **The pattern: entering-round scoring
+favours STATIC HOLDERS (gunlines that hold entering the round) and punishes MOBILE TAKERS (melee armies that
+take markers by charging in DURING the round — and especially their decisive round-5 charges, which
+entering-round scoring drops, there being no round-6 to score them).** It trades the durable-holder
+over-credit for a mobile-taker under-credit — not a clean faithfulness win.
+
+**This is the informative result the watchdog's sequence wanted:** a SINGLE-snapshot timing fix in the
+alternating-activation model is fundamentally biased (static vs mobile, round-5 drop) because it collapses 10e's
+TWO per-player-Command-phase scorings into one. The clean fix — credit BOTH the static holder (its Command
+phase) AND the mobile taker (its next Command phase) without the round-5 drop — REQUIRES **(iii) un-interleaving
+to real per-player turns**, which is FOUNDATIONAL and USER-ESCALATED. So the (ii) experiment strengthens the
+case for (iii). Kept `SWEG_ENTERSCORE` gated default-OFF (live baseline 4.48 holds); not flipped (refuted +
+flawed). Reported to the watchdog (LOOP_QA wave-111) with the keep/revert flag and the (iii) reinforcement.
+
 ## Wave 109 close (2026-06-02) — VP-FIDELITY DIAGNOSTIC (user ruling: re-fit KILLED, the +27 is a sim-fidelity gap in how the game is WON). Pinned the mechanism (PRIMARY board-control compounding); surfaced a build-direction fork to the watchdog
 
 Branch `claude/sim-calibration-6`. The user ruled the re-calibration / re-fit-stats path is KILLED — tournaments
