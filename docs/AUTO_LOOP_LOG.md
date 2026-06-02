@@ -4,6 +4,40 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 107 close (2026-06-02) — built the wave-106 anti-tank fix (watchdog Q18): the diagnosis was wrong on two counts; the IK hypothesis is REFUTED (7th frozen-under lever). Kept the one clear faithful pin (Ravager → Dark Lance), reverted the over-reach (Raider)
+
+Branch `claude/sim-calibration-6`. Built the watchdog's Q18 anti-tank fix and the result materially refined
+wave 106:
+
+**(1) It is OVERRIDE-pinned, not a systemic mapper bias.** The clear platforms (Ravager/Raider/Razorwing)
+bypass the mapper option-picker entirely — `data/overrides.json` pins them (the DRK-DIAG-5 de-over-arming,
+which correctly fires ONE of the two mutually-exclusive cannon mounts but kept the anti-INFANTRY Disintegrator
+and discarded the anti-tank Dark Lance). The fix is an override correction, not a mapper change.
+
+**(2) (b) the systemic mapper mix-scoring — BUILT, MEASURED, REVERTED.** Added a target-toughness-mix wound
+roll to `expected_damage_through_baseline()` (which had NO Strength-vs-Toughness term). It re-labelled 71
+ranged + 48 melee picks with clear OVER-corrections (one-shot Hunter-killer missiles promoted to primary on
+~8 Astra Militarum vehicles, Bright Lance → Starcannon, Knight Volcano-lance demoted) because a mix-AVERAGE
+rewards high-volume generalists over specialists. Not faithful → reverted; the lone-Marine baseline stays.
+
+**(3) (c) the cited override fix — A/B REFUTES the wave-106 IK hypothesis.** Corrected the Ravager → 3 Dark
+Lances and (provisionally) the Raider → Dark Lance, cross-checked against the project's own Skysplinter
+archetype (`code/archetypes.py`: 3 Raiders + 1 Ravager, "anti-tank from Ravager triples"). Clean N=40 A/B
+(baseline gated 4.13): Imperial Knights +27.3 → +26.6 (−0.7, NOISE — NOT the predicted selective threat,
+frozen-under like the prior six levers); Drukhari +4.6 → +9.0 (REAL — the bad anti-infantry loadout was
+COMPENSATING for Drukhari being over-tuned; arming it just buffs Drukhari globally). Gated 4.13 → 4.30.
+
+**Disposition.** KEPT the Ravager Dark Lance pin (unambiguously faithful — the list's named anti-tank
+platform; kept per the watchdog's "keep faithful regardless of metric direction", though the Ravager-only
+confirm showed it too degrades the headline — gated 4.48, Drukhari +11.7 — i.e. it carries re-calibration
+debt). REVERTED the Raider pin (a TRANSPORT, not an anti-tank platform; the archetype assigns anti-tank to the
+Ravager, not its 3 Raiders — an over-correction). Tests green (the lone equilibrium-phase4 failure was a
+CPU-contention timing flake; passes 6.2s alone), smoke clean, audit clean. **This is the 7th lever to confirm
+the IK +27 is a STATS/SCORING problem, not reachable by any simulator/loadout lever — the user-gated
+re-calibration remains THE next step.** Surfaced to the watchdog as LOOP_QA Q18-OUTCOME (fork: keep the
+Ravager now vs bundle the Drukhari loadout correction with the re-calibration). Memory
+`project-antitank-picker-bias` rewritten.
+
 ## Wave 106 (2026-06-02) — diagnostic (no code change): the "Drukhari zero anti-tank" gap (watchdog hygiene #1) is a SYSTEMIC mapper option-picker bias — and a candidate FIRST non-frozen-under Imperial-Knights lever
 
 Branch `claude/sim-calibration-6`. Per the watchdog's post-floor hygiene re-rank, investigated #1 (Drukhari

@@ -1,15 +1,19 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 106 (2026-06-02) — DIAGNOSTIC (no code change): the watchdog's post-floor hygiene #1
-("Drukhari zero anti-tank") is a SYSTEMIC mapper option-picker bias — it scores weapon CHOICE groups by
-expected damage vs a baseline Marine, so anti-tank options lose to anti-infantry options (the Drukhari
-Ravager fires Disintegrators S6, not Dark Lances S12). SYSTEMIC: opponents under-threaten vehicles/Knights.
-**This is a candidate FIRST NON-FROZEN-UNDER lever on the IK +27** — a one-sided data-fidelity fix that raises
-the Knight's opponents' anti-tank threat WITHOUT helping the Knight (its own loadout has no such mis-pick) —
-and essential pre-re-calibration hygiene. Memory `project-antitank-picker-bias`; LOOP_QA Q18 (recommended fix
-(a): keep both role-distinct weapon options as fire-able profiles, reusing the per-model loadout machinery).
-NEXT: build the option-picker fix + measure vs IK +27 — the most promising IK angle of the session. The IK
-re-calibration / scoring model remains the user's go.
+**Last updated:** Wave 107 (2026-06-02) — BUILT the wave-106 anti-tank fix (watchdog Q18); the diagnosis was
+wrong on two counts and the IK hypothesis is REFUTED. (1) It is OVERRIDE-pinned, not a systemic mapper bias —
+a past de-over-arming (`data/overrides.json` DRK-DIAG-5) kept the anti-infantry Disintegrator and discarded
+the anti-tank Dark Lance on the Ravager/Raider. (2) The systemic mapper mix-scoring (b) was BUILT then
+REVERTED (net-unfaithful: re-labelled 71 ranged + 48 melee picks, promoted one-shot Hunter-killer missiles to
+primary, demoted specialists — a mix-AVERAGE rewards high-volume generalists). (3) The cited override fix (c)'s
+clean N=40 A/B REFUTES the "first non-frozen-under IK lever" hypothesis: **Imperial Knights +27.3 → +26.6
+(−0.7, NOISE)**, **Drukhari +4.6 → +9.0 (REAL — the bad loadout was COMPENSATING for Drukhari over-tuning)**,
+gated 4.13 → 4.30. KEPT the Ravager → Dark Lance pin (unambiguously faithful — the list's named anti-tank
+platform; carries re-calibration debt, Ravager-only gated 4.48), REVERTED the Raider pin (a transport, not an
+anti-tank platform — over-correction). **This is the 7th lever confirming the IK +27 is a STATS/SCORING
+problem, not a simulator/loadout lever.** The user-gated RE-CALIBRATION remains THE next step. Memory
+`project-antitank-picker-bias` (rewritten); LOOP_QA Q18-OUTCOME (fork: keep the Ravager now vs bundle the
+Drukhari loadout correction with the re-calibration).
 
 ### Earlier — wave 105 (Fire Overwatch + the STRUCTURAL FLOOR)
 
