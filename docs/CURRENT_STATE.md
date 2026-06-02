@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 124 (2026-06-02) — detachment fab AUDIT (layer CLEAN: 29/34 faithful, 2 minor fabs
+**Last updated:** Wave 125 (2026-06-02) — worked the watchdog's "while-holding" hygiene: fixed the stale
+`primary_vp_cap_15` citation `_comment` (Leviathan → CA-2025-26) and did the Drukhari anti-tank read. The
+anti-tank picker bias is REAL + systemic (mapper scores options vs a baseline Marine → anti-tank options lose)
+but a WEAK IK lever (wave-107 A/B moved IK only +27.3→+26.6, within noise; Drukhari +4.6→+9.0) — so opponents'
+firepower deficiency is NOT the IK cause; M4 (positional) is re-confirmed from a 3rd angle (after terrain w97 +
+per-model w99). Faithful fix (target-aware firing-time weapon selection, per-model Stage 5 territory) queued
+task #38, headline-weak, not built while M4 awaits the user. Floor holds; M4 is the user's call. LOOP_QA
+wave-125.
+
+**Wave 124** — detachment fab AUDIT (layer CLEAN: 29/34 faithful, 2 minor fabs
 queued task #37) + corrected the STALE watchdog queue: P0 Candidate B (`SWEG_MASS`) LANDED wave 95, P1
 terrain-realism DONE wave 97 + REFUTED (realistic terrain made IK WORSE). So every faithful lever around the
 representation is confirmed exhausted — terrain refuted, per-model neutral, mission neutral, massing landed,

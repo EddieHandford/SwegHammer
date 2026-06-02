@@ -1,5 +1,5 @@
 {
-  "_comment": "Citation for the 10e Leviathan Tournament Companion primary scoring cap: each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
+  "_comment": "Citation for the 10e Chapter Approved 2025-26 v1.5 primary scoring cap (the May-2026 calibration target's deck; source corrected from the Leviathan Tournament Companion per the wave-116 mission-pack audit): each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
 
   "simulator.primary_vp_cap_15": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",

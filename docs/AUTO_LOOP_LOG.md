@@ -4,6 +4,24 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 125 (2026-06-02) — worked the watchdog's "while-holding" hygiene list: stale primary-cap citation `_comment` fixed + the Drukhari anti-tank read DONE — REAL+systemic picker bias but a WEAK IK lever (re-confirms M4 from a 3rd angle)
+
+Per the watchdog's wave-122/123 steer (HOLD for the user on M4, do faithful NON-M4 hygiene meanwhile), did two
+of its three named items. (1) The `simulator.primary_vp_cap_15` citation entry was already corrected to
+CA-2025-26 in the wave-116 audit; only the file-level `_comment` was stale ("Leviathan Tournament Companion") —
+fixed to CA-2025-26 + the chapter-approved URL; audit clean. (3) The Drukhari anti-tank read (Sonnet diagnostic):
+**the anti-tank picker bias is REAL + systemic but a WEAK IK lever.** The mapper scores every mutex weapon-option
+pick against a fixed baseline Marine (`expected_damage_through_baseline`, mapper.py:249-267), so high-S/low-shot
+anti-tank options lose to multi-shot anti-infantry ones (Carnifex picks Stranglethorn S7 over Venom S9; the
+Ravager picked Disintegrators S6 until the wave-107 override pin) — and it IS in the default eval path. BUT the
+wave-107 A/B moved IK only +27.3 → +26.6 (within noise) while Drukhari moved +4.6 → +9.0, so opponents' firepower
+deficiency is NOT why the Knight over-rates — **the old "could lower IK" hope (Q18) is REFUTED by data; the IK
+root is M4 (positional), re-confirmed independently.** The faithful fix (target-aware weapon selection at firing
+time — keep both options as profiles, AI fires the right gun for the target; per-model Stage 5 territory, NOT the
+reverted wave-107 mixed-target score) is queued (task #38), headline-weak — not built while M4 awaits the user.
+THREE independent angles now (terrain w97, per-model w99, anti-tank w125) confirm the IK over-rate does not yield
+to firepower/data levers → M4 is the root, the user's call. LOOP_QA wave-125.
+
 ## Wave 124 (2026-06-02) — detachment fab AUDIT (layer is CLEAN: 29/34 faithful, 2 minor fabs queued) + corrected the STALE watchdog queue (P0 Candidate B + P1 terrain were BOTH already resolved) — M4 confirmed the only headline lever, the loop is at the faithful floor
 
 Per never-halt (M4 user-gated), worked the next-best faithful lever — the detachment fabrication sweep. A
