@@ -4,6 +4,30 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 114 close (2026-06-02) — the out-of-band factions CONVERGE: the WHOLE per-faction residual is ONE axis (primary board-control / mission fidelity → user-gated (iii)). No separable mechanic anywhere
+
+Branch `claude/sim-calibration-6`. Per the watchdog steer #2 (diagnose the out-of-band factions for a separable
+missing mechanic), instrumented Necrons and spot-checked Chaos Space Marines / World Eaters / Thousand Sons the
+way wave 109 instrumented Imperial Knights (writeup `docs/RESIDUAL_CONVERGENCE_2026-06-02.md`). No code change
+(diagnostic).
+
+They ALL show the same pattern: NEVER tabled (every game full 5 rounds, 28-60% survive — combat is not the
+decider); secondary is ALWAYS a 40-cap wash (every army's raw secondary 54-77 > 40); PRIMARY VP is the entire
+differential. **Necrons −13.9** (reanimation works — never tabled; out-held 1.67 vs 2.09 markers/round, out-OC'd
+2.4 vs 3.6 — UNDER-holds). **CSM −9** (primary ≈even 36.1 vs 36.5). **World Eaters** (mobile melee LOSES primary
+33.1 vs 36.3 vs strong armies). **Thousand Sons +9** (durable elite WINS primary 39.7 vs 31.8 — OVER-holds like
+IK).
+
+**CONCLUSION: the ENTIRE per-faction residual structure reduces to ONE axis — primary board-control / mission
+fidelity. Durable elites over-hold (IK +27, Thousand Sons +9); mobile-melee + out-massed armies under-hold
+(Daemons, World Eaters, Necrons, CSM). There is NO separable faction-specific missing mechanic** — every
+residual is the same gap the wave 109-111 chain rooted in the alternating-activation single-snapshot scoring.
+**(iii) un-interleaving (per-player Command-phase scoring) is the dominant remaining lever for the WHOLE board,
+and the loop is genuinely blocked on the user's (iii) decision.** Secondary contributing factor (noted, not
+pursued — delicate): every army maxes the 40 secondary cap, erasing the secondary differentiator; best
+addressed alongside (iii). Live baseline holds at ~4.41. LOOP_QA wave-114. Per never-halt, the next wakes do
+faithful one-sided hygiene while (iii) awaits the user.
+
 ## Wave 113 close (2026-06-02) — over-arming sweep (watchdog hygiene steer): one genuine under-arming found + fixed (Skorpius Disruptor restored). Faithful + slightly POSITIVE (the rare non-frozen-under direction)
 
 Branch `claude/sim-calibration-6`. While (iii) un-interleaving awaits the user, did the watchdog's faithful

@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 113 (2026-06-02) — over-arming sweep (watchdog hygiene): audited the 27 secondary-blanking
+**Last updated:** Wave 114 (2026-06-02) — CONVERGENCE: diagnosed Necrons + spot-checked CSM / World Eaters /
+Thousand Sons; the WHOLE per-faction residual reduces to ONE axis — primary board-control / mission fidelity.
+ALL never tabled, secondary always a 40-cap wash, primary the whole differential. Durable elites OVER-hold
+(Imperial Knights +27, Thousand Sons +9); mobile-melee + out-massed holders UNDER-hold (Daemons, World Eaters,
+Necrons −13.9, CSM −9). **No separable faction-specific mechanic anywhere — the user-gated (iii) un-interleaving
+is the dominant remaining lever for the whole board, and the loop is genuinely blocked on the user's (iii)
+decision.** Secondary contributing factor (noted, not pursued): every army maxes the 40 secondary cap, erasing
+the secondary differentiator. Writeup `docs/RESIDUAL_CONVERGENCE_2026-06-02.md`. Live baseline ~4.41. LOOP_QA
+wave-114. Prior wave 113 detail follows.
+
+**Wave 113** — over-arming sweep (watchdog hygiene): audited the 27 secondary-blanking
 overrides; the prior MUTEX-SWEEP handled the genuine choices, ONE genuine under-arming found + fixed — the
 Adeptus Mechanicus **Skorpius Disintegrator** had its real fixed Disruptor missile launcher (S9 AP-2 D3.5 A3
 twin-linked) wrongly dropped for a blanket convention; RESTORED it (cited, Belleros main-cannon mutex kept
