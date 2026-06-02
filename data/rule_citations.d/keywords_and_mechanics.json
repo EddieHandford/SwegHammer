@@ -281,6 +281,15 @@
     "scope": "phase-gated"
   },
 
+  "simulator.insane_bravery": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Insane-Bravery",
+    "rule_name": "Insane Bravery",
+    "quoted_text": "INSANE BRAVERY 1CP. Epic Deed Stratagem. WHEN: Battle-shock step of your Command phase, just before you take a Battle-shock test for a unit from your army. TARGET: That unit from your army. EFFECT: Your unit automatically passes that Battle-shock test. RESTRICTIONS: You cannot use this Stratagem more than once per battle.",
+    "trigger": "Battle-shock step of own Command phase, just before a friendly unit takes a Battle-shock test (the simulator fires it only when the unit would otherwise FAIL and is contesting an objective)",
+    "effect": "(approximation) the owning army spends 1 Command Point to auto-pass a would-be-failed Battle-shock test, at most once per battle (`self._insane_bravery_used`), CP-gated (`army.command_points >= 1`), and only when the squad is within an objective's control radius (`self._squad_on_objective`) — the heuristic for when a real player burns it (to keep an objective-contesting unit's Objective Control, which Battle-shock would drop to 0). Modelled by forcing the 2D6 roll up to the test target so the existing pass branches resolve it as a pass. Even-handed across all factions. Gated SWEG_INSANE (default ON; =0 disables for the isolation A/B).",
+    "scope": "phase-gated"
+  },
+
   "simulator.mob_rule": {
     "source": "https://wahapedia.ru/wh40k10ed/factions/orks/#Mob-Rule",
     "rule_name": "Mob Rule",

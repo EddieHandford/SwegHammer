@@ -103,23 +103,22 @@ TANK_SHOCK = Stratagem(
 # per battle; the Orks variant carries Orks-specific restrictions. The
 # registry names are kept distinct to avoid a citation-key clash.
 #
-# Hook status: NO-OP PENDING SIMULATOR PLUMBING. The 10e Battle-shock step
-# in Battle._run_battleshock_phase executes before the round-start stratagem
-# dispatcher (_apply_detachment_stratagems), so a pre-test auto-pass requires
-# an in-phase hook that the current dispatcher does not expose. The stratagem
-# is registered here so:
-#   (a) the citation auditor enforces the Wahapedia citation (CLAUDE.md §10),
-#   (b) the stratagems_for_army table surfaces it for display / event logging,
-#   (c) the once_per_battle flag is already encoded so the future dispatcher
-#       hook can simply call _fire_stratagem and the spent-once gate works.
-# When the in-phase hook lands, update the effect string to "auto_pass_battleshock"
-# and add a test in tests/test_stratagems.py.
+# Hook status: WIRED (wave 126). The in-phase hook lives directly in
+# Battle._run_battleshock_phase: when a squad would FAIL its Battle-shock test
+# (roll < target), the owning army spends 1 Command Point to auto-pass it —
+# once per battle (self._insane_bravery_used), CP-gated, and only when the
+# squad is contesting an objective (self._squad_on_objective), the case a real
+# player burns it. Even-handed (every army has it); gated SWEG_INSANE (default
+# ON; =0 for the isolation A/B). Cited as the simulator gate
+# `simulator.insane_bravery` (CLAUDE.md §10) in addition to the Wahapedia
+# core-stratagem citation above. The once_per_battle flag is retained for the
+# registry/display contract.
 UNIVERSAL_INSANE_BRAVERY = Stratagem(
     name="Insane Bravery",
     cp_cost=1,
     phase="command",
     trigger="friendly_unit_about_to_take_battleshock_test",
-    effect="auto_pass_battleshock_no_op_pending_in_phase_hook",
+    effect="auto_pass_battleshock",
     once_per_battle=True,
 )
 

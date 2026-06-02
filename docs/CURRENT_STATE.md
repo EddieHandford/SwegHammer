@@ -1,6 +1,13 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 125 (2026-06-02) — worked the watchdog's "while-holding" hygiene: fixed the stale
+**Last updated:** Wave 126 (2026-06-02) — wired the universal **Insane Bravery** core stratagem (was
+catalogued-but-no-op): in `_run_battleshock_phase`, a squad that would fail its Battle-shock test while
+contesting an objective spends 1 Command Point to auto-pass, once per battle, even-handed, gated `SWEG_INSANE`
+(default ON), cited `simulator.insane_bravery`. Faithful + bounded; N=40 A/B OFF 4.41 (== baseline) → ON 4.34
+(−0.07, within noise) — landed default-ON as fidelity, not a metric claim. Full suite green (1046). A real
+absent mechanic cleared while M4 holds for the user. LOOP_QA wave-126.
+
+**Wave 125** — worked the watchdog's "while-holding" hygiene: fixed the stale
 `primary_vp_cap_15` citation `_comment` (Leviathan → CA-2025-26) and did the Drukhari anti-tank read. The
 anti-tank picker bias is REAL + systemic (mapper scores options vs a baseline Marine → anti-tank options lose)
 but a WEAK IK lever (wave-107 A/B moved IK only +27.3→+26.6, within noise; Drukhari +4.6→+9.0) — so opponents'

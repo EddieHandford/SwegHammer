@@ -265,6 +265,11 @@ class Battle:
         # UIDs of units that failed their Battleshock test this round — OC 0
         # so they don't contribute to objective control. Reset per round.
         self._battleshocked_this_round: set = set()
+        # Insane Bravery (1 CP universal Epic Deed, 10e core): each army may
+        # auto-pass ONE Battle-shock test PER BATTLE. id(army) is added here when
+        # an army spends it; NOT reset per round (once-per-battle gate). Cited
+        # `simulator.insane_bravery`.
+        self._insane_bravery_used: set = set()
         # UIDs of units that successfully charged this round (Fights First in
         # the Fight sub-phase). Reset each round.
         self._charging_this_round: set = set()
@@ -6225,6 +6230,21 @@ class Battle:
     # Round logic
     # ------------------------------------------------------------------
 
+    def _squad_on_objective(self, members) -> bool:
+        """True if any member of the squad is within the control radius of any
+        objective marker — the squad is holding / contesting an objective. Used
+        as the Insane Bravery spend heuristic: a real player burns the
+        once-per-battle auto-pass to keep an objective-contesting unit's
+        Objective Control (Battle-shock would drop it to 0)."""
+        for obj in self.map.objectives:
+            r2 = obj.control_radius * obj.control_radius
+            for u in members:
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy <= r2:
+                    return True
+        return False
+
     def _run_battleshock_phase(self, round_num: int) -> None:
         """10e Battle-shock step (every Command phase, from Round 1
         onward — Wahapedia /the-rules/core-rules/#Command-Phase). For
@@ -6501,6 +6521,27 @@ class Battle:
                     + harbinger_penalty
                     - (1 if daemonic_manifest else 0)   # Daemonic Manifestation: +1 to the test
                 )
+                # Insane Bravery (1 CP, universal Epic Deed — 10e core): just
+                # before a FAILED Battle-shock test, the army may spend 1 CP to
+                # auto-pass it, once per battle. A real player burns it to keep a
+                # unit that is CONTESTING an objective (Battle-shock would zero
+                # the unit's Objective Control there). Even-handed — every army
+                # has it; the objective-gate makes the benefit accrue to whoever
+                # is holding markers, not to any faction. Modelled by forcing the
+                # roll to meet the target, so the existing fail / pass (incl. the
+                # Daemonic Manifestation pass) branches below resolve it as a
+                # pass. Gated SWEG_INSANE (default ON; =0 for the isolation A/B).
+                # Cited `simulator.insane_bravery`.
+                if (
+                    roll < target
+                    and __import__("os").environ.get("SWEG_INSANE", "1") != "0"
+                    and id(army) not in self._insane_bravery_used
+                    and army.command_points >= 1
+                    and self._squad_on_objective(members)
+                ):
+                    army.command_points -= 1
+                    self._insane_bravery_used.add(id(army))
+                    roll = target   # auto-passed — resolves as a pass below
                 if roll < target:
                     # Mark ALL models in the squad as Battle-shocked.
                     for u in members:

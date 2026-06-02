@@ -4,6 +4,25 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 126 (2026-06-02) — wired the universal Insane Bravery core stratagem (was catalogued-but-no-op) — faithful, even-handed, net-neutral (N=40 4.41 → 4.34); landed default-ON as fidelity
+
+A real, bounded, faithful absent mechanic (queued task #6) to keep the loop substantively alive while M4 holds
+for the user. `UNIVERSAL_INSANE_BRAVERY` was registered but a no-op ("no in-phase hook"). Wired it into
+`Battle._run_battleshock_phase`: when a squad would FAIL its Battle-shock test (roll < target), the owning army
+spends 1 Command Point to auto-pass it — **once per battle** (`self._insane_bravery_used`, NOT reset per round),
+**CP-gated** (`command_points >= 1`), and **only when the squad is contesting an objective**
+(`self._squad_on_objective` — the case a real player burns it, since Battle-shock would zero the unit's Objective
+Control). Modelled by forcing the 2D6 roll up to the test target, so the existing fail / pass (incl. the Daemonic
+Manifestation pass) branches resolve it as a pass. **Even-handed** (every army has it; the objective-gate makes
+the benefit accrue to whoever holds markers, no faction branch). Gated `SWEG_INSANE` (default ON; =0 for the
+isolation A/B). Cited `simulator.insane_bravery` (verbatim core-stratagem text). Effect string flipped from
+`auto_pass_battleshock_no_op_pending_in_phase_hook` to `auto_pass_battleshock`; 5 new tests
+(`tests/test_insane_bravery.py`) + one existing battle-shock test isolated (CP=0, the unit sat on the objective);
+full suite green (1046 passed). **N=40 A/B: OFF (SWEG_INSANE=0) gated 4.41 == baseline (clean isolation), ON
+gated 4.34 (−0.07, within noise; raw +0.04 flat).** Landed default-ON as a FIDELITY improvement (a real
+universal core rule the sim should model), not on the metric — the −0.07 is within N=40 noise, not a claim. The
+loop continues holding for the user's M4 decision. LOOP_QA wave-126.
+
 ## Wave 125 (2026-06-02) — worked the watchdog's "while-holding" hygiene list: stale primary-cap citation `_comment` fixed + the Drukhari anti-tank read DONE — REAL+systemic picker bias but a WEAK IK lever (re-confirms M4 from a 3rd angle)
 
 Per the watchdog's wave-122/123 steer (HOLD for the user on M4, do faithful NON-M4 hygiene meanwhile), did two

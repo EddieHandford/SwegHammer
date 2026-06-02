@@ -130,6 +130,13 @@ class BattleshockRoundOneTests(unittest.TestCase):
         )
         battle = Battle(a, b, map_=_open_map())
 
+        # This unit sits ON the centre objective, so the wave-126 Insane Bravery
+        # auto-pass (`_squad_on_objective`) could otherwise rescue it. This test
+        # is about the stratagem-exclusion of a FAILED unit, not Insane Bravery,
+        # so deny the CP to keep the unit on the failing path (the auto-pass is
+        # exercised in tests/test_insane_bravery.py).
+        a.command_points = 0
+
         attacker = a.units[0]
         attacker.current_health = 2.0
 
