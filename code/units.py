@@ -783,6 +783,16 @@ class Unit:
         # fire the unit (a unit performing an action cannot shoot or charge).
         # Cleared at the top of each round. Cited as `simulator.secondary_cleanse`.
         "action_this_round",
+        # AI-pursuit target (wave 121, AI movement heuristic only — no 10e rule
+        # citation required). Set per-turn by Battle._assign_card_pursuit when a
+        # TACTICAL army holds a Behind Enemy Lines or Cleanse card and this unit
+        # is a spare chaff body that can be sent to pursue it. While set,
+        # pick_move_intent returns this position as a high-priority override so
+        # the unit moves toward the card's geographic goal this activation.
+        # Reset to None at the start of each army's turn in
+        # _run_round_vanilla_turns (never persists across turns or rounds).
+        # AI scheduler only — not gated by a rule citation.
+        "pursue_target",
         # Set by Battle._do_move when the unit elects the FALL_BACK intent.
         # While True, _do_shoot and _do_charge refuse to fire the unit unless
         # its profile has the FLY keyword. Cleared at the top of each round.
@@ -1003,6 +1013,10 @@ class Unit:
         # Pariah Nexus action state (wave 74): action name while performing a
         # 10e action this round, else None. See __slots__ note above.
         self.action_this_round: Optional[str] = None
+        # AI-pursuit target (wave 121). See __slots__ note above. Cleared
+        # per-turn by Battle._run_round_vanilla_turns; None means no active
+        # pursuit goal and pick_move_intent falls through to existing logic.
+        self.pursue_target = None  # type: Optional[Tuple[float, float]]
         # Set per round by Battle._run_round: True if the unit's position
         # is within control range of any objective marker. Read by
         # Unit.attack() to gate detachment buffs like Awakened Dynasty's

@@ -1161,6 +1161,120 @@ class Battle:
         return best
 
     # ------------------------------------------------------------------
+    # Wave 121 — AI-pursuit layer for held Tactical secondary cards
+    # (env-gated SWEG_TAC_PURSUE; sub-gate of SWEG_TAC_DECK)
+    # ------------------------------------------------------------------
+
+    def _tac_pursue_enabled(self) -> bool:
+        """Sub-gate for the AI card-pursuit layer (wave 121). Returns True only
+        when SWEG_TAC_DECK is ON AND SWEG_TAC_PURSUE is not explicitly set to
+        "0".  Default: pursuit is ON whenever the deck is on. To A/B deck-only
+        vs deck+pursuit, run with SWEG_TAC_DECK=1 SWEG_TAC_PURSUE=0 (deck only)
+        versus SWEG_TAC_DECK=1 (deck+pursuit).  AI heuristic only — no 10e rule
+        citation required."""
+        if not self._tac_deck_enabled():
+            return False
+        return __import__("os").environ.get("SWEG_TAC_PURSUE", "1") != "0"
+
+    def _assign_card_pursuit(self, active, other) -> None:
+        """Wave 121 — AI card-pursuit pre-movement hook.  Sets `pursue_target`
+        on up to two SPARE chaff units in the active army so that
+        pick_move_intent routes them toward the geographic goal of their held
+        Tactical card this activation.
+
+        Only two movement-pursuable cards are handled:
+          * 'behind_enemy_lines' — sends spare chaff into the opponent's
+            deployment zone (the strip at the far edge of the board).
+          * 'cleanse' — sends spare chaff toward the nearest objective that is
+            OUTSIDE the active army's own deployment zone, so the existing
+            _assign_cleanse_actions (which runs AFTER movement) can then flag
+            the unit once it has arrived.
+
+        Selection is strictly even-handed by CAPABILITY:
+          * _is_chaff_unit gate (cheap non-CHARACTER unit, any faction).
+          * action_this_round is None (not already doing something else).
+          * pursue_target is None (not already assigned by a prior card in the
+            same turn iteration).
+          * Unit must be alive.
+
+        A Knight-shape army produces zero chaff → no units are ever assigned →
+        the over-rate stall is FAITHFUL and must remain.  NO faction awareness.
+
+        Called BEFORE the move loop in _run_round_vanilla_turns so that
+        pick_move_intent reads pursue_target during each unit's activation.
+        pursuit is cleared at the top of each army's turn (per-turn).
+        """
+        if not self._tac_pursue_enabled():
+            return
+        if getattr(active, "secondary_track", None) != "TACTICAL":
+            return
+        hand = getattr(active, "tactical_hand", None)
+        if not hand:
+            return
+        from .strategy import _is_chaff_unit
+        own_is_a = active is self.a
+        PURSUIT_CAP = 2   # up to 2 spare chaff committed per card, per turn
+
+        if "behind_enemy_lines" in hand:
+            # Target: the midpoint of the opponent's deployment zone strip.
+            # Army A deploys low-y → enemy DZ is the high-y strip; Army B
+            # deploys high-y → enemy DZ is the low-y strip.
+            dz = self.map.deployment_width
+            mid_x = self.map.width / 2.0
+            if own_is_a:
+                # Enemy DZ: y from (height - dz) to height. Target its centre.
+                target_y = self.map.height - dz * 0.5
+            else:
+                # Enemy DZ: y from 0 to dz. Target its centre.
+                target_y = dz * 0.5
+            bel_target = (mid_x, target_y)
+            n = 0
+            for u in active.alive_units:
+                if n >= PURSUIT_CAP:
+                    break
+                if u.action_this_round is not None:
+                    continue
+                if u.pursue_target is not None:
+                    continue
+                if not _is_chaff_unit(u):
+                    continue
+                u.pursue_target = bel_target
+                n += 1
+
+        if "cleanse" in hand:
+            # Target: the nearest forward objective (outside the active army's
+            # own DZ) that this army has a chance of occupying. We pick the
+            # objective closest to the midpoint of the board's x-axis and
+            # forward in y (outside own DZ). Each chaff unit gets the same
+            # target; picking the nearest-to-UNIT would be better but adds
+            # per-unit iteration that isn't worth the added complexity.
+            forward_objs = [
+                obj for obj in self.map.objectives
+                if self._obj_outside_own_dz(obj, own_is_a)
+            ]
+            if forward_objs:
+                mid_x = self.map.width / 2.0
+                # Prefer the objective closest to the board midpoint on x so
+                # chaff heads toward a central, reachable forward marker.
+                cleanse_obj = min(
+                    forward_objs,
+                    key=lambda o: abs(o.x - mid_x),
+                )
+                cleanse_target = (cleanse_obj.x, cleanse_obj.y)
+                n = 0
+                for u in active.alive_units:
+                    if n >= PURSUIT_CAP:
+                        break
+                    if u.action_this_round is not None:
+                        continue
+                    if u.pursue_target is not None:
+                        continue
+                    if not _is_chaff_unit(u):
+                        continue
+                    u.pursue_target = cleanse_target
+                    n += 1
+
+    # ------------------------------------------------------------------
     # Wave 83 Tier A — objective-holding / board-control secondaries
     #
     # The real Pariah Nexus secondary deck contains a family of take-and-hold
@@ -6900,6 +7014,10 @@ class Battle:
                 # action so the unit is free to shoot/charge again this round
                 # unless it elects an action afresh.
                 u.action_this_round = None
+                # Wave 121: clear any stale pursuit target from the previous
+                # round (belt-and-braces; the per-turn reset in
+                # _run_round_vanilla_turns is the primary clear).
+                u.pursue_target = None
 
         # Pre-compute on-objective state for the round so Unit.attack() can
         # cheaply apply detachment buffs gated on objective control (Awakened
@@ -7114,6 +7232,17 @@ class Battle:
             _phase_their_oc: Dict[int, int] = {
                 id(obj): _oc_on_objective(_other_alive, obj) for obj in _objectives
             }
+            # Wave 121: reset any pursuit targets from the previous turn. The
+            # field is per-turn (not per-round) so that each army's turn gets a
+            # fresh assignment. When the pursuit gate is off this is a no-op
+            # (pursue_target initialises to None and is never set).
+            for u in active.units:
+                u.pursue_target = None
+            # Wave 121: assign card-pursuit intent BEFORE the move loop so that
+            # pick_move_intent can read pursue_target during each unit's
+            # activation. No-op when the pursuit gate is off. Called on the
+            # active army only (it's the active army's movement phase).
+            self._assign_card_pursuit(active, other)
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)

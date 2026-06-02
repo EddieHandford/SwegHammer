@@ -1945,6 +1945,16 @@ def pick_move_intent(
     plan's target zone. None preserves the legacy per-unit behaviour
     (callers that don't supply a plan see identical output to pre-#161).
     """
+    # ----- Wave 121: card-pursuit override (AI movement heuristic) -----------
+    # Battle._assign_card_pursuit stamps pursue_target onto spare chaff units
+    # BEFORE the move loop runs. If set, this is a high-priority pre-commitment:
+    # the unit heads straight to the card's geographic goal and skips all other
+    # intent logic. The override is transparent on the OFF path (pursue_target
+    # initialises to None and is never written when the gate is off).
+    _pt = getattr(unit, "pursue_target", None)
+    if _pt is not None:
+        return _pt, "pursue_card"
+
     role = classify(unit.profile)
     own_oc = unit.profile.oc or 0
 
