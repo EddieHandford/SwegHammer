@@ -4,6 +4,30 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 112 close (2026-06-02) — Chaos Daemons −14.7 under-shoot DIAGNOSED (watchdog steer): it is the SAME primary board-control residual as the Imperial Knights +27, inverted — UNIFIES the two biggest residuals, strengthens the (iii) escalation
+
+Branch `claude/sim-calibration-6`. Per the watchdog steer, instrumented the Chaos Daemons under-shoot the way
+wave 109 instrumented the Imperial Knights over-shoot (Daemons vs 8 opponents, 200 games;
+`scripts/diag_daemons_wave112.py`, writeup `docs/DAEMONS_UNDERSHOOT_DIAGNOSIS_2026-06-02.md`). No code change
+(diagnostic).
+
+FINDINGS: (1) **NOT a survival/arrival issue** — Daemons are tabled 0x in 200 games, keep 35-58% of their
+units, all games go 5 rounds. The "shot off the board before arriving" hypothesis is REFUTED. (2) **The loss is
+PRIMARY VP** — Daemons 27-36 vs opponents 30-41 (lose ~6-12, worst vs Imperial Knights −11.8 / Aeldari −12.4);
+secondary is a 40-cap wash. (3) **Surviving bodies, but only 22% of alive Daemon units are within 3" of any
+marker** — the army fights instead of holding; the on-marker Objective Control contest is ~even (2.7 vs 2.9);
+46/71 models deep-strike (low Objective Control ~2) and `_pick_arrival_point` weights objectives LOW for melee
+(`objective_w = 0.7` vs 1.6 shooty), so the AI deep-strikes them to CHARGE not hold.
+
+**CONCLUSION: the Chaos Daemons −14.7 and the Imperial Knights +27 are the SAME single residual — the primary
+board-control / mission-fidelity gap — at opposite ends.** No separable Daemon-specific missing RULE (Shadow of
+Chaos combat half is modelled; the real rule has no Objective-Control buff; raising the melee deep-strike
+objective-weight would be metric-tuning, not a fidelity bug, so NOT pursued). Did NOT touch Daemons stats (per
+the sim-fidelity ruling). **This UNIFIES the project's two biggest residuals and strengthens the user-escalated
+(iii) un-interleaving (per-player Command-phase scoring), which would address BOTH ends at once.** Memory
+`project-daemons-manifestation-missing` updated; LOOP_QA wave-112. Live baseline holds at 4.48. Next (never-halt,
+(iii) user-gated): faithful non-scoring hygiene unless the user authorises (iii).
+
 ## Wave 111 close (2026-06-02) — entering-round primary scoring (option ii, watchdog-approved, gated `SWEG_ENTERSCORE`): REFUTED as the lever, but the bias pattern REINFORCES the (iii) un-interleaving escalation
 
 Branch `claude/sim-calibration-6`. Built the watchdog's approved option (ii): score Primary VP on the control

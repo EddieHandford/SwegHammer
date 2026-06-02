@@ -1,6 +1,10 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 111 (2026-06-02) — entering-round primary scoring (option ii, watchdog-approved, gated
+**Last updated:** Wave 112 (2026-06-02) — DIAGNOSED the Chaos Daemons −14.7 under-shoot as the SAME primary
+board-control residual as the Imperial Knights +27 (inverted), unifying the two biggest residuals → strengthens
+the user-escalated (iii) un-interleaving fix (see the "Wave 112" section below). Prior wave 111 detail follows.
+
+**Wave 111** — entering-round primary scoring (option ii, watchdog-approved, gated
 `SWEG_ENTERSCORE` default-OFF): score Primary on control ENTERING each of rounds 2-5 (before that round's
 combat) vs the baseline end-of-round-after-combat snapshot — a faithful approximation of 10e per-Command-phase
 scoring, even-handed, cited `simulator.primary_vp_entering_round`. **Clean N=40 A/B REFUTES it as the IK lever:
@@ -13,6 +17,17 @@ alternating-activation model is fundamentally biased — it collapses 10e's TWO 
 into one. **The clean fix REQUIRES (iii) un-interleaving to real per-player turns — FOUNDATIONAL + USER-ESCALATED
 (do NOT build without the user's go); the (ii) experiment strengthens the case for it.** Kept `SWEG_ENTERSCORE`
 gated default-OFF (live baseline 4.48 holds), not flipped. Full suite green (997), audit clean. LOOP_QA wave-111.
+
+### Wave 112 — Chaos Daemons −14.7 under-shoot DIAGNOSED: it is the SAME residual as IK +27 (unified)
+
+Per the watchdog steer, instrumented Daemons vs 8 opponents (200 games, `scripts/diag_daemons_wave112.py`;
+writeup `docs/DAEMONS_UNDERSHOOT_DIAGNOSIS_2026-06-02.md`). Daemons are tabled 0x, keep 35-58% of units, all
+games go 5 rounds → NOT a survival/arrival issue. The loss is PRIMARY VP (27-36 vs opponents' 30-41); secondary
+a 40-cap wash. Only **22% of alive Daemon units are within 3" of a marker** (the deep-strike melee army fights
+instead of holding; on-marker OC contest ~even). **The Daemons −14.7 and the IK +27 are the SAME primary
+board-control / mission-fidelity gap, inverted — this unifies the two biggest residuals and strengthens the
+user-escalated (iii) un-interleaving fix, which would address both at once.** No separable buildable-now
+Daemon-only lever; did not touch Daemons stats. Live baseline holds at 4.48 (no code change). LOOP_QA wave-112.
 
 ### Earlier — wave 109-110: the VP-fidelity diagnostic that led here
 
