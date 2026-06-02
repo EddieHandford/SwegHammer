@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 112 (2026-06-02) — DIAGNOSED the Chaos Daemons −14.7 under-shoot as the SAME primary
+**Last updated:** Wave 113 (2026-06-02) — over-arming sweep (watchdog hygiene): audited the 27 secondary-blanking
+overrides; the prior MUTEX-SWEEP handled the genuine choices, ONE genuine under-arming found + fixed — the
+Adeptus Mechanicus **Skorpius Disintegrator** had its real fixed Disruptor missile launcher (S9 AP-2 D3.5 A3
+twin-linked) wrongly dropped for a blanket convention; RESTORED it (cited, Belleros main-cannon mutex kept
+suppressed). Non-gated N=40 A/B: **gated 4.48 → 4.41; Adeptus Mechanicus −11.3 → −9.9 (+1.4, right direction);
+IK/Daemons unchanged** — a rare NON-frozen-under win (a one-sided fidelity correction arming an under-shooter).
+Live baseline now ~4.41. Full suite green (997). **The headline lever remains the user-gated (iii) un-interleaving
+(both IK +27 and Daemons −14.7 depend on it — see wave 112).** Prior wave 112 detail follows.
+
+**Wave 112** — DIAGNOSED the Chaos Daemons −14.7 under-shoot as the SAME primary
 board-control residual as the Imperial Knights +27 (inverted), unifying the two biggest residuals → strengthens
 the user-escalated (iii) un-interleaving fix (see the "Wave 112" section below). Prior wave 111 detail follows.
 

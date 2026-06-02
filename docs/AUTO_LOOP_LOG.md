@@ -4,6 +4,28 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 113 close (2026-06-02) — over-arming sweep (watchdog hygiene steer): one genuine under-arming found + fixed (Skorpius Disruptor restored). Faithful + slightly POSITIVE (the rare non-frozen-under direction)
+
+Branch `claude/sim-calibration-6`. While (iii) un-interleaving awaits the user, did the watchdog's faithful
+non-scoring hygiene: the over-arming sweep of the 27 `data/overrides.json` entries that blank a secondary
+weapon (wave-107 finding). The prior MUTEX-SWEEP handled the genuine choices correctly (Wave Serpent turret is
+one-of-four; Hive Tyrant / Ghostkeel pick one ranged gun; the Predator sponson is the separate anti-tank-picker
+issue, not under-arming). **The ONE genuine under-arming: the Adeptus Mechanicus Skorpius Disintegrator** — its
+own override note ADMITS the Disruptor missile launcher is a REAL FIXED-MOUNT weapon (not exclusive with the
+main cannon) but it was knowingly DROPPED for a blanket "clean-cut" convention. RESTORED the Disruptor as the
+secondary (real stats S9 AP-2 D3.5 A3 twin-linked) while keeping `extra_ranged_profiles` empty so the Belleros
+(the genuine mutex with the Ferrumite cannon) stays suppressed and the two main cannons do not double-count.
+The Skorpius now fires its real loadout (Ferrumite + Disruptor). Cited to the datasheet + BSData; non-gated data
+fix.
+
+**N=40 A/B (non-gated, vs 4.48 baseline): gated 4.48 → 4.41 (−0.07, slight improvement); Adeptus Mechanicus
+−11.3 → −9.9 (+1.4 toward target); Imperial Knights +26.5 and Chaos Daemons −14.6 unchanged.** A clean faithful
+data-correctness win that helps the under-shooting Adeptus Mechanicus the RIGHT direction (restoring a real
+anti-vehicle weapon) WITHOUT helping the over-shooters — a rare non-frozen-under result, because it is a
+one-sided fidelity correction (arms an under-shooter), not an even-handed mechanic. Kept (live baseline now
+~4.41). Full suite green (997), audit clean. LOOP_QA wave-113. The (iii) un-interleaving remains the headline
+lever, user-gated.
+
 ## Wave 112 close (2026-06-02) — Chaos Daemons −14.7 under-shoot DIAGNOSED (watchdog steer): it is the SAME primary board-control residual as the Imperial Knights +27, inverted — UNIFIES the two biggest residuals, strengthens the (iii) escalation
 
 Branch `claude/sim-calibration-6`. Per the watchdog steer, instrumented the Chaos Daemons under-shoot the way
