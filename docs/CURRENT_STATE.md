@@ -1,16 +1,28 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 108 (2026-06-02) — Go To Ground core stratagem (gated `SWEG_GTG`, watchdog queue P2.2):
-faithful but the **8th FROZEN-UNDER lever**. A targeted INFANTRY unit may spend 1 Command Point for a 6+
-invuln + Benefit of Cover until end of phase (even-handed `_maybe_go_to_ground`; reuses the `transient_invuln_4`
-machinery; verbatim-cited `simulator.go_to_ground`). Clean N=40 A/B: **OFF gated 4.48 == baseline (zero
-drift); ON 4.56 (+0.08, NOISE) — metric-neutral.** REFUTED the "helps the fragile under-shooters" hypothesis:
-**Chaos Daemons got WORSE (−14.7 → −16.2)** — an even-handed defensive save buff helps whoever fields fragile
-infantry UNDER FIRE best (shooty gunlines), not a melee aggressor like Daemons. Kept gated default-OFF (live
-baseline holds at 4.48), not flipped. Full suite green (994), audit clean. Eight faithful simulator levers now
-land frozen-under (terrain, per-model structure, per-weapon dice, focus-fire, deployment, Fire Overwatch, the
-anti-tank loadout pin, Go To Ground); **the IK +27 / Daemons −16 residual is a STATS/SCORING problem — the
-user-gated RE-CALIBRATION remains THE high-leverage next step.** LOOP_QA wave-108.
+**Last updated:** Wave 109 (2026-06-02) — VP-FIDELITY DIAGNOSTIC (user ruling: the re-fit path is KILLED; the
++27 is a SIM-FIDELITY gap in how the game is WON — tournaments use the SAME stats, so a win-rate gap cannot be
+the stats). Instrumented IK vs 7 broad armies (`scripts/diag_ik_vp_wave109.py`; writeup
+`docs/IK_VP_FIDELITY_DIAGNOSIS_2026-06-02.md`). FINDINGS: (1) **the Knight wins on VICTORY POINTS, NOT
+combat/tabling** — it tables the opponent 0-2/25, never gets tabled, all games go 5 rounds, the broad army
+keeps 25-37% of its units. (2) **The differential is PRIMARY VP (IK ~44 vs opp ~30, +14); secondary is a
+40-cap WASH** (both blow past 40; Cleanse/Sabotage already live — not the lever). (3) **The Knight's primary
+lead COMPOUNDS R2→R5 (+3.3 → +6.0); the broad army's board control COLLAPSES under attrition (8.4 → 5.9)** —
+the one-Unit-per-model "elite combat over-rated / model-count board control under-rated" gap. Candidate fixes:
+positional AI WASHED (`SWEG_MASS`); secondary is faithful; the **command-phase primary-scoring timing** fix is
+BLOCKED by the alternating-activation round model (no per-player Command phases). Surfaced a build-direction
+FORK to the watchdog (LOOP_QA wave-109): score primary on PEAK in-round control / start-of-round control /
+authorise structural un-interleaving — the scoring surface, so plan-first + watchdog steer before building.
+**This supersedes the "re-calibration is the next step" framing — the headline lever is now the PRIMARY
+board-control fidelity fix, NOT a stat re-fit.** Live baseline holds at 4.48 (no code change this wave).
+
+### Earlier — wave 108: Go To Ground core stratagem (gated `SWEG_GTG`) — 8th FROZEN-UNDER lever
+
+A targeted INFANTRY unit may spend 1 Command Point for a 6+ invuln + Benefit of Cover until end of phase
+(even-handed `_maybe_go_to_ground`; reuses `transient_invuln_4`; verbatim-cited `simulator.go_to_ground`).
+Clean N=40 A/B: OFF gated 4.48 == baseline (zero drift); ON 4.56 (+0.08, NOISE) — metric-neutral. REFUTED the
+"helps the fragile under-shooters" hypothesis (Chaos Daemons WORSE, −14.7 → −16.2 — an even-handed defensive
+save buff helps shooty gunlines, not a melee aggressor). Kept gated default-OFF. Committed `52539c6`.
 
 ### Earlier — wave 107: anti-tank picker fix (watchdog Q18) — REFUTED as an IK lever (7th frozen-under)
 

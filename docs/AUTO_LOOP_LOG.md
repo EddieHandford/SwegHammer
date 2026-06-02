@@ -4,6 +4,32 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 109 close (2026-06-02) — VP-FIDELITY DIAGNOSTIC (user ruling: re-fit KILLED, the +27 is a sim-fidelity gap in how the game is WON). Pinned the mechanism (PRIMARY board-control compounding); surfaced a build-direction fork to the watchdog
+
+Branch `claude/sim-calibration-6`. The user ruled the re-calibration / re-fit-stats path is KILLED — tournaments
+use the SAME GW stats + points, so a per-faction win-rate gap CANNOT be the stats; the +27 is a SIMULATION
+fidelity gap (the sim under-models how 40k is WON on the mission, over-models combat). Ran the diagnostic-first
+probe (no code change): instrumented Imperial Knights vs 7 broad armies (`scripts/diag_ik_vp_wave109.py`; full
+writeup `docs/IK_VP_FIDELITY_DIAGNOSIS_2026-06-02.md`).
+
+FINDINGS: (1) **The Knight wins on VICTORY POINTS, not combat/tabling** — tables the opponent 0-2/25, never
+tabled, all games go 5 rounds, the broad army keeps 25-37% of its units. (2) **The differential is PRIMARY VP
+(IK ~44 vs opp ~30, +14); secondary is a 40-cap WASH** (both sides blow past the cap; secondary selection +
+caps + live Cleanse/Sabotage already pulled the Knight down once — not a missing secondary). (3) **The Knight's
+primary lead COMPOUNDS R2→R5 (+3.3 → +6.0, peaks the final round); the broad army's board control COLLAPSES
+under attrition (8.4 → 5.9)** — the one-Unit-per-model "elite combat over-rated / model-count board control
+under-rated" gap the user named.
+
+CANDIDATE FIXES + STATUS: positional AI (broad army onto markers) — TRIED (`SWEG_MASS`) and WASHED; secondary —
+already faithful, a capped wash; **command-phase primary-scoring timing** (real 10e scores each army's primary
+at its own Command phase, crediting transient marker control; the sim scores ONCE/round at end-of-round, crediting
+only the post-combat survivor = the durable Knight) — the cleanest NEW idea, but BLOCKED by the
+alternating-activation round model (`_run_round_alternating` interleaves both armies → no per-player Command
+phases). Surfaced a FORK to the watchdog (LOOP_QA wave-109): score primary on PEAK in-round control (lead rec) /
+start-of-round control / authorise structural un-interleaving. This is the scoring surface (sharpest
+metric-tuning surface), so plan-first + watchdog steer before building. **This supersedes the "re-calibration is
+next" framing.** Live baseline holds at 4.48 (no code change).
+
 ## Wave 108 close (2026-06-02) — Go To Ground core stratagem (gated `SWEG_GTG`), watchdog queue P2.2: faithful but the 8th FROZEN-UNDER lever (metric-neutral; refuted the "helps under-shooters" hypothesis)
 
 Branch `claude/sim-calibration-6`. Built the Go To Ground 10e universal core Battle Tactic stratagem
