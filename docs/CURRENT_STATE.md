@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 119 (2026-06-02) — M2 BUILT (real 2-card Tactical secondary deck, gated `SWEG_TAC_DECK`,
+**Last updated:** Wave 120 (2026-06-02) — M2 at N=80 + hold-vs-achieve instrumentation (watchdog steer). **The
+N=40 −0.28 was NOISE: N=80 OFF 3.69 → ON 3.62 (−0.07, neutral), band 7→5 (worse).** The instrumentation CONFIRMS
+the AI-pursuit ARTIFACT: under M2-ON, Daemons/Astra are on TACTICAL and score only ~10 secondary (real ~25-35) —
+their 2-card hands STALL (defend_stronghold 11% / extend_battle_lines 9% / area_denial 16% achieved; even
+cleanse 28%, behind_enemy_lines 37%) because the combat AI doesn't PURSUE held cards. Grey Knights/IK are on
+FIXED scoring a moderate ~17 (not inflated) — **the GK +11.8 overshoot is its TACTICAL opponents UNDER-scoring,
+not GK over-scoring.** So M2's faithful mechanic is defeated by the AI-pursuit artifact → net-neutral. **Next
+build: the even-handed AI-PURSUIT LAYER** (AI plays toward its held Tactical card — spread for Engage, push for
+Behind Enemy Lines, commit to Cleanse — when its units CAN) → Tactical armies recover while the over-shooter
+correction stays → M2(+pursuit) net-improves. M2 KEPT gated default-OFF (don't flip without pursuit). IK isolated
+to the board-control REPRESENTATION (M4), not the mission layer. LOOP_QA wave-120.
+
+**Wave 119** — M2 BUILT (real 2-card Tactical secondary deck, gated `SWEG_TAC_DECK`,
 via dispatched Opus agent, cherry-picked `bbab0f2`): per-card dispatcher + Fixed-OR-Tactical track (FIXED = 2
 kill cards; TACTICAL = 2-card hand draw/achieve/redraw — at most 2 sources not ~9-11), even-handed unit-count
 choice, deterministic, OFF byte-identical, cited, 19 tests, suite green (1020). **THE FIRST FAITHFUL LEVER ALL

@@ -4,6 +4,34 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 120 close (2026-06-02) — M2 at N=80 + the hold-vs-achieve instrumentation (watchdog steer): the N=40 −0.28 was NOISE (N=80 −0.07, neutral); the AI-PURSUIT ARTIFACT is CONFIRMED and is the dominant blocker — the AI-pursuit layer is the next build
+
+Branch `claude/sim-calibration-6`. Ran the watchdog's two follow-ups on M2.
+
+**1. N=80 confirm: the N=40 −0.28 was optimistic noise.** N=80 OFF gated 3.69 → ON 3.62 (**−0.07, within noise**),
+band 7/22 → 5/22 (WORSE). So M2 alone is essentially NEUTRAL on the headline and slightly worsens the band. The
+gains (Custodes −3.9→+0.0, AdMech −11.4→−8.6, CSM −7.9→−5.7, Votann/Orks/Tyranids down toward band) are CANCELLED
+by two artifacts: **Grey Knights −3.0→+8.8 (+11.8 overshoot)** and **Chaos Daemons −10.0→−15.2 (−5.2)**.
+
+**2. Hold-vs-achieve instrumentation CONFIRMS the AI-pursuit artifact (watchdog Risk 1).** Under M2-ON: Daemons
+and Astra land on the TACTICAL track and score only **~10 secondary** (a real Tactical army churns ~25-35). Their
+2-card hands STALL — they hold board-control cards they rarely achieve (defend_stronghold 11%, extend_battle_lines
+9%, area_denial 16%) and even action/position cards the AI COULD pursue stay low (cleanse 28%, behind_enemy_lines
+37%). Grey Knights and Imperial Knights are on the FIXED track scoring a moderate ~17 (NOT inflated). **So the GK
+overshoot is NOT GK over-scoring — it is GK's TACTICAL opponents UNDER-scoring (the stall), so the FIXED kill-elites
+win the secondary comparison.** The combat-focused AI does not PURSUE its held Tactical cards (spread for Engage,
+push into the enemy deployment zone for Behind Enemy Lines, commit bodies to Cleanse) → an AI ARTIFACT, not a
+faithful drop.
+
+**CONCLUSION: M2's mechanic is faithful but is defeated by the AI-pursuit artifact — net-neutral at N=80.** The
+even-handed AI-PURSUIT LAYER (the AI plays toward its held Tactical card when its units CAN, exactly as a real
+player does) is the next build: it should let the Tactical armies recover to a faithful ~25-35 secondary WHILE
+keeping the over-shooter correction → M2(+pursuit) then net-improves. (The board-control cards — defend/extend/
+area_denial — stall partly FAITHFULLY, downstream of the one-Unit-per-model representation gap, M4-adjacent.)
+**M2 KEPT gated default-OFF** (do NOT flip — net-neutral + band-worse without the pursuit layer). IK still
+isolated to the board-control representation (not the mission layer). LOOP_QA wave-120; the AI-pursuit layer is
+the next build (even-handed, no faction awareness). Live baseline holds.
+
 ## Wave 119 close (2026-06-02) — M2 BUILT (real 2-card Tactical secondary deck, gated `SWEG_TAC_DECK`): the FIRST faithful lever to MOVE the headline (4.41 → 4.13). Kept gated; one fidelity gap (per-Fixed-card 20 cap) → next refinement
 
 Branch `claude/sim-calibration-6`. Built M2 (Stage A+B) via a dispatched Opus agent (worktree, cherry-picked
