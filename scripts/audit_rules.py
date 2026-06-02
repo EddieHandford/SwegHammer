@@ -514,6 +514,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # so each side scores at most one Tactical per round, matching
     # real Pariah Nexus 2-of-9 average coverage.
     "simulator.tactical_secondary_deck_draw",
+    # M2 (wave 119) — the real 2-card Tactical secondary deck (env-gated
+    # SWEG_TAC_DECK). Each army uses ONE track: FIXED (2 kill cards every
+    # round) or TACTICAL (a deterministically-seeded 2-card hand with
+    # achieve->discard->redraw). Replaces the legacy union-of-~9-11-sources
+    # scoring (which trivially exceeded the 40 cap and washed the secondary
+    # out). Even-handed track split from unit count; OFF byte-identical.
+    # See data/rule_citations.d/secondaries_pariah_nexus.json.
+    "simulator.tactical_secondary_deck",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.

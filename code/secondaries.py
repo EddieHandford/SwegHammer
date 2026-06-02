@@ -75,6 +75,44 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
     FIXED_SECONDARY_KEYS + TACTICAL_SECONDARY_KEYS + BOARD_SECONDARY_KEYS
 )
 
+# M2 (wave 119) — the real 2-card Tactical Mission deck (env-gated SWEG_TAC_DECK).
+#
+# CA-2025-26 v1.5: at game start each player secretly chooses Fixed OR Tactical
+# Missions. A TACTICAL army builds a deck of Secondary Mission cards, draws two
+# into a held hand at the start of its first Command phase, and from each
+# subsequent Command phase redraws back up to two; any card it scored 1+ VP from
+# is discarded ("achieved") and replaced. So a Tactical army scores at most its
+# TWO HELD cards per round — not the whole pile.
+#
+# The deck pool below is the Tactical / action / take-and-hold set the simulator
+# already scores (the 4 Fixed KILL cards are the FIXED track's pool and are NOT
+# in this deck). Each card here is routed to its existing scorer by
+# `Battle._score_one_card`. This is the union of:
+#   * the two position Tactical cards (Engage on All Fronts, Behind Enemy Lines),
+#   * the two action cards (Cleanse, Sabotage), and
+#   * the five Tier-A take-and-hold board cards.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+# (deck mechanic) + the per-card sources already cited in
+# data/rule_citations.d/secondaries_pariah_nexus.json. Cited as
+# `simulator.tactical_secondary_deck`.
+TACTICAL_DECK_POOL: Tuple[str, ...] = (
+    "engage_on_all_fronts",
+    "behind_enemy_lines",
+    "cleanse",
+    "sabotage",
+    "secure_no_mans_land",
+    "defend_stronghold",
+    "extend_battle_lines",
+    "storm_hostile_objective",
+    "area_denial",
+)
+# TODO M2 Stage C: the CA-2025-26 Tactical deck also contains several action
+# cards the simulator does not yet model — Establish Locus, Recover Assets, and
+# A Tempting Target. Adding them requires verbatim card text (not yet captured in
+# the repo — the planned data/reference/wahapedia_ca2025-26.txt does not exist)
+# plus a new scoring check + citation per card. Left as a TODO rather than
+# invented; the deck runs on the nine already-faithful cards above.
+
 
 # Per-round VP caps (Pariah Nexus rule text, tuned 2026-05-20).
 #
@@ -643,6 +681,69 @@ def _own_mobile_unit_count(own_army: "Army") -> int:
     return n
 
 
+# M2 (wave 119) — the Fixed-vs-Tactical track threshold (env-gated SWEG_TAC_DECK).
+#
+# A real player choosing between Fixed (2 kill cards, scored every round) and
+# Tactical (a 2-card rotating action/board hand) leans on what their army can
+# DO each turn. A broad army with spare cheap bodies can keep a Tactical deck
+# churning — it has the chaff to perform actions (Cleanse / Sabotage) and the
+# model count to spread across quarters and hold scattered markers. A low-model
+# durable army (the Knight, emergently) has no spare action-doers and cannot
+# reliably achieve a fresh Tactical card every round, so it leans Fixed kill.
+#
+# This is exactly the real-world choice and it falls out of UNIT COUNT alone —
+# NO faction awareness. A Knight (5-6 single-model units, ~0 chaff) lands below
+# the threshold and picks FIXED; a horde / mechanised list lands above it and
+# picks TACTICAL. Even-handed: the same count test runs for both sides.
+_TACTICAL_TRACK_MIN_CHAFF: int = 2   # spare cheap action-doers needed to churn a deck
+_TACTICAL_TRACK_MIN_UNITS: int = 8   # broad-enough roster to spread + redraw
+
+
+def _tac_deck_enabled() -> bool:
+    """M2 real 2-card Tactical secondary deck. Env-gated SWEG_TAC_DECK; unset →
+    legacy `pick_secondaries` / `_score_secondaries` (union of all sources)
+    runs byte-identical. Kept as a function so a future A/B can re-gate via a
+    one-line edit and so OFF is unambiguous at every call site."""
+    import os
+    return os.environ.get("SWEG_TAC_DECK") == "1"
+
+
+def _pick_fixed_kill_pair(own_army: "Army", enemy_army: "Army") -> List[str]:
+    """The 2 Fixed KILL cards an army brings (CA-2025-26 Fixed pool). This is
+    exactly today's Fixed-pick logic, factored out so both the legacy path and
+    the M2 FIXED track use the identical heuristic.
+
+      Slot 1: enemy has >= 3 MONSTER/VEHICLE units → bring_it_down, else no_prisoners.
+      Slot 2: enemy has >= 2 CHARACTER units → assassination, else cull_the_horde.
+    """
+    fixed: List[str] = []
+    if _enemy_monster_vehicle_count(enemy_army) >= _BID_TARGET_THRESHOLD:
+        fixed.append("bring_it_down")
+    else:
+        fixed.append("no_prisoners")
+    enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
+    if enemy_chars >= 2:
+        fixed.append("assassination")
+    else:
+        fixed.append("cull_the_horde")
+    return fixed
+
+
+def _choose_secondary_track(own_army: "Army") -> str:
+    """M2: decide FIXED vs TACTICAL for one army from unit count only (no
+    faction awareness). Returns "TACTICAL" if the army has enough spare chaff
+    AND a broad-enough roster to keep a 2-card deck churning, else "FIXED".
+
+    The asymmetry is purely emergent: a low-model durable list (no chaff, few
+    units) lands on FIXED kill exactly as a real Knight player would; a broad
+    body army lands on TACTICAL. Identical test for both sides — even-handed."""
+    chaff = _own_chaff_count(own_army)
+    units = sum(1 for _ in own_army.units)
+    if chaff >= _TACTICAL_TRACK_MIN_CHAFF and units >= _TACTICAL_TRACK_MIN_UNITS:
+        return "TACTICAL"
+    return "FIXED"
+
+
 def pick_secondaries(
     own_army: "Army", enemy_army: "Army",
 ) -> Tuple[str, ...]:
@@ -683,6 +784,28 @@ def pick_secondaries(
 
     Cited as `simulator.secondary_selection`.
     """
+    # M2 (wave 119, env-gated SWEG_TAC_DECK) — the real Fixed-OR-Tactical track
+    # choice. When the deck gate is ON we set `own_army.secondary_track` and
+    # return ONLY that track's scoring sources (the simulator's deck-aware
+    # scorer reads the track + hand), instead of the legacy union of every
+    # source. OFF leaves the track None and falls through to the byte-identical
+    # legacy path below. Cited as `simulator.tactical_secondary_deck`.
+    if _tac_deck_enabled():
+        track = _choose_secondary_track(own_army)
+        own_army.secondary_track = track
+        if track == "FIXED":
+            # FIXED: the 2 kill cards, scored every round.
+            own_army.tactical_hand = []
+            own_army.tactical_deck = []
+            return tuple(_pick_fixed_kill_pair(own_army, enemy_army))
+        # TACTICAL: the 2-card rotating hand. The hand + remaining deck are
+        # filled deterministically at battle start by `Battle._init_tactical_deck`
+        # (the army name + battle seed are not visible here). Return the full
+        # deck pool as the army's `chosen_secondaries` so every per-card gate
+        # (cleanse / sabotage / board) recognises the card while the hand is the
+        # actual scored subset.
+        return tuple(TACTICAL_DECK_POOL)
+
     fixed: List[str] = []
     enemy_mv = _enemy_monster_vehicle_count(enemy_army)
     if enemy_mv >= _BID_TARGET_THRESHOLD:

@@ -484,6 +484,13 @@ class Battle:
         from .secondaries import pick_secondaries as _pick_secondaries
         self.a.chosen_secondaries = _pick_secondaries(self.a, self.b)
         self.b.chosen_secondaries = _pick_secondaries(self.b, self.a)
+        # M2 (wave 119, env-gated SWEG_TAC_DECK) — seed each TACTICAL army's
+        # 2-card hand + remaining deck deterministically. `pick_secondaries`
+        # set `secondary_track`; this fills `tactical_hand`/`tactical_deck`.
+        # Inert (no-op) when the gate is off or the army is on the FIXED track.
+        # Cited as `simulator.tactical_secondary_deck`.
+        self._init_tactical_deck(self.a)
+        self._init_tactical_deck(self.b)
         self._deploy_armies()
         # Phase I — pre-game Scouts move happens AFTER deployment and BEFORE
         # Round 1 begins. Deep Strike arrivals start at Round 2.
@@ -1042,15 +1049,22 @@ class Battle:
                     cleansed += 1
                     break
 
-    def _score_cleanse(self, army, opponent, own_is_army_a: bool) -> int:
+    def _score_cleanse(self, army, opponent, own_is_army_a: bool,
+                       chosen_override=None) -> int:
         """End-of-turn Cleanse scoring (wave 74): 2 VP per objective that is
         outside the army's own deployment zone, still controlled by the army,
         and carries a surviving Cleanse-action unit — capped at two objectives
         (4 VP), per the real Pariah Nexus rule. Each unit cleanses one marker.
-        Cited as `simulator.secondary_cleanse`."""
+        Cited as `simulator.secondary_cleanse`.
+
+        M2: `chosen_override` (default None → read `army.chosen_secondaries`, the
+        byte-identical legacy behaviour) lets the per-card dispatcher isolate this
+        one card with a singleton tuple."""
         if not self._cleanse_enabled():
             return 0
-        if "cleanse" not in (getattr(army, "chosen_secondaries", ()) or ()):
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "cleanse" not in chosen:
             return 0
         cleansed = 0
         for obj in self.map.objectives:
@@ -1121,16 +1135,23 @@ class Battle:
             u.action_this_round = "sabotage"
             n += 1
 
-    def _score_sabotage(self, army, own_is_army_a: bool) -> int:
+    def _score_sabotage(self, army, own_is_army_a: bool,
+                        chosen_override=None) -> int:
         """End-of-round Sabotage scoring (wave 75): the best surviving Sabotage
         action completes for 6 VP in the enemy deployment zone or 3 VP in No
         Man's Land, capped at one completion (6 VP) per round. The survival gate
         (the chaff must still be alive forward at end of round, after the
         opponent's turn) is what makes deep Sabotage genuinely risky and bounds
-        it. Cited as `simulator.secondary_sabotage`."""
+        it. Cited as `simulator.secondary_sabotage`.
+
+        M2: `chosen_override` (default None → read `army.chosen_secondaries`, the
+        byte-identical legacy behaviour) lets the per-card dispatcher isolate this
+        one card with a singleton tuple."""
         if not self._sabotage_enabled():
             return 0
-        if "sabotage" not in (getattr(army, "chosen_secondaries", ()) or ()):
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
+        if "sabotage" not in chosen:
             return 0
         best = 0
         for u in army.alive_units:
@@ -1220,10 +1241,15 @@ class Battle:
             return 2
         return 0
 
-    def _score_board_secondaries(self, army, opponent, own_is_army_a: bool) -> int:
+    def _score_board_secondaries(self, army, opponent, own_is_army_a: bool,
+                                 chosen_override=None) -> int:
         """End-of-round scoring for the Tier-A take-and-hold secondaries an army
         chose. Control of a marker = strictly greater Objective Control than the
         opponent (same test as Cleanse). Env-gated; returns 0 when off.
+
+        M2: `chosen_override` (default None → read `army.chosen_secondaries`, the
+        byte-identical legacy behaviour) lets the per-card dispatcher isolate one
+        board card with a singleton tuple.
 
         * Secure No Man's Land — 2 VP one / 5 VP two+ No Man's Land objectives
           controlled. Cited `simulator.secondary_secure_no_mans_land`.
@@ -1238,7 +1264,8 @@ class Battle:
         """
         if not self._tier_a_enabled():
             return 0
-        chosen = getattr(army, "chosen_secondaries", ()) or ()
+        chosen = (chosen_override if chosen_override is not None
+                  else (getattr(army, "chosen_secondaries", ()) or ()))
         opp_tag = "b" if own_is_army_a else "a"
         nml_controlled = 0
         own_dz_controlled = 0
@@ -1264,6 +1291,173 @@ class Battle:
         if "area_denial" in chosen:
             total += self._score_area_denial(army, opponent)
         return total
+
+    # ------------------------------------------------------------------
+    # M2 (wave 119) — the real 2-card Tactical secondary deck (env-gated
+    # SWEG_TAC_DECK). See docs/M2_TACTICAL_DECK_PLAN.md and
+    # data/rule_citations.d/secondaries_pariah_nexus.json#simulator.tactical_secondary_deck.
+    #
+    # CA-2025-26: each army secretly chooses Fixed OR Tactical Missions. A FIXED
+    # army scores its 2 kill cards every round; a TACTICAL army holds a 2-card
+    # hand, scoring only those two and discarding+redrawing any it achieves
+    # (scored 1+ VP from) each Command phase. Today's scorer scored the UNION of
+    # ~9-11 sources every round, trivially exceeding the 40 cap and washing the
+    # secondary out. When the gate is ON, `_score_secondaries` routes through the
+    # track model below; when OFF, the legacy union scoring runs byte-identical.
+    # ------------------------------------------------------------------
+
+    def _tac_deck_enabled(self) -> bool:
+        """M2 real 2-card Tactical secondary deck. Env-gated SWEG_TAC_DECK; unset
+        → legacy union-of-sources secondary scoring runs byte-for-byte. Kept as a
+        method so a future A/B can re-gate via a one-line edit."""
+        return __import__("os").environ.get("SWEG_TAC_DECK") == "1"
+
+    def _init_tactical_deck(self, army: Army) -> None:
+        """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
+
+        Called once per battle at start (after `pick_secondaries` set the track).
+        No-op when the deck gate is off or the army is on the FIXED track.
+
+        Determinism: the deck shuffle must reproduce under PYTHONHASHSEED=0. We do
+        NOT draw from the global `random` — that would (a) couple the deck order
+        to however much RNG army-building happened to consume and (b) perturb the
+        downstream movement/combat stream on the ON path. Instead the per-army
+        deck seed is a pure function of values already fixed at battle start: a
+        stable CRC of the army name combined with a CRC of BOTH armies' sorted
+        unit-name multisets (the matchup-as-built). `zlib.crc32` is used, NOT the
+        salted built-in `hash`, so the seed is identical under PYTHONHASHSEED=0
+        across processes for the same built armies. A private `random.Random`
+        shuffles the pool, so the two armies get independent, reproducible orders
+        and the global RNG stream is untouched."""
+        army.secondary_track = getattr(army, "secondary_track", None)
+        army.tactical_hand = []
+        army.tactical_deck = []
+        if not self._tac_deck_enabled():
+            return
+        if army.secondary_track != "TACTICAL":
+            return
+        import zlib
+        from .secondaries import TACTICAL_DECK_POOL
+        # Battle-stable, global-RNG-free seed: army name CRC XOR a CRC of the
+        # sorted unit-name multiset of both armies (the matchup identity). Using
+        # both rosters makes the seed depend on the whole battle, not just the
+        # name; using the army's OWN name as well gives A and B independent orders.
+        def _roster_sig(a) -> str:
+            return "|".join(sorted((u.profile.name or "") for u in a.units))
+        matchup_sig = f"{_roster_sig(self.a)}##{_roster_sig(self.b)}"
+        name_crc = zlib.crc32((army.name or "").encode("utf-8")) & 0xFFFFFFFF
+        matchup_crc = zlib.crc32(matchup_sig.encode("utf-8")) & 0xFFFFFFFF
+        deck_rng = random.Random(name_crc ^ matchup_crc)
+        deck = list(TACTICAL_DECK_POOL)
+        deck_rng.shuffle(deck)
+        # Draw the opening hand of two (or fewer if the pool is tiny).
+        army.tactical_hand = deck[:2]
+        army.tactical_deck = deck[2:]
+
+    def _score_one_card(self, card_key: str, scoring_army: Army,
+                        other_army: Army, own_is_army_a: bool,
+                        round_num: int) -> int:
+        """M2 per-card dispatcher: score EXACTLY ONE secondary card this round
+        for `scoring_army`, routing `card_key` to its existing scorer with a
+        singleton `chosen` so no other card leaks in. Returns that card's VP.
+
+        Every existing scorer already gates each card on the `chosen` tuple, so a
+        singleton isolates one card. The board / cleanse / sabotage scorers read
+        `army.chosen_secondaries` directly rather than a parameter, so they take a
+        `chosen_override` (added minimally; `None` preserves the OFF behaviour)."""
+        from .secondaries import score_round_delta, score_position_delta
+        one = (card_key,)
+        # --- Kill cards (FIXED pool, but routed here too for completeness) -----
+        if card_key in ("bring_it_down", "no_prisoners",
+                        "cull_the_horde", "assassination"):
+            # Score `scoring_army`'s kills of `other_army` this round: diff the
+            # OTHER army's round-start snapshot against its current state.
+            snap = (self._b_round_snapshot if own_is_army_a
+                    else self._a_round_snapshot)
+            if snap is None:
+                return 0
+            other_warlord = (self.b.warlord_uid if own_is_army_a
+                             else self.a.warlord_uid)
+            bid, np_, cth, assn = score_round_delta(
+                snap, other_army.units,
+                enemy_warlord_uid=other_warlord,
+                chosen=one,
+            )
+            return bid + np_ + cth + assn
+        # --- Position cards (Engage / Behind Enemy Lines) ----------------------
+        if card_key in ("engage_on_all_fronts", "behind_enemy_lines"):
+            eng, bel = score_position_delta(
+                scoring_army.units, self.map, own_is_army_a=own_is_army_a,
+                round_num=round_num, chosen=one,
+            )
+            return eng + bel
+        # --- Action cards (Cleanse / Sabotage) ---------------------------------
+        if card_key == "cleanse":
+            return self._score_cleanse(scoring_army, other_army,
+                                       own_is_army_a=own_is_army_a,
+                                       chosen_override=one)
+        if card_key == "sabotage":
+            return self._score_sabotage(scoring_army, own_is_army_a=own_is_army_a,
+                                        chosen_override=one)
+        # --- Board take-and-hold cards -----------------------------------------
+        from .secondaries import BOARD_SECONDARY_KEYS
+        if card_key in BOARD_SECONDARY_KEYS:
+            return self._score_board_secondaries(
+                scoring_army, other_army, own_is_army_a=own_is_army_a,
+                chosen_override=one)
+        # Unknown card key — fail loud (CLAUDE.md §13: no silent defaults).
+        raise KeyError(
+            f"_score_one_card: unrecognised Tactical-deck card '{card_key}' "
+            f"(not in the kill / position / action / board pools)"
+        )
+
+    def _score_tactical_hand(self, army: Army, other_army: Army,
+                            own_is_army_a: bool, round_num: int) -> int:
+        """M2: score a TACTICAL army's <=2 held cards this round, then run the
+        achieve→discard→redraw step (a card that scored 1+ VP is discarded and
+        replaced from the deck, refilling the hand to two if the deck has cards).
+        Returns the round's total VP from the hand. Scores ONLY the hand."""
+        total = 0
+        achieved: list = []
+        for card in list(army.tactical_hand):
+            vp = self._score_one_card(card, army, other_army,
+                                      own_is_army_a, round_num)
+            if vp > 0:
+                total += vp
+                achieved.append(card)
+        # Discard achieved cards and redraw to refill the hand to two.
+        for card in achieved:
+            army.tactical_hand.remove(card)
+        while len(army.tactical_hand) < 2 and army.tactical_deck:
+            army.tactical_hand.append(army.tactical_deck.pop(0))
+        return total
+
+    def _score_secondaries_deck(self, round_num: int) -> None:
+        """M2 deck-aware per-round secondary scoring (SWEG_TAC_DECK ON). Each army
+        scores ONLY its chosen track: a FIXED army its 2 kill cards every round; a
+        TACTICAL army its 2-card hand (with achieve→discard→redraw). Never both,
+        never the whole pile. The 40-VP secondary total cap in `_decide_winner`
+        still bounds the sum. Cited as `simulator.tactical_secondary_deck`."""
+        for army, other, own_is_a, add_vp in (
+            (self.a, self.b, True, "a"),
+            (self.b, self.a, False, "b"),
+        ):
+            track = getattr(army, "secondary_track", None)
+            if track == "TACTICAL":
+                vp = self._score_tactical_hand(army, other, own_is_a, round_num)
+            else:
+                # FIXED (or an unset track defensively treated as FIXED): score
+                # the 2 chosen kill cards every round via the per-card dispatcher.
+                vp = 0
+                for card in (army.chosen_secondaries or ()):
+                    vp += self._score_one_card(card, army, other,
+                                               own_is_a, round_num)
+            if own_is_a:
+                self._a_vp += vp
+                self._a_secondary_vp += vp
+            else:
+                self._b_vp += vp
+                self._b_secondary_vp += vp
 
     def _score_secondaries(self, round_num: int) -> None:
         """End-of-round secondary VP scoring (Bring it Down + No Prisoners).
@@ -1301,7 +1495,15 @@ class Battle:
           Cited as `simulator.secondary_assassination`.
 
         Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+
+        M2 (wave 119, env-gated SWEG_TAC_DECK): when the deck gate is ON, scoring
+        delegates to `_score_secondaries_deck` (each army scores ONLY its Fixed
+        or Tactical track — at most 2 sources, not the union of ~9-11). When OFF
+        the legacy union scoring below runs byte-for-byte unchanged.
         """
+        if self._tac_deck_enabled():
+            self._score_secondaries_deck(round_num)
+            return
         from .secondaries import score_round_delta, score_position_delta
         # Side A scores VP for killing side B's units this round — diff
         # B's round-start snapshot against B's current state. Four

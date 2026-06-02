@@ -82,6 +82,15 @@
     "scope": "phase-gated",
     "approximation": true
   },
+  "simulator.tactical_secondary_deck": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; deck mechanic cross-checked vs the Pariah Nexus Tactical Mission rules + Goonhammer CA-2025 review)",
+    "rule_name": "Secondary Missions — Fixed vs Tactical, and the Tactical deck draw/achieve/redraw mechanic (Chapter Approved 2025-26)",
+    "quoted_text": "When you muster your army, you must decide whether you will be using Fixed Missions or Tactical Missions for the battle. ... If you are using Tactical Missions: At the start of your first Command phase, draw two cards from your Secondary Mission deck. Those two Secondary Missions are active for you until you achieve them. At the start of each of your subsequent Command phases, if you have fewer than two active Secondary Mission cards, draw Secondary Mission cards until you have two active Secondary Mission cards. ... At the end of your turn, if you scored one or more victory points from a Secondary Mission card this turn, that Secondary Mission is achieved; discard that card.",
+    "trigger": "battle start (track choice from unit count — even-handed, no faction tag) and each Command phase / round end (a TACTICAL army holds at most two active cards, scores only those, and discards+redraws any it scored 1+ VP from)",
+    "effect": "Replaces the simulator's legacy union-of-~9-11-sources secondary scoring with the real rule: each army uses ONE track. A FIXED army (low unit/chaff count — emergently the Knight) scores its 2 kill cards every round; a TACTICAL army (broad roster with spare chaff) holds a deterministically-seeded 2-card hand drawn from the Tactical/action/board pool, scoring only the hand and running achieve->discard->redraw each round. Bounded by the existing 40-VP secondary total cap. Env-gated SWEG_TAC_DECK; OFF reproduces the legacy scoring byte-for-byte. Even-handed: the Fixed/Tactical split falls out of `secondaries._choose_secondary_track` (chaff + unit count), never a faction. Deterministic: the deck shuffle is seeded from a battle-stable global-RNG draw XOR the army-name CRC, reproducible under PYTHONHASHSEED=0. Implemented as Battle._init_tactical_deck / _score_one_card / _score_tactical_hand / _score_secondaries_deck and secondaries.pick_secondaries / TACTICAL_DECK_POOL. STAGE C TODO: the CA-2025-26 Tactical deck also has action cards (Establish Locus, Recover Assets, A Tempting Target) the sim does not yet model — left as a cited TODO, not invented.",
+    "scope": "phase-gated",
+    "approximation": true
+  },
   "simulator.secondary_assassination": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck; cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 92)",
     "rule_name": "Assassination (Chapter Approved 2025-26 Secondary Mission, Fixed)",

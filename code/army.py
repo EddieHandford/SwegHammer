@@ -440,6 +440,25 @@ class Army:
         # runs. Cited as `simulator.secondary_selection` (10e Pariah Nexus
         # mission pack: each player selects 2 Fixed or draws Tactical).
         self.chosen_secondaries: Tuple[str, ...] = ()
+        # M2 (wave 119) — real 2-card Tactical secondary deck (env-gated
+        # SWEG_TAC_DECK). Each army uses one of two tracks, decided by
+        # `secondaries.pick_secondaries` from unit count (even-handed, no
+        # faction awareness): "FIXED" (2 kill cards scored every round) or
+        # "TACTICAL" (a 2-card rotating hand). These three fields are only
+        # populated/used when the deck gate is ON; OFF leaves them at their
+        # defaults and the legacy union-of-sources scoring runs unchanged.
+        #   secondary_track: "FIXED" | "TACTICAL" | None (None == gate off /
+        #     not yet picked — the scorer falls back to the legacy path).
+        #   tactical_hand: the <=2 Tactical cards currently held (active until
+        #     achieved). Scored each round; an achieved card is discarded and a
+        #     replacement is drawn from `tactical_deck`.
+        #   tactical_deck: the shuffled remaining pool the hand redraws from.
+        # The hand + deck are seeded deterministically at battle start (see
+        # `Battle._init_tactical_deck`) so PYTHONHASHSEED=0 reproduces.
+        # Cited as `simulator.tactical_secondary_deck`.
+        self.secondary_track: Optional[str] = None
+        self.tactical_hand: List[str] = []
+        self.tactical_deck: List[str] = []
         # Coordinated army-level activation plan (#161 / S3). Picked once per
         # round by the simulator's `_pick_army_plan` and consulted by both
         # `activation_queue` (to order units that align with the plan first)
