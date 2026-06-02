@@ -337,6 +337,11 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
+        # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
+        # When set, Primary VP is scored at each player's Command phase (turn
+        # start) inside the vanilla IGOUGO round, instead of once at end of round
+        # — the real 10e timing. Read once; default off → baseline byte-identical.
+        self._cmd_score: bool = __import__("os").environ.get("SWEG_CMDSCORE") == "1"
         # SC4-A — 10e Pariah Nexus secondary objectives. Each round we
         # snapshot each army's alive units at round start (in `_run_round`)
         # and compute Bring it Down + No Prisoners VP at round end (in
@@ -587,6 +592,12 @@ class Battle:
         # Gate unset → score at end of round as before; OFF path byte-identical.
         # Cited as `simulator.primary_vp_entering_round`.
         enter_score = __import__("os").environ.get("SWEG_ENTERSCORE") == "1"
+        # Per-Command-phase scoring (SWEG_CMDSCORE) replaces the once-per-round
+        # Primary scoring with a per-player score at each Command phase, done
+        # inside _run_round_vanilla_turns. It only applies to the vanilla IGOUGO
+        # path (the eval's default); under alternating activations there are no
+        # clean per-player Command phases, so fall back to end-of-round there.
+        cmd_score = self._cmd_score and not self.rules.alternating_activations
         for rnd in range(1, MAX_ROUNDS + 1):
             rounds_played = rnd
             self._emit(RoundStarted(round_num=rnd))
@@ -594,14 +605,16 @@ class Battle:
             # Rounds 2-5 score (4 opportunities × 15 VP = 60 VP max before
             # any total cap). Round 1 is purely movement / alpha-strike.
             # Cited as `simulator.primary_vp_no_round_1`.
-            if enter_score and rnd >= 2:
+            if not cmd_score and enter_score and rnd >= 2:
                 # Score on control ENTERING the round (= end of the previous
                 # round), before this round's combat strips transient holders.
                 self._score_objectives()
             self._run_round(rnd)
-            if not enter_score and rnd >= 2:
+            if not cmd_score and not enter_score and rnd >= 2:
                 # Baseline: score on post-combat (round-end) survivor control.
                 self._score_objectives()
+            # cmd_score: Primary was already scored per Command phase inside the
+            # round (in _run_round_vanilla_turns); nothing to do here.
             self._score_secondaries(rnd)
             self._emit(RoundEnded(
                 round_num=rnd,
@@ -684,9 +697,18 @@ class Battle:
             return self.b.name
         return None  # genuinely close — call it a draw
 
-    def _score_objectives(self) -> None:
+    def _score_objectives(self, only_for: Optional[str] = None) -> None:
         """End-of-round VP scoring: each objective awards its vp_per_round to
         whichever side has more Objective Control within control_radius.
+
+        `only_for` (army name) restricts the AWARD to that one army — used by the
+        per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE) so
+        each player scores its own primary at its own Command phase (turn start),
+        the real 10e timing, instead of both at end of round. The Objective
+        Control contest and sticky-ownership tracking still run in full (board
+        state at that Command phase); only which side's running VP is incremented
+        is filtered. `only_for=None` (default) scores both — the baseline
+        end-of-round behaviour. Cited as `simulator.primary_vp_command_phase`.
 
         Sticky Objectives (issue #85): a unit with sticky_objective=True that
         currently controls an objective marks self._sticky_owner[obj_idx] =
@@ -861,13 +883,17 @@ class Battle:
                 elif cur_owner == self.b.name and a_oc > b_oc:
                     self._sticky_owner.pop(obj_idx, None)
 
-            if scorer == self.a.name:
+            # only_for filters which side's running VP is incremented (the
+            # Command-phase scorer awards just the active player); the OC contest
+            # and sticky tracking above already ran for both sides.
+            _award = scorer if (only_for is None or scorer == only_for) else None
+            if _award == self.a.name:
                 self._a_vp += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.a.name,
                     vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
                 ))
-            elif scorer == self.b.name:
+            elif _award == self.b.name:
                 self._b_vp += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.b.name,
@@ -6847,6 +6873,18 @@ class Battle:
         """
         from .leaders import bump_buffs_generation
         for active, other in ((first, second), (second, first)):
+            # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
+            # 10e scores Primary VP at the end of each player's Command phase —
+            # i.e. at the START of that player's turn, on the objectives it
+            # controls THEN, before its own movement this turn. The baseline
+            # scores Primary once per round, at end of round after BOTH turns,
+            # which only credits the post-combat survivor. Scoring here, per
+            # player at its own turn start, is the faithful timing the wave-111
+            # entering-round (once/round) experiment did not test. Rounds 2-5
+            # only (no round-1 primary). No-op unless the gate is set, so the OFF
+            # path is byte-identical. Cited as `simulator.primary_vp_command_phase`.
+            if self._cmd_score and self._current_round >= 2:
+                self._score_objectives(only_for=active.name)
             # Clear the effective_buffs cache once per phase — positions don't
             # change mid-phase, so all units in a phase safely share cached results.
             bump_buffs_generation()

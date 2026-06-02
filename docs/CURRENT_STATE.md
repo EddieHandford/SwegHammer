@@ -1,6 +1,20 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 115 (2026-06-02) — CONVERGENCE UNIVERSALLY CONFIRMED: batch-checked the 8 remaining
+**Last updated:** Wave 116 (2026-06-02) — DOUBLE CORRECTION to the diagnostic arc. (1) The eval ALREADY runs
+vanilla IGOUGO per-player turns (verified: 0 alternating calls), NOT the alternating model — so (iii) was never
+a "foundational un-interleaving" the user must authorise; the IGOUGO machinery exists. (2) Built the REAL
+per-Command-phase primary scoring (gated `SWEG_CMDSCORE`, default-OFF, `_score_objectives(only_for=...)` inside
+the IGOUGO loop, cited): **clean N=40 A/B is NET-NEUTRAL (OFF 4.41 == baseline, ON 4.41)** — it redistributes
+(helps static holders Grey Knights/Astra, brings over-shooters Sororitas/Orks/Tyranids down, but HURTS mobile
+takers Chaos Daemons −14.6 → −20.8) and **does NOT fix Imperial Knights (+26.5 → +27.3): the durable Knight
+tightens its primary margin but still WINS, so its win rate is robust to the timing.** **REFUTES "scoring-timing
+is the IK lever" — the IK over-shoot is a one-Unit-per-model durable-concentrated-holder REPRESENTATION limit,
+not a timing artifact; the user does NOT need to authorise a foundational (iii) change.** `SWEG_CMDSCORE` kept
+gated default-OFF (faithful real timing, net-neutral, +1 band). The faithful sim levers (timing, positional AI,
+combat) are now ALL exhausted/net-neutral on the convergent residual — the genuine structural floor. Suite green
+(1001). `docs/RESIDUAL_CONVERGENCE_2026-06-02.md`, LOOP_QA wave-116.
+
+**Wave 115** — CONVERGENCE UNIVERSALLY CONFIRMED: batch-checked the 8 remaining
 out-of-band factions; across ALL 14 diagnosed factions the primary-VP delta tracks the win rate one-to-one
 (Leagues of Votann +13.8 / Sororitas +11.1 over-hold and over-shoot; Astra Militarum / Grey Knights / AdMech
 −2.7/−3.0 under-hold and under-shoot; tabling negligible, secondary a capped wash everywhere). **The whole

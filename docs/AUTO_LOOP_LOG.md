@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 116 close (2026-06-02) — DOUBLE CORRECTION: the eval already runs IGOUGO (so (iii) was never foundational), and building the REAL per-Command-phase scoring is NET-NEUTRAL — refuting "scoring-timing is the Imperial Knights lever"
+
+Branch `claude/sim-calibration-6`. Two corrections to the wave 109-115 diagnostic arc, both important:
+
+**1. The eval ALREADY runs vanilla IGOUGO per-player turns, NOT the alternating model.** Verified empirically
+(`Battle` default `rules=None` → `RulesConfig.vanilla_10e()` = all-False = `alternating_activations=False` →
+`_run_round_vanilla_turns`; instrumented: 0 alternating calls, 5 vanilla-turn calls). My wave-109 reading was
+wrong — I assumed the eval used the alternating model and framed (iii) as a "foundational un-interleaving the
+user must authorise." It is NOT foundational: the IGOUGO machinery already exists; the only remaining (iii)
+piece is per-Command-phase primary SCORING, a tractable env-gated change.
+
+**2. Built the real per-Command-phase scoring — and it is NET-NEUTRAL; it does NOT fix Imperial Knights.**
+Gated `SWEG_CMDSCORE` (default-OFF): score each player's Primary at its own Command phase (turn start) inside
+`_run_round_vanilla_turns` via `_score_objectives(only_for=<army>)`, instead of once at end of round. Cited
+`simulator.primary_vp_command_phase`; 4 tests; suite green (1001). **Clean N=40 A/B: OFF gated 4.41 == baseline
+(zero drift); ON gated 4.41 (+0.00) — NET-NEUTRAL.** It REDISTRIBUTES (helps static holders Grey Knights −5.9 →
+−0.2, Astra −6.4 → −3.6; brings over-shooters down Sororitas +6.6 → +2.7, Orks +7.6 → +4.1, Tyranids +7.4 →
++5.1; but HURTS mobile takers Chaos Daemons −14.6 → −20.8, same mobile-taker problem as wave-111) — gains and
+losses cancel. **Crucially Imperial Knights +26.5 → +27.3 (UNCHANGED): the durable Knight tightens its primary
+MARGIN but still WINS, so its win rate is robust to the timing.**
+
+**CONCLUSION (refutes the arc's central hypothesis): the Imperial Knights over-shoot is NOT a scoring-timing
+artifact.** The real 10e per-Command-phase scoring — the (iii) the whole arc pointed to — is net-neutral and
+leaves IK untouched. The Knight over-holds at ANY scoring moment because it is genuinely durable + concentrated
+(a one-Unit-per-model representation limit), not because of WHEN primary is scored. So **the user does NOT need
+to authorise a foundational (iii) change** (it is already IGOUGO, and the timing fix does not help). `SWEG_CMDSCORE`
+kept gated default-OFF (the faithful real timing, net-neutral, +1 band — a documented experiment). The
+convergent residual is the durable-concentrated-holder representation gap, where the faithful sim levers
+(timing, positional AI, combat) are now ALL exhausted/net-neutral — the genuine structural floor. LOOP_QA
+wave-116. Live baseline holds at 4.41.
+
 ## Wave 114 close (2026-06-02) — the out-of-band factions CONVERGE: the WHOLE per-faction residual is ONE axis (primary board-control / mission fidelity → user-gated (iii)). No separable mechanic anywhere
 
 Branch `claude/sim-calibration-6`. Per the watchdog steer #2 (diagnose the out-of-band factions for a separable
