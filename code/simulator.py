@@ -6696,6 +6696,12 @@ class Battle:
             # concentrates to REMOVE it (how a real list deletes a Knight),
             # instead of every unit independently picking the lowest-HP target.
             self._nominate_focus_target(active, other)
+            # Wave 101: collective-crack-gated army focus fire (SWEG_FOCUSFIRE).
+            # Nominate the most dangerous enemy brick the firing army can crack
+            # COLLECTIVELY this phase (the wave-79 layer above could pick an
+            # uncrackable Knight and waste fire; this one cannot). Every unit
+            # that can wound the nominee then concentrates on it in _do_shoot.
+            self._nominate_focusfire_target(active, other)
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
@@ -7125,6 +7131,187 @@ class Battle:
                 best = c
         army._focus_target_uid = best.uid if best is not None else None
 
+    # ------------------------------------------------------------------ #
+    # Wave 101 — army-level focus fire, collective-crack gated.           #
+    #                                                                     #
+    # The wave-79 `SWEG_FOCUS` layer nominated a brick purely by its      #
+    # points value and pointed the army's anti-armour at it. That         #
+    # regressed Imperial Knights: a Knight Paladin (Toughness 11, 26      #
+    # wounds, 5+ invulnerable) is durable enough that the victims' fire   #
+    # was wasted on a target nobody could actually shift, while the       #
+    # over-shooter's own anti-armour sharpened. The instrumented failure  #
+    # mode (`docs/FACTION_RESIDUAL_ANALYSIS.md`): an Adeptus Astartes     #
+    # list with ~4 Gladiator Lancers — collectively MORE than enough to   #
+    # delete one Knight — never killed a single big Knight, because the   #
+    # per-unit shooting picker (a lowest-current-health min, the          #
+    # shooting-side analogue of the charge won't-crack penalty) always    #
+    # routes each unit onto a killable Armiger / chaff instead of the     #
+    # 26-wound brick that no single unit cracks.                          #
+    #                                                                     #
+    # This layer fixes the COORDINATION gap that the won't-crack picker   #
+    # leaves: it only ever nominates a brick the firing army can crack    #
+    # COLLECTIVELY this phase (summed expected wounds from every          #
+    # still-to-activate unit that can wound it >= a sensible fraction of  #
+    # its current health). A genuinely uncrackable Knight is NOT          #
+    # nominated, so no fire is wasted — the exact wave-79 pathology this  #
+    # avoids. When a brick IS collectively crackable, every unit that can #
+    # hurt it concentrates fire to finish it (the real counter-Knight     #
+    # focus-fire tactic), even though no single unit solos it.            #
+    #                                                                     #
+    # Faithful + even-handed: army-level coordination for ALL factions vs #
+    # ANY brick (Knight, Vehicle, Monster, or any 8+ wound model). It     #
+    # does not fabricate damage — it only re-points EXISTING fire onto a  #
+    # target the army can already collectively kill. Env-gated            #
+    # `SWEG_FOCUSFIRE`; unset reproduces the baseline target scoring      #
+    # byte-for-byte. Cited as `simulator.focus_fire`.                     #
+    # ------------------------------------------------------------------ #
+
+    # Collective expected wounds must reach this fraction of the brick's
+    # current health for the army to commit to focusing it. ~0.85 means
+    # "can bring it very low or kill it this phase" — a sensible margin
+    # below 1.0 because expected-value proxies under-count spikes
+    # (Devastating Wounds, exploding 6s) and because dropping a brick to a
+    # sliver still removes its objective-control and most of its threat.
+    _FOCUSFIRE_CRACK_FRAC = 0.85
+
+    @staticmethod
+    def _ranged_expected_wounds(attacker_profile, target_unit) -> float:
+        """Expected wounds one round of SHOOTING from `attacker_profile`
+        inflicts on `target_unit`. The ranged analogue of strategy.py's
+        melee `_kill_potential_wounds`, used to decide whether the firing
+        army can COLLECTIVELY crack a brick this phase.
+
+        Composes universal 10e math, no faction conditionals:
+            shots        = attacks
+            hit_frac     = hit_probability (torrent auto-hits)
+            wound_frac   = standard Strength-vs-Toughness table, raised to the
+                           Anti-X floor when the weapon has an Anti-keyword
+                           matching the target (Anti-VEHICLE 4+ -> wound on 4+)
+            save_fail    = 1 - best(armour-after-AP, invulnerable)
+            damage/shot  = per_shot_damage
+        Returns 0.0 for a weapon that cannot wound the target at all (e.g.
+        a bolter into a Knight: it is never redirected, so no wasted fire).
+        """
+        from .units import save_probability, wound_probability
+        p = attacker_profile
+        shots = max(0, getattr(p, "attacks", 0) or 0)
+        if shots <= 0:
+            return 0.0
+        hit_frac = 1.0 if getattr(p, "torrent", False) else (
+            getattr(p, "hit_probability", 0.0) or 0.0
+        )
+        if hit_frac <= 0.0:
+            return 0.0
+        tp = target_unit.profile
+        raw_wound_frac = wound_probability(
+            getattr(p, "strength", 4) or 4, tp.toughness
+        )
+        # Anti-X N+: against a matching keyword the weapon wounds on N+,
+        # i.e. a (7-N)/6 floor on the wound fraction. Use the BEST matching
+        # threshold. This is what makes a dedicated anti-tank gun (Anti-
+        # VEHICLE 4+ lascannon) read as able to hurt a Knight even when raw
+        # Strength-vs-Toughness would not.
+        target_kw = set(tp.unit_keywords or ())
+        anti = getattr(p, "anti_keywords", ()) or ()
+        anti_frac = 0.0
+        for kw, thresh in anti:
+            if kw in target_kw:
+                anti_frac = max(anti_frac, max(0.0, (7 - int(thresh)) / 6.0))
+        wound_frac = max(raw_wound_frac, anti_frac)
+        if wound_frac <= 0.0:
+            return 0.0
+        # "Genuinely can't hurt it" exclusion (the briefing's no-wasted-fire
+        # rule). A weapon whose ONLY wound path is a natural 6 (raw wound
+        # fraction <= 1/6, e.g. a Strength-4 bolter into a Toughness-11 Knight)
+        # and which carries NO matching Anti-keyword contributes negligibly to
+        # cracking a brick. Treat it as unable to hurt the brick so it is never
+        # counted toward the collective crack and never redirected — bolters
+        # keep clearing chaff. A real anti-tank gun (matching Anti-keyword, or
+        # raw wound on 5+ or better) is unaffected.
+        if anti_frac <= 0.0 and raw_wound_frac <= (1.0 / 6.0) + 1e-9:
+            return 0.0
+        save_pass = save_probability(tp.save, getattr(p, "ap", 0) or 0)
+        invuln = getattr(tp, "invuln_save", 7) or 7
+        invuln_pass = save_probability(invuln) if invuln <= 6 else 0.0
+        save_fail = max(0.0, 1.0 - max(save_pass, invuln_pass))
+        if save_fail <= 0.0:
+            return 0.0
+        dmg = p.per_shot_damage or 1.0
+        return shots * hit_frac * wound_frac * save_fail * dmg
+
+    @staticmethod
+    def _brick_threat_value(u) -> float:
+        """How much the firing army WANTS this brick gone — its own offensive
+        output (ranged plus melee expected damage characteristic), so a big-gun
+        brick (a Knight Castellan, a Gladiator Lancer) outranks an inert hull.
+        Used only to break ties between bricks the army can crack: concentrate
+        on the single most dangerous one rather than splitting fire."""
+        p = u.profile
+        ranged = (
+            (getattr(p, "attacks", 0) or 0)
+            * (getattr(p, "hit_probability", 0.0) or 0.0)
+            * (p.per_shot_damage or 0.0)
+        )
+        melee = (
+            (getattr(p, "melee_attacks", 0) or 0)
+            * (getattr(p, "melee_hit_probability", 0.0) or 0.0)
+            * (getattr(p, "melee_damage_per_shot", 0.0) or 1.0)
+        )
+        return ranged + melee
+
+    def _nominate_focusfire_target(self, army, opponent) -> None:
+        """Wave 101 — collective-crack-gated army focus fire (env-gated
+        `SWEG_FOCUSFIRE`). Once per Shooting phase, find the bricks the firing
+        army can crack COLLECTIVELY this phase and nominate the single most
+        dangerous one as the army's focus target. The per-unit `_do_shoot`
+        picker then routes every unit that can wound it onto it, concentrating
+        fire to finish it — the real counter-brick focus-fire tactic.
+
+        Unlike wave-79 `SWEG_FOCUS` (which nominated by points and could pick
+        an uncrackable Knight), this only nominates a brick when the army's
+        SUMMED expected wounds this phase reach `_FOCUSFIRE_CRACK_FRAC` of its
+        current health, so a genuinely uncrackable target is never chosen and
+        no fire is wasted. Cited as `simulator.focus_fire`."""
+        army._focusfire_target_uid = None
+        if __import__("os").environ.get("SWEG_FOCUSFIRE") != "1":
+            return
+        bricks = [u for u in opponent.alive_units if self._is_durable_threat(u)]
+        if not bricks:
+            return
+        shooters = [u for u in army.alive_units]
+        if not shooters:
+            return
+
+        best = None
+        best_threat = -1.0
+        for brick in bricks:
+            # Sum the expected wounds every still-alive friendly unit could
+            # put into this brick this phase. Only units that can actually
+            # wound it contribute (a bolter squad adds 0 vs a Knight), so the
+            # collective total honestly reflects the army's anti-brick output.
+            collective = 0.0
+            contributors = 0
+            for s in shooters:
+                ew = self._ranged_expected_wounds(s.profile, brick)
+                if ew > 0.0:
+                    collective += ew
+                    contributors += 1
+            # A single solo cracker does not need army coordination (the
+            # normal picker would not avoid it once it is the lowest-HP-per-
+            # threat option anyway); the value of this layer is concentrating
+            # MULTIPLE units. Require at least two contributors so we only
+            # override the picker where coordination is the missing piece.
+            if contributors < 2:
+                continue
+            need = self._FOCUSFIRE_CRACK_FRAC * max(1.0, brick.current_health)
+            if collective < need:
+                continue   # army cannot collectively crack it — do not waste fire
+            threat = self._brick_threat_value(brick)
+            if threat > best_threat:
+                best_threat = threat
+                best = brick
+        army._focusfire_target_uid = best.uid if best is not None else None
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action (e.g. Cleanse) cannot shoot this turn. Cited as
@@ -7366,6 +7553,21 @@ class Battle:
         _focus_target = None
         if _focus_uid is not None and self._is_antiarmour_weapon(attacker.profile):
             _focus_target = next((u for u in pool if u.uid == _focus_uid), None)
+        # Wave 101: collective-crack-gated focus fire (SWEG_FOCUSFIRE). If the
+        # army has nominated a brick it can crack collectively this phase, and
+        # THIS unit can actually wound it (expected wounds > 0 — a bolter into a
+        # Knight contributes nothing, so it is never redirected and no fire is
+        # wasted), and the brick is reachable this activation, concentrate fire
+        # on it. This OVERRIDES the per-unit lowest-health picker (the shooting-
+        # side won't-crack behaviour) for the focus brick only. Cited as
+        # `simulator.focus_fire`.
+        _ff_uid = getattr(attacker_army, "_focusfire_target_uid", None)
+        if _ff_uid is not None:
+            _ff_target = next((u for u in pool if u.uid == _ff_uid), None)
+            if _ff_target is not None and self._ranged_expected_wounds(
+                attacker.profile, _ff_target
+            ) > 0.0:
+                _focus_target = _ff_target
         if _focus_target is not None:
             shoot_target = _focus_target
         else:

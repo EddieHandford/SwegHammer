@@ -570,6 +570,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.pistol_exclusivity",
     "simulator.primary_vp_no_round_1",
     "simulator.rend_and_tear",
+    # Wave 101 — army-level focus fire (env-gated SWEG_FOCUSFIRE). AI tactical
+    # heuristic, NOT a 10e game rule: once per Shooting phase the firing army
+    # nominates the most dangerous enemy brick it can crack COLLECTIVELY this
+    # phase, and every unit that can wound it concentrates fire on it. Does not
+    # change combat math; only re-points existing fire onto a target the army
+    # can already destroy. The wave-79 SWEG_FOCUS predecessor (points-based, no
+    # collective-crack gate) is intentionally NOT cited here — it has no
+    # collective-crack guarantee and is being superseded by this layer.
+    # See data/rule_citations.d/focus_fire.json.
+    "simulator.focus_fire",
     "unit.necrodermis",
 )
 
