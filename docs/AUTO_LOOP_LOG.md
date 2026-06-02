@@ -4,6 +4,35 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 102 close (2026-06-02) — intelligent deployment + SCREENING (gated `SWEG_DEPLOY`), watchdog queue #2: REGRESSES the headline, but is the FIRST lever to move Imperial Knights DOWN (screening denies the Knight) — crude gunline placement hurts the under-shooters
+
+Branch `claude/sim-calibration-6`. Built the watchdog's #2 lever (overnight-appropriate, faithful). The sim
+line-deploys every unit on one line (`_deploy_armies`/`_deploy_line`) with no screening. The lever (env-gated
+`SWEG_DEPLOY`) role-splits each army: expendable SCREENS / chaff deploy FORWARD (toward mid-board, to control
+space + deny the deep-strike bubble + body-block charges), and high-value SHOOTING / durable / character units
+deploy at the REAR of the deployment zone, protected. Role split reuses `code/roles.py` classify; even-handed,
+cited `simulator.intelligent_deployment` (flagged AI tactic). 977 tests pass (incl. 17 new deployment tests),
+audit clean, run.py OK both gate states.
+
+A/B (N=40): gated 4.13 → **4.67** (REGRESSED +0.54). Mixed per-faction:
+
+| | Imperial Knights | Chaos Daemons | Astra Militarum | Adeptus Mechanicus | Genestealer Cults |
+|---|---:|---:|---:|---:|---:|
+| OFF | +27.3 | −14.5 | −6.2 | −10.9 | +0.1 |
+| ON | +25.4 | −11.3 | −8.1 | −12.3 | +3.1 |
+
+THE INTERESTING FINDING: this is the FIRST lever to move Imperial Knights DOWN (+27.3 → +25.4, gated
+24.37 → 22.47) — a screen body-blocks the Knight and denies it targets/charges, so SCREENING is a partial,
+firepower-independent IK lever (distinct from the four refuted offence/AI levers). It also helped Chaos
+Daemons (−14.5 → −11.3). BUT the crude "gunline to the back of the zone" placement HURT the gunline
+under-shooters — Astra Militarum (−6.2 → −8.1) and Adeptus Mechanicus (−10.9 → −12.3) got MORE bled, not
+less, because burying their guns at the board edge denies them early sightlines — and some deep-strikers got
+stronger (Genestealer Cults +0.1 → +3.1). Net headline regressed. So: faithful CONCEPT, CRUDE implementation.
+KEPT gated (preserves the IK-down finding); FLAGGED for refinement — screen forward AND keep gunlines with
+sightlines (not buried), which might bank the IK-down without the gunline regression. Logged to watchdog.
+Per the overnight guardrail: continuing clean faithful levers; the re-calibration / scoring (the real IK
+fix) stays for the user's morning go.
+
 ## Wave 101 close (2026-06-02) — army-level FOCUS-FIRE targeting (gated `SWEG_FOCUSFIRE`), the watchdog's #1 Imperial-Knights lever: it IMPROVES the headline but makes Imperial Knights WORSE — even focus-fire is frozen-under
 
 Branch `claude/sim-calibration-6`. Built the watchdog's #1 lever for the Imperial Knights +27 (the DEFENCE

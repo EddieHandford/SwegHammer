@@ -1,14 +1,23 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 101 close (2026-06-02) — army-level FOCUS-FIRE targeting (gated `SWEG_FOCUSFIRE`), the
-watchdog's #1 Imperial-Knights lever. The won't-crack penalty made opponents kill 0.00 big Knights/game;
-focus-fire (concentrate when the army can collectively crack a brick) IMPROVES the headline (N=40 4.13 →
-**3.85**) but makes Imperial Knights WORSE (+27.3 → **+29.0**) — even focus-fire is FROZEN-UNDER (even-handed
-focus-fire helps the Knights' own big guns more than opponents killing the Knight). So FOUR simulator-side
-levers (terrain, per-model structure, per-weapon dice, focus-fire) all leave/worsen IK +27: it is
-structurally confirmed to need the RE-CALIBRATION or the SCORING model, NOT any AI/firepower lever. Faithful
-+ headline-positive → KEPT gated (watchdog decides flip-default-ON; ~2× eval-time perf cost noted). Logged to
-watchdog. NEXT: watchdog queue #2 (deployment/screening) and/or the re-calibration inflection.
+**Last updated:** Wave 102 close (2026-06-02) — intelligent deployment + SCREENING (gated `SWEG_DEPLOY`),
+watchdog queue #2. Role-splits each army: expendable screens FORWARD (control space, deny deep-strike, block
+charges), high-value SHOOTING/durable units at the REAR. N=40: gated 4.13 → **4.67** (REGRESSED +0.54), but
+notably the FIRST lever to move Imperial Knights DOWN (+27.3 → **+25.4** — a screen denies the Knight, a
+firepower-independent partial IK lever) and it helped Chaos Daemons (−14.5 → −11.3). BUT the crude "gunline to
+the back" placement HURT the gunline under-shooters (Astra Militarum −6.2 → −8.1, AdMech −10.9 → −12.3 — buried
+guns lose early sightlines). Faithful CONCEPT, CRUDE implementation → KEPT gated, FLAGGED for refinement
+(screen forward AND keep gunlines with sightlines — might bank the IK-down without the gunline regression).
+Logged to watchdog. Per overnight guardrail: clean faithful levers continue; the re-calibration / scoring (the
+real IK fix) is the user's morning go.
+
+### Earlier — wave 101 (focus-fire: headline +better / IK +worse, frozen-under #4)
+
+**Army-level FOCUS-FIRE (gated `SWEG_FOCUSFIRE`), watchdog #1 IK lever.** Opponents killed 0.00 big
+Knights/game (won't-crack penalty); focus-fire concentrates when the army can collectively crack a brick. N=40
+4.13 → 3.85 (headline better) but IK +27.3 → +29.0 (worse, frozen-under). FOUR simulator-side levers (terrain,
+per-model structure, per-weapon dice, focus-fire) all leave/worsen IK +27 → it needs the RE-CALIBRATION or
+SCORING model. Kept gated (bundle into the re-calibration; ~2× eval perf cost noted).
 
 ### Earlier — wave 100 (per-model Stage 4: per-weapon dice; both halves of the Knight hypothesis refuted)
 
