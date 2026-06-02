@@ -1,15 +1,19 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 102 close (2026-06-02) — intelligent deployment + SCREENING (gated `SWEG_DEPLOY`),
-watchdog queue #2. Role-splits each army: expendable screens FORWARD (control space, deny deep-strike, block
-charges), high-value SHOOTING/durable units at the REAR. N=40: gated 4.13 → **4.67** (REGRESSED +0.54), but
-notably the FIRST lever to move Imperial Knights DOWN (+27.3 → **+25.4** — a screen denies the Knight, a
-firepower-independent partial IK lever) and it helped Chaos Daemons (−14.5 → −11.3). BUT the crude "gunline to
-the back" placement HURT the gunline under-shooters (Astra Militarum −6.2 → −8.1, AdMech −10.9 → −12.3 — buried
-guns lose early sightlines). Faithful CONCEPT, CRUDE implementation → KEPT gated, FLAGGED for refinement
-(screen forward AND keep gunlines with sightlines — might bank the IK-down without the gunline regression).
-Logged to watchdog. Per overnight guardrail: clean faithful levers continue; the re-calibration / scoring (the
-real IK fix) is the user's morning go.
+**Last updated:** Wave 103 close (2026-06-02) — REFINED the deployment lever (gated `SWEG_DEPLOY`): gunlines
+at the zone MIDLINE (not buried), screen stays forward. NET-POSITIVE headline N=40 4.13 → **3.75** by
+un-burying the gunline under-shooters (AdMech −10.9 → **−8.4**, Astra −6.2 → −5.8). The wave-102 "Imperial
+Knights drop" was an ARTIFACT — burying the high-value group buried IK's OWN Knights; refined, IK is back to
++27.5 (baseline). So deployment is the FIFTH lever that doesn't fix IK, BUT the refined version is a genuine
+faithful NET-POSITIVE headline lever (real screen-first deployment helping the gunline under-shooters). KEPT
+gated; recommended to the watchdog to confirm at N=80 and flip default-ON. The IK +27 remains a
+re-calibration / scoring problem (the user's morning go). 17 tests pass, audit clean.
+
+### Earlier — wave 102 (crude deployment: regressed; the IK-drop was a buried-own-Knights artifact, refined in w103)
+
+**Intelligent deployment + screening (gated `SWEG_DEPLOY`), watchdog #2.** Crude version put gunlines at the
+board edge → regressed (4.13 → 4.67) and showed an apparent IK-drop that wave 103 proved was an artifact
+(buried IK's own Knights). Refined in wave 103 (above).
 
 ### Earlier — wave 101 (focus-fire: headline +better / IK +worse, frozen-under #4)
 

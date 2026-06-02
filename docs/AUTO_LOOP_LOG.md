@@ -4,6 +4,30 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 103 close (2026-06-02) — REFINED the deployment lever (gunlines at the zone midline, not buried): NET-POSITIVE headline (4.13 → 3.75) by un-burying the gunline under-shooters; the wave-102 "Imperial Knights drop" was an ARTIFACT (it buried IK's OWN Knights)
+
+Branch `claude/sim-calibration-6`. Refined wave-102 per watchdog Q16: the high-value gunline group now
+deploys at the deployment-zone MIDLINE (legacy single-line position, clear firing lane) instead of buried at
+the board edge; the expendable screen stays forward. A/B (N=40, gated `SWEG_DEPLOY`):
+
+| | gated MAE | Imperial Knights | Astra Militarum | Adeptus Mechanicus |
+|---|---:|---:|---:|---:|
+| OFF | 4.13 | +27.3 | −6.2 | −10.9 |
+| crude (w102) | 4.67 | +25.4 | −8.1 | −12.3 |
+| **refined (w103)** | **3.75** | +27.5 | −5.8 | **−8.4** |
+
+The refinement flipped the lever to NET-POSITIVE (4.13 → 3.75) by un-burying the guns — the gunline
+under-shooters recovered (Adeptus Mechanicus −10.9 → −8.4, BETTER than baseline; Astra Militarum −6.2 →
+−5.8). BUT the wave-102 Imperial-Knights drop is GONE (IK back to +27.5 ≈ baseline). THE CORRECTION: the
+crude IK-drop was an ARTIFACT, not a screening mechanism — burying the high-value group buried IK's OWN big
+Knights at the board edge (slow to objectives), so the Knight army did worse for the wrong reason; restoring
+them to the midline restores IK. So deployment is the FIFTH lever that does NOT fix Imperial Knights — but
+the REFINED version is a genuine, faithful, NET-POSITIVE headline lever in its own right (a forward screen +
+guns in a firing position = real screen-first deployment, helping the gunline under-shooters). KEPT gated;
+recommended to the watchdog to confirm at N=80 and flip default-ON. 17 deployment tests pass, audit clean,
+run.py OK both gate states. Per the overnight guardrail, the re-calibration / scoring (the real IK fix)
+remains the user's morning go.
+
 ## Wave 102 close (2026-06-02) — intelligent deployment + SCREENING (gated `SWEG_DEPLOY`), watchdog queue #2: REGRESSES the headline, but is the FIRST lever to move Imperial Knights DOWN (screening denies the Knight) — crude gunline placement hurts the under-shooters
 
 Branch `claude/sim-calibration-6`. Built the watchdog's #2 lever (overnight-appropriate, faithful). The sim
