@@ -168,6 +168,18 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.deep_strike",
     "simulator.scout",
     "simulator.infiltrators",
+    # INTELLIGENT-DEPLOYMENT (env-gated SWEG_DEPLOY). AI tactical heuristic,
+    # NOT a 10e game rule: when set, each army's standard on-board units are
+    # split by generic unit character (Battle._split_screen_back, reusing
+    # code.roles.classify) into a forward SCREEN group (cheap high-model-count
+    # chaff + forward melee) deployed at the deployment zone's inner / mid-board
+    # edge, and a rear HIGH-VALUE group (gunlines, durable bricks, characters,
+    # the top damage dealer) deployed at the army's board edge. Both rows stay
+    # wholly inside the army's own deployment zone. Default OFF reproduces the
+    # legacy single-line deploy byte-for-byte. Faithful competitive screening,
+    # even-handed (faction-neutral). See
+    # data/rule_citations.d/intelligent_deployment.json.
+    "simulator.intelligent_deployment",
     "simulator.reanimation_protocols",
     "simulator.sticky_objective",
     # 10e core "greater Level of Control" rule — applies to objective scoring

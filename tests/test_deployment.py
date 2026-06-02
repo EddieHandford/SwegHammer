@@ -10,6 +10,7 @@ Three layers:
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 import xml.etree.ElementTree as ET
@@ -242,6 +243,164 @@ class DeploymentSimulatorTests(unittest.TestCase):
             self.assertGreater(d, 9.0,
                 f"Deep-strike arrival at {arrived.position} was {d:.2f}\" "
                 f"from enemy at {enemy.position} — should be >9\"")
+
+
+# ---------------------------------------------------------------------------
+# Intelligent deployment + screening (env-gated SWEG_DEPLOY)
+# ---------------------------------------------------------------------------
+
+def _chaff_profile() -> UnitProfile:
+    """A cheap, high-model-count, low-value screen unit (Guardsman-ish)."""
+    return _basic_profile(
+        name="Chaff", health=1, save=5, toughness=3, strength=3,
+        attacks=1, weapon_damage_per_shot=1.0, points_per_squad=60,
+        min_models=10, max_models=20,
+    )
+
+
+def _gunline_brick() -> UnitProfile:
+    """A durable, high-value back-line shooting brick (tank-ish)."""
+    return _basic_profile(
+        name="GunlineBrick", health=12, save=2, toughness=10, strength=10,
+        ap=-3, attacks=8, weapon_damage_per_shot=3.0, points_per_squad=200,
+        min_models=1, max_models=1, unit_keywords=("VEHICLE",),
+    )
+
+
+def _character() -> UnitProfile:
+    """A lone high-value support character."""
+    return _basic_profile(
+        name="WarlordCharacter", health=6, save=2, toughness=4, strength=4,
+        attacks=4, weapon_damage_per_shot=1.0, points_per_squad=90,
+        min_models=1, max_models=1, unit_keywords=("CHARACTER",),
+    )
+
+
+def _deploy_with_gate(a: Army, b: Army, gate_on: bool):
+    """Deploy both armies with SWEG_DEPLOY set/unset and return the Battle."""
+    prev = os.environ.get("SWEG_DEPLOY")
+    if gate_on:
+        os.environ["SWEG_DEPLOY"] = "1"
+    elif "SWEG_DEPLOY" in os.environ:
+        del os.environ["SWEG_DEPLOY"]
+    try:
+        battle = Battle(a, b)
+        battle._assign_uids()
+        battle._deploy_armies()
+        return battle
+    finally:
+        if prev is None:
+            os.environ.pop("SWEG_DEPLOY", None)
+        else:
+            os.environ["SWEG_DEPLOY"] = prev
+
+
+class IntelligentDeploymentTests(unittest.TestCase):
+
+    def _mixed_armies(self):
+        random.seed(0)
+        a = Army("Alpha")
+        b = Army("Bravo")
+        for army in (a, b):
+            army.add_squad(_chaff_profile(), size=10)   # screen
+            army.add_squad(_gunline_brick(), size=1)    # back
+            army.add_squad(_character(), size=1)        # back
+        return a, b
+
+    def test_screen_deploys_forward_of_high_value_both_armies(self):
+        a, b = self._mixed_armies()
+        battle = _deploy_with_gate(a, b, gate_on=True)
+        height = battle.map.height
+
+        a_chaff = [u for u in a.units if u.profile.name == "Chaff"]
+        a_brick = next(u for u in a.units if u.profile.name == "GunlineBrick")
+        a_char = next(u for u in a.units if u.profile.name == "WarlordCharacter")
+        b_chaff = [u for u in b.units if u.profile.name == "Chaff"]
+        b_brick = next(u for u in b.units if u.profile.name == "GunlineBrick")
+        b_char = next(u for u in b.units if u.profile.name == "WarlordCharacter")
+
+        a_screen_y = a_chaff[0].position[1]
+        b_screen_y = b_chaff[0].position[1]
+
+        # Alpha deploys at low y; mid-board is at higher y. The screen must sit
+        # at a higher y (closer to mid-board) than the brick and character.
+        self.assertGreater(a_screen_y, a_brick.position[1])
+        self.assertGreater(a_screen_y, a_char.position[1])
+        # Bravo deploys at high y; mid-board is at lower y. Mirrored: the screen
+        # must sit at a LOWER y (closer to mid-board) than its back units.
+        self.assertLess(b_screen_y, b_brick.position[1])
+        self.assertLess(b_screen_y, b_char.position[1])
+
+    def test_both_groups_inside_deployment_zone(self):
+        a, b = self._mixed_armies()
+        battle = _deploy_with_gate(a, b, gate_on=True)
+        dz = battle.map.deployment_width
+        height = battle.map.height
+
+        # Alpha's deployment zone is y in [0, dz]; Bravo's is [height-dz, height].
+        for u in a.units:
+            if u.embarked_in is not None:
+                continue
+            self.assertGreaterEqual(u.position[1], 0.0)
+            self.assertLessEqual(u.position[1], dz + 1e-6,
+                f"Alpha unit {u.profile.name} at y={u.position[1]} forward of zone")
+        for u in b.units:
+            if u.embarked_in is not None:
+                continue
+            self.assertLessEqual(u.position[1], height + 1e-6)
+            self.assertGreaterEqual(u.position[1], height - dz - 1e-6,
+                f"Bravo unit {u.profile.name} at y={u.position[1]} forward of zone")
+
+    def test_squad_coherency_preserved(self):
+        a, b = self._mixed_armies()
+        _deploy_with_gate(a, b, gate_on=True)
+        # The 10-model chaff squad's models must each be within 2" of another
+        # model in the squad (coherency), as _deploy_line guarantees.
+        chaff = [u for u in a.units if u.profile.name == "Chaff"]
+        xs = sorted(u.position[0] for u in chaff)
+        for i in range(1, len(xs)):
+            self.assertLessEqual(xs[i] - xs[i - 1], 2.0 + 1e-6)
+        # All chaff models share one y (one deployment row).
+        ys = {round(u.position[1], 6) for u in chaff}
+        self.assertEqual(len(ys), 1)
+
+    def test_off_is_byte_identical_to_single_line(self):
+        # Build two identical army pairs; deploy one with the gate OFF and one
+        # via the legacy single _deploy_line call directly. Positions must match.
+        a1, b1 = self._mixed_armies()
+        battle_off = _deploy_with_gate(a1, b1, gate_on=False)
+
+        a2, b2 = self._mixed_armies()
+        battle_ref = Battle(a2, b2)
+        battle_ref._assign_uids()
+        # Reproduce the legacy path by hand: single line at the zone midline.
+        a_y = battle_ref.map.deployment_width / 2.0
+        b_y = battle_ref.map.height - battle_ref.map.deployment_width / 2.0
+        battle_ref._embark_pregame_passengers()
+        a_std = [u for u in a2.units if u.embarked_in is None]
+        b_std = [u for u in b2.units if u.embarked_in is None]
+        battle_ref._deploy_line(a_std, a_y)
+        battle_ref._deploy_line(b_std, b_y)
+
+        off_pos = {u.uid: u.position for u in a1.units + b1.units}
+        ref_pos = {u.uid: u.position for u in a2.units + b2.units}
+        self.assertEqual(off_pos, ref_pos)
+
+    def test_pure_gunline_all_in_back(self):
+        # No screen-class unit available → everything deploys in the back group.
+        random.seed(0)
+        a = Army("Alpha")
+        b = Army("Bravo")
+        for army in (a, b):
+            army.add_squad(_gunline_brick(), size=1)
+            army.add_squad(_character(), size=1)
+        battle = _deploy_with_gate(a, b, gate_on=True)
+        dz = battle.map.deployment_width
+        # All Alpha units sit at the rear (near y=0, well inside the back inset),
+        # i.e. none was pushed to the forward screen row at y≈dz-3.
+        for u in a.units:
+            self.assertLess(u.position[1], dz / 2.0,
+                f"{u.profile.name} at y={u.position[1]} should be in the rear group")
 
 
 if __name__ == "__main__":

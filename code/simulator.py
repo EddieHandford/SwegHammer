@@ -5302,8 +5302,39 @@ class Battle:
         b_infil = [u for u in b_on_board if u.profile.infiltrator]
         b_std = [u for u in b_on_board if not u.profile.infiltrator]
 
-        self._deploy_line(a_std, a_y)
-        self._deploy_line(b_std, b_y)
+        # INTELLIGENT-DEPLOYMENT (env-gated SWEG_DEPLOY) — role-split screening.
+        # Default OFF: the standard line is a single even row at the army's
+        # deployment-zone midline (`a_y` / `b_y`), byte-identical to the legacy
+        # behaviour. When SWEG_DEPLOY=1, each army's standard on-board units are
+        # split by GENERIC unit character (see `_split_screen_back`) into a
+        # forward SCREEN group (expendable, high-model-count chaff and forward
+        # melee) and a rear HIGH-VALUE group (gunlines, durable bricks,
+        # characters). The screen deploys toward the inner (mid-board) edge of
+        # the deployment zone so it controls the mid-board and pushes enemy deep
+        # strike / charge arrivals back; the high-value group deploys at the rear
+        # near the army's own board edge, protected behind the screen. Both rows
+        # stay wholly inside the army's own deployment zone. This is an AI
+        # tactical heuristic (faithful competitive deployment), NOT a 10e game
+        # rule — cited as `simulator.intelligent_deployment`.
+        if __import__("os").environ.get("SWEG_DEPLOY") == "1":
+            dz = self.map.deployment_width
+            # Rear row near the army's own board edge; front (screen) row near
+            # the zone's inner edge (toward mid-board). Keep a small inset from
+            # both edges so clustered squads stay legally inside the zone.
+            a_back_y = min(a_y, 3.0)
+            a_screen_y = max(a_y, dz - 3.0)
+            b_back_y = max(b_y, self.map.height - 3.0)
+            b_screen_y = min(b_y, self.map.height - dz + 3.0)
+
+            a_screen, a_back = self._split_screen_back(a_std)
+            b_screen, b_back = self._split_screen_back(b_std)
+            self._deploy_line(a_back, a_back_y)
+            self._deploy_line(a_screen, a_screen_y)
+            self._deploy_line(b_back, b_back_y)
+            self._deploy_line(b_screen, b_screen_y)
+        else:
+            self._deploy_line(a_std, a_y)
+            self._deploy_line(b_std, b_y)
 
         # Infiltrators sit roughly halfway between their own deployment line
         # and the centreline — forward of own zone, ~12-18" from the enemy
@@ -5328,6 +5359,99 @@ class Battle:
             for u in army.units:
                 if u.embarked_in is not None:
                     u.position = u.embarked_in.position
+
+    def _split_screen_back(self, units):
+        """Split standard on-board `units` into (screen, back) groups by role.
+
+        INTELLIGENT-DEPLOYMENT screen heuristic (env-gated `SWEG_DEPLOY`). The
+        split is by GENERIC unit character only — never by faction — so it is
+        even-handed and would be correct even if it moved the calibration metric
+        the wrong way. Reuses `code.roles.classify` and the cached expected
+        damage-per-activation helpers rather than hand-rolling a taxonomy.
+
+        A squad is a set of Unit objects sharing a `squad_id` (lone models have
+        `squad_id < 0` and are their own squad). For each squad we read three
+        generic signals from the shared profile + the live squad size:
+
+          * per-model points cost (`profile.points_cost`),
+          * model count (squad members on the board), and
+          * role (`classify`) and total expected damage output.
+
+        FRONT (screen) — expendable, board-controlling units that real players
+        push forward to screen the mid-board, deny the 9" deep-strike bubble by
+        occupying space, and body-block charges to the rear:
+          * cheap high-model-count chaff (low points-per-model AND several
+            models AND not the army's single top damage dealer), or
+          * forward melee (a melee-leaning low-value squad that wants to be up
+            the board).
+        Everything else — gunlines (SHOOTY), durable bricks (HEAVY), characters
+        (SUPPORT / lone CHARACTER), and the army's top damage dealer — stays in
+        the BACK (rear) group, protected behind the screen. If no squad reads as
+        a screen, the whole army deploys in the back group (fine — no screen
+        available, e.g. a pure gunline or an all-elite list).
+
+        Returns `(screen_units, back_units)` as two flat lists of Unit objects
+        (squad membership is preserved within each list; `_deploy_line` then
+        re-clusters per squad).
+        """
+        from collections import OrderedDict
+        from .roles import classify, expected_ranged_dpa, expected_melee_dpa
+
+        if not units:
+            return [], []
+
+        # Group passed units into squads, preserving first-seen order. Lone /
+        # unassigned models (squad_id < 0) each form their own single-member
+        # squad so they are classified individually.
+        squads = OrderedDict()
+        for u in units:
+            sid = getattr(u, "squad_id", -1)
+            key = sid if sid is not None and sid >= 0 else ("lone", id(u))
+            squads.setdefault(key, []).append(u)
+
+        # Identify the army's single top damage-dealing squad — it always stays
+        # in the back regardless of how cheap its individual models are, because
+        # a player never screens with their primary threat. Total output is the
+        # per-model expected damage-per-activation times the live model count.
+        def _squad_output(members) -> float:
+            p = members[0].profile
+            per_model = expected_ranged_dpa(p) + expected_melee_dpa(p)
+            return per_model * len(members)
+
+        top_key = max(squads.keys(), key=lambda k: _squad_output(squads[k]))
+
+        # Even-handed, generic thresholds. A "cheap body" is a model that costs
+        # little and comes in numbers; a screen squad is several such bodies.
+        CHEAP_POINTS_PER_MODEL = 20.0   # roughly Guardsman..Ork-Boy band
+        MIN_SCREEN_MODELS = 5           # a screen needs bodies to control space
+        FORWARD_MELEE_POINTS = 18.0     # cheap melee leans forward
+        MIN_FORWARD_MELEE_MODELS = 3
+
+        screen, back = [], []
+        for key, members in squads.items():
+            p = members[0].profile
+            n = len(members)
+            ppm = p.points_cost
+            role = classify(p)
+
+            is_top_dealer = (key == top_key)
+            cheap_chaff = (
+                ppm <= CHEAP_POINTS_PER_MODEL
+                and n >= MIN_SCREEN_MODELS
+                and not is_top_dealer
+            )
+            forward_melee = (
+                role in ("MELEE", "HORDE")
+                and ppm <= FORWARD_MELEE_POINTS
+                and n >= MIN_FORWARD_MELEE_MODELS
+                and not is_top_dealer
+            )
+            if cheap_chaff or forward_melee:
+                screen.extend(members)
+            else:
+                back.extend(members)
+
+        return screen, back
 
     def _deploy_line(self, units, y: float) -> None:
         """Deploy `units` along the line at height `y`, clustering each squad.

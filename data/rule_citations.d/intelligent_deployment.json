@@ -1,0 +1,10 @@
+{
+  "simulator.intelligent_deployment": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Deploy-Armies",
+    "rule_name": "Deploy Armies (Declare Battle Formations / Deployment)",
+    "quoted_text": "Starting with the Attacker, players alternate setting up their units, one at a time, wholly within their deployment zone, until all units have been set up. If one player finishes deploying all their units, their opponent then sets up the remainder of their units, one after another.",
+    "trigger": "battle setup, env-gated SWEG_DEPLOY=1; each army's standard on-board units (the non-infiltrator, non-reserve units in `Battle._deploy_armies`) are split by `Battle._split_screen_back` into a forward SCREEN group and a rear HIGH-VALUE group, then deployed at two depths both wholly inside the army's own deployment zone (deployment_width inches deep)",
+    "effect": "AI tactical heuristic, NOT a 10e game rule: expendable, high-model-count chaff and cheap forward-melee squads (low points-per-model AND several models AND not the army's single top damage dealer) deploy at the inner / mid-board edge of the deployment zone to screen the mid-board, deny the 9-inch deep-strike bubble by occupying forward space, and body-block charges; gunlines (SHOOTY), durable bricks (HEAVY), characters (SUPPORT) and the top damage dealer deploy at the rear edge near the army's own board edge, protected behind the screen. The split is by generic unit character only (via code.roles.classify and the cached expected damage-per-activation helpers), never by faction, so it is even-handed. Does NOT change combat math; only sets starting positions. Models the real competitive deployment practice described in Goonhammer's deployment / Pariah Nexus tournament guides and the IK/Daemons positional residual analysis in docs/FACTION_RESIDUAL_ANALYSIS.md. Default OFF (SWEG_DEPLOY unset) reproduces the legacy single-line deploy byte-for-byte.",
+    "scope": "army-wide"
+  }
+}
