@@ -1,0 +1,12 @@
+{
+  "_comment": "Citation for the 10e universal Fire Overwatch core stratagem. Built env-gated behind SWEG_OVERWATCH (wave 105 / watchdog lever #3). Wahapedia was unreachable from the build environment (HTTP 404 / DNS) at implementation time, so the quoted_text below is the canonical core-stratagem wording supplied in the build briefing; the source URL is recorded for future verification per CLAUDE.md rule 6/10.",
+
+  "simulator.fire_overwatch": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-stratagems/#Fire-Overwatch",
+    "rule_name": "Fire Overwatch",
+    "quoted_text": "FIRE OVERWATCH — 1CP. Core - Battle Tactic Stratagem. WHEN: Your opponent's Movement phase or Charge phase, just after an enemy unit is set up or starts or ends a Normal, Advance, Fall Back or Charge move. TARGET: One unit from your army that is within 24\" of that enemy unit and that would be eligible to shoot if it were your Shooting phase. EFFECT: Your unit can shoot that enemy unit as if it were your Shooting phase. RESTRICTIONS: Until the end of the phase, each time a model in your unit makes an attack, an unmodified Hit roll of 6 is required to score a hit, irrespective of the attacking model's Ballistic Skill or any modifiers. You can only use this Stratagem once per turn.",
+    "trigger": "the opponent's Movement or Charge phase, just after an enemy unit is set up (arrives from Reserves / Deep Strike) or declares a charge, while a friendly eligible unit is within 24\" of it with line of sight",
+    "effect": "the defending army spends 1 Command Point to have its best eligible unit (highest expected wounds on a 6s-only Hit roll, above a small threshold so the Command Point is never wasted) shoot the charging / arriving enemy as if in its own Shooting phase, EXCEPT every ranged attack only hits on an UNMODIFIED Hit roll of 6 (an unmodified 1-5 always fails); to-hit modifiers and Hit-roll re-rolls are suppressed, while Critical-Hit effects (Sustained / Lethal Hits) still fire on the unmodified 6. Limited to once per battle round per army. Implemented as Battle._fire_overwatch (env-gated SWEG_OVERWATCH), hooked at the charge-declaration point in Battle._do_charge and at the reserves-arrival point in Battle._arrive_from_reserves, with the unmodified-6 hit gate in Unit.attack's overwatch path. Gate unset reproduces the baseline byte-for-byte (no Command Point spent, no extra random draws).",
+    "scope": "phase-gated"
+  }
+}

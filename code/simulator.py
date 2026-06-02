@@ -268,6 +268,15 @@ class Battle:
         # UIDs of units that successfully charged this round (Fights First in
         # the Fight sub-phase). Reset each round.
         self._charging_this_round: set = set()
+        # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). Set of
+        # army NAMES that have already used the Fire Overwatch stratagem this
+        # battle round. The core rule reads "you can only use this Stratagem
+        # once per turn"; SwegHammer's round loop does not cleanly separate the
+        # two players' turns for every trigger path, so the flag is reset per
+        # battle round in `_run_round`, capping each army at one overwatch use
+        # per round (conservative — at most one per army, never both turns).
+        # Cited as `simulator.fire_overwatch`.
+        self._overwatched_this_round: set = set()
         # UIDs of units that moved during the movement sub-phase this round.
         # Drives the Heavy keyword (+1 to hit if attacker did NOT move).
         # Reset each round.
@@ -5613,6 +5622,13 @@ class Battle:
                 army._add_live_unit(u)
                 self._fresh_arrivals.add(u.uid)
                 self._emit(UnitDeepStrike(unit_uid=u.uid, position=pos))
+                # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH).
+                # The unit `u` has just been SET UP from reserves / deep strike;
+                # the OPPONENT army (the non-arriving side in this loop) may
+                # overwatch it now while it is exposed in the open near the enemy
+                # line. No-op when the gate is unset. Cited as
+                # `simulator.fire_overwatch`.
+                self._fire_overwatch(opponent, u)
                 if use_anchor is not None:
                     anchor_placed.append(pos)
                 arrived_transport_ids.add(id(u))
@@ -6148,6 +6164,9 @@ class Battle:
         self._squad_advance_roll = {}  # wave 77: per-squad advance roll, fresh each round
         self._battleshocked_this_round = set()
         self._charging_this_round = set()
+        # Fire Overwatch: new round, each army may use the overwatch stratagem
+        # again (once per round per army). Cited as `simulator.fire_overwatch`.
+        self._overwatched_this_round = set()
         # Reset movement tracking: nothing has moved yet this round.
         self._did_move_this_round = set()
         # Reset disembark tracking: nothing has disembarked yet this round.
@@ -7951,6 +7970,130 @@ class Battle:
         # 1.0x melee floor avoids vehicles with token bayonets charging Marines.
         return melee_dpa >= max(ranged_dpa, 1.0)
 
+    # Fire Overwatch — Command Point cost of the core stratagem (10e).
+    _OVERWATCH_CP_COST = 1
+    # Only overwatch when the firing unit can expect to do meaningful damage on
+    # 6s-only — otherwise the 1 Command Point is wasted. Threshold in wounds
+    # (after the 1/6 hit-rate scaling), deliberately small so a unit that can
+    # actually hurt the charger/arriving unit fires, but a unit whose only
+    # output on 6s rounds to nothing (a handful of bolter shots into a Knight)
+    # holds its Command Point.
+    _OVERWATCH_MIN_EXPECTED_WOUNDS = 0.5
+
+    def _fire_overwatch(self, defending_army: Army, enemy_unit) -> None:
+        """Fire Overwatch (10e universal core stratagem, env-gated
+        SWEG_OVERWATCH).
+
+        Trigger: the opponent's Movement or Charge phase, just after `enemy_unit`
+        is set up (arrives from Reserves / Deep Strike) or declares a charge.
+        `defending_army` may spend 1 Command Point to have one of its eligible
+        units shoot `enemy_unit` as if it were its own Shooting phase, except
+        that each ranged attack only hits on an UNMODIFIED Hit roll of 6 (a 1-5
+        always fails). Restriction: at most once per battle round per army.
+
+        Gate unset (or not "1") → no-op: no Command Point spent, no unit fires,
+        no extra random draws, so the OFF path is byte-identical to the baseline.
+
+        The defender is chosen as the eligible unit (alive, within 24" of
+        `enemy_unit`, with line of sight) whose expected wounds against
+        `enemy_unit` on a 6s-only Hit roll is highest. If no eligible unit clears
+        the minimum-expected-wounds threshold, the Command Point is NOT spent
+        (no wasted overwatch). Cited as `simulator.fire_overwatch`.
+        """
+        # Env gate — unset / not "1" reproduces the baseline exactly. Checked
+        # first so the OFF path does no work at all.
+        if __import__("os").environ.get("SWEG_OVERWATCH") != "1":
+            return
+        if enemy_unit is None or not getattr(enemy_unit, "is_alive", False):
+            return
+        # Once per battle round per army (core-rule "once per turn" mapped to
+        # the simulator's per-round flag — see `_overwatched_this_round`).
+        if defending_army.name in self._overwatched_this_round:
+            return
+        # Need at least the stratagem's Command Point to fire.
+        if defending_army.command_points < self._OVERWATCH_CP_COST:
+            return
+
+        # Build the eligible-defender list: alive, within 24" of the enemy unit,
+        # with line of sight to it, not embarked, and actually carrying a ranged
+        # weapon. Overwatch is a SHOOTING attack, so a melee-only unit (no shots)
+        # cannot fire it.
+        best_unit = None
+        best_ew = 0.0
+        for unit in defending_army.alive_units:
+            if getattr(unit, "embarked_in", None) is not None:
+                continue
+            p = unit.profile
+            if (getattr(p, "attacks", 0) or 0) <= 0:
+                continue
+            dist = _distance(unit.position, enemy_unit.position)
+            if dist > 24.0:
+                continue
+            if not self.map.has_line_of_sight(
+                unit.position, enemy_unit.position,
+                attacker_keywords=p.unit_keywords or (),
+                target_keywords=enemy_unit.profile.unit_keywords or (),
+            ):
+                continue
+            # Expected wounds on a normal Shooting phase, scaled by the 1/6
+            # overwatch hit rate (overwatch only hits on an unmodified 6). The
+            # helper already returns 0.0 for a weapon that genuinely cannot hurt
+            # the target (a bolter into a Knight), so such a unit never overwatches.
+            ew = self._ranged_expected_wounds(p, enemy_unit) / 6.0
+            if ew > best_ew:
+                best_ew = ew
+                best_unit = unit
+
+        # No eligible unit can do meaningful damage on 6s → hold the Command
+        # Point (no wasted overwatch).
+        if best_unit is None or best_ew < self._OVERWATCH_MIN_EXPECTED_WOUNDS:
+            return
+
+        # Pay 1 Command Point and mark the army's once-per-round overwatch use.
+        defending_army.command_points -= self._OVERWATCH_CP_COST
+        self._overwatched_this_round.add(defending_army.name)
+
+        # Resolve the shot through the standard attack pipeline with the
+        # overwatch flag, which forces the unmodified-6 hit gate and disables
+        # Hit-roll modifiers / re-rolls. Cover is applied the same way the
+        # Shooting phase does so the defender's save bonus is honoured.
+        target = enemy_unit
+        saved_cover = target.in_cover
+        saved_heavy = target.in_heavy_cover
+        cover_type = self.map.cover_at(target.position)
+        if cover_type in (
+            TerrainType.LIGHT_COVER, TerrainType.HEAVY_COVER, TerrainType.RUIN,
+        ):
+            target.in_cover = True
+        if cover_type in (TerrainType.HEAVY_COVER, TerrainType.RUIN):
+            target.in_heavy_cover = True
+        distance = _distance(best_unit.position, target.position)
+        hp_before = target.current_health
+        dmg = best_unit.attack(
+            target, distance=distance, has_los=True, overwatch=True,
+        )
+        target.in_cover = saved_cover
+        target.in_heavy_cover = saved_heavy
+
+        self._emit(StratagemFired(
+            army_name=defending_army.name, stratagem_name="Fire Overwatch",
+            cp_cost=self._OVERWATCH_CP_COST,
+        ))
+        self._emit(UnitShot(
+            attacker_uid=best_unit.uid,
+            target_uid=target.uid,
+            damage=dmg,
+            target_hp_after=target.current_health,
+            target_alive_after=target.is_alive,
+        ))
+        if not target.is_alive and hp_before > 0:
+            self._emit(UnitKilled(unit_uid=target.uid))
+            self._maybe_award_judgement_token(
+                killer=best_unit, killer_army=defending_army,
+                victim=target, victim_army=self.a if defending_army is self.b else self.b,
+            )
+            self._maybe_apply_deadly_demise(target)
+
     def _do_charge(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """2D6 charge vs the best target ≤12". On success, move into 1" engagement.
 
@@ -7999,6 +8142,15 @@ class Battle:
         target, dist = pick_charge_target(attacker, defender_army)
         if target is None:
             return
+
+        # Fire Overwatch (10e core stratagem, env-gated SWEG_OVERWATCH). The
+        # charge has now been DECLARED (a valid charge target exists) but has
+        # NOT yet resolved. The charge target's army may overwatch the declared
+        # charger here, before the 2D6 charge math runs — a charger that loses
+        # models / strength to overwatch then makes its charge with the reduced
+        # unit, which the existing per-model charge resolution below handles.
+        # No-op when the gate is unset. Cited as `simulator.fire_overwatch`.
+        self._fire_overwatch(defender_army, attacker)
 
         # Per-squad charge roll (wave 76). Real 10e: a unit makes ONE 2D6 charge
         # roll; SwegHammer's one-Unit-per-model representation rolled per MODEL,

@@ -592,6 +592,16 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # collective-crack guarantee and is being superseded by this layer.
     # See data/rule_citations.d/focus_fire.json.
     "simulator.focus_fire",
+    # Fire Overwatch (10e universal core stratagem, env-gated SWEG_OVERWATCH).
+    # The defending army may spend 1 Command Point in the opponent's Movement /
+    # Charge phase to have one eligible unit (within 24", line of sight) shoot a
+    # charging or arriving enemy as if it were its Shooting phase, hitting only
+    # on UNMODIFIED Hit rolls of 6. Limited to once per battle round per army.
+    # Built as Battle._fire_overwatch + the overwatch path in Unit.attack;
+    # hooked at the charge-declaration and reserves-arrival trigger points. Gate
+    # unset reproduces the baseline byte-for-byte. See
+    # data/rule_citations.d/core_overwatch.json.
+    "simulator.fire_overwatch",
     "unit.necrodermis",
 )
 

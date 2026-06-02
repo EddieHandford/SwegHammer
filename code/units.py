@@ -1222,6 +1222,7 @@ class Unit:
         mode: str = "ranged",
         is_charging: bool = False,
         has_los: bool = True,
+        overwatch: bool = False,
     ) -> float:
         """
         Full stochastic 10e attack sequence. For each of `attacks` shots:
@@ -1240,6 +1241,16 @@ class Unit:
 
         is_charging  - the attacker declared a charge this turn (Lance: +1 wound in melee)
         has_los      - the defender is visible from the attacker (Indirect Fire: -1 hit if False)
+        overwatch    - this is a Fire Overwatch shot (10e core stratagem). A
+                       ranged attack made out of sequence (in the opponent's
+                       Movement / Charge phase) at a charging or arriving enemy.
+                       Per the rule, "each time a model in that unit makes a
+                       ranged attack, an unmodified Hit roll of 6 is required for
+                       it to score a hit" — i.e. an unmodified 1-5 ALWAYS fails.
+                       To-hit modifiers and Hit-roll re-rolls do not apply (the
+                       outcome is decided purely on the unmodified physical die);
+                       Critical Hit effects (Sustained / Lethal Hits) still fire
+                       on the unmodified 6. Cited as `simulator.fire_overwatch`.
         """
         p = self.profile
 
@@ -2354,6 +2365,18 @@ class Unit:
                 p.indirect_fire and mode != "melee" and not has_los
             )
 
+            # ---- Fire Overwatch (10e core stratagem). A ranged shot taken out
+            # of sequence at a charging / arriving enemy. The rule makes the
+            # unmodified Hit roll the SOLE arbiter: an unmodified 1-5 always
+            # fails, only an unmodified 6 hits. To-hit modifiers therefore have
+            # no bearing on the result, so we suppress the +/-1 hit-modifier
+            # accumulation for an overwatch shot (Heavy, Big Guns Never Tire,
+            # Indirect, leader auras) — the gate at the to-hit roll forces the
+            # nat-6 requirement regardless. Hit-roll re-rolls are likewise
+            # disabled below. Melee can never be an overwatch shot. Cited as
+            # `simulator.fire_overwatch`.
+            overwatch_attack = bool(overwatch) and mode != "melee"
+
             # ---- Heavy keyword: +1 to hit when shooting and the attacker did
             # NOT move this round. Melee never benefits. Indirect Fire attacks
             # (target not visible) cannot benefit from Heavy per 10e core.
@@ -2458,6 +2481,13 @@ class Unit:
             # arithmetic clamps to [2, 7] which preserves existing semantics
             # (target 7 = auto-miss, target 2 = always succeeds bar nat-1).
             # Cited as `simulator.modifier_cap_plus_minus_one`.
+            # Fire Overwatch (10e core stratagem): a nat-6 is the ONLY hit, so
+            # to-hit modifiers are irrelevant — drop the accumulated hit delta
+            # so the unmodified die alone decides the shot. The wound side is
+            # unaffected (the rule only constrains the Hit roll). Cited as
+            # `simulator.fire_overwatch`.
+            if overwatch_attack:
+                hit_mod_delta = 0
             hit_mod_clamped = max(-1, min(1, hit_mod_delta))
             wound_mod_clamped = max(-1, min(1, wound_mod_delta))
             hit_target = max(2, min(7, hit_target - hit_mod_clamped))
@@ -2742,6 +2772,20 @@ class Unit:
             )
             if att_reroll_hits_shooting_ones:
                 att_reroll_hit_ones = True
+
+            # ---- Fire Overwatch (10e core stratagem): the shot only hits on an
+            # unmodified 6, so Hit-roll re-rolls (Oath of Moment, Twin-Linked,
+            # detachment / Code Chivalric / Fire and Fade) do not change the
+            # outcome and are suppressed — the unmodified physical die alone
+            # decides each shot. Done after every hit-reroll source above is
+            # resolved so this clears all of them in one place. Wound re-rolls
+            # are untouched (the rule constrains only the Hit roll). Cited as
+            # `simulator.fire_overwatch`.
+            if overwatch_attack:
+                att_reroll_hit_ones = False
+                att_reroll_all_hits = False
+                att_reroll_hits_shooting_ones = False
+                _chiv_hit_reroll = False
 
             # ST-1: transient wound-reroll grants from stratagems that actually
             # cite "re-roll Wound rolls" (Warrior Pride, Combat Debarkation,
@@ -3351,6 +3395,19 @@ class Unit:
                                 attack_aof_substitution_used = True
                                 self.aof_used_this_round = True  # SOROR-DIAG-4
                                 own_army.aof_squad_mark_used(p.name, getattr(self, "squad_id", -1))  # SOROR-ACTS-OF-FAITH-V1
+                    # Fire Overwatch (10e core stratagem): "each time a model in
+                    # that unit makes a ranged attack, an unmodified Hit roll of
+                    # 6 is required for it to score a hit" — i.e. an unmodified
+                    # 1-5 ALWAYS fails, irrespective of the model's Ballistic
+                    # Skill or any to-hit modifier. Gated on the unmodified
+                    # physical die (faction substitutions set `roll` but never
+                    # `unmodified_roll`, so a substituted die cannot satisfy the
+                    # nat-6 requirement, matching the rule's "unmodified" wording).
+                    # An unmodified 6 falls through to the standard crit-on-hit
+                    # path below, so Sustained / Lethal Hits still resolve on it.
+                    # See `simulator.fire_overwatch`.
+                    if overwatch_attack and unmodified_roll != 6:
+                        continue   # overwatch: only an unmodified 6 hits
                     # CORE-RULES-AUDIT (2026-05-31): Indirect Fire — when firing
                     # at a target the bearer cannot see, an unmodified Hit roll
                     # of 1-3 ALWAYS fails (in addition to the -1 to Hit). Applied
@@ -3438,8 +3495,15 @@ class Unit:
                         # already been used on this die AND our army's battle
                         # reference has a stratagem hook AND the heuristic
                         # green-lights the spend, re-roll once more.
+                        # Fire Overwatch suppresses the auto Command Re-Roll: an
+                        # overwatch shot is already a Command-Point-funded action
+                        # fired out of sequence, and stacking a second Command
+                        # Point onto its wound roll would double-spend the
+                        # army's economy on one overwatch volley. Cited as
+                        # `simulator.fire_overwatch`.
                         if (
                             not wound_succeeded and not rerolled
+                            and not overwatch_attack
                             and self.army_ref is not None
                             and getattr(self.army_ref, "_battle_ref", None) is not None
                         ):
