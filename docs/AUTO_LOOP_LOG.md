@@ -4,6 +4,28 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 119 close (2026-06-02) — M2 BUILT (real 2-card Tactical secondary deck, gated `SWEG_TAC_DECK`): the FIRST faithful lever to MOVE the headline (4.41 → 4.13). Kept gated; one fidelity gap (per-Fixed-card 20 cap) → next refinement
+
+Branch `claude/sim-calibration-6`. Built M2 (Stage A+B) via a dispatched Opus agent (worktree, cherry-picked
+`bbab0f2`), reviewed faithful: a per-card dispatcher (`_score_one_card`, singleton-`chosen`, fails loud on
+unknown keys), the real Fixed-OR-Tactical track model (FIXED = 2 kill cards every round; TACTICAL = a 2-card
+hand with draw→score→achieve→discard→redraw — at most 2 sources, not the union of ~9-11), an even-handed
+unit-count Fixed/Tactical choice (`chaff>=2 and units>=8` → Tactical; else Fixed → the Knight lands on Fixed-kill
+emergently), a deterministic CRC32-seeded deck (no global-RNG perturbation), gated `SWEG_TAC_DECK` (OFF
+byte-identical), cited `simulator.tactical_secondary_deck`. 19 new tests; full suite green (1020); audit clean.
+
+**Clean N=40 A/B: OFF gated 4.41 == baseline (zero drift); ON gated 4.13 (−0.28) — the FIRST faithful lever all
+session to REDUCE the headline.** Band 6/22 → 7/22. It tightens the spread faithfully (Leagues of Votann
++6.2→+1.8, Adeptus Custodes −5.7→−1.0, Adeptus Mechanicus −9.9→−7.0, Chaos Space Marines −9.0→−6.6 toward band).
+Two blemishes: **Grey Knights +11.2 OVERSHOOT (−5.9→+5.3)** and Chaos Daemons −4.7 (worse); and **Imperial
+Knights did NOT drop (+26.5→+27.6)** — it is on the FIXED kill track, which the deck-churn restriction does not
+touch. The Grey Knights overshoot (and the Knight) point to the one fidelity GAP the agent flagged: **the real
+per-Fixed-card 20-VP/game cap is NOT implemented**, so a kill-elite army's Fixed cards over-score. That is a real
+CA-2025-26 rule and the immediate next refinement (M2b). KEPT M2 gated default-OFF (faithful + net-positive, but
+the Grey Knights overshoot + N=40 noise warrant the 20-cap + an N=80 confirm before flipping default-ON). Live
+baseline holds at 4.41. LOOP_QA wave-119. Stage C (the ~6 missing action cards) left TODO (reference file is
+untracked in the agent's worktree; orchestrator has it locally).
+
 ## Wave 118 close (2026-06-02) — M2 PLAN written (the real 2-card Tactical secondary deck — watchdog's leading lever). Plan-first; build next
 
 Branch `claude/sim-calibration-6`. Per the user-approved plan-first sequence, wrote the M2 plan

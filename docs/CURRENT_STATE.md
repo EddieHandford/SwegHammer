@@ -1,6 +1,17 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 118 (2026-06-02) — M2 PLAN written (`docs/M2_TACTICAL_DECK_PLAN.md`): the real 2-card
+**Last updated:** Wave 119 (2026-06-02) — M2 BUILT (real 2-card Tactical secondary deck, gated `SWEG_TAC_DECK`,
+via dispatched Opus agent, cherry-picked `bbab0f2`): per-card dispatcher + Fixed-OR-Tactical track (FIXED = 2
+kill cards; TACTICAL = 2-card hand draw/achieve/redraw — at most 2 sources not ~9-11), even-handed unit-count
+choice, deterministic, OFF byte-identical, cited, 19 tests, suite green (1020). **THE FIRST FAITHFUL LEVER ALL
+SESSION TO MOVE THE HEADLINE: N=40 A/B OFF 4.41 == baseline, ON gated 4.13 (−0.28), band 6→7.** Tightens the
+spread faithfully (Votann/Custodes/AdMech/CSM toward band). Blemishes: **Grey Knights +11.2 OVERSHOOT, Daemons
+−4.7, and IK did NOT drop (+1.1 — it's on the FIXED kill track)**. These point to the one fidelity gap: **the
+real per-Fixed-card 20-VP/game cap is missing** (kill-elite Fixed cards over-score) — the immediate refinement
+(M2b), a real CA-2025-26 rule. KEPT M2 gated default-OFF (faithful + net-positive; add the 20-cap + N=80 confirm
+before flipping ON). Stage C (~6 missing action cards) TODO. Live baseline 4.41. LOOP_QA wave-119.
+
+**Wave 118** — M2 PLAN written (`docs/M2_TACTICAL_DECK_PLAN.md`): the real 2-card
 Tactical secondary deck, the watchdog's leading lever now that scoring-timing/(iii) is off the table. Confirmed
 in code: the sim over-generates ~9-11 secondary sources/round (2 Fixed + 2 position + Cleanse + Sabotage + all 5
 Board Tier-A all scored), so both armies max the 40 cap = "the wash". Real CA-2025-26 = 2 Fixed OR a 2-card
