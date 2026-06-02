@@ -1,13 +1,23 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 103 close (2026-06-02) — REFINED the deployment lever (gated `SWEG_DEPLOY`): gunlines
-at the zone MIDLINE (not buried), screen stays forward. NET-POSITIVE headline N=40 4.13 → **3.75** by
-un-burying the gunline under-shooters (AdMech −10.9 → **−8.4**, Astra −6.2 → −5.8). The wave-102 "Imperial
-Knights drop" was an ARTIFACT — burying the high-value group buried IK's OWN Knights; refined, IK is back to
-+27.5 (baseline). So deployment is the FIFTH lever that doesn't fix IK, BUT the refined version is a genuine
-faithful NET-POSITIVE headline lever (real screen-first deployment helping the gunline under-shooters). KEPT
-gated. **N=80 CONFIRMATION (wave 104): a WASH** — OFF 3.52 → ON 3.44 (gain −0.08, inside the noise band), so
-the N=40 −0.38 was mostly noise. Per the watchdog's flip criterion (only if outside noise) → NOT flipped,
+**Last updated:** Wave 105 close (2026-06-02) — Fire Overwatch core stratagem (gated `SWEG_OVERWATCH`), and
+the session's STRUCTURAL FLOOR. Fire Overwatch (out-of-phase shooting at chargers/reserves, hits on 6s, 1
+Command Point) is faithful but REGRESSES at N=80 (OFF 3.52 → ON 3.69) — driven by Imperial Knights +27.0 →
++30.4 (its big guns overwatch effectively); frozen-under, kept gated, not flipped. **SIX simulator-side
+levers now (terrain, per-model structure, per-weapon dice, focus-fire, deployment, Fire Overwatch) are ALL
+faithful but FROZEN-UNDER — none moves the IK +27, most are washes/small regressions.** The simulator-AI
+track is at its FLOOR for this residual: the IK +27 (~half the gated error) is a STATS problem, needing the
+FAITHFUL RE-CALIBRATION (re-fit per-faction stats/lists to the now-much-more-faithful sim) or the SCORING /
+victory-point model — BOTH user-gated. Per the watchdog guardrail, the loop is REPORTING the floor and
+HOLDING for the user's re-calibration go (the remaining queue levers #4-6 are expected to be the same
+frozen-under washes; not worth grinding before the re-calibration). All fidelity work committed + gated
+(default-OFF); live baseline holds. **The high-leverage next step is the re-calibration — the user's call.**
+
+### Earlier — wave 103-104 (deployment lever: net-positive at N=40 but a wash at N=80; the IK-drop was an artifact)
+
+**Deployment/screening (gated `SWEG_DEPLOY`).** Refined (gunlines at the zone midline, screen forward) →
+N=40 4.13 → 3.75 (helped gunline under-shooters), but **N=80 confirmed a WASH** (3.52 → 3.44, inside noise) →
+NOT flipped,
 kept gated as a faithful metric-neutral fix (gunline under-shooters slightly better, IK slightly worse, net
 wash); revisit at the re-calibration. The IK +27 remains a
 re-calibration / scoring problem (the user's morning go). 17 tests pass, audit clean.

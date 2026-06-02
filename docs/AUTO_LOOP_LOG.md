@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 105 close (2026-06-02) — Fire Overwatch core stratagem (gated `SWEG_OVERWATCH`), watchdog queue #3: faithful but REGRESSES at N=80 (frozen-under via Imperial Knights). SIXTH lever → the simulator-AI track is at its FLOOR; the IK +27 needs the RE-CALIBRATION (user's go)
+
+Branch `claude/sim-calibration-6`. Built the missing 10e core Fire Overwatch stratagem (env-gated
+`SWEG_OVERWATCH`): out-of-phase reaction shooting at chargers (`_do_charge`) and arriving reserves
+(`_arrive_from_reserves`), hitting only on unmodified 6s, 1 Command Point, once per army per round; the AI
+only overwatches when it can do meaningful damage (no wasted Command Point). Cited `simulator.fire_overwatch`.
+The agent also caught + fixed a real double-Command-Point bug. 989 tests pass (+10 overwatch tests), audit
+clean, run.py OK both gate states.
+
+A/B: N=40 OFF 4.13 → ON 3.91 (−0.22), but **N=80 OFF 3.52 → ON 3.69 (+0.17, REGRESSED)** — the N=40
+improvement was noise. Driver: **Imperial Knights +27.0 → +30.4 (gated 24.08 → 27.47, +3.4 WORSE)** — the
+frozen-under effect: a Knight's big guns overwatch effectively, so IK benefits from punishing chargers far
+more than the bled gunline under-shooters benefit. Faithful (a real missing mechanic) → KEPT gated; NOT
+flipped (regresses).
+
+**FLOOR REACHED — the session's structural conclusion.** SIX simulator-side levers now — terrain (w97),
+per-model weapon structure (w99), per-weapon dice (w100), focus-fire (w101), deployment (w102-104), Fire
+Overwatch (w105) — are ALL faithful but FROZEN-UNDER: none moves the Imperial Knights +27 (the dominant
+residual, ~half the gated mean absolute error), and most are washes or small regressions on the headline,
+because every even-handed improvement helps whoever has the stronger army (the over-shooters). The
+simulator / artificial-intelligence calibration track has reached its practical floor for this residual. The
+IK +27 is firmly a STATS problem, not a simulator-behaviour problem: it needs the FAITHFUL RE-CALIBRATION
+(re-fit the per-faction stats/lists to the now-much-more-faithful sim — the session accumulated a lot of
+fidelity the old stats no longer match) or the SCORING / victory-point model. BOTH are USER-GATED. Per the
+watchdog's overnight guardrail ("if you run out of clean faithful levers, REPORT it and hold; do NOT cross
+into the re-fit/scoring without the user"), the loop is REPORTING the floor and HOLDING for the user's
+re-calibration go. The remaining queue levers (#4 trading-up, #5 combined-arms, #6 pile-in) are lower-impact
+and expected to be the same frozen-under washes; not worth grinding the thrashed box before the
+re-calibration. All the session's fidelity work is committed + gated (default-OFF), so the live baseline
+holds; the re-calibration is the high-leverage next step.
+
 ## Wave 103 close (2026-06-02) — REFINED the deployment lever (gunlines at the zone midline, not buried): NET-POSITIVE headline (4.13 → 3.75) by un-burying the gunline under-shooters; the wave-102 "Imperial Knights drop" was an ARTIFACT (it buried IK's OWN Knights)
 
 Branch `claude/sim-calibration-6`. Refined wave-102 per watchdog Q16: the high-value gunline group now
