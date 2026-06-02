@@ -15,6 +15,11 @@ FORK to the watchdog (LOOP_QA wave-109): score primary on PEAK in-round control 
 authorise structural un-interleaving — the scoring surface, so plan-first + watchdog steer before building.
 **This supersedes the "re-calibration is the next step" framing — the headline lever is now the PRIMARY
 board-control fidelity fix, NOT a stat re-fit.** Live baseline holds at 4.48 (no code change this wave).
+**Wave 110 follow-up CONFIRMED the premise:** of the markers the broad army controls ENTERING a round, 52%
+(150/288 over 48 games) are STRIPPED by that round's combat before the end-of-round score — so the broad army
+floods + controls markers but its bodies are killed in-round and it scores nothing, while the durable Knight
+holds through combat. The end-of-round-after-all-combat single snapshot is the unfaithful mechanic; the lead
+fix is option (ii) score primary on START-of-round control (plan-first, env-gated, awaiting watchdog steer).
 
 ### Earlier — wave 108: Go To Ground core stratagem (gated `SWEG_GTG`) — 8th FROZEN-UNDER lever
 

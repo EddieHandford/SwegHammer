@@ -103,3 +103,28 @@ Knight or horde). This is surfaced to the watchdog (LOOP_QA wave-109) for the
 build-direction steer before touching the scoring surface — the sharpest
 metric-tuning surface in the project, where a plan-first, env-gated A/B is
 mandatory.
+
+## Follow-up probe (wave 110) — the transient-control premise is CONFIRMED
+
+Tested whether the scoring-timing fix even has a premise: does the broad army control markers it then loses
+to combat before the end-of-round score? Instrumented control (summed `_effective_oc` within each objective's
+3-inch `control_radius`) at the START of each round (before that round's combat) versus the END (post-combat,
+what actually scores), 48 IK-vs-broad games, 192 scoring-rounds:
+
+- End-of-round control (what scores now): broad 273 marker-rounds, Imperial Knights 479 (the Knight controls
+  ~1.75x as many — the primary-VP gap).
+- Of the markers the broad army controlled ENTERING a round (288 total): 138 held to end, 150 LOST to that
+  round's combat — 52% of the broad army's entering-control is stripped before it scores (0.78 marker-rounds
+  per round).
+
+So the broad army DOES flood and control markers; its bodies are then killed in-round before the end-of-round
+snapshot, so it scores nothing for them, while the durable Knight holds through combat. The transient-control
+premise is real and large (~150 marker-rounds the timing denies the broad army). The unfaithful mechanic:
+collapsing 10e's per-Command-phase scoring (a unit holds an objective from when it takes it until an enemy
+takes it away) into a single end-of-round-after-all-combat snapshot structurally rewards the durable holder.
+
+Upgraded recommendation (to the watchdog): option (ii) — score primary on control as it stands at the START
+of each round (entering-control, before that round's combat) — is the cleanest faithful + even-handed +
+buildable fix that fits the alternating model. Env-gated, plan-first, A/B; expect it to narrow the primary gap
+(the right direction, faithfully). Symmetry caveats to verify in the build: measure the Knight's transient
+losses too, and ensure the start-of-round snapshot replaces (not double-counts) the end-of-round score.
