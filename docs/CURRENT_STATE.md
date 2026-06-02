@@ -1,6 +1,17 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 120 (2026-06-02) — M2 at N=80 + hold-vs-achieve instrumentation (watchdog steer). **The
+**Last updated:** Wave 121 (2026-06-02) — AI-PURSUIT PLAN written (`docs/AI_PURSUIT_PLAN.md`) for the M2
+artifact, with a key strategic fork. The pursuit layer (move a SPARE unit to pursue a held Tactical card — into
+the enemy DZ for Behind Enemy Lines 37%, onto a forward objective for Cleanse 28%; Engage 89% already pursued) is
+a faithful, even-handed, ONE-SIDED secondary lever (broad armies have spare bodies, Knights don't). **BUT its
+upside is BOUNDED: 5 of the 9 deck cards are board-control (secure/defend/extend/storm/area_denial, stalling
+9-50%), and that stall is the one-Unit-per-model REPRESENTATION gap — the SAME root as the IK primary over-hold.**
+So the representation gap (M4) gates both the primary residual AND ~5/9 of the secondary deck. Fork surfaced to
+the watchdog: (a) build the AI-pursuit layer now (bounded upside, prescribed) then M4, or (b) go straight to M4
+(the deeper root). Default (non-blocking): build (a). Plan-first this wave; build next. M2 gated default-OFF.
+LOOP_QA wave-121.
+
+**Wave 120** — M2 at N=80 + hold-vs-achieve instrumentation (watchdog steer). **The
 N=40 −0.28 was NOISE: N=80 OFF 3.69 → ON 3.62 (−0.07, neutral), band 7→5 (worse).** The instrumentation CONFIRMS
 the AI-pursuit ARTIFACT: under M2-ON, Daemons/Astra are on TACTICAL and score only ~10 secondary (real ~25-35) —
 their 2-card hands STALL (defend_stronghold 11% / extend_battle_lines 9% / area_denial 16% achieved; even
