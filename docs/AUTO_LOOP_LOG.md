@@ -4,6 +4,26 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 117 close (2026-06-02) — M1 (Primary 50-VP total cap, watchdog/user-approved): faithful real rule LANDED always-on, but metric-INERT. Confirms VP-margin levers don't move the win rate; M2 (secondary differentiation) is the real lever
+
+Branch `claude/sim-calibration-6`. Built the watchdog's M1 (user-approved mission-pack audit): CA-2025-26 v1.5
+caps the Primary Mission at 50 VP/game, but the simulator only enforced the per-round 15 cap, so an army could
+run to 4×15 = 60 primary and over-score by up to 10. Added `min(primary, 50)` in `Battle._decide_winner`, kept
+ON by default (`SWEG_PRIMARY_CAP_50=0` disables for the A/B), cited `simulator.primary_vp_cap_50`; also fixed the
+stale `primary_vp_cap_15` citation (Leviathan → CA-2025-26 v1.5). Suite green (1001), audit clean.
+
+**N=40 A/B: capOFF gated 4.41 == baseline; capON gated 4.41 — EXACTLY ZERO across all 22 factions
+(Imperial Knights +26.5 → +26.5).** The 50 cap is metric-inert: primary tops out ~44 in practice, so it rarely
+binds, and when it clamps a high game 60→50 the durable Knight still WINS it → no win rate flips. **Kept
+always-on anyway (it's a real CA-2025-26 rule — the A/B was to measure, not to decide keep).**
+
+**This + the wave-116 M3 net-neutral together prove VP-MARGIN levers (primary cap, scoring timing) do NOT move
+the win rate** — the Knight wins the VP COMPARISON regardless of margins. The win-rate lever must make the
+OPPONENT out-score the Knight more often → that is M2: the real 2-card Tactical secondary deck (the sim scores
+~9 secondary sources/round so both armies trivially max 40 = the "wash"; the real deck gives a broad army a
+secondary edge a Knight army cannot churn). M2 is the next build (plan-first). LOOP_QA wave-117. Live baseline
+holds at 4.41.
+
 ## Wave 116 close (2026-06-02) — DOUBLE CORRECTION: the eval already runs IGOUGO (so (iii) was never foundational), and building the REAL per-Command-phase scoring is NET-NEUTRAL — refuting "scoring-timing is the Imperial Knights lever"
 
 Branch `claude/sim-calibration-6`. Two corrections to the wave 109-115 diagnostic arc, both important:

@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 116 (2026-06-02) — DOUBLE CORRECTION to the diagnostic arc. (1) The eval ALREADY runs
+**Last updated:** Wave 117 (2026-06-02) — M1 (Primary 50-VP total cap, watchdog/user-approved mission-pack
+audit): the sim only had the 15/round cap so primary could run to 60; added `min(primary,50)` in `_decide_winner`
+(real CA-2025-26 rule, kept ON by default, `SWEG_PRIMARY_CAP_50=0` to isolate, cited; fixed stale
+`primary_vp_cap_15` citation). **N=40 A/B EXACTLY ZERO across all 22 factions (IK +26.5 → +26.5)** — metric-inert
+because primary tops out ~44 and capping a high game 60→50 doesn't flip the durable Knight's win. **M1 + the
+wave-116 M3 (net-neutral) prove VP-MARGIN levers (cap, timing) do NOT move the win rate; the lever must make the
+OPPONENT out-score the Knight — that is M2 (the real 2-card Tactical deck; the sim over-generates ~9 secondary
+sources/round → both max 40 = the "wash", hiding the Knight's real secondary weakness).** M2 is next (plan-first).
+Suite green (1001). Live baseline 4.41. LOOP_QA wave-117.
+
+**Wave 116** — DOUBLE CORRECTION to the diagnostic arc. (1) The eval ALREADY runs
 vanilla IGOUGO per-player turns (verified: 0 alternating calls), NOT the alternating model — so (iii) was never
 a "foundational un-interleaving" the user must authorise; the IGOUGO machinery exists. (2) Built the REAL
 per-Command-phase primary scoring (gated `SWEG_CMDSCORE`, default-OFF, `_score_objectives(only_for=...)` inside

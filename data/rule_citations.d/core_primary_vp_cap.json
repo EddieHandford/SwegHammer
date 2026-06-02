@@ -2,11 +2,20 @@
   "_comment": "Citation for the 10e Leviathan Tournament Companion primary scoring cap: each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
 
   "simulator.primary_vp_cap_15": {
-    "source": "https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/",
-    "rule_name": "Primary Mission scoring cap",
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission per-round scoring cap (CA-2025-26 v1.5)",
     "quoted_text": "At the end of each battle round, if you control one or more objective markers, you score 5 victory points for each objective marker you control, to a maximum of 15 victory points.",
     "trigger": "end of each battle round, when totalling Primary VP for an army",
-    "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each)",
+    "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each). Citation source corrected from the Leviathan Tournament Companion to the Chapter Approved 2025-26 v1.5 pack (the May-2026 calibration target's deck) per the wave-116 mission-pack audit.",
+    "scope": "phase-gated"
+  },
+
+  "simulator.primary_vp_cap_50": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
+    "rule_name": "Primary Mission total VP cap (50 per game)",
+    "quoted_text": "VP SOURCE / MAXIMUM VP: Primary Mission 50VP ... In all cases, any excess VP awarded above these maximums are lost.",
+    "trigger": "deciding the winner — when totalling each army's Primary VP across the whole game",
+    "effect": "M1 (wave 117). Each army's total Primary VP is capped at 50 per game, mirroring the existing 40-VP total Secondary cap. The simulator previously enforced only the per-round 15 cap, so a primary-dominating army (the durable Knight) could run to 4 rounds x 15 = 60 and over-score primary by up to 10. Applied in Battle._decide_winner as min(primary, 50). A real CA-2025-26 rule: kept ON by default (set SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B). Cited verbatim from the CA-2025-26 v1.5 'Determine Victor' VP-source maximums table.",
     "scope": "phase-gated"
   },
 

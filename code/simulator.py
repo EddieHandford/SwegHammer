@@ -684,8 +684,23 @@ class Battle:
         # past it. Decide on primary + min(secondary, 40), using the per-side
         # `_a_secondary_vp` tally. Landed permanently wave 75 (A/B validated:
         # gated 5.35 → 5.11). Cited as `simulator.secondary_vp_cap_40`.
-        a_vp = (self._a_vp - self._a_secondary_vp) + min(self._a_secondary_vp, 40)
-        b_vp = (self._b_vp - self._b_secondary_vp) + min(self._b_secondary_vp, 40)
+        #
+        # M1 (wave 117) — Primary 50-VP TOTAL cap. CA-2025-26 v1.5 caps the
+        # Primary Mission at 50 VP per game ("any excess VP awarded above these
+        # maximums are lost"). The simulator only enforced the per-round 15 cap
+        # (in `_score_objectives`), so a primary-dominator could run to 4×15=60
+        # and over-score by up to 10 — exactly the durable Knight's edge. Mirror
+        # the 40-secondary cap here. A real rule: kept ON by default; set
+        # SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B. Cited as
+        # `simulator.primary_vp_cap_50`.
+        _cap_primary = __import__("os").environ.get("SWEG_PRIMARY_CAP_50") != "0"
+        a_primary = self._a_vp - self._a_secondary_vp
+        b_primary = self._b_vp - self._b_secondary_vp
+        if _cap_primary:
+            a_primary = min(a_primary, 50)
+            b_primary = min(b_primary, 50)
+        a_vp = a_primary + min(self._a_secondary_vp, 40)
+        b_vp = b_primary + min(self._b_secondary_vp, 40)
         if a_vp > b_vp:
             return self.a.name
         if b_vp > a_vp:
