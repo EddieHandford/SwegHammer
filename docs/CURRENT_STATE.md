@@ -1,6 +1,14 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 127 (2026-06-02) — **USER DECISION (A): run the combined anti-Knight PACKAGE** (M4-plan
+**Last updated:** Wave 128 (2026-06-02) — built anti-Knight stack **component 1: M4-α** squad-cluster
+positioning (`SWEG_M4`, default-OFF): a near-marker OC model not in melee genuinely moves into the 3" band so
+a squad masses its OC on the objective. **N=40 A/B HALVES the target axis** (Imperial Knights +24.8→+13.3,
+Chaos Daemons −14.6→−8.8, neither overshooting) **but REGRESSES the aggregate** (gated 4.34→4.65) — the
+frozen-under spread inflated other factions. Expected for M4-alone (value is the STACK); kept gated
+default-OFF. 7 tests + strategy suite green; cited. NEXT: component 2 Tarpit (`SWEG_TARPIT`), then the
+full-stack A/B. LOOP_QA wave-128.
+
+**Wave 127** — **USER DECISION (A): run the combined anti-Knight PACKAGE** (M4-plan
 §7); the M4 hard-gate is LIFTED. Building a STACK of three faithful env-gated components — (1) M4-α `SWEG_M4`
 (on-objective squads genuinely move models to cluster in the 3" band, faithful A1 not A2), (2) Tarpit-charge
 `SWEG_TARPIT` (pin a durable Knight, value by enemy output denied), (3) `SWEG_FOCUS` (existing anti-armour

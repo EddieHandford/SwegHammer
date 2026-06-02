@@ -8,5 +8,14 @@
     "trigger": "a unit is deployed or scores Objective Control",
     "effect": "models of a unit stay clustered; the unit contributes Objective Control to a single objective",
     "scope": "army-wide"
+  },
+
+  "simulator.m4_squad_cluster": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Objective-Control",
+    "rule_name": "Objective Control (massing models on a marker)",
+    "quoted_text": "Each player counts the number of models they have within range of the objective marker (within 3\" horizontally ...), and adds together the Objective Control characteristics of those models. The player with the highest total controls that objective marker.",
+    "trigger": "anti-Knight stack component 1 (env-gated SWEG_M4): the move-AI is choosing where a model carrying Objective Control should go, and a marker is within ~6\" of it",
+    "effect": "(positioning approximation) a model with Objective Control that is near but not tight on a marker, and not locked in melee, genuinely moves to a cover-rich slot within 2\" of the marker centre — i.e. inside the 3\" Objective Control range — so a squad's surviving models mass on the objective and contribute their whole Objective Control, rather than half of it stranding in the 3\"-6\" band outside scoring range. Faithful positioning (the models really move; per-model OC scoring in `_score_objectives` is unchanged), NOT a coherency-footprint counting shortcut. Even-handed: a 1-model unit targets the marker centre and is unaffected because it already parks there. Default OFF; SWEG_M4=1 enables for the isolation A/B.",
+    "scope": "phase-gated"
   }
 }

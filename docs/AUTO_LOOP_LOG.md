@@ -4,6 +4,28 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 128 (2026-06-02) — built anti-Knight stack COMPONENT 1: M4-α squad-cluster positioning (`SWEG_M4`, default-OFF). N=40 A/B: HALVES the target axis (IK +24.8→+13.3, Daemons −14.6→−8.8) but REGRESSES the aggregate (4.34→4.65) — the frozen-under spread; expected for M4-alone, value is the STACK
+
+Built component 1 of the user-authorised package. In `pick_move_intent` (gated `SWEG_M4`): a model carrying
+Objective Control that is near a marker (≤6") but not tight on it, and not locked in melee, genuinely MOVES to
+a cover-rich slot inside the 3" scoring band (`_m4_cluster_intent` + `_m4_enabled`), so a squad masses its
+surviving OC on the objective instead of stranding half in the 3"-6" ring (the wave-93 spread). Faithful A1
+positioning (the models really move; per-model OC scoring unchanged), even-handed (a 1-model Knight targets the
+centre and is unaffected). Cited `simulator.m4_squad_cluster`; 7 tests; strategy suite green (34); OFF path
+gated byte-identical.
+
+**N=40 A/B (OFF = current baseline with Insane Bravery on = gated 4.34; ON `SWEG_M4=1`):**
+- **Imperial Knights +24.8 → +13.3** (gated, ≈HALVED; 74.8% → 63.3% toward 48.5% real — not overshot).
+- **Chaos Daemons −14.6 → −8.8** (gated, ≈HALVED; 35.4% → 41.2% toward 50.8% real — not overshot).
+- **Aggregate gated 4.34 → 4.65 (+0.31 REGRESSION); raw 7.50 → 8.03.**
+
+So M4-α does exactly its job — it nearly halves the dominant IK/Daemons axis (and unlike the reverted
+Candidate A, it actually MOVES that axis) — but the aggregate worsens because it inflated OTHER factions (the
+frozen-under spread; full per-faction diagnostic to identify them queued). This is the expected "M4 alone
+doesn't land the aggregate; the value is in the STACK" outcome. KEPT gated default-OFF (stack component).
+NEXT: component 2 (Tarpit-charge `SWEG_TARPIT`), then the decisive full-stack A/B where M4's axis-fix may
+combine with Tarpit + SWEG_FOCUS to net-land. LOOP_QA wave-128.
+
 ## Wave 127 (2026-06-02) — USER DECISION: (A) authorised the combined anti-Knight PACKAGE — hard-gate LIFTED. Wrote the component-1 (M4-α squad-cluster) build plan; build next wave
 
 The user resolved the M4 fork in `M4_REPRESENTATION_PLAN.md` §7: **(A) — run the combined anti-Knight package**

@@ -1927,6 +1927,53 @@ def _sacrificial_chaff_target(
     return (target_x, target_y)
 
 
+def _m4_enabled() -> bool:
+    """Anti-Knight stack component 1 (`SWEG_M4`). Default OFF — the stack
+    components stay gated for the isolation A/B until the decisive full-stack
+    run; the user's package decision sets the final default."""
+    return __import__("os").environ.get("SWEG_M4", "0") == "1"
+
+
+def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
+    """M4-α: a model carrying Objective Control that is NEAR a marker but not
+    yet tight on it genuinely MOVES to a clustered on-marker slot inside the 3"
+    scoring band, so a squad's surviving models mass on the objective and
+    contribute their whole Objective Control (instead of stranding in the
+    3"-6" band, the wave-93 spread). Returns `(slot, _CAPTURE_INTENT)` or None.
+
+    Faithful positioning (A1), NOT a coherency-footprint counting shortcut
+    (the forbidden A2): the model really moves; OC is still scored per-model
+    within 3" by `_score_objectives`, unchanged. Even-handed — a 1-model unit
+    (a Knight) targets the marker centre too and is unaffected because it
+    already parks there; the benefit accrues to multi-model squads because they
+    have bodies to mass, not via any faction or model-count branch. Cited
+    `simulator.m4_squad_cluster`.
+    """
+    if own_oc <= 0:
+        return None   # no Objective Control to contribute — leave it to shoot
+    # Locked in melee: leave it to the existing fight / fall-back logic, do not
+    # waltz onto a marker while in Engagement Range.
+    for e in enemy_alive:
+        if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE:
+            return None
+    PULL_IN = 6.0          # only tighten models already committed near a marker
+    INNER = 1.5            # already tight on the centre — no move needed
+    in_range = [
+        (obj, _dist(unit.position, (obj.x, obj.y)))
+        for obj in objectives
+    ]
+    in_range = [(o, d) for o, d in in_range if d <= PULL_IN]
+    if not in_range:
+        return None
+    obj, d = min(in_range, key=lambda od: od[1])
+    if d <= INNER:
+        return None        # already massed on the marker
+    # A cover-rich point WITHIN the 3" scoring band of the marker centre, so the
+    # model keeps both its Objective Control and (where available) a cover save.
+    slot = _best_nearby_cover_point(map_, (obj.x, obj.y), search_radius=2.0)
+    return slot, _CAPTURE_INTENT
+
+
 def pick_move_intent(
     unit, friendly, enemy, map_, army_plan: Optional[str] = None,
     _phase_their_oc: Optional[Dict] = None,
@@ -2024,6 +2071,20 @@ def pick_move_intent(
         _their_oc = _phase_their_oc
     else:
         _their_oc = {id(obj): _oc_on_objective(enemy_alive, obj) for obj in objectives}
+
+    # ----- M4-α (anti-Knight stack, SWEG_M4) — mass Objective Control onto the
+    # markers ------------------------------------------------------------------
+    # A model carrying Objective Control that is near (but not tight on) a marker
+    # genuinely moves into the 3" scoring band, so a squad packs its surviving
+    # OC on the objective instead of stranding half of it in the 3"-6" ring (the
+    # wave-93 spread). Even-handed; a 1-model unit is unaffected (already parks
+    # on the centre). Runs ahead of the on-objective/HOLD logic so an edge-holder
+    # tightens onto the marker rather than drifting to off-marker cover. OFF path
+    # (gate unset) is byte-identical. Cited `simulator.m4_squad_cluster`.
+    if _m4_enabled():
+        _m4 = _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_)
+        if _m4 is not None:
+            return _m4
 
     # ----- 1. Are we currently on an objective whose loss is at stake? -----
     # Track which objectives the unit currently occupies; reused by the
