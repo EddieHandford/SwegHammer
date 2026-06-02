@@ -396,11 +396,13 @@ class IntelligentDeploymentTests(unittest.TestCase):
             army.add_squad(_character(), size=1)
         battle = _deploy_with_gate(a, b, gate_on=True)
         dz = battle.map.deployment_width
-        # All Alpha units sit at the rear (near y=0, well inside the back inset),
-        # i.e. none was pushed to the forward screen row at y≈dz-3.
+        # All Alpha units sit in the back group — at the deployment-zone midline
+        # (the legacy gunline position with a clear firing lane; wave-103
+        # refinement un-buried the guns from the board edge), i.e. none was pushed
+        # to the forward screen row at y≈dz-3.
         for u in a.units:
-            self.assertLess(u.position[1], dz / 2.0,
-                f"{u.profile.name} at y={u.position[1]} should be in the rear group")
+            self.assertLess(u.position[1], dz - 3.0,
+                f"{u.profile.name} at y={u.position[1]} should be in the back group, not the forward screen row")
 
 
 if __name__ == "__main__":

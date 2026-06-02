@@ -5318,12 +5318,17 @@ class Battle:
         # rule — cited as `simulator.intelligent_deployment`.
         if __import__("os").environ.get("SWEG_DEPLOY") == "1":
             dz = self.map.deployment_width
-            # Rear row near the army's own board edge; front (screen) row near
-            # the zone's inner edge (toward mid-board). Keep a small inset from
-            # both edges so clustered squads stay legally inside the zone.
-            a_back_y = min(a_y, 3.0)
+            # REFINEMENT (wave 103): the high-value / gunline group sits at the
+            # deployment-zone MIDLINE (`a_y`/`b_y` — its legacy single-line
+            # position, with a clear firing lane), NOT buried at the board edge.
+            # The crude wave-102 version put it at the board edge, which cost the
+            # gunline under-shooters their early sightlines and regressed Astra
+            # Militarum / Adeptus Mechanicus. Only the SCREEN is pushed forward to
+            # the zone's inner edge (toward mid-board) to body-block / deny the
+            # Knight; the gunline stays exactly where the legacy deploy put it.
+            a_back_y = a_y
             a_screen_y = max(a_y, dz - 3.0)
-            b_back_y = max(b_y, self.map.height - 3.0)
+            b_back_y = b_y
             b_screen_y = min(b_y, self.map.height - dz + 3.0)
 
             a_screen, a_back = self._split_screen_back(a_std)
