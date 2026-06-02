@@ -435,7 +435,11 @@ the pytest sweep + N=40 A/B; keep faithful fixes regardless of metric direction 
 This batch SUBSUMES the standalone P1 terrain task below (Stream C = its density build, Stream D = its
 cover/line-of-sight rules).
 
-**P0 — IN FLIGHT (finish, then report; do not abandon mid-measurement).**
+**P0 — ✅ RESOLVED (wave 95; queue note was stale, corrected wave 124).** Candidate B (`SWEG_MASS`) LANDED
+default-ON: gated 4.15 → 3.81 (Daemons −22.7 → −16.4, IK +27 → +25.5); already in the current N=80 3.69
+baseline. It did NOT wash — the faithful movement half of M4. Nothing left to do here.
+
+~~**P0 — IN FLIGHT (finish, then report; do not abandon mid-measurement).**
 Candidate B (`SWEG_MASS`, the move AI massing units onto markers). Finish the env-gated A/B vs 4.15,
 per-matchup on the IK + Daemons cells. **Even-handed** — a general objective-seeking move-AI
 improvement for ALL factions; body armies benefiting more must be EMERGENT (more bodies), NOT a coded
@@ -443,9 +447,21 @@ body-army / under-shooter / per-archetype massing preference (that is the forbid
 only — NO objective-control counting / coherency-buffer change (that is the reverted A2 by the back
 door). Expect a likely wash (the frozen-under / w81 class); **if it washes, REPORT it** — do not force,
 do not reach for A2 or any knob. (Watchdog estimate: low-to-moderate; likely wash, but cheap to finish
-and the result is informative for the terrain hypothesis below.)
+and the result is informative for the terrain hypothesis below.)~~
 
-**P1 — HIGHEST estimated impact (NEW, user-authorized): TERRAIN-REALISM REVIEW.**
+**P1 — ✅ RESOLVED (wave 97; queue note was stale, corrected wave 124). TERRAIN-REALISM REVIEW — DONE +
+HYPOTHESIS REFUTED.** Both halves are complete: the terrain-RULES fixes (TOWERING-not-blanket-for-ruins,
+cover, line-of-sight) landed in the wave-96 core-rules batch (Stream D+E), and the terrain-DENSITY rework
+(`code/maps._competitive_terrain`, using the watchdog's supplied competitive Pariah Nexus reference, cited
+`terrain.competitive_pariah_nexus_layout`) landed wave 97 default-ON. **Result REFUTED the sparse-terrain
+hypothesis:** realistic dense terrain made the Imperial Knights WORSE (+25.9 → +27.3, gated 3.59 → 4.13) —
+realistic terrain AMPLIFIES the durable over-holder rather than helping melee under-shooters reach markers.
+KEPT as fidelity (the May-2026 target was played on it) despite the regression. Terrain is NOT the
+root-cause of the positional axis. Nothing left to do here.
+
+> _(Superseded original P1 note retained below for reference — the review is done and refuted, see above.)_
+
+**P1 (ORIGINAL NOTE, superseded) — HIGHEST estimated impact (NEW, user-authorized): TERRAIN-REALISM REVIEW.**
 Hypothesis (watchdog, data-backed): the positional residual is substantially driven by SPARSE terrain.
 Our 10 calibration maps average ~8–10% terrain area / ~7–8% line-of-sight-blocking coverage with small
 scattered pieces; real competitive Pariah Nexus layouts are far denser (~25–30% area with large central

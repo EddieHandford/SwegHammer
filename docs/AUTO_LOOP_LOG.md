@@ -4,6 +4,23 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 124 (2026-06-02) — detachment fab AUDIT (layer is CLEAN: 29/34 faithful, 2 minor fabs queued) + corrected the STALE watchdog queue (P0 Candidate B + P1 terrain were BOTH already resolved) — M4 confirmed the only headline lever, the loop is at the faithful floor
+
+Per never-halt (M4 user-gated), worked the next-best faithful lever — the detachment fabrication sweep. A
+read-only Sonnet audit of all 34 detachments found the layer essentially CLEAN: **29 faithful, 2 minor fabs, 3
+design-uncertain.** The historical fabrications were already swept in the SC5 / fab-audit waves. The 2 residual
+fabs (F1: PLAGUE_COMPANY/ANNIHILATION_LEGION share `AWAKENED_DYNASTY_STRATAGEMS` as a placeholder — Necron strats
+wrongly attributed, cross-faction for Death Guard; F2: ANNIHILATION_LEGION `reroll_wound_ones` is all-mode vs the
+ranged-only real rule) are minor + delicate (band-aid risk; real fixes need a BSData stratagem pull / a 3-file
+schema change) → QUEUED (task #37), not rushed at the floor. Also discovered the **watchdog TASK QUEUE's top two
+levers were STALE**: P0 Candidate B (`SWEG_MASS`) LANDED wave 95 (not in-flight), and P1 terrain-realism (the
+"HIGHEST estimated impact") was DONE wave 97 and REFUTED (realistic terrain made IK WORSE) — both corrected in
+the goal-doc. **So every faithful lever around the representation is confirmed exhausted (terrain refuted,
+per-model neutral, mission neutral, massing landed, detachment layer clean); M4 is the only headroom lever and it
+is user-gated.** The loop is at the legitimate floor — but NOT silently ending: LOOP_QA asks the watchdog to
+re-prioritize for the next non-M4 lever (suggested: Strategic Reserves variety, a still-absent faithful mechanic)
+or confirm the floor. LOOP_QA wave-124.
+
 ## Wave 123 (2026-06-02) — M4 representation PLAN written (`docs/M4_REPRESENTATION_PLAN.md`); the build is a USER FORK, not a routine wave: every faithful mission/scoring/movement lever is exhausted, so M4 is localised to ONE architectural axis
 
 Wrote the M4 plan-first doc (hard-gated; no code). The reconnaissance reframed M4: **the faithful MOVEMENT

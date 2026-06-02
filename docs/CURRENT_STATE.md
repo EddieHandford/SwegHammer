@@ -1,6 +1,14 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 123 (2026-06-02) — M4 representation PLAN written (`docs/M4_REPRESENTATION_PLAN.md`),
+**Last updated:** Wave 124 (2026-06-02) — detachment fab AUDIT (layer CLEAN: 29/34 faithful, 2 minor fabs
+queued task #37) + corrected the STALE watchdog queue: P0 Candidate B (`SWEG_MASS`) LANDED wave 95, P1
+terrain-realism DONE wave 97 + REFUTED (realistic terrain made IK WORSE). So every faithful lever around the
+representation is confirmed exhausted — terrain refuted, per-model neutral, mission neutral, massing landed,
+detachment layer clean. **M4 is the only headroom lever and it is user-gated; the loop is at the faithful
+floor** (not silently ending — LOOP_QA asks the watchdog to re-prioritize for the next non-M4 lever, e.g.
+Strategic Reserves variety, or confirm the floor). LOOP_QA wave-124.
+
+**Wave 123** — M4 representation PLAN written (`docs/M4_REPRESENTATION_PLAN.md`),
 plan-first + hard-gated. The reconnaissance reframed M4: the faithful MOVEMENT half already LANDED (Candidate B
 `SWEG_MASS`, default-ON, gated 4.15 → 3.81, already in the N=80 3.69 baseline); the geometry half was REVERTED
 (`SWEG_CLUSTER`, regressed + unfaithful); the OC contest + scoring timing are verified faithful; and the whole
