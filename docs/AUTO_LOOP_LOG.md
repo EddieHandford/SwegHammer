@@ -4,6 +4,40 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 99 close (2026-06-02) — Per-model weapon loadouts, STAGES 2 + 3: firing now reads each model's own weapons (gated `SWEG_PERMODEL`). The Knight weapon over-count hypothesis is REFUTED at the metric — per-model is headline-neutral (within noise) and does NOT reduce the Imperial Knights over-rate
+
+Branch `claude/sim-calibration-6`. Two stages of the per-model weapon re-architecture (plan
+`~/.claude/plans/graceful-kindling-forest.md`). **Stage 2** (gate-inert) plumbed `model_loadouts` onto
+`UnitProfile` (hashable flattened tuple + `_unflatten_model_loadouts`), metric 4.13 unchanged. **Stage 3**
+(behavioural, env-gated `SWEG_PERMODEL`) made `Army.add_squad` instantiate one `Unit` per model from the
+per-model loadout: each model fires its OWN weapons, a special weapon is lost when its model dies, a pistol
+fires at engagement range, and single-model units fire only their actually-equipped guns (the over-count
+fix from Stage 1 goes live here). Damage stays at the mean (dice is Stage 4). OFF (gate unset) is the legacy
+shared-profile loop verbatim — byte-identical, no extra RNG. Cited `simulator.per_model_loadouts` (10e
+Weapons / Making Attacks). 949 tests pass, audit clean, run.py OK in both gate states.
+
+THE A/B (the headline test of the user's Imperial-Knights over-count hypothesis):
+
+| Eval | gated MAE | Imperial Knights | Chaos Knights | Leagues of Votann |
+|---|---:|---:|---:|---:|
+| OFF N=40 | 4.13 | +27.3 | +1.0 | +6.7 |
+| ON N=40 | 4.24 | +27.7 | +7.0 | +12.2 |
+| OFF N=80 | 3.52 | +27.0 | +2.0 | +7.4 |
+| ON N=80 | 3.79 | +28.3 | +6.1 | +13.4 |
+
+REFUTED at the metric. Same-N comparisons show a small regression (N=40 +0.11, N=80 +0.27), but the gated
+MAE itself has LARGE sampling noise — the OFF baseline alone swings 4.13 (N=40) → 3.52 (N=80) — so the
+headline move is within noise. The RELIABLE, cross-N-consistent signal is per-faction: per-model firing
+HELPS the strong multi-wound elite armies over-shoot MORE (Leagues of Votann +6, Chaos Knights +5) and
+leaves Imperial Knights essentially FLAT (+27 → +28). So removing the Knight weapon over-count (a genuine
+fidelity win) does NOT reduce the Knight win rate — TRIANGULATED TWICE now (terrain wave 97 + per-model
+here): **the Imperial Knights over-rate is durability / objective-holding, not firepower.** Per-model is a
+faithful representation upgrade (kept, gated) but it is the frozen-under pattern, not the Knight lever.
+METHODOLOGY FINDING: per-model widens per-faction variance — N=40 is inadequate, use N≥80 for per-model
+A/Bs (and the gated-MAE noise band is wider than previously treated). Stage 4 (per-weapon dice rolling) is
+the UNTESTED other half of the hypothesis (mean-damage overkill of big guns) and sits on this. Decision on
+continuing to Stages 4-5 pending the user.
+
 ## Wave 98 close (2026-06-01) — Per-model weapon loadouts, STAGE 1 of 5: the mapper preserves per-model loadouts + raw damage dice (DATA ONLY, additive, metric 4.13 unchanged); single-model weapon OVER-COLLECTION diagnosed + fixed in the data
 
 Branch `claude/sim-calibration-6`. The user redirected the per-shot-damage-roll task into a fuller, faithful

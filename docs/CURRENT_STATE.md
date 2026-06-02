@@ -1,22 +1,34 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 98 close (2026-06-01) — Per-model weapon loadouts STAGE 1 of 5 (mapper preserves
-per-model loadouts + raw dice; DATA ONLY, additive, gated **4.13** unchanged). The user redirected the
-per-shot-damage-roll task into a fuller faithful re-architecture: combat moves from one *averaged* weapon
-per squad to **per-model weapon loadouts** (each model fires its own weapons with real dice rolled, lost on
-death; pistols fire weakly in melee), staged across five env-gated steps (`SWEG_PERMODEL`), aggregate kept
-unchanged so the blast radius (AI / pricing / tests) survives. Session headline gated 5.98 → 4.13.
+**Last updated:** Wave 99 close (2026-06-02) — Per-model weapon loadouts STAGES 2 + 3 LANDED (gated
+`SWEG_PERMODEL`): firing now reads each model's own weapons. **The Knight weapon over-count hypothesis is
+REFUTED at the metric** — per-model is headline-neutral within noise and does NOT reduce the Imperial
+Knights over-rate. The re-architecture (5 env-gated stages, plan `graceful-kindling-forest.md`) moves combat
+from one averaged weapon per squad to per-model loadouts (each model fires its own weapons, lost on death;
+pistols fire in melee); aggregate kept so the AI/pricing/test blast radius survives. Session headline 4.13
+(OFF baseline; ON within noise of it). DECISION on continuing to Stages 4-5 pending the user.
 
-**Wave 98 / Stage 1 (data only):** `code/bsdata/mapper.py` now preserves `model_loadouts` per unit (each
-model type's ranged/melee weapons with raw Attacks/Damage dice strings), and **single-model units now use the
-option-per-choice-group picker** instead of a legacy flat weapon-walk. KEY DIAGNOSTIC validating the
-Imperial-Knights over-rate hypothesis: **523 of 907 single-model units were over-collecting weapons** — the
-Wraithknight dropped from five firing weapons (both alternative arm cannons) to one arm cannon; Knights shed
-mutually-exclusive carapace options. Knights have been firing guns they cannot simultaneously equip; this is
-the suspected +27 driver, and it goes LIVE when firing reads the loadout (Stage 3). The regen also synced a
-stale `deadly_demise` field (1→5 on 55 chassis; metric-neutral, kept per rule 7). OFF N=40 = 4.13 exactly
-(data-only confirmed), 933 tests pass, audit clean, run.py OK. NEXT: Stage 2 (plumb `model_loadouts` onto
-`UnitProfile`, gate-inert), then Stage 3 (firing reads the loadout — the IK over-count correction goes live).
+**Wave 99 / Stages 2-3:** Stage 2 plumbed `model_loadouts` onto `UnitProfile` (gate-inert, 4.13 unchanged).
+Stage 3 made `add_squad` build one `Unit` per model from the loadout (`SWEG_PERMODEL`); single-model units
+now fire only their actually-equipped guns (the Stage-1 over-count fix goes live); weapon-loss-on-death and
+pistols-in-melee fall out of the existing per-Unit machinery; cited `simulator.per_model_loadouts`.
+**THE A/B refuted the hypothesis:** same-N comparisons regress slightly (N=40 4.13→4.24, N=80 3.52→3.79) but
+within the gated-MAE sampling noise (the OFF baseline alone swings 4.13→3.52 across N). The reliable
+cross-N signal is per-faction: per-model HELPS the strong elite armies over-shoot MORE (Leagues of Votann
++6, Chaos Knights +5) and leaves Imperial Knights FLAT (+27→+28). So the weapon over-count was real (Stage 1
+fixed it, a fidelity win) but removing it does NOT cut the Knight win rate — TRIANGULATED TWICE (terrain +
+per-model): **the IK over-rate is durability / objective-holding, not firepower.** Per-model is a faithful
+upgrade (kept, gated) but the frozen-under pattern, not the Knight lever. METHODOLOGY: per-model widens
+variance → use N≥80 for its A/Bs. Stage 4 (per-weapon dice = the mean-overkill half of the hypothesis) is
+the untested remaining piece. 949 tests pass, audit clean, run.py OK both gate states.
+
+### Earlier — wave 98 (per-model Stage 1: mapper preserves loadouts + dice; over-collection diagnosed/fixed in data)
+
+**Wave 98 / Stage 1 (data only):** the mapper now preserves `model_loadouts` (per-model weapons + raw dice)
+and single-model units use proper option-picking instead of a flat weapon-walk. Diagnostic: 523 of 907
+single-model units were over-collecting weapons (the Wraithknight fired both alternative arm cannons). Data-
+only, metric 4.13 unchanged; the correction went live at Stage 3 (and, per above, did not move Imperial
+Knights). The regen also synced a stale `deadly_demise` field (metric-neutral, kept per rule 7).
 
 ### Earlier — wave 97 (terrain rebuilt to competitive density, gated 3.59 → 4.13, refuted as the IK lever)
 
