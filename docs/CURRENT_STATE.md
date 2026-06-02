@@ -1,6 +1,14 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 128 (2026-06-02) — built anti-Knight stack **component 1: M4-α** squad-cluster
+**Last updated:** Wave 129 (2026-06-02) — built anti-Knight stack **component 2: Tarpit-charge** valuation
+(`SWEG_TARPIT`, default-OFF): an expendable chaff unit pinning a durable high-ranged brick it can't crack is
+valued by the enemy shooting it DENIES (Big Guns Never Tire) instead of suppressed. **A/B: INERT** — Tarpit
+alone is a wash (4.34→4.43) and does NOT move Imperial Knights (+24.8→+25.0); M4+Tarpit ≈ M4-alone (4.64≈4.65),
+claws back NONE of the over-shooter inflation. Re-confirms (4th angle) the IK residual is POSITIONAL, not
+combat — so the package's combat half is inert and the verdict hinges on M4-α. 8 tests + suite green; kept
+gated default-OFF. NEXT: component 3 (`SWEG_FOCUS`) + full-stack A/B + ablations N=40→N=80. LOOP_QA wave-129.
+
+**Wave 128** — built anti-Knight stack **component 1: M4-α** squad-cluster
 positioning (`SWEG_M4`, default-OFF): a near-marker OC model not in melee genuinely moves into the 3" band so
 a squad masses its OC on the objective. **N=40 A/B HALVES the target axis** (Imperial Knights +24.8→+13.3,
 Chaos Daemons −14.6→−8.8, neither overshooting) **but REGRESSES the aggregate** (gated 4.34→4.65) — the

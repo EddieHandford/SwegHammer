@@ -4,6 +4,29 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 129 (2026-06-02) — built anti-Knight stack COMPONENT 2: general Tarpit-charge valuation (`SWEG_TARPIT`, default-OFF). A/B: INERT — Tarpit alone is a wash (4.34→4.43) and does NOT move IK (+24.8→+25.0); M4+Tarpit ≈ M4-alone (4.64≈4.65), claws back NONE of the over-shooter inflation. Re-confirms IK is positional, not combat
+
+Built component 2: in `pick_charge_target`'s won't-crack branch (gated `SWEG_TARPIT`), an EXPENDABLE (chaff,
+non-CHARACTER) attacker pinning a DURABLE high-ranged brick it can't crack is valued by the enemy ranged output
+it DENIES (Big Guns Never Tire — the pin execution is already faithful in `_do_shoot`) instead of suppressed.
+Even-handed (universal points + toughness, no faction branch); a low-ranged melee brick yields a small pin value
+and is not tarpitted. AI heuristic on the cited pin rule (same class as the existing per-faction tarpit bonuses,
+no new citation). `_is_tarpit_charge` + `_tarpit_enabled`; 8 tests; strategy suite + smoke green; OFF
+byte-identical.
+
+**N=40 A/B vs the 4.34 baseline:**
+- **Tarpit ALONE:** gated **4.43** (+0.09, wash); **Imperial Knights +24.8 → +25.0 (UNCHANGED)**; Daemons
+  −14.6 → −13.5 (slight). Tarpit denies the Knight's SHOOTING, but the convergence established these games are
+  decided on PRIMARY board control, not combat — so the combat-denial lever can't move IK.
+- **M4 + TARPIT:** gated **4.64 ≈ M4-alone 4.65** — Tarpit adds NOTHING on top of M4 and claws back NONE of the
+  over-shooter inflation (Drukhari +18.3, World Eaters +11.4, Chaos Knights −14.8 still inflated).
+
+So the **combat half of the package is INERT on the primary-decided IK game** (refutes the Tarpit/FOCUS
+claw-back hypothesis; re-confirms the convergence). FOCUS (also combat-targeting) is likely similarly inert →
+the package verdict hinges entirely on M4-α. Tarpit kept gated default-OFF (stack component). NEXT: component 3
+(`SWEG_FOCUS` on) + the decisive full-stack A/B + ablations N=40→N=80, characterising the over-shooter
+inflation (faithful exposed-residual vs M4 artifact) per the watchdog. LOOP_QA wave-129.
+
 ## Wave 128 (2026-06-02) — built anti-Knight stack COMPONENT 1: M4-α squad-cluster positioning (`SWEG_M4`, default-OFF). N=40 A/B: HALVES the target axis (IK +24.8→+13.3, Daemons −14.6→−8.8) but REGRESSES the aggregate (4.34→4.65) — the frozen-under spread; expected for M4-alone, value is the STACK
 
 Built component 1 of the user-authorised package. In `pick_move_intent` (gated `SWEG_M4`): a model carrying

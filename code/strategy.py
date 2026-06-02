@@ -1435,6 +1435,41 @@ def _kill_potential_wounds(attacker_profile, target_profile) -> float:
 _WONT_CRACK_HP_FRAC = 0.20
 _WONT_CRACK_PENALTY = 0.3
 
+# Anti-Knight stack component 2 (`SWEG_TARPIT`, default OFF) — general tarpit
+# charge valuation. A charge that CANNOT crack a durable, high-ranged-threat
+# brick (a Knight) is normally suppressed by the won't-crack penalty. But an
+# EXPENDABLE (chaff) attacker pinning such a target is a real-play tarpit: an
+# engaged target with Big Guns Never Tire may shoot only the unit it is tied up
+# with at -1, or Fall Back and lose its shooting entirely (the sim already
+# resolves this faithfully in `_do_shoot`). So the pin DENIES the target's
+# ranged output to the rest of the army — value the charge by that denied
+# output, not by the kill it cannot make. Even-handed: universal points +
+# toughness, no faction branch (the existing per-faction tarpit bonuses are a
+# separate, narrower play-style layer). AI heuristic exploiting the already-cited
+# Big Guns Never Tire mechanic — no new rule_citation (same class as the Ork /
+# World Eaters tarpit bonuses).
+_TARPIT_MIN_TOUGHNESS = 9     # durable brick worth pinning (Knights T12, big vehicles T9-14)
+_TARPIT_MIN_HP = 18.0        # or a large wound pool (a multi-wound vehicle/monster)
+_TARPIT_PIN_WEIGHT = 0.6     # weight on the denied ranged output when valuing a pin
+
+
+def _tarpit_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_TARPIT", "0") == "1"
+
+
+def _is_tarpit_charge(attacker, target_unit, target_profile) -> bool:
+    """A pin charge: an EXPENDABLE (chaff, non-CHARACTER) attacker into a DURABLE
+    target. Even-handed — no faction branch; uses universal points + toughness.
+    Called only inside the won't-crack branch, which already establishes the
+    attacker cannot crack the target. The pin's value scales with the target's
+    ranged output (computed at the call site), so a low-ranged melee brick yields
+    a small pin value and is not tarpitted (correct — a melee Knight wants melee)."""
+    if not _is_chaff_unit(attacker):
+        return False
+    tp = target_profile
+    return (tp.toughness or 0) >= _TARPIT_MIN_TOUGHNESS or \
+        (target_unit.current_health or 0.0) >= _TARPIT_MIN_HP
+
 
 def pick_charge_target(attacker, enemy):
     """
@@ -1572,7 +1607,16 @@ def pick_charge_target(attacker, enemy):
         # charges in the iter-1 audit landed on un-crackable targets.
         expected_wounds = _kill_potential_wounds(p, tp)
         if expected_wounds < _WONT_CRACK_HP_FRAC * max(1.0, e.current_health):
-            score *= _WONT_CRACK_PENALTY
+            if _tarpit_enabled() and _is_tarpit_charge(attacker, e, tp):
+                # PIN charge (SWEG_TARPIT): an expendable unit tying up a durable
+                # gun platform. Do NOT suppress — value the pin by the enemy
+                # ranged output it DENIES (Big Guns Never Tire / engaged-can't-
+                # shoot), added instead of the kill it cannot make. A melee brick
+                # has little ranged_value, so it yields a small pin value and is
+                # not tarpitted. Even-handed; AI heuristic on the cited pin rule.
+                score += _TARPIT_PIN_WEIGHT * ranged_value * charge_p
+            else:
+                score *= _WONT_CRACK_PENALTY
         candidates.append((score, d, e))
 
     if not candidates:
