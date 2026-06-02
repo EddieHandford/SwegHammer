@@ -1638,6 +1638,11 @@ class Unit:
         # immutable primary; the local `p` is rebuilt per profile.
         _p_base = p
         total_damage = 0.0
+        # PER-MODEL-LOADOUTS (Stage 4): read the SWEG_ROLLDMG gate once per
+        # attack (not per shot). When it is off, the per-shot damage takes the
+        # bit-identical mean fast path below, so OFF and per-model-mean are
+        # byte-for-byte the legacy / Stage-3 result.
+        _roll_dmg_active = _rolldmg_enabled()
         for _swap_profile in _profiles_to_fire:
             # Reset to the primary profile, then apply this iteration's
             # swap (None means "fire the primary as-is").
@@ -3178,10 +3183,19 @@ class Unit:
                 # roll-then-modify ordering matches the mean path. `per_shot_dmg`
                 # itself stays the mean for all THRESHOLD / heuristic reads
                 # (high_value, the == 1.0 branch); only the applied damage rolls.
-                _shot_dmg = (
-                    roll_damage(_dmg_dice, _dmg_dice_mean)
-                    + (per_shot_dmg - _dmg_dice_mean)
-                )
+                # Fast path when the gate is off OR no dice are present (every
+                # legacy / aggregate profile, the whole gate-OFF run, and the
+                # per-model-MEAN run): use `per_shot_dmg` directly so the applied
+                # value is BIT-identical to the mean / Stage-3 path, not merely
+                # arithmetically equal (avoids any a+(b-a) floating-point ulp and
+                # any random draw).
+                if not (_roll_dmg_active and _dmg_dice):
+                    _shot_dmg = per_shot_dmg
+                else:
+                    _shot_dmg = (
+                        roll_damage(_dmg_dice, _dmg_dice_mean)
+                        + (per_shot_dmg - _dmg_dice_mean)
+                    )
                 # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
                 # weapon keywords. Lance and Anti-X resolve their per-shot value
                 # here so a heterogeneous squad's specialist-weapon keyword fires
