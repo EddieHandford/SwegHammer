@@ -24,7 +24,9 @@ Knights at the board edge (slow to objectives), so the Knight army did worse for
 them to the midline restores IK. So deployment is the FIFTH lever that does NOT fix Imperial Knights — but
 the REFINED version is a genuine, faithful, NET-POSITIVE headline lever in its own right (a forward screen +
 guns in a firing position = real screen-first deployment, helping the gunline under-shooters). KEPT gated;
-recommended to the watchdog to confirm at N=80 and flip default-ON. 17 deployment tests pass, audit clean,
+recommended to the watchdog to confirm at N=80 and flip default-ON. **N=80 (wave 104) confirmed it is a WASH:
+OFF 3.52 → ON 3.44 (gain −0.08, inside the noise band) — the N=40 −0.38 was mostly noise, so NOT flipped,
+kept gated as a faithful metric-neutral fix; revisit at the re-calibration.** 17 deployment tests pass, audit clean,
 run.py OK both gate states. Per the overnight guardrail, the re-calibration / scoring (the real IK fix)
 remains the user's morning go.
 

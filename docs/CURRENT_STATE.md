@@ -6,7 +6,10 @@ un-burying the gunline under-shooters (AdMech −10.9 → **−8.4**, Astra −6
 Knights drop" was an ARTIFACT — burying the high-value group buried IK's OWN Knights; refined, IK is back to
 +27.5 (baseline). So deployment is the FIFTH lever that doesn't fix IK, BUT the refined version is a genuine
 faithful NET-POSITIVE headline lever (real screen-first deployment helping the gunline under-shooters). KEPT
-gated; recommended to the watchdog to confirm at N=80 and flip default-ON. The IK +27 remains a
+gated. **N=80 CONFIRMATION (wave 104): a WASH** — OFF 3.52 → ON 3.44 (gain −0.08, inside the noise band), so
+the N=40 −0.38 was mostly noise. Per the watchdog's flip criterion (only if outside noise) → NOT flipped,
+kept gated as a faithful metric-neutral fix (gunline under-shooters slightly better, IK slightly worse, net
+wash); revisit at the re-calibration. The IK +27 remains a
 re-calibration / scoring problem (the user's morning go). 17 tests pass, audit clean.
 
 ### Earlier — wave 102 (crude deployment: regressed; the IK-drop was a buried-own-Knights artifact, refined in w103)
