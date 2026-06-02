@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import functools
 import math
+import os
 import random
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -53,6 +55,80 @@ def _prob_to_target(prob: float) -> int:
     """
     target = int(round(7 - prob * 6))
     return max(2, min(7, target))
+
+
+# ---------------------------------------------------------------------------
+# PER-MODEL-LOADOUTS (Stage 4) — per-weapon damage-dice rolling
+# ---------------------------------------------------------------------------
+#
+# 10e core rule (Making Attacks → Inflict Damage): a weapon with a random
+# Damage characteristic (D6, D3+3, 2D6, ...) rolls those dice when a save is
+# failed to determine how many points of Damage the attack inflicts. SwegHammer
+# historically used the expected-value MEAN of that characteristic (a D6 gun
+# always dealt 3.5). That over-rates big single-shot guns: a real D6 against a
+# 3-wound model kills it ~67% of the time, but at 3.5 it "reliably" kills it.
+# Stage 4 rolls the real dice per shot, gated by `SWEG_ROLLDMG`, so the variance
+# (and the over-/under-kill correction) is measurable in isolation from the
+# Stage-3 per-model structural change.
+#
+# Cited as `simulator.rolled_damage`.
+
+# Dice grammar — ported verbatim from code/bsdata/mapper.py::parse_dice_expr so
+# the rolled distribution's MEAN matches the legacy expected-value field exactly
+# (the mean-invariant the Stage-1 mapper tests assert). Matches "NdX" / "dX"
+# (count optional → 1) anywhere in the string; the flat-modifier walk below adds
+# any trailing/leading integers.
+_DICE_RE = re.compile(r"(\d*)[dD](\d+)")
+_INT_RE = re.compile(r"-?\d+")
+
+
+def _rolldmg_enabled() -> bool:
+    """True iff the `SWEG_ROLLDMG` env gate is set. Read per-call (not cached at
+    import) so tests can toggle it via os.environ within a process. When unset,
+    `roll_damage` draws NOTHING and returns the mean — keeping the OFF and
+    per-model-mean RNG streams byte-identical to legacy."""
+    return bool(os.environ.get("SWEG_ROLLDMG"))
+
+
+def roll_damage(dice_str: str, mean_fallback: float) -> float:
+    """Roll a weapon's real Damage characteristic for ONE shot.
+
+    `dice_str` is the raw BSData Damage string ("2", "D6", "D3+3", "2D6", ...).
+    Returns the summed roll: each `NdX` term contributes N independent d6/dX
+    draws, each flat integer term is added verbatim. Uses the GLOBAL `random`
+    (seeded per worker in scripts/evaluate_vs_meta.py), so the sequence is
+    deterministic under PYTHONHASHSEED=0.
+
+    DETERMINISM CONTRACT: when `dice_str == ""` (or the `SWEG_ROLLDMG` gate is
+    unset), the function draws NOTHING from `random` and returns `mean_fallback`
+    unchanged. This is what keeps the gate-OFF and per-model-mean streams
+    byte-for-byte identical to the legacy expected-value path — the only time a
+    `random` draw is consumed here is when both the gate is on AND a non-empty
+    dice string is supplied.
+    """
+    if not dice_str or not _rolldmg_enabled():
+        return mean_fallback
+    s = dice_str.strip()
+    if not s or s in {"-", "—", "N/A", "None"}:
+        return mean_fallback
+    total = 0.0
+    rolled_any = False
+    for count_str, sides_str in _DICE_RE.findall(s):
+        count = int(count_str) if count_str else 1
+        sides = int(sides_str)
+        for _ in range(max(0, count)):
+            total += random.randint(1, sides)
+            rolled_any = True
+    stripped = _DICE_RE.sub("", s)
+    for n in _INT_RE.findall(stripped):
+        total += int(n)
+    # A pure-integer characteristic ("2") has no dice term but is a valid roll
+    # result; only fall back to the mean when the grammar matched NOTHING at all
+    # (unparseable string), so a flat "2" returns exactly 2 (and still draws no
+    # random die — the determinism contract holds for constant-damage weapons).
+    if not rolled_any and total == 0.0:
+        return mean_fallback
+    return total
 
 
 # APPROXIMATION: 3-round escalating model is the older index/launch-day Contagions shape.
@@ -333,6 +409,16 @@ class UnitProfile:
     # points formula and UI displays don't change.
     attacks: int = 1
     weapon_damage_per_shot: float = 0.0        # 0 = derive damage / attacks at use site
+    # PER-MODEL-LOADOUTS (Stage 4) — raw BSData Damage characteristic string for
+    # the PRIMARY ranged weapon (e.g. "D6", "D3+3", "2"). When the `SWEG_ROLLDMG`
+    # env gate is set AND this is non-empty, Unit.attack rolls these dice fresh
+    # per shot instead of using `weapon_damage_per_shot` (the expected-value
+    # mean). Empty string ("") = roll nothing, use the mean — so every legacy /
+    # aggregate profile (which never sets this) is byte-for-byte unchanged.
+    # Populated only on per-model profiles (via _loadout_entry_to_weapon_fields
+    # and the extra-profile swap), so dice rolling only happens on the per-model
+    # firing path. Cited as `simulator.rolled_damage`.
+    damage_dice: str = ""
     # Weapon abilities (parsed from BSData Keywords field by the mapper)
     lethal_hits: bool = False                  # critical hit (6 to hit) auto-wounds
     sustained_hits: int = 0                    # critical hit generates N extra normal hits (RANGED weapon)
@@ -461,6 +547,13 @@ class UnitProfile:
     # Phase B — melee profile (engagement range 1"). 0 = no usable melee profile.
     melee_attacks: int = 0
     melee_damage_per_shot: float = 0.0
+    # PER-MODEL-LOADOUTS (Stage 4) — raw BSData Damage characteristic string for
+    # the PRIMARY melee weapon (e.g. "D3", "2"). Parallel to `damage_dice` for
+    # the ranged side: under the `SWEG_ROLLDMG` gate Unit.attack rolls these dice
+    # per melee attack instead of using `melee_damage_per_shot`. Empty = use the
+    # mean (legacy / aggregate profiles never set it). Cited as
+    # `simulator.rolled_damage`.
+    melee_damage_dice: str = ""
     melee_hit_probability: float = 0.0
     melee_strength: int = 4
     melee_ap: int = 0
@@ -1250,6 +1343,10 @@ class Unit:
                     "melee_damage_per_shot": float(
                         _ed.get("weapon_damage_per_shot", 1.0) or 1.0
                     ),
+                    # PER-MODEL-LOADOUTS (Stage 4): carry the extra melee weapon's
+                    # raw Damage dice onto melee_damage_dice so the per-shot roll
+                    # reads it after this extra is hot-swapped in. Empty → mean.
+                    "melee_damage_dice": str(_ed.get("damage_dice", "") or ""),
                     "melee_hit_probability": float(
                         _ed.get("hit_probability", 0.0) or 0.0
                     ),
@@ -1395,6 +1492,12 @@ class Unit:
                     sec_swap = {
                         "attacks": max(1, int(p.secondary_attacks)),
                         "weapon_damage_per_shot": p.secondary_weapon_damage_per_shot,
+                        # PER-MODEL-LOADOUTS (Stage 4): the secondary block is the
+                        # aggregate two-profile picker and never carries a raw dice
+                        # string, so swapping it in clears damage_dice (use the
+                        # secondary mean). Per-model profiles reset the secondary
+                        # block to empty, so this candidate never fires there.
+                        "damage_dice": "",
                         "hit_probability": p.secondary_hit_probability,
                         "ap": p.secondary_ap,
                         "strength": p.secondary_strength,
@@ -1436,6 +1539,12 @@ class Unit:
                     "weapon_damage_per_shot": float(
                         ed_fields.get("weapon_damage_per_shot", 1.0) or 1.0
                     ),
+                    # PER-MODEL-LOADOUTS (Stage 4): map the extra profile's raw
+                    # Damage dice onto the primary `damage_dice` field so that,
+                    # once this extra is hot-swapped in via dataclasses.replace,
+                    # the active firing profile exposes the right dice for the
+                    # per-shot roll. Empty on aggregate extras (legacy) → mean.
+                    "damage_dice": str(ed_fields.get("damage_dice", "") or ""),
                     "hit_probability": float(
                         ed_fields.get("hit_probability", 0.0) or 0.0
                     ),
@@ -1540,6 +1649,15 @@ class Unit:
             if mode == "melee" and p.melee_attacks > 0:
                 # Substitute the melee stat block for this resolution
                 per_shot_dmg = p.melee_damage_per_shot or 1.0
+                # PER-MODEL-LOADOUTS (Stage 4): capture the active melee weapon's
+                # raw Damage dice and the mean of JUST that characteristic (before
+                # any flat per-shot bonus like Rend and Tear is folded in below).
+                # Per shot, `roll_damage` rolls the dice (or returns this mean
+                # when the gate is off / dice empty — drawing nothing). The flat
+                # bonus (per_shot_dmg - mean) is re-added per shot so the
+                # roll-then-modify ordering matches the mean path exactly.
+                _dmg_dice = p.melee_damage_dice
+                _dmg_dice_mean = per_shot_dmg
                 n_attacks = max(1, int(p.melee_attacks))
                 hit_target = _prob_to_target(p.melee_hit_probability)
                 strength = p.melee_strength
@@ -1583,6 +1701,12 @@ class Unit:
                         per_shot_dmg += 1.0
             else:
                 per_shot_dmg = p.per_shot_damage
+                # PER-MODEL-LOADOUTS (Stage 4): capture the active ranged weapon's
+                # raw Damage dice and the dice-only mean (before the Melta X flat
+                # bonus is folded in below). Same roll-then-modify contract as the
+                # melee branch above.
+                _dmg_dice = p.damage_dice
+                _dmg_dice_mean = per_shot_dmg
                 n_attacks = max(1, int(p.attacks))
                 hit_target = None     # set below
                 strength = p.strength
@@ -3043,6 +3167,21 @@ class Unit:
                 return None  # whole unit destroyed — remaining damage lost
 
             for _ in range(n_attacks):
+                # PER-MODEL-LOADOUTS (Stage 4) — roll this shot's Damage. When the
+                # `SWEG_ROLLDMG` gate is set AND the active weapon carries a raw
+                # dice string, `roll_damage` rolls the real dice (a D6 gun rolls
+                # 1-6, not a flat 3.5); otherwise it returns `_dmg_dice_mean` and
+                # draws NOTHING from `random`, so the gate-OFF / per-model-mean
+                # streams stay byte-identical to legacy. The rolled value REPLACES
+                # the dice-only base; any flat per-shot bonus already folded into
+                # `per_shot_dmg` (Rend and Tear, Melta X) is re-added here so the
+                # roll-then-modify ordering matches the mean path. `per_shot_dmg`
+                # itself stays the mean for all THRESHOLD / heuristic reads
+                # (high_value, the == 1.0 branch); only the applied damage rolls.
+                _shot_dmg = (
+                    roll_damage(_dmg_dice, _dmg_dice_mean)
+                    + (per_shot_dmg - _dmg_dice_mean)
+                )
                 # MAP-3-FIX — per-shot Bernoulli gating for partial-coverage
                 # weapon keywords. Lance and Anti-X resolve their per-shot value
                 # here so a heterogeneous squad's specialist-weapon keyword fires
@@ -3389,7 +3528,11 @@ class Unit:
                         # NECRONS-CTAN: Necrodermis halves Damage characteristic
                         # (rounding up); D1 attacks deal 0. Wahapedia C'tan
                         # datasheet ability. Cited as `UnitProfile.necrodermis`.
-                        _dw_dmg = per_shot_dmg
+                        # PER-MODEL-LOADOUTS (Stage 4): apply the halving to the
+                        # ROLLED per-shot damage (10e: roll the Damage, THEN
+                        # modify). `_shot_dmg` == `per_shot_dmg` when the gate is
+                        # off / no dice, so the mean path is unchanged.
+                        _dw_dmg = _shot_dmg
                         if target.profile.necrodermis:
                             if _dw_dmg <= 1.0:
                                 _dw_dmg = 0.0
@@ -3503,7 +3646,11 @@ class Unit:
                     # NECRONS-CTAN: Necrodermis halves Damage characteristic
                     # (rounding up); D1 attacks deal 0. Wahapedia C'tan
                     # datasheet ability. Cited as `UnitProfile.necrodermis`.
-                    _alloc_dmg = per_shot_dmg
+                    # PER-MODEL-LOADOUTS (Stage 4): apply the halving to the ROLLED
+                    # per-shot damage (10e: roll the Damage, THEN modify). When the
+                    # gate is off / no dice, `_shot_dmg` == `per_shot_dmg`, so the
+                    # mean path is unchanged.
+                    _alloc_dmg = _shot_dmg
                     if target.profile.necrodermis:
                         if _alloc_dmg <= 1.0:
                             _alloc_dmg = 0.0
@@ -3756,6 +3903,11 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
             "weapon_damage_per_shot": float(
                 best.get("weapon_damage_per_shot", 0.0) or 0.0
             ),
+            # PER-MODEL-LOADOUTS (Stage 4): carry the raw Damage dice string so
+            # Unit.attack can roll it per shot under SWEG_ROLLDMG. "" = use the
+            # mean. The extra_ranged_profiles entries already carry damage_dice
+            # via _flatten_extra_profiles (the loadout weapon-dicts include it).
+            "damage_dice": str(best.get("damage_dice", "") or ""),
             "hit_probability": float(best.get("hit_probability", 0.0) or 0.0),
             "ap": int(best.get("ap", 0) or 0),
             "strength": int(best.get("strength", BASELINE_STRENGTH)
@@ -3786,6 +3938,7 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
             "weapon": "",
             "attacks": 0,
             "weapon_damage_per_shot": 0.0,
+            "damage_dice": "",
             "hit_probability": 0.0,
             "range_inches": 0,
             "extra_ranged_profiles": (),
@@ -3802,6 +3955,8 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
             "melee_damage_per_shot": float(
                 best_m.get("weapon_damage_per_shot", 0.0) or 0.0
             ),
+            # PER-MODEL-LOADOUTS (Stage 4): raw melee Damage dice for SWEG_ROLLDMG.
+            "melee_damage_dice": str(best_m.get("damage_dice", "") or ""),
             "melee_hit_probability": float(
                 best_m.get("hit_probability", 0.0) or 0.0
             ),
@@ -3817,6 +3972,7 @@ def _loadout_entry_to_weapon_fields(entry: Dict[str, Any]) -> Dict[str, Any]:
             "melee_weapon": "",
             "melee_attacks": 0,
             "melee_damage_per_shot": 0.0,
+            "melee_damage_dice": "",
             "melee_hit_probability": 0.0,
             "extra_melee_profiles": (),
         })

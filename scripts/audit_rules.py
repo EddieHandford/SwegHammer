@@ -560,6 +560,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # and pistol exclusivity still enforced by the existing picker. See
     # data/rule_citations.d/core_per_model_loadouts.json.
     "simulator.per_model_loadouts",
+    # PER-MODEL-LOADOUTS (Stage 4, env-gated SWEG_ROLLDMG). Roll a weapon's real
+    # random Damage characteristic (D6, D3+3, 2D6, ...) per shot instead of using
+    # its expected-value mean. Tests whether mean-overkill on big single-shot guns
+    # inflates the elite / big-gun factions. Only fires on the per-model firing
+    # path (the only profiles that carry a raw damage_dice string). See
+    # data/rule_citations.d/core_rolled_damage.json.
+    "simulator.rolled_damage",
     "simulator.pistol_exclusivity",
     "simulator.primary_vp_no_round_1",
     "simulator.rend_and_tear",
