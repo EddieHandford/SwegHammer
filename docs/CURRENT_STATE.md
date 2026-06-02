@@ -1,6 +1,14 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 126 (2026-06-02) — wired the universal **Insane Bravery** core stratagem (was
+**Last updated:** Wave 127 (2026-06-02) — **USER DECISION (A): run the combined anti-Knight PACKAGE** (M4-plan
+§7); the M4 hard-gate is LIFTED. Building a STACK of three faithful env-gated components — (1) M4-α `SWEG_M4`
+(on-objective squads genuinely move models to cluster in the 3" band, faithful A1 not A2), (2) Tarpit-charge
+`SWEG_TARPIT` (pin a durable Knight, value by enemy output denied), (3) `SWEG_FOCUS` (existing anti-armour
+redirect) — each plan-first + own A/B, then a decisive full-stack run + ablations N=40→N=80. Pre-agreed: lands
+→ keep + flag Stage-2 re-derivation; washes → report the floor and STOP (no knob/re-fit). This wave wrote the
+component-1 build plan (`docs/M4A_BUILD_PLAN.md`); build next. LOOP_QA wave-127.
+
+**Wave 126** — wired the universal **Insane Bravery** core stratagem (was
 catalogued-but-no-op): in `_run_battleshock_phase`, a squad that would fail its Battle-shock test while
 contesting an objective spends 1 Command Point to auto-pass, once per battle, even-handed, gated `SWEG_INSANE`
 (default ON), cited `simulator.insane_bravery`. Faithful + bounded; N=40 A/B OFF 4.41 (== baseline) → ON 4.34

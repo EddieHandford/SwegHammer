@@ -133,3 +133,45 @@ and the strong frozen-under prior. Do not begin coding M4 until the user picks (
    watch on the over-shooters (Drukhari, Votann, Custodes) for the frozen-under signature.
 5. If it washes or regresses, REPORT it as the representation floor and STOP — do not force it, do not reach
    for A2 or any knob.
+
+---
+
+## 7. DECISION: (A) AUTHORISED — the combined anti-Knight package (user, 2026-06-02)
+
+The user chose **(A)** and authorised the **combined anti-Knight package** ("run the anti-Knight package"), not
+M4-α in isolation. The hard-gate is LIFTED for this package only. Rationale: each of the three components is
+faithful and each was individually frozen-under or bounded, but together they are the real-play anti-Knight
+counter and they attack the Knight's advantage from three asymmetric angles. Build them as a STACK, env-gated,
+plan-first per component, A/B at each step, keep-if-faithful, report-if-wash. The Stage-2 re-derivation tie-in
+(§4) is accepted IF the package lands (flag it; do NOT auto-run Stage 2).
+
+**The three components (each env-gated, cited, even-handed, wrong-way-test):**
+
+1. **M4-α — squad-as-cohesive board-control actor** (§3). A holding squad keeps its living models massed in the
+   3" band so it contributes its whole surviving Objective Control; combat stays per-model. FAITHFUL version =
+   genuine positioning (models actually move to cluster), NOT a coherency-footprint counting shortcut (the
+   forbidden A2). Gate e.g. `SWEG_M4`.
+2. **Tarpit-charge valuation** — un-suppress the won't-crack CHARGE penalty for charges whose purpose is to PIN
+   a durable high-threat target. The mechanic is already faithful (Big Guns Never Tire: an engaged Knight may
+   shoot only its tarpit at −1, or Falls Back and loses its shooting; `_do_shoot` ~8019-8085); the gap is the AI
+   never charging to tie a Knight up because `_WONT_CRACK_PENALTY` mis-scores the pin-charge as a failed kill.
+   Rails: value the charge by the ENEMY OUTPUT it DENIES (shooting/mobility blunted), not a flat bonus or a kill;
+   prefer EXPENDABLE/cheap units for the tarpit (real trade — the tarpit unit dies to Knight melee); do NOT
+   over-commit (one expendable unit per durable threat, keep the rest for objectives/shooting); even-handed, no
+   faction branch; model the Knight's Fall-Back choice. Gate e.g. `SWEG_TARPIT`.
+3. **`SWEG_FOCUS`** — the existing wave-79 faithful asymmetric anti-armour-redirect targeting (anti-tank →
+   durable threats, anti-infantry stays on chaff). Already built + cited; this just turns it ON in the stack.
+
+**Build order + test (rigorous, isolate AND combine):** build the components in the order above, each plan-first
++ env-gated + its own A/B (so we see each marginal contribution — expect M4 alone to wash per the §3 prior, the
+value is in the STACK). Then the decisive run: **full stack ON vs baseline OFF**, plus ablations (drop each one)
+to attribute the effect, **N=40 then N=80**, with the per-matchup Imperial-Knights / Chaos-Daemons on-marker +
+Knight-kill drill and the over-shooter watch (Drukhari/Votann/Custodes) for the frozen-under signature.
+
+**The honest success/stop criteria (pre-agreed):**
+- LANDS (stack moves IK +27 down + Daemons up, beyond noise, without re-inflating over-shooters) → keep it,
+  flag the Stage-2 re-derivation, report the win.
+- WASHES (frozen-under / no net move) → that is the finding: the representation floor stands and the combat
+  axis is genuinely closed even in combination. REPORT it and STOP — do NOT force it, do NOT reach for a knob,
+  do NOT re-fit stats. The wave-93 "report the floor" instruction applies.
+- All §6 hard-rails hold for every component.

@@ -4,6 +4,24 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 127 (2026-06-02) — USER DECISION: (A) authorised the combined anti-Knight PACKAGE — hard-gate LIFTED. Wrote the component-1 (M4-α squad-cluster) build plan; build next wave
+
+The user resolved the M4 fork in `M4_REPRESENTATION_PLAN.md` §7: **(A) — run the combined anti-Knight package**
+(NOT M4-α in isolation). The hard-gate is lifted for this package. Build a STACK of three faithful, env-gated,
+even-handed components, each plan-first + own A/B, then a decisive full-stack-vs-baseline run + ablations at
+N=40 then N=80, with the per-matchup IK/Daemons on-marker + Knight-kill drill and over-shooter watch.
+Pre-agreed: LANDS (IK +27 down + Daemons up, beyond noise, no over-shooter re-inflation) → keep + flag the
+Stage-2 re-derivation (do NOT auto-run Stage 2) + report; WASHES → report the representation floor and STOP
+(no knob, no re-fit, wave-93 instruction). Components: (1) **M4-α** `SWEG_M4` — on-objective squads genuinely
+MOVE their living models to cluster in the 3" band (faithful A1 positioning, NOT the forbidden A2 counting);
+(2) **Tarpit-charge** `SWEG_TARPIT` — un-suppress the won't-crack penalty for pin-charges that tie up a durable
+Knight (value by enemy output denied, expendable units, model the Knight's Fall-Back); (3) **`SWEG_FOCUS`** —
+the existing wave-79 anti-armour-redirect targeting, turned on in the stack. This wave: wrote the component-1
+build plan (`docs/M4A_BUILD_PLAN.md`) — confirmed the spread mechanism (models that arrive at the 3" edge HOLD
+and never tighten onto the marker, so half the near-marker OC sits in the 3"-6" band) and specced the genuine-
+movement cluster hook in `_do_move`. Build next wave. Tasks #36 (M4-α), #39 (Tarpit), #40 (full-stack A/B).
+LOOP_QA wave-127.
+
 ## Wave 126 (2026-06-02) — wired the universal Insane Bravery core stratagem (was catalogued-but-no-op) — faithful, even-handed, net-neutral (N=40 4.41 → 4.34); landed default-ON as fidelity
 
 A real, bounded, faithful absent mechanic (queued task #6) to keep the loop substantively alive while M4 holds
