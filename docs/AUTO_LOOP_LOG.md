@@ -4,6 +4,25 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 123 (2026-06-02) — M4 representation PLAN written (`docs/M4_REPRESENTATION_PLAN.md`); the build is a USER FORK, not a routine wave: every faithful mission/scoring/movement lever is exhausted, so M4 is localised to ONE architectural axis
+
+Wrote the M4 plan-first doc (hard-gated; no code). The reconnaissance reframed M4: **the faithful MOVEMENT
+half already landed** — Candidate B (`SWEG_MASS`, the AI massing idle out-of-range bodies onto markers)
+LANDED wave 95 default-ON, gated 4.15 → 3.81 (Daemons −22.7 → −16.4, IK +27 → +25.5) and is already in the
+current N=80 3.69 baseline; Candidate A (geometry/clustering, `SWEG_CLUSTER`) was built+REVERTED (regressed
+4.15 → 4.30, frozen-under + unfaithful). The OC contest is verified faithful (wave 84, credited == raw
+per-model within 3"); the scoring timing is verified faithful (M3 per-Command-phase neutral; wave-116
+correction: the eval ALREADY runs IGOUGO, so the convergence doc's "(iii) un-interleaving" lever was a
+misnomer); and the whole mission/secondary economy (M1 cap, M2 deck, pursuit) is net-neutral. **So everything
+faithful around the representation has been built — the residual is the one-Unit-per-model representation
+itself.** The plan defines the deep change (M4-α: a multi-model squad holds/contests a marker as a COHERENT
+board-control actor — combat stays per-model; only the holding footprint becomes coherent), its Stage-2
+tie-in (board-control representation feeds pricing → forces a Stage-2 re-derivation), the strong frozen-under
+prior (likely wash), and the honest alternative (M4-β: declare the representation FLOOR and stop chasing the
+axis, the wave-93-authorised outcome). **The fork — (A) authorise the M4-α build vs (B) declare the floor —
+goes to the user; do NOT begin coding M4 until they pick.** LOOP_QA wave-123. The loop does NOT halt: it
+continues on the next faithful queued lever while the user decides M4.
+
 ## Wave 121-122 close (2026-06-02) — AI-pursuit layer BUILT (gated `SWEG_TAC_PURSUE`) + measured: INEFFECTIVE / net-neutral at N=80 — decoupled to default-OFF. The whole MISSION-SCORING layer is gated by the one-Unit-per-model REPRESENTATION (M4) — the single remaining root for BOTH the IK primary over-hold and the secondary stall
 
 Branch `claude/sim-calibration-6`. Built the watchdog-prescribed AI-pursuit layer via a Sonnet agent (cherry-picked

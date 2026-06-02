@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 122 (2026-06-02) — AI-PURSUIT LAYER BUILT + measured INEFFECTIVE → decoupled to
+**Last updated:** Wave 123 (2026-06-02) — M4 representation PLAN written (`docs/M4_REPRESENTATION_PLAN.md`),
+plan-first + hard-gated. The reconnaissance reframed M4: the faithful MOVEMENT half already LANDED (Candidate B
+`SWEG_MASS`, default-ON, gated 4.15 → 3.81, already in the N=80 3.69 baseline); the geometry half was REVERTED
+(`SWEG_CLUSTER`, regressed + unfaithful); the OC contest + scoring timing are verified faithful; and the whole
+mission/secondary economy is net-neutral. So every faithful lever AROUND the representation is exhausted — the
+residual IS the one-Unit-per-model representation. The plan defines the deep change (M4-α: a squad holds a
+marker as a COHERENT board-control actor, combat still per-model), its Stage-2 tie-in (forces a pricing
+re-derivation), the frozen-under prior (likely wash), and the honest alternative (M4-β: declare the
+representation FLOOR and stop). **The fork — (A) build M4-α vs (B) declare the floor — is the user's decision;
+do not begin coding M4 until they pick.** The loop continues on the next faithful lever meanwhile. LOOP_QA
+wave-123.
+
+**Wave 122** — AI-PURSUIT LAYER BUILT + measured INEFFECTIVE → decoupled to
 default-OFF. The watchdog-prescribed layer (`_assign_card_pursuit`: send ≤2 spare chaff toward a held card's goal
 — enemy deployment zone for Behind Enemy Lines, forward objective for Cleanse — via a `pursue_target` honoured by
 `pick_move_intent`; even-handed by capability, a Knight has no chaff) was built (cherry-picked `b98b460`, 20
