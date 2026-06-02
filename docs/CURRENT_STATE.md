@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 117 (2026-06-02) — M1 (Primary 50-VP total cap, watchdog/user-approved mission-pack
+**Last updated:** Wave 118 (2026-06-02) — M2 PLAN written (`docs/M2_TACTICAL_DECK_PLAN.md`): the real 2-card
+Tactical secondary deck, the watchdog's leading lever now that scoring-timing/(iii) is off the table. Confirmed
+in code: the sim over-generates ~9-11 secondary sources/round (2 Fixed + 2 position + Cleanse + Sabotage + all 5
+Board Tier-A all scored), so both armies max the 40 cap = "the wash". Real CA-2025-26 = 2 Fixed OR a 2-card
+Tactical hand (draw/achieve/redraw) — at most 2 sources. Plan: (A) the hand state machine, (B) Fixed-vs-Tactical
+choice (even-handed, unit-count-driven), (C) add the ~6 missing action cards (the broad army's tools), (D)
+measure + keep-if-faithful. Env-gate `SWEG_TAC_DECK`. Hypothesis: the low-model Knight can't churn a 2-card deck
+→ its secondary drops vs broad armies → +27 narrows; if it washes, points to the one-Unit-per-model
+representation. Plan-first this wave; build (Stage A) next. Live baseline 4.41. LOOP_QA wave-118.
+
+**Wave 117** — M1 (Primary 50-VP total cap, watchdog/user-approved mission-pack
 audit): the sim only had the 15/round cap so primary could run to 60; added `min(primary,50)` in `_decide_winner`
 (real CA-2025-26 rule, kept ON by default, `SWEG_PRIMARY_CAP_50=0` to isolate, cited; fixed stale
 `primary_vp_cap_15` citation). **N=40 A/B EXACTLY ZERO across all 22 factions (IK +26.5 → +26.5)** — metric-inert

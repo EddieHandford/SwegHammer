@@ -4,6 +4,23 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 118 close (2026-06-02) — M2 PLAN written (the real 2-card Tactical secondary deck — watchdog's leading lever). Plan-first; build next
+
+Branch `claude/sim-calibration-6`. Per the user-approved plan-first sequence, wrote the M2 plan
+(`docs/M2_TACTICAL_DECK_PLAN.md`) after mapping the secondary machinery. Diagnosis confirmed in code: the sim
+over-generates ~9-11 secondary sources EVERY round (`pick_secondaries` returns 2 Fixed + 2 position Tactical +
+Cleanse + Sabotage + all 5 Board Tier-A; `_score_secondaries` scores all of them), so both armies trivially
+exceed the 40 cap → secondary never differentiates ("the wash"). Real CA-2025-26: each army uses 2 Fixed OR a
+2-card Tactical hand (draw 2, achieve→discard→redraw per Command phase) — at most 2 scoring sources, not 11.
+This hands the durable Knight back its real weakness: a low-model no-action-doer army cannot churn a 2-card
+Tactical deck the way a broad army can. Plan: (A) the 2-card hand state machine (deterministic deck, draw/
+achieve/redraw, score ONLY the hand); (B) the Fixed-vs-Tactical choice (even-handed, falls out of unit count —
+Knight→Fixed kill, horde→Tactical); (C) add the ~6 missing real action cards (Establish Locus, Recover Assets,
+A Tempting Target — the broad army's tools); (D) measure + keep-if-faithful regardless of direction. Env-gate
+`SWEG_TAC_DECK`, OFF byte-identical. Hypothesis: the Knight's secondary drops relative to broad armies, narrowing
++27; if it washes, that's a real finding pointing to the one-Unit-per-model representation (M4-adjacent). LOOP_QA
+wave-118; surfaced for watchdog review before building. Build (Stage A) is the next wave. No code change this wave.
+
 ## Wave 117 close (2026-06-02) — M1 (Primary 50-VP total cap, watchdog/user-approved): faithful real rule LANDED always-on, but metric-INERT. Confirms VP-margin levers don't move the win rate; M2 (secondary differentiation) is the real lever
 
 Branch `claude/sim-calibration-6`. Built the watchdog's M1 (user-approved mission-pack audit): CA-2025-26 v1.5
