@@ -4,6 +4,34 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 134 (2026-06-03) — SECONDARY economy Stage A BUILT (deliberate-dedication, gated `SWEG_SECONDARY`, via Opus worktree agent `7d962ad`) + A/B — the dedication mechanism was MIS-TARGETED at POSITION cards (net-negative, unfaithful); RE-SCOPE to the ACTION cards (Stage B)
+
+Built Stage A (Layer-2 dedication CRUX) via an Opus worktree agent (cherry-picked `7d962ad`): a `dedicated_card`
+field, an AI dedication planner committing SPARE units to held cards, and the even-handed spare-unit predicate
+`_unit_is_dedicatable` (alive + not-acted + not-holding-objective + not-in-melee + not-a-productive-shooter; NO
+faction/model-count branch — reviewed clean). 69 tests green, audit clean, OFF byte-identical. The agent scoped
+the SCORING gate to the POSITION cards (Engage / Behind Enemy Lines) per the plan.
+
+**N=40 A/B — the position-card scoping is the WRONG target + net-negative:**
+- deck-only 4.07 → deck+dedication **4.20** (worse); IK +26.3 → **+29.5** (the Knight got RELATIVELY BETTER —
+  the OPPOSITE of the hypothesis).
+- combined (M4+Tarpit+FOCUS+deck+dedication) **4.62** — worse than the M4-stack (4.03), and it **LOST the M4 IK
+  fix** (+13.3 → +25.0): the dedication planner DIVERTS the broad army's spare units OFF the markers M4 was
+  massing them onto — M4 and dedication FIGHT over the same spare units.
+
+**Root cause — MIS-TARGETING:** Engage / Behind Enemy Lines are POSITIONAL cards (score on quarter / enemy-DZ
+OCCUPANCY) in real 10e, NOT actions — the few-units weakness is ALREADY captured by occupancy (a Knight occupies
+fewer quarters). Gating them on "dedication" (only dedicated units count) is an UNFAITHFUL under-count AND a
+combat-cost diversion that hurt the broad armies more. **The dedication / action-cost mechanism belongs on the
+ACTION cards** (Cleanse, Sabotage, Establish Locus, Recover Assets, A Tempting Target), which genuinely require a
+unit to commit. The substrate (`dedicated_card` + planner + spare predicate) is CORRECT and reusable; only the
+position-card scoring gate was the wrong target.
+
+**RE-SCOPE (Stage B):** keep position cards scoring on occupancy (faithful); apply the dedication/action-cost to
+the ACTION cards (the unit forgoes shoot/charge, stays, SURVIVES; a Knight can't spare a unit → scores those
+0); revert/repurpose the position-card scoring gate. All gated `SWEG_SECONDARY` default-OFF (no default impact).
+LOOP_QA wave-134; surfacing the re-scope to the watchdog.
+
 ## Wave 133 (2026-06-03) — SECONDARY ECONOMY plan written (`docs/SECONDARY_ECONOMY_PLAN.md`) — the package's OTHER half, asymmetric on a DIFFERENT axis (low-MODEL armies can't churn the deck / spare units), which may break the primary-half inseparability
 
 Plan-first the user's authorised secondary-authenticity build (the watchdog confirmed: do NOT stop, this is a

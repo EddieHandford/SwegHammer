@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 133 (2026-06-03) — SECONDARY ECONOMY plan written (`docs/SECONDARY_ECONOMY_PLAN.md`),
+**Last updated:** Wave 134 (2026-06-03) — SECONDARY Stage A built (deliberate-dedication, gated `SWEG_SECONDARY`,
+Opus worktree agent `7d962ad`) + A/B. The dedication mechanism was MIS-TARGETED at POSITION cards (Engage/BEL):
+net-negative (deck-only 4.07 → deck+dedication 4.20; IK +26.3 → +29.5, the OPPOSITE of the hypothesis) and it
+LOST the M4 IK fix in the combined (the planner diverts spare units OFF the markers M4 massed them onto). ROOT
+CAUSE: Engage/BEL are POSITIONAL (occupancy already captures the few-units weakness), not actions — gating them
+on dedication is unfaithful. The substrate (dedicated_card + planner + even-handed spare predicate) is correct +
+reusable. RE-SCOPE (Stage B): apply dedication/action-cost to the ACTION cards (Cleanse/Sabotage + 3 new), keep
+position cards on occupancy. All gated default-OFF. LOOP_QA wave-134.
+
+**Wave 133** — SECONDARY ECONOMY plan written (`docs/SECONDARY_ECONOMY_PLAN.md`),
 the package's OTHER half (user-authorised authenticity rebuild). 3 layers: (1) action cards cost a unit, (2) THE
 CRUX — scoring from DELIBERATE DEDICATION (a `dedicated_card` field + AI dedication planner; position/board
 scorers gate on dedication so incidental presence no longer scores → a 5-6-unit Knight can't spare units →
