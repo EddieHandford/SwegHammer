@@ -156,6 +156,8 @@ class LeaderAbility:
     #     to the registry without a follow-up dataclass change.
     sustained_hits_ranged: int = 0
     sustained_hits_melee: int = 0
+    # Galvanic Field (AdMech Manipulus): led unit's ranged weapons gain [LETHAL HITS]
+    lethal_hits_ranged: bool = False
     extra_invuln: int = 7                   # 7 = none
     fnp: int = 7                            # 7 = none
     # End-of-round healing: restore N HP to the nearest wounded friendly in
@@ -931,15 +933,38 @@ _REGISTRY: Tuple[Tuple[str, LeaderAbility], ...] = (
     # it only to the one unit the Dominus is formally attached to. Four concurrent
     # Feel No Pain 5+ grants on 1-wound Toughness-3 BATTLELINE squads (~33% damage
     # reduction each) inflated AdMech effective durability well beyond tournament
-    # baseline. With only Electro-Priests remaining (native Feel No Pain 5+ already),
-    # the Dominus aura is a no-op across the full archetype — conservative and
-    # direction-correct. If/when the simulator models formal attachment (one leader
-    # per unit), a single Rangers or Vanguard unit can be re-added.
+    # baseline. The prior neuter (Electro-Priests only) made the aura a no-op
+    # because those units already have native Feel No Pain 5+.
+    # WAVE-147 (2026-06-03): re-pointed to a SINGLE-occurrence host that models
+    # the real one-attachment FNP 5+ faithfully without over-applying. Kataphron
+    # Breachers appear exactly 1x in the Skitarii Hunter Cohort archetype
+    # (code/archetypes.py), so the proximity broadcast reaches exactly one unit —
+    # the same single-attachment approximation the ADMECH-DIAG-6 note above
+    # flagged as the future fix ("a single ... unit can be re-added" once
+    # one-attachment is approximated). Kataphron Breachers have no native Feel No
+    # Pain, so this grant is now live (a real FNP 5+ on one durable unit), not a
+    # no-op — direction-correct and matched to the codex one-attachment rule.
     # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Dominus
     # Cited as LeaderAbility.Master of the Machine.
     ("Tech-Priest Dominus", LeaderAbility(name="Master of the Machine",    aura_range=6.0, fnp=5,
-                                          host_keys=("adeptus_mechanicus_corpuscarii_electro_priests",
-                                                     "adeptus_mechanicus_fulgurite_electro_priests"))),
+                                          host_keys=("adeptus_mechanicus_kataphron_breachers",))),
+    # Tech-Priest Manipulus: "Galvanic Field" (BSData v10.6.0 / Wahapedia verbatim):
+    # "While this model is leading a unit, weapons equipped by models in that unit
+    # have the [Lethal Hits] ability." The Manipulus's Leader list includes
+    # Kataphron Destroyers. The SwegHammer proximity-broadcast model applies the
+    # aura to every host_keys unit in range, so to model the real one-attachment
+    # faithfully the host is a SINGLE-occurrence unit in the Skitarii Hunter
+    # Cohort archetype — Kataphron Destroyers appear exactly 1x there, so the
+    # broadcast reaches exactly one unit and does not over-apply (same approach
+    # as the Dominus note above, which re-points its FNP aura to the 1x Kataphron
+    # Breachers). lethal_hits_ranged is consumed in code/units.py attack() on the
+    # ranged side (mode != "melee" guard) — [Lethal Hits] mirrors the ranged
+    # p.lethal_hits profile field here.
+    # Source: https://wahapedia.ru/wh40k10ed/factions/adeptus-mechanicus/#Tech-Priest-Manipulus
+    # Cited as LeaderAbility.Galvanic Field.
+    ("Tech-Priest Manipulus", LeaderAbility(name="Galvanic Field", aura_range=6.0,
+                                            lethal_hits_ranged=True,
+                                            host_keys=("adeptus_mechanicus_kataphron_destroyers",))),
     # Death Guard
     # Lord of Contagion: per Wahapedia datasheet
     # (https://wahapedia.ru/wh40k10ed/factions/death-guard/#Lord-of-Contagion)
@@ -1128,6 +1153,10 @@ _NEUTRAL_BUFFS: Dict[str, object] = {
     # transient SUSTAINED HITS stacking convention in code/units.py.
     "sustained_hits_ranged": 0,
     "sustained_hits_melee": 0,
+    # Galvanic Field (AdMech Manipulus) — led unit's ranged weapons gain
+    # [LETHAL HITS]. Default False; only True when a Tech-Priest Manipulus is
+    # alive and leading the single host_keys-gated unit (Kataphron Destroyers).
+    "lethal_hits_ranged": False,
 }
 
 
@@ -1482,6 +1511,9 @@ def effective_buffs(attacker: "Unit") -> Dict[str, object]:
         # Herald per god).
         _merge_add(buffs, ability, "sustained_hits_ranged")
         _merge_add(buffs, ability, "sustained_hits_melee")
+        # Galvanic Field (AdMech Manipulus) — led unit's ranged weapons gain
+        # [LETHAL HITS]. Boolean OR (the grant is binary, not stacking).
+        _merge_bool(buffs, ability, "lethal_hits_ranged")
 
     # 10e Enhancements (Warlord upgrades). Each in-range friendly CHARACTER
     # may carry one Enhancement; if it does, OR-merge the aura modifier

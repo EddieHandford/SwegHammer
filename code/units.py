@@ -2920,6 +2920,16 @@ class Unit:
             # stratagem dispatcher gates faction at the firing site.
             if getattr(self, "transient_lethal_hits", False):
                 effective_lethal_hits = True
+            # Galvanic Field (AdMech Tech-Priest Manipulus) — "While this model
+            # is leading a unit, weapons equipped by models in that unit have the
+            # [Lethal Hits] ability." Modelled on the ranged side here (mirroring
+            # the p.lethal_hits ranged-primary field); the mode != "melee" guard
+            # keeps it off melee weapons. att_buffs is composed at the top of
+            # attack() (line ~1326) and host_keys gates the aura to the single
+            # attached unit (Kataphron Destroyers). Cited as
+            # LeaderAbility.Galvanic Field.
+            if mode != "melee" and att_buffs.get("lethal_hits_ranged"):
+                effective_lethal_hits = True
             # World Eaters Blood Tithe — 4-BT spend grants [LETHAL HITS] on a
             # WE unit for the phase. SwegHammer collapses "this phase" to "this
             # round" since the activation loop doesn't break phases out. The
