@@ -1,12 +1,30 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 144 (2026-06-03) — UNMODELLED-ABILITIES DIVE (watchdog/user new direction): the
+**Last updated:** Wave 145 (2026-06-03) — P0 MEASUREMENT FIDELITY (watchdog wide-investigation re-prioritised
+queue): the eval's comparison was subtly wrong in two faithful-to-fix ways, so the residual table was an
+artifact. (1) `TOURNAMENT_TARGET` was a stale hand-transcribed dict that had drifted from the live Warp Friends
+scrape (Chaos Space Marines hardcoded 52.8 but 55.6 live; Emperor's Children 47.9 vs 53.3; Aeldari 44.4 vs 41.6)
+— now read LIVE from `data/warpfriends_rolling.json` (one self-consistent source with the noise floor + game
+counts). (2) `run_matrix` averaged each faction's 21 matchups UNIFORMLY, but the real field is skewed (Adeptus
+Astartes ~21% of games, Adeptus Mechanicus ~1.7%) and the Warp Friends per-faction win rate is itself measured
+against that skewed field — now FIELD-WEIGHTED by opponent game share (apples-to-apples). The sim is byte-identical,
+so this is a corrected MEASUREMENT, not a regression. **RE-BASED baseline: gated MAE 4.14 → 4.55** (raw 7.89,
+6/22 in band) — the honest number; the old measurement was flattering the sim. The corrected table SHARPENS the
+targets: **IK +30.5/gated 27.58** (representation floor, unchanged), **Chaos Daemons −14.8/11.68** (worst
+actionable under-shoot), **AdMech −11.3/7.12**, **Necrons −10.2/6.97**, **World Eaters +13.1/9.65**, **CSM
+−9.0/6.57** (deeper than the old target showed). NEXT (re-prioritised): **P0 faction-misassignment data bug**
+(#51 — 10 CSM datasheets Legionaries/Chosen/Havocs/Terminators/Chaos Lord etc. mis-filed `faction=Chaos Daemons`
+because the BSData `Chaos - Chaos Daemons.cat.gz` catalogue includes them and `faction_of()` keys on the cat file;
+CSM cannot field its own backbone → fake cult-marine soup; also pollutes the Daemons fill pool — fixes the #1+#5
+actionable under-shoots at once), then abilities dive (#47 AdMech / Dark Pacts) on whatever's still under,
+enhancements/stratagems coverage, then P2. Audit clean, run.py exit 0, phase5 green. LOOP_QA wave-145.
+
+**Wave 144** — UNMODELLED-ABILITIES DIVE (watchdog/user new direction): the
 under-shooter residuals are UNMODELLED faithful abilities (leader auras / army+detachment rules / datasheet),
 NOT the representation floor — real headroom. #1 Necrons Cursed Legion RELENTLESS ONSLAUGHT built (BSData-verified
 +1-to-hit vs targets near objectives + ASSAULT on VEHICLE/MOUNTED; cherry-picked dd79371): **Necrons gated
-−11.2 → −7.4, headline 4.34 → 4.14** — the FIRST metric-reducing faithful lever since the floor; thesis
-VALIDATED. NEXT: #2 AdMech leader auras, #3 CSM Dark Pacts, #4 Daemons abilities (BSData-cited, A/B'd), then
-re-test combined + M4 (re-opened) N=80. [Earlier waves 137-143 below.] Wave 136 — WHOLLY-WITHIN squad-granularity
+−11.2 → −7.4, headline 4.34 → 4.14** (old measurement) — the FIRST metric-reducing faithful lever since the floor;
+thesis VALIDATED. [Earlier waves 137-143 below.] Wave 136 — WHOLLY-WITHIN squad-granularity
 fix for Engage/BEL (user catch)
 completes the authentic secondary: `score_position_delta` (gated `SWEG_SECONDARY`) now counts a quarter only
 when ALL a squad's models are wholly within it + >6" from centre (BEL: wholly within enemy DZ), correcting the

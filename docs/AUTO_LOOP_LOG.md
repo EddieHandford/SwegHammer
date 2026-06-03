@@ -4,6 +4,38 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 145 (2026-06-03) — P0 MEASUREMENT FIDELITY (watchdog wide-investigation re-prioritised queue): two faithful "make-the-comparison-correct" fixes to the eval; the sim is byte-identical so this RE-BASES the metric, not a regression. Gated MAE 4.14 → 4.55
+
+The watchdog's 5-agent wide pass found the residual table was partly a MEASUREMENT artifact (upstream of
+every mechanic). Two fixes, both faithful (correct the comparison to reality — the opposite of metric-tuning):
+
+1. **Live tournament target.** `TOURNAMENT_TARGET` was a hand-transcribed dict that had drifted from the live
+   Warp Friends scrape — Chaos Space Marines hardcoded 52.8 but **55.6 live** (so CSM was measured as
+   less-under than reality), Emperor's Children 47.9 vs 53.3, Aeldari 44.4 vs 41.6, Custodes 52.1 vs 49.5,
+   Chaos Knights 47.5 vs 44.7 (11/22 off by ≥1pt). Now read LIVE from `data/warpfriends_rolling.json`
+   (`_load_tournament_target`), the same source as the noise floor + game counts — one self-consistent scrape.
+   Fails loud per CLAUDE.md §13.
+
+2. **Field-weighted matchup average.** `run_matrix` averaged each faction's 21 opponents UNIFORMLY, but the
+   real field is heavily skewed (Adeptus Astartes 6599 games ≈ 21%, Adeptus Mechanicus 545 ≈ 1.7%, a 12.1×
+   gap) and the Warp Friends per-faction win rate is itself measured against that skewed field. A uniform mean
+   over-weights rare opponents and under-weights the dominant Marine population — a systematic ±1-2pt bias that
+   penalised melee armies that beat Marines. Now weighted by each opponent's `TOURNAMENT_GAMES` share.
+
+**RE-BASED N=40 baseline: gated MAE 4.14 → 4.55** (raw 7.89, 6/22 in band). The OLD measurement was flattering
+the sim; 4.55 is the honest signal the loop's stopping criterion now reads. The corrected table SHARPENS the
+targets — IK +30.5/gated 27.58 (representation floor, unchanged); Chaos Daemons −14.8/11.68 (worst actionable
+under-shoot); World Eaters +13.1/9.65; AdMech −11.3/7.12; Necrons −10.2/6.97; CSM −9.0/6.57 (deeper than the
+old target showed). Crucially, the #1 and #5 actionable under-shoots (Daemons, CSM) are exactly what the next
+item — the **faction-misassignment data bug (#51)** — fixes: 10 CSM datasheets (Legionaries, Chosen, Havocs,
+Chaos Terminators, Chaos Lord, Sorcerer, Dark Apostle, Possessed, Raptors, Warp Talons) are filed
+`faction=Chaos Daemons` because BSData's `Chaos - Chaos Daemons.cat.gz` catalogue contains them and
+`faction_of()` keys faction on the cat filename. Confirmed: the CSM catalogue (81 units) has NO battleline at
+all — CSM cannot field its own backbone, so its archetype runs a fake cult-marine soup, and these marines also
+pollute the Daemons random-fill pool. Audit clean, run.py --cli exit 0, phase5 5/5 green. No sim/rule-bearing
+change → no new citation needed. NEXT: #51 faction bug (highest leverage), then abilities dive on whatever's
+still under.
+
 ## Wave 144 (2026-06-03) — UNMODELLED-ABILITIES DIVE #1 (watchdog/user new direction): Necrons Cursed Legion RELENTLESS ONSLAUGHT — the first METRIC-REDUCING faithful lever since the floor. Necrons −11.2 → −7.4, headline 4.34 → 4.14. The under-shooter residual IS unmodelled faithful abilities, NOT the representation floor
 
 NEW DIRECTION (watchdog 4-agent audit, user-directed): the UNDER-shooters under-deal damage because LEADER AURAS
