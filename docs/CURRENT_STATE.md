@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 153 (2026-06-03) — OVER-SIDE diagnosis CONCLUSIVE; per-faction + counter-play exploration
+**Last updated:** Wave 154 (2026-06-03) — CORE-MECHANIC AUDIT: the 3.90 baseline is itself slightly UN-faithful. Fire
+Overwatch (`SWEG_OVERWATCH`) + Go To Ground (`SWEG_GTG`) are BOTH faithfully implemented (audited vs 10e — 1 CP, correct
+triggers/restrictions, even-handed) but suppressed default-OFF. **Both-on A/B regresses (N=40 4.15 → 4.29; GtG-alone
+4.30)** because the OVER-RATED armies exploit them: Fire Overwatch inflates the durable Knights (big-gun 6s-overwatch;
+Chaos Knights +6.3→+13.9), and GtG protects the INFANTRY over-shooters' bodies (WE +14.7→+17.7, Tyranids/Sororitas/
+Drukhari up) MORE than it helps the infantry under-shooters. So the honest faithful baseline (both-on) is ~0.15 HIGHER
+than the suppressed 3.90 — the 3.90 has been flattered by gating-off faithful mechanics the over-shooters exploit. 5th+6th
+line of evidence for the per-model representation floor. **The FLIP (turn both on, fidelity-first, re-bases the headline
+up) is the USER's call — NOT flipped (both stay gated default-OFF); watchdog carries it.** NEW under-side lead: GtG
+closing AdMech (−12.6→~−6) means AdMech's structural gap is partly infantry shooting-fragility. [Wave 153 over-side
+conclusion below.]
+
+**Wave 153 — OVER-SIDE diagnosis CONCLUSIVE; per-faction + counter-play exploration
 EXHAUSTED at N=80 gated 3.90. Four waves (150-153) confirmed the over-shooter cluster + IK floor + AdMech structural
 = the one-Unit-per-model MELEE REPRESENTATION over-rating, via 4 independent lines: WE rule-audit (all buffs
 conservative/clean, no knob), CSM holistic re-scoped (Marks need per-unit mark-assignment infra; Dark Apostle
