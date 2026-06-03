@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 148 (2026-06-03) — AdMech MACHINE VENGEANCE lands (the watchdog's top AdMech lever):
+**Last updated:** Wave 149 (2026-06-03) — T'au MARKERLIGHTS base buff CLOSES T'au's under-shoot. The base army-rule
+buff (+1 Ballistic Skill + [SUSTAINED HITS 1] vs Guided targets) was UNMODELLED — the marked status was populated every
+round but only the Mont'ka detachment's lethal-hits consumed it. Wired both halves at the hit-modifier + sustained
+accumulators in `Unit.attack` (stacks with Mont'ka, no double-count); BSData-verified, stale citation updated.
+**N=40 A/B: T'au 49.9 → 54.1 (−4.4 → −0.2, gated 0.18 → 0.00, IN BAND ~on target 54.3), headline 4.23 → 4.15.** The
+best under-shooter close since Relentless Onslaught + the faction fix — a genuinely-unmodelled faithful rule. KEPT;
+1119 tests green. (Uncommitted at this header write → committed same wave.) Running tally of the abilities dive
+(waves 144-149): faithful wins = Necrons Relentless Onslaught, Daemons faction-fix, AdMech Machine Vengeance (+0.04),
+**T'au markerlights (−0.08)**; dead-ends handled honestly = CSM Dark Pacts (over-modelled, holistic #52), AdMech leader
+auras (neutral). NEXT: confirm T'au at N=80; then CSM holistic (#52) or the over-shooter cluster diagnosis (WE +14.7).
+[Wave 148 detail below.]
+
+**Wave 148 — AdMech MACHINE VENGEANCE lands (the watchdog's top AdMech lever):
 Belisarius Cawl's per-target designation (army-wide re-roll Hit vs one designated enemy while Cawl alive), built by
 MIRRORING the Oath of Moment substrate (commit `0407e09`). **N=40 A/B: AdMech −10.8 → −9.8 (gated 6.66 → 5.64),
 headline 4.27 → 4.23** — the FIRST AdMech lever to move the needle, validating the watchdog's refined thesis

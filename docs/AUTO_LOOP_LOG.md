@@ -4,6 +4,29 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 149 (2026-06-03) — T'au Markerlights base army-rule buff (+1 BS + [SUSTAINED HITS 1] vs Guided) was UNMODELLED — wiring it CLOSES T'au's under-shoot: T'au −4.4 → −0.2 (in band), headline 4.23 → 4.15
+
+The watchdog steered to "T'au markerlights via the new designation substrate," but the diagnosis REFINED it: markerlights
+are NOT a single-target designation, and they were already PARTLY modelled — `Battle._run_markerlight_phase` populates
+`Army.guided_enemy_uids` every round (each alive MARKERLIGHT carrier marks the highest-points enemy in 36"+LoS), but the
+ONLY consumer in `Unit.attack` was the Mont'ka detachment's `lethal_hits_on_guided` (rounds 1-3). **The BASE army-rule
+buff was genuinely UNMODELLED.** Verbatim (T'au cat, Markerlight ability): "...ranged weapons ... have their Ballistic
+Skill characteristic improved by 1 and have the [SUSTAINED HITS 1] ability while targeting an enemy unit that is visible
+to one or more friendly MARKERLIGHT units...". It applies in EVERY detachment, EVERY round, and STACKS WITH (does not
+double-count) the Mont'ka [LETHAL HITS]. Built directly (small two-point injection in `attack()`): a
+`_tau_markerlight_guided` flag (T'au, ranged, target in `guided_enemy_uids`) → `hit_mod_delta += 1` (the +1 BS, under the
+10e ±1 cap) at the hit-modifier block + `effective_sustained_hits += 1` at the sustained accumulator. Updated the stale
+`simulator.markerlights` citation (its quoted_text described an older "Marked/Guided LETHAL HITS" wording; replaced with
+the v10.6.0 verbatim + the now-applied base effect). The sim marks one highest-points enemy per carrier — a conservative
+UNDER-approximation of "any target visible to a Markerlight unit."
+
+**N=40 A/B: T'au 49.9 → 54.1 (−4.4 → −0.2, gated 0.18 → 0.00 — IN BAND, essentially ON target 54.3), headline 4.23 →
+4.15 (−0.08).** No faction regressed meaningfully. The BEST under-shooter close since Relentless Onslaught + the faction
+fix — a genuinely-unmodelled faithful army rule, removing it from the residual. KEPT. 1119 tests green, audit clean,
+run.py exit 0. (N=40 T'au was already near-band on its high noise floor 4.23; at the N=80 baseline T'au was −8.5/4.30, so
+expect a larger visible close there.) NEXT: confirm at N=80 + continue — CSM holistic (#52), or the over-shooter cluster
+diagnosis (WE +14.7).
+
 ## Wave 148 (2026-06-03) — AdMech Machine Vengeance (Cawl per-target designation, mirroring Oath of Moment) — the watchdog's top AdMech lever LANDS modestly: AdMech −10.8 → −9.8, headline 4.27 → 4.23. Validates "army-wide mechanics > leader auras"
 
 Built **Belisarius Cawl's Invocation of Machine Vengeance** as a per-target-designation mechanic (commit `0407e09`,

@@ -2409,6 +2409,35 @@ class Unit:
                 elif imperative == "conqueror" and mode == "melee":
                     hit_mod_delta += 1
 
+            # ---- T'au Empire Markerlights — base army-rule offensive buff.
+            # Verbatim (T'au Empire.cat, Markerlight ability): "Each time a
+            # T'AU EMPIRE unit from your army (excluding KROOT units) is
+            # selected to shoot, ranged weapons equipped by models in your
+            # unit have their Ballistic Skill characteristic improved by 1 and
+            # have the [SUSTAINED HITS 1] ability while targeting an enemy unit
+            # that is visible to one or more friendly MARKERLIGHT units...".
+            # Modelled as: a T'au ranged attacker firing at a Guided (Marked)
+            # target gets +1 to Hit (here) and [SUSTAINED HITS 1] (at the
+            # sustained accumulator below). This is the ARMY rule — applies in
+            # every detachment, every round — and is DISTINCT FROM and STACKS
+            # WITH the Mont'ka Killing Blow [LETHAL HITS] (rounds 1-3) handled
+            # further below. The base effect was previously unmodelled: the
+            # Marked/Guided status was populated each round by
+            # Battle._run_markerlight_phase but only the Mont'ka [LETHAL HITS]
+            # consumer read it. The sim marks the highest-points enemy per
+            # MARKERLIGHT unit (a conservative under-approximation of "any
+            # target visible to a Markerlight unit"). Cited as
+            # `simulator.markerlights`.
+            _tau_markerlight_guided = (
+                mode != "melee"
+                and (p.faction or "").lower() in ("t'au empire", "tau empire")
+                and target.uid in getattr(
+                    getattr(self, "army_ref", None), "guided_enemy_uids", set()
+                )
+            )
+            if _tau_markerlight_guided:
+                hit_mod_delta += 1
+
             # ---- Doctrina Imperatives — Protector defensive side. When the
             # TARGET unit is Adeptus Mechanicus and the active imperative is
             # Protector, melee attacks against it take -1 to Hit. Real-rule
@@ -3221,6 +3250,15 @@ class Unit:
                         # round explicitly.
                         if _round_vs % 2 == 1 and _round_vs > 0:
                             effective_sustained_hits += 1
+
+            # T'au Markerlights base army rule — [SUSTAINED HITS 1] vs Guided
+            # targets (the +1-to-Hit half is applied in the hit-modifier block
+            # above; `_tau_markerlight_guided` was computed there). Routes
+            # through the shared `effective_sustained_hits` accumulator so all
+            # the crit-extra-hit accounting is shared. Cited as
+            # `simulator.markerlights`.
+            if _tau_markerlight_guided:
+                effective_sustained_hits += 1
 
             # ST-1 transient SUSTAINED HITS grant — stratagems that cite
             # [SUSTAINED HITS 1] (Blitzing Firepower, Storm of Fire) used to
