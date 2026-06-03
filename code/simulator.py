@@ -1017,20 +1017,30 @@ class Battle:
         return total
 
     def _assign_cleanse_actions(self, active, other) -> None:
-        """Pariah Nexus Cleanse (wave 74). After the Movement phase, flag up to
-        two SURPLUS units (cheap chaff — per `strategy._is_chaff_unit`) that sit
-        on an objective their army CONTROLS and that is OUTSIDE their own
-        deployment zone, to perform the Cleanse action. The flag locks the unit
-        out of shooting and charging (handled in _do_shoot / _do_charge), which
-        is the real action-vs-fight tradeoff: a low-model durable army has no
-        chaff to spare and never reaches this branch; a horde / MSU army does.
-        Even-handed — the asymmetry falls out of unit cost, not faction.
-        Cited as `simulator.secondary_cleanse`."""
+        """Pariah Nexus Cleanse (wave 74; Action-cost contract rebuilt wave 135).
+        After the Movement phase, flag up to two SURPLUS units that sit on an
+        objective their army CONTROLS and that is OUTSIDE their own deployment
+        zone, to perform the Cleanse action. The flag locks the unit out of
+        shooting and charging (handled in _do_shoot / _do_charge), which is the
+        real action-vs-fight tradeoff: a low-unit durable army has no spare body
+        and never reaches this branch; a horde / MSU army does. Even-handed — the
+        asymmetry falls out of unit count, not faction.
+
+        Selection gate:
+          * SWEG_SECONDARY ON  → the rules-authentic Action contract
+            (`_unit_can_perform_action`): OC>0, not in Engagement Range, and not
+            a productive shooter with a target in range. EMERGENT from unit count,
+            NO model-count / chaff-cost branch.
+          * SWEG_SECONDARY OFF → the legacy `strategy._is_chaff_unit` gate,
+            byte-for-byte (so the OFF path is unchanged).
+        Cited as `simulator.secondary_cleanse` (selection) and
+        `simulator.secondary_action_cost` (the ON-path Action contract)."""
         if not self._cleanse_enabled():
             return
         if "cleanse" not in (getattr(active, "chosen_secondaries", ()) or ()):
             return
         from .strategy import _is_chaff_unit
+        use_action_cost = self._secondary_dedication_enabled()
         own_is_a = active is self.a
         CLEANSE_CAP = 2   # 2 VP for one objective, 4 for two (real-rule cap)
         cleansed = 0
@@ -1049,18 +1059,29 @@ class Battle:
                 dy = u.position[1] - obj.y
                 if dx * dx + dy * dy > r2:
                     continue
-                if _is_chaff_unit(u):
+                eligible = (self._unit_can_perform_action(u, other)
+                            if use_action_cost else _is_chaff_unit(u))
+                if eligible:
                     u.action_this_round = "cleanse"
                     cleansed += 1
                     break
 
     def _score_cleanse(self, army, opponent, own_is_army_a: bool,
                        chosen_override=None) -> int:
-        """End-of-turn Cleanse scoring (wave 74): 2 VP per objective that is
-        outside the army's own deployment zone, still controlled by the army,
-        and carries a surviving Cleanse-action unit — capped at two objectives
-        (4 VP), per the real Pariah Nexus rule. Each unit cleanses one marker.
-        Cited as `simulator.secondary_cleanse`.
+        """End-of-turn Cleanse scoring (wave 74; completion contract rebuilt
+        wave 135): 2 VP per objective that is outside the army's own deployment
+        zone, still controlled by the army, and carries a Cleanse-action unit
+        that COMPLETED the Action — capped at two objectives (4 VP), per the real
+        Pariah Nexus rule. Each unit cleanses one marker.
+
+        Completion (the score gate on the Action being finished):
+          * SWEG_SECONDARY ON  → the cleanser must SURVIVE and not have been
+            dragged into Engagement Range (`_action_completes`); a unit that died
+            or was pulled into melee during the turn scores nothing.
+          * SWEG_SECONDARY OFF → the legacy "still alive on the marker" check,
+            byte-for-byte.
+        Cited as `simulator.secondary_cleanse` /
+        `simulator.secondary_action_cost`.
 
         M2: `chosen_override` (default None → read `army.chosen_secondaries`, the
         byte-identical legacy behaviour) lets the per-card dispatcher isolate this
@@ -1071,6 +1092,7 @@ class Battle:
                   else (getattr(army, "chosen_secondaries", ()) or ()))
         if "cleanse" not in chosen:
             return 0
+        require_completion = self._secondary_dedication_enabled()
         cleansed = 0
         for obj in self.map.objectives:
             if not self._obj_outside_own_dz(obj, own_is_army_a):
@@ -1079,6 +1101,7 @@ class Battle:
             has_cleanser = any(
                 u.action_this_round == "cleanse"
                 and (u.position[0] - obj.x) ** 2 + (u.position[1] - obj.y) ** 2 <= r2
+                and (not require_completion or self._action_completes(u, opponent))
                 for u in army.alive_units
             )
             if not has_cleanser:
@@ -1106,20 +1129,29 @@ class Battle:
         return u.position[1] <= dz
 
     def _assign_sabotage_actions(self, active, other) -> None:
-        """Pariah Nexus Sabotage (wave 75). After Movement, flag up to two
-        surplus chaff units that are OUTSIDE their own deployment zone (in No
-        Man's Land or the enemy deployment zone) to perform the Sabotage action
-        — locked out of shooting/charging like Cleanse. It rewards pushing
-        expendable bodies FORWARD (3 VP in No Man's Land, 6 VP in the enemy DZ),
-        which a deepstrike / infiltrate under-shooter does and a durable camper
-        does not. Runs AFTER cleanse assignment, so a chaff unit already
-        cleansing a held objective is not also tagged. Cited as
-        `simulator.secondary_sabotage`."""
+        """Pariah Nexus Sabotage (wave 75; Action-cost contract rebuilt wave 135).
+        After Movement, flag up to two surplus units that are OUTSIDE their own
+        deployment zone (in No Man's Land or the enemy deployment zone) to perform
+        the Sabotage action — locked out of shooting/charging like Cleanse. It
+        rewards pushing expendable bodies FORWARD (3 VP in No Man's Land, 6 VP in
+        the enemy DZ), which a deepstrike / infiltrate under-shooter does and a
+        durable camper does not. Runs AFTER cleanse assignment, so a unit already
+        cleansing a held objective is not also tagged.
+
+        Selection gate (same split as Cleanse):
+          * SWEG_SECONDARY ON  → the rules-authentic Action contract
+            (`_unit_can_perform_action`): OC>0, not in Engagement Range, not a
+            productive shooter with a target in range. EMERGENT from unit count.
+          * SWEG_SECONDARY OFF → the legacy `strategy._is_chaff_unit` gate,
+            byte-for-byte.
+        Cited as `simulator.secondary_sabotage` /
+        `simulator.secondary_action_cost`."""
         if not self._sabotage_enabled():
             return
         if "sabotage" not in (getattr(active, "chosen_secondaries", ()) or ()):
             return
         from .strategy import _is_chaff_unit
+        use_action_cost = self._secondary_dedication_enabled()
         own_is_a = active is self.a
         dz = self.map.deployment_width
         h = self.map.height
@@ -1130,7 +1162,9 @@ class Battle:
                 break
             if u.action_this_round is not None:
                 continue
-            if not _is_chaff_unit(u):
+            eligible = (self._unit_can_perform_action(u, other)
+                        if use_action_cost else _is_chaff_unit(u))
+            if not eligible:
                 continue
             y = u.position[1]
             if own_is_a and y <= dz:
@@ -1141,13 +1175,22 @@ class Battle:
             n += 1
 
     def _score_sabotage(self, army, own_is_army_a: bool,
-                        chosen_override=None) -> int:
-        """End-of-round Sabotage scoring (wave 75): the best surviving Sabotage
-        action completes for 6 VP in the enemy deployment zone or 3 VP in No
-        Man's Land, capped at one completion (6 VP) per round. The survival gate
-        (the chaff must still be alive forward at end of round, after the
-        opponent's turn) is what makes deep Sabotage genuinely risky and bounds
-        it. Cited as `simulator.secondary_sabotage`.
+                        chosen_override=None, opponent=None) -> int:
+        """End-of-round Sabotage scoring (wave 75; completion contract rebuilt
+        wave 135): the best COMPLETED Sabotage action scores 6 VP in the enemy
+        deployment zone or 3 VP in No Man's Land, capped at one completion (6 VP)
+        per round. The survival gate (the unit must still be alive forward at end
+        of round, after the opponent's turn) is what makes deep Sabotage
+        genuinely risky and bounds it.
+
+        Completion (the score gate on the Action being finished):
+          * SWEG_SECONDARY ON  → the unit must SURVIVE and not have been dragged
+            into Engagement Range (`_action_completes`, using `opponent`); a unit
+            that died or was pulled into melee scores nothing.
+          * SWEG_SECONDARY OFF → the legacy "still alive forward" check,
+            byte-for-byte (opponent unused).
+        Cited as `simulator.secondary_sabotage` /
+        `simulator.secondary_action_cost`.
 
         M2: `chosen_override` (default None → read `army.chosen_secondaries`, the
         byte-identical legacy behaviour) lets the per-card dispatcher isolate this
@@ -1158,9 +1201,15 @@ class Battle:
                   else (getattr(army, "chosen_secondaries", ()) or ()))
         if "sabotage" not in chosen:
             return 0
+        require_completion = self._secondary_dedication_enabled()
+        # On the completion path we need the enemy army to test Engagement Range;
+        # callers pass it explicitly, else fall back to the other army on self.
+        foe = opponent if opponent is not None else (self.b if army is self.a else self.a)
         best = 0
         for u in army.alive_units:
             if u.action_this_round != "sabotage":
+                continue
+            if require_completion and not self._action_completes(u, foe):
                 continue
             best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
         return best
@@ -1291,31 +1340,35 @@ class Battle:
                     n += 1
 
     # ------------------------------------------------------------------
-    # Wave 133 Stage A — secondary deliberate-dedication scoring.
+    # Wave 133-135 — secondary dedication PLANNER (positioning bias only).
     #
-    # Today position cards (Engage on All Fronts / Behind Enemy Lines)
-    # AUTO-SCORE on INCIDENTAL position: any unit that happens to sit in a
-    # table quarter or the enemy deployment zone at scoring time contributes.
-    # A durable low-unit army (a Knight) scores those cards "for free" off a
-    # body it parked there for combat reasons. The real Chapter Approved
-    # 2025-26 secondary economy makes the player DELIBERATELY DEDICATE units to
-    # a held card; only dedicated units score it.
-    #
-    # The dedication planner peels ONE SPARE unit per held position card and
-    # stamps `dedicated_card` (and a pursue_target toward the card's geographic
-    # goal, reusing _assign_card_pursuit's geometry). The scoring path then
-    # counts only `dedicated_card`-matching units (see _score_one_card). The
-    # even-handed pinch is purely emergent from spare-unit count: a 5-6-unit
-    # Knight has no spare bodies after its combat / objective commitments, so it
-    # dedicates none and scores those cards 0; a broad army dedicates its
-    # surplus and scores. NO faction awareness, NO model-count branch — only the
-    # spare test. Env-gated SWEG_SECONDARY (default OFF); OFF path is
-    # byte-identical. Cited as `simulator.secondary_dedication`.
+    # REBUILD NOTE (wave 135): the wave-133 build gated POSITION-card scoring
+    # (Engage on All Fronts / Behind Enemy Lines) on `dedicated_card`. That was
+    # NOT rules-authentic — those are POSITIONAL Secondaries that score on
+    # presence/occupancy at end of turn, no Action and no "dedication" required —
+    # and the A/B confirmed it backfired (it made the Knight relatively better).
+    # The scoring gate has been REVERTED (see _score_one_card's position branch:
+    # the full unit list is passed, gate ON or OFF). What survives here is the
+    # dedication PLANNER as a MOVEMENT/POSITIONING bias only: it peels ONE SPARE
+    # unit per held position card and biases its move toward the card's
+    # geographic goal (enemy DZ for Behind Enemy Lines; an unoccupied quarter for
+    # Engage), reusing _assign_card_pursuit's geometry. That bias is faithful — a
+    # Knight with no spare body cannot spread, so it emergently occupies fewer
+    # quarters and incidentally scores less, with NO fabricated scoring gate.
+    # `dedicated_card` is no longer read by any scorer; the rules-clean low-unit
+    # penalty now lives entirely on the ACTION cards (Cleanse / Sabotage) via the
+    # Action-cost contract (_unit_can_perform_action / _action_completes). Env-
+    # gated SWEG_SECONDARY (default OFF); OFF path is byte-identical. The planner
+    # bias is an AI heuristic; the Action-cost rule is cited as
+    # `simulator.secondary_action_cost`.
     # ------------------------------------------------------------------
 
     def _secondary_dedication_enabled(self) -> bool:
-        """Stage A gate. Env-gated SWEG_SECONDARY; unset → the legacy
-        incidental-position secondary scoring runs byte-for-byte."""
+        """SWEG_SECONDARY gate. Unset → the legacy secondary behaviour runs
+        byte-for-byte: the dedication planner sets no positioning bias and the
+        Cleanse/Sabotage Action cards use their legacy chaff-selection /
+        still-alive scoring. Set to "1" → the dedication positioning bias runs
+        and the Action cards use the rules-authentic Action-cost contract."""
         return __import__("os").environ.get("SWEG_SECONDARY", "0") == "1"
 
     # Engagement range used for the spare-unit "not in melee" test — matches
@@ -1457,6 +1510,92 @@ class Battle:
                     if engage_target is not None:
                         u.pursue_target = engage_target
                     break
+
+    # ------------------------------------------------------------------
+    # Wave 135 rebuild — the Action-card cost (Cleanse / Sabotage).
+    #
+    # In real 10e an Action (Cleanse, Sabotage, etc.) is a deliberate
+    # commitment: in its Movement / Command phase a unit may START an Action
+    # instead of fighting — for the rest of the turn it CANNOT shoot and CANNOT
+    # declare a charge, and the Action only COMPLETES at the end of the turn if
+    # the unit is still there having done none of those things. That opportunity
+    # cost is the rules-clean reason a low-unit army cannot farm these cards: a
+    # Knight's handful of units are all shooting / charging / holding, so peeling
+    # one to stand on a marker doing an Action forfeits a large fraction of the
+    # army's output — the AI will not (and cannot afford to) do it, so it scores
+    # the Action cards 0. The asymmetry is EMERGENT from unit count and from the
+    # shoot/charge opportunity cost: NO faction branch, NO model-count branch,
+    # NO Knight penalty. Cited as `simulator.secondary_action_cost`.
+    # ------------------------------------------------------------------
+
+    def _unit_in_engagement(self, unit, other) -> bool:
+        """True iff any alive enemy is within Engagement Range (~1.5") of
+        `unit` — the unit is tied up in melee and so cannot legally start /
+        complete an Action this turn (10e: a unit within Engagement Range
+        cannot perform an Action)."""
+        for e in other.alive_units:
+            if _distance(unit.position, e.position) <= self._DEDICATION_ENGAGE_RANGE:
+                return True
+        return False
+
+    def _unit_can_perform_action(self, unit, other) -> bool:
+        """The rules-authentic Action contract used to SELECT a unit to start an
+        Action (Cleanse / Sabotage) at assignment time. A unit may commit to an
+        Action iff ALL of:
+          * it is alive and has not already acted this round
+            (`action_this_round is None`);
+          * it has Objective Control > 0 — an OC-0 model (e.g. an AIRCRAFT, or a
+            Knight stripped to 0 OC on its damaged bracket) cannot hold / perform
+            the objective-bound Action;
+          * it is NOT within Engagement Range of any enemy (a unit in melee
+            cannot perform an Action);
+          * it is NOT a PRODUCTIVE SHOOTER with a target in range — i.e. peeling
+            it off forfeits no meaningful firepower (output
+            attacks * hit_probability * weapon_damage_per_shot >= 2.0 with an
+            enemy in weapon range marks a unit the AI keeps shooting). This is
+            the even-handed, EMERGENT crux: a Knight's units are all productive
+            shooters / fighters, so none pass, and it scores the Action cards 0;
+            a broad army has spare non-shooting bodies that do.
+
+        NO faction awareness, NO model-count branch, NO chaff-cost gate — only
+        the capability test above. The shoot/charge lockout itself is enforced by
+        the existing `action_this_round` flag (read by _do_shoot and _do_charge);
+        this predicate only decides WHICH unit is allowed to take the Action.
+        """
+        if not unit.is_alive:
+            return False
+        if unit.action_this_round is not None:
+            return False
+        # Objective Control > 0. Use the model's DECLARED OC characteristic (a
+        # stat-OC-0 model — some AIRCRAFT / drones — genuinely cannot hold), AND
+        # the damaged-bracket-adjusted effective OC (a Knight stripped to 0 OC on
+        # its damage table also cannot). _effective_oc floors a missing/zero stat
+        # to 1, so the raw-stat check is needed to catch a real OC-0 datasheet.
+        if (getattr(unit.profile, "oc", 0) or 0) <= 0:
+            return False
+        if self._effective_oc(unit) <= 0:
+            return False
+        if self._unit_in_engagement(unit, other):
+            return False
+        p = unit.profile
+        ranged_output = (
+            (p.attacks or 0) * (p.hit_probability or 0.0)
+            * (p.weapon_damage_per_shot or 0.0)
+        )
+        if ranged_output >= self._DEDICATION_SHOOTER_OUTPUT:
+            wpn_range = float(p.range_inches or 0)
+            for e in other.alive_units:
+                if _distance(unit.position, e.position) <= wpn_range:
+                    return False
+        return True
+
+    def _action_completes(self, unit, other) -> bool:
+        """End-of-turn completion test for a unit that started an Action this
+        round: the Action only scores if the unit SURVIVED (still alive) and was
+        not dragged into Engagement Range (a unit pulled into melee cannot finish
+        its Action). OC>0 at completion is checked by the per-card scorer (which
+        also re-confirms objective control)."""
+        return unit.is_alive and not self._unit_in_engagement(unit, other)
 
     # ------------------------------------------------------------------
     # Wave 83 Tier A — objective-holding / board-control secondaries
@@ -1684,22 +1823,22 @@ class Battle:
             return bid + np_ + cth + assn
         # --- Position cards (Engage / Behind Enemy Lines) ----------------------
         if card_key in ("engage_on_all_fronts", "behind_enemy_lines"):
-            # Wave 133 Stage A (env-gated SWEG_SECONDARY): score from DELIBERATE
-            # DEDICATION, not incidental presence. Pass only the units the army
-            # committed to THIS card (dedicated_card == card_key) so a body that
-            # merely happens to sit in a quarter / the enemy DZ no longer scores.
-            # When the gate is OFF, pass the full unit list — byte-identical to
-            # the legacy incidental scoring. Cited as
-            # `simulator.secondary_dedication`.
-            if self._secondary_dedication_enabled():
-                scoring_units = [
-                    u for u in scoring_army.units
-                    if getattr(u, "dedicated_card", None) == card_key
-                ]
-            else:
-                scoring_units = scoring_army.units
+            # Wave 135 rebuild: position cards score on PRESENCE/POSITION at the
+            # end of the turn — any qualifying alive unit in the relevant quarter
+            # / enemy deployment zone counts. This is the rules-authentic 10e
+            # behaviour: Engage on All Fronts and Behind Enemy Lines are
+            # positional Secondaries scored on occupancy, NOT on a performed
+            # Action and NOT on a "dedication" commitment. The wave-133/134
+            # dedication GATE on these cards was an unfaithful under-count (it
+            # fabricated an Action requirement for a positional card) and the
+            # A/B confirmed it backfired, so it is reverted: the full unit list
+            # is always passed, gate ON or OFF, which restores the pre-`7d962ad`
+            # incidental scoring byte-for-byte (score_position_delta counts only
+            # alive units, as before). The deliberate-dedication / Action-cost
+            # mechanism now lives ONLY on the Action cards (Cleanse / Sabotage);
+            # see _unit_can_perform_action and _score_cleanse / _score_sabotage.
             eng, bel = score_position_delta(
-                scoring_units, self.map, own_is_army_a=own_is_army_a,
+                scoring_army.units, self.map, own_is_army_a=own_is_army_a,
                 round_num=round_num, chosen=one,
             )
             return eng + bel
@@ -1710,7 +1849,7 @@ class Battle:
                                        chosen_override=one)
         if card_key == "sabotage":
             return self._score_sabotage(scoring_army, own_is_army_a=own_is_army_a,
-                                        chosen_override=one)
+                                        chosen_override=one, opponent=other_army)
         # --- Board take-and-hold cards -----------------------------------------
         from .secondaries import BOARD_SECONDARY_KEYS
         if card_key in BOARD_SECONDARY_KEYS:
@@ -1911,10 +2050,12 @@ class Battle:
         self._b_secondary_vp += b_cleanse
 
         # Pariah Nexus Sabotage action secondary (wave 75, env-gated SWEG_S2).
-        a_sabotage = self._score_sabotage(self.a, own_is_army_a=True)
+        a_sabotage = self._score_sabotage(self.a, own_is_army_a=True,
+                                          opponent=self.b)
         self._a_vp += a_sabotage
         self._a_secondary_vp += a_sabotage
-        b_sabotage = self._score_sabotage(self.b, own_is_army_a=False)
+        b_sabotage = self._score_sabotage(self.b, own_is_army_a=False,
+                                          opponent=self.a)
         self._b_vp += b_sabotage
         self._b_secondary_vp += b_sabotage
 

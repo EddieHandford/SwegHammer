@@ -522,15 +522,25 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # out). Even-handed track split from unit count; OFF byte-identical.
     # See data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.tactical_secondary_deck",
-    # Wave 133 Stage A — secondary deliberate-dedication scoring (env-gated
-    # SWEG_SECONDARY). Position cards (Engage on All Fronts / Behind Enemy
-    # Lines) score from units the army DELIBERATELY dedicates, not incidental
-    # presence: Battle._assign_card_dedication peels one SPARE unit per held
-    # card and stamps Unit.dedicated_card, and Battle._score_one_card counts
-    # only dedicated units. Even-handed and emergent from spare-unit count (a
-    # low-unit army dedicates none); OFF byte-identical. See
-    # data/rule_citations.d/secondary_dedication.json.
+    # Wave 133-135 — secondary dedication PLANNER (env-gated SWEG_SECONDARY),
+    # a movement/positioning bias only. The wave-133 scoring gate on the
+    # POSITION cards (Engage on All Fronts / Behind Enemy Lines) was REVERTED
+    # in wave 135 as unfaithful (positional Secondaries score on presence, not
+    # a performed Action); Battle._assign_card_dedication now only biases a
+    # spare unit's MOVE toward a card's geography, and Unit.dedicated_card is
+    # not read by any scorer. See data/rule_citations.d/secondary_dedication.json.
     "simulator.secondary_dedication",
+    # Wave 135 — Action-card cost (env-gated SWEG_SECONDARY). The rules-clean
+    # low-unit penalty: performing an Action (Cleanse / Sabotage) costs a unit
+    # its shooting and charge for the turn (10e core Actions). A unit may START
+    # one only if it passes Battle._unit_can_perform_action (Objective Control
+    # > 0, not in Engagement Range, not a productive shooter with a target),
+    # and it SCORES only if it completes (survives + not dragged into melee,
+    # Battle._action_completes). EMERGENT from unit count — a Knight cannot
+    # spare a body and scores 0; no faction / model-count branch. OFF keeps the
+    # legacy chaff-selection / still-alive scoring byte-for-byte. See
+    # data/rule_citations.d/secondary_dedication.json.
+    "simulator.secondary_action_cost",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.
