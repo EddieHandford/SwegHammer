@@ -919,6 +919,51 @@ def _drukhari_fragile_flyer_bonus(defender) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Kiting counter-play — move (2): focus the EXPOSED melee threat (SWEG_KITE)
+# ---------------------------------------------------------------------------
+# The faithful kiting counter to melee over-shooters (World Eaters / elite
+# combat armies): once a friendly unit Falls Back to un-stick from an enemy
+# melee unit — move (1), already wired at the Fall Back branch in
+# pick_move_destination — the rest of the army concentrates fire on that
+# now-EXPOSED melee threat, shooting it down in the open before it can
+# re-charge. This is a TARGET-PRIORITY bias ONLY: no extra shots and no
+# re-shoot by the fallen-back unit (a unit that Fell Back still cannot shoot
+# per 10e core, so this is faithful — NOT the "fall back and re-shoot" knob
+# the watchdog flagged). Even-handed: every army applies it, so it favours
+# shooting armies over melee armies exactly as real tournament counter-play
+# does. Stage-1 AI play-style heuristic (target selection, not a rule — no
+# citation, same class as the screen / synapse / oath biases above).
+#
+# Env-gated default-OFF (SWEG_KITE): when OFF, returns 1.0 so the ranged
+# target picker's denominator is byte-identical (x1.0 is the exact float
+# identity). This is the wave-153 bounded probe of whether the over-side has
+# any faithful counter-play headroom left.
+_KITE_TARGET_BONUS: float = 1.5
+
+
+def _kite_enabled() -> bool:
+    return __import__("os").environ.get("SWEG_KITE") == "1"
+
+
+def _kite_target_bonus(defender, attacker_army) -> float:
+    """Return ``_KITE_TARGET_BONUS`` when ``defender`` is an EXPOSED enemy
+    melee-class unit — a melee threat (melee damage-per-activation >= ranged)
+    that is NOT currently within Engagement Range of any unit of the shooting
+    army (so it sits in the open after move (1)'s Fall Back, rather than
+    tarpitting a friendly). 1.0 otherwise, and always 1.0 when SWEG_KITE is
+    unset (OFF path byte-identical)."""
+    if not _kite_enabled():
+        return 1.0
+    profile = getattr(defender, "profile", None)
+    if profile is None or not _is_melee_class(profile):
+        return 1.0
+    for f in attacker_army.alive_units:
+        if _dist(f.position, defender.position) <= _ENGAGEMENT_RANGE:
+            return 1.0  # still tarpitted by a friendly — move (1) un-sticks first
+    return _KITE_TARGET_BONUS
+
+
+# ---------------------------------------------------------------------------
 # AI-1 — Orks tarpit-engage charge heuristic (AI play-style, NOT a rule)
 # ---------------------------------------------------------------------------
 # Real tournament Orks (volume melee, low damage-per-attack, abundant bodies)

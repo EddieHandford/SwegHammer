@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 149 (2026-06-03, N=80 CONFIRMED) — **N=80 gated MAE 3.90** (`data/wf_wave149_postdive_n80.txt`),
+**Last updated:** Wave 153 (2026-06-03) — OVER-SIDE diagnosis CONCLUSIVE; per-faction + counter-play exploration
+EXHAUSTED at N=80 gated 3.90. Four waves (150-153) confirmed the over-shooter cluster + IK floor + AdMech structural
+= the one-Unit-per-model MELEE REPRESENTATION over-rating, via 4 independent lines: WE rule-audit (all buffs
+conservative/clean, no knob), CSM holistic re-scoped (Marks need per-unit mark-assignment infra; Dark Apostle
+mitigation doesn't exist), and the **kiting counter-play A/B REGRESSED (`SWEG_KITE` headline 4.15→4.50, WE +14.7→+16.5
+WORSE — focusing durable Berzerkers wastes shots; the problem is per-model OUTPUT not target selection)**. SWEG_KITE
+kept gated default-OFF (documented experiment; OFF baseline unaffected). **The path below 3.90 is the SYSTEMIC
+representation work — the squad-rebuild / Q11 positional re-model (needs explicit USER build-go; re-prices Stage 2) or
+screening AI (complex/regression-prone). That fork is WITH THE USER (watchdog surfaced it).** Remaining per-faction
+micro-levers are tiny/under-side (Daemons #49 ~in-band). **The faithful autonomous per-faction dive is essentially
+complete; the big remaining lever needs a user strategic decision.** [Wave 149 N=80 confirmation detail below.]
+
+**Wave 149 (N=80 CONFIRMED) — **N=80 gated MAE 3.90** (`data/wf_wave149_postdive_n80.txt`),
 down from the 4.09 N=80 baseline before this stretch's wins. The abilities dive (waves 144-149) net-closed ~0.19 at N=80
 on top of the P0 fixes (which took it ~4.55→4.09). **T'au markerlights HELD at N=80** (−8.5 → −5.2, gated 4.30 → 0.95 —
 the base +1 BS + [SUSTAINED HITS 1] vs Guided buff was genuinely unmodelled; committed `e980bf4`). **AdMech abilities

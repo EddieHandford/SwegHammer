@@ -8534,6 +8534,7 @@ class Battle:
         from .strategy import (
             _astartes_oath_target_bonus,
             _drukhari_fragile_flyer_bonus,
+            _kite_target_bonus,
             _screen_target_bonus,
             _synapse_target_bonus,
             _transport_target_bonus,
@@ -8575,6 +8576,7 @@ class Battle:
                     * _astartes_oath_target_bonus(attacker, u, attacker_army)
                     * _transport_target_bonus(u)
                     * _drukhari_fragile_flyer_bonus(u)
+                    * _kite_target_bonus(u, attacker_army)
                 ),
             )
 

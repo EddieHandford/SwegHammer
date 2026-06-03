@@ -4,6 +4,36 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 150-153 (2026-06-03) — OVER-SIDE diagnosis CONCLUSIVE: the over-shooter cluster is the per-model REPRESENTATION FLOOR. WE rule-audit (clean), CSM holistic re-scoped (needs infra), kiting counter-play A/B REGRESSED (backfires). Path below 3.90 = the systemic user-fork
+
+Four waves working the over-side per the watchdog's "diagnose, don't knob" pivot. **Conclusion (4 independent lines
+of evidence): the over-shooter cluster (WE +13.4, Drukhari, Votann, Tyranids, Sororitas) + the IK floor + AdMech
+structural = the one-Unit-per-model MELEE REPRESENTATION over-rating, NOT faithfully-removable rules or a missing
+counter-play.**
+
+- **Wave 150 — World Eaters rule audit:** every WE buff is conservative-to-UNDER-modelled (Blessings 3/12, the
+  Berzerker Warband detachment over-bias fab already removed, Blood Tithe deduped against the one-model amplification,
+  charges 2D6 + per-squad-capped) yet WE still over-shoots +13.4. Rules out the over-modelled-rule hypothesis. No knob
+  committed (correct — a negative diagnostic, not a failure).
+- **Wave 151 — CSM holistic (#52) re-scoped to multi-wave:** the offsetting synergies don't exist at wave scale — the
+  army-wide Marks of Chaos need PER-UNIT MARK-ASSIGNMENT infra (a list-build data layer; assuming a mono-mark army to
+  force the offset would be a metric-chasing knob), the Dark-Pact enhancements are one-per-roster (too small), and the
+  Dark Apostle "Ld-mitigation" the watchdog assumed DOESN'T EXIST at BSData (declined per the no-fabrication rail).
+  So the isolated Dark Pacts fix stays unshipped (wave-146 band-aid) and CSM is parked behind the mark-assignment infra.
+- **Wave 152-153 — kiting counter-play:** the two faithful kiting moves are largely PRE-EXISTING (fall-back-from-melee
+  exists; coordinated focus-fire = SWEG_FOCUS already washed). Built the bounded `SWEG_KITE` move-(2) probe — an
+  env-gated, default-OFF, OFF-byte-identical target-priority bias toward EXPOSED enemy melee-class units (no extra
+  shots, no re-shoot — faithful to the watchdog's rail). **N=40 A/B: headline 4.15 → 4.50 (REGRESSED); World Eaters
+  +14.7 → +16.5 (WORSE, not better).** The bias BACKFIRES: focusing fire on durable T4 Berzerkers wastes shots that
+  don't kill them instead of clearing easier targets, so the melee army survives and wins MORE. **The problem isn't
+  target selection — it's the per-model melee OUTPUT.** Kept gated default-OFF as a documented experiment (the OFF
+  baseline 3.90 is unaffected).
+
+**Strategic state:** the autonomous per-faction + AI-counter-play exploration has CONCLUSIVELY run its course (N=80
+4.55 → 3.90). The path below 3.90 is the SYSTEMIC representation work — the squad-rebuild / Q11 positional re-model
+(needs explicit user build-go; re-prices Stage 2) or screening AI (complex, regression-prone). That fork is with the
+USER (the watchdog surfaced it). 1119 tests green, audit clean, run.py OFF+ON exit 0.
+
 ## Wave 149 (2026-06-03) — T'au Markerlights base army-rule buff (+1 BS + [SUSTAINED HITS 1] vs Guided) was UNMODELLED — wiring it CLOSES T'au's under-shoot: T'au −4.4 → −0.2 (in band), headline 4.23 → 4.15
 
 The watchdog steered to "T'au markerlights via the new designation substrate," but the diagnosis REFINED it: markerlights
