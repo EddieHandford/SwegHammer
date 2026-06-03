@@ -4,6 +4,20 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 140 (2026-06-03) — MULTI-METRIC candidate TESTED + REFUTED: the M2 deck OVERSHOOTS the secondary-VP fidelity (52-80 → 8-22, past the real ~30-40). Secondary fidelity is REPRESENTATION-gated (card-achievement = the same floor)
+
+Tested the wave-138 leading candidate (M2 deck as the secondary-over-generation fix) directly via the deck-on
+multi-metric profile: **deck-OFF secVP ~52-80 (over) → deck-ON secVP ~8-22 (UNDER)**. The deck OVERSHOOTS past
+the realistic ~30-40 into under-generation, because the 2-card Tactical hand STALLS (the AI can't ACHIEVE its
+held action/position cards — the wave-120 finding; card-achievement needs dedicated units the one-Unit-per-model
+representation can't deliver, the same gap that made the wave-121 pursuit ineffective). **So the secondary-VP
+fidelity loops back to the SAME representation floor** as the primary over-hold — neither over-generation (no
+deck) nor under-generation (deck stalls) is realistic, and the in-between requires card-achievement the
+representation bounds. The strongest multi-metric candidate is REFUTED; the residual is, end-to-end (primary
+over-hold AND secondary VP), the one-Unit-per-model representation. (Win-rate swings in the small diagnostic are
+noise; the secVP drop is robust + the deck is win-rate-neutral.) Pending the user's real per-faction secondary-VP
+reference to confirm the ~30-40 target. LOOP_QA wave-140.
+
 ## Wave 138 (2026-06-03) — MULTI-METRIC instrumentation built (`scripts/diag_multimetric.py`) + first per-faction profile. Three fidelity signals; the SECONDARY OVER-GENERATION (raw 52-80 VP) is the strongest actionable — the M2 deck may be justified on the SECONDARY-FIDELITY metric even though it washed on win rate
 
 First worker contribution to the user's MULTI-METRIC fidelity review (watchdog leads the analysis + real-data
