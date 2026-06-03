@@ -4,6 +4,27 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 156 (2026-06-03) — TITANIC overwatch BUG FIXED (user-corrected): TITANIC units CANNOT Fire Overwatch. Removes the illegal Knight overwatch → honest baseline 4.17 → 4.05
+
+The "overwatch TITANIC fix" the watchdog flagged as part of the main event, timely now that Overwatch is default-ON
+(wave 155). Verbatim 10e restriction (now in the `simulator.fire_overwatch` citation): "You cannot target a TITANIC
+unit with this Stratagem" — the stratagem's TARGET is the FIRING/overwatching unit (user-corrected an earlier
+watchdog mis-read that put the restriction on the enemy), so a TITANIC unit cannot be SELECTED as the overwatcher.
+Fix: exclude TITANIC units from the eligible-shooter loop in `_fire_overwatch` (skip `unit` if "TITANIC" in its
+keywords). One line + the citation.
+
+**N=80 A/B (vs the 4.17 honest baseline): headline 4.17 → 4.05.** The Knights came DOWN — they were ILLEGALLY
+overwatching: Chaos Knights +12.7→+9.3 (gated 9.40→6.01), Imperial Knights +31.8→+30.4 (28.82→27.45). A faithful
+over-side improvement (removing illegal firepower), NOT a knob. **So the truly-honest baseline — faithful core
+mechanics ON minus the illegal TITANIC overwatch — is N=80 gated 4.05, 9/22 in band.** Net of waves 155-156: 3.90
+(flattered) → 4.17 (honest but with the TITANIC bug) → 4.05 (honest, TITANIC fixed). Audit clean, 1119 tests green,
+run.py exit 0. 4.05 is the new reference baseline for the squad rebuild A/Bs.
+
+NEXT: the squad rebuild Stage C (the user's Q11=(c) authorised positional re-model, pure-infra first stage) on the
+4.05 baseline. Plus the watchdog's user-requested stratagem-fidelity cleanup batch (7 items: Counter-Offensive
+already-fought guard, Tank Shock MW math, Heroic Intervention re-add, Command Re-Roll WHEN-expansion, Aeldari Warhost
+INFANTRY subfilter, unimplemented core strats, Disgustingly Resilient MONSTER check) to slot between rebuild stages.
+
 ## Wave 154-155 (2026-06-03) — CORE-MECHANIC AUDIT + user-authorised FLIP: Fire Overwatch + Go To Ground are faithful → default-ON. HONEST re-base 3.90 → N=80 gated 4.17 (9/22 in band, up from 6)
 
 The watchdog's queued core-mechanic re-eval, which outranked another micro-ability because it asks whether the

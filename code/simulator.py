@@ -8978,6 +8978,16 @@ class Battle:
             if getattr(unit, "embarked_in", None) is not None:
                 continue
             p = unit.profile
+            # A TITANIC unit CANNOT Fire Overwatch (10e core stratagem
+            # restriction, verbatim: "You cannot target a TITANIC unit with
+            # this Stratagem"). The stratagem's TARGET is the firing /
+            # overwatching unit, so a TITANIC unit may not be SELECTED as the
+            # overwatcher — it is a restriction on the FIRING unit, not on the
+            # enemy being shot (user-corrected, wave 156). This removes the
+            # illegal big-Knight overwatch that inflated the IK / Chaos Knights
+            # over-rate once Overwatch went default-ON.
+            if "TITANIC" in (getattr(p, "unit_keywords", ()) or ()):
+                continue
             if (getattr(p, "attacks", 0) or 0) <= 0:
                 continue
             dist = _distance(unit.position, enemy_unit.position)

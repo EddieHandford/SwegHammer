@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 155 (2026-06-03) — HONEST RE-BASE: Fire Overwatch + Go To Ground FLIPPED to default-ON
+**Last updated:** Wave 156 (2026-06-03) — TITANIC OVERWATCH BUG FIXED → honest baseline 4.17 → **N=80 gated 4.05**
+(9/22 in band). 10e: TITANIC units CANNOT Fire Overwatch (verbatim "You cannot target a TITANIC unit with this
+Stratagem" — the TARGET is the FIRING unit; user-corrected). Excluded TITANIC from `_fire_overwatch`'s eligible
+shooters → removes the illegal Knight overwatch that inflated them when Overwatch went default-ON: Chaos Knights
++12.7→+9.3, IK +31.8→+30.4. A faithful over-side improvement (not a knob). **4.05 is the new honest reference
+baseline** (net of waves 155-156: 3.90 flattered → 4.17 honest-with-bug → 4.05 honest-fixed). 1119 tests green.
+NEXT: the squad rebuild Stage C (user's Q11=(c) positional re-model, pure-infra first stage) on 4.05 + the
+user-requested stratagem-fidelity cleanup batch (7 items, behind the rebuild). [Wave 155 flip detail below.]
+
+**Wave 155 — HONEST RE-BASE: Fire Overwatch + Go To Ground FLIPPED to default-ON
 (user-authorised fidelity-first baseline; audited faithful wave 154). **New honest N=80 baseline: gated MAE 4.17, 9/22
 in band (UP from 6)** (`data/wf_wave155_honest_baseline_n80.txt`) — the prior 3.90 was FLATTERED by suppressing two
 universal core mechanics. This is an honest RE-BASE, not a regression: the distribution is MORE accurate (3 more
