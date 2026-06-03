@@ -4,6 +4,29 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 158 (2026-06-04) — SQUAD REBUILD STAGE A: per-squad activation scaffold (gate `SWEG_SQUADACT`, byte-identical inert cache)
+
+The second stage of the user's Q11=(c) authorised positional re-model, built on the Stage C budget infra (wave 157).
+Stage A adds the per-squad activation substrate the behavioural stages (B coherency, D split-fire, E cohesive hold)
+will read, but is itself a **no-behaviour-change scaffold**. In `Battle.__init__` two caches are added —
+`_squad_move_intent: dict` and `_squad_activated_this_phase: set`; both are reset at the top of each Movement phase in
+`_run_round_vanilla_turns`. Behind `SWEG_SQUADACT=1`, the Movement loop now computes `pick_move_intent(...)` ONCE on
+the first alive model of each squad (keyed by `squad_id`, falling back to `id(unit)` for single-model units), caches
+it in `_squad_move_intent[skey]`, and emits one `UnitActivated` telemetry event per squad. Every model still runs its
+own `_do_move` exactly as before — the cached intent is **unread**, so the scaffold is inert.
+
+Two facts make this byte-identical with the gate ON or OFF: `pick_move_intent` is deterministic (no random draws), and
+`UnitActivated` is renderer-only telemetry that the evaluator never reads. **Verified three-way byte-identical**: a
+clean-base N=40, gate-OFF N=40, and gate-ON N=40 eval are all identical (2213 bytes, gated MAE 4.20, 8/22 in band).
+Audit clean, run.py exits 0 on both paths, full suite **1119 passed / 1 skipped**. (Recovered from a background build
+agent that completed the work + the three-way verification but stalled before committing; the patch was applied to the
+branch and re-verified here.)
+
+NEXT: Stage B — mid-game coherency enforcement (gate `SWEG_COHERE`), the first INTENTIONAL behaviour change of the
+rebuild (a straggler >2" from its nearest squadmate is nudged toward the squad centroid within its remaining move).
+This is where the representation lever starts to bite (Knight over-hold vs body over-shoot), so it gets a full N=40
+then N=80 A/B. The stratagem-fidelity cleanup batch (7 items) still slots between rebuild stages.
+
 ## Wave 156 (2026-06-03) — TITANIC overwatch BUG FIXED (user-corrected): TITANIC units CANNOT Fire Overwatch. Removes the illegal Knight overwatch → honest baseline 4.17 → 4.05
 
 The "overwatch TITANIC fix" the watchdog flagged as part of the main event, timely now that Overwatch is default-ON

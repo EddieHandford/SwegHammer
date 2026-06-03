@@ -1,14 +1,24 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 157 (2026-06-03) — SQUAD REBUILD STAGE C LANDED (byte-identical infra, commit `f43f862`): the
+**Last updated:** Wave 158 (2026-06-04) — SQUAD REBUILD STAGE A LANDED (byte-identical scaffold): per-squad
+activation substrate behind gate `SWEG_SQUADACT`. `Battle.__init__` gains `_squad_move_intent: dict` +
+`_squad_activated_this_phase: set` (reset each Movement phase); when the gate is ON, the Movement loop computes
+`pick_move_intent(...)` ONCE per squad on its first alive model (keyed by `squad_id`, `id(unit)` fallback for
+single-model units), caches it, and emits one `UnitActivated` per squad — but every model still runs its own
+`_do_move`, so the cached intent is **unread** and the scaffold is inert. Byte-identical because `pick_move_intent` is
+deterministic and `UnitActivated` is renderer-only telemetry the evaluator never reads. **Verified three-way
+byte-identical** (clean-base == gate-OFF == gate-ON N=40, all 2213 bytes, gated 4.20, 8/22 in band), audit clean,
+run.py exit 0 both paths, 1119 tests green. This is the activation substrate the behavioural stages will read.
+Migration order: C (done, wave 157) → **A (done, this wave)** → B (coherency, `SWEG_COHERE`, first behavioural) →
+E (cohesive hold) + move-AI → D (split-fire shoot). Honest baseline remains **N=80 gated 4.05**. NEXT: Stage B.
+[Wave 157 Stage C + Wave 156 TITANIC-overwatch detail below.]
+
+**Wave 157 — SQUAD REBUILD STAGE C LANDED (byte-identical infra, commit `f43f862`): the
 four bespoke once-per-codex-unit-per-round gate sets (Acts of Faith + 3× Strands of Fate) generalized into one
 `Army._unit_budget_used` dict + `unit_budget_available(effect,key)` / `mark_unit_budget(effect,key)` (key = squad_id
 or profile.name, identical). **Byte-identical (empty N=40 eval diff before/after)**, net −24 lines, 1119 tests green.
 This is the FOUNDATION for Stage A (per-squad activation reuses this budget). The squad rebuild (user's Q11=(c)
-authorised positional re-model) is the systemic lever for the per-model representation floor; migration order C (done)
-→ A (per-squad activation scaffold, gate `SWEG_SQUADACT`) → B+E+move-AI (behavioural) → D (split-fire shoot). Honest
-baseline remains **N=80 gated 4.05** (the rebuild stages A/B/D/E land behind env gates, OFF byte-identical, A/B each).
-NEXT: Stage A. [Wave 156 TITANIC-overwatch detail below.]
+authorised positional re-model) is the systemic lever for the per-model representation floor.
 
 **Wave 156 — TITANIC OVERWATCH BUG FIXED → honest baseline 4.17 → **N=80 gated 4.05**
 (9/22 in band). 10e: TITANIC units CANNOT Fire Overwatch (verbatim "You cannot target a TITANIC unit with this

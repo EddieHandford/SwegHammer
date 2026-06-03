@@ -262,6 +262,17 @@ class Battle:
         # ONE Advance roll per unit; SwegHammer rolled per model. Same per-unit
         # correctness pattern as the charge roll. Cited `simulator.advance_per_unit`.
         self._squad_advance_roll: dict = {}
+        # Squad rebuild Stage A (gate SWEG_SQUADACT): per-phase cache of each
+        # squad's move decision, computed once on the squad's first activating
+        # model and read by later stages (B/D/E). INERT in Stage A (execution
+        # stays per-model). The squad — not the individual model — is the real
+        # 10e activation unit; SwegHammer's one-Unit-per-model representation
+        # activates every model independently. These two fields are the
+        # substrate the coherency / cohesive-hold / split-fire stages will read.
+        # In Stage A they are written but never applied, so the simulator is
+        # byte-identical whether the gate is on or off.
+        self._squad_move_intent: dict = {}
+        self._squad_activated_this_phase: set = set()
         # UIDs of units that failed their Battleshock test this round — OC 0
         # so they don't contribute to objective control. Reset per round.
         self._battleshocked_this_round: set = set()
@@ -7647,9 +7658,44 @@ class Battle:
             # toward the card's geographic goal this activation. No-op when the
             # secondary gate is off (SWEG_SECONDARY). Active army only.
             self._assign_card_dedication(active, other)
+            # Squad rebuild Stage A (gate SWEG_SQUADACT): reset the per-phase
+            # squad move-decision cache so each army's move phase starts fresh.
+            # Because the cache only ever holds the active army's squads (it is
+            # cleared at the top of each (active, other) iteration here), a plain
+            # squad_id key cannot collide across armies. INERT in Stage A — the
+            # cache below is populated but never applied; execution stays
+            # per-model. No-op when the gate is off (the populate block is
+            # gated), so the OFF path is byte-identical.
+            self._squad_move_intent = {}
+            self._squad_activated_this_phase = set()
+            _squadact = __import__("os").environ.get("SWEG_SQUADACT") == "1"
             for unit in list(active.units):
-                if unit.is_alive:
-                    self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
+                if not unit.is_alive:
+                    continue
+                if _squadact:
+                    # The squad — not the model — is the real activation unit.
+                    # On the squad's FIRST alive model this phase, compute the
+                    # squad's move decision once (pick_move_intent is
+                    # deterministic and side-effect-free, so this extra call does
+                    # NOT touch the RNG stream) and cache it for stages B/D/E,
+                    # and emit ONE UnitActivated for the squad. The cache is
+                    # INERT: _do_move still runs unchanged for every model below,
+                    # so the eval (which reads win/loss, not the event stream) is
+                    # byte-identical whether the gate is on or off.
+                    sid = getattr(unit, "squad_id", -1)
+                    skey = sid if sid >= 0 else id(unit)
+                    if skey not in self._squad_activated_this_phase:
+                        self._squad_activated_this_phase.add(skey)
+                        self._squad_move_intent[skey] = pick_move_intent(
+                            unit, active, other, self.map,
+                            army_plan=active.army_plan,
+                            _phase_their_oc=_phase_their_oc,
+                        )
+                        self._emit(UnitActivated(
+                            unit_uid=unit.uid,
+                            army_name=active.name,
+                        ))
+                self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
             # Pariah Nexus actions are declared after the Movement phase: a
             # surplus unit on a controlled forward objective may perform Cleanse
             # (wave 74), or a surplus unit pushed into No Man's Land / the enemy
