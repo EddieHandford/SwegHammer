@@ -8340,12 +8340,34 @@ class Battle:
                 and getattr(det, "bold_gallantry", False)
                 and (attacker.profile.faction or "") == "Imperial Knights"
             )
+            # Relentless Onslaught (Necrons Cursed Legion detachment rule, 10e).
+            # BSData v10.6.0 (Necrons.cat.gz, rule id 1dfc-5377-99ac-a700):
+            # "ranged weapons equipped by NECRONS VEHICLE and NECRONS MOUNTED
+            # models (excluding TITANIC models) from your army have the [ASSAULT]
+            # ability." When relentless_onslaught is True and the attacker is a
+            # NECRONS VEHICLE or MOUNTED unit (NOT TITANIC) that has Advanced,
+            # skip the Advance-lockout (mirrors the [ASSAULT] grant on its ranged
+            # weapons). Same exemption pathway as Mont'ka's army-wide window and
+            # Valourstrike Lance's Bold Gallantry; faction- and keyword-gated per
+            # the verbatim rule. The +1-to-Hit half of Relentless Onslaught lives
+            # in Unit.attack. Cited as `simulator.relentless_onslaught` /
+            # `CURSED_LEGION.relentless_onslaught`.
+            relentless_onslaught_assault_window = (
+                det is not None
+                and getattr(det, "relentless_onslaught", False)
+                and (attacker.profile.faction or "") == "Necrons"
+                and ("VEHICLE" in kw or "MOUNTED" in kw)
+                and "TITANIC" not in kw
+            )
             if attacker.transient_assault_this_round:
                 pass   # stratagem already paid for; no token spend
             elif montka_assault_window:
                 pass   # detachment rule grants [ASSAULT] free this round
             elif bold_gallantry_window:
                 pass   # Bold Gallantry grants [ASSAULT] to IK ranged weapons
+            elif relentless_onslaught_assault_window:
+                pass   # Relentless Onslaught grants [ASSAULT] to NECRONS
+                       # VEHICLE / MOUNTED (non-TITANIC) ranged weapons
             elif self._gladius_active_doctrine(attacker, attacker_army) == "Devastator":
                 pass   # Devastator Doctrine grants shoot-after-Advance, free
             elif ("ASURYANI" in kw and "VEHICLE" in kw) and attacker_army.battle_focus_tokens > 0:

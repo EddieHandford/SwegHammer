@@ -2134,6 +2134,46 @@ class Unit:
                             if _bor_below_half:
                                 wound_mod_delta += 1
 
+            # ---- Necrons Cursed Legion — Relentless Onslaught (detachment rule,
+            # 10e). BSData v10.6.0 (Necrons.cat.gz, rule id 1dfc-5377-99ac-a700)
+            # verbatim: "Each time a NECRONS model from your army makes an attack
+            # that targets a unit within range of one or more objective markers,
+            # add 1 to the Hit roll. In addition, ranged weapons equipped by
+            # NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC
+            # models) from your army have the [ASSAULT] ability." This block
+            # handles the FIRST clause (the +1 to Hit); the [ASSAULT] clause is
+            # wired in simulator._do_shoot's Advance-lockout (it grants
+            # shoot-after-Advance, not a hit/wound modifier). Three-way gate,
+            # modelled on the World Eaters Beacons of Rage / Awakened Dynasty
+            # bonus_to_hit_when_led pattern above:
+            #   1. attacker is a NECRONS model (p.faction == "Necrons"),
+            #   2. the attacker's army's resolved detachment carries
+            #      `relentless_onslaught` (read via the army back-reference, the
+            #      same army->detachment access Beacons of Rage / Iconoclast use),
+            #   3. the TARGET unit is within range of an objective marker
+            #      (`target.on_objective`, set per round in Battle._run_round —
+            #      True when the unit is within an objective's control radius,
+            #      which is exactly this rule's "within range of one or more
+            #      objective markers" condition).
+            # Applies to BOTH ranged and melee ("makes an attack", not ranged-
+            # only). The +1 is added to `hit_mod_delta`; it composes with any
+            # other +1-to-hit source through the existing 10e ±1 Hit-modifier cap
+            # (hit_mod_clamped, ~line 2530) — if another +1 already applies the
+            # clamp keeps the net at +1 rather than doubling. There is NO round
+            # restriction. Cited as `simulator.relentless_onslaught` and
+            # `CURSED_LEGION.relentless_onslaught`.
+            if p.faction == "Necrons" and getattr(target, "on_objective", False):
+                _own_army_ro = getattr(self, "army_ref", None)
+                if _own_army_ro is not None:
+                    try:
+                        _det_ro = _own_army_ro.resolve_detachment()
+                    except Exception:
+                        _det_ro = None
+                    if _det_ro is not None and getattr(
+                        _det_ro, "relentless_onslaught", False
+                    ):
+                        hit_mod_delta += 1
+
             # NOTE: Adeptus Astartes Combat Doctrines (Gladius Task Force,
             # 10e) live in the SIMULATOR'S movement gates, not here. Iter-9
             # audit (May 2026) found that the previous +1-to-wound-per-round

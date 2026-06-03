@@ -210,6 +210,31 @@ class Detachment:
     # https://wahapedia.ru/wh40k10ed/factions/necrons/#Command-Protocols
     necrons_army_wide_plus_one_save_command_protocol: bool = False
 
+    # Necrons Cursed Legion — Relentless Onslaught detachment rule (Abilities #1,
+    # claude/sim-calibration-6). BSData v10.6.0 (Necrons.cat.gz, rule id
+    # 1dfc-5377-99ac-a700) verbatim: "Each time a NECRONS model from your army
+    # makes an attack that targets a unit within range of one or more objective
+    # markers, add 1 to the Hit roll. In addition, ranged weapons equipped by
+    # NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC models) from
+    # your army have the [ASSAULT] ability." (The detachment's further
+    # Cryptek-specific clauses are NOT modelled — only the two army-wide clauses
+    # above.) Two simulator gates read this single flag:
+    #   * +1 to Hit (code/units.py Unit.attack) — when the attacker's army's
+    #     detachment carries this flag AND the attacker is a NECRONS model AND
+    #     the TARGET unit is within range of an objective marker
+    #     (`target.on_objective`, set per round in Battle._run_round). Applies to
+    #     BOTH ranged and melee attacks (the rule says "makes an attack"). The
+    #     +1 is added to `hit_mod_delta` and composes with any other +1-to-hit
+    #     source through the existing 10e ±1 modifier cap (units.py:hit_mod_clamped).
+    #   * [ASSAULT] on VEHICLE / MOUNTED ranged weapons (code/simulator.py
+    #     _do_shoot Advance-lockout) — a NECRONS VEHICLE or MOUNTED attacker
+    #     (excluding TITANIC) that Advanced may still shoot, mirroring the
+    #     [ASSAULT] grant. Reuses the same Advance-lockout exemption pathway as
+    #     Mont'ka's army_wide_assault_rounds_1_3 and Valourstrike Lance's
+    #     bold_gallantry. Cited as `simulator.relentless_onslaught` and
+    #     `CURSED_LEGION.relentless_onslaught`.
+    relentless_onslaught: bool = False
+
     # Adeptus Custodes Shield Host detachment rule (Martial Ka'tah /
     # Martial Mastery). The three real codex bullets are:
     #   * Kaptaris Ka'tah — +1 to invulnerable saving throws vs ranged.
@@ -1548,6 +1573,45 @@ CANOPTEK_COURT = Detachment(
     preferred_composition="balanced",
 )
 
+CURSED_LEGION = Detachment(
+    name="Cursed Legion",
+    faction="Necrons",
+    notes=(
+        "ABILITIES #1 (claude/sim-calibration-6): real codex detachment for "
+        "Necrons. The Cursed Legion detachment rule is Relentless Onslaught "
+        "(BSData v10.6.0, Necrons.cat.gz, rule id 1dfc-5377-99ac-a700, "
+        "verbatim): 'Each time a NECRONS model from your army makes an attack "
+        "that targets a unit within range of one or more objective markers, "
+        "add 1 to the Hit roll. In addition, ranged weapons equipped by "
+        "NECRONS VEHICLE and NECRONS MOUNTED models (excluding TITANIC models) "
+        "from your army have the [ASSAULT] ability.' (The further "
+        "Cryptek-specific clauses of the detachment are NOT modelled — only the "
+        "two army-wide clauses above.) Implemented via `relentless_onslaught="
+        "True`, read by two simulator gates: (1) the +1-to-Hit gate in "
+        "`Unit.attack` fires when the attacker's army's detachment carries the "
+        "flag AND the attacker is a NECRONS model AND the TARGET unit is within "
+        "range of an objective marker (`target.on_objective`) — applying to "
+        "BOTH ranged and melee attacks ('makes an attack'), composing through "
+        "the existing 10e ±1 Hit-modifier cap; (2) the [ASSAULT] gate in "
+        "`_do_shoot` lets a NECRONS VEHICLE / MOUNTED attacker (excluding "
+        "TITANIC) shoot after Advancing, reusing the same Advance-lockout "
+        "exemption pathway as Mont'ka's army-wide [ASSAULT] window and "
+        "Valourstrike Lance's Bold Gallantry. There is NO round restriction on "
+        "the +1-to-Hit (it applies whenever the target is near an objective). "
+        "Even-handed: gated on the DETACHMENT flag + target.on_objective + the "
+        "NECRONS keyword the rule itself names — not a faction-only fabrication. "
+        "Wahapedia URL is unreachable from agent worktrees (DNS fails — see "
+        "project memory project-wahapedia-dns.md); rule text from the BSData "
+        "cache as the canonical fallback per CLAUDE.md rule 6. Cited as "
+        "`simulator.relentless_onslaught` and `CURSED_LEGION.relentless_onslaught`."
+    ),
+    relentless_onslaught=True,
+    stratagems=AWAKENED_DYNASTY_STRATAGEMS,  # share for now — real Cursed Legion
+    # has its own stratagem pool; the per-stratagem differences are smaller than
+    # the detachment rule's MAE lever.
+    preferred_composition="balanced",
+)
+
 # SAIM_HANN_WILD_HOST (Aeldari) and PLAGUE_MARINES_ONSLAUGHT (Death Guard)
 # were deleted per the 2026-05-15 fabrication audit (commit fa9a957).
 # Neither detachment exists in the 10e codices. Real Aeldari detachments
@@ -1590,6 +1654,10 @@ DETACHMENTS: Dict[str, Detachment] = {
     "ironstorm_spearhead":     IRONSTORM_SPEARHEAD,
     "canoptek_court":          CANOPTEK_COURT,
     "annihilation_legion":     ANNIHILATION_LEGION,
+    # Necrons Cursed Legion — Relentless Onslaught (Abilities #1). Real codex
+    # detachment: +1 to Hit vs targets near objectives + [ASSAULT] on VEHICLE /
+    # MOUNTED ranged weapons. See CURSED_LEGION notes for the verbatim rule.
+    "cursed_legion":           CURSED_LEGION,
     "plague_company":          PLAGUE_COMPANY,
     # Death Guard real-codex detachment (#195). Wired with full 6-stratagem
     # set and Worldblight rule (sticky-control APPROXIMATION).
@@ -1648,6 +1716,7 @@ del _key, _det, _enh, _dc
 # GLADIUS_TASK_FORCE` callers see the patched-with-enhancements instance.
 GLADIUS_TASK_FORCE = DETACHMENTS["gladius_task_force"]
 AWAKENED_DYNASTY   = DETACHMENTS["awakened_dynasty"]
+CURSED_LEGION      = DETACHMENTS["cursed_legion"]
 INVASION_FLEET     = DETACHMENTS["invasion_fleet"]
 SUBTERRANEAN_ASSAULT = DETACHMENTS["subterranean_assault"]
 MONTKA             = DETACHMENTS["montka"]
@@ -1681,7 +1750,12 @@ DEFAULT_BY_FACTION: Dict[str, str] = {
     "Raven Guard":              "gladius_task_force",
     "White Scars":              "gladius_task_force",
     "Deathwatch":               "gladius_task_force",
-    "Necrons":                  "awakened_dynasty",
+    # ABILITIES #1 (claude/sim-calibration-6): Cursed Legion (Relentless
+    # Onslaught — +1 to Hit vs objective-marker targets + [ASSAULT] on VEHICLE /
+    # MOUNTED) promoted to the Necrons default so the calibration A/B measures
+    # the newly-modelled rule. Awakened Dynasty / Canoptek Court / Annihilation
+    # Legion remain in FACTION_DETACHMENTS as variety picks.
+    "Necrons":                  "cursed_legion",
     # iter16: Tyranids default flipped from "invasion_fleet" (which is
     # a -1 enemy Ld approximation of Shadow in the Warp, redundant with
     # simulator.shadow_in_the_warp) to "subterranean_assault" — the
@@ -1756,10 +1830,14 @@ FACTION_DETACHMENTS: Dict[str, Tuple[str, ...]] = {
     "Raven Guard":              ("gladius_task_force", "ironstorm_spearhead"),
     "White Scars":              ("gladius_task_force", "ironstorm_spearhead"),
     "Deathwatch":               ("gladius_task_force", "ironstorm_spearhead"),
-    # Necrons: Awakened Dynasty (balanced character-led) vs Canoptek Court
-    # (boosts Canoptek chassis). Picker tilts toward Canoptek when the
-    # army leans on its Canoptek units.
-    "Necrons":                  ("awakened_dynasty", "canoptek_court", "annihilation_legion"),
+    # Necrons: Cursed Legion (Relentless Onslaught — +1 to Hit vs targets near
+    # objectives + [ASSAULT] on VEHICLE / MOUNTED) is the PRIMARY pick (first in
+    # the tuple) so the calibration A/B measures the newly-modelled rule.
+    # Awakened Dynasty (balanced character-led), Canoptek Court (boosts Canoptek
+    # chassis), and Annihilation Legion (ranged reroll-wound-1s) remain as
+    # variety picks. The picker tilts toward Canoptek when the army leans on its
+    # Canoptek units; the first-listed Cursed Legion otherwise dominates.
+    "Necrons":                  ("cursed_legion", "awakened_dynasty", "canoptek_court", "annihilation_legion"),
     # iter16: Tyranids gains Subterranean Assault as the real-meta default
     # (May 2026 Maastricht GT winner — see DEFAULT_BY_FACTION comment).
     # Invasion Fleet is retained as a variant for the picker; both real
@@ -1960,6 +2038,18 @@ def _keyword_affinity_score(det: Detachment, units) -> float:
     # Spearhead for vehicle-heavy Marines, etc. — is preserved by
     # gating on the detachment identity directly.
     det_name = det.name
+    if det_name == "Cursed Legion":
+        # ABILITIES #1: Relentless Onslaught buffs EVERY NECRONS model that
+        # attacks a target near an objective marker — an army-wide objective-
+        # pressure rule rather than a chassis-keyword one. Give it a flat
+        # affinity bonus so it leads the Necrons picker (so the calibration A/B
+        # measures the newly-modelled rule) while Canoptek Court still wins for
+        # genuinely Canoptek-heavy lists via its own (larger, fraction-scaled)
+        # affinity branch below. The +10 here is the mid tier of the
+        # fraction-based bonus the other branches return, deliberately below the
+        # +20 Canoptek Court reaches at >=30% Canoptek points so a Canoptek
+        # spam list still tilts to Canoptek Court.
+        return 10.0
     if det_name == "Canoptek Court":
         matched = sum(_pts(u) for u in units if _name(u).startswith("Canoptek"))
     elif det.plague_marines_plus_one_to_wound:

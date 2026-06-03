@@ -106,6 +106,14 @@ RULE_BEARING_FIELDS: Tuple[Tuple[str, object], ...] = (
     ("necrons_melee_ap_plus_one_army_wide", False),
     ("necrons_ranged_sustained_hits_army_wide", False),
     ("necrons_army_wide_plus_one_save_command_protocol", False),
+    # Necrons Cursed Legion — Relentless Onslaught (Abilities #1,
+    # claude/sim-calibration-6). Two clauses on one flag: +1 to Hit vs
+    # objective-marker targets (Unit.attack) and [ASSAULT] on NECRONS VEHICLE /
+    # MOUNTED (non-TITANIC) ranged weapons (simulator._do_shoot). Detachment-flag
+    # citation: CURSED_LEGION.relentless_onslaught; simulator-gate citation:
+    # simulator.relentless_onslaught (below). See
+    # data/rule_citations.d/necrons.json.
+    ("relentless_onslaught", False),
     # IK-KNIGHTS-V1 (2026-05-31): Imperial Knights Valourstrike Lance
     # detachment rules. Bold Gallantry grants [ASSAULT] to IK ranged weapons
     # on Advance. Bondsman abilities buff Armigers each Command phase.
@@ -637,6 +645,14 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # unset reproduces the baseline byte-for-byte. See
     # data/rule_citations.d/core_overwatch.json.
     "simulator.fire_overwatch",
+    # Necrons Cursed Legion — Relentless Onslaught (Abilities #1). Two simulator
+    # gates read Detachment.relentless_onslaught: the +1-to-Hit gate in
+    # Unit.attack (NECRONS attacker, target on an objective marker — ranged AND
+    # melee, no round restriction) and the [ASSAULT] Advance-lockout exemption in
+    # Battle._do_shoot (NECRONS VEHICLE / MOUNTED, excluding TITANIC). The
+    # detachment-flag citation CURSED_LEGION.relentless_onslaught is auto-required
+    # via RULE_BEARING_FIELDS. Both live in data/rule_citations.d/necrons.json.
+    "simulator.relentless_onslaught",
     "unit.necrodermis",
 )
 
