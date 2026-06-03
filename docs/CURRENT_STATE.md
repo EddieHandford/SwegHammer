@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 132 (2026-06-03) — corrected the gunline exemption to the watchdog's NARROW rails
+**Last updated:** Wave 133 (2026-06-03) — SECONDARY ECONOMY plan written (`docs/SECONDARY_ECONOMY_PLAN.md`),
+the package's OTHER half (user-authorised authenticity rebuild). 3 layers: (1) action cards cost a unit, (2) THE
+CRUX — scoring from DELIBERATE DEDICATION (a `dedicated_card` field + AI dedication planner; position/board
+scorers gate on dedication so incidental presence no longer scores → a 5-6-unit Knight can't spare units →
+scores less; even-handed, emergent from unit count), (3) per-turn timing. Asymmetric on a DIFFERENT axis
+(low-MODEL armies can't churn/dedicate) → may pull down the OTHER low-model elites M4 inflated (Chaos Knights,
+Custodes), breaking the primary-half inseparability — EMPIRICAL via the combined test. Build: Stage A (Layer-2
+CRUX, gated `SWEG_SECONDARY`) → B (action cards) → C (timing) → D (combined M4+secondary, ablated, N=40→N=80).
+LOOP_QA wave-133.
+
+**Wave 132** — corrected the gunline exemption to the watchdog's NARROW rails
 (move-costs-a-shot; pull hold-and-shoot). N=80 confirms the PRIMARY-half inseparability on the correct rails: IK
 fix KEPT (+17.0) but NO aggregate gain (gated 4.26 vs baseline 3.83); Astra is FROZEN-UNDER not gunline-
 disruption (exemption can't recover it). The 3 exemption versions triangulate: broad loses IK, narrow keeps IK

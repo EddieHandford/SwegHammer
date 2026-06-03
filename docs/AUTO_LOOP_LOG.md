@@ -4,6 +4,26 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 133 (2026-06-03) — SECONDARY ECONOMY plan written (`docs/SECONDARY_ECONOMY_PLAN.md`) — the package's OTHER half, asymmetric on a DIFFERENT axis (low-MODEL armies can't churn the deck / spare units), which may break the primary-half inseparability
+
+Plan-first the user's authorised secondary-authenticity build (the watchdog confirmed: do NOT stop, this is a
+SEPARATE faithful build, not an M4 refinement). Read the current secondary architecture: `_score_one_card`
+(simulator.py:1487) AUTO-AWARDS on condition — position cards (`score_position_delta`) score on INCIDENTAL
+position (a Knight with a body in a quarter scores Engage free); the `pursue_target` substrate (wave 121) only
+biased movement on top of auto-scoring, never gated scoring on dedication. The rebuild's 3 authenticity layers:
+(1) action cards (Establish Locus / Recover Assets / A Tempting Target + Cleanse/Sabotage) cost a unit (forgo
+shoot/charge, stay, SURVIVE); (2) **THE CRUX — scoring from DELIBERATE DEDICATION**: a `dedicated_card` field +
+an AI dedication planner assigns ONE SPARE unit per held card, and the position/board/cleanse scorers gate on
+`dedicated_card` (incidental presence no longer scores) — a 5-6-unit Knight has no spare bodies → scores those
+cards 0; a broad army dedicates its surplus → scores (even-handed, emergent from unit count, no faction branch);
+(3) per-turn timing (reuse the wave-116 `only_for` plumbing). **WHY it may break the inseparability** (the user's
+hypothesis): the secondary axis ALSO punishes low-MODEL armies, so it pulls DOWN the OTHER low-model elites M4
+inflated (Chaos Knights, Custodes) — potentially counteracting M4's inflation where M4-alone couldn't — while
+rewarding high-model under-shooters; EMPIRICAL via the combined test. Build sequence: Stage A (dedication
+substrate + Layer 2 CRUX, gated `SWEG_SECONDARY`) → B (action cards) → C (timing) → D (COMBINED M4-narrow +
+secondary, ablated, N=40→N=80, per-faction secondary-VP). Reference `data/reference/wahapedia_ca2025-26.txt` has
+the card text. LOOP_QA wave-133; surfacing the plan for the watchdog's scrutiny vs the 3 layers before building.
+
 ## Wave 132 (2026-06-03) — CORRECTED the gunline exemption to the watchdog's NARROW rails (move-costs-a-shot, pull hold-and-shoot). N=80 confirms the PRIMARY-half inseparability on the correct rails: IK fix KEPT (+17.0) but NO aggregate gain (4.26); Astra is FROZEN-UNDER not gunline-disruption. PIVOT to the SECONDARY economy (the package's other half) per the watchdog's sequence
 
 The watchdog's wave-130 N=80 review (seen only after wave 131) gave NARROWER exemption rails than my wave-131
