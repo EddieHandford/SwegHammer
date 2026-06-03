@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 130 (2026-06-03) — full-stack A/B + ablations (component 3 = existing `SWEG_FOCUS`). N=40 LANDED (4.34→4.03) but N=80 REVERSED it (3.83→4.16, +0.33 regression) — the N=40 move was NOISE. The package ROBUSTLY fixes the targets (IK −9, Daemons −5.4 at N=80) but regresses the aggregate, DOMINATED by the Astra gunline-disruption (fixable artifact, +6.25 gated)
+
+Component 3 needed no build (`SWEG_FOCUS` = the wave-79 army focus-fire layer, confirmed present). Ran the
+decisive full-stack (M4+Tarpit+FOCUS) + per-component ablations at N=40, then the N=80 confirmation.
+
+**N=40 (noisy):** full stack 4.34 → **4.03** (−0.31 LAND). Ablations: FOCUS-alone 4.16 (claws back M4's
+over-shooter inflation), M4+FOCUS 4.27, full stack 4.03 (Tarpit adds −0.24 ON TOP of M4+FOCUS). This CORRECTED
+my wave-129 "Tarpit inert" read — Tarpit was measured only WITHOUT FOCUS; the components INTERACT.
+
+**N=80 (decisive): baseline 3.83 → full stack 4.16 (+0.33 REGRESSION); band 7/22 → 4/22.** The N=40 −0.31 land
+was NOISE (the M2/pursuit lesson again). BUT the per-faction picture is the real finding:
+- **The two biggest residuals are ROBUSTLY fixed at N=80:** Imperial Knights +25.1 → +16.1 (−9.0), Chaos
+  Daemons −9.3 → −3.9 (−5.4) — both beyond noise. The board-control representation fix is REAL and faithful.
+- **The aggregate regresses from side-effects:** Astra Militarum −10.1 → −16.3 (gated +6.25 — the DOMINANT
+  cause, ≈0.28 of the +0.33), Drukhari +10.8 → +16.2, World Eaters +5.4 → +9.6, Chaos Knights −0.8 → −10.5.
+- **The Astra regression is a FIXABLE ARTIFACT, not frozen-under:** M4-α drags Astra's lascannon/heavy-weapon
+  models (which carry OC) off their firing lines onto markers (the gunline-disruption flagged wave 128). The
+  faithful refinement — exempt a model that is forgoing productive shooting — is wrong-way-test clean (a real
+  gunline holds objectives with cheap bodies, not its heavy weapons) and could tip the aggregate positive.
+
+**Pin-fires check (watchdog request):** the Tarpit pin DOES fire end-to-end (vs melee armies opponent survival
+rises modestly with the gate on, e.g. Daemons 38%→41%), so its weakness on the IK win rate is board-control,
+not a bug. Diag `scripts/diag_tarpit_fires.py` (throwaway, untracked).
+
+**Disposition:** all components stay gated default-OFF (they regress the aggregate at N=80). NOT yet a clean
+wash — the dominant regression cause (Astra) is a fixable faithfulness artifact. **NEXT (wave 131): the M4-α
+gunline-disruption refinement (exempt productive shooters) + re-run the stack at N=80.** If it tips positive →
+the package LANDS (keep + flag Stage-2 + queue the exposed Drukhari/WE over-shooter residuals as the next
+diagnosis); if it still regresses → report the representation floor + the exposed residuals and STOP (no knob,
+no re-fit). LOOP_QA wave-130.
+
 ## Wave 129 (2026-06-02) — built anti-Knight stack COMPONENT 2: general Tarpit-charge valuation (`SWEG_TARPIT`, default-OFF). A/B: INERT — Tarpit alone is a wash (4.34→4.43) and does NOT move IK (+24.8→+25.0); M4+Tarpit ≈ M4-alone (4.64≈4.65), claws back NONE of the over-shooter inflation. Re-confirms IK is positional, not combat
 
 Built component 2: in `pick_charge_target`'s won't-crack branch (gated `SWEG_TARPIT`), an EXPENDABLE (chaff,

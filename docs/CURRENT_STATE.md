@@ -1,6 +1,14 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 129 (2026-06-02) — built anti-Knight stack **component 2: Tarpit-charge** valuation
+**Last updated:** Wave 130 (2026-06-03) — full-stack A/B (M4+Tarpit+`SWEG_FOCUS`) + ablations. **N=40 LANDED
+(4.34→4.03) but N=80 REVERSED it (3.83→4.16, +0.33) — the N=40 move was NOISE.** The package ROBUSTLY fixes the
+targets at N=80 (Imperial Knights +25.1→+16.1 −9, Chaos Daemons −9.3→−3.9 −5.4) but regresses the aggregate via
+side-effects, DOMINATED by the **Astra gunline-disruption** (M4-α drags lascannon teams off firing lines, gated
++6.25 ≈0.28 of the +0.33) — a FIXABLE artifact, not frozen-under. Tarpit is NOT inert (adds −0.24 in the stack;
+the pin fires end-to-end). All gated default-OFF. NEXT (wave 131): M4-α refinement (exempt productive shooters)
++ re-run stack N=80; tips-positive → land, else report the floor. LOOP_QA wave-130.
+
+**Wave 129** — built anti-Knight stack **component 2: Tarpit-charge** valuation
 (`SWEG_TARPIT`, default-OFF): an expendable chaff unit pinning a durable high-ranged brick it can't crack is
 valued by the enemy shooting it DENIES (Big Guns Never Tire) instead of suppressed. **A/B: INERT** — Tarpit
 alone is a wash (4.34→4.43) and does NOT move Imperial Knights (+24.8→+25.0); M4+Tarpit ≈ M4-alone (4.64≈4.65),
