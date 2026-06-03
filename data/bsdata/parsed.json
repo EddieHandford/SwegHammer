@@ -39895,9 +39895,9 @@
       "model_loadouts": []
     },
     {
-      "key": "chaos_daemons_chaos_lord",
+      "key": "chaos_space_marines_chaos_lord",
       "name": "Chaos Lord",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 5.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -40079,9 +40079,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_fellgor_beastmen",
+      "key": "chaos_space_marines_fellgor_beastmen",
       "name": "Fellgor Beastmen",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 1.21,
       "hit_probability": 0.5,
@@ -40408,9 +40408,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_chaos_lord_with_jump_pack",
+      "key": "chaos_space_marines_chaos_lord_with_jump_pack",
       "name": "Chaos Lord with Jump Pack",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 5.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -40592,9 +40592,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_chaos_terminator_squad",
+      "key": "chaos_space_marines_chaos_terminator_squad",
       "name": "Chaos Terminator Squad",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 1.48,
       "hit_probability": 0.586,
@@ -41110,9 +41110,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_chosen",
+      "key": "chaos_space_marines_chosen",
       "name": "Chosen",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 1.38,
       "hit_probability": 0.603,
@@ -41672,9 +41672,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_legionaries",
+      "key": "chaos_space_marines_legionaries",
       "name": "Legionaries",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 2.0,
       "damage": 1.45,
       "hit_probability": 0.667,
@@ -42083,9 +42083,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_dark_apostle",
+      "key": "chaos_space_marines_dark_apostle",
       "name": "Dark Apostle",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 4.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -42272,9 +42272,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_dark_commune",
+      "key": "chaos_space_marines_dark_commune",
       "name": "Dark Commune",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 2.22,
       "hit_probability": 0.556,
@@ -42576,9 +42576,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_havocs",
+      "key": "chaos_space_marines_havocs",
       "name": "Havocs",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 2.0,
       "damage": 8.71,
       "hit_probability": 0.667,
@@ -42961,9 +42961,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_master_of_possession",
+      "key": "chaos_space_marines_master_of_possession",
       "name": "Master of Possession",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 4.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -43176,9 +43176,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_possessed",
+      "key": "chaos_space_marines_possessed",
       "name": "Possessed",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 8.0,
       "hit_probability": 0.667,
@@ -43307,9 +43307,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_raptors",
+      "key": "chaos_space_marines_raptors",
       "name": "Raptors",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 2.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -43638,9 +43638,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_sorcerer",
+      "key": "chaos_space_marines_sorcerer",
       "name": "Sorcerer",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 4.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -43845,9 +43845,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_sorcerer_in_terminator_armour",
+      "key": "chaos_space_marines_sorcerer_in_terminator_armour",
       "name": "Sorcerer in Terminator Armour",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 5.0,
       "damage": 7.0,
       "hit_probability": 0.667,
@@ -44077,9 +44077,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_warp_talons",
+      "key": "chaos_space_marines_warp_talons",
       "name": "Warp Talons",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 2.0,
       "damage": 4.0,
       "hit_probability": 0.667,
@@ -44241,9 +44241,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_traitor_guardsmen_squad",
+      "key": "chaos_space_marines_traitor_guardsmen_squad",
       "name": "Traitor Guardsmen Squad",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -44455,9 +44455,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_cultist_mob",
+      "key": "chaos_space_marines_cultist_mob",
       "name": "Cultist Mob",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 1.0,
       "hit_probability": 0.5,
@@ -44618,9 +44618,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_chaos_lord_in_terminator_armour",
+      "key": "chaos_space_marines_chaos_lord_in_terminator_armour",
       "name": "Chaos Lord in Terminator Armour",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 6.0,
       "damage": 2.0,
       "hit_probability": 0.833,
@@ -44780,9 +44780,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_cultist_firebrand",
+      "key": "chaos_space_marines_cultist_firebrand",
       "name": "Cultist Firebrand",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 4.0,
       "damage": 6.5,
       "hit_probability": 1.0,
@@ -44937,9 +44937,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_cultist_mob_with_firearms_legends",
+      "key": "chaos_space_marines_cultist_mob_with_firearms_legends",
       "name": "Cultist Mob with Firearms [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 3.31,
       "hit_probability": 0.595,
@@ -45164,9 +45164,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_rogue_psyker_legends",
+      "key": "chaos_space_marines_rogue_psyker_legends",
       "name": "Rogue Psyker [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 13.0,
       "hit_probability": 0.667,
@@ -45371,9 +45371,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_traitor_enforcer",
+      "key": "chaos_space_marines_traitor_enforcer",
       "name": "Traitor Enforcer",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 1.0,
       "hit_probability": 0.667,
@@ -45560,9 +45560,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_gellerpox_infected_legends",
+      "key": "chaos_space_marines_gellerpox_infected_legends",
       "name": "Gellerpox Infected [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 3.5,
       "hit_probability": 1.0,
@@ -45780,9 +45780,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_negavolt_cultists_legends",
+      "key": "chaos_space_marines_negavolt_cultists_legends",
       "name": "Negavolt Cultists [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 3.0,
       "hit_probability": 0.667,
@@ -45910,9 +45910,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_renegade_heavy_weapons_squad_legends",
+      "key": "chaos_space_marines_renegade_heavy_weapons_squad_legends",
       "name": "Renegade Heavy Weapons Squad [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 2.0,
       "damage": 4.5,
       "hit_probability": 0.333,
@@ -46066,9 +46066,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_renegade_ogryn_beast_handler_legends",
+      "key": "chaos_space_marines_renegade_ogryn_beast_handler_legends",
       "name": "Renegade Ogryn Beast Handler [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 4.0,
       "damage": 2.61,
       "hit_probability": 0.667,
@@ -46228,9 +46228,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_renegade_ogryn_brutes_legends",
+      "key": "chaos_space_marines_renegade_ogryn_brutes_legends",
       "name": "Renegade Ogryn Brutes [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -46390,9 +46390,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_renegade_plague_ogryns_legends",
+      "key": "chaos_space_marines_renegade_plague_ogryns_legends",
       "name": "Renegade Plague Ogryns [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 6.0,
       "hit_probability": 0.667,
@@ -46520,9 +46520,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_renegade_enforcer_legends",
+      "key": "chaos_space_marines_renegade_enforcer_legends",
       "name": "Renegade Enforcer [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 2.0,
       "hit_probability": 0.667,
@@ -46725,9 +46725,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_mutoid_vermin_legends",
+      "key": "chaos_space_marines_mutoid_vermin_legends",
       "name": "Mutoid Vermin [Legends]",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 1.0,
       "damage": 2.0,
       "hit_probability": 0.5,
@@ -46855,9 +46855,9 @@
       ]
     },
     {
-      "key": "chaos_daemons_accursed_cultists",
+      "key": "chaos_space_marines_accursed_cultists",
       "name": "Accursed Cultists",
-      "codex": "Chaos - Chaos Daemons.cat.gz",
+      "codex": "Chaos - Chaos Space Marines.cat.gz",
       "health": 3.0,
       "damage": 4.55,
       "hit_probability": 0.5,

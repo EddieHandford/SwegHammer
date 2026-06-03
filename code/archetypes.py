@@ -817,39 +817,49 @@ ARCHETYPES: Dict[str, Dict[str, Dict[str, int]]] = {
     # remaining seed budget is filled by `_random_fill` with same-faction
     # picks. Detachment names match the registry where one exists.
     "Chaos Space Marines": {
-        # FX-ALL CSM catalog limitation: BSData v10.6.0 doesn't expose
-        # Legionaries / Chaos Terminator Squad / Chosen / Chaos Lord in
-        # Terminator Armour as catalog keys. Available CSM catalog leans
-        # on dedicated chassis + named CHARACTERs. Template below uses
-        # what's catalogued — provides COVERAGE per FX-ALL goal even if
-        # not fully tournament-realistic. Follow-up: refresh BSData
-        # mapper or add overrides for the missing 10e generics.
+        # Pactbound Zealots is the vanilla Chaos Space Marines Dark Pacts
+        # detachment — Legionaries-backbone with character support, elite
+        # melee, Obliterator firepower and a daemon-engine/vehicle core.
+        # Rebuilt after the wave-145 faction-misassignment fix: the generic
+        # Heretic Astartes datasheets (Legionaries, Chosen, Havocs, Chaos
+        # Lord, Chaos Terminators, Possessed, Dark Apostle, Master of
+        # Possession, etc.) were being mis-filed under faction "Chaos
+        # Daemons" because BSData's Chaos Daemons catalogue imports them as
+        # allies and the mapper credited the first importer. They are now
+        # correctly homed to the CSM codex, so the old workaround (a
+        # cult-marine soup of Khorne Berzerkers + Plague + Rubric + Noise
+        # Marines, which in 10e actually belong to the standalone World
+        # Eaters / Death Guard / Thousand Sons / Emperor's Children codices)
+        # is replaced with a faithful Legionaries-based list.
         "Pactbound Zealots": {
-            # BATTLELINE: cult troops (Berzerkers / Plague / Rubric) are
-            # the catalogued BATTLELINE options for CSM; vanilla
-            # Legionaries / Chosen / generic CSM Terminators / Chaos Lord
-            # in Terminator Armour remain absent in BSData v10.6.0 — log
-            # in commit and skip per AX-A constraint.
-            "chaos_space_marines_khorne_berzerkers": 2,
-            "chaos_space_marines_plague_marines": 2,
-            "chaos_space_marines_rubric_marines": 1,
-            "chaos_space_marines_noise_marines": 1,
-            "chaos_space_marines_chaos_bikers": 1,
-            "chaos_space_marines_obliterators": 1,
-            "chaos_space_marines_mutilators": 1,
-            "chaos_space_marines_chaos_spawn": 1,
-            "chaos_space_marines_helbrute": 1,
-            "chaos_space_marines_maulerfiend": 1,
-            "chaos_space_marines_venomcrawler": 1,
-            "chaos_space_marines_forgefiend": 1,
-            "chaos_space_marines_heldrake": 1,
-            "chaos_space_marines_chaos_predator_destructor": 1,
-            "chaos_space_marines_chaos_rhino": 1,
-            "chaos_space_marines_master_of_executions": 1,
-            "chaos_space_marines_warpsmith": 1,
-            "chaos_space_marines_lord_discordant_on_helstalker": 1,
-            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
+            # BATTLELINE backbone — Legionaries are the Dark Pacts engine
+            # (multiple squads), screened by a cheap Cultist Mob.
+            "chaos_space_marines_legionaries": 3,
+            "chaos_space_marines_cultist_mob": 1,
+            # CHARACTERS — Abaddon warlord + Chaos Lord (leads Legionaries)
+            # + Dark Apostle (Dark Pacts re-rolls) + Master of Possession.
             "chaos_space_marines_abaddon_the_despoiler": 1,
+            "chaos_space_marines_chaos_lord": 1,
+            "chaos_space_marines_dark_apostle": 1,
+            "chaos_space_marines_master_of_possession": 1,
+            # Elite / melee.
+            "chaos_space_marines_chosen": 1,
+            "chaos_space_marines_chaos_terminator_squad": 1,
+            "chaos_space_marines_possessed": 1,
+            "chaos_space_marines_raptors": 1,
+            # Firepower.
+            "chaos_space_marines_obliterators": 1,
+            "chaos_space_marines_havocs": 1,
+            # Daemon engines / vehicles.
+            "chaos_space_marines_forgefiend": 1,
+            "chaos_space_marines_maulerfiend": 1,
+            "chaos_space_marines_helbrute": 1,
+            "chaos_space_marines_chaos_predator_destructor": 1,
+            "chaos_space_marines_venomcrawler": 1,
+            "chaos_space_marines_lord_discordant_on_helstalker": 1,
+            "chaos_space_marines_chaos_rhino": 1,
+            "chaos_space_marines_heretic_astartes_daemon_prince_with_wings": 1,
+            "chaos_space_marines_chaos_spawn": 1,
         },
     },
     "World Eaters": {

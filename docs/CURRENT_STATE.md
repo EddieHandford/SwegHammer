@@ -1,6 +1,24 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 145 (2026-06-03) — P0 MEASUREMENT FIDELITY (watchdog wide-investigation re-prioritised
+**Last updated:** Wave 145 (2026-06-03) — TWO P0 LANDINGS (watchdog wide-investigation re-prioritised queue):
+**(B) the CSM/Daemons faction-misassignment DATA BUG** — the highest-leverage item — root-caused to a clean BSData
+faction-keyword name mismatch ("Heretic Astartes" ≠ "Chaos Space Marines"), so 31 generic Chaos-Marine datasheets
+(Legionaries, Chosen, Havocs, Chaos Lord, Possessed, Cultists, etc.) were filed faction="Chaos Daemons": CSM could
+not field its own battleline (fake cult-marine soup) AND the marines polluted the Daemons random-fill pool. Fixed
+with a 3-line mapper alias (`FACTION_KEYWORD_ALIASES` in factions.py + `canonical_faction_keyword` in
+`iter_unit_entries`), regenerated parsed.json (EXACTLY 31 units re-keyed `chaos_daemons_*`→`chaos_space_marines_*`,
+0 other content changes), re-keyed 2 overrides + 3 Stage-2 data files (pure re-key, prices unchanged), rebuilt the
+CSM "Pactbound Zealots" archetype around the real Legionaries backbone. **N=40 A/B (both P0 fixes): headline gated
+4.55 → 4.27; Chaos Daemons −14.8 → −4.1 (gated 11.68→0.95, nearly in-band — the residual was a data-contamination
+artifact, the watchdog's prediction); CSM −9.0 → −12.0 (WORSE but FAITHFUL — real Legionaries list under-shoots
+where the killier cult soup over-performed; the residual is now a clean target for the unmodelled Dark Pacts rule,
+#48).** Kept per the prime directive (a real army beats a fake soup regardless of metric direction). 1117 tests
+green, audit clean. **(A) MEASUREMENT FIDELITY** (committed `7f8ed76`): live tournament target + field-weighted
+matchups re-based the honest baseline 4.14 → 4.55 (the old measurement flattered the sim). NEXT: the abilities dive
+on the now-honest under-shoots — **#48 CSM Dark Pacts** (targets the −12 this exposed) and **#47 AdMech leader
+auras** (−10.8/6.66). [Wave 145 (A) measurement-fidelity detail below.]
+
+**Wave 145 (A) — P0 MEASUREMENT FIDELITY (watchdog wide-investigation re-prioritised
 queue): the eval's comparison was subtly wrong in two faithful-to-fix ways, so the residual table was an
 artifact. (1) `TOURNAMENT_TARGET` was a stale hand-transcribed dict that had drifted from the live Warp Friends
 scrape (Chaos Space Marines hardcoded 52.8 but 55.6 live; Emperor's Children 47.9 vs 53.3; Aeldari 44.4 vs 41.6)

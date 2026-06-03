@@ -1024,11 +1024,11 @@
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Heretic Astartes Daemon Prince (winged) has 4++ invulnerable save (Daemonic). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Daemon-Prince-with-Wings"
     },
-    "chaos_daemons_chaos_lord_in_terminator_armour": {
+    "chaos_space_marines_chaos_lord_in_terminator_armour": {
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Chaos Lord in Terminator Armour has 4++ invulnerable save (Cataphractii armour). BSData v10.6.0 omits the Invulnerable-Save infoLink (consistent with other Chaos Terminator entries). Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Chaos-Lord-in-Terminator-Armour"
     },
-    "chaos_daemons_sorcerer_in_terminator_armour": {
+    "chaos_space_marines_sorcerer_in_terminator_armour": {
       "invuln_save": 4,
       "notes": "iter22 invuln long-tail sweep: Chaos Sorcerer in Terminator Armour has 4++ invulnerable save (Cataphractii armour). BSData v10.6.0 omits the Invulnerable-Save infoLink. Source: https://wahapedia.ru/wh40k10ed/factions/chaos-space-marines/#Sorcerer-in-Terminator-Armour"
     },

@@ -223,7 +223,7 @@ def iter_unit_entries(reg: Registry) -> Iterator[tuple[str, ET.Element]]:
 
     # Late-bound import to avoid a parser → factions circular reference at
     # module load (factions is a leaf module, but keep this lazy as a guard).
-    from code.factions import faction_of
+    from code.factions import faction_of, canonical_faction_keyword
 
     for target_id, files in imports.items():
         target = reg.resolve(target_id)
@@ -232,10 +232,16 @@ def iter_unit_entries(reg: Registry) -> Iterator[tuple[str, ET.Element]]:
         faction_tag = _entry_faction_tag(target)
         # First choice: an importer whose CODEX_TO_FACTION mapping matches the
         # entry's own Faction keyword. This handles cross-faction allies.
+        # `canonical_faction_keyword` translates BSData army keywords that
+        # differ from our faction names (e.g. "Heretic Astartes" → "Chaos
+        # Space Marines") so the generic Chaos Marine datasheets shared between
+        # the Chaos Space Marines and Chaos Daemons catalogues are credited to
+        # their real CSM home rather than the first importer (Daemons).
         owning_codex = ""
         if faction_tag:
+            want = canonical_faction_keyword(faction_tag)
             for f in files:
-                if faction_of(f) == faction_tag:
+                if faction_of(f) == want:
                     owning_codex = f
                     break
         # Second choice: any non-library importer.

@@ -193,6 +193,46 @@ def faction_of(codex: str) -> str:
     return CODEX_TO_FACTION.get(codex, "")
 
 
+# BSData "Faction: X" categoryLink keyword → our canonical faction string,
+# for the cases where a datasheet's own army keyword differs from the
+# codex-filename-derived faction name. Used by `iter_unit_entries` to credit
+# a datasheet imported by several catalogues to its TRUE owning codex.
+#
+# Why this is needed (the bug it fixes): the generic Chaos Marine datasheets
+# (Legionaries, Chosen, Havocs, Chaos Lord, Cultists, etc.) are defined once
+# in a shared library and imported by BOTH `Chaos - Chaos Space Marines.cat`
+# AND `Chaos - Chaos Daemons.cat` (Daemons take them as allies). Their
+# "Faction:" keyword is "Heretic Astartes", but `faction_of()` of the real
+# CSM codex returns "Chaos Space Marines" — so the importer-matching step
+# found no match and fell back to the first non-library importer, which was
+# the Daemons catalogue. That filed the whole CSM battleline backbone under
+# faction "Chaos Daemons" (so the CSM army could not field its own troops and
+# the Daemons random-fill pool was polluted with Marines). Mapping the
+# "Heretic Astartes" keyword to "Chaos Space Marines" credits these to the
+# vanilla CSM codex, which is their real home — the mono-god Chaos codices
+# (Death Guard, Thousand Sons, World Eaters, Emperor's Children) carry their
+# own uniquely-named datasheets and never share these generic entries, so
+# this alias cannot mis-credit them.
+#
+# "Asuryani" and "Harlequins" already resolve correctly without an alias (the
+# only non-library importer is the umbrella Aeldari codex, which the
+# fall-through picks), so they are not listed here; an alias would be inert.
+FACTION_KEYWORD_ALIASES: Dict[str, str] = {
+    "Heretic Astartes": "Chaos Space Marines",
+}
+
+
+def canonical_faction_keyword(faction_tag: str) -> str:
+    """Map a BSData "Faction:" categoryLink keyword to our canonical faction
+    string, so it can be compared against ``faction_of(codex)``.
+
+    Returns the alias if one exists, otherwise the keyword unchanged (most
+    BSData faction keywords already equal our faction names, e.g. "Astra
+    Militarum", "Necrons").
+    """
+    return FACTION_KEYWORD_ALIASES.get(faction_tag, faction_tag)
+
+
 def colour_for(faction: str) -> str:
     """Return the canonical hex colour for a faction string. Falls back to grey."""
     return FACTION_COLOURS.get(faction, FACTION_COLOURS[""])

@@ -310,7 +310,7 @@
         ]
       ]
     },
-    "chaos_daemons_renegade_ogryn_beast_handler_legends": {
+    "chaos_space_marines_renegade_ogryn_beast_handler_legends": {
       "name": "Renegade Ogryn Beast Handler [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 10.0,
@@ -1736,7 +1736,7 @@
         ]
       ]
     },
-    "chaos_daemons_chaos_lord_with_jump_pack": {
+    "chaos_space_marines_chaos_lord_with_jump_pack": {
       "name": "Chaos Lord with Jump Pack",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 80.0,
@@ -3093,7 +3093,7 @@
         ]
       ]
     },
-    "chaos_daemons_raptors": {
+    "chaos_space_marines_raptors": {
       "name": "Raptors",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 22.0,
@@ -3300,7 +3300,7 @@
         ]
       ]
     },
-    "chaos_daemons_cultist_mob_with_firearms_legends": {
+    "chaos_space_marines_cultist_mob_with_firearms_legends": {
       "name": "Cultist Mob with Firearms [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 5.0,
@@ -4795,7 +4795,7 @@
         ]
       ]
     },
-    "chaos_daemons_renegade_plague_ogryns_legends": {
+    "chaos_space_marines_renegade_plague_ogryns_legends": {
       "name": "Renegade Plague Ogryns [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 31.67,
@@ -5278,7 +5278,7 @@
         ]
       ]
     },
-    "chaos_daemons_fellgor_beastmen": {
+    "chaos_space_marines_fellgor_beastmen": {
       "name": "Fellgor Beastmen",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 7.0,
@@ -5623,7 +5623,7 @@
         ]
       ]
     },
-    "chaos_daemons_accursed_cultists": {
+    "chaos_space_marines_accursed_cultists": {
       "name": "Accursed Cultists",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 11.25,
@@ -6911,7 +6911,7 @@
         ]
       ]
     },
-    "chaos_daemons_master_of_possession": {
+    "chaos_space_marines_master_of_possession": {
       "name": "Master of Possession",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 60.0,
@@ -10959,7 +10959,7 @@
         ]
       ]
     },
-    "chaos_daemons_chosen": {
+    "chaos_space_marines_chosen": {
       "name": "Chosen",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 25.0,
@@ -13857,7 +13857,7 @@
         ]
       ]
     },
-    "chaos_daemons_possessed": {
+    "chaos_space_marines_possessed": {
       "name": "Possessed",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 24.0,
@@ -14800,7 +14800,7 @@
         ]
       ]
     },
-    "chaos_daemons_sorcerer_in_terminator_armour": {
+    "chaos_space_marines_sorcerer_in_terminator_armour": {
       "name": "Sorcerer in Terminator Armour",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 80.0,
@@ -16594,7 +16594,7 @@
         ]
       ]
     },
-    "chaos_daemons_renegade_enforcer_legends": {
+    "chaos_space_marines_renegade_enforcer_legends": {
       "name": "Renegade Enforcer [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 65.0,
@@ -16640,7 +16640,7 @@
         ]
       ]
     },
-    "chaos_daemons_warp_talons": {
+    "chaos_space_marines_warp_talons": {
       "name": "Warp Talons",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 25.0,
@@ -17514,7 +17514,7 @@
         ]
       ]
     },
-    "chaos_daemons_rogue_psyker_legends": {
+    "chaos_space_marines_rogue_psyker_legends": {
       "name": "Rogue Psyker [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 60.0,
@@ -18411,7 +18411,7 @@
         ]
       ]
     },
-    "chaos_daemons_renegade_ogryn_brutes_legends": {
+    "chaos_space_marines_renegade_ogryn_brutes_legends": {
       "name": "Renegade Ogryn Brutes [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 31.67,
@@ -18940,7 +18940,7 @@
         ]
       ]
     },
-    "chaos_daemons_traitor_guardsmen_squad": {
+    "chaos_space_marines_traitor_guardsmen_squad": {
       "name": "Traitor Guardsmen Squad",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 7.0,
@@ -21010,7 +21010,7 @@
         ]
       ]
     },
-    "chaos_daemons_chaos_terminator_squad": {
+    "chaos_space_marines_chaos_terminator_squad": {
       "name": "Chaos Terminator Squad",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 36.0,
@@ -21102,7 +21102,7 @@
         ]
       ]
     },
-    "chaos_daemons_sorcerer": {
+    "chaos_space_marines_sorcerer": {
       "name": "Sorcerer",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 60.0,
@@ -21746,7 +21746,7 @@
         ]
       ]
     },
-    "chaos_daemons_mutoid_vermin_legends": {
+    "chaos_space_marines_mutoid_vermin_legends": {
       "name": "Mutoid Vermin [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 5.31,
@@ -22850,7 +22850,7 @@
         ]
       ]
     },
-    "chaos_daemons_cultist_mob": {
+    "chaos_space_marines_cultist_mob": {
       "name": "Cultist Mob",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 5.0,
@@ -24552,7 +24552,7 @@
         ]
       ]
     },
-    "chaos_daemons_negavolt_cultists_legends": {
+    "chaos_space_marines_negavolt_cultists_legends": {
       "name": "Negavolt Cultists [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 13.75,
@@ -24920,7 +24920,7 @@
         ]
       ]
     },
-    "chaos_daemons_havocs": {
+    "chaos_space_marines_havocs": {
       "name": "Havocs",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 25.0,
@@ -25403,7 +25403,7 @@
         ]
       ]
     },
-    "chaos_daemons_legionaries": {
+    "chaos_space_marines_legionaries": {
       "name": "Legionaries",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 18.0,
@@ -26461,7 +26461,7 @@
         ]
       ]
     },
-    "chaos_daemons_chaos_lord_in_terminator_armour": {
+    "chaos_space_marines_chaos_lord_in_terminator_armour": {
       "name": "Chaos Lord in Terminator Armour",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 85.0,
@@ -27266,7 +27266,7 @@
         ]
       ]
     },
-    "chaos_daemons_traitor_enforcer": {
+    "chaos_space_marines_traitor_enforcer": {
       "name": "Traitor Enforcer",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 27.5,
@@ -28071,7 +28071,7 @@
         ]
       ]
     },
-    "chaos_daemons_chaos_lord": {
+    "chaos_space_marines_chaos_lord": {
       "name": "Chaos Lord",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 90.0,
@@ -28899,7 +28899,7 @@
         ]
       ]
     },
-    "chaos_daemons_cultist_firebrand": {
+    "chaos_space_marines_cultist_firebrand": {
       "name": "Cultist Firebrand",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 45.0,
@@ -30072,7 +30072,7 @@
         ]
       ]
     },
-    "chaos_daemons_dark_apostle": {
+    "chaos_space_marines_dark_apostle": {
       "name": "Dark Apostle",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 21.67,
@@ -30394,7 +30394,7 @@
         ]
       ]
     },
-    "chaos_daemons_dark_commune": {
+    "chaos_space_marines_dark_commune": {
       "name": "Dark Commune",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 18.0,
@@ -30969,7 +30969,7 @@
         ]
       ]
     },
-    "chaos_daemons_gellerpox_infected_legends": {
+    "chaos_space_marines_gellerpox_infected_legends": {
       "name": "Gellerpox Infected [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 17.86,
@@ -31245,7 +31245,7 @@
         ]
       ]
     },
-    "chaos_daemons_renegade_heavy_weapons_squad_legends": {
+    "chaos_space_marines_renegade_heavy_weapons_squad_legends": {
       "name": "Renegade Heavy Weapons Squad [Legends]",
       "faction": "Chaos Daemons",
       "gw_pts_per_model": 25.0,

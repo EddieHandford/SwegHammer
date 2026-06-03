@@ -4,6 +4,41 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 145b (2026-06-03) — P0 DATA BUG FIXED: CSM/Daemons faction misassignment (the queue's highest-leverage item). Headline gated 4.55 → 4.27. Chaos Daemons −14.8 → −4.1 (the residual was a data-contamination artifact, NOT a sim gap)
+
+The watchdog's P0 data bug, root-caused and fixed. **Root cause** (a clean faction-keyword name mismatch, not a
+structural quirk): the generic Heretic Astartes datasheets (Legionaries, Chosen, Havocs, Chaos Lord, Possessed,
+Raptors, Chaos Terminators, Dark Apostle, Master of Possession, Sorcerer, Cultists, Traitor Guard, etc.) are
+defined once in a shared library and imported by BOTH `Chaos - Chaos Space Marines.cat` AND `Chaos - Chaos
+Daemons.cat` (Daemons take them as allies). Their BSData "Faction:" keyword is "Heretic Astartes", but
+`faction_of()` of the real CSM codex returns "Chaos Space Marines" — so `iter_unit_entries`'s importer-matching
+step (which credits the importer whose faction matches the entry's keyword) found no match and fell through to
+"first non-library importer", which was the Daemons catalogue. Result: 31 CSM datasheets filed under faction
+"Chaos Daemons" — CSM could not field its own battleline (its catalogue had NO BATTLELINE at all), so its archetype
+ran a fake cult-marine soup, and the same marines polluted the Daemons `_random_fill` pool.
+
+**Fix** (3 lines + a regen + an archetype rebuild): added `FACTION_KEYWORD_ALIASES = {"Heretic Astartes": "Chaos
+Space Marines"}` + `canonical_faction_keyword()` in `code/factions.py`, used in `iter_unit_entries`'s choice-1
+(`code/bsdata/parser.py`) so the keyword maps to our faction name before the importer match. None of the affected
+entries have a mono-god (Death Guard/Thousand Sons/World Eaters/Emperor's Children) co-importer — those carry their
+own uniquely-named datasheets — so the alias cannot mis-steal. Regenerated `parsed.json`: EXACTLY 31 units re-keyed
+`chaos_daemons_*` → `chaos_space_marines_*`, **0 other content changes** (verified by full diff). Re-keyed 2 matching
+overrides (Chaos Lord / Sorcerer in Terminator Armour — their notes already cited the chaos-space-marines Wahapedia
+page) and 31 keys across the 3 provisional Stage-2 data files (a pure re-key; a unit's price doesn't change because
+its faction key was corrected). Rebuilt the CSM "Pactbound Zealots" archetype around the real Legionaries backbone
+(×3) + Abaddon + Chaos Lord + Dark Apostle + Chosen + Terminators + Obliterators + daemon-engines, dropping the
+cult-marine soup (Berzerkers/Plague/Rubric/Noise belong to the standalone mono-god codices in 10e).
+
+**N=40 A/B (both P0 fixes in, vs measurement-only 4.55): headline gated 4.55 → 4.27 (−0.28).** Chaos Daemons
+−14.8 → −4.1 (gated 11.68 → 0.95 — nearly in-band; the contamination was most of the "residual"). CSM −9.0 → −12.0
+(gated 6.57 → 9.51, WORSE but FAITHFUL — the real Legionaries list under-shoots where the killier cult soup did
+not; the residual is now a clean target for the unmodelled Dark Pacts army rule, queue #48). The Daemons win
+dominates. Kept per the prime directive — a real army beats a fake soup regardless of the metric direction. Full
+suite green (1117 pass; fail-loud rule 13 correctly caught the override + Stage-2 key references mid-build, all
+fixed), audit clean, run.py --cli exit 0, app presets resolve, Daemons pool confirmed clean (0 marines). No 10e
+rule implemented (data-attribution fix) → no new citation. NEXT: the abilities dive on the now-honest under-shoots
+— #48 CSM Dark Pacts (directly targets the −12 this exposed) and #47 AdMech leader auras (−10.8/6.66).
+
 ## Wave 145 (2026-06-03) — P0 MEASUREMENT FIDELITY (watchdog wide-investigation re-prioritised queue): two faithful "make-the-comparison-correct" fixes to the eval; the sim is byte-identical so this RE-BASES the metric, not a regression. Gated MAE 4.14 → 4.55
 
 The watchdog's 5-agent wide pass found the residual table was partly a MEASUREMENT artifact (upstream of
