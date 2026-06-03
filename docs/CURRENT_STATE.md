@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 147 (2026-06-03) — ABILITIES DIVE on the under-shooters, re-targeted on a fresh N=80
+**Last updated:** Wave 148 (2026-06-03) — AdMech MACHINE VENGEANCE lands (the watchdog's top AdMech lever):
+Belisarius Cawl's per-target designation (army-wide re-roll Hit vs one designated enemy while Cawl alive), built by
+MIRRORING the Oath of Moment substrate (commit `0407e09`). **N=40 A/B: AdMech −10.8 → −9.8 (gated 6.66 → 5.64),
+headline 4.27 → 4.23** — the FIRST AdMech lever to move the needle, validating the watchdog's refined thesis
+(army-wide designation mechanics > single-unit leader auras, which were neutral in wave 147). KEPT (faithful, no
+over-application, metric-positive). The per-target-designation SUBSTRATE is now reusable for T'au markerlights,
+Necrons Worthy Foes, Lord Discordant Spirit Thief. AdMech still −9.8 under → the BULK of its gap is structural
+(output/durability vs field, or representation), not abilities. **N=80 baseline (29eba8e, pre-MV) = gated 4.09**
+(`data/wf_wave147_baseline_n80.txt`); biggest gated errors IK 27.32 (representation floor), WE 9.87, AdMech 8.07,
+CSM 6.63. NEXT: extend the reusable designation substrate (T'au markerlights, T'au −4.4 under) OR diagnose the
+over-shooter cluster (WE +14.4). [Wave 147 detail below.]
+
+**Wave 147 — ABILITIES DIVE on the under-shooters, re-targeted on a fresh N=80
 table. **N=80 baseline = gated 4.09** (`data/wf_wave147_baseline_n80.txt`; post measurement-fix + faction-fix +
 Relentless Onslaught). Biggest actionable gated errors: IK 27.32 (representation floor), World Eaters 9.87,
 **AdMech 8.07**, CSM 6.63, Drukhari 5.86, Votann 5.97, T'au 4.30. Two abilities-dive findings this stretch, BOTH

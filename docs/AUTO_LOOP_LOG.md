@@ -4,6 +4,31 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 148 (2026-06-03) — AdMech Machine Vengeance (Cawl per-target designation, mirroring Oath of Moment) — the watchdog's top AdMech lever LANDS modestly: AdMech −10.8 → −9.8, headline 4.27 → 4.23. Validates "army-wide mechanics > leader auras"
+
+Built **Belisarius Cawl's Invocation of Machine Vengeance** as a per-target-designation mechanic (commit `0407e09`,
+Opus worktree agent `223c0d8` cherry-picked) — the watchdog's refined-thesis top pick after the AdMech leader
+auras came up neutral ("army rules move the needle, leader auras mostly don't"). Cawl's offensive Canticle is
+army-wide re-roll Hit vs ONE designated enemy unit; the sim previously left it un-wired because it had "no
+per-target designation system" (the prior `cp_discount_hq.json` ADMECH-DIAG-5 note). It is STRUCTURALLY IDENTICAL
+to Adeptus Astartes Oath of Moment, so the build MIRRORS the Oath substrate piece-for-piece: a new
+`machine_vengeance_target_uid` on Army; `_pick_machine_vengeance_target` (gated on a live Belisarius Cawl, reusing
+Oath's value scorer); a parallel Command-phase designation block in `_run_round`; and a parallel re-roll gate in
+`attack()` (AdMech attacker + target is the designated unit → `att_reroll_all_hits`). FAITHFUL APPROXIMATION
+(noted + cited): Cawl picks one of three Canticles per Command phase; we model him always choosing the offensive
+Machine Vengeance (the common competitive pick). No over-application — the re-roll fires only vs the one designated
+unit, only while Cawl is alive, only for AdMech attackers.
+
+**N=40 A/B: AdMech −10.8 → −9.8 (gated 6.66 → 5.64), headline 4.27 → 4.23.** Machine Vengeance added ~+0.8 AdMech on
+top of the neutral leader auras — the FIRST AdMech lever to move the needle, **validating the refined thesis
+(army-wide designation mechanics > single-unit leader auras)**. KEPT (faithful + metric-positive). Two bonuses: (1)
+it closes the exact gap the project flagged as un-wireable, and (2) the per-target-designation substrate is now
+REUSABLE for T'au markerlights/Guided, Necrons Worthy Foes, Lord Discordant Spirit Thief. AdMech is still −9.8
+under, so the BULK of its gap is structural (output/durability vs field, or representation), not abilities — but
+the abilities are now faithfully modelled. Audit clean, 1119 tests green (+ 3 new Machine Vengeance tests), run.py
+exit 0. NEXT: the reusable designation substrate (T'au markerlights — T'au is −4.4 under) OR the over-shooter
+cluster diagnosis (World Eaters +14.4).
+
 ## Wave 147 (2026-06-03) — AdMech leader auras (faithful, BSData-verified) land METRIC-NEUTRAL; the −12 AdMech under-shoot is NOT the leader auras. Fresh N=80 baseline dumped: gated 4.09
 
 Two parts this wave.
