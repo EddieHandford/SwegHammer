@@ -3486,9 +3486,10 @@ class Unit:
                             # task #28 squad_id re-key: key on squad_id when >= 0.
                             # Cited as `simulator.strands_of_fate`.
                             # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
-                            and (
-                                (getattr(self, "squad_id", -1) if getattr(self, "squad_id", -1) >= 0 else p.name)
-                                not in getattr(own_army, "_fate_hit_names_used_this_round", set())
+                            and hasattr(own_army, "unit_budget_available")
+                            and own_army.unit_budget_available(
+                                "fate_hit",
+                                (getattr(self, "squad_id", -1) if getattr(self, "squad_id", -1) >= 0 else p.name),
                             )
                         ):
                             # AI-5: gate spending by stakes. Only treat the
@@ -3501,13 +3502,13 @@ class Unit:
                             )
                             if sub is not None:
                                 roll = sub
-                                if hasattr(own_army, "_fate_hit_names_used_this_round"):
+                                if hasattr(own_army, "mark_unit_budget"):
                                     _fate_hit_key = (
                                         getattr(self, "squad_id", -1)
                                         if getattr(self, "squad_id", -1) >= 0
                                         else p.name
                                     )
-                                    own_army._fate_hit_names_used_this_round.add(_fate_hit_key)
+                                    own_army.mark_unit_budget("fate_hit", _fate_hit_key)
                     # Adepta Sororitas Acts of Faith — Miracle Dice
                     # substitution on a failed Hit roll. Mirrors the Strands
                     # of Fate branch above: if the attacker is a Sororitas
@@ -3799,9 +3800,10 @@ class Unit:
                                 # up to 10 dice where the codex allows only 1.
                                 # task #28 squad_id re-key: key on squad_id when >= 0.
                                 # Cited as `simulator.strands_of_fate`.
-                                and (
-                                    (getattr(target, "squad_id", -1) if getattr(target, "squad_id", -1) >= 0 else target.profile.name)
-                                    not in getattr(tgt_army, "_fate_save_names_used_this_round", set())
+                                and hasattr(tgt_army, "unit_budget_available")
+                                and tgt_army.unit_budget_available(
+                                    "fate_save",
+                                    (getattr(target, "squad_id", -1) if getattr(target, "squad_id", -1) >= 0 else target.profile.name),
                                 )
                             ):
                                 # AI-5: defensive saves are high-stakes when
@@ -3817,13 +3819,13 @@ class Unit:
                                 )
                                 if sub is not None:
                                     sroll = sub
-                                    if hasattr(tgt_army, "_fate_save_names_used_this_round"):
+                                    if hasattr(tgt_army, "mark_unit_budget"):
                                         _fate_save_key = (
                                             getattr(target, "squad_id", -1)
                                             if getattr(target, "squad_id", -1) >= 0
                                             else target.profile.name
                                         )
-                                        tgt_army._fate_save_names_used_this_round.add(_fate_save_key)
+                                        tgt_army.mark_unit_budget("fate_save", _fate_save_key)
                         # Adepta Sororitas Acts of Faith — defensive Miracle
                         # Dice substitution on a failed save. Same greedy
                         # heuristic — only spend if it flips fail -> save.

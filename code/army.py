@@ -179,58 +179,26 @@ class Army:
         # a rule. Stored sorted descending. Empty on non-Sororitas armies.
         # Cited as `simulator.acts_of_faith`.
         self.miracle_dice: List[int] = []
-        # SOROR-ACTS-OF-FAITH-V1: per-round squad-level AoF budget. The codex
-        # rule "each unit can perform one Act of Faith per phase" applies at
-        # the codex-UNIT level (one squad = one unit). The simulator
-        # instantiates each model in a squad as a separate Unit instance, so a
-        # 10-model Battle Sisters Squad becomes 10 instances, each eligible for
-        # aof_used_this_round. Without the squad-level gate those 10 instances
-        # could collectively spend 10 Miracle dice per round for a single
-        # codex unit — a 10x over-count. This set tracks which profile names
-        # have already used their squad AoF budget this round; all instances
-        # sharing a profile.name are treated as ONE codex unit for AoF
-        # purposes. Reset at the start of each battle round by
-        # Battle._run_round. Empty on non-Sororitas armies (non-Sororitas
-        # units never call aof_squad_available). Cited as
-        # `simulator.acts_of_faith`.
-        self._aof_squad_names_used_this_round: set = set()
-        # AELDARI-STRANDS-V1: per-round squad-level Advance fate gate. The
-        # codex rule "a unit from your army is making an Advance... roll"
-        # (Strands of Fate, Wahapedia) is a UNIT-level event — one squad rolls
-        # one Advance D6, not one roll per model. The simulator moves each
-        # model in a squad individually (each calls _do_move and rolls its own
-        # Advance D6), so without this gate a 10-model squad could spend up to
-        # 10 Fate dice on advance in one round where the codex allows only 1.
-        # task #28 squad_id re-key: key on squad_id (int) when >= 0, fall back
-        # to profile.name (str) for lone models. This set stores either int or
-        # str depending on the unit. Reset at the start of each battle round by
-        # Battle._run_round. Empty on non-Aeldari armies.
-        # Cited as `simulator.strands_of_fate`.
-        self._fate_advance_names_used_this_round: set = set()
-        # AELDARI-AUDIT-V1: per-round squad-level Hit fate gate. Same pattern
-        # as the Advance gate above. Strands of Fate codex wording "each time a
-        # unit is selected to make... a Hit Roll" is a UNIT-level event — one
-        # squad makes one set of Hit rolls, and exactly ONE Fate die may
-        # substitute for one of those rolls. The simulator instantiates each
-        # model in a squad as a separate Unit; each model calls Unit.attack()
-        # independently. Without this gate, a 10-model squad with high-damage
-        # weapons (per_shot_dmg >= 2.0) could spend up to 10 Fate dice on hit
-        # rolls in one round where the codex allows only 1. This set tracks
-        # which attacker profile.names have already spent a Fate die on a Hit
-        # roll this round. Reset at the start of each battle round. Empty on
-        # non-Aeldari armies. Cited as `simulator.strands_of_fate`.
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
-        self._fate_hit_names_used_this_round: set = set()
-        # AELDARI-AUDIT-V1: per-round squad-level defensive Save fate gate.
-        # Same pattern as the Hit gate above. Strands of Fate "each time a
-        # unit... makes... a Saving Throw" is a UNIT-level event. A 10-model
-        # AELDARI squad defending against an attacker with damage >= 2 could
-        # spend up to 10 Fate dice on saves in one round where the codex allows
-        # only 1 per squad. This set tracks which defender profile.names have
-        # already spent a Fate die on a Save roll this round. Reset at round
-        # start. Empty on non-Aeldari armies. Cited as `simulator.strands_of_fate`.
-        # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
-        self._fate_save_names_used_this_round: set = set()
+        # Squad rebuild Stage C — ONE generalized per-round "once per codex
+        # unit per round" budget, replacing four separate sets that previously
+        # tracked the same shape of state (Acts of Faith, and the three Strands
+        # of Fate gates: advance / hit / save). The simulator instantiates each
+        # model in a squad as a separate Unit instance, so a 10-model squad
+        # becomes 10 Unit objects; without a unit-level budget each instance
+        # could independently spend its faction's once-per-codex-unit-per-round
+        # resource, giving a 10x over-count. `_unit_budget_used` maps an effect
+        # name ("aof" / "fate_advance" / "fate_hit" / "fate_save") to the set of
+        # keys (squad_id int when >= 0, else profile.name str — the task #28
+        # squad_id re-key; the mixed int/str type is intentional and cannot
+        # collide) that have already spent that effect this round. Reset wholesale
+        # at the start of each battle round by Battle._run_round. ALWAYS present
+        # (not faction-gated) so standalone tests with no Battle still read an
+        # empty-but-present budget via the unit_budget_available / mark_unit_budget
+        # methods below. Effect citations unchanged: `simulator.acts_of_faith`
+        # (aof) and `simulator.strands_of_fate` (fate_advance / fate_hit /
+        # fate_save). Wahapedia Strands of Fate:
+        # https://wahapedia.ru/wh40k10ed/factions/aeldari/#Strands-of-Fate
+        self._unit_budget_used: dict = {}
         # Back-reference to the Battle currently running this army. Set
         # by Battle.__init__ so Unit.attack can dispatch the Command
         # Re-Roll stratagem without threading callbacks through every
@@ -637,7 +605,7 @@ class Army:
         the correct granularity. Cited as `simulator.acts_of_faith`.
         """
         key = squad_id if squad_id >= 0 else profile_name
-        return key not in self._aof_squad_names_used_this_round
+        return self.unit_budget_available("aof", key)
 
     def aof_squad_mark_used(self, profile_name: str, squad_id: int = -1) -> None:
         """Record that the squad has used its Acts of Faith budget this round.
@@ -645,7 +613,17 @@ class Army:
         `simulator.acts_of_faith`.
         """
         key = squad_id if squad_id >= 0 else profile_name
-        self._aof_squad_names_used_this_round.add(key)
+        self.mark_unit_budget("aof", key)
+
+    def unit_budget_available(self, effect: str, key) -> bool:
+        """True if `key` (squad_id int or profile.name str) has NOT yet used the
+        once-per-unit-per-round `effect`. Squad-rebuild Stage C: generalizes the
+        former per-effect _<x>_names_used_this_round sets into one keyed budget."""
+        return key not in self._unit_budget_used.get(effect, ())
+
+    def mark_unit_budget(self, effect: str, key) -> None:
+        """Record that `key` has used `effect` this round."""
+        self._unit_budget_used.setdefault(effect, set()).add(key)
 
     def pop_miracle_die_meeting(self, threshold: int) -> Optional[int]:
         """Greedy spend: remove and return the LOWEST die in the pool

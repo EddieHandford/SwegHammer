@@ -6951,39 +6951,31 @@ class Battle:
         #     under-approximation of the codex's "one per phase" literal
         #     (collapses to one per round). Cited as `simulator.acts_of_faith`.
         #
-        # (2) SOROR-ACTS-OF-FAITH-V1 squad-level set
-        #     `_aof_squad_names_used_this_round`: enforces the codex "each
-        #     UNIT can perform one Act of Faith per phase" at the codex-unit
-        #     granularity. The simulator instantiates each model in a squad as
-        #     a separate Unit object (e.g. 10 Battle Sisters models = 10 Unit
-        #     instances). Without this set, each instance could independently
-        #     use AoF, giving a 10-model squad up to 10 AoF spends per round
-        #     where the codex allows only 1 (one per codex unit). Tracking by
-        #     profile.name (all instances of "Battle Sisters Squad" share one
-        #     budget) corrects this N× over-count. Wahapedia verbatim: "each
-        #     unit from your army with this ability can perform one Act of
-        #     Faith per phase." Cited as `simulator.acts_of_faith`.
+        # (2) SOROR-ACTS-OF-FAITH-V1 squad-level budget (the "aof" effect of
+        #     the generalized `_unit_budget_used`, squad rebuild Stage C):
+        #     enforces the codex "each UNIT can perform one Act of Faith per
+        #     phase" at the codex-unit granularity. The simulator instantiates
+        #     each model in a squad as a separate Unit object (e.g. 10 Battle
+        #     Sisters models = 10 Unit instances). Without this budget, each
+        #     instance could independently use AoF, giving a 10-model squad up
+        #     to 10 AoF spends per round where the codex allows only 1 (one per
+        #     codex unit). Keying by squad_id (or profile.name fallback) so all
+        #     instances of one codex unit share one budget corrects this N×
+        #     over-count. Wahapedia verbatim: "each unit from your army with
+        #     this ability can perform one Act of Faith per phase." Cited as
+        #     `simulator.acts_of_faith`.
         for army in (self.a, self.b):
-            # task #28 squad_id re-key: these sets store squad_id (int) when
-            # the unit has squad_id >= 0, else profile.name (str). The mixed
-            # type is intentional — int and str keys cannot collide.
-            army._aof_squad_names_used_this_round = set()
-            # AELDARI-STRANDS-V1 — reset Strands of Fate advance-spend gate
-            # each round. The codex "a unit is making an Advance roll" event
-            # fires once per codex unit per round; the gate set records which
-            # squad keys have already spent a Fate die on advance this round
-            # so that subsequent models in the same squad cannot each spend
-            # their own Fate die. Cited as `simulator.strands_of_fate`.
-            army._fate_advance_names_used_this_round = set()
-            # AELDARI-AUDIT-V1 — reset Strands of Fate hit- and save-spend
-            # squad-level gates each round. Parallel to the advance gate above:
-            # hit substitutions are capped to one per squad key per round
-            # (attacker), and save substitutions to one per squad key per
-            # round (defender). Prevents a 10-model squad from spending up to
-            # 10 Fate dice where the codex allows only 1 per unit activation.
-            # Cited as `simulator.strands_of_fate`.
-            army._fate_hit_names_used_this_round = set()
-            army._fate_save_names_used_this_round = set()
+            # Squad rebuild Stage C — reset the ONE generalized per-round
+            # unit-budget, clearing every once-per-codex-unit-per-round effect
+            # at once. This replaces the four separate set re-creations that
+            # previously cleared Acts of Faith ("aof") and the three Strands of
+            # Fate gates ("fate_advance" / "fate_hit" / "fate_save") — clearing
+            # the dict is identical to clearing each set. The keys are still
+            # squad_id (int) when the unit has squad_id >= 0, else profile.name
+            # (str) — the task #28 squad_id re-key; the mixed int/str type is
+            # intentional and cannot collide. Cited as `simulator.acts_of_faith`
+            # (aof) and `simulator.strands_of_fate` (the three fate_* effects).
+            army._unit_budget_used = {}
             for u in army.units:
                 if u.profile.faction == "Adepta Sororitas":
                     u.aof_used_this_round = False
@@ -7979,10 +7971,11 @@ class Battle:
             # spent a Fate die on advance this round.
             # task #28 squad_id re-key: use squad_id as the set key when >= 0.
             # Cited as `simulator.strands_of_fate`.
-            and (
+            and attacker_army.unit_budget_available(
+                "fate_advance",
                 (lambda _sid, _nm: _sid if _sid >= 0 else _nm)(
                     getattr(attacker, "squad_id", -1), attacker.profile.name
-                ) not in attacker_army._fate_advance_names_used_this_round
+                ),
             )
         ):
             need = needs_to_close - normal_move
@@ -7995,7 +7988,7 @@ class Battle:
                         if getattr(attacker, "squad_id", -1) >= 0
                         else attacker.profile.name
                     )
-                    attacker_army._fate_advance_names_used_this_round.add(_fate_adv_key)
+                    attacker_army.mark_unit_budget("fate_advance", _fate_adv_key)
         move_distance = normal_move + advance_d6
         did_advance = advance_d6 > 0
 
