@@ -1,0 +1,12 @@
+{
+  "_comment": "Wave 137 — a 10e battle lasts five battle rounds; a one-sided tabling does NOT end it early. Source: Wahapedia 10e core rules, 'The Battle Round'.",
+
+  "simulator.battle_length_five_rounds": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#The-Battle-Round",
+    "rule_name": "The battle lasts five battle rounds",
+    "quoted_text": "Games of Warhammer 40,000 are played over five battle rounds. In each battle round, both players take a turn.",
+    "trigger": "end of each scored battle round in Battle.run(): decide whether to continue to the next round",
+    "effect": "the battle plays out the full five battle rounds and only ends early on a MUTUAL wipe (both armies have nothing left on-board and nothing in reserves). A one-sided tabling does NOT end the game — the surviving army keeps playing the remaining rounds and scoring primary on the uncontested board (bounded by the 50-VP primary cap). Previously the loop broke on EITHER side reaching zero, truncating the tabler's continued scoring (a VP / Stage-2-pricing fidelity gap that could also flip an edge case where the tabler trailed on VP at the tabling moment).",
+    "scope": "phase-gated"
+  }
+}

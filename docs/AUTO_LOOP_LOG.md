@@ -4,6 +4,17 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 137 (2026-06-03) — TABLING PLAY-OUT fix (#41, watchdog-prioritized + multi-metric-fidelity): a one-sided wipe no longer truncates the battle — it plays out all 5 rounds (survivor scores uncontested primary). Faithful, METRIC-NEUTRAL (4.34→4.34, tablings rare)
+
+`Battle.run()` ended early on EITHER side reaching zero (`a_total_left == 0 or b_total_left == 0: break`).
+Real 10e lasts five battle rounds — a one-sided tabling does NOT end the game; the survivor keeps playing the
+remaining rounds and scoring primary on the uncontested board (combat/AI already no-op vs an empty opponent; the
+50-VP cap bounds it). Changed the break to `and` (MUTUAL wipe only). Always-on (faithful core rule, not gated);
+cited `simulator.battle_length_five_rounds`; full suite green (1103); **N=40 4.34 → 4.34 (metric-NEUTRAL**, as
+the watchdog predicted — tablings are rare in these games). First fix of the MULTI-METRIC fidelity phase: it
+corrects the rounds/VP series the review compares + removes an edge case (a tabler behind on VP at the tabling
+moment was mis-scored). LOOP_QA wave-137.
+
 ## Wave 136 (2026-06-03) — WHOLLY-WITHIN squad-granularity fix for Engage/BEL (user catch) — completes the authentic secondary; faithful + FAVOURS the compact Knight (reinforces position cards aren't the Knight-penalty)
 
 User catch (watchdog 2590): real Engage/BEL score for units WHOLLY WITHIN a quarter (>6" from centre) / the

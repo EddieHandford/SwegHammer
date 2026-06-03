@@ -546,6 +546,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # ALL its models qualify, correcting the one-Unit-per-model over-credit.
     # Env-gated SWEG_SECONDARY; OFF keeps the legacy per-model check.
     "simulator.secondary_wholly_within",
+    # Wave 137 — a 10e battle lasts five battle rounds; a one-sided tabling does
+    # NOT end it early (only a mutual wipe does). data/rule_citations.d/core_battle_length.json.
+    "simulator.battle_length_five_rounds",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.

@@ -634,12 +634,21 @@ class Battle:
                 b_vp_total=self._b_vp,
             ))
             round_history.append((self.a.unit_count, self.b.unit_count))
-            # End early ONLY if neither side has anything left on-board AND
-            # nothing in reserves to bring back. A wiped force with units
-            # still incoming next round (Phase I Deep Strike) keeps playing.
+            # End early ONLY on a MUTUAL wipe — both sides have nothing left
+            # on-board AND nothing in reserves. A real 10e battle lasts the full
+            # five battle rounds (Wahapedia core, "the battle lasts five battle
+            # rounds"): a ONE-SIDED tabling does NOT end the game — the surviving
+            # army keeps playing out the remaining rounds and scoring primary on
+            # the now-uncontested board (and any held secondaries). The combat /
+            # AI code already no-ops against an empty opponent (every mover /
+            # shooter guards on `alive_units`), and the 50-VP primary cap (M1)
+            # bounds the survivor's continued scoring. Truncating one-sided
+            # tablings previously under-counted the tabler's VP (Stage-2 pricing
+            # fidelity) and could flip an edge case where the tabler was behind on
+            # VP at the tabling moment. Cited `simulator.battle_length_five_rounds`.
             a_total_left = self.a.unit_count + len(self._reserves.get(self.a.name, []))
             b_total_left = self.b.unit_count + len(self._reserves.get(self.b.name, []))
-            if a_total_left == 0 or b_total_left == 0:
+            if a_total_left == 0 and b_total_left == 0:
                 break
 
         a_surv = self.a.unit_count
