@@ -4,6 +4,24 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 138 (2026-06-03) — MULTI-METRIC instrumentation built (`scripts/diag_multimetric.py`) + first per-faction profile. Three fidelity signals; the SECONDARY OVER-GENERATION (raw 52-80 VP) is the strongest actionable — the M2 deck may be justified on the SECONDARY-FIDELITY metric even though it washed on win rate
+
+First worker contribution to the user's MULTI-METRIC fidelity review (watchdog leads the analysis + real-data
+sourcing). The diagnostic dumps the per-faction profile: win% / rounds / opp-tabled% / self-tabled% / survivor%
+/ kills / final PRIMARY VP / final SECONDARY VP / per-round PRIMARY-VP accrual curve (RoundEnded subscriber).
+Three signals (LOOP_QA wave-138 has the full table + numbers):
+1. **SECONDARY VP OVER-GENERATED — raw 52-80/game** vs real competitive ~30-40 (cap 40). The sim has BOTH sides
+   blow past the 40-cap → secondary is a non-differentiator (the known wash). **The M2 deck (gated OFF,
+   win-rate-neutral) brings raw secondary toward realistic levels → the multi-metric view may JUSTIFY the M2 deck
+   on the SECONDARY-FIDELITY metric.** Strongest actionable fix — pending the real secondary-VP reference.
+2. **Tabling ~0%, rounds always 5.0** — confirms low-lethality / never-tabled from the dynamics angle.
+3. **Primary-by-round accrual = the over/under-hold axis** — durable elites accrue fastest (IK 0/12/23/34/45),
+   mobile/fragile slowest (Daemons 0/6/14/22/32). The representation floor, from the DYNAMICS not just win rate.
+
+Reported to the watchdog for analysis. Next: the watchdog sources real per-metric data + directs which divergence
+to fix; meanwhile the worker clears queued hygiene (#37 detachment fabs / #38 anti-tank). Diag is throwaway
+(untracked). LOOP_QA wave-138.
+
 ## Wave 137 (2026-06-03) — TABLING PLAY-OUT fix (#41, watchdog-prioritized + multi-metric-fidelity): a one-sided wipe no longer truncates the battle — it plays out all 5 rounds (survivor scores uncontested primary). Faithful, METRIC-NEUTRAL (4.34→4.34, tablings rare)
 
 `Battle.run()` ended early on EITHER side reaching zero (`a_total_left == 0 or b_total_left == 0: break`).
