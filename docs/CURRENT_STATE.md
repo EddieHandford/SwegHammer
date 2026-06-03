@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 134 (2026-06-03) — SECONDARY Stage A built (deliberate-dedication, gated `SWEG_SECONDARY`,
+**Last updated:** Wave 135 (2026-06-03) — SECONDARY economy REBUILT AUTHENTICALLY (Opus agent `73e30fb`) after
+the user+watchdog caught the dedication scoring-gate was a fabricated knob: reverted the gate (position cards
+auto-score on occupancy), positioning-bias only, rules-clean ACTION COST for Cleanse/Sabotage (OC>0 + not-in-
+engagement + forgo shoot/charge + survive; Knight can't spare a unit → 0, emergent). **A/B: the authentic
+secondary is NEUTRAL** — deck-only 4.07 → deck+secondary 4.04 (within noise; IK +26.3 → +26.7, NO drop), and
+combined 4.13 (worse than M4-stack 4.03; the positioning bias fights M4 over spare units). Confirms the
+watchdog's prediction (the authentic Knight secondary weakness is negligible). 1104 tests green, OFF
+byte-identical. Running combined N=80 (decisive). Layer-3 timing + 3 new action cards unbuilt (likely won't flip
+it). LOOP_QA wave-135.
+
+**Wave 134** — SECONDARY Stage A built (deliberate-dedication, gated `SWEG_SECONDARY`,
 Opus worktree agent `7d962ad`) + A/B. The dedication mechanism was MIS-TARGETED at POSITION cards (Engage/BEL):
 net-negative (deck-only 4.07 → deck+dedication 4.20; IK +26.3 → +29.5, the OPPOSITE of the hypothesis) and it
 LOST the M4 IK fix in the combined (the planner diverts spare units OFF the markers M4 massed them onto). ROOT

@@ -4,6 +4,33 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 135 (2026-06-03) — SECONDARY economy REBUILT AUTHENTICALLY (user+watchdog correction: the dedication scoring-gate was a fabricated knob) — revert the gate, positioning-bias only, rules-clean ACTION COST. A/B confirms the watchdog's prediction: the authentic Knight secondary weakness is NEGLIGIBLE (NEUTRAL)
+
+User + watchdog caught that gating POSITION/board card scoring on `dedicated_card` FABRICATES a requirement not
+in 10e (Engage/BEL score on presence, no action) = a knob. Rebuilt authentically via an Opus worktree agent
+(cherry-picked `73e30fb`): (1) REVERTED the position-card scoring gate (Engage/BEL auto-score on occupancy, any
+qualifying unit); (2) the spare-unit logic is now an AI POSITIONING bias only (the planner spreads spare units
+into quarters/DZ — a Knight with no spare doesn't spread → emergently fewer quarters → less Engage, NO gate);
+(3) built the rules-clean ACTION COST for Cleanse/Sabotage — a unit must have OC>0, be out of Engagement Range,
+forgo shoot+charge (`action_this_round` blocks both), and SURVIVE to score (`_unit_can_perform_action` +
+`_action_completes`); a Knight can't spare a unit → scores those 0, emergent, NO faction/model-count branch.
+Cited `simulator.secondary_action_cost`; 1104 tests green; OFF byte-identical.
+
+**N=40 A/B — the authentic secondary is NEUTRAL (confirms the watchdog's point-4 prediction):**
+- deck-only 4.07 → deck+authentic-secondary **4.04** (within noise); **IK +26.3 → +26.7 (NO meaningful drop)** —
+  the Knight achieves most secondaries via kill cards / occupancy; the action-card penalty is small.
+- combined (M4-stack + deck + authentic secondary) **4.13** — WORSE than the M4-stack alone (4.03); even the
+  positioning bias DIVERTS spare units off M4's markers (IK +13.3 → +22.1). So the secondary half does NOT push
+  the combined positive.
+
+**VERDICT (emerging, N=40):** built faithfully, the secondary economy is a SMALL lever that does NOT make the
+Knight under-score, and it slightly FIGHTS M4 over spare units. The user's secondary-half hypothesis is under
+heavy pressure — exactly the watchdog's prediction. Running the COMBINED at N=80 (decisive) to confirm. Layer 3
+(timing) + the 3 new action cards (Establish Locus / Recover Assets / A Tempting Target) are UNBUILT — but the
+strong neutral signal suggests completing them is unlikely to flip the verdict (proposing to the watchdog:
+complete for a fuller test, or accept the neutral signal as the hypothesis-exhaustion). All gated default-OFF.
+LOOP_QA wave-135.
+
 ## Wave 134 (2026-06-03) — SECONDARY economy Stage A BUILT (deliberate-dedication, gated `SWEG_SECONDARY`, via Opus worktree agent `7d962ad`) + A/B — the dedication mechanism was MIS-TARGETED at POSITION cards (net-negative, unfaithful); RE-SCOPE to the ACTION cards (Stage B)
 
 Built Stage A (Layer-2 dedication CRUX) via an Opus worktree agent (cherry-picked `7d962ad`): a `dedicated_card`
