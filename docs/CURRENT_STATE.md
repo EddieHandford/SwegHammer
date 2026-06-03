@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 156 (2026-06-03) — TITANIC OVERWATCH BUG FIXED → honest baseline 4.17 → **N=80 gated 4.05**
+**Last updated:** Wave 157 (2026-06-03) — SQUAD REBUILD STAGE C LANDED (byte-identical infra, commit `f43f862`): the
+four bespoke once-per-codex-unit-per-round gate sets (Acts of Faith + 3× Strands of Fate) generalized into one
+`Army._unit_budget_used` dict + `unit_budget_available(effect,key)` / `mark_unit_budget(effect,key)` (key = squad_id
+or profile.name, identical). **Byte-identical (empty N=40 eval diff before/after)**, net −24 lines, 1119 tests green.
+This is the FOUNDATION for Stage A (per-squad activation reuses this budget). The squad rebuild (user's Q11=(c)
+authorised positional re-model) is the systemic lever for the per-model representation floor; migration order C (done)
+→ A (per-squad activation scaffold, gate `SWEG_SQUADACT`) → B+E+move-AI (behavioural) → D (split-fire shoot). Honest
+baseline remains **N=80 gated 4.05** (the rebuild stages A/B/D/E land behind env gates, OFF byte-identical, A/B each).
+NEXT: Stage A. [Wave 156 TITANIC-overwatch detail below.]
+
+**Wave 156 — TITANIC OVERWATCH BUG FIXED → honest baseline 4.17 → **N=80 gated 4.05**
 (9/22 in band). 10e: TITANIC units CANNOT Fire Overwatch (verbatim "You cannot target a TITANIC unit with this
 Stratagem" — the TARGET is the FIRING unit; user-corrected). Excluded TITANIC from `_fire_overwatch`'s eligible
 shooters → removes the illegal Knight overwatch that inflated them when Overwatch went default-ON: Chaos Knights
