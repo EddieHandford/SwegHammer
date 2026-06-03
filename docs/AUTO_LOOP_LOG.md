@@ -4,6 +4,37 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 147 (2026-06-03) — AdMech leader auras (faithful, BSData-verified) land METRIC-NEUTRAL; the −12 AdMech under-shoot is NOT the leader auras. Fresh N=80 baseline dumped: gated 4.09
+
+Two parts this wave.
+
+**(1) Fresh N=80 baseline dumped to disk** (`data/wf_wave147_baseline_n80.txt`, watchdog's request — the on-disk
+tables were stale from wave 122). Post measurement-fix + faction-fix + Relentless Onslaught: **gated MAE 4.09 at
+N=80** (the N=40 4.27 was noisier). The honest landscape: IK +30.3/27.32 (representation floor) · World Eaters
++13.3/9.87 · **AdMech −12.2/8.07** · CSM −9.1/6.63 · Drukhari +9.2/5.86 · Votann +9.0/5.97 · T'au −8.5/4.30 ·
+Sororitas +8.0/4.24 · Tyranids +8.0/4.23 · Necrons −6.8/3.54 · Daemons −5.1/1.89 (now ~in band). AdMech is the
+biggest actionable under-shooter after the IK floor.
+
+**(2) AdMech leader auras built (commit `3caecdd`, Opus worktree agent `092c0b2` cherry-picked).** VERIFIED each
+ability verbatim at the BSData AdMech cat — which CORRECTED the watchdog's specs: the Manipulus is "Galvanic Field"
+(led unit's weapons gain [LETHAL HITS]), NOT "+6 range"; the Skitarii Marshal "Control Edict" is FULL re-roll Hit,
+not just 1s; Cawl's offensive Canticle (Machine Vengeance) is army-wide re-roll Hit vs ONE designated enemy
+(target-restricted). ALSO found the AdMech +1-to-hit army rule (Doctrina Imperatives) is ALREADY modelled. Built
+the two cleanly-faithful auras: **Manipulus Galvanic Field** ([LETHAL HITS] via a new `lethal_hits_ranged`
+LeaderAbility field, host-keyed to `kataphron_destroyers`) and a re-point of the NEUTERED **Dominus FNP 5+**
+(host-keyed from no-op electro-priests to `kataphron_breachers`). Both hosts are SINGLE-OCCURRENCE in the Skitarii
+Hunter Cohort archetype, so the proximity broadcast reaches exactly one unit each — faithfully modelling the
+one-attachment rule WITHOUT over-applying (the trap that neutered the Dominus). Deferred the Marshal (2× Rangers →
+over-application) and Cawl (target-restricted) with that reasoning recorded.
+
+**N=40 A/B: AdMech −10.8 → −10.6 (gated 6.66 → 6.39), headline 4.27 → 4.26 — METRIC-NEUTRAL.** Same lesson as Dark
+Pacts in milder form: the watchdog's hypothesis was PARTIALLY right (the auras WERE genuinely missing — now added,
+faithful, cited) but two single-unit buffs are far too small to close a −12 gap on a 16-unit army. The AdMech
+under-shoot is mostly ELSEWHERE (overall output/durability vs the field, or representation). KEPT as fidelity per
+the prime directive (real cited abilities, single-attachment, no over-application — correct regardless of the
+neutral metric). Audit clean, 1116 tests green, run.py exit 0. NEXT: re-target the remaining dive on the N=80
+table — World Eaters over-shoot (+13.3, diagnose-first), T'au under (−8.5), or the deeper AdMech/CSM diagnosis.
+
 ## Wave 145b (2026-06-03) — P0 DATA BUG FIXED: CSM/Daemons faction misassignment (the queue's highest-leverage item). Headline gated 4.55 → 4.27. Chaos Daemons −14.8 → −4.1 (the residual was a data-contamination artifact, NOT a sim gap)
 
 The watchdog's P0 data bug, root-caused and fixed. **Root cause** (a clean faction-keyword name mismatch, not a

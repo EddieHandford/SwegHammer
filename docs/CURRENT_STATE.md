@@ -1,6 +1,21 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 145 (2026-06-03) — TWO P0 LANDINGS (watchdog wide-investigation re-prioritised queue):
+**Last updated:** Wave 147 (2026-06-03) — ABILITIES DIVE on the under-shooters, re-targeted on a fresh N=80
+table. **N=80 baseline = gated 4.09** (`data/wf_wave147_baseline_n80.txt`; post measurement-fix + faction-fix +
+Relentless Onslaught). Biggest actionable gated errors: IK 27.32 (representation floor), World Eaters 9.87,
+**AdMech 8.07**, CSM 6.63, Drukhari 5.86, Votann 5.97, T'au 4.30. Two abilities-dive findings this stretch, BOTH
+showing the watchdog's "under-shooter = unmodelled abilities" thesis is only PARTIALLY right where the ability is
+already (mis)modelled or too small: **(146) CSM Dark Pacts** is already OVER-modelled (a +1-hit/+1-wound
+double-proxy inflating CSM); the faithful per-unit/one-keyword fix REGRESSES in isolation (band-aid pattern) — must
+be done holistically with Marks of Chaos + Dark Apostle (task #52), REVERTED. **(147) AdMech leader auras** built
+faithfully (commit `3caecdd`: Manipulus Galvanic Field [Lethal Hits] + Dominus FNP re-pointed to a single
+Kataphron, both single-occurrence so no over-application; verified verbatim at BSData, correcting the watchdog's
+specs; the AdMech +1-hit army rule Doctrina is already modelled) — **METRIC-NEUTRAL (AdMech −10.8→−10.6, headline
+4.27→4.26)**, KEPT as fidelity. Two single-unit buffs can't close a −12 gap → the AdMech under-shoot is mostly
+elsewhere (output/durability vs field, or representation). NEXT: re-target the dive (World Eaters over-shoot
+diagnose-first, T'au under, deeper AdMech/CSM). [Wave 145 P0 detail below.]
+
+**Wave 145 — TWO P0 LANDINGS (watchdog wide-investigation re-prioritised queue):
 **(B) the CSM/Daemons faction-misassignment DATA BUG** — the highest-leverage item — root-caused to a clean BSData
 faction-keyword name mismatch ("Heretic Astartes" ≠ "Chaos Space Marines"), so 31 generic Chaos-Marine datasheets
 (Legionaries, Chosen, Havocs, Chaos Lord, Possessed, Cultists, etc.) were filed faction="Chaos Daemons": CSM could
