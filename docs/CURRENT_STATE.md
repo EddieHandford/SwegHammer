@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 130 (2026-06-03) — full-stack A/B (M4+Tarpit+`SWEG_FOCUS`) + ablations. **N=40 LANDED
+**Last updated:** Wave 131 (2026-06-03) — **VERDICT: the anti-Knight package WASHES at N=80** (representation
+floor). The M4-α gunline refinement (exempt productive shooters) RECOVERED the over-shooters (Drukhari
++16.2→+11.1, Chaos Knights recovered) but KILLED the IK fix (+16.1→+24.9) — **the board-control fix and the
+frozen-under inflation are INSEPARABLE** (exempting the shooters exempts the very models massing to contest the
+Knight). Refined N=80 4.13 / unrefined 4.16 vs baseline 3.83 (+0.30/+0.33). The fix is REAL+faithful (halves the
+two biggest residuals) but can't net-improve without a knob. Per the §7 criteria: report the floor + STOP, no
+further metric-chasing; all components gated default-OFF. The user's WIN-vs-wash call surfaced (keep the
+unrefined stack for the target fix at the aggregate cost, or declare the floor). Per-faction representation work
+is exhausted as an aggregate lever. LOOP_QA wave-131.
+
+**Wave 130** — full-stack A/B (M4+Tarpit+`SWEG_FOCUS`) + ablations. **N=40 LANDED
 (4.34→4.03) but N=80 REVERSED it (3.83→4.16, +0.33) — the N=40 move was NOISE.** The package ROBUSTLY fixes the
 targets at N=80 (Imperial Knights +25.1→+16.1 −9, Chaos Daemons −9.3→−3.9 −5.4) but regresses the aggregate via
 side-effects, DOMINATED by the **Astra gunline-disruption** (M4-α drags lascannon teams off firing lines, gated

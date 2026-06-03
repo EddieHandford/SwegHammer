@@ -1978,6 +1978,33 @@ def _m4_enabled() -> bool:
     return __import__("os").environ.get("SWEG_M4", "0") == "1"
 
 
+# M4-α refinement (wave 131) — gunline-disruption exemption. The wave-130 N=80
+# regression was dominated by Astra Militarum (gated +6.25): the cluster pull was
+# dragging OC-carrying HEAVY-WEAPON models (lascannon teams) off their firing
+# lines onto markers. A real gunline holds objectives with cheap bodies and keeps
+# its heavy guns firing. So a model that would FORGO PRODUCTIVE SHOOTING — it has
+# meaningful ranged output AND an enemy in weapon range to hit — is left on its
+# firing position. This naturally splits a squad: cheap troopers (low output)
+# mass on the marker, the lascannon model (high output, target in range) keeps
+# shooting. Even-handed (universal output + range, no faction branch); faithful
+# regardless of metric (wrong-way test).
+_M4_SHOOTER_MIN_OUTPUT = 2.0   # per-model ranged DPA above a lasgun trooper (~0.5), at a heavy weapon (~3+)
+
+
+def _m4_is_productive_shooter(unit, enemy_alive) -> bool:
+    """True if `unit` has meaningful ranged output AND an enemy within its
+    weapon range — it should hold its firing line, not be massed onto a marker."""
+    p = unit.profile
+    ranged_out = (p.attacks or 0) * (p.hit_probability or 0.0) \
+        * (p.weapon_damage_per_shot or 0.0)
+    if ranged_out < _M4_SHOOTER_MIN_OUTPUT:
+        return False
+    rng = p.range_inches or 0.0
+    if rng <= 0.0:
+        return False
+    return any(_dist(unit.position, e.position) <= rng for e in enemy_alive)
+
+
 def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
     """M4-α: a model carrying Objective Control that is NEAR a marker but not
     yet tight on it genuinely MOVES to a clustered on-marker slot inside the 3"
@@ -2000,6 +2027,11 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
     for e in enemy_alive:
         if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE:
             return None
+    # Gunline-disruption exemption (wave 131): a model forgoing PRODUCTIVE
+    # shooting (meaningful output + a target in range) holds its firing line — a
+    # real gunline sends cheap bodies to the objective, not its heavy weapons.
+    if _m4_is_productive_shooter(unit, enemy_alive):
+        return None
     PULL_IN = 6.0          # only tighten models already committed near a marker
     INNER = 1.5            # already tight on the centre — no move needed
     in_range = [

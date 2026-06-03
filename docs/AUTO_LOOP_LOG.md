@@ -4,6 +4,34 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 131 (2026-06-03) — M4-α gunline refinement (exempt productive shooters) RE-RUN N=80: it RECOVERED the over-shooters but KILLED the IK fix → the board-control fix and the frozen-under inflation are INSEPARABLE. The anti-Knight package WASHES at N=80 (representation floor). VERDICT: report the floor + the WIN-vs-wash decision to the user; keep all gated default-OFF; no further metric-chasing
+
+Built the gunline-disruption refinement: `_m4_is_productive_shooter` exempts a model with meaningful ranged
+output AND a target in weapon range from the cluster pull (a gunline holds objectives with cheap bodies, not its
+heavy weapons). Even-handed, faithful, 9 M4 tests + strategy suite green, OFF byte-identical. Re-ran the full
+stack at N=80.
+
+**N=80 refined full stack: gated 4.13** (baseline 3.83 = +0.30 regression; unrefined 4.16 = negligible Δ). Per
+faction: Imperial Knights +16.1 → **+24.9 (IK FIX LOST)**, Drukhari +16.2 → **+11.1 (recovered)**, Chaos Knights
+−10.5 → −4.8 (recovered), Astra −16.3 → −15.1 (**+1.2 only** — so Astra was NOT mainly gunline-disruption, my
+wave-130 hypothesis is FALSIFIED), Daemons −3.9 → −5.2, World Eaters +9.6 → +7.9. Band 4 → 6.
+
+**THE FINDING — the IK-fix and the frozen-under inflation are INSEPARABLE.** M4-α's board-control massing is
+exactly what out-holds the Knight (fixes IK); exempting "productive shooters" exempts the very opponent models
+that were massing to contest the Knight, so over-shooter recovery and the IK fix TRADE OFF. A uniform faithful
+board-control mechanic cannot fix IK without inflating other body armies (frozen-under); capturing only the good
+half would be a knob. **This is the representation FLOOR the wave-93 plan anticipated.**
+
+**VERDICT: the anti-Knight package WASHES at N=80 (+0.30 refined / +0.33 unrefined).** The board-control fix is
+REAL + faithful (it genuinely halves the two biggest residuals — IK +25→+16, Daemons −9→−4 in the unrefined
+stack) but inseparable from frozen-under inflation. Per the user's pre-agreed §7 criteria, WASHES → report the
+floor + STOP, no knob, no re-fit, no further metric-chasing refinement (the "exempt-only-on-killable-target"
+idea is a slippery 3rd iteration — flagged to the watchdog, NOT pursued autonomously). **All components stay
+gated default-OFF.** Surfacing to the user the watchdog's nuance: the UNREFINED stack CAN halve the two biggest
+residuals IF the user accepts the aggregate-regression cost (the over-shooter residuals — Drukhari/WE over-rated
+for non-board-control reasons — become the next diagnosis); the worker's faithful default is floor-reported,
+gated-OFF. LOOP_QA wave-131. Per-faction representation work is genuinely exhausted as an aggregate lever.
+
 ## Wave 130 (2026-06-03) — full-stack A/B + ablations (component 3 = existing `SWEG_FOCUS`). N=40 LANDED (4.34→4.03) but N=80 REVERSED it (3.83→4.16, +0.33 regression) — the N=40 move was NOISE. The package ROBUSTLY fixes the targets (IK −9, Daemons −5.4 at N=80) but regresses the aggregate, DOMINATED by the Astra gunline-disruption (fixable artifact, +6.25 gated)
 
 Component 3 needed no build (`SWEG_FOCUS` = the wave-79 army focus-fire layer, confirmed present). Ran the

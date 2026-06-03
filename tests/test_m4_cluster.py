@@ -43,6 +43,18 @@ class M4GateTests(unittest.TestCase):
         self.assertTrue(_m4_enabled())
 
 
+def _u(pos, *, attacks=0, hit=0.0, dmg=0.0, rng=0.0):
+    """Unit stand-in with a profile carrying just the ranged fields the
+    gunline-disruption exemption reads. Defaults = a non-shooter (zero output)."""
+    return SimpleNamespace(
+        position=pos,
+        profile=SimpleNamespace(
+            attacks=attacks, hit_probability=hit,
+            weapon_damage_per_shot=dmg, range_inches=rng,
+        ),
+    )
+
+
 class M4ClusterIntentTests(unittest.TestCase):
     """The clustering heuristic gates (helper is gate-independent; the gate is
     checked at the pick_move_intent call site)."""
@@ -50,7 +62,7 @@ class M4ClusterIntentTests(unittest.TestCase):
     def test_near_marker_oc_model_clusters_into_band(self):
         m = _map()
         # 4" from the centre — in the 3"-6" strand band, OC not scoring.
-        unit = SimpleNamespace(position=(34.0, 30.0))
+        unit = _u((34.0, 30.0))
         res = _m4_cluster_intent(unit, 2, [], m.objectives, m)
         self.assertIsNotNone(res)
         slot, intent = res
@@ -62,12 +74,12 @@ class M4ClusterIntentTests(unittest.TestCase):
 
     def test_already_tight_no_move(self):
         m = _map()
-        unit = SimpleNamespace(position=(31.0, 30.0))   # 1" from centre
+        unit = _u((31.0, 30.0))   # 1" from centre
         self.assertIsNone(_m4_cluster_intent(unit, 2, [], m.objectives, m))
 
     def test_zero_oc_model_not_repositioned(self):
         m = _map()
-        unit = SimpleNamespace(position=(34.0, 30.0))
+        unit = _u((34.0, 30.0))
         self.assertIsNone(
             _m4_cluster_intent(unit, 0, [], m.objectives, m),
             "A 0-OC support model contributes no Objective Control, so it is "
@@ -76,7 +88,7 @@ class M4ClusterIntentTests(unittest.TestCase):
 
     def test_locked_in_melee_no_move(self):
         m = _map()
-        unit = SimpleNamespace(position=(34.0, 30.0))
+        unit = _u((34.0, 30.0))
         enemy = SimpleNamespace(position=(34.4, 30.0))   # within Engagement Range
         self.assertIsNone(
             _m4_cluster_intent(unit, 2, [enemy], m.objectives, m),
@@ -85,11 +97,35 @@ class M4ClusterIntentTests(unittest.TestCase):
 
     def test_far_from_any_marker_no_move(self):
         m = _map()
-        unit = SimpleNamespace(position=(50.0, 30.0))   # 20" away
+        unit = _u((50.0, 30.0))   # 20" away
         self.assertIsNone(
             _m4_cluster_intent(unit, 2, [], m.objectives, m),
             "Only models already committed near a marker (<=6\") tighten in; a "
             "distant unit is not dragged across the board.",
+        )
+
+    def test_productive_shooter_holds_firing_line(self):
+        # Wave 131 gunline-disruption exemption: a heavy-weapon model near a
+        # marker with a target in range is NOT dragged onto the objective.
+        m = _map()
+        heavy = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=48.0)  # lascannon
+        enemy = SimpleNamespace(position=(45.0, 30.0))   # 11" away, in range
+        self.assertIsNone(
+            _m4_cluster_intent(heavy, 2, [enemy], m.objectives, m),
+            "A productive shooter (meaningful output + target in range) holds "
+            "its firing line — a real gunline sends cheap bodies, not its guns.",
+        )
+
+    def test_cheap_trooper_still_massed(self):
+        # A lasgun trooper (low output) near the same marker still tightens in —
+        # cheap bodies hold the objective.
+        m = _map()
+        trooper = _u((34.0, 30.0), attacks=1, hit=0.5, dmg=1.0, rng=24.0)  # lasgun ~0.5 output
+        enemy = SimpleNamespace(position=(45.0, 30.0))
+        res = _m4_cluster_intent(trooper, 2, [enemy], m.objectives, m)
+        self.assertIsNotNone(
+            res, "A low-output trooper is not a gunline piece — it masses on "
+            "the marker even with an enemy in lasgun range.",
         )
 
 
