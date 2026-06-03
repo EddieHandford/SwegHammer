@@ -1,16 +1,21 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 149 (2026-06-03) — T'au MARKERLIGHTS base buff CLOSES T'au's under-shoot. The base army-rule
-buff (+1 Ballistic Skill + [SUSTAINED HITS 1] vs Guided targets) was UNMODELLED — the marked status was populated every
-round but only the Mont'ka detachment's lethal-hits consumed it. Wired both halves at the hit-modifier + sustained
-accumulators in `Unit.attack` (stacks with Mont'ka, no double-count); BSData-verified, stale citation updated.
-**N=40 A/B: T'au 49.9 → 54.1 (−4.4 → −0.2, gated 0.18 → 0.00, IN BAND ~on target 54.3), headline 4.23 → 4.15.** The
-best under-shooter close since Relentless Onslaught + the faction fix — a genuinely-unmodelled faithful rule. KEPT;
-1119 tests green. (Uncommitted at this header write → committed same wave.) Running tally of the abilities dive
-(waves 144-149): faithful wins = Necrons Relentless Onslaught, Daemons faction-fix, AdMech Machine Vengeance (+0.04),
-**T'au markerlights (−0.08)**; dead-ends handled honestly = CSM Dark Pacts (over-modelled, holistic #52), AdMech leader
-auras (neutral). NEXT: confirm T'au at N=80; then CSM holistic (#52) or the over-shooter cluster diagnosis (WE +14.7).
-[Wave 148 detail below.]
+**Last updated:** Wave 149 (2026-06-03, N=80 CONFIRMED) — **N=80 gated MAE 3.90** (`data/wf_wave149_postdive_n80.txt`),
+down from the 4.09 N=80 baseline before this stretch's wins. The abilities dive (waves 144-149) net-closed ~0.19 at N=80
+on top of the P0 fixes (which took it ~4.55→4.09). **T'au markerlights HELD at N=80** (−8.5 → −5.2, gated 4.30 → 0.95 —
+the base +1 BS + [SUSTAINED HITS 1] vs Guided buff was genuinely unmodelled; committed `e980bf4`). **AdMech abilities
+WASHED at N=80** (−12.2 → −12.6 — the N=40 Machine Vengeance +1.0 was noise; AdMech's −12.6 is confirmed STRUCTURAL, not
+abilities — the AdMech abilities dive is exhausted). Abilities-dive tally: faithful wins = Necrons Relentless Onslaught,
+Daemons faction-fix, T'au markerlights; modest/neutral = AdMech Machine Vengeance (kept, reusable substrate) + leader
+auras (kept fidelity); dead-end handled honestly = CSM Dark Pacts (over-modelled → holistic #52).
+
+**Honest N=80 landscape (3.90), biggest actionable gated errors:** IK 26.82 (representation floor) · **World Eaters
+10.00** · **AdMech 8.42** (structural) · CSM 6.63 · **Votann 6.61** · Drukhari 5.40 · Tyranids 4.27 · Sororitas 4.05 ·
+Necrons 3.18. **The OVER-shooter cluster (WE/Votann/Drukhari/Sororitas/Tyranids ~30 gated pts combined) now dominates
+the remaining actionable error** — the highest-leverage remaining direction is the over-shooter DIAGNOSIS (are any
+over-MODELLED, like CSM Dark Pacts was? if so, removing faithfully LOWERS them). NEXT: diagnose World Eaters +13.4
+(Blessings of Khorne / Blood Tithe / Berzerker abilities / detachment for an over-model), then Votann; CSM holistic
+(#52) remains the biggest under-shooter lever. [Wave 148 detail below.]
 
 **Wave 148 — AdMech MACHINE VENGEANCE lands (the watchdog's top AdMech lever):
 Belisarius Cawl's per-target designation (army-wide re-roll Hit vs one designated enemy while Cawl alive), built by
