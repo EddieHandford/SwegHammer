@@ -8875,9 +8875,14 @@ class Battle:
         Gate unset (or not "1") → no-op: no Command Point spent, no flag set, no
         random draws, so the OFF path is byte-identical to the baseline.
         """
-        # Env gate — unset / not "1" reproduces the baseline exactly. Checked
-        # first so the OFF path does no work at all.
-        if __import__("os").environ.get("SWEG_GTG") != "1":
+        # Env gate — FLIPPED to default-ON (wave 155, user-authorised fidelity-
+        # first baseline): Go To Ground is a faithful universal core 10e
+        # stratagem (audited wave 154 — 1 CP, INFANTRY-only, 6++ + Benefit of
+        # Cover, even-handed), so the HONEST baseline runs it. Suppressing it
+        # flattered the headline by ~0.15 (the over-shooter infantry exploit it
+        # too — the representation floor). Disable only by explicitly setting
+        # SWEG_GTG=0 (retained for A/B / debugging).
+        if __import__("os").environ.get("SWEG_GTG", "1") == "0":
             return
         if shoot_target is None or not getattr(shoot_target, "is_alive", False):
             return
@@ -8944,9 +8949,14 @@ class Battle:
         the minimum-expected-wounds threshold, the Command Point is NOT spent
         (no wasted overwatch). Cited as `simulator.fire_overwatch`.
         """
-        # Env gate — unset / not "1" reproduces the baseline exactly. Checked
-        # first so the OFF path does no work at all.
-        if __import__("os").environ.get("SWEG_OVERWATCH") != "1":
+        # Env gate — FLIPPED to default-ON (wave 155, user-authorised fidelity-
+        # first baseline): Fire Overwatch is a faithful universal core 10e
+        # stratagem (audited wave 154 — 1 CP, once-per-round-per-army,
+        # unmodified-6s-only, both sides, only the moving/charging target), so
+        # the HONEST baseline runs it. Suppressing it flattered the headline
+        # (the durable Knights overwatch hard — the representation floor).
+        # Disable only by explicitly setting SWEG_OVERWATCH=0 (retained for A/B).
+        if __import__("os").environ.get("SWEG_OVERWATCH", "1") == "0":
             return
         if enemy_unit is None or not getattr(enemy_unit, "is_alive", False):
             return

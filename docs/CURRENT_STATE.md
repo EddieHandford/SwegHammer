@@ -1,6 +1,19 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 154 (2026-06-03) — CORE-MECHANIC AUDIT: the 3.90 baseline is itself slightly UN-faithful. Fire
+**Last updated:** Wave 155 (2026-06-03) — HONEST RE-BASE: Fire Overwatch + Go To Ground FLIPPED to default-ON
+(user-authorised fidelity-first baseline; audited faithful wave 154). **New honest N=80 baseline: gated MAE 4.17, 9/22
+in band (UP from 6)** (`data/wf_wave155_honest_baseline_n80.txt`) — the prior 3.90 was FLATTERED by suppressing two
+universal core mechanics. This is an honest RE-BASE, not a regression: the distribution is MORE accurate (3 more
+factions correctly placed); the MAE rose only because the already-out-of-band Knights widen under faithful Overwatch
+(IK 28.82, Chaos Knights 9.40). **4.17 is the new reference baseline for all rebuild A/Bs.** Gate semantics:
+`SWEG_OVERWATCH`/`SWEG_GTG` now default-ON, disable via explicit `=0`. 1119 tests green. AdMech diagnostic: archetype
+MISSING Kastelan Robots + Hastarii (durable anchors — list-fidelity gap, held for after the rebuild); the N=40
+AdMech-GtG improvement WASHED at N=80 (AdMech −12.2). **NEXT: the squad rebuild (user's Q11=(c) authorised positional
+re-model) on the honest 4.17 baseline** — the systemic lever for the IK + over-shooter representation floor. The
+per-faction faithful-rule dive remains complete; this re-base + the rebuild are the remaining structural levers.
+[Wave 154 audit detail below.]
+
+**Wave 154 — CORE-MECHANIC AUDIT: the 3.90 baseline is itself slightly UN-faithful. Fire
 Overwatch (`SWEG_OVERWATCH`) + Go To Ground (`SWEG_GTG`) are BOTH faithfully implemented (audited vs 10e — 1 CP, correct
 triggers/restrictions, even-handed) but suppressed default-OFF. **Both-on A/B regresses (N=40 4.15 → 4.29; GtG-alone
 4.30)** because the OVER-RATED armies exploit them: Fire Overwatch inflates the durable Knights (big-gun 6s-overwatch;

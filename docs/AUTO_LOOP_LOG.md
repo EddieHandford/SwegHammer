@@ -4,6 +4,35 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 154-155 (2026-06-03) — CORE-MECHANIC AUDIT + user-authorised FLIP: Fire Overwatch + Go To Ground are faithful → default-ON. HONEST re-base 3.90 → N=80 gated 4.17 (9/22 in band, up from 6)
+
+The watchdog's queued core-mechanic re-eval, which outranked another micro-ability because it asks whether the
+BASELINE itself is faithful. **Audit verdict (wave 154): both `SWEG_OVERWATCH` and `SWEG_GTG` are FAITHFULLY
+implemented** (Overwatch: 1 CP, once-per-round-per-army, unmodified-6s-only, both sides, only the moving/charging
+target; GtG: 1 CP, INFANTRY-only, 6++ + Benefit of Cover, even-handed — 10e has no Normal-Move restriction, so the sim
+is correct). No bug. But both were gated default-OFF, so the 3.90 baseline was missing two universal core mechanics.
+
+A/B (N=40, OFF 4.15): both-on 4.29, GtG-alone 4.30 — both REGRESS, because the OVER-RATED armies exploit the faithful
+mechanics (Fire Overwatch: durable Knights overwatch hard on 6s, Chaos Knights +6.3→+13.9; GtG: infantry over-shooters
+GtG their bodies, WE +14.7→+17.7). So the 3.90 was FLATTERED by suppressing them — the 5th+6th line of evidence for
+the per-model representation floor.
+
+**Wave 155 — FLIPPED both to default-ON (user pre-authorised fidelity-first baseline; the audit was the only
+condition).** `os.environ.get("SWEG_X", "1") == "0"` — default-ON, disable only via explicit `=0` (retained for A/B).
+Two stale gate-off tests updated to the new explicit-disable semantics. **HONEST N=80 re-base: gated 3.90 → 4.17, 9/22
+in band (UP from 6)** (`data/wf_wave155_honest_baseline_n80.txt`). This is an honest RE-BASE, NOT a regression — the
+distribution is MORE accurate (3 more factions correctly placed); the MAE rose only because the already-out-of-band
+Knights widened (IK 28.82, Chaos Knights 9.40 — Overwatch). Flipping faithful core mechanics ON is the OPPOSITE of
+metric-tuning (it raises the headline). 4.17 is the new reference baseline for all rebuild A/Bs. Audit clean, 1119
+tests green, run.py exit 0.
+
+**AdMech diagnostic (wave 155):** the archetype is MISSING Kastelan Robots (T9 W7 2+/5++, the durable anchor) + Hastarii
+— a real list-fidelity gap (held for after the rebuild per the watchdog). NB the N=40 AdMech-GtG improvement
+(−12.6→−7) WASHED at N=80 (AdMech −12.2 unchanged) — so that infantry-fragility lead is weaker than N=40 showed.
+
+**NEXT: the squad rebuild (the user's authorised Q11=(c) positional re-model) on the honest 4.17 baseline** — the
+systemic lever for the IK + over-shooter representation floor.
+
 ## Wave 150-153 (2026-06-03) — OVER-SIDE diagnosis CONCLUSIVE: the over-shooter cluster is the per-model REPRESENTATION FLOOR. WE rule-audit (clean), CSM holistic re-scoped (needs infra), kiting counter-play A/B REGRESSED (backfires). Path below 3.90 = the systemic user-fork
 
 Four waves working the over-side per the watchdog's "diagnose, don't knob" pivot. **Conclusion (4 independent lines

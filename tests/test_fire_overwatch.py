@@ -355,8 +355,11 @@ class OverwatchGateOffTests(unittest.TestCase):
     does today and no Command Point is spent."""
 
     def setUp(self):
+        # Fire Overwatch is default-ON (wave-155 fidelity-first flip); the OFF
+        # path is now reached by explicitly setting SWEG_OVERWATCH=0, not by
+        # unsetting (an unset var now means ON).
         self._saved = os.environ.get("SWEG_OVERWATCH")
-        os.environ.pop("SWEG_OVERWATCH", None)
+        os.environ["SWEG_OVERWATCH"] = "0"
 
     def tearDown(self):
         if self._saved is None:

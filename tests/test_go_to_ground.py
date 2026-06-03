@@ -148,14 +148,19 @@ class GoToGroundDecisionTests(unittest.TestCase):
             os.environ.pop("SWEG_GTG", None)
 
     def test_no_op_when_gate_off(self):
-        os.environ.pop("SWEG_GTG", None)
-        defender = _build_squad_army("Def", _fragile_infantry(), n=5, cp=3)
-        atk = Army("Atk")
-        atk.add_unit(_ap_gun(attacks=12))
-        battle = self._battle(defender, atk)
-        battle._maybe_go_to_ground(defender, defender.units[0], atk.units[0])
-        self.assertFalse(defender.units[0].go_to_ground_active)
-        self.assertEqual(defender.command_points, 3)
+        # Go To Ground is default-ON (wave-155 fidelity-first flip); the OFF
+        # path is now reached by explicitly setting SWEG_GTG=0, not by unsetting.
+        os.environ["SWEG_GTG"] = "0"
+        try:
+            defender = _build_squad_army("Def", _fragile_infantry(), n=5, cp=3)
+            atk = Army("Atk")
+            atk.add_unit(_ap_gun(attacks=12))
+            battle = self._battle(defender, atk)
+            battle._maybe_go_to_ground(defender, defender.units[0], atk.units[0])
+            self.assertFalse(defender.units[0].go_to_ground_active)
+            self.assertEqual(defender.command_points, 3)
+        finally:
+            os.environ.pop("SWEG_GTG", None)
 
     def test_no_op_on_non_infantry(self):
         os.environ["SWEG_GTG"] = "1"
