@@ -541,6 +541,11 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # legacy chaff-selection / still-alive scoring byte-for-byte. See
     # data/rule_citations.d/secondary_dedication.json.
     "simulator.secondary_action_cost",
+    # Wave 136 — squad-granularity WHOLLY-WITHIN for Engage / Behind Enemy Lines
+    # (user catch): a codex squad counts for a quarter / the enemy DZ only when
+    # ALL its models qualify, correcting the one-Unit-per-model over-credit.
+    # Env-gated SWEG_SECONDARY; OFF keeps the legacy per-model check.
+    "simulator.secondary_wholly_within",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.

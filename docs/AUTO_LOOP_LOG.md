@@ -4,6 +4,27 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 136 (2026-06-03) — WHOLLY-WITHIN squad-granularity fix for Engage/BEL (user catch) — completes the authentic secondary; faithful + FAVOURS the compact Knight (reinforces position cards aren't the Knight-penalty)
+
+User catch (watchdog 2590): real Engage/BEL score for units WHOLLY WITHIN a quarter (>6" from centre) / the
+enemy DZ; the sim's `score_position_delta` used an "any model inside" check → the one-Unit-per-model
+representation OVER-credited (a spread squad registered in several quarters via different models, never paying the
+straddle penalty). Fixed `score_position_delta` (gated `SWEG_SECONDARY`): group by `squad_id`, count a quarter
+only when ALL a squad's models are wholly within ONE quarter AND >6" from centre (straddling squad → no quarter);
+BEL counts a unit only when ALL its models are wholly within the enemy DZ. Even-handed, emergent; cited
+`simulator.secondary_wholly_within`; 57 tests green; OFF byte-identical. **N=40: deck+secondary 4.04 → 3.97**
+(within noise) with **IK +26.8 UNCHANGED** — confirms it FAVOURS the compact Knight (a 1-model Knight is
+trivially wholly-within), so it does NOT penalise the Knight; the rules-clean low-unit penalty stays the Action
+cards. The authentic secondary economy is now COMPLETE + faithful, gated default-OFF.
+
+**NEXT PHASE (user directive, watchdog 2609): the MULTI-METRIC FIDELITY REVIEW.** Shift calibration from
+win-rate-only to the underlying dynamics — instrument turn-by-turn PRIMARY/SECONDARY VP, kill counts, survivors,
+rounds, tabling, points; compare to real data; analyze + explain divergence; build fixes (usual loop). The
+WATCHDOG LEADS (instrument + compare + analyze); the worker builds the fixes. CRUX = real-data sourcing
+(win rates from Warp Friends; VP-splits / turn-by-turn / kills need sourcing — Woehammer / Goonhammer / Stat
+Check, via the user). Memory `project-multi-metric-fidelity-review`. The anti-Knight package conclusion stands
+(representation floor). LOOP_QA wave-136.
+
 ## Wave 135 N=80 VERDICT (2026-06-03) — the AUTHENTIC secondary does NOT fix the Knight (IK +26.6 unchanged); the two halves FIGHT not stack (combined 4.41 > either alone). The ENTIRE anti-Knight package is EXHAUSTED faithfully — the Knight over-rate is a REPRESENTATION FLOOR
 
 **N=80 (decisive):**

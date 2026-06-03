@@ -598,21 +598,60 @@ def score_position_delta(
         enemy_dz_lo = 0.0
         enemy_dz_hi = map_.deployment_width
 
-    for u in own_units:
-        if u.current_health <= 0:
-            continue
-        pos = getattr(u, "position", None)
-        if pos is None:
-            continue
-        ux, uy = pos
-        # Quadrant detection: (low-x, low-y) = SW, (high-x, low-y) = SE,
-        # (low-x, high-y) = NW, (high-x, high-y) = NE.
-        qx = 0 if ux < cx else 1
-        qy = 0 if uy < cy else 1
-        quadrants_occupied.add((qx, qy))
-        # Enemy DZ check (count units for the CA-2025-26 BEL 1-vs-2+ tier).
-        if enemy_dz_lo <= uy <= enemy_dz_hi:
-            enemy_dz_count += 1
+    import os as _os
+    if _os.environ.get("SWEG_SECONDARY") == "1":
+        # Wave 136 (user catch) — squad-granularity WHOLLY-WITHIN. Real Engage
+        # scores a quarter only for a unit WHOLLY WITHIN it and >6" from board
+        # centre; real Behind Enemy Lines only for a unit WHOLLY WITHIN the enemy
+        # deployment zone. The one-Unit-per-model representation OVER-credits with
+        # an "any model inside" check (a spread codex squad registers in several
+        # quarters via different models, never paying the straddle penalty). Group
+        # models by `squad_id` and require ALL of a squad's models to qualify; a
+        # straddling squad counts for NO quarter. Even-handed (favours a compact
+        # unit — emergent, no faction branch); cited `simulator.secondary_wholly_within`.
+        from collections import defaultdict as _dd
+        _squads = _dd(list)
+        for u in own_units:
+            if u.current_health <= 0:
+                continue
+            pos = getattr(u, "position", None)
+            if pos is None:
+                continue
+            sid = getattr(u, "squad_id", -1)
+            key = sid if (sid is not None and sid >= 0) else ("lone", id(u))
+            _squads[key].append(pos)
+        for _positions in _squads.values():
+            _quarters = set()
+            _all_beyond_centre = True   # all models >6" from centre (Engage)
+            _all_in_enemy_dz = True     # all models wholly within the enemy DZ (BEL)
+            for (ux, uy) in _positions:
+                _quarters.add((0 if ux < cx else 1, 0 if uy < cy else 1))
+                if (ux - cx) ** 2 + (uy - cy) ** 2 <= 36.0:   # within 6" of centre
+                    _all_beyond_centre = False
+                if not (enemy_dz_lo <= uy <= enemy_dz_hi):
+                    _all_in_enemy_dz = False
+            # Engage: the squad is wholly within ONE quarter and clear of centre.
+            if len(_quarters) == 1 and _all_beyond_centre:
+                quadrants_occupied.add(next(iter(_quarters)))
+            # BEL: count one unit (not per-model) only if wholly within the DZ.
+            if _all_in_enemy_dz:
+                enemy_dz_count += 1
+    else:
+        for u in own_units:
+            if u.current_health <= 0:
+                continue
+            pos = getattr(u, "position", None)
+            if pos is None:
+                continue
+            ux, uy = pos
+            # Quadrant detection: (low-x, low-y) = SW, (high-x, low-y) = SE,
+            # (low-x, high-y) = NW, (high-x, high-y) = NE.
+            qx = 0 if ux < cx else 1
+            qy = 0 if uy < cy else 1
+            quadrants_occupied.add((qx, qy))
+            # Enemy DZ check (count units for the CA-2025-26 BEL 1-vs-2+ tier).
+            if enemy_dz_lo <= uy <= enemy_dz_hi:
+                enemy_dz_count += 1
 
     # LC-2: gate Engage / BEL behind the per-round tactical-secondary
     # draw. Each side scores AT MOST ONE per round (the secondary that's

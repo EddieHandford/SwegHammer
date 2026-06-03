@@ -1,6 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 135 N=80 VERDICT (2026-06-03) — **the ENTIRE anti-Knight package (waves 123-135) is
+**Last updated:** Wave 136 (2026-06-03) — WHOLLY-WITHIN squad-granularity fix for Engage/BEL (user catch)
+completes the authentic secondary: `score_position_delta` (gated `SWEG_SECONDARY`) now counts a quarter only
+when ALL a squad's models are wholly within it + >6" from centre (BEL: wholly within enemy DZ), correcting the
+one-Unit-per-model over-credit. Faithful, even-handed, FAVOURS the compact Knight (N=40 deck+secondary 4.04 →
+3.97, IK +26.8 unchanged) — reinforces that position cards aren't the Knight-penalty. Cited; 57 tests green; OFF
+byte-identical. **NEXT PHASE (user directive): the MULTI-METRIC FIDELITY REVIEW** (turn-by-turn primary/secondary
+VP, kills, survivors, tabling vs real data; watchdog-led, worker builds fixes; memory
+`project-multi-metric-fidelity-review`). The anti-Knight package conclusion stands (representation floor). LOOP_QA
+wave-136.
+
+**Wave 135 N=80 VERDICT** — **the ENTIRE anti-Knight package (waves 123-135) is
 EXHAUSTED faithfully.** N=80: deck+authentic-secondary 3.55 with IK +26.6 UNCHANGED (the secondary does NOT fix
 the Knight — hypothesis REFUTED); combined (M4+secondary) 4.41, WORSE than either half (M4's frozen-under
 dominates + the two fight over spare units). Built to the rules, NEITHER board control (M4, regresses) NOR the
