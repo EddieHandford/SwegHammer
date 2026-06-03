@@ -4,6 +4,34 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 132 (2026-06-03) — CORRECTED the gunline exemption to the watchdog's NARROW rails (move-costs-a-shot, pull hold-and-shoot). N=80 confirms the PRIMARY-half inseparability on the correct rails: IK fix KEPT (+17.0) but NO aggregate gain (4.26); Astra is FROZEN-UNDER not gunline-disruption. PIVOT to the SECONDARY economy (the package's other half) per the watchdog's sequence
+
+The watchdog's wave-130 N=80 review (seen only after wave 131) gave NARROWER exemption rails than my wave-131
+blanket version: exempt a model from the cluster-pull ONLY when moving onto the marker would COST a productive
+shot (target in range now, out of range from the marker) — a HOLD-AND-SHOOT model (target in range from the
+marker too) is STILL pulled. Rebuilt `_m4_move_costs_a_shot` to those rails; 11 M4 tests (hold-and-shoot,
+move-costs-a-shot, no-target, cheap-trooper) + strategy suite green; OFF byte-identical.
+
+**N=80 narrow exemption: gated 4.26** (baseline 3.83; unrefined 4.16; broad-w131 4.13). IK +17.0 (FIX KEPT —
+hold-and-shoot models still mass vs the unkillable Knight), Daemons −4.0 (fixed), BUT Astra −17.3 (WORSE),
+Drukhari +16.0 / World Eaters +10.1 / Chaos Knights −10.1 (all still inflated). Band 4/22.
+
+**The three exemption versions triangulate the SAME conclusion — the IK fix and the frozen-under inflation are
+INSEPARABLE:** broad exemption recovers the over-shooters but LOSES IK; narrow exemption KEEPS IK but recovers
+NOTHING. And **Astra's regression is FROZEN-UNDER, not gunline-disruption** (broad recovered it only +1.2, narrow
+made it worse) — M4-α's blunt board-control buff helps Astra's TOUGHER body-army opponents mass more than fragile
+Astra does. The faithful primary half regresses +0.43 (the `project-ai-frozen-under-mae-first` law: faithful AI
+makes the metric worse because the over-massing was compensating). **The board-control representation is
+exhausted as a PRIMARY-VP lever** (now confirmed on the watchdog's own rails). Kept the narrow exemption (most
+faithful, watchdog's rails) gated default-OFF.
+
+**PIVOT per the watchdog's SEQUENCE:** the primary half is only HALF the anti-Knight work. **NEXT (wave 133+):
+build the SECONDARY ECONOMY** — the user's authorised authenticity directive + the 3 layers (action-cost,
+DELIBERATE-DEDICATION scoring, end-of-your-turn timing; task #44). The user's hypothesis: the secondary half is
+what makes the few-units weakness BITE (a 5-6-unit Knight can't spare units to dedicate to held cards). THEN the
+combined test (M4-narrow + full-secondary), ablated, N=40→N=80, per-faction secondary-VP. Plan-first the
+secondary build (watchdog scrutinises vs the 3 authenticity layers). LOOP_QA wave-132.
+
 ## Wave 131 (2026-06-03) — M4-α gunline refinement (exempt productive shooters) RE-RUN N=80: it RECOVERED the over-shooters but KILLED the IK fix → the board-control fix and the frozen-under inflation are INSEPARABLE. The anti-Knight package WASHES at N=80 (representation floor). VERDICT: report the floor + the WIN-vs-wash decision to the user; keep all gated default-OFF; no further metric-chasing
 
 Built the gunline-disruption refinement: `_m4_is_productive_shooter` exempts a model with meaningful ranged

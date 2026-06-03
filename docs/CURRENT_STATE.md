@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 131 (2026-06-03) — **VERDICT: the anti-Knight package WASHES at N=80** (representation
+**Last updated:** Wave 132 (2026-06-03) — corrected the gunline exemption to the watchdog's NARROW rails
+(move-costs-a-shot; pull hold-and-shoot). N=80 confirms the PRIMARY-half inseparability on the correct rails: IK
+fix KEPT (+17.0) but NO aggregate gain (gated 4.26 vs baseline 3.83); Astra is FROZEN-UNDER not gunline-
+disruption (exemption can't recover it). The 3 exemption versions triangulate: broad loses IK, narrow keeps IK
+but recovers nothing → **board-control is exhausted as a PRIMARY-VP lever.** Narrow exemption kept (faithful,
+gated default-OFF). **PIVOT (watchdog sequence): build the SECONDARY ECONOMY** (user's authenticity directive #44
+— action-cost + DELIBERATE-DEDICATION scoring + per-turn timing), the package's OTHER half; the user's
+hypothesis is the secondary half makes the few-units weakness bite. Plan-first wave 133. LOOP_QA wave-132.
+
+**Wave 131** — **VERDICT: the anti-Knight package WASHES at N=80** (representation
 floor). The M4-α gunline refinement (exempt productive shooters) RECOVERED the over-shooters (Drukhari
 +16.2→+11.1, Chaos Knights recovered) but KILLED the IK fix (+16.1→+24.9) — **the board-control fix and the
 frozen-under inflation are INSEPARABLE** (exempting the shooters exempts the very models massing to contest the

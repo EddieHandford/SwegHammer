@@ -104,28 +104,48 @@ class M4ClusterIntentTests(unittest.TestCase):
             "distant unit is not dragged across the board.",
         )
 
-    def test_productive_shooter_holds_firing_line(self):
-        # Wave 131 gunline-disruption exemption: a heavy-weapon model near a
-        # marker with a target in range is NOT dragged onto the objective.
-        m = _map()
-        heavy = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=48.0)  # lascannon
-        enemy = SimpleNamespace(position=(45.0, 30.0))   # 11" away, in range
+    def test_move_costs_a_shot_exempts(self):
+        # Wave 132: a heavy weapon whose target is in range NOW but OUT of range
+        # from the marker (the move breaks the shot) holds its firing line.
+        m = _map()   # marker at (30, 30)
+        heavy = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=12.0)
+        enemy = SimpleNamespace(position=(44.0, 30.0))   # 10" from heavy (in range), 14" from marker (out)
         self.assertIsNone(
             _m4_cluster_intent(heavy, 2, [enemy], m.objectives, m),
-            "A productive shooter (meaningful output + target in range) holds "
-            "its firing line — a real gunline sends cheap bodies, not its guns.",
+            "A shooter that would LOSE its shot by moving to the marker holds "
+            "its firing line (the move costs a shot).",
+        )
+
+    def test_hold_and_shoot_still_pulled(self):
+        # A long-range gun that can shoot its target FROM the marker too is
+        # pulled — it holds the objective AND keeps firing.
+        m = _map()   # marker at (30, 30)
+        gun = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=48.0)
+        enemy = SimpleNamespace(position=(45.0, 30.0))   # 15" from marker, within 48"
+        self.assertIsNotNone(
+            _m4_cluster_intent(gun, 2, [enemy], m.objectives, m),
+            "A hold-and-shoot model (target in range from the marker) is pulled "
+            "— it both holds and fires, not stranded off the objective.",
+        )
+
+    def test_shooter_with_no_target_pulled(self):
+        m = _map()
+        heavy = _u((34.0, 30.0), attacks=1, hit=0.6, dmg=6.0, rng=12.0)
+        enemy = SimpleNamespace(position=(55.0, 55.0))   # far out of any range
+        self.assertIsNotNone(
+            _m4_cluster_intent(heavy, 2, [enemy], m.objectives, m),
+            "A gun with no eligible target loses nothing by holding — pull it.",
         )
 
     def test_cheap_trooper_still_massed(self):
-        # A lasgun trooper (low output) near the same marker still tightens in —
-        # cheap bodies hold the objective.
+        # A lasgun trooper (low output) near the marker tightens in regardless.
         m = _map()
-        trooper = _u((34.0, 30.0), attacks=1, hit=0.5, dmg=1.0, rng=24.0)  # lasgun ~0.5 output
-        enemy = SimpleNamespace(position=(45.0, 30.0))
-        res = _m4_cluster_intent(trooper, 2, [enemy], m.objectives, m)
+        trooper = _u((34.0, 30.0), attacks=1, hit=0.5, dmg=1.0, rng=24.0)  # ~0.5 output
+        enemy = SimpleNamespace(position=(44.0, 30.0))
         self.assertIsNotNone(
-            res, "A low-output trooper is not a gunline piece — it masses on "
-            "the marker even with an enemy in lasgun range.",
+            _m4_cluster_intent(trooper, 2, [enemy], m.objectives, m),
+            "A low-output trooper is not a gunline piece — it masses on the "
+            "marker even with an enemy in lasgun range.",
         )
 
 

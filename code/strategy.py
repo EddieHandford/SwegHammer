@@ -1978,22 +1978,28 @@ def _m4_enabled() -> bool:
     return __import__("os").environ.get("SWEG_M4", "0") == "1"
 
 
-# M4-α refinement (wave 131) — gunline-disruption exemption. The wave-130 N=80
-# regression was dominated by Astra Militarum (gated +6.25): the cluster pull was
-# dragging OC-carrying HEAVY-WEAPON models (lascannon teams) off their firing
-# lines onto markers. A real gunline holds objectives with cheap bodies and keeps
-# its heavy guns firing. So a model that would FORGO PRODUCTIVE SHOOTING — it has
-# meaningful ranged output AND an enemy in weapon range to hit — is left on its
-# firing position. This naturally splits a squad: cheap troopers (low output)
-# mass on the marker, the lascannon model (high output, target in range) keeps
-# shooting. Even-handed (universal output + range, no faction branch); faithful
-# regardless of metric (wrong-way test).
+# M4-α refinement (wave 131-132) — gunline-disruption exemption. The wave-130
+# N=80 regression included Astra Militarum dragging its heavy-weapon models onto
+# markers. The faithful fix (watchdog rails, wave 132): exempt a model from the
+# cluster-pull ONLY when moving onto the marker would COST it a productive shot —
+# i.e. it has meaningful ranged output AND an eligible target in range NOW, but
+# the marker is OUT of firing range of every target so the move breaks the shot.
+# A model that can HOLD-AND-SHOOT (a target in range from the marker too) is
+# STILL pulled — it both holds the objective and keeps firing. A model with no
+# eligible target, or no gun, or that can shoot from the marker, is pulled. This
+# is NOT a blanket shooter exemption (that strands OC + kills the IK fix, the
+# wave-131 over-broad version); it gates strictly on the move costing a shot.
+# Even-handed (universal output + range, no faction branch; a 1-model Knight is
+# unaffected); wrong-way-test clean (a real player keeps the lascannon firing and
+# holds the marker with spare / chaff / hold-and-shoot bodies).
 _M4_SHOOTER_MIN_OUTPUT = 2.0   # per-model ranged DPA above a lasgun trooper (~0.5), at a heavy weapon (~3+)
 
 
-def _m4_is_productive_shooter(unit, enemy_alive) -> bool:
-    """True if `unit` has meaningful ranged output AND an enemy within its
-    weapon range — it should hold its firing line, not be massed onto a marker."""
+def _m4_move_costs_a_shot(unit, enemy_alive, marker_xy) -> bool:
+    """True if `unit` is a productive shooter with an eligible target in range
+    NOW that it would LOSE by moving onto `marker_xy` (no target in range from
+    the marker). Hold-and-shoot (a target in range from the marker) returns
+    False → the model is pulled."""
     p = unit.profile
     ranged_out = (p.attacks or 0) * (p.hit_probability or 0.0) \
         * (p.weapon_damage_per_shot or 0.0)
@@ -2002,7 +2008,11 @@ def _m4_is_productive_shooter(unit, enemy_alive) -> bool:
     rng = p.range_inches or 0.0
     if rng <= 0.0:
         return False
-    return any(_dist(unit.position, e.position) <= rng for e in enemy_alive)
+    has_shot_now = any(_dist(unit.position, e.position) <= rng for e in enemy_alive)
+    if not has_shot_now:
+        return False
+    has_shot_from_marker = any(_dist(marker_xy, e.position) <= rng for e in enemy_alive)
+    return not has_shot_from_marker
 
 
 def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
@@ -2027,11 +2037,6 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
     for e in enemy_alive:
         if _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE:
             return None
-    # Gunline-disruption exemption (wave 131): a model forgoing PRODUCTIVE
-    # shooting (meaningful output + a target in range) holds its firing line — a
-    # real gunline sends cheap bodies to the objective, not its heavy weapons.
-    if _m4_is_productive_shooter(unit, enemy_alive):
-        return None
     PULL_IN = 6.0          # only tighten models already committed near a marker
     INNER = 1.5            # already tight on the centre — no move needed
     in_range = [
@@ -2044,6 +2049,11 @@ def _m4_cluster_intent(unit, own_oc, enemy_alive, objectives, map_):
     obj, d = min(in_range, key=lambda od: od[1])
     if d <= INNER:
         return None        # already massed on the marker
+    # Gunline-disruption exemption (wave 132, watchdog rails): exempt ONLY if the
+    # move onto THIS marker would cost a productive shot — a hold-and-shoot model
+    # (target in range from the marker too) is still pulled.
+    if _m4_move_costs_a_shot(unit, enemy_alive, (obj.x, obj.y)):
+        return None
     # A cover-rich point WITHIN the 3" scoring band of the marker centre, so the
     # model keeps both its Objective Control and (where available) a cover save.
     slot = _best_nearby_cover_point(map_, (obj.x, obj.y), search_radius=2.0)
