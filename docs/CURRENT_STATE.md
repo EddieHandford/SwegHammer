@@ -1,6 +1,15 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 135 (2026-06-03) — SECONDARY economy REBUILT AUTHENTICALLY (Opus agent `73e30fb`) after
+**Last updated:** Wave 135 N=80 VERDICT (2026-06-03) — **the ENTIRE anti-Knight package (waves 123-135) is
+EXHAUSTED faithfully.** N=80: deck+authentic-secondary 3.55 with IK +26.6 UNCHANGED (the secondary does NOT fix
+the Knight — hypothesis REFUTED); combined (M4+secondary) 4.41, WORSE than either half (M4's frozen-under
+dominates + the two fight over spare units). Built to the rules, NEITHER board control (M4, regresses) NOR the
+secondary economy (neutral on IK) fixes the Knight's aggregate over-rate → it is a one-Unit-per-model
+REPRESENTATION FLOOR. Per the §7 criteria: report the floor + STOP the package; all components gated default-OFF;
+no knob/re-fit/gate-reach-back. The authentic secondary is faithful (possible small default-on, separate from the
+anti-Knight goal, pending a clean A/B). Loop continues on post-package hygiene (#41 tabling). LOOP_QA wave-135.
+
+**Wave 135 (build)** — SECONDARY economy REBUILT AUTHENTICALLY (Opus agent `73e30fb`) after
 the user+watchdog caught the dedication scoring-gate was a fabricated knob: reverted the gate (position cards
 auto-score on occupancy), positioning-bias only, rules-clean ACTION COST for Cleanse/Sabotage (OC>0 + not-in-
 engagement + forgo shoot/charge + survive; Knight can't spare a unit → 0, emergent). **A/B: the authentic

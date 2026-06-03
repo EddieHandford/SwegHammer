@@ -4,6 +4,30 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 135 N=80 VERDICT (2026-06-03) — the AUTHENTIC secondary does NOT fix the Knight (IK +26.6 unchanged); the two halves FIGHT not stack (combined 4.41 > either alone). The ENTIRE anti-Knight package is EXHAUSTED faithfully — the Knight over-rate is a REPRESENTATION FLOOR
+
+**N=80 (decisive):**
+- **deck + authentic secondary 3.55**, IK **+26.6** (UNCHANGED), Daemons −13.6, band 8/22. The authentic
+  secondary does NOT fix the Knight — hypothesis REFUTED at the decisive N (the Knight achieves most secondaries
+  via kill cards / occupancy; the action-card penalty is negligible). (3.55 vs the 3.83 plain baseline MIGHT be a
+  small faithful headline gain, but the M2 deck was ~neutral at N=80 before → within noise, NOT an anti-Knight
+  fix, needs a clean A/B to claim.)
+- **combined (M4+Tarpit+FOCUS + deck + secondary) 4.41**, IK +19.6 — WORSE than either half alone (deck+secondary
+  3.55, M4-stack 4.16). The two levers FIGHT: M4's frozen-under regression dominates AND its positioning bias
+  competes with the secondary's for the same spare units.
+
+**CONVERGENCE — the entire anti-Knight package (waves 123-135) is EXHAUSTED faithfully.** Built to the rules,
+NEITHER board control (M4, washes/regresses, frozen-under, inseparable) NOR the secondary economy (neutral on IK)
+fixes the Knight's aggregate over-rate; the combined is worse than either. The Knight over-rate (IK ~+26 N=80) is
+a one-Unit-per-model REPRESENTATION FLOOR, not a faithfully-fixable aggregate lever. Per the §7 criteria + the
+watchdog's wave-131 sequence ("if the COMBINED ALSO washes → hypothesis tested + exhausted, report the floor +
+stop"): **report the floor + STOP the anti-Knight package; no knob, no re-fit, no reach-back for the gate.** All
+components (SWEG_M4 / SWEG_TARPIT / SWEG_FOCUS / SWEG_TAC_DECK / SWEG_SECONDARY) stay gated default-OFF. The
+authentic secondary is faithful + kept gated (a possible small default-on pending a clean N=80 A/B, SEPARATE from
+the anti-Knight goal). Proposing to the watchdog: (b) accept the neutral signal as exhaustion (do NOT build the 3
+remaining action cards — the watchdog predicted, and the data confirms, ~negligible). The loop continues on the
+queued post-package hygiene (#41 tabling play-out). LOOP_QA wave-135.
+
 ## Wave 135 (2026-06-03) — SECONDARY economy REBUILT AUTHENTICALLY (user+watchdog correction: the dedication scoring-gate was a fabricated knob) — revert the gate, positioning-bias only, rules-clean ACTION COST. A/B confirms the watchdog's prediction: the authentic Knight secondary weakness is NEGLIGIBLE (NEUTRAL)
 
 User + watchdog caught that gating POSITION/board card scoring on `dedicated_card` FABRICATES a requirement not
