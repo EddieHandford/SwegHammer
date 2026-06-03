@@ -4,6 +4,28 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 144 (2026-06-03) — UNMODELLED-ABILITIES DIVE #1 (watchdog/user new direction): Necrons Cursed Legion RELENTLESS ONSLAUGHT — the first METRIC-REDUCING faithful lever since the floor. Necrons −11.2 → −7.4, headline 4.34 → 4.14. The under-shooter residual IS unmodelled faithful abilities, NOT the representation floor
+
+NEW DIRECTION (watchdog 4-agent audit, user-directed): the UNDER-shooters under-deal damage because LEADER AURAS
+/ ARMY+DETACHMENT RULES / datasheet abilities are UNMODELLED — faithful fixes (real cited rules; not modelling
+them is the error, the OPPOSITE of metric-tuning). This re-opens real headroom on the under-side, DISTINCT from
+the over-shooter representation floor. Implemented #1 (highest impact). VERIFIED at BSData (Necrons.cat.gz, Cursed
+Legion rule id 1dfc-5377-99ac-a700): "Each time a NECRONS model makes an attack that targets a unit within range
+of one or more objective markers, add 1 to the Hit roll" + [ASSAULT] on NECRONS VEHICLE/MOUNTED (non-TITANIC).
+Caught + corrected the watchdog's "rounds 2-5" misattribution (NO round restriction — it's a detachment rule, not
+army). Built via Opus worktree agent (cherry-picked `dd79371`): +1-to-hit gate in `Unit.attack` (Necrons +
+`target.on_objective` + Cursed-Legion detachment, clamped at the 10e ±1 cap), the [ASSAULT]-after-Advance clause
+in `_do_shoot`, Cursed Legion promoted to the DEFAULT Necrons detachment, cited `simulator.relentless_onslaught`
+(BSData verbatim), 14 tests + full suite green (1118).
+
+**N=40 A/B (always-on default change): Necrons gated −11.2 → −7.4 (+3.8, ~⅓ of the under-shoot), headline gated
+4.34 → 4.14 (−0.20), win 42.6%.** The FIRST metric-reducing faithful lever since the representation floor — the
+watchdog's abilities-dive thesis is VALIDATED: the under-side residual is unmodelled faithful abilities. KEPT
+(faithful real rule, lands regardless of magnitude; combined N=80 re-test at the end of the queue per the
+sequence). NEXT: #2 AdMech leader auras (Cawl/Manipulus/Skitarii Marshal — 3 leaders at zero offense), #3 CSM Dark
+Pacts fix, #4 Daemons datasheet abilities — each BSData-verified, cited, A/B'd. Then re-test combined + M4
+(re-opened) N=80. LOOP_QA wave-144.
+
 ## Wave 140 (2026-06-03) — MULTI-METRIC candidate TESTED + REFUTED: the M2 deck OVERSHOOTS the secondary-VP fidelity (52-80 → 8-22, past the real ~30-40). Secondary fidelity is REPRESENTATION-gated (card-achievement = the same floor)
 
 Tested the wave-138 leading candidate (M2 deck as the secondary-over-generation fix) directly via the deck-on

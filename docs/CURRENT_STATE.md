@@ -1,6 +1,13 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 136 (2026-06-03) — WHOLLY-WITHIN squad-granularity fix for Engage/BEL (user catch)
+**Last updated:** Wave 144 (2026-06-03) — UNMODELLED-ABILITIES DIVE (watchdog/user new direction): the
+under-shooter residuals are UNMODELLED faithful abilities (leader auras / army+detachment rules / datasheet),
+NOT the representation floor — real headroom. #1 Necrons Cursed Legion RELENTLESS ONSLAUGHT built (BSData-verified
++1-to-hit vs targets near objectives + ASSAULT on VEHICLE/MOUNTED; cherry-picked dd79371): **Necrons gated
+−11.2 → −7.4, headline 4.34 → 4.14** — the FIRST metric-reducing faithful lever since the floor; thesis
+VALIDATED. NEXT: #2 AdMech leader auras, #3 CSM Dark Pacts, #4 Daemons abilities (BSData-cited, A/B'd), then
+re-test combined + M4 (re-opened) N=80. [Earlier waves 137-143 below.] Wave 136 — WHOLLY-WITHIN squad-granularity
+fix for Engage/BEL (user catch)
 completes the authentic secondary: `score_position_delta` (gated `SWEG_SECONDARY`) now counts a quarter only
 when ALL a squad's models are wholly within it + >6" from centre (BEL: wholly within enemy DZ), correcting the
 one-Unit-per-model over-credit. Faithful, even-handed, FAVOURS the compact Knight (N=40 deck+secondary 4.04 →
