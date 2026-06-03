@@ -7233,6 +7233,20 @@ class Battle:
             army.oath_target_uid = None
             if any(is_marine_faction(u.profile.faction) for u in army.units):
                 self._pick_oath_target(army, opponent, round_num)
+        # ---- Adeptus Mechanicus Machine Vengeance (Belisarius Cawl Canticle,
+        # 10e). Parallel to Oath of Moment above. At the start of each Command
+        # phase, while a Belisarius Cawl model is alive, the AdMech player
+        # designates one enemy unit; every friendly AdMech attack against that
+        # unit re-rolls the Hit roll until the start of the next Command phase.
+        # Reset to None at the top of the round so a stale uid never leaks
+        # across rounds (the buff only fires while uid == current target). The
+        # faction gate here is the cheap pre-filter; _pick_machine_vengeance_target
+        # itself no-ops unless a Belisarius Cawl model is alive, so the two
+        # together gate it correctly. Cited as `simulator.machine_vengeance`.
+        for army, opponent in ((self.a, self.b), (self.b, self.a)):
+            army.machine_vengeance_target_uid = None
+            if any(u.profile.faction == "Adeptus Mechanicus" for u in army.units):
+                self._pick_machine_vengeance_target(army, opponent, round_num)
         # ---- World Eaters Blood Tithe spend (10e army rule). The codex
         # allows spending at the start of any phase; we elect once per round
         # at the start of the Command phase, priority-greedy on the WE
@@ -9543,6 +9557,67 @@ class Battle:
             round_num=round_num,
             target_uid=target.uid,
         ))
+
+    def _pick_machine_vengeance_target(
+        self, army: Army, opponent: Army, round_num: int,
+    ) -> None:
+        """Adeptus Mechanicus — pick this round's Machine Vengeance target.
+
+        Belisarius Cawl's "Invocation of Machine Vengeance" Canticle
+        (Wahapedia, verbatim): "At the start of your Command phase, select
+        one unit from your opponent's army... that enemy unit is your Machine
+        Vengeance target. Each time a model in a friendly Adeptus Mechanicus
+        unit makes an attack that targets your Machine Vengeance target, you
+        can re-roll the Hit roll." This is structurally identical to the
+        Adeptus Astartes Oath of Moment (designate one enemy unit each
+        Command phase, army-wide Hit re-rolls against it), so this method
+        mirrors `_pick_oath_target` directly.
+
+        Gated on a Belisarius Cawl model being ALIVE in `army`: the Canticle
+        is a Cawl datasheet ability, so it fires only while he is on the
+        board. No-op (no designation) when Cawl is absent/dead or when the
+        opponent has no alive units left.
+
+        AI heuristic: re-pick fresh every Command phase off the LIVE board
+        state, scoring each alive enemy with the SAME formula as Oath of
+        Moment —
+            score = points_cost * (current_health / max_health)
+        so a wounded fat anchor fades as the next-largest fresh target rises.
+        points_cost is the stable tiebreak so round 1 (all full HP) collapses
+        to "highest points".
+
+        Sets `army.machine_vengeance_target_uid`. The buff itself (re-roll
+        all Hit rolls against the chosen unit) is applied in Unit.attack,
+        gated on the attacker being Adeptus Mechanicus and
+        `attacker_army.machine_vengeance_target_uid == target.uid`. Cited as
+        `simulator.machine_vengeance`.
+        """
+        # Cawl-alive gate: the Canticle is Cawl's datasheet ability, so the
+        # designation only fires while a Belisarius Cawl model is alive in this
+        # army. Match by profile name substring (how leaders are identified in
+        # leaders.py) — do NOT fabricate a flag. No-op silently when absent: a
+        # non-Cawl AdMech army simply never designates, which is correct.
+        cawl_alive = any(
+            "belisarius cawl" in u.profile.name.lower()
+            for u in army.alive_units
+        )
+        if not cawl_alive:
+            return
+        alive = opponent.alive_units
+        if not alive:
+            return
+
+        def score(u: "Unit") -> float:
+            max_hp = max(1.0, float(u.profile.health))
+            ratio = max(0.0, u.current_health / max_hp)
+            return float(u.profile.points_cost) * ratio
+
+        ranked = sorted(
+            alive,
+            key=lambda u: (score(u), u.profile.points_cost),
+            reverse=True,
+        )
+        army.machine_vengeance_target_uid = ranked[0].uid
 
     def _maybe_award_blood_tithe(
         self, killer: "Unit", killer_army: Army,

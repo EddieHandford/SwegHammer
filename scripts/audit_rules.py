@@ -347,6 +347,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # (+1 hit ranged / -1 hit melee) or Conqueror (mirror). Faction-gated
     # on attacker.profile.faction == "Adeptus Mechanicus".
     "simulator.doctrina_imperatives",
+    # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine Vengeance"
+    # Canticle (10e). Per-target designation mirroring Oath of Moment: while a
+    # Belisarius Cawl model is alive, the AdMech player designates one enemy
+    # unit each Command phase and friendly AdMech attacks re-roll the Hit roll
+    # against it. Faction-gated on attacker.profile.faction == "Adeptus
+    # Mechanicus" + the Cawl-alive gate in _pick_machine_vengeance_target.
+    "simulator.machine_vengeance",
     # KNIGHTS-MULTIPROFILE-2 — ADDITIVE multi-weapon melee resolution. The
     # MUTEX counterpart `simulator.multi_profile_weapon_selection` (in
     # data/rule_citations.json) covers RANGED alt-modes; this key covers

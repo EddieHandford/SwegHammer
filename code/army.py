@@ -410,6 +410,22 @@ class Army:
         # spamming the same anchor 5 rounds in a row. Cited as part of
         # `simulator.oath_of_moment` (heuristic, not a codex constraint).
         self.prev_oath_target_uid: Optional[str] = None
+        # Adeptus Mechanicus — Belisarius Cawl's "Invocation of Machine
+        # Vengeance" Canticle (10e). At the start of each Command phase, while
+        # a Belisarius Cawl model is alive, the AdMech player designates one
+        # enemy unit as the Machine Vengeance target; until the start of the
+        # next Command phase, every friendly ADEPTUS MECHANICUS attack against
+        # that unit may re-roll the Hit roll. This mirrors the Adeptus Astartes
+        # Oath of Moment substrate exactly: the simulator picks the target in
+        # _run_round per round (_pick_machine_vengeance_target), stores the
+        # chosen enemy unit's uid here, and Unit.attack reads it via the army
+        # back-reference to gate the re-roll. None means "no Machine Vengeance
+        # this round" (e.g. round 0, or no Belisarius Cawl alive). FAITHFUL
+        # APPROXIMATION: Cawl picks one of three Canticles per Command phase
+        # (Machine Vengeance / Mantra of Discipline / Shroudpsalm); we model
+        # him always choosing the offensive Machine Vengeance, the common
+        # competitive pick. Cited as `simulator.machine_vengeance`.
+        self.machine_vengeance_target_uid: Optional[str] = None
         # T'au Empire Markerlights → Guided mechanic (10e army-wide). At the
         # start of this army's Shooting phase, every alive MARKERLIGHT-keyword
         # unit in this army "spots" one enemy unit in LoS within 36"; that

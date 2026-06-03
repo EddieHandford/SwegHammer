@@ -2816,6 +2816,21 @@ class Unit:
                 ) or getattr(own_army, "oath_target_uid", None) == target.uid:
                     att_reroll_all_hits = True
 
+            # ---- Adeptus Mechanicus — Belisarius Cawl's "Invocation of
+            # Machine Vengeance" Canticle (10e). Structurally identical to Oath
+            # of Moment above: when the attacker is an AdMech unit AND its army
+            # has designated this round's Machine Vengeance target on this
+            # defender's uid, every attack against that defender re-rolls the
+            # HIT roll (codex grants Hit re-rolls only — no wound re-roll). The
+            # designation is set in Battle._pick_machine_vengeance_target, which
+            # itself fires only while a Belisarius Cawl model is alive in the
+            # army, so this gate already implies "Cawl alive". The OR composes
+            # with the existing att_reroll_all_hits — it only ever sets the
+            # flag True, never un-sets it. Cited as `simulator.machine_vengeance`.
+            if own_army is not None and p.faction == "Adeptus Mechanicus":
+                if getattr(own_army, "machine_vengeance_target_uid", None) == target.uid:
+                    att_reroll_all_hits = True
+
             # ---- Imperial Knights — Code Chivalric (army rule, 10e). The army
             # rule lets the controller pick one Quality at battle start; the
             # "martial valour" Quality (Wahapedia verbatim, https://wahapedia.ru/
