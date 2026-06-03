@@ -522,6 +522,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # out). Even-handed track split from unit count; OFF byte-identical.
     # See data/rule_citations.d/secondaries_pariah_nexus.json.
     "simulator.tactical_secondary_deck",
+    # Wave 133 Stage A — secondary deliberate-dedication scoring (env-gated
+    # SWEG_SECONDARY). Position cards (Engage on All Fronts / Behind Enemy
+    # Lines) score from units the army DELIBERATELY dedicates, not incidental
+    # presence: Battle._assign_card_dedication peels one SPARE unit per held
+    # card and stamps Unit.dedicated_card, and Battle._score_one_card counts
+    # only dedicated units. Even-handed and emergent from spare-unit count (a
+    # low-unit army dedicates none); OFF byte-identical. See
+    # data/rule_citations.d/secondary_dedication.json.
+    "simulator.secondary_dedication",
     # LC-5 — Warlord designation. First CHARACTER in deploy order is
     # the Warlord; killing it grants +1 Assassination VP per real
     # Pariah Nexus rule.

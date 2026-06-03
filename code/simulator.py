@@ -1291,6 +1291,174 @@ class Battle:
                     n += 1
 
     # ------------------------------------------------------------------
+    # Wave 133 Stage A — secondary deliberate-dedication scoring.
+    #
+    # Today position cards (Engage on All Fronts / Behind Enemy Lines)
+    # AUTO-SCORE on INCIDENTAL position: any unit that happens to sit in a
+    # table quarter or the enemy deployment zone at scoring time contributes.
+    # A durable low-unit army (a Knight) scores those cards "for free" off a
+    # body it parked there for combat reasons. The real Chapter Approved
+    # 2025-26 secondary economy makes the player DELIBERATELY DEDICATE units to
+    # a held card; only dedicated units score it.
+    #
+    # The dedication planner peels ONE SPARE unit per held position card and
+    # stamps `dedicated_card` (and a pursue_target toward the card's geographic
+    # goal, reusing _assign_card_pursuit's geometry). The scoring path then
+    # counts only `dedicated_card`-matching units (see _score_one_card). The
+    # even-handed pinch is purely emergent from spare-unit count: a 5-6-unit
+    # Knight has no spare bodies after its combat / objective commitments, so it
+    # dedicates none and scores those cards 0; a broad army dedicates its
+    # surplus and scores. NO faction awareness, NO model-count branch — only the
+    # spare test. Env-gated SWEG_SECONDARY (default OFF); OFF path is
+    # byte-identical. Cited as `simulator.secondary_dedication`.
+    # ------------------------------------------------------------------
+
+    def _secondary_dedication_enabled(self) -> bool:
+        """Stage A gate. Env-gated SWEG_SECONDARY; unset → the legacy
+        incidental-position secondary scoring runs byte-for-byte."""
+        return __import__("os").environ.get("SWEG_SECONDARY", "0") == "1"
+
+    # Engagement range used for the spare-unit "not in melee" test — matches
+    # the 10e Engagement Range gate the sim applies elsewhere (Battle._do_shoot
+    # locks a unit out of shooting when an enemy is within this distance).
+    _DEDICATION_ENGAGE_RANGE: float = 1.5
+    # A unit counts as a "productive shooter" (and so is NOT spare) when its
+    # expected unsaved-agnostic ranged output reaches this threshold AND it has
+    # an enemy in weapon range — a real player keeps such a unit shooting rather
+    # than peeling it off for a secondary.
+    _DEDICATION_SHOOTER_OUTPUT: float = 2.0
+
+    def _unit_is_dedicatable(self, unit, other) -> bool:
+        """True iff `unit` is SPARE — a body a real player would peel off to
+        perform / hold a secondary. This is the even-handed crux of Stage A; a
+        Knight's units are all holding / fighting / shooting, so none are spare.
+
+        A unit is SPARE iff ALL of:
+          * it is alive, has not already acted this round
+            (`action_this_round is None`), and is not already committed to a
+            card this turn (`dedicated_card is None`);
+          * it is NOT holding an objective — not within any objective's
+            control_radius of (obj.x, obj.y) for any objective on the map;
+          * it is NOT in melee — no enemy in `other.alive_units` within
+            Engagement Range (~1.5");
+          * it is NOT a productive shooter — it does NOT have both meaningful
+            ranged output (attacks * hit_probability * weapon_damage_per_shot
+            >= 2.0) AND an enemy within its weapon range.
+
+        NO faction awareness, NO chaff-only restriction, NO model-count branch:
+        the asymmetry is purely emergent from how many units pass this test.
+        """
+        if not unit.is_alive:
+            return False
+        if unit.action_this_round is not None:
+            return False
+        if unit.dedicated_card is not None:
+            return False
+        # Not holding an objective.
+        for obj in self.map.objectives:
+            if _distance(unit.position, (obj.x, obj.y)) <= obj.control_radius:
+                return False
+        # Not in melee with any enemy.
+        for e in other.alive_units:
+            if _distance(unit.position, e.position) <= self._DEDICATION_ENGAGE_RANGE:
+                return False
+        # Not a productive shooter with a target in range.
+        p = unit.profile
+        ranged_output = (
+            (p.attacks or 0) * (p.hit_probability or 0.0)
+            * (p.weapon_damage_per_shot or 0.0)
+        )
+        if ranged_output >= self._DEDICATION_SHOOTER_OUTPUT:
+            wpn_range = float(p.range_inches or 0)
+            for e in other.alive_units:
+                if _distance(unit.position, e.position) <= wpn_range:
+                    return False
+        return True
+
+    def _assign_card_dedication(self, active, other) -> None:
+        """Stage A dedication planner (models on _assign_card_pursuit but is a
+        SEPARATE, differently-gated method). For each POSITION card the active
+        TACTICAL army holds, commit ONE SPARE unit to it: set its
+        `dedicated_card` and bias its move toward the card's geographic goal.
+
+        Only the two Stage-A position cards are handled:
+          * 'behind_enemy_lines' — target the midpoint of the OPPONENT's
+            deployment-zone strip (identical geometry to _assign_card_pursuit).
+          * 'engage_on_all_fronts' — target a board quarter the army does NOT
+            already occupy, so the dedicated body spreads coverage toward a new
+            quarter. If no empty quarter remains (the army already spans all
+            four) the unit is still dedicated but left with no spread target —
+            it counts where it stands.
+
+        One spare unit per card; a spare unit dedicates to at most one card (the
+        _unit_is_dedicatable test rejects a unit whose dedicated_card is already
+        set). A Knight-shape army produces zero spare units → no dedications →
+        it scores these cards 0 (faithful, must remain). NO faction awareness.
+
+        Called BEFORE the move loop in _run_round_vanilla_turns for the ACTIVE
+        army, alongside _assign_card_pursuit. dedicated_card is cleared at the
+        top of each army's turn (per-turn, same lifecycle as pursue_target).
+        """
+        if not self._secondary_dedication_enabled():
+            return
+        # Only the TACTICAL track holds a hand of cards to dedicate toward.
+        if getattr(active, "secondary_track", None) != "TACTICAL":
+            return
+        hand = getattr(active, "tactical_hand", None)
+        if not hand:
+            return
+        own_is_a = active is self.a
+        cx = self.map.width / 2.0
+        cy = self.map.height / 2.0
+
+        if "behind_enemy_lines" in hand:
+            # Target: the midpoint of the opponent's deployment-zone strip —
+            # identical geometry to _assign_card_pursuit's BEL branch.
+            dz = self.map.deployment_width
+            mid_x = self.map.width / 2.0
+            if own_is_a:
+                # Army A deploys low-y → enemy DZ is the high-y strip.
+                target_y = self.map.height - dz * 0.5
+            else:
+                # Army B deploys high-y → enemy DZ is the low-y strip.
+                target_y = dz * 0.5
+            bel_target = (mid_x, target_y)
+            for u in active.alive_units:
+                if self._unit_is_dedicatable(u, other):
+                    u.dedicated_card = "behind_enemy_lines"
+                    u.pursue_target = bel_target
+                    break
+
+        if "engage_on_all_fronts" in hand:
+            # Spread toward a board quarter the army does not already occupy.
+            # Quarter encoding mirrors score_position_delta: (qx, qy) with
+            # qx=0 for x<cx else 1, qy=0 for y<cy else 1.
+            occupied = set()
+            for u in active.alive_units:
+                ux, uy = u.position
+                occupied.add((0 if ux < cx else 1, 0 if uy < cy else 1))
+            # Centre of each quarter, used as the spread target.
+            quarter_centre = {
+                (0, 0): (cx * 0.5, cy * 0.5),
+                (1, 0): (cx + cx * 0.5, cy * 0.5),
+                (0, 1): (cx * 0.5, cy + cy * 0.5),
+                (1, 1): (cx + cx * 0.5, cy + cy * 0.5),
+            }
+            empty_quarters = [q for q in quarter_centre if q not in occupied]
+            # Deterministic pick: the lowest-keyed empty quarter (or None if the
+            # army already spans all four — then the unit counts where it stands).
+            engage_target = (
+                quarter_centre[sorted(empty_quarters)[0]]
+                if empty_quarters else None
+            )
+            for u in active.alive_units:
+                if self._unit_is_dedicatable(u, other):
+                    u.dedicated_card = "engage_on_all_fronts"
+                    if engage_target is not None:
+                        u.pursue_target = engage_target
+                    break
+
+    # ------------------------------------------------------------------
     # Wave 83 Tier A — objective-holding / board-control secondaries
     #
     # The real Pariah Nexus secondary deck contains a family of take-and-hold
@@ -1516,8 +1684,22 @@ class Battle:
             return bid + np_ + cth + assn
         # --- Position cards (Engage / Behind Enemy Lines) ----------------------
         if card_key in ("engage_on_all_fronts", "behind_enemy_lines"):
+            # Wave 133 Stage A (env-gated SWEG_SECONDARY): score from DELIBERATE
+            # DEDICATION, not incidental presence. Pass only the units the army
+            # committed to THIS card (dedicated_card == card_key) so a body that
+            # merely happens to sit in a quarter / the enemy DZ no longer scores.
+            # When the gate is OFF, pass the full unit list — byte-identical to
+            # the legacy incidental scoring. Cited as
+            # `simulator.secondary_dedication`.
+            if self._secondary_dedication_enabled():
+                scoring_units = [
+                    u for u in scoring_army.units
+                    if getattr(u, "dedicated_card", None) == card_key
+                ]
+            else:
+                scoring_units = scoring_army.units
             eng, bel = score_position_delta(
-                scoring_army.units, self.map, own_is_army_a=own_is_army_a,
+                scoring_units, self.map, own_is_army_a=own_is_army_a,
                 round_num=round_num, chosen=one,
             )
             return eng + bel
@@ -7070,6 +7252,10 @@ class Battle:
                 # round (belt-and-braces; the per-turn reset in
                 # _run_round_vanilla_turns is the primary clear).
                 u.pursue_target = None
+                # Wave 133 Stage A: clear any stale dedication on the same
+                # belt-and-braces basis (the per-turn reset in
+                # _run_round_vanilla_turns is the primary clear).
+                u.dedicated_card = None
 
         # Pre-compute on-objective state for the round so Unit.attack() can
         # cheaply apply detachment buffs gated on objective control (Awakened
@@ -7288,13 +7474,23 @@ class Battle:
             # field is per-turn (not per-round) so that each army's turn gets a
             # fresh assignment. When the pursuit gate is off this is a no-op
             # (pursue_target initialises to None and is never set).
+            # Wave 133 Stage A: clear dedicated_card on the same per-turn
+            # lifecycle so each army's turn gets a fresh dedication assignment.
+            # No-op when the secondary gate is off (dedicated_card initialises
+            # to None and is never set).
             for u in active.units:
                 u.pursue_target = None
+                u.dedicated_card = None
             # Wave 121: assign card-pursuit intent BEFORE the move loop so that
             # pick_move_intent can read pursue_target during each unit's
             # activation. No-op when the pursuit gate is off. Called on the
             # active army only (it's the active army's movement phase).
             self._assign_card_pursuit(active, other)
+            # Wave 133 Stage A: assign deliberate-dedication intent BEFORE the
+            # move loop too, so a dedicated body's pursue_target biases its move
+            # toward the card's geographic goal this activation. No-op when the
+            # secondary gate is off (SWEG_SECONDARY). Active army only.
+            self._assign_card_dedication(active, other)
             for unit in list(active.units):
                 if unit.is_alive:
                     self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)

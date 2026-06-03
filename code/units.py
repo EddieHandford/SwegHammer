@@ -793,6 +793,16 @@ class Unit:
         # _run_round_vanilla_turns (never persists across turns or rounds).
         # AI scheduler only — not gated by a rule citation.
         "pursue_target",
+        # Secondary deliberate-dedication target (Stage A, env-gated
+        # SWEG_SECONDARY). The card key (e.g. 'engage_on_all_fronts',
+        # 'behind_enemy_lines') this unit was DELIBERATELY committed to this
+        # turn by Battle._assign_card_dedication. Only units whose
+        # dedicated_card matches a position card contribute to that card's
+        # score, so incidental presence no longer scores — a low-unit army
+        # with no spare bodies dedicates none and scores those cards 0. Reset
+        # to None at the start of each army's turn (same lifecycle as
+        # pursue_target). Cited as `simulator.secondary_dedication`.
+        "dedicated_card",
         # Set by Battle._do_move when the unit elects the FALL_BACK intent.
         # While True, _do_shoot and _do_charge refuse to fire the unit unless
         # its profile has the FLY keyword. Cleared at the top of each round.
@@ -1017,6 +1027,10 @@ class Unit:
         # per-turn by Battle._run_round_vanilla_turns; None means no active
         # pursuit goal and pick_move_intent falls through to existing logic.
         self.pursue_target = None  # type: Optional[Tuple[float, float]]
+        # Secondary deliberate-dedication card key (Stage A). See __slots__
+        # note above. Cleared per-turn by Battle._run_round_vanilla_turns;
+        # None means this unit is not dedicated to any secondary card.
+        self.dedicated_card = None  # type: Optional[str]
         # Set per round by Battle._run_round: True if the unit's position
         # is within control range of any objective marker. Read by
         # Unit.attack() to gate detachment buffs like Awakened Dynasty's
