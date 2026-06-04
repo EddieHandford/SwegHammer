@@ -4,6 +4,34 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 184 (2026-06-04) — THE DECIDER: AM/AdMech under-valuation is mechanism (3) POSITIONING/VP — combat is SOLVED, the residual is purely the representation floor
+
+Watchdog steer: run the deep under-valuation instrument as the DECIDER before the bank-vs-remodel fork — decompose why
+AM/AdMech under-perform into (1) durability / (2) output-buff / (3) positioning. Built `scripts/diag_undervaluation_deep.py`
+(5b41d6f; background Sonnet agent, integrated from commit — notification stalled). Turn-by-turn dealt/taken + survival +
+per-alive-unit-output + end VP split, AM/AdMech vs a 7-opponent spread.
+
+**VERDICT: mechanism (3) POSITIONING/VICTORY POINTS. Combat is SOLVED; the residual is purely positional.**
+- **Combat now EVEN** (post-anti-tank): Astra Militarum deals 75.5 vs takes 75.8 (D/T 1.00); AdMech deals 77.8 vs 71.2
+  (D/T 1.09 — deals MORE). Per-alive-unit OUTPUT RATIO ~1.0 (AM 1.07 / AdMech 1.01); survival ~81% by round 5, comparable
+  to opponents. So NOT (1) durability (they don't die early) and NOT (2) an output-buff gap (per-unit output is even — the
+  candidate Orders / Doctrina buffs would only add overkill, not wins).
+- **The entire loss is the OBJECTIVE GAME** (Table 2): lose PRIMARY (Astra Militarum −9.7, AdMech −17.4) AND SECONDARY
+  (−25.5 / −24.2) despite the even combat. ME-Total 89/81 vs OPP 124/122.
+
+**RECONCILIATION of the wave-180 "deal half the damage" (D/T 0.5):** that was PRE-anti-tank. Post-wave-183 it's D/T ~1.0 —
+**the anti-tank loadout fix actually DID close the combat-output gap** (0.5→1.0); it just didn't move the win rate because
+the loss is positional. So wave-183 was more valuable than its neutral headline: it solved combat output, isolating the
+residual as PURELY the representation floor. Both poles (IK over-hold + AM/AdMech under-hold) AND both VP axes (primary
+OC-body-bias + secondary objControl over-generation, the wave-178 finding) are the SAME one-Unit-per-model positional
+representation gap.
+
+→ THE DECIDER IS IN: the last genuine combat/loadout lever-search is EXHAUSTED and confirms STRUCTURAL. The faithful
+combat track is at its floor (~5.8 gated). The bank-vs-remodel fork (declare the faithful floor + document the structural
+residual, OR the hard positional-representation re-model — user-authorised at Q11 but high-risk / washed 5+ times) now goes
+to the USER, evidence-backed. Routed to the watchdog to escalate. (Defiler body-gun pin question #70 still held for a
+ruling; not metric-relevant.)
+
 ## Wave 183 (2026-06-04) — #68 anti-tank loadout corrections LANDED (faithful, BSData-sourced) but METRIC-NEUTRAL (5.84→5.80); Imperial Knights FROZEN-UNDER (re-confirms wave-107)
 
 The user lifted the gate ("test and dial in, don't keep checking"). Applied the approved fix: 14 gun-platforms pinned to
