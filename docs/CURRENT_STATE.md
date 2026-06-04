@@ -1,6 +1,17 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 159 (2026-06-04) — SQUAD REBUILD STAGE B LANDED (first behavioural stage, gate `SWEG_COHERE`):
+**Last updated:** Wave 160 (2026-06-04) — SQUAD REBUILD STAGE E TESTED + REJECTED (net regression, reverted). Stage E
+(promote `_m4_cluster_intent` to a general squad-hold default, gate `SWEG_COHEREHOLD`) was built + gate-tested, then
+A/B'd: E-only N=40 gated 4.73, B+E N=40 gated 4.49 — both regress vs OFF/B-only 4.20. It crushes Imperial Knights
+(79.5→62.9) but by over-flooding markers with cheap-Objective-Control hordes (Drukhari +12, Orks +9) while cratering
+Daemons/Astra Militarum/T'au — an UNFAITHFUL sledgehammer that amplifies the horde over-representation, not a fix. NOT
+metric-protection: E makes the sim less faithful, so it is rejected (swings dwarf noise → no N=80 needed). Reverted to
+wave-159 `644efef` (the `SWEG_COHEREHOLD` gate was redundant over `SWEG_M4`). Rebuild shape RECONSIDERED: B (landed,
+the faithful positional gain) stands; E drops out; **next is Stage D (split-fire shooting, `SWEG_SQUADSHOOT`)** — a
+distinct firepower-distribution lever. Honest baseline unchanged: N=80 gated **4.05** (default) / **3.93** (Stage B on).
+NEXT: Stage D + the open Stage-B flip-timing fork (watchdog). [Wave 159 Stage B detail below.]
+
+**Wave 159 — SQUAD REBUILD STAGE B LANDED (first behavioural stage, gate `SWEG_COHERE`):
 mid-game Unit Coherency enforcement. After every model has taken its individual move, `Battle._enforce_squad_coherency`
 pulls any model left >2" from its nearest squadmate back toward the squad centroid within its remaining move
 (deterministic; lone / Advanced / Fell-Back models skipped). The faithful 10e core rule the one-Unit-per-model

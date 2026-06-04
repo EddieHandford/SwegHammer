@@ -4,6 +4,36 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 160 (2026-06-04) — SQUAD REBUILD STAGE E: cohesive objective holding TESTED and REJECTED (net regression; reverted, not landed)
+
+Stage E was the plan's next behavioural stage: promote the Objective-Control-massing positioning that the anti-Knight
+`SWEG_M4` experiment proved (a model carrying Objective Control near a marker genuinely moves into the 3" scoring band,
+`_m4_cluster_intent`) from a Knight-specific stack component to the general squad-hold default, behind its own sub-gate
+`SWEG_COHEREHOLD`. Built, gate-tested (4 new + 11 existing M4 tests green, audit clean, both run.py paths exit 0, OFF
+byte-identical), then A/B'd at N=40 — **and rejected on the result.**
+
+**N=40 A/B (OFF / B-only baseline both 4.20):**
+- **E-only (`SWEG_COHEREHOLD=1`): gated 4.73** — a regression.
+- **B+E (`SWEG_COHERE=1 SWEG_COHEREHOLD=1`): gated 4.49** — still a regression (coherency only partly tames it).
+- Per-faction the distortion is structural and far above noise: it crushes Imperial Knights (79.5 → 62.9, −16.6, the
+  biggest Knight drop of anything tested) BUT wildly inflates cheap-Objective-Control spam factions — Drukhari +12
+  (gated 1.79 → 13.68), Orks +9 (0 → 7.62), Sororitas — while cratering Chaos Daemons −9, Astra Militarum −6, T'au −8.
+
+**Why rejected (and why this is NOT metric-protection):** forcing every Objective-Control carrier to rush the nearest
+marker over-credits the one-Unit-per-model HORDE representation — cheap bodies flood markers in a way real play (with
+screening, casualties, board geometry) does not. It crushes the Knight by an *unfaithful sledgehammer* that amplifies
+the very over-representation the rebuild is fighting, not by a faithful fix. So E makes the sim LESS faithful; rejecting
+it is correct, not metric-tuning. The N=40 per-faction swings dwarf the noise floors, so the verdict is robust without
+an N=80 (no point spending it on a clearly-rejected candidate). The faithful coherency gain already landed in Stage B
+(Knight −3.3 at N=80 without distorting the table); E over-does it.
+
+**Action:** reverted the Stage E code entirely (the `SWEG_COHEREHOLD` gate was redundant over the existing `SWEG_M4`,
+which gives the identical mechanism for any future test). Tree restored to wave-159 `644efef`. Honest baseline unchanged
+at N=80 gated 4.05 (default) / Stage B `SWEG_COHERE` 3.93. RECONSIDERS the rebuild shape: B (landed) delivers the
+faithful positional gain; E drops out; **next is Stage D (unit-orchestrated split-fire shooting, `SWEG_SQUADSHOOT`)** —
+a distinct lever (firepower distribution, not objective massing). Flagged to the watchdog (the E rejection + the still-
+open Stage-B flip-timing fork). No code change this wave — the negative result is the deliverable.
+
 ## Wave 159 (2026-06-04) — SQUAD REBUILD STAGE B: mid-game Unit Coherency enforcement (gate `SWEG_COHERE`) — first behavioural landing; N=80 gated 4.05 → 3.93, Imperial Knights −3.3
 
 The first INTENTIONAL behaviour change of the squad rebuild. After every model of the active army has taken its
