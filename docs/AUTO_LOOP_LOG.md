@@ -39,8 +39,10 @@ under-output (weapon-picker fidelity — `project-antitank-picker-bias`).
 **A — secondaries.py FIXED-secondary fidelity (cherry-picked 0216257):** LANDED Fix #1 — `no_prisoners` removed from the
 FIXED pool (it is BANNED as a Fixed pick in tournament play, per the sim's own citation) and made Tactical-only; the
 Fixed slot-1 fallback is now `cull_the_horde`. A faithful card-level fix that nudges the secondary count-bias the right
-way (less body-army Fixed over-banking). audit clean, 105 tests pass, run.py --cli clean. Measuring at N=80
-(`data/wf_wave180_noprisoners_fix_n80.txt`) vs 5.87. **Fix #2 VERIFIED (Wahapedia reachable), NOT yet implemented:** the
+way (less body-army Fixed over-banking). audit clean, 105 tests pass, run.py --cli clean. N=80 = gated **5.84** vs 5.87
+(`data/wf_wave180_noprisoners_fix_n80.txt`) — metric-NEUTRAL (−0.03, within noise; Imperial Knights eased 26.11→25.81).
+Expected: on the union scoring path the moved card is still scored, so the nudge washes — the real benefit lands under
+SWEG_TAC_DECK. Kept as a faithful rules-correctness fix. **Fix #2 VERIFIED (Wahapedia reachable), NOT yet implemented:** the
 CA-2025-26 Fixed-vs-Tactical scoring split is REAL — the Tactical versions of the kill cards are a flat "did any
 qualifying unit die this turn?" trigger (Assassination 5 victory points/turn, Bring It Down 4/turn, Cull 5/turn), NOT the
 per-unit Fixed schedule the sim currently uses for both. The sim over-scores Tactical-track kill cards. Implementing the
