@@ -7683,9 +7683,12 @@ class Battle:
             _squadact = __import__("os").environ.get("SWEG_SQUADACT") == "1"
             # Squad rebuild Stage B (gate SWEG_COHERE): snapshot each model's
             # pre-move position so the post-move coherency pass can spend only
-            # the model's REMAINING move. Populated only when the gate is on, so
-            # the OFF path stays byte-identical.
-            _cohere = __import__("os").environ.get("SWEG_COHERE") == "1"
+            # the model's REMAINING move. FLIPPED to default-ON (wave 170,
+            # user-greenlit trial): Unit Coherency is a faithful 10e core rule
+            # (cited `simulator.coherency_enforcement`) — the honest baseline
+            # enforces it (N=80 4.05 -> 3.93, IK -3.3, holding under-shooters up).
+            # Disable only by explicitly setting SWEG_COHERE=0 (retained for A/B).
+            _cohere = __import__("os").environ.get("SWEG_COHERE", "1") != "0"
             _move_start_pos: dict = {}
             for unit in list(active.units):
                 if not unit.is_alive:
