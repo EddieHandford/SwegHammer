@@ -239,12 +239,24 @@ class Battle:
         subscribers: Optional[List[Subscriber]] = None,
         map_: Optional[Map] = None,
         rules: Optional[RulesConfig] = None,
+        primary_mission: Optional[str] = None,
     ) -> None:
         self.a = army_a
         self.b = army_b
         self.verbose = verbose
         self.subscribers: List[Subscriber] = list(subscribers) if subscribers else []
         self.map: Map = map_ or DEFAULT_MAP
+        # Wave 187 (#71): the primary mission whose VP scoring rule this battle
+        # uses (see _score_objectives). Default "take_and_hold" reproduces the
+        # legacy single-mission behaviour byte-for-byte; the eval rotates the real
+        # Chapter Approved 2025-26 primaries when SWEG_PRIMARY_MISSION is set or a
+        # mission is passed in. An explicit arg wins; else the env var; else the
+        # holder-friendly Take and Hold default.
+        self.primary_mission: str = (
+            primary_mission
+            or __import__("os").environ.get("SWEG_PRIMARY_MISSION")
+            or "take_and_hold"
+        )
         # Default is vanilla WH40k 10e mode — the simulator's primary
         # responsibility is faithfully reproducing tournament play (the
         # MAE-vs-real-meta signal). SwegHammer's alternating-activation
@@ -879,6 +891,22 @@ class Battle:
         a_oc_by_obj, a_sticky_by_obj, a_dg_by_obj = _assign_army_oc(self.a)
         b_oc_by_obj, b_sticky_by_obj, b_dg_by_obj = _assign_army_oc(self.b)
 
+        # Wave 187 (#71 primary-mission rotation, env-gated SWEG_PRIMARY_MISSION):
+        # accumulate the Take-and-Hold per-objective award + the control counts in
+        # the loop below, then apply the CHOSEN primary mission's victory-point
+        # formula AFTER the loop. The default "take_and_hold" path is byte-identical
+        # (accumulate-then-add == the legacy per-objective add; identical events;
+        # identical 15 VP/round cap). The sim previously played Take and Hold — the
+        # most holder-friendly primary — every game, structurally inflating durable
+        # static holders; the real Chapter Approved 2025-26 deck rotates ten
+        # primaries, several of which (Purge the Foe, Scorched Earth) penalise
+        # static holding. Cited simulator.primary_mission_rotation.
+        mission = getattr(self, "primary_mission", "take_and_hold") or "take_and_hold"
+        a_th_award = 0
+        b_th_award = 0
+        a_controls = 0
+        b_controls = 0
+
         for obj_idx, obj in enumerate(self.map.objectives):
             # Per-unit Objective Control (cited as `simulator.unit_coherency`):
             # read the per-squad assignments computed above. Each squad has
@@ -945,15 +973,21 @@ class Battle:
             # only_for filters which side's running VP is incremented (the
             # Command-phase scorer awards just the active player); the OC contest
             # and sticky tracking above already ran for both sides.
+            # Count actual control (used by Purge the Foe's control conditions),
+            # independent of the only_for command-phase filter.
+            if scorer == self.a.name:
+                a_controls += 1
+            elif scorer == self.b.name:
+                b_controls += 1
             _award = scorer if (only_for is None or scorer == only_for) else None
             if _award == self.a.name:
-                self._a_vp += obj.vp_per_round
+                a_th_award += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.a.name,
                     vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
                 ))
             elif _award == self.b.name:
-                self._b_vp += obj.vp_per_round
+                b_th_award += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.b.name,
                     vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
@@ -972,12 +1006,74 @@ class Battle:
         # for objective-flooding archetypes (DG sticky, Necrons RP).
         # https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/
         # Cited as `simulator.primary_vp_cap_15`.
-        a_round_vp = self._a_vp - a_vp_before
-        b_round_vp = self._b_vp - b_vp_before
-        if a_round_vp > 15:
-            self._a_vp = a_vp_before + 15
-        if b_round_vp > 15:
-            self._b_vp = b_vp_before + 15
+        if mission == "purge_the_foe":
+            # Purge the Foe (Chapter Approved 2025-26, cap 12 VP/round): score
+            # 4 VP for destroying one or more enemy units this round, +4 VP for
+            # destroying MORE enemy units than the opponent destroyed of yours,
+            # +4 VP for controlling one or more objectives, +4 VP for controlling
+            # more objectives than the opponent. Kill-weighted (8 of 12 VP), so a
+            # static holder that under-kills caps at 8. Cited
+            # simulator.primary_purge_the_foe.
+            a_killed, b_killed = self._units_destroyed_this_round()
+            a_purge = ((4 if a_killed > 0 else 0) + (4 if a_killed > b_killed else 0)
+                       + (4 if a_controls > 0 else 0) + (4 if a_controls > b_controls else 0))
+            b_purge = ((4 if b_killed > 0 else 0) + (4 if b_killed > a_killed else 0)
+                       + (4 if b_controls > 0 else 0) + (4 if b_controls > a_controls else 0))
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += min(a_purge, 12)
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += min(b_purge, 12)
+        elif mission == "scorched_earth":
+            # Scorched Earth (Chapter Approved 2025-26): 5 VP per controlled
+            # objective, capped at 10 VP/round (lower than Take and Hold's 15).
+            # The Burn-objective Action (remove a marker for 5 VP in No Man's Land
+            # / 10 VP in the enemy deployment zone) is NOT yet modelled — it needs
+            # a new Action — so only the lower hold cap is applied here; noted in
+            # the citation. a_th_award already respects the only_for filter. Cited
+            # simulator.primary_scorched_earth.
+            self._a_vp += min(a_th_award, 10)
+            self._b_vp += min(b_th_award, 10)
+        else:
+            # take_and_hold (default, byte-identical to the legacy behaviour):
+            # award the accumulated per-objective VP, then apply the 15 VP/round
+            # cap (10e Leviathan Tournament Companion). a_th_award already respects
+            # the only_for filter. Cited simulator.primary_vp_cap_15.
+            self._a_vp += a_th_award
+            self._b_vp += b_th_award
+            a_round_vp = self._a_vp - a_vp_before
+            b_round_vp = self._b_vp - b_vp_before
+            if a_round_vp > 15:
+                self._a_vp = a_vp_before + 15
+            if b_round_vp > 15:
+                self._b_vp = b_vp_before + 15
+
+    def _units_destroyed_this_round(self) -> tuple:
+        """Wave 187 (Purge the Foe): return (a_killed, b_killed) — how many enemy
+        UNITS each side destroyed this battle round, diffed against the round-start
+        snapshots (the same snapshots the Pariah Nexus secondaries use). a_killed =
+        the count of army B's units that A destroyed this round; b_killed the
+        reverse. A codex unit counts as destroyed only when its last model dies
+        (squad_id gone), matching the No Prisoners convention. Returns (0, 0) when a
+        snapshot is missing (e.g. round 1)."""
+        def _destroyed(snap, current_units) -> int:
+            if snap is None:
+                return 0
+            alive_sq: set = set()
+            alive_lone: set = set()
+            for u in current_units:
+                if u.current_health <= 0:
+                    continue
+                sid = getattr(u, "squad_id", -1)
+                if sid is not None and sid >= 0:
+                    alive_sq.add(sid)
+                else:
+                    alive_lone.add(id(u))
+            dead_sq = snap.alive_squad_ids - alive_sq
+            dead_lone = snap.lone_unit_ids_alive - alive_lone
+            return len(dead_sq) + len(dead_lone)
+        a_killed = _destroyed(self._b_round_snapshot, self.b.units)
+        b_killed = _destroyed(self._a_round_snapshot, self.a.units)
+        return a_killed, b_killed
 
     # ------------------------------------------------------------------
     # SC4-A — 10e Pariah Nexus secondary objective scoring

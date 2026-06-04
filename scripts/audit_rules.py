@@ -502,6 +502,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 3 controlled objectives at 5 VP each). Applied in
     # `Battle._score_objectives` after per-objective awards are tallied.
     "simulator.primary_vp_cap_15",
+    # Wave 187 (#71) — primary MISSION rotation. The sim previously scored
+    # every game as Take and Hold (the most holder-friendly primary); the
+    # real CA-2025-26 deck rotates ten primaries, several anti-holding. Modelled
+    # in `Battle._score_objectives` (branch on `Battle.primary_mission`).
+    "simulator.primary_mission_rotation",
+    "simulator.primary_purge_the_foe",
+    "simulator.primary_scorched_earth",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped
