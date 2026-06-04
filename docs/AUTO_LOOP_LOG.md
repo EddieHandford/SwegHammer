@@ -4,6 +4,43 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 177 (2026-06-04) — #1 lever diagnostic: COVER REFUTED; loss segments to SECONDARY (biggest) + AM/AdMech ATTRITION
+
+The de-flattered baseline's #1 lever is the durable-shooty-vehicle under-valuation (AM/AdMech/CSM). Watchdog/user
+hypothesis: the sim under-grants cover (point-inside-terrain only, no behind-cover) → durable vehicles over-exposed →
+over-die. Instrumented it (`scripts/diag_vehicle_cover.py`): when a durable VEHICLE (VEHICLE + ≥8W) is damaged, how often
+is it in cover? **Result: 63% (Astra Militarum), 69% (AdMech), 44% (CSM) — NOT ~never. COVER hypothesis REFUTED.** The
+vehicles ARE in cover a majority of the time (their positions land inside terrain), and cover wouldn't help vs the
+anti-tank that kills vehicles anyway. So the no-behind-cover gap is NOT the driver. Cover stays as-is (the point-vs-base /
+behind-cover 10e gap is a minor separate fidelity item, noted not chased).
+
+Then segmented the loss for all three (`scripts/diag_undershooter.py`, generalizing the AdMech diag — primary VP /
+secondary VP / survival, vs 7 opponents × 10 seeds each):
+
+```
+Under-shooter         win%  dPrim   dSec   MEsurv OPPsurv  dSurv
+Astra Militarum        36%   -9.2  -24.4    28%    61%    -33%
+Adeptus Mechanicus     23%  -15.2  -21.7    28%    61%    -33%
+Chaos Space Marines    33%   -9.4  -24.8    39%    43%     -4%
+```
+
+NOT one clean mechanism — three findings:
+1. **The SECONDARY gap is the LARGEST, most consistent component** (−22 to −25 across all three) — bigger than the
+   primary gap. Not predicted; points at the M2 actions-cost-units secondary deck under-scoring for low-model-count
+   armies (fewer spare unit-activations to spend on actions + fewer kills for kill-cards).
+2. **AM/AdMech are heavily OUT-ATTRITED** (28% survive vs opp 61% — ground down), but **CSM is NOT** (−4%, even). So
+   AM/AdMech have an attrition problem on top (out-traded — NOT cover; next test = damage DEALT vs TAKEN by their
+   vehicles to split under-output from over-fragility). CSM does not.
+3. **CSM survives fine yet still loses primary (−9.4) AND secondary (−24.8)** — so CSM's loss is SCORING/POSITIONAL, not
+   attrition. (This is why CSM Dark Pacts #52 — a combat buff — would NOT close CSM; its problem is scoring, not killing.)
+
+The unifying thread is the SECONDARY under-scoring (all three, the biggest single factor, a known sim subsystem) — the
+likely under-side mirror of the over-side representation floor (the scoring game rewards model/unit COUNT; low-count
+durable armies under-hold objectives AND under-spend on action-secondaries). The AM/AdMech attrition is a separate combat
+factor. NEXT (instrument-first, my default unless the watchdog redirects): decompose the −24 secondary gap by card type
+(kill-based vs positional vs action) to confirm it is a real low-count representation bias and not just a losing-army
+artifact, AND split AM/AdMech attrition into damage dealt-vs-taken. NO fix until the secondary gap's cause is localized.
+
 ## Wave 170-171 (2026-06-04) — COHERENCY FLIPPED default-ON (re-base 4.05→3.93) + AdMech under-side diagnostic: loses on ATTRITION
 
 **Coherency flip (user-greenlit, watchdog-executed, commit `73ee2f4`):** Stage B (`SWEG_COHERE`) now default-ON. N=80
