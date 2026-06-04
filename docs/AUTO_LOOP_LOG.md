@@ -4,6 +4,40 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 187 (2026-06-05) — primary-mission rotation BUILT (faithful, gated) + sized: REFUTED as the over-pole lever — but the all-Purge result reframes the Knight as a COMBAT monster the sim never removes
+
+User rejected the floor (reality = existence proof a faithful sim reaches ~47% Knights; "representation limit" is not an
+excuse to stop). Watchdog found the gap: `_score_objectives` scored EVERY game as Take and Hold (5VP/marker cap 15, the
+most holder-friendly primary); the real CA-2025-26 deck rotates 10 primaries. VERIFY-FIRST (wave 186, Wahapedia + GDM)
+sourced the rotation + verbatim scoring. BUILT (8f238ed, env-gated SWEG_PRIMARY_MISSION): `_score_objectives` branches on
+`Battle.primary_mission` — take_and_hold (default, byte-identical) / purge_the_foe (4VP kill-1+ +4 kill-more +4 control-1+
++4 control-more, cap 12; kills from round snapshots) / scorched_earth (5VP/marker cap 10; Burn deferred). 3 verbatim
+citations, audited, OFF byte-identical.
+
+**SIZING (all-one-mission N=80, upper-bound):**
+```
+mission            MAE gated   Imperial Knights   Astra Militarum
+take_and_hold        5.80        26.00 (sim 77%)     13.03   (baseline)
+purge_the_foe       12.20        40.98 (sim 92%)     27.87   DISASTER
+scorched_earth       5.87        25.43 (sim 76%)     15.30   ~neutral
+```
+**The primary-mission rotation is REFUTED as the over-pole lever.** Purge the Foe (kill-weighted) makes the Knight FAR
+WORSE — it out-kills everyone, so a kill-mission hands its combat dominance a VP channel (and craters the out-killed gunline
+under-shooters). Scorched Earth (lower hold cap, no kill reward) dampens the Knight a hair (−0.57) but hurts the
+under-shooters MORE (+2.27) → net neutral. A faithful rotation (mostly hold-variants + a wrong-direction Purge component)
+nets neutral-to-worse. The simple hypothesis ("rotate anti-holding primaries → lower the Knight") is FALSE: **the Knight
+dominates WHATEVER the scoring rewards** (holding under Take and Hold, killing under Purge) because it is too strong overall.
+
+**THE REFRAME (the real signal):** all-Purge → Imperial Knights **91.6% sim** means the sim's Knight WINS THE COMBAT
+decisively — it out-kills the whole field and is essentially never removed. In real play a Knight is ~47% because opponents
+FOCUS it down with concentrated anti-tank. So the missing fidelity is NOT the primary scoring — it is that **the sim's
+Knight is too hard to KILL / the opponent AI does not concentrate fire to remove it** (the anti-tank fix #68 armed the guns
+but even-handedly; the IK focus-fire lever #12 is built but gated). The over-pole = the Knight's un-removability. NEXT
+instrument (the resumed hunt): does the sim's Knight OVER-SURVIVE specifically (durability/save over-model) and/or do
+opponents fail to CONCENTRATE fire on it (an AI threat-priority gap)? Quantify how often the Knight dies in the sim vs the
+~real expectation. The build stays gated (faithful scoring infrastructure; keep-if-faithful). The faithful-3-base Take and
+Hold (sim's flat-5 over-credits holding vs the real 3-base) is a minor sub-angle, likely neutral like Scorched — deferred.
+
 ## Wave 185 (2026-06-04) — #66 map-objective home-marker fidelity (the SECONDARY-half decider): FAITHFUL but REGRESSES (5.80→5.95) — secondary is ALSO structural → the bank-vs-remodel fork is now TRULY CLEAN
 
 The watchdog's widen-before-the-floor: the secondary VP half (the bigger half) bore on #66, the map-objective-layout

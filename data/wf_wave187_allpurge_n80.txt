@@ -1,0 +1,31 @@
+Mode: vanilla WH40k 10e | Lists: tourney-archetype | N=80 | workers=11
+
+Faction                   Sim%   Real%   Noise    Diff   Gated    vs50
+------------------------------------------------------------------------
+Adeptus Astartes          52.9    47.0    2.16    +6.0    3.81    +2.9  
+Necrons                   33.6    53.5    3.22   -19.8   16.63   -16.4  
+Aeldari                   39.0    41.5    3.10    -2.5    0.00   -11.0 .
+Tyranids                  27.1    47.0    3.82   -19.9   16.04   -22.9  
+Orks                      35.6    45.3    2.90    -9.6    6.73   -14.4  
+T'au Empire               54.1    54.3    4.23    -0.2    0.00    +4.1 .
+Death Guard               65.3    47.6    2.58   +17.7   15.10   +15.3  
+Adeptus Custodes          79.5    49.5    2.65   +30.0   27.31   +29.5  
+Thousand Sons             60.2    53.9    8.75    +6.3    0.00   +10.2 .
+Leagues of Votann         49.7    48.0    3.03    +1.7    0.00    -0.3 .
+Chaos Space Marines       45.0    55.6    2.48   -10.6    8.15    -5.0  
+World Eaters              61.2    44.9    3.42   +16.3   12.89   +11.2  
+Emperor's Children        58.0    53.3    5.67    +4.7    0.00    +8.0 .
+Chaos Daemons             60.8    52.6    3.16    +8.2    5.01   +10.8  
+Astra Militarum           14.2    45.3    3.18   -31.0   27.87   -35.8  
+Adeptus Mechanicus        18.6    44.4    4.17   -25.8   21.61   -31.4  
+Adepta Sororitas          46.7    50.8    3.79    -4.1    0.29    -3.3  
+Grey Knights              82.7    46.7    4.22   +36.0   31.79   +32.7  
+Drukhari                  52.9    52.4    3.36    +0.6    0.00    +2.9 .
+Genestealer Cults         33.2    46.7    4.60   -13.5    8.89   -16.8  
+Imperial Knights          91.6    47.7    2.96   +43.9   40.98   +41.6  
+Chaos Knights             73.3    44.7    3.29   +28.6   25.33   +23.3  
+------------------------------------------------------------------------
+MAE raw (sim - real_meta):        15.32 pts  (legacy headline)
+MAE gated (only beyond noise):    12.20 pts  (target → 0; the real calibration signal)
+MAE vs Sweg-balanced (50/50):     15.91 pts  (rule-internal-balance signal)
+Factions inside noise band:      6/22  (target → all 22)
