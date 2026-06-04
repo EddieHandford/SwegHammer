@@ -1,7 +1,22 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 166 (2026-06-04) — GROUP-2 #2 fight-phase alternation, variant (a) full-faithful-doubling BUILT
-(gate `SWEG_FIGHTALT`, cited, OFF byte-identical, commit `c306932`) + A/B'd + REJECTED. alt-only N=40 gated **6.70**
+**Last updated:** Wave 168 (2026-06-04) — COMBAT REBUILD (fight-phase alternation) user-greenlit, order CORRECTED to
+verified 10e (chargers first; Remaining step starts NON-active/defender; commit `afdd2a3`), fairly A/B'd → DEFINITIVELY
+REJECTED. Corrected-order alt-only N=40 gated **7.31** (vs OFF 4.20 — even worse than the wrong-order 6.70). Same severe
+backfire: durable melee/elite UP (World Eaters +23.4, **Imperial Knights +39.7 / gated 36.7**, Chaos Knights, Death
+Guard, Custodes, Daemons, GSC, Grey Knights), fragile shooters crushed (Necrons, T'au, Astra Militarum 12.8, AdMech
+10.9). The DOUBLING (faithful 10e = locked units fight twice/round) dominates regardless of within-step order. NOT
+metric-protection: real WE +13.9 (sim +23.4), real IK +30.4 (sim +39.7) — doubling moves the sim FAR from reality; the
+sim's melee is already calibrated to once/round and faithful doubling needs the MISSING bounding fidelity (Fall-Back
+disengage AI + one-exchange combat resolution) first. Faithful-in-isolation, unfaithful-in-effect (Stage-E pattern).
+`SWEG_FIGHTALT` kept gated default-OFF (correct 10e code, rejected experiment). **The fight-phase lever is DEAD.** The
+Group-2 melee over-shoot needs the bounding-fidelity track (Fall-Back AI / combat resolution) or candidate #3
+(battle-shock crumbling), NOT alternation. Honest baseline UNCHANGED: N=80 gated **4.05** default / **3.93** Stage B on.
+[Wave 166 build detail below.]
+
+**Wave 166 — GROUP-2 #2 fight-phase alternation, variant (a) full-faithful-doubling BUILT
+(gate `SWEG_FIGHTALT`, cited, OFF byte-identical, commit `c306932`) + A/B'd + REJECTED (wrong order; superseded by the
+wave-168 corrected-order definitive reject above). alt-only N=40 gated **6.70**
 (vs OFF 4.20) — severe backfire: the DURABLE-melee/elite armies went UP (World Eaters 64→69, Imperial Knights gated
 34.3, Chaos Knights, Death Guard, Custodes, Daemons) and the fragile shooters DOWN (Necrons 11.7, Astra Militarum 9.7,
 T'au, AdMech). Faithful 10e ~doubles fight frequency for locked combats and the DOUBLING dominated the in-phase-

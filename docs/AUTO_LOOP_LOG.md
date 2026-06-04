@@ -4,6 +4,35 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 168 (2026-06-04) — COMBAT REBUILD (fight-phase alternation) — user-greenlit, order CORRECTED, fairly A/B'd → DEFINITIVELY REJECTED
+
+The user greenlit the combat rebuild. The wave-166 build used the WRONG alternation order (active-first both steps);
+the watchdog verified the authoritative 10e order from Wahapedia quick-start ("Units that charged this turn fight before
+all others. Then, starting with the player not currently taking their turn, players alternate"). Corrected
+`_run_fight_alternation` (Fights First step starts ACTIVE; Remaining Combats step starts NON-active/defender), updated
+the `simulator.fight_alternation` citation verbatim, commit `afdd2a3` (audit clean, run.py both paths, tests green, OFF
+still byte-identical).
+
+**Corrected-order A/B (alt-only N=40): gated 7.31** (vs OFF 4.20 — even WORSE than the wrong-order 6.70). Same severe
+backfire, slightly amplified: World Eaters +23.4 (gated 20.0), **Imperial Knights +39.7 (gated 36.7, up from 30.4
+baseline)**, Chaos Knights 14.8, Death Guard, Custodes, Daemons, GSC, Grey Knights — durable melee/elite ALL UP; Necrons,
+T'au, **Astra Militarum 12.8, AdMech 10.9** — fragile shooters crushed.
+
+**DEFINITIVE REJECT (the order detail doesn't matter — the DOUBLING dominates).** Faithful 10e ~doubles fight frequency
+for locked combats; durable melee armies (which usually charge → strike first in the Fights First step regardless of the
+remaining-step order) fight twice per round and over-accumulate, while fragile shooters are ground down twice as fast.
+The defender-first-remaining fix just adds MORE doubling, hence slightly worse. **Not metric-protection:** real
+tournaments use twice-per-round melee yet show World Eaters +13.9 (sim hits +23.4) and Imperial Knights +30.4 (sim hits
++39.7) — so the doubling moves the sim FAR from reality. The sim's melee is already calibrated (via its other
+approximations) to once-per-round; the faithful doubling would need the MISSING bounding fidelity (Fall-Back-to-disengage
+AI + realistic one-exchange combat resolution) BEFORE it matched reality. Faithful-in-isolation, unfaithful-in-effect
+(the Stage-E pattern). Swings dwarf noise → no N=80. `SWEG_FIGHTALT` kept gated default-OFF as the rejected experiment
+(the corrected code is the correct 10e implementation, available post-recalibration). Honest baseline UNCHANGED: N=80
+gated **4.05** default / **3.93** Stage B on.
+
+**The fight-phase lever is dead.** The Group-2 melee over-shoot needs the missing bounding fidelity (Fall-Back AI /
+combat resolution) — a bigger, separate fidelity track — or candidate #3 (battle-shock crumbling), NOT the alternation.
+
 ## Wave 166 (2026-06-04) — GROUP-2 #2 BUILT: faithful 10e fight-phase alternation (gate `SWEG_FIGHTALT`, OFF byte-identical) — A/B pending
 
 STEP 2 of the watchdog-confirmed Group-2 lever (the over-credit differential was proven in wave 163: denied-retaliation
