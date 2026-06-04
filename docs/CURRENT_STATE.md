@@ -1,17 +1,25 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 168 (2026-06-04) — COMBAT REBUILD (fight-phase alternation) user-greenlit, order CORRECTED to
+**Last updated:** Wave 170-171 (2026-06-04) — COHERENCY FLIPPED TO DEFAULT-ON (user-greenlit; Stage B is now the
+default, commit `73ee2f4`). **NEW HONEST BASELINE: N=80 gated 3.93** (re-based from 4.05; `data/wf_wave170_cohere_default_n80.txt`).
+Faithful 10e Unit Coherency, cited; the OFF path (`SWEG_COHERE=0`) still reproduces 4.05 byte-identical. The symmetry the
+positional rebuild predicted is CONFIRMED at N=80: **Imperial Knights 78.0→74.8 (gated 27.45→24.09, −3.3 above noise** —
+body squads contest the marker) and the under-HOLDER **Necrons rose (gated 4.88→3.27)**, Sororitas 4.05→2.29. Accepted
+collateral (M4-inseparability, the over-side floor): Adeptus Astartes left band (0→2.52, Marine over-hold), World Eaters
+10.0→11.57. Net +0.12 improvement. **REFINEMENT:** Astra Militarum did NOT rise (~flat 2.79→3.03) — Guard is NOT a clean
+under-holder; its gap is output/screening/list, re-segment in UNDERSHOOTER_PLAN. Over-side Group-2 melee levers all
+EXHAUSTED (attacker-count refuted / split-fire neutral / fight-alternation rejected `SWEG_FIGHTALT` / battle-shock null);
+the over-side bounding-fidelity-track-vs-accept-floor fork is parked (user's call). **Current axis = UNDER-SIDE**
+(UNDERSHOOTER_PLAN): AdMech deep diagnostic running on the new baseline (Thread B), CSM Dark Pacts holistic (#52). Stage-2
+re-price (balancer gate-off-vs-on) queued. [Wave 168 fight-alternation reject detail below.]
+
+**Wave 168 — COMBAT REBUILD (fight-phase alternation) user-greenlit, order CORRECTED to
 verified 10e (chargers first; Remaining step starts NON-active/defender; commit `afdd2a3`), fairly A/B'd → DEFINITIVELY
 REJECTED. Corrected-order alt-only N=40 gated **7.31** (vs OFF 4.20 — even worse than the wrong-order 6.70). Same severe
 backfire: durable melee/elite UP (World Eaters +23.4, **Imperial Knights +39.7 / gated 36.7**, Chaos Knights, Death
-Guard, Custodes, Daemons, GSC, Grey Knights), fragile shooters crushed (Necrons, T'au, Astra Militarum 12.8, AdMech
-10.9). The DOUBLING (faithful 10e = locked units fight twice/round) dominates regardless of within-step order. NOT
-metric-protection: real WE +13.9 (sim +23.4), real IK +30.4 (sim +39.7) — doubling moves the sim FAR from reality; the
-sim's melee is already calibrated to once/round and faithful doubling needs the MISSING bounding fidelity (Fall-Back
-disengage AI + one-exchange combat resolution) first. Faithful-in-isolation, unfaithful-in-effect (Stage-E pattern).
-`SWEG_FIGHTALT` kept gated default-OFF (correct 10e code, rejected experiment). **The fight-phase lever is DEAD.** The
-Group-2 melee over-shoot needs the bounding-fidelity track (Fall-Back AI / combat resolution) or candidate #3
-(battle-shock crumbling), NOT alternation. Honest baseline UNCHANGED: N=80 gated **4.05** default / **3.93** Stage B on.
+Guard, Custodes, Daemons), fragile shooters crushed (Necrons, T'au, Astra Militarum, AdMech). The DOUBLING (faithful 10e
+= locked units fight twice/round) dominates; sim melee already calibrated to once/round → unfaithful-in-effect.
+`SWEG_FIGHTALT` kept gated default-OFF. The fight-phase lever is DEAD.
 [Wave 166 build detail below.]
 
 **Wave 166 — GROUP-2 #2 fight-phase alternation, variant (a) full-faithful-doubling BUILT

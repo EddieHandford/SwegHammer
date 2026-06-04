@@ -4,6 +4,25 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 170-171 (2026-06-04) — COHERENCY FLIPPED default-ON (re-base 4.05→3.93) + AdMech under-side diagnostic: loses on ATTRITION
+
+**Coherency flip (user-greenlit, watchdog-executed, commit `73ee2f4`):** Stage B (`SWEG_COHERE`) now default-ON. N=80
+confirm = **gated 3.93** (re-based from 4.05; `data/wf_wave170_cohere_default_n80.txt`). Symmetry CONFIRMED: Imperial
+Knights gated 27.45→24.09 (−3.3), under-holder Necrons 4.88→3.27 rose, Sororitas 4.05→2.29. Accepted collateral (the
+over-side floor): Astartes 0→2.52, World Eaters 10.0→11.57. Net +0.12. REFINEMENT: Astra Militarum did NOT rise (~flat)
+— NOT a clean under-holder (its gap is output/screening/list). OFF path (`=0`) still reproduces 4.05.
+
+**AdMech under-side diagnostic (`scripts/diag_admech.py`, on the new coherency-on baseline):** segmented where AdMech
+(biggest under-shooter) loses across 8 matchups (win 39%). **It loses dominantly on ATTRITION** — survival 38% vs
+opponents' 60% (−22 pts) — which drives a primary-VP loss (AMprim 32.0 vs OPP 39.5, dPrim −7.5); secondary is nearly
+competitive (63.7 vs 71.7). Worst: Imperial Knights (10% win, survival 26% vs 85%, dPrim −21.5), Tyranids (30%); its one
+win is vs Astra Militarum (60%). So AdMech is OUT-DAMAGED + FRAGILE (a two-sided attrition deficit), not out-secondaried.
+**Doctrina Imperatives is already modelled + impactful** (offensive Conqueror + defensive Protector effects in
+`units.py`, picked per Command phase) — NOT the missing lever. So AdMech's deficit is STRUCTURAL. NEXT sub-diagnostic
+(don't pre-judge): split the survival gap into under-OUTPUT (doesn't kill enough) vs over-FRAGILITY (takes too much) —
+and check the remaining watchdog candidates (archetype list competitiveness, mid-model-shooty representation, residual
+fragility beyond Go To Ground). Stage-2 re-price (balancer gate-off-vs-on) still queued.
+
 ## Wave 169 (2026-06-04) — GROUP-2 #3 battle-shock crumbling DIAGNOSTIC → NULL (melee crumbles faithfully) → over-side levers EXHAUSTED
 
 The last cheap Group-2 probe (watchdog-steered, instrument-first). `scripts/diag_battleshock.py` wraps

@@ -24,7 +24,7 @@ from scripts.evaluate_vs_meta import _pick_rotation_map
 ADMECH = "Adeptus Mechanicus"
 # A spread of opponents: over-shooters, gunlines, durable midfield, hordes.
 OPPONENTS = ["Imperial Knights", "World Eaters", "Necrons", "T'au Empire",
-             "Tyranids", "Space Marines", "Astra Militarum", "Aeldari"]
+             "Tyranids", "Adeptus Astartes", "Astra Militarum", "Aeldari"]
 SEEDS = [1, 2, 3, 4, 5]
 
 
