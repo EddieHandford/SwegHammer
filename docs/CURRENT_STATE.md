@@ -1,7 +1,24 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 170-171 (2026-06-04) — COHERENCY FLIPPED TO DEFAULT-ON (user-greenlit; Stage B is now the
-default, commit `73ee2f4`). **NEW HONEST BASELINE: N=80 gated 3.93** (re-based from 4.05; `data/wf_wave170_cohere_default_n80.txt`).
+**Last updated:** Wave 175-176 (2026-06-04) — SYSTEMATIC LIST-REALISM PASS LANDED (user-ruled, commit `6c6cb6d`):
+the eval now fights with the REAL competitive lists for every fixed-core faction. **HONEST DE-FLATTERED BASELINE: N=80
+gated 5.87** (`data/wf_wave175_listrealism_n80.txt`), 4/22 in band — UP from the flattered 3.93/4.05, which were an
+ARTIFACT of fake fragile lists (the archetype builder's 0.3 seed slice dropped each faction's cited durable/support core
+and random-filled cheap fragile units). Per-faction SEED_FRACTION overrides (precedent: Votann/Custodes) now realize the
+real cores, even-handed: AdMech 0.65, Astra Militarum 0.55, CSM 0.65, Sororitas 0.55, Grey Knights 0.45, T'au 0.55
+(MENU seeds IK/CK/Daemons/EC/Aeldari/WE/Tyranids LEFT alone; Death Guard deferred — Mortarion eats the seed budget).
+**THE DE-FLATTERED LANDSCAPE LOCALIZES THE #1 LEVER — the sim's durable-unit valuation is INCONSISTENT:** durable SHOOTY
+VEHICLES under-rated (Astra Militarum gated 13.54 / Sim 28.6, AdMech 11.92 / 28.3, CSM 11.94 / 41.2 — gun platforms that
+under-output + over-die), while durable TITANIC/MELEE over-rated (Imperial Knights 26.11, World Eaters 14.31, Votann
+8.42, Tyranids 7.45 — objective over-hold + the melee floor). Fixing the shooty-durable-vehicle under-valuation would
+close AM+AdMech+CSM TOGETHER = the single biggest under-side lever (a Custodes-style elite-low-model issue, but for
+gun-platforms). NEXT: diagnose the durable-shooty-vehicle under-valuation (instrument-first); CSM Dark Pacts (#52) sits
+behind it. The over-side bounding-fidelity-track + Death Guard list-realism are parked. [Wave 170-171 coherency flip
+detail below.]
+
+**Wave 170-171 — COHERENCY FLIPPED TO DEFAULT-ON (user-greenlit; Stage B is now the
+default, commit `73ee2f4`). HONEST BASELINE at the time: N=80 gated 3.93 (later de-flattered to 5.87 by the wave-175
+list-realism pass; `data/wf_wave170_cohere_default_n80.txt`).
 Faithful 10e Unit Coherency, cited; the OFF path (`SWEG_COHERE=0`) still reproduces 4.05 byte-identical. The symmetry the
 positional rebuild predicted is CONFIRMED at N=80: **Imperial Knights 78.0→74.8 (gated 27.45→24.09, −3.3 above noise** —
 body squads contest the marker) and the under-HOLDER **Necrons rose (gated 4.88→3.27)**, Sororitas 4.05→2.29. Accepted
