@@ -661,6 +661,15 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # via RULE_BEARING_FIELDS. Both live in data/rule_citations.d/necrons.json.
     "simulator.relentless_onslaught",
     "unit.necrodermis",
+    # Wave 181 — CA-2025-26 Tactical-track flat kill card VP values.
+    # When a TACTICAL-track army (SWEG_TAC_DECK path) draws one of these three
+    # kill cards in its hand, it scores a flat per-turn value if one or more
+    # qualifying enemy units died, rather than the Fixed per-unit accumulation.
+    # No Prisoners keeps its per-unit-capped form in both tracks.
+    # Sources: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+    "simulator.secondary_assassination_tactical",
+    "simulator.secondary_bring_it_down_tactical",
+    "simulator.secondary_cull_the_horde_tactical",
 )
 
 

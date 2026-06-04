@@ -138,5 +138,29 @@
     "trigger": "end of each battle round, evaluating the scoring army's and the opponent's unit positions relative to the battlefield centre (width/2, height/2)",
     "effect": "Requires one of your units within 3\" of centre; then 5 VP if no enemy unit within 6\" of centre, else 2 VP if no enemy unit within 3\" of centre, else 0. Implemented in Battle._score_area_denial (env-gated SWEG_TIER_A). Even-handed centre-control reward.",
     "scope": "phase-gated"
+  },
+  "simulator.secondary_assassination_tactical": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 Tactical Mission card — verbatim text captured from a prior Wahapedia read; DNS may be unreachable from agent worktrees)",
+    "rule_name": "Assassination (Chapter Approved 2025-26 Secondary Mission, Tactical version)",
+    "quoted_text": "One or more enemy CHARACTER models were destroyed this turn. TACTICAL 5VP",
+    "trigger": "end of each battle round, when a TACTICAL-track army's held Assassination card is scored: one or more enemy CHARACTER units were destroyed this round",
+    "effect": "Flat 5 VP if one or more enemy CHARACTER models were destroyed this turn (regardless of wound tier or count). Distinct from the Fixed version (4 VP per 4+-wound CHARACTER, 3 VP per under-4-wound CHARACTER, per unit). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_bring_it_down_tactical": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 Tactical Mission card — verbatim text captured from a prior Wahapedia read; DNS may be unreachable from agent worktrees)",
+    "rule_name": "Bring It Down (Chapter Approved 2025-26 Secondary Mission, Tactical version)",
+    "quoted_text": "One or more enemy MONSTER or VEHICLE units were destroyed this turn. TACTICAL 4VP",
+    "trigger": "end of each battle round, when a TACTICAL-track army's held Bring It Down card is scored: one or more enemy MONSTER or VEHICLE units were destroyed this round",
+    "effect": "Flat 4 VP if one or more enemy MONSTER or VEHICLE units were destroyed this turn (regardless of wounds total or count). Distinct from the Fixed version (2 VP base +2 at 15+ wounds +2 at 20+, per unit, no round cap). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
+    "scope": "phase-gated"
+  },
+  "simulator.secondary_cull_the_horde_tactical": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 Tactical Mission card — verbatim text captured from a prior Wahapedia read; DNS may be unreachable from agent worktrees)",
+    "rule_name": "Cull the Horde (Chapter Approved 2025-26 Secondary Mission, Tactical version)",
+    "quoted_text": "One or more enemy INFANTRY units with a Starting Strength of 13+ were destroyed this turn. TACTICAL 5VP",
+    "trigger": "end of each battle round, when a TACTICAL-track army's held Cull the Horde card is scored: one or more enemy INFANTRY units with Starting Strength 13+ were destroyed this round",
+    "effect": "Flat 5 VP if one or more enemy INFANTRY units with Starting Strength 13+ were destroyed this turn (regardless of count). Distinct from the Fixed version (5 VP per qualifying unit destroyed, no per-round cap). Implemented in score_round_delta when tactical=True, routed from Battle._score_one_card when scoring_army.secondary_track == 'TACTICAL'. Env-gated SWEG_TAC_DECK; OFF leaves the Fixed per-unit path byte-identical.",
+    "scope": "phase-gated"
   }
 }

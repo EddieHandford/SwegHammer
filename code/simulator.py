@@ -1935,10 +1935,22 @@ class Battle:
                 return 0
             other_warlord = (self.b.warlord_uid if own_is_army_a
                              else self.a.warlord_uid)
+            # Fixed-vs-Tactical track split (CA-2025-26): when the scoring army
+            # is on the TACTICAL track the three kill cards (bring_it_down,
+            # cull_the_horde, assassination) score a flat per-turn value if any
+            # qualifying enemy unit died this turn. No Prisoners stays per-unit-
+            # capped in both tracks. See score_round_delta's `tactical` parameter.
+            # Cited as `simulator.secondary_assassination_tactical`,
+            # `simulator.secondary_bring_it_down_tactical`,
+            # `simulator.secondary_cull_the_horde_tactical`.
+            is_tactical = (
+                getattr(scoring_army, "secondary_track", None) == "TACTICAL"
+            )
             bid, np_, cth, assn = score_round_delta(
                 snap, other_army.units,
                 enemy_warlord_uid=other_warlord,
                 chosen=one,
+                tactical=is_tactical,
             )
             return bid + np_ + cth + assn
         # --- Position cards (Engage / Behind Enemy Lines) ----------------------

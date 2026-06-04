@@ -190,6 +190,17 @@ ENGAGE_ON_ALL_FRONTS_VP: int = 2      # legacy alias (still used by tests); equa
 # 20+ models / 25+ wounds; the sim previously used 10.
 CULL_THE_HORDE_MIN_MODELS: int = 13   # CA-2025-26: started 13+ models
 
+# CA-2025-26 Tactical-track kill card flat VP values (scored once per turn if
+# ONE OR MORE qualifying enemy units died, else 0). These are the TACTICAL card
+# values — distinct from the Fixed per-unit accumulation above.
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
+# Cited as `simulator.secondary_assassination_tactical`,
+#         `simulator.secondary_bring_it_down_tactical`,
+#         `simulator.secondary_cull_the_horde_tactical`.
+ASSASSINATION_TACTICAL_VP: int = 5   # flat 5 VP if one or more CHARACTERs died
+BRING_IT_DOWN_TACTICAL_VP: int = 4   # flat 4 VP if one or more MONSTER/VEHICLE units died
+CULL_THE_HORDE_TACTICAL_VP: int = 5  # flat 5 VP if one or more qualifying INFANTRY units died
+
 
 @dataclass
 class RoundSnapshot:
@@ -367,6 +378,7 @@ def score_round_delta(
     defender_faction: Optional[str] = None,
     attacker_faction: Optional[str] = None,
     chosen: Optional[Iterable[str]] = None,
+    tactical: bool = False,
 ) -> Tuple[int, int, int, int]:
     """Compute (bring_it_down_vp, no_prisoners_vp, cull_the_horde_vp,
     assassination_vp) for the snapshotted side against the current enemy
@@ -395,6 +407,22 @@ def score_round_delta(
     existing scorer-only tests continue to pass (it remains a scoreable
     card, just not a valid Fixed pick). Cited as
     `simulator.secondary_selection`.
+
+    Fixed-vs-Tactical track split (CA-2025-26):
+      `tactical=False` (default) — FIXED per-unit scoring: each qualifying
+        destroyed unit earns VP individually (current behaviour, unchanged).
+      `tactical=True` — TACTICAL flat per-turn scoring: each of the three
+        kill cards (bring_it_down, cull_the_horde, assassination) scores a
+        flat VP value if ONE OR MORE qualifying enemy units died this turn,
+        else 0. The flat values are:
+          Assassination: 5 VP if one or more enemy CHARACTERs died
+          Bring It Down: 4 VP if one or more enemy MONSTER/VEHICLE units died
+          Cull the Horde: 5 VP if one or more qualifying INFANTRY units died
+        No Prisoners is per-unit-capped (2 VP/unit, max 5/turn) in BOTH
+        tracks — it does not change form when tactical=True. Cited as
+        `simulator.secondary_assassination_tactical`,
+        `simulator.secondary_bring_it_down_tactical`,
+        `simulator.secondary_cull_the_horde_tactical`.
 
     NOTE: `defender_faction` and `attacker_faction` parameters are accepted
     for API stability (callers in code/simulator.py pass these) but are
@@ -461,38 +489,66 @@ def score_round_delta(
     # qualify as horde (rare in the real catalogue, but handled for correctness).
     horde_killed_count = len(destroyed_horde_squads) + len(destroyed_horde_lones)
 
-    # CA-2025-26 Bring It Down: per destroyed MONSTER/VEHICLE, 2 VP + 2 (15+ total
-    # wounds) + 2 (20+), capped at 6 per unit; no per-round cap (the 18 ceiling is
-    # effectively unbounded, under the 40-VP secondary total cap).
+    # CA-2025-26 Bring It Down scoring — split by track:
+    #   FIXED (tactical=False): per destroyed MONSTER/VEHICLE, 2 VP + 2 (15+ total
+    #     wounds) + 2 (20+), capped at 6 per unit; no per-round cap.
+    #   TACTICAL (tactical=True): flat 4 VP if one or more MONSTER/VEHICLE units
+    #     were destroyed this turn, else 0.
+    # Cited as `simulator.secondary_bring_it_down` (Fixed) and
+    # `simulator.secondary_bring_it_down_tactical` (Tactical).
     bring_it_down_vp = 0
     if "bring_it_down" in chosen_set:
-        for mid in mv_killed:
-            vp = BRING_IT_DOWN_VP_PER_KILL
-            if mid in snapshot.mv_ids_15plus:
-                vp += BRING_IT_DOWN_VP_BONUS
-            if mid in snapshot.mv_ids_20plus:
-                vp += BRING_IT_DOWN_VP_BONUS
-            bring_it_down_vp += min(vp, BRING_IT_DOWN_VP_MAX_PER_UNIT)
-        bring_it_down_vp = min(bring_it_down_vp, BRING_IT_DOWN_CAP_PER_ROUND)
+        if tactical:
+            bring_it_down_vp = BRING_IT_DOWN_TACTICAL_VP if mv_killed else 0
+        else:
+            for mid in mv_killed:
+                vp = BRING_IT_DOWN_VP_PER_KILL
+                if mid in snapshot.mv_ids_15plus:
+                    vp += BRING_IT_DOWN_VP_BONUS
+                if mid in snapshot.mv_ids_20plus:
+                    vp += BRING_IT_DOWN_VP_BONUS
+                bring_it_down_vp += min(vp, BRING_IT_DOWN_VP_MAX_PER_UNIT)
+            bring_it_down_vp = min(bring_it_down_vp, BRING_IT_DOWN_CAP_PER_ROUND)
+    # No Prisoners — per-unit-capped (2 VP/unit, max 5/turn) in BOTH tracks.
+    # The Tactical track does not change its scoring form for No Prisoners.
     no_prisoners_vp = min(
         NO_PRISONERS_CAP_PER_ROUND,
         units_killed_count * NO_PRISONERS_VP_PER_UNIT,
     ) if "no_prisoners" in chosen_set else 0
-    cull_the_horde_vp = min(
-        CULL_THE_HORDE_CAP_PER_ROUND,
-        horde_killed_count * CULL_THE_HORDE_VP_PER_UNIT,
-    ) if "cull_the_horde" in chosen_set else 0
-    # CA-2025-26 Assassination: 4 VP per destroyed CHARACTER with 4+ Wounds, 3 VP
-    # for one with fewer than 4; no per-round cap (12 ceiling, under the 40 total).
+    # CA-2025-26 Cull the Horde scoring — split by track:
+    #   FIXED (tactical=False): 5 VP per qualifying INFANTRY unit destroyed.
+    #   TACTICAL (tactical=True): flat 5 VP if one or more qualifying INFANTRY
+    #     units were destroyed this turn, else 0.
+    # Cited as `simulator.secondary_cull_the_horde` (Fixed) and
+    # `simulator.secondary_cull_the_horde_tactical` (Tactical).
+    cull_the_horde_vp = 0
+    if "cull_the_horde" in chosen_set:
+        if tactical:
+            cull_the_horde_vp = CULL_THE_HORDE_TACTICAL_VP if horde_killed_count > 0 else 0
+        else:
+            cull_the_horde_vp = min(
+                CULL_THE_HORDE_CAP_PER_ROUND,
+                horde_killed_count * CULL_THE_HORDE_VP_PER_UNIT,
+            )
+    # CA-2025-26 Assassination scoring — split by track:
+    #   FIXED (tactical=False): 4 VP per destroyed CHARACTER with 4+ Wounds, 3 VP
+    #     for one with fewer than 4; no per-round cap.
+    #   TACTICAL (tactical=True): flat 5 VP if one or more CHARACTERs were destroyed
+    #     this turn, else 0. No wound-tier split on the Tactical card.
+    # Cited as `simulator.secondary_assassination` (Fixed) and
+    # `simulator.secondary_assassination_tactical` (Tactical).
     assassination_vp = 0
     if "assassination" in chosen_set:
-        for cid in chars_killed:
-            assassination_vp += (
-                ASSASSINATION_VP_4PLUS_WOUNDS
-                if cid in snapshot.char_ids_4plus
-                else ASSASSINATION_VP_PER_CHAR
-            )
-        assassination_vp = min(assassination_vp, ASSASSINATION_CAP_PER_ROUND)
+        if tactical:
+            assassination_vp = ASSASSINATION_TACTICAL_VP if chars_killed else 0
+        else:
+            for cid in chars_killed:
+                assassination_vp += (
+                    ASSASSINATION_VP_4PLUS_WOUNDS
+                    if cid in snapshot.char_ids_4plus
+                    else ASSASSINATION_VP_PER_CHAR
+                )
+            assassination_vp = min(assassination_vp, ASSASSINATION_CAP_PER_ROUND)
     # LC-5: +1 VP bonus if the enemy Warlord was among the destroyed
     # CHARACTERs this round. Real Pariah Nexus Assassination: "Score 3
     # VP at the end of the battle round if one or more enemy CHARACTER
