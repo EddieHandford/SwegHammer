@@ -4,6 +4,48 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 179 (2026-06-04) — SWEG_TAC_DECK A/B: REGRESSES (5.87→6.77) — the real cadence is blocked by the AI-PURSUIT STALL (held objective-control cards achieve <20%)
+
+A/B'd the candidate fix from wave 178 — `SWEG_TAC_DECK` ON (the real CA-2025-26 2-card cadence) vs the OFF default
+(every-round-9), N=80 on the de-flattered real-list baseline. **It REGRESSED the headline:**
+
+```
+Faction              OFF gated   ON gated    Δ        Sim% OFF→ON
+Chaos Space Marines    11.94      12.49    +0.55      41.2→40.7
+Astra Militarum        13.54      13.76    +0.22      28.6→28.3
+Adeptus Mechanicus     11.92      10.68    -1.24      28.3→29.6
+World Eaters           14.31      11.82    -2.49      62.7→60.2
+Imperial Knights       26.11      29.61    +3.50      76.8→80.3  (WORSE)
+MAE gated               5.87       6.77    +0.90  (REGRESSED)
+```
+The under-shooters did NOT cleanly rise (AdMech better, CSM/AM slightly worse), and the OVER-side got WORSE (Imperial
+Knights 76.8→80.3). This is the watchdog's predicted failure mode, and the achieve-rate probe
+(`scripts/diag_tacdeck_achieve.py`) confirms the mechanism exactly:
+
+```
+Faction            TACTICAL%  achieve%      key board-card achieve-rates
+Astra Militarum      100%       23%   defend_stronghold 9% / extend 7% / area_denial 17%
+Adeptus Mechanicus   100%       25%   defend_stronghold 9% / extend 11% / area_denial 13%
+Chaos Space Marines   38%       24%   defend_stronghold 10% / extend 11% / area_denial 4%
+Imperial Knights       0%        -    (always FIXED — 2 kill cards every round)
+World Eaters         100%       30%   defend_stronghold 8% / extend 12% / area_denial 19%
+```
+
+**ROOT CAUSE (the watchdog's crux, CONFIRMED): the AI-pursuit STALLS.** TACTICAL armies achieve only 23−30% of their
+held cards, and the OBJECTIVE-CONTROL/board cards — the exact ones that should let body armies out-score the durable
+Knight — basically never achieve (defend_stronghold 8−10%, extend_battle_lines 7−12%, area_denial 4−19%). Meanwhile
+**Imperial Knights go 0% TACTICAL → always FIXED**, scoring 2 kill cards RELIABLY every round. So the deck makes the
+durable FIXED armies out-score the stalling TACTICAL body armies → IK over-rate UP, MAE worse. Wave 121's AI-pursuit
+layer is plainly insufficient.
+
+**CONCLUSION: the deck flip does NOT land alone, and is NOT the fix by itself.** The real, faithful #1 lever is the
+AI-PURSUIT: make a TACTICAL army move bodies to ACHIEVE its held board cards (hold the markers defend_stronghold /
+extend_battle_lines / storm_hostile_objective require). That IS faithful (real players pick cards they can do and play to
+do them) and it's the body army's real advantage (it has the bodies to hold markers). The real cadence (deck) and a
+strong AI-pursuit are COUPLED — only together would body armies out-score Knights on secondaries, closing the over-side
+AND the under-side at once. SWEG_TAC_DECK stays default-OFF (the OFF path is byte-identical; no regression banked). Routed
+to the watchdog: the localized #1 lever is now the AI-pursuit stall — a real Stage-1 AI build, sized by the watchdog.
+
 ## Wave 178 (2026-06-04) — #1 lever LOCALIZED: the secondary gap is over-scored objective-control/action cards (every round, not the real 2-card cadence) → candidate fix already built (SWEG_TAC_DECK)
 
 Decomposed the wave-177 secondary gap by card TYPE (`scripts/diag_secondary_breakdown.py`, wraps the scoring functions
