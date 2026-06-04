@@ -10,6 +10,15 @@
     "scope": "army-wide"
   },
 
+  "simulator.coherency_enforcement": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Unit-Coherency",
+    "rule_name": "Unit Coherency (enforced after movement)",
+    "quoted_text": "Whenever a unit is set up or moves, all of its models must be placed/moved so that the unit is in Unit Coherency. A unit is in Unit Coherency if every model in that unit is within 2\" horizontally ... of at least one other model in their unit.",
+    "trigger": "squad rebuild Stage B (env-gated SWEG_COHERE): after every model of the active army has taken its individual Movement-phase move, a model is left out of Unit Coherency (more than 2\" from its nearest squadmate) because the per-model move AI let it chase its own intent and scatter from the squad",
+    "effect": "the straggler is moved toward its squad centroid, spending only the movement it has left this phase (its Move characteristic minus the distance it already moved), so it returns toward Unit Coherency without exceeding its legal move. This corrects the one-Unit-per-model representation artifact where a squad a human would keep tight scatters and strands models outside the 3\" Objective Control band; with the squad coherent, its surviving models mass their Objective Control on one marker as 10e intends. Deterministic (no random draws); lone models (no squad) and models that Advanced or Fell Back this round are skipped. Default OFF; SWEG_COHERE=1 enables the isolation A/B.",
+    "scope": "phase-gated"
+  },
+
   "simulator.m4_squad_cluster": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/core-rules/#Objective-Control",
     "rule_name": "Objective Control (massing models on a marker)",

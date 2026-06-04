@@ -4,6 +4,39 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 159 (2026-06-04) — SQUAD REBUILD STAGE B: mid-game Unit Coherency enforcement (gate `SWEG_COHERE`) — first behavioural landing; N=80 gated 4.05 → 3.93, Imperial Knights −3.3
+
+The first INTENTIONAL behaviour change of the squad rebuild. After every model of the active army has taken its
+individual Movement-phase move, `Battle._enforce_squad_coherency` pulls any model left out of Unit Coherency (more
+than 2" from its nearest squadmate) back toward its squad centroid, spending only the move the model has left this
+phase (Move characteristic minus distance already moved). This is the real 10e core rule — "all of its models must
+be ... moved so that the unit is in Unit Coherency" — that the one-Unit-per-model representation breaks: the per-model
+move AI lets a squad scatter, stranding models outside the 3" Objective Control band. Deterministic (no random draws),
+lone models and Advanced / Fell-Back models skipped. Cited as `simulator.coherency_enforcement`. Gate default-OFF;
+the OFF path is byte-identical (verified: N=40 OFF reproduces 4.20, N=80 OFF reproduces the 4.05 honest baseline
+exactly — 9/22 in band, Imperial Knights +30.4 / gated 27.45).
+
+**N=80 A/B (the robust read; N=40 was a noise-level wash 4.20→4.20):**
+- Headline **gated 4.05 → 3.93** (−0.12, a genuine small improvement — the over-side gains beat the collateral).
+- **Imperial Knights 78.1% → 74.8% (−3.3), gated 27.45 → 24.09 (−3.36)** — the #1 residual, moving in the intended
+  direction and above its 2.96 noise floor. This is the rebuild lever working: coherent body squads mass their
+  Objective Control onto markers, contest the Knight's objectives, and cut its victory-point dominance.
+- Other faithful gains: Necrons (under-shooter) gated 5.13 → 3.27, Sororitas 3.57 → 2.29, Thousand Sons 1.05 → 0.37,
+  Votann 7.20 → 6.77.
+- Collateral (the M4-α inseparability, predicted): Adeptus Astartes leaves the band (gated 0.00 → 2.52 — tighter
+  Marine squads over-hold), plus small over-side ticks (World Eaters +0.61, Emperor's Children +0.55, Drukhari +0.47).
+  The in-band count 9 → 5 overstates this: Orks/T'au/Death Guard only crossed by 0.12–0.31 (noise-edge); only Astartes
+  meaningfully left.
+
+**Honest caveat:** Stage B *dents* the representation floor — the Knight is still +27 (gated 24.09), far out of band.
+It is a partial fix, not a resolution; the full lever is the B+E+D stack (cohesive hold + split-fire) plus the
+over-shooter fidelity work. Verification: audit clean, run.py exit 0 both paths, full suite 1124 passed / 1 skipped
+(5 new `tests/test_squad_coherency.py`). Landed gated default-OFF (default baseline unchanged at 4.05).
+
+NEXT: a flip-timing fork for the watchdog (flip `SWEG_COHERE` default-ON now — it is faithful AND improves the
+headline, per the fidelity-first rail — vs hold for the combined B+E landing the plan sequences together). Then
+Stage E (cohesive objective holding, reuses `SWEG_COHERE`), then Stage D (split-fire shooting, `SWEG_SQUADSHOOT`).
+
 ## Wave 158 (2026-06-04) — SQUAD REBUILD STAGE A: per-squad activation scaffold (gate `SWEG_SQUADACT`, byte-identical inert cache)
 
 The second stage of the user's Q11=(c) authorised positional re-model, built on the Stage C budget infra (wave 157).

@@ -159,6 +159,10 @@ def _move_toward(
 MAX_ROUNDS = 5
 CP_BONUS_DIVISOR = 2    # opponent must have this many more units per 1 CP awarded
 CP_BONUS_CAP = 2        # max CP awarded per round
+# 10e Unit Coherency band: every model must be within 2" of at least one other
+# model in its unit (cited as `simulator.coherency_enforcement`). Used by the
+# squad-rebuild Stage B post-move coherency pass.
+COHERENCY_INCHES = 2.0
 
 
 @dataclass(frozen=True)
@@ -7669,9 +7673,17 @@ class Battle:
             self._squad_move_intent = {}
             self._squad_activated_this_phase = set()
             _squadact = __import__("os").environ.get("SWEG_SQUADACT") == "1"
+            # Squad rebuild Stage B (gate SWEG_COHERE): snapshot each model's
+            # pre-move position so the post-move coherency pass can spend only
+            # the model's REMAINING move. Populated only when the gate is on, so
+            # the OFF path stays byte-identical.
+            _cohere = __import__("os").environ.get("SWEG_COHERE") == "1"
+            _move_start_pos: dict = {}
             for unit in list(active.units):
                 if not unit.is_alive:
                     continue
+                if _cohere:
+                    _move_start_pos[unit.uid] = unit.position
                 if _squadact:
                     # The squad — not the model — is the real activation unit.
                     # On the squad's FIRST alive model this phase, compute the
@@ -7696,6 +7708,12 @@ class Battle:
                             army_name=active.name,
                         ))
                 self._do_move(unit, active, other, _phase_their_oc=_phase_their_oc)
+            # Squad rebuild Stage B (gate SWEG_COHERE): now that every model has
+            # moved individually, pull any model left out of Unit Coherency back
+            # toward its squad within its remaining move. Deterministic; the OFF
+            # path skips this entirely and is byte-identical.
+            if _cohere:
+                self._enforce_squad_coherency(active, _move_start_pos)
             # Pariah Nexus actions are declared after the Movement phase: a
             # surplus unit on a controlled forward objective may perform Cleanse
             # (wave 74), or a surplus unit pushed into No Man's Land / the enemy
@@ -7858,6 +7876,70 @@ class Battle:
             if (ex - px) ** 2 + (ey - py) ** 2 <= 1.0:
                 return True
         return False
+
+    def _enforce_squad_coherency(self, army: Army, move_start_pos: dict) -> None:
+        """Squad rebuild Stage B (gate SWEG_COHERE): after every model of the
+        active army has taken its individual Movement-phase move, pull any
+        model left out of Unit Coherency back toward its squad.
+
+        Why this exists: SwegHammer models one Unit instance per model, and the
+        per-model move AI lets each model chase its own intent, so a squad that
+        a human player would keep tight scatters — stragglers strand outside the
+        3" Objective Control band and the squad contributes only part of its
+        Objective Control. Real 10e forbids this: "all of its models must be
+        ... moved so that the unit is in Unit Coherency" — every model within 2"
+        of a squadmate (cited as `simulator.coherency_enforcement`). This pass
+        nudges each straggler toward its squad centroid, spending only the
+        movement the model has left this phase (its Move characteristic minus
+        the distance it already moved), so no model exceeds its legal move.
+
+        Deterministic — no random draws — so the OFF path (this method is never
+        called) is byte-identical, and the ON path adds no RNG-stream divergence
+        of its own. Lone models (squad_id < 0) have no coherency requirement and
+        are skipped, as are models that Advanced or Fell Back this round (their
+        move pools are special-cased and already spent).
+        """
+        squads: dict = {}
+        for u in army.units:
+            if not u.is_alive:
+                continue
+            sid = getattr(u, "squad_id", -1)
+            if sid < 0:
+                continue
+            squads.setdefault(sid, []).append(u)
+
+        for members in squads.values():
+            if len(members) < 2:
+                continue
+            cx = sum(m.position[0] for m in members) / len(members)
+            cy = sum(m.position[1] for m in members) / len(members)
+            centroid = (cx, cy)
+            for m in members:
+                nearest = min(
+                    _distance(m.position, o.position)
+                    for o in members if o is not m
+                )
+                if nearest <= COHERENCY_INCHES:
+                    continue   # already coherent
+                if m.uid in self._advanced_this_round or getattr(
+                    m, "fell_back_this_round", False
+                ):
+                    continue   # special move pool, already spent
+                used = _distance(move_start_pos.get(m.uid, m.position), m.position)
+                remaining = effective_move(m) - used
+                if remaining <= 0.0:
+                    continue
+                old_pos = m.position
+                new_pos = _move_toward(old_pos, centroid, remaining, self.map)
+                if new_pos != old_pos:
+                    m.position = new_pos
+                    self._did_move_this_round.add(m.uid)
+                    m.moved_this_round = True
+                    self._emit(UnitMoved(
+                        unit_uid=m.uid,
+                        from_pos=old_pos,
+                        to_pos=new_pos,
+                    ))
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
                  _phase_their_oc=None) -> None:

@@ -1,6 +1,21 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 158 (2026-06-04) — SQUAD REBUILD STAGE A LANDED (byte-identical scaffold): per-squad
+**Last updated:** Wave 159 (2026-06-04) — SQUAD REBUILD STAGE B LANDED (first behavioural stage, gate `SWEG_COHERE`):
+mid-game Unit Coherency enforcement. After every model has taken its individual move, `Battle._enforce_squad_coherency`
+pulls any model left >2" from its nearest squadmate back toward the squad centroid within its remaining move
+(deterministic; lone / Advanced / Fell-Back models skipped). The faithful 10e core rule the one-Unit-per-model
+representation breaks. Cited `simulator.coherency_enforcement`. Default-OFF, OFF byte-identical (N=80 OFF reproduces
+4.05 exactly). **N=80 A/B: gated 4.05 → 3.93 (−0.12 improvement); Imperial Knights 78.1→74.8 (gated 27.45→24.09,
+−3.36, above noise) — the #1 residual moving the intended way (body squads mass Objective Control, contest the Knight).**
+Collateral: Adeptus Astartes leaves band (tighter Marine squads over-hold, gated 0→2.52); in-band 9→5 overstated
+(Orks/T'au/Death Guard only 0.12–0.31 over the edge). N=40 was a noise wash (4.20→4.20); N=80 is the robust read.
+HONEST: this DENTS the floor (Knight still +27), not a resolution — full lever is B+E+D + over-shooter fidelity.
+Audit clean, run.py exit 0 both paths, 1124 tests green (5 new). Migration order: C (157) → A (158) → **B (done,
+this wave)** → E (cohesive hold, reuses `SWEG_COHERE`) → D (split-fire, `SWEG_SQUADSHOOT`). OPEN FORK for watchdog:
+flip `SWEG_COHERE` default-ON now (faithful AND improves headline) vs hold for the combined B+E landing. NEXT: Stage E.
+[Wave 158 Stage A + Wave 157 Stage C + Wave 156 TITANIC-overwatch detail below.]
+
+**Wave 158 — SQUAD REBUILD STAGE A LANDED (byte-identical scaffold): per-squad
 activation substrate behind gate `SWEG_SQUADACT`. `Battle.__init__` gains `_squad_move_intent: dict` +
 `_squad_activated_this_phase: set` (reset each Movement phase); when the gate is ON, the Movement loop computes
 `pick_move_intent(...)` ONCE per squad on its first alive model (keyed by `squad_id`, `id(unit)` fallback for
@@ -8,9 +23,7 @@ single-model units), caches it, and emits one `UnitActivated` per squad — but 
 `_do_move`, so the cached intent is **unread** and the scaffold is inert. Byte-identical because `pick_move_intent` is
 deterministic and `UnitActivated` is renderer-only telemetry the evaluator never reads. **Verified three-way
 byte-identical** (clean-base == gate-OFF == gate-ON N=40, all 2213 bytes, gated 4.20, 8/22 in band), audit clean,
-run.py exit 0 both paths, 1119 tests green. This is the activation substrate the behavioural stages will read.
-Migration order: C (done, wave 157) → **A (done, this wave)** → B (coherency, `SWEG_COHERE`, first behavioural) →
-E (cohesive hold) + move-AI → D (split-fire shoot). Honest baseline remains **N=80 gated 4.05**. NEXT: Stage B.
+run.py exit 0 both paths, 1119 tests green. This is the activation substrate the behavioural stages read.
 [Wave 157 Stage C + Wave 156 TITANIC-overwatch detail below.]
 
 **Wave 157 — SQUAD REBUILD STAGE C LANDED (byte-identical infra, commit `f43f862`): the
