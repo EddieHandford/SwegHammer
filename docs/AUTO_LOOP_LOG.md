@@ -4,6 +4,39 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 180 (2026-06-04) — PARALLEL BATCH: AI-pursuit (B) refuted (maps lack own-zone objectives); the dominant under-shooter lever is combat UNDER-OUTPUT (C)
+
+Parallelized the watchdog's file-disjoint batch (user PARALLELIZE directive): A = secondaries.py FIXED-secondary
+fidelity (worktree Sonnet), B = the AI-pursuit fix (orchestrator, simulator.py), C = the attrition dealt-vs-taken
+diagnostic (worktree Sonnet). Results:
+
+**B — board take-and-hold card pursuit: BUILT (94f6054, gated SWEG_TAC_PURSUE) but REFUTED as the secondary-stall fix.**
+Extended `_assign_card_pursuit` to route a spare chaff per UNMET held board card to the marker it needs. The achieve-rate
+diagnostic (SWEG_TAC_PURSUE=1) shows it does NOT work — Defend Stronghold stays 7−10%, Extend Battle Lines 8−14%
+(≈unchanged), overall achieve 23→24 / 25→28. **Root cause found: most rotation maps place ALL objectives in No Man's
+Land** (map0/1/3 have ZERO own-deployment-zone markers; only map2/map4 have one per side), so Defend Stronghold / Extend
+Battle Lines are structurally near-unachievable — no own-zone marker to hold, regardless of pursuit. Secure No Man's Land
+already achieves 62−79% without help. So the secondary stall is NOT a pursuit-routing gap; it is (i) the MAP OBJECTIVE
+LAYOUT (a fidelity gap — real Pariah Nexus / CA-2025-26 missions DO place markers in deployment zones; note the
+`terrain.competitive_pariah_nexus_layout` citation, worth a fidelity check) and (ii) the contest/representation gap. Kept
+B gated (harmless, OFF byte-identical; becomes useful only after a map-objective fix); NO N=80 A/B run (the diagnostic
+already shows it inert; wave-122 precedent confirms deck+pursuit washes).
+
+**C — attrition dealt-vs-taken (9fa33f3, `scripts/diag_attrition_split.py`): the dominant under-shooter problem is combat
+UNDER-OUTPUT.** Astra Militarum / Adeptus Mechanicus deal ~HALF the opponent's damage (51 / 57 wounds per game vs the
+opponent's 101); dealt-to-taken ratio 0.48 / 0.59 vs the opponent's 1.87. They are comprehensively OUT-GUNNED, not merely
+fragile (the high damage-taken is largely downstream of the output gap — their weak guns let opponents survive and keep
+shooting). For Astra Militarum a secondary over-fragility signal exists on durable vehicles (56% of wounds taken, only
+28% of damage dealt). **This is a separate, larger, faithful COMBAT-fidelity lever** — likely related to the anti-tank
+weapon-picker bias (the mapper picks low-expected-value weapon options → the under-shooters' own guns under-pick their
+anti-tank). It does NOT depend on the secondary subsystem at all.
+
+**PIVOT:** the secondary-scoring path (deck cadence + pursuit) is NOT the tractable under-shooter lever right now — it is
+blocked by the map-objective placement + the representation/contest gap (both confirmed). The dominant, faithful, and
+more tractable lever is the under-shooters' combat UNDER-OUTPUT (deal half the damage). Next: diagnose WHY AM/AdMech guns
+under-output (weapon-picker fidelity — `project-antitank-picker-bias`). [A — secondaries.py FIXED-secondary fidelity:
+result appended on agent completion.]
+
 ## Wave 179 (2026-06-04) — SWEG_TAC_DECK A/B: REGRESSES (5.87→6.77) — the real cadence is blocked by the AI-PURSUIT STALL (held objective-control cards achieve <20%)
 
 A/B'd the candidate fix from wave 178 — `SWEG_TAC_DECK` ON (the real CA-2025-26 2-card cadence) vs the OFF default
