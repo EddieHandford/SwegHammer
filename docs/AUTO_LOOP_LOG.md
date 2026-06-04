@@ -4,6 +4,30 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 161 (2026-06-04) — SQUAD REBUILD STAGE D: unit-orchestrated split-fire shooting BUILT (gate `SWEG_SQUADSHOOT`, OFF byte-identical) — A/B pending
+
+The rebuild's last behavioural lever, per the watchdog's confirmed shape (C+A infra → B coherency → D split-fire; E
+dropped). 10e lets a unit split its fire — "all of the models in the unit do not have to target the same enemy unit" —
+but SwegHammer's one-Unit-per-model representation fires each model independently and the lowest-effective-health
+picker piles the whole squad onto one target, wasting overkill. Stage D adds `Battle._plan_squad_fire`: computed once
+on a squad's first firing model, it walks the squad tracking expected wounds COMMITTED to each enemy — anti-armour
+models concentrate on the nominated focus brick, the rest take the lowest-effective-health target they can still
+meaningfully hurt that is not yet lethally committed, so once a target has lethal fire the next model moves on (real
+split-fire: remove MORE units, don't over-kill one). `_do_shoot` validates each assignment against the firing model's
+own legal pool (range / line-of-sight / engagement stay per-model) and falls back to the per-model pick if the assigned
+target is dead or unreachable — "wrapper-not-mutate" per the watchdog. Deterministic (no RNG). Cited
+`simulator.split_fire` (data/rule_citations.d/core_split_fire.json).
+
+**Build verified:** audit clean, run.py exit 0 both paths, full suite **1127 passed** (3 new `tests/test_split_fire.py`
+covering the two-shooters-split, single-enemy-no-split, and no-enemies cases), and **OFF N=40 reproduces 4.20 / 8-in-band
+exactly** (the gate unset leaves the plan empty and `_assigned` None → byte-identical). Gate default-OFF, so the default
+baseline is unchanged (N=80 gated 4.05). Committed as a build (the A/B follows next wave to avoid holding the large,
+risky shooting change uncommitted) — per the Stage-A stash-loss lesson.
+
+NEXT: the serial A/B — D-only (`SWEG_SQUADSHOOT=1`) and B+D (`SWEG_COHERE=1 SWEG_SQUADSHOOT=1`) at N=40 then N=80 vs the
+4.20 / 4.05 baselines, reporting which way split-fire moves the headline and the per-faction deltas (it is even-handed
+fidelity — every army shoots — so the question is whether it helps under-shooters more than over-shooters).
+
 ## Wave 160 (2026-06-04) — SQUAD REBUILD STAGE E: cohesive objective holding TESTED and REJECTED (net regression; reverted, not landed)
 
 Stage E was the plan's next behavioural stage: promote the Objective-Control-massing positioning that the anti-Knight

@@ -277,6 +277,14 @@ class Battle:
         # byte-identical whether the gate is on or off.
         self._squad_move_intent: dict = {}
         self._squad_activated_this_phase: set = set()
+        # Squad rebuild Stage D — unit-orchestrated split-fire (gate
+        # SWEG_SQUADSHOOT). `_squad_fire_plan` maps a model uid -> the enemy Unit
+        # the squad's fire plan assigns it; `_squad_fire_planned` holds the squad
+        # keys already planned this Shooting phase (lazy compute on a squad's
+        # first firing model). Reset each Shooting phase. Empty / unread when the
+        # gate is off, so the OFF path is byte-identical.
+        self._squad_fire_plan: dict = {}
+        self._squad_fire_planned: set = set()
         # UIDs of units that failed their Battleshock test this round — OC 0
         # so they don't contribute to objective control. Reset per round.
         self._battleshocked_this_round: set = set()
@@ -7732,6 +7740,13 @@ class Battle:
             # uncrackable Knight and waste fire; this one cannot). Every unit
             # that can wound the nominee then concentrates on it in _do_shoot.
             self._nominate_focusfire_target(active, other)
+            # Squad rebuild Stage D (gate SWEG_SQUADSHOOT): clear the per-phase
+            # split-fire plan so this army's Shooting phase plans fresh. Resetting
+            # empty containers touches no game state and no RNG, so the OFF path
+            # is byte-identical; the plan is only populated (lazily, in _do_shoot)
+            # when the gate is on.
+            self._squad_fire_plan = {}
+            self._squad_fire_planned = set()
             bump_buffs_generation()
             for unit in list(active.units):
                 if unit.is_alive:
@@ -8407,6 +8422,96 @@ class Battle:
                 best = brick
         army._focusfire_target_uid = best.uid if best is not None else None
 
+    def _plan_squad_fire(self, first_model, attacker_army: Army,
+                         defender_army: Army) -> None:
+        """Squad rebuild Stage D (gate SWEG_SQUADSHOOT): compute a unit-level
+        split-fire plan for the whole squad on its first firing model, caching a
+        target per model uid in `_squad_fire_plan`.
+
+        Real squads split fire: anti-armour models concentrate on a durable brick
+        while the rest spread across chaff so they remove MORE enemy units rather
+        than over-killing one. SwegHammer's one-Unit-per-model representation
+        fires each model independently and the lowest-effective-health picker
+        piles the whole squad onto a single target, wasting overkill. This greedy
+        planner walks the squad's models tracking the expected wounds already
+        COMMITTED to each enemy: each model takes the lowest-effective-health
+        enemy it can still meaningfully hurt that is not yet lethally committed,
+        so once a target has enough fire on it to die the next model moves on.
+        Anti-armour weapons prefer the army focus brick when one is nominated
+        (SWEG_FOCUS / SWEG_FOCUSFIRE). A model that can hurt nothing un-committed
+        is left unassigned, so `_do_shoot` falls back to its per-model pick.
+
+        The plan is an approximation (expected wounds, not per-model line of
+        sight); `_do_shoot` validates each assignment against the firing model's
+        own legal candidate pool and falls back if the assigned target is dead or
+        unreachable. Deterministic (no RNG): the OFF path never calls this.
+        Cited `simulator.split_fire`.
+        """
+        sid = getattr(first_model, "squad_id", -1)
+        if sid >= 0:
+            members = [u for u in attacker_army.units
+                       if u.is_alive and getattr(u, "squad_id", -1) == sid]
+        else:
+            members = [first_model]
+        enemies = list(defender_army.alive_units)
+        if not enemies:
+            return
+        from .strategy import (
+            _astartes_oath_target_bonus,
+            _drukhari_fragile_flyer_bonus,
+            _kite_target_bonus,
+            _screen_target_bonus,
+            _synapse_target_bonus,
+            _transport_target_bonus,
+        )
+        focus_uid = getattr(attacker_army, "_focus_target_uid", None)
+        ff_uid = getattr(attacker_army, "_focusfire_target_uid", None)
+        committed: dict = {}
+        for model in members:
+            p = model.profile
+            target = None
+            # Anti-armour concentrates on the nominated focus brick if it can
+            # meaningfully hurt it (a bolter into a Knight contributes nothing).
+            if self._is_antiarmour_weapon(p):
+                for fuid in (ff_uid, focus_uid):
+                    if fuid is None:
+                        continue
+                    cand = next((e for e in enemies if e.uid == fuid), None)
+                    if cand is not None and self._ranged_expected_wounds(p, cand) > 0.0:
+                        target = cand
+                        break
+            if target is None:
+                # Greedy split: lowest effective health REMAINING after the fire
+                # already committed, among enemies this model can hurt and that
+                # are not yet lethally committed. Same target-priority bonuses as
+                # the per-model picker so plan and fallback agree on priorities.
+                best = None
+                best_key = None
+                for e in enemies:
+                    if self._ranged_expected_wounds(p, e) <= 0.0:
+                        continue
+                    remaining = e.current_health - committed.get(e.uid, 0.0)
+                    if remaining <= 0.0:
+                        continue   # already has lethal fire assigned — move on
+                    bonus = (
+                        _screen_target_bonus(e)
+                        * _synapse_target_bonus(model, e)
+                        * _astartes_oath_target_bonus(model, e, attacker_army)
+                        * _transport_target_bonus(e)
+                        * _drukhari_fragile_flyer_bonus(e)
+                        * _kite_target_bonus(e, attacker_army)
+                    )
+                    key = remaining / bonus
+                    if best is None or key < best_key:
+                        best = e
+                        best_key = key
+                target = best
+            if target is None:
+                continue   # nothing un-committed to hurt — fall back per-model
+            self._squad_fire_plan[model.uid] = target
+            committed[target.uid] = committed.get(target.uid, 0.0) + \
+                self._ranged_expected_wounds(p, target)
+
     def _do_shoot(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         # Pariah Nexus action lockout (10e core, wave 74): a unit performing an
         # action (e.g. Cleanse) cannot shoot this turn. Cited as
@@ -8660,6 +8765,24 @@ class Battle:
             _synapse_target_bonus,
             _transport_target_bonus,
         )
+        # Squad rebuild Stage D (gate SWEG_SQUADSHOOT): the squad's split-fire
+        # plan, computed once on its first firing model, assigns this model a
+        # target so the squad spreads its fire across enemies instead of piling
+        # the whole unit onto one. Use the assignment only when it is alive and
+        # legal for THIS model (present in its own range / line-of-sight pool);
+        # otherwise fall through to the focus / lowest-health pick below. OFF
+        # path: gate unset, plan empty, `_assigned` stays None — byte-identical.
+        _assigned = None
+        if __import__("os").environ.get("SWEG_SQUADSHOOT") == "1":
+            _sid = getattr(attacker, "squad_id", -1)
+            _skey = ((attacker_army.name, _sid) if _sid >= 0
+                     else (attacker_army.name, id(attacker)))
+            if _skey not in self._squad_fire_planned:
+                self._squad_fire_planned.add(_skey)
+                self._plan_squad_fire(attacker, attacker_army, defender_army)
+            _cand = self._squad_fire_plan.get(attacker.uid)
+            if _cand is not None and _cand.is_alive and _cand in pool:
+                _assigned = _cand
         # Wave 79: army-level focus fire. If the army has nominated a focus
         # target (the most valuable durable enemy threat it can hurt) and THIS
         # attacker is an anti-armour weapon that can meaningfully hurt it, and
@@ -8686,7 +8809,9 @@ class Battle:
                 attacker.profile, _ff_target
             ) > 0.0:
                 _focus_target = _ff_target
-        if _focus_target is not None:
+        if _assigned is not None:
+            shoot_target = _assigned   # Stage D split-fire assignment (legal here)
+        elif _focus_target is not None:
             shoot_target = _focus_target
         else:
             shoot_target = min(
