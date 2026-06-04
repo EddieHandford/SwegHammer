@@ -13,10 +13,10 @@ alive-units state at round-start, the secondary scorer computes per-side delta
 at round-end, returning the secondary VP each side scored that round.
 
 Citations:
-    - simulator.secondary_bring_it_down (Wahapedia Pariah Nexus secondary)
-    - simulator.secondary_no_prisoners (Wahapedia Pariah Nexus secondary)
-    - simulator.secondary_engage_on_all_fronts (Wahapedia Pariah Nexus tactical)
-    - simulator.secondary_behind_enemy_lines (Wahapedia Pariah Nexus tactical)
+    - simulator.secondary_bring_it_down (Chapter Approved 2025-26 Fixed secondary)
+    - simulator.secondary_no_prisoners (Chapter Approved 2025-26 Tactical-only secondary — banned as a Fixed pick)
+    - simulator.secondary_engage_on_all_fronts (Chapter Approved 2025-26 tactical)
+    - simulator.secondary_behind_enemy_lines (Chapter Approved 2025-26 tactical)
 """
 from __future__ import annotations
 
@@ -33,18 +33,23 @@ if TYPE_CHECKING:
 # (assigns 2 Fixed + 2 Tactical to each army at battle start) and the
 # `chosen` gate in `score_round_delta` / `score_position_delta`.
 #
-# Fixed Secondaries pool (10e Pariah Nexus, pick 2):
+# Fixed Secondaries pool (CA-2025-26 tournament legal, pick 2):
 #   bring_it_down       — MONSTER/VEHICLE kill credit
-#   no_prisoners        — generic unit-kill credit
-#   cull_the_horde      — kill credit for 10+model squads
-#   assassination       — CHARACTER kill credit (+1 if Warlord)
-# Tactical Secondaries (pool of 9, draw 2 per round in real play):
-#   engage_on_all_fronts — board-spread VP
-#   behind_enemy_lines   — opponent DZ VP
-# Source: https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/
+#   cull_the_horde      — kill credit for 13+model squads
+#   assassination       — CHARACTER kill credit (wound-bracket split)
+# NOTE: no_prisoners is NOT a valid Fixed pick in CA-2025-26 tournament play
+# (see quoted_text in data/rule_citations.d/secondaries_pariah_nexus.json for
+# `simulator.secondary_no_prisoners`). It is a Tactical-only mission card.
+# It remains in TACTICAL_SECONDARY_KEYS and TACTICAL_DECK_POOL so it can still
+# be drawn and scored on the Tactical track.
+# Tactical Secondaries (pool of 9+, draw 2 per round in real play):
+#   engage_on_all_fronts — board-spread victory points
+#   behind_enemy_lines   — opponent deployment zone victory points
+#   no_prisoners         — generic unit-kill credit (Tactical only in tournament)
+# Source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/
 # Cited as `simulator.secondary_selection`.
 FIXED_SECONDARY_KEYS: Tuple[str, ...] = (
-    "bring_it_down", "no_prisoners", "cull_the_horde", "assassination",
+    "bring_it_down", "cull_the_horde", "assassination",
 )
 TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     "engage_on_all_fronts", "behind_enemy_lines",
@@ -57,6 +62,11 @@ TACTICAL_SECONDARY_KEYS: Tuple[str, ...] = (
     # Scoring + assignment in code/simulator.py (Battle._score_sabotage /
     # _assign_sabotage_actions, env-gated SWEG_S2).
     "sabotage",
+    # No Prisoners is a Tactical-only card in CA-2025-26 tournament play (banned
+    # as a Fixed pick). Registered here so the legacy pick_secondaries path can
+    # include it in a Tactical army's chosen tuple and so ALL_SECONDARY_KEYS
+    # keeps a complete union.
+    "no_prisoners",
 )
 # Wave 83 Tier A: the objective-holding / board-control secondaries. Scoring +
 # zone classification live in code/simulator.py (Battle._score_board_secondaries,
@@ -85,9 +95,12 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # TWO HELD cards per round — not the whole pile.
 #
 # The deck pool below is the Tactical / action / take-and-hold set the simulator
-# already scores (the 4 Fixed KILL cards are the FIXED track's pool and are NOT
-# in this deck). Each card here is routed to its existing scorer by
+# already scores (the 3 Fixed KILL cards — bring_it_down, cull_the_horde,
+# assassination — are the FIXED track's pool and are NOT in this deck; No
+# Prisoners IS in this deck because it is a Tactical-only card in CA-2025-26
+# tournament play). Each card here is routed to its existing scorer by
 # `Battle._score_one_card`. This is the union of:
+#   * No Prisoners (generic unit-kill credit, Tactical only in tournament),
 #   * the two position Tactical cards (Engage on All Fronts, Behind Enemy Lines),
 #   * the two action cards (Cleanse, Sabotage), and
 #   * the five Tier-A take-and-hold board cards.
@@ -96,6 +109,7 @@ ALL_SECONDARY_KEYS: Tuple[str, ...] = (
 # data/rule_citations.d/secondaries_pariah_nexus.json. Cited as
 # `simulator.tactical_secondary_deck`.
 TACTICAL_DECK_POOL: Tuple[str, ...] = (
+    "no_prisoners",
     "engage_on_all_fronts",
     "behind_enemy_lines",
     "cleanse",
@@ -369,14 +383,18 @@ def score_round_delta(
       * cull_the_horde_vp — kill credit for units that were ≥10 models
       * assassination_vp — kill credit for enemy CHARACTERs
 
-    SECONDARY-SELECTION-V1: `chosen` is the iterable of Fixed Secondary
-    keys this side has selected (per real 10e Pariah Nexus, each player
-    picks exactly TWO from the Fixed pool or uses the Tactical deck).
+    SECONDARY-SELECTION-V1: `chosen` is the iterable of secondary keys this
+    side has selected (per real CA-2025-26, each player picks exactly TWO
+    Fixed Secondaries from the three-card Fixed pool OR uses the Tactical
+    deck, where No Prisoners is available as a Tactical-only card).
     Any of the four components NOT in `chosen` is zeroed in the return
-    tuple. Passing `chosen=None` means "score all four" — preserves
+    tuple. Passing `chosen=None` means "score all four kill cards" — preserves
     backward compatibility for callers / tests that don't yet thread the
     selection through (simulator was updated to always pass the army's
-    `chosen_secondaries`). Cited as `simulator.secondary_selection`.
+    `chosen_secondaries`). The None fallback includes no_prisoners so
+    existing scorer-only tests continue to pass (it remains a scoreable
+    card, just not a valid Fixed pick). Cited as
+    `simulator.secondary_selection`.
 
     NOTE: `defender_faction` and `attacker_faction` parameters are accepted
     for API stability (callers in code/simulator.py pass these) but are
@@ -387,7 +405,12 @@ def score_round_delta(
     no per-faction scaling.
     """
     if chosen is None:
-        chosen_set = frozenset(FIXED_SECONDARY_KEYS)
+        # Backward-compat: score all four kill cards (the three valid Fixed
+        # picks + no_prisoners, which is Tactical-only in tournament play but
+        # is still a real card the scorer knows how to score). Tests that call
+        # score_round_delta without a `chosen` argument are unit-testing the
+        # scorer itself, not the picker, so no_prisoners must still score here.
+        chosen_set = frozenset(FIXED_SECONDARY_KEYS) | frozenset(("no_prisoners",))
     else:
         chosen_set = frozenset(chosen)
     alive_now_ids = frozenset(
@@ -752,14 +775,27 @@ def _pick_fixed_kill_pair(own_army: "Army", enemy_army: "Army") -> List[str]:
     exactly today's Fixed-pick logic, factored out so both the legacy path and
     the M2 FIXED track use the identical heuristic.
 
-      Slot 1: enemy has >= 3 MONSTER/VEHICLE units → bring_it_down, else no_prisoners.
-      Slot 2: enemy has >= 2 CHARACTER units → assassination, else cull_the_horde.
+    No Prisoners is NOT a valid Fixed pick in CA-2025-26 tournament play, so it
+    is excluded from both slots. The revised heuristic:
+
+      Slot 1: enemy has >= 3 MONSTER/VEHICLE units → bring_it_down,
+              else → cull_the_horde (the broadest remaining kill card; fires
+              whenever an enemy INFANTRY unit with Starting Strength 13+ is
+              destroyed, which is common against any body army).
+      Slot 2: enemy has >= 2 CHARACTER units → assassination, else → cull_the_horde.
+
+    In the degenerate case where both slots resolve to cull_the_horde (enemy
+    has neither 3+ MONSTER/VEHICLE nor 2+ CHARACTERs), the army runs two
+    copies. This is mechanically harmless — the scorer gates on
+    `"cull_the_horde" in chosen`, so two copies collapse to one scoring pass.
+    It is faithful: a player facing a chaff-heavy, character-light, vehicle-
+    light enemy would genuinely lean Cull-heavy in their Fixed picks.
     """
     fixed: List[str] = []
     if _enemy_monster_vehicle_count(enemy_army) >= _BID_TARGET_THRESHOLD:
         fixed.append("bring_it_down")
     else:
-        fixed.append("no_prisoners")
+        fixed.append("cull_the_horde")
     enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
     if enemy_chars >= 2:
         fixed.append("assassination")
@@ -798,7 +834,9 @@ def pick_secondaries(
     is reproducible) — picks 2 Fixed + 2 Tactical:
       Fixed slot 1:
         * If enemy has >= 3 MONSTER/VEHICLE units → "bring_it_down"
-        * Otherwise → "no_prisoners"
+        * Otherwise → "cull_the_horde"
+        (No Prisoners is a Tactical-only card in CA-2025-26 tournament
+        play and is excluded from Fixed picks entirely.)
       Fixed slot 2:
         * If enemy has >= 2 CHARACTER units → "assassination"
         * Otherwise → "cull_the_horde"
@@ -845,19 +883,9 @@ def pick_secondaries(
         # actual scored subset.
         return tuple(TACTICAL_DECK_POOL)
 
-    fixed: List[str] = []
-    enemy_mv = _enemy_monster_vehicle_count(enemy_army)
-    if enemy_mv >= _BID_TARGET_THRESHOLD:
-        fixed.append("bring_it_down")
-    else:
-        fixed.append("no_prisoners")
-    # Second Fixed pick: count enemy CHARACTERs to decide assassination
-    # vs cull_the_horde.
-    enemy_chars = sum(1 for u in enemy_army.units if _is_character(u))
-    if enemy_chars >= 2:
-        fixed.append("assassination")
-    else:
-        fixed.append("cull_the_horde")
+    # Fixed picks: no_prisoners is excluded (Tactical-only in CA-2025-26
+    # tournament play). Use _pick_fixed_kill_pair for the canonical heuristic.
+    fixed: List[str] = _pick_fixed_kill_pair(own_army, enemy_army)
     # Tactical picks: mobile armies prioritise BEL; everyone else
     # defaults to Engage. The OTHER tactical card is the second pick.
     own_mobile = _own_mobile_unit_count(own_army)

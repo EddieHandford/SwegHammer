@@ -564,8 +564,10 @@ class ChosenSecondariesGateTests(unittest.TestCase):
     score_position_delta to the army's picked 2 Fixed + 2 Tactical."""
 
     def test_round_delta_chosen_none_defaults_to_all_fixed(self):
-        # Backward compatibility: passing chosen=None scores all four
-        # Fixed Secondaries (legacy callers / tests).
+        # Backward compatibility: passing chosen=None scores all four kill-card
+        # secondaries (the three valid CA-2025-26 Fixed picks plus no_prisoners,
+        # which is Tactical-only in tournament play but is still a real scoring
+        # card that the scorer knows how to evaluate).
         boyz = _make_unit("Boyz", alive=True,
                           keywords=("INFANTRY", "CHARACTER"),
                           starting_strength=20)
@@ -701,7 +703,11 @@ class PickSecondariesTests(unittest.TestCase):
         picks = pick_secondaries(own, enemy)
         self.assertIn("bring_it_down", picks)
 
-    def test_picker_picks_no_prisoners_vs_infantry_enemy(self):
+    def test_picker_picks_cull_the_horde_vs_infantry_enemy(self):
+        # No Prisoners is a Tactical-only card in CA-2025-26 tournament play and
+        # must NOT appear as a Fixed pick. Against an infantry-only enemy (no
+        # MONSTER/VEHICLE, no CHARACTERs), both Fixed slots resolve to
+        # cull_the_horde.
         own = self._make_army([_make_unit("Marine", alive=True,
                                             keywords=("INFANTRY",))])
         enemy = self._make_army([
@@ -709,8 +715,9 @@ class PickSecondariesTests(unittest.TestCase):
             for i in range(5)
         ])
         picks = pick_secondaries(own, enemy)
-        self.assertIn("no_prisoners", picks)
+        self.assertNotIn("no_prisoners", picks[:2])  # not in Fixed slots
         self.assertNotIn("bring_it_down", picks)
+        self.assertIn("cull_the_horde", picks)  # fallback Fixed slot 1
 
     def test_picker_picks_bel_for_mobile_army(self):
         # 3+ FLY/MOUNT units → behind_enemy_lines comes first in tactical.

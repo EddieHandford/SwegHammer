@@ -34,7 +34,7 @@
   },
   "simulator.secondary_no_prisoners": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/ (Chapter Approved 2025-26 deck — the deck the May-2026 calibration target was played under; values cross-checked vs Goonhammer CA-2025 review + GW Tournament Companion, wave 91)",
-    "rule_name": "No Prisoners (Chapter Approved 2025-26 Secondary Mission)",
+    "rule_name": "No Prisoners (Chapter Approved 2025-26 Secondary Mission, Tactical only — banned as a Fixed pick in tournament play)",
     "quoted_text": "Each time an enemy unit is destroyed, score 2VP (up to a maximum of 5VP per turn). [Fixed version narrows to Bodyguard / non-CHARACTER units and is banned as a Fixed pick in tournament play; the simulator scores the per-unit 2 VP form.]",
     "trigger": "end of each battle round, when computing the round-end delta of an army's destroyed units against the opponent's round-start snapshot",
     "effect": "the opposing army gains 2 VP per destroyed enemy unit this round, capped at 5 VP per round (CA-2025-26 value; was a stale 5/15 in the citation and 3/5 in code).",

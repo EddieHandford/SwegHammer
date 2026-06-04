@@ -172,7 +172,7 @@
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/pariah-nexus-mission-pack/",
     "rule_name": "Secondary Missions - Selection",
     "quoted_text": "Before deployment, each player must either select two different Fixed Secondary Missions from the four below, or use the Tactical Secondary Missions deck. Each player scores Victory Points from their two chosen Fixed Secondary Missions throughout the battle, or draws from the Tactical Secondary Missions deck each battle round.",
-    "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / no_prisoners / cull_the_horde / assassination) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`",
+    "trigger": "battle start; `code/secondaries.py::pick_secondaries(own_army, enemy_army)` selects 2 Fixed (bring_it_down / cull_the_horde / assassination — no_prisoners is Tactical-only in CA-2025-26 tournament play) + 2 Tactical (engage_on_all_fronts / behind_enemy_lines) per army by a deterministic heuristic on enemy MONSTER/VEHICLE count and own FLY/MOUNT count; persisted on `Army.chosen_secondaries`",
     "effect": "Only the picked 2 Fixed Secondaries (+ chosen Tactical cards) score VP for that army. `score_round_delta` / `score_position_delta` zero any component absent from `chosen_secondaries`. Previously all four Fixed + both Tactical scored every round for every army, asymmetrically over-rewarding balanced kill-heavy / mobile rosters.",
     "scope": "army-wide"
   }

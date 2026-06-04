@@ -125,8 +125,13 @@ class OffPathTests(unittest.TestCase):
         b = _broad_army("B")
         got = secondaries.pick_secondaries(a, b)
         # Legacy tuple: 2 fixed + 2 tactical + (cleanse, sabotage) + 5 board.
-        self.assertIn("cull_the_horde", got)  # no enemy MV/chars -> np + cull
-        self.assertIn("no_prisoners", got)
+        # No Prisoners is a Tactical-only card in CA-2025-26 tournament play and
+        # is no longer a Fixed pick — it does not appear in the legacy union
+        # tuple at all (the legacy path only appends kill cards to the Fixed
+        # slots). Against a broad army enemy (no MONSTER/VEHICLE, no
+        # CHARACTERs), both Fixed slots resolve to cull_the_horde.
+        self.assertIn("cull_the_horde", got)  # no enemy MV/chars -> cull + cull
+        self.assertNotIn("no_prisoners", got)  # Tactical-only, not in legacy union
         self.assertIn("engage_on_all_fronts", got)
         self.assertIn("behind_enemy_lines", got)
         self.assertIn("cleanse", got)

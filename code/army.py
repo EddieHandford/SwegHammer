@@ -410,9 +410,10 @@ class Army:
         # Wahapedia: https://wahapedia.ru/wh40k10ed/factions/t-au-empire/#Markerlights
         self.guided_enemy_uids: Set[str] = set()
         # SECONDARY-SELECTION-V1 — Pariah Nexus Fixed + Tactical secondary
-        # choice. Real 10e tournament play picks exactly TWO Fixed
-        # Secondaries from the pool {bring_it_down, no_prisoners,
-        # cull_the_horde, assassination} OR uses the Tactical deck
+        # choice. Real 10e CA-2025-26 tournament play picks exactly TWO Fixed
+        # Secondaries from the pool {bring_it_down, cull_the_horde,
+        # assassination} (no_prisoners is Tactical-only in tournament play)
+        # OR uses the Tactical deck
         # (drawing per round). The simulator previously scored ALL four
         # Fixed + both Tactical (engage_on_all_fronts, behind_enemy_lines)
         # every round for every army, systematically over-rewarding
