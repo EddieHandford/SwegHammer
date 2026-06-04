@@ -4,6 +4,38 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 183 (2026-06-04) — #68 anti-tank loadout corrections LANDED (faithful, BSData-sourced) but METRIC-NEUTRAL (5.84→5.80); Imperial Knights FROZEN-UNDER (re-confirms wave-107)
+
+The user lifted the gate ("test and dial in, don't keep checking"). Applied the approved fix: 14 gun-platforms pinned to
+their REAL anti-tank weapons in `data/overrides.json` (`4340e3b`; agent-built, single isolated writer). 2 of the 16
+skipped as already-correct (Ravager from wave-107 etc.). Stats SOURCED from the BSData-parsed `secondary_weapon` fields
+(the un-fakeable source) — spot-checked: the override's Heavy Wraithcannon S20/AP-4/D7 EXACTLY matches parsed.json's
+secondary fields, NOT invented. audit 306/306, pytest 1138 passed, run.py --cli clean.
+
+**N=80 A/B vs 5.84 (`data/wf_wave183_antitank_overrides_n80.txt`):**
+```
+Faction              5.84 base   wave183    Δ
+Chaos Space Marines    12.02       9.85    -2.17
+World Eaters           14.31      13.44    -0.87
+Astra Militarum        13.54      13.03    -0.51
+Adeptus Mechanicus    ~12.01      12.40    +0.39
+Imperial Knights       25.81      26.00    +0.19   (FROZEN)
+MAE gated               5.84       5.80    -0.04   (NEUTRAL)
+```
+**METRIC-NEUTRAL (−0.04). Imperial Knights FROZEN-UNDER (26.0, unchanged) — the unified-lever hypothesis did NOT
+materialize.** Arming the opponents' anti-tank did NOT lower the durable Knight; this RE-CONFIRMS wave-107 — IK's
+over-rate is NOT a loadout / anti-tank-threat lever (the Knight over-holds objectives positionally regardless of incoming
+firepower). And the under-shooters (Astra Militarum / Adeptus Mechanicus) barely moved because the fix is EVEN-HANDED —
+their opponents got armed too, so the relative win rate washes. (CSM's −2.17 is partly noise + partly its matchups.)
+
+→ KEEP the 14 overrides as faithful fidelity (the sim now fires the real competitive guns — correct regardless of the
+flat headline; keep-if-faithful, per the watchdog). But the anti-tank LOADOUT lever is EXHAUSTED: it does not move the
+headline and does not move IK. **BOTH poles of the residual — the under-shooters AND the Imperial Knights over-rate — are
+now confirmed to be the POSITIONAL/REPRESENTATION floor, not loadout/combat-output levers** (consistent with
+`project-ai-frozen-under-mae-first` and the wave-84/93 positional findings). Do NOT re-fit to force the move (watchdog
+rail). The 21 Legends-unit fallbacks are deferred (catalogue hygiene, not fielded). Next lever is the watchdog's call —
+the residual is structural/positional, not combat.
+
 ## Wave 182 (2026-06-04) — #68 GROUNDING (read-only, watchdog-mandated before any regen): cited per-unit loadouts are the fix; the 3-profile mix fallback is weak (40%)
 
 Watchdog/user refined #68: role-classification SOURCED FROM REAL LOADOUTS is primary (un-fakeable, can't over-correct);
