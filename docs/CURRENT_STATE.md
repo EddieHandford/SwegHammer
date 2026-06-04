@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 161 (2026-06-04) — SQUAD REBUILD COMPLETE (behavioural investigation concluded). Stage D
+**Last updated:** Wave 162 (2026-06-04) — GROUP-2 MELEE DIAGNOSTIC: candidate #1 (per-model melee attacker-count cap)
+REFUTED; the real lead is #2 fight-phase alternation. Instrumented melee (read-only): (1) the sim IS one-Unit-per-model
+(`add_squad` builds `size` Units sharing `squad_id`), BUT (2) the archetype lists are size-1 SWARMS universally — 65-78%
+of units sit in size-1 squads across ALL factions (World Eaters 69%, Astra Militarum 77% — the under-shooter is
+HIGHEST), so no large-squad melee over-count exists AND the representation is faction-neutral; (3) attacker-models-in-
+Engagement-Range per defender-model ≈ 1.0-1.95 (plausible, no gross over-count). → #1 has no lever. **THE REAL LEAD:
+the Fight phase iterates ONLY `active.units` — the active player fights ALL its units and the defender doesn't swing
+back until its OWN turn (no 10e alternation), which differentially favours MELEE AGGRESSORS = the Group-2 over-shooters.**
+NEXT: instrument + (watchdog-confirmed) build 10e fight-phase alternation (#2). Honest baseline N=80 gated **4.05**
+(default) / **3.93** (Stage B on). Squad rebuild concluded (B faithful+positive, D faithful-neutral, E rejected); the
+floor residual is now being worked via the over-shooter diagnostic. [Wave 161 Stage D detail below.]
+
+**Wave 161 — SQUAD REBUILD COMPLETE (behavioural investigation concluded). Stage D
 (unit-orchestrated split-fire shooting, gate `SWEG_SQUADSHOOT`, cited `simulator.split_fire`, commit `a9f87bf`) BUILT +
 A/B'd: D-only N=40 gated 4.19 (wash), B+D N=40 4.17, B+D N=80 **4.03** vs B-only N=80 3.93 / OFF 4.05. D's effect FLIPS
 sign across N → within noise → **faithful + metric-NEUTRAL** (the over-shoot is a MELEE representation issue, not

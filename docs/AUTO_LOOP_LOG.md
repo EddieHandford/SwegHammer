@@ -4,6 +4,39 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 162 (2026-06-04) — GROUP-2 DIAGNOSTIC: melee attacker-count (#1) REFUTED by the data → fight-phase alternation (#2) is the real lead
+
+The watchdog-confirmed next lever (OVERSHOOTER_PLAN Phase 2 #1): instrument the melee attacker-count BEFORE building —
+does the sim let a large unit land more attackers than can physically reach base contact? Two read-only probes
+(`scripts/diag_melee_attacker_count.py` + a list-composition probe):
+
+**Finding 1 — the sim IS one-Unit-per-model** (`add_squad` builds `size` Units sharing `squad_id` on the legacy /
+gates-off path). So the premise (N models per squad) is real in principle.
+
+**Finding 2 — but the LISTS are size-1 swarms, universally.** The archetype builder re-picks the same profile across
+fill iterations and stacks many size-1 squads (World Eaters seed-1: TWO real squads — 10 Berzerkers, 10 Jakhals — then
+10 separate single Chaos Terminators, 8 single Chaos Spawn, loose single Jakhals/Bloodletters). Across factions, **65-78%
+of units sit in size-1 squads** (World Eaters 69%, Tyranids 72%, Drukhari 67%, **Astra Militarum 77%**, AdMech 64%),
+mean squad size 1.3-1.5. This is FACTION-NEUTRAL — the under-shooter Astra Militarum is the HIGHEST.
+
+**Finding 3 — melee attacker-per-defender ratios are plausible.** At fight time the typical attacking squad is ~1.5-2.9
+alive Units, ~88% in Engagement Range, vs ~1.1-1.8-model targets; attacker-models-in-ER per defender-model ≈ 1.0-1.95
+(World Eaters highest 1.95). No gross over-count (a "20 swing on a 5-screen" bug would read ~4+).
+
+**→ #1 (per-model Engagement-Range melee cap) is REFUTED:** there are no large squads to cap (size-1 swarms), the
+ratios are geometrically plausible, and the size-1 representation is faction-neutral so it cannot drive the over-shoot
+differential. Per the watchdog's branch ("if attacker-count is faithful → move to #2/#3"), the lever is not here.
+
+**THE REAL LEAD — #2 fight-phase alternation.** While in the fight code: the Fight phase loop (`_run_round_vanilla_turns`)
+iterates ONLY `active.units` — the active player fights ALL its units this phase, and the defender does NOT swing back
+until its OWN turn (confirmed by the code + the comment "the other player's reactive fights resolve in their own turn's
+Fight phase"). Real 10e ALTERNATES (chargers fight first, then players alternate selecting units, starting with the
+NON-active player), so a charged unit fights back IN THE SAME phase and can blunt the attacker before it finishes. The
+sim's "active kills before the defender hits back" differentially favours MELEE AGGRESSORS (melee is their whole output;
+a gunline already shot) — which is exactly the Group-2 over-shooter profile (World Eaters / Tyranids / Drukhari). This
+is faction-neutral fidelity (the test: correct even if it moved the metric the wrong way) and a far better-fitting lead
+than #1. NEXT: instrument + (watchdog-confirmed) build the 10e fight-phase alternation. Diagnostic wave — no code change.
+
 ## Wave 161 (2026-06-04) — SQUAD REBUILD STAGE D: unit-orchestrated split-fire shooting BUILT (gate `SWEG_SQUADSHOOT`, OFF byte-identical) — A/B pending
 
 The rebuild's last behavioural lever, per the watchdog's confirmed shape (C+A infra → B coherency → D split-fire; E
