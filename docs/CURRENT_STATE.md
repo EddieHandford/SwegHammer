@@ -1,6 +1,29 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 175-176 (2026-06-04) — SYSTEMATIC LIST-REALISM PASS LANDED (user-ruled, commit `6c6cb6d`):
+**Last updated:** Wave 183 (2026-06-04) — ANTI-TANK PICKER FIX LANDED (faithful) but a HONEST NEGATIVE RESULT: the
+combat/loadout track is EXHAUSTED. After diagnosing the #1 under-side lever across waves 177-182 (the BSData mapper picks
+weapon choices by expected-damage-vs-a-Marine, so it drops anti-tank options — durable gun-platforms under-fire their real
+anti-armour), the fix landed as **14 cited per-unit anti-tank loadout corrections** in `data/overrides.json` (commit
+`4340e3b`; BSData-sourced from the parsed `secondary_weapon` fields, spot-checked un-fabricated; the weak 3-profile mix
+fallback was correctly dropped at 40% accuracy). **N=80 A/B: gated 5.84 → 5.80 = NEUTRAL (−0.04, within noise), and
+Imperial Knights FROZEN-UNDER (76.7% sim, gated 26.0, no fall).** The "unified lever" hypothesis (arming opponents' anti-
+tank drops the durable Knight) is **REFUTED — now twice (wave-107 N=40 + wave-183 N=80, de-flattered).** The under-shooters
+(Astra Militarum 13.54→13.03, AdMech 11.92→12.40) did NOT rise either, even though the Onager (an AdMech platform) was
+among the corrected guns — because the fix is EVEN-HANDED (their opponents armed up too, so the win rate washes). **KEPT
+all 14 as faithful data-fidelity hygiene (the sim now fires the real competitive guns); did NOT re-fit** (watchdog rail).
+**CONCLUSION: both poles of the residual are the POSITIONAL/REPRESENTATION floor, not combat/loadout/output levers** —
+Imperial Knights = durable TITANIC objective over-hold; AM/AdMech = the deeper durable-SHOOTY-VEHICLE under-valuation that
+anti-tank did NOT touch. The faithful combat track is at its floor (~5.8 gated). **Accounting (14-vs-the-56-flagged, no
+silent cap):** 16 non-Legends genuine corrections identified (the scope doc's detailed table; its summary "26" was an
+inconsistent overcount) → 14 applied this wave + 2 already-correct from wave-107 (Ravager, Talos) = all 16 pinned; the
+other 40 flagged groups = 21 Legends (deferred, not fielded), 5 picker-already-correct + 4 transports + trivial sub-groups
+(correctly EXCLUDED). Minor catalogue-hygiene gap: CSM / Emperor's Children Defiler variants not pinned (only the World
+Eaters Defiler was scoped). **NEXT LEVER (watchdog re-frame): the durable-shooty-vehicle under-valuation, instrument-first,
+beyond anti-tank** — OR the hard positional-representation re-model (user-authorised, high-risk, washed before), OR declare
+the faithful track at its floor and document the structural residual. Watchdog's call. [Wave 175-176 de-flattering detail
+below.]
+
+**Wave 175-176 (2026-06-04)** — SYSTEMATIC LIST-REALISM PASS LANDED (user-ruled, commit `6c6cb6d`):
 the eval now fights with the REAL competitive lists for every fixed-core faction. **HONEST DE-FLATTERED BASELINE: N=80
 gated 5.87** (`data/wf_wave175_listrealism_n80.txt`), 4/22 in band — UP from the flattered 3.93/4.05, which were an
 ARTIFACT of fake fragile lists (the archetype builder's 0.3 seed slice dropped each faction's cited durable/support core
