@@ -22,11 +22,27 @@ proving the defender retaliates in-phase, the vanilla per-model fight gives no r
 phase), and **OFF N=40 reproduces 4.20 / 8-in-band exactly** (gate unset runs the original active-only loop verbatim →
 byte-identical). Committed as a build (A/B follows) per the Stage-A stash-loss lesson.
 
-**Honest caveat carried from the design waves:** faithful 10e ~DOUBLES fight frequency for locked combats. The rein
-(in-phase retaliation, reliable on fresh combats) is expected to beat the doubling (bonus second fight, often a no-op on
-already-resolved combats), reining the melee over-shooters — but the direction is genuinely uncertain and the gated A/B
-settles it (keep-if-faithful; reject only if it's UN-faithful, not merely if it moves the metric). NEXT: serial A/B —
-alt-only N=40 then N=80, per-faction deltas (expect WE/Tyranids/Drukhari/Sororitas/Votann DOWN; charged armies may rise).
+**A/B RESULT — variant (a) full-doubling REJECTED (severe backfire; the doubling confound dominated):**
+alt-only N=40 gated **6.70** (vs OFF 4.20, +2.50 WORSE), 5/22 in band. Per-faction the OPPOSITE of intended — the
+DURABLE-melee/elite armies went UP and the fragile shooters DOWN: World Eaters 64→69 (gated ~21), Imperial Knights
+gated 34.3, Chaos Knights 12.9, Death Guard 8.4, Adeptus Custodes 7.3, Chaos Daemons, Genestealer Cults, Emperor's
+Children — all UP; Necrons (gated 11.7), T'au (5.2), Astra Militarum (9.7), Adeptus Mechanicus (7.1) DOWN. Faithful 10e
+~doubles fight frequency for locked combats, and the doubling (durable melee fighting twice/round, accumulating across
+rounds) DOMINATED the in-phase-retaliation rein, the design-wave worry confirmed.
+
+**Why this is a REJECT, not metric-protection:** real tournaments DO use 10e twice-per-round melee yet show World
+Eaters at +13.9, NOT +24.5 — so naive doubling moves the sim FURTHER from reality. The sim lacks the compensating
+fidelity that bounds twice-per-round melee in real play (Fall-Back-to-disengage AI, and most combats resolving in ONE
+exchange so they never reach the second fight phase). Doubling WITHOUT that is unfaithful-in-EFFECT (like Stage E) — it
+over-credits durable melee. Swings dwarf noise → no N=80 needed.
+
+**The lever is not dead — the DOUBLING is.** The STEP-1 over-credit is real (World Eaters denies 56.5 retaliation/btl),
+so variant **(b)** — the defender retaliates IN the attacker's phase but does NOT also fight in its own turn (each unit
+still ~once/round, just better-ordered so the defender isn't over-killed before swinging) — isolates the rein from the
+doubling confound. `SWEG_FIGHTALT` (a) is kept gated default-OFF (rejected experiment + the infra `_run_fight_alternation`
+that (b) refines). NEXT: build (b) (per-round fought-tracking so a retaliating defender skips its own-turn re-fight),
+A/B; if (b) also washes/backfires, the fight-phase lever is dead → move to #3 (battle-shock crumbling). Watchdog to
+confirm (b) vs #3.
 
 ## Wave 162 (2026-06-04) — GROUP-2 DIAGNOSTIC: melee attacker-count (#1) REFUTED by the data → fight-phase alternation (#2) is the real lead
 

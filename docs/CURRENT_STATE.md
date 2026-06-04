@@ -1,6 +1,18 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 162 (2026-06-04) — GROUP-2 MELEE DIAGNOSTIC: candidate #1 (per-model melee attacker-count cap)
+**Last updated:** Wave 166 (2026-06-04) — GROUP-2 #2 fight-phase alternation, variant (a) full-faithful-doubling BUILT
+(gate `SWEG_FIGHTALT`, cited, OFF byte-identical, commit `c306932`) + A/B'd + REJECTED. alt-only N=40 gated **6.70**
+(vs OFF 4.20) — severe backfire: the DURABLE-melee/elite armies went UP (World Eaters 64→69, Imperial Knights gated
+34.3, Chaos Knights, Death Guard, Custodes, Daemons) and the fragile shooters DOWN (Necrons 11.7, Astra Militarum 9.7,
+T'au, AdMech). Faithful 10e ~doubles fight frequency for locked combats and the DOUBLING dominated the in-phase-
+retaliation rein. REJECT (not metric-protection): real tournaments use twice-per-round melee yet show WE at +13.9 not
++24.5, so naive doubling moves the sim FURTHER from reality — the sim lacks the bounding fidelity (Fall-Back disengage,
+most combats resolving in one exchange). Kept gated default-OFF. **The lever isn't dead, the DOUBLING is** — STEP-1's
+over-credit is real (WE denies 56.5/btl), so NEXT is variant **(b)**: defender retaliates in-phase WITHOUT the second
+own-turn fight (isolates the rein, no doubling). If (b) also fails → fight-phase lever dead → #3 battle-shock crumbling.
+Honest baseline N=80 gated **4.05** (default) / **3.93** (Stage B on). [Wave 162 diagnostic detail below.]
+
+**Wave 162 — GROUP-2 MELEE DIAGNOSTIC: candidate #1 (per-model melee attacker-count cap)
 REFUTED; the real lead is #2 fight-phase alternation. Instrumented melee (read-only): (1) the sim IS one-Unit-per-model
 (`add_squad` builds `size` Units sharing `squad_id`), BUT (2) the archetype lists are size-1 SWARMS universally — 65-78%
 of units sit in size-1 squads across ALL factions (World Eaters 69%, Astra Militarum 77% — the under-shooter is
