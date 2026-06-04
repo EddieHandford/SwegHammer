@@ -34,8 +34,18 @@ anti-tank). It does NOT depend on the secondary subsystem at all.
 **PIVOT:** the secondary-scoring path (deck cadence + pursuit) is NOT the tractable under-shooter lever right now — it is
 blocked by the map-objective placement + the representation/contest gap (both confirmed). The dominant, faithful, and
 more tractable lever is the under-shooters' combat UNDER-OUTPUT (deal half the damage). Next: diagnose WHY AM/AdMech guns
-under-output (weapon-picker fidelity — `project-antitank-picker-bias`). [A — secondaries.py FIXED-secondary fidelity:
-result appended on agent completion.]
+under-output (weapon-picker fidelity — `project-antitank-picker-bias`).
+
+**A — secondaries.py FIXED-secondary fidelity (cherry-picked 0216257):** LANDED Fix #1 — `no_prisoners` removed from the
+FIXED pool (it is BANNED as a Fixed pick in tournament play, per the sim's own citation) and made Tactical-only; the
+Fixed slot-1 fallback is now `cull_the_horde`. A faithful card-level fix that nudges the secondary count-bias the right
+way (less body-army Fixed over-banking). audit clean, 105 tests pass, run.py --cli clean. Measuring at N=80
+(`data/wf_wave180_noprisoners_fix_n80.txt`) vs 5.87. **Fix #2 VERIFIED (Wahapedia reachable), NOT yet implemented:** the
+CA-2025-26 Fixed-vs-Tactical scoring split is REAL — the Tactical versions of the kill cards are a flat "did any
+qualifying unit die this turn?" trigger (Assassination 5 victory points/turn, Bring It Down 4/turn, Cull 5/turn), NOT the
+per-unit Fixed schedule the sim currently uses for both. The sim over-scores Tactical-track kill cards. Implementing the
+Tactical schedules (a track check in `_score_one_card` + new cited entries with the verbatim Tactical card text the agent
+captured) is a clean follow-up → task #67. Only matters on the SWEG_TAC_DECK path.
 
 ## Wave 179 (2026-06-04) — SWEG_TAC_DECK A/B: REGRESSES (5.87→6.77) — the real cadence is blocked by the AI-PURSUIT STALL (held objective-control cards achieve <20%)
 
