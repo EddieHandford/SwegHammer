@@ -4,6 +4,45 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 185 (2026-06-04) — #66 map-objective home-marker fidelity (the SECONDARY-half decider): FAITHFUL but REGRESSES (5.80→5.95) — secondary is ALSO structural → the bank-vs-remodel fork is now TRULY CLEAN
+
+The watchdog's widen-before-the-floor: the secondary VP half (the bigger half) bore on #66, the map-objective-layout
+fidelity gap — UNTRIED, and possibly a DIFFERENTIAL lever for sit-back gunlines (not an even-handed wash like anti-tank).
+VERIFY-FIRST confirmed the sim's layout is genuinely unfaithful TWO ways: (a) the code — the quincunx puts all 5
+objectives in No Man's Land (0 home objectives in deployment zones); (b) the RULES — Defend Stronghold + Extend Battle
+Lines are real scored CA-2025-26 cards, mathematically unachievable without own-zone objectives, so real deployment maps
+DO place home objectives in deployment zones (Wahapedia + Goonhammer confirm per-deployment-map placement on 44x60; exact
+coords are card images, so built to the faithful PRINCIPLE, cited honestly). Built env-gated `SWEG_OBJ_HOME` (commit
+1ef94de): one home objective inside each deployment zone + two mid-board flank markers + centre, even-handed by 180°
+rotation; OFF byte-identical.
+
+**N=80 A/B (`data/wf_wave185_objhome_on_n80.txt`):**
+```
+Faction              5.80 base   wave185    Δ
+Astra Militarum        13.03      12.76    -0.27
+Adeptus Mechanicus     12.40      12.18    -0.22
+Chaos Space Marines     9.85       9.61    -0.24
+World Eaters           13.44      14.65    +1.21
+Imperial Knights       26.00      27.18    +1.18
+MAE gated               5.80       5.95    +0.15   (REGRESSED)
+```
+**The home objectives DID help the under-shooters slightly (AM/AdMech/CSM each ~−0.2) — but helped the durable
+OVER-HOLDERS MORE (Imperial Knights +1.18, World Eaters +1.21), so the headline REGRESSED.** Mechanism: the same
+structural floor — a durable army parks on its home objective UNCONTESTED (the sim's AI never pushes into the enemy zone
+to contest a home marker), so adding home objectives just hands the over-holders another free hold. So #66 is NOT the
+clean differential lever for sit-back gunlines; **the SECONDARY half is ALSO structural** (the one-Unit-per-model
+representation floor, now confirmed on the home-objective axis too). `SWEG_OBJ_HOME` stays default-OFF (faithful but
+regresses via the AI-contest gap; OFF banks no regression; flipping it is tied to the fork + would need the AI to contest
+home objectives — that's the hard re-model). Keep-if-faithful: gated code kept (it becomes correct once paired with a
+home-contesting AI).
+
+→ **THE BANK-VS-REMODEL FORK IS NOW TRULY CLEAN and goes to the USER, evidence-backed:** COMBAT is solved (wave 184,
+D/T ~1.0); SCORING-FIDELITY is tried (wave 185, the faithful home-objective layout regresses via the structural floor).
+BOTH VP axes (primary OC-body-bias AND secondary objControl + home-objective over-hold) are the SAME one-Unit-per-model
+positional representation floor. The faithful track is exhausted at ~5.8 gated. Options for the user: (a) DECLARE Stage 1
+converged at the structural floor + document it, or (b) the hard positional-representation re-model (user-authorised at
+Q11, high-risk — washed/regressed 6+ times now, this wave included). Escalated to the watchdog.
+
 ## Wave 184 (2026-06-04) — THE DECIDER: AM/AdMech under-valuation is mechanism (3) POSITIONING/VP — combat is SOLVED, the residual is purely the representation floor
 
 Watchdog steer: run the deep under-valuation instrument as the DECIDER before the bank-vs-remodel fork — decompose why
