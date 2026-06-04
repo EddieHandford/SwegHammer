@@ -1,0 +1,290 @@
+Loading registry…
+Registry loaded.
+
+================================================================================
+SECTION 1 — Spotlight units (gunboats, transports, anti-elite platforms)
+================================================================================
+
+==============================================================================================
+Unit: [Drukhari] Ravager  [GUNBOAT: dedicated anti-tank vehicle (Dark Lance vs Disintegrator)]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Disintegrator Cannon                   3.333     3.333     1.778     0.889     2.000     3.333
+Dark Lance                             3.056     3.056     2.037     1.630     2.241     3.056
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Disintegrator Cannon'   |   MixAverage='Dark Lance'   |   MixMax='Disintegrator Cannon'
+
+==============================================================================================
+Unit: [Drukhari] Raider  [TRANSPORT: incidental weapon (expect low EV across the board)]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Disintegrator Cannon                   3.333     3.333     1.778     0.889     2.000     3.333
+Dark Lance                             3.056     3.056     2.037     1.630     2.241     3.056
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Disintegrator Cannon'   |   MixAverage='Dark Lance'   |   MixMax='Disintegrator Cannon'
+
+==============================================================================================
+Unit: [Adeptus Astartes] Centurion Devastator Squad  [ANTI-ELITE: plasma / heavy weapon vs bolter choice]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Grav-cannon                            3.000     4.167     1.333     0.667     2.056     4.167
+Grav-cannon                            3.000     4.167     1.333     0.667     2.056     4.167
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Grav-cannon'   |   MixAverage='Grav-cannon'   |   MixMax='Grav-cannon'
+
+[MISSING] 'Hellblaster' (faction=Adeptus Astartes) — no choice groups found in registry
+
+==============================================================================================
+Unit: [Astra Militarum] Leman Russ Commander  [GUNBOAT: main battle tank with battle cannon choice]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Hunter-killer missile                  1.458     1.458     0.972     0.778     1.069     1.458
+Leman Russ battle cannon               4.875     6.771     2.708     1.083     3.521     6.771
+Demolisher battle cannon               6.562     6.562     4.375     3.500     4.812     6.562
+Vanquisher battle cannon               4.750     3.958     3.299     2.639     3.299     3.958
+Eradicator nova cannon                 4.000     5.556     1.778     0.889     2.741     5.556
+➤ Executioner plasma cannon - standard     4.333     5.417     2.167     1.083     2.889     5.417
+Punisher gatling cannon                3.333     5.556     1.111     0.556     2.407     5.556
+Exterminator autocannon                3.900     5.417     1.733     0.867     2.672     5.417
+Heavy bolter                           1.755     1.950     0.585     0.195     0.910     1.950
+Lascannon                              1.875     1.875     1.250     1.000     1.375     1.875
+Heavy flamer                           1.750     1.944     0.583     0.194     0.907     1.944
+Storm bolter                           0.333     0.444     0.056     0.028     0.176     0.444
+Heavy stubber                          0.500     0.667     0.083     0.042     0.264     0.667
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Demolisher battle cannon'   |   MixAverage='Demolisher battle cannon'   |   MixMax='Leman Russ battle cannon'
+
+[MISSING] 'Punisher' (faction=Astra Militarum) — no choice groups found in registry
+
+==============================================================================================
+Unit: [Adeptus Astartes] Predator Annihilator  [GUNBOAT: Predator Annihilator autocannon vs lascannon]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Hunter-killer missile                  2.431     2.431     1.620     1.296     1.782     2.431
+Storm bolter                           0.444     0.593     0.074     0.037     0.235     0.593
+Predator Twin Lascannon                3.250     3.250     2.167     1.733     2.383     3.250
+Lascannon                              2.500     2.500     1.667     1.333     1.833     2.500
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Predator Twin Lascannon'   |   MixAverage='Predator Twin Lascannon'   |   MixMax='Predator Twin Lascannon'
+
+==============================================================================================
+Unit: [Adeptus Astartes] Predator Destructor  [GUNBOAT: Predator Annihilator autocannon vs lascannon]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Hunter-killer missile                  2.431     2.431     1.620     1.296     1.782     2.431
+Storm bolter                           0.444     0.593     0.074     0.037     0.235     0.593
+Predator Autocannon                    4.000     5.556     1.778     0.889     2.741     5.556
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Predator Autocannon'   |   MixAverage='Predator Autocannon'   |   MixMax='Predator Autocannon'
+
+==============================================================================================
+Unit: [Adeptus Astartes] Deimos Predator [Legends]  [GUNBOAT: Predator Annihilator autocannon vs lascannon]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Hunter-killer missile                  2.431     2.431     1.620     1.296     1.782     2.431
+Storm bolter                           0.444     0.593     0.074     0.037     0.235     0.593
+➤ Plasma Destroyer - Supercharge       3.333     3.333     1.778     0.889     2.000     3.333
+Infernus Cannon                        3.500     4.861     1.556     0.778     2.398     4.861
+Conversion Beam Cannon                 1.340     1.861     0.596     0.298     0.918     1.861
+Magna-Melta Cannon                     4.667     3.889     3.241     2.593     3.241     3.889
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Magna-Melta Cannon'   |   MixAverage='Magna-Melta Cannon'   |   MixMax='Infernus Cannon'
+
+==============================================================================================
+Unit: [T'au Empire] Hammerhead Gunship  [GUNBOAT: Railgun vs Ion Cannon]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Railgun                                5.225     4.354     4.354     3.483     4.064     4.354
+➤ Ion cannon - overcharge              6.500     8.125     3.250     1.625     4.333     8.125
+Seeker missile                         1.875     1.875     1.250     1.000     1.375     1.875
+Twin pulse carbine                     0.433     0.578     0.108     0.036     0.241     0.578
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='➤ Ion cannon - overcharge'   |   MixAverage='➤ Ion cannon - overcharge'   |   MixMax='➤ Ion cannon - overcharge'
+
+==============================================================================================
+Unit: [T'au Empire] Commander in Crisis Battlesuit [Legends]  [ANTI-ELITE/TANK: burst cannon vs plasma rifle vs missile pod]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Missile pod                            1.333     1.852     0.593     0.296     0.914     1.852
+Burst cannon                           0.889     1.185     0.222     0.074     0.494     1.185
+Airbursting fragmentation projector     0.778     0.778     0.130     0.065     0.324     0.778
+➤ Cyclic ion blaster - standard        1.000     1.389     0.444     0.222     0.685     1.389
+T'au flamer                            1.167     1.556     0.194     0.097     0.616     1.556
+Fusion blaster                         2.333     1.944     1.296     0.648     1.296     1.944
+Plasma rifle                           1.667     1.667     0.889     0.444     1.000     1.667
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Fusion blaster'   |   MixAverage='Fusion blaster'   |   MixMax='Fusion blaster'
+
+==============================================================================================
+Unit: [T'au Empire] Crisis Fireknife Battlesuits  [ANTI-ELITE/TANK: burst cannon vs plasma rifle vs missile pod]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Plasma rifle                           1.250     1.250     0.667     0.333     0.750     1.250
+Missile pod                            1.000     1.389     0.444     0.222     0.685     1.389
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Plasma rifle'   |   MixAverage='Plasma rifle'   |   MixMax='Missile pod'
+
+==============================================================================================
+Unit: [T'au Empire] Crisis Starscythe Battlesuits  [ANTI-ELITE/TANK: burst cannon vs plasma rifle vs missile pod]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Burst cannon                           0.667     0.889     0.167     0.056     0.370     0.889
+T'au flamer                            1.167     1.556     0.194     0.097     0.616     1.556
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV="T'au flamer"   |   MixAverage="T'au flamer"   |   MixMax="T'au flamer"
+
+================================================================================
+SECTION 2 — Worst anti-tank bias cases (from diag_antitank_pick factions)
+These are the cases the fix is supposed to CORRECT.
+================================================================================
+
+==============================================================================================
+Unit: [Aeldari] Revenant Titan  [Marine picks 'Sonic Lance'; anti-tank winner is 'Revenant Pulsar'; gap=2.889]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Cloudburst missile launcher            6.222     7.778     3.111     1.556     4.148     7.778
+Sonic Lance                           15.833    15.833     8.444     4.222     9.500    15.833
+Revenant Pulsar                       13.333    13.333     8.889     7.111     9.778    13.333
+Sonic Lance                           15.833    15.833     8.444     4.222     9.500    15.833
+Revenant Pulsar                       13.333    13.333     8.889     7.111     9.778    13.333
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Sonic Lance'   |   MixAverage='Revenant Pulsar'   |   MixMax='Sonic Lance'
+
+==============================================================================================
+Unit: [Aeldari] Wraithknight  [Marine picks 'Suncannon'; anti-tank winner is 'Heavy Wraithcannon'; gap=2.370]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Heavy Wraithcannon                    10.267     8.556     7.130     5.704     7.130     8.556
+Suncannon                             12.500    12.500     8.333     3.333     8.056    12.500
+Heavy Wraithcannon                    10.267     8.556     7.130     5.704     7.130     8.556
+Scatter Laser                          1.560     2.080     0.390     0.130     0.867     2.080
+Shuriken Cannon                        2.300     3.194     1.022     0.511     1.576     3.194
+Starcannon                             2.222     2.222     1.185     0.593     1.333     2.222
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Suncannon'   |   MixAverage='Suncannon'   |   MixMax='Suncannon'
+
+==============================================================================================
+Unit: [Adeptus Mechanicus] Onager Dunecrawler  [Marine picks '➤ Eradication beamer - focused'; anti-tank winner is 'Neutron laser'; gap=2.243]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Cognis heavy stubber                   0.585     0.780     0.097     0.049     0.309     0.780
+➤ Eradication beamer - focused         8.775     8.775     5.850     2.340     5.655     8.775
+Icarus array                           3.900     5.417     1.733     0.867     2.672     5.417
+Neutron laser                          8.250     6.875     5.729     4.583     5.729     6.875
+Twin Onager heavy phosphor blaster     7.800    10.833     3.467     1.733     5.344    10.833
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='➤ Eradication beamer - focused'   |   MixAverage='Neutron laser'   |   MixMax='Twin Onager heavy phosphor blaster'
+
+==============================================================================================
+Unit: [Drukhari] Voidraven Bomber  [Marine picks 'Dark Scythe'; anti-tank winner is 'Void Lance'; gap=1.852]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+➤ Voidraven Missiles -  Implosion Missiles     2.667     3.333     1.333     0.667     1.778     3.333
+Void Lance                             7.333     6.111     5.093     4.074     5.093     6.111
+Dark Scythe                            8.000     6.667     4.444     2.222     4.444     6.667
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Dark Scythe'   |   MixAverage='Void Lance'   |   MixMax='Dark Scythe'
+
+==============================================================================================
+Unit: [Drukhari] Talos  [Marine picks 'Twin Splinter Cannon'; anti-tank winner is 'Twin heat lance'; gap=1.347]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Twin Liquifier Gun                     2.275     2.528     0.506     0.253     1.095     2.528
+Twin Splinter Cannon                   3.042     2.535     0.676     0.338     1.183     2.535
+Twin Haywire Blaster                   2.860     2.383     0.636     0.318     1.112     2.383
+Twin heat lance                        3.033     2.528     2.106     1.685     2.106     2.528
+Stinger Pod                            1.556     2.074     0.389     0.130     0.864     2.074
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Twin Splinter Cannon'   |   MixAverage='Twin heat lance'   |   MixMax='Twin Splinter Cannon'
+
+==============================================================================================
+Unit: [Imperial Knights] Knight Crusader  [Marine picks 'Avenger gatling cannon'; anti-tank winner is 'Thermal cannon'; gap=1.185]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Avenger gatling cannon                16.000    20.000     8.000     4.000    10.667    20.000
+Heavy flamer                           1.750     1.944     0.583     0.194     0.907     1.944
+Thermal cannon                         9.333     7.778     6.481     5.185     6.481     7.778
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Avenger gatling cannon'   |   MixAverage='Avenger gatling cannon'   |   MixMax='Avenger gatling cannon'
+
+==============================================================================================
+Unit: [Drukhari] Raven Strike Fighter [Legends]  [Marine picks 'Splinterstorm cannon'; anti-tank winner is 'Dark lance'; gap=0.836]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Dark lance                             3.056     3.056     2.037     1.630     2.241     3.056
+Splinterstorm cannon                   7.147     5.956     1.588     0.794     2.779     5.956
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Splinterstorm cannon'   |   MixAverage='Splinterstorm cannon'   |   MixMax='Splinterstorm cannon'
+
+==============================================================================================
+Unit: [Adeptus Astartes] Sicaran Arcus [Legends]  [Marine picks 'Arcus multi-launcher'; anti-tank winner is 'Hunter-killer missile'; gap=0.778]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Heavy bolter                           2.340     2.600     0.780     0.260     1.213     2.600
+Hunter-killer missile                  2.431     2.431     1.620     1.296     1.782     2.431
+Storm bolter                           0.444     0.593     0.074     0.037     0.235     0.593
+Arcus multi-launcher                   3.111     5.185     1.037     0.519     2.247     5.185
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Arcus multi-launcher'   |   MixAverage='Arcus multi-launcher'   |   MixMax='Arcus multi-launcher'
+
+==============================================================================================
+Unit: [Drukhari] Raider  [Marine picks 'Disintegrator Cannon'; anti-tank winner is 'Dark Lance'; gap=0.741]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+Disintegrator Cannon                   3.333     3.333     1.778     0.889     2.000     3.333
+Dark Lance                             3.056     3.056     2.037     1.630     2.241     3.056
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Disintegrator Cannon'   |   MixAverage='Dark Lance'   |   MixMax='Disintegrator Cannon'
+
+==============================================================================================
+Unit: [Drukhari] Razorwing Jetfighter  [Marine picks 'Disintegrator Cannon'; anti-tank winner is 'Dark Lance'; gap=0.741]
+----------------------------------------------------------------------------------------------
+Weapon                               MrineEV   ChaffEV   EliteEV    TankEV    MixAvg    MixMax
+----------------------------------------------------------------------------------------------
+➤ Razorwing Missiles - Monoscythe Missiles     2.333     3.241     1.037     0.519     1.599     3.241
+Dark Lance                             3.056     3.056     2.037     1.630     2.241     3.056
+Disintegrator Cannon                   3.333     3.333     1.778     0.889     2.000     3.333
+Splinter Cannon                        2.340     1.950     0.520     0.260     0.910     1.950
+Twin Splinter Rifle                    0.578     0.385     0.048     0.048     0.160     0.385
+----------------------------------------------------------------------------------------------
+PICKS: Marine-EV='Disintegrator Cannon'   |   MixAverage='Dark Lance'   |   MixMax='Disintegrator Cannon'
+
+================================================================================
+SECTION 3 — Aggregate verdict across ALL bias cases
+================================================================================
+Total choice groups where anti-tank best != Marine best: 57
+  Marine    agrees with anti-tank winner: 0/57 = 0.0%  (baseline: 0% by construction)
+  MixAverage agrees with anti-tank winner: 23/57 = 40.4%
+  MixMax     agrees with anti-tank winner: 3/57 = 5.3%
+
+Groups where each scorer's pick is better (higher tank EV) than Marine's pick:
+  MixAverage better than Marine: 23/57 = 40.4%
+  MixMax     better than Marine: 5/57 = 8.8%
+
+Legend:
+  MrineEV = EV vs Toughness 4 / 3+ save Marine (current mapper scorer)
+  ChaffEV = EV vs Toughness 3 / 5+ save (Guardsman / Ork Boy)
+  EliteEV = EV vs Toughness 5 / 2+ save (Terminator-class; no invuln)
+   TankEV = EV vs Toughness 11 / 2+ save (heavy vehicle)
+   MixAvg = flat average of ChaffEV + EliteEV + TankEV
+   MixMax = max of ChaffEV, EliteEV, TankEV

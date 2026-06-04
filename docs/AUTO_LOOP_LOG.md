@@ -4,6 +4,32 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 182 (2026-06-04) — #68 GROUNDING (read-only, watchdog-mandated before any regen): cited per-unit loadouts are the fix; the 3-profile mix fallback is weak (40%)
+
+Watchdog/user refined #68: role-classification SOURCED FROM REAL LOADOUTS is primary (un-fakeable, can't over-correct);
+a 3-profile target mix is fallback only for units with no canonical loadout. Did the mandated read-only grounding in
+parallel (2 agents, no parsed.json regen, no build):
+
+**(a) SCOPE (`docs/ANTITANK_LOADOUT_SCOPE.md`, af0b98d):** of the 56 flagged choice groups —
+- **26 CITABLE genuine anti-tank corrections** (BSData-cited; Wahapedia DNS was down so BSData-sourced per rule 6). The
+  gunboat core: Wraithknight → 2× Heavy Wraithcannon; Onager Dunecrawler → Neutron laser; Voidraven → Void Lance; Ravager
+  → 3× Dark Lance; Revenant Titan → Revenant Pulsar.
+- **5 picker ALREADY CORRECT** (the real loadout IS the anti-infantry gun — must NOT be "corrected").
+- **4 TRANSPORT/INCIDENTAL** (e.g. Raider — leave incidental, the watchdog's selectivity rail).
+- **21 FALLBACK** (all Legends units — not in the competitive archetype lists the eval fields).
+Also correctly caught the Hellhound as a FALSE positive (Strength-6 Inferno vs Strength-2 Chem — not a genuine anti-tank gap).
+
+**(b) MIX SANITY (`scripts/diag_mix_sanity.py`, d78fed6; output `data/wf_wave182_mix_sanity.txt`):** the flat-weight
+3-profile mix (chaff Toughness 3 / elite Toughness 5 / armour Toughness 11) picks the anti-tank winner only **23/57 = 40%**
+of cases (flat average; max-combiner just 5%). It works for the Ravager but mis-prices 60% of specialists — the chaff/elite
+profiles drag the anti-tank weapon down. **CONFIRMS the watchdog/user point: role must enter EXPLICITLY; a flat mix is an
+unreliable fallback.**
+
+→ DESIGN VALIDATED: the fix is the **26 cited per-unit loadout corrections** (the wave-107 "cited pins" approach scaled up
+— surgical, un-fakeable, can't over-correct), landed in `data/overrides.json` with rule-citations. The fallback mix is too
+weak (40%) and only touches tournament-irrelevant Legends units → recommend SKIP the mix, just do the 26 cited pins.
+Reported to the watchdog for the user's DESIGN-CONFIRM; build (env-gated A/B vs 5.84, watch Imperial Knights) waits on it.
+
 ## Wave 181 (2026-06-04) — PARALLEL BATCH: anti-tank picker bias QUANTIFIED (the #1 lever, UNIFIED) + Tactical kill-card schedules landed
 
 Two file-disjoint background agents (parallelize directive); both committed (worktree post-commit-stall meant I integrated
