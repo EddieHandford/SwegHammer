@@ -7798,10 +7798,21 @@ class Battle:
                     return 1
                 return 2
 
-            ordered = sorted(list(active.units), key=_fight_priority)
-            for unit in ordered:
-                if unit.is_alive:
-                    self._do_fight(unit, active, other)
+            # Group-2 #2 — fight-phase alternation (gate SWEG_FIGHTALT). 10e
+            # resolves a Fight phase with BOTH armies' engaged units, alternating
+            # one at a time (Fights First step, then Remaining), so a charged
+            # defender swings back IN THIS phase instead of waiting for its own
+            # turn (the over-credit the wave-163 instrument proved differentially
+            # favours melee aggressors). Default OFF: the gate unset runs the
+            # original active-only loop verbatim → byte-identical. Cited
+            # `simulator.fight_alternation`.
+            if __import__("os").environ.get("SWEG_FIGHTALT") == "1":
+                self._run_fight_alternation(active, other)
+            else:
+                ordered = sorted(list(active.units), key=_fight_priority)
+                for unit in ordered:
+                    if unit.is_alive:
+                        self._do_fight(unit, active, other)
             # DAEMONS-DIAG-5: Bloodthirster "Relentless Carnage" — end-of-
             # Fight-phase mortal-wound payload. BSData v10.6.0 Chaos Daemons
             # Library (Bloodthirster datasheet, "Relentless Carnage" ability
@@ -9432,6 +9443,78 @@ class Battle:
         # prior implementation fired free for every defending CHARACTER within
         # 6" of a charger (a fabricated free 6"/3" move into engagement), over-
         # rating every melee-Character army. See docs/CORE_RULES_AUDIT.md #1.
+
+    def _run_fight_alternation(self, active: Army, other: Army) -> None:
+        """Group-2 #2 — faithful 10e Fight-phase alternation (gate SWEG_FIGHTALT).
+
+        Real 10e resolves a Fight phase with the eligible units of BOTH armies,
+        not just the active player's: the Fight phase has a Fights First step
+        (units that charged this turn or have the Fights First ability) and then
+        a Remaining Combats step, and within each step the players alternate
+        selecting ONE eligible unit to fight, starting with the player whose turn
+        is taking place. SwegHammer's vanilla loop fought only the active army's
+        units, deferring the defender's retaliation to its own later turn — which
+        let melee aggressors delete defenders before they could swing back (the
+        over-credit the wave-163 instrument proved differential, ~30x larger for
+        the melee over-shooters than for gunlines). This restores the in-phase
+        retaliation. Cited `simulator.fight_alternation`.
+
+        A unit fights at most once in this phase (`fought`). Because each battle
+        round runs both players' turns, a unit locked across both turns fights in
+        BOTH fight phases — twice per round, as 10e intends. Deterministic order
+        WITHIN a player's step (the player's free choice in real play) uses a
+        melee-threat key so reruns match. The gate-off path (the caller's else
+        branch) is unchanged, so OFF is byte-identical.
+        """
+        fought: set = set()
+
+        def _melee_threat(u) -> float:
+            p = u.profile
+            return (max(0, int(p.melee_attacks or 0))
+                    * float(p.melee_hit_probability or 0.0)
+                    * float(p.melee_damage_per_shot or 0.0))
+
+        def _eligible(u, foe: Army) -> bool:
+            if not u.is_alive or (u.profile.melee_attacks or 0) <= 0:
+                return False
+            if u.uid in fought:
+                return False
+            # Eligible to fight = made a Charge move this turn, OR currently
+            # within Engagement Range (1") of an enemy (matches _do_fight's own
+            # in-range gate; pile-in then closes the residual gap).
+            if u.uid in self._charging_this_round:
+                return True
+            return any(_distance(u.position, e.position) <= 1.0
+                       for e in foe.alive_units)
+
+        def _is_ff(u) -> bool:
+            return (u.uid in self._charging_this_round
+                    or bool(getattr(u.profile, "fights_first", False)))
+
+        def _next_pick(army: Army, foe: Army, want_ff: bool):
+            cands = [u for u in army.units
+                     if _eligible(u, foe) and _is_ff(u) == want_ff]
+            if not cands:
+                return None
+            # The player picks their highest-threat eligible unit (stable, with
+            # uid tiebreak for determinism).
+            return max(cands, key=lambda u: (_melee_threat(u), u.uid))
+
+        for want_ff in (True, False):
+            side = 0   # 0 = active player picks first (10e: the player whose turn it is)
+            while True:
+                acted = False
+                for _ in range(2):
+                    army, foe = (active, other) if side == 0 else (other, active)
+                    side ^= 1
+                    pick = _next_pick(army, foe, want_ff)
+                    if pick is not None:
+                        fought.add(pick.uid)
+                        self._do_fight(pick, army, foe)
+                        acted = True
+                        break
+                if not acted:
+                    break
 
     def _do_fight(self, attacker, attacker_army: Army, defender_army: Army) -> None:
         """Resolve a melee strike if the attacker is in engagement range (1").

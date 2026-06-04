@@ -4,6 +4,30 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 166 (2026-06-04) — GROUP-2 #2 BUILT: faithful 10e fight-phase alternation (gate `SWEG_FIGHTALT`, OFF byte-identical) — A/B pending
+
+STEP 2 of the watchdog-confirmed Group-2 lever (the over-credit differential was proven in wave 163: denied-retaliation
+per battle World Eaters 56.5 vs T'au 1.9, ~30x). The vanilla fight loop fought ONLY the active army's units, deferring
+the defender's retaliation to its own later turn — letting melee aggressors delete defenders before they swing back.
+`Battle._run_fight_alternation` (gate `SWEG_FIGHTALT`) restores 10e: BOTH armies' eligible units fight in this Fight
+phase, alternating ONE at a time (Fights First step — chargers + the Fights First keyword — then Remaining Combats),
+the active player selecting first in each step; each unit fights at most once per phase, and because a round runs both
+turns a locked unit fights in both fight phases (twice/round, as 10e intends). Cited `simulator.fight_alternation`
+(Wahapedia core rules; the two-step alternation is verbatim, the active-first first-selector is the canonical reading —
+secondary summaries differ on that second-order tie-break, flagged for confirmation; the dominant in-phase-retaliation
+mechanism is order-robust).
+
+**Build verified:** audit clean, run.py exit 0 both paths, full suite **1127 passed** (3 new `tests/test_fight_alternation.py`
+proving the defender retaliates in-phase, the vanilla per-model fight gives no retaliation, and no unit fights twice per
+phase), and **OFF N=40 reproduces 4.20 / 8-in-band exactly** (gate unset runs the original active-only loop verbatim →
+byte-identical). Committed as a build (A/B follows) per the Stage-A stash-loss lesson.
+
+**Honest caveat carried from the design waves:** faithful 10e ~DOUBLES fight frequency for locked combats. The rein
+(in-phase retaliation, reliable on fresh combats) is expected to beat the doubling (bonus second fight, often a no-op on
+already-resolved combats), reining the melee over-shooters — but the direction is genuinely uncertain and the gated A/B
+settles it (keep-if-faithful; reject only if it's UN-faithful, not merely if it moves the metric). NEXT: serial A/B —
+alt-only N=40 then N=80, per-faction deltas (expect WE/Tyranids/Drukhari/Sororitas/Votann DOWN; charged armies may rise).
+
 ## Wave 162 (2026-06-04) — GROUP-2 DIAGNOSTIC: melee attacker-count (#1) REFUTED by the data → fight-phase alternation (#2) is the real lead
 
 The watchdog-confirmed next lever (OVERSHOOTER_PLAN Phase 2 #1): instrument the melee attacker-count BEFORE building —
