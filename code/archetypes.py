@@ -1263,6 +1263,38 @@ SEED_FRACTION: float = 0.3
 SEED_FRACTION_BY_FACTION: Dict[str, float] = {
     "Leagues of Votann": 0.4,
     "Adeptus Custodes": 0.55,
+    # AdMech-DIAG (wave 173): the cited Skitarii Hunter Cohort seed encodes the
+    # real May-2026 list's DURABLE CORE (Belisarius Cawl, an Onager Dunecrawler,
+    # a Skorpius Disintegrator, two Kataphron bodies). At the default 0.3 slice
+    # (600pt at 2000pt) that expensive core does not fit, so the seed walk drops
+    # the Onager (realizes ~0.4/btl vs the seeded 1) and the 70% random_fill
+    # piles on cheap fragile Skitarii — the REALIZED list is more fragile than
+    # the cited real list, the under-side mirror of an unfaithful realization.
+    # The AdMech diagnostic localized AdMech's under-shoot to ATTRITION (38%
+    # survival vs 60%); the over-fragile realization is part of that. 0.65 (1300pt
+    # seed) reliably realizes the durable core (Onager 1.1, Skorpius 1.4,
+    # Kataphrons, Cawl) and trims the fragile fill (68→57 units/btl) so the
+    # realized list matches the cited Goonhammer/Frontline/Stat-Check May-2026
+    # Skitarii Hunter Cohort. FAITHFUL list-realism (matching reality), not
+    # win-rate tuning — landed even though it is expected to raise AdMech's
+    # under-shooting win rate toward 50% (fidelity-first; the "faithful but
+    # raises the metric -> skip" reflex is forbidden).
+    "Adeptus Mechanicus": 0.65,
+    # SYSTEMATIC LIST-REALISM PASS (wave 174, user-requested audit). The default
+    # 0.3 seed slice drops the FIXED durable/support core of several factions'
+    # cited real lists (the units the real list ALWAYS runs), filling instead
+    # with cheap fragile units → an unfaithful realization. `diag_list_realism.py`
+    # found the drops; each fraction below is the lowest that realizes the cited
+    # dropped core (verified realized-MATCHES-real, NOT chosen to move win rate).
+    # EVEN-HANDED: applied to ALL distorted fixed-core factions regardless of
+    # over/under/in-band, accepting whatever metric direction. MENU seeds
+    # (IK/CK/Daemons/Emperor's Children/Aeldari/World Eaters — a menu of big
+    # variants @1 from which the builder picks a faithful subset) are LEFT alone.
+    "Astra Militarum": 0.55,     # realizes Scout Sentinels + Leman Russ + Manticore (tank/support core)
+    "Chaos Space Marines": 0.65,  # realizes Forgefiend + Lord Discordant + Daemon Prince (heavy support + characters)
+    "Adepta Sororitas": 0.55,    # realizes Castigator + Saint Celestine
+    "Grey Knights": 0.45,        # realizes Nemesis Dreadknight
+    "T'au Empire": 0.55,         # realizes Ghostkeel + keeps Riptide (Stormsurge/Ghostkeel are menu alternatives)
     # KNIGHTS-DIAG-3 (wave 33): Default 0.3 = 300pt seed budget at 1000pt
     # eval. Every Questoris-class Chaos Knight costs 355–410pt — more
     # than the entire seed budget — so the template seed always picks
