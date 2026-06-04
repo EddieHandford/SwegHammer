@@ -4,6 +4,46 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 178 (2026-06-04) — #1 lever LOCALIZED: the secondary gap is over-scored objective-control/action cards (every round, not the real 2-card cadence) → candidate fix already built (SWEG_TAC_DECK)
+
+Decomposed the wave-177 secondary gap by card TYPE (`scripts/diag_secondary_breakdown.py`, wraps the scoring functions
+to attribute every VP to the scoring side; 7 opp × 10 seeds). The eval runs the DEFAULT secondary path (SWEG_TAC_DECK
+OFF), AND `_tier_a_enabled` / `_cleanse_enabled` / `_sabotage_enabled` are all DEFAULT-ON — so each side scores the UNION
+of ~9 cards (4 kill + Engage + BEL + Cleanse + Sabotage + 5 board) EVERY round, not the real CA-2025-26 "hold 2 cards,
+score at most those per turn" cadence:
+
+```
+Under-shooter         dKill   dPos   dObj   dTOT   (meObj/oppObj)
+Astra Militarum       -14.5   -2.0   -7.8  -24.4   (42.7/50.5)
+Adeptus Mechanicus     -6.1   -1.3  -14.3  -21.7   (38.3/52.6)
+Chaos Space Marines    -3.1   -1.9  -19.8  -24.8   (28.9/48.7)
+```
+dKill = kill cards (BID/NP/Cull/Assn); dPos = Engage+BEL; dObj = Cleanse+Sabotage+5 board cards. dTOT reconciles to the
+−22..−25 dSec from wave 177.
+
+**LOCALIZED.** The dominant, growing component is dObj (objective-control/action cards): AM −7.8, AdMech −14.3, CSM
+−19.8. Engage/BEL positional is tiny (−1.3..−2.0) — so it is NOT a spread/projection gap. It is the OBJECTIVE-CONTROL +
+ACTION cards: body armies (high total OC, spare chaff to do actions) score 48−52 of these per game; low-model/low-OC
+durable armies concede them (CSM only 28.9). **For CSM (NOT out-attrited) dObj −19.8 is almost the ENTIRE −24.8 loss** —
+confirming CSM's problem is conceding objective-control secondaries, not combat (Dark Pacts #52 cannot help it). For AM
+the kill gap also bites (dBID −8.7 vehicles + dAssn −9.3 characters = attrition, on top of dObj −7.8).
+
+**This is a KNOWN fidelity gap with a fix already built.** The sabotage docstring (simulator.py:1148) already flags it:
+cleanse/sabotage/board score every round, not rotation-gated to the real 2-card draw — "this over-scores them and
+amplifies the over-correction of low-model armies." The M2 Tactical deck (`SWEG_TAC_DECK`, wave 119) models the real
+CA-2025-26 cadence (each side picks FIXED = 2 kill cards, or TACTICAL = a 2-card draw/achieve/redraw hand — at most 2
+scoring sources, not 9). It was **the first faithful lever to move the headline (4.41 → 4.13)** but kept default-OFF
+pending an AI-pursuit refinement (the 2-card hand STALLS — the AI holds board cards it rarely achieves: defend_stronghold
+11% / extend_battle_lines 9%), which wave 121 then built (AI-pursuit layer for held Tactical cards).
+
+→ Resolves the watchdog's scoring-bias-vs-AI-pursuit question: BOTH are real. The every-round over-generation IS the
+count-bias (deck-off); the held-card stall is a secondary AI-pursuit gap inside the deck-on path (wave 121 addresses it).
+The candidate FAITHFUL fix exists and was previously net-positive — but its only A/B was on the OLD FLATTERED 4.41
+baseline. **NEXT: re-run the `SWEG_TAC_DECK` A/B (OFF vs ON) on the CURRENT de-flattered real-list baseline (gated 5.87,
+N=80), report the per-faction deltas for AM/AdMech/CSM + the over-side, and the held-card achieve-rates (AI-pursuit
+health).** Measure-only (gated); a default-flip would need user greenlight (coherency-flip precedent). NO fabrication —
+this is the real CA-2025-26 secondary cadence, faithful regardless of metric direction.
+
 ## Wave 177 (2026-06-04) — #1 lever diagnostic: COVER REFUTED; loss segments to SECONDARY (biggest) + AM/AdMech ATTRITION
 
 The de-flattered baseline's #1 lever is the durable-shooty-vehicle under-valuation (AM/AdMech/CSM). Watchdog/user
