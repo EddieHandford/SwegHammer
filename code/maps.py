@@ -5,7 +5,7 @@ Add new maps here and register them in STOCK_MAPS so the front end can
 pick them up automatically.
 """
 
-from __future__ import annotations
+import os
 
 from .map import Map, Objective, Terrain, TerrainType
 
@@ -15,8 +15,36 @@ def _quincunx_objectives(width: float, height: float) -> tuple:
     Five-objective layout common to most 10e missions (Take and Hold, Crucible,
     Tipping Point, etc.): one in the centre and four equidistant points roughly
     a third of the way in from each board edge.
+
+    Wave 185 (#66 map-objective fidelity, env-gated SWEG_OBJ_HOME): the legacy
+    quincunx places ALL five markers in No Man's Land (inset_y=0.25 → y=15/45 on a
+    44x60 board whose 12" deployment zones are y<=12 / y>=48), so a HOME objective
+    in a player's own deployment zone NEVER exists. That makes the real
+    Chapter Approved 2025-26 board secondaries Defend Stronghold (control an
+    objective in your OWN deployment zone) and Extend Battle Lines (own zone AND
+    No Man's Land) mathematically UNACHIEVABLE — a scoring-fidelity gap, not a
+    rule the real game has (those cards are scored in real play, so real
+    deployment maps DO place home objectives in deployment zones). The gated layout
+    re-lays the four outer markers to the faithful HOME + FLANK pattern: one home
+    objective inside each deployment zone (on the centre line) plus two mid-board
+    flank markers in No Man's Land, keeping the centre. Even-handed by 180-degree
+    rotational symmetry (home-A <-> home-B, flank-left <-> flank-right). The OFF
+    path is byte-identical. Cited `terrain.objective_home_markers`.
     """
     cx, cy = width / 2.0, height / 2.0
+    if os.environ.get("SWEG_OBJ_HOME") == "1":
+        # Home objective ~8" from each short edge → inside the 12"-deep
+        # deployment zone, as on the real Pariah Nexus deployment maps; two flank
+        # markers at mid-board (No Man's Land); centre unchanged.
+        home_inset = 8.0
+        flank_x = width * 0.30
+        return (
+            Objective(name="Centre",      x=cx, y=cy),
+            Objective(name="Home A",      x=cx, y=home_inset),
+            Objective(name="Home B",      x=cx, y=height - home_inset),
+            Objective(name="West Flank",  x=cx - flank_x, y=cy),
+            Objective(name="East Flank",  x=cx + flank_x, y=cy),
+        )
     inset_x = width * 0.30
     inset_y = height * 0.25
     return (
