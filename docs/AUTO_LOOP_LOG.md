@@ -23,6 +23,18 @@ win is vs Astra Militarum (60%). So AdMech is OUT-DAMAGED + FRAGILE (a two-sided
 and check the remaining watchdog candidates (archetype list competitiveness, mid-model-shooty representation, residual
 fragility beyond Go To Ground). Stage-2 re-price (balancer gate-off-vs-on) still queued.
 
+**Wave 172 — AdMech LIST-REALISM check (watchdog step 1): the list IS representative → NOT the lever → AdMech is an
+under-side REPRESENTATION FLOOR.** The archetype is a CURATED, CITED list (`code/archetypes.py:1058`, "Skitarii Hunter
+Cohort", referencing Goonhammer May-2026 Detachment Focus + Frontline GT + Stat Check aggregate). It carries the durable
+core (Cawl, Kataphron Breachers + Destroyers, Onager, Skorpius Disintegrator, Skitarii battleline); the infantry-heavy
+silhouette is BY DESIGN (Skitarii Hunter Cohort is an infantry detachment). So the fragile-infantry weighting is
+faithful, not a builder bug (one minor artifact: the expensive Onager realizes at 0.4/btl vs seed weight 1 — cheap
+Skitarii crowd it out — but reshaping that edges into win-rate tuning, left alone). With the list representative + Doctrina
+modelled + no missing rule, AdMech's attrition deficit is the mid-model-shooty REPRESENTATION FLOOR (a representative
+fragile-infantry army over-dies in the one-Unit-per-model + size-1-swarm representation, 38% survival) — the under-side
+MIRROR of the over-side melee floor. No clean faithful fix; ACCEPT it (per the over-side precedent) and pivot to CSM
+(#52 Dark Pacts holistic — the more concrete under-modelled army rule, the tractable under-outputter). NEXT: CSM.
+
 ## Wave 169 (2026-06-04) — GROUP-2 #3 battle-shock crumbling DIAGNOSTIC → NULL (melee crumbles faithfully) → over-side levers EXHAUSTED
 
 The last cheap Group-2 probe (watchdog-steered, instrument-first). `scripts/diag_battleshock.py` wraps
