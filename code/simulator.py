@@ -1371,6 +1371,94 @@ class Battle:
                     u.pursue_target = cleanse_target
                     n += 1
 
+        # Wave 180 — BOARD take-and-hold card pursuit. The wave-121/122 layer only
+        # routed Behind Enemy Lines / Cleanse (far, lethal forward targets) and
+        # washed because chaff could not reach/hold the enemy deployment zone. The
+        # held BOARD cards are different: their markers are CLOSE and HOLDABLE —
+        # Defend Stronghold's marker sits in the army's OWN deployment zone, Secure
+        # No Man's Land / Extend Battle Lines target the mid-board. The wave-179
+        # achieve-rate diagnostic showed these stall at 8-19% only because the move
+        # AI pushes every body forward and never parks one on its own/near-home
+        # marker. Route up to one spare chaff per UNMET board-card condition to the
+        # marker that condition needs. Even-handed by CAPABILITY (the chaff gate,
+        # no faction logic): a Knight with no chaff routes nothing and stays
+        # faithful. AI movement heuristic — no 10e rule citation required (same
+        # class as the wave-121 pursuit above).
+        for goal in self._board_pursuit_goals(hand, own_is_a):
+            for u in active.alive_units:
+                if u.action_this_round is not None:
+                    continue
+                if u.pursue_target is not None:
+                    continue
+                if not _is_chaff_unit(u):
+                    continue
+                u.pursue_target = goal
+                break   # one spare chaff committed per board-card goal
+
+    def _board_pursuit_goals(self, hand, own_is_a):
+        """Wave 180 — marker (x,y) goals for the held BOARD take-and-hold cards
+        whose control condition is currently UNMET, so `_assign_card_pursuit`
+        routes a spare body to each. Targets the nearest UNMET marker of the right
+        kind (prefers a marker we do NOT already control — reinforcing an unmet
+        condition, not wasting a body on a held one), biased toward the army's home
+        edge for reachability. Even-handed; no faction logic. Returns [] when no
+        board card is held or every condition is already met."""
+        active = self.a if own_is_a else self.b
+        other = self.b if own_is_a else self.a
+        objs = list(enumerate(self.map.objectives))
+
+        def controlled(obj) -> bool:
+            return self._oc_within(active, obj) > self._oc_within(other, obj)
+
+        mx = self.map.width / 2.0
+        home_y = (self.map.deployment_width * 0.5 if own_is_a
+                  else self.map.height - self.map.deployment_width * 0.5)
+
+        def nearest_unmet(cands):
+            # cands: list of (idx, obj). Prefer markers we do not yet control.
+            unmet = [o for (_, o) in cands if not controlled(o)]
+            pool = unmet if unmet else [o for (_, o) in cands]
+            if not pool:
+                return None
+            o = min(pool, key=lambda ob: (ob.x - mx) ** 2 + (ob.y - home_y) ** 2)
+            return (o.x, o.y)
+
+        own_dz = [(i, o) for (i, o) in objs if self._obj_in_own_dz(o, own_is_a)]
+        nml = [(i, o) for (i, o) in objs if self._obj_in_nml(o)]
+        goals = []
+
+        if "defend_stronghold" in hand:
+            g = nearest_unmet(own_dz)
+            if g is not None:
+                goals.append(g)
+        if "secure_no_mans_land" in hand:
+            g = nearest_unmet(nml)
+            if g is not None:
+                goals.append(g)
+        if "extend_battle_lines" in hand:
+            # Needs an own-DZ marker AND a No Man's Land marker; route a body to
+            # whichever condition is currently unmet (both if both are unmet).
+            if not any(controlled(o) for (_, o) in own_dz):
+                g = nearest_unmet(own_dz)
+                if g is not None:
+                    goals.append(g)
+            if not any(controlled(o) for (_, o) in nml):
+                g = nearest_unmet(nml)
+                if g is not None:
+                    goals.append(g)
+        if "storm_hostile_objective" in hand:
+            opp_tag = "b" if own_is_a else "a"
+            stormable = [(i, o) for (i, o) in objs
+                         if self._obj_controller_at_round_start.get(i) == opp_tag
+                         and not controlled(o)]
+            g = nearest_unmet(stormable) if stormable else None
+            if g is not None:
+                goals.append(g)
+        if "area_denial" in hand:
+            # Hold the battlefield centre (the Area Denial scoring point).
+            goals.append((mx, self.map.height / 2.0))
+        return goals
+
     # ------------------------------------------------------------------
     # Wave 133-135 — secondary dedication PLANNER (positioning bias only).
     #
