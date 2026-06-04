@@ -24,9 +24,22 @@ exactly** (the gate unset leaves the plan empty and `_assigned` None → byte-id
 baseline is unchanged (N=80 gated 4.05). Committed as a build (the A/B follows next wave to avoid holding the large,
 risky shooting change uncommitted) — per the Stage-A stash-loss lesson.
 
-NEXT: the serial A/B — D-only (`SWEG_SQUADSHOOT=1`) and B+D (`SWEG_COHERE=1 SWEG_SQUADSHOOT=1`) at N=40 then N=80 vs the
-4.20 / 4.05 baselines, reporting which way split-fire moves the headline and the per-faction deltas (it is even-handed
-fidelity — every army shoots — so the question is whether it helps under-shooters more than over-shooters).
+**A/B RESULT (landed gated, faithful + metric-NEUTRAL):**
+- D-only N=40 gated **4.19** (vs OFF 4.20) — a wash; per-faction moves all within noise.
+- B+D N=40 gated **4.17** (Imperial Knights 74.4, B's coherency effect showing through) — D adds nothing harmful.
+- B+D N=80 gated **4.03** (Imperial Knights 74.4 / gated 23.76) vs B-only N=80 **3.93** and OFF **4.05**.
+- The sign of D's effect FLIPS across N (−0.01 at N=40, +0.10 at N=80) — the signature of sampling noise, not signal.
+  So **split-fire is faithful and metric-neutral**: a legitimate fidelity improvement (real 10e — a unit's models need
+  not all target one enemy) that does not move the headline. Expected: the over-shoot is a MELEE representation issue,
+  not shooting inefficiency, so better target allocation cannot reach it.
+
+**Verdict:** D LANDS gated default-OFF (keep-if-faithful), already committed `a9f87bf`. It is NOT part of the
+metric-improving default — B alone (3.93) is the rebuild's gain; B+D (4.03) adds ~0.10 of noise, so any future flip is
+B-only, not B+D. **This concludes the squad rebuild's behavioural investigation:** B (coherency) faithful + metric-
+POSITIVE (the one real gain, 4.05→3.93, Knight −3.3); D (split-fire) faithful + metric-NEUTRAL; E (cohesive hold)
+unfaithful-in-effect + REJECTED. The rebuild DENTS the Knight floor (27→24) but does not close it — the residual is
+the MELEE one-Unit-per-model over-representation (Group-2 / OVERSHOOTER_PLAN: melee attacker-count), which the
+positional rebuild structurally cannot reach. NEXT lever is that Group-2 work, or Stage 2, per the watchdog.
 
 ## Wave 160 (2026-06-04) — SQUAD REBUILD STAGE E: cohesive objective holding TESTED and REJECTED (net regression; reverted, not landed)
 
