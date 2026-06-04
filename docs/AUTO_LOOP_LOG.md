@@ -4,6 +4,41 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 181 (2026-06-04) — PARALLEL BATCH: anti-tank picker bias QUANTIFIED (the #1 lever, UNIFIED) + Tactical kill-card schedules landed
+
+Two file-disjoint background agents (parallelize directive); both committed (worktree post-commit-stall meant I integrated
+from their commits directly), cherry-picked + verified. Default-path baseline unchanged (5.84) — neither piece touches it.
+
+**#65 — anti-tank weapon-picker bias QUANTIFIED (diagnostic, e3aaf2c, `scripts/diag_antitank_pick.py`).** The mapper's
+`_best_candidate` picks weapon CHOICE options by `expected_damage_through_baseline` (vs a MARINE: 3+ save, no wound roll),
+so multi-shot anti-infantry options beat single-shot anti-armour, and the picker DROPS anti-tank. Quantified the EV-vs-Tank
+(Toughness 11 / 2+ save) left on the table per faction:
+```
+Faction            Biased groups   Anti-tank EV lost
+Aeldari                  9              8.05
+Drukhari                 9              7.50
+Astra Militarum         13              6.06  <<< under-shooter
+Adeptus Astartes        15              4.86
+Adeptus Mechanicus       5              2.47  <<< under-shooter
+Imperial Knights         2              1.87
+World Eaters             3              0.66
+```
+Worst single cases: Wraithknight (Suncannon over Heavy Wraithcannon), Onager Dunecrawler (Eradication beamer over Neutron
+laser), Voidraven (Dark Scythe over Void Lance), Ravager (Disintegrator over Dark Lance). **CONFIRMS the watchdog's
+UNIFIED-lever hypothesis:** the bias is SYSTEMIC; AM/AdMech lose real anti-tank output (under-output), AND the OPPONENTS
+lose MORE (Aeldari/Drukhari/Marines) → they under-threaten the durable Knights. So one faithful mapper fix RAISES the
+under-shooters AND reins Imperial Knights (whose own 2 groups barely matter — the IK fall comes from opponents arming up).
+Selectivity rail visible in the data: Ravager (gunboat) should get Dark Lance; Raider (transport) should stay Disintegrator
+(incidental) — the fix must be target-aware/mix-scoring, not "always anti-tank". → the systemic mapper FIX is task #65b.
+
+**#67 — Tactical kill-card Fixed-vs-Tactical victory-point split LANDED (569377e, gated SWEG_TAC_DECK path only).** The sim
+applied the per-unit FIXED schedule on the Tactical track too; real CA-2025-26 Tactical kill cards are a flat once-per-turn
+trigger. Added `tactical=True` routing in `_score_one_card` → `score_round_delta` (Assassination flat 5/turn, Bring It
+Down 4/turn, Cull 5/turn; No Prisoners stays per-unit-capped 2/5 in both tracks). Three new cited entries (verbatim
+CA-2025-26 text), registered in the auditor. OFF/union path byte-identical; a new test pins 5-flat-Tactical vs
+8-per-unit-Fixed. audit clean, 111 tests pass, run.py --cli clean. Only bites once the deck track is used (gated, off) —
+no headline move, faithful fidelity banked for when the deck lands.
+
 ## Wave 180 (2026-06-04) — PARALLEL BATCH: AI-pursuit (B) refuted (maps lack own-zone objectives); the dominant under-shooter lever is combat UNDER-OUTPUT (C)
 
 Parallelized the watchdog's file-disjoint batch (user PARALLELIZE directive): A = secondaries.py FIXED-secondary
