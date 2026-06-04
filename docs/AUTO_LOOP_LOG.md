@@ -4,6 +4,26 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 169 (2026-06-04) — GROUP-2 #3 battle-shock crumbling DIAGNOSTIC → NULL (melee crumbles faithfully) → over-side levers EXHAUSTED
+
+The last cheap Group-2 probe (watchdog-steered, instrument-first). `scripts/diag_battleshock.py` wraps
+`_run_battleshock_phase` and counts, per faction, below-Half squad-rounds vs crumbles (failed 2D6-vs-Ld → OC 0). The
+sim already models crumbling (per-squad below-Half gate, OC→0 + stratagem lockout on failure, Mob Rule / Synapse
+auto-pass short-circuits). **Result — the melee over-shooters crumble at LEAST as much as gunlines:** below-Half/btl
+World Eaters 4.89 / Tyranids 4.17 / Drukhari 4.83 (vs gunlines 3.2-3.9 — they grind and take more casualties), crumble%
+~30% across both (Astra Militarum 23%, Votann 21% slightly less). So the sim is NOT under-crumbling the melee
+aggressors — they erode (lose OC when depleted) faithfully. **#3 is NULL as a Group-2 lever.**
+
+**All cheap Group-2 over-side levers are now exhausted on evidence:** melee attacker-count (refuted — size-1-swarm
+lists), split-fire (neutral, landed gated), fight-alternation (rejected — doubling over-rates durable melee),
+battle-shock crumbling (null — faithful). **The over-side melee residual is confirmed as needing the BIG
+bounding-fidelity track (Fall-Back-to-disengage AI + one-exchange combat resolution — multi-wave, uncertain reward) OR
+accepting it as a representation floor — the USER's call** (routed via watchdog, was gated on this #3 result). The
+queued PIVOT axis is the under-side (docs/UNDERSHOOTER_PLAN.md): Phase 1 = the standing Stage-B coherency FLIP decision
+(faithful + metric-positive 4.05→3.93 + closes under-holders Necrons/Guard — a free win, also the user's call); Thread B
+= the AdMech deep diagnostic (biggest under-shooter, structural, instrument-first). Honest baseline UNCHANGED: N=80
+gated **4.05** default / **3.93** Stage B on.
+
 ## Wave 168 (2026-06-04) — COMBAT REBUILD (fight-phase alternation) — user-greenlit, order CORRECTED, fairly A/B'd → DEFINITIVELY REJECTED
 
 The user greenlit the combat rebuild. The wave-166 build used the WRONG alternation order (active-first both steps);
