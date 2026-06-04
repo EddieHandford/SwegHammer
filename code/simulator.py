@@ -9451,8 +9451,10 @@ class Battle:
         not just the active player's: the Fight phase has a Fights First step
         (units that charged this turn or have the Fights First ability) and then
         a Remaining Combats step, and within each step the players alternate
-        selecting ONE eligible unit to fight, starting with the player whose turn
-        is taking place. SwegHammer's vanilla loop fought only the active army's
+        selecting ONE eligible unit to fight. The Fights First step starts with
+        the ACTIVE player (whose chargers strike first); the Remaining Combats
+        step starts with the NON-ACTIVE player (the defender picks first — the
+        verified 10e order). SwegHammer's vanilla loop fought only the active army's
         units, deferring the defender's retaliation to its own later turn — which
         let melee aggressors delete defenders before they could swing back (the
         over-credit the wave-163 instrument proved differential, ~30x larger for
@@ -9501,7 +9503,14 @@ class Battle:
             return max(cands, key=lambda u: (_melee_threat(u), u.uid))
 
         for want_ff in (True, False):
-            side = 0   # 0 = active player picks first (10e: the player whose turn it is)
+            # Verified 10e order (Wahapedia quick-start): "Units that charged
+            # this turn fight before all others. Then, starting with the player
+            # not currently taking their turn, players alternate fighting." So
+            # the Fights First step starts with the ACTIVE player (whose
+            # chargers/Fights First units strike first), and the Remaining
+            # Combats step starts with the NON-ACTIVE player (the defender picks
+            # first — its compensation). side 0 = active, 1 = non-active.
+            side = 0 if want_ff else 1
             while True:
                 acted = False
                 for _ in range(2):
