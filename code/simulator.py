@@ -1559,12 +1559,16 @@ class Battle:
         return best
 
     def _scorched_burn_enabled(self) -> bool:
-        """Scorched Earth Burn/Raze Action — active only when the Scorched Earth
-        primary mission is in play AND SWEG_SCORCHED_BURN is set (avenue-1 build)."""
-        return (
-            getattr(self, "primary_mission", "take_and_hold") == "scorched_earth"
-            and bool(__import__("os").environ.get("SWEG_SCORCHED_BURN"))
-        )
+        """Scorched Earth Burn/Raze Action — active whenever the Scorched Earth
+        primary mission is in play. The Burn IS the Scorched Earth mission (a real
+        CA-2025-26 Action), so it is DEFAULT-ON for that mission (watchdog-affirmed
+        wave 201: faithful, net-neutral at the deck's 1/10 share → keep-if-faithful).
+        SWEG_SCORCHED_BURN=0 disables it for A/B isolation. Inert in the default
+        eval, which never draws a Scorched game unless SWEG_PRIMARY_DECK /
+        SWEG_PRIMARY_MISSION is set."""
+        if getattr(self, "primary_mission", "take_and_hold") != "scorched_earth":
+            return False
+        return __import__("os").environ.get("SWEG_SCORCHED_BURN", "1") not in ("0", "false", "")
 
     def _obj_burnable_for(self, obj, own_is_army_a: bool) -> int:
         """VP for the active army razing `obj`: 10 in the ENEMY deployment zone,
