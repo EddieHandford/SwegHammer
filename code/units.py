@@ -239,6 +239,12 @@ def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
     return False
 
 
+# DURABILITY instrument (#85, gated SWEG_DURABILITY_INSTR) — per target-keyword
+# class (VEHICLE / INFANTRY / other), the realized base-vs-effective save and the
+# cover-applied rate during real shooting. Read-only; a diag resets and reads it.
+DURABILITY_STATS: dict = {}
+
+
 def save_probability(
     save: int, ap: int = 0, in_cover: bool = False, is_infantry: bool = True
 ) -> float:
@@ -2812,6 +2818,27 @@ class Unit:
                 invuln = 6
             effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
             save_target = effective_save  # 7 = no save
+
+            # DURABILITY instrument (#85) — per target-keyword class, the realized
+            # base save, AP-and-cover-modified effective save, cover-applied flag,
+            # and AP faced. Localizes whether VEHICLE durability is under-applied
+            # (worse effective save / lower cover rate than INFANTRY relative to
+            # their base) vs genuinely fragile. Read-only, gated.
+            if mode != "melee" and __import__("os").environ.get("SWEG_DURABILITY_INSTR"):
+                _tkw = set(target.profile.unit_keywords or ())
+                _cls = ("VEHICLE" if ("VEHICLE" in _tkw or "MONSTER" in _tkw)
+                        else "INFANTRY" if "INFANTRY" in _tkw else "OTHER")
+                _dd = DURABILITY_STATS.setdefault(
+                    _cls, {"hits": 0, "base": 0.0, "eff": 0.0, "cover": 0, "ap": 0.0, "inv": 0},
+                )
+                _dd["hits"] += 1
+                _dd["base"] += (target.profile.save or 7)
+                _dd["eff"] += min(effective_save, 7)
+                _dd["ap"] += -ap
+                if target.in_cover:
+                    _dd["cover"] += 1
+                if invuln <= 6:
+                    _dd["inv"] += 1
 
             # Re-roll flags from attacker's buffs.
             att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
