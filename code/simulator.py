@@ -192,6 +192,10 @@ OVERSCORE_STATS: dict = {}
 # markers. Populated only when SWEG_DELIVERY_INSTR is set. Read-only.
 DELIVERY_STATS: dict = {}
 
+# SCREENING / shoot-loss instrument (#86) — per-faction shooting output split by
+# free / pistol / big-gun-penalty / engagement-blocked. SWEG_SHOOTLOSS_INSTR. Read-only.
+SHOOTLOSS_STATS: dict = {}
+
 
 @dataclass(frozen=True)
 class RulesConfig:
@@ -9046,6 +9050,28 @@ class Battle:
             _distance(attacker.position, e.position) <= 1.0
             for e in defender_army.alive_units
         )
+        # SCREENING / melee-avoidance instrument (#86, gated SWEG_SHOOTLOSS_INSTR,
+        # read-only): per faction, the SHOOTING OUTPUT (attacks×hit×dmg) that
+        # reaches the shoot gate, split by whether it fires free, is BLOCKED by
+        # engagement (non-pistol non-VEHICLE → skips shooting), or fires at the
+        # Big-Guns −1 penalty. Localizes how much AM/AdMech under-output is gunlines
+        # getting charged/tied up vs the guns genuinely under-dealing.
+        if __import__("os").environ.get("SWEG_SHOOTLOSS_INSTR"):
+            _p = attacker.profile
+            _out = (_p.attacks or 0) * (_p.hit_probability or 0.0) * (_p.weapon_damage_per_shot or 0.0)
+            _fac = (_p.faction or "?") or "?"
+            if not in_engagement:
+                _cat = "free"
+            elif _p.pistol:
+                _cat = "pistol"
+            elif big_guns_eligible:
+                _cat = "biggun_penalty"
+            else:
+                _cat = "blocked"
+            _sd = SHOOTLOSS_STATS.setdefault(
+                _fac, {"free": 0.0, "pistol": 0.0, "biggun_penalty": 0.0, "blocked": 0.0},
+            )
+            _sd[_cat] += _out
         if in_engagement:
             if attacker.profile.pistol:
                 pass   # pistols shoot freely in engagement
