@@ -28231,9 +28231,9 @@
       "notes": "LD=6 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 8,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -28398,9 +28398,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -29243,9 +29243,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -29789,9 +29789,9 @@
       "notes": "LD=6 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 8,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -32612,9 +32612,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -33563,9 +33563,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -33948,9 +33948,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -34216,9 +34216,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -34470,9 +34470,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -34714,9 +34714,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -36324,9 +36324,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -36489,9 +36489,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -37249,9 +37249,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -38255,9 +38255,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -40001,9 +40001,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -40231,9 +40231,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 7,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -48083,9 +48083,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -48368,9 +48368,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -48584,9 +48584,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -48820,9 +48820,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -49009,9 +49009,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -49174,9 +49174,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -49366,9 +49366,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -49610,9 +49610,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -49845,9 +49845,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -50060,9 +50060,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -50318,9 +50318,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -50581,9 +50581,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -50839,9 +50839,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -51072,9 +51072,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -51306,9 +51306,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -51517,9 +51517,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -51704,9 +51704,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -51963,9 +51963,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -52198,9 +52198,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -52388,9 +52388,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -56254,9 +56254,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -66385,9 +66385,9 @@
       "notes": "LD=6 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 8,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -66736,9 +66736,9 @@
       "notes": "LD=6 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 8,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -67659,9 +67659,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -78069,9 +78069,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -80557,9 +80557,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -87136,9 +87136,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -88699,9 +88699,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -94105,9 +94105,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -100279,9 +100279,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -102998,9 +102998,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -106170,9 +106170,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 3,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -110776,9 +110776,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -112228,9 +112228,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -113641,9 +113641,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -113877,9 +113877,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -114523,9 +114523,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -114801,9 +114801,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -115079,9 +115079,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -115357,9 +115357,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -115635,9 +115635,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -115913,9 +115913,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -116171,9 +116171,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -116912,9 +116912,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -117913,9 +117913,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -120056,9 +120056,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -120408,9 +120408,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -120686,9 +120686,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -120964,9 +120964,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -121242,9 +121242,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -122775,9 +122775,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -123012,9 +123012,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -123244,9 +123244,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -127725,9 +127725,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -127979,9 +127979,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -128257,9 +128257,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -129358,9 +129358,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -131616,9 +131616,9 @@
       "notes": "LD=8 OC=4 melee=yes ranged=no loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -132121,9 +132121,9 @@
       "notes": "LD=8 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -133455,9 +133455,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -176362,9 +176362,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -176574,9 +176574,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -176785,9 +176785,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -177443,9 +177443,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -177630,9 +177630,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -178376,9 +178376,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -181225,9 +181225,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -181481,9 +181481,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -181739,9 +181739,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -182255,9 +182255,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -182558,9 +182558,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -184333,9 +184333,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -185460,9 +185460,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -189999,9 +189999,9 @@
       "notes": "LD=6 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -206105,9 +206105,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=heterogeneous",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -206348,9 +206348,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -206558,9 +206558,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -206818,9 +206818,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -207126,9 +207126,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -207410,9 +207410,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -207694,9 +207694,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -208002,9 +208002,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -208334,9 +208334,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -208618,9 +208618,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -208902,9 +208902,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -209140,9 +209140,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -209425,9 +209425,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -209640,9 +209640,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -209805,9 +209805,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -209971,9 +209971,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -210207,9 +210207,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 10,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -210423,9 +210423,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -210641,9 +210641,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -210902,9 +210902,9 @@
       "notes": "LD=7 OC=6 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 5,
+      "damaged_oc_penalty": 3,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -211260,9 +211260,9 @@
       "notes": "LD=6 OC=10 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 9,
+      "damaged_oc_penalty": 5,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -214657,9 +214657,9 @@
       "notes": "LD=6 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -215677,9 +215677,9 @@
       "notes": "LD=6 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -219582,9 +219582,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -219792,9 +219792,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -220026,9 +220026,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -220255,9 +220255,9 @@
       "notes": "LD=6 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -220935,9 +220935,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -222605,9 +222605,9 @@
       "notes": "LD=6 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -223813,9 +223813,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -224068,9 +224068,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -224323,9 +224323,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -227622,9 +227622,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -227877,9 +227877,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -228834,9 +228834,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -229065,9 +229065,9 @@
       "notes": "LD=6 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -230904,9 +230904,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -232151,9 +232151,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -233025,9 +233025,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -234095,9 +234095,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -235343,9 +235343,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -236985,9 +236985,9 @@
       "notes": "LD=6 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 8,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -237877,9 +237877,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -238339,9 +238339,9 @@
       "notes": "LD=6 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -239459,9 +239459,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -239908,9 +239908,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -242680,9 +242680,9 @@
       "notes": "LD=6 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -249468,9 +249468,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -249724,9 +249724,9 @@
       "notes": "LD=6 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -273276,9 +273276,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -274413,9 +274413,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -274622,9 +274622,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -275908,9 +275908,9 @@
       "notes": "LD=7 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 7,
+      "damaged_oc_penalty": 4,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -276343,9 +276343,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -276857,9 +276857,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -279559,9 +279559,9 @@
       "notes": "LD=7 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 7,
+      "damaged_oc_penalty": 4,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -283121,9 +283121,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -284294,9 +284294,9 @@
       "notes": "LD=8 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -285067,9 +285067,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -285278,9 +285278,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -285533,9 +285533,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -286091,9 +286091,9 @@
       "notes": "LD=7 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -287587,9 +287587,9 @@
       "notes": "LD=7 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 7,
+      "damaged_oc_penalty": 4,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -287843,9 +287843,9 @@
       "notes": "LD=7 OC=8 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
-      "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_threshold": 7,
+      "damaged_oc_penalty": 4,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -288333,9 +288333,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -288738,9 +288738,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -290581,9 +290581,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -293692,9 +293692,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -295319,9 +295319,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -296946,9 +296946,9 @@
       "notes": "LD=7 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -297225,9 +297225,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -297482,9 +297482,9 @@
       "notes": "LD=7 OC=3 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -297947,9 +297947,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -298226,9 +298226,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -299603,9 +299603,9 @@
       "notes": "LD=7 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -299859,9 +299859,9 @@
       "notes": "LD=7 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -300791,9 +300791,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -301094,9 +301094,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -301399,9 +301399,9 @@
       "notes": "LD=7 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -305548,9 +305548,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -307001,9 +307001,9 @@
       "notes": "LD=8 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -307302,9 +307302,9 @@
       "notes": "LD=7 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -307803,9 +307803,9 @@
       "notes": "LD=8 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -308773,9 +308773,9 @@
       "notes": "LD=8 OC=4 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -309719,9 +309719,9 @@
       "notes": "LD=8 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -309929,9 +309929,9 @@
       "notes": "LD=8 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -310160,9 +310160,9 @@
       "notes": "LD=8 OC=0 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 4,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -310976,9 +310976,9 @@
       "notes": "LD=8 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -311136,9 +311136,9 @@
       "notes": "LD=8 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -311821,9 +311821,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=no loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -312298,9 +312298,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -312483,9 +312483,9 @@
       "notes": "LD=7 OC=5 melee=yes ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 5,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -313369,9 +313369,9 @@
       "notes": "LD=7 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -313796,9 +313796,9 @@
       "notes": "LD=7 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 10,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -314168,9 +314168,9 @@
       "notes": "LD=7 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 10,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -314329,9 +314329,9 @@
       "notes": "LD=7 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -314536,9 +314536,9 @@
       "notes": "LD=7 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 6,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {
@@ -315376,9 +315376,9 @@
       "notes": "LD=7 OC=0 melee=no ranged=yes loadout=all-best",
       "enabled": true,
       "skip_reason": "",
-      "damaged_threshold": 0,
+      "damaged_threshold": 10,
       "damaged_oc_penalty": 0,
-      "damaged_hit_penalty": 0,
+      "damaged_hit_penalty": 1,
       "damaged_attacks_penalty": 0,
       "model_loadouts": [
         {

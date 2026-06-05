@@ -2238,17 +2238,47 @@ _DMG_ATK_RE = re.compile(
 )
 
 
-def extract_damaged_bracket(entry: ET.Element) -> tuple:
+def _gather_damaged_profiles(elem: ET.Element, reg: Registry,
+                             depth: int = 0, seen: Optional[set] = None) -> list:
+    """Collect every "Damaged"-named Abilities profile reachable from `elem`:
+    inline AND link-resolved. Many datasheets (all the mainline Imperial / Chaos
+    Knights, etc.) do NOT carry the Damaged ability inline — they reference a
+    SHARED "Damaged: 1-X Wounds Remaining" profile in a linked Library via an
+    infoLink, so an inline-only walk misses it (the verification that caught this
+    showed only 1/42 Knights extracted). We resolve infoLink / entryLink targetIds
+    through the registry, mirroring the weapon-resolution walk. Bounded depth +
+    seen-set guard against cycles."""
+    if seen is None:
+        seen = set()
+    if depth > 3 or id(elem) in seen:
+        return []
+    seen.add(id(elem))
+    out = []
+    for prof in elem.findall(".//profile"):
+        if (prof.get("typeName") or "") == "Abilities" and \
+                (prof.get("name") or "").strip().lower().startswith("damaged"):
+            out.append(prof)
+    for il in elem.findall(".//infoLinks/infoLink"):
+        tgt = reg.resolve(il.get("targetId") or "")
+        if tgt is not None and tgt.tag == "profile" and \
+                (tgt.get("typeName") or "") == "Abilities" and \
+                (tgt.get("name") or "").strip().lower().startswith("damaged"):
+            out.append(tgt)
+    for el in elem.findall(".//entryLinks/entryLink"):
+        tgt = reg.resolve(el.get("targetId") or "")
+        if tgt is not None:
+            out.extend(_gather_damaged_profiles(tgt, reg, depth + 1, seen))
+    return out
+
+
+def extract_damaged_bracket(entry: ET.Element, reg: Registry) -> tuple:
     """Return (threshold, oc_penalty, hit_penalty, attacks_penalty) for the unit's
-    10e Damaged bracket. threshold == 0 means the unit has no bracket. Scans inline
-    Abilities profiles whose name starts with "Damaged" (the 10e datasheet
-    convention) and returns the first that degrades a stat we model. A unit has at
-    most one Damaged bracket on its own datasheet; the first match is its own."""
-    for prof in entry.findall(".//profile"):
-        if (prof.get("typeName") or "") != "Abilities":
-            continue
-        if not (prof.get("name") or "").strip().lower().startswith("damaged"):
-            continue
+    10e Damaged bracket. threshold == 0 means the unit has no bracket. Gathers the
+    "Damaged"-named Abilities profiles reachable from `entry` (inline + link-
+    resolved via `reg`) and returns the first that degrades a stat we model. A unit
+    has at most one Damaged bracket on its own datasheet; the first match is its
+    own."""
+    for prof in _gather_damaged_profiles(entry, reg):
         desc = ""
         for ch in prof.iter("characteristic"):
             if ch.get("name") == "Description":
@@ -2438,7 +2468,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
     firing_deck = extract_firing_deck(entry)
-    dmg_threshold, dmg_oc_pen, dmg_hit_pen, dmg_atk_pen = extract_damaged_bracket(entry)
+    dmg_threshold, dmg_oc_pen, dmg_hit_pen, dmg_atk_pen = extract_damaged_bracket(entry, reg)
     reanimates = extract_reanimates_with_army(entry, reg, list(unit_kw))
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
