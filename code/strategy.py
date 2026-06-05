@@ -318,6 +318,11 @@ def _nearest_obscuring_centre(map_, pos: Tuple[float, float]) -> Optional[Tuple[
     return best
 
 
+# Per-faction OC-contest instrument (#79 follow-up). Populated only when
+# SWEG_CONTEST_INSTR is set; a diag runner resets and reads it. Read-only.
+CONTEST_STATS: dict = {}
+
+
 def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     """Sum the OC values of `units` within obj.control_radius (excluding one)."""
     r2 = obj.control_radius * obj.control_radius
@@ -2339,10 +2344,24 @@ def pick_move_intent(
             _unit_eff = _effective_oc_value(unit)
             if _our_cur_eff > _enemy_eff:
                 value *= 0.6          # already winnably contesting — don't pile on
+                _contest_kind = "already"
             elif _our_cur_eff + _unit_eff > _enemy_eff:
                 value *= 1.7          # WINNABLE by committing THIS body — prioritise
+                _contest_kind = "winnable"
             else:
                 value *= 0.3          # unwinnable even with this body — don't chase
+                _contest_kind = "unwinnable"
+            # Per-faction instrument (#79 follow-up, gated SWEG_CONTEST_INSTR,
+            # read-only): which factions the contest's winnable-boost fires for —
+            # to tell whether the TSons/EC rise is the faithful body-army reward
+            # (they hold spare bodies that genuinely out-Control an enemy marker)
+            # or the contest over-helping them.
+            if __import__("os").environ.get("SWEG_CONTEST_INSTR"):
+                _fac = unit.profile.faction or "?"
+                _d = CONTEST_STATS.setdefault(
+                    _fac, {"winnable": 0, "unwinnable": 0, "already": 0},
+                )
+                _d[_contest_kind] += 1
         value *= round_weight
         # S1 — posture bias: objective_hold / attrition / psychic_attrition
         # armies value CAPTURE more (they want to fill every objective);
