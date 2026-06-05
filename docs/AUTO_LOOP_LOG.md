@@ -4,6 +4,35 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 193 (2026-06-05) — FREE-CONTEST extension LANDED default-ON (headline 5.52→5.19): a spare in-range gunline contests a winnable enemy marker WHILE still shooting (zero shot-cost) — recovered the shooty factions the pure contest over-corrected; the over-pole PLATEAUED (IK ~21) → PIVOT to the over-shooter cluster next
+
+Watchdog steer: continue the over-pole via the contest. Wave-193 INSTRUMENT (diag_ocflip free-contest decomposition, commit 03f3503):
+of the reachable opponent OC on the still-flippable Knight markers (now 23% with the contest on, down from 35%), **86% is shooty units
+that could shoot FROM the marker** (a zero-cost contest), 14% melee, **0% would lose their shots**. The existing #12 OBJECTIVE-AWARE
+REPOSITION already free-contests but only to a unit's SINGLE best objective, so a winnable enemy marker that loses the distance-
+competition to a closer hold stays uncontested.
+
+**Built the free-contest extension (gated SWEG_FREECONTEST, commit 2c9ef19):** a SPARE in-range SHOOTY/HEAVY unit redirects onto a
+WINNABLE (bracket-aware effective-OC) + REACHABLE + SHOOTABLE enemy marker even when not its single best, with JUST-ENOUGH (skip a
+marker we already winnably contest) + AFFORDABLE (the pre-existing hold-check keeps marginal holders). N=80 A/B → KEEP + FLIP
+default-ON (dad5ac3):
+| | gated MAE | Imperial Knights | in-band |
+|---|---|---|---|
+| baseline (wave 192 contest) | 5.52 | 71.9% / 21.19 | 1-2/22 |
+| + SWEG_FREECONTEST | **5.19** | 71.7% / 20.99 | **4/22** |
+
+**Value-pull tell PASSED decisively** (the decider): NO shooty faction cratered — the factions the PURE contest had over-corrected
+RECOVERED toward target (Aeldari 38.6→44.0 in band, T'au 47.9→51.4 in band, Necrons 49.9→51.1 in band) because their in-range
+gunlines now contest WHILE still shooting (faithful — a real mobile gunline does this). So the −0.33 headline is the shooty factions'
+faithful objective-game recovery, zero shot-cost. **BUT Imperial Knights barely moved (21.19→20.99): the over-pole has PLATEAUED on
+the contest family** (damaged-bracket → contest → free-contest, the full arc 25.63→20.99). New baseline gated **5.19**.
+
+→ PER THE WATCHDOG'S STANDING PLATEAU→PIVOT PLAN: the contest is near its over-pole ceiling. NEXT AXIS = the OVER-SHOOTER CLUSTER
+(Thousand Sons 67.7 / Emperor's Children 66.1 / World Eaters 60.7 / Custodes / Sororitas / Votann / Drukhari all systematically over —
+a separate elite/aggressive over-modeling residual the TSons diagnosis opened). Instrument-first WHY they're over (combat output vs
+list). The under-side (AM 13.9 / AdMech 11.6 gated) is untouched by the contest (gunlines, no spare bodies) — a separate
+durable-shooty-vehicle axis for later.
+
 ## Wave 192 (2026-06-05) — BALANCED OBJECTIVE-CONTEST AI lever LANDED default-ON: the FIRST lever in many waves to move the over-pole DOWN (IK gated 25.63→21.19, −4.44) — faithfully, via a balanced contest (over-flood tell PASSED), headline 5.71→5.52
 
 The wave-191 damaged-OC generalization gave the opponent a real way to flip the Knight without killing it (a chipped Knight is OC 5,
