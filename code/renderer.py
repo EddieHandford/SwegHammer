@@ -437,9 +437,14 @@ def render_frame(
             (t.x, t.y), t.width, t.height,
             facecolor=color, edgecolor="#222", linewidth=0.8, alpha=0.85, zorder=2,
         ))
+        # Terrain names are background context, not foreground — kept small,
+        # faded and italic, and BELOW the units (zorder 2) so a unit shape
+        # always wins the pixel. Previously fontsize-6 white-on-top text
+        # overlapped and competed with the unit silhouettes.
         ax.text(
             t.x + t.width / 2, t.y + t.height / 2, t.name,
-            color="white", fontsize=6, ha="center", va="center", alpha=0.7, zorder=3,
+            color="#bdb6aa", fontsize=4.5, ha="center", va="center",
+            alpha=0.38, zorder=2, style="italic",
         )
 
     # Draw every visual effect emitted during this frame's activation. Shot
@@ -516,8 +521,11 @@ def render_frame(
     # carries base_shape + dimensions sourced from UnitProfile via the
     # BattleStarted snapshot; missing fields default to a 32mm round so
     # legacy / synthetic event logs keep rendering.
+    legend_armies: Dict[str, str] = {}   # army name -> colour, for the legend
+    labelled: List[tuple] = []           # (army, name, x, y) placed tags — de-dup squad clusters
     for uid, s in state.items():
         color = colour_a if s["army"] == a_name else colour_b
+        legend_armies.setdefault(s["army"], color)
         x, y = s["position"]
         if s["alive"]:
             _draw_unit_base(
@@ -533,9 +541,57 @@ def render_frame(
             if s["max_hp"] > 1 and s["current_hp"] < s["max_hp"]:
                 hp_frac = max(0.05, s["current_hp"] / s["max_hp"])
                 ax.scatter([x], [y], s=100 * hp_frac, c="white", alpha=0.5, zorder=6)
+            # Name-tag the LARGE / distinct units (vehicles, monsters, titanic,
+            # big-base characters). Small infantry are left untagged so hordes
+            # stay legible — colour + size + the legend identify those. De-dup
+            # so a clustered multi-model squad gets ONE tag, not one per model.
+            shape = (s.get("base_shape") or "circle").lower()
+            is_big = shape in ("rect", "oval") or int(s.get("base_diameter_mm", 32)) >= 50
+            if is_big:
+                name = s.get("name") or ""
+                near = any(
+                    la == s["army"] and ln == name
+                    and (lx - x) ** 2 + (ly - y) ** 2 < 49.0
+                    for la, ln, lx, ly in labelled
+                )
+                if name and not near:
+                    tag = (name[:15] + "…") if len(name) > 16 else name
+                    ax.text(
+                        x, y, tag,
+                        color="white", fontsize=4.8, fontweight="bold",
+                        ha="center", va="center", zorder=8,
+                        bbox=dict(boxstyle="round,pad=0.18", facecolor="#0e1117",
+                                  edgecolor=color, linewidth=0.6, alpha=0.62),
+                    )
+                    labelled.append((s["army"], name, x, y))
         else:
             ax.scatter([x], [y], s=70, c=COL_DEAD, marker="x",
                        linewidths=1.3, zorder=4, alpha=0.7)
+
+    # Army colour legend — reinforces which colour is which army; the name
+    # tags above identify the individual big units.
+    if legend_armies:
+        from matplotlib.patches import Patch
+        handles = [
+            Patch(facecolor=c, edgecolor="white", linewidth=0.6, label=nm)
+            for nm, c in legend_armies.items()
+        ]
+        leg = ax.legend(
+            handles=handles, loc="upper left", fontsize=6.5,
+            facecolor="#0e1117", edgecolor="#555", framealpha=0.72,
+            labelcolor="white", borderpad=0.5, handlelength=1.2,
+        )
+        leg.set_zorder(9)
+
+    # Scale bar — a 6" reference so the true-base-size shapes read at a known
+    # scale (a Knight base really is ~3x a Marine's).
+    bar_len = 6.0
+    bx0 = map_.width - bar_len - 1.0
+    bary = -0.6
+    ax.plot([bx0, bx0 + bar_len], [bary, bary], color="white", lw=1.8,
+            zorder=9, solid_capstyle="butt")
+    ax.text(bx0 + bar_len / 2.0, bary + 0.18, '6"', color="white",
+            fontsize=6, ha="center", va="bottom", zorder=9)
 
     # Title — show frame index (one per activation / boundary), not raw
     # event index, so the slider value matches what the viewer sees.
