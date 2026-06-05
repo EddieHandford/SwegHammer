@@ -220,6 +220,42 @@ def _pick_rotation_map(seed: int):
     return STOCK_MAPS[key]
 
 
+# Chapter Approved 2025-26 PRIMARY mission pack (verified Wahapedia, 10 cards,
+# one drawn per game ~1/10 each). The simulator scores three of them by their
+# real rule today — Take and Hold (hold markers), Purge the Foe (kill-weighted),
+# Scorched Earth (Burn/raze markers, displacement). The other seven are not yet
+# modelled and fall back to Take and Hold's holder scoring, so the deck is an
+# HONEST partial: it samples the real draw distribution while only the modelled
+# missions diverge from the legacy single-mission behaviour. Gate the rotation
+# behind SWEG_PRIMARY_DECK so the default eval (all Take and Hold) is byte-
+# identical. Cited simulator.primary_mission_rotation.
+_PRIMARY_DECK = (
+    "take_and_hold",   # Linchpin              (not yet modelled → Take and Hold)
+    "take_and_hold",   # Burden of Trust       (not yet modelled)
+    "take_and_hold",   # Take and Hold
+    "take_and_hold",   # Terraform             (not yet modelled)
+    "purge_the_foe",   # Purge the Foe
+    "scorched_earth",  # Scorched Earth        (Burn Action displacement)
+    "take_and_hold",   # Unexploded Ordnance   (not yet modelled)
+    "take_and_hold",   # Hidden Supplies       (not yet modelled)
+    "take_and_hold",   # The Ritual            (not yet modelled)
+    "take_and_hold",   # Supply Drop           (not yet modelled)
+)
+
+
+def _pick_primary_mission(pair_seed: int) -> Optional[str]:
+    """Deterministic per-game primary draw from the CA-2025-26 deck.
+
+    Returns the modelled mission name for this game when SWEG_PRIMARY_DECK is
+    set, else None (the Battle then falls to its env/default Take and Hold).
+    Keyed on the unique per-job pair_seed so the deck is evenly sampled across
+    the whole matrix and reproduces under PYTHONHASHSEED=0.
+    """
+    if not os.environ.get("SWEG_PRIMARY_DECK"):
+        return None
+    return _PRIMARY_DECK[pair_seed % len(_PRIMARY_DECK)]
+
+
 def _run_battle_job(
     args: Tuple[str, str, int, int, Optional[RulesConfig], bool, Optional[Dict[str, float]]],
 ) -> Tuple[str, str, int, Optional[str]]:
@@ -251,7 +287,9 @@ def _run_battle_job(
     if not a.units or not b.units:
         return (a_fac, b_fac, s, None)
     battle_map = _pick_rotation_map(s)
-    r = Battle(a, b, map_=battle_map, rules=rules).run()
+    primary = _pick_primary_mission(pair_seed)
+    r = Battle(a, b, map_=battle_map, rules=rules,
+               primary_mission=primary).run()
     return (a_fac, b_fac, s, r.winner)
 
 
