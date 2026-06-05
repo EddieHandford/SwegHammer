@@ -183,6 +183,11 @@ OCFLIP_STATS = {"held": 0, "flippable": 0, "surplus": 0.0,
                 # (correctly not pulled — a gunline-pull).
                 "fc_melee_oc": 0.0, "fc_free_oc": 0.0, "fc_noshoot_oc": 0.0}
 
+# OVER-SCORE instrument (#83) — per-faction split of scored markers into
+# (iii) contested-but-won vs (i) uncontested. Populated only when
+# SWEG_OVERSCORE_INSTR is set; a diag runner resets and reads it. Read-only.
+OVERSCORE_STATS: dict = {}
+
 
 @dataclass(frozen=True)
 class RulesConfig:
@@ -969,6 +974,30 @@ class Battle:
             elif a_oc == 0 and b_oc == 0:
                 # Nobody on it — fall back to sticky owner if any.
                 scorer = self._sticky_owner.get(obj_idx)
+
+            # OVER-SCORE instrument (#83, gated SWEG_OVERSCORE_INSTR, read-only):
+            # for the side that WINS this marker, was the loser ALSO contesting it
+            # (had OC on the marker but lost the count = (iii) CONCENTRATION — the
+            # sim's concentrated elite OC wins a contested marker real combat would
+            # have whittled) or was it UNCONTESTED ((i) over-hold — opponent never
+            # came)? Keyed by the winner's faction so the diag can split the
+            # over-shooter cluster. No behaviour change.
+            if __import__("os").environ.get("SWEG_OVERSCORE_INSTR") and a_oc != b_oc:
+                _win = self.a if a_oc > b_oc else self.b
+                _win_oc = a_oc if a_oc > b_oc else b_oc
+                _los_oc = b_oc if a_oc > b_oc else a_oc
+                _fac = (_win.units[0].profile.faction if _win.units else "?") or "?"
+                _d = OVERSCORE_STATS.setdefault(
+                    _fac, {"scored": 0, "contested_won": 0, "uncontested": 0,
+                           "sum_win_oc": 0.0, "sum_los_oc": 0.0},
+                )
+                _d["scored"] += 1
+                _d["sum_win_oc"] += _win_oc
+                _d["sum_los_oc"] += _los_oc
+                if _los_oc > 0:
+                    _d["contested_won"] += 1   # (iii) opponent on the marker, lost
+                else:
+                    _d["uncontested"] += 1      # (i) opponent absent — over-hold
 
             # Update sticky ownership BEFORE emitting the event, so a
             # newly-claimed objective registers the sticky owner this round.
