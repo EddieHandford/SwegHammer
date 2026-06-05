@@ -174,7 +174,14 @@ COHERENCY_INCHES = 2.0
 # marker; flippable = of those, how many the opponent could flip with nearby
 # bodies; surplus = summed (opponent reachable OC − holder OC) over flippable.
 OCFLIP_STATS = {"held": 0, "flippable": 0, "surplus": 0.0,
-                "held_any": 0, "flippable_any": 0}
+                "held_any": 0, "flippable_any": 0,
+                # Reason-decomposition of the opponent's reachable OC on the
+                # flippable-but-uncontested markers (#80 follow-up): how much is
+                # melee (would abandon a fight to contest), shooty that could
+                # shoot FROM the marker (the FREE-CONTEST opportunity the lever
+                # should add), and shooty that would LOSE its shots from there
+                # (correctly not pulled — a gunline-pull).
+                "fc_melee_oc": 0.0, "fc_free_oc": 0.0, "fc_noshoot_oc": 0.0}
 
 
 @dataclass(frozen=True)
@@ -1208,6 +1215,34 @@ class Battle:
         OCFLIP_STATS["held_any"] += 1
         if flippable:
             OCFLIP_STATS["flippable_any"] += 1
+            # Decompose the reachable opponent OC by WHY it isn't contesting:
+            # melee bodies (range < 12 — would abandon a fight), shooty that could
+            # still SHOOT from the marker (a holder unit within its range of the
+            # marker → a FREE contest the lever should add), and shooty that would
+            # lose its shots from there (correctly not pulled — a gunline-pull).
+            holder_pos = [(h.position[0], h.position[1]) for h in holder.alive_units
+                          if h.uid not in self._battleshocked_this_round]
+            for u in opp.alive_units:
+                if u.uid in self._battleshocked_this_round:
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy > commit_r2:
+                    continue
+                eoc = self._effective_oc(u)
+                rng = getattr(u.profile, "range_inches", 0) or 0
+                if rng < 12:
+                    OCFLIP_STATS["fc_melee_oc"] += eoc
+                else:
+                    rr = rng * rng
+                    can_shoot = any(
+                        (hp[0] - obj.x) ** 2 + (hp[1] - obj.y) ** 2 <= rr
+                        for hp in holder_pos
+                    )
+                    if can_shoot:
+                        OCFLIP_STATS["fc_free_oc"] += eoc
+                    else:
+                        OCFLIP_STATS["fc_noshoot_oc"] += eoc
         if big_dmg:
             OCFLIP_STATS["held"] += 1
             if flippable:
