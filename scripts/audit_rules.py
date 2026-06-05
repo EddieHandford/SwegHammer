@@ -516,6 +516,10 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # data/rule_citations.d/imperial_knights.json since wave 85 but never registered).
     "simulator.damaged_objective_control_bracket",
     "simulator.damaged_hit_bracket",
+    # #77 — the GENERALIZED, data-driven Damaged bracket (gated SWEG_DMGBRACKET):
+    # applies the real per-datasheet OC + Hit penalty to every model with a bracket,
+    # superseding the two Knight-only keys above. Data is BSData-sourced (rule 7).
+    "simulator.damaged_bracket",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped

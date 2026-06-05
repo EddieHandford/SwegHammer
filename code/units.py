@@ -2026,8 +2026,22 @@ class Unit:
             # as _effective_oc; applies to BOTH shooting and melee ("makes an
             # attack"); composes with the +-1 Hit-modifier cap below. Cited
             # `simulator.damaged_hit_bracket`.
-            if (
-                __import__("os").environ.get("SWEG_DMGHIT", "1") != "0"
+            # Stage 3 (#77): the GENERALIZED data-driven path applies the real
+            # per-datasheet bracket (UnitProfile.damaged_hit_penalty, extracted
+            # from BSData) to ANY unit, and SUPERSEDES the Knight-only heuristic
+            # below (`elif` → never double-applied). When SWEG_DMGBRACKET is set it
+            # is the source of truth for every model with a real Damaged bracket
+            # (the wave-190b audit found 94 datasheets / 25 factions carry the Hit
+            # penalty); the Knight-only SWEG_DMGHIT path remains the interim default
+            # only while SWEG_DMGBRACKET is unset. Cited `simulator.damaged_bracket`.
+            _dmg_env = __import__("os").environ
+            if _dmg_env.get("SWEG_DMGBRACKET"):
+                _gthr = getattr(self.profile, "damaged_threshold", 0) or 0
+                _ghp = getattr(self.profile, "damaged_hit_penalty", 0) or 0
+                if _gthr and _ghp and self.current_health <= _gthr:
+                    hit_mod_delta -= _ghp
+            elif (
+                _dmg_env.get("SWEG_DMGHIT", "1") != "0"
                 and (self.profile.faction or "") in ("Imperial Knights", "Chaos Knights")
             ):
                 _dmg_base_oc = getattr(self.profile, "oc", 0) or 0

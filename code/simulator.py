@@ -1117,7 +1117,21 @@ class Battle:
         cleanly reads −5. RESOLVED (watchdog Q9): use the cache −5 — BSData
         rule-6 governs; the −4 came from an unreliable web summary."""
         base = getattr(u.profile, "oc", 1) or 1
-        if __import__("os").environ.get("SWEG_DMGOC", "1") == "0":
+        _env = __import__("os").environ
+        # Stage 3 (#77): the GENERALIZED data-driven path applies the real
+        # per-datasheet Damaged OC penalty (UnitProfile.damaged_oc_penalty,
+        # extracted from BSData) to ANY unit, and SUPERSEDES the Knight-only
+        # heuristic below (no double-application). When SWEG_DMGBRACKET is set it
+        # is the source of truth for every model with a real bracket; the
+        # Knight-only SWEG_DMGOC path remains the interim default only while
+        # SWEG_DMGBRACKET is unset. Cited `simulator.damaged_bracket`.
+        if _env.get("SWEG_DMGBRACKET"):
+            thr = getattr(u.profile, "damaged_threshold", 0) or 0
+            pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+            if thr and pen and u.current_health <= thr:
+                return max(0, base - pen)        # floor at 0 — never negative
+            return base
+        if _env.get("SWEG_DMGOC", "1") == "0":
             return base
         if (u.profile.faction or "") not in ("Imperial Knights", "Chaos Knights"):
             return base
