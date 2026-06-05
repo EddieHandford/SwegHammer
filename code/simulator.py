@@ -1593,8 +1593,14 @@ class Battle:
         simulator.primary_scorched_earth_burn."""
         if not self._scorched_burn_enabled():
             return
+        # Real rule START: "from the second battle round onwards" — no turn-1 raze.
+        if self._current_round < 2:
+            return
         own_is_a = active is self.a
-        BURN_CAP = 2
+        # Real rule: "ONE unit from your army" may Burn per turn (verbatim
+        # CA-2025-26). CAP=1 is the faithful raze rate (the earlier CAP=2 doubled it
+        # and fed the residual horde over-flood).
+        BURN_CAP = 1
         n = 0
         for u in active.alive_units:
             if n >= BURN_CAP:
