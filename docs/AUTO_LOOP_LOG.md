@@ -4,6 +4,40 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 188 (2026-06-05) — over-pole hunt: found + built the unmodelled Knight DAMAGED-bracket −1-to-Hit (FIRST lever to move IK the RIGHT way: 26.00→25.52, faithful)
+
+The user rejected the floor (reality is an existence proof a faithful sim reaches ~47% Knights). Comprehensive over-pole
+elimination, each ruled out on N=80 evidence:
+- **Primary-mission rotation (wave 187): REFUTED** — the Knight dominates any scoring (all-Purge IK 92%).
+- **Durability: VERIFIED FAITHFUL** — Wahapedia Knight Paladin T11/W26/Sv3+/5++ = the sim exactly (cite-before-build
+  stopped me "correcting" a correct W26 from 9th-ed memory).
+- **Both focus-fire gates (SWEG_FOCUSFIRE / SWEG_FOCUS): FAIL** — neither lowers IK (28.47 / 27.95); the Knight is faithfully
+  too durable to one-shot, and even-handed focus helps the killy Knight too. Targeting is not the lever.
+- The survival instrument had a uid-mismatch bug (set aside); the object-level trace confirmed the Knights over-survive
+  (4/5 alive, 2 untouched at full health).
+
+**THE FIND (the missing mechanic the keep-hunting ruling predicted):** the 10e Knight "Damaged" datasheet ability is TWO
+clauses in one row — "While 1-9 wounds remaining [Questoris] / 1-5 [Armiger] / 1-10 [Dominus], subtract N from Objective
+Control AND each time this model makes an attack, subtract 1 from the Hit roll" (verbatim, Wahapedia Knight Paladin +
+Armiger Warglaive, both verified). The sim modelled only the OC half (`_effective_oc`, wave 85); **the −1-to-Hit was
+ENTIRELY UNMODELLED**, so a damaged Knight kept full 3+ accuracy when real 10e drops it to 4+ → it over-killed through the
+back half of every game.
+
+**BUILT (3234813, gated SWEG_DMGHIT default-OFF):** `Unit.attack` does `hit_mod_delta -= 1` when an Imperial/Chaos Knights
+model is on its Damaged bracket (same faction gate + per-chassis thresholds as `_effective_oc`); shooting AND melee;
+composes with the ±1 cap. Cited `simulator.damaged_hit_bracket`. OFF byte-identical; audit clean, 25 combat tests pass,
+gate verified firing (3/9 sample games).
+
+**N=80 A/B (SWEG_DMGHIT=1 vs 5.80, `data/wf_wave188_dmghit_n80.txt`):** MAE **5.80→5.76** (−0.04); **Imperial Knights
+26.00→25.52 (−0.48) — the RIGHT direction, the FIRST over-pole lever to LOWER IK** (every prior even-handed lever raised
+it). Under-shooters ~flat (AM +0.03, AdMech −0.12 — it's a Knight-specific penalty, no collateral). SMALL + sub-noise
+because the penalty only bites when the Knight is chipped into its bracket while still fighting (~1/3 of games), but it is
+FAITHFUL (the real rule), right-direction, and validates the diagnosis (the damaged-Knight over-output WAS a real
+contributor — a small one). The Knight over-rate (+25.5) is multi-factor; this is one faithful piece, not the whole.
+**DISPOSITION: KEEP (faithful, cited, right-direction); PROPOSE flipping SWEG_DMGHIT default-ON for user greenlight —
+fidelity consistency with the OC half (`SWEG_DMGOC`, already default-ON, the same datasheet rule) + metric-positive, so no
+fidelity-vs-metric tension.** Escalated to the watchdog.
+
 ## Wave 187 (2026-06-05) — primary-mission rotation BUILT (faithful, gated) + sized: REFUTED as the over-pole lever — but the all-Purge result reframes the Knight as a COMBAT monster the sim never removes
 
 User rejected the floor (reality = existence proof a faithful sim reaches ~47% Knights; "representation limit" is not an
