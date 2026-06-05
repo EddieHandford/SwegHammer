@@ -1,6 +1,50 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 183 (2026-06-04) — ANTI-TANK PICKER FIX LANDED (faithful) but a HONEST NEGATIVE RESULT: the
+**Last updated:** Wave 199 (2026-06-05) — OBJECTIVE-GAME ARC LANDED + the residual is now CHARACTERISED as ONE missing
+fidelity (DISPLACEMENT). Gated MAE **5.76 → 5.19** this session, all faithful, all default-ON.
+
+**What landed (default-ON, env-gated for isolation):**
+1. **Damaged-bracket generalization** (`SWEG_DMGBRACKET`, wave 191, commit `adb3000`): the 10e "Damaged: 1-X Wounds
+   Remaining" datasheet bracket (OC + −1-to-Hit) is now data-driven from BSData for **all 260 catalogue units with a real
+   bracket**, replacing the Knight-only wave-85/188 heuristic. The mapper resolves link-referenced shared Damaged abilities
+   via the registry (`extract_damaged_bracket` / `_gather_damaged_profiles` — caught a bug where only 1/42 Knights extracted
+   inline). Even-handed, metric-neutral (5.76→5.71), removed a Knight-only metric-favorable bias.
+2. **Balanced objective-contest AI** (`SWEG_CONTEST`, wave 192, commit `2ef7c4c`): refines the STEAL value in
+   `pick_move_intent` so a SPARE body contests a WINNABLE (bracket-aware effective-OC) enemy-held marker — JUST-ENOUGH +
+   AFFORDABLE (the hold-check) guards = the faithful contest, NOT the rejected wave-95 Stage-E flood. **First lever in many
+   waves to move the over-pole DOWN: Imperial Knights gated 25.63 → 21.19; headline 5.71 → 5.52.** Over-flood tell passed.
+3. **Free-contest extension** (`SWEG_FREECONTEST`, wave 193, commit `dad5ac3`): a spare IN-range gunline contests a
+   winnable+shootable enemy marker while STILL shooting (zero shot-cost). Recovered the shooty factions the pure contest
+   over-corrected (Aeldari/T'au/Necrons back toward target). Headline **5.52 → 5.19**.
+
+**Where the residual is now (the diagnosis, waves 194-199 — instrument-first, both poles):** the over-pole plateaued on the
+contest family at gated ~21 (IK still #1). The cheap COMBAT axes are EXHAUSTED on BOTH poles and the residual is ONE
+characterised missing fidelity — **DISPLACEMENT / board-pressure representation**:
+- OVER-shooters (TSons/EC/WE/Custodes/Sororitas/Votann/Drukhari, sim 60-68% vs ~50-54% real): over-SCORE primary VP (~+20/g)
+  the SAME way the field does — combat is faithful (output in-line / WE melee faithfully-high; durability faithful; the
+  over-score is NOT a clean (i)/(iii) lever, diag_overscore/overshooter/melee_output).
+- UNDER-shooters (AM/AdMech, sim 28-29% vs 44-45% real): durability FAITHFUL (vehicles get cover MORE, better effSv, more
+  invuln — diag_durability REFUTED the over-fragile hypothesis; the "+26% taken" was a 3-opponent-slice artifact, field-avg
+  taken is normal). Output genuinely low (AM 56 / AdMech 49 vs control 80 field-avg) but FAITHFUL (low-output-per-point
+  durable armies; keywords parity, Orders/Doctrinas modelled, screening = field-rate 12%). Reality wins 45% with the SAME
+  low output → the gap is HOW they hold despite losing the firefight.
+- **Both poles = the sim resolves objective-holding by raw model SURVIVAL; real 10e DISPLACES out-fought armies off
+  objectives (pressure / maneuver / fall-back / the threat of being charged) — UNMODELLED.** Diagnostic instruments (all
+  gated, read-only): `scripts/diag_ocflip / diag_overscore / diag_overshooter / diag_delivery / diag_durability /
+  diag_underoutput / diag_shootloss / diag_melee_output / diag_contest_faction`.
+
+**STRATEGIC FORK — escalated to the user (2026-06-05), headline blocked pending the decision:**
+(a) the DISPLACEMENT re-model (the genuine remaining fidelity, but DIFFUSE — the whole board-control/maneuver layer, high
+cost + uncertain) vs (b) BANK ~5.19 as the practical Stage-1 floor and move to Stage 2. Watchdog's flag to the user: 5.19 is
+a SYSTEMATIC bias (durable-holder over / broad-gunline under), NOT noise — banking it into Stage 2 would distort the points
+equation (re-fit-poisons-Stage-2). Watchdog lean = one BOUNDED faithful displacement probe before committing, banking-with-
+documentation as fallback. **The loop worker is HOLDING; the watchdog is doing the user's UI workstream (worktree
+`claude/ui-improvements`) as fill.** No cheap combat lever remains — the idle-default "unmodelled under-shooter rules" does
+NOT apply (the rules ARE modelled; the gap is displacement).
+
+---
+
+**Earlier — Wave 183 (2026-06-04):** ANTI-TANK PICKER FIX LANDED (faithful) but a HONEST NEGATIVE RESULT: the
 combat/loadout track is EXHAUSTED. After diagnosing the #1 under-side lever across waves 177-182 (the BSData mapper picks
 weapon choices by expected-damage-vs-a-Marine, so it drops anti-tank options — durable gun-platforms under-fire their real
 anti-armour), the fix landed as **14 cited per-unit anti-tank loadout corrections** in `data/overrides.json` (commit
