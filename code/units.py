@@ -1999,8 +1999,11 @@ class Unit:
             wound_mod_delta: int = 0
 
             # ---- Wave 188 (#73) — Knight DAMAGED-bracket -1 to the Hit roll
-            # (env-gated SWEG_DMGHIT; default OFF so the baseline is byte-identical
-            # for the isolation A/B). Real 10e Knight datasheets carry, in the SAME
+            # (env-gated SWEG_DMGHIT; flipped DEFAULT-ON after the N=80 A/B showed it
+            # faithful + right-direction, Imperial Knights 26.00->25.52; matches the
+            # OC half SWEG_DMGOC which is also default-ON — the same datasheet rule.
+            # Set SWEG_DMGHIT=0 to disable for an isolation A/B). Real 10e Knight
+            # datasheets carry, in the SAME
             # damage-table row the simulator already reads for the Objective Control
             # reduction (Battle._effective_oc, wave 85): "While this model has 1-9
             # wounds remaining [Questoris] / 1-5 [Armiger] / 1-10 [Dominus],
@@ -2014,7 +2017,7 @@ class Unit:
             # attack"); composes with the +-1 Hit-modifier cap below. Cited
             # `simulator.damaged_hit_bracket`.
             if (
-                __import__("os").environ.get("SWEG_DMGHIT") == "1"
+                __import__("os").environ.get("SWEG_DMGHIT", "1") != "0"
                 and (self.profile.faction or "") in ("Imperial Knights", "Chaos Knights")
             ):
                 _dmg_base_oc = getattr(self.profile, "oc", 0) or 0

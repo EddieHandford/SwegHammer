@@ -509,6 +509,13 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.primary_mission_rotation",
     "simulator.primary_purge_the_foe",
     "simulator.primary_scorched_earth",
+    # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
+    # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
+    # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so
+    # the citation auditor enforces both (pre-existing gap: the OC key was cited in
+    # data/rule_citations.d/imperial_knights.json since wave 85 but never registered).
+    "simulator.damaged_objective_control_bracket",
+    "simulator.damaged_hit_bracket",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped
