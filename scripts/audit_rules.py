@@ -510,6 +510,10 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.primary_purge_the_foe",
     "simulator.primary_scorched_earth",
     "simulator.primary_scorched_earth_burn",
+    # Wave 202 (#87) — Terraform primary: 4VP/controlled marker (cap 12) + 1VP per
+    # marker terraformed by you (the Terraform Action, `_assign_terraform_actions` /
+    # `_resolve_terraforms`, marks forward markers your spare bodies control).
+    "simulator.primary_terraform",
     # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
     # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
     # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so

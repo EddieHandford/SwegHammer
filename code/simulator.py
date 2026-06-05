@@ -407,6 +407,14 @@ class Battle:
         # uid -> obj_idx the unit's in-progress Burn targets this round (Unit is
         # __slots__-ed, so the target lives here, not on the Unit).
         self._burn_targets: dict = {}
+        # Terraform primary (#87 avenue-1, gated SWEG_TERRAFORM): obj_idx -> "a"/"b"
+        # for the side that has TERRAFORMED each marker. A marker is terraformed by
+        # at most one side at a time (a fresh terraform OVERWRITES the opponent's per
+        # the real CA-2025-26 rule). Each terraformed marker yields its owner +1 VP
+        # per turn. Persists once set (until overwritten). uid -> obj_idx holds the
+        # in-progress Terraform Action target (mirrors _burn_targets).
+        self._terraformed_owner: dict = {}
+        self._terraform_targets: dict = {}
         # Stratagem book-keeping. Each army keeps a set of stratagem names
         # already fired this battle (used for once_per_battle stratagems —
         # the four universals are not once-per-battle but the field is here
@@ -1122,14 +1130,30 @@ class Battle:
                 self._b_vp += min(b_purge, 12)
         elif mission == "scorched_earth":
             # Scorched Earth (Chapter Approved 2025-26): 5 VP per controlled
-            # objective, capped at 10 VP/round (lower than Take and Hold's 15).
-            # The Burn-objective Action (remove a marker for 5 VP in No Man's Land
-            # / 10 VP in the enemy deployment zone) is NOT yet modelled — it needs
-            # a new Action — so only the lower hold cap is applied here; noted in
-            # the citation. a_th_award already respects the only_for filter. Cited
-            # simulator.primary_scorched_earth.
+            # objective, capped at 10 VP/round (lower than Take and Hold's 15). The
+            # displacement comes from the Burn/Raze Action (remove a marker for 5 VP
+            # in No Man's Land / 10 VP in the enemy deployment zone), resolved in
+            # `_resolve_burns` below (default-ON for this mission). a_th_award already
+            # respects the only_for filter. Cited simulator.primary_scorched_earth /
+            # simulator.primary_scorched_earth_burn.
             self._a_vp += min(a_th_award, 10)
             self._b_vp += min(b_th_award, 10)
+        elif mission == "terraform":
+            # Terraform (Chapter Approved 2025-26): "4VP for each objective marker
+            # they control (up to 12VP per turn)" PLUS "1VP for each objective marker
+            # that is terraformed by them" (the +1 is ON TOP of the 12 hold cap). The
+            # Terraform Action (resolved in `_resolve_terraforms` below) marks a
+            # forward marker as terraformed by its army; the displacement angle is the
+            # Action's opportunity cost (a unit doing it can't shoot/charge), which a
+            # few-model army pays more dearly than a body army. a_controls / b_controls
+            # are the per-side controlled-marker counts from the loop above. Cited
+            # simulator.primary_terraform.
+            a_terra = sum(1 for o in self._terraformed_owner.values() if o == "a")
+            b_terra = sum(1 for o in self._terraformed_owner.values() if o == "b")
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += min(4 * a_controls, 12) + a_terra
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += min(4 * b_controls, 12) + b_terra
         else:
             # take_and_hold (default, byte-identical to the legacy behaviour):
             # award the accumulated per-objective VP, then apply the 15 VP/round
@@ -1148,6 +1172,9 @@ class Battle:
         # cap, so Raze VP is a distinct scoring event (not clipped by the per-round
         # hold cap). No-op unless the Scorched Earth mission + SWEG_SCORCHED_BURN.
         self._resolve_burns(only_for=only_for)
+        # Terraform (#87): resolve completed Terraform Actions (mark markers as
+        # terraformed by their army for the +1/turn). No-op unless Terraform mission.
+        self._resolve_terraforms(only_for=only_for)
 
     def _units_destroyed_this_round(self) -> tuple:
         """Wave 187 (Purge the Foe): return (a_killed, b_killed) — how many enemy
@@ -1675,6 +1702,96 @@ class Battle:
                     self._a_vp += vp
                 else:
                     self._b_vp += vp
+
+    def _terraform_enabled(self) -> bool:
+        """Terraform primary — active whenever the Terraform mission is in play.
+        The Terraform Action IS the mission, so it is DEFAULT-ON for that mission
+        (the Scorched-Burn pattern). SWEG_TERRAFORM=0 disables the Action for A/B
+        isolation (leaving the cap-12 hold scoring alone). Inert in the default
+        eval, which never draws a Terraform game unless SWEG_PRIMARY_DECK /
+        SWEG_PRIMARY_MISSION is set. Avenue-1 fair-measurement build (wave 202)."""
+        if getattr(self, "primary_mission", "take_and_hold") != "terraform":
+            return False
+        return __import__("os").environ.get("SWEG_TERRAFORM", "1") not in ("0", "false", "")
+
+    def _assign_terraform_actions(self, active, other) -> None:
+        """Terraform primary (#87 avenue-1, gated). After Movement, flag SURPLUS
+        units each within range of a DIFFERENT forward objective marker (No Man's
+        Land or the enemy deployment zone — "not within your deployment zone") to
+        perform the Terraform Action, locked out of shooting/charging this turn via
+        the same rules-authentic `_unit_can_perform_action` contract as Burn (OC>0,
+        not engaged, NOT a productive shooter). Real CA-2025-26: "One or more units
+        from your army, each within range of a different objective marker that is
+        not within your deployment zone" — so NO cap-of-one (unlike Burn), but each
+        unit must target a DISTINCT marker. STARTING needs only range (no control);
+        COMPLETION (in `_resolve_terraforms`) needs control. Cited
+        simulator.primary_terraform."""
+        if not self._terraform_enabled():
+            return
+        # "from the second battle round onwards" — terraform VP scores from round 2.
+        if self._current_round < 2:
+            return
+        own_is_a = active is self.a
+        claimed: set = set()  # markers already assigned to one of our units this turn
+        for u in active.alive_units:
+            if not self._unit_can_perform_action(u, other):
+                continue
+            best_idx = None
+            best_d2 = None
+            for obj_idx, obj in enumerate(self.map.objectives):
+                if obj_idx in claimed:
+                    continue
+                # Already terraformed BY US and not contested away — no value re-doing.
+                if self._terraformed_owner.get(obj_idx) == ("a" if own_is_a else "b"):
+                    continue
+                # "not within your deployment zone" — only forward markers (No Man's
+                # Land or the enemy DZ) are terraformable.
+                if self._obj_in_own_dz(obj, own_is_army_a=own_is_a):
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                d2 = dx * dx + dy * dy
+                if d2 > obj.control_radius * obj.control_radius:
+                    continue
+                if best_d2 is None or d2 < best_d2:
+                    best_d2 = d2
+                    best_idx = obj_idx
+            if best_idx is None:
+                continue
+            u.action_this_round = "terraform"
+            self._terraform_targets[u.uid] = best_idx
+            claimed.add(best_idx)
+
+    def _resolve_terraforms(self, only_for=None) -> None:
+        """Resolve completed Terraform Actions. A unit performing Terraform that
+        COMPLETES — "still within range of the same objective marker and you control
+        that objective marker" (the `_action_completes` survival gate + the control
+        re-check, mirroring Burn) — marks that marker as TERRAFORMED by its army.
+        Per the real rule the fresh terraform OVERWRITES any opponent terraform on
+        that marker. No immediate VP: the +1 VP per terraformed marker is scored each
+        turn in the Terraform mission branch of `_score_objectives`. Cited
+        simulator.primary_terraform."""
+        if not self._terraform_enabled():
+            return
+        for army, foe, is_a in ((self.a, self.b, True), (self.b, self.a, False)):
+            if only_for is not None and only_for != army.name:
+                continue
+            owner = "a" if is_a else "b"
+            for u in army.alive_units:
+                if u.action_this_round != "terraform":
+                    continue
+                idx = self._terraform_targets.get(u.uid)
+                if idx is None:
+                    continue
+                if not self._action_completes(u, foe):
+                    continue
+                obj = self.map.objectives[idx]
+                # Completion control gate: "you control that objective marker".
+                if self._oc_within(army, obj) <= self._oc_within(foe, obj):
+                    continue
+                # Fresh terraform overwrites the opponent's (a marker is terraformed
+                # by at most one side at a time).
+                self._terraformed_owner[idx] = owner
 
     # ------------------------------------------------------------------
     # Wave 121 — AI-pursuit layer for held Tactical secondary cards
@@ -8263,6 +8380,7 @@ class Battle:
             self._assign_cleanse_actions(active, other)
             self._assign_sabotage_actions(active, other)
             self._assign_burn_actions(active, other)
+            self._assign_terraform_actions(active, other)
             # Wave 79: army-level focus fire — nominate the single most valuable
             # durable enemy threat the army can hurt, so its anti-armour
             # concentrates to REMOVE it (how a real list deletes a Knight),

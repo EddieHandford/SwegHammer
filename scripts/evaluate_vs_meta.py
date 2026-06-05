@@ -233,7 +233,7 @@ _PRIMARY_DECK = (
     "take_and_hold",   # Linchpin              (not yet modelled → Take and Hold)
     "take_and_hold",   # Burden of Trust       (not yet modelled)
     "take_and_hold",   # Take and Hold
-    "take_and_hold",   # Terraform             (not yet modelled)
+    "terraform",       # Terraform             (Action-on-marker, body-army bonus)
     "purge_the_foe",   # Purge the Foe
     "scorched_earth",  # Scorched Earth        (Burn Action displacement)
     "take_and_hold",   # Unexploded Ordnance   (not yet modelled)
