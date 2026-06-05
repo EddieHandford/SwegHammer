@@ -4,6 +4,34 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 191 (2026-06-05) — keyword instrument REFUTED + the DAMAGED-BRACKET GENERALIZATION LANDED default-ON (even-handed, metric-neutral 5.76→5.71): the real per-datasheet "Damaged" bracket now degrades ALL 260 big models, not just the 6 Knight datasheets
+
+Watchdog priority #1 (keyword instrument) REFUTED: anti-tank keyword coverage (Lethal/Sustained/Devastating/Heavy/Melta) is at
+PARITY-or-above BSData on catalogue weapons (catalogue 4/18/14/11/22% vs BSData 2/5/9/12/15%), the mechanics fire in attack(), the
+mapper extracts them — so "the opponents' guns are too weak" is false. That closes the anti-tank STRENGTH axis (commit 445638b).
+
+Then built the watchdog-greenlit #77 DAMAGED-BRACKET GENERALIZATION (docs/DAMAGED_BRACKET_GENERALIZATION_PLAN.md), 5 stages:
+- **S1 (a51f9e4)** mapper `extract_damaged_bracket` parses the 10e "Damaged: 1-X Wounds Remaining" ability → 4 flat parsed.json
+  fields (threshold, oc/hit/attacks penalty), Hit-regex anchored on "this model makes an attack" (excludes the defensive −1-to-be-hit).
+- **S1 FIX (c2a9639)** — the pre-flip Knight-coverage check (watchdog's "verify before flip" rule) CAUGHT A REAL BUG: only 1 of 42
+  Knights extracted, because the mainline Knights reference a SHARED Damaged profile in a linked Library, not inline. The first A/B
+  (5.95) was INVALID (Knights silently lost their penalty → IK spuriously 27.48). Fixed via `_gather_damaged_profiles` resolving
+  infoLink/entryLink targetIds through the registry. Knights 1→42 (0 missing); total bracketed units 72→260; strictly additive,
+  deterministic.
+- **S2 (112c1bf)** plumbed to UnitProfile (flat ints, hashable). **S3+4 (5f47b3c)** data-driven `_effective_oc` + `attack()` gated
+  SWEG_DMGBRACKET; citation `simulator.damaged_bracket` (verbatim Stormsurge + Knight) + registered.
+- **S5 FLIP (adb3000)** — the corrected N=80 A/B was METRIC-NEUTRAL (gated **5.76 → 5.71**, IK 25.52 → 25.63 unchanged, Chaos Knights
+  improved) and strictly more faithful, so per the watchdog flip criterion (faithfulness + correct extraction, NOT metric direction)
+  SWEG_DMGBRACKET is now DEFAULT-ON and the Knight-only SWEG_DMGOC/SWEG_DMGHIT heuristic is RETIRED. The default sim now degrades the
+  Objective Control + Hit roll of every model with a real bracket (Stormsurge, Custodes/World Eaters dreadnoughts, AdMech/Necron
+  vehicles, all Knights). Data-driven Knight values reproduce the retired heuristic exactly. **New baseline: gated 5.71.**
+
+NET: removed a known metric-favorable bias (Knight-only damaged nerf) for an even-handed faithful rule, at neutral metric cost. The
+over-pole is UNMOVED (IK still ~25.6 gated) — confirming again the Knight over-rate is NOT a combat/durability mechanic. Watchdog's
+named next live axis: the user's OC-FLIP over-HOLD idea (collapse the Knight's objective by reducing its effective OC below
+threshold + contesting bodies, no kill needed) — and the generalized damaged-OC bracket is now a faithful substrate for it (a damaged
+Knight's OC really does drop). NEXT.
+
 ## Wave 190 (2026-06-05) — anti-tank STRENGTH (squad-size) REFUTED, de-confounded: maxing opponent anti-tank made IK WORSE, not better. The over-pole's whole "kill/contest the Knight harder" axis is now exhausted → widen
 
 The watchdog's compound over-pole picture (wave 189) needed the anti-tank STRENGTH half. **Instrument:** the curated archetype SEED
