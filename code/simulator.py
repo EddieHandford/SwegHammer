@@ -188,6 +188,10 @@ OCFLIP_STATS = {"held": 0, "flippable": 0, "surplus": 0.0,
 # SWEG_OVERSCORE_INSTR is set; a diag runner resets and reads it. Read-only.
 OVERSCORE_STATS: dict = {}
 
+# OC-DELIVERY instrument (#84) — per-faction on-board OC vs OC delivered onto
+# markers. Populated only when SWEG_DELIVERY_INSTR is set. Read-only.
+DELIVERY_STATS: dict = {}
+
 
 @dataclass(frozen=True)
 class RulesConfig:
@@ -914,6 +918,26 @@ class Battle:
 
         a_oc_by_obj, a_sticky_by_obj, a_dg_by_obj = _assign_army_oc(self.a)
         b_oc_by_obj, b_sticky_by_obj, b_dg_by_obj = _assign_army_oc(self.b)
+
+        # OC-DELIVERY instrument (#84, gated SWEG_DELIVERY_INSTR, read-only): does
+        # each army get its Objective Control ONTO markers, or does it sit back?
+        # delivered = OC credited to objectives (sum of the coherency-assigned
+        # oc_by_obj); total = the army's whole on-board effective OC. A low
+        # delivery rate localizes the under-side under-score as (1) positioning
+        # (gunlines never reach markers) vs (3) under-credit (they reach but their
+        # OC loses). Keyed by faction. No behaviour change.
+        if __import__("os").environ.get("SWEG_DELIVERY_INSTR"):
+            for _army, _obo in ((self.a, a_oc_by_obj), (self.b, b_oc_by_obj)):
+                _fac = (_army.units[0].profile.faction if _army.units else "?") or "?"
+                _tot = 0
+                for _u in _army.alive_units:
+                    if _u.uid not in self._battleshocked_this_round:
+                        _tot += self._effective_oc(_u)
+                _deliv = sum(_obo.values())
+                _d = DELIVERY_STATS.setdefault(_fac, {"rounds": 0, "total": 0.0, "delivered": 0.0})
+                _d["rounds"] += 1
+                _d["total"] += _tot
+                _d["delivered"] += _deliv
 
         # Wave 187 (#71 primary-mission rotation, env-gated SWEG_PRIMARY_MISSION):
         # accumulate the Take-and-Hold per-objective award + the control counts in
