@@ -646,6 +646,16 @@ class UnitProfile:
     # reverses it exactly (round-trips to the original list-of-dicts).
     # Empty tuple = no per-model loadout recorded (legacy entries).
     model_loadouts: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
+    # datasheet bracket, extracted per-unit from BSData. `damaged_threshold == 0`
+    # means the model has no bracket. While the model is at 1..threshold wounds,
+    # the simulator (Stage 3, gated SWEG_DMGBRACKET) subtracts the penalties from
+    # the model's Objective Control / Hit roll. Flat ints → trivially hashable for
+    # the frozen dataclass + lru_cache. Cited `simulator.damaged_bracket`.
+    damaged_threshold: int = 0
+    damaged_oc_penalty: int = 0
+    damaged_hit_penalty: int = 0
+    damaged_attacks_penalty: int = 0
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # The MAP-3 UNION (any-weapon-in-basket carries the keyword) inflates
     # damage for heterogeneous squads (Rubric Marines, Skyweavers, Beast
@@ -4455,6 +4465,13 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # fire each model's real loadout. Empty entry → () (no per-model
             # loadout recorded).
             model_loadouts=_flatten_model_loadouts(entry.model_loadouts),
+            # DAMAGED-BRACKET (task #77) — flat ints, trivially hashable. Carried
+            # from the CatalogEntry; nothing reads them for behaviour until the
+            # gated application stage (Stage 3, SWEG_DMGBRACKET).
+            damaged_threshold=entry.damaged_threshold,
+            damaged_oc_penalty=entry.damaged_oc_penalty,
+            damaged_hit_penalty=entry.damaged_hit_penalty,
+            damaged_attacks_penalty=entry.damaged_attacks_penalty,
             # MAP-3-FIX — basket-fraction gating. Default 1.0 preserves legacy
             # single-weapon / non-heterogeneous behaviour; mapper sets < 1.0
             # for heterogeneous squads. Anti-keywords dict flattened to a

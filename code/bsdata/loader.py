@@ -209,6 +209,15 @@ class CatalogEntry:
     # it for behaviour yet; it is purely carried from parsed.json → UnitProfile.
     # Empty / missing = no per-model loadout recorded (legacy entries).
     model_loadouts: Optional[List[Dict[str, Any]]] = None
+    # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
+    # datasheet bracket, carried from parsed.json. `damaged_threshold == 0` means
+    # no bracket. GATE-INERT until the simulator reads it (Stage 3, gated
+    # SWEG_DMGBRACKET). Penalties are the per-stat reduction while the model is at
+    # 1..threshold wounds remaining.
+    damaged_threshold: int = 0
+    damaged_oc_penalty: int = 0
+    damaged_hit_penalty: int = 0
+    damaged_attacks_penalty: int = 0
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # Defaults to 1.0 preserve legacy single-weapon behaviour. Heterogeneous
     # squads (Rubric Marines, Skyweavers, Beast Snagga Boyz) carry values
@@ -331,6 +340,12 @@ class CatalogEntry:
             # nested ranged/melee weapon dicts are not flattened until the
             # UnitProfile build in code.units._build_catalog).
             model_loadouts=list(d.get("model_loadouts") or []),
+            # DAMAGED-BRACKET (task #77) — carried verbatim from parsed.json.
+            # Missing key = 0 (no bracket / legacy entries predating extraction).
+            damaged_threshold=int(d.get("damaged_threshold", 0) or 0),
+            damaged_oc_penalty=int(d.get("damaged_oc_penalty", 0) or 0),
+            damaged_hit_penalty=int(d.get("damaged_hit_penalty", 0) or 0),
+            damaged_attacks_penalty=int(d.get("damaged_attacks_penalty", 0) or 0),
             # MAP-3-FIX — parse basket fractions. Missing key = 1.0 (legacy:
             # any unit predating this change keeps full-keyword behaviour).
             devastating_wounds_basket_fraction=float(
@@ -560,6 +575,21 @@ def _apply_override(base: Optional[CatalogEntry], override: Dict, key: str) -> C
         # None.
         "model_loadouts": override.get(
             "model_loadouts", base.model_loadouts or []
+        ),
+        # DAMAGED-BRACKET (task #77) — per-stat Damaged-bracket reduction. The
+        # mapper extracts these from BSData; overrides may correct a mis-parse.
+        # Default to the base (mapper) value, falling back to 0 (no bracket).
+        "damaged_threshold": override.get(
+            "damaged_threshold", base.damaged_threshold
+        ),
+        "damaged_oc_penalty": override.get(
+            "damaged_oc_penalty", base.damaged_oc_penalty
+        ),
+        "damaged_hit_penalty": override.get(
+            "damaged_hit_penalty", base.damaged_hit_penalty
+        ),
+        "damaged_attacks_penalty": override.get(
+            "damaged_attacks_penalty", base.damaged_attacks_penalty
         ),
         # MAP-3-FIX — basket fractions. Override path almost never sets these
         # (the mapper computes them from BSData) but allow overrides for
