@@ -2331,7 +2331,7 @@ def pick_move_intent(
         # friendly scoring marker returns _HOLD_INTENT and never reaches here, so
         # the contest only ever draws SPARE bodies — the balanced contest, NOT the
         # rejected wave-95 Stage-E flood. Default-OFF => byte-identical.
-        if intent == _STEAL_INTENT and __import__("os").environ.get("SWEG_CONTEST"):
+        if intent == _STEAL_INTENT and __import__("os").environ.get("SWEG_CONTEST", "1") != "0":
             _enemy_eff = _effective_oc_on_objective(enemy_alive, obj)
             _our_cur_eff = _effective_oc_on_objective(
                 friendly_alive, obj, exclude_uid=unit.uid,
