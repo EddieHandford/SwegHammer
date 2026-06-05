@@ -4,6 +4,26 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 201 (2026-06-05) — AVENUE 1 (mission/scoring displacement) MEASURED → metric-NEUTRAL; the displacement lever is Avenue 2 (maneuver), not the scoring deck
+
+User greenlit the displacement re-model via 3 avenues (measured/bounded). Avenue 1 = mission/scoring pressure. Built the
+**Scorched Earth Burn (Raze) Action** (env-gated `SWEG_SCORCHED_BURN`, commits `62232a1`/`72e3cca`): a controlling unit
+Burns a No Man's Land / enemy-DZ marker from round 2, removing it for 5/10 VP — the faithful CA-2025-26 rule (WebFetch-
+verified; the reach-vs-CONTROL check caught a flashy-but-unfaithful first build). Refinements: BURN_CAP 2→1 ("ONE unit")
++ round≥2 gate. **All-Scorched upper bound (N=80): IK 71.7→60.7%, gated 20.99→10.00 — the Burn DISPLACES the Knight.**
+Then built the **deck-weighted rotation** (`SWEG_PRIMARY_DECK`, commit `fdba060`): each game draws one primary from the real
+10-card pack (verified 80% Take-and-Hold / 10% Purge / 10% Scorched; 7 unmodelled cards fall to Take-and-Hold).
+
+**Deck-weighted A/B (N=80): gated 5.27 vs the 5.19 baseline = NEUTRAL (+0.08, within noise).** Decomposition: deck IK 72.4%
+is *above* the Take-and-Hold baseline because **1/10 Purge games push IK to ~90%** (kill-weighted, IK out-kills body armies
+on unit-count — a FAITHFUL Purge model, 4/4/4/4 cap 12), which out-weighs the 1/10 Scorched crack. The Scorched horde
+over-flood diluted out correctly (Tyranids 11.50→4.09, Orks 7.04→1.77). WebFetch-verified the two remaining anti-hold
+candidates are NOT levers: **Terraform** is Take-and-Hold-with-a-+1-bonus (IK fine), **The Ritual** scores No Man's Land
+markers only (rewards mobile-durable IK pushing forward, would *inflate* it). **Verdict: the real deck has no scoring formula
+that cracks IK except the Burn, and at 1/10 it's too dilute — Avenue 1 (scoring) is ~tapped at neutral.** The displacement
+the user is after is physical: Avenue 2 (maneuver/board-control AI), applicable every game. Deck + Burn kept GATED (faithful
+substrate, not a headline win); avenue-pivot routed to the watchdog. Tests green, audit clean, cli 0.
+
 ## Wave 193 (2026-06-05) — FREE-CONTEST extension LANDED default-ON (headline 5.52→5.19): a spare in-range gunline contests a winnable enemy marker WHILE still shooting (zero shot-cost) — recovered the shooty factions the pure contest over-corrected; the over-pole PLATEAUED (IK ~21) → PIVOT to the over-shooter cluster next
 
 Watchdog steer: continue the over-pole via the contest. Wave-193 INSTRUMENT (diag_ocflip free-contest decomposition, commit 03f3503):
