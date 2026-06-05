@@ -2489,6 +2489,52 @@ def pick_move_intent(
                 )
                 repo_pos = _best_nearby_cover_point(map_, step_to, search_radius=4.0)
                 return repo_pos, _REPOSITION_INTENT
+            # FREE-CONTEST (#81, gated SWEG_FREECONTEST) — a SPARE in-range
+            # SHOOTY/HEAVY unit redirects onto a WINNABLE enemy-held marker it can
+            # STILL SHOOT from, even when that marker is not its single best
+            # objective. The wave-193 instrument found 86% of the reachable OC on
+            # the still-flippable Knight markers is exactly this (shooty-can-shoot-
+            # from-marker, 0% would lose its shots), but #12 below only repositions
+            # onto the unit's SINGLE best objective, so a winnable enemy marker
+            # that loses the distance-competition to a closer hold stays
+            # uncontested. Guards (the wave-95 Stage-E rail): WINNABLE (our
+            # potential EFFECTIVE OC > enemy EFFECTIVE OC — bracket-aware, a damaged
+            # Knight at OC5 is flippable); REACHABLE this turn; SHOOTABLE from the
+            # marker (an enemy in range — zero shot-cost, not a gunline-pull);
+            # JUST-ENOUGH (skip a marker our side already winnably contests). The
+            # AFFORDABLE guard is the hold-check above (a marginal friendly-marker
+            # holder already returned _HOLD_INTENT and never reaches here, so this
+            # only ever moves SPARE bodies). Default-OFF => byte-identical.
+            if __import__("os").environ.get("SWEG_FREECONTEST"):
+                _fc_move = effective_move(unit)
+                _fc_unit_eff = _effective_oc_value(unit)
+                _fc_best_obj = None
+                _fc_best_d = float("inf")
+                for _fc_obj in objectives:
+                    _fc_e = _effective_oc_on_objective(enemy_alive, _fc_obj)
+                    if _fc_e <= 0:
+                        continue                 # not enemy-held — not a contest
+                    _fc_o = _effective_oc_on_objective(
+                        friendly_alive, _fc_obj, exclude_uid=unit.uid,
+                    )
+                    if _fc_o > _fc_e:
+                        continue                 # JUST-ENOUGH: already winnably contesting
+                    if _fc_o + _fc_unit_eff <= _fc_e:
+                        continue                 # unwinnable even by committing this unit
+                    _fc_pos = (_fc_obj.x, _fc_obj.y)
+                    _fc_d = _dist(unit.position, _fc_pos)
+                    if _fc_d > _fc_move + _fc_obj.control_radius:
+                        continue                 # unreachable this turn
+                    if not any(_dist(_fc_pos, e.position) <= rng for e in enemy_alive):
+                        continue                 # can't shoot from there — would be a gunline-pull
+                    if _fc_d < _fc_best_d:
+                        _fc_best_d = _fc_d
+                        _fc_best_obj = _fc_obj
+                if _fc_best_obj is not None:
+                    _fc_snap = _best_nearby_cover_point(
+                        map_, (_fc_best_obj.x, _fc_best_obj.y), search_radius=3.0,
+                    )
+                    return _fc_snap, _STEAL_INTENT
             # #12 OBJECTIVE-AWARE REPOSITION (2026-05-31): a ranged unit that
             # can still shoot from an objective should move ONTO the best-scoring
             # objective — scoring VP while continuing to fire — rather than
