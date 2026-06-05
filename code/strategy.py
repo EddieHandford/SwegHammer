@@ -334,6 +334,39 @@ def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     return total
 
 
+def _effective_oc_value(u) -> int:
+    """Bracket-aware Objective Control of one model — mirrors Battle._effective_oc
+    so the OC-contest AI (#79) reads the SAME effective OC the scorer awards on:
+    a model in its 10e Damaged bracket contributes its reduced OC (a damaged Knight
+    is OC 5, not 10). Respects the SWEG_DMGBRACKET gate."""
+    base = u.profile.oc or 0
+    if __import__("os").environ.get("SWEG_DMGBRACKET", "1") == "0":
+        return base
+    thr = getattr(u.profile, "damaged_threshold", 0) or 0
+    pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+    if thr and pen and u.current_health <= thr:
+        return max(0, base - pen)
+    return base
+
+
+def _effective_oc_on_objective(units, obj, exclude_uid: str = "") -> int:
+    """Like `_oc_on_objective` but bracket-aware (uses `_effective_oc_value`).
+    Used by the SWEG_CONTEST winnability check so a damaged enemy holder reads at
+    its real reduced Objective Control."""
+    r2 = obj.control_radius * obj.control_radius
+    ox = obj.x
+    oy = obj.y
+    total = 0
+    for u in units:
+        if u.uid == exclude_uid:
+            continue
+        dx = u.position[0] - ox
+        dy = u.position[1] - oy
+        if dx * dx + dy * dy <= r2:
+            total += _effective_oc_value(u)
+    return total
+
+
 @functools.lru_cache(maxsize=4096)
 def _unsaved_fraction(save: int, invuln_save: int, attacker_ap: int) -> float:
     """Cached save+AP portion of _durability. Only ~200 distinct inputs possible."""
@@ -2289,6 +2322,27 @@ def pick_move_intent(
         else:
             value = 2.5           # uncontested or tied — claim it
             intent = _CAPTURE_INTENT
+        # OC-CONTEST (#79, gated SWEG_CONTEST) — make the STEAL value WINNABLE +
+        # bracket-aware so idle/spare bodies are redirected to flip an enemy-held
+        # marker they can actually out-Control (a damaged Knight at effective OC 5
+        # is winnable — the wave-191 bracket substrate), JUST-ENOUGH (don't pile
+        # onto a marker we already win), and never chase an unwinnable contest.
+        # The AFFORDABLE guard is the hold-check above: a marginal holder of a
+        # friendly scoring marker returns _HOLD_INTENT and never reaches here, so
+        # the contest only ever draws SPARE bodies — the balanced contest, NOT the
+        # rejected wave-95 Stage-E flood. Default-OFF => byte-identical.
+        if intent == _STEAL_INTENT and __import__("os").environ.get("SWEG_CONTEST"):
+            _enemy_eff = _effective_oc_on_objective(enemy_alive, obj)
+            _our_cur_eff = _effective_oc_on_objective(
+                friendly_alive, obj, exclude_uid=unit.uid,
+            )
+            _unit_eff = _effective_oc_value(unit)
+            if _our_cur_eff > _enemy_eff:
+                value *= 0.6          # already winnably contesting — don't pile on
+            elif _our_cur_eff + _unit_eff > _enemy_eff:
+                value *= 1.7          # WINNABLE by committing THIS body — prioritise
+            else:
+                value *= 0.3          # unwinnable even with this body — don't chase
         value *= round_weight
         # S1 — posture bias: objective_hold / attrition / psychic_attrition
         # armies value CAPTURE more (they want to fill every objective);
