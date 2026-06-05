@@ -1,0 +1,31 @@
+=== field damage + primary-VP decomposition (2000pt, fixed round-robin) ===
+faction                   dealt/g  taken/g   net/g    WR%  primVP/g  over?
+Adeptus Custodes               96       57      39     78     114.6  OVER
+Leagues of Votann             113       73      40     78     123.3  OVER
+Emperor's Children             85      103     -17     78     116.3  OVER
+Orks                          110       88      22     67     133.2  
+Thousand Sons                 105       74      32     67     100.0  OVER
+World Eaters                  102       83      19     67     130.8  OVER
+Drukhari                       65       87     -22     67      97.9  OVER
+Genestealer Cults              82       87      -5     67     118.7  
+Imperial Knights              100       58      42     67     104.4  
+Adeptus Astartes               82       97     -15     61     103.1  
+Chaos Knights                  84       99     -14     56     103.3  
+Necrons                        68       81     -12     44     102.2  
+Aeldari                        76       56      19     44      77.7  
+T'au Empire                    89       92      -3     44     105.2  
+Chaos Space Marines            87       70      17     44      84.1  
+Adepta Sororitas              101       57      44     44     125.8  OVER
+Death Guard                    70       70      -0     33      78.7  
+Grey Knights                  117       73      44     33      91.8  
+Tyranids                       59       92     -33     22      97.6  
+Chaos Daemons                  75       71       4     22      77.6  
+Astra Militarum                58       91     -34     11      88.7  
+Adeptus Mechanicus             60       97     -37     11      89.8  
+
+OVER-SHOOTERS  dealt=95 taken=76 net=19 WR=68% primVP=115.5
+REST           dealt=81 taken=82 net=-0 WR=42% primVP=97.1
+
+Reading: over-shooter WINS via HIGH net damage -> (a) OUTPUT/(b) DURABILITY
+combat fidelity; via HIGH primVP with NORMAL/negative net -> (c) REPRESENTATION
+(out-scores without out-fighting — the structural objective-game over-side).
