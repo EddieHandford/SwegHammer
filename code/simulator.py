@@ -202,6 +202,39 @@ DELIVERY_STATS: dict = {}
 # free / pistol / big-gun-penalty / engagement-blocked. SWEG_SHOOTLOSS_INSTR. Read-only.
 SHOOTLOSS_STATS: dict = {}
 
+# BOARD-CONTROL instrument (avenue-2 Stage 0, docs/BOARD_CONTROL_PLAN.md) — sizes the
+# physical-board-control levers (no-overlap collision / ruin-wall movement / make-way).
+# Populated ONLY when SWEG_BOARDCTRL_INSTR is set; a diag runner resets + reads it.
+# Read-only. Measures, at settled objective-scoring snapshots: how packed OC-counted
+# models are within 3" of markers (a >100% base-area packing ratio = OC that no-overlap
+# collision will physically cap), how many base footprints actually overlap, how
+# concentrated OC is on CONTESTED markers, and — a settled-position proxy for the
+# ruin-wall lever — how often a big VEHICLE/MONSTER/TITANIC (non-FLY) model sits inside a
+# RUIN footprint it should have to route around. Plus a per-faction JAM baseline at game
+# end (models stranded in own deployment zone + mean squad->nearest-objective distance),
+# the anti-regression yardstick Stages 1-4 must not worsen.
+BOARDCONTROL_STATS: dict = {
+    "obj_rounds": 0, "overlap_pairs": 0,
+    "packing_sum": 0.0, "packing_n": 0, "packing_over100": 0,
+    "contested_rounds": 0, "contested_packing_sum": 0.0,
+    "big_in_ruin": 0, "big_snaps": 0,
+    "jam": {},  # faction -> {games, dz_models_sum, min_dist_sum, squads}
+}
+
+
+def _bc_model_radius_in(profile) -> float:
+    """Base-footprint radius in INCHES for a model (read-only instrument helper).
+    Prefers the round base_diameter_mm; falls back to the mean of width/length for
+    rect/oval bases; defaults to a ~32mm round (0.63") if no base data. 25.4 mm/in."""
+    d = getattr(profile, "base_diameter_mm", 0) or 0
+    if d > 0:
+        return (d / 25.4) / 2.0
+    w = getattr(profile, "base_width_mm", 0) or 0
+    ln = getattr(profile, "base_length_mm", 0) or 0
+    if w and ln:
+        return ((w + ln) / 2.0 / 25.4) / 2.0
+    return 0.63
+
 
 @dataclass(frozen=True)
 class RulesConfig:
@@ -744,6 +777,10 @@ class Battle:
         a_pts = sum(u.profile.points_cost for u in self.a.alive_units)
         b_pts = sum(u.profile.points_cost for u in self.b.alive_units)
 
+        # Board-control Stage 0 (avenue-2) JAM baseline — read-only, gated.
+        if __import__("os").environ.get("SWEG_BOARDCTRL_INSTR"):
+            self._boardcontrol_jam_snapshot()
+
         winner = self._decide_winner(a_surv, b_surv, a_pts, b_pts)
 
         self._emit(BattleEnded(winner=winner, rounds=rounds_played))
@@ -983,6 +1020,11 @@ class Battle:
         # controlled-marker counts separately (per-side).
         a_controls_nml = 0
         b_controls_nml = 0
+
+        # Board-control instrument (avenue-2 Stage 0) — read-only, gated. Snapshots
+        # OC-packing / footprint-overlap / big-model-in-ruin at settled positions.
+        if __import__("os").environ.get("SWEG_BOARDCTRL_INSTR"):
+            self._boardcontrol_instrument()
 
         for obj_idx, obj in enumerate(self.map.objectives):
             # Scorched Earth Burn (#87): a RAZED marker is gone from the board —
@@ -1396,6 +1438,94 @@ class Battle:
             if flippable:
                 OCFLIP_STATS["flippable"] += 1
                 OCFLIP_STATS["surplus"] += (opp_reach - holder_oc)
+
+    def _boardcontrol_instrument(self) -> None:
+        """Avenue-2 Stage 0 read-only board-control instrument (gated by
+        SWEG_BOARDCTRL_INSTR; called once per _score_objectives at settled
+        positions). Accumulates into the module-level BOARDCONTROL_STATS:
+          * OC PACKING — per marker, summed base-footprint area of the OC-counted
+            models within control_radius vs the marker-circle area. >100% packing =
+            OC that no-overlap collision will physically cap (sizes Stage 1).
+          * OVERLAP PAIRS — model pairs near a marker whose footprints actually
+            intersect today (collision-free stacking).
+          * CONTESTED concentration — packing on markers BOTH sides have OC on.
+          * BIG-MODEL-IN-RUIN — settled-position proxy for the ruin-wall lever
+            (Stages 3-4): VEHICLE/MONSTER/TITANIC non-FLY models sitting inside a
+            RUIN footprint they should route around.
+        No behaviour change."""
+        import math
+        s = BOARDCONTROL_STATS
+        for obj in self.map.objectives:
+            r2 = obj.control_radius * obj.control_radius
+            a_near = [u for u in self.a.alive_units
+                      if (u.position[0] - obj.x) ** 2 + (u.position[1] - obj.y) ** 2 <= r2]
+            b_near = [u for u in self.b.alive_units
+                      if (u.position[0] - obj.x) ** 2 + (u.position[1] - obj.y) ** 2 <= r2]
+            near = a_near + b_near
+            if not near:
+                continue
+            s["obj_rounds"] += 1
+            circle_area = math.pi * obj.control_radius * obj.control_radius
+            area = sum(math.pi * _bc_model_radius_in(u.profile) ** 2 for u in near)
+            packing = area / circle_area if circle_area else 0.0
+            s["packing_sum"] += packing
+            s["packing_n"] += 1
+            if packing > 1.0:
+                s["packing_over100"] += 1
+            for i in range(len(near)):
+                ri = _bc_model_radius_in(near[i].profile)
+                pi = near[i].position
+                for j in range(i + 1, len(near)):
+                    rj = _bc_model_radius_in(near[j].profile)
+                    pj = near[j].position
+                    if (pi[0] - pj[0]) ** 2 + (pi[1] - pj[1]) ** 2 < (ri + rj) ** 2:
+                        s["overlap_pairs"] += 1
+            if a_near and b_near:
+                s["contested_rounds"] += 1
+                s["contested_packing_sum"] += packing
+        # Big-model-in-ruin settled-position proxy.
+        ruins = [t for t in self.map.terrain if t.type is TerrainType.RUIN]
+        if ruins:
+            for army in (self.a, self.b):
+                for u in army.alive_units:
+                    kw = u.profile.unit_keywords or ()
+                    if "FLY" in kw:
+                        continue
+                    if not ("VEHICLE" in kw or "MONSTER" in kw or "TITANIC" in kw):
+                        continue
+                    s["big_snaps"] += 1
+                    for t in ruins:
+                        if t.contains(u.position):
+                            s["big_in_ruin"] += 1
+                            break
+
+    def _boardcontrol_jam_snapshot(self) -> None:
+        """Avenue-2 Stage 0 read-only JAM baseline (gated; called once at game end).
+        Per faction: how many models end the game still stranded in their OWN
+        deployment zone, and the mean squad->nearest-objective distance — the
+        anti-regression yardstick Stages 1-4 (collision/make-way/walls) must not
+        worsen. No behaviour change."""
+        dz = self.map.deployment_width
+        objs = self.map.objectives
+        for army, is_a in ((self.a, True), (self.b, False)):
+            fac = (army.units[0].profile.faction if army.units else "?") or "?"
+            jam = BOARDCONTROL_STATS["jam"].setdefault(
+                fac, {"games": 0, "dz_models_sum": 0, "min_dist_sum": 0.0, "squads": 0})
+            jam["games"] += 1
+            squads: dict = {}
+            for u in army.alive_units:
+                y = u.position[1]
+                if (is_a and y <= dz) or ((not is_a) and y >= self.map.height - dz):
+                    jam["dz_models_sum"] += 1
+                squads.setdefault(getattr(u, "squad_id", -1), []).append(u)
+            if objs:
+                for members in squads.values():
+                    best = min(
+                        min(((m.position[0] - o.x) ** 2 + (m.position[1] - o.y) ** 2) ** 0.5
+                            for o in objs)
+                        for m in members)
+                    jam["min_dist_sum"] += best
+                    jam["squads"] += 1
 
     def _oc_within(self, army, obj) -> int:
         """Summed Objective Control of `army`'s alive units within an objective's
