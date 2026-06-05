@@ -248,12 +248,26 @@ def _pick_primary_mission(pair_seed: int) -> Optional[str]:
 
     Returns the modelled mission name for this game when SWEG_PRIMARY_DECK is
     set, else None (the Battle then falls to its env/default Take and Hold).
-    Keyed on the unique per-job pair_seed so the deck is evenly sampled across
-    the whole matrix and reproduces under PYTHONHASHSEED=0.
+
+    The draw is DECOUPLED from the map rotation. `_pick_rotation_map` keys on
+    ``s % 5``; a naive ``pair_seed % 10`` mission key reduces to ``s % 10``,
+    which (since 5 divides 10) locks every mission to exactly ONE of the five
+    maps — so a mission's measured effect was confounded with that one map's
+    geometry (e.g. The Ritual's No Man's Land-only scoring is identical to Take
+    and Hold on an all-No-Man's-Land map, hiding its effect entirely). Decode the
+    faction indices from the job's pair_seed and fold them into the key so the
+    mission is independent of ``s % 5`` and every mission is sampled across all
+    five maps. Deterministic under PYTHONHASHSEED=0.
     """
     if not os.environ.get("SWEG_PRIMARY_DECK"):
         return None
-    return _PRIMARY_DECK[pair_seed % len(_PRIMARY_DECK)]
+    # pair_seed = (ai * 1000 + bi) * 100 + s, with s in 1..N (<100), faction
+    # indices ai, bi < 100. Recover them to break the seed/map correlation.
+    s = pair_seed % 100
+    rest = pair_seed // 100
+    bi = rest % 1000
+    ai = rest // 1000
+    return _PRIMARY_DECK[(ai * 7 + bi * 3 + s) % len(_PRIMARY_DECK)]
 
 
 def _run_battle_job(
