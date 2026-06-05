@@ -1,0 +1,30 @@
+=== per-faction damage dealt by mode (per game) ===
+faction                   melee/g  ranged/g   total  melee-army?
+Ynnari                        162       162     324  
+World Eaters                   80        42     121  MELEE
+Orks                           65        57     122  MELEE
+Adeptus Custodes               62        82     144  MELEE
+Emperor's Children             58        44     102  MELEE
+Imperial Knights               57        99     156  
+Chaos Daemons                  56        36      91  MELEE
+Chaos Space Marines            53        59     113  
+Genestealer Cults              49        58     107  MELEE
+Thousand Sons                  47        71     117  
+Chaos Knights                  46        62     108  
+Leagues of Votann              41        71     111  
+Grey Knights                   40        91     131  
+Death Guard                    39        40      79  
+Necrons                        38        56      94  
+Drukhari                       37        95     131  MELEE
+Tyranids                       36        34      69  MELEE
+Adeptus Astartes               31        64      95  
+Adepta Sororitas               30        75     105  
+Aeldari                        26        78     103  
+Adeptus Mechanicus             19        55      73  
+Astra Militarum                15        74      88  
+T'au Empire                     4       118     122  
+
+World Eaters melee/g = 80; other melee armies avg = 52
+Reading: WE >> peers -> possible per-point melee over-credit (a cheap lever).
+WE ~= peers -> faithful (known once-per-round small residual); over-side
+combat axis exhausted -> the residual is the displacement representation.

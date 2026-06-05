@@ -244,6 +244,10 @@ def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
 # cover-applied rate during real shooting. Read-only; a diag resets and reads it.
 DURABILITY_STATS: dict = {}
 
+# MELEE/RANGED output split (#86, gated SWEG_MODE_INSTR) — per attacker-faction
+# damage dealt by mode. Read-only; a diag resets and reads it.
+MODE_STATS: dict = {}
+
 
 def save_probability(
     save: int, ap: int = 0, in_cover: bool = False, is_infantry: bool = True
@@ -3967,6 +3971,17 @@ class Unit:
         if p.hazardous:
             if random.randint(1, 6) == 1:
                 self.receive_damage(3.0)
+
+        # MELEE/RANGED output split instrument (#86, gated SWEG_MODE_INSTR,
+        # read-only): per attacker-faction damage dealt, split by mode — to test
+        # whether World Eaters' melee output is over-credited per point vs the
+        # field's melee armies (the last cheap over-side probe before the
+        # displacement re-model fork).
+        if total_damage > 0 and __import__("os").environ.get("SWEG_MODE_INSTR"):
+            _mfac = (self.profile.faction or "?") or "?"
+            _mk = "melee" if mode == "melee" else "ranged"
+            _md = MODE_STATS.setdefault(_mfac, {"melee": 0.0, "ranged": 0.0})
+            _md[_mk] += total_damage
 
         return total_damage
 
