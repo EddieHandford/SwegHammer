@@ -7,10 +7,18 @@ the shared seed) had made the rotation look metric-neutral; **fixed (mission dra
 decoupled deck = gated 4.89, a real −0.30 vs the 5.19 baseline.** Drivers: The Ritual's No-Man's-Land-only scoring compresses
 the camping over-shooters toward target (Emperor's Children / Thousand Sons / Sororitas down) AND IK is net-DOWN
 (70.4 / 19.70), so Purge's re-inflation is outweighed. 4 of 10 real primaries now score by their real rule (Take and Hold /
-Purge / Scorched-Burn / Terraform / The Ritual), all faithful. Burn + Terraform default-ON for their mission; the deck
-rotation is built + verified + GATED (SWEG_PRIMARY_DECK) — **recommended FLIP to default-ON** (the (b)-don't-flip ruling
-rested on the confounded neutral; the clean −0.30 + IK-down removes it), routed to the watchdog. **Then avenue 2 (selective
-displacement / maneuver AI), the user's reserved decide-point.**
+Purge / Scorched-Burn / Terraform / The Ritual), all faithful.
+
+**METRIC RE-BASE (wave 203, watchdog-adopted): the deck is now the production eval frame (`SWEG_PRIMARY_DECK` DEFAULT-ON).**
+The real Chapter Approved 2025-26 rotation is the CORRECT frame (the Warp Friends target win rates were generated under the
+real rotation, not all-Take-and-Hold). **Post-adoption headline gated MAE is ~4.89 on a NEW deck-frame scale — NOT comparable
+to the pre-adoption all-Take-and-Hold 5.19** (same kind of deliberate re-base as wave-145's live-target/field-weighting
+re-base; numbers before and after the adoption are different scales). Out-of-band scan confirmed net-faithful (over-shooters
+compressed toward target, Imperial Knights eased 20.84→19.70, under-pole unchanged, none cratered). Reversible:
+`SWEG_PRIMARY_DECK=0` restores the legacy all-Take-and-Hold frame for an audit/A-B. The remaining 5 primaries (Unexploded
+Ordnance / Supply Drop / Hidden Supplies / Linchpin / Burden of Trust) are an opportunistic follow-on to complete the frame
+(minor, non-blocking). **Now: avenue 2 (selective displacement / maneuver AI) — Imperial Knights gated 19.70 is the #1
+residual and the structural bulk no scoring lever reaches; instrument-first (read-only object-trace) per the watchdog.**
 
 **What landed (default-ON, env-gated for isolation):**
 1. **Damaged-bracket generalization** (`SWEG_DMGBRACKET`, wave 191, commit `adb3000`): the 10e "Damaged: 1-X Wounds

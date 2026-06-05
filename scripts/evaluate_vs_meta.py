@@ -259,7 +259,16 @@ def _pick_primary_mission(pair_seed: int) -> Optional[str]:
     mission is independent of ``s % 5`` and every mission is sampled across all
     five maps. Deterministic under PYTHONHASHSEED=0.
     """
-    if not os.environ.get("SWEG_PRIMARY_DECK"):
+    # DEFAULT-ON (wave 203, watchdog-adopted): the real Chapter Approved 2025-26
+    # primary rotation is the CORRECT production frame — the real-meta target win
+    # rates were generated under the real rotation, not all-Take-and-Hold, and the
+    # clean decoupled deck nets gated 4.89 vs the all-Take-and-Hold 5.19 (−0.30, the
+    # over-shooters compressed toward target, Imperial Knights eased). This is a
+    # deliberate metric RE-BASE (post-adoption numbers are a NEW deck-frame scale,
+    # not comparable to the pre-adoption all-Take-and-Hold 5.19 — see the wave-145
+    # re-base precedent / CURRENT_STATE). Reversible: SWEG_PRIMARY_DECK=0 restores
+    # the legacy all-Take-and-Hold frame for an audit/A-B.
+    if os.environ.get("SWEG_PRIMARY_DECK", "1") == "0":
         return None
     # pair_seed = (ai * 1000 + bi) * 100 + s, with s in 1..N (<100), faction
     # indices ai, bi < 100. Recover them to break the seed/map correlation.
