@@ -509,6 +509,7 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     "simulator.primary_mission_rotation",
     "simulator.primary_purge_the_foe",
     "simulator.primary_scorched_earth",
+    "simulator.primary_scorched_earth_burn",
     # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
     # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
     # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so

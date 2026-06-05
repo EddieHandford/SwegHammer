@@ -400,6 +400,13 @@ class Battle:
         # objective's index in self.map.objectives. Cleared when the opposing
         # side outscores the holder's army on the objective in a later round.
         self._sticky_owner: Dict[int, str] = {}
+        # Scorched Earth Burn/Raze (#87, gated SWEG_SCORCHED_BURN): obj_idx set of
+        # markers RAZED this battle — removed from the board, so neither side scores
+        # them by holding for the rest of the game. Permanent.
+        self._razed_objectives: set = set()
+        # uid -> obj_idx the unit's in-progress Burn targets this round (Unit is
+        # __slots__-ed, so the target lives here, not on the Unit).
+        self._burn_targets: dict = {}
         # Stratagem book-keeping. Each army keeps a set of stratagem names
         # already fired this battle (used for once_per_battle stratagems —
         # the four universals are not once-per-battle but the field is here
@@ -966,6 +973,10 @@ class Battle:
         b_controls = 0
 
         for obj_idx, obj in enumerate(self.map.objectives):
+            # Scorched Earth Burn (#87): a RAZED marker is gone from the board —
+            # neither side scores it by holding for the rest of the game.
+            if obj_idx in self._razed_objectives:
+                continue
             # Per-unit Objective Control (cited as `simulator.unit_coherency`):
             # read the per-squad assignments computed above. Each squad has
             # already been credited to at most one objective, so a scattered
@@ -1132,6 +1143,11 @@ class Battle:
                 self._a_vp = a_vp_before + 15
             if b_round_vp > 15:
                 self._b_vp = b_vp_before + 15
+
+        # Scorched Earth Burn (#87): resolve completed Raze Actions AFTER the hold
+        # cap, so Raze VP is a distinct scoring event (not clipped by the per-round
+        # hold cap). No-op unless the Scorched Earth mission + SWEG_SCORCHED_BURN.
+        self._resolve_burns(only_for=only_for)
 
     def _units_destroyed_this_round(self) -> tuple:
         """Wave 187 (Purge the Foe): return (a_killed, b_killed) — how many enemy
@@ -1541,6 +1557,101 @@ class Battle:
                 continue
             best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
         return best
+
+    def _scorched_burn_enabled(self) -> bool:
+        """Scorched Earth Burn/Raze Action — active only when the Scorched Earth
+        primary mission is in play AND SWEG_SCORCHED_BURN is set (avenue-1 build)."""
+        return (
+            getattr(self, "primary_mission", "take_and_hold") == "scorched_earth"
+            and bool(__import__("os").environ.get("SWEG_SCORCHED_BURN"))
+        )
+
+    def _obj_burnable_for(self, obj, own_is_army_a: bool) -> int:
+        """VP for the active army razing `obj`: 10 in the ENEMY deployment zone,
+        5 in No Man's Land, 0 in the active army's OWN DZ (you cannot raze your own
+        backfield). Real CA-2025-26 Scorched Earth Raze values."""
+        if self._obj_in_nml(obj):
+            return 5
+        if self._obj_in_own_dz(obj, own_is_army_a=(not own_is_army_a)):
+            return 10
+        return 0
+
+    def _assign_burn_actions(self, active, other) -> None:
+        """Scorched Earth Burn/Raze (#87, gated). After Movement, flag up to two
+        SURPLUS units that are within control range of a BURNABLE objective (No
+        Man's Land or the enemy deployment zone, not already razed) to perform the
+        Raze Action — locked out of shooting/charging this turn via
+        `action_this_round` (the real Action trade-off). On completion (the unit
+        survives forward, not dragged into Engagement Range) the marker is REMOVED
+        and the army scores 5 VP (No Man's Land) / 10 VP (enemy DZ). Uses the same
+        rules-authentic `_unit_can_perform_action` contract as Sabotage (OC>0, not
+        engaged, NOT a productive shooter — so a unit that could usefully shoot
+        won't burn; the faithful burn-vs-shoot trade-off, even-handed/emergent),
+        but it must be NEAR a burnable marker and it removes that marker. This is
+        the displacement-via-scoring lever: a mobile army razes the static over-
+        holder's NML marker (denying the hold + scoring VP), no kill needed. Cited
+        simulator.primary_scorched_earth_burn."""
+        if not self._scorched_burn_enabled():
+            return
+        own_is_a = active is self.a
+        BURN_CAP = 2
+        n = 0
+        for u in active.alive_units:
+            if n >= BURN_CAP:
+                break
+            if not self._unit_can_perform_action(u, other):
+                continue
+            best_idx = None
+            best_d2 = None
+            for obj_idx, obj in enumerate(self.map.objectives):
+                if obj_idx in self._razed_objectives:
+                    continue
+                if self._obj_burnable_for(obj, own_is_a) <= 0:
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                d2 = dx * dx + dy * dy
+                if d2 <= obj.control_radius * obj.control_radius and (
+                    best_d2 is None or d2 < best_d2
+                ):
+                    best_d2 = d2
+                    best_idx = obj_idx
+            if best_idx is None:
+                continue
+            u.action_this_round = "burn"
+            self._burn_targets[u.uid] = best_idx
+            n += 1
+
+    def _resolve_burns(self, only_for=None) -> None:
+        """Resolve completed Scorched Earth Raze Actions: a unit performing the
+        Burn that COMPLETES (survives forward, not in Engagement Range — the same
+        `_action_completes` gate as Sabotage) RAZES its target marker (permanently
+        removed from the board) and scores 5 VP (No Man's Land) / 10 VP (enemy DZ).
+        Each marker is razed at most once. Run at the END of _score_objectives so
+        the Raze VP sits on top of the hold cap (a distinct scoring event), and the
+        per-objective hold loop already excludes razed markers. Cited
+        simulator.primary_scorched_earth_burn."""
+        if not self._scorched_burn_enabled():
+            return
+        for army, foe, is_a in ((self.a, self.b, True), (self.b, self.a, False)):
+            if only_for is not None and only_for != army.name:
+                continue
+            for u in army.alive_units:
+                if u.action_this_round != "burn":
+                    continue
+                idx = self._burn_targets.get(u.uid)
+                if idx is None or idx in self._razed_objectives:
+                    continue
+                if not self._action_completes(u, foe):
+                    continue
+                vp = self._obj_burnable_for(self.map.objectives[idx], is_a)
+                if vp <= 0:
+                    continue
+                self._razed_objectives.add(idx)
+                if is_a:
+                    self._a_vp += vp
+                else:
+                    self._b_vp += vp
 
     # ------------------------------------------------------------------
     # Wave 121 — AI-pursuit layer for held Tactical secondary cards
@@ -8128,6 +8239,7 @@ class Battle:
             # units are skipped by _do_shoot / _do_charge below.
             self._assign_cleanse_actions(active, other)
             self._assign_sabotage_actions(active, other)
+            self._assign_burn_actions(active, other)
             # Wave 79: army-level focus fire — nominate the single most valuable
             # durable enemy threat the army can hurt, so its anti-armour
             # concentrates to REMOVE it (how a real list deletes a Knight),
