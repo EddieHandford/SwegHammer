@@ -164,6 +164,18 @@ CP_BONUS_CAP = 2        # max CP awarded per round
 # squad-rebuild Stage B post-move coherency pass.
 COHERENCY_INCHES = 2.0
 
+# OC-FLIP over-hold INSTRUMENT (#79, wave 192) — read-only accumulator, populated
+# only when the env gate SWEG_OCFLIP_INSTR is set. Quantifies objective-rounds
+# where a damaged big durable holder (a Knight / Titanic or big VEHICLE/MONSTER
+# now in its damaged bracket, so effective OC < base OC) controls a marker the
+# opponent COULD flip by committing nearby bodies (reachable OC > holder's
+# effective on-marker OC). No behaviour change — purely measured. A diag runner
+# resets and reads this. Keys: held = obj-rounds a damaged big-holder controls a
+# marker; flippable = of those, how many the opponent could flip with nearby
+# bodies; surplus = summed (opponent reachable OC − holder OC) over flippable.
+OCFLIP_STATS = {"held": 0, "flippable": 0, "surplus": 0.0,
+                "held_any": 0, "flippable_any": 0}
+
 
 @dataclass(frozen=True)
 class RulesConfig:
@@ -914,6 +926,10 @@ class Battle:
             # squad can no longer contest several markers at once.
             a_oc = a_oc_by_obj.get(obj_idx, 0)
             b_oc = b_oc_by_obj.get(obj_idx, 0)
+            # OC-FLIP instrument (#79) — read-only, gated. Measures the over-pole
+            # over-hold opportunity; no behaviour change.
+            if __import__("os").environ.get("SWEG_OCFLIP_INSTR"):
+                self._ocflip_instrument(obj, a_oc, b_oc)
             a_sticky_present = a_sticky_by_obj.get(obj_idx, False)
             b_sticky_present = b_sticky_by_obj.get(obj_idx, False)
             a_has_dg_unit = a_dg_by_obj.get(obj_idx, False)
@@ -1137,6 +1153,66 @@ class Battle:
         if thr and pen and u.current_health <= thr:
             return max(0, base - pen)            # floor at 0 — never negative
         return base
+
+    def _ocflip_instrument(self, obj, a_oc, b_oc) -> None:
+        """OC-FLIP over-hold instrument (#79, gated SWEG_OCFLIP_INSTR). For one
+        objective this round, record whether a damaged big durable holder controls
+        it while the opponent has enough reachable nearby Objective Control to flip
+        it. Read-only — accumulates into the module-level OCFLIP_STATS. `a_oc`/`b_oc`
+        are the coherency-assigned summed OC already computed by _score_objectives."""
+        if a_oc == b_oc:
+            return
+        if a_oc > b_oc:
+            holder, opp, holder_oc = self.a, self.b, a_oc
+        else:
+            holder, opp, holder_oc = self.b, self.a, b_oc
+        r2 = obj.control_radius * obj.control_radius
+        # "nearby committable" = within the control radius plus roughly one Normal
+        # Move (a body one move away can step onto the marker next turn).
+        commit_r2 = (obj.control_radius + 7.0) ** 2
+        # Is the holder's on-marker OC propped by a big durable model
+        # (Knight/Titanic, or big VEHICLE/MONSTER >= 18 wounds)? Track BOTH the
+        # broad case (any health) and the damaged sub-case (effective OC reduced
+        # below base because it is in its Damaged bracket) — so we can tell whether
+        # the over-hold is a GENERAL AI-not-contesting gap or specific to the
+        # damaged-OC window the OC-flip lever targets.
+        big_any = False
+        big_dmg = False
+        for u in holder.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy <= r2:
+                base = getattr(u.profile, "oc", 0) or 0
+                kw = set(u.profile.unit_keywords or ())
+                big = "TITANIC" in kw or (
+                    ("VEHICLE" in kw or "MONSTER" in kw)
+                    and (u.profile.health or 0) >= 18
+                )
+                if big:
+                    big_any = True
+                    if self._effective_oc(u) < base:
+                        big_dmg = True
+        if not big_any:
+            return
+        opp_reach = 0
+        for u in opp.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy <= commit_r2:
+                opp_reach += self._effective_oc(u)
+        flippable = opp_reach > holder_oc
+        OCFLIP_STATS["held_any"] += 1
+        if flippable:
+            OCFLIP_STATS["flippable_any"] += 1
+        if big_dmg:
+            OCFLIP_STATS["held"] += 1
+            if flippable:
+                OCFLIP_STATS["flippable"] += 1
+                OCFLIP_STATS["surplus"] += (opp_reach - holder_oc)
 
     def _oc_within(self, army, obj) -> int:
         """Summed Objective Control of `army`'s alive units within an objective's
