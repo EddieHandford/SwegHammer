@@ -4,6 +4,31 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 189 (2026-06-05) — THREAT-PRIORITY targeting BUILT but WRONG-DIRECTION alone (IK 25.52→28.21) — the over-pole is COMPOUND: aiming needs the anti-tank to be STRONG enough to kill the Knight first
+
+User mathhammer (via watchdog) confirmed the over-pole's biggest axis is targeting: opponents HAVE anti-tank but the AI
+fires it at the Armigers, not the Knight. Built `Battle._threat_priority_bonus` (gated SWEG_THREATPRIO, default-OFF): an
+anti-armour weapon gets a 3× target-priority on a big durable high-threat model (TITANIC, or VEHICLE/MONSTER ≥18 wounds — a
+Knight/Titanic, NOT a 14-wound Armiger), so the lowest-health picker prefers it over chaff. Even-handed (any anti-tank vs
+any such target). OFF byte-identical, audit clean, 25 tests, gate verified redirecting fire onto the big Knights.
+
+**N=80 A/B (SWEG_THREATPRIO=1 vs 5.76, `data/wf_wave189_threatprio_n80.txt`): REGRESSED — MAE 5.76→5.92 (+0.16); Imperial
+Knights 25.52→28.21 (+2.69, WORSE).** The THIRD targeting lever to backfire (after FOCUSFIRE 28.47 / FOCUS 27.95). The
+mechanism, exactly as the watchdog's mathhammer predicted: threat-priority is EVEN-HANDED, so it ASYMMETRICALLY helps the
+side whose anti-tank can actually KILL its target. IK's anti-tank efficiently kills the opponents' softer vehicles; the
+opponents' UNDER-POWERED anti-tank gets redirected onto the 26-wound Knight it CAN'T kill (sim deals ~1.8 dmg/phase vs
+real ~9.6 — shot-count/squad-size + unmodelled Dread Majesty / Lethal Hits / Heavy), so it is WASTED → IK rises. **Aiming
+the anti-tank at the Knight is wrong-direction UNTIL the anti-tank is strong enough to kill it when aimed.**
+
+→ The over-pole is COMPOUND (the watchdog's 3-bug picture): (1) targeting [built, gated, wrong-direction ALONE], (2)
+anti-tank STRENGTH — the opponents' anti-tank under-deals (squad-size: competitive units fielded at min_models, e.g.
+Lokhust 1→3; + unmodelled Necron damage-buffs Dread Majesty/Lethal/Heavy), (3) minor. **Targeting + strength must land
+TOGETHER (the anti-Knight STACK pattern).** SWEG_THREATPRIO stays gated (wrong-direction alone; it becomes right-direction
+only once the redirected anti-tank can actually kill the Knight). NEXT (watchdog steer): the anti-tank STRENGTH —
+instrument the squad-size shortfall (which competitive anti-tank units field below their competitive size) + the unmodelled
+damage-buffs, build them, THEN re-test the stack (strength + threat-prio). The damaged-hit −1 (wave 188) stays default-ON
+(it's faithful + right-direction independently).
+
 ## Wave 188 (2026-06-05) — over-pole hunt: found + built the unmodelled Knight DAMAGED-bracket −1-to-Hit (FIRST lever to move IK the RIGHT way: 26.00→25.52, faithful)
 
 The user rejected the floor (reality is an existence proof a faithful sim reaches ~47% Knights). Comprehensive over-pole
