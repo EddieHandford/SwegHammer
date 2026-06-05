@@ -1117,31 +1117,25 @@ class Battle:
         cleanly reads −5. RESOLVED (watchdog Q9): use the cache −5 — BSData
         rule-6 governs; the −4 came from an unreliable web summary."""
         base = getattr(u.profile, "oc", 1) or 1
-        _env = __import__("os").environ
-        # Stage 3 (#77): the GENERALIZED data-driven path applies the real
-        # per-datasheet Damaged OC penalty (UnitProfile.damaged_oc_penalty,
-        # extracted from BSData) to ANY unit, and SUPERSEDES the Knight-only
-        # heuristic below (no double-application). When SWEG_DMGBRACKET is set it
-        # is the source of truth for every model with a real bracket; the
-        # Knight-only SWEG_DMGOC path remains the interim default only while
-        # SWEG_DMGBRACKET is unset. Cited `simulator.damaged_bracket`.
-        if _env.get("SWEG_DMGBRACKET"):
-            thr = getattr(u.profile, "damaged_threshold", 0) or 0
-            pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
-            if thr and pen and u.current_health <= thr:
-                return max(0, base - pen)        # floor at 0 — never negative
+        # 10e Damaged-bracket Objective-Control reduction — data-driven from the
+        # real per-datasheet "Damaged: 1-X Wounds Remaining" bracket
+        # (UnitProfile.damaged_oc_penalty, BSData-extracted via the link-resolving
+        # mapper) and applied to EVERY model with a bracket (#77, wave 191).
+        # Default-ON; SWEG_DMGBRACKET=0 disables for an isolation A/B. This RETIRED
+        # the Knight-only SWEG_DMGOC heuristic (wave 85), which degraded only the 6
+        # Knight datasheets — a partial-faithful bias. The N=80 generalization A/B
+        # was metric-neutral (gated 5.76 -> 5.71) and strictly more faithful: 260
+        # catalogue units (incl. T'au Stormsurge/Riptide, Custodes / World Eaters
+        # dreadnoughts, AdMech / Necron vehicles) now lose Objective Control while
+        # damaged, per their own datasheet. The data-driven Knight values reproduce
+        # the retired heuristic exactly (Questoris 1-9/−5, Armiger 1-5/−3, Dominus
+        # 1-10/−5). Cited `simulator.damaged_bracket`.
+        if __import__("os").environ.get("SWEG_DMGBRACKET", "1") == "0":
             return base
-        if _env.get("SWEG_DMGOC", "1") == "0":
-            return base
-        if (u.profile.faction or "") not in ("Imperial Knights", "Chaos Knights"):
-            return base
-        if base <= 6:
-            threshold, penalty = 5, 3            # Armiger / War Dog: 1-5, −3
-        else:
-            threshold = 10 if u.profile.health >= 28 else 9   # Dominus 1-10 / Questoris 1-9
-            penalty = 5                           # −5 (BSData cache; codex review claims −4)
-        if u.current_health <= threshold:
-            return max(0, base - penalty)        # floor at 0 — never negative
+        thr = getattr(u.profile, "damaged_threshold", 0) or 0
+        pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+        if thr and pen and u.current_health <= thr:
+            return max(0, base - pen)            # floor at 0 — never negative
         return base
 
     def _oc_within(self, army, obj) -> int:
