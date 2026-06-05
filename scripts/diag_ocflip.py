@@ -52,7 +52,8 @@ def run_pair(knight_fac: str, opp_fac: str, knight_side: str, seed: int) -> None
 def main() -> None:
     simulator.OCFLIP_STATS.update(held=0, flippable=0, surplus=0.0,
                                   held_any=0, flippable_any=0,
-                                  fc_melee_oc=0.0, fc_free_oc=0.0, fc_noshoot_oc=0.0)
+                                  fc_melee_oc=0.0, fc_free_oc=0.0, fc_noshoot_oc=0.0,
+                                  burn_reachable=0)
     games = 0
     for kf in KNIGHTS:
         for opp in OPPONENTS:
@@ -83,6 +84,10 @@ def main() -> None:
         print(f"  shooty FREE-CONTEST (shoots+holds):  {fcf:7.0f}  ({100*fcf/tot:.0f}%)  <-- the lever's target")
         print(f"  shooty would LOSE shots (don't pull): {fcn:6.0f}  ({100*fcn/tot:.0f}%)")
     print()
+    br = s.get("burn_reachable", 0)
+    if held_any:
+        print(f"BURN-reachable (opponent unit could reach the held marker, not engaged):")
+        print(f"  {br} of {held_any} big-holder marker-rounds ({100*br/held_any:.0f}%)  <-- Scorched Earth Burn opportunity")
     print("Reading: high BROAD flippable% = a GENERAL AI-not-contesting gap. The")
     print("FREE-CONTEST % sizes the watchdog's increment (shooty units that could")
     print("step onto a winnable marker AND still shoot — a zero-cost contest #12 misses).")

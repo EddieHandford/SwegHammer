@@ -181,7 +181,13 @@ OCFLIP_STATS = {"held": 0, "flippable": 0, "surplus": 0.0,
                 # shoot FROM the marker (the FREE-CONTEST opportunity the lever
                 # should add), and shooty that would LOSE its shots from there
                 # (correctly not pulled — a gunline-pull).
-                "fc_melee_oc": 0.0, "fc_free_oc": 0.0, "fc_noshoot_oc": 0.0}
+                "fc_melee_oc": 0.0, "fc_free_oc": 0.0, "fc_noshoot_oc": 0.0,
+                # BURN-reachability (#87 avenue-1): of the obj-rounds a damaged big
+                # holder controls a marker, how many have an OPPONENT unit that
+                # could REACH the marker (within ~one move) and is NOT engaged — so
+                # it could perform the Scorched Earth Burn Action (remove the
+                # marker for VP, no OC win needed). Pre-check before the Burn build.
+                "burn_reachable": 0}
 
 # OVER-SCORE instrument (#83) — per-faction split of scored markers into
 # (iii) contested-but-won vs (i) uncontested. Populated only when
@@ -1270,6 +1276,24 @@ class Battle:
                 opp_reach += self._effective_oc(u)
         flippable = opp_reach > holder_oc
         OCFLIP_STATS["held_any"] += 1
+        # BURN-reachability (#87): could an opponent unit reach this held marker and
+        # perform the Burn Action? Needs only to get within ~one move and NOT be
+        # engaged (no OC contest required — burning removes the marker outright).
+        _burn_r2 = (obj.control_radius + 8.0) ** 2
+        for u in opp.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy > _burn_r2:
+                continue
+            engaged = any(
+                (u.position[0] - h.position[0]) ** 2 + (u.position[1] - h.position[1]) ** 2 <= 1.0
+                for h in holder.alive_units
+            )
+            if not engaged:
+                OCFLIP_STATS["burn_reachable"] += 1
+                break
         if flippable:
             OCFLIP_STATS["flippable_any"] += 1
             # Decompose the reachable opponent OC by WHY it isn't contesting:
