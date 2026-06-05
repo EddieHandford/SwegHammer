@@ -4,6 +4,27 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 202 (2026-06-05) — FAIR avenue-1 measurement COMPLETE (Terraform added): 4-mission deck = gated 5.19 (baseline). Scoring rotation is faithfully DONE + metric-neutral by construction → decisive lever is avenue 2 (selective displacement)
+
+Watchdog asked for a FAIR avenue-1 ceiling: keep the Burn (affirmed, default-ON for the Scorched mission), keep the deck
+built+gated (NOT flipped — Purge over-inflates IK), and MODEL TERRAFORM, then re-measure the deck. Done:
+- **Burn default-ON for the Scorched mission** (commit, SWEG_SCORCHED_BURN=0 disables for A/B; inert in the default eval).
+- **Terraform primary + Terraform Action** (commit `a87dd21`, cited `simulator.primary_terraform`): 4 VP/controlled marker
+  (cap 12) + 1 VP/marker terraformed by you. The Action mirrors the Burn infra + the `_unit_can_perform_action` contract
+  (STARTS on range, COMPLETES on control — WebFetch-verified verbatim). Emergent displacement: a Knight's all-productive
+  units terraform ~0, a body army's spare bodies do.
+- **All-Terraform upper bound (N=80): IK 71.7→63.6% (gated ~21→12.96, −8) and AM 24.9→32.4 / AdMech 26.8→29.5** — the
+  mechanism cracks IK AND lifts the under-pole, the right direction. But it ALSO lifts the over-shooters (WE 15.70, EC 9.40,
+  Sororitas) because it's a blanket forward-aggression reward → headline ~neutral (5.28).
+- **4-mission deck re-measure (TaH 70% / Purge 10% / Scorched 10% / Terraform 10%, N=80): gated 5.19 = the baseline.** IK
+  71.5% (20.84), unchanged. The 1/10 crack dilutes ~10× and Purge re-inflates IK.
+
+**Verdict — avenue 1 is faithfully DONE and metric-neutral BY CONSTRUCTION:** a primary-SCORING lever is a blanket
+forward-aggression reward; it cannot distinguish the durable Knight we want DOWN from the aggressive melee armies we want
+HELD. Three of the ten real CA-2025-26 primaries now score their real rule; all kept (faithful, gated). The decisive lever
+is **avenue 2 — selective displacement (maneuver/board-control AI that pushes/removes the un-removable Knight off markers)**,
+the user's reserved decide-point (escalated via the watchdog). Tests green, audit clean, cli 0.
+
 ## Wave 201 (2026-06-05) — AVENUE 1 (mission/scoring displacement) MEASURED → metric-NEUTRAL; the displacement lever is Avenue 2 (maneuver), not the scoring deck
 
 User greenlit the displacement re-model via 3 avenues (measured/bounded). Avenue 1 = mission/scoring pressure. Built the
