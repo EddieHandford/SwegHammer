@@ -8415,6 +8415,36 @@ class Battle:
             return True
         return (u.profile.health or 0) >= 8
 
+    def _threat_priority_bonus(self, attacker, target) -> float:
+        """Wave 189 (#75) — THREAT-PRIORITY targeting (env-gated SWEG_THREATPRIO,
+        default OFF). The lowest-health target picker never selects a high-wound
+        board-dominator: a 26-wound Knight always scores worse than a 14-wound
+        Armiger or chaff, so the AI's anti-armour weapons are spent on the easy
+        targets and the Knight is essentially never removed — a primary driver of
+        the Imperial Knights over-rate (object-trace: 2/5 Knights end untouched at
+        full health; a user mathhammer found a real Necron unit kills a Knight in
+        ~2.7 turns IF aimed, but the sim aims it at the Armigers). Real players
+        COMMIT anti-tank into the board-dominator even at lower kill-efficiency.
+        When THIS attacker carries an anti-armour weapon (_is_antiarmour_weapon)
+        and the target is a big durable high-threat model (TITANIC, or a
+        VEHICLE/MONSTER with >= 18 wounds — a Knight / Titanic / big monster, NOT a
+        14-wound Armiger), return a multiplier that lowers the target's effective
+        health in the lowest-health picker so the anti-armour weapon prefers it
+        over chaff. Even-handed: ANY anti-armour weapon vs ANY such target, no
+        faction gate. AI targeting heuristic — no 10e rule citation (a target
+        preference, like the screen / synapse / transport target bonuses)."""
+        if __import__("os").environ.get("SWEG_THREATPRIO") != "1":
+            return 1.0
+        if not self._is_antiarmour_weapon(attacker.profile):
+            return 1.0
+        kw = target.profile.unit_keywords or ()
+        if "TITANIC" in kw or (
+            ("VEHICLE" in kw or "MONSTER" in kw)
+            and (target.profile.health or 0) >= 18
+        ):
+            return 3.0
+        return 1.0
+
     def _nominate_focus_target(self, army, opponent) -> None:
         """Wave 79 — army-level focus fire (env-gated SWEG_FOCUS). Once per turn,
         nominate the single most valuable durable enemy threat the army can hurt,
@@ -9033,6 +9063,7 @@ class Battle:
                     * _transport_target_bonus(u)
                     * _drukhari_fragile_flyer_bonus(u)
                     * _kite_target_bonus(u, attacker_army)
+                    * self._threat_priority_bonus(attacker, u)
                 ),
             )
 
