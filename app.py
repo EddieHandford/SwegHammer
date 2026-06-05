@@ -260,28 +260,40 @@ def _units_in_faction(faction: str) -> List[str]:
     )
 
 
-def _composition_total_points(comp: List[Tuple[str, int]]) -> float:
-    return sum(UNIT_CATALOG[k].points_cost * n for k, n in comp if n > 0)
+# Composition rows are (unit_key, num_squads) — legacy, presets/random — OR
+# (unit_key, num_squads, models_per_squad) from the army-list builder. The
+# `*rest` unpack tolerates both; a missing size defaults to 1 (the legacy
+# one-model-per-instance behaviour), while the builder passes an explicit
+# squad size in [min_models, max_models].
+def _composition_total_points(comp) -> float:
+    total = 0.0
+    for k, n, *rest in comp:
+        if n <= 0:
+            continue
+        size = int(rest[0]) if rest else 1
+        total += UNIT_CATALOG[k].points_cost * max(1, size) * n
+    return total
 
 
-def _composition_faction(comp: List[Tuple[str, int]]) -> str:
+def _composition_faction(comp) -> str:
     """The faction of the first non-zero entry — used to pick the army's colour."""
-    for k, n in comp:
+    for k, n, *rest in comp:
         if n > 0:
             return UNIT_CATALOG[k].faction
     return ""
 
 
-def _build_army_from_composition(
-    name: str, comp: List[Tuple[str, int]], in_cover: bool = False,
-) -> Army:
-    keys: List[str] = []
-    for unit_key, count in comp:
-        keys.extend([unit_key] * max(0, int(count)))
-    if not keys:
-        # No units selected — return an empty army (battle will just walk over)
-        return Army(name, in_cover=in_cover)
-    return build_army_from_list(name, keys, in_cover=in_cover)
+def _build_army_from_composition(name: str, comp, in_cover: bool = False) -> Army:
+    army = Army(name, in_cover=in_cover)
+    for unit_key, count, *rest in comp:
+        count = max(0, int(count))
+        if count == 0:
+            continue
+        profile = UNIT_CATALOG[unit_key]
+        size = max(1, int(rest[0]) if rest else 1)
+        for _ in range(count):
+            army.add_squad(profile, size)
+    return army
 
 
 def _composition_from_random(
@@ -1365,8 +1377,8 @@ with st.sidebar:
         # discriminates by `mode` directly.
         points = budget
         # Headline unit for the preview cards = first non-zero
-        profile_a = UNIT_CATALOG[next((k for k, n in a_comp if n > 0), a_comp[0][0])] if a_comp else None
-        profile_b = UNIT_CATALOG[next((k for k, n in b_comp if n > 0), b_comp[0][0])] if b_comp else None
+        profile_a = UNIT_CATALOG[next((k for k, n, *_ in a_comp if n > 0), a_comp[0][0])] if a_comp else None
+        profile_b = UNIT_CATALOG[next((k for k, n, *_ in b_comp if n > 0), b_comp[0][0])] if b_comp else None
 
     else:
         # --- Custom: per-army faction filter + multi-unit composition -----
@@ -1387,17 +1399,26 @@ with st.sidebar:
                 st.warning(f"No units in {faction}.")
                 return army_name, faction, []
 
+            def _default_size(uk: str) -> int:
+                return max(1, UNIT_CATALOG[uk].min_models)
+
+            def _seed():
+                # Rows are (unit_key, num_squads, models_per_squad).
+                return [(available[0], 1, _default_size(available[0]))]
+
             state_key = f"{side}_comp"
             if state_key not in st.session_state:
-                st.session_state[state_key] = [(available[0], 5)]
+                st.session_state[state_key] = _seed()
+            # Reset if any row's unit no longer belongs to the chosen faction.
+            if not all(row[0] in available for row in st.session_state[state_key]):
+                st.session_state[state_key] = _seed()
 
-            # Reset rows that no longer belong to the chosen faction
-            if not all(uk in available for uk, _ in st.session_state[state_key]):
-                st.session_state[state_key] = [(available[0], 5)]
-
-            new_comp: List[Tuple[str, int]] = []
-            for i, (uk, cnt) in enumerate(st.session_state[state_key]):
-                c1, c2 = st.columns([5, 2])
+            new_comp: List[Tuple[str, int, int]] = []
+            for i, row in enumerate(st.session_state[state_key]):
+                uk = row[0]
+                cnt = int(row[1]) if len(row) > 1 else 1
+                cur_size = int(row[2]) if len(row) > 2 else _default_size(uk)
+                c1, c2, c3 = st.columns([5, 2, 3])
                 chosen = c1.selectbox(
                     f"Unit type {i + 1}", available,
                     index=available.index(uk),
@@ -1405,22 +1426,40 @@ with st.sidebar:
                     key=f"{side}_u_{i}",
                 )
                 count = c2.number_input(
-                    "Count", min_value=0, max_value=99, value=int(cnt), step=1,
+                    "Squads", min_value=0, max_value=99, value=cnt, step=1,
                     key=f"{side}_c_{i}",
                 )
-                new_comp.append((chosen, int(count)))
+                lo = max(1, UNIT_CATALOG[chosen].min_models)
+                hi = max(lo, UNIT_CATALOG[chosen].max_models)
+                # Clamp the carried size into the chosen unit's legal range
+                # (reset to min if the unit just changed).
+                base = cur_size if chosen == uk else lo
+                size_val = min(hi, max(lo, base))
+                if hi > lo:
+                    size = c3.number_input(
+                        f"Models/squad ({lo}–{hi})",
+                        min_value=lo, max_value=hi, value=size_val, step=1,
+                        key=f"{side}_s_{i}",
+                    )
+                else:
+                    c3.caption(f"{lo}-model unit")
+                    size = lo
+                new_comp.append((chosen, int(count), int(size)))
             st.session_state[state_key] = new_comp
 
             cc1, cc2 = st.columns(2)
             if cc1.button(f"+ Add unit type", key=f"{side}_add"):
-                st.session_state[state_key].append((available[0], 1))
+                st.session_state[state_key].append(
+                    (available[0], 1, _default_size(available[0]))
+                )
                 st.rerun()
             if len(new_comp) > 1 and cc2.button("− Remove last", key=f"{side}_rm"):
                 st.session_state[state_key].pop()
                 st.rerun()
 
             total_pts = _composition_total_points(new_comp)
-            total_models = sum(n for _, n in new_comp if n > 0)
+            total_squads = sum(n for _, n, _ in new_comp if n > 0)
+            total_models = sum(n * sz for _, n, sz in new_comp if n > 0)
             st.caption(f"**{total_pts:.0f} pts** across {total_models} models")
             return army_name, faction, new_comp
 
@@ -1440,8 +1479,8 @@ with st.sidebar:
         )
         # profile_a/b are used by the unit card and the points-curve sweep;
         # in mixed mode we surface the *headline* unit (first non-zero).
-        profile_a = UNIT_CATALOG[next((k for k, n in a_comp if n > 0), a_comp[0][0])] if a_comp else None
-        profile_b = UNIT_CATALOG[next((k for k, n in b_comp if n > 0), b_comp[0][0])] if b_comp else None
+        profile_a = UNIT_CATALOG[next((k for k, n, *_ in a_comp if n > 0), a_comp[0][0])] if a_comp else None
+        profile_b = UNIT_CATALOG[next((k for k, n, *_ in b_comp if n > 0), b_comp[0][0])] if b_comp else None
 
     st.divider()
     st.subheader("Battlefield")
@@ -1540,16 +1579,20 @@ def _render_army_overview(
     total_models = 0
     total_wounds = 0.0
     total_pts = 0.0
-    for unit_key, count in comp:
+    for unit_key, count, *rest in comp:
         if count <= 0:
             continue
+        size = max(1, int(rest[0]) if rest else 1)
+        models = count * size
         p = UNIT_CATALOG[unit_key]
-        unit_pts = p.points_cost * count
-        unit_hp = p.health * count
+        unit_pts = p.points_cost * models
+        unit_hp = p.health * models
         sv_str = f"{p.save}+" if p.save <= 6 else "—"
         rows.append({
             "Unit":   p.name,
-            "Count":  count,
+            "Squads": count,
+            "Size":   size,
+            "Models": models,
             "W":      f"{p.health:g}",
             "T":      p.toughness,
             "Sv":     sv_str,
@@ -1559,7 +1602,7 @@ def _render_army_overview(
             "Total":  f"{unit_pts:.0f}",
             "Abil":   _ability_glyphs(p),
         })
-        total_models += count
+        total_models += models
         total_wounds += unit_hp
         total_pts += unit_pts
 
