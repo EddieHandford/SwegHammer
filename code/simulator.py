@@ -1611,9 +1611,17 @@ class Battle:
                 dx = u.position[0] - obj.x
                 dy = u.position[1] - obj.y
                 d2 = dx * dx + dy * dy
-                if d2 <= obj.control_radius * obj.control_radius and (
-                    best_d2 is None or d2 < best_d2
-                ):
+                if d2 > obj.control_radius * obj.control_radius:
+                    continue
+                # Real CA-2025-26 rule: the active army must CONTROL the marker to
+                # Burn it (not merely reach it) — so to raze the over-holder's
+                # marker the opponent must first WIN the OC contest there (the
+                # Knight's high OC protects its markers unless it is damaged /
+                # out-massed, dovetailing with the contest lever). Without this gate
+                # the burn over-fires (over-pole crashed unfaithfully + horde spam).
+                if self._oc_within(active, obj) <= self._oc_within(other, obj):
+                    continue
+                if best_d2 is None or d2 < best_d2:
                     best_d2 = d2
                     best_idx = obj_idx
             if best_idx is None:
@@ -1644,7 +1652,12 @@ class Battle:
                     continue
                 if not self._action_completes(u, foe):
                     continue
-                vp = self._obj_burnable_for(self.map.objectives[idx], is_a)
+                obj = self.map.objectives[idx]
+                # Real rule completion gate: still CONTROL the marker at the end
+                # (else the opponent re-took it and the Burn fails).
+                if self._oc_within(army, obj) <= self._oc_within(foe, obj):
+                    continue
+                vp = self._obj_burnable_for(obj, is_a)
                 if vp <= 0:
                     continue
                 self._razed_objectives.add(idx)
