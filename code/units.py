@@ -1998,6 +1998,33 @@ class Unit:
             hit_mod_delta: int = 0
             wound_mod_delta: int = 0
 
+            # ---- Wave 188 (#73) — Knight DAMAGED-bracket -1 to the Hit roll
+            # (env-gated SWEG_DMGHIT; default OFF so the baseline is byte-identical
+            # for the isolation A/B). Real 10e Knight datasheets carry, in the SAME
+            # damage-table row the simulator already reads for the Objective Control
+            # reduction (Battle._effective_oc, wave 85): "While this model has 1-9
+            # wounds remaining [Questoris] / 1-5 [Armiger] / 1-10 [Dominus],
+            # subtract N from this model's Objective Control characteristic AND each
+            # time this model makes an attack, subtract 1 from the Hit roll."
+            # (Verbatim, Wahapedia Knight Paladin + Armiger Warglaive.) The sim
+            # modelled only the OC half, so a damaged Knight kept full 3+ accuracy
+            # when real 10e drops it to 4+ — it over-killed through the back half of
+            # every game (the over-pole). Same faction gate + per-chassis thresholds
+            # as _effective_oc; applies to BOTH shooting and melee ("makes an
+            # attack"); composes with the +-1 Hit-modifier cap below. Cited
+            # `simulator.damaged_hit_bracket`.
+            if (
+                __import__("os").environ.get("SWEG_DMGHIT") == "1"
+                and (self.profile.faction or "") in ("Imperial Knights", "Chaos Knights")
+            ):
+                _dmg_base_oc = getattr(self.profile, "oc", 0) or 0
+                if _dmg_base_oc <= 6:
+                    _dmg_threshold = 5                     # Armiger / War Dog: 1-5
+                else:
+                    _dmg_threshold = 10 if (self.profile.health or 0) >= 28 else 9
+                if self.current_health <= _dmg_threshold:
+                    hit_mod_delta -= 1
+
             # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
             # enhancement — all merged to a single bool by leaders.effective_buffs).
             if att_buffs["plus_one_to_hit"]:
