@@ -2505,7 +2505,7 @@ def pick_move_intent(
             # AFFORDABLE guard is the hold-check above (a marginal friendly-marker
             # holder already returned _HOLD_INTENT and never reaches here, so this
             # only ever moves SPARE bodies). Default-OFF => byte-identical.
-            if __import__("os").environ.get("SWEG_FREECONTEST"):
+            if __import__("os").environ.get("SWEG_FREECONTEST", "1") != "0":
                 _fc_move = effective_move(unit)
                 _fc_unit_eff = _effective_oc_value(unit)
                 _fc_best_obj = None
