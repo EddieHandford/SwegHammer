@@ -514,6 +514,9 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # marker terraformed by you (the Terraform Action, `_assign_terraform_actions` /
     # `_resolve_terraforms`, marks forward markers your spare bodies control).
     "simulator.primary_terraform",
+    # Wave 203 (#87) — The Ritual primary: 5VP per No Man's Land marker controlled
+    # (cap 15); home-zone markers score nothing (the_ritual branch of _score_objectives).
+    "simulator.primary_the_ritual",
     # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
     # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
     # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so

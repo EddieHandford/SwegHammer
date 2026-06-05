@@ -979,6 +979,10 @@ class Battle:
         b_th_award = 0
         a_controls = 0
         b_controls = 0
+        # The Ritual primary scores ONLY No Man's Land markers — track those
+        # controlled-marker counts separately (per-side).
+        a_controls_nml = 0
+        b_controls_nml = 0
 
         for obj_idx, obj in enumerate(self.map.objectives):
             # Scorched Earth Burn (#87): a RAZED marker is gone from the board —
@@ -1082,8 +1086,12 @@ class Battle:
             # independent of the only_for command-phase filter.
             if scorer == self.a.name:
                 a_controls += 1
+                if self._obj_in_nml(obj):
+                    a_controls_nml += 1
             elif scorer == self.b.name:
                 b_controls += 1
+                if self._obj_in_nml(obj):
+                    b_controls_nml += 1
             _award = scorer if (only_for is None or scorer == only_for) else None
             if _award == self.a.name:
                 a_th_award += obj.vp_per_round
@@ -1154,6 +1162,22 @@ class Battle:
                 self._a_vp += min(4 * a_controls, 12) + a_terra
             if only_for is None or only_for == self.b.name:
                 self._b_vp += min(4 * b_controls, 12) + b_terra
+        elif mission == "the_ritual":
+            # The Ritual (Chapter Approved 2025-26): "5VP for each objective marker
+            # in No Man's Land that they control (up to 15VP per turn)." HOME-zone
+            # markers score NOTHING, so a back-camping gunline scores 0 and every
+            # army must contest the centre. The Ritual ACTION (set up a NEW marker in
+            # No Man's Land 12" from another) is NOT modelled — the sim's objectives
+            # are fixed, so dynamic marker creation is out of scope for the bounded
+            # avenue-1 close; only the No-Man's-Land-only hold pressure is captured
+            # here (noted in the citation, the same partial-then-extend pattern as
+            # Scorched's hold-before-Burn). a_controls_nml / b_controls_nml are the
+            # per-side No Man's Land controlled-marker counts. Cited
+            # simulator.primary_the_ritual.
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += min(5 * a_controls_nml, 15)
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += min(5 * b_controls_nml, 15)
         else:
             # take_and_hold (default, byte-identical to the legacy behaviour):
             # award the accumulated per-objective VP, then apply the 15 VP/round
