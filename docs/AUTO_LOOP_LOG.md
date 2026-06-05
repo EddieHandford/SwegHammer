@@ -4,6 +4,35 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 192 (2026-06-05) — BALANCED OBJECTIVE-CONTEST AI lever LANDED default-ON: the FIRST lever in many waves to move the over-pole DOWN (IK gated 25.63→21.19, −4.44) — faithfully, via a balanced contest (over-flood tell PASSED), headline 5.71→5.52
+
+The wave-191 damaged-OC generalization gave the opponent a real way to flip the Knight without killing it (a chipped Knight is OC 5,
+not 10). The wave-192 OC-flip INSTRUMENT (scripts/diag_ocflip.py, gated read-only, commit acf6cd3) localized the over-hold as a
+GENERAL AI-not-contesting gap: of 650 obj-rounds a big Knight/Titanic controls a marker, the opponent had reachable nearby OC to flip
+228 (35%) but never committed bodies; the damaged-only slice is tiny (12). Watchdog greenlit the BALANCED contest lever plan-first
+(docs/OC_CONTEST_LEVER_PLAN.md, acf3b41) with the wave-95 Stage-E over-flood rail front-and-centre.
+
+**Built (gated SWEG_CONTEST, commit 6e155dc) — refines the EXISTING STEAL value in pick_move_intent, not a new flood system:** an
+enemy-held marker's steal value is made WINNABLE + bracket-aware (×1.7 only when our potential EFFECTIVE OC > enemy EFFECTIVE OC
+there — new `_effective_oc_value` / `_effective_oc_on_objective` helpers, since raw `_oc_on_objective` misses the bracket; ×0.3 if
+unwinnable even by committing this body; ×0.6 JUST-ENOUGH no-pile-on once we already win it). The AFFORDABLE guard is the pre-existing
+hold-check — a marginal friendly-marker holder holds and never reaches the contest, so only SPARE bodies contest. Mechanism (diag):
+flippable-but-uncontested 34%→27%.
+
+**N=80 A/B → KEEP + FLIP default-ON (2ef7c4c), per the watchdog keep-if-faithful decider:**
+| | gated MAE | Imperial Knights | Chaos Knights |
+|---|---|---|---|
+| baseline (wave 191) | 5.71 | 76.3% / 25.63 | 6.42 |
+| SWEG_CONTEST=1 | **5.52** | **71.9% / 21.19 (−4.44)** | **1.29 (in band)** |
+
+**The over-flood TELL PASSED** (the decider): the contesting under-shooters HELD or improved — Astra Militarum 28.7→28.6, AdMech
+28.1→28.8, Necrons 46.3→49.9 (toward its 53.5 target) — so IK fell via a BALANCED contest (spare bodies flip winnable markers), NOT a
+Stage-E cheap-OC flood (which would crater the contesters' own win rate; it regressed to 6.50 in wave 95). Even-handed side-effect:
+Aeldari (+3.2→−2.9) and Chaos Daemons (−1.1→−5.8) fall too because THEIR big holders (Wraithknight, Greater Daemon) now get contested —
+faithful, though they overshoot target (a TUNING note: the ×1.7 boost may be slightly hot for those; candidate ×1.5 follow-up, NOT a
+reject). New baseline gated **5.52**. The over-pole is finally reachable by faithful objective-game fidelity — the user's "keep hunting,
+77% is an unfaithful mechanism not a floor" ruling vindicated.
+
 ## Wave 191 (2026-06-05) — keyword instrument REFUTED + the DAMAGED-BRACKET GENERALIZATION LANDED default-ON (even-handed, metric-neutral 5.76→5.71): the real per-datasheet "Damaged" bracket now degrades ALL 260 big models, not just the 6 Knight datasheets
 
 Watchdog priority #1 (keyword instrument) REFUTED: anti-tank keyword coverage (Lethal/Sustained/Devastating/Heavy/Melta) is at
