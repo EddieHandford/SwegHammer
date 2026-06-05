@@ -1,14 +1,16 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 202 (2026-06-05) — AVENUE 1 (mission/scoring displacement) MEASURED + DONE. Gated MAE **5.76 → 5.19**
-this session (objective-game arc), then the user-greenlit displacement re-model's avenue 1 (Scorched Burn + Terraform +
-the CA-2025-26 deck rotation) measured to a fair ceiling: **metric-NEUTRAL by construction** (a primary-SCORING lever is a
-blanket forward-aggression reward — it can't distinguish the durable Knight we want down from the aggressive over-shooters
-we want held; each anti-hold mission cracks IK at its upper bound but dilutes to ~0 at its real 1/10 deck share and lifts
-the over-shooters too). 3 of 10 real primaries now score by their real rule (Take and Hold / Purge / Scorched-Burn /
-Terraform), all faithful, all kept (Burn+Terraform default-ON for their mission; the deck rotation built but GATED behind
-SWEG_PRIMARY_DECK — Purge over-inflates IK so the partial isn't a clean flip). **Decisive lever = avenue 2 (selective
-displacement / maneuver AI), the user's reserved decide-point (escalated via watchdog).**
+**Last updated:** Wave 203 (2026-06-06) — AVENUE 1 (mission/scoring displacement) is a faithful WIN once measured cleanly.
+Gated MAE **5.76 → 5.19** (objective-game arc), then the user-greenlit displacement re-model's avenue 1 (Scorched Burn +
+Terraform + The Ritual + the CA-2025-26 deck rotation). A measurement CONFOUND (the deck locked each mission to one map via
+the shared seed) had made the rotation look metric-neutral; **fixed (mission draw decoupled from the map), the clean
+decoupled deck = gated 4.89, a real −0.30 vs the 5.19 baseline.** Drivers: The Ritual's No-Man's-Land-only scoring compresses
+the camping over-shooters toward target (Emperor's Children / Thousand Sons / Sororitas down) AND IK is net-DOWN
+(70.4 / 19.70), so Purge's re-inflation is outweighed. 4 of 10 real primaries now score by their real rule (Take and Hold /
+Purge / Scorched-Burn / Terraform / The Ritual), all faithful. Burn + Terraform default-ON for their mission; the deck
+rotation is built + verified + GATED (SWEG_PRIMARY_DECK) — **recommended FLIP to default-ON** (the (b)-don't-flip ruling
+rested on the confounded neutral; the clean −0.30 + IK-down removes it), routed to the watchdog. **Then avenue 2 (selective
+displacement / maneuver AI), the user's reserved decide-point.**
 
 **What landed (default-ON, env-gated for isolation):**
 1. **Damaged-bracket generalization** (`SWEG_DMGBRACKET`, wave 191, commit `adb3000`): the 10e "Damaged: 1-X Wounds

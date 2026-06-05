@@ -4,6 +4,28 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 203 (2026-06-06) — The Ritual built + a measurement CONFOUND caught & fixed: the CLEAN deck = gated 4.89 (−0.30 vs baseline). Avenue 1 is a faithful WIN after all (was hidden by the confound)
+
+Bounded avenue 1 (watchdog steer): WebFetch-classified the 6 unmodelled primaries (action = The Ritual + Unexploded
+Ordnance; pure hold = Linchpin / Hidden Supplies / Supply Drop). Built **The Ritual** (commit, cited
+`simulator.primary_the_ritual`): 5 VP per No Man's Land marker controlled (cap 15), home markers score 0 — its place-marker
+Action is a noted omission (fixed sim objectives). All-Ritual upper bound was the best yet (gated 4.77) via **over-shooter
+compression** (No-Man's-Land-only punishes camping melee armies), not IK-cracking.
+
+Then the 5-mission deck came back BYTE-IDENTICAL to the 4-mission deck — a **measurement confound** I'd introduced:
+`_pick_rotation_map` keys the map on `s % 5` and the mission key was `pair_seed % 10 == s % 10`, so (5 | 10) every mission
+was LOCKED to one of the five maps; The Ritual only drew the all-No-Man's-Land map, where it equals Take and Hold. **Fixed**
+(commit): decode faction indices into the mission key so the draw is independent of `s % 5` — verified every mission spans all
+5 maps at the exact 60/10/10/10/10.
+
+**Clean decoupled 5-mission deck (N=80): gated 4.89 — a real −0.30 vs the 5.19 baseline.** The confound had HIDDEN the
+rotation's genuine benefit: over-shooters compress toward target (Emperor's Children 7.63→4.79, Thousand Sons 5.11→3.25,
+Sororitas 2.44→1.15) AND IK is net-DOWN (70.4 / gated 19.70 vs 71.5 / 20.84) — so Purge's re-inflation is outweighed and the
+basis of the (b)-don't-flip ruling is gone. Avenue 1 is a faithful net-positive after all. **Recommended (routed): FLIP
+SWEG_PRIMARY_DECK default-ON** (real CA-2025-26 distribution as the production frame, retires the wave-187 all-Take-and-Hold
+unfaithfulness, re-bases the headline to ~4.89), skip Unexploded Ordnance (diminishing/complex), then avenue 2. Tests green,
+audit clean, cli 0.
+
 ## Wave 202 (2026-06-05) — FAIR avenue-1 measurement COMPLETE (Terraform added): 4-mission deck = gated 5.19 (baseline). Scoring rotation is faithfully DONE + metric-neutral by construction → decisive lever is avenue 2 (selective displacement)
 
 Watchdog asked for a FAIR avenue-1 ceiling: keep the Burn (affirmed, default-ON for the Scorched mission), keep the deck
