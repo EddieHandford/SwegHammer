@@ -1,0 +1,102 @@
+WAVE 190 INSTRUMENT — squad-size shortfall audit (seed fields min_models; _random_fill fields max_models)
+
+unit_key                                              min  max  ratio  AT?
+space_marines_intercessor_squad                         5   10    2.0     
+space_marines_hellblaster_squad                         5   10    2.0   AT
+space_marines_eradicator_squad                          3    6    2.0   AT
+space_marines_aggressor_squad                           3    6    2.0     
+necrons_necron_warriors                                10   20    2.0     
+necrons_immortals                                       5   10    2.0     
+necrons_lychguard                                       5   10    2.0   AT
+necrons_lokhust_heavy_destroyers                        1    3    3.0   AT
+necrons_canoptek_scarab_swarms                          3    6    2.0     
+aeldari_craftworlds_fire_dragons                        5   10    2.0   AT
+aeldari_craftworlds_rangers                             5   10    2.0     
+tyranids_termagants                                    10   20    2.0     
+tyranids_hormagaunts                                   10   20    2.0     
+tyranids_ripper_swarms                                  1    3    3.0     
+tyranids_zoanthropes                                    3    6    2.0     
+tyranids_carnifexes                                     1    2    2.0     
+orks_boyz                                              10   20    2.0     
+orks_meganobz                                           2    6    3.0     
+orks_killa_kans                                         3    6    2.0     
+orks_nobz                                               5   10    2.0     
+orks_deffkoptas                                         3    6    2.0   AT
+t_au_empire_broadside_battlesuits                       2    3    1.5   AT
+death_guard_plague_marines                              5   10    2.0     
+death_guard_poxwalkers                                 10   20    2.0     
+death_guard_deathshroud_terminators                     3    6    2.0     
+adeptus_custodes_custodian_wardens                      4    5    1.2     
+adeptus_custodes_vertus_praetors                        2    3    1.5     
+adeptus_custodes_allarus_custodians                     2    6    3.0     
+adeptus_custodes_custodian_guard                        4    5    1.2     
+adeptus_custodes_prosecutors                            4   10    2.5     
+thousand_sons_rubric_marines                            5   10    2.0     
+thousand_sons_scarab_occult_terminators                 5   10    2.0     
+thousand_sons_tzaangors                                10   20    2.0     
+leagues_of_votann_einhyr_hearthguard                    5   10    2.0   AT
+leagues_of_votann_hernkyn_pioneers                      3    6    2.0     
+leagues_of_votann_cthonian_beserks                      5   10    2.0     
+aeldari_drukhari_incubi                                 5   10    2.0   AT
+aeldari_drukhari_mandrakes                              5   10    2.0     
+aeldari_drukhari_reavers                                3    6    2.0     
+aeldari_drukhari_wracks                                 5   10    2.0     
+aeldari_drukhari_cronos                                 1    2    2.0     
+chaos_space_marines_legionaries                         5   10    2.0     
+chaos_space_marines_cultist_mob                        10   20    2.0     
+chaos_space_marines_chosen                              5   10    2.0     
+chaos_space_marines_chaos_terminator_squad              5   10    2.0     
+chaos_space_marines_possessed                           5   10    2.0     
+chaos_space_marines_raptors                             5   10    2.0     
+world_eaters_khorne_berzerkers                         10   20    2.0     
+world_eaters_eightbound                                 3    6    2.0     
+world_eaters_exalted_eightbound                         3    6    2.0   AT
+world_eaters_chaos_terminators                          5   10    2.0     
+world_eaters_flesh_hounds                               5   10    2.0     
+world_eaters_bloodcrushers                              3    6    2.0     
+emperor_s_children_infractors                           5   10    2.0     
+emperor_s_children_tormentors                           5   10    2.0     
+emperor_s_children_flawless_blades                      3    6    2.0     
+emperor_s_children_seekers                              5   10    2.0     
+emperor_s_children_fiends                               3    6    2.0     
+chaos_daemons_library_bloodcrushers                     3    6    2.0     
+chaos_daemons_library_flesh_hounds                      5   10    2.0     
+chaos_daemons_library_flamers                           3    6    2.0     
+chaos_daemons_library_screamers                         3    6    2.0     
+chaos_daemons_library_plague_drones                     3    6    2.0     
+chaos_daemons_library_beasts_of_nurgle                  1    2    2.0     
+chaos_daemons_library_nurglings                         3    6    2.0     
+chaos_daemons_library_seekers                           5   10    2.0     
+chaos_daemons_library_fiends                            3    6    2.0     
+astra_militarum_tempestus_scions                        5   10    2.0     
+astra_militarum_scout_sentinels                         1    2    2.0   AT
+adeptus_mechanicus_sicarian_infiltrators                5   10    2.0     
+adeptus_mechanicus_sicarian_ruststalkers                5   10    2.0     
+adeptus_mechanicus_pteraxii_skystalkers                 5   10    2.0     
+adeptus_mechanicus_serberys_raiders                     3    6    2.0     
+adeptus_mechanicus_ironstrider_ballistarii              1    3    3.0   AT
+adeptus_mechanicus_kataphron_breachers                  3    6    2.0     
+adeptus_mechanicus_kataphron_destroyers                 3    6    2.0     
+adeptus_mechanicus_sydonian_dragoons_with_taser_lances    1    3    3.0     
+adepta_sororitas_seraphim_squad                         5   10    2.0   AT
+adepta_sororitas_zephyrim_squad                         5   10    2.0     
+adepta_sororitas_celestian_sacresants                   5   10    2.0   AT
+adepta_sororitas_repentia_squad                         5   10    2.0     
+adepta_sororitas_arco_flagellants                       3   10    3.3     
+adepta_sororitas_penitent_engines                       1    2    2.0     
+grey_knights_strike_squad                               5   10    2.0     
+grey_knights_interceptor_squad                          5   10    2.0     
+grey_knights_purifier_squad                             5   10    2.0     
+grey_knights_purgation_squad                            5   10    2.0     
+grey_knights_brotherhood_terminator_squad               4   10    2.5     
+grey_knights_paladin_squad                              4   10    2.5     
+genestealer_cults_neophyte_hybrids                     10   20    2.0     
+genestealer_cults_acolyte_hybrids_with_autopistols      5   10    2.0     
+genestealer_cults_acolyte_hybrids_with_hand_flamers     5   10    2.0     
+genestealer_cults_hybrid_metamorphs                     5   10    2.0     
+genestealer_cults_aberrants                             5   10    2.0     
+genestealer_cults_purestrain_genestealers               5   10    2.0     
+genestealer_cults_atalan_jackals                        5    9    1.8     
+genestealer_cults_achilles_ridgerunners                 1    2    2.0   AT
+
+TOTAL under-fielded template units: 97  (of which anti-tank-class: 15)

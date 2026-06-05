@@ -36,6 +36,7 @@ Design rules
 
 from __future__ import annotations
 
+import os
 import random
 from typing import Dict, Optional
 
@@ -1228,6 +1229,22 @@ def _squad_cost(key: str) -> float:
     return profile.points_cost * max(1, profile.min_models)
 
 
+def _is_antitank_profile(profile: UnitProfile) -> bool:
+    """Heuristic anti-armour classifier (wave 190 over-pole probe only — NOT a
+    rules flag): a unit counts as anti-tank if its main weapon is high-strength
+    (S>=10), high-damage (>=3 per shot), high-AP (<=-3), or carries an
+    anti-VEHICLE/MONSTER/TITANIC keyword. Used to isolate the "opponent
+    anti-tank STRENGTH" sub-lever from the budget-crowding confound of maxing
+    every seed squad. Mirrors the audit script in data/wf_wave190_squadsize_audit.txt."""
+    strength = getattr(profile, "strength", 0) or 0
+    dmg = getattr(profile, "per_shot_damage", 0) or getattr(profile, "damage", 0) or 0
+    ap = getattr(profile, "ap", 0) or 0
+    ak = getattr(profile, "anti_keywords", None) or {}
+    anti = any(k in ("VEHICLE", "MONSTER", "TITANIC")
+               for k in (ak.keys() if hasattr(ak, "keys") else ak))
+    return strength >= 10 or dmg >= 3 or ap <= -3 or anti
+
+
 # Fraction of the budget that the curated template seeds. The rest is left
 # free for `_random_fill` to top up with same-faction picks, which keeps
 # the post-archetype calibration close to the random-list baseline (the
@@ -1687,9 +1704,39 @@ def build_archetype_army(
     counts = _instantiate_template(template, points_budget, rng, faction=faction)
 
     army = Army(name, in_cover=in_cover)
+    # OVER-POLE / list-realism PROBE (wave 190, gated SWEG_SEEDMAX, default-OFF
+    # => byte-identical). The curated SEED fields each anchor squad at
+    # min_models (MSU), while `_random_fill` already fields its picks at
+    # max_models. That systematically UNDER-fields the competitive anti-tank /
+    # objective anchors the templates were written around — Lokhust Heavy
+    # Destroyers seed at 1-of-3, Eradicators at 3-of-6, and the 10-model
+    # BATTLELINE bricks (Warriors / Boyz / Termagants) that real lists run at
+    # 20 seed at 10. For the over-pole this is asymmetric: an Imperial Knight
+    # is a single-model unit with NO squad-size shortfall to correct, while its
+    # multi-model anti-tank opponents are fielded at a fraction of their real
+    # strength, so the opponents' anti-Knight firepower is structurally too
+    # weak (the watchdog's "anti-tank STRENGTH" half of the compound over-pole).
+    # When the gate is set, seed squads field at max_models to match the
+    # random-fill convention; total army points stay near budget because
+    # `_random_fill` self-corrects on the smaller `remaining`. This is an
+    # upper-bound DIRECTIONAL probe (the faithful per-unit competitive sizes lie
+    # between min and max for some units), not a default flip.
+    #   SWEG_SEEDMAX=1   -> max ALL seed squads (confounded: bloats chaff and
+    #                       starves firepower via budget crowding; wave 190 saw
+    #                       a hard regression that AMPLIFIED the residual).
+    #   SWEG_SEEDMAX=at  -> max only the anti-tank-CLASS seed squads, leaving
+    #                       chaff at min_models. De-confounds the "opponent
+    #                       anti-tank STRENGTH" sub-lever from the chaff-crowding
+    #                       artifact: does stronger opponent anti-tank alone drop
+    #                       the Knight over-pole?
+    _seed_max_mode = (os.environ.get("SWEG_SEEDMAX") or "").lower()
     for key, count in counts.items():
         profile: UnitProfile = UNIT_CATALOG[key]
         squad_size = max(1, profile.min_models)
+        if _seed_max_mode == "1" or (
+            _seed_max_mode == "at" and _is_antitank_profile(profile)
+        ):
+            squad_size = max(squad_size, profile.max_models or squad_size)
         # SQUAD-ACTIVATION (Lever 1, P1): each instantiated squad gets its own
         # squad_id so P3 activates it once. Same Units / order as the previous
         # per-model add_unit loop — behaviour-neutral until P3 reads squad_id.

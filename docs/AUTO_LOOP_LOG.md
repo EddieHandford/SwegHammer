@@ -4,6 +4,44 @@ Older iter blocks live in `AUTO_LOOP_LOG_archive.md`. Per
 `AUTO_LOOP_PROCEDURE.md` §E this file keeps the most recent close + the
 in-flight wave only.
 
+## Wave 190 (2026-06-05) — anti-tank STRENGTH (squad-size) REFUTED, de-confounded: maxing opponent anti-tank made IK WORSE, not better. The over-pole's whole "kill/contest the Knight harder" axis is now exhausted → widen
+
+The watchdog's compound over-pole picture (wave 189) needed the anti-tank STRENGTH half. **Instrument:** the curated archetype SEED
+fields every squad at `min_models` while `_random_fill` already fields its picks at `max_models` — so the competitive anti-tank /
+objective ANCHORS the templates were written around are systematically under-fielded (Lokhust 1-of-3, Eradicators 3-of-6, Ironstrider
+1-of-3; 97 template units have max>min, 15 anti-tank-class — `data/wf_wave190_squadsize_audit.txt`). The over-pole asymmetry looked
+promising: an Imperial Knight is a single-model unit with NO squad-size shortfall to correct, while its multi-model anti-tank
+opponents are fielded at a fraction of real strength.
+
+**Built `SWEG_SEEDMAX` (gated, default-OFF byte-identical) in `build_archetype_army`** — seed squads field at `max_models`; total
+points stay ~budget because `_random_fill` self-corrects on the smaller `remaining`. Two modes: `=1` (max ALL seed squads), `=at`
+(max only the anti-tank-CLASS seed squads via `_is_antitank_profile`, leaving chaff at min — de-confounds the strength lever from
+the chaff-crowding artifact).
+
+**Both A/B at N=80 REGRESSED, IK the WRONG way:**
+| probe | gated MAE | Imperial Knights | note |
+|---|---|---|---|
+| baseline (wave 188) | **5.76** | 76.7% / +25.52 | — |
+| `SWEG_SEEDMAX=1` (all)  | 10.61 | 82.3% / +31.67 | confounded: budget-crowding bloats chaff, starves firepower; AMPLIFIED the residual (over-shooters up, under-shooters cratered: AdMech 7.3%) |
+| `SWEG_SEEDMAX=at` (anti-tank only) | 9.82 | 78.0% / +27.34 | **de-confounded** — IK STILL rose; AdMech cratered HARDER (3.3%) because maxing every faction's anti-tank shreds the durable-VEHICLE factions while the single-model Knight is untouched |
+
+**DECISIVE: opponent anti-tank STRENGTH is NOT the over-pole lever — tripling it (de-confounded) makes the Knight WORSE, not
+better.** Mechanism: more anti-tank shreds the OTHER durable factions (AdMech/Necrons are full of the VEHICLEs/MONSTERs anti-tank
+targets) so the Knight faces even-weaker opposition; and a single-model 26W Knight is not removed by more spread anti-tank. Kept
+`SWEG_SEEDMAX` gated as a documented diagnostic (default-OFF). `SWEG_THREATPRIO` stays gated.
+
+**SYNTHESIS — the over-pole's entire "win the firefight / contest the objective" axis is now exhausted, every sub-lever tested:**
+scoring rules (refuted/neutral), durability stats (verified FAITHFUL W26/T11), firepower / weapon over-count (per-model wave 99 +
+per-weapon dice wave 100, refuted ×2), targeting AI (focus-fire / focus / threat-priority, all 3 REGRESS IK), opponent anti-tank
+strength (loadout waves 107/183 + squad-size wave 190, refuted ×2 de-confounded), positional body-massing (`SWEG_MASS` landed wave
+95 — helped under-shooters, IK unchanged at +27). The "inseparable/frozen-under" finding (wave 152) recurs: any lever that lets
+opponents contest the Knight ALSO buffs the already-over-shooting factions → net wash. **Per the user's pivotal ruling (reality
+reaches 47% Knights with the SAME units/points/rules → 77% is an unfaithful MECHANISM, NO floor, keep hunting) this is the
+"watchdog widens when stuck" trigger.** Routed to the watchdog: the missing mechanism is NOT on the combat/targeting/strength/
+body-massing axis — candidates to enumerate next are Knight-MATCHUP-SPECIFIC (not uniform positioning): scoring-incentive-driven
+focus (Bring It Down VP making opponents commit to the kill — distinct from raw threat-priority which had no VP backing), list-
+realism of the IK list and its opponents' anti-Knight tech, or a deployment/alpha-strike concentration the sim doesn't model.
+
 ## Wave 189 (2026-06-05) — THREAT-PRIORITY targeting BUILT but WRONG-DIRECTION alone (IK 25.52→28.21) — the over-pole is COMPOUND: aiming needs the anti-tank to be STRONG enough to kill the Knight first
 
 User mathhammer (via watchdog) confirmed the over-pole's biggest axis is targeting: opponents HAVE anti-tank but the AI
