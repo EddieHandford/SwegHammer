@@ -17,6 +17,7 @@ exercise them through the AI heuristic + a small Battle scenario.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -69,6 +70,10 @@ class MobRuleTests(unittest.TestCase):
     """Mob Rule short-circuits the Battle-shock roll for Ork units in a
     10+-model army. The test bypasses Battle.run() and drives _run_round
     directly so we control the wounded-below-half-strength state."""
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def _make_battle(self, n_orks: int, n_marines: int = 1,
                      ork_as_squad: bool = False) -> Battle:

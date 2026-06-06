@@ -92,6 +92,11 @@ class OnlyForAwardFilterTests(unittest.TestCase):
 
 
 class GateFlagTests(unittest.TestCase):
+    def setUp(self):
+        # command-phase scoring is now default-ON; pin to "0" so the OFF path
+        # is testable and then explicitly verify the "1" path below
+        os.environ["SWEG_CMDSCORE"] = "0"
+
     def test_gate_flag_reads_env(self):
         battle, _ = _battle_one_objective()
         self.assertFalse(battle._cmd_score)

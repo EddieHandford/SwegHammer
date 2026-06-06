@@ -36,6 +36,7 @@ the rule lands.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 from unittest import mock
@@ -233,6 +234,10 @@ class FactionMechanicSmokeTests(unittest.TestCase):
     """Each test is small, deterministic, and only asserts the rule fired
     AT LEAST ONCE under a tightly-controlled scenario. Correctness of the
     math is covered by the per-faction tests; this suite is the canary."""
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     # ----- Orks --------------------------------------------------------
 

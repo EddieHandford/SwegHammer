@@ -71,6 +71,10 @@ def _call_order(enter_score: bool):
 
 
 class EnterScoreTimingTests(unittest.TestCase):
+    def setUp(self):
+        # command-phase scoring is now default-ON; this timing test uses the legacy scoring path
+        os.environ["SWEG_CMDSCORE"] = "0"
+
     def test_off_scores_after_each_round(self):
         """Baseline: each round's _run_round precedes its _score_objectives."""
         seq = _call_order(enter_score=False)

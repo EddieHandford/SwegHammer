@@ -657,11 +657,12 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
-        # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
-        # When set, Primary VP is scored at each player's Command phase (turn
-        # start) inside the vanilla IGOUGO round, instead of once at end of round
-        # — the real 10e timing. Read once; default off → baseline byte-identical.
-        self._cmd_score: bool = __import__("os").environ.get("SWEG_CMDSCORE") == "1"
+        # Per-Command-phase primary scoring — now DEFAULT-ON (fidelity-revisit sweep
+        # #3, wave 210). Primary VP is scored at each player's Command phase (turn
+        # start) inside the vanilla IGOUGO round, instead of once at end of round —
+        # the real 10e timing (the end-of-round snapshot under-credited mobile holders).
+        # Faithful AND improved the metric (5.72 → 5.44 N=80). `SWEG_CMDSCORE=0` reverts.
+        self._cmd_score: bool = __import__("os").environ.get("SWEG_CMDSCORE", "1") != "0"
         # SC4-A — 10e Pariah Nexus secondary objectives. Each round we
         # snapshot each army's alive units at round start (in `_run_round`)
         # and compute Bring it Down + No Prisoners VP at round end (in
