@@ -9696,9 +9696,15 @@ class Battle:
         an uncrackable Knight), this only nominates a brick when the army's
         SUMMED expected wounds this phase reach `_FOCUSFIRE_CRACK_FRAC` of its
         current health, so a genuinely uncrackable target is never chosen and
-        no fire is wasted. Cited as `simulator.focus_fire`."""
+        no fire is wasted. Cited as `simulator.focus_fire`.
+
+        Fidelity-revisit sweep #5 (wave 210): now DEFAULT-ON — it makes the AI play
+        like a competent player (concentrate to crack a brick this turn, SPREAD off an
+        uncrackable one via the crack-fraction gate below). Metric-neutral; kept on the
+        AI-realism criterion. `SWEG_FOCUSFIRE=0` reverts (also useful for fast dev evals
+        — the per-phase collective-wound nomination is ~2x the eval cost)."""
         army._focusfire_target_uid = None
-        if __import__("os").environ.get("SWEG_FOCUSFIRE") != "1":
+        if __import__("os").environ.get("SWEG_FOCUSFIRE", "1") == "0":
             return
         bricks = [u for u in opponent.alive_units if self._is_durable_threat(u)]
         if not bricks:
