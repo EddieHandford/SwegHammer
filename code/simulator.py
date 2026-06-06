@@ -1576,6 +1576,45 @@ class Battle:
                     jam["min_dist_sum"] += best
                     jam["squads"] += 1
 
+    def _collision_kwargs(self, mover, allow_engagement: bool = False) -> dict:
+        """Avenue-2 Stage 1 (gated SWEG_COLLISION, default-OFF): build the
+        `_move_toward` no-overlap collision kwargs for `mover`. Returns {} when the
+        gate is OFF (every caller then passes occupants=None -> byte-identical) or
+        the mover's army can't be resolved (fail-safe: no collision). Occupants are
+        every OTHER alive model — friendly (end-overlap only) and enemy (end-overlap
+        + 1" Engagement Range). Assembled fresh from CURRENT positions so a model
+        that already moved this phase is avoided at its new spot.
+
+        `allow_engagement=True` for COMBAT moves (charge pile-in / consolidate /
+        Blood Surge) — those legitimately END within Engagement Range, so the ER
+        test is suppressed (mark all occupants non-enemy); the NO-OVERLAP rule still
+        applies (a charger stops base-to-base, it does not end ON a model). Normal
+        moves keep ER (allow_engagement=False) — only a Charge may end within 1".
+        Note C perf: only the gated path pays this O(models) cost; benchmark +
+        spatial-bucket if the Stage-1 A/B wall-clock exceeds 1.5x. No RNG."""
+        if not __import__("os").environ.get("SWEG_COLLISION"):
+            return {}
+        friendly = getattr(mover, "army_ref", None)
+        if friendly is self.a:
+            enemy = self.b
+        elif friendly is self.b:
+            enemy = self.a
+        else:
+            return {}
+        occ = []
+        for u in friendly.alive_units:
+            if u is mover:
+                continue
+            occ.append((u.position[0], u.position[1], _bc_model_radius_in(u.profile), False))
+        enemy_flag = False if allow_engagement else True
+        for u in enemy.alive_units:
+            occ.append((u.position[0], u.position[1], _bc_model_radius_in(u.profile), enemy_flag))
+        return {
+            "mover_radius": _bc_model_radius_in(mover.profile),
+            "occupants": occ,
+            "mover_fly": "FLY" in (mover.profile.unit_keywords or ()),
+        }
+
     def _oc_within(self, army, obj) -> int:
         """Summed Objective Control of `army`'s alive units within an objective's
         control radius (battleshocked models count 0, matching _score_objectives)."""
@@ -7138,7 +7177,8 @@ class Battle:
                     key=lambda e: _distance(u.position, e.position),
                 )
                 old_pos = u.position
-                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map)
+                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map,
+                                       **self._collision_kwargs(u))
                 if new_pos != old_pos:
                     u.position = new_pos
                     self._fresh_arrivals.add(u.uid)
@@ -8811,7 +8851,8 @@ class Battle:
                 if remaining <= 0.0:
                     continue
                 old_pos = m.position
-                new_pos = _move_toward(old_pos, centroid, remaining, self.map)
+                new_pos = _move_toward(old_pos, centroid, remaining, self.map,
+                                       **self._collision_kwargs(m))
                 if new_pos != old_pos:
                     m.position = new_pos
                     self._did_move_this_round.add(m.uid)
@@ -8889,6 +8930,7 @@ class Battle:
             new_pos = _move_toward(
                 attacker.position, target_pos,
                 float(normal_move), self.map,
+                **self._collision_kwargs(attacker),
             )
             if new_pos != old_pos:
                 attacker.position = new_pos
@@ -9005,6 +9047,7 @@ class Battle:
         new_pos = _move_toward(
             attacker.position, target_pos,
             move_distance, self.map,
+            **self._collision_kwargs(attacker),
         )
         if new_pos != old_pos:
             attacker.position = new_pos
@@ -9967,7 +10010,8 @@ class Battle:
         # Move every model in the surge squad toward the same nearest enemy.
         for _surging_model in _surge_squad:
             old_pos = _surging_model.position
-            new_pos = _move_toward(old_pos, nearest.position, travel, self.map)
+            new_pos = _move_toward(old_pos, nearest.position, travel, self.map,
+                                   **self._collision_kwargs(_surging_model, allow_engagement=True))
             _surging_model.position = new_pos
             if self.verbose:
                 print(
@@ -10471,6 +10515,7 @@ class Battle:
         ):
             new_pos = _move_toward(
                 attacker.position, nearest_pre.position, 3.0, self.map,
+                **self._collision_kwargs(attacker, allow_engagement=True),
             )
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
@@ -10564,6 +10609,7 @@ class Battle:
                 )
                 new_pos = _move_toward(
                     attacker.position, nearest_post.position, 3.0, self.map,
+                    **self._collision_kwargs(attacker, allow_engagement=True),
                 )
                 if not self.map.is_blocked(new_pos):
                     attacker.position = new_pos
@@ -10579,6 +10625,7 @@ class Battle:
                 # Only move if the end point lands within contest radius.
                 move_end = _move_toward(
                     attacker.position, obj_pos, 3.0, self.map,
+                    **self._collision_kwargs(attacker, allow_engagement=True),
                 )
                 if (
                     not self.map.is_blocked(move_end)
