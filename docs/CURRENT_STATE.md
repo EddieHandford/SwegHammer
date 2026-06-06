@@ -1,5 +1,35 @@
 # SwegHammer calibration — current state
 
+**WAVE 210 (2026-06-06) — DECISION POINT FOR THE USER: the fork-agnostic levers are exhausted; the substantive residual is
+the POSITIONAL/PHYSICS axis, blocked on your scale-fork call.** Production frame = the real CA-2025-26 deck rotation
+(`SWEG_PRIMARY_DECK` default-ON), gated MAE **~4.89**. The session worked three big tracks to faithful conclusions, all
+recorded and all leaving the baseline untouched (every experiment gated):
+- **Avenue 1 (mission/scoring deck) — LANDED, faithful −0.30.** The CA-2025-26 rotation (Take and Hold / Purge / Scorched-Burn
+  / Terraform / The Ritual) is the production frame (5.19 → 4.89), after catching a mission↔map measurement confound that had
+  hidden its value.
+- **Avenue 2 (physical board control) — BLOCKED on a USER scale-fork.** Board-wide no-overlap collision is DEAD for this
+  one-Unit-per-model greedy-no-pathfind representation (4 faithful make-way attempts all strand big-base Knights, reach
+  64%→16-20%; the N=80 A/B regressed 4.89→6.81 by global reach-loss). The terrain pair shares the SAME big-base-navigation
+  dependency for its movement half, and its line-of-sight half is UNFAITHFUL (10e ruins block the whole footprint — "cannot
+  see over or through" — so doorway-LoS is a regression, dropped). All collision/terrain code is gated default-OFF + inert.
+  **The scale fork (invest in big-base pathfinding vs marker-only abstraction vs shelve physics) is yours to call.**
+- **Under-pole ABILITY hunt — EXHAUSTED.** Astra Militarum / Adeptus Mechanicus combat is wave-86-VETTED-FAITHFUL (their gap
+  is positional, not an ability); CSM Dark-Pacts coverage was REFUTED as a lever (3 attempts incl. true Lethal/Sustained
+  Hits, all net-negative on self-damage; reverted). The remaining un-vetted under-shooters are mild (Daemons gated 1.31).
+- **Net:** both poles (Imperial Knights over ~19.4; Astra Militarum / Adeptus Mechanicus under, ~half positional) reduce to
+  the positional/physics representation — which is blocked on the scale fork.
+- **ONE live fork-agnostic DECISION remains (not a cleanup): land per-model weapon firing?** The per-model loadout mechanic
+  (`SWEG_PERMODEL`, Stages 1-4 built, Stage 5 unbuilt) is FAITHFUL — each model fires its own real weapons + rolled dice;
+  single-model units stop firing mutually-exclusive arm weapons (the Wraithknight fired BOTH arm cannons; 523/907 over-collected).
+  It is gated-OFF only because wave-99 measured it REGRESSING +0.27 (it un-masks elite over-rate — Votann/Chaos Knights fire
+  their real stronger guns and over-shoot more; Imperial Knights stay flat, so it does NOT fix the over-pole). **But that
+  "leave gated" call predates the user's 2026-06-03 fidelity-first rail ("never gate a faithful mechanic off to protect the
+  metric").** So whether to land it default-ON (faithful, regresses the frame while the compensating positional root is
+  scale-fork-blocked) vs keep it gated (clean frame until the fork lands) is a genuine user fork — escalated, with a fresh
+  deck-frame N=80 A/B in flight to decide on CURRENT data.
+
+---
+
 **Last updated:** Wave 203 (2026-06-06) — AVENUE 1 (mission/scoring displacement) is a faithful WIN once measured cleanly.
 Gated MAE **5.76 → 5.19** (objective-game arc), then the user-greenlit displacement re-model's avenue 1 (Scorched Burn +
 Terraform + The Ritual + the CA-2025-26 deck rotation). A measurement CONFOUND (the deck locked each mission to one map via

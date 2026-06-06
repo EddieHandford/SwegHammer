@@ -35,6 +35,11 @@ MATCHUPS = [
     ("space_marines_intercessor_squad", "orks_boyz", 300.0),
     ("space_marines_terminator_squad", "necrons_lychguard", 400.0),
     ("space_marines_intercessor_squad", "space_marines_intercessor_squad", 300.0),
+    # Big-base navigation worst case (docs/PATHFINDING_PLAN.md Stage 0): a TITANIC
+    # Knight (170mm oval) into a horde — the matchup whose reach board-wide collision
+    # crashes and the pathfinder must restore. The perf yardstick re-run before each
+    # pathfinding stage's gate flip (must stay <= 1.5x this all-gates-OFF baseline).
+    ("imperial_knights_library_knight_paladin", "orks_boyz", 2000.0),
 ]
 
 

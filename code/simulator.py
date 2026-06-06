@@ -179,7 +179,17 @@ def _move_toward(
     if occupants is None:
         return new_point
     # Collision ON: keep the destination if legal.
-    if _collision_pos_legal(new_point, mover_radius, occupants, mover_fly):
+    legal = _collision_pos_legal(new_point, mover_radius, occupants, mover_fly)
+    # PATHFINDING Stage-0 GO/NO-GO counter (read-only, gated). Records how often the
+    # straight end is blocked — the blocked-move frequency that, times the per-call A*
+    # cost, is the perf-feasibility decision. Only runs under the gate; behaviour is
+    # unchanged (legal is computed exactly once, as before).
+    if __import__("os").environ.get("SWEG_PATHFIND_STAGE0"):
+        _big = mover_radius >= _PATHFIND_BIG_RADIUS_IN
+        PATHFIND_STAGE0_STATS["total_big" if _big else "total_small"] += 1
+        if not legal:
+            PATHFIND_STAGE0_STATS["blocked_big" if _big else "blocked_small"] += 1
+    if legal:
         return new_point
     # Blocked end. MINIMAL make-way SIDESTEP (avenue-2 Stage 2, bounded O(few), NOT
     # an A* path search — the perf-killer note C warns against): evaluate the straight
@@ -298,6 +308,19 @@ BOARDCONTROL_STATS: dict = {
     "big_in_ruin": 0, "big_snaps": 0,
     "jam": {},  # faction -> {games, dz_models_sum, min_dist_sum, squads}
 }
+
+# PATHFINDING Stage-0 GO/NO-GO counter (read-only; docs/PATHFINDING_PLAN.md). Counts,
+# under SWEG_COLLISION, how often a collision move's STRAIGHT end is blocked (the case
+# a pathfinder would have to route around), split big-base vs small-base. Only mutated
+# when occupants are passed (collision active) AND SWEG_PATHFIND_STAGE0 is set — the
+# production default path returns before this block, so it stays byte-identical.
+PATHFIND_STAGE0_STATS: dict = {
+    "total_big": 0, "blocked_big": 0, "total_small": 0, "blocked_small": 0,
+}
+# A mover is "big" for pathfinding purposes when its footprint radius exceeds this
+# (~38mm base). A 170mm Knight is ~3.3", infantry ~0.63" — the threshold cleanly
+# separates the big bases that crash their reach from the small bases that sidestep fine.
+_PATHFIND_BIG_RADIUS_IN = 1.5
 
 
 def _bc_model_radius_in(profile) -> float:
