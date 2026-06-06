@@ -318,6 +318,11 @@ def _nearest_obscuring_centre(map_, pos: Tuple[float, float]) -> Optional[Tuple[
     return best
 
 
+# Per-faction OC-contest instrument (#79 follow-up). Populated only when
+# SWEG_CONTEST_INSTR is set; a diag runner resets and reads it. Read-only.
+CONTEST_STATS: dict = {}
+
+
 def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
     """Sum the OC values of `units` within obj.control_radius (excluding one)."""
     r2 = obj.control_radius * obj.control_radius
@@ -331,6 +336,39 @@ def _oc_on_objective(units, obj, exclude_uid: str = "") -> int:
         dy = u.position[1] - oy
         if dx * dx + dy * dy <= r2:
             total += u.profile.oc or 0
+    return total
+
+
+def _effective_oc_value(u) -> int:
+    """Bracket-aware Objective Control of one model — mirrors Battle._effective_oc
+    so the OC-contest AI (#79) reads the SAME effective OC the scorer awards on:
+    a model in its 10e Damaged bracket contributes its reduced OC (a damaged Knight
+    is OC 5, not 10). Respects the SWEG_DMGBRACKET gate."""
+    base = u.profile.oc or 0
+    if __import__("os").environ.get("SWEG_DMGBRACKET", "1") == "0":
+        return base
+    thr = getattr(u.profile, "damaged_threshold", 0) or 0
+    pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+    if thr and pen and u.current_health <= thr:
+        return max(0, base - pen)
+    return base
+
+
+def _effective_oc_on_objective(units, obj, exclude_uid: str = "") -> int:
+    """Like `_oc_on_objective` but bracket-aware (uses `_effective_oc_value`).
+    Used by the SWEG_CONTEST winnability check so a damaged enemy holder reads at
+    its real reduced Objective Control."""
+    r2 = obj.control_radius * obj.control_radius
+    ox = obj.x
+    oy = obj.y
+    total = 0
+    for u in units:
+        if u.uid == exclude_uid:
+            continue
+        dx = u.position[0] - ox
+        dy = u.position[1] - oy
+        if dx * dx + dy * dy <= r2:
+            total += _effective_oc_value(u)
     return total
 
 
@@ -1380,6 +1418,17 @@ def _drukhari_depleted_unit_penalty(attacker) -> float:
     return 1.0
 
 
+def _score_profile(unit):
+    """Per-model AI-isolation (per-model loadouts Stage 5). OFFENSIVE tactical scoring
+    reads the SQUAD AGGREGATE profile, not a single model's narrowed per-model loadout.
+    Under SWEG_PERMODEL each model-Unit carries only its own weapons (Stage 3); without
+    this isolation the AI would value a whole squad by one model's gun and mis-target /
+    mis-charge (the measured Daemons-crater confound). `squad_profile_ref` is stamped
+    with the aggregate by Army.add_squad's per-model path; legacy / collision-OFF units
+    leave it None, so this returns `unit.profile` and AI behaviour is byte-identical."""
+    return getattr(unit, "squad_profile_ref", None) or unit.profile
+
+
 def _melee_target_score(attacker, defender) -> float:
     """How attractive `defender` is as a melee target for `attacker`.
 
@@ -1389,8 +1438,8 @@ def _melee_target_score(attacker, defender) -> float:
     bricks pick fragile gunline targets (T'au Fire Warriors, Devastators,
     snipers) over near-but-tough enemies with strong saves.
     """
-    p = attacker.profile
-    tp = defender.profile
+    p = _score_profile(attacker)
+    tp = _score_profile(defender)
 
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
@@ -1548,7 +1597,7 @@ def pick_charge_target(attacker, enemy):
     if not alive_enemies:
         return None, None
 
-    p = attacker.profile
+    p = _score_profile(attacker)
     # Attacker's per-activation melee output.
     a_melee_dpa = (p.melee_attacks * p.melee_hit_probability
                    * (p.melee_damage_per_shot or 1.0))
@@ -1558,7 +1607,7 @@ def pick_charge_target(attacker, enemy):
         d = _dist(attacker.position, e.position)
         if d > 12.0 or d <= 1.0:
             continue   # out of charge range / already engaged
-        tp = e.profile
+        tp = _score_profile(e)
 
         kill_potential = a_melee_dpa / _durability(
             tp, e.current_health, p.melee_ap, defender_unit=e)
@@ -2133,8 +2182,8 @@ def pick_move_intent(
     if _pt is not None:
         return _pt, "pursue_card"
 
-    role = classify(unit.profile)
-    own_oc = unit.profile.oc or 0
+    role = classify(_score_profile(unit))   # Stage 5: a unit's OWN movement role is its
+    own_oc = unit.profile.oc or 0            # SQUAD role, not one per-model model's gun
 
     # S1 — faction posture lookup. AI behaviour-shaping per faction, not a
     # 10e rule. `balanced` preserves the pre-S1 behaviour exactly.
@@ -2178,7 +2227,7 @@ def pick_move_intent(
     # platforms (Knight Castellan/Valiant, gunline tanks, Votann Hearthkyn)
     # eligible to break off and free their guns. Stage-1 AI heuristic only —
     # no rule citation, this is play-style modelling.
-    if role in _fall_back_eligible_roles and not _is_melee_class(unit.profile):
+    if role in _fall_back_eligible_roles and not _is_melee_class(_score_profile(unit)):
         enemies = enemy.alive_units
         in_engagement = any(
             _dist(unit.position, e.position) <= _ENGAGEMENT_RANGE
@@ -2289,6 +2338,41 @@ def pick_move_intent(
         else:
             value = 2.5           # uncontested or tied — claim it
             intent = _CAPTURE_INTENT
+        # OC-CONTEST (#79, gated SWEG_CONTEST) — make the STEAL value WINNABLE +
+        # bracket-aware so idle/spare bodies are redirected to flip an enemy-held
+        # marker they can actually out-Control (a damaged Knight at effective OC 5
+        # is winnable — the wave-191 bracket substrate), JUST-ENOUGH (don't pile
+        # onto a marker we already win), and never chase an unwinnable contest.
+        # The AFFORDABLE guard is the hold-check above: a marginal holder of a
+        # friendly scoring marker returns _HOLD_INTENT and never reaches here, so
+        # the contest only ever draws SPARE bodies — the balanced contest, NOT the
+        # rejected wave-95 Stage-E flood. Default-OFF => byte-identical.
+        if intent == _STEAL_INTENT and __import__("os").environ.get("SWEG_CONTEST", "1") != "0":
+            _enemy_eff = _effective_oc_on_objective(enemy_alive, obj)
+            _our_cur_eff = _effective_oc_on_objective(
+                friendly_alive, obj, exclude_uid=unit.uid,
+            )
+            _unit_eff = _effective_oc_value(unit)
+            if _our_cur_eff > _enemy_eff:
+                value *= 0.6          # already winnably contesting — don't pile on
+                _contest_kind = "already"
+            elif _our_cur_eff + _unit_eff > _enemy_eff:
+                value *= 1.7          # WINNABLE by committing THIS body — prioritise
+                _contest_kind = "winnable"
+            else:
+                value *= 0.3          # unwinnable even with this body — don't chase
+                _contest_kind = "unwinnable"
+            # Per-faction instrument (#79 follow-up, gated SWEG_CONTEST_INSTR,
+            # read-only): which factions the contest's winnable-boost fires for —
+            # to tell whether the TSons/EC rise is the faithful body-army reward
+            # (they hold spare bodies that genuinely out-Control an enemy marker)
+            # or the contest over-helping them.
+            if __import__("os").environ.get("SWEG_CONTEST_INSTR"):
+                _fac = unit.profile.faction or "?"
+                _d = CONTEST_STATS.setdefault(
+                    _fac, {"winnable": 0, "unwinnable": 0, "already": 0},
+                )
+                _d[_contest_kind] += 1
         value *= round_weight
         # S1 — posture bias: objective_hold / attrition / psychic_attrition
         # armies value CAPTURE more (they want to fill every objective);
@@ -2416,6 +2500,52 @@ def pick_move_intent(
                 )
                 repo_pos = _best_nearby_cover_point(map_, step_to, search_radius=4.0)
                 return repo_pos, _REPOSITION_INTENT
+            # FREE-CONTEST (#81, gated SWEG_FREECONTEST) — a SPARE in-range
+            # SHOOTY/HEAVY unit redirects onto a WINNABLE enemy-held marker it can
+            # STILL SHOOT from, even when that marker is not its single best
+            # objective. The wave-193 instrument found 86% of the reachable OC on
+            # the still-flippable Knight markers is exactly this (shooty-can-shoot-
+            # from-marker, 0% would lose its shots), but #12 below only repositions
+            # onto the unit's SINGLE best objective, so a winnable enemy marker
+            # that loses the distance-competition to a closer hold stays
+            # uncontested. Guards (the wave-95 Stage-E rail): WINNABLE (our
+            # potential EFFECTIVE OC > enemy EFFECTIVE OC — bracket-aware, a damaged
+            # Knight at OC5 is flippable); REACHABLE this turn; SHOOTABLE from the
+            # marker (an enemy in range — zero shot-cost, not a gunline-pull);
+            # JUST-ENOUGH (skip a marker our side already winnably contests). The
+            # AFFORDABLE guard is the hold-check above (a marginal friendly-marker
+            # holder already returned _HOLD_INTENT and never reaches here, so this
+            # only ever moves SPARE bodies). Default-OFF => byte-identical.
+            if __import__("os").environ.get("SWEG_FREECONTEST", "1") != "0":
+                _fc_move = effective_move(unit)
+                _fc_unit_eff = _effective_oc_value(unit)
+                _fc_best_obj = None
+                _fc_best_d = float("inf")
+                for _fc_obj in objectives:
+                    _fc_e = _effective_oc_on_objective(enemy_alive, _fc_obj)
+                    if _fc_e <= 0:
+                        continue                 # not enemy-held — not a contest
+                    _fc_o = _effective_oc_on_objective(
+                        friendly_alive, _fc_obj, exclude_uid=unit.uid,
+                    )
+                    if _fc_o > _fc_e:
+                        continue                 # JUST-ENOUGH: already winnably contesting
+                    if _fc_o + _fc_unit_eff <= _fc_e:
+                        continue                 # unwinnable even by committing this unit
+                    _fc_pos = (_fc_obj.x, _fc_obj.y)
+                    _fc_d = _dist(unit.position, _fc_pos)
+                    if _fc_d > _fc_move + _fc_obj.control_radius:
+                        continue                 # unreachable this turn
+                    if not any(_dist(_fc_pos, e.position) <= rng for e in enemy_alive):
+                        continue                 # can't shoot from there — would be a gunline-pull
+                    if _fc_d < _fc_best_d:
+                        _fc_best_d = _fc_d
+                        _fc_best_obj = _fc_obj
+                if _fc_best_obj is not None:
+                    _fc_snap = _best_nearby_cover_point(
+                        map_, (_fc_best_obj.x, _fc_best_obj.y), search_radius=3.0,
+                    )
+                    return _fc_snap, _STEAL_INTENT
             # #12 OBJECTIVE-AWARE REPOSITION (2026-05-31): a ranged unit that
             # can still shoot from an objective should move ONTO the best-scoring
             # objective — scoring VP while continuing to fire — rather than

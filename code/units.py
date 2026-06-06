@@ -239,6 +239,16 @@ def _doctrina_battleline_proximity_met(unit: "Unit") -> bool:
     return False
 
 
+# DURABILITY instrument (#85, gated SWEG_DURABILITY_INSTR) — per target-keyword
+# class (VEHICLE / INFANTRY / other), the realized base-vs-effective save and the
+# cover-applied rate during real shooting. Read-only; a diag resets and reads it.
+DURABILITY_STATS: dict = {}
+
+# MELEE/RANGED output split (#86, gated SWEG_MODE_INSTR) — per attacker-faction
+# damage dealt by mode. Read-only; a diag resets and reads it.
+MODE_STATS: dict = {}
+
+
 def save_probability(
     save: int, ap: int = 0, in_cover: bool = False, is_infantry: bool = True
 ) -> float:
@@ -646,6 +656,16 @@ class UnitProfile:
     # reverses it exactly (round-trips to the original list-of-dicts).
     # Empty tuple = no per-model loadout recorded (legacy entries).
     model_loadouts: Tuple[Tuple[Tuple[str, Any], ...], ...] = ()
+    # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
+    # datasheet bracket, extracted per-unit from BSData. `damaged_threshold == 0`
+    # means the model has no bracket. While the model is at 1..threshold wounds,
+    # the simulator (Stage 3, gated SWEG_DMGBRACKET) subtracts the penalties from
+    # the model's Objective Control / Hit roll. Flat ints → trivially hashable for
+    # the frozen dataclass + lru_cache. Cited `simulator.damaged_bracket`.
+    damaged_threshold: int = 0
+    damaged_oc_penalty: int = 0
+    damaged_hit_penalty: int = 0
+    damaged_attacks_penalty: int = 0
     # MAP-3-FIX — basket-fraction gating for partial-coverage weapon keywords.
     # The MAP-3 UNION (any-weapon-in-basket carries the keyword) inflates
     # damage for heterogeneous squads (Rubric Marines, Skyweavers, Beast
@@ -1998,6 +2018,41 @@ class Unit:
             hit_mod_delta: int = 0
             wound_mod_delta: int = 0
 
+            # ---- Wave 188 (#73) — Knight DAMAGED-bracket -1 to the Hit roll
+            # (env-gated SWEG_DMGHIT; flipped DEFAULT-ON after the N=80 A/B showed it
+            # faithful + right-direction, Imperial Knights 26.00->25.52; matches the
+            # OC half SWEG_DMGOC which is also default-ON — the same datasheet rule.
+            # Set SWEG_DMGHIT=0 to disable for an isolation A/B). Real 10e Knight
+            # datasheets carry, in the SAME
+            # damage-table row the simulator already reads for the Objective Control
+            # reduction (Battle._effective_oc, wave 85): "While this model has 1-9
+            # wounds remaining [Questoris] / 1-5 [Armiger] / 1-10 [Dominus],
+            # subtract N from this model's Objective Control characteristic AND each
+            # time this model makes an attack, subtract 1 from the Hit roll."
+            # (Verbatim, Wahapedia Knight Paladin + Armiger Warglaive.) The sim
+            # modelled only the OC half, so a damaged Knight kept full 3+ accuracy
+            # when real 10e drops it to 4+ — it over-killed through the back half of
+            # every game (the over-pole). Same faction gate + per-chassis thresholds
+            # as _effective_oc; applies to BOTH shooting and melee ("makes an
+            # attack"); composes with the +-1 Hit-modifier cap below. Cited
+            # `simulator.damaged_hit_bracket`.
+            # 10e Damaged-bracket −1 to the Hit roll — data-driven from the real
+            # per-datasheet bracket (UnitProfile.damaged_hit_penalty, BSData-
+            # extracted via the link-resolving mapper) and applied to EVERY model
+            # with one (#77, wave 191). Default-ON; SWEG_DMGBRACKET=0 disables. This
+            # RETIRED the Knight-only SWEG_DMGHIT heuristic (wave 188), which
+            # degraded only the 6 Knight datasheets — a partial-faithful bias. The
+            # wave-190b audit found 94 datasheets / 25 factions carry this Hit
+            # penalty; the N=80 generalization A/B was metric-neutral (5.76 -> 5.71)
+            # and the data-driven Knight values reproduce the retired heuristic
+            # exactly. Applies to BOTH shooting and melee ("makes an attack").
+            # Cited `simulator.damaged_bracket`.
+            if __import__("os").environ.get("SWEG_DMGBRACKET", "1") != "0":
+                _gthr = getattr(self.profile, "damaged_threshold", 0) or 0
+                _ghp = getattr(self.profile, "damaged_hit_penalty", 0) or 0
+                if _gthr and _ghp and self.current_health <= _gthr:
+                    hit_mod_delta -= _ghp
+
             # ---- Buffs: +1 to hit / +1 to wound (any of leader aura, detachment,
             # enhancement — all merged to a single bool by leaders.effective_buffs).
             if att_buffs["plus_one_to_hit"]:
@@ -2767,6 +2822,27 @@ class Unit:
                 invuln = 6
             effective_save = min(save_after_ap, invuln) if invuln <= 6 else save_after_ap
             save_target = effective_save  # 7 = no save
+
+            # DURABILITY instrument (#85) — per target-keyword class, the realized
+            # base save, AP-and-cover-modified effective save, cover-applied flag,
+            # and AP faced. Localizes whether VEHICLE durability is under-applied
+            # (worse effective save / lower cover rate than INFANTRY relative to
+            # their base) vs genuinely fragile. Read-only, gated.
+            if mode != "melee" and __import__("os").environ.get("SWEG_DURABILITY_INSTR"):
+                _tkw = set(target.profile.unit_keywords or ())
+                _cls = ("VEHICLE" if ("VEHICLE" in _tkw or "MONSTER" in _tkw)
+                        else "INFANTRY" if "INFANTRY" in _tkw else "OTHER")
+                _dd = DURABILITY_STATS.setdefault(
+                    _cls, {"hits": 0, "base": 0.0, "eff": 0.0, "cover": 0, "ap": 0.0, "inv": 0},
+                )
+                _dd["hits"] += 1
+                _dd["base"] += (target.profile.save or 7)
+                _dd["eff"] += min(effective_save, 7)
+                _dd["ap"] += -ap
+                if target.in_cover:
+                    _dd["cover"] += 1
+                if invuln <= 6:
+                    _dd["inv"] += 1
 
             # Re-roll flags from attacker's buffs.
             att_reroll_hit_ones = bool(att_buffs["reroll_hit_ones"])
@@ -3896,6 +3972,17 @@ class Unit:
             if random.randint(1, 6) == 1:
                 self.receive_damage(3.0)
 
+        # MELEE/RANGED output split instrument (#86, gated SWEG_MODE_INSTR,
+        # read-only): per attacker-faction damage dealt, split by mode — to test
+        # whether World Eaters' melee output is over-credited per point vs the
+        # field's melee armies (the last cheap over-side probe before the
+        # displacement re-model fork).
+        if total_damage > 0 and __import__("os").environ.get("SWEG_MODE_INSTR"):
+            _mfac = (self.profile.faction or "?") or "?"
+            _mk = "melee" if mode == "melee" else "ranged"
+            _md = MODE_STATS.setdefault(_mfac, {"melee": 0.0, "ranged": 0.0})
+            _md[_mk] += total_damage
+
         return total_damage
 
     def __repr__(self) -> str:
@@ -4425,6 +4512,13 @@ def _build_catalog(use_calibrated: bool = False) -> Dict[str, UnitProfile]:
             # fire each model's real loadout. Empty entry → () (no per-model
             # loadout recorded).
             model_loadouts=_flatten_model_loadouts(entry.model_loadouts),
+            # DAMAGED-BRACKET (task #77) — flat ints, trivially hashable. Carried
+            # from the CatalogEntry; nothing reads them for behaviour until the
+            # gated application stage (Stage 3, SWEG_DMGBRACKET).
+            damaged_threshold=entry.damaged_threshold,
+            damaged_oc_penalty=entry.damaged_oc_penalty,
+            damaged_hit_penalty=entry.damaged_hit_penalty,
+            damaged_attacks_penalty=entry.damaged_attacks_penalty,
             # MAP-3-FIX — basket-fraction gating. Default 1.0 preserves legacy
             # single-weapon / non-heterogeneous behaviour; mapper sets < 1.0
             # for heterogeneous squads. Anti-keywords dict flattened to a

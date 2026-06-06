@@ -53,6 +53,7 @@ Cited as `simulator.doctrina_imperatives`.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -253,6 +254,10 @@ class DoctrinaRoundResetTests(unittest.TestCase):
     """The simulator must reset and re-pick `doctrina_imperative` at the
     start of each Command phase. Drive _run_round directly so we can
     inspect the picked imperative without running a full battle."""
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def _make_battle(self) -> Battle:
         ad = Army("AdMech")

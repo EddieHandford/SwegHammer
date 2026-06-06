@@ -1,0 +1,10 @@
+=== realized durability per target keyword class (ranged hits) ===
+class          hits  baseSv  effSv  cover%    AP   inv%
+VEHICLE       10664    2.76   3.40      57  1.07     63
+INFANTRY      17790    4.02   4.47      53  1.31     46
+OTHER          3196    4.41   4.41      53  1.21     67
+
+Reading: 'effSv' is the save actually rolled (base − AP + cover, w/ invuln).
+If VEHICLE effSv is worse than INFANTRY MAINLY because AP is much higher,
+that's FAITHFUL (anti-tank). If VEHICLE cover% is far below INFANTRY beyond
+the big-model rule, or effSv degraded with no AP cause -> a mis-application.

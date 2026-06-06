@@ -502,6 +502,32 @@ SIMULATOR_RULE_KEYS: Tuple[str, ...] = (
     # 3 controlled objectives at 5 VP each). Applied in
     # `Battle._score_objectives` after per-objective awards are tallied.
     "simulator.primary_vp_cap_15",
+    # Wave 187 (#71) — primary MISSION rotation. The sim previously scored
+    # every game as Take and Hold (the most holder-friendly primary); the
+    # real CA-2025-26 deck rotates ten primaries, several anti-holding. Modelled
+    # in `Battle._score_objectives` (branch on `Battle.primary_mission`).
+    "simulator.primary_mission_rotation",
+    "simulator.primary_purge_the_foe",
+    "simulator.primary_scorched_earth",
+    "simulator.primary_scorched_earth_burn",
+    # Wave 202 (#87) — Terraform primary: 4VP/controlled marker (cap 12) + 1VP per
+    # marker terraformed by you (the Terraform Action, `_assign_terraform_actions` /
+    # `_resolve_terraforms`, marks forward markers your spare bodies control).
+    "simulator.primary_terraform",
+    # Wave 203 (#87) — The Ritual primary: 5VP per No Man's Land marker controlled
+    # (cap 15); home-zone markers score nothing (the_ritual branch of _score_objectives).
+    "simulator.primary_the_ritual",
+    # 10e Imperial / Chaos Knights "Damaged: Wounds Remaining" datasheet ability,
+    # both clauses. OC half: Battle._effective_oc (wave 85). Hit half: Unit.attack
+    # hit_mod_delta -= 1 when on the Damaged bracket (wave 188). Registered here so
+    # the citation auditor enforces both (pre-existing gap: the OC key was cited in
+    # data/rule_citations.d/imperial_knights.json since wave 85 but never registered).
+    "simulator.damaged_objective_control_bracket",
+    "simulator.damaged_hit_bracket",
+    # #77 — the GENERALIZED, data-driven Damaged bracket (gated SWEG_DMGBRACKET):
+    # applies the real per-datasheet OC + Hit penalty to every model with a bracket,
+    # superseding the two Knight-only keys above. Data is BSData-sourced (rule 7).
+    "simulator.damaged_bracket",
     # SC4-A — 10e Pariah Nexus Fixed Secondary Missions. Bring it Down
     # (5 VP per enemy MONSTER/VEHICLE destroyed this round, capped 15)
     # and No Prisoners (5 VP per enemy unit destroyed this round, capped

@@ -120,8 +120,9 @@ class PursuitGateTests(unittest.TestCase):
         self.assertFalse(battle._tac_pursue_enabled())
 
     def test_deck_off_pursue_on_returns_false(self):
-        # pursue sub-gate requires deck gate to be set first.
-        os.environ.pop("SWEG_TAC_DECK", None)
+        # pursue sub-gate requires deck gate to be set first. (Deck is now default-ON,
+        # so pin it OFF explicitly to test the deck-off path.)
+        os.environ["SWEG_TAC_DECK"] = "0"
         os.environ["SWEG_TAC_PURSUE"] = "1"
         battle = _make_battle(_broad_army("A"), _broad_army("B"))
         self.assertFalse(battle._tac_pursue_enabled())
@@ -212,8 +213,8 @@ class BELPursuitTests(unittest.TestCase):
                               "pursuit must be inert when SWEG_TAC_PURSUE=0")
 
     def test_deck_gate_off_no_pursue_target(self):
-        """With SWEG_TAC_DECK unset, _assign_card_pursuit is a no-op."""
-        os.environ.pop("SWEG_TAC_DECK", None)
+        """With SWEG_TAC_DECK=0, _assign_card_pursuit is a no-op (deck is default-ON)."""
+        os.environ["SWEG_TAC_DECK"] = "0"
         a = _broad_army("A")
         b = _broad_army("B")
         self._arm_bel(a)

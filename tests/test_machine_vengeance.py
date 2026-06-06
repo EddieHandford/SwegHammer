@@ -19,6 +19,7 @@ as Oath of Moment (already covered by tests/test_marines.py).
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -85,6 +86,10 @@ class MachineVengeanceTargetPickerTests(unittest.TestCase):
     army.machine_vengeance_target_uid at the start of every Command phase —
     but ONLY while a Belisarius Cawl model is alive in an Adeptus Mechanicus
     army."""
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def test_target_designated_when_cawl_alive(self):
         random.seed(0)

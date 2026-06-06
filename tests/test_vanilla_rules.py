@@ -12,6 +12,7 @@ See plan `enchanted-wiggling-sundae` step 1 + step 2.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -74,6 +75,10 @@ class RulesConfigTests(unittest.TestCase):
 
 class CPCatchupBonusGateTests(unittest.TestCase):
     """Smaller-army CP catch-up bonus must be inert under vanilla rules."""
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def test_vanilla_does_not_award_catchup_cp(self) -> None:
         # Lopsided armies: A has 1 unit, B has 4 units.

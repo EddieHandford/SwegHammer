@@ -668,18 +668,18 @@ class Army:
         loop (P3) can treat them as a single unit. Two squads of the same
         datasheet receive distinct ids (fixing the profile.name-merge issue).
 
-        PER-MODEL-LOADOUTS (Stage 3, env-gated `SWEG_PERMODEL`): when the gate
-        is set AND the profile carries a per-model loadout, each model-Unit is
-        built from its OWN weapons (a Knight fires only its equipped guns; a
-        squad's special-weapon model carries its special weapon, lost when that
-        model dies). When the gate is unset the legacy path runs verbatim —
-        `size` Units sharing the one input `profile` object — so the simulator's
-        output is byte-for-byte unchanged (no extra RNG, OFF == baseline).
-        Cited as `simulator.per_model_loadouts`.
+        PER-MODEL-LOADOUTS (Stage 3-5, now DEFAULT-ON): when the profile carries
+        a per-model loadout, each model-Unit is built from its OWN weapons (a Knight
+        fires only its equipped guns; a squad's special-weapon model carries its
+        special weapon, lost when that model dies). The faithful 10e Weapons model,
+        flipped default-ON wave 210 (fidelity-first; the AI scores the SQUAD aggregate
+        via strategy._score_profile so it isn't confounded by one model's gun). The
+        legacy shared-profile path is retained behind `SWEG_PERMODEL=0` (reversible,
+        byte-identical to the pre-Stage-3 baseline). Cited as `simulator.per_model_loadouts`.
         """
         sid = self._next_squad_id
         self._next_squad_id += 1
-        if os.environ.get("SWEG_PERMODEL") and profile.model_loadouts:
+        if os.environ.get("SWEG_PERMODEL", "1") != "0" and profile.model_loadouts:
             self._add_squad_per_model(profile, size, sid)
         else:
             # Legacy path — byte-identical to the pre-Stage-3 loop (no extra

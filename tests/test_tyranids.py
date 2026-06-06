@@ -18,6 +18,7 @@ directly so the wounded-below-half-strength state is fully controllable.
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -96,6 +97,10 @@ def _build_battle(
 
 
 class SynapseImperativeTests(unittest.TestCase):
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def test_synapse_within_6_auto_passes(self):
         """A wounded Tyranid Warrior 5" from a Hive Tyrant must auto-pass
@@ -191,6 +196,10 @@ class SynapseImperativeTests(unittest.TestCase):
 
 
 class ShadowInTheWarpTests(unittest.TestCase):
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def _captured_targets(self, battle: Battle, unit_uid: str) -> list:
         """Drive _run_round many times with different seeds and record the

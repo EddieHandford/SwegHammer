@@ -1,6 +1,5 @@
 {
   "_comment": "Citation for the 10e Chapter Approved 2025-26 v1.5 primary scoring cap (the May-2026 calibration target's deck; source corrected from the Leviathan Tournament Companion per the wave-116 mission-pack audit): each army may score at most 15 Primary VP per battle round (≤ 3 objectives counted at 5 VP each). Wahapedia source: https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
-
   "simulator.primary_vp_cap_15": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
     "rule_name": "Primary Mission per-round scoring cap (CA-2025-26 v1.5)",
@@ -9,7 +8,6 @@
     "effect": "the army's Primary VP for that round is capped at 15 (i.e. only the first 3 controlled objectives count at 5 VP each). Citation source corrected from the Leviathan Tournament Companion to the Chapter Approved 2025-26 v1.5 pack (the May-2026 calibration target's deck) per the wave-116 mission-pack audit.",
     "scope": "phase-gated"
   },
-
   "simulator.primary_vp_cap_50": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
     "rule_name": "Primary Mission total VP cap (50 per game)",
@@ -18,7 +16,6 @@
     "effect": "M1 (wave 117). Each army's total Primary VP is capped at 50 per game, mirroring the existing 40-VP total Secondary cap. The simulator previously enforced only the per-round 15 cap, so a primary-dominating army (the durable Knight) could run to 4 rounds x 15 = 60 and over-score primary by up to 10. Applied in Battle._decide_winner as min(primary, 50). A real CA-2025-26 rule: kept ON by default (set SWEG_PRIMARY_CAP_50=0 to disable for the isolation A/B). Cited verbatim from the CA-2025-26 v1.5 'Determine Victor' VP-source maximums table.",
     "scope": "phase-gated"
   },
-
   "simulator.primary_vp_entering_round": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
     "rule_name": "Primary Mission scoring is at the Command phase (per-turn), not a single post-combat snapshot",
@@ -27,13 +24,60 @@
     "effect": "env-gated SWEG_ENTERSCORE (wave 111). The alternating-activation round model collapses both players' turns into one interleaved sequence and the baseline scores Primary only once, at end of round AFTER all combat, which credits only the post-combat survivor and erases a fragile army's transient board control (wave-110 instrumentation: 52% of a broad army's entering-round marker control was stripped by in-round combat before the end-of-round score). When set, Primary is scored on the control state ENTERING each of battle rounds 2-5 (before that round's combat) instead — faithfully approximating the per-Command-phase scoring moment. Even-handed: credits whoever holds entering the round, Knight or horde. Same four scoring opportunities (rounds 2-5) and per-round 15 VP cap as the baseline. Gate unset reproduces the end-of-round baseline byte-for-byte.",
     "scope": "phase-gated"
   },
-
   "simulator.primary_vp_command_phase": {
     "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-tournament-companion/",
     "rule_name": "Primary Mission scores at each player's own Command phase (per-player, per-turn)",
     "quoted_text": "The player going first can score VP for guarding an objective marker they control at the end of their opponent's first, second, third, fourth and fifth turn. The player going second can score VP for guarding an objective marker they control at the end of their opponent's second, third, fourth and fifth turn.",
     "trigger": "the end of each player's own Command phase (the start of that player's turn), on the objectives that player controls AT THAT MOMENT",
     "effect": "env-gated SWEG_CMDSCORE (wave 116). The eval already runs the vanilla 10e I-go-you-go round (Battle default RulesConfig.vanilla_10e, alternating_activations False → Battle._run_round_vanilla_turns: first player's full turn, then the second's). The baseline still scores Primary ONCE per round, at end of round after BOTH turns, crediting only the post-combat survivor. When set, Primary is scored per player at its own Command phase (the START of its turn, before its own movement, inside _run_round_vanilla_turns) via Battle._score_objectives(only_for=<that army>) — the real 10e timing, which credits both the static holder (at its Command phase) and the mobile taker (at its next Command phase), unlike any single end-or-start-of-round snapshot. Even-handed, rounds 2-5, per-player 15 VP/round cap unchanged; the end-of-round score is skipped when this is active. Applies only to the IGOUGO path (no clean per-player Command phases under alternating activations). Gate unset reproduces the end-of-round baseline byte-for-byte.",
+    "scope": "phase-gated"
+  },
+  "simulator.primary_mission_rotation": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Primary Mission rotation (Chapter Approved 2025-26 Mission Deck)",
+    "quoted_text": "Each Primary Mission card describes how players score victory points during the game. ... The primary missions are: Linchpin, Burden of Trust, Take and Hold, Terraform, Purge the Foe, Scorched Earth, Unexploded Ordnance, Hidden Supplies, The Ritual, Supply Drop.",
+    "trigger": "a battle is set up — the primary mission is drawn from the deck and its scoring rule applies for the whole game",
+    "effect": "wave 187 (#71). The simulator previously scored EVERY game as Take and Hold (5 VP per controlled objective, cap 15) — the single most holder-friendly primary — which structurally inflated durable static holders (Imperial Knights). The real CA-2025-26 deck rotates ten primaries with different scoring rules, several of which penalise pure holding. Battle.primary_mission selects which rule Battle._score_objectives applies; the eval rotates the modelled missions per battle (env-gated SWEG_PRIMARY_MISSION). Default 'take_and_hold' reproduces the legacy behaviour byte-for-byte. The three most distinct scoring rules are modelled first (Take and Hold / Purge the Foe / Scorched Earth); the remaining seven are deferred (mostly objective-control variants).",
+    "scope": "phase-gated"
+  },
+  "simulator.primary_purge_the_foe": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Purge the Foe primary mission scoring (Chapter Approved 2025-26)",
+    "quoted_text": "Each player scores 4VP if one or more enemy units were destroyed this battle round. ... Each player scores 4VP if more enemy units than friendly units were destroyed this battle round. ... scores 4VP if they control one or more objective markers, and an additional 4VP if they control more objective markers than their opponent controls. ... maximum of 12 victory points.",
+    "trigger": "end of each battle round (kill conditions) and the controlling player's Command phase (objective conditions), from the second battle round onwards for the superior-attrition and objective conditions",
+    "effect": "wave 187. Modelled in Battle._score_objectives when primary_mission == 'purge_the_foe': 4 VP for destroying one or more enemy units this round, +4 VP for destroying more enemy units than the opponent destroyed of yours (kill counts from the round-start snapshots via _units_destroyed_this_round), +4 VP for controlling one or more objectives, +4 VP for controlling more objectives than the opponent, capped at 12 VP/round. Kill-weighted (8 of 12 VP), so a static holder that under-kills caps at 8 — directly counter-acting the holder inflation. The split Command-phase / end-of-battle-round timing is approximated by scoring the whole formula at the simulator's round-end scoring point (the eval's cadence), faithful to the VP amounts.",
+    "scope": "phase-gated"
+  },
+  "simulator.primary_scorched_earth": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Scorched Earth primary mission scoring (Chapter Approved 2025-26)",
+    "quoted_text": "scores 5VP for each objective marker they control (up to 10VP per turn). ... a unit can perform the Burn Objective Marker action; ... that objective marker is removed from the battlefield and the player scores 5VP (No Man's Land) or 10VP (in the opponent's deployment zone).",
+    "trigger": "the controlling player's Command phase (objective control), from the second battle round onwards",
+    "effect": "wave 187. Modelled in Battle._score_objectives when primary_mission == 'scorched_earth': 5 VP per controlled objective, capped at 10 VP/round — LOWER than Take and Hold's 15, so a static holder scores less per round. The Burn-Objective-Marker action is now modelled (wave 200, simulator.primary_scorched_earth_burn, gated SWEG_SCORCHED_BURN).",
+    "scope": "phase-gated"
+  },
+  "simulator.primary_scorched_earth_burn": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Scorched Earth - Burn Objective Marker (Raze) Action (Chapter Approved 2025-26)",
+    "quoted_text": "a unit can perform the Burn Objective Marker action while within range of an objective marker that is not in its own deployment zone. COMPLETES: at the end of the opponent's next turn (or the battle), if the unit is still within range of the same objective marker AND YOU CONTROL that objective marker; that objective marker is removed and you score 5VP (No Man's Land) or 10VP (in the opponent's deployment zone).",
+    "trigger": "a unit within range of (and whose army CONTROLS) an objective marker in No Man's Land or the enemy deployment zone, not within Engagement Range, performs the Burn Objective Marker Action (and so cannot shoot/charge that turn). It completes only if the army STILL controls that marker at the end. From the second battle round. Verified verbatim 2026-06-05 (Wahapedia CA-2025-26): control is required, not mere range.",
+    "effect": "wave 200 (#87, gated SWEG_SCORCHED_BURN, active only under the scorched_earth primary). _assign_burn_actions flags up to two SURPLUS units (the rules-authentic _unit_can_perform_action contract: OC>0, not engaged, NOT a productive shooter -- the faithful burn-vs-shoot trade-off) that CONTROLS a burnable marker (the army out-OCs the enemy there — _oc_within > opponent's, both at assignment and completion); on completion (_action_completes: survives forward, not dragged into Engagement Range) _resolve_burns RAZES the marker (added to _razed_objectives, excluded from all later hold scoring) and scores 5 VP (No Man's Land) / 10 VP (enemy DZ), on top of the hold cap. Models the previously-deferred Burn -- the displacement-via-scoring mechanic that penalises static over-holders (their marker is razed) and rewards pushing forward, no kill needed.",
+    "scope": "phase-gated"
+  },
+  "simulator.primary_terraform": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "Terraform (Chapter Approved 2025-26 primary mission)",
+    "quoted_text": "The player whose turn it is scores 4VP for each objective marker they control (up to 12VP per turn). Each player scores 1VP for each objective marker that is terraformed by them. TERRAFORM ACTION: One or more units from your army, each within range of a different objective marker that is not within your deployment zone [...] completes at the end of the turn, if the unit performing this Action is still within range of the same objective marker and you control that objective marker. If that objective marker was terraformed by your opponent, it no longer is.",
+    "trigger": "Terraform primary mission. Hold: a player controlling objective markers at end of its Command phase (from the second battle round). Terraform Action: one or more units, each within range of a DIFFERENT objective marker NOT in their own deployment zone (No Man's Land or the enemy DZ), not within Engagement Range, perform the Action (and so cannot shoot/charge that turn); it completes at end of turn only if the unit is still within range AND the army controls that marker. A fresh terraform overwrites the opponent's on the same marker. Verified verbatim 2026-06-05 (Wahapedia CA-2025-26): START needs only range, COMPLETION needs control.",
+    "effect": "wave 202 (#87, active under the terraform primary; SWEG_TERRAFORM=0 disables the Action for A/B). Scoring branch in _score_objectives: min(4 * controlled_markers, 12) hold VP + 1 VP per marker terraformed by that side (the +1 is on top of the 12 cap). _assign_terraform_actions flags SURPLUS units (the same rules-authentic _unit_can_perform_action contract as Burn: OC>0, not engaged, NOT a productive shooter -- so a Knight's all-productive units terraform ~0 while a body army's spare bodies do, the emergent displacement asymmetry), each to a DISTINCT forward marker within range (no cap-of-one, per 'one or more units'); on completion (_action_completes survival gate + control re-check) _resolve_terraforms marks the marker terraformed by that army (overwriting the opponent's). The displacement angle is the Action's firepower opportunity cost, which a few-model army pays more dearly.",
+    "scope": "phase-gated"
+  },
+  "simulator.primary_the_ritual": {
+    "source": "https://wahapedia.ru/wh40k10ed/the-rules/chapter-approved-2025-26/",
+    "rule_name": "The Ritual (Chapter Approved 2025-26 primary mission)",
+    "quoted_text": "The player whose turn it is scores 5VP for each objective marker in No Man's Land that they control (up to 15VP per turn). [Action: set up one objective marker anywhere on the battlefield wholly within No Man's Land, if it can be set up exactly 12\" from one other objective marker.]",
+    "trigger": "The Ritual primary mission: a player controlling objective markers in No Man's Land at the end of its Command phase (from the second battle round). Home / deployment-zone markers score nothing.",
+    "effect": "wave 203 (#87, active under the the_ritual primary): score 5 VP per controlled No Man's Land marker, capped at 15 VP/round. The No-Man's-Land-only scoring forces every army to contest the centre (a back-camping gunline scores 0). The Ritual ACTION (set up a NEW No Man's Land marker) is NOT modelled — the sim's objective set is fixed, so dynamic marker creation is out of scope for the bounded avenue-1 close; only the No-Man's-Land-only hold pressure is captured (the same partial-then-extend pattern as Scorched's hold-before-Burn). Verified verbatim 2026-06-05 (Wahapedia CA-2025-26).",
     "scope": "phase-gated"
   }
 }

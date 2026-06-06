@@ -2135,6 +2135,19 @@ class MappedUnit:
     notes: str = ""
     enabled: bool = True
     skip_reason: str = ""
+    # DAMAGED-BRACKET (task #77) — the 10e "Damaged: 1-X Wounds Remaining"
+    # datasheet ability, extracted per-unit from BSData so the simulator can apply
+    # the REAL per-datasheet bracket to every model rather than the Knight-only
+    # heuristic. `damaged_threshold == 0` means the unit has no bracket. Penalties
+    # are how much each stat drops while the model is at 1..threshold wounds. v1
+    # models OC + Hit (the only effects the sim applies today); attacks_penalty is
+    # extracted for completeness but is 0 across all 10e brackets (verified). Move
+    # degradation is deferred (not modelled). Additive data — nothing reads these
+    # until the gated application stage. Cited `simulator.damaged_bracket`.
+    damaged_threshold: int = 0
+    damaged_oc_penalty: int = 0
+    damaged_hit_penalty: int = 0
+    damaged_attacks_penalty: int = 0
     # PER-MODEL-LOADOUTS STAGE 1 — per-model weapon loadouts (each model type's
     # actual equipped weapons, with raw dice strings preserved). This is the
     # ADDITIVE data the later per-model firing stage reads; nothing reads it
@@ -2202,6 +2215,89 @@ def _slugify(codex: str, name: str) -> str:
 # Telemetry: how many units used the squad-aware (heterogeneous) path vs.
 # fell back to the legacy single-best-weapon path. Reset by `map_all`.
 _LOADOUT_TELEMETRY: Dict[str, int] = {"heterogeneous": 0, "fallback": 0}
+
+
+# DAMAGED-BRACKET (task #77) — parse the 10e "Damaged: 1-X Wounds Remaining"
+# datasheet ability. BSData encodes it as an inline Abilities profile named
+# "Damaged: 1-X Wounds Remaining" whose Description reads e.g. "While this model
+# has 1-5 wounds remaining, subtract 3 from this model's Objective Control
+# characteristic, and each time this model makes an attack, subtract 1 from the
+# Hit roll." The Hit regex anchors on "this model makes an attack" so it captures
+# ONLY the offensive self-penalty and NOT the unrelated defensive "-1 to be hit"
+# form ("each time an attack targets that unit ...") — the de-conflation the
+# wave-190b audit proved necessary. Apostrophes vary (models / model's / model’s).
+_DMG_THRESH_RE = re.compile(r"1-(\d+)\s*wounds remaining", re.IGNORECASE)
+_DMG_OC_RE = re.compile(
+    r"subtract\s+(\d+)\s+from this model[’'’]?s? Objective Control", re.IGNORECASE
+)
+_DMG_HIT_RE = re.compile(
+    r"this model makes an attack,\s*subtract\s+1\s+from the Hit roll", re.IGNORECASE
+)
+_DMG_ATK_RE = re.compile(
+    r"subtract\s+(\d+)\s+from this model[’'’]?s? Attacks", re.IGNORECASE
+)
+
+
+def _gather_damaged_profiles(elem: ET.Element, reg: Registry,
+                             depth: int = 0, seen: Optional[set] = None) -> list:
+    """Collect every "Damaged"-named Abilities profile reachable from `elem`:
+    inline AND link-resolved. Many datasheets (all the mainline Imperial / Chaos
+    Knights, etc.) do NOT carry the Damaged ability inline — they reference a
+    SHARED "Damaged: 1-X Wounds Remaining" profile in a linked Library via an
+    infoLink, so an inline-only walk misses it (the verification that caught this
+    showed only 1/42 Knights extracted). We resolve infoLink / entryLink targetIds
+    through the registry, mirroring the weapon-resolution walk. Bounded depth +
+    seen-set guard against cycles."""
+    if seen is None:
+        seen = set()
+    if depth > 3 or id(elem) in seen:
+        return []
+    seen.add(id(elem))
+    out = []
+    for prof in elem.findall(".//profile"):
+        if (prof.get("typeName") or "") == "Abilities" and \
+                (prof.get("name") or "").strip().lower().startswith("damaged"):
+            out.append(prof)
+    for il in elem.findall(".//infoLinks/infoLink"):
+        tgt = reg.resolve(il.get("targetId") or "")
+        if tgt is not None and tgt.tag == "profile" and \
+                (tgt.get("typeName") or "") == "Abilities" and \
+                (tgt.get("name") or "").strip().lower().startswith("damaged"):
+            out.append(tgt)
+    for el in elem.findall(".//entryLinks/entryLink"):
+        tgt = reg.resolve(el.get("targetId") or "")
+        if tgt is not None:
+            out.extend(_gather_damaged_profiles(tgt, reg, depth + 1, seen))
+    return out
+
+
+def extract_damaged_bracket(entry: ET.Element, reg: Registry) -> tuple:
+    """Return (threshold, oc_penalty, hit_penalty, attacks_penalty) for the unit's
+    10e Damaged bracket. threshold == 0 means the unit has no bracket. Gathers the
+    "Damaged"-named Abilities profiles reachable from `entry` (inline + link-
+    resolved via `reg`) and returns the first that degrades a stat we model. A unit
+    has at most one Damaged bracket on its own datasheet; the first match is its
+    own."""
+    for prof in _gather_damaged_profiles(entry, reg):
+        desc = ""
+        for ch in prof.iter("characteristic"):
+            if ch.get("name") == "Description":
+                desc = ch.text or ""
+                break
+        if not desc:
+            continue
+        mt = _DMG_THRESH_RE.search(desc) or _DMG_THRESH_RE.search(prof.get("name") or "")
+        if not mt:
+            continue
+        threshold = int(mt.group(1))
+        moc = _DMG_OC_RE.search(desc)
+        matk = _DMG_ATK_RE.search(desc)
+        oc_pen = int(moc.group(1)) if moc else 0
+        hit_pen = 1 if _DMG_HIT_RE.search(desc) else 0
+        atk_pen = int(matk.group(1)) if matk else 0
+        if oc_pen or hit_pen or atk_pen:
+            return (threshold, oc_pen, hit_pen, atk_pen)
+    return (0, 0, 0, 0)
 
 
 def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
@@ -2372,6 +2468,7 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
     deployment = extract_deployment_abilities(entry)
     deadly_demise = extract_deadly_demise(entry)
     firing_deck = extract_firing_deck(entry)
+    dmg_threshold, dmg_oc_pen, dmg_hit_pen, dmg_atk_pen = extract_damaged_bracket(entry, reg)
     reanimates = extract_reanimates_with_army(entry, reg, list(unit_kw))
 
     # If melee-only (no ranged), use the melee weapon as the primary stat line
@@ -2486,6 +2583,10 @@ def map_unit(codex: str, entry: ET.Element, reg: Registry) -> MappedUnit:
         stealth=stealth or primary.stealth,
         lone_operative=lone_operative,
         fights_first=fights_first,
+        damaged_threshold=dmg_threshold,
+        damaged_oc_penalty=dmg_oc_pen,
+        damaged_hit_penalty=dmg_hit_pen,
+        damaged_attacks_penalty=dmg_atk_pen,
         deep_strike=bool(deployment["deep_strike"]),
         scout_distance=int(deployment["scout_distance"]),
         infiltrator=bool(deployment["infiltrator"]),

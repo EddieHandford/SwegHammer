@@ -448,17 +448,27 @@ def render_frame(
     # --- Terrain ---
     font_terrain = _load_font(7)
     for t in map_.terrain:
-        tc = TERRAIN_COLORS.get(t.type, "#555555")
-        tx0, ty0 = to_px(t.x, t.y + t.height)   # top-left in pixel space
-        tx1, ty1 = to_px(t.x + t.width, t.y)    # bottom-right in pixel space
-        draw.rectangle([tx0, ty0, tx1, ty1],
-                       fill=_blend(tc, 0.85, COL_BOARD_BG),
-                       outline=_rgba("#222222"), width=1)
-        tcx, tcy = to_px(t.x + t.width / 2, t.y + t.height / 2)
-        _draw_text_centered(draw, tcx, tcy, t.name,
-                            font_terrain, _rgba("#ffffff", 178))
+        color = TERRAIN_COLORS.get(t.type, "#555555")
+        ax.add_patch(Rectangle(
+            (t.x, t.y), t.width, t.height,
+            facecolor=color, edgecolor="#222", linewidth=0.8, alpha=0.85, zorder=2,
+        ))
+        # Terrain names are background context, not foreground — kept small,
+        # faded and italic, and BELOW the units (zorder 2) so a unit shape
+        # always wins the pixel. Previously fontsize-6 white-on-top text
+        # overlapped and competed with the unit silhouettes.
+        ax.text(
+            t.x + t.width / 2, t.y + t.height / 2, t.name,
+            color="#bdb6aa", fontsize=4.5, ha="center", va="center",
+            alpha=0.38, zorder=2, style="italic",
+        )
 
-    # --- Frame events ---
+    # Draw every visual effect emitted during this frame's activation. Shot
+    # arcs are deliberately faded so multiple-target activations stay legible
+    # (a Boyz mob shooting into three different Marine squads paints three
+    # arrows from the same unit; without alpha the latest would obscure the
+    # rest). Charge arrow and melee burst use full opacity since each
+    # activation has at most one.
     n_shots = sum(1 for ev in frame_events if isinstance(ev, UnitShot))
     shot_alpha = int(255 * (0.85 if n_shots <= 1 else max(0.35, 0.85 / n_shots ** 0.5)))
     shot_col = _rgba(COL_SHOT_ARROW, shot_alpha)
@@ -509,15 +519,20 @@ def render_frame(
             [(cx, cy - dr), (cx + dr, cy), (cx, cy + dr), (cx - dr, cy)],
             fill=_rgba(COL_OBJECTIVE, 191),
         )
+        ax.add_patch(circle)
+        ax.scatter([obj.x], [obj.y], s=40, c=COL_OBJECTIVE, marker="D",
+                   edgecolors="black", linewidths=0.5, alpha=0.75, zorder=3)
 
-    # --- Units ---
-    col_a_rgba = _rgba(colour_a)
-    col_b_rgba = _rgba(colour_b)
-
+    # Units — drawn at their real-world GW base footprint. The state dict
+    # carries base_shape + dimensions sourced from UnitProfile via the
+    # BattleStarted snapshot; missing fields default to a 32mm round so
+    # legacy / synthetic event logs keep rendering.
+    legend_armies: Dict[str, str] = {}   # army name -> colour, for the legend
+    labelled: List[tuple] = []           # (army, name, x, y) placed tags — de-dup squad clusters
     for uid, s in state.items():
-        color = col_a_rgba if s["army"] == a_name else col_b_rgba
-        cx, cy = to_px(*s["position"])
-
+        color = colour_a if s["army"] == a_name else colour_b
+        legend_armies.setdefault(s["army"], color)
+        x, y = s["position"]
         if s["alive"]:
             bs = s.get("base_shape", "circle")
             if bs in ("rect", "oval"):
@@ -532,15 +547,61 @@ def render_frame(
             # HP bar: small white inner circle when wounded
             if s["max_hp"] > 1 and s["current_hp"] < s["max_hp"]:
                 hp_frac = max(0.05, s["current_hp"] / s["max_hp"])
-                r = max(2, int(w_px / 2 * math.sqrt(hp_frac) * 0.7))
-                draw.ellipse([cx - r, cy - r, cx + r, cy + r],
-                             fill=(255, 255, 255, 120))
+                ax.scatter([x], [y], s=100 * hp_frac, c="white", alpha=0.5, zorder=6)
+            # Name-tag the LARGE / distinct units (vehicles, monsters, titanic,
+            # big-base characters). Small infantry are left untagged so hordes
+            # stay legible — colour + size + the legend identify those. De-dup
+            # so a clustered multi-model squad gets ONE tag, not one per model.
+            shape = (s.get("base_shape") or "circle").lower()
+            is_big = shape in ("rect", "oval") or int(s.get("base_diameter_mm", 32)) >= 50
+            if is_big:
+                name = s.get("name") or ""
+                near = any(
+                    la == s["army"] and ln == name
+                    and (lx - x) ** 2 + (ly - y) ** 2 < 49.0
+                    for la, ln, lx, ly in labelled
+                )
+                if name and not near:
+                    tag = (name[:15] + "…") if len(name) > 16 else name
+                    ax.text(
+                        x, y, tag,
+                        color="white", fontsize=4.8, fontweight="bold",
+                        ha="center", va="center", zorder=8,
+                        bbox=dict(boxstyle="round,pad=0.18", facecolor="#0e1117",
+                                  edgecolor=color, linewidth=0.6, alpha=0.62),
+                    )
+                    labelled.append((s["army"], name, x, y))
         else:
             r = max(4, int(_mm_to_inches(32) / 2 * scale))
             _cross(draw, cx, cy, r, _rgba(COL_DEAD, 178))
 
-    # --- Title bar ---
-    font_title = _load_font(11)
+    # Army colour legend — reinforces which colour is which army; the name
+    # tags above identify the individual big units.
+    if legend_armies:
+        from matplotlib.patches import Patch
+        handles = [
+            Patch(facecolor=c, edgecolor="white", linewidth=0.6, label=nm)
+            for nm, c in legend_armies.items()
+        ]
+        leg = ax.legend(
+            handles=handles, loc="upper left", fontsize=6.5,
+            facecolor="#0e1117", edgecolor="#555", framealpha=0.72,
+            labelcolor="white", borderpad=0.5, handlelength=1.2,
+        )
+        leg.set_zorder(9)
+
+    # Scale bar — a 6" reference so the true-base-size shapes read at a known
+    # scale (a Knight base really is ~3x a Marine's).
+    bar_len = 6.0
+    bx0 = map_.width - bar_len - 1.0
+    bary = -0.6
+    ax.plot([bx0, bx0 + bar_len], [bary, bary], color="white", lw=1.8,
+            zorder=9, solid_capstyle="butt")
+    ax.text(bx0 + bar_len / 2.0, bary + 0.18, '6"', color="white",
+            fontsize=6, ha="center", va="bottom", zorder=9)
+
+    # Title — show frame index (one per activation / boundary), not raw
+    # event index, so the slider value matches what the viewer sees.
     total_frames = max(0, len(frames) - 1)
     title = (
         f"Round {_current_round(events, end_idx)}  │  "

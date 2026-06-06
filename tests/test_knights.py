@@ -33,6 +33,7 @@ Cited as ``simulator.extra_melee_profiles`` in
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 from dataclasses import replace
@@ -76,26 +77,38 @@ def _measure_avg_melee_damage(
     tuple is replaced with the empty tuple before the loop, so callers can
     measure the marginal damage contributed by the extras."""
     random.seed(seed)
-    base_profile = UNIT_CATALOG[attacker_key]
-    if strip_extras:
-        attacker_profile = replace(base_profile, extra_melee_profiles=())
-    else:
-        attacker_profile = base_profile
+    # Per-model firing is now default-ON; this helper measures the marginal melee
+    # contribution by stripping the AGGREGATE extra_melee_profiles, which the per-model
+    # firing path bypasses (it fires the model's own loadout). Pin the legacy
+    # aggregate-firing path so the strip takes effect; restore the env afterward.
+    _saved_pm = os.environ.get("SWEG_PERMODEL")
+    os.environ["SWEG_PERMODEL"] = "0"
+    try:
+        base_profile = UNIT_CATALOG[attacker_key]
+        if strip_extras:
+            attacker_profile = replace(base_profile, extra_melee_profiles=())
+        else:
+            attacker_profile = base_profile
 
-    attacker_army = Army("Attacker")
-    attacker_army.add_unit(attacker_profile)
-    target_army = Army("Target")
-    target_army.add_unit(target_profile)
-    a_unit = attacker_army.units[0]
-    t_unit = target_army.units[0]
-    a_unit.army_ref = attacker_army
-    t_unit.army_ref = target_army
+        attacker_army = Army("Attacker")
+        attacker_army.add_unit(attacker_profile)
+        target_army = Army("Target")
+        target_army.add_unit(target_profile)
+        a_unit = attacker_army.units[0]
+        t_unit = target_army.units[0]
+        a_unit.army_ref = attacker_army
+        t_unit.army_ref = target_army
 
-    total = 0.0
-    for _ in range(n_trials):
-        t_unit.current_health = float(target_profile.health)
-        total += a_unit.attack(t_unit, distance=1.0, mode="melee")
-    return total / n_trials
+        total = 0.0
+        for _ in range(n_trials):
+            t_unit.current_health = float(target_profile.health)
+            total += a_unit.attack(t_unit, distance=1.0, mode="melee")
+        return total / n_trials
+    finally:
+        if _saved_pm is None:
+            os.environ.pop("SWEG_PERMODEL", None)
+        else:
+            os.environ["SWEG_PERMODEL"] = _saved_pm
 
 
 class KnightAbominantBalemaceTests(unittest.TestCase):

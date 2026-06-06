@@ -1,6 +1,122 @@
 # SwegHammer calibration — current state
 
-**Last updated:** Wave 183 (2026-06-04) — ANTI-TANK PICKER FIX LANDED (faithful) but a HONEST NEGATIVE RESULT: the
+**WAVE 210 (2026-06-06) — FIDELITY-FIRST SWEEP #1 LANDED: per-model weapon firing flipped DEFAULT-ON; new honest baseline
+gated MAE ~5.57 (was 4.89).** Per the user-authorised fidelity-revisit sweep (docs/FIDELITY_REVISIT_WORKLIST.md), each parked
+faithful 10e mechanic is now landed even though the metric RISES (the rise un-masks the over-rate the bad representation was
+compensating — that's the point). **#1 per-model loadouts** (each model fires its OWN real weapons; single-model units stop
+firing mutually-exclusive arm options) is now production (`SWEG_PERMODEL=0` reverts). It required completing the AI-isolation
+(`strategy._score_profile`: the tactical AI scores the SQUAD aggregate, not one model's gun — offensive scorers + the
+movement-role `classify`) so per-model doesn't confound targeting/movement. Net A/B (deck frame N=80): OFF 4.89 → ON **5.57**.
+KEY SYNTHESIS: the faithful version HELPS Daemons (movement role correct) but HURTS the under-pole (AM/AdMech) — because faithful
+gunlines hold-and-shoot (correct 10e) and score LESS primary VP than advancing. So BOTH poles are the positional/representation
+gap (faithful units don't advance-to-score), the SAME root, owned by option-B (anti-walling) + Stage 2 — NOT an abilities gap.
+Sweep continues #2 (Tactical deck) → #3 (Command-phase scoring) → … on the 5.57 honest frame. (Avenue-2 physics: board-wide
+collision is DEAD even with pathfinding — collision+pathfind regressed 5.68→8.02 by walling big bases; pathfinding code kept as
+gated/inert infra. Over-pole headline is now option-B anti-walling.)
+
+---
+
+**WAVE 210 (2026-06-06) — DECISION POINT FOR THE USER: the fork-agnostic levers are exhausted; the substantive residual is
+the POSITIONAL/PHYSICS axis, blocked on your scale-fork call.** Production frame = the real CA-2025-26 deck rotation
+(`SWEG_PRIMARY_DECK` default-ON), gated MAE **~4.89**. The session worked three big tracks to faithful conclusions, all
+recorded and all leaving the baseline untouched (every experiment gated):
+- **Avenue 1 (mission/scoring deck) — LANDED, faithful −0.30.** The CA-2025-26 rotation (Take and Hold / Purge / Scorched-Burn
+  / Terraform / The Ritual) is the production frame (5.19 → 4.89), after catching a mission↔map measurement confound that had
+  hidden its value.
+- **Avenue 2 (physical board control) — BLOCKED on a USER scale-fork.** Board-wide no-overlap collision is DEAD for this
+  one-Unit-per-model greedy-no-pathfind representation (4 faithful make-way attempts all strand big-base Knights, reach
+  64%→16-20%; the N=80 A/B regressed 4.89→6.81 by global reach-loss). The terrain pair shares the SAME big-base-navigation
+  dependency for its movement half, and its line-of-sight half is UNFAITHFUL (10e ruins block the whole footprint — "cannot
+  see over or through" — so doorway-LoS is a regression, dropped). All collision/terrain code is gated default-OFF + inert.
+  **The scale fork (invest in big-base pathfinding vs marker-only abstraction vs shelve physics) is yours to call.**
+- **Under-pole ABILITY hunt — EXHAUSTED.** Astra Militarum / Adeptus Mechanicus combat is wave-86-VETTED-FAITHFUL (their gap
+  is positional, not an ability); CSM Dark-Pacts coverage was REFUTED as a lever (3 attempts incl. true Lethal/Sustained
+  Hits, all net-negative on self-damage; reverted). The remaining un-vetted under-shooters are mild (Daemons gated 1.31).
+- **Net:** both poles (Imperial Knights over ~19.4; Astra Militarum / Adeptus Mechanicus under, ~half positional) reduce to
+  the positional/physics representation — which is blocked on the scale fork.
+- **ONE live fork-agnostic DECISION remains (not a cleanup): land per-model weapon firing?** The per-model loadout mechanic
+  (`SWEG_PERMODEL`, Stages 1-4 built, Stage 5 unbuilt) is FAITHFUL — each model fires its own real weapons + rolled dice;
+  single-model units stop firing mutually-exclusive arm weapons (the Wraithknight fired BOTH arm cannons; 523/907 over-collected).
+  It is gated-OFF only because wave-99 measured it REGRESSING +0.27 (it un-masks elite over-rate — Votann/Chaos Knights fire
+  their real stronger guns and over-shoot more; Imperial Knights stay flat, so it does NOT fix the over-pole). **But that
+  "leave gated" call predates the user's 2026-06-03 fidelity-first rail ("never gate a faithful mechanic off to protect the
+  metric").** So whether to land it default-ON (faithful, regresses the frame while the compensating positional root is
+  scale-fork-blocked) vs keep it gated (clean frame until the fork lands) is a genuine user fork — escalated, with a fresh
+  deck-frame N=80 A/B in flight to decide on CURRENT data.
+
+---
+
+**Last updated:** Wave 203 (2026-06-06) — AVENUE 1 (mission/scoring displacement) is a faithful WIN once measured cleanly.
+Gated MAE **5.76 → 5.19** (objective-game arc), then the user-greenlit displacement re-model's avenue 1 (Scorched Burn +
+Terraform + The Ritual + the CA-2025-26 deck rotation). A measurement CONFOUND (the deck locked each mission to one map via
+the shared seed) had made the rotation look metric-neutral; **fixed (mission draw decoupled from the map), the clean
+decoupled deck = gated 4.89, a real −0.30 vs the 5.19 baseline.** Drivers: The Ritual's No-Man's-Land-only scoring compresses
+the camping over-shooters toward target (Emperor's Children / Thousand Sons / Sororitas down) AND IK is net-DOWN
+(70.4 / 19.70), so Purge's re-inflation is outweighed. 4 of 10 real primaries now score by their real rule (Take and Hold /
+Purge / Scorched-Burn / Terraform / The Ritual), all faithful.
+
+**METRIC RE-BASE (wave 203, watchdog-adopted): the deck is now the production eval frame (`SWEG_PRIMARY_DECK` DEFAULT-ON).**
+The real Chapter Approved 2025-26 rotation is the CORRECT frame (the Warp Friends target win rates were generated under the
+real rotation, not all-Take-and-Hold). **Post-adoption headline gated MAE is ~4.89 on a NEW deck-frame scale — NOT comparable
+to the pre-adoption all-Take-and-Hold 5.19** (same kind of deliberate re-base as wave-145's live-target/field-weighting
+re-base; numbers before and after the adoption are different scales). Out-of-band scan confirmed net-faithful (over-shooters
+compressed toward target, Imperial Knights eased 20.84→19.70, under-pole unchanged, none cratered). Reversible:
+`SWEG_PRIMARY_DECK=0` restores the legacy all-Take-and-Hold frame for an audit/A-B. The remaining 5 primaries (Unexploded
+Ordnance / Supply Drop / Hidden Supplies / Linchpin / Burden of Trust) are an opportunistic follow-on to complete the frame
+(minor, non-blocking).
+
+**Avenue 2 (physical board control) — wave 204-208.** Instrument-first (`diag_boardcontrol`, gated `SWEG_BOARDCTRL_INSTR`):
+the over-pole has two physical-board gaps — OC over-packing on contested markers (145%, a Knight's 170mm base over-fills the
+3" ring) and 50% of big VEHICLE/MONSTER models sitting inside ruins they should be walled out of. **Collision sub-lever
+REJECTED (wave 208):** board-wide no-overlap collision + make-way (3 attempts: ring-fill / distinct-slot / sidestep) N=80
+A/B regressed 4.89→6.81 — it strands the big-base Knights (reach 52%→20%, both Knights crater) and inflates the mobile shooty
+cluster (global reach-loss in this greedy-no-pathfind one-Unit-per-model representation, not selective displacement). Kept
+gated default-OFF (`SWEG_COLLISION`/`SWEG_MOVEPLAN`), production deck frame 4.89 unaffected. The marker-only-collision variant
+is escalated to the user (departs from the board-wide directive). **Now: the TERRAIN pair (Stages 3-4, `SWEG_RUINWALLS`) —
+the other high-leverage board-control lever (50% big-in-ruin), independent; non-INFANTRY can't cross ruin walls >2" (sourced).**
+
+**What landed (default-ON, env-gated for isolation):**
+1. **Damaged-bracket generalization** (`SWEG_DMGBRACKET`, wave 191, commit `adb3000`): the 10e "Damaged: 1-X Wounds
+   Remaining" datasheet bracket (OC + −1-to-Hit) is now data-driven from BSData for **all 260 catalogue units with a real
+   bracket**, replacing the Knight-only wave-85/188 heuristic. The mapper resolves link-referenced shared Damaged abilities
+   via the registry (`extract_damaged_bracket` / `_gather_damaged_profiles` — caught a bug where only 1/42 Knights extracted
+   inline). Even-handed, metric-neutral (5.76→5.71), removed a Knight-only metric-favorable bias.
+2. **Balanced objective-contest AI** (`SWEG_CONTEST`, wave 192, commit `2ef7c4c`): refines the STEAL value in
+   `pick_move_intent` so a SPARE body contests a WINNABLE (bracket-aware effective-OC) enemy-held marker — JUST-ENOUGH +
+   AFFORDABLE (the hold-check) guards = the faithful contest, NOT the rejected wave-95 Stage-E flood. **First lever in many
+   waves to move the over-pole DOWN: Imperial Knights gated 25.63 → 21.19; headline 5.71 → 5.52.** Over-flood tell passed.
+3. **Free-contest extension** (`SWEG_FREECONTEST`, wave 193, commit `dad5ac3`): a spare IN-range gunline contests a
+   winnable+shootable enemy marker while STILL shooting (zero shot-cost). Recovered the shooty factions the pure contest
+   over-corrected (Aeldari/T'au/Necrons back toward target). Headline **5.52 → 5.19**.
+
+**Where the residual is now (the diagnosis, waves 194-199 — instrument-first, both poles):** the over-pole plateaued on the
+contest family at gated ~21 (IK still #1). The cheap COMBAT axes are EXHAUSTED on BOTH poles and the residual is ONE
+characterised missing fidelity — **DISPLACEMENT / board-pressure representation**:
+- OVER-shooters (TSons/EC/WE/Custodes/Sororitas/Votann/Drukhari, sim 60-68% vs ~50-54% real): over-SCORE primary VP (~+20/g)
+  the SAME way the field does — combat is faithful (output in-line / WE melee faithfully-high; durability faithful; the
+  over-score is NOT a clean (i)/(iii) lever, diag_overscore/overshooter/melee_output).
+- UNDER-shooters (AM/AdMech, sim 28-29% vs 44-45% real): durability FAITHFUL (vehicles get cover MORE, better effSv, more
+  invuln — diag_durability REFUTED the over-fragile hypothesis; the "+26% taken" was a 3-opponent-slice artifact, field-avg
+  taken is normal). Output genuinely low (AM 56 / AdMech 49 vs control 80 field-avg) but FAITHFUL (low-output-per-point
+  durable armies; keywords parity, Orders/Doctrinas modelled, screening = field-rate 12%). Reality wins 45% with the SAME
+  low output → the gap is HOW they hold despite losing the firefight.
+- **Both poles = the sim resolves objective-holding by raw model SURVIVAL; real 10e DISPLACES out-fought armies off
+  objectives (pressure / maneuver / fall-back / the threat of being charged) — UNMODELLED.** Diagnostic instruments (all
+  gated, read-only): `scripts/diag_ocflip / diag_overscore / diag_overshooter / diag_delivery / diag_durability /
+  diag_underoutput / diag_shootloss / diag_melee_output / diag_contest_faction`.
+
+**STRATEGIC FORK — escalated to the user (2026-06-05), headline blocked pending the decision:**
+(a) the DISPLACEMENT re-model (the genuine remaining fidelity, but DIFFUSE — the whole board-control/maneuver layer, high
+cost + uncertain) vs (b) BANK ~5.19 as the practical Stage-1 floor and move to Stage 2. Watchdog's flag to the user: 5.19 is
+a SYSTEMATIC bias (durable-holder over / broad-gunline under), NOT noise — banking it into Stage 2 would distort the points
+equation (re-fit-poisons-Stage-2). Watchdog lean = one BOUNDED faithful displacement probe before committing, banking-with-
+documentation as fallback. **The loop worker is HOLDING; the watchdog is doing the user's UI workstream (worktree
+`claude/ui-improvements`) as fill.** No cheap combat lever remains — the idle-default "unmodelled under-shooter rules" does
+NOT apply (the rules ARE modelled; the gap is displacement).
+
+---
+
+**Earlier — Wave 183 (2026-06-04):** ANTI-TANK PICKER FIX LANDED (faithful) but a HONEST NEGATIVE RESULT: the
 combat/loadout track is EXHAUSTED. After diagnosing the #1 under-side lever across waves 177-182 (the BSData mapper picks
 weapon choices by expected-damage-vs-a-Marine, so it drops anti-tank options — durable gun-platforms under-fire their real
 anti-armour), the fix landed as **14 cited per-unit anti-tank loadout corrections** in `data/overrides.json` (commit

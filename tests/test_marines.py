@@ -14,6 +14,7 @@ Covered:
 
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
@@ -123,6 +124,10 @@ class MarineUmbrellaTests(unittest.TestCase):
 class OathTargetPickerTests(unittest.TestCase):
     """Battle._pick_oath_target writes army.oath_target_uid and emits
     OathTargetChosen at the start of every Command phase."""
+
+    def setUp(self):
+        # command-phase scoring is now default-ON; this mechanic test uses the legacy timing
+        os.environ["SWEG_CMDSCORE"] = "0"
 
     def test_oath_target_chosen_in_command_phase(self):
         random.seed(0)

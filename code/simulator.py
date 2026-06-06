@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .army import Army
 from .detachments import effective_move
+from .pathfind import find_path
 from .events import (
     BattleEnded, BattleStarted, BattleshockFailed, DeadlyDemiseExploded,
     InitialUnit, JudgementTokenAwarded, OathTargetChosen, ObjectiveScored,
@@ -121,18 +122,120 @@ def _distance(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
+class _OccupantGrid:
+    """Per-mover spatial hash over the collision occupant list (avenue-2 Stage 2,
+    docs/PATHFINDING_PLAN.md). Buckets `(x, y, radius, is_enemy)` occupants by a coarse
+    cell so a legality query touches only the handful of occupants NEAR the test point
+    instead of the whole list — turning the O(models) `_collision_pos_legal` inner loop
+    (run ~18x per blocked move by the sidestep, the O(models^2) dense-horde cost) into
+    O(local).
+
+    The legality result is BYTE-IDENTICAL to iterating the full list: a model further
+    than `mover_radius + max_orad + 1"` in centre-distance can never overlap or be within
+    Engagement Range, and `near()` is built to include every occupant within that reach.
+    So the grid is a pure speedup — no behaviour change, gated for measurement only.
+
+    DETERMINISM: `near()` walks buckets in fixed (cx, cy) order and within a bucket in
+    INSERTION order (the original occupant order, which the caller builds in a fixed
+    (friendly-then-enemy, alive_units) order). The grid is also fully list-compatible
+    (`__iter__`/`__len__`/`__bool__`/`__getitem__` over the original ordered list) so any
+    order-dependent consumer (make-way / clear-lane) that iterates it sees the unchanged
+    order."""
+
+    __slots__ = ("cell", "buckets", "max_orad", "_list")
+
+    def __init__(self, occupants, cell: float = 8.0):
+        self.cell = cell
+        self.buckets: dict = {}
+        self.max_orad = 0.0
+        self._list = occupants
+        for occ in occupants:
+            ox, oy, orad = occ[0], occ[1], occ[2]
+            if orad > self.max_orad:
+                self.max_orad = orad
+            key = (int(ox // cell), int(oy // cell))
+            b = self.buckets.get(key)
+            if b is None:
+                self.buckets[key] = [occ]
+            else:
+                b.append(occ)
+
+    def near(self, pos, mover_radius: float):
+        """Occupants whose bucket lies within the max interaction reach of `pos`."""
+        reach = mover_radius + self.max_orad + 1.0
+        c = self.cell
+        cx0 = int((pos[0] - reach) // c)
+        cx1 = int((pos[0] + reach) // c)
+        cy0 = int((pos[1] - reach) // c)
+        cy1 = int((pos[1] + reach) // c)
+        out = []
+        buckets = self.buckets
+        for cx in range(cx0, cx1 + 1):
+            for cy in range(cy0, cy1 + 1):
+                b = buckets.get((cx, cy))
+                if b:
+                    out.extend(b)
+        return out
+
+    def __iter__(self):
+        return iter(self._list)
+
+    def __len__(self):
+        return len(self._list)
+
+    def __bool__(self):
+        return bool(self._list)
+
+    def __getitem__(self, i):
+        return self._list[i]
+
+
+def _collision_pos_legal(pos, mover_radius, occupants, mover_fly) -> bool:
+    """Avenue-2 Stage 1 (no-overlap collision): is `pos` a legal END position for a
+    mover of footprint `mover_radius` (inches), given `occupants` — a list (or
+    `_OccupantGrid`) of (x, y, radius, is_enemy) for every OTHER alive model? Real 10e:
+    a model cannot END a move overlapping another model, nor (for non-FLY) within
+    Engagement Range (1") of an enemy. FLY ends are exempt from the enemy/ER test (it
+    flew over). Pure + deterministic. Only consulted when collision is wired ON by a
+    caller. When `occupants` is an `_OccupantGrid`, only the occupants NEAR `pos` are
+    tested (identical result, O(local) instead of O(models))."""
+    if type(occupants) is _OccupantGrid:
+        occupants = occupants.near(pos, mover_radius)
+    for ox, oy, orad, is_enemy in occupants:
+        d2 = (pos[0] - ox) ** 2 + (pos[1] - oy) ** 2
+        # No model may END overlapping another model's base (applies to FLY too).
+        if d2 < (mover_radius + orad) ** 2:
+            return False
+        # Non-FLY may not end within Engagement Range (1") of an enemy base.
+        if is_enemy and not mover_fly and d2 < (mover_radius + orad + 1.0) ** 2:
+            return False
+    return True
+
+
 def _move_toward(
     start: Tuple[float, float],
     goal: Tuple[float, float],
     max_dist: float,
     map_: Map,
+    mover_radius: float = 0.0,
+    occupants=None,
+    mover_fly: bool = False,
+    sidestep: bool = True,
 ) -> Tuple[float, float]:
     """Move from start toward goal up to max_dist inches.
 
     Clamps to map bounds. If the destination point lies inside impassable
     terrain, the move is aborted and the unit stays put — crude but enough
     for Phase A.
-    """
+
+    Avenue-2 Stage 1 no-overlap collision (default-OFF / byte-identical): when
+    `occupants` is None (every caller today, and whenever SWEG_COLLISION is off) the
+    function behaves exactly as before. When a caller passes the per-phase occupant
+    list (other alive models as (x, y, radius, is_enemy)) plus the mover's footprint
+    radius, the END position is validated against `_collision_pos_legal`; if illegal,
+    the destination is walked back toward `start` by deterministic bisection (capped
+    iterations) to the last legal point. `start` is assumed legal (the mover is there
+    now). FLY skips the enemy/Engagement-Range test (handled in the helper)."""
     dx = goal[0] - start[0]
     dy = goal[1] - start[1]
     dist = (dx * dx + dy * dy) ** 0.5
@@ -146,7 +249,78 @@ def _move_toward(
     new_point = (new_x, new_y)
     if map_.is_blocked(new_point):
         return start
-    return new_point
+    if occupants is None:
+        return new_point
+    # Collision ON: keep the destination if legal.
+    legal = _collision_pos_legal(new_point, mover_radius, occupants, mover_fly)
+    # PATHFINDING Stage-0 GO/NO-GO counter (read-only, gated). Records how often the
+    # straight end is blocked — the blocked-move frequency that, times the per-call A*
+    # cost, is the perf-feasibility decision. Only runs under the gate; behaviour is
+    # unchanged (legal is computed exactly once, as before).
+    if __import__("os").environ.get("SWEG_PATHFIND_STAGE0"):
+        _big = mover_radius >= _PATHFIND_BIG_RADIUS_IN
+        PATHFIND_STAGE0_STATS["total_big" if _big else "total_small"] += 1
+        if not legal:
+            PATHFIND_STAGE0_STATS["blocked_big" if _big else "blocked_small"] += 1
+    if legal:
+        return new_point
+    # Blocked end. MINIMAL make-way SIDESTEP (avenue-2 Stage 2, bounded O(few), NOT
+    # an A* path search — the perf-killer note C warns against): evaluate the straight
+    # walk-back AND a few fixed angular deviations that step AROUND the blocker, then
+    # take the legal endpoint that makes the MOST progress toward goal. This is the
+    # faithful "models go around each other" un-jam for the user's board-wide
+    # no-overlap directive. Deterministic (fixed angle order, no RNG).
+    import math as _m
+    sx, sy = start
+    # (a) straight walk-back — furthest legal point on the direct line.
+    lo, hi = 0.0, 1.0
+    best = start
+    vx, vy = new_point[0] - sx, new_point[1] - sy
+    for _ in range(12):
+        mid = (lo + hi) / 2.0
+        cand = (sx + vx * mid, sy + vy * mid)
+        if not map_.is_blocked(cand) and _collision_pos_legal(cand, mover_radius, occupants, mover_fly):
+            best = cand
+            lo = mid
+        else:
+            hi = mid
+    # PATHFINDING (avenue-2 Stage 2, gated SWEG_PATHFIND): a BIG mover whose straight
+    # end is blocked routes AROUND the obstacle field via coarse grid A* (code/pathfind)
+    # instead of the local 6-angle sidestep, which dead-ends against a wall of blockers
+    # (screen + ruins) and crashes big-base reach (62%->16%). Big-bases-only; small
+    # INFANTRY keep the O(1) sidestep below. The returned furthest-legal point is
+    # re-validated exactly (the A* grid is coarse) and falls back to the straight
+    # walk-back on the rare coarse-grid miss. OFF (gate unset) -> byte-identical.
+    if mover_radius >= _PATHFIND_BIG_RADIUS_IN and __import__("os").environ.get("SWEG_PATHFIND"):
+        walls = map_.wall_segments() if map_ is not None else ()
+        p = find_path(start, goal, max_dist, mover_radius, occupants, walls=walls, map_=map_)
+        if _collision_pos_legal(p, mover_radius, occupants, mover_fly):
+            return p
+        return best
+    if not sidestep:
+        # Big movers (blocker-makes-way model): stop straight at the blocker — an
+        # ENEMY blocker SHOULD halt a Knight (faithful screening); friendly blockers
+        # are cleared beforehand by _clear_lane. No detour around own army.
+        return best
+    best_d2 = (best[0] - goal[0]) ** 2 + (best[1] - goal[1]) ** 2
+    # (b) angular sidesteps at full reach — step AROUND the blocker. Take the legal
+    # candidate closest to goal (most forward progress). Reach capped so a wide angle
+    # near the goal does not overshoot.
+    reach = min(max_dist, dist)
+    base = _m.atan2(goal[1] - sy, goal[0] - sx)
+    for deg in (20.0, -20.0, 40.0, -40.0, 60.0, -60.0):
+        ang = base + _m.radians(deg)
+        cx = max(0.0, min(map_.width, sx + reach * _m.cos(ang)))
+        cy = max(0.0, min(map_.height, sy + reach * _m.sin(ang)))
+        if map_.is_blocked((cx, cy)):
+            continue
+        if not _collision_pos_legal((cx, cy), mover_radius, occupants, mover_fly):
+            continue
+        d2 = (cx - goal[0]) ** 2 + (cy - goal[1]) ** 2
+        if d2 < best_d2:
+            best = (cx, cy)
+            best_d2 = d2
+    return best
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +337,97 @@ CP_BONUS_CAP = 2        # max CP awarded per round
 # model in its unit (cited as `simulator.coherency_enforcement`). Used by the
 # squad-rebuild Stage B post-move coherency pass.
 COHERENCY_INCHES = 2.0
+
+# OC-FLIP over-hold INSTRUMENT (#79, wave 192) — read-only accumulator, populated
+# only when the env gate SWEG_OCFLIP_INSTR is set. Quantifies objective-rounds
+# where a damaged big durable holder (a Knight / Titanic or big VEHICLE/MONSTER
+# now in its damaged bracket, so effective OC < base OC) controls a marker the
+# opponent COULD flip by committing nearby bodies (reachable OC > holder's
+# effective on-marker OC). No behaviour change — purely measured. A diag runner
+# resets and reads this. Keys: held = obj-rounds a damaged big-holder controls a
+# marker; flippable = of those, how many the opponent could flip with nearby
+# bodies; surplus = summed (opponent reachable OC − holder OC) over flippable.
+OCFLIP_STATS = {"held": 0, "flippable": 0, "surplus": 0.0,
+                "held_any": 0, "flippable_any": 0,
+                # Reason-decomposition of the opponent's reachable OC on the
+                # flippable-but-uncontested markers (#80 follow-up): how much is
+                # melee (would abandon a fight to contest), shooty that could
+                # shoot FROM the marker (the FREE-CONTEST opportunity the lever
+                # should add), and shooty that would LOSE its shots from there
+                # (correctly not pulled — a gunline-pull).
+                "fc_melee_oc": 0.0, "fc_free_oc": 0.0, "fc_noshoot_oc": 0.0,
+                # BURN-reachability (#87 avenue-1): of the obj-rounds a damaged big
+                # holder controls a marker, how many have an OPPONENT unit that
+                # could REACH the marker (within ~one move) and is NOT engaged — so
+                # it could perform the Scorched Earth Burn Action (remove the
+                # marker for VP, no OC win needed). Pre-check before the Burn build.
+                "burn_reachable": 0}
+
+# OVER-SCORE instrument (#83) — per-faction split of scored markers into
+# (iii) contested-but-won vs (i) uncontested. Populated only when
+# SWEG_OVERSCORE_INSTR is set; a diag runner resets and reads it. Read-only.
+OVERSCORE_STATS: dict = {}
+
+# OC-DELIVERY instrument (#84) — per-faction on-board OC vs OC delivered onto
+# markers. Populated only when SWEG_DELIVERY_INSTR is set. Read-only.
+DELIVERY_STATS: dict = {}
+
+# SCREENING / shoot-loss instrument (#86) — per-faction shooting output split by
+# free / pistol / big-gun-penalty / engagement-blocked. SWEG_SHOOTLOSS_INSTR. Read-only.
+SHOOTLOSS_STATS: dict = {}
+
+# BOARD-CONTROL instrument (avenue-2 Stage 0, docs/BOARD_CONTROL_PLAN.md) — sizes the
+# physical-board-control levers (no-overlap collision / ruin-wall movement / make-way).
+# Populated ONLY when SWEG_BOARDCTRL_INSTR is set; a diag runner resets + reads it.
+# Read-only. Measures, at settled objective-scoring snapshots: how packed OC-counted
+# models are within 3" of markers (a >100% base-area packing ratio = OC that no-overlap
+# collision will physically cap), how many base footprints actually overlap, how
+# concentrated OC is on CONTESTED markers, and — a settled-position proxy for the
+# ruin-wall lever — how often a big VEHICLE/MONSTER/TITANIC (non-FLY) model sits inside a
+# RUIN footprint it should have to route around. Plus a per-faction JAM baseline at game
+# end (models stranded in own deployment zone + mean squad->nearest-objective distance),
+# the anti-regression yardstick Stages 1-4 must not worsen.
+BOARDCONTROL_STATS: dict = {
+    "obj_rounds": 0, "overlap_pairs": 0,
+    "packing_sum": 0.0, "packing_n": 0, "packing_over100": 0,
+    "contested_rounds": 0, "contested_packing_sum": 0.0,
+    "big_in_ruin": 0, "big_snaps": 0,
+    "jam": {},  # faction -> {games, dz_models_sum, min_dist_sum, squads}
+}
+
+# PATHFINDING Stage-0 GO/NO-GO counter (read-only; docs/PATHFINDING_PLAN.md). Counts,
+# under SWEG_COLLISION, how often a collision move's STRAIGHT end is blocked (the case
+# a pathfinder would have to route around), split big-base vs small-base. Only mutated
+# when occupants are passed (collision active) AND SWEG_PATHFIND_STAGE0 is set — the
+# production default path returns before this block, so it stays byte-identical.
+PATHFIND_STAGE0_STATS: dict = {
+    "total_big": 0, "blocked_big": 0, "total_small": 0, "blocked_small": 0,
+}
+# A mover is "big" for pathfinding purposes when its footprint radius exceeds this
+# (~38mm base). A 170mm Knight is ~3.3", infantry ~0.63" — the threshold cleanly
+# separates the big bases that crash their reach from the small bases that sidestep fine.
+_PATHFIND_BIG_RADIUS_IN = 1.5
+
+
+def _bc_model_radius_in(profile) -> float:
+    """Base-footprint radius in INCHES for a model (read-only instrument helper).
+    NOTE: deliberately NOT lru_cache'd — UnitProfile is a large frozen dataclass
+    (carries the model_loadouts tuple), so hashing it per call costs MORE than this
+    arithmetic (measured: caching slowed the dense-horde bench). The per-phase occupant
+    grid is the right place to avoid the O(models^2) repetition, not a per-call cache.
+    25.4 mm/in. CRITICAL: oval/rect bases (Knights, big VEHICLEs) store their real
+    footprint in base_width_mm x base_length_mm while base_diameter_mm holds a 32mm
+    PLACEHOLDER — so take the LARGER of the circle-derived and the width/length-
+    derived radius (a 170mm Knight must not be mis-sized as a 32mm infantry base,
+    which 4x-undercounts its footprint area and hides the marker-denial it causes).
+    Defaults to ~32mm round (0.63") only if no base data at all."""
+    d = getattr(profile, "base_diameter_mm", 0) or 0
+    w = getattr(profile, "base_width_mm", 0) or 0
+    ln = getattr(profile, "base_length_mm", 0) or 0
+    r_circle = (d / 25.4) / 2.0 if d > 0 else 0.0
+    r_wl = ((w + ln) / 2.0 / 25.4) / 2.0 if (w and ln) else 0.0
+    r = max(r_circle, r_wl)
+    return r if r > 0 else 0.63
 
 
 @dataclass(frozen=True)
@@ -239,12 +504,24 @@ class Battle:
         subscribers: Optional[List[Subscriber]] = None,
         map_: Optional[Map] = None,
         rules: Optional[RulesConfig] = None,
+        primary_mission: Optional[str] = None,
     ) -> None:
         self.a = army_a
         self.b = army_b
         self.verbose = verbose
         self.subscribers: List[Subscriber] = list(subscribers) if subscribers else []
         self.map: Map = map_ or DEFAULT_MAP
+        # Wave 187 (#71): the primary mission whose VP scoring rule this battle
+        # uses (see _score_objectives). Default "take_and_hold" reproduces the
+        # legacy single-mission behaviour byte-for-byte; the eval rotates the real
+        # Chapter Approved 2025-26 primaries when SWEG_PRIMARY_MISSION is set or a
+        # mission is passed in. An explicit arg wins; else the env var; else the
+        # holder-friendly Take and Hold default.
+        self.primary_mission: str = (
+            primary_mission
+            or __import__("os").environ.get("SWEG_PRIMARY_MISSION")
+            or "take_and_hold"
+        )
         # Default is vanilla WH40k 10e mode — the simulator's primary
         # responsibility is faithfully reproducing tournament play (the
         # MAE-vs-real-meta signal). SwegHammer's alternating-activation
@@ -350,6 +627,21 @@ class Battle:
         # objective's index in self.map.objectives. Cleared when the opposing
         # side outscores the holder's army on the objective in a later round.
         self._sticky_owner: Dict[int, str] = {}
+        # Scorched Earth Burn/Raze (#87, gated SWEG_SCORCHED_BURN): obj_idx set of
+        # markers RAZED this battle — removed from the board, so neither side scores
+        # them by holding for the rest of the game. Permanent.
+        self._razed_objectives: set = set()
+        # uid -> obj_idx the unit's in-progress Burn targets this round (Unit is
+        # __slots__-ed, so the target lives here, not on the Unit).
+        self._burn_targets: dict = {}
+        # Terraform primary (#87 avenue-1, gated SWEG_TERRAFORM): obj_idx -> "a"/"b"
+        # for the side that has TERRAFORMED each marker. A marker is terraformed by
+        # at most one side at a time (a fresh terraform OVERWRITES the opponent's per
+        # the real CA-2025-26 rule). Each terraformed marker yields its owner +1 VP
+        # per turn. Persists once set (until overwritten). uid -> obj_idx holds the
+        # in-progress Terraform Action target (mirrors _burn_targets).
+        self._terraformed_owner: dict = {}
+        self._terraform_targets: dict = {}
         # Stratagem book-keeping. Each army keeps a set of stratagem names
         # already fired this battle (used for once_per_battle stratagems —
         # the four universals are not once-per-battle but the field is here
@@ -365,11 +657,12 @@ class Battle:
         # _run_round; read by Unit.attack for round-gated faction rules
         # like the Orks WAAAGH! +1 to wound melee window.
         self._current_round: int = 0
-        # Per-Command-phase primary scoring (wave 116, env-gated SWEG_CMDSCORE).
-        # When set, Primary VP is scored at each player's Command phase (turn
-        # start) inside the vanilla IGOUGO round, instead of once at end of round
-        # — the real 10e timing. Read once; default off → baseline byte-identical.
-        self._cmd_score: bool = __import__("os").environ.get("SWEG_CMDSCORE") == "1"
+        # Per-Command-phase primary scoring — now DEFAULT-ON (fidelity-revisit sweep
+        # #3, wave 210). Primary VP is scored at each player's Command phase (turn
+        # start) inside the vanilla IGOUGO round, instead of once at end of round —
+        # the real 10e timing (the end-of-round snapshot under-credited mobile holders).
+        # Faithful AND improved the metric (5.72 → 5.44 N=80). `SWEG_CMDSCORE=0` reverts.
+        self._cmd_score: bool = __import__("os").environ.get("SWEG_CMDSCORE", "1") != "0"
         # SC4-A — 10e Pariah Nexus secondary objectives. Each round we
         # snapshot each army's alive units at round start (in `_run_round`)
         # and compute Bring it Down + No Prisoners VP at round end (in
@@ -679,6 +972,10 @@ class Battle:
         a_pts = sum(u.profile.points_cost for u in self.a.alive_units)
         b_pts = sum(u.profile.points_cost for u in self.b.alive_units)
 
+        # Board-control Stage 0 (avenue-2) JAM baseline — read-only, gated.
+        if __import__("os").environ.get("SWEG_BOARDCTRL_INSTR"):
+            self._boardcontrol_jam_snapshot()
+
         winner = self._decide_winner(a_surv, b_surv, a_pts, b_pts)
 
         self._emit(BattleEnded(winner=winner, rounds=rounds_played))
@@ -879,13 +1176,66 @@ class Battle:
         a_oc_by_obj, a_sticky_by_obj, a_dg_by_obj = _assign_army_oc(self.a)
         b_oc_by_obj, b_sticky_by_obj, b_dg_by_obj = _assign_army_oc(self.b)
 
+        # OC-DELIVERY instrument (#84, gated SWEG_DELIVERY_INSTR, read-only): does
+        # each army get its Objective Control ONTO markers, or does it sit back?
+        # delivered = OC credited to objectives (sum of the coherency-assigned
+        # oc_by_obj); total = the army's whole on-board effective OC. A low
+        # delivery rate localizes the under-side under-score as (1) positioning
+        # (gunlines never reach markers) vs (3) under-credit (they reach but their
+        # OC loses). Keyed by faction. No behaviour change.
+        if __import__("os").environ.get("SWEG_DELIVERY_INSTR"):
+            for _army, _obo in ((self.a, a_oc_by_obj), (self.b, b_oc_by_obj)):
+                _fac = (_army.units[0].profile.faction if _army.units else "?") or "?"
+                _tot = 0
+                for _u in _army.alive_units:
+                    if _u.uid not in self._battleshocked_this_round:
+                        _tot += self._effective_oc(_u)
+                _deliv = sum(_obo.values())
+                _d = DELIVERY_STATS.setdefault(_fac, {"rounds": 0, "total": 0.0, "delivered": 0.0})
+                _d["rounds"] += 1
+                _d["total"] += _tot
+                _d["delivered"] += _deliv
+
+        # Wave 187 (#71 primary-mission rotation, env-gated SWEG_PRIMARY_MISSION):
+        # accumulate the Take-and-Hold per-objective award + the control counts in
+        # the loop below, then apply the CHOSEN primary mission's victory-point
+        # formula AFTER the loop. The default "take_and_hold" path is byte-identical
+        # (accumulate-then-add == the legacy per-objective add; identical events;
+        # identical 15 VP/round cap). The sim previously played Take and Hold — the
+        # most holder-friendly primary — every game, structurally inflating durable
+        # static holders; the real Chapter Approved 2025-26 deck rotates ten
+        # primaries, several of which (Purge the Foe, Scorched Earth) penalise
+        # static holding. Cited simulator.primary_mission_rotation.
+        mission = getattr(self, "primary_mission", "take_and_hold") or "take_and_hold"
+        a_th_award = 0
+        b_th_award = 0
+        a_controls = 0
+        b_controls = 0
+        # The Ritual primary scores ONLY No Man's Land markers — track those
+        # controlled-marker counts separately (per-side).
+        a_controls_nml = 0
+        b_controls_nml = 0
+
+        # Board-control instrument (avenue-2 Stage 0) — read-only, gated. Snapshots
+        # OC-packing / footprint-overlap / big-model-in-ruin at settled positions.
+        if __import__("os").environ.get("SWEG_BOARDCTRL_INSTR"):
+            self._boardcontrol_instrument()
+
         for obj_idx, obj in enumerate(self.map.objectives):
+            # Scorched Earth Burn (#87): a RAZED marker is gone from the board —
+            # neither side scores it by holding for the rest of the game.
+            if obj_idx in self._razed_objectives:
+                continue
             # Per-unit Objective Control (cited as `simulator.unit_coherency`):
             # read the per-squad assignments computed above. Each squad has
             # already been credited to at most one objective, so a scattered
             # squad can no longer contest several markers at once.
             a_oc = a_oc_by_obj.get(obj_idx, 0)
             b_oc = b_oc_by_obj.get(obj_idx, 0)
+            # OC-FLIP instrument (#79) — read-only, gated. Measures the over-pole
+            # over-hold opportunity; no behaviour change.
+            if __import__("os").environ.get("SWEG_OCFLIP_INSTR"):
+                self._ocflip_instrument(obj, a_oc, b_oc)
             a_sticky_present = a_sticky_by_obj.get(obj_idx, False)
             b_sticky_present = b_sticky_by_obj.get(obj_idx, False)
             a_has_dg_unit = a_dg_by_obj.get(obj_idx, False)
@@ -919,6 +1269,30 @@ class Battle:
                 # Nobody on it — fall back to sticky owner if any.
                 scorer = self._sticky_owner.get(obj_idx)
 
+            # OVER-SCORE instrument (#83, gated SWEG_OVERSCORE_INSTR, read-only):
+            # for the side that WINS this marker, was the loser ALSO contesting it
+            # (had OC on the marker but lost the count = (iii) CONCENTRATION — the
+            # sim's concentrated elite OC wins a contested marker real combat would
+            # have whittled) or was it UNCONTESTED ((i) over-hold — opponent never
+            # came)? Keyed by the winner's faction so the diag can split the
+            # over-shooter cluster. No behaviour change.
+            if __import__("os").environ.get("SWEG_OVERSCORE_INSTR") and a_oc != b_oc:
+                _win = self.a if a_oc > b_oc else self.b
+                _win_oc = a_oc if a_oc > b_oc else b_oc
+                _los_oc = b_oc if a_oc > b_oc else a_oc
+                _fac = (_win.units[0].profile.faction if _win.units else "?") or "?"
+                _d = OVERSCORE_STATS.setdefault(
+                    _fac, {"scored": 0, "contested_won": 0, "uncontested": 0,
+                           "sum_win_oc": 0.0, "sum_los_oc": 0.0},
+                )
+                _d["scored"] += 1
+                _d["sum_win_oc"] += _win_oc
+                _d["sum_los_oc"] += _los_oc
+                if _los_oc > 0:
+                    _d["contested_won"] += 1   # (iii) opponent on the marker, lost
+                else:
+                    _d["uncontested"] += 1      # (i) opponent absent — over-hold
+
             # Update sticky ownership BEFORE emitting the event, so a
             # newly-claimed objective registers the sticky owner this round.
             # Per 10e core rules: "The player with the greater Level of Control
@@ -945,15 +1319,25 @@ class Battle:
             # only_for filters which side's running VP is incremented (the
             # Command-phase scorer awards just the active player); the OC contest
             # and sticky tracking above already ran for both sides.
+            # Count actual control (used by Purge the Foe's control conditions),
+            # independent of the only_for command-phase filter.
+            if scorer == self.a.name:
+                a_controls += 1
+                if self._obj_in_nml(obj):
+                    a_controls_nml += 1
+            elif scorer == self.b.name:
+                b_controls += 1
+                if self._obj_in_nml(obj):
+                    b_controls_nml += 1
             _award = scorer if (only_for is None or scorer == only_for) else None
             if _award == self.a.name:
-                self._a_vp += obj.vp_per_round
+                a_th_award += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.a.name,
                     vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
                 ))
             elif _award == self.b.name:
-                self._b_vp += obj.vp_per_round
+                b_th_award += obj.vp_per_round
                 self._emit(ObjectiveScored(
                     objective_name=obj.name, army_name=self.b.name,
                     vp_awarded=obj.vp_per_round, a_oc=a_oc, b_oc=b_oc,
@@ -972,12 +1356,114 @@ class Battle:
         # for objective-flooding archetypes (DG sticky, Necrons RP).
         # https://wahapedia.ru/wh40k10ed/the-rules/leviathan-tournament-companion/
         # Cited as `simulator.primary_vp_cap_15`.
-        a_round_vp = self._a_vp - a_vp_before
-        b_round_vp = self._b_vp - b_vp_before
-        if a_round_vp > 15:
-            self._a_vp = a_vp_before + 15
-        if b_round_vp > 15:
-            self._b_vp = b_vp_before + 15
+        if mission == "purge_the_foe":
+            # Purge the Foe (Chapter Approved 2025-26, cap 12 VP/round): score
+            # 4 VP for destroying one or more enemy units this round, +4 VP for
+            # destroying MORE enemy units than the opponent destroyed of yours,
+            # +4 VP for controlling one or more objectives, +4 VP for controlling
+            # more objectives than the opponent. Kill-weighted (8 of 12 VP), so a
+            # static holder that under-kills caps at 8. Cited
+            # simulator.primary_purge_the_foe.
+            a_killed, b_killed = self._units_destroyed_this_round()
+            a_purge = ((4 if a_killed > 0 else 0) + (4 if a_killed > b_killed else 0)
+                       + (4 if a_controls > 0 else 0) + (4 if a_controls > b_controls else 0))
+            b_purge = ((4 if b_killed > 0 else 0) + (4 if b_killed > a_killed else 0)
+                       + (4 if b_controls > 0 else 0) + (4 if b_controls > a_controls else 0))
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += min(a_purge, 12)
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += min(b_purge, 12)
+        elif mission == "scorched_earth":
+            # Scorched Earth (Chapter Approved 2025-26): 5 VP per controlled
+            # objective, capped at 10 VP/round (lower than Take and Hold's 15). The
+            # displacement comes from the Burn/Raze Action (remove a marker for 5 VP
+            # in No Man's Land / 10 VP in the enemy deployment zone), resolved in
+            # `_resolve_burns` below (default-ON for this mission). a_th_award already
+            # respects the only_for filter. Cited simulator.primary_scorched_earth /
+            # simulator.primary_scorched_earth_burn.
+            self._a_vp += min(a_th_award, 10)
+            self._b_vp += min(b_th_award, 10)
+        elif mission == "terraform":
+            # Terraform (Chapter Approved 2025-26): "4VP for each objective marker
+            # they control (up to 12VP per turn)" PLUS "1VP for each objective marker
+            # that is terraformed by them" (the +1 is ON TOP of the 12 hold cap). The
+            # Terraform Action (resolved in `_resolve_terraforms` below) marks a
+            # forward marker as terraformed by its army; the displacement angle is the
+            # Action's opportunity cost (a unit doing it can't shoot/charge), which a
+            # few-model army pays more dearly than a body army. a_controls / b_controls
+            # are the per-side controlled-marker counts from the loop above. Cited
+            # simulator.primary_terraform.
+            a_terra = sum(1 for o in self._terraformed_owner.values() if o == "a")
+            b_terra = sum(1 for o in self._terraformed_owner.values() if o == "b")
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += min(4 * a_controls, 12) + a_terra
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += min(4 * b_controls, 12) + b_terra
+        elif mission == "the_ritual":
+            # The Ritual (Chapter Approved 2025-26): "5VP for each objective marker
+            # in No Man's Land that they control (up to 15VP per turn)." HOME-zone
+            # markers score NOTHING, so a back-camping gunline scores 0 and every
+            # army must contest the centre. The Ritual ACTION (set up a NEW marker in
+            # No Man's Land 12" from another) is NOT modelled — the sim's objectives
+            # are fixed, so dynamic marker creation is out of scope for the bounded
+            # avenue-1 close; only the No-Man's-Land-only hold pressure is captured
+            # here (noted in the citation, the same partial-then-extend pattern as
+            # Scorched's hold-before-Burn). a_controls_nml / b_controls_nml are the
+            # per-side No Man's Land controlled-marker counts. Cited
+            # simulator.primary_the_ritual.
+            if only_for is None or only_for == self.a.name:
+                self._a_vp += min(5 * a_controls_nml, 15)
+            if only_for is None or only_for == self.b.name:
+                self._b_vp += min(5 * b_controls_nml, 15)
+        else:
+            # take_and_hold (default, byte-identical to the legacy behaviour):
+            # award the accumulated per-objective VP, then apply the 15 VP/round
+            # cap (10e Leviathan Tournament Companion). a_th_award already respects
+            # the only_for filter. Cited simulator.primary_vp_cap_15.
+            self._a_vp += a_th_award
+            self._b_vp += b_th_award
+            a_round_vp = self._a_vp - a_vp_before
+            b_round_vp = self._b_vp - b_vp_before
+            if a_round_vp > 15:
+                self._a_vp = a_vp_before + 15
+            if b_round_vp > 15:
+                self._b_vp = b_vp_before + 15
+
+        # Scorched Earth Burn (#87): resolve completed Raze Actions AFTER the hold
+        # cap, so Raze VP is a distinct scoring event (not clipped by the per-round
+        # hold cap). No-op unless the Scorched Earth mission + SWEG_SCORCHED_BURN.
+        self._resolve_burns(only_for=only_for)
+        # Terraform (#87): resolve completed Terraform Actions (mark markers as
+        # terraformed by their army for the +1/turn). No-op unless Terraform mission.
+        self._resolve_terraforms(only_for=only_for)
+
+    def _units_destroyed_this_round(self) -> tuple:
+        """Wave 187 (Purge the Foe): return (a_killed, b_killed) — how many enemy
+        UNITS each side destroyed this battle round, diffed against the round-start
+        snapshots (the same snapshots the Pariah Nexus secondaries use). a_killed =
+        the count of army B's units that A destroyed this round; b_killed the
+        reverse. A codex unit counts as destroyed only when its last model dies
+        (squad_id gone), matching the No Prisoners convention. Returns (0, 0) when a
+        snapshot is missing (e.g. round 1)."""
+        def _destroyed(snap, current_units) -> int:
+            if snap is None:
+                return 0
+            alive_sq: set = set()
+            alive_lone: set = set()
+            for u in current_units:
+                if u.current_health <= 0:
+                    continue
+                sid = getattr(u, "squad_id", -1)
+                if sid is not None and sid >= 0:
+                    alive_sq.add(sid)
+                else:
+                    alive_lone.add(id(u))
+            dead_sq = snap.alive_squad_ids - alive_sq
+            dead_lone = snap.lone_unit_ids_alive - alive_lone
+            return len(dead_sq) + len(dead_lone)
+        a_killed = _destroyed(self._b_round_snapshot, self.b.units)
+        b_killed = _destroyed(self._a_round_snapshot, self.a.units)
+        return a_killed, b_killed
 
     # ------------------------------------------------------------------
     # SC4-A — 10e Pariah Nexus secondary objective scoring
@@ -1021,18 +1507,264 @@ class Battle:
         cleanly reads −5. RESOLVED (watchdog Q9): use the cache −5 — BSData
         rule-6 governs; the −4 came from an unreliable web summary."""
         base = getattr(u.profile, "oc", 1) or 1
-        if __import__("os").environ.get("SWEG_DMGOC", "1") == "0":
+        # 10e Damaged-bracket Objective-Control reduction — data-driven from the
+        # real per-datasheet "Damaged: 1-X Wounds Remaining" bracket
+        # (UnitProfile.damaged_oc_penalty, BSData-extracted via the link-resolving
+        # mapper) and applied to EVERY model with a bracket (#77, wave 191).
+        # Default-ON; SWEG_DMGBRACKET=0 disables for an isolation A/B. This RETIRED
+        # the Knight-only SWEG_DMGOC heuristic (wave 85), which degraded only the 6
+        # Knight datasheets — a partial-faithful bias. The N=80 generalization A/B
+        # was metric-neutral (gated 5.76 -> 5.71) and strictly more faithful: 260
+        # catalogue units (incl. T'au Stormsurge/Riptide, Custodes / World Eaters
+        # dreadnoughts, AdMech / Necron vehicles) now lose Objective Control while
+        # damaged, per their own datasheet. The data-driven Knight values reproduce
+        # the retired heuristic exactly (Questoris 1-9/−5, Armiger 1-5/−3, Dominus
+        # 1-10/−5). Cited `simulator.damaged_bracket`.
+        if __import__("os").environ.get("SWEG_DMGBRACKET", "1") == "0":
             return base
-        if (u.profile.faction or "") not in ("Imperial Knights", "Chaos Knights"):
-            return base
-        if base <= 6:
-            threshold, penalty = 5, 3            # Armiger / War Dog: 1-5, −3
-        else:
-            threshold = 10 if u.profile.health >= 28 else 9   # Dominus 1-10 / Questoris 1-9
-            penalty = 5                           # −5 (BSData cache; codex review claims −4)
-        if u.current_health <= threshold:
-            return max(0, base - penalty)        # floor at 0 — never negative
+        thr = getattr(u.profile, "damaged_threshold", 0) or 0
+        pen = getattr(u.profile, "damaged_oc_penalty", 0) or 0
+        if thr and pen and u.current_health <= thr:
+            return max(0, base - pen)            # floor at 0 — never negative
         return base
+
+    def _ocflip_instrument(self, obj, a_oc, b_oc) -> None:
+        """OC-FLIP over-hold instrument (#79, gated SWEG_OCFLIP_INSTR). For one
+        objective this round, record whether a damaged big durable holder controls
+        it while the opponent has enough reachable nearby Objective Control to flip
+        it. Read-only — accumulates into the module-level OCFLIP_STATS. `a_oc`/`b_oc`
+        are the coherency-assigned summed OC already computed by _score_objectives."""
+        if a_oc == b_oc:
+            return
+        if a_oc > b_oc:
+            holder, opp, holder_oc = self.a, self.b, a_oc
+        else:
+            holder, opp, holder_oc = self.b, self.a, b_oc
+        r2 = obj.control_radius * obj.control_radius
+        # "nearby committable" = within the control radius plus roughly one Normal
+        # Move (a body one move away can step onto the marker next turn).
+        commit_r2 = (obj.control_radius + 7.0) ** 2
+        # Is the holder's on-marker OC propped by a big durable model
+        # (Knight/Titanic, or big VEHICLE/MONSTER >= 18 wounds)? Track BOTH the
+        # broad case (any health) and the damaged sub-case (effective OC reduced
+        # below base because it is in its Damaged bracket) — so we can tell whether
+        # the over-hold is a GENERAL AI-not-contesting gap or specific to the
+        # damaged-OC window the OC-flip lever targets.
+        big_any = False
+        big_dmg = False
+        for u in holder.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy <= r2:
+                base = getattr(u.profile, "oc", 0) or 0
+                kw = set(u.profile.unit_keywords or ())
+                big = "TITANIC" in kw or (
+                    ("VEHICLE" in kw or "MONSTER" in kw)
+                    and (u.profile.health or 0) >= 18
+                )
+                if big:
+                    big_any = True
+                    if self._effective_oc(u) < base:
+                        big_dmg = True
+        if not big_any:
+            return
+        opp_reach = 0
+        for u in opp.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy <= commit_r2:
+                opp_reach += self._effective_oc(u)
+        flippable = opp_reach > holder_oc
+        OCFLIP_STATS["held_any"] += 1
+        # BURN-reachability (#87): could an opponent unit reach this held marker and
+        # perform the Burn Action? Needs only to get within ~one move and NOT be
+        # engaged (no OC contest required — burning removes the marker outright).
+        _burn_r2 = (obj.control_radius + 8.0) ** 2
+        for u in opp.alive_units:
+            if u.uid in self._battleshocked_this_round:
+                continue
+            dx = u.position[0] - obj.x
+            dy = u.position[1] - obj.y
+            if dx * dx + dy * dy > _burn_r2:
+                continue
+            engaged = any(
+                (u.position[0] - h.position[0]) ** 2 + (u.position[1] - h.position[1]) ** 2 <= 1.0
+                for h in holder.alive_units
+            )
+            if not engaged:
+                OCFLIP_STATS["burn_reachable"] += 1
+                break
+        if flippable:
+            OCFLIP_STATS["flippable_any"] += 1
+            # Decompose the reachable opponent OC by WHY it isn't contesting:
+            # melee bodies (range < 12 — would abandon a fight), shooty that could
+            # still SHOOT from the marker (a holder unit within its range of the
+            # marker → a FREE contest the lever should add), and shooty that would
+            # lose its shots from there (correctly not pulled — a gunline-pull).
+            holder_pos = [(h.position[0], h.position[1]) for h in holder.alive_units
+                          if h.uid not in self._battleshocked_this_round]
+            for u in opp.alive_units:
+                if u.uid in self._battleshocked_this_round:
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                if dx * dx + dy * dy > commit_r2:
+                    continue
+                eoc = self._effective_oc(u)
+                rng = getattr(u.profile, "range_inches", 0) or 0
+                if rng < 12:
+                    OCFLIP_STATS["fc_melee_oc"] += eoc
+                else:
+                    rr = rng * rng
+                    can_shoot = any(
+                        (hp[0] - obj.x) ** 2 + (hp[1] - obj.y) ** 2 <= rr
+                        for hp in holder_pos
+                    )
+                    if can_shoot:
+                        OCFLIP_STATS["fc_free_oc"] += eoc
+                    else:
+                        OCFLIP_STATS["fc_noshoot_oc"] += eoc
+        if big_dmg:
+            OCFLIP_STATS["held"] += 1
+            if flippable:
+                OCFLIP_STATS["flippable"] += 1
+                OCFLIP_STATS["surplus"] += (opp_reach - holder_oc)
+
+    def _boardcontrol_instrument(self) -> None:
+        """Avenue-2 Stage 0 read-only board-control instrument (gated by
+        SWEG_BOARDCTRL_INSTR; called once per _score_objectives at settled
+        positions). Accumulates into the module-level BOARDCONTROL_STATS:
+          * OC PACKING — per marker, summed base-footprint area of the OC-counted
+            models within control_radius vs the marker-circle area. >100% packing =
+            OC that no-overlap collision will physically cap (sizes Stage 1).
+          * OVERLAP PAIRS — model pairs near a marker whose footprints actually
+            intersect today (collision-free stacking).
+          * CONTESTED concentration — packing on markers BOTH sides have OC on.
+          * BIG-MODEL-IN-RUIN — settled-position proxy for the ruin-wall lever
+            (Stages 3-4): VEHICLE/MONSTER/TITANIC non-FLY models sitting inside a
+            RUIN footprint they should route around.
+        No behaviour change."""
+        import math
+        s = BOARDCONTROL_STATS
+        for obj in self.map.objectives:
+            r2 = obj.control_radius * obj.control_radius
+            a_near = [u for u in self.a.alive_units
+                      if (u.position[0] - obj.x) ** 2 + (u.position[1] - obj.y) ** 2 <= r2]
+            b_near = [u for u in self.b.alive_units
+                      if (u.position[0] - obj.x) ** 2 + (u.position[1] - obj.y) ** 2 <= r2]
+            near = a_near + b_near
+            if not near:
+                continue
+            s["obj_rounds"] += 1
+            circle_area = math.pi * obj.control_radius * obj.control_radius
+            area = sum(math.pi * _bc_model_radius_in(u.profile) ** 2 for u in near)
+            packing = area / circle_area if circle_area else 0.0
+            s["packing_sum"] += packing
+            s["packing_n"] += 1
+            if packing > 1.0:
+                s["packing_over100"] += 1
+            for i in range(len(near)):
+                ri = _bc_model_radius_in(near[i].profile)
+                pi = near[i].position
+                for j in range(i + 1, len(near)):
+                    rj = _bc_model_radius_in(near[j].profile)
+                    pj = near[j].position
+                    if (pi[0] - pj[0]) ** 2 + (pi[1] - pj[1]) ** 2 < (ri + rj) ** 2:
+                        s["overlap_pairs"] += 1
+            if a_near and b_near:
+                s["contested_rounds"] += 1
+                s["contested_packing_sum"] += packing
+        # Big-model-in-ruin settled-position proxy.
+        ruins = [t for t in self.map.terrain if t.type is TerrainType.RUIN]
+        if ruins:
+            for army in (self.a, self.b):
+                for u in army.alive_units:
+                    kw = u.profile.unit_keywords or ()
+                    if "FLY" in kw:
+                        continue
+                    if not ("VEHICLE" in kw or "MONSTER" in kw or "TITANIC" in kw):
+                        continue
+                    s["big_snaps"] += 1
+                    for t in ruins:
+                        if t.contains(u.position):
+                            s["big_in_ruin"] += 1
+                            break
+
+    def _boardcontrol_jam_snapshot(self) -> None:
+        """Avenue-2 Stage 0 read-only JAM baseline (gated; called once at game end).
+        Per faction: how many models end the game still stranded in their OWN
+        deployment zone, and the mean squad->nearest-objective distance — the
+        anti-regression yardstick Stages 1-4 (collision/make-way/walls) must not
+        worsen. No behaviour change."""
+        dz = self.map.deployment_width
+        objs = self.map.objectives
+        for army, is_a in ((self.a, True), (self.b, False)):
+            fac = (army.units[0].profile.faction if army.units else "?") or "?"
+            jam = BOARDCONTROL_STATS["jam"].setdefault(
+                fac, {"games": 0, "dz_models_sum": 0, "min_dist_sum": 0.0, "squads": 0})
+            jam["games"] += 1
+            squads: dict = {}
+            for u in army.alive_units:
+                y = u.position[1]
+                if (is_a and y <= dz) or ((not is_a) and y >= self.map.height - dz):
+                    jam["dz_models_sum"] += 1
+                squads.setdefault(getattr(u, "squad_id", -1), []).append(u)
+            if objs:
+                for members in squads.values():
+                    best = min(
+                        min(((m.position[0] - o.x) ** 2 + (m.position[1] - o.y) ** 2) ** 0.5
+                            for o in objs)
+                        for m in members)
+                    jam["min_dist_sum"] += best
+                    jam["squads"] += 1
+
+    def _collision_kwargs(self, mover, allow_engagement: bool = False) -> dict:
+        """Avenue-2 Stage 1 (gated SWEG_COLLISION, default-OFF): build the
+        `_move_toward` no-overlap collision kwargs for `mover`. Returns {} when the
+        gate is OFF (every caller then passes occupants=None -> byte-identical) or
+        the mover's army can't be resolved (fail-safe: no collision). Occupants are
+        every OTHER alive model — friendly (end-overlap only) and enemy (end-overlap
+        + 1" Engagement Range). Assembled fresh from CURRENT positions so a model
+        that already moved this phase is avoided at its new spot.
+
+        `allow_engagement=True` for COMBAT moves (charge pile-in / consolidate /
+        Blood Surge) — those legitimately END within Engagement Range, so the ER
+        test is suppressed (mark all occupants non-enemy); the NO-OVERLAP rule still
+        applies (a charger stops base-to-base, it does not end ON a model). Normal
+        moves keep ER (allow_engagement=False) — only a Charge may end within 1".
+        Note C perf: only the gated path pays this O(models) cost; benchmark +
+        spatial-bucket if the Stage-1 A/B wall-clock exceeds 1.5x. No RNG."""
+        if not __import__("os").environ.get("SWEG_COLLISION"):
+            return {}
+        friendly = getattr(mover, "army_ref", None)
+        if friendly is self.a:
+            enemy = self.b
+        elif friendly is self.b:
+            enemy = self.a
+        else:
+            return {}
+        occ = []
+        for u in friendly.alive_units:
+            if u is mover:
+                continue
+            occ.append((u.position[0], u.position[1], _bc_model_radius_in(u.profile), False))
+        enemy_flag = False if allow_engagement else True
+        for u in enemy.alive_units:
+            occ.append((u.position[0], u.position[1], _bc_model_radius_in(u.profile), enemy_flag))
+        # Avenue-2 Stage 2: wrap the per-mover occupant list in a spatial grid so the
+        # sidestep's repeated `_collision_pos_legal` queries touch only nearby occupants
+        # (O(local) not O(models)). Byte-identical legality result — gated SWEG_OCCGRID
+        # for measurement; contains the dense-horde O(models^2) collision cost (4.06x).
+        occupants = _OccupantGrid(occ) if __import__("os").environ.get("SWEG_OCCGRID") else occ
+        return {
+            "mover_radius": _bc_model_radius_in(mover.profile),
+            "occupants": occupants,
+            "mover_fly": "FLY" in (mover.profile.unit_keywords or ()),
+        }
 
     def _oc_within(self, army, obj) -> int:
         """Summed Objective Control of `army`'s alive units within an objective's
@@ -1245,6 +1977,214 @@ class Battle:
                 continue
             best = max(best, 6 if self._unit_in_enemy_dz(u, own_is_army_a) else 3)
         return best
+
+    def _scorched_burn_enabled(self) -> bool:
+        """Scorched Earth Burn/Raze Action — active whenever the Scorched Earth
+        primary mission is in play. The Burn IS the Scorched Earth mission (a real
+        CA-2025-26 Action), so it is DEFAULT-ON for that mission (watchdog-affirmed
+        wave 201: faithful, net-neutral at the deck's 1/10 share → keep-if-faithful).
+        SWEG_SCORCHED_BURN=0 disables it for A/B isolation. Inert in the default
+        eval, which never draws a Scorched game unless SWEG_PRIMARY_DECK /
+        SWEG_PRIMARY_MISSION is set."""
+        if getattr(self, "primary_mission", "take_and_hold") != "scorched_earth":
+            return False
+        return __import__("os").environ.get("SWEG_SCORCHED_BURN", "1") not in ("0", "false", "")
+
+    def _obj_burnable_for(self, obj, own_is_army_a: bool) -> int:
+        """VP for the active army razing `obj`: 10 in the ENEMY deployment zone,
+        5 in No Man's Land, 0 in the active army's OWN DZ (you cannot raze your own
+        backfield). Real CA-2025-26 Scorched Earth Raze values."""
+        if self._obj_in_nml(obj):
+            return 5
+        if self._obj_in_own_dz(obj, own_is_army_a=(not own_is_army_a)):
+            return 10
+        return 0
+
+    def _assign_burn_actions(self, active, other) -> None:
+        """Scorched Earth Burn/Raze (#87, gated). After Movement, flag up to two
+        SURPLUS units that are within control range of a BURNABLE objective (No
+        Man's Land or the enemy deployment zone, not already razed) to perform the
+        Raze Action — locked out of shooting/charging this turn via
+        `action_this_round` (the real Action trade-off). On completion (the unit
+        survives forward, not dragged into Engagement Range) the marker is REMOVED
+        and the army scores 5 VP (No Man's Land) / 10 VP (enemy DZ). Uses the same
+        rules-authentic `_unit_can_perform_action` contract as Sabotage (OC>0, not
+        engaged, NOT a productive shooter — so a unit that could usefully shoot
+        won't burn; the faithful burn-vs-shoot trade-off, even-handed/emergent),
+        but it must be NEAR a burnable marker and it removes that marker. This is
+        the displacement-via-scoring lever: a mobile army razes the static over-
+        holder's NML marker (denying the hold + scoring VP), no kill needed. Cited
+        simulator.primary_scorched_earth_burn."""
+        if not self._scorched_burn_enabled():
+            return
+        # Real rule START: "from the second battle round onwards" — no turn-1 raze.
+        if self._current_round < 2:
+            return
+        own_is_a = active is self.a
+        # Real rule: "ONE unit from your army" may Burn per turn (verbatim
+        # CA-2025-26). CAP=1 is the faithful raze rate (the earlier CAP=2 doubled it
+        # and fed the residual horde over-flood).
+        BURN_CAP = 1
+        n = 0
+        for u in active.alive_units:
+            if n >= BURN_CAP:
+                break
+            if not self._unit_can_perform_action(u, other):
+                continue
+            best_idx = None
+            best_d2 = None
+            for obj_idx, obj in enumerate(self.map.objectives):
+                if obj_idx in self._razed_objectives:
+                    continue
+                if self._obj_burnable_for(obj, own_is_a) <= 0:
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                d2 = dx * dx + dy * dy
+                if d2 > obj.control_radius * obj.control_radius:
+                    continue
+                # Real CA-2025-26 rule: the active army must CONTROL the marker to
+                # Burn it (not merely reach it) — so to raze the over-holder's
+                # marker the opponent must first WIN the OC contest there (the
+                # Knight's high OC protects its markers unless it is damaged /
+                # out-massed, dovetailing with the contest lever). Without this gate
+                # the burn over-fires (over-pole crashed unfaithfully + horde spam).
+                if self._oc_within(active, obj) <= self._oc_within(other, obj):
+                    continue
+                if best_d2 is None or d2 < best_d2:
+                    best_d2 = d2
+                    best_idx = obj_idx
+            if best_idx is None:
+                continue
+            u.action_this_round = "burn"
+            self._burn_targets[u.uid] = best_idx
+            n += 1
+
+    def _resolve_burns(self, only_for=None) -> None:
+        """Resolve completed Scorched Earth Raze Actions: a unit performing the
+        Burn that COMPLETES (survives forward, not in Engagement Range — the same
+        `_action_completes` gate as Sabotage) RAZES its target marker (permanently
+        removed from the board) and scores 5 VP (No Man's Land) / 10 VP (enemy DZ).
+        Each marker is razed at most once. Run at the END of _score_objectives so
+        the Raze VP sits on top of the hold cap (a distinct scoring event), and the
+        per-objective hold loop already excludes razed markers. Cited
+        simulator.primary_scorched_earth_burn."""
+        if not self._scorched_burn_enabled():
+            return
+        for army, foe, is_a in ((self.a, self.b, True), (self.b, self.a, False)):
+            if only_for is not None and only_for != army.name:
+                continue
+            for u in army.alive_units:
+                if u.action_this_round != "burn":
+                    continue
+                idx = self._burn_targets.get(u.uid)
+                if idx is None or idx in self._razed_objectives:
+                    continue
+                if not self._action_completes(u, foe):
+                    continue
+                obj = self.map.objectives[idx]
+                # Real rule completion gate: still CONTROL the marker at the end
+                # (else the opponent re-took it and the Burn fails).
+                if self._oc_within(army, obj) <= self._oc_within(foe, obj):
+                    continue
+                vp = self._obj_burnable_for(obj, is_a)
+                if vp <= 0:
+                    continue
+                self._razed_objectives.add(idx)
+                if is_a:
+                    self._a_vp += vp
+                else:
+                    self._b_vp += vp
+
+    def _terraform_enabled(self) -> bool:
+        """Terraform primary — active whenever the Terraform mission is in play.
+        The Terraform Action IS the mission, so it is DEFAULT-ON for that mission
+        (the Scorched-Burn pattern). SWEG_TERRAFORM=0 disables the Action for A/B
+        isolation (leaving the cap-12 hold scoring alone). Inert in the default
+        eval, which never draws a Terraform game unless SWEG_PRIMARY_DECK /
+        SWEG_PRIMARY_MISSION is set. Avenue-1 fair-measurement build (wave 202)."""
+        if getattr(self, "primary_mission", "take_and_hold") != "terraform":
+            return False
+        return __import__("os").environ.get("SWEG_TERRAFORM", "1") not in ("0", "false", "")
+
+    def _assign_terraform_actions(self, active, other) -> None:
+        """Terraform primary (#87 avenue-1, gated). After Movement, flag SURPLUS
+        units each within range of a DIFFERENT forward objective marker (No Man's
+        Land or the enemy deployment zone — "not within your deployment zone") to
+        perform the Terraform Action, locked out of shooting/charging this turn via
+        the same rules-authentic `_unit_can_perform_action` contract as Burn (OC>0,
+        not engaged, NOT a productive shooter). Real CA-2025-26: "One or more units
+        from your army, each within range of a different objective marker that is
+        not within your deployment zone" — so NO cap-of-one (unlike Burn), but each
+        unit must target a DISTINCT marker. STARTING needs only range (no control);
+        COMPLETION (in `_resolve_terraforms`) needs control. Cited
+        simulator.primary_terraform."""
+        if not self._terraform_enabled():
+            return
+        # "from the second battle round onwards" — terraform VP scores from round 2.
+        if self._current_round < 2:
+            return
+        own_is_a = active is self.a
+        claimed: set = set()  # markers already assigned to one of our units this turn
+        for u in active.alive_units:
+            if not self._unit_can_perform_action(u, other):
+                continue
+            best_idx = None
+            best_d2 = None
+            for obj_idx, obj in enumerate(self.map.objectives):
+                if obj_idx in claimed:
+                    continue
+                # Already terraformed BY US and not contested away — no value re-doing.
+                if self._terraformed_owner.get(obj_idx) == ("a" if own_is_a else "b"):
+                    continue
+                # "not within your deployment zone" — only forward markers (No Man's
+                # Land or the enemy DZ) are terraformable.
+                if self._obj_in_own_dz(obj, own_is_army_a=own_is_a):
+                    continue
+                dx = u.position[0] - obj.x
+                dy = u.position[1] - obj.y
+                d2 = dx * dx + dy * dy
+                if d2 > obj.control_radius * obj.control_radius:
+                    continue
+                if best_d2 is None or d2 < best_d2:
+                    best_d2 = d2
+                    best_idx = obj_idx
+            if best_idx is None:
+                continue
+            u.action_this_round = "terraform"
+            self._terraform_targets[u.uid] = best_idx
+            claimed.add(best_idx)
+
+    def _resolve_terraforms(self, only_for=None) -> None:
+        """Resolve completed Terraform Actions. A unit performing Terraform that
+        COMPLETES — "still within range of the same objective marker and you control
+        that objective marker" (the `_action_completes` survival gate + the control
+        re-check, mirroring Burn) — marks that marker as TERRAFORMED by its army.
+        Per the real rule the fresh terraform OVERWRITES any opponent terraform on
+        that marker. No immediate VP: the +1 VP per terraformed marker is scored each
+        turn in the Terraform mission branch of `_score_objectives`. Cited
+        simulator.primary_terraform."""
+        if not self._terraform_enabled():
+            return
+        for army, foe, is_a in ((self.a, self.b, True), (self.b, self.a, False)):
+            if only_for is not None and only_for != army.name:
+                continue
+            owner = "a" if is_a else "b"
+            for u in army.alive_units:
+                if u.action_this_round != "terraform":
+                    continue
+                idx = self._terraform_targets.get(u.uid)
+                if idx is None:
+                    continue
+                if not self._action_completes(u, foe):
+                    continue
+                obj = self.map.objectives[idx]
+                # Completion control gate: "you control that objective marker".
+                if self._oc_within(army, obj) <= self._oc_within(foe, obj):
+                    continue
+                # Fresh terraform overwrites the opponent's (a marker is terraformed
+                # by at most one side at a time).
+                self._terraformed_owner[idx] = owner
 
     # ------------------------------------------------------------------
     # Wave 121 — AI-pursuit layer for held Tactical secondary cards
@@ -1864,10 +2804,12 @@ class Battle:
     # ------------------------------------------------------------------
 
     def _tac_deck_enabled(self) -> bool:
-        """M2 real 2-card Tactical secondary deck. Env-gated SWEG_TAC_DECK; unset
-        → legacy union-of-sources secondary scoring runs byte-for-byte. Kept as a
-        method so a future A/B can re-gate via a one-line edit."""
-        return __import__("os").environ.get("SWEG_TAC_DECK") == "1"
+        """M2 real 2-card Tactical secondary deck — now DEFAULT-ON (fidelity-revisit
+        sweep #2, wave 210). The CA-2025-26 match draws a 2-card hand from a curated
+        pool of faithful cards (3 un-sourced cards intentionally deferred); the legacy
+        "score every secondary source simultaneously" was unfaithful (both armies cap
+        at 40 = a wash). `SWEG_TAC_DECK=0` restores the legacy union-of-sources path."""
+        return __import__("os").environ.get("SWEG_TAC_DECK", "1") != "0"
 
     def _init_tactical_deck(self, army: Army) -> None:
         """Seed a TACTICAL army's 2-card hand + remaining deck deterministically.
@@ -5487,6 +6429,14 @@ class Battle:
                 ranged = p.attacks * p.hit_probability * (p.per_shot_damage or 0.0)
                 melee = (p.melee_attacks or 0) * (p.melee_hit_probability or 0) * (p.melee_damage_per_shot or 0.0)
                 return ranged + melee
+            # The pact is elected for the single highest-DPA CSM unit per round,
+            # opting in iff its base DPA >= 6 (worth the D3-MW gamble on a marquee
+            # attacker). Wave-209 EXPANSION ABANDONED: broadening Dark Pacts to every
+            # eligible unit each phase (the literal rule) is net-NEGATIVE in this sim
+            # at every threshold and with true Lethal/Sustained Hits — the aggregate
+            # D3-MW self-damage outweighs the offensive uplift (CSM 43 -> 31/37.7/40.4
+            # across blanket/selective/true-LH-SH). So CSM under-output is NOT a
+            # Dark-Pacts-coverage problem; reverted to the original one-unit model.
             attacker = max(csm_units, key=_dpa)
             if _dpa(attacker) < 6.0:
                 # Opt out: not worth the D3 MW gamble on a weak attacker.
@@ -6388,7 +7338,8 @@ class Battle:
                     key=lambda e: _distance(u.position, e.position),
                 )
                 old_pos = u.position
-                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map)
+                new_pos = _move_toward(old_pos, nearest.position, float(dist), self.map,
+                                       **self._collision_kwargs(u))
                 if new_pos != old_pos:
                     u.position = new_pos
                     self._fresh_arrivals.add(u.uid)
@@ -7789,12 +8740,15 @@ class Battle:
             # enforces it (N=80 4.05 -> 3.93, IK -3.3, holding under-shooters up).
             # Disable only by explicitly setting SWEG_COHERE=0 (retained for A/B).
             _cohere = __import__("os").environ.get("SWEG_COHERE", "1") != "0"
-            _move_start_pos: dict = {}
+            # Recorded UNCONDITIONALLY (not just under _cohere) so the blocker-
+            # makes-way pass (_clear_lane, avenue-2 Stage 2) can compute each
+            # friendly's remaining move budget. Stored on self for that access.
+            self._move_start_pos = {}
+            _move_start_pos = self._move_start_pos
             for unit in list(active.units):
                 if not unit.is_alive:
                     continue
-                if _cohere:
-                    _move_start_pos[unit.uid] = unit.position
+                _move_start_pos[unit.uid] = unit.position
                 if _squadact:
                     # The squad — not the model — is the real activation unit.
                     # On the squad's FIRST alive model this phase, compute the
@@ -7825,6 +8779,12 @@ class Battle:
             # path skips this entirely and is byte-identical.
             if _cohere:
                 self._enforce_squad_coherency(active, _move_start_pos)
+            # Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): make-way
+            # un-jam pass. Collision-without-coordination piles a squad's models behind
+            # the leader short of their objective; this spreads the jammed models into
+            # free slots in the objective's control ring within their remaining budget.
+            # No-op (byte-identical) unless both gates are set.
+            self._make_way(active, _move_start_pos)
             # Pariah Nexus actions are declared after the Movement phase: a
             # surplus unit on a controlled forward objective may perform Cleanse
             # (wave 74), or a surplus unit pushed into No Man's Land / the enemy
@@ -7832,6 +8792,8 @@ class Battle:
             # units are skipped by _do_shoot / _do_charge below.
             self._assign_cleanse_actions(active, other)
             self._assign_sabotage_actions(active, other)
+            self._assign_burn_actions(active, other)
+            self._assign_terraform_actions(active, other)
             # Wave 79: army-level focus fire — nominate the single most valuable
             # durable enemy threat the army can hurt, so its anti-armour
             # concentrates to REMOVE it (how a real list deletes a Knight),
@@ -8059,7 +9021,8 @@ class Battle:
                 if remaining <= 0.0:
                     continue
                 old_pos = m.position
-                new_pos = _move_toward(old_pos, centroid, remaining, self.map)
+                new_pos = _move_toward(old_pos, centroid, remaining, self.map,
+                                       **self._collision_kwargs(m))
                 if new_pos != old_pos:
                     m.position = new_pos
                     self._did_move_this_round.add(m.uid)
@@ -8069,6 +9032,198 @@ class Battle:
                         from_pos=old_pos,
                         to_pos=new_pos,
                     ))
+
+    def _make_way_slot(self, mover, obj, remaining: float):
+        """Avenue-2 Stage 2 helper: find a FREE, reachable point inside `obj`'s
+        control ring for `mover` (its base must not overlap any other model, nor end
+        within Engagement Range of an enemy). Tries deterministic angles/radii inside
+        the ring; returns the first collision-legal point reachable within
+        `remaining` inches, else None. No RNG."""
+        import math
+        kw = self._collision_kwargs(mover)
+        if not kw:
+            return (obj.x, obj.y)   # collision off — any ring point is fine
+        occ, rad, fly = kw["occupants"], kw["mover_radius"], kw["mover_fly"]
+        cr = obj.control_radius
+        for frac in (0.8, 0.55, 0.95, 0.3):
+            rr = cr * frac
+            for k in range(8):
+                ang = k * (math.pi / 4.0)
+                px = obj.x + rr * math.cos(ang)
+                py = obj.y + rr * math.sin(ang)
+                if (px - mover.position[0]) ** 2 + (py - mover.position[1]) ** 2 > (remaining + 0.01) ** 2:
+                    continue
+                if self.map.is_blocked((px, py)):
+                    continue
+                if _collision_pos_legal((px, py), rad, occ, fly):
+                    return (px, py)
+        return None
+
+    def _clear_lane(self, mover, goal) -> None:
+        """Avenue-2 Stage 2 BLOCKER-makes-way (gate SWEG_MOVEPLAN+SWEG_COLLISION): when
+        a BIG mover (TITANIC / VEHICLE / MONSTER) heads to `goal`, step FRIENDLY models
+        out of its straight lane so it does NOT detour around its own army (the user's
+        "move one unit out of the way of another"; the wave-208 mover-sidestep failed
+        exactly because a Knight endlessly detoured its own friendlies). Each blocking
+        friendly shuffles perpendicular by just enough to clear the lane, within its
+        REMAINING move budget. ENEMY blockers are NOT moved (they faithfully screen —
+        the Knight stops). Deterministic (uid order); no RNG; O(friendlies) per call."""
+        import math
+        if not (__import__("os").environ.get("SWEG_MOVEPLAN")
+                and __import__("os").environ.get("SWEG_COLLISION")):
+            return
+        kw = mover.profile.unit_keywords or ()
+        if not ("TITANIC" in kw or "VEHICLE" in kw or "MONSTER" in kw):
+            return
+        army = getattr(mover, "army_ref", None)
+        if army is None:
+            return
+        sx, sy = mover.position
+        dx, dy = goal[0] - sx, goal[1] - sy
+        seglen = math.hypot(dx, dy)
+        if seglen < 0.5:
+            return
+        ux, uy = dx / seglen, dy / seglen      # unit vector ALONG the path
+        px, py = -uy, ux                       # unit vector PERPENDICULAR
+        mr = _bc_model_radius_in(mover.profile)
+        start_pos = getattr(self, "_move_start_pos", {})
+        for f in sorted(army.alive_units, key=lambda u: u.uid):
+            if f is mover:
+                continue
+            fr = _bc_model_radius_in(f.profile)
+            fx, fy = f.position
+            t = (fx - sx) * ux + (fy - sy) * uy      # projection along the path
+            if t < 0.0 or t > seglen:
+                continue                              # not ahead on the lane
+            signed = (fx - sx) * px + (fy - sy) * py  # perpendicular offset (signed)
+            clear = mr + fr + 0.2
+            if abs(signed) >= clear:
+                continue                              # already out of the lane
+            used = _distance(start_pos.get(f.uid, f.position), f.position)
+            budget = effective_move(f) - used
+            if budget <= 0.0:
+                continue
+            side = 1.0 if signed >= 0 else -1.0       # push to the nearer side
+            step = min(clear - abs(signed), budget)
+            nx = max(0.0, min(self.map.width, fx + side * px * step))
+            ny = max(0.0, min(self.map.height, fy + side * py * step))
+            if self.map.is_blocked((nx, ny)):
+                continue
+            f.position = (nx, ny)
+
+    def _ring_slots(self, obj, n: int) -> list:
+        """Reusable coordination primitive (avenue-2 note A): `n` DISTINCT positions in
+        a COHERENT cluster within `obj`'s control ring — every slot within the marker's
+        control_radius (so its Objective Control counts) AND within ~2" of a neighbour
+        (Unit Coherency). Deterministic concentric hex pattern (centre, then rings); no
+        RNG. Used to fan a squad out around a marker instead of stacking on the centre."""
+        import math
+        cr = obj.control_radius
+        pts = [(obj.x, obj.y)]
+        # (radius_fraction, count, angle_offset) — all radii < control_radius.
+        for frac, count, off in ((0.40, 6, 0.0), (0.72, 12, math.pi / 6.0), (0.93, 12, 0.0)):
+            radius = cr * frac
+            for k in range(count):
+                ang = off + k * (2.0 * math.pi / count)
+                pts.append((obj.x + radius * math.cos(ang), obj.y + radius * math.sin(ang)))
+                if len(pts) >= n:
+                    return pts[:n]
+        while len(pts) < n:
+            pts.append((obj.x, obj.y))
+        return pts[:n]
+
+    def _make_way_target(self, mover, intent, target_pos):
+        """Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): the IN-MOVE
+        distinct-slot spread. For an OBJECTIVE-capture move, send each squad model to its
+        OWN slot in the marker's control ring (deterministic by uid index) instead of the
+        shared centre, so the squad fans out under collision (fills the ring) rather than
+        single-filing behind the leader. Faithful (a real squad fans coherently around a
+        marker). Returns target_pos unchanged for lone models, non-objective intents, or
+        when the gates are off (byte-identical)."""
+        if intent in ("HOLD", "ENGAGE", "REPOSITION", "FALL_BACK"):
+            return target_pos
+        if not (__import__("os").environ.get("SWEG_MOVEPLAN")
+                and __import__("os").environ.get("SWEG_COLLISION")):
+            return target_pos
+        sid = getattr(mover, "squad_id", -1)
+        if sid < 0 or not self.map.objectives:
+            return target_pos
+        obj = min(self.map.objectives,
+                  key=lambda o: (target_pos[0] - o.x) ** 2 + (target_pos[1] - o.y) ** 2)
+        # Only spread when the move is actually heading ONTO this marker.
+        if (target_pos[0] - obj.x) ** 2 + (target_pos[1] - obj.y) ** 2 > (obj.control_radius + 1.5) ** 2:
+            return target_pos
+        army = getattr(mover, "army_ref", None)
+        if army is None:
+            return target_pos
+        members = sorted((u for u in army.units
+                          if u.is_alive and getattr(u, "squad_id", -1) == sid),
+                         key=lambda u: u.uid)
+        if len(members) < 2:
+            return target_pos
+        try:
+            idx = members.index(mover)
+        except ValueError:
+            return target_pos
+        return self._ring_slots(obj, len(members))[idx]
+
+    def _make_way(self, army: Army, move_start_pos: dict) -> None:
+        """Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): un-jam the
+        collision pass. Collision without coordination piles a squad's models behind
+        the leader short of their objective (the jam — squad->objective distance rises,
+        contested marker-rounds collapse). This post-move pass takes each model that
+        ended JAMMED short of its squad's target objective and routes it to a FREE slot
+        in that objective's control ring, spending only the model's remaining move
+        budget. Pure physical un-jamming (adjacent free space toward the goal) — NO
+        strategic look-ahead, per the make-way fidelity rail. Deterministic: squads by
+        squad_id, models by uid, fixed candidate slots; no RNG. Byte-identical unless
+        both SWEG_MOVEPLAN and SWEG_COLLISION are set."""
+        if not __import__("os").environ.get("SWEG_MOVEPLAN"):
+            return
+        if not __import__("os").environ.get("SWEG_COLLISION"):
+            return
+        objs = self.map.objectives
+        if not objs:
+            return
+        squads: dict = {}
+        for u in army.units:
+            if not u.is_alive:
+                continue
+            sid = getattr(u, "squad_id", -1)
+            if sid < 0:
+                continue
+            squads.setdefault(sid, []).append(u)
+        for sid in sorted(squads):
+            members = sorted(squads[sid], key=lambda m: m.uid)
+            if len(members) < 2:
+                continue
+            cx = sum(m.position[0] for m in members) / len(members)
+            cy = sum(m.position[1] for m in members) / len(members)
+            obj = min(objs, key=lambda o: (cx - o.x) ** 2 + (cy - o.y) ** 2)
+            cr = obj.control_radius
+            for m in members:
+                if m.uid in self._advanced_this_round or getattr(m, "fell_back_this_round", False):
+                    continue
+                d = _distance(m.position, (obj.x, obj.y))
+                if d <= cr:
+                    continue   # already contesting this marker
+                used = _distance(move_start_pos.get(m.uid, m.position), m.position)
+                remaining = effective_move(m) - used
+                if remaining <= 0.0:
+                    continue
+                if d - cr > remaining + 0.01:
+                    continue   # cannot reach the ring even unobstructed
+                slot = self._make_way_slot(m, obj, remaining)
+                if slot is None:
+                    continue
+                old_pos = m.position
+                new_pos = _move_toward(old_pos, slot, remaining, self.map,
+                                       **self._collision_kwargs(m))
+                if new_pos != old_pos:
+                    m.position = new_pos
+                    self._did_move_this_round.add(m.uid)
+                    m.moved_this_round = True
+                    self._emit(UnitMoved(unit_uid=m.uid, from_pos=old_pos, to_pos=new_pos))
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
                  _phase_their_oc=None) -> None:
@@ -8119,6 +9274,11 @@ class Battle:
             army_plan=attacker_army.army_plan,
             _phase_their_oc=_phase_their_oc,
         )
+        # Avenue-2 Stage 2 make-way (distinct-slot spread): on an objective move,
+        # redirect this model to its own slot in the marker's control ring so the
+        # squad fans out under collision instead of stacking on the centre. No-op
+        # (byte-identical) unless SWEG_MOVEPLAN+SWEG_COLLISION and a multi-model squad.
+        target_pos = self._make_way_target(attacker, intent, target_pos)
 
         # Fall Back (10e core). Units already locked in melee that the
         # strategy layer wants to disengage move up to M" toward the picked
@@ -8137,6 +9297,7 @@ class Battle:
             new_pos = _move_toward(
                 attacker.position, target_pos,
                 float(normal_move), self.map,
+                **self._collision_kwargs(attacker),
             )
             if new_pos != old_pos:
                 attacker.position = new_pos
@@ -8250,9 +9411,19 @@ class Battle:
         did_advance = advance_d6 > 0
 
         old_pos = attacker.position
+        # Avenue-2 Stage 2 blocker-makes-way: a BIG mover clears FRIENDLIES from its
+        # lane (they step aside) then moves STRAIGHT, halting only at ENEMY screens
+        # (sidestep=False — no detour around its own army). No-op unless the gates +
+        # a big mover. _akw is the big-mover keyword set.
+        _akw = attacker.profile.unit_keywords or ()
+        _big_mover = "TITANIC" in _akw or "VEHICLE" in _akw or "MONSTER" in _akw
+        if _big_mover:
+            self._clear_lane(attacker, target_pos)
         new_pos = _move_toward(
             attacker.position, target_pos,
             move_distance, self.map,
+            sidestep=not _big_mover,
+            **self._collision_kwargs(attacker),
         )
         if new_pos != old_pos:
             attacker.position = new_pos
@@ -8318,6 +9489,36 @@ class Battle:
         if "MONSTER" in kw or "VEHICLE" in kw or "TITANIC" in kw:
             return True
         return (u.profile.health or 0) >= 8
+
+    def _threat_priority_bonus(self, attacker, target) -> float:
+        """Wave 189 (#75) — THREAT-PRIORITY targeting (env-gated SWEG_THREATPRIO,
+        default OFF). The lowest-health target picker never selects a high-wound
+        board-dominator: a 26-wound Knight always scores worse than a 14-wound
+        Armiger or chaff, so the AI's anti-armour weapons are spent on the easy
+        targets and the Knight is essentially never removed — a primary driver of
+        the Imperial Knights over-rate (object-trace: 2/5 Knights end untouched at
+        full health; a user mathhammer found a real Necron unit kills a Knight in
+        ~2.7 turns IF aimed, but the sim aims it at the Armigers). Real players
+        COMMIT anti-tank into the board-dominator even at lower kill-efficiency.
+        When THIS attacker carries an anti-armour weapon (_is_antiarmour_weapon)
+        and the target is a big durable high-threat model (TITANIC, or a
+        VEHICLE/MONSTER with >= 18 wounds — a Knight / Titanic / big monster, NOT a
+        14-wound Armiger), return a multiplier that lowers the target's effective
+        health in the lowest-health picker so the anti-armour weapon prefers it
+        over chaff. Even-handed: ANY anti-armour weapon vs ANY such target, no
+        faction gate. AI targeting heuristic — no 10e rule citation (a target
+        preference, like the screen / synapse / transport target bonuses)."""
+        if __import__("os").environ.get("SWEG_THREATPRIO") != "1":
+            return 1.0
+        if not self._is_antiarmour_weapon(attacker.profile):
+            return 1.0
+        kw = target.profile.unit_keywords or ()
+        if "TITANIC" in kw or (
+            ("VEHICLE" in kw or "MONSTER" in kw)
+            and (target.profile.health or 0) >= 18
+        ):
+            return 3.0
+        return 1.0
 
     def _nominate_focus_target(self, army, opponent) -> None:
         """Wave 79 — army-level focus fire (env-gated SWEG_FOCUS). Once per turn,
@@ -8748,6 +9949,28 @@ class Battle:
             _distance(attacker.position, e.position) <= 1.0
             for e in defender_army.alive_units
         )
+        # SCREENING / melee-avoidance instrument (#86, gated SWEG_SHOOTLOSS_INSTR,
+        # read-only): per faction, the SHOOTING OUTPUT (attacks×hit×dmg) that
+        # reaches the shoot gate, split by whether it fires free, is BLOCKED by
+        # engagement (non-pistol non-VEHICLE → skips shooting), or fires at the
+        # Big-Guns −1 penalty. Localizes how much AM/AdMech under-output is gunlines
+        # getting charged/tied up vs the guns genuinely under-dealing.
+        if __import__("os").environ.get("SWEG_SHOOTLOSS_INSTR"):
+            _p = attacker.profile
+            _out = (_p.attacks or 0) * (_p.hit_probability or 0.0) * (_p.weapon_damage_per_shot or 0.0)
+            _fac = (_p.faction or "?") or "?"
+            if not in_engagement:
+                _cat = "free"
+            elif _p.pistol:
+                _cat = "pistol"
+            elif big_guns_eligible:
+                _cat = "biggun_penalty"
+            else:
+                _cat = "blocked"
+            _sd = SHOOTLOSS_STATS.setdefault(
+                _fac, {"free": 0.0, "pistol": 0.0, "biggun_penalty": 0.0, "blocked": 0.0},
+            )
+            _sd[_cat] += _out
         if in_engagement:
             if attacker.profile.pistol:
                 pass   # pistols shoot freely in engagement
@@ -8886,8 +10109,12 @@ class Battle:
         # legal for THIS model (present in its own range / line-of-sight pool);
         # otherwise fall through to the focus / lowest-health pick below. OFF
         # path: gate unset, plan empty, `_assigned` stays None — byte-identical.
+        # Fidelity-revisit sweep #4 (wave 210): squad split-fire is now DEFAULT-ON —
+        # 10e lets a unit's models target different enemy units in range (the legacy
+        # path forced the whole unit onto one). Metric-neutral (5.44→5.49 N=80).
+        # `SWEG_SQUADSHOOT=0` reverts to the single-target legacy path.
         _assigned = None
-        if __import__("os").environ.get("SWEG_SQUADSHOOT") == "1":
+        if __import__("os").environ.get("SWEG_SQUADSHOOT", "1") != "0":
             _sid = getattr(attacker, "squad_id", -1)
             _skey = ((attacker_army.name, _sid) if _sid >= 0
                      else (attacker_army.name, id(attacker)))
@@ -8937,6 +10164,7 @@ class Battle:
                     * _transport_target_bonus(u)
                     * _drukhari_fragile_flyer_bonus(u)
                     * _kite_target_bonus(u, attacker_army)
+                    * self._threat_priority_bonus(attacker, u)
                 ),
             )
 
@@ -9162,7 +10390,8 @@ class Battle:
         # Move every model in the surge squad toward the same nearest enemy.
         for _surging_model in _surge_squad:
             old_pos = _surging_model.position
-            new_pos = _move_toward(old_pos, nearest.position, travel, self.map)
+            new_pos = _move_toward(old_pos, nearest.position, travel, self.map,
+                                   **self._collision_kwargs(_surging_model, allow_engagement=True))
             _surging_model.position = new_pos
             if self.verbose:
                 print(
@@ -9666,6 +10895,7 @@ class Battle:
         ):
             new_pos = _move_toward(
                 attacker.position, nearest_pre.position, 3.0, self.map,
+                **self._collision_kwargs(attacker, allow_engagement=True),
             )
             if not self.map.is_blocked(new_pos):
                 attacker.position = new_pos
@@ -9759,6 +10989,7 @@ class Battle:
                 )
                 new_pos = _move_toward(
                     attacker.position, nearest_post.position, 3.0, self.map,
+                    **self._collision_kwargs(attacker, allow_engagement=True),
                 )
                 if not self.map.is_blocked(new_pos):
                     attacker.position = new_pos
@@ -9774,6 +11005,7 @@ class Battle:
                 # Only move if the end point lands within contest radius.
                 move_end = _move_toward(
                     attacker.position, obj_pos, 3.0, self.map,
+                    **self._collision_kwargs(attacker, allow_engagement=True),
                 )
                 if (
                     not self.map.is_blocked(move_end)

@@ -118,7 +118,7 @@ class OffPathTests(unittest.TestCase):
     and the legacy scorer runs (track stays None)."""
 
     def setUp(self):
-        os.environ.pop("SWEG_TAC_DECK", None)
+        os.environ["SWEG_TAC_DECK"] = "0"   # deck is now default-ON; pin the legacy path
 
     def test_pick_secondaries_returns_legacy_union(self):
         a = _broad_army("A")

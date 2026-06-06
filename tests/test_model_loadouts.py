@@ -462,7 +462,7 @@ class ModelLoadoutStage3FiringTests(unittest.TestCase):
         """With the gate UNSET, add_squad yields `n` Units that all share the
         input profile object (identity) and carry no squad_profile_ref —
         byte-for-byte the legacy behaviour."""
-        os.environ.pop("SWEG_PERMODEL", None)
+        os.environ["SWEG_PERMODEL"] = "0"   # per-model is now default-ON; pin the legacy path
         prof = self.UNIT_CATALOG["space_marines_devastator_squad"]
         army = self._build("space_marines_devastator_squad", 7)
         self.assertEqual(len(army.units), 7)
