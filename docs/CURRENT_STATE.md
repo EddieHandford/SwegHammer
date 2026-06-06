@@ -1,8 +1,23 @@
 # SwegHammer calibration — current state
 
-**WAVE 210 (2026-06-06) — FIDELITY-FIRST SWEEP #1 LANDED: per-model weapon firing flipped DEFAULT-ON; new honest baseline
-gated MAE ~5.57 (was 4.89).** Per the user-authorised fidelity-revisit sweep (docs/FIDELITY_REVISIT_WORKLIST.md), each parked
-faithful 10e mechanic is now landed even though the metric RISES (the rise un-masks the over-rate the bad representation was
+**WAVE 210 (2026-06-06) — FIDELITY-FIRST REVISIT SWEEP COMPLETE: all 6 worklist items flipped DEFAULT-ON + committed; new
+honest baseline gated MAE ~5.23 (was 4.89).** Per the user-authorised sweep (docs/FIDELITY_REVISIT_WORKLIST.md), each parked
+faithful mechanic / competent-play AI heuristic is now production — one flip + one N=80 A/B + verify-before-flip + commit each:
+**#1 per-model weapon firing** (4.89→5.57, +0.68; un-masks the elite over-rate the averaged weapon hid) — `8108471`;
+**#2 real 2-card Tactical secondary deck** (→5.72, +0.15) — `2e7619a`; **#3 per-Command-phase primary scoring** (→5.44, −0.28;
+faithful timing AND a metric WIN) — `52dde93`; **#4 squad split-fire** (→5.49, neutral) — `9909d5f`; **#5 collective-crack focus
+fire** (→5.44, AI-realism, spread-off-uncrackable verified) — `2c77b35`; **#6 intelligent role-split deployment** (→**5.23**,
+−0.21, lifts the under-pole gunlines AM/AdMech) — `2f7ddb7`. RULE items are metric-blind keep-if-faithful; AI-HEURISTIC items
+(#5/#6) are kept on AI-realism (the user's AI-piloting-first ruling). Every gate reverts via `SWEG_*=0`. Ed's UI PR #37 merged
+in cleanly (`f3eca8d`, app.py+renderer.py only). NOT pushed (awaiting the user's go; local ~82 commits ahead of origin).
+**KEY SYNTHESIS held:** both win-rate poles (Imperial Knights over ~22; AM/AdMech under) are the positional/representation gap,
+owned by option-B (anti-walling) + Stage 2 — the sweep made the frame HONEST and AI-realistic; it did not resolve the over-pole.
+**NEXT: option-B (anti-walling) — the over-pole headline the user funded — on the new 5.23 honest frame.**
+
+---
+
+**(superseded running note — SWEEP #1 LANDED)** Per the user-authorised fidelity-revisit sweep (docs/FIDELITY_REVISIT_WORKLIST.md),
+each parked faithful 10e mechanic is now landed even though the metric RISES (the rise un-masks the over-rate the bad representation was
 compensating — that's the point). **#1 per-model loadouts** (each model fires its OWN real weapons; single-model units stop
 firing mutually-exclusive arm options) is now production (`SWEG_PERMODEL=0` reverts). It required completing the AI-isolation
 (`strategy._score_profile`: the tactical AI scores the SQUAD aggregate, not one model's gun — offensive scorers + the
