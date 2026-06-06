@@ -6319,7 +6319,15 @@ class Battle:
             # unchanged; if CSM over-shoots, the faithful fix is true LH/SH crit
             # modelling, NOT re-narrowing coverage. Cited simulator.dark_pacts.
             if __import__("os").environ.get("SWEG_DARKPACT_COVERAGE"):
-                pact_units = [u for u in csm_units if _dpa(u) >= 3.0]
+                # SELECTIVE coverage (wave 209 fix): a faithful player pacts every
+                # WORTHWHILE attacker, not every unit — the Ld-test D3-MW cost makes
+                # a pact net-negative for a marginal unit (the wave-209 all-DPA>=3
+                # run cratered CSM 43->31 on aggregate self-damage). So gate on the
+                # same legacy "worth the gamble" bar (DPA>=6) but apply it to ALL
+                # qualifying units (vs the legacy ONE/round) — multiple marquee
+                # attackers pact, marginal units abstain (the rule is opt-in; this
+                # models the player's choice, NOT a re-narrowing of the rule).
+                pact_units = [u for u in csm_units if _dpa(u) >= 6.0]
             else:
                 _top = max(csm_units, key=_dpa)
                 pact_units = [_top] if _dpa(_top) >= 6.0 else []
