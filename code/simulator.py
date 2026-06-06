@@ -8615,6 +8615,12 @@ class Battle:
             # path skips this entirely and is byte-identical.
             if _cohere:
                 self._enforce_squad_coherency(active, _move_start_pos)
+            # Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): make-way
+            # un-jam pass. Collision-without-coordination piles a squad's models behind
+            # the leader short of their objective; this spreads the jammed models into
+            # free slots in the objective's control ring within their remaining budget.
+            # No-op (byte-identical) unless both gates are set.
+            self._make_way(active, _move_start_pos)
             # Pariah Nexus actions are declared after the Movement phase: a
             # surplus unit on a controlled forward objective may perform Cleanse
             # (wave 74), or a surplus unit pushed into No Man's Land / the enemy
@@ -8862,6 +8868,90 @@ class Battle:
                         from_pos=old_pos,
                         to_pos=new_pos,
                     ))
+
+    def _make_way_slot(self, mover, obj, remaining: float):
+        """Avenue-2 Stage 2 helper: find a FREE, reachable point inside `obj`'s
+        control ring for `mover` (its base must not overlap any other model, nor end
+        within Engagement Range of an enemy). Tries deterministic angles/radii inside
+        the ring; returns the first collision-legal point reachable within
+        `remaining` inches, else None. No RNG."""
+        import math
+        kw = self._collision_kwargs(mover)
+        if not kw:
+            return (obj.x, obj.y)   # collision off — any ring point is fine
+        occ, rad, fly = kw["occupants"], kw["mover_radius"], kw["mover_fly"]
+        cr = obj.control_radius
+        for frac in (0.8, 0.55, 0.95, 0.3):
+            rr = cr * frac
+            for k in range(8):
+                ang = k * (math.pi / 4.0)
+                px = obj.x + rr * math.cos(ang)
+                py = obj.y + rr * math.sin(ang)
+                if (px - mover.position[0]) ** 2 + (py - mover.position[1]) ** 2 > (remaining + 0.01) ** 2:
+                    continue
+                if self.map.is_blocked((px, py)):
+                    continue
+                if _collision_pos_legal((px, py), rad, occ, fly):
+                    return (px, py)
+        return None
+
+    def _make_way(self, army: Army, move_start_pos: dict) -> None:
+        """Avenue-2 Stage 2 (gate SWEG_MOVEPLAN, requires SWEG_COLLISION): un-jam the
+        collision pass. Collision without coordination piles a squad's models behind
+        the leader short of their objective (the jam — squad->objective distance rises,
+        contested marker-rounds collapse). This post-move pass takes each model that
+        ended JAMMED short of its squad's target objective and routes it to a FREE slot
+        in that objective's control ring, spending only the model's remaining move
+        budget. Pure physical un-jamming (adjacent free space toward the goal) — NO
+        strategic look-ahead, per the make-way fidelity rail. Deterministic: squads by
+        squad_id, models by uid, fixed candidate slots; no RNG. Byte-identical unless
+        both SWEG_MOVEPLAN and SWEG_COLLISION are set."""
+        if not __import__("os").environ.get("SWEG_MOVEPLAN"):
+            return
+        if not __import__("os").environ.get("SWEG_COLLISION"):
+            return
+        objs = self.map.objectives
+        if not objs:
+            return
+        squads: dict = {}
+        for u in army.units:
+            if not u.is_alive:
+                continue
+            sid = getattr(u, "squad_id", -1)
+            if sid < 0:
+                continue
+            squads.setdefault(sid, []).append(u)
+        for sid in sorted(squads):
+            members = sorted(squads[sid], key=lambda m: m.uid)
+            if len(members) < 2:
+                continue
+            cx = sum(m.position[0] for m in members) / len(members)
+            cy = sum(m.position[1] for m in members) / len(members)
+            obj = min(objs, key=lambda o: (cx - o.x) ** 2 + (cy - o.y) ** 2)
+            cr = obj.control_radius
+            for m in members:
+                if m.uid in self._advanced_this_round or getattr(m, "fell_back_this_round", False):
+                    continue
+                d = _distance(m.position, (obj.x, obj.y))
+                if d <= cr:
+                    continue   # already contesting this marker
+                used = _distance(move_start_pos.get(m.uid, m.position), m.position)
+                remaining = effective_move(m) - used
+                if remaining <= 0.0:
+                    continue
+                if d - cr > remaining + 0.01:
+                    continue   # cannot reach the ring even unobstructed
+                slot = self._make_way_slot(m, obj, remaining)
+                if slot is None:
+                    continue
+                old_pos = m.position
+                new_pos = _move_toward(old_pos, slot, remaining, self.map,
+                                       **self._collision_kwargs(m))
+                if new_pos != old_pos:
+                    m.position = new_pos
+                    self._did_move_this_round.add(m.uid)
+                    m.moved_this_round = True
+                    self._emit(UnitMoved(unit_uid=m.uid, from_pos=old_pos, to_pos=new_pos))
 
     def _do_move(self, attacker, attacker_army: Army, defender_army: Army,
                  _phase_their_oc=None) -> None:
