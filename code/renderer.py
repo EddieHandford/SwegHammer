@@ -447,21 +447,18 @@ def render_frame(
 
     # --- Terrain ---
     font_terrain = _load_font(7)
+    font_title = _load_font(11)
     for t in map_.terrain:
         color = TERRAIN_COLORS.get(t.type, "#555555")
-        ax.add_patch(Rectangle(
-            (t.x, t.y), t.width, t.height,
-            facecolor=color, edgecolor="#222", linewidth=0.8, alpha=0.85, zorder=2,
-        ))
+        # to_px flips y; terrain top-left in pixels = world (x, y+h), bottom-right = world (x+w, y)
+        px0, py0 = to_px(t.x, t.y + t.height)
+        px1, py1 = to_px(t.x + t.width, t.y)
+        draw.rectangle([px0, py0, px1, py1], fill=_rgba(color, 217),
+                       outline=_rgba("#222222", 217), width=1)
         # Terrain names are background context, not foreground — kept small,
-        # faded and italic, and BELOW the units (zorder 2) so a unit shape
-        # always wins the pixel. Previously fontsize-6 white-on-top text
-        # overlapped and competed with the unit silhouettes.
-        ax.text(
-            t.x + t.width / 2, t.y + t.height / 2, t.name,
-            color="#bdb6aa", fontsize=4.5, ha="center", va="center",
-            alpha=0.38, zorder=2, style="italic",
-        )
+        # faded and BELOW the units so a unit shape always wins the pixel.
+        tx, ty = to_px(t.x + t.width / 2, t.y + t.height / 2)
+        _draw_text_centered(draw, tx, ty, t.name, font_terrain, _rgba("#bdb6aa", 97))
 
     # Draw every visual effect emitted during this frame's activation. Shot
     # arcs are deliberately faded so multiple-target activations stay legible
@@ -519,9 +516,6 @@ def render_frame(
             [(cx, cy - dr), (cx + dr, cy), (cx, cy + dr), (cx - dr, cy)],
             fill=_rgba(COL_OBJECTIVE, 191),
         )
-        ax.add_patch(circle)
-        ax.scatter([obj.x], [obj.y], s=40, c=COL_OBJECTIVE, marker="D",
-                   edgecolors="black", linewidths=0.5, alpha=0.75, zorder=3)
 
     # Units — drawn at their real-world GW base footprint. The state dict
     # carries base_shape + dimensions sourced from UnitProfile via the
@@ -533,6 +527,7 @@ def render_frame(
         color = colour_a if s["army"] == a_name else colour_b
         legend_armies.setdefault(s["army"], color)
         x, y = s["position"]
+        cx, cy = to_px(x, y)
         if s["alive"]:
             bs = s.get("base_shape", "circle")
             if bs in ("rect", "oval"):
@@ -547,7 +542,9 @@ def render_frame(
             # HP bar: small white inner circle when wounded
             if s["max_hp"] > 1 and s["current_hp"] < s["max_hp"]:
                 hp_frac = max(0.05, s["current_hp"] / s["max_hp"])
-                ax.scatter([x], [y], s=100 * hp_frac, c="white", alpha=0.5, zorder=6)
+                r_hp = max(2, int(min(w_px, h_px) / 2 * hp_frac))
+                draw.ellipse([cx - r_hp, cy - r_hp, cx + r_hp, cy + r_hp],
+                             fill=_rgba("#ffffff", 128))
             # Name-tag the LARGE / distinct units (vehicles, monsters, titanic,
             # big-base characters). Small infantry are left untagged so hordes
             # stay legible — colour + size + the legend identify those. De-dup
@@ -563,42 +560,60 @@ def render_frame(
                 )
                 if name and not near:
                     tag = (name[:15] + "…") if len(name) > 16 else name
-                    ax.text(
-                        x, y, tag,
-                        color="white", fontsize=4.8, fontweight="bold",
-                        ha="center", va="center", zorder=8,
-                        bbox=dict(boxstyle="round,pad=0.18", facecolor="#0e1117",
-                                  edgecolor=color, linewidth=0.6, alpha=0.62),
+                    font_tag = _load_font(8)
+                    try:
+                        bb = draw.textbbox((cx, cy), tag, font=font_tag, anchor="mm")
+                    except TypeError:
+                        try:
+                            tw, th = font_tag.getbbox(tag)[2:]
+                        except AttributeError:
+                            tw, th = font_tag.getsize(tag)  # type: ignore[attr-defined]
+                        bb = (cx - tw // 2, cy - th // 2, cx + tw // 2, cy + th // 2)
+                    pad_t = 3
+                    draw.rectangle(
+                        [bb[0] - pad_t, bb[1] - pad_t, bb[2] + pad_t, bb[3] + pad_t],
+                        fill=_rgba("#0e1117", 158), outline=_rgba(color, 158), width=1,
                     )
+                    _draw_text_centered(draw, cx, cy, tag, font_tag, (255, 255, 255, 255))
                     labelled.append((s["army"], name, x, y))
         else:
             r = max(4, int(_mm_to_inches(32) / 2 * scale))
             _cross(draw, cx, cy, r, _rgba(COL_DEAD, 178))
 
-    # Army colour legend — reinforces which colour is which army; the name
-    # tags above identify the individual big units.
+    # Army colour legend — coloured swatches with army names in the top-left corner.
     if legend_armies:
-        from matplotlib.patches import Patch
-        handles = [
-            Patch(facecolor=c, edgecolor="white", linewidth=0.6, label=nm)
-            for nm, c in legend_armies.items()
-        ]
-        leg = ax.legend(
-            handles=handles, loc="upper left", fontsize=6.5,
-            facecolor="#0e1117", edgecolor="#555", framealpha=0.72,
-            labelcolor="white", borderpad=0.5, handlelength=1.2,
+        font_legend = _load_font(9)
+        swatch = 10
+        spacing = 16
+        entries = list(legend_armies.items())
+        panel_w = 130
+        panel_h = len(entries) * spacing + 6
+        leg_x = x_off + 6
+        leg_y = y_off + 6
+        draw.rectangle(
+            [leg_x - 3, leg_y - 3, leg_x + panel_w, leg_y + panel_h],
+            fill=_rgba("#0e1117", 184), outline=_rgba("#555555", 184), width=1,
         )
-        leg.set_zorder(9)
+        for i, (nm, c) in enumerate(entries):
+            sy = leg_y + i * spacing
+            draw.rectangle([leg_x, sy, leg_x + swatch, sy + swatch],
+                           fill=_rgba(c), outline=(255, 255, 255, 180), width=1)
+            tx, ty = leg_x + swatch + 4, sy + swatch // 2
+            try:
+                draw.text((tx, ty), nm, fill=(255, 255, 255, 230), font=font_legend, anchor="lm")
+            except TypeError:
+                draw.text((tx, ty), nm, fill=(255, 255, 255, 230), font=font_legend)
 
     # Scale bar — a 6" reference so the true-base-size shapes read at a known
     # scale (a Knight base really is ~3x a Marine's).
     bar_len = 6.0
     bx0 = map_.width - bar_len - 1.0
     bary = -0.6
-    ax.plot([bx0, bx0 + bar_len], [bary, bary], color="white", lw=1.8,
-            zorder=9, solid_capstyle="butt")
-    ax.text(bx0 + bar_len / 2.0, bary + 0.18, '6"', color="white",
-            fontsize=6, ha="center", va="bottom", zorder=9)
+    sbx0, sby = to_px(bx0, bary)
+    sbx1, _   = to_px(bx0 + bar_len, bary)
+    font_bar = _load_font(8)
+    draw.line([(sbx0, sby), (sbx1, sby)], fill=(255, 255, 255, 255), width=2)
+    _draw_text_centered(draw, (sbx0 + sbx1) // 2, sby - 8, '6"', font_bar, (255, 255, 255, 255))
 
     # Title — show frame index (one per activation / boundary), not raw
     # event index, so the slider value matches what the viewer sees.
